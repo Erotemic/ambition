@@ -44,7 +44,6 @@ use ambition_characters::actor::attack_gesture::{
 use ambition_characters::brain::action_set::{ActionRequest, RangedCommitment, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
 use ambition_characters::control::ActorControl;
-use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
@@ -1197,10 +1196,8 @@ pub fn advance_move_playback(
         // strike is one of them. `None` (nobody drives it)  the authored faction
         // (identity for every ordinary actor).
         Option<&ambition_characters::control::DrivingParticipant>,
-        // §7.1: actors project their sprite catalog id onto combat tuning;
-        // controllable bodies carry the same identity as WornCharacter. Both
-        // resolve authored per-animation blade geometry from the App-local catalog.
-        Option<&super::components::CombatTuning>,
+        // §7.1: the character whose authored per-animation blade geometry the
+        // App-local catalog resolves.
         Option<&ambition_characters::actor::WornCharacter>,
         // A13's published attribution. THE authority on who this body sounds
         // like: it is derived from the prepared registry FIRST and the assembled
@@ -1268,7 +1265,6 @@ pub fn advance_move_playback(
         mut playback,
         faction,
         driver,
-        config,
         worn,
         body_source,
         mut kin,
@@ -1297,9 +1293,7 @@ pub fn advance_move_playback(
             playback.aimed_stick = Some(asked);
         }
         let strike_faction = crate::targeting::effective_faction(*faction, driver);
-        let character_id = worn
-            .map(ambition_characters::actor::WornCharacter::id)
-            .or_else(|| config.and_then(|tuning| tuning.sprite_character_id.as_deref()));
+        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
         // Read the published attribution; do NOT re-derive it. This function is
         // the ORIGINAL caller of `write_from`, and it kept its own owners-map
         // lookup after A13 hoisted the derivation onto the body — so the one
@@ -1786,13 +1780,10 @@ pub fn advance_move_playback(
                         // synthetic authored shape.
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
-                            // ⛔ `character_id`, NOT A SECOND RESOLUTION.
-                            // `WornCharacter` OUTRANKS `CombatTuning::sprite_character_id`
-                            // (AC7.1), which is what lets a body swap its character
-                            // at runtime and take its new volumes with it. Resolving
-                            // the pair again here — in either order — gives a
-                            // transformed body the hit polygon of the character it
-                            // used to be, because this seam decides the damage box.
+                            // ⛔ `character_id`, NOT A SECOND RESOLUTION. It is
+                            // the worn character, which is what lets a body swap
+                            // its character at runtime and take its new volumes
+                            // with it; this seam decides the damage box.
                             let sprite_cid = character_id;
                             // The window's OWN start, not the move's clock: a
                             // hitbox track lays several Active windows end to
@@ -4646,9 +4637,6 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
         hitbox_half_size: ae::Vec2::ZERO,
         self_impulse: ae::Vec2::ZERO,
         knockback: ae::Vec2::ZERO,
-        damage_kind: DamageKind::Slash,
-        can_pogo: false,
-        damage_override: None,
     };
     let mut swing = MeleeSwing::new(attack_spec);
     swing.elapsed = pb.t;

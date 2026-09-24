@@ -66,6 +66,9 @@ pub struct ActorSpriteData {
     /// move names. `None` for a body that is not mid-move, which is most of them
     /// most of the time. See [`ActorAnimFrame::clip`].
     pub playback: Option<&'static ambition_combat::moveset::MovePlayback>,
+    /// The character the body wears: its art identity. `None` for a body that
+    /// renders from a kind-default sheet.
+    pub worn: Option<&'static ambition_characters::actor::WornCharacter>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus

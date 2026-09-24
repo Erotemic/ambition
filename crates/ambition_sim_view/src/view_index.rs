@@ -784,7 +784,7 @@ pub fn rebuild_actor_render_index(
         index.upsert(
             a.feature_id.as_str(),
             &a.identity.name,
-            a.config.sprite_character_id.as_deref(),
+            a.worn.map(ambition_characters::actor::WornCharacter::id),
             a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,

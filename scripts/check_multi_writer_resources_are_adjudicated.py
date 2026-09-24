@@ -3468,7 +3468,6 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_boss_encounter/src/encounter_script.rs",
         "crates/ambition_boss_encounter/src/systems.rs",
         "crates/ambition_encounter_features/src/systems.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/music/intent.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/reset/mod.rs",
         "game/ambition_content/src/bosses/cut_rope/mod.rs",
         "game/ambition_demo_mary_o/src/death.rs",
@@ -3502,12 +3501,12 @@ SESSION_WORLD_BASELINE: dict[str, tuple[str, ...]] = {
 #: question about one session's state rather than about the App's.
 SESSION_WORLD_ADJUDICATED: dict[str, str] = {
     "EncounterMusicRequest": (
-        "CORRECT — NINE WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
+        "CORRECT — EIGHT WRITERS, A TWO-TIER PROTOCOL, AND THE PRIORITY TIER IS "
         "OWNER-CHECKED BY THE COMPILER SINCE 2026-09-18. The component is built "
         "for many writers on purpose: `priority_track` is a focused fight's "
         "claim, `base_track` is the wave/arena tier rewritten EVERY FRAME "
-        "including `None`, `priority_owner` names who holds the claim, and "
-        "`last_applied` is the intent adapter's mirror. `desired_track()` ranks "
+        "including `None`, and `priority_owner` names who holds the claim. "
+        "`desired_track()` ranks "
         "priority above base, so the per-frame `None` cannot silence a boss.\n"
         "    MEASURED with comments stripped, which matters because the naive "
         "grep reads a comment MENTIONING `priority_track` as a write: SIX of the "
@@ -3516,7 +3515,9 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "`game/ambition_content/src/bosses/cut_rope/mod.rs`, and "
         "`game/ambition_demo_mary_o/src/{death,flag,star}.rs`); ONE writes only "
         "`base_track` (`ambition_encounter_features/src/systems.rs`); ONE writes "
-        "only `last_applied` (`actor_monolith/src/music/intent.rs`); and ONE is "
+        "only `last_applied` (`actor_monolith/src/music/intent.rs`; the field and "
+        "that write were deleted 2026-09-24 (AP12/W021): a presentation adapter's "
+        "mirror inside gameplay state, and nothing read it); and ONE is "
         "the session reset clearing it at a boundary "
         "(`actor_monolith/src/session/reset/mod.rs`). ⇒ Nobody wrote "
         "`priority_track` or `priority_owner` directly. A perfect separation, "
@@ -3526,7 +3527,7 @@ SESSION_WORLD_ADJUDICATED: dict[str, str] = {
         "fights at once is not a state worth arbitrating\"*) and "
         "`release_priority` (which no-ops unless the caller still owns it — *\"a "
         "source with nothing to say says nothing, rather than silencing whoever "
-        "does\"*). `set_base_track` and `mark_applied` carry the other two roads. "
+        "does\"*). `set_base_track` carries the base tier. "
         "Poison-verified: assigning `priority_track` from the base-tier writer "
         "fails with `error[E0616]`. The module doc had already recorded shipping "
         "the un-owned clear once; the discipline was universal and nothing kept "

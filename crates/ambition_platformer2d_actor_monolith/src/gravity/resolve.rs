@@ -182,7 +182,6 @@ mod tests {
             tuning,
             brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            sprite_character_id: None,
             // A fixture body, not a seated CPU twin.
             preserves_mirror_symmetry: false,
         };

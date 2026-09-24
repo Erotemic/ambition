@@ -192,7 +192,6 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "smash_duelist_l9".into(),
             ),
-            sprite_character_id: Some("npc_pirate_admiral".into()),
             preserves_mirror_symmetry: false,
         };
         let identity =

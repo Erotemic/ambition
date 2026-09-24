@@ -401,7 +401,6 @@ mod cognition_stream_tests {
                 ..Default::default()
             },
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-            sprite_character_id: Some(character.to_string()),
             preserves_mirror_symmetry: mirrors,
         };
         (identity, config)

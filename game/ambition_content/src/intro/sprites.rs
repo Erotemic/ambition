@@ -34,7 +34,7 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
 // `name: None` — npc_creator, npc_alice, npc_bob, npc_oiler, npc_news_board,
 // npc_gate_janitor, npc_manifest_clerk — and `convert_npc_spawn` puts that id
 // into `InteractionKindSpec::Npc.character_id`, which is what
-// `demand_actor_character_sheets` raises on room entry. No road ever set a
+// `demand_worn_character_sheets` raises on room entry. No road ever set a
 // sprite override (the field is gone), so NOTHING ever looked a sheet up by
 // the display name this table published under.
 //

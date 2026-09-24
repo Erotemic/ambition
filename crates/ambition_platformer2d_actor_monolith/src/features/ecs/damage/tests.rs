@@ -2762,10 +2762,9 @@ fn capture_bubble_texts(
 }
 
 /// ⛔ A STRUCK BODY BARKS AS THE CHARACTER IT IS WEARING, NOT THE ONE IT WAS
-/// SPAWNED AS. The bark chose its lines by `ActorConfig::sprite_character_id`,
-/// which the seed fills once and nothing updates, while `WornCharacter` is the
-/// gameplay identity a runtime re-wear changes (a transformation, a power-up
-/// form). The sprite id answers only for a body that wears nothing.
+/// SPAWNED AS. The bark once chose its lines by a sprite id the seed filled
+/// once and nothing updated, while `WornCharacter` is the identity a runtime
+/// re-wear changes (a transformation, a power-up form).
 #[test]
 fn a_struck_body_barks_as_the_character_it_is_wearing() {
     const TWO_FORMS: &str = r#"(
@@ -2786,7 +2785,7 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
             ),
         },
     )"#;
-    fn bark_after_one_hit(worn: Option<&str>) -> Vec<String> {
+    fn bark_after_one_hit(worn: &str) -> Vec<String> {
         let mut app = App::new();
         app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
         app.insert_resource(GameplayBanner::default());
@@ -2801,14 +2800,8 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         app.add_systems(Update, (apply_feature_hit_events, capture_bubble_texts).chain());
         let e = spawn_hostile_actor(&mut app);
         app.world_mut()
-            .get_mut::<ambition_combat::actor_tuning::ActorConfig>(e)
-            .unwrap()
-            .sprite_character_id = Some("old_form".into());
-        if let Some(worn) = worn {
-            app.world_mut()
-                .entity_mut(e)
-                .insert(ambition_characters::actor::WornCharacter::new(worn));
-        }
+            .entity_mut(e)
+            .insert(ambition_characters::actor::WornCharacter::new(worn));
         app.world_mut().write_message(HitEvent {
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
@@ -2824,10 +2817,10 @@ fn a_struck_body_barks_as_the_character_it_is_wearing() {
         app.update();
         app.world().resource::<CapturedBubbleTexts>().0.clone()
     }
-    // Control: a body that wears nothing speaks through its sprite id.
-    assert_eq!(bark_after_one_hit(None), vec!["the old form's line".to_string()]);
+    // Control: the form it was spawned as speaks its own line.
+    assert_eq!(bark_after_one_hit("old_form"), vec!["the old form's line".to_string()]);
     assert_eq!(
-        bark_after_one_hit(Some("new_form")),
+        bark_after_one_hit("new_form"),
         vec!["the new form's line".to_string()],
         "a body that re-wore itself as `new_form` spoke the line of the form it \
          was spawned as"

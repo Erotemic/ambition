@@ -351,17 +351,14 @@ pub(crate) fn apply_actor_hit(
             ) && em.health.policy().kills_at_max());
         if should_bark && !killed {
             // WHO IS SPEAKING is the body's worn character, which a runtime
-            // re-wear (a transformation, a power-up form) changes; the sprite id
-            // the seed carried answers only for a body that wears nothing — the
-            // precedence `ActorConfig::sprite_character_id` documents. Display
+            // re-wear (a transformation, a power-up form) changes. Display
             // names remain presentation and are never reverse-resolved.
             let speaker = writers
                 .worn
                 .get(actor_entity)
                 .ok()
                 .map(ambition_characters::actor::WornCharacter::id)
-                .map(str::to_owned)
-                .or_else(|| em.config.sprite_character_id.clone());
+                .map(str::to_owned);
             let line = speaker
                 .as_deref()
                 .and_then(|cid| {

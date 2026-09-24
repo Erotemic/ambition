@@ -193,7 +193,7 @@ SIBLING_RESET_ADJUDICATED: dict[str, str] = {
     "FeatureEcsWorldOverlay": (
         "AN EXPLICIT `.after` ON THE RESETTER'S SET, AND IT ALREADY HAS ITS OWN "
         "GUARD. `rebuild_feature_ecs_world_overlay` "
-        "(`actor_monolith/src/world/overlay.rs:25`) calls "
+        "(`actor_monolith/src/features/ecs/world_overlay.rs:25`) calls "
         "`overlay.clear_engine_contributions()` at `:53` and runs in "
         "`FeatureWorldOverlaySet`; contributors declare "
         "`.after(FeatureWorldOverlaySet)` "

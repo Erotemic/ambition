@@ -92,7 +92,8 @@ pub use ambition_boss_encounter::anim::{
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
-pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureWorldOverlaySet};
+pub mod world_overlay;
+pub use world_overlay::rebuild_feature_ecs_world_overlay;
 // ⭐ THE BOSS ECS MODULE LIVES IN `ambition_boss_encounter` NOW, beside the boss
 // profiles, catalog and anim helpers it was already calling. These stay as the
 // monolith's façade rows so its schedule registration and its callers did not

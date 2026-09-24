@@ -561,7 +561,7 @@ fn a_reset_whose_start_room_is_refused_wipes_nothing() {
 
     assert!(
         !app.world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .published,
         "the start room PUBLISHED, so this arm is not about a refused reset"
     );

@@ -108,7 +108,6 @@ pub use npcs::speak_conversation_cut_barks;
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 
-pub use crate::world::rooms::LastConstructionVerification;
 pub use brain_command::{
     apply_brain_commands, apply_release_provocations, BrainCommand, BrainCommandKind,
     BrainCommandPlugin, ReleaseProvocation,
@@ -138,7 +137,7 @@ pub use ecs::{
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
     advance_hazards, apply_hazard_contacts, ActorConstructionContext, ActorSteering, ChallengeRequested,
-    EncounterRewardSyncPlugin, FactionRelations, FeatureWorldOverlaySet, FriendlyFire,
+    EncounterRewardSyncPlugin, FactionRelations, FriendlyFire,
     HazardTickSet, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
     OccurrenceContinuity, PendingChallenge, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize, RoomContentStagingError, RoomContentStagingRegistrationError,
@@ -978,7 +977,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 refresh_breakable_damageable_volumes,
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
-                    .in_set(crate::world::overlay::FeatureWorldOverlaySet),
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet),
                 advance_hazards.in_set(ambition_combat::hazards::HazardTickSet),
                 // Actor targeting/decision, movement, read-model projection, and contact
                 // damage are registered below on their owning phase sets.

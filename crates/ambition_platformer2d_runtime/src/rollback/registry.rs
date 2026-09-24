@@ -690,7 +690,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 209 -> 210: `actor.combo_trace` LEFT. The HUD's movement readout is
 /// app presentation state fed from `FrameEvents` after the kernel ran; no
 /// simulation system read it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 210;
+/// ⛔⛤ 210 -> 211: `actor.ranged_refire` ENTERED and `BodyMelee` no longer
+/// encodes `ranged_cooldown`. The ranged fire-rate floor (invariant I3) is its
+/// own component, `RangedRefire`, not melee state.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 211;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

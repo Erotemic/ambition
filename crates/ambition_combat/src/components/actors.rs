@@ -470,21 +470,14 @@ impl MeleeSwing {
 /// carries for melee. The in-flight [`MeleeSwing`] is the player's spec model;
 /// `cooldown` is the AI/recovery pacing floor a brain reads to time its next
 /// swing (independent of the swing so a body can be in recovery with no swing
-/// armed); `ranged_cooldown` is the body-side ranged fire-rate floor (invariant
-/// I3, orthogonal to melee); `pending_axis` is the last committed aim for anim
-/// selection. (ONE BODY ONE PATH: this REPLACES the former parallel
+/// armed); `pending_axis` is the last committed aim for anim selection. The
+/// ranged fire-rate floor is not melee state: it is [`RangedRefire`]. (ONE BODY ONE PATH: this REPLACES the former parallel
 /// `PlayerAttackState`/`ActivePlayerAttack` and the timer-based actor state.)
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct BodyMelee {
     pub swing: Option<MeleeSwing>,
     /// Recovery/AI pacing floor before another swing may begin (s).
     pub cooldown: f32,
-    /// Body-side ranged refire cooldown remaining (s). The body's fire-rate
-    /// floor (invariant I3), not the brain's cadence: a controller may attempt
-    /// `fire` every tick; the body accepts a shot only when this is `<= 0` and
-    /// re-arms it on each accepted shot, so a spam controller and a human
-    /// produce the same weapon rate.
-    pub ranged_cooldown: f32,
     /// Direction of the in-flight melee attack, committed when the swing begins
     /// (`(facing,0)` forward, `(0,-1)` up, `(0,+1)` down-air, `(-facing,0)`
     /// back-air). Persists across the swing so it doesn't re-aim mid-windup.
@@ -550,7 +543,6 @@ impl BodyMelee {
     pub fn tick(&mut self, dt: f32) {
         let dt = dt.max(0.0);
         self.cooldown = (self.cooldown - dt).max(0.0);
-        self.ranged_cooldown = (self.ranged_cooldown - dt).max(0.0);
         if let Some(swing) = &mut self.swing {
             swing.elapsed += dt;
             if swing.phase().is_none() {
@@ -558,18 +550,43 @@ impl BodyMelee {
             }
         }
     }
+}
 
-    /// Body-side ranged fire-rate enforcement (invariant I3).
-    ///
-    /// A controller attempts a shot; the body accepts it only when the ranged
-    /// weapon is off cooldown, re-arming the cooldown to `refire_seconds` on an
-    /// accepted shot. Identical for an AI spam controller, a tactical brain, and
-    /// a human. Returns the per-intent outcome for the seam to route back.
-    pub fn try_fire_ranged(&mut self, refire_seconds: f32) -> IntentOutcome {
-        if self.ranged_cooldown > 0.0 {
+/// The body's ranged fire-rate floor (invariant I3).
+///
+/// Not the brain's cadence: a controller may attempt `fire` every tick; the
+/// body accepts a shot only when the floor is spent and re-arms it on each
+/// accepted shot, so a spam controller and a human produce the same weapon
+/// rate. Rollback state (`actor.ranged_refire`).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct RangedRefire {
+    /// Seconds until the next shot may leave the weapon.
+    pub remaining: f32,
+}
+
+impl RangedRefire {
+    /// May a shot leave the weapon now?
+    pub fn ready(&self) -> bool {
+        self.remaining <= 0.0
+    }
+
+    /// A committed shot spends the weapon for `refire_seconds`.
+    pub fn arm(&mut self, refire_seconds: f32) {
+        self.remaining = self.remaining.max(refire_seconds.max(0.0));
+    }
+
+    pub fn tick(&mut self, dt: f32) {
+        self.remaining = (self.remaining - dt.max(0.0)).max(0.0);
+    }
+
+    /// An ATTEMPTED shot: accepted only when the weapon is ready, which
+    /// re-arms it. Identical for an AI spam controller, a tactical brain and
+    /// a human.
+    pub fn try_fire(&mut self, refire_seconds: f32) -> IntentOutcome {
+        if !self.ready() {
             return IntentOutcome::Blocked(BlockReason::Cooldown);
         }
-        self.ranged_cooldown = refire_seconds.max(0.0);
+        self.remaining = refire_seconds.max(0.0);
         IntentOutcome::Accepted
     }
 }

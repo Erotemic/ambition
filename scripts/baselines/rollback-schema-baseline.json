@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v210",
+    "version": "ggrs-rollback-schema-v211",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -30,6 +30,7 @@
       "actor.perception\tcomponent-canonical\tPerception",
       "actor.perception_memory\tcomponent-canonical\tPerceptionMemory",
       "actor.proper_time_scale\tcomponent-canonical\tProperTimeScale",
+      "actor.ranged_refire\tcomponent-canonical\tRangedRefire",
       "actor.roll\tcomponent-canonical\tActorRoll",
       "actor.ruleset_owns_death\tcomponent-canonical\tRulesetOwnsDeath",
       "actor.status\tcomponent-canonical\tActorStatus",
@@ -174,6 +175,7 @@
     "ambition_combat::components::BodyMelee",
     "ambition_combat::components::BossPhase",
     "ambition_combat::components::FighterStocks",
+    "ambition_combat::components::RangedRefire",
     "ambition_combat::components::RulesetOwnsDeath",
     "ambition_combat::death_rules::DeathInterlude",
     "ambition_combat::death_rules::OutOfPlay",

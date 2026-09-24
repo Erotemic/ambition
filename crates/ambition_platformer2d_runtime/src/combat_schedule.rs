@@ -200,12 +200,11 @@ impl Plugin for CombatSchedulePlugin {
                 // `trigger_moveset_moves`, advanced by `advance_move_playback`,
                 // projected back to `BodyMelee` for the read-model). No flat player
                 // or actor melee driver survives. What's left on `BodyMelee` is the
-                // cooldown FLOORS — the ranged refire floor (`ranged_cooldown`, I3)
-                // and the legacy melee-recovery floor — which this decrements every
-                // frame for every body (a ranged body freezes after one shot without
-                // it). The strike-spawning `advance_body_melee` / `start_body_melee`
-                // are deleted; this is only their surviving cooldown tick.
+                // legacy melee-recovery floor, decremented here every frame. The
+                // ranged refire floor (`RangedRefire`, I3) is its own owner and
+                // ticks beside it (a ranged body freezes after one shot without it).
                 ambition_combat::attack_support::tick_body_melee_cooldowns.in_set(GameplayGated),
+                ambition_combat::attack_support::tick_ranged_refire.in_set(GameplayGated),
                 // ── Moveset runtime FIRST: produce this frame's action messages ──
                 //
                 // The move runtime (trigger → advance → dispatch) runs BEFORE the

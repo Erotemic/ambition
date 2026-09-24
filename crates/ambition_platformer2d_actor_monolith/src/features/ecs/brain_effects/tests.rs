@@ -269,11 +269,13 @@ fn a_committed_shot_fires_through_a_hot_weapon_and_an_attempt_does_not() {
             ambition_entity_catalog::placements::CharacterBrain::Custom("small_skitter".into()),
             &[],
         );
-        let mut bundle = enemy_actor(enemy);
-        // The weapon is MID-RECHARGE. `.1 .7` is `BodyMelee` in the cluster
-        // bundle — the body-side authority on the ranged fire rate.
-        bundle.1 .7.ranged_cooldown = 0.9;
-        let actor = app.world_mut().spawn(bundle).id();
+        let actor = app.world_mut().spawn(enemy_actor(enemy)).id();
+        // The weapon is MID-RECHARGE: the body-side authority on the ranged
+        // fire rate says so.
+        app.world_mut()
+            .get_mut::<ambition_combat::RangedRefire>(actor)
+            .unwrap()
+            .remaining = 0.9;
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<ActorActionMessage>>()
             .write(ActorActionMessage {

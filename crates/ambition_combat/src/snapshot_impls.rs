@@ -7,7 +7,7 @@ use ambition_platformer2d_core::snapshot::{
     put_bool, put_f32, put_i32, put_str, put_u32, put_u8, put_vec2, Reader, SnapshotCursor,
     SnapshotResolve, SnapshotState,
 };
-use ambition_platformer2d_core::snapshot_unit_enum;
+use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
 impl SnapshotState for crate::moveset::MoveOccurrence {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -291,7 +291,6 @@ impl SnapshotState for crate::components::BodyMelee {
             None => put_bool(out, false),
         }
         put_f32(out, self.cooldown);
-        put_f32(out, self.ranged_cooldown);
         put_vec2(out, self.pending_axis);
     }
 
@@ -316,11 +315,14 @@ impl SnapshotState for crate::components::BodyMelee {
         Some(Self {
             swing,
             cooldown: r.f32()?,
-            ranged_cooldown: r.f32()?,
             pending_axis: r.vec2()?,
         })
     }
 }
+
+snapshot_pod!(crate::components::RangedRefire {
+    remaining: f32,
+});
 
 snapshot_unit_enum!(crate::components::ActorDisposition {
     Peaceful = 0,

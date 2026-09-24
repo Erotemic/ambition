@@ -233,8 +233,8 @@ pub fn apply_post_hit_input_gates(
     }
 }
 
-/// Tick the remaining `BodyMelee` cooldown floors on simulation time.
-/// `ranged_cooldown` gates refire; `cooldown` still feeds the AI telegraph.
+/// Tick the remaining `BodyMelee` cooldown floor on simulation time; it feeds
+/// the AI telegraph.
 /// TODO(compat-remove): move the remaining melee recovery floor off `BodyMelee`
 /// once all telegraph readers use moveset playback state.
 pub fn tick_body_melee_cooldowns(
@@ -244,7 +244,17 @@ pub fn tick_body_melee_cooldowns(
     let dt = world_time.sim_dt();
     for mut melee in &mut bodies {
         melee.cooldown = (melee.cooldown - dt).max(0.0);
-        melee.ranged_cooldown = (melee.ranged_cooldown - dt).max(0.0);
+    }
+}
+
+/// Tick every body's [`RangedRefire`] floor on simulation time.
+pub fn tick_ranged_refire(
+    world_time: Res<ambition_time::WorldTime>,
+    mut bodies: Query<&mut crate::components::RangedRefire>,
+) {
+    let dt = world_time.sim_dt();
+    for mut refire in &mut bodies {
+        refire.tick(dt);
     }
 }
 

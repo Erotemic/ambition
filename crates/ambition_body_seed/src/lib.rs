@@ -255,6 +255,8 @@ pub type ActorClusterBundle = (
     ambition_combat::CombatCapabilities,
     ambition_combat::CombatTuning,
     ActorIdentity,
+    // A fresh body's ranged weapon starts ready; nothing about it is authored.
+    ambition_combat::RangedRefire,
 );
 
 /// The death policy of an NPC PLACEMENT: permanent (ADR 0022 — an NPC is a unique
@@ -832,6 +834,7 @@ impl ActorClusterSeed {
             self.caps,
             combat_tuning,
             self.identity,
+            ambition_combat::RangedRefire::default(),
         )
     }
 }

@@ -10,8 +10,8 @@
 //!   enemies "think about it" without committing every tick.
 //! - `accuracy` — jitters the aim vector on `MeleeAttack` /
 //!   `RangedAttack`. `1.0` = no jitter; `0.0` = uniform-random.
-//! - `mash_speed_hz` (informational; the EFFECTS-stage cooldown
-//!   gate is the authority for actual swing rate).
+//!
+//! Swing rate is not a difficulty knob: the move's own cooldown decides it.
 
 use ambition_platformer2d_core as ae;
 

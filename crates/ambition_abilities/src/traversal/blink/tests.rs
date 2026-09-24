@@ -1,9 +1,8 @@
 use super::*;
 use ambition_platformer2d_core::BodyKinematics;
 
-/// The shared teleport rule (used by both the player blink and any actor
-/// body): full distance over open space, clamped a body-half short of a wall,
-/// never embedding. This is the single invariant both controllers inherit.
+/// The shared teleport rule (player blink and any actor body): full distance
+/// over open space, stopped a body-half short of a wall, never embedding.
 #[test]
 fn blink_target_travels_full_distance_then_clamps_at_a_wall() {
     let half = ae::Vec2::new(12.0, 20.0);
@@ -119,9 +118,9 @@ fn attack_blinks_the_player_forward_along_facing() {
 
 #[test]
 fn downward_blink_does_not_embed_in_the_floor() {
-    // Regression: a vertical blink must pull back by the body's half-HEIGHT,
-    // not half-width, or the 40-tall body embeds in the floor and trips the
-    // inside-solid OOB detector (the fly + aim-down blink case).
+    // A vertical blink must pull back by the body's half-height, not
+    // half-width, or the 40-tall body embeds in the floor and trips the
+    // inside-solid OOB detector.
     let mut app = test_app();
     let player = spawn_player_holding(&mut app, BLINK_ID, 1.0); // (300,300), 24x40
                                                                 // Solid floor whose top edge is at y=350, just below the player.
@@ -175,16 +174,14 @@ fn blink_follows_facing_left() {
     );
 }
 
-/// ABILITY ORIGIN is subject-generic: blink executes on whatever body is the
-/// `ControlledSubject`, even a NON-`PlayerEntity` actor (a possessed body),
-/// and the home avatar (not the subject) does NOT blink. This is the exact
-/// "blink no longer controls the original robot" invariant — proven headlessly
-/// without a player-shaped query.
+/// Blink runs on whatever body is the `ControlledSubject`, even a possessed
+/// actor that is not a `PlayerEntity`, and the home avatar (not the subject)
+/// does not blink.
 #[test]
 fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = test_app();
-    // Home avatar (a PlayerEntity) — holds blink, but is NOT the controlled
+    // Home avatar (a PlayerEntity): holds blink but is not the controlled
     // subject this frame. It must stay put.
     let home_spec = ambition_characters::brain::held_item_by_id(BLINK_ID).unwrap();
     let home = app
@@ -199,9 +196,8 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             ambition_platformer2d_core::movement::MotionModel::default(),
             HeldItem::new(home_spec),
-            // Every body carries the per-tick resolved frame + full clusters
-            // (ADR 0024; the transit authority reconciles through them) — the
-            // ancillary bundle carries both.
+            // Every body carries the per-tick resolved frame and full clusters
+            // (ADR 0024), both in the ancillary bundle.
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     ae::Vec2::new(100.0, 100.0),
@@ -215,8 +211,8 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
         ))
         .id();
-    // A possessed ACTOR — NOT a PlayerEntity — holding blink, IS the controlled
-    // subject, pressing attack. It must blink.
+    // A possessed actor (not a PlayerEntity) holding blink is the controlled
+    // subject and presses attack. It must blink.
     let actor_spec = ambition_characters::brain::held_item_by_id(BLINK_ID).unwrap();
     let actor = app
         .world_mut()
@@ -279,12 +275,8 @@ fn no_blink_without_attack_or_with_a_different_item() {
     assert_eq!(player_pos(&app2, player2), ae::Vec2::new(300.0, 300.0));
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY BLINKS TOO.
-///
-/// ⛔⛔ THIS ABILITY READ `ControlledSubject`, WHICH IS ONE ENTITY, so a couch's
-/// second seat holding the blink item stood still — and with nobody possessing
-/// anything, NEITHER body moved. Same defect the item verbs
-/// (pickup/throw/fire) were already fixed for.
+/// A second driven body blinks too. With `ControlledSubject` alone, a couch's
+/// second seat could not blink, and with nobody possessed neither body could.
 #[test]
 fn two_driven_bodies_each_blink_from_their_own_position() {
     use crate::test_support::spawn_seated_body_holding;

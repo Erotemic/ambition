@@ -44,7 +44,7 @@ fn charge_decays_while_crouched_without_revving() {
     assert_eq!(s.charge, 0.0);
 }
 
-/// The launch edge is the crouch RELEASING, not the button being up.
+/// The launch edge is the crouch releasing, not the button being up.
 #[test]
 fn releasing_the_crouch_launches_once_and_only_once() {
     let t = tuning();
@@ -161,9 +161,7 @@ fn leaving_the_ground_past_the_grace_loses_the_charge() {
 // ── The ECS half: a real body, the real components, the real systems ──
 
 use ae::SurfaceMotion;
-// ⛔ NAMED FROM `_core`, not through the actor crate. `features` re-exported
-// both of these — a facade that made the monolith look like their owner —
-// and it was deleted; nothing rebuilt this test target to say so.
+// Named from `_core`, not through the actor crate.
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::engine_core::movement::{MotionModel, SurfaceMomentumMotion};
 
@@ -226,11 +224,10 @@ fn set_ball_dash_input_with_contact(
     };
 }
 
-/// The spin-dash rev now comes from the SANCTIONED technique edge the persona
-/// gate resolves onto the Attack slot — NOT from a raw `melee_pressed` intercept.
-/// Proves both directions: the technique edge arms the rev, and a plain melee
-/// press with no technique edge does nothing (a raw melee edge is no longer the
-/// content API). Also preserves the crouch-release latching coverage.
+/// The spin-dash rev comes from the technique edge the persona gate resolves
+/// onto the Attack slot, not from a raw `melee_pressed`. Both directions: the
+/// technique edge arms the rev, and a plain melee press with no technique edge
+/// does nothing. Also covers crouch-release latching.
 #[test]
 fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
     use ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges;
@@ -275,7 +272,7 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
     };
 
     // Phase 1 — crouch held + the spin_dash technique edge pressed (as the gate
-    // routes the Attack press). Raw `melee_pressed` is ALSO set, to prove it is
+    // routes the Attack press). Raw `melee_pressed` is also set, to prove it is
     // ignored: the rev arms from the technique edge alone.
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(entity).unwrap();
@@ -295,9 +292,8 @@ fn spin_dash_rev_comes_from_the_sanctioned_technique_edge_not_raw_melee() {
         "the sanctioned spin_dash technique edge becomes the rev (raw melee is ignored)"
     );
 
-    // Phase 2 — the NEGATIVE: raw `melee_pressed` still true, but the technique
-    // edge is cleared (as the gate leaves it when Attack isn't pressed). No rev:
-    // a plain melee edge is no longer the spin-dash content API.
+    // Phase 2 — the negative: raw `melee_pressed` still true, but the
+    // technique edge is cleared (as when Attack is not pressed). No rev.
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(entity).unwrap();
         control.0.locomotion.y = 1.0;
@@ -513,13 +509,12 @@ fn a_ball_launched_off_a_ramp_stays_balled_while_airborne_and_fast() {
     assert!(app.world().get::<Rolling>(e).is_none());
 }
 
-/// A restarted body is not still holding last round's charge.
+/// A restarted body does not keep last round's charge.
 ///
-/// The generic reset an outer ruleset can perform clears the ENGINE's clusters,
-/// and every one of Sanic's verbs lives outside them: a stored charge fires on
-/// the next release edge, and a `Rolling` body starts the next round as a ball
-/// with a borrowed collider. This is the provider's own answer to
-/// `BodyRestarted`, so no ruleset has to know that `BallDash` exists.
+/// A generic reset clears only engine state, and Sanic's verbs live outside
+/// it: a stored charge would fire on the next release, and a `Rolling` body
+/// would start as a ball. The provider answers `BodyRestarted` itself, so no
+/// ruleset needs to know `BallDash` exists.
 #[test]
 fn a_body_restart_clears_the_charge_the_crouch_edge_and_the_ball_form() {
     let (mut app, e) = body_app();

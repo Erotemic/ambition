@@ -2,23 +2,17 @@ use super::*;
 
 /// The policy every roster test in this file builds under.
 ///
-/// the screen's occupant numbers are indices into the sources it offered,
-/// and what index zero MEANS is the policy's answer — the first pad here, the
-/// keyboard under `JoinToClaim`. Naming it once keeps these tests reading as
-/// "slot 3 holds pad 3" rather than as arithmetic.
+/// Occupant numbers index the offered sources, and the policy says what index
+/// zero means (the first pad here, the keyboard under `JoinToClaim`). Naming
+/// it once lets these tests read "slot 3 holds pad 3".
 const UNIFIED: ambition_platformer2d::input::sources::InputAssignmentPolicy =
     ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary;
 
-/// A roster with room in it, so a test about the DECISION is not also a
-/// test of how many fighters ship today.
+/// A seat with its own moves keeps them; a seat with none takes the floor.
 ///
-/// A SEAT WITH ITS OWN MOVES KEEPS THEM; a seat with none takes the floor.
-///
-/// Two terms, and both matter: the character that authors a repertoire must NOT
-/// be handed the stage kit, and the one that authors nothing must still be — a
-/// Hall NPC's row says `peaceful` because standing in a room and talking is what
-/// it was authored for, and a crossover stage that seated it unarmed would be
-/// unplayable rather than principled.
+/// Both terms matter: a character that authors a repertoire must not get the
+/// stage kit, and one that authors nothing (a Hall NPC's `peaceful` row) must,
+/// or it would be unarmed on the stage.
 #[test]
 fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
     const ARMED: &str = "has_its_own";
@@ -31,11 +25,8 @@ fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
         select.set_occupant(slot, SlotOccupant::Cpu);
         select.set_pick(slot, SlotPick::Fighter(pick));
     }
-    // the fixture GRANTS a floor, because the shipped experience does. It
-    // passed `None` for one commit while the floor was being moved, and the test
-    // went red exactly as it should have: an experience that grants no floor
-    // seats an unarmed character unarmed. The invariant did not change — the
-    // fixture had stopped modelling how a match is prepared.
+    // The fixture grants a floor, because the shipped experience does. An
+    // experience that grants none seats an unarmed character unarmed.
     let roster = select
         .roster_seeded(
             &fighters,
@@ -108,9 +99,8 @@ fn the_slot_button_cycles_absent_controller_cpu() {
 
 /// No two slots hold the same input source.
 ///
-/// Two slots that both say "a person" without saying WHICH person is how one pad drives two
-/// fighters — found five separate times in this repo, and invisible every time with a single
-/// pad plugged in.
+/// Two slots that both say "a person" without saying which one let one pad
+/// drive two fighters, which a single-pad setup cannot reveal.
 #[test]
 fn two_controller_slots_never_share_one_device() {
     let mut select = SmashSelect::default();
@@ -130,9 +120,8 @@ fn two_controller_slots_never_share_one_device() {
 
 /// A seated player may enable an empty card for another connected person.
 ///
-/// The role button is roster editing, not ownership-by-click: when P1 already
-/// owns slot 0 and P2 is connected but unseated, P1 can turn slot 1 into P2's
-/// human card without P2 having to press that card first.
+/// The role button edits the roster, not ownership-by-click: P1 can turn
+/// slot 1 into connected-but-unseated P2's card without P2 pressing it.
 #[test]
 fn a_seated_participant_can_enable_a_card_for_another_connected_source() {
     let mut select = SmashSelect::default();
@@ -201,11 +190,8 @@ fn selecting_again_does_not_move_an_existing_human_between_cards() {
     assert_eq!(select.slot(1).occupant, SlotOccupant::Absent);
 }
 
-/// A THIRD PLAYER JOINS ON RANDOM AND THE MATCH STAYS READY.
-///
-/// the invariant underneath did not move — `ready()` still requires every
-/// participating slot to hold a pick. What moved is that joining supplies one,
-/// which makes "participating and undecided" unreachable through the button.
+/// A third player joins on random and the match stays ready. `ready()` still
+/// needs every participating slot to hold a pick; joining supplies one.
 #[test]
 fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
     let mut select = two_decided();
@@ -224,16 +210,14 @@ fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
     );
     assert_eq!(select.blocker(), None);
 
-    // ...and naming a fighter afterwards is an ordinary re-pick, not a
-    // different kind of state.
+    // Naming a fighter afterwards is an ordinary re-pick.
     select.set_pick(2, 3);
     assert_eq!(select.slot(2).pick, Some(SlotPick::Fighter(3)));
     assert!(select.ready());
 }
 
-/// One decided slot is not a match. A stocks match with one side never
-/// ends — `last_side_standing` correctly refuses to call a sole survivor a
-/// winner — so starting one is a game that cannot finish.
+/// One decided slot is not a match: `last_side_standing` refuses to call a
+/// sole survivor a winner, so the match could never finish.
 #[test]
 fn a_single_decided_slot_never_starts_a_battle() {
     let mut select = SmashSelect::default();
@@ -243,16 +227,7 @@ fn a_single_decided_slot_never_starts_a_battle() {
     assert!(select.roster(&fighters(), UNIFIED).is_none());
 }
 
-/// Two CPUs ARE a match, and a person can join them.
-///
-/// important that that is expressible and easy to do."*
-///
-/// a red test whose expected value is absent from the tree is the tell: it is describing a
-/// version of the product that was decided against, not a fix that is owed.
-///
-/// and the rule and this test AGREED with each other, so the suite was
-/// green over a feature the product did not have. A test that encodes a policy
-/// cannot also be the evidence the policy is right.
+/// Two CPUs are a match, and a person can join them.
 #[test]
 fn two_cpus_are_a_match_and_a_person_can_join_them() {
     let mut select = SmashSelect::default();
@@ -279,7 +254,7 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
         2
     );
 
-    // ...and a person joining does not displace them.
+    // A person joining does not displace them.
     select.set_occupant(2, SlotOccupant::Controller { device: 0 });
     select.set_pick(2, 2);
     assert!(select.ready());
@@ -313,12 +288,11 @@ fn absent_clears_the_pick_and_rejoin_starts_on_random() {
     );
 }
 
-/// A pick with no fighter behind it costs a SEAT, not a wrong fighter.
+/// A pick with no fighter behind it costs a seat, not a wrong fighter.
 ///
-/// The roster is a composition fact now, so it can in principle be smaller than
-/// an index a decided screen is holding. Dropping that seat is the only safe
-/// answer: clamping would seat somebody nobody chose, and a panic would take
-/// the whole match down over one card.
+/// The roster is a composition fact, so it can be smaller than an index a
+/// decided screen holds. Clamping would seat somebody nobody chose; a panic
+/// would end the match over one card.
 #[test]
 fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() {
     let mut select = SmashSelect::default();
@@ -339,7 +313,7 @@ fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() 
     );
 }
 
-/// The roster is the screen's decision, and only exists once it IS one.
+/// The roster is the screen's decision, and exists only once it is one.
 #[test]
 fn the_roster_carries_every_decided_slot_on_its_own_side() {
     let mut select = two_decided();
@@ -353,9 +327,8 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
     assert_eq!(roster.rules.stocks, Some(STARTING_STOCKS));
     assert!(roster.rules.opens_suspended);
 
-    // Slot 3's device is 3, not 2 — the roster is indexed by the SOURCE
-    // somebody holds, not by how many people showed up. A compacted list would
-    // hand slot 3's controller to the wrong body.
+    // Slot 3's device is 3, not 2: the roster is indexed by the source held,
+    // not by how many people showed up.
     let devices: Vec<u8> = roster
         .participants
         .iter()
@@ -374,9 +347,8 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
     );
 }
 
-/// Every id this demo DECLARES is one its own catalog carries. a roster
-/// naming a character the catalog does not have is a seat the match REFUSES,
-/// and the refusal arrives at spawn time on a screen that already said "go".
+/// Every id this demo declares is one its own catalog carries. Otherwise the
+/// match refuses the seat at spawn, after the screen said "go".
 #[test]
 fn every_own_fighter_is_declared_by_this_demo() {
     for id in OWN_FIGHTERS {
@@ -391,24 +363,13 @@ fn every_own_fighter_is_declared_by_this_demo() {
     }
 }
 
-// `the_grid_is_the_roster_list_filtered_to_what_the_composition_carries`
-// lives in `ambition_app` now, as
-// `smash_in_the_host::the_grid_offers_only_named_and_seatable_fighters`.
-//
-// it filtered a synthetic `CharacterCatalog`, and the FILTER MOVED: a row
-// says what a character IS, and `register_character` is what makes one
-// BUILDABLE. Eight of the twelve shipped portraits were rows nothing had
-// registered — seatable as player one, where the adopted home body consulted
-// the registry optionally, and unbuildable in every other seat. This crate
-// cannot fill a `PreparedCharacterRegistry` (that needs the preparation
-// barrier, which needs a composition), so the claim had to move to a test with
-// a real one. The host version asserts BOTH directions, because each alone is
-// satisfiable by a broken filter.
+// The grid-filter test lives in `ambition_app` as
+// `smash_in_the_host::the_grid_offers_only_named_and_seatable_fighters`: the
+// filter needs a real `PreparedCharacterRegistry` (a composition), which this
+// crate cannot fill. It asserts both directions.
 
-/// The roster list is a list of DISTINCT characters.
-///
-/// a duplicate id is two cells for one fighter, and a token dropped on the
-/// second one picks a character whose cell is not the one that lit up.
+/// The roster list names distinct characters: a duplicate id is two cells for
+/// one fighter.
 #[test]
 fn the_roster_names_no_character_twice() {
     let mut seen: Vec<&str> = SMASH_ROSTER.to_vec();
@@ -444,8 +405,8 @@ fn a_slot_past_the_ceiling_is_ignored_rather_than_a_crash() {
 
 /// The source count comes from the pads, and the floor is one.
 ///
-/// A screen that offered zero sources when nobody had a gamepad would be a demo
-/// you cannot start — the keyboard is player one on every other route here.
+/// A screen with zero sources and no gamepad could not start; the keyboard is
+/// player one on every other route.
 #[test]
 fn the_screen_offers_a_source_per_pad_with_a_keyboard_floor() {
     use ambition_platformer2d::input::LocalDeviceOrder;
@@ -473,10 +434,9 @@ fn the_screen_offers_a_source_per_pad_with_a_keyboard_floor() {
     );
 }
 
-/// Pad-only counting made this impossible to express. One keyboard and one pad
-/// offered ONE source, so both drove player one and the pad player had nowhere
-/// to sit. The keyboard is not a row in `LocalDeviceOrder` — that holds gamepad
-/// entities — so it could never be counted, only assumed.
+/// One keyboard and one pad offer two sources under the couch policy.
+/// `LocalDeviceOrder` holds only gamepads, so the keyboard is counted
+/// separately.
 #[test]
 fn a_keyboard_and_one_pad_offer_two_sources_under_the_couch_policy() {
     use ambition_platformer2d::input::sources::InputAssignmentPolicy;
@@ -492,8 +452,8 @@ fn a_keyboard_and_one_pad_offer_two_sources_under_the_couch_policy() {
     );
 }
 
-/// Milestone 8: solo play must not change. A single player with a spare
-/// controller must not discover that plugging it in created an empty chair.
+/// Solo play must not change: plugging in a spare controller must not create
+/// an empty chair.
 #[test]
 fn the_unified_policy_keeps_the_pad_only_count() {
     use ambition_platformer2d::input::sources::InputAssignmentPolicy;
@@ -510,7 +470,7 @@ fn the_unified_policy_keeps_the_pad_only_count() {
             super::seats_offered_under(devices, InputAssignmentPolicy::UnifiedPrimary),
             expected
         );
-        // And the un-suffixed helper is the unified one, byte for byte.
+        // The unsuffixed helper is the unified one.
         assert_eq!(super::seats_offered(devices), expected);
     }
 }
@@ -529,17 +489,11 @@ fn the_couch_policy_still_respects_the_seat_ceiling() {
     );
 }
 
-/// THE RANDOM SQUARE IS A CELL, AND IT IS THE LAST ONE.
+/// The random square is a cell, and it is the last one.
 ///
-/// Both directions, because each alone is satisfiable by a broken mapping: a
-/// grid that returns `Fighter` for every cell passes "the last cell is random"
-/// if it never reaches it, and one that returns `Random` for everything passes
-/// "fighters keep their index" if nothing checks the fighters.
-///
-/// fighters keeping their index is the load-bearing half. Putting random
-/// FIRST would have been just as reasonable a design and would silently
-/// re-point every portrait-by-position in the screen, the walkthrough and the
-/// host tests at its neighbour.
+/// Both directions, because each alone passes a broken mapping. Fighters
+/// keeping their index is the load-bearing half: random first would re-point
+/// every portrait-by-position in the screen, walkthrough and host tests.
 #[test]
 fn the_grid_is_the_fighters_plus_a_random_square_at_the_end() {
     let fighters = fighters();
@@ -580,9 +534,8 @@ fn a_new_participant_starts_on_the_random_square() {
 
 /// RANDOM RESOLVES TO A REAL FIGHTER, AND ONLY WHEN THE MATCH STARTS.
 ///
-/// the ROSTER is where the draw happens, so everything downstream — the
-/// prepared plan, activation, the rollback window — sees ordinary character ids
-/// and never learns that one of them was a surprise.
+/// The roster is where the draw happens, so everything downstream (the plan,
+/// activation, the rollback window) sees ordinary character ids.
 #[test]
 fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     let fighters = fighters();
@@ -592,7 +545,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
         select.set_pick(slot, SlotPick::Random);
     }
 
-    // Before the start there is no fighter to name — that is the whole point.
+    // Before the start there is no fighter to name.
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
@@ -610,8 +563,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
         );
     }
 
-    // SEEDED, not ambient (ADR 0023). The same seed draws the same match,
-    // which is what makes a desync explicable and a test able to name a draw.
+    // Seeded, not ambient (ADR 0023): the same seed draws the same match.
     let again = select
         .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default(), None, crate::STARTING_STOCKS)
         .expect("the same screen is still a match");
@@ -620,11 +572,10 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
         "the same seed drew a different fighter"
     );
 
-    // ...and a different seed is allowed to differ. Asserting it MUST differ
-    // would be asserting a hash collision never happens on a grid this small.
+    // A different seed may differ. Requiring it to differ would assert that
+    // no hash collision happens on a small grid.
     let other = select
         .roster_seeded(&fighters, 99, UNIFIED, &Default::default(), None, crate::STARTING_STOCKS)
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }
-

@@ -134,12 +134,14 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
-        // AC3.1.B: the melee AUTHORITY the trace's `attacking` column reads.
-        let melee = {
+        // AC3.1.B: the trace's `attacking` column, from the live move.
+        let swinging = {
             let mut melee_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_platformer2d::combat::BodyMelee, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
-            melee_q.single(sim.world()).cloned().unwrap_or_default()
+                .query_filtered::<ambition_platformer2d::combat::moveset::MeleeSwingQuery, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            melee_q
+                .single(sim.world())
+                .is_ok_and(|melee| melee.swing().is_some())
         };
 
         let life = {
@@ -189,7 +191,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             life,
             &motion_facts,
             &combat,
-            &melee,
+            swinging,
             &clock,
             &safety,
             &game_world,

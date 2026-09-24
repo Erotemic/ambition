@@ -1,31 +1,22 @@
-//! WHAT DOES THE PERFORMER'S UP-B ACTUALLY DO, TICK BY TICK?
+//! What does the performer's up-B do, tick by tick?
 //!
 //! `cargo run -p ambition_app_tools --bin wire_probe -- right render`
 //!
-//! ⭐⭐ THIS EXISTS BECAUSE HER OTHER SPECIAL WAS DECLARED FINISHED TWICE WHILE
-//! VISIBLY BROKEN IN PLAY, and both times the instrument was the problem rather
-//! than the code. The lessons, each of which this binary is shaped by:
+//! Rules this binary follows:
 //!
-//! 1. A moveset test proves the SPEC, not the move. Both halves of a
-//!    two-authority bug were individually correct on the spec while the move did
-//!    nothing.
-//! 2. The sim is not the game. The Trap's simulation was right for weeks while
-//!    presentation never heard about it — so anything a player SEES has to be
-//!    observed through a host with a render app.
-//! 3. There are TWO visibility roads, and `PlayerVisual` is inserted in exactly
-//!    ONE place in the engine. A rule stated on one road is not stated.
-//! 4. An Ambition room is not the smash stage. Jon: *"when we are doing smash
-//!    moves we probably should be using the smash stage and not any ambition
-//!    stages."*
-//! 5. Two authorities for one fact means one of them is silently deleted.
+//! 1. A moveset test proves the spec, not the move.
+//! 2. The sim is not the game. What a player sees must be observed through a
+//!    host with a render app.
+//! 3. There are two visibility paths, and `PlayerVisual` is inserted in one
+//!    place in the engine. A rule stated on one path is not stated.
+//! 4. Smash moves are measured on the smash stage, not an Ambition room.
+//! 5. Two authorities for one fact means one is silently ignored.
 //!
-//! ⛔ IT IS OBSERVATIONAL FOR THE SHAPE and JUDGED ON THE NUMBERS. The tick log
-//! has no thresholds; the summary at the end states each of Jon's six clauses as
-//! a measurement, and says which of them the run supports.
+//! The tick log has no thresholds. The summary at the end states each design
+//! clause as a measurement and says which ones the run supports.
 //!
-//! ⛔ IT DRIVES THE PRODUCTION INPUT ROAD. `drive_control_frame` is the only
-//! driver that works on this host, and a probe that called `catch_the_wire`
-//! directly would measure the line it just wrote.
+//! It drives the production input path (`drive_control_frame`); calling
+//! `catch_the_wire` directly would measure the line it wrote.
 
 #[path = "../probe_stage.rs"]
 mod probe_stage;
@@ -43,8 +34,7 @@ const PLATFORM_WIDTH: f32 = 480.0;
 const FALL_BLAST_DEPTH: f32 = 240.0;
 
 fn main() {
-    // ⭐ WHICH WAY SHE SWINGS. The Trap's ledge-vs-cap question was settled by
-    // running it both ways, and the swing is the clause with a direction in it.
+    // Which way she swings: the swing is the clause with a direction.
     let steer: f32 = match std::env::args().nth(1).as_deref() {
         Some("left") => -1.0,
         Some("neutral") => 0.0,
@@ -52,9 +42,8 @@ fn main() {
     };
     let demo_host = std::env::args().any(|a| a == "host=demo");
     let rendered = std::env::args().any(|a| a == "render");
-    // ⭐ START HER IN THE AIR, which is where a recovery is used. A grounded
-    // up-B is the same move, but a lift measured from the boards cannot say
-    // whether she gets back onto them.
+    // Start her in the air, where a recovery is used. A lift measured from
+    // the boards cannot show whether she gets back onto them.
     let from_below = std::env::args().any(|a| a == "offstage");
 
     let probe_stage::Staged {
@@ -76,14 +65,10 @@ fn main() {
             "ambition_app::build_visible_app"
         }
     );
-    // ⛔⛔ THE INSTRUMENT PROVES ITSELF FIRST. `wire_count` below queries a
-    // PRESENTATION component, and a presentation layer that was never installed
-    // answers zero for the same reason a missing rope does.
-    //
-    // ⛔⛔ AND IT COUNTS BOTH ROADS, because on this stage the PLAYER road is
-    // legitimately zero — a match seats ACTORS, and `PlayerVisual` is inserted in
-    // exactly one place in the engine. A self-check that reported only the player
-    // count would have declared this probe blind on every run it was working.
+    // The instrument proves itself first. `wire_count` queries a
+    // presentation component, and a missing presentation layer also answers
+    // zero. Count both paths: on this stage the player path is zero, because
+    // a match seats actors.
     let (player_bodies, actor_bodies) = presentation_bodies(&mut app);
     println!(
         "[wire_probe] presentation: player-road bodies {player_bodies}, \
@@ -98,10 +83,9 @@ fn main() {
         app.update();
     }
     if from_below {
-        // ⛔ PROBE-SIDE PLACEMENT, and it is honest for an instrument: it moves
-        // WHERE she starts, not what the move does from there. Off the side of
-        // the platform and below the lip, which is the position a recovery is
-        // for.
+        // Probe-side placement: it moves where she starts, not what the move
+        // does. Off the side of the platform and below the lip, where a
+        // recovery is used.
         if let Some(mut k) = app
             .world_mut()
             .get_mut::<ambition_platformer2d::engine_core::BodyKinematics>(seat0)
@@ -131,7 +115,7 @@ fn main() {
         }
     );
 
-    // UP + B. ⛔ `axis_y` is +DOWN, so up is negative.
+    // Up + B. `axis_y` is +down, so up is negative.
     ambition_platformer2d::sim::drive_control_frame(
         app.world_mut(),
         ControlFrame {
@@ -187,28 +171,24 @@ fn main() {
                 first_on = Some(tick);
             }
             last_on = Some(tick);
-            // +y is DOWN, so a rise is a DECREASE.
+            // +y is down, so a rise is a decrease.
             biggest_tick_rise = biggest_tick_rise.max((prev.y - pos.y).abs());
-            // SIGNED, and kept by MAGNITUDE. An absolute extent cannot tell a
-            // left swing from a right one, and the two arms printed the same
-            // 95.4px on the run that first produced these numbers.
+            // Signed, kept by magnitude: an absolute extent cannot tell a left
+            // swing from a right one.
             if (pos.x - start.x).abs() > swing_extent.abs() {
                 swing_extent = pos.x - start.x;
             }
             if ropes == 0 {
-                // ⛔ THE ROPE IS THE ONLY THING ON STAGE THAT EXPLAINS WHY SHE
-                // IS GOING UP. A lift with no wire drawn is a fighter levitating.
+                // The rope is what explains why she rises. A lift with no wire
+                // drawn is a fighter levitating.
                 wire_ticks_without_rope += 1;
             }
         } else if last_on.is_some() && released_at.is_none() {
             released_at = Some(tick);
             exit_velocity = vel;
-            // ⛔⛔ READ HERE, NOT AT THE END OF THE WATCH. The first version of
-            // this probe reported a 420px "net displacement" that was almost
-            // entirely ordinary air control over the hundred ticks after the
-            // rope let go. Four arms of the kernel's own tests made the same
-            // mistake; the tell is always a measurement whose bound is a tick
-            // count rather than the state it is about.
+            // Read at release, not at the end of the watch: afterwards the
+            // displacement is mostly ordinary air control. Bound a measurement
+            // by the state it is about, not by a tick count.
             displacement_at_release = pos.x - start.x;
         }
         highest = highest.min(pos.y);
@@ -301,8 +281,8 @@ fn main() {
 
 /// How many bodies each presentation road has built.
 ///
-/// ⛔ TWO NUMBERS, because the two roads are not interchangeable and a match uses
-/// the second one. See the call site.
+/// Two numbers: the paths are not interchangeable, and a match uses the
+/// second. See the call site.
 fn presentation_bodies(app: &mut App) -> (usize, usize) {
     let players = probe_stage::player_visuals(app);
     let world = app.world_mut();
@@ -319,22 +299,14 @@ fn wire_anchor(app: &App, body: Entity) -> Option<ambition_platformer2d::engine_
         .and_then(|facts| facts.wire_anchor)
 }
 
-/// Live rope visuals belonging to THIS body — the thing that explains why she
-/// is rising.
+/// Live rope visuals belonging to this body: what explains why she rises.
 ///
-/// ⛔⛔ PER-BODY, AND THE FIRST RUN OF THIS PROBE WAS NOT. Seat 1 is a Performer
-/// too and keeps its brain, so it uses its own up-B on its own schedule: the
-/// global count showed `rope=1` for thirty ticks AFTER seat 0's wire had let go,
-/// which reads exactly like a rope that failed to retire. Counting every rope on
-/// the stage measures the CPU — the same correction `trap_probe` had to make
-/// about counting blink cues.
+/// Per body, because seat 1 is also a Performer with its brain on and uses
+/// its own up-B. A stage-wide count would measure the CPU.
 fn wire_count(app: &mut App, owner: Entity) -> usize {
-    // ⛔⛔ AND THE OWNER IS THE VISUAL, NOT THE SEAT. `FlylineVisual::body` names
-    // the PRESENTATION entity it hangs from — the one carrying `FeatureVisual` —
-    // and a match seat is a SIM entity. Comparing them directly reports zero for
-    // a rope that is on screen, which is exactly what this probe did on its
-    // second run and reported as "32 of 32 on-wire ticks had NO rope drawn". The
-    // two are joined by `FeatureId`, which both sides carry.
+    // The owner is the visual, not the seat. `FlylineVisual::body` names the
+    // presentation entity (with `FeatureVisual`), and a match seat is a sim
+    // entity. Join them by `FeatureId`, which both carry.
     let Some(visual) = visual_of(app, owner) else {
         return 0;
     };
@@ -362,14 +334,12 @@ fn visual_of(app: &mut App, sim: Entity) -> Option<Entity> {
 
 /// Has this body spent its once-per-airtime recovery?
 ///
-/// ⛔ THE ARM THAT SAYS THE MOVE IS NOT FLIGHT. `UpSpecial::Standard` stamps
-/// `gates.recovery`, and a wire that lifted her 420px without spending it would
-/// be a fighter who never has to come down. D204 is the row: most up-Bs are once
-/// per airtime.
+/// This check shows the move is not flight. `UpSpecial::Standard` stamps
+/// `gates.recovery`; a wire that lifted her without spending it would let her
+/// never come down. Most up-Bs are once per airtime (D204).
 ///
-/// ⛔ THE CHARGES ARE COUNTED, NOT A FLAG. `recovery_charges` is a budget, so
-/// "spent" is a body in the air with none left — and `post_recovery_helpless` is
-/// the freefall the spend buys, which is the same fact seen from the other side.
+/// `recovery_charges` is a budget, so "spent" is a body in the air with none
+/// left. `post_recovery_helpless` is the freefall the spend buys.
 fn recovery_spent(app: &App, body: Entity) -> bool {
     app.world()
         .get::<ambition_platformer2d::engine_core::BodyJumpState>(body)
@@ -384,11 +354,9 @@ fn blink_cursor(
         .get_cursor()
 }
 
-/// ⛔⛔ COUNTED, NOT "AT LEAST ONE", and counted OFF THE EMITTED CUE rather than
-/// off the timeline. Her up-B carried no `player.blink` of its own for months
-/// and Jon heard one anyway, because `apply_authored_teleports` emits it at every
-/// transit. A timeline that is merely silent about the cue is the shape of the
-/// bug, not the fix.
+/// Counted, not "at least one", and counted from the emitted cue, not the
+/// timeline: `apply_authored_teleports` emits `player.blink` at every
+/// transit, so a silent timeline does not prove a silent move.
 fn drain_blink_cues(
     app: &mut App,
     cursor: &mut bevy::ecs::message::MessageCursor<ambition_platformer2d::sfx::OwnedSfxMessage>,
@@ -405,9 +373,8 @@ fn drain_blink_cues(
         .count()
 }
 
-/// THE WHOLE VISIBILITY CHAIN, IN ONE STRING, on BOTH roads — because
-/// `PlayerVisual` is inserted in exactly one place in the engine and a match
-/// fighter does not carry it. `player[views/wired] actor[views/wired]`.
+/// The whole visibility chain in one string, on both paths: a match fighter
+/// does not carry `PlayerVisual`. `player[views/wired] actor[views/wired]`.
 fn visibility_chain(app: &mut App) -> String {
     let (mut pviews, mut pwired) = (0usize, 0usize);
     {

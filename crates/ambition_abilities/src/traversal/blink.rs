@@ -1,11 +1,10 @@
-//! Blink — a held item granting a short-range directional teleport.
+//! Blink: a held item that grants a short-range directional teleport.
 //!
-//! Your favorite, and high-skill." Implemented as a wired ability (a held item) like
-//! Mark/Recall and Fireball, so it reuses the equip / OoT-menu / throw plumbing.
-//!
-//! Stateless (no mark to store), so there's nothing to clear on reset. Like the
-//! other pure-use held items it has no melee/ranged verb and opts out of
-//! throw-on-attack via `throw_held_item_system`'s `use_on_attack` id check.
+//! A held-item ability like Mark/Recall and Fireball, so it reuses the equip,
+//! menu, and throw plumbing. Stateless (no mark), so nothing to clear on
+//! reset. Like other pure-use held items it has no melee/ranged verb and opts
+//! out of throw-on-attack through `throw_held_item_system`'s `use_on_attack`
+//! id check.
 
 use bevy::prelude::*;
 
@@ -20,13 +19,13 @@ pub const BLINK_ID: &str = "blink";
 /// How far a blink carries the player along the aim direction, walls permitting.
 const BLINK_DISTANCE: f32 = 150.0;
 
-/// Cooldown between blinks, so it reads as a deliberate reposition (not spam).
+/// Cooldown between blinks, so it is a deliberate reposition, not spam.
 const BLINK_COOLDOWN_S: f32 = 0.45;
 
 /// Half-extent of the arrival shockwave that lets you blink offensively into a
 /// cluster of enemies.
 const BLINK_SHOCKWAVE_HALF: f32 = 36.0;
-/// Shockwave damage — modest; Blink is mobility first, a light strike second.
+/// Shockwave damage: modest; Blink is mobility first, a light strike second.
 const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
 
 /// Resolve a blink destination over `world`: teleport up to `distance` along the
@@ -34,11 +33,10 @@ const BLINK_SHOCKWAVE_DAMAGE: i32 = 2;
 /// short of the first solid so the body never embeds, with a safety net that
 /// falls back to `from` if the landing box would still overlap a solid.
 ///
-/// This is the one teleport rule shared by every controller: the player's
-/// held-item blink and any actor body that resolves a `blink` intent from its
-/// `ActorControlFrame` call the same function (invariants I2/I7 — a possessed or
-/// AI body blinks exactly as the player does, against the same collision world it
-/// physically occupies).
+/// The one teleport rule for every controller: the player's held-item blink
+/// and any actor body that resolves a `blink` intent from its
+/// `ActorControlFrame` call this (I2/I7), against the collision world it
+/// occupies.
 pub fn blink_target(
     world: &ae::World,
     from: ae::Vec2,
@@ -46,8 +44,8 @@ pub fn blink_target(
     distance: f32,
     half: ae::Vec2,
 ) -> ae::Vec2 {
-    // Pull-back must use the body's extent IN the blink direction — a vertical
-    // blink needs half-height, not half-width — or a diagonal blink embeds.
+    // The pull-back uses the body's extent in the blink direction (half-height
+    // for a vertical blink), or a diagonal blink embeds.
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
     let mut target = match ambition_platformer2d_core::cast::raycast_solids(
         world,
@@ -59,9 +57,9 @@ pub fn blink_target(
         Some((hit, _normal)) => hit - dir * margin,
         None => from + dir * distance,
     };
-    // Safety net: the center-ray can miss a wall the body's perpendicular extent
-    // would clip (corners, grazing). If the landing box still overlaps a solid,
-    // fall back to the start so a blink never lands inside geometry.
+    // Safety net: the center ray can miss a wall the body's width would clip
+    // (corners, grazing). If the landing box still overlaps a solid, stay at
+    // the start.
     let landing = ae::Aabb::new(target, half);
     let embeds = world.blocks.iter().any(|b| {
         matches!(
@@ -81,9 +79,8 @@ pub fn blink_target(
 pub fn blink_system(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut commands: Commands,
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same item simply never acted.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can use it.
     driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         Entity,
@@ -97,8 +94,8 @@ pub fn blink_system(
     mut sfx: ambition_sfx::BodySfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
-    // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
-    // that never added the engine's schedule plugin still blinks.
+    // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+    // blinks.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     for subject in driven.entities() {
@@ -121,17 +118,16 @@ pub fn blink_system(
             continue;
         }
         let c = control.0;
-        // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
+        // Plain Attack blinks; Shield+Attack throws the item away.
         if !c.melee_pressed || c.shield_held {
             continue;
         }
         if held.spec.id != BLINK_ID {
             continue;
         }
-        // Aim from the brain-resolved frame (aim stick → movement stick → facing),
-        // rotated to world for the raycast/teleport. Body-generic — no per-ability
-        // re-reading of raw input.
-        // The body's per-tick resolved frame (ADR 0024 frame law).
+        // Aim from the brain-resolved frame (aim stick, then movement stick,
+        // then facing), rotated to world. Uses the body's per-tick resolved
+        // frame (ADR 0024).
         let gravity_dir = resolved_frame.down();
         let facing = cluster_item.kinematics.facing;
         let dir =
@@ -139,8 +135,8 @@ pub fn blink_system(
         if dir == ae::Vec2::ZERO {
             continue;
         }
-        // Gate on the shared movement-ability cooldown (after confirming a real blink
-        // so an aimless press doesn't burn it).
+        // Check the shared movement-ability cooldown only after a real blink
+        // is confirmed, so an aimless press does not use it.
         if !crate::ability_cooldown::try_use_ability(
             &mut cooldown,
             &mut commands,
@@ -152,31 +148,31 @@ pub fn blink_system(
         let mut clusters = cluster_item.as_clusters_mut();
         let from = clusters.kinematics.pos;
         let half = clusters.kinematics.size * 0.5;
-        // One composited collision view (moving platforms + ECS solids included),
-        // shared by the clamp raycast and the embed safety net inside `blink_target`.
+        // One collision view (moving platforms and ECS solids included) for
+        // the clamp raycast and the embed check in `blink_target`.
         let collision = world.solids();
         let target = match collision.as_ref() {
             Some(w) => blink_target(&**w, from, dir, BLINK_DISTANCE, half),
-            // No collision world (tests / degenerate) — blink the full distance.
+            // No collision world (tests): blink the full distance.
             None => from + dir * BLINK_DISTANCE,
         };
-        // THE discrete-transit authority: arrive with momentum kept, departure
-        // contacts and any attachment reconciled (ADR 0024 authority model).
+        // The discrete-transit authority: arrive with momentum kept, and
+        // reconcile departure contacts and attachment (ADR 0024).
         ae::movement::transit_body(
             &mut motion_model,
             &mut clusters,
             target,
             ae::movement::TransitVelocity::Keep,
         );
-        // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
-        // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
-        // mid-blink is a death, not a blink.
+        // Class-B transit (`docs/concepts/movement-collision.md`): a
+        // traversal ability that moves a body is a scripted teleport, ranked
+        // weakest, so dying mid-blink is a death, not a blink.
         if let Some(log) = class_b.as_mut() {
             log.record(player, ClassBRemap::ScriptedTeleport);
         }
-        // Offensive blink: a small player-side shockwave at the arrival point, so you
-        // can blink *into* enemies to strike them (and the PlayerSlash source spares
-        // the player). Composes nicely with a gravity well — blink in, sweep them up.
+        // Offensive blink: a small player-side shockwave at the arrival point,
+        // so you can blink into enemies to hit them (PlayerSlash spares the
+        // player).
         hits.write(ambition_combat::events::HitEvent {
             strike_sfx: None,
             volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),

@@ -242,9 +242,9 @@ pub fn register_rollback_state(
     registrar: &mut impl ambition_platformer2d_core::snapshot::RollbackRegistrar,
 ) {
     registrar
-        // ⭐ CHECKSUMMED 2026-08-29: a presence-only probe cannot see WHICH prop
-        // the cycle chose, and `reset_cut_rope_boss_arena_on_room_reset`
-        // advances it on the sim schedule.
+        // Checksummed, not presence-only: the value decides which prop the cycle
+        // chose, and `reset_cut_rope_boss_arena_on_room_reset` advances it on the
+        // sim schedule.
         .rollback_resource_clone_checksum::<CutRopeHeavyObjectCycle>(
             "ambition_content::bosses",
             "content.cut_rope_heavy_object_cycle",
@@ -287,18 +287,15 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
             CutRopeRoomReplayRequested,
         >::default());
-        // ⛔⛤ THE SAME REGISTRATION FOR `SetFlagRequested`, AND ITS ABSENCE WAS
-        // A SHIPPED DEFECT (found in review 2026-09-18). `cmd_watch_cut_rope_video`
-        // in this module's `yarn.rs` takes a
-        // `NarrativeInputWriter<SetFlagRequested>`, whose `ledger` field is a plain
-        // `ResMut<NarrativeInputLedger<M>>` — so with no plugin installed for this
-        // payload the one-shot system cannot resolve its parameters and the
-        // authored `<<watch_cut_rope_video>>` recorded nothing.
+        // The same registration for `SetFlagRequested`. `cmd_watch_cut_rope_video`
+        // in this module's `yarn.rs` takes a `NarrativeInputWriter<SetFlagRequested>`,
+        // whose `ledger` field is a plain `ResMut<NarrativeInputLedger<M>>`. Without
+        // this plugin the one-shot system cannot resolve its parameters and the
+        // authored `<<watch_cut_rope_video>>` records nothing.
         //
-        // ⚠ THE MESSAGE CHANNEL WAS NEVER THE MISSING HALF, WHICH IS WHY THIS HID.
-        // `SetFlagRequested` is registered in the engine's own sim resources, so
-        // every "is the message registered?" check answered YES; the LEDGER
-        // resource is created only by this plugin, and nothing created it.
+        // The message channel is registered in the engine's sim resources, so a
+        // "is the message registered?" check passes; only this plugin creates the
+        // ledger resource.
         app.add_plugins(ambition_conversation::NarrativeInputPlugin::<
             ambition_combat::SetFlagRequested,
         >::default());
@@ -337,16 +334,12 @@ impl Plugin for AmbitionBossContentPlugin {
             ),
         );
 
-        // ⛔⛔ NO RUN CONDITION, DELIBERATELY, and that is the whole point.
-        // `reset_cut_rope_attempt_on_replay` CLAIMS this boss's music on a room
-        // replay -- which is what a death is -- and the only release lived in the
-        // same one-shot. A claim released only by the system that took it is
-        // released only while that system runs, and a one-shot stops running by
-        // definition, so the Smirking Behemoth's intro followed the player out of
-        // the room and BEAT the room's own music (the priority tier outranks it).
-        // ⇒ This reaches its release arm on every frame the player is elsewhere,
-        // the same discipline `ambition_boss_encounter`'s generic music system
-        // states for itself.
+        // No run condition, on purpose. `reset_cut_rope_attempt_on_replay` claims
+        // this boss's music on a room replay (a death), and a one-shot cannot
+        // release it after it stops running. This reaches its release arm on every
+        // frame the player is elsewhere, like `ambition_boss_encounter`'s generic
+        // music system; otherwise the intro would follow the player and outrank
+        // room music.
         app.add_systems(sim, release_cut_rope_music_outside_its_room);
 
         // Cut-rope post-damage flavor (rope-cut detection → gate, hazard→
@@ -421,11 +414,9 @@ impl Plugin for AmbitionBossContentPlugin {
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
-            // ⭐ Same gate as its sibling, and for the same reason: this took a
-            // WRITE guard on the Yarn mirror's `RwLock` and allocated two
-            // `String`s every frame of every room, feeding a value only a live
-            // `<<if>>` ever reads. Its `save.is_none()` bail is the rare path,
-            // not the common one.
+            // Same gate as its sibling, for the same reason: it takes a write guard
+            // on the Yarn mirror's `RwLock` and allocates two `String`s, for a value
+            // only a live `<<if>>` reads. Its `save.is_none()` bail is the rare path.
             app.add_systems(
                 Update,
                 yarn::mirror_cut_rope_heavy_object

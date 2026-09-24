@@ -106,13 +106,12 @@ mod tests {
 
     use ambition_time::WorldTime;
 
-    /// End-to-end wiring check (public-API only): drive a boss to fire the
+    /// End-to-end wiring check (public API only): drive a boss to fire the
     /// gradient nova and confirm the full burst of projectile entities
-    /// materializes through `ProjectileSpawnRequest` → the projectile-domain
-    /// materializer. Validates the consumer → request → spawn pipeline that the
-    /// projectile specials share — catching a wiring/registration mistake the
-    /// pure-core tests can't. Builds the boss via `BossClusterScratch` (public),
-    /// so no engine `test-support` plumbing is needed.
+    /// materializes through `ProjectileSpawnRequest` and the projectile-domain
+    /// materializer. This catches wiring and registration mistakes the pure-core
+    /// tests cannot. The boss is built with `BossClusterScratch` (public), so no
+    /// engine `test-support` is needed.
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
         use ambition_entity_catalog::placements::BossBrain;
@@ -182,7 +181,7 @@ mod tests {
     }
 
     /// Drive the same road with a move occurrence on the request and read it
-    /// back off the SPAWNED PROJECTILE ENTITIES.
+    /// back off the spawned projectile entities.
     ///
     /// Returns `(materialized, stamped_with)` so one body serves both arms.
     fn nova_projectile_stamps(asked_by: Option<u32>) -> (usize, Vec<Option<u32>>) {
@@ -250,25 +249,23 @@ mod tests {
         (stamps.len(), stamps)
     }
 
-    /// ⛔⛤ WITNESS — A12 BLOCKER 2, THE CONTENT HALF. A TECHNIQUE'S PROJECTILE
-    /// CARRIES THE MOVE USE THAT ASKED FOR IT.
+    /// A technique's projectile carries the move use that asked for it (A12
+    /// blocker 2, content half).
     ///
-    /// ⛔⛔ THE DEFECT THIS FAILS ON. A boss `Special(key)` profile compiles to a
-    /// move whose Active window carries a `sustain_effect`; that bridges to
-    /// `ActorActionMessage::Special`, and THIS system turns it into projectiles.
-    /// The bolts outlive the move — the sentinel's live 2.4s. Every one of them
-    /// spawned with `move_instance: None`, and `moveset::verdict_belongs_to`
-    /// admits `None` against ANY playback, so a bolt fired by move A and landing
-    /// during move B credited B with a hit it never earned.
+    /// A boss `Special(key)` profile compiles to a move whose Active window
+    /// carries a `sustain_effect`; that bridges to `ActorActionMessage::Special`,
+    /// and this system turns it into projectiles. The bolts outlive the move (the
+    /// sentinel's live 2.4s). `moveset::verdict_belongs_to` admits
+    /// `move_instance: None` against any playback, so an unstamped bolt fired by
+    /// move A and landing during move B would credit B with the hit.
     ///
-    /// ⭐⭐ IT READS THE SPAWNED ENTITY, NOT THE REQUEST. The request is the
-    /// system's own output; the entity is what survives into the tick where the
-    /// damage is resolved, which is the only place the number matters. A test
-    /// that stops at the request cannot see the materializer drop it.
+    /// It reads the spawned entity, not the request: the entity is what survives
+    /// to the tick where damage is resolved. A test that stops at the request
+    /// cannot see the materializer drop the number.
     ///
-    /// ⚠ AND THE NUMBER TRAVELS ONE WAY ONLY. Nothing downstream may recover it
-    /// by reading the owner's `MovePlayback`, because by the time a bolt lands
-    /// the authoring move is over — that re-read IS the defect.
+    /// The number travels one way. Nothing downstream may recover it from the
+    /// owner's `MovePlayback`: by the time a bolt lands, the authoring move is
+    /// over.
     #[test]
     fn a_nova_bolt_carries_the_move_use_that_fired_it() {
         let (count, stamps) = nova_projectile_stamps(Some(7));
@@ -284,11 +281,10 @@ mod tests {
         );
     }
 
-    /// ⭐ AND `None` IS AN ANSWER, NOT A HOLE. A boss brain that presses its
-    /// special directly — no move behind it — has no use to name, and the
-    /// technique must pass that through rather than invent a number. A stamp
-    /// here would be a FALSE provenance, which is worse than none: it would
-    /// deny a real move its own hit.
+    /// `None` is an answer, not a hole. A boss brain that presses its special
+    /// directly has no move use to name, and the technique must pass that
+    /// through. A made-up stamp would be false provenance and would deny a real
+    /// move its own hit.
     #[test]
     fn a_brain_pressed_nova_stamps_no_move_use() {
         let (count, stamps) = nova_projectile_stamps(None);

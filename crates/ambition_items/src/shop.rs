@@ -37,27 +37,19 @@ impl AuthoredPriceProblem {
     }
 }
 
-/// The ONE reading of an authored price, shared by the question and the action.
+/// The one reading of an authored price, shared by the question and the action.
 ///
-/// ⛔⛔ THESE WERE TWO READINGS FOR HALF A DAY AND THEY DISAGREED. `cmd_buy_item`
-/// built its request with `price.max(0.0) as i32`; when `wallet.can_afford` was
-/// published (D-WALLET-PREDICATE) it compared the balance against the raw `f64`
-/// instead. The migration removed one duplicated authority and created another,
-/// on the other side of the same contract:
+/// `cmd_buy_item` and `wallet.can_afford` both use this. Two readings disagree
+/// like this, and a guard that refuses what the action then does is worse
+/// than no guard:
 ///
 /// ```text
 ///   balance 25, authored 25.7   guard says NO,  buy_item charges 25 and SUCCEEDS
 ///   authored -5                 guard says NO,  buy_item charges  0 and SUCCEEDS
 /// ```
 ///
-/// ⇒ A guard that refuses what the action then performs is worse than no guard:
-/// it reads as protection. Both roads take their price from here now.
-///
-/// ⭐ STRICT, NOT CLAMPING, and the shipped content pays nothing for it: every
-/// authored `buy_item`/`sell_item`/`can_afford` price in the repository is a
-/// non-negative integer (measured 2026-09-04 — 0, 4, 6, 8, 12, 17, 25, 30, 35,
-/// 40, 45). ⇒ Clamping only ever silently rescued an authoring mistake, and
-/// `-5` becoming a free purchase is the shape of mistake it rescued.
+/// Strict, not clamping. Every shipped price is a non-negative integer, so
+/// clamping would only hide an authoring mistake such as `-5` becoming free.
 pub fn authored_price(price: f64) -> Result<i32, AuthoredPriceProblem> {
     if !price.is_finite() {
         return Err(AuthoredPriceProblem::NotFinite);

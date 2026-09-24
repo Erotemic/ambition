@@ -1,11 +1,10 @@
 //! Cut-rope boss arena rules.
 //!
-//! The arena is authored in LDtk as ordinary `Prop` entities named/kinded
+//! The arena is authored in LDtk as ordinary `Prop` entities with kind
 //! `cut_rope_rope` and `cut_rope_anvil`, plus a `BossSpawn` whose behavior id
-//! is `smirking_behemoth_boss`. This system keeps the one-off mechanic tied to
-//! authored level data rather than hard-coded coordinates: cutting the rope prop
-//! starts the anvil prop falling; the anvil impact forces the boss encounter
-//! through the normal death pipeline.
+//! is `smirking_behemoth_boss`. The mechanic is tied to authored level data,
+//! not hard-coded coordinates: cutting the rope starts the anvil falling, and
+//! the anvil impact sends the boss through the normal death pipeline.
 
 #![allow(unused_imports)]
 use bevy::prelude::*;
@@ -63,24 +62,21 @@ pub fn is_cut_rope_boss(id: &str) -> bool {
     id == CUT_ROPE_BOSS_ID
 }
 
-// The replay request itself is the ENGINE's generic
-// `session::reset::RoomReplayRequested` — content emits it; no
-// content-named replay message exists.
+// The replay request is the engine's generic
+// `session::reset::RoomReplayRequested`; content emits it.
 
 /// The player chose "try again".
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CutRopeRoomReplayRequested;
 
-/// Latched once the player chooses the replay option. The actual room reset
-/// intentionally waits until the conversation is over, so the final NPC line
-/// remains visible until the player dismisses it.
+/// Latched once the player chooses the replay option. The room reset waits
+/// until the conversation is over, so the final NPC line stays visible until
+/// the player dismisses it.
 ///
-/// rollback state, because it BRIDGES TICKS. The choice is made while the
-/// last line is still on screen and the reset happens whenever the player
-/// dismisses it — an unbounded number of ticks later. A latch that spans ticks
-/// and is written by the simulation is simulation state; leaving it out meant a
-/// rewind across the choice kept the intention and a rewind across the reset
-/// lost it.
+/// This is rollback state because it spans ticks: the choice is made while the
+/// last line is on screen, and the reset happens an unbounded number of ticks
+/// later. Without it, a rewind across the choice would keep the intention and a
+/// rewind across the reset would lose it.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
@@ -113,10 +109,9 @@ const CUT_ROPE_HEAVY_OBJECT_CYCLE: [CutRopeHeavyObjectKind; 2] =
 
 /// Tracks which heavy object is currently hanging from the cut-rope trap.
 ///
-/// This lives outside [`CutRopeBossArenaState`] so leaving/re-entering the room
-/// can rebuild transient fall/rope state without changing the chosen prop. The
-/// choice advances only on an actual room reset, which makes the variation
-/// deterministic and easy to test.
+/// It lives outside [`CutRopeBossArenaState`] so leaving and re-entering the
+/// room rebuilds transient fall/rope state without changing the chosen prop.
+/// The choice advances only on a room reset, so the variation is deterministic.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CutRopeHeavyObjectCycle {
     index: usize,
@@ -131,11 +126,9 @@ impl Default for CutRopeHeavyObjectCycle {
 impl CutRopeHeavyObjectCycle {
     /// Canonical projection for the session checksum.
     ///
-    /// ⭐ Registered with `rollback_resource_clone`, this contributed only its
-    /// PRESENCE — and a cycle index is a single number that decides which prop
-    /// the arena rebuilds, so a rewind that advanced it differently was
-    /// invisible. Its presence-only waiver claimed "immutable at runtime", which
-    /// `reset_cut_rope_boss_arena_on_room_reset` calling `advance()` refutes.
+    /// The cycle index decides which prop the arena rebuilds, and
+    /// `reset_cut_rope_boss_arena_on_room_reset` changes it with `advance()`, so it
+    /// must hash its value, not only its presence.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::{checksum_bytes, put_u64};
         let Self { index } = self;
@@ -158,14 +151,11 @@ impl CutRopeHeavyObjectCycle {
     }
 }
 
-/// Convert a dialogue-authored replay choice into the ENGINE's generic
+/// Convert a dialogue-authored replay choice into the engine's generic
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
-/// once the conversation is over. Registered in the engine's
-/// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
-/// host never names this system.
-///
-/// The conversation authority answers the same question deterministically, and it is the thing the
-/// box is a projection of.
+/// once the conversation is over. `AmbitionBossContentPlugin` registers it in
+/// the engine's `ContentDialogueFollowupSet` slot, so the host never names this
+/// system. The conversation authority decides when the conversation is over.
 pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
     conversation: Res<ambition_conversation::ActiveConversation>,
     mut chosen: MessageReader<CutRopeRoomReplayRequested>,
@@ -187,20 +177,17 @@ pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
 ///
-/// R3: the boss's live state is entity-local, so the actual reset happens on the
-/// replay road — `sandbox_reset::admit_room_replay` names the controlled body
-/// and emits `RoomReplayAdmitted`, and the room is rebuilt through canonical
-/// construction from there. (It used to name a
-/// `rooms::reconstitute_the_active_room` (cite-ok: naming the dead function is
-/// the point); that function is gone.) This helper only clears the *persisted* "cleared"
-/// record (so the rebuilt boss isn't constructed pre-marked defeated) and
-/// restores the intro music from the read-only profile catalog. Re-hiding the
-/// victory NPC is not a second action: it FALLS OUT of that one record, because
-/// the NPC's spawn gate reads the same placement state (see the star comment in
-/// the body, and `victory.rs`).
+/// The boss's live state is entity-local, so the real reset happens on the
+/// replay road: `sandbox_reset::admit_room_replay` names the controlled body
+/// and emits `RoomReplayAdmitted`, and canonical construction rebuilds the
+/// room. This helper only clears the persisted "cleared" record (so the
+/// rebuilt boss is not marked defeated) and restores the intro music from the
+/// read-only profile catalog. The victory NPC hides again as a result of that
+/// same record, because its spawn gate reads the placement state (see
+/// `victory.rs`).
 ///
-/// R4: "cleared" is keyed by PLACEMENT (the boss's `config.id`), so the caller
-/// passes the cut-rope boss placement ids currently in the room to clear.
+/// "Cleared" is keyed by placement (the boss's `config.id`), so the caller
+/// passes the cut-rope boss placement ids in the room.
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::AmbitionGameSave>,
@@ -218,19 +205,13 @@ pub fn reset_cut_rope_boss_attempt(
                 ambition_persistence::save_data::PersistedEncounterState::Untouched,
             );
         }
-        // ⭐ THE LINE ABOVE IS WHAT MAKES THE POST-BOSS CONVERSATION WAIT FOR THE
-        // NEXT KILL, and nothing else is needed. `spawn_cut_rope_victory_npc`
-        // gates the NPC on `PayloadReleased` this frame (a fresh kill) OR the
-        // placement reading `Cleared` (a re-entry) — see `victory.rs`. Setting
-        // the placement back to `Untouched` closes both roads at once.
+        // The line above makes the post-boss conversation wait for the next kill.
+        // `spawn_cut_rope_victory_npc` gates the NPC on `PayloadReleased` this frame
+        // (a fresh kill) or the placement reading `Cleared` (a re-entry); see
+        // `victory.rs`. Setting the placement to `Untouched` closes both.
         //
-        // ⛔⛔ THERE WAS A `set_flag("smirking_behemoth_victory_npc_seen", false)`
-        // here, under a comment claiming it did that job. It did not: measured
-        // 2026-09-05, that flag had ONE write (this one, to `false`), ZERO
-        // readers anywhere in the tree — Rust, executable Yarn, LDtk, JSON — and
-        // NOTHING that ever set it true. A durable fact with no reader and no
-        // producer of its true value is a SECOND AUTHORITY over a question the
-        // save record already answers, and it was costing a save key besides.
+        // Do not add a separate "victory NPC seen" flag: the save record already
+        // answers that question, and a second authority can disagree with it.
     }
     if let Some(music) = music_request {
         match intro_track.filter(|track| !track.is_empty()) {
@@ -242,24 +223,19 @@ pub fn reset_cut_rope_boss_attempt(
 
 /// Release the cut-rope boss's music claim once the player is not in its room.
 ///
-/// ⛔⛔ THE CLAIM WAS TAKEN BY A ONE-SHOT AND RELEASED BY NOBODY.
-/// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the boss's
-/// intro track, and it runs on an admitted room REPLAY — which is what a death
-/// is. Its only release is the `None` arm of that same match, inside that same
-/// one-shot. So: die in the cut-rope room, walk out, and the Smirking Behemoth's
-/// intro follows you. `EncounterMusicRequest::desired_track` puts the priority
-/// tier ABOVE room music, so it does not merely linger, it WINS everywhere.
-/// Reported by Jon 2026-09-06: "the symmetry room, where if I die or trigger
-/// something (not the pca fight) I get the grinning colossus music."
+/// `reset_cut_rope_boss_attempt` claims `CUT_ROPE_MUSIC_OWNER` for the intro
+/// track on an admitted room replay, which is what a death is. Its only
+/// release is inside that same one-shot. Without this system, a player who
+/// dies here and walks out keeps the Smirking Behemoth's intro, and
+/// `EncounterMusicRequest::desired_track` ranks that tier above room music.
 ///
-/// ⭐ THE GENERIC BOSS SYSTEM ALREADY KNEW THIS, in as many words: *"This system
-/// has no run condition, so it reaches the 'no boss is fighting' arm on every
-/// frame of every game."* A claim released only by the system that took it is
-/// released only while that system still runs — and a one-shot stops running by
-/// definition. This is that discipline applied to the owner that lacked it.
+/// A claim released only by the system that took it is released only while
+/// that system runs, and a one-shot stops running. The generic boss system
+/// follows the same rule: it has no run condition, so it reaches its "no boss
+/// is fighting" arm every frame.
 ///
-/// ⚠ It releases only its OWN claim (`release_priority` is owner-checked), so a
-/// conversation, a demo death cue, or the generic boss owner keep theirs.
+/// It releases only its own claim (`release_priority` is owner-checked), so a
+/// conversation, a demo death cue or the generic boss owner keep theirs.
 pub fn release_cut_rope_music_outside_its_room(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,
@@ -279,23 +255,19 @@ pub fn release_cut_rope_music_outside_its_room(
     music.release_priority(CUT_ROPE_MUSIC_OWNER);
 }
 
-/// On an ADMITTED room replay ([`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted)
-/// — not the request; see the parameter's comment), clear the cut-rope boss's
-/// per-attempt state for every cut-rope placement in the room. That is now ONE
-/// durable fact (the placement's persisted "cleared" record) plus the
-/// non-durable intro music; the `victory-NPC flag` this line used to name was
-/// removed 2026-09-05 as a fact with no reader and no producer.
-///
-/// This is the CONTENT half of the room-replay: the host's app-side replay
-/// consumer resets the player + world (and its `RoomReplayAdmitted`
-/// respawns the boss), while this system — registered in the engine's
-/// `ContentRoomReplayResetSet` slot — owns the content-named attempt reset so
-/// the host consumer never names cut-rope. Both read the same message the frame
-/// it is emitted (independent reader cursors).
+/// On an admitted room replay ([`RoomReplayAdmitted`](ambition_combat::events::RoomReplayAdmitted),
+/// not the request; see the parameter's comment), clear the cut-rope boss's
+/// per-attempt state for every cut-rope placement in the room: the
+/// placement's persisted "cleared" record and the non-durable intro music.
+/// This is the content half of the room replay. The host's replay consumer
+/// resets the player and world (and its `RoomReplayAdmitted` respawns the
+/// boss). This system, registered in the engine's `ContentRoomReplayResetSet`
+/// slot, owns the content-named reset, so the host never names cut-rope. Both
+/// read the same message in the frame it is emitted (independent cursors).
 pub fn reset_cut_rope_attempt_on_replay(
-    // ⛔ THE ADMITTED REPLAY, NOT THE ASK. This retracts a persisted "cleared"
-    // record so the boss can be re-fought; doing that on a request the lifecycle
-    // slot might refuse would retract a defeat for a replay that never happens.
+    // The admitted replay, not the request. This retracts a persisted defeat;
+    // doing that on a request the lifecycle might refuse would retract a defeat
+    // for a replay that never happens.
     mut replays: MessageReader<ambition_combat::events::RoomReplayAdmitted>,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
@@ -324,14 +296,14 @@ pub fn reset_cut_rope_attempt_on_replay(
     );
 }
 
-/// Express the WHOLE Smirking Behemoth fight as the generic encounter pieces
-/// (R5): attach `ReleaseOnDeath` to the entity (frees the victory NPC on death)
-/// + an `EncounterScript` to its encounter that DATA-drives the fight:
-///   rope-cut → lure the behemoth under the anvil (`CommandMoveTo` → generic
+/// Express the whole Smirking Behemoth fight as generic encounter pieces:
+/// `ReleaseOnDeath` on the entity (frees the victory NPC on death) and an
+/// `EncounterScript` on its encounter that drives the fight from data:
+///   rope cut → lure the behemoth under the anvil (`CommandMoveTo` → generic
 ///   `CommandedMove`) + drop the anvil (`DropHazard` → generic `FallingHazard`)
 ///   → on the hazard's impact gate, `ForceKill`.
-/// No cut-rope-specific physics or steering — those are reusable mechanics now.
-/// Idempotent + waits until the authored anvil prop is available.
+/// No cut-rope-specific physics or steering. Idempotent; waits until the
+/// authored anvil prop is available.
 pub fn setup_cut_rope_encounter(
     mut commands: Commands,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
@@ -346,11 +318,9 @@ pub fn setup_cut_rope_encounter(
         }
     }
 
-    // The script needs the authored anvil's position + size to author the lure
-    // target + the falling hazard. Wait for the prop to load.
-    // One authority for "the authored anvil": this re-spelled `authored_prop`'s
-    // body by hand, so the two could drift and one of them did carry the caption
-    // alias the other has now dropped.
+    // The script needs the authored anvil's position and size for the lure
+    // target and the falling hazard, so wait for the prop to load.
+    // `authored_prop` is the one definition of "the authored anvil".
     let Some(anvil) = arena::authored_prop(room_set.active_props(), ANVIL_KIND) else {
         return;
     };
@@ -409,23 +379,19 @@ pub use victory::*;
 mod tests {
     use super::*;
 
-    /// The authored anvil is found by its KIND, not by its caption.
+    /// The authored anvil is found by its kind, not by its caption.
     ///
-    /// ⭐ GUARDS THE GAP, NOT THE FIX. `authored_prop` also matched
-    /// `PropSpec.name` — the LDtk display name, which `PropSpec`'s own doc says
-    /// the renderer uses "only for entity naming / debug overlay". Both authored
-    /// cut-rope props happen to carry `kind == name`, so the caption half never
-    /// changed an answer; it only meant a caption edit could silently rename the
-    /// prop this whole fight is built on, or claim a prop that is not it.
+    /// `PropSpec.name` is the LDtk display name, used only for entity naming and
+    /// the debug overlay. Matching it would let a caption edit rename or steal the
+    /// prop this fight is built on. Both cut-rope props have `kind == name`, so
+    /// the test needs the decoy below.
     #[test]
     fn the_authored_anvil_is_found_by_kind_and_not_by_its_caption() {
         let props = vec![
             prop_spec("iid-rope", ROPE_KIND, "cut_rope_rope"),
-            // ⚠ THE DECOY IS AUTHORED BEFORE THE REAL ANVIL, AND THAT ORDERING IS
-            // THE TEST. `find` returns the FIRST match, so a decoy placed after
-            // the anvil is never reached and this passes with the caption alias
-            // restored — a guard that cannot fail. Authored order is the
-            // author's choice, so this is a real arrangement, not a contrivance.
+            // The decoy comes before the real anvil, and that order is the test: `find`
+            // returns the first match, so a decoy after the anvil would never be reached
+            // and the test could not fail.
             prop_spec("iid-poster", "wall_poster", ANVIL_KIND),
             prop_spec("iid-anvil", ANVIL_KIND, "a lovely anvil"),
         ];
@@ -439,13 +405,10 @@ mod tests {
 
     /// The heavy object keeps its identity across its own re-skin.
     ///
-    /// ⛔⛔ THIS IS THE INVARIANT THE OLD CODE COULD NOT EXPRESS.
-    /// `apply_cut_rope_heavy_object_sprite` WRITES `PropVisual.kind` when the
-    /// trap cycles anvil → piano, so a `kind`-keyed match had to be told about
-    /// every skin the prop might be wearing (`ANVIL || PIANO`) and still leaned
-    /// on the caption. Keyed by the authored iid, the entity is the same entity
-    /// no matter what it is drawn as — and adding a THIRD heavy object needs no
-    /// new arm here, which is the part a disjunction could never promise.
+    /// `apply_cut_rope_heavy_object_sprite` writes `PropVisual.kind` when the
+    /// trap cycles anvil → piano, so a `kind` match would need to list every skin.
+    /// Keyed by the authored iid, the entity is the same whatever it is drawn as,
+    /// and a third heavy object needs no new arm.
     #[test]
     fn the_heavy_object_is_the_same_prop_after_it_is_re_skinned() {
         let anvil = prop_spec("iid-anvil", ANVIL_KIND, "a lovely anvil");
@@ -489,19 +452,15 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE BOSS'S MUSIC CLAIM IS RELEASED WHEN THE PLAYER LEAVES ITS ROOM —
-    /// Jon, 2026-09-06: "the symmetry room, where if I die or trigger something
-    /// (not the pca fight) I get the grinning colossus music."
+    /// The boss's music claim is released when the player leaves its room.
     ///
     /// `reset_cut_rope_attempt_on_replay` claims `CUT_ROPE_MUSIC_OWNER` for the
-    /// Smirking Behemoth's intro, and a DEATH is a room replay. Its only release
-    /// was the `None` arm of that same one-shot, so the claim outlived the room —
-    /// and `desired_track` puts the priority tier ABOVE room music, so it did not
-    /// linger quietly, it won everywhere.
+    /// intro, and a death is a room replay. `desired_track` ranks that tier above
+    /// room music, so a claim that outlived the room would win everywhere.
     ///
-    /// ⚠ THE PREMISE IS ASSERTED FIRST: the claim must SURVIVE while the player
-    /// is still in the room, or a release that fires unconditionally would pass
-    /// this test while silencing the fight it belongs to.
+    /// The premise is asserted first: the claim must survive while the player is
+    /// in the room, or an unconditional release would pass while silencing the
+    /// fight.
     #[test]
     fn the_boss_music_claim_does_not_follow_the_player_out_of_the_room() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();
@@ -512,16 +471,13 @@ mod tests {
             "premise: the claim is what makes the boss track win"
         );
 
-        // Elsewhere: exactly the call the system makes when the active room is
-        // not this boss's.
+        // Elsewhere: the call the system makes when the active room is not this
+        // boss's.
         //
-        // ⚠ WHAT THIS TEST DOES NOT COVER, stated rather than implied: the
-        // system's ROOM PREDICATE. It pins the claim LIFETIME — that a released
-        // claim stops winning, and that the release is owner-scoped — which is
-        // the half that was broken. Whether
-        // `release_cut_rope_music_outside_its_room` compares the right room needs
-        // a session-world fixture, and a tautological `if ROOM == ROOM` here
-        // would only have looked like coverage.
+        // Not covered: the system's room predicate. This test pins the claim
+        // lifetime (a released claim stops winning, and the release is owner-scoped).
+        // Whether `release_cut_rope_music_outside_its_room` compares the right room
+        // needs a session-world fixture.
         music.release_priority(CUT_ROPE_MUSIC_OWNER);
         assert_eq!(
             music.desired_track(),
@@ -531,10 +487,8 @@ mod tests {
         );
     }
 
-    /// ⚠ AND IT RELEASES ONLY ITS OWN CLAIM. `release_priority` is owner-checked,
-    /// so a conversation cue or another boss holding the tier is untouched — the
-    /// failure this guards is a release that silences whoever legitimately owns
-    /// the music instead of the one leaving.
+    /// It releases only its own claim. `release_priority` is owner-checked, so a
+    /// conversation cue or another boss holding the tier is untouched.
     #[test]
     fn releasing_the_cut_rope_claim_does_not_silence_another_owner() {
         let mut music = ambition_encounter::EncounterMusicRequest::default();

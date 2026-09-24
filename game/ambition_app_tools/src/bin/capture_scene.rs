@@ -36,115 +36,78 @@ struct SceneCaptureConfig {
     output: PathBuf,
     size: UVec2,
     warmup_frames: u32,
-    /// ⭐⭐ HOW MANY SHOTS, and the whole difference between a photograph and an
-    /// animation. `1` (the default) is the single-shot tool this has always
-    /// been and is byte-identical to it. Higher re-arms the capture after each
-    /// readback and numbers the files `<stem>.0000.png`, so a move can be
-    /// photographed while it PLAYS — which is the only way to see what a move
-    /// looks like without a person watching it.
+    /// How many shots. `1` (the default) is a single photograph. Higher values
+    /// re-arm the capture after each readback and number the files
+    /// `<stem>.0000.png`, so a move can be photographed while it plays.
     frames: usize,
     /// Sim frames to advance between shots of a sequence. `1` photographs every
     /// frame; higher samples a long move without hundreds of files.
     stride: u32,
     include_ui: bool,
-    /// Frame the whole ROOM instead of a point (`--fit-room`).
+    /// Frame the whole room instead of a point (`--fit-room`).
     ///
-    /// the focus positional answers *"what is happening here"*; this answers *"what does this room
-    /// LOOK like"*, which is a different question and the one a scale problem is visible in.
-    ///
-    /// it BYPASSES the camera snapshot rather than feeding it a wider focus:
-    /// that resolver clamps to the room and to camera zones, which is exactly
-    /// right for gameplay and exactly wrong for a portrait of the room.
+    /// The focus positional shows what is happening at a point; this shows
+    /// what the room looks like, where scale problems are visible. It bypasses
+    /// the camera snapshot, because that resolver clamps to the room and to
+    /// camera zones.
     fit_room: bool,
     /// Optional `character_catalog.ron` id to spawn the player AS (its sprite +
     /// moveset). `None` = the default protagonist. Behind `--character <id>`.
     ///
-    /// ⭐ ON `--route smash_gameplay` IT SEATS A MATCH instead, two of this
-    /// character against each other — because a smash move photographed in an
-    /// exploration room is photographed under exploration rules.
+    /// On `--route smash_gameplay` it seats a match instead (two of this
+    /// character), so a smash move is photographed under smash rules.
     character: Option<String>,
     /// When the focus positional is the literal `player`, center the camera on
     /// the live player entity's position after warmup (no coordinate hunting).
     follow_player: bool,
-    /// Keep the DEVELOPER overlays in the shot (`--dev-overlays`).
-    ///
-    /// A verification screenshot should show the PRODUCT. The debugging use that
-    /// genuinely wants nameplates asks for them.
+    /// Keep the developer overlays in the shot (`--dev-overlays`). By default a
+    /// verification screenshot shows the product.
     dev_overlays: bool,
-    /// Put the COMBAT debug view in the shot (`--combat-overlay`).
+    /// Put the combat debug view in the shot (`--combat-overlay`).
     ///
-    /// `--dev-overlays` only stops the tool SILENCING what a build already
-    /// shows; the combat volumes are a preset a player reaches through the
-    /// settings menu, and every field it sets is off by default. So a swing
-    /// could be photographed and its hit polygon could not, which is the one
-    /// question a melee capture is usually asked.
-    ///
-    /// This turns on exactly the `DebugViewMode::Combat` preset — the same
-    /// state the menu produces, not a private capture-only rendering path — so
-    /// what comes back is a configuration a player can reach. Implies
-    /// `--dev-overlays`.
+    /// `--dev-overlays` only stops the tool from hiding what a build shows.
+    /// The combat volumes are a settings-menu preset, off by default. This
+    /// turns on the `DebugViewMode::Combat` preset, the same state the menu
+    /// produces, so the result is a configuration a player can reach.
     combat_overlay: bool,
     /// Screen post-process effects to force on (`--screen-effect crt,vignette`).
     ///
-    /// ⛔⛔ WITHOUT THIS FLAG A CAPTURE CANNOT SEE THE POST-PROCESS AT ALL, and
-    /// it looks like it can. The effects are `UserSettings.video.shaders` state,
-    /// every strength is zero by default, and a windowless host inserts
-    /// `PersistenceRoot::isolated()` — a fresh temp directory — so a hand-written
-    /// `settings.ron` in the player's data dir is not read either. Two captures
-    /// taken that way come back BYTE-IDENTICAL and read as "the post-process is
-    /// broken"; measured 2026-08-31, that is what they mean by "nothing asked
-    /// for an effect".
-    ///
-    /// ⭐ The same fields the settings menu writes — not a capture-only
-    /// rendering path — so what comes back is a look a player can reach.
+    /// Without this flag a capture cannot show post-process. The effects are
+    /// `UserSettings.video.shaders` state, every strength defaults to zero, and
+    /// a windowless host uses `PersistenceRoot::isolated()` (a fresh temp
+    /// directory), so the player's `settings.ron` is not read. This writes the
+    /// same fields the settings menu writes.
     screen_effects: Vec<ScreenEffect>,
-    /// Input to deliver after reaching the route and before the shutter —
+    /// Input to deliver after reaching the route and before the shutter:
     /// key taps and glass taps (`--press touch:167x523,touch:167x523`).
     ///
-    /// Deliberately a generic input vocabulary rather than a `--smash-cpu`
-    /// flag, so any route with a lobby gets it for free.
+    /// A generic input vocabulary, not a `--smash-cpu` flag, so any route with
+    /// a lobby can use it.
     ///
-    /// They are not. `smash_in_the_host.rs` seats a fighter with `click(app, rect)`, which is
-    /// `SelectCursor::move_to(rect.center())` and THEN `tap(Enter)` — the POSITION is the
-    /// load-bearing half. A bare `Enter` from here commits wherever the cursor happens to sit, so
-    /// `--press Down,Enter,Enter` left all four slots reading `NOT PLAYING` and `--route
-    /// smash_gameplay` photographed an empty stage.
-    ///
-    /// `touch:X x Y` is the step that carries a position, and it carries
-    /// it down the road a phone uses: two real `TouchInput` messages folded by
-    /// Bevy's own `touch_screen_input_system`. `select_screen::touch_tests`
-    /// already pins that road, so the tool and the suite drive the same seam
-    /// rather than two that can disagree. See [`PressStep::Touch`].
-    ///
-    /// arrow keys are still the right tool for a LIST — the launcher rows,
-    /// the menus — and for gameplay. They just cannot name a rectangle.
+    /// A key has no position: a bare `Enter` commits wherever the select
+    /// cursor sits. `smash_in_the_host.rs` seats a fighter by moving the cursor
+    /// to a rect centre and then pressing Enter. `touch:XxY` carries a
+    /// position through two real `TouchInput` messages folded by Bevy's
+    /// `touch_screen_input_system`, the seam `select_screen::touch_tests`
+    /// covers. See [`PressStep::Touch`]. Arrow keys still suit lists (launcher
+    /// rows, menus) and gameplay.
     press: Vec<PressStep>,
-    /// Open the shutter N press-driving frames in, INSTEAD OF after the
+    /// Open the shutter N press-driving frames in, instead of after the
     /// sequence completes (`--press-during N`).
     ///
-    /// The default shutter waits for the press sequence to be spent and then
-    /// for the state it asked for, which is right when the presses are a means
-    /// of navigation — you want the screen they reach. It cannot photograph a
-    /// frame that only exists WHILE an input is being delivered: a page turn's
-    /// first frame, a menu's opening frame, a key's held pose. Those are states
-    /// the sequence passes THROUGH, and by the time it is spent they are gone.
+    /// The default shutter waits for the sequence to finish and for the state
+    /// it asked for. That cannot capture a frame that exists only while input
+    /// is delivered (a page turn's first frame, a held key's pose).
     ///
-    /// `None` is the tool this has always been, byte-identical. `Some(n)` shoots
-    /// on the frame after `n` frames of press driving — so `--press Enter
-    /// --press-during 1` photographs the frame on which Enter is still held,
-    /// before its release edge, because a tap is two frames by design.
+    /// `None` keeps the default behaviour. `Some(n)` shoots on the frame after
+    /// `n` frames of press driving, so `--press Enter --press-during 1` shows
+    /// the frame where Enter is still held (a tap is two frames).
     ///
-    /// ⛔ It is a HARD FAILURE for the sequence to be spent before frame `n`
-    /// arrives. The post-press image would be a perfectly good photograph of the
-    /// wrong moment, filed under a flag that says otherwise — the exact quiet
-    /// wrong-thing this binary's other guards exist to refuse.
+    /// If the sequence is spent before frame `n`, that is a hard failure: the
+    /// post-press image would be the wrong moment.
     press_during: Option<u32>,
-    /// Photograph a SHELL ROUTE rather than a room (`--route <id>`).
-    ///
-    /// The surfaces a stranger sees first — the launcher, the startup cards,
-    /// the versus stage and its HUD — are routes, and this tool could only ever
-    /// reach rooms. Asking for one by room id silently captured the sandbox
-    /// instead, which is the worst thing a verification tool can do.
+    /// Photograph a shell route instead of a room (`--route <id>`). The
+    /// launcher, startup cards, versus stage, and HUD are routes.
     route: Option<String>,
 }
 
@@ -163,56 +126,45 @@ struct SceneCaptureRuntime {
     /// Route mode only: the shell has been told where to go. One request, not
     /// one per frame — a `GoTo` every update would restart the route forever.
     route_requested: bool,
-    /// How far through `--press` the driver has got, and whether the key it
-    /// tapped is still held. A press and its release are two frames because the
-    /// surfaces being driven read EDGES — the select screen's own headless
-    /// drivers do exactly this, and a held key is not a second press.
+    /// How far through `--press` the driver is, and whether the tapped key is
+    /// still held. A press and its release are two frames because the driven
+    /// surfaces read edges.
     press_cursor: usize,
     press_held: Option<KeyCode>,
-    /// ⭐⭐ WHICH SHOT OF A SEQUENCE this is. `0` and a `frames` of 1 is the
-    /// single-photograph tool this has always been; anything higher re-arms
-    /// after each readback and photographs a MOVING scene, which is what makes
-    /// an animation.
+    /// Which shot of a sequence this is.
     shot: usize,
     /// Frames still to wait before re-arming the next shot of a sequence.
     stride_left: u32,
-    /// The finger a `touch:X,Y` step put down and has not lifted yet, and the
-    /// id it went down with. Same two-frame shape as a key tap and for the same
-    /// reason — a press edge and a release edge are two different frames — but
-    /// kept apart from `press_held` because the two travel different seams and
-    /// a step that mixed them would release a key that was never pressed.
+    /// The finger a `touch:X,Y` step put down and has not lifted yet. Same
+    /// two-frame shape as a key tap, but separate from `press_held` because
+    /// the two use different seams.
     touch_held: Option<Vec2>,
-    /// The id the NEXT finger goes down with. Fresh per tap rather than reused:
-    /// `Touches` keys everything by id, and a second `Started` under an id the
-    /// fold has not finished retiring is a state a phone never produces.
+    /// The id the next finger goes down with. Fresh per tap: `Touches` keys
+    /// everything by id, and reusing an id not yet retired is a state a phone
+    /// never produces.
     next_touch_id: u64,
     /// Frames left on a `wait` step.
     press_wait: u32,
-    /// How many frames the press driver has actually RUN for — the clock
-    /// `--press-during` counts in, and deliberately not `frames`. `frames`
-    /// includes warmup and is zeroed when a sequence completes; this counts only
-    /// the frames on which a step was delivered, held, released or waited out,
-    /// which is the thing a person means by "one frame into the press".
+    /// Frames the press driver has run for: the clock `--press-during` counts
+    /// in. Unlike `frames`, it excludes warmup and is not zeroed when a
+    /// sequence completes.
     press_frames: u32,
-    /// The sequence ran out before `--press-during` named a frame. Carried as a
-    /// flag rather than exited on the spot because the detection happens inside
-    /// `complete_press_sequence_if_spent`, which has no `Commands`.
+    /// The sequence ran out before the `--press-during` frame. A flag, not an
+    /// immediate exit, because `complete_press_sequence_if_spent` has no
+    /// `Commands`.
     press_during_missed: bool,
-    /// The frame the last key was released on. The sequence usually STARTS a
-    /// route change ("Starting…"), so the shutter has to wait for the state the
-    /// presses asked for rather than photograph the moment they were accepted —
-    /// the first run of this caught exactly that and photographed the select
-    /// screen mid-confirmation.
+    /// The frame the last key was released on. The sequence usually starts a
+    /// route change, so the shutter waits for the requested state instead of
+    /// the moment the presses were accepted.
     press_done_frame: Option<u32>,
     /// How many cameras the route capture has adopted, so the count is
-    /// announced when it CHANGES rather than once per frame.
+    /// printed when it changes, not every frame.
     cameras_adopted: usize,
-    /// Has the world this capture photographs finished being BUILT?
+    /// Has the world this capture photographs finished being built?
     ///
-    /// So `--warmup 60` meant "sixty frames after BOOT", of which an unpredictable number happened
-    /// before there was anything to simulate. The body ended up on a slightly different tick of its
-    /// own idle each run, and because nameplate opacity is ranked by DISTANCE from the focus, a few
-    /// pixels of player drift re-ordered the labels and rewrote their text.
+    /// Warmup counts from here, not from boot. Otherwise the body lands on a
+    /// different idle tick each run, and because nameplate opacity is ranked
+    /// by distance from the focus, small drift reorders the labels.
     world_ready: bool,
 }
 
@@ -311,36 +263,26 @@ fn main() {
     app.run();
 }
 
-/// THE ONE APP THIS TOOL BUILDS.
+/// The one app this tool builds.
 ///
-/// There was no moment to insert them in, so the tool built its own app instead, and that copy
-/// silently lost the `--route` positional, the headless display surface, `--dev-overlays`,
-/// `--combat-overlay`, and — for two days — the entire room, because nothing added
-/// `install_ambition_shell_visuals` to it.
-///
-/// `build_visible_app_with` is the moment that did not exist. With it, a ROOM and a ROUTE
-/// differ by one boolean (which route the shell boots into) and by which capture systems get
-/// installed.
+/// `build_visible_app_with` gives a hook to add capture systems to the
+/// production composition. A room and a route differ only by one boolean
+/// (the initial route) and by which capture systems are installed.
 fn build_capture_app(config: &SceneCaptureConfig) -> App {
-    // The offscreen-GPU mode, always. The older no-window one sets
-    // `backends: None` and therefore has no render app at all — a readback under
-    // it can never complete, which is what three eliminated hypotheses were
-    // circling.
+    // Always the offscreen-GPU mode. `NoWindow` sets `backends: None` and has
+    // no render app, so a readback could never complete.
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::OffscreenGpu,
-        // this boolean chooses the INITIAL ROUTE, not whether a shell exists —
-        // since K2b both arms are shell-hosted. `true` boots the launcher, which
-        // is where a `--route` capture navigates from; `false` boots straight to
-        // the gameplay route, which is what `--direct` and every `--start-room`
-        // alias mean and what a ROOM capture is.
+        // This boolean chooses the initial route; both arms are shell-hosted.
+        // `true` boots the launcher, where a `--route` capture navigates from.
+        // `false` boots straight to gameplay, which is a room capture (and
+        // what `--direct` and every `--start-room` alias mean).
         config.route.is_some(),
         |app| {
             if config.route.is_none() {
                 app.insert_resource(StartRoomOverride(config.room_id.clone()));
-                // A capture that photographs a DIFFERENT room than the one asked
-                // for is the worst failure this tool has, and it had it: two real
-                // room ids and one invented one all produced the hub, each
-                // writing a valid PNG and exiting 0.
+                // Refuse an unknown room: otherwise the capture silently
+                // photographs the hub and exits 0.
                 app.insert_resource(ambition_app::app::StartRoomMustResolve);
             }
             // Optional "play as this character" override.
@@ -352,10 +294,8 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             }
         },
     );
-    // THE SURFACE THIS RUN DRAWS TO. (queue Z′8)
-    //
-    // A capture that cannot show a layout is worse than no capture, because it
-    // shows a DIFFERENT layout convincingly.
+    // The surface this run draws to (queue Z′8). A capture that cannot show
+    // a layout would show a different layout convincingly.
     app.insert_resource(
         ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
             ambition_platformer2d::engine_core::Vec2::new(
@@ -364,22 +304,19 @@ fn build_capture_app(config: &SceneCaptureConfig) -> App {
             ),
         ),
     );
-    // THE ENGINE'S OWN LOG, which every windowless host disables.
+    // The engine's log, which every windowless host disables.
     //
-    // `build_visible_app` drops `LogPlugin` from `NoWindow` and `OffscreenGpu`
-    // for a reason that is true of tests and false of this binary: *"tests build
-    // several Apps per process; the tracing subscriber is process-global."* A
-    // capture builds exactly one App and then exits.
-    //
-    // Added after the group rather than by un-disabling it, so it applies to both
-    // capture modes at once and cannot be half-wired the way five flags were.
+    // `build_visible_app` drops `LogPlugin` for `NoWindow` and `OffscreenGpu`
+    // because tests build several Apps per process and the tracing subscriber
+    // is process-global. A capture builds one App and exits. Added after the
+    // group, so it applies to both capture modes.
     app.add_plugins(bevy::log::LogPlugin::default());
     app.insert_resource(config.clone());
     app.insert_resource(SceneCaptureRuntime::default());
     app
 }
 
-/// The systems a ROOM capture adds on top of [`build_capture_app`].
+/// The systems a room capture adds on top of [`build_capture_app`].
 fn install_room_capture(app: &mut App) {
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
@@ -400,48 +337,36 @@ fn install_room_capture(app: &mut App) {
 
 /// One step of a `--press` sequence.
 ///
-/// `Wait` exists because presses fire two frames apart — one to press, one to release, because
-/// the surfaces read EDGES — and a ROUTE CHANGE takes far longer than that.
+/// `Wait` exists because presses are two frames (press, release; the surfaces
+/// read edges), and a route change takes much longer.
 #[derive(Clone, Copy, Debug)]
 enum PressStep {
     Tap(KeyCode),
     /// Run this many frames without touching anything.
     Wait(u32),
-    /// Press and KEEP HOLDING (`hold:up`), until a matching `release:`.
+    /// Press and keep holding (`hold:up`) until a matching `release:`.
     ///
-    /// A tap cannot express a directional attack. `up,x` taps Up, releases it,
-    /// and only then presses attack — by which time the aim axis is back to
-    /// neutral and the swing resolves forward. Every tilt and every aerial in
-    /// the game is "a direction held while attack is pressed", so a tool that
-    /// can only tap can photograph exactly one of the seven.
+    /// A tap cannot express a directional attack: `up,x` releases Up before
+    /// attack is pressed, so the swing resolves forward. Tilts and aerials
+    /// need a direction held while attack is pressed.
     Hold(KeyCode),
     /// Let go of a key an earlier `hold:` is still holding (`release:up`).
     Release(KeyCode),
-    /// Tap the glass at a point (`touch:167x523`), in LOGICAL window pixels
-    /// with a top-left origin — the space `HitRect` and `Node { left, top }`
-    /// are already in, and the space a capture's own pixels are in at scale 1.
+    /// Tap the glass at a point (`touch:167x523`), in logical window pixels
+    /// with a top-left origin: the space of `HitRect` and `Node { left, top }`,
+    /// and of the capture's pixels at scale 1.
     ///
-    /// this is the step that can work a POINTER screen, and a key tap
-    /// cannot. A key is an EDGE with no position, so `Enter` commits wherever
-    /// the cursor already sits; the select screen's headless drivers commit at
-    /// a rectangle's centre, and the position is the load-bearing half. A
-    /// finger carries both, which is why one step type reaches every widget
-    /// while no number of arrow taps reliably does.
-    ///
-    /// a real `TouchInput` message, not a poke at `Touches` — the same
-    /// pair of messages winit emits, folded by Bevy's own
-    /// `touch_screen_input_system`. So this drives the phone road the product
-    /// ships, and any route that answers a finger gets it for free.
+    /// A key is an edge with no position; a finger carries both, so one step
+    /// type reaches every pointer widget. It sends real `TouchInput` messages
+    /// (the pair winit emits), folded by Bevy's `touch_screen_input_system`,
+    /// so it drives the same phone path the product ships.
     Touch(Vec2),
 }
 
 /// Parse `--press-during N` into the press-driving frame the shutter opens on.
 ///
-/// `0` is refused rather than clamped. It would mean "photograph before the
-/// first step is delivered", which is a capture with no press in it — already
-/// spelled by leaving `--press` off — and a person who typed `--press-during 0`
-/// much more likely meant the first frame of the input, which is `1`. Silently
-/// answering the other question is how a flag stops meaning what it says.
+/// `0` is refused, not clamped. It would mean a capture with no press in it,
+/// which is spelled by leaving `--press` off. The first input frame is `1`.
 fn parse_press_during(text: &str) -> Result<u32, String> {
     let frames = text
         .trim()
@@ -459,8 +384,8 @@ fn parse_press_during(text: &str) -> Result<u32, String> {
 
 /// Parse `--press Down,Enter,wait,Down,Enter` into taps and pauses.
 ///
-/// The names are the ones a person says out loud, not `ArrowDown`: this is typed
-/// by hand at a terminal while looking at a screenshot.
+/// Names are the ones a person says aloud (not `ArrowDown`), because this is
+/// typed by hand.
 fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
     text.split(',')
         .map(str::trim)
@@ -495,10 +420,8 @@ fn parse_press_sequence(text: &str) -> Result<Vec<PressStep>, String> {
 
 /// `167x523` — one point in the `--press` vocabulary.
 ///
-/// `x` and not a comma, because the comma is already the STEP separator:
-/// `touch:167,523` would arrive here as two steps and the second one would be
-/// parsed as a key name. `WIDTHxHEIGHT` is the spelling this tool's own size
-/// argument already uses, so there is one separator convention rather than two.
+/// `x`, not a comma, because the comma separates steps. The size argument
+/// already uses `WIDTHxHEIGHT`.
 fn parse_point(text: &str) -> Result<Vec2, String> {
     let (x, y) = text
         .split_once('x')
@@ -527,12 +450,9 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "z" => Ok(KeyCode::KeyZ),
         "x" => Ok(KeyCode::KeyX),
         "c" => Ok(KeyCode::KeyC),
-        // the rest of the default preset's action row, and its absence had a cost. `z`/`x`/`c`
-        // are jump/attack/dash; the preset also binds secondary=A, quick_action=E, special=G and
-        // interact=F.
-        //
-        // So the repo's only way to LOOK at a visual change could not reach the one screen most in
-        // need of looking at.
+        // The rest of the default preset's action row. `z`/`x`/`c` are
+        // jump/attack/dash; the preset also binds secondary=A,
+        // quick_action=E, special=G, and interact=F.
         "a" => Ok(KeyCode::KeyA),
         "e" => Ok(KeyCode::KeyE),
         "f" => Ok(KeyCode::KeyF),
@@ -556,7 +476,7 @@ impl SceneCaptureConfig {
         let mut dev_overlays = false;
         let mut combat_overlay = false;
         let mut screen_effects: Vec<ScreenEffect> = Vec::new();
-        // One shot every frame, which is the tool this has always been.
+        // One shot every frame by default.
         let mut frames: usize = 1;
         let mut stride: u32 = 1;
         let mut fit_room = false;
@@ -566,18 +486,14 @@ impl SceneCaptureConfig {
         let mut press_during: Option<u32> = None;
         let mut i = 0usize;
         while i < args.len() {
-            // A cursor the arms cannot write cannot be forgotten — an arm that ate one argument
-            // and says nothing is a compile error, not a hang.
+            // Each arm returns how many arguments it consumed, so an arm that
+            // forgets is a compile error, not a hang.
             let consumed = match args[i].as_str() {
-                // it does NOT imply `--dev-overlays`. It did, and that made
-                // `silence_dev_overlays` return early, so a capture asking for
-                // combat VOLUMES also kept the FPS counter, the debug HUD and
-                // the nameplates that read like raw identifiers leaking into
-                // player UI. Two independent concerns: clear the developer
-                // chrome, and switch the combat gizmos on. The gizmos need
-                // `DeveloperRuntimeState.debug` and the gizmo toggles, none of
-                // which the chrome settings touch — and `force_combat_overlay`
-                // is chained AFTER the silencer either way.
+                // This does not imply `--dev-overlays`. Clearing developer
+                // chrome and turning on combat gizmos are separate concerns:
+                // the gizmos need `DeveloperRuntimeState.debug` and the gizmo
+                // toggles, which the chrome settings do not touch.
+                // `force_combat_overlay` runs after the silencer.
                 "--combat-overlay" => {
                     combat_overlay = true;
                     1
@@ -606,9 +522,8 @@ impl SceneCaptureConfig {
                     fit_room = true;
                     1
                 }
-                // Keeping it would have forced this tool to keep TWO render modes, which is the
-                // fork that ate five features; a flag that shows an empty window is not worth
-                // the composition that has to branch for it.
+                // One render mode only: a flag that shows an empty window is
+                // not worth a second composition.
                 "--character" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--character requires a catalog id".to_string());
@@ -718,11 +633,8 @@ impl SceneCaptureConfig {
             i += consumed;
         }
 
-        // `--press-during` NAMES A FRAME OF `--press`. Without a sequence there
-        // is no press-driving frame for it to name, and the capture would come
-        // out as the ordinary one — a flag that reads as honoured and did
-        // nothing. Refuse it here rather than at the shutter, where the image is
-        // already written.
+        // `--press-during` names a frame of `--press`. Without a sequence it
+        // would do nothing silently, so refuse it here, before any image.
         if press_during.is_some() && press.is_empty() {
             return Err(
                 "--press-during counts frames of --press, and no --press was given. There is no \
@@ -731,15 +643,11 @@ impl SceneCaptureConfig {
             );
         }
 
-        // A ROUTE has no room id and no focus point: the shell composes its own
-        // surface and its own cameras. Requiring the room positionals anyway
-        // would mean inventing values that are then ignored, which is how a
-        // flag ends up documented as "pass anything here".
+        // A route has no room id and no focus point: the shell composes its
+        // own surface and cameras.
         if let Some(route) = route.clone() {
-            // A ROUTE'S POSITIONALS ARE CLASSIFIED, NOT COUNTED.
-            //
-            // Classifying instead of counting means an unexpected argument is
-            // NAMED, and named before any work happens rather than after.
+            // Classify positionals instead of counting them, so an unexpected
+            // argument is named before any work happens.
             let mut output: Option<PathBuf> = None;
             let mut size: Option<UVec2> = None;
             for value in &positional {
@@ -766,8 +674,8 @@ impl SceneCaptureConfig {
                 warmup_frames: warmup_frames.max(90),
                 frames,
                 stride,
-                // A route IS its UI. Capturing one without it would photograph
-                // an empty clear colour and call it the launcher.
+                // A route is its UI. Without it the capture is an empty clear
+                // colour.
                 include_ui: true,
                 fit_room,
                 character,
@@ -827,38 +735,15 @@ impl SceneCaptureConfig {
     }
 }
 
-/// Photograph a shell ROUTE through the player's own composition.
+/// The press-driving frame that shot `shot` of a `--press-during` capture
+/// opens on.
 ///
-/// A confirmation starts a ROUTE CHANGE, and the route it starts has its own load, its own
-/// cameras and its own readiness. So the presses end one capture and begin another — zeroing
-/// the frame count and un-setting readiness re-runs the machinery that already knows how to
-/// wait for a route ("warmup is a duration, readiness is a FACT"), and the deadline is
-/// recomputed with it rather than eaten by it.
+/// A function of the shot index, not a countdown, because the ordinary stride
+/// (`stride_left`) is counted outside the press block and would stall the
+/// press being photographed. Here the stride is in press-driving frames.
 ///
-/// this lived inside the deferred-release branch of a TAP, so it ran only
-/// when the last step was a tap. `Hold`, `Release` and `Wait` advance the cursor
-/// through a different path and none of them completed the sequence — and BOTH
-/// shaped-volume examples this tool ships end in `release:`, so neither ever got
-/// the post-input warmup its documentation promises. The shutter could fire
-/// almost immediately after the final release instead of N ticks into the action
-/// it triggered, which for a tool whose purpose is photographing a specific
-/// moment is the whole ballgame.
-///
-/// Spent means all FOUR are exhausted: no steps left, no key tap awaiting its
-/// release, no finger still on the glass, no wait counting down. Asking one
-/// question in one place is what stops the next step type from being forgotten
-/// the way these three were.
-/// The press-driving frame shot `shot` of a `--press-during` capture opens on.
-///
-/// Kept as a function of the shot index rather than a countdown in the runtime
-/// because the ordinary sequence stride (`stride_left`) is counted OUTSIDE the
-/// press block — it returns before the driver runs — so a `--press-during`
-/// sequence that used it would stall the press it is photographing. Here the
-/// stride is measured in press-driving frames, which is the only clock that is
-/// still ticking while an input is being delivered.
-///
-/// `None` when `--press-during` was not asked for, and that `None` is the whole
-/// promise that the default tool is unchanged.
+/// `None` when `--press-during` was not asked for, so the default tool is
+/// unchanged.
 fn press_during_shutter_frame(press_during: Option<u32>, shot: usize, stride: u32) -> Option<u32> {
     let first = press_during?;
     let offset = u32::try_from(shot)
@@ -869,11 +754,9 @@ fn press_during_shutter_frame(press_during: Option<u32>, shot: usize, stride: u3
 
 /// Has the shutter's press-driving frame arrived?
 ///
-/// Strictly greater, not equal: `--press-during 1` means "one frame of the press
-/// has happened", so the shot is taken on the frame AFTER that one — which for a
-/// tap is the frame its key is still held, before the release edge. Equality
-/// here would photograph the frame the step was delivered on, whose render the
-/// step has not reached yet.
+/// Strictly greater: `--press-during 1` means one press frame has happened,
+/// so the shot is on the next frame (for a tap, the key is still held).
+/// Equality would photograph the frame whose render the step has not reached.
 fn press_during_shutter_is_open(
     config: &SceneCaptureConfig,
     runtime: &SceneCaptureRuntime,
@@ -882,6 +765,15 @@ fn press_during_shutter_is_open(
         .is_some_and(|at| runtime.press_frames > at)
 }
 
+/// When the press sequence is spent, end this capture and begin the next.
+///
+/// A confirmation starts a route change with its own load, cameras, and
+/// readiness. Zeroing the frame count and clearing readiness re-runs the
+/// route-wait machinery, and the deadline is recomputed with it.
+///
+/// Spent means all four are exhausted: no steps left, no tap awaiting its
+/// release, no finger on the glass, no wait counting down. Every step type
+/// (`Hold`, `Release`, `Wait`, tap) must reach this one check.
 fn complete_press_sequence_if_spent(
     config: &SceneCaptureConfig,
     runtime: &mut SceneCaptureRuntime,
@@ -893,13 +785,9 @@ fn complete_press_sequence_if_spent(
     {
         return;
     }
-    // ⛔ THE SEQUENCE RAN OUT BEFORE THE FRAME THE CALLER NAMED.
-    //
-    // Falling through here would hand back the ordinary post-press capture: a
-    // real photograph, correctly exposed, of a moment nobody asked for, written
-    // to the path a `--press-during` command line named. Same failure as a route
-    // that adopts no camera — the image proves nothing and says nothing about
-    // it — so it gets the same answer.
+    // The sequence ran out before the named frame. Falling through would
+    // write the ordinary post-press image under a `--press-during` path, so
+    // fail instead, as a route that adopts no camera does.
     if config.press_during.is_some() && !runtime.requested {
         runtime.press_during_missed = true;
         return;
@@ -983,17 +871,14 @@ impl ScreenEffect {
     }
 }
 
-/// Force the asked-for screen effects on, every frame, and SAY SO when the
+/// Force the asked-for screen effects on, every frame, and say SO when the
 /// visual-quality budget is about to scale them back to nothing.
 ///
-/// ⛔⛔ THE WARNING IS THE POINT, and it is here because its absence cost two
-/// captures and an hour. `sync_screen_effect_settings_from_video_settings`
-/// clamps the global strength to `quality.budget.shaders.screen_shader_scale`,
-/// which is **0.0 on the Potato tier** — and Potato is what this machine's
-/// software rasteriser (`llvmpipe`) gets seeded to on a first run. So the honest
-/// arms of a post-process comparison came back byte-identical while every
-/// setting said the effect was on. An instrument that cannot deliver what it was
-/// asked for must say so rather than return a plausible frame.
+/// The warning matters. `sync_screen_effect_settings_from_video_settings`
+/// clamps the global strength to
+/// `quality.budget.shaders.screen_shader_scale`, which is 0.0 on the Potato
+/// tier, and a software rasteriser (`llvmpipe`) is seeded to Potato on a first
+/// run. The effect then renders as nothing while every setting says it is on.
 ///
 /// Every frame, like `force_combat_overlay`, because the settings load and the
 /// quality seed both write this state and a Startup-only write races them.
@@ -1030,12 +915,10 @@ fn force_screen_effects(
     }
 }
 
-/// Force the COMBAT debug preset on, every frame, when `--combat-overlay` asked.
+/// Force the combat debug preset on, every frame, when `--combat-overlay` asked.
 ///
-/// Every frame rather than once at startup because the settings load and the
-/// developer-tools default both write this state, and a Startup-only write is a
-/// race against whichever of them runs later. Idempotent, so the cost of being
-/// certain is a comparison per frame.
+/// Every frame, because the settings load and the developer-tools default
+/// both write this state and a Startup-only write races them. Idempotent.
 fn force_combat_overlay(
     config: Res<SceneCaptureConfig>,
     mut dev_state: Option<ResMut<ambition_platformer2d::dev_tools::DeveloperRuntimeState>>,
@@ -1044,9 +927,8 @@ fn force_combat_overlay(
     if !config.combat_overlay {
         return;
     }
-    // The three gates the gizmo pass reads live in `force_combat_overlay`, so a
-    // tool asking for combat geometry cannot satisfy two of them and photograph
-    // a swing with no volume on it.
+    // Set all three gates the gizmo pass reads, so a swing is not shown
+    // without its volume.
     if let (Some(dev_state), Some(developer)) = (dev_state.as_mut(), developer.as_mut()) {
         ambition_platformer2d::dev_tools::force_combat_overlay(
             dev_state,
@@ -1056,15 +938,12 @@ fn force_combat_overlay(
     }
 }
 
-/// The systems a ROUTE capture adds on top of [`build_capture_app`], plus the
+/// The systems a route capture adds on top of [`build_capture_app`], plus the
 /// two things only a route needs to be told.
 fn install_route_capture(app: &mut App, route_id: String) {
-    // Found while trying to look at the programmatic vanity card, which is exactly the kind of
-    // change that must be looked at rather than compiled.
-    //
-    // Composed only when it is the route being asked for: `compose_..._sequence`
-    // also makes startup the INITIAL route, which is correct here and would put
-    // a card in front of every other capture.
+    // Only when it is the requested route: `compose_..._sequence` also makes
+    // startup the initial route, which would put a card in front of every
+    // other capture.
     if route_id == ambition_app::app::shell_host::AMBITION_STARTUP_ROUTE {
         ambition_app::app::shell_host::compose_ambition_startup_sequence(app);
     }
@@ -1104,12 +983,9 @@ fn install_route_capture(app: &mut App, route_id: String) {
 
 /// Drive the shell to the requested route — unless it is already there.
 ///
-/// Found while instrumenting rebuild counts for an unrelated question.
-///
-/// It WAITS for the router to settle rather than firing on frame one: before
-/// initialization there is no active route to compare against, and navigating
-/// then would race the shell's own boot. `fail_after_timeout` covers a shell
-/// that never activates anything.
+/// Wait for the router to settle first: before initialization there is no
+/// active route to compare, and navigating would race the shell's boot.
+/// `fail_after_timeout` covers a shell that never activates anything.
 fn go_to_route(
     config: Res<SceneCaptureConfig>,
     mut runtime: ResMut<SceneCaptureRuntime>,
@@ -1135,20 +1011,11 @@ fn go_to_route(
         );
         return;
     }
-    // ⭐⭐ A SMASH MOVE IS PHOTOGRAPHED UNDER SMASH RULES, and that needs a
-    // CAST. Jon, 2026-08-28: *"when we are doing smash moves we probably should
-    // be using the smash stage and not any ambition stages, to make sure that
-    // we're actually getting smash rules and not ambition which might be
-    // different."* He is right, and the tool made the wrong road the easy one:
-    // `--route smash_gameplay` with no roster activates a stage with NOBODY ON
-    // IT — the camera sits at its default over empty sky, which D130 already
-    // recorded once as a mystery — so the only way to see a fighter was
-    // `--character <id>` on an exploration ROOM, under exploration rules.
-    //
-    // ⛔ THE SAME TWO LINES `moveset_takes::reseat` USES, deliberately: a
-    // roster resource and the route change. The alternative is the select
-    // screen's documented tap coordinates, which have drifted three times in
-    // two weeks and pick fighters by GRID CELL rather than by name.
+    // A smash move must be photographed under smash rules, so seat a cast.
+    // `--route smash_gameplay` with no roster shows an empty stage. This uses
+    // the same two steps as `moveset_takes::reseat` (a roster resource and
+    // the route change) instead of select-screen tap coordinates, which drift
+    // and pick by grid cell, not by name.
     if route == ambition_demo_smash::SMASH_GAMEPLAY_ROUTE {
         if let Some(character) = config.character.clone() {
             eprintln!(
@@ -1171,8 +1038,8 @@ fn go_to_route(
 
 /// Create the image a route capture draws into, and nothing else.
 ///
-/// The retargeting is [`adopt_route_cameras`]' job — it has to run EVERY frame, because a shell
-/// route has no cameras at `Startup` — and this function makes the target they get pointed at.
+/// [`adopt_route_cameras`] retargets cameras every frame (a shell route has
+/// no cameras at `Startup`); this makes the target they point at.
 fn setup_route_capture_target(
     mut commands: Commands,
     config: Res<SceneCaptureConfig>,
@@ -1199,7 +1066,7 @@ fn setup_route_capture_target(
     commands.insert_resource(SceneCaptureTarget { image });
 }
 
-/// Adopt a route's cameras AS THEY APPEAR, every frame.
+/// Adopt a route's cameras AS they appear, every frame.
 ///
 /// A shell route has no cameras at `Startup` — it spawns them when the route composes, several
 /// frames in. The count is printed for that reason.
@@ -1213,11 +1080,9 @@ fn adopt_route_cameras(
         return;
     };
     let target = RenderTarget::Image(ImageRenderTarget::from(target_res.image.clone()));
-    // ONE target, several cameras — so only the FIRST may clear it.
-    //
-    // A shell route composes a stack (world, then UI, then overlays). Ordering by
-    // `Camera::order` and clearing only on the lowest is what makes the stack composite instead
-    // of compete.
+    // One target, several cameras, so only the first may clear it. A shell
+    // route composes a stack (world, UI, overlays); ordering by
+    // `Camera::order` and clearing only on the lowest composites the stack.
     let mut ordered: Vec<(Entity, isize)> = cameras
         .iter()
         .map(|(entity, camera)| (entity, camera.order))
@@ -1298,17 +1163,12 @@ fn apply_capture_snapshot(
     >,
     user_settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_platformer2d::platformer::camera_ease::CameraEaseTuning>,
-    // `CameraViewState` is a COMPONENT on the local view now, not a process
-    // global — a capture app stages exactly one view, so this writes the one it
-    // staged rather than a resource every consumer shared.
+    // `CameraViewState` is a component on the local view. A capture app
+    // stages one view, so write that one.
     mut view_states: Query<&mut CameraViewState, With<ambition_platformer2d::sim_view::LocalView>>,
-    // THE SIM BODY, not the render visual.
-    //
-    // This queried `BodyKinematics` `With<PlayerVisual>`, and `PlayerVisual` is a
-    // RENDER-side marker on a by-id render entity that carries no kinematics. So
-    // the query never matched, `player` focus fell back to `config.focus` — which
-    // is `Vec2::ZERO` in that mode — and every room capture photographed the origin
-    // while the player stood elsewhere.
+    // The sim body, not the render visual. `PlayerVisual` is a render-side
+    // marker on an entity with no kinematics, so querying it would never
+    // match and `player` focus would fall back to the origin.
     player_q: Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
@@ -1327,14 +1187,12 @@ fn apply_capture_snapshot(
     } else {
         config.focus
     };
-    // `--fit-room`: the whole room, centred, scaled to fit. Nothing else here
-    // can produce this — the resolver below clamps to the room and to camera
-    // zones, so asking it for a wide shot gives back a gameplay shot.
+    // `--fit-room`: the whole room, centred, scaled to fit. The resolver below
+    // clamps to the room and to camera zones, so it cannot give a wide shot.
     if config.fit_room {
-        // the projection's own SCALING MODE, not a multiplier on the base view. The first
-        // version computed `scale = max(room / base_view)` and framed the hall at about a fifth
-        // of the image: `scale` multiplies an extent that depends on the mode and on the
-        // viewport's aspect, so the arithmetic only holds when those agree.
+        // Use the projection's scaling mode, not a multiplier on the base
+        // view: `scale` multiplies an extent that depends on the mode and the
+        // viewport aspect.
         for (mut transform, mut projection) in &mut cameras {
             if let Projection::Orthographic(orthographic) = &mut *projection {
                 orthographic.scale = 1.0;
@@ -1374,9 +1232,8 @@ fn apply_capture_snapshot(
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
             chart_transit: None,
-            // this is the `--fit-room` / focus-point path, which deliberately
-            // BYPASSES the live resolve; a captured MATCH goes through
-            // `resolve_camera_observation` and gets the cast's box from there.
+            // This path bypasses the live resolve. A captured match goes
+            // through `resolve_camera_observation`, which frames the cast.
             must_frame_world: None,
             ease_tuning: *ease_tuning,
             screen_framing: None,
@@ -1402,25 +1259,22 @@ fn apply_capture_snapshot(
     }
 }
 
-/// Generous on purpose: a route that loads assets can legitimately take a while,
-/// and a false failure in a verification tool is as bad as a false success.
+/// Generous: a route that loads assets can take a while, and a false failure
+/// is as bad as a false success.
 const ROUTE_CAMERA_GRACE_FRAMES: u32 = 600;
 
-/// Whether there is a constructed world to start counting warmup against.
+/// Whether there is a constructed world to count warmup from.
 ///
-/// Two conditions, and the second one is the interesting half.
+/// Two conditions:
 ///
-/// The body exists. A player-focused capture waits for the body it is going
-/// to centre on; a coordinate-focused one has nothing specific to wait for.
+/// The body exists. A player-focused capture waits for the body it centres
+/// on; a coordinate-focused one has nothing to wait for.
 ///
-/// Its ART has a terminal answer. A decoded sheet RESIZES the body it
-/// belongs to — `SpritePosedBody` derives the collision box from the art — so a
-/// sheet that lands on frame 7 in one run and frame 11 in another gives the body
-/// a different shape for a different number of ticks while it is still falling
-/// toward the floor, and it settles a pixel or two apart. `character_reveal_ready`
-/// is the existing answer to "has every staged character finished loading, one
-/// way or the other" (§4.9 forbids the silent third state), so waiting on it
-/// removes the asynchrony rather than hoping it has passed.
+/// Its art has a terminal answer. A decoded sheet resizes its body
+/// (`SpritePosedBody` derives the collision box from the art), so art that
+/// lands on a different frame each run makes the body settle differently.
+/// `character_reveal_ready` says every staged character finished loading, one
+/// way or the other (§4.9).
 fn world_is_ready(
     player_q: &Query<
         &ambition_platformer2d::platformer::body::BodyKinematics,
@@ -1441,13 +1295,9 @@ fn world_is_ready(
     }
 }
 
-/// Deliver ONE frame of the `--press` sequence: a countdown tick, a pending
-/// release, or the next step.
-///
-/// Lifted out of `request_capture` when `--press-during` gave the caller a
-/// second thing to do with a press-driving frame — photograph it instead of
-/// driving it. Two callers of one body beats an `if` wrapped around eighty
-/// lines, and the extraction is exact: nothing here reads a capture field.
+/// Deliver one frame of the `--press` sequence: a countdown tick, a pending
+/// release, or the next step. Separate from `request_capture` because
+/// `--press-during` can photograph a press frame instead of driving it.
 fn drive_press_frame(
     config: &SceneCaptureConfig,
     runtime: &mut SceneCaptureRuntime,
@@ -1463,10 +1313,8 @@ fn drive_press_frame(
         keys.release(key);
         complete_press_sequence_if_spent(config, runtime);
     } else if let Some(at) = runtime.touch_held.take() {
-        // The lift, at the SAME point the finger went down. A touch that
-        // ended somewhere else is a drag, and a drag means "drop it here"
-        // to the screen this drives — a tap that travelled by accident
-        // would place a token nobody moved.
+        // Lift at the same point the finger went down. A touch that ends
+        // elsewhere is a drag, which means "drop it here" to this screen.
         fingers.write(TouchInput {
             phase: TouchPhase::Ended,
             position: at,
@@ -1487,9 +1335,8 @@ fn drive_press_frame(
                 );
             }
             PressStep::Hold(key) => {
-                // Deliberately NOT recorded in `press_held`: that field is
-                // "the tap awaiting its release next frame", and a hold is
-                // the opposite — it outlives the step that started it.
+                // Not recorded in `press_held`: that field is the tap awaiting
+                // release next frame, and a hold outlives its step.
                 keys.press(key);
                 eprintln!(
                     "capture_scene: holding {key:?} ({} of {})",
@@ -1585,19 +1432,14 @@ fn request_capture(
         commands.write_message(AppExit::from_code(2));
         return;
     }
-    // ⭐ THE GAP BETWEEN SHOTS OF A SEQUENCE. Counted here rather than in the
-    // readback handler because this is the system that runs once per frame; the
-    // handler fires on a GPU event and cannot count sim frames.
+    // The gap between shots of a sequence. Counted here because this system
+    // runs once per frame; the readback handler fires on a GPU event.
     if runtime.stride_left > 0 {
         runtime.stride_left -= 1;
         return;
     }
-    // WARMUP COUNTS FROM A READY WORLD, not from boot.
-    //
-    // Same distinction the route-camera check below draws — warmup is a
-    // duration, readiness is a fact — applied to the other end of the capture.
-    // Until the body being photographed exists there is nothing for a tick to
-    // advance, so frames spent waiting for it are not warmup, they are latency.
+    // Warmup counts from a ready world, not from boot. Frames spent waiting
+    // for the body are latency, not warmup.
     if !runtime.world_ready {
         let art = art_demand.as_deref().zip(art_states.as_deref());
         if !world_is_ready(&player_q, config.follow_player, art) {
@@ -1609,26 +1451,17 @@ fn request_capture(
     if runtime.frames < config.warmup_frames.max(1) {
         return;
     }
-    // Drive the route's own lobby before the shutter.
-    //
-    // `press_wait` belongs in this condition. Without it a trailing `wait:N` left the
-    // sequence "inactive" the moment its cursor passed the last step, so the wait was never
-    // counted down and never completed — a step type that silently did nothing when it happened
-    // to be last.
+    // Drive the route's own lobby before the shutter. `press_wait` belongs
+    // in this condition, or a trailing `wait:N` is never counted down.
     if runtime.press_cursor < config.press.len()
         || runtime.press_held.is_some()
         || runtime.touch_held.is_some()
         || runtime.press_wait > 0
     {
         runtime.press_frames = runtime.press_frames.saturating_add(1);
-        // ⭐ THE SHUTTER OPENS MID-SEQUENCE, and this frame drives NOTHING.
-        //
-        // Falling through without advancing the driver is deliberate: the
-        // photograph is of the world as the previous frame's input left it, so
-        // the state being captured is one the game actually rendered rather than
-        // one this system perturbed on the way past. For a tap that means the
-        // key is still down — which is the whole point, a tap's press and its
-        // release being two frames by design.
+        // The shutter opens mid-sequence, and this frame drives nothing.
+        // The photograph shows the world as the previous frame's input
+        // left it; for a tap, the key is still down.
         if !press_during_shutter_is_open(&config, &runtime) {
             drive_press_frame(&config, &mut runtime, &mut keys, &mut fingers);
             return;
@@ -1640,18 +1473,15 @@ fn request_capture(
             kin.pos.x, kin.pos.y, runtime.frames
         );
     } else {
-        // SEAT ORDER, not query order. Bevy iterates by archetype, so an
-        // unsorted list would compare two captures of the same match and find
-        // them different because the rows moved.
+        // Seat order, not query order: Bevy iterates by archetype, so
+        // unsorted rows would differ between captures of the same match.
         let mut seated: Vec<_> = seated_q
             .iter()
             .map(|(seat, kin)| (seat.0, kin.pos))
             .collect();
         seated.sort_by_key(|(seat, _)| *seat);
         if seated.is_empty() {
-            // SAY SO. "No pose line" and "no subject" were indistinguishable,
-            // and this tool's whole job is to stop a verification photographing
-            // the wrong thing quietly.
+            // Say so: "no pose line" and "no subject" must be distinguishable.
             println!(
                 "capture_scene: NO SUBJECT — no primary player and no seated body \
                  after {} warmup tick(s); this image proves nothing about a pose",
@@ -1666,16 +1496,10 @@ fn request_capture(
             }
         }
     }
-    // A ROUTE CAPTURE WAITS FOR A CAMERA, not for a clock.
-    //
-    // Warmup is a duration; readiness is a fact. With only the duration, a route
-    // that is slow, broken, or never builds a camera at all let this tool read
-    // back an untouched capture texture, write a blank PNG, and print success —
-    // in a tool whose entire purpose is to stop a verification from silently
-    // photographing the wrong thing.
-    //
-    // Rooms are exempt because their camera comes from the room setup this
-    // binary performs itself; a route's comes from the shell, asynchronously.
+    // A route capture waits for a camera, not for a clock. Warmup is a
+    // duration; readiness is a fact. Otherwise a route that never builds a
+    // camera gives a blank PNG and success. Rooms are exempt: this binary
+    // sets up their camera itself; a route's comes from the shell later.
     if config.route.is_some() && runtime.cameras_adopted == 0 {
         if runtime.frames < config.warmup_frames.max(1) + ROUTE_CAMERA_GRACE_FRAMES {
             return;
@@ -1776,10 +1600,8 @@ fn save_readback_to_disk(
         commands.write_message(AppExit::from_code(1));
         return;
     };
-    // ⭐ ONE SHOT KEEPS ITS EXACT NAME. A sequence numbers its files, because a
-    // caller that asked for forty pictures wants forty files and a caller that
-    // asked for one wants the path it named — silently renaming the single-shot
-    // output would break every existing recipe that photographs a room.
+    // One shot keeps its exact name; a sequence numbers its files. Existing
+    // recipes depend on the single-shot path.
     let path = if config.frames <= 1 {
         config.output.clone()
     } else {
@@ -1809,17 +1631,15 @@ fn save_readback_to_disk(
     }
     runtime.shot += 1;
     if runtime.shot < config.frames {
-        // ⛔ RE-ARM, DO NOT COMPLETE. `request_capture` is guarded on
-        // `requested || completed`, so clearing both is what lets the next shot
-        // be taken — and the stride is what makes the scene DIFFERENT by then.
-        // Without a stride the sequence photographs one instant many times.
+        // Re-arm, do not complete. `request_capture` is guarded on
+        // `requested || completed`, so clear both. The stride makes the scene
+        // different by the next shot.
         runtime.requested = false;
         runtime.wait_frames = 0;
-        // ⛔ A `--press-during` SEQUENCE COUNTS ITS STRIDE IN PRESS FRAMES, so
-        // it must not also sit out `stride_left`. That countdown returns above
-        // the press driver, which would freeze the input mid-delivery for the
-        // length of the gap and photograph the same held frame `--frames` times.
-        // `press_during_shutter_frame` already spaces the shots by the stride.
+        // A `--press-during` sequence counts its stride in press frames
+        // (`press_during_shutter_frame`), so it skips `stride_left`. That
+        // countdown returns before the press driver and would freeze the
+        // input mid-delivery.
         runtime.stride_left = if config.press_during.is_some() {
             0
         } else {
@@ -1830,12 +1650,9 @@ fn save_readback_to_disk(
     runtime.completed = true;
 }
 
-/// this was a flat `runtime.frames > 600`, which quietly preempted every
-/// policy above it. The route-readiness check allows `warmup + 600` frames for a
-/// camera to appear, so for ANY warmup above zero the generic timeout fired
-/// first: the route-specific diagnostic — the one that says *which* route never
-/// produced a camera — was unreachable, and a `--warmup` above 600 could not
-/// complete at all.
+/// The budget is the readiness policies' own allowance plus the readback's
+/// slack. A flat frame limit would fire before the route-specific
+/// diagnostic, and a `--warmup` above it could never complete.
 fn fail_after_timeout(
     mut commands: Commands,
     runtime: Res<SceneCaptureRuntime>,
@@ -1867,7 +1684,7 @@ fn parse_vec2(text: &str) -> Option<ae::Vec2> {
 
 /// Does this argument name an image file the encoder can actually write?
 ///
-/// Checked at PARSE time.
+/// Checked at parse time.
 fn looks_like_image_path(value: &str) -> bool {
     std::path::Path::new(value)
         .extension()
@@ -1884,19 +1701,6 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
     let (w, h) = text.split_once('x').or_else(|| text.split_once('X'))?;
     Some(UVec2::new(w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
-
-// This file kept its own copy of the asset-root rule, and the copy said
-// `crates/ambition_platformer2d::actors/assets` — a `::` where the crate name
-// has a `_`. No such directory can exist, `canonicalize` failed every time, and
-// the fallback pointed the room composition at the workspace-root `assets/`
-// tree, which holds IPFS metadata and none of the actor sprites, shaders or
-// sounds. Room-mode capture wrote a valid PNG of a room whose art never
-// resolved, and exited 0. Route mode went through the visible app and its own
-// correct root, which is exactly why `--route` looked fine while rooms did not
-// .
-//
-// It has no app of its own now: `build_visible_app_with` resolves the root, and there is
-// nothing here left to disagree with it.
 
 #[cfg(test)]
 mod press_during_tests {
@@ -1922,10 +1726,8 @@ mod press_during_tests {
 
     #[test]
     fn a_capture_that_did_not_ask_for_the_flag_does_not_get_it() {
-        // ⭐ THE POISON ARM for the whole change. `press_during_shutter_frame`
-        // returning `None` is the only thing keeping every existing capture
-        // byte-identical, so it is asserted directly rather than inferred from
-        // a green suite that never sets the flag.
+        // `press_during_shutter_frame` returning `None` keeps every existing
+        // capture unchanged, so assert it directly.
         let config = SceneCaptureConfig::from_args(room_args("--press Down,Enter"))
             .expect("a plain press capture parses");
         assert_eq!(config.press_during, None);
@@ -1942,8 +1744,8 @@ mod press_during_tests {
 
     #[test]
     fn the_shutter_opens_the_frame_after_the_one_the_caller_named() {
-        // `--press-during 1` = one frame of the press has HAPPENED, so the shot
-        // is taken on the next one — the frame a tap's key is still held.
+        // `--press-during 1`: one press frame has happened, so the shot is on
+        // the next one, where a tap's key is still held.
         let config = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 1"))
             .expect("parses");
         let mut runtime = SceneCaptureRuntime::default();
@@ -1958,9 +1760,8 @@ mod press_during_tests {
 
     #[test]
     fn a_sequence_spaces_its_shots_by_the_stride_in_press_frames() {
-        // The ordinary `stride_left` countdown returns ABOVE the press driver,
-        // so a --press-during sequence that used it would freeze the input it is
-        // photographing. These are the frames the driver actually runs for.
+        // The ordinary `stride_left` countdown returns before the press
+        // driver, so these are counted in press-driving frames.
         let config = SceneCaptureConfig::from_args(room_args(
             "--press hold:up --press-during 2 --frames 3 --stride 5",
         ))
@@ -1973,15 +1774,13 @@ mod press_during_tests {
 
     #[test]
     fn a_frame_count_the_press_cannot_reach_is_refused_not_rounded() {
-        // The failure the flag exists to prevent, at the other end: a sequence
-        // too short to contain the named frame must not quietly hand back the
+        // A sequence too short to contain the named frame must not return the
         // ordinary post-press capture.
         let config = SceneCaptureConfig::from_args(room_args("--press Enter --press-during 9"))
             .expect("parses");
         let mut runtime = SceneCaptureRuntime::default();
-        // Enter is two frames: the press and its release. Spent at 2 — and
-        // "spent" is the CURSOR, not the frame count, which is the premise the
-        // first draft of this test got wrong and passed anyway.
+        // Enter is two frames: press and release. "Spent" is the cursor, not
+        // the frame count.
         runtime.press_frames = 2;
         runtime.press_cursor = config.press.len();
         assert!(!press_during_shutter_is_open(&config, &runtime));
@@ -1998,9 +1797,8 @@ mod press_during_tests {
 
     #[test]
     fn a_press_that_reaches_the_frame_never_reports_a_miss() {
-        // The same helper on the other road: a sequence still running when the
-        // shutter opens has nothing to report, so the guard above cannot be
-        // passing for the trivial reason that it always fires.
+        // The other path: a sequence still running when the shutter opens
+        // reports nothing, so the guard above is not trivially always firing.
         let config =
             SceneCaptureConfig::from_args(room_args("--press hold:up,wait:30 --press-during 2"))
                 .expect("parses");

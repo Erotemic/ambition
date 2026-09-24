@@ -1,6 +1,5 @@
-//! `IntroPlugin` — Bevy plugin that wires the intro story content into
-//! the live sandbox resources without forcing the sandbox to know about
-//! the intro by name.
+//! `IntroPlugin`: wires the intro story content into the live sandbox
+//! resources without the sandbox naming the intro.
 //!
 //! The plugin contributes via startup systems:
 //!
@@ -9,15 +8,14 @@
 //!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //!
-//! Both systems run after the sandbox's own startup systems insert the
-//! resources they extend, so they layer on top without overwriting
-//! anything sandbox-owned.
+//! The installers run after the sandbox's own startup systems insert the
+//! resources they extend, so they add to them without overwriting anything
+//! sandbox-owned.
 
 use bevy::prelude::*;
 
-// `Platformer2dSimulationPhaseMonolith` import retired alongside the legacy
-// `redirect_post_intro_dialog` ordering — the unified dialog redirect
-// system in the sandbox `dialog` module owns its own scheduling.
+// The unified dialog redirect system in the sandbox `dialog` module owns its
+// own scheduling.
 use crate::banter::CombatBanterRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_platformer2d::world::rooms::GatePortalRegistry;
@@ -72,19 +70,15 @@ pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
-        // What is left here is content INSTALLATION, which is what an intro-content plugin
-        // should be.
+        // What is left here is content installation.
         app.init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
             .init_resource::<IntroBanterInstalled>()
             .init_resource::<IntroGatedZonesInstalled>()
-            // All contributor systems must wait for the sandbox's own
-            // startup resources, but the sandbox inserts those via
-            // `Startup` schedule and per-frame Commands. Running the
-            // installers in `Update` with a "first chance" guard
-            // (`if !installed`) is the simplest pattern that survives
-            // Bevy's deferred command application without us having
-            // to wire explicit system ordering.
+            // The installers must wait for the sandbox's startup resources, which
+            // arrive through the `Startup` schedule and deferred Commands. Running them
+            // in `Update` with a first-chance guard (`if !installed`) survives deferred
+            // command application without explicit ordering.
             .add_systems(
                 Update,
                 (
@@ -94,53 +88,41 @@ impl Plugin for IntroPlugin {
                     install_intro_gated_zones_system,
                 ),
             )
-            // ⛔ THE FLAG CHAINS ARE NOT AN INSTALLER and do not belong in the
-            // tuple above. The five beside them are one-shot latches guarded by
-            // `if installed { return; }`, which MUST keep running so they can
-            // observe `GameAssets` / `CutsceneLibrary` arriving. This one
-            // re-derives a table from the save every frame FOREVER, long after
-            // every flag in it is set.
+            // The flag chains are not an installer and do not belong in the tuple
+            // above. The installers are one-shot latches (`if installed { return; }`)
+            // that keep running to observe `GameAssets` / `CutsceneLibrary` arriving.
+            // The flag chains re-derive a table from the save every frame.
             //
-            // ⭐ AND ITS COST GROWS WITH THE SAVE. `SaveData::flag` is a linear
-            // scan with a string compare over a flag vector that lengthens as
-            // the player progresses, and this asks it twice per table row every
-            // frame. Change detection is the right shape: the chains can only
-            // fire when the flags they read have moved, and a flag this system
-            // writes marks the save changed again, so a chain-of-chains still
-            // resolves on the following frame.
+            // Its cost grows with the save: `SaveData::flag` is a linear scan with a
+            // string compare, asked twice per table row. So it is change-gated. A chain
+            // fires only when its flags move, and a flag this system writes marks the
+            // save changed again, so a chain of chains resolves on the next frame.
             ;
-        // ⛔⛤ **IN THE REWINDING SCHEDULE, NOT `Update`, BECAUSE THIS PRODUCER'S
-        // CONSUMER REWINDS AND ITS MESSAGE DOES NOT.** `SetFlagRequested` is read
-        // by `apply_flag_effects`, which writes `AmbitionGameSave` and
-        // `QuestRegistry` — both `rollback_resource_clone_checksum`-registered. A
-        // message raised from `Update` is raised OUTSIDE the frame being
-        // resimulated, so the replay of that tick has no message and the replayed
-        // frame diverges on a checksummed value: the flag ends up set at a
-        // different tick than the one the timeline agreed on. Re-deriving INSIDE
-        // the schedule is the repair, and it is available here only because this
-        // producer is a pure derivation over rollback state rather than a latched
-        // input edge — see `Q136` in `docs/planning/awaiting-maintainer-decision.md`
-        // for the three intents that do NOT have this option.
+        // In the rewinding schedule, not `Update`, because the consumer rewinds and
+        // the message does not. `apply_flag_effects` reads `SetFlagRequested` and
+        // writes `AmbitionGameSave` and `QuestRegistry`, both
+        // `rollback_resource_clone_checksum`-registered. A message raised from
+        // `Update` is outside the resimulated frame, so the replay would diverge on
+        // a checksummed value. Deriving inside the schedule is possible because this
+        // producer is a pure derivation over rollback state, not a latched input
+        // edge; see `Q136` in `docs/planning/awaiting-maintainer-decision.md` for the
+        // intents that cannot do this.
         //
-        // ⭐ THE CHANGE GATE SURVIVES THE REWIND, MEASURED rather than assumed:
-        // `bevy_ggrs` 0.22 restores a resource with
-        // `S::update(resource.as_mut(), snapshot)`
-        // (`src/snapshot/resource_snapshot.rs:82-95`), and `ResMut::as_mut` marks
-        // it changed unconditionally — so every restore re-arms this condition.
-        // The gate is worth keeping: `SaveData::flag` is a linear scan with a
-        // string compare over a vector that lengthens as the player progresses,
-        // and this asks it twice per table row.
+        // The change gate survives the rewind: `bevy_ggrs` restores a resource with
+        // `S::update(resource.as_mut(), snapshot)`, and `ResMut::as_mut` marks it
+        // changed, so every restore re-arms the condition. The gate still saves the
+        // linear flag scans on ordinary frames.
         //
-        // ⚠ A restore can therefore fire the derivation on a tick the original
-        // timeline did not, and that is harmless BY CONSTRUCTION: the system
-        // skips any target already present, so an extra run writes nothing.
+        // A restore can therefore run the derivation on a tick the original
+        // timeline did not. That is harmless: the system skips any target already
+        // present, so an extra run writes nothing.
         //
-        // AFTER `GameplayEffects`, which is where `apply_flag_effects` runs
-        // (`ambition_platformer2d_actor_monolith/src/features/mod.rs:216`),
-        // because the shipped behaviour is next-tick — a target flows through the
-        // ordinary flag-effect path on the following tick, including its quest
-        // notification. Ordering it BEFORE would collapse a chain into one tick
-        // and change when notifications fire.
+        // After `GameplayEffects`, where `apply_flag_effects` runs
+        // (`ambition_platformer2d_actor_monolith/src/features/mod.rs`), because the
+        // behaviour is next-tick: a target flows through the ordinary flag-effect
+        // path on the following tick, with its quest notification. Ordering it
+        // before would collapse a chain into one tick and change when notifications
+        // fire.
         use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt as _;
         let sim = app.sim_schedule();
         app.add_systems(
@@ -155,21 +137,11 @@ impl Plugin for IntroPlugin {
                     >,
                 ),
         );
-        // ⭐ INTRO DIALOG REDIRECTS ARE AUTHORED NOW, NOT SYSTEMATISED — which is
-        // why nothing is registered here.
-        //
-        // This block used to say they were "handled by the unified
-        // `dialog::redirect_post_quest_dialog` system" (cite-ok), ordered after
-        // CoreSimulation and before DialogPresentationSet. `d180054d0`
-        // ("Dialogue → Yarn, phases 5+6") deleted that function and inlined the
-        // five redirect rules as `<<if>>` branches inside the `.yarn` files —
-        // verified in the content, not just in the commit message:
-        // `<<if boss_cleared("mockingbird")>>` and `<<if quest_active(
-        // "pirate_treasure")>>` are live in `assets/dialogue/sandbox/`.
-        //
-        // ⇒ The behaviour MOVED from Rust to authored content. A reader who
-        // greps for a redirect system will find none and should look in the
-        // `.yarn` files instead.
+        // Intro dialog redirects are authored in content, so nothing is registered
+        // here. They are `<<if>>` branches in the `.yarn` files (for example
+        // `<<if boss_cleared("mockingbird")>>` and
+        // `<<if quest_active("pirate_treasure")>>` in `assets/dialogue/sandbox/`).
+        // There is no redirect system in Rust.
     }
 }
 
@@ -183,11 +155,9 @@ pub(crate) fn install_intro_cutscenes_system(
     if installed.0 {
         return;
     }
-    // Both resources are inserted by `app/plugins.rs` at app build
-    // time, so they should be present from the first Update tick.
-    // The `Option<ResMut<_>>` keeps the system tolerant during the
-    // narrow window where they might not be — and matches how
-    // sandbox optional resources are usually accessed elsewhere.
+    // `app/plugins.rs` inserts both resources at app build time, so they should
+    // exist from the first Update tick. `Option<ResMut<_>>` tolerates the
+    // narrow window where they might not.
     let (Some(mut library), Some(mut bindings)) = (library, bindings) else {
         return;
     };
@@ -229,10 +199,9 @@ pub(crate) fn install_intro_gated_zones_system(
     let Some(mut registry) = registry else {
         return;
     };
-    // ⚠ A REFUSAL HERE IS A CONTENT BUG, NOT A RUNTIME CONDITION: it means
-    // something else already claimed this loading zone for a different portal.
-    // Logged rather than panicked because a missing portal is a recoverable
-    // world, and silence is what the registry's old bare `insert` gave.
+    // A refusal here is a content bug: another portal already claimed this
+    // loading zone. Logged, not panicked, because a missing portal leaves a
+    // recoverable world.
     if let Err(conflict) = registry.try_register(
         INTRO_PORTAL_ZONE_ID,
         INTRO_PORTAL_SWITCH_ID,

@@ -30,21 +30,19 @@ use ambition_portal2d::{
 };
 
 /// Facade: the equip/unequip pair lives in
-/// [`ambition_platformer2d_actor_monolith::items::pickup`] (their bodies are pure item-equip
-/// machinery, the twins of `equip_held_spec` / `unequip_held`); the content
-/// adapter keeps the world-side systems below — WHEN a body may take or release
-/// the gun, and what it leaves on the floor.
-///
-/// Both call them now, so "release the gun" has one body and the roster cannot be left behind by
-/// one caller.
+/// [`ambition_platformer2d_actor_monolith::items::pickup`] (pure item-equip
+/// machinery, the twins of `equip_held_spec` / `unequip_held`). The content
+/// adapter keeps the world-side systems below: when a body may take or release
+/// the gun, and what it leaves on the floor. All callers use this one pair, so
+/// the roster cannot be left behind by one caller.
 pub use ambition_held_items::{equip_portal_gun, unequip_portal_gun};
 
 /// On a [`DropPortalGun`] intent, drop the held portal gun: remove the
 /// `PortalGun` (so `Attack` stops firing portals), restore the stashed melee,
-/// and leave a `PortalGunPickup` at the player's feet to grab again. Only when
-/// not also holding a throwable item (that throw takes precedence — the gesture
-/// recognition lives in the input adapter, but the held-item exclusion is an
-/// Ambition inventory rule, so it stays here).
+/// and leave a `PortalGunPickup` at the player's feet. Only when not also
+/// holding a throwable item: that throw takes precedence. The gesture is
+/// recognized in the input adapter, but the held-item exclusion is an Ambition
+/// inventory rule, so it stays here.
 pub fn drop_portal_gun_system(
     mut drops: MessageReader<DropPortalGun>,
     mut commands: Commands,
@@ -59,22 +57,17 @@ pub fn drop_portal_gun_system(
     >,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    // ⭐ THE BODY WHOSE PRESS IT WAS. This read "did anybody drop?" and then
-    // re-derived the dropper from `ControlledSubject`, so a second seat's drop
-    // gesture dropped the FIRST seat's gun.
-    //
-    // ⛔⛔ AND EVERY DROP IN THE TICK, NOT THE FIRST. `read().next()` served one
-    // intent and left the rest for a later run, so two seats dropping on the
-    // same tick were SERIALIZED ACROSS UPDATES — the second one landing in a
-    // world the first had already changed. The intents already name their
-    // bodies; taking one of them was the last thing making this singular.
+    // The body whose press it was, for every drop in the tick. Each intent names
+    // its body, so a second seat's drop cannot drop the first seat's gun. Taking
+    // only the head of the queue would serialize seats across updates, so the
+    // second would land in a world the first had already changed.
     for drop in drops.read().copied().collect::<Vec<_>>() {
         drop_one_portal_gun(drop.body, &mut commands, &mut holders, &mut sfx);
     }
 }
 
-/// One body's drop. Split out so the loop above reads as "every intent, in
-/// order" rather than burying the operation inside it.
+/// One body's drop, split out so the loop above reads as "every intent, in
+/// order".
 fn drop_one_portal_gun(
     player: bevy::prelude::Entity,
     commands: &mut Commands,
@@ -94,8 +87,8 @@ fn drop_one_portal_gun(
     };
     // Committed: this body IS dropping its gun, so the press is answered.
     actor_control.0.melee_pressed = false;
-    // CUSTODY, one operation: detach the gun and restore the swing it replaced.
-    // The same release the inventory menu performs; the hand is the record.
+    // Custody, one operation: detach the gun and restore the swing it replaced.
+    // The inventory menu performs the same release; the hand is the record.
     unequip_portal_gun(commands, player, &mut repertoire);
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     commands.spawn_room_scoped((
@@ -122,8 +115,8 @@ fn drop_one_portal_gun(
 pub fn pickup_portal_gun_system(
     mut picks: MessageReader<PickUpPortalGun>,
     mut commands: Commands,
-    // The controlled body attempts the pickup. `Has` flags gate on ITS state: it
-    // can't grab a gun it already holds, nor while holding a ground item.
+    // The controlled body attempts the pickup. The `Has` flags gate on its
+    // state: it cannot grab a gun it holds, or while holding a ground item.
     mut bodies: Query<(
         &BodyKinematics,
         RepertoireQuery,
@@ -135,24 +128,17 @@ pub fn pickup_portal_gun_system(
     mut equipped: MessageWriter<PortalGunEquipped>,
     mut sfx: ambition_sfx::SfxWriter,
 ) {
-    // ⭐ THE BODY WHOSE PRESS IT WAS — see `drop_portal_gun_system`.
+    // The body whose press it was (see `drop_portal_gun_system`), for every
+    // intent in the tick.
     //
-    // ⛔⛔ AND EVERY INTENT IN THE TICK. `read().next()` served one and left the
-    // rest for a later run, so two seats reaching for the gun on one tick were
-    // answered a frame apart, the second against a world the first had changed.
-    //
-    // ⭐ CONTENTION HAS A DEFINITE WINNER AND IT IS MESSAGE ORDER: the first
-    // intent that overlaps an ARMED pickup despawns it, so the second finds
-    // nothing and takes no gun. There is one portal gun in the world and there
-    // is one after two people grab for it. ⚠ that ordering is the producers',
-    // and `portal_input_adapter_system` walks its bodies in a stable order — it
-    // is not the entity iteration order of this system.
-    // ⛔⛔ AND A CLAIM IS NOT A DESPAWN YET. `commands.entity(..).despawn()` is
-    // DEFERRED to the next flush, so a second intent served in the SAME run
-    // still sees the pickup in this query — and two bodies came away with a gun
-    // that exists once in the world. Serving every intent is what made that
-    // reachable; `.next()` had been hiding it. The claimed set is what makes the
-    // winner definite WITHIN the run as well as across it.
+    // Contention has a definite winner, by message order: the first intent that
+    // overlaps an armed pickup despawns it, so the second finds nothing. There is
+    // one portal gun before and after two people grab for it. The order is the
+    // producers': `portal_input_adapter_system` walks its bodies in a stable
+    // order.
+    // A claim is not yet a despawn: `commands.entity(..).despawn()` is deferred
+    // to the next flush, so a second intent in the same run still sees the
+    // pickup. The claimed set makes the winner definite within the run too.
     let mut claimed: std::collections::HashSet<bevy::prelude::Entity> =
         std::collections::HashSet::new();
     for pick in picks.read().copied().collect::<Vec<_>>() {
@@ -199,17 +185,16 @@ fn pick_up_one_portal_gun(
             continue;
         }
         if player_aabb.strict_intersects(ae::Aabb::new(pickup.pos, pickup.half_extent)) {
-            // ACQUISITION: the gun does not exist until somebody picks it up, so
-            // grabbing the one world item IS how you come to own it. Separate
-            // from the custody transfer below — owning it and holding it are
-            // different facts, and re-equipping from the menu must not mint a
-            // second gun.
+            // Acquisition: the gun does not exist until someone picks it up, so
+            // grabbing the one world item is how you own it. Separate from custody
+            // below: owning and holding are different facts, and re-equipping from the
+            // menu must not mint a second gun.
             if let Some(owned) = owned.as_deref_mut() {
                 owned.grant(Item::PortalGun, 1);
             }
-            // CUSTODY: the ONE take-custody operation, shared with the inventory menu.
-            // The pickup's pair travels with it: the gun you now hold is
-            // whichever pair was on the floor, not whichever pair is default.
+            // Custody: the one take-custody operation, shared with the inventory menu.
+            // The pickup's pair travels with it: the gun you hold has the pair that was
+            // on the floor, not the default.
             equip_portal_gun(commands, player, &mut repertoire, pickup.pair);
             claimed.insert(entity);
             commands.entity(entity).despawn();

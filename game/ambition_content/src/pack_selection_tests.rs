@@ -1,30 +1,26 @@
-//! ⭐⭐ **CAN TWO `App`s IN ONE PROCESS SELECT DIFFERENT PACKS?** That is
-//! fast-iteration I3's acceptance for step 1, in its own words: *"Two Apps can
-//! select different packs without contamination."*
+//! Can two `App`s in one process select different packs? Fast-iteration I3
+//! step 1's acceptance: *"Two Apps can select different packs without
+//! contamination."*
 //!
-//! ⛔⛔ **THE ANSWER WAS STRUCTURALLY NO.** `pack::prepared()` is a process-wide
-//! `OnceLock`: the first caller compiles and every later caller — in any App, in
-//! any test, forever — receives that value. A second App could not disagree, a
-//! reload had nowhere to put a new pack, and a test could not hand a composition
-//! content of its own. Nothing was wrong with the pack; the SHAPE could not
-//! express a second one.
+//! `pack::prepared()` is a process-wide `OnceLock`: the first caller compiles,
+//! and every later caller in any App or test receives that value. So a
+//! second App could not disagree, a reload had nowhere to put a new pack, and a
+//! test could not give a composition its own content.
 //!
-//! ⚠ THE SUBJECT IS THE MIGRATED FAMILY ONLY. Move tables read this App's
+//! The subject is the migrated family only. Move tables read this App's
 //! selection; items, encounters, audio and boss profiles still read the boot
-//! pack, which is what step 1 scopes ("for migrated families"). A test that
-//! claimed otherwise would be claiming a migration that has not happened.
+//! pack, as step 1 scopes ("for migrated families").
 
 use super::*;
 
 /// Every move in every move-table source, half a second longer.
 ///
-/// ⛔ A TYPED EDIT, NOT A TEXT SUBSTITUTION. Bumping a number by regex would
-/// change whatever else in the file happened to match, and this repository has
-/// already shipped one fixture edit that landed in two places.
+/// A typed edit, not a text substitution: a regex bump would change anything
+/// else in the file that matched.
 ///
-/// ⭐ LENGTHENING IS SAFE BY CONSTRUCTION: a window must lie inside
-/// `[0, duration_s]`, so a longer move cannot invalidate a window that already
-/// fit. Shortening could, and the refusal would look like a selection failure.
+/// Lengthening is safe: a window must lie inside `[0, duration_s]`, so a
+/// longer move cannot invalidate a window that fit. Shortening could, and the
+/// refusal would look like a selection failure.
 fn half_a_second_longer(path: &str, text: String) -> String {
     if !path.starts_with("data/movesets/") {
         return text;
@@ -47,19 +43,17 @@ fn app_selecting(pack: std::sync::Arc<PreparedContentPack>) -> bevy::prelude::Ap
     select_pack(&mut app, pack);
     crate::character_catalog::register(&mut app);
     crate::player_robot_lineage::register_declared_cast(&mut app);
-    // ⛔ THE RAW ROAD, NAMED. This fixture installs no technique handlers, so
-    // real admission would correctly withhold every character naming a native
-    // effect — the right answer to a question this test is not asking.
+    // The raw road, named. This fixture installs no technique handlers, so real
+    // admission would withhold every character naming a native effect, which is
+    // not what this test asks.
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     app
 }
 
-/// The subject: a character that is BOTH in a shipped move table and in the
-/// buildable cast, derived rather than named.
+/// The subject: a character that is in a shipped move table and in the
+/// buildable cast, derived, not named.
 ///
-/// ⛔ DERIVED, because naming one hard-codes a roster decision into a test about
-/// pack selection — and the first id to leave the roster would redden this file
-/// for a reason that has nothing to do with it.
+/// Derived, so a roster change does not break a test about pack selection.
 fn a_character_in_both(pack: &PreparedContentPack) -> String {
     let table = ambition_characters::moveset_content_schema::lowered_movesets(pack)
         .expect("the shipped pack carries a move section");
@@ -87,8 +81,8 @@ fn duration_of(app: &bevy::prelude::App, id: &str) -> f32 {
         .duration_s
 }
 
-/// ⭐ THE PREMISE, FIRST. The two packs must actually differ, or "no
-/// contamination" is satisfied by two Apps reading one pack.
+/// The premise first: the two packs must differ, or "no contamination" is
+/// satisfied by two Apps reading one pack.
 #[test]
 fn the_two_packs_really_do_disagree() {
     let shipped = compile_pack().expect("the shipped pack compiles");
@@ -109,7 +103,7 @@ fn the_two_packs_really_do_disagree() {
     );
 }
 
-/// ⛔⛔ **TWO APPs, TWO PACKS, NO CONTAMINATION** — I3 step 1's acceptance.
+/// Two Apps, two packs, no contamination: I3 step 1's acceptance.
 #[test]
 fn two_apps_select_different_packs_without_contamination() {
     let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
@@ -128,8 +122,8 @@ fn two_apps_select_different_packs_without_contamination() {
     );
 }
 
-/// ⛔ AND ORDER DOES NOT DECIDE IT, which is the specific failure a `OnceLock`
-/// produces: whichever App ran FIRST would have won for the whole process.
+/// Order does not decide it. With a `OnceLock`, whichever App ran first would
+/// win for the whole process.
 #[test]
 fn the_app_that_selects_second_still_gets_its_own_pack() {
     let shipped = std::sync::Arc::new(compile_pack().expect("compiles"));
@@ -144,9 +138,8 @@ fn the_app_that_selects_second_still_gets_its_own_pack() {
     );
 }
 
-/// ⚠ AND AN APP THAT SELECTS NOTHING STILL GETS THE BOOT PACK — the behaviour
-/// every composition in the tree relies on, which this change must not have
-/// taken away.
+/// An App that selects nothing still gets the boot pack, which every
+/// composition relies on.
 #[test]
 fn an_app_that_selects_nothing_reads_the_boot_pack() {
     let shipped = compile_pack().expect("compiles");
@@ -166,18 +159,16 @@ fn an_app_that_selects_nothing_reads_the_boot_pack() {
     );
 }
 
-/// ⛔⛤ **THE APP TELLS THE ENGINE *WHICH* PACK, AND A POISON CAUGHT THAT NOTHING
-/// CHECKED IT.** `install_selection` publishes an
-/// `ambition_platformer2d_runtime::SelectedContentIdentity` beside the pack, and
-/// `prepare_platformer_content` folds it into the prepared content's
-/// fingerprint — which is what makes two sessions prepared under different move
-/// tables different content generations.
+/// The App tells the engine which pack. `install_selection` publishes an
+/// `ambition_platformer2d_runtime::SelectedContentIdentity` beside the pack,
+/// and `prepare_platformer_content` folds it into the prepared content's
+/// fingerprint, so sessions prepared under different move tables are
+/// different content generations.
 ///
-/// ⚠ The provider-side arm proves the SECTION reaches the fingerprint, using
-/// hand-written identity strings. It therefore cannot see whether this crate
-/// puts anything distinguishing INTO one: dropping `pack.fingerprint` from the
-/// format string left every provider arm green. This is the half that catches
-/// it, and it is why the poison for that line lives here.
+/// The provider-side test proves the section reaches the fingerprint, using
+/// hand-written identity strings, so it cannot see whether this crate puts
+/// anything distinguishing into it: dropping `pack.fingerprint` from the
+/// format string would pass there. This test catches that.
 #[test]
 fn two_different_packs_publish_two_different_content_identities() {
     use ambition_platformer2d_runtime::SelectedContentIdentity;
@@ -208,9 +199,9 @@ fn two_different_packs_publish_two_different_content_identities() {
     );
 }
 
-/// ⚠ AND AN APP THAT SELECTS NOTHING PUBLISHES NOTHING — `None` is a real answer
-/// ("this composition has no content pack"), not a missing value, and the
-/// provider's own arm asserts it is a THIRD distinct generation.
+/// An App that selects nothing publishes nothing. `None` is a real answer
+/// ("this composition has no content pack"), and the provider's own test
+/// asserts it is a third distinct generation.
 #[test]
 fn an_app_that_selects_nothing_publishes_no_content_identity() {
     let app = bevy::prelude::App::new();

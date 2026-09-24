@@ -1,25 +1,16 @@
-//! THE PIRATE ADMIRAL'S CUTLASS. The second fighter taken off the generic
-//! repertoire floor (P3.24), and the character was already telling us
-//! what its moves are: its row says `default_action_set: "pirate_pistol"`,
-//! the roster comment beside its id reads "pistol + cutlass", and its
-//! sprite is authored at `collision_scale: 1.6` — the largest of the three
-//! fighters with a table.
-//!
-//! MOVES ONLY. A table is the whole job.
+//! The Pirate Admiral's cutlass. The character's data states its moves: its
+//! row says `default_action_set: "pirate_pistol"`, the roster comment beside
+//! its id reads "pistol + cutlass", and its sprite is authored at
+//! `collision_scale: 1.6`, the largest of the fighters with a table.
 
 use ambition_platformer2d::character::CharacterDefinition;
 
-/// AC5: it authors its LOCOMOTION too, which is the one fact that stood
-/// between this character and building its own body. It ships as
-/// `melee_brute_striker` (chase 110), and that preset's speed is absolute, so
-/// stating the body's run speed here changes nothing a player sees today — it
-/// makes the body complete, which is what let the body-assist seam go.
+/// It authors its locomotion, so it can build its own body. It ships as
+/// `melee_brute_striker` (chase 110), whose speed is absolute, so the run
+/// speed here changes nothing a player sees; it makes the body complete.
 ///
-/// a moveset without a body was the exact shape the assist seam existed for: a
-/// character rich enough to state its swings and not yet able to state its walk.
-///
-/// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
-/// what makes this character buildable — there is no second list to remember.
+/// See the module doc. Reached through [`super::AUTHORED_CAST`], which also
+/// makes this character buildable; there is no second list.
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition
         .with_locomotion(ambition_characters::actor::CharacterLocomotion {
@@ -27,38 +18,32 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         })
-        // ⭐⭐ AN ADMIRAL CAN RIDE A SHARK, AND THAT IS THE CHARACTER'S FACT, NOT
-        // A MATCH'S. Jon: *"Yes the admiral could fly on a shark in ambition…
-        // right now the admiral doesn't ride the shark, but they should have the
-        // ability to mount them if there is a shark mount amenable to being
-        // mounted."* `npc_pirate_raider` already says exactly this, one file
-        // over; the admiral not saying it was an omission.
+        // An admiral can ride a shark; that is the character's fact, not a
+        // match's. Jon: *"Yes the admiral could fly on a shark in ambition… right
+        // now the admiral doesn't ride the shark, but they should have the ability
+        // to mount them if there is a shark mount amenable to being mounted."*
+        // `npc_pirate_raider` says the same.
         //
-        // ⛔⛔ IT USED TO BE MANUFACTURED BY THE SMASH SEAT, and that is how the
-        // up-B shipped broken: `smash_roster` granted the class per seat and
-        // `SmashSelect::roster_seeded` — the road a player actually travels from
-        // the character-select grid — assembled its participants from scratch
-        // and never did. The admiral reached the match with no `CanPilot`, the
-        // board was refused, and the summoned shark just stood there. A
-        // capability the CHARACTER owns is granted by every road that builds it,
-        // because `prepared_match` unions it in at realization.
+        // A capability the character owns is granted by every road that builds
+        // it, because `prepared_match` unions it in at realization. If the smash
+        // seat granted it instead, `SmashSelect::roster_seeded` (the road from the
+        // character-select grid) would build the admiral without `CanPilot`, and
+        // the summoned shark could not be boarded.
         //
-        // ⚠ THE CLASS, NOT A PARTICULAR SHARK. Which shark this admiral may
-        // board is a separate question with a separate answer — see
-        // `MountReservedFor`, which is what stops the second admiral in a mirror
-        // match from stealing the first one's summon.
+        // The class, not a particular shark. Which shark this admiral may board is
+        // `MountReservedFor`, which stops the second admiral in a mirror match from
+        // taking the first one's summon.
         .with_mount(ambition_characters::actor::CharacterMount {
             pilotable_classes: vec!["shark".to_string()],
             ..Default::default()
         });
-        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
-        // The table this line compiled in is `assets/data/movesets/pirate_admiral.ron`,
-        // declared in `pack.ron`, validated by the `moveset` schema and applied
-        // in `crate::character_catalog::authored_intrinsics` — the one seam
-        // every buildable character passes through.
-        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
-        // oracle's subject. The host reads NEITHER, so editing it changes nothing
-        // until it is re-exported.
+    // Its moves are content, not code (fast-iteration I2, step 5): the table is
+    // `assets/data/movesets/pirate_admiral.ron`, declared in `pack.ron`,
+    // validated by the `moveset` schema and applied in
+    // `crate::character_catalog::authored_intrinsics`, the one seam every
+    // buildable character passes through. The Rust table is only the exporter's
+    // source and the parity oracle's subject; the host reads neither, so editing
+    // it changes nothing until it is re-exported.
     definition.vitals.max_health = Some(6);
     definition
 }

@@ -1,7 +1,5 @@
-//! ⛔⛔ THE OWNERSHIP CLAIM IS THE ONE WORTH GUARDING. "A mine answers its
-//! placer" is the whole difference between this and the bomb, and a suite that
-//! only proved place-then-detonate would pass against a mine ANY press sets off
-//! — which is not a mine, it is a shared button.
+//! The ownership claim is the one to guard. A mine answers only its placer; a
+//! mine that any press sets off is a shared button, not a mine.
 
 use super::*;
 use ambition_platformer2d::actor::MatchSeat;
@@ -71,17 +69,15 @@ fn mines(app: &mut App) -> Vec<(usize, f32)> {
         .collect()
 }
 
-/// ⛔⛔ THE FACTION IS THE ASSERTION THAT WAS MISSING, AND ITS ABSENCE COST
-/// THREE MOVES THEIR DAMAGE. Every test in this file asked whether a
-/// `DamageBoxEffect` REQUEST EXISTS — which is a question about my own
-/// authoring, not about the engine's answer to it. The blast authored
-/// `HitSide::Neutral`, which `apply_hitbox_damage` excludes from the body path
-/// entirely, so it hurt nobody and every one of these tests stayed green.
+/// Assert the faction, not only that a `DamageBoxEffect` request exists. A blast
+/// with `HitSide::Neutral` is excluded from the body path by
+/// `apply_hitbox_damage` and hurts nobody, but a request-shaped test still
+/// passes.
 ///
-/// ⇒ `HitSide::Environment` is the relationship that damages every fighter
-/// including the placer; `ambition_combat`'s
+/// `HitSide::Environment` damages every fighter including the placer;
+/// `ambition_combat`'s
 /// `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`
-/// proves that end. This asserts the two halves MEET.
+/// proves that end. This test asserts the two halves meet.
 #[test]
 fn the_blast_is_authored_as_a_hazard_and_not_as_an_inert_side() {
     let mut app = app();
@@ -147,9 +143,9 @@ fn a_press_while_the_mine_is_still_arming_does_nothing_at_all() {
     press(&mut app, fighter);
     wait(&mut app, 0.5);
     press(&mut app, fighter);
-    // ⛔ ONE mine, not two, and no blast. Both halves matter: the failure this
-    // guards against is a second placement (mine spam) AND a detonation that
-    // ignores the arming delay, and they are opposite bugs in the same branch.
+    // One mine, not two, and no blast. This guards two opposite bugs in the
+    // same branch: a second placement and a detonation that ignores the
+    // arming delay.
     let out = mines(&mut app);
     assert_eq!(out.len(), 1, "a second press must not plant a second mine");
     assert!(out[0].1 > 0.0, "still arming");
@@ -174,15 +170,14 @@ fn a_mine_answers_its_own_seat_and_nobody_elses() {
     let rival = a_fighter(&mut app, 0, -100.0);
     press(&mut app, owner);
     wait(&mut app, 1.3);
-    // The rival presses their OWN mine button while the owner's mine is armed
-    // and sitting there.
+    // The rival presses their own mine button while the owner's mine is armed.
     press(&mut app, rival);
     assert!(
         blasts(&mut app).is_empty(),
         "seat 0 must not be able to set off seat 1's mine"
     );
-    // ⭐ AND THE RIVAL GOT THEIR OWN MINE INSTEAD, which is the other half of
-    // the same claim: the press was not swallowed, it was scoped.
+    // The rival got their own mine instead: the press was scoped, not
+    // swallowed.
     let mut out = mines(&mut app);
     out.sort_by_key(|(seat, _)| *seat);
     assert_eq!(out.len(), 2, "two seats, two mines");
@@ -221,8 +216,8 @@ fn the_blast_lands_where_the_mine_is_now_not_where_it_was_planted() {
 #[test]
 fn a_placer_with_no_seat_places_nothing() {
     let mut app = app();
-    // ⛔ NO `MatchSeat`. A mine whose owner cannot be named could never be
-    // detonated, so it must not reach the stage at all.
+    // No `MatchSeat`. A mine with no nameable owner could never be detonated,
+    // so it must not reach the stage.
     let unseated = app
         .world_mut()
         .spawn(ae::BodyKinematics::default())

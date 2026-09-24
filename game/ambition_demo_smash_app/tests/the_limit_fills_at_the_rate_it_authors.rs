@@ -1,23 +1,16 @@
-//! The Limit meter fills at the rate the smash ruleset AUTHORS, in the shipped
-//! composition — not at the platformer's.
+//! The Limit meter fills at the rate the smash ruleset authors, in the shipped
+//! composition, and not at the platformer's rate.
 //!
-//! ⛔⛔ TWO RULESETS WERE ONCE BOTH FILLING ONE METER. The smash ruleset authors
-//! `LimitMeterFill` (Jon's baseline: a 60-point cap and 0.5/s of clock, so 120 s
-//! to fill from nothing). The platformer's `avatar::regen_player_mana` refills
-//! every DRIVEN body at 14.0/s so that mana is a spendable resource for charge
-//! attacks, and it is registered unconditionally in the monolith's
-//! `FeatureCollection` phase. A composition carrying both got both: about 4.1 s
-//! to a full Limit, and a different economy for a driven fighter than for an
-//! otherwise identical undriven one. The Limit is now its own named resource in
-//! the seat's bank, so the Mana refill has nothing of the Limit's to reach.
+//! The smash ruleset authors `LimitMeterFill` (a 60-point cap and 0.5/s of
+//! clock, so 120 s to fill from nothing). The platformer's
+//! `avatar::regen_player_mana` refills every driven body at 14.0/s, and the
+//! monolith registers it unconditionally in its `FeatureCollection` phase. The
+//! Limit is its own named resource in the seat's bank, so the Mana refill
+//! cannot reach it.
 //!
-//! ⭐⭐ THIS TEST EXISTS BECAUSE THE UNIT TESTS COULD NOT SEE IT. `limit/tests.rs`
-//! installs the Limit systems directly and never composes the monolith's feature
-//! plugin, so the 14/s producer does not exist in that world at all. Its
-//! pure-clock assertion was green the entire time the shipped game was wrong —
-//! a guard whose world lacks the thing it is guarding against.
-//!
-//! ⇒ So this one composes the REAL demo app and asks the meter.
+//! `limit/tests.rs` installs the Limit systems directly and never composes the
+//! monolith's feature plugin, so the 14/s producer does not exist there. This
+//! test composes the real demo app and reads the meter.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
@@ -43,9 +36,8 @@ fn meters(app: &mut App) -> (f32, usize) {
     (highest, values.len())
 }
 
-/// Start a real match, exactly as the repertoire census does: the stage opens
-/// SUSPENDED and holds every fighter through a 3-2-1-GO, so a window taken
-/// before the countdown ends measures bodies that are forbidden to act.
+/// Start a real match, as the repertoire census does. The stage opens
+/// suspended and holds every fighter through a 3-2-1-GO, so wait past it.
 ///
 /// `regen` overrides the composition's mana policy, so the same fight can be run
 /// with and without the platformer's refill.
@@ -53,8 +45,8 @@ fn a_live_match(regen: Option<f32>) -> App {
     a_live_match_with(regen, |_| {})
 }
 
-/// `a_live_match`, with a chance to plant state BEFORE the stage is entered —
-/// which is the only moment a prior owner's configuration can exist.
+/// `a_live_match`, with a hook to plant state before the stage is entered:
+/// the only moment a prior owner's configuration can exist.
 fn a_live_match_from(before: impl FnOnce(&mut App)) -> App {
     a_live_match_with(None, before)
 }
@@ -65,26 +57,18 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
     ];
     let mut app = build_demo_app();
-    // ⛔ BEFORE ANY TICK, because a prior owner's configuration has to exist
-    // before Smash ever looks. ⚠ The first version of this hook was accepted as a
-    // parameter and never CALLED — it compiled, the closure silently never ran,
-    // and the test failed for a reason that had nothing to do with the code under
-    // test. Its `println` not appearing is what gave it away.
+    // Run the hook before any tick: a prior owner's configuration must exist
+    // before Smash looks.
     before(&mut app);
     for _ in 0..30 {
         app.update();
     }
-    // ⛔⛔ `smash_roster`, NOT `smash_roster_at_levels` — SEAT 0 IS A HUMAN, and
-    // that is the whole fixture. `regen_player_mana` refills `DrivenBodies`, and
-    // a CPU is not one: an all-CPU match showed IDENTICAL gain with the
-    // platformer's rate forced on and off, because it was never reaching those
-    // bodies at all. ⇒ The leak is specific to DRIVEN seats, which is precisely
-    // the 1v1 human-versus-human case this game is for.
+    // `smash_roster`, not `smash_roster_at_levels`: seat 0 is a human.
+    // `regen_player_mana` refills `DrivenBodies`, and a CPU is not one, so an
+    // all-CPU match cannot show the leak.
     //
-    // ⭐ AND A HUMAN SEAT WITH NO CONTROLLER IS THE CLEANEST INSTRUMENT AVAILABLE:
-    // it takes and deals no damage, so the meter's movement is pure CLOCK and the
-    // authored 0.5/s is directly readable instead of buried under Jon's damage
-    // sources.
+    // A human seat with no controller deals and takes no damage, so the
+    // meter's movement is pure clock and the authored 0.5/s is readable.
     let roster = ambition_demo_smash::smash_roster(characters);
     let countdown = ambition_demo_smash::smash_roster(characters)
         .rules
@@ -99,15 +83,10 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
-    // ⛔⛔ THE OVERRIDE GOES ON AFTER THE STAGE IS LIVE, and the first version put
-    // it on before. Smash GIVES ITS DECLARATIONS BACK when the route is not the
-    // stage, so a value inserted during the select screen was correctly removed
-    // on the next tick and both arms of the A/B ended identical — the control
-    // caught it, which is the second time that control has caught this test
-    // measuring nothing.
-    //
-    // ⚠ On the stage the ruleset only declares when NOTHING is declared, so an
-    // override standing here survives: it is the "already declared" case.
+    // Insert the override after the stage is live. Smash removes its
+    // declarations when the route is not the stage, so a value inserted on the
+    // select screen is removed on the next tick. On the stage the ruleset
+    // declares only when nothing is declared, so an override here survives.
     if let Some(rate) = regen {
         app.world_mut().insert_resource(
             ambition_platformer2d::actors::avatar::systems::PlayerManaRegen(rate),
@@ -119,10 +98,10 @@ fn a_live_match_with(regen: Option<f32>, before: impl FnOnce(&mut App)) -> App {
 /// Limit gained by the fullest meter over `WINDOW` ticks of the same fight, and
 /// the Mana the seats' drained pools gained over the same window.
 ///
-/// ⚠ A seat holds no Mana — the match declares only the Limit — so the
-/// instrument GIVES each seat a drained pool beside its Limit, at the Limit's
-/// live level. That is the harder case for the claim: the refill's resource and
-/// the Limit share one bank, and the refill must still reach only its own.
+/// A seat holds no Mana (the match declares only the Limit), so this gives
+/// each seat a drained Mana pool beside its Limit. That is the harder case:
+/// the refill's resource and the Limit share one bank, and the refill must
+/// still reach only its own.
 fn gained_over_the_window(regen: Option<f32>) -> (f32, usize, f32) {
     let mut app = a_live_match(regen);
     let seats: Vec<Entity> = app
@@ -166,32 +145,27 @@ fn gained_over_the_window(regen: Option<f32>) -> (f32, usize, f32) {
     (after - before, seated, mana(&app) - mana_before)
 }
 
-/// ⛔⛔ AN A/B AGAINST THE SAME FIGHT, because the absolute number cannot answer
-/// a RATE question in a world where fighters are also hitting each other.
+/// An A/B on the same fight. An absolute ceiling cannot answer a rate
+/// question while fighters also hit each other (authored damage sources
+/// add Limit). The simulation is deterministic, so the same match run twice
+/// differs only by the policy under test.
 ///
-/// An absolute ceiling on the gain once failed at **22.3 over two seconds**
-/// with the fix in place — Jon's authored damage sources legitimately produce
-/// that much when two fighters trade hits. The simulation is deterministic, so
-/// the SAME match run twice differs only by the policy under test.
-///
-/// ⭐ THE LIMIT IS NAMED, SO THE TWO ARMS — Mana refill off, and on at the
-/// platformer's rate — MUST AGREE EXACTLY: the refill has nothing of the
-/// Limit's to reach. ⛔ And an "equal" verdict is vacuous unless the refill
-/// demonstrably differs between the arms — so the control is the same seats'
-/// drained Mana pool, which only the second arm may fill.
+/// The Limit is named, so the two arms (Mana refill off, and on at the
+/// platformer's rate) must agree exactly. The control is the seats' drained
+/// Mana pool, which only the second arm may fill; without it, "equal" is
+/// vacuous.
 #[test]
 fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
     let (still, seated, mana_still) = gained_over_the_window(Some(0.0));
-    // ⛔ ANTI-VACUITY. A world with no metered body satisfies everything below
-    // forever, and it is what a match that never started looks like.
+    // Anti-vacuity: a world with no metered body satisfies everything below.
     assert!(
         seated >= 2,
         "the live match composed {seated} bodies holding a Limit; this guard is \
          asking an empty world"
     );
 
-    // Every seat is BUILT with the match's Limit, not adopted into it — and
-    // with NOTHING ELSE: a fighter holds no Mana merely by being a body.
+    // Every seat is built with the match's Limit and nothing else: a fighter
+    // holds no Mana merely by being a body.
     let mut app = a_live_match(None);
     let layouts: Vec<Vec<String>> = app
         .world_mut()
@@ -242,21 +216,14 @@ fn the_platformers_mana_regen_does_not_reach_a_fighters_limit() {
     );
 }
 
-/// ⭐ PROBE, PRINT-ONLY: does a real match ever REACH the Limit?
+/// Probe, print-only: does a real match ever reach the Limit?
 ///
-/// The goblin's dive is priced at `cap` — 60, the whole meter — which is what
-/// makes "usable when it fills" a number rather than a mechanism. But a price
-/// nobody can pay inside a match is a move that does not exist, and nothing has
-/// measured the fill against a match's actual LENGTH.
+/// The goblin's dive is priced at `cap` (60, the whole meter). The fill is
+/// 0.5/s of clock (120 s on the clock alone), plus 1.0 and 0.1x per damage
+/// instance dealt and 2.0 and 0.2x per instance taken, over three stocks. So
+/// the answer depends on how much damage a real match trades.
 ///
-/// Jon's baseline: 0.5/s of clock (120 s to fill on the clock ALONE), plus 1.0
-/// and 0.1x per damage instance DEALT and 2.0 and 0.2x per instance TAKEN. Three
-/// stocks. So the answer depends entirely on how much damage a real match trades,
-/// which is not a number anybody has written down.
-///
-/// ⚠ NOT AN ASSERTION. What "reachable enough" means is Jon's call, and a
-/// threshold invented here would be a balance ruling smuggled in as a test. This
-/// prints what happened and stops.
+/// Not an assertion: what "reachable enough" means is a balance decision.
 ///
 /// Run: `--test smash_it -- --ignored probe_how_long_the_limit_takes --nocapture`
 #[test]
@@ -273,8 +240,8 @@ fn probe_how_long_the_limit_takes() {
 
     let mut peak = 0.0f32;
     let mut first_full: Option<usize> = None;
-    // Seat 0's charge, sampled every tick, so a WIPE is visible as a fall that
-    // no spend explains.
+    // Seat 0's charge, sampled every tick, so a wipe shows as a fall that no
+    // spend explains.
     let mut seat0_prev = 0.0f32;
     let mut seat0_entity: Option<Entity> = None;
     let mut drops: Vec<(usize, f32, f32, bool)> = Vec::new();
@@ -288,9 +255,8 @@ fn probe_how_long_the_limit_takes() {
         if highest > peak {
             peak = highest;
             if highest > cap {
-                // ⛔ ABOVE THE CAP IS NOT SUPPOSED TO HAPPEN. Report WHO and what
-                // their meter's own max says, because "current above cap" and
-                // "this body was never adopted" look identical from the outside.
+                // Above the cap should not happen. Report who, and their meter's
+                // own max: "current above cap" and "never adopted" look the same.
                 let world = app.world_mut();
                 let mut q = world.query::<(&ActorResources, Option<&MatchSeat>)>();
                 for (bank, seat) in q.iter(world) {
@@ -316,9 +282,8 @@ fn probe_how_long_the_limit_takes() {
             let mut q = world.query::<(Entity, &ActorResources, &MatchSeat)>();
             if let Some((entity, bank, _)) = q.iter(world).find(|(_, _, seat)| seat.0 == 0) {
                 let now = bank.level_of(&LIMIT).map_or(0.0, |limit| limit.current);
-                // ⛔ THE DISCRIMINATOR: did the ENTITY change? A new entity means
-                // the fighter was respawned fresh; the same entity means
-                // something RESET the meter in place. The fix differs.
+                // Did the entity change? A new entity means a fresh respawn; the
+                // same entity means something reset the meter in place.
                 let new_body = seat0_entity.is_some_and(|was| was != entity);
                 if seat0_prev - now > 1.0 {
                     drops.push((tick, seat0_prev, now, new_body));
@@ -353,22 +318,17 @@ fn probe_how_long_the_limit_takes() {
     }
 }
 
-/// ⛔⛔ LEAVING SMASH PUTS BACK WHAT WAS THERE — IT DOES NOT DELETE IT.
+/// Leaving Smash restores what was there; it does not delete it.
 ///
-/// The first version of the override REMOVED the portal resources on leaving,
-/// and Smash does not own them: `PortalPresentationPlugin` calls `init_resource`
-/// for `PortalCameraContinuitySelection` and `PortalViewConeConfig`, and
-/// `sync_portal_view_cones` takes `config: Res<PortalViewConeConfig>` — REQUIRED,
-/// not `Option`. In the aggregate app the portal plugin is installed globally, so
-/// leaving Smash deleted a resource a live system needs. ⚠ And even where nothing
-/// fails, "remove" is not "restore": a developer-selected configuration was
-/// destroyed rather than put back.
+/// Smash does not own the portal resources: `PortalPresentationPlugin`
+/// calls `init_resource` for `PortalCameraContinuitySelection` and
+/// `PortalViewConeConfig`, and `sync_portal_view_cones` requires
+/// `Res<PortalViewConeConfig>`. In the aggregate app, removing it on leaving
+/// would break that system and destroy a developer-selected configuration.
 ///
-/// ⭐ THE SENTINEL IS HOW A STANDALONE COMPOSITION WITNESSES THE AGGREGATE CASE.
-/// This demo has no portal plugin creating a baseline, so the interesting state —
-/// somebody ELSE'S configuration standing before Smash overrides it — is planted
-/// here. Without it the test could only prove "None came back as None", which is
-/// exactly the case the bug got right.
+/// This demo has no portal plugin, so the test plants another owner's
+/// configuration before Smash runs. Otherwise it could only prove that
+/// `None` came back as `None`.
 #[test]
 fn leaving_the_stage_restores_another_owners_portal_config() {
     use ambition_platformer2d::portal_presentation as portal_view;
@@ -425,12 +385,9 @@ fn leaving_the_stage_restores_another_owners_portal_config() {
          there. Restoring a default is not restoring: a developer-selected \
          configuration is still destroyed, just less visibly."
     );
-    // ⛔⛔ AND THE LIMIT RULE MUST GO WITH IT, which nothing checked until a
-    // poison walked out of this test unharmed. Removing the give-back branch for
-    // `SmashLimitFill` failed NO test: the "declares nothing" arm asks an app
-    // that never entered the stage, so it cannot see a rule that was declared
-    // and then left standing. ⇒ A pair of arms for arrival is not a pair for
-    // DEPARTURE, and a rule for a mode must not outlive the mode.
+    // The Limit rule must also go when the mode ends. The "declares nothing"
+    // test asks an app that never entered the stage, so it cannot see a rule
+    // that was declared and then left standing.
     assert!(
         app.world()
             .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
@@ -439,20 +396,14 @@ fn leaving_the_stage_restores_another_owners_portal_config() {
     );
 }
 
-/// ⛔⛔ WHAT SMASH DECLARES, SMASH GIVES BACK — and composing it declares nothing.
+/// What Smash declares, Smash gives back, and composing it declares nothing.
 ///
-/// `PlayerManaRegen(0.0)` and the portal presentation were inserted in
-/// `Plugin::build`, and `ambition_app` installs `SmashExperiencePlugin` alongside
-/// Ambition, Sanic and Mary-O. So merely COMPOSING Smash set the mana rate to
-/// zero and the portal cone to `Static` for the whole process: a player who
-/// launched the aggregate app and walked into ordinary Ambition got no mana
-/// regeneration — `ambition_abilities` has real consumers, dive through volley —
-/// and Ambition, the portal game, drew Smash's cones. They never enter a match.
-/// Smash being LINKED was enough.
-///
-/// ⭐ THE DECISION WAS RIGHT AND THE LIFETIME WAS WRONG. Zero generic fill is a
-/// claim about a RULESET that is running, not about a binary that can reach one.
-/// This asks the composed app BEFORE any match: nothing declared.
+/// `ambition_app` installs `SmashExperiencePlugin` beside Ambition, Sanic,
+/// and Mary-O. If `PlayerManaRegen(0.0)` and the portal presentation were
+/// inserted in `Plugin::build`, merely linking Smash would zero mana regen
+/// (which `ambition_abilities` consumers need) and set Smash's cones for
+/// every experience. Zero generic fill is a rule of a running ruleset. This
+/// asks the composed app before any match: nothing declared.
 #[test]
 fn composing_smash_declares_nothing_until_the_stage_is_active() {
     let app = build_demo_app();
@@ -472,8 +423,8 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
          Ambition IS the portal game and would draw Smash's cones because Smash \
          happens to be linked."
     );
-    // ⛔⛔ AND THE LIMIT RULE: declared at plugin build, it would run for a
-    // mode nobody is in.
+    // The Limit rule: declared at plugin build, it would run for a mode
+    // nobody is in.
     assert!(
         app.world()
             .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()
@@ -482,9 +433,8 @@ fn composing_smash_declares_nothing_until_the_stage_is_active() {
     );
 }
 
-/// ⛔ AND ON THE STAGE IT IS DECLARED. Without this arm the one above is
-/// satisfied by a ruleset that declares nothing anywhere, which is the original
-/// Limit bug wearing the opposite sign.
+/// On the stage, the ruleset declares its answers. Without this, the test
+/// above is satisfied by a ruleset that declares nothing anywhere.
 #[test]
 fn the_stage_declares_the_rulesets_own_answers() {
     let app = a_live_match(None);
@@ -498,9 +448,7 @@ fn the_stage_declares_the_rulesets_own_answers() {
         "on the Smash stage the cone is {cone:?}. `Dynamic` is the engine default \
          and means a viewer-dependent window, which is undefined with two seats."
     );
-    // The paired arm for the Limit: absent off-stage is only meaningful if it is
-    // PRESENT here, or "nothing declared" would be satisfied by a rule that was
-    // never declared at all.
+    // Absent off-stage is meaningful only if present here.
     assert!(
         app.world()
             .get_resource::<ambition_demo_smash::limit::SmashLimitFill>()

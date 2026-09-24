@@ -24,21 +24,21 @@ use ambition_portal2d::{
 };
 use ambition_projectiles::ProjectileGameplay;
 
-/// Ensure every body that transited before the unification carries the portal
-/// transit opt-in. Maps Ambition identity → behavioral [`PortalPolicy`]:
+/// Give every actor body the portal transit opt-in. Maps Ambition identity →
+/// behavioral [`PortalPolicy`]:
 ///
 /// - player (`PlayerEntity` + `PrimaryPlayer`) → `{ reorient: true,
 ///   carry_velocity: true }` (re-orients to the exit aperture and carries the
 ///   rotated velocity).
 /// - boss (marked by `BossConfig`) → `{ reorient: false, carry_velocity:
-///   false }` (floats; the old no-velocity path; facing follows the brain).
+///   false }` (floats; facing follows the brain).
 /// - other actors (enemies / NPCs — any remaining `BodyKinematics`) →
 ///   `{ reorient: false, carry_velocity: true }` (carry momentum; facing follows
 ///   AI).
 ///
-/// The SET of bodies that transit must stay IDENTICAL to before: player + all
-/// actors. Idempotent — only adds the marker/policy to entities lacking
-/// `PortalBody`, so it is cheap to run every frame and tolerates late spawns.
+/// The set of bodies that transit is the player and all actors. Idempotent:
+/// it only adds the marker and policy to entities without `PortalBody`, so it
+/// is cheap every frame and handles late spawns.
 pub fn ensure_portal_bodies(
     mut commands: Commands,
     bodies: Query<
@@ -77,15 +77,11 @@ pub fn ensure_portal_bodies(
     }
 }
 
-/// Carry the `portal_reverses_facing` gameplay setting into the portal tuning
-/// MIRROR, and propose it — so the settings menu and the F-key panel author the
-/// same field in the same place.
+/// Carry the `portal_reverses_facing` gameplay setting into the editable
+/// portal tuning, and propose it.
 ///
-/// ⛔⛤ **THIS WROTE THE AUTHORITY DIRECTLY, FROM INSIDE THE SIM SCHEDULE, AND
-/// THAT MADE TWO TRUTHS THE MOMENT `Q120` MIGRATED THE PORTAL PANEL — REVIEW,
-/// 2026-09-13.** It was `ResMut<PortalTuning>` registered
-/// `.in_set(PortalSet::Transit).before(portal_transit)`, i.e. inside
-/// `GgrsSchedule` under the rollback host. So:
+/// It writes `EditablePortalTuning`, not `PortalTuning`. Writing the
+/// authority from inside `GgrsSchedule` would do this:
 ///
 /// ```text
 /// developer edits reorient_facing in the portal inspector
@@ -94,33 +90,25 @@ pub fn ensure_portal_bodies(
 ///   -> THIS overwrites it from the persisted gameplay setting
 /// ```
 ///
-/// ⇒ One field of the supposedly authoritative portal tuning was owned
-/// elsewhere, and resolution happened by whichever system wrote last. It was
-/// also a `UserSettings` read inside the rollback window in its own right: a
-/// replay of frame N observed whatever the settings menu says NOW.
+/// Then the last writer wins. It would also read `UserSettings` inside the
+/// rollback window, so a replay of frame N would see the current setting.
 ///
-/// ⭐⭐ **THE POLICY IS EXPLICIT NOW: `EditablePortalTuning` IS WHERE THE FIELD IS
-/// AUTHORED**, and `publish_editable_portal_tuning` is the only writer of the
-/// authority. Two authors of one authored value, one publisher, one authority —
-/// rather than two writers of the authority racing per frame.
+/// `EditablePortalTuning` is where the field is authored, and
+/// `publish_editable_portal_tuning` is the only writer of the authority.
 ///
-/// ⛔⛤ **"BY THE SETTINGS MENU AND BY THE DEVELOPER PANEL ALIKE" IS WHAT THIS
-/// COMMENT USED TO SAY, AND IT IS NOT TRUE OF `reorient_facing` — 2026-09-18.**
-/// The two are not peers on this one field. This system is change-guarded on
-/// `editable.reorient_facing != want`, so it does nothing while they agree and
-/// republishes the PERSISTED value the moment they differ — which is exactly
-/// what a developer toggling the row in the portal inspector produces. ⇒ The
-/// inspector's edit of this field is reverted on the next pass, deterministically
-/// and with no race; the gameplay setting is the author and the panel is not.
-/// The panel's own row says so now, where the surprise happens.
+/// For `reorient_facing`, the gameplay setting is the author and the panel is
+/// not. This system is change-guarded on `editable.reorient_facing != want`,
+/// so it does nothing while they agree and republishes the persisted value
+/// when they differ. An inspector edit of this field is therefore reverted on
+/// the next pass, with no race. The panel's row states this.
 ///
-/// ⚠ The other `EditablePortalTuning` fields ARE panel-authored: this system
-/// names one field and touches nothing else.
+/// The other `EditablePortalTuning` fields are panel-authored: this system
+/// touches one field only.
 ///
-/// ⚠ The gameplay setting defaults OFF, so by default the player keeps the same
-/// facing through a same-wall portal turn-around, while the portal crate's own
-/// default stays ON for standalone use. Change-guarded, so an untouched setting
-/// proposes nothing and never stops a rollback baseline.
+/// The gameplay setting defaults off, so by default the player keeps the same
+/// facing through a same-wall portal turn-around; the portal crate's own
+/// default stays on for standalone use. Change-guarded, so an untouched
+/// setting proposes nothing and never stops a rollback baseline.
 pub fn sync_portal_reorient_from_settings(
     // Optional: headless / unit-test apps may run portal transit without the
     // settings resource. Absent → leave the portal crate's default (ON).
@@ -141,24 +129,20 @@ pub fn sync_portal_reorient_from_settings(
 /// Opt every in-flight projectile entity into the generic transit algorithm by
 /// giving it the [`PortalBody`] marker plus a free-flying [`PortalPolicy`]:
 ///
-/// - `reorient: false` — a projectile is not an actor; it has no `ActorRoll` and
-///   no facing-to-aperture concept. Its velocity is rotated by the pair
-///   transform (that is core/default, in `transit_step`), and it just keeps
-///   flying out the exit.
-/// - `carry_velocity: true` — write the rotated exit velocity so a fireball
-///   fired into portal A emerges from portal B travelling in the mapped
-///   direction (the whole point of the demo).
+/// - `reorient: false`: a projectile is not an actor; it has no `ActorRoll`
+///   and no facing. `transit_step` rotates its velocity by the pair transform,
+///   and it keeps flying out the exit.
+/// - `carry_velocity: true`: write the rotated exit velocity, so a fireball
+///   fired into portal A leaves portal B in the mapped direction.
 ///
-/// Projectiles are EXCLUDED from [`ensure_portal_bodies`] (which is
-/// `Without<ProjectileGameplay>`, so the actor transit set is unchanged); this
-/// dedicated system opts them in with their own policy. Idempotent
-/// (`Without<PortalBody>`), so it is cheap to run every frame and tolerates
-/// late spawns. Every shot carries the shared [`BodyKinematics`] +
-/// [`ProjectileGameplay`], so filtering on the gameplay marker covers the single
-/// live projectile family regardless of producer or presentation.
+/// [`ensure_portal_bodies`] excludes projectiles (`Without<ProjectileGameplay>`);
+/// this system opts them in with their own policy. Idempotent
+/// (`Without<PortalBody>`), so it is cheap every frame and handles late spawns.
+/// Every shot carries [`BodyKinematics`] + [`ProjectileGameplay`], so the
+/// gameplay marker covers every projectile regardless of producer.
 ///
-/// A projectile nowhere near a portal is unaffected: `transit_step` returns
-/// `Idle`, so this is a pure no-op for the non-portal case.
+/// A projectile far from a portal is unaffected: `transit_step` returns
+/// `Idle`.
 pub fn ensure_projectile_portal_bodies(
     mut commands: Commands,
     projectiles: Query<
@@ -181,22 +165,22 @@ pub fn ensure_projectile_portal_bodies(
     }
 }
 
-/// Give every transferred body its CARRIED run momentum: the WORLD-imparted
+/// Give every transferred body its carried run momentum: the world-imparted
 /// part of the mapped exit velocity's run-axis component becomes
-/// `BodyFlightState::carried_run` — the floor the hands-off air stop assist
-/// decays toward — so a portal fling is conserved (Portal physics) while
-/// ordinary jump drift keeps the tight stop-on-release feel (Hollow Knight
-/// control). Runs after `portal_transit` the same frame, when
-/// `BodyKinematics::vel` is already the mapped exit velocity. Actor-generic:
-/// any transferred body carrying the flight cluster gets it — no
-/// player-casing.
+/// `BodyFlightState::carried_run`, the floor the hands-off air-stop assist
+/// decays toward. So a portal fling is conserved (Portal physics) while jump
+/// drift keeps the tight stop-on-release feel (Hollow Knight control). Runs
+/// after `portal_transit` in the same frame, when `BodyKinematics::vel` is the
+/// mapped exit velocity. Any transferred body with the flight cluster gets
+/// it.
 ///
-/// The transfer ROTATES momentum; it must not reclassify it. A fall's gravity-earned speed is
-/// world-imparted, so a genuine fling (fall in, wall out) still floors at full strength.
+/// The transfer rotates momentum; it must not reclassify it. A fall's
+/// gravity-earned speed is world-imparted, so a real fling (fall in, wall out)
+/// still floors at full strength.
 ///
-/// The run axis is the BODY's own resolved frame, not the primary body's `GravityField`: a
-/// body under a different gravity zone runs along a different axis, and splitting its exit
-/// velocity on someone else's would reclassify its fall as run (or its run as fall).
+/// The run axis is the body's own resolved frame, not the primary body's
+/// `GravityField`: a body in another gravity zone runs along another axis, and
+/// splitting its velocity on the wrong one would turn its fall into run.
 pub fn apply_portal_carried_momentum(
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
@@ -225,26 +209,21 @@ pub fn apply_portal_carried_momentum(
     }
 }
 
-/// Rotate a projectile's CARRIED WORLD ACCELERATION through the portal, the way
-/// its velocity already is.
+/// Rotate a projectile's carried world acceleration through the portal, like
+/// its velocity.
 ///
-/// ⛔⛔ THE VELOCITY WAS MAPPED AND THIS WAS NOT. Every projectile opts into
-/// portals with `carry_velocity: true`, and `ProjectileGameplay::accel` is
-/// documented as a constant WORLD acceleration the shot carries. Portal transit
-/// maps `BodyKinematics::vel` by the entry/exit normals and never touched
-/// `accel` — so the ponytail boomerang, the only shot that authors a non-zero
-/// one, exited a rotated portal travelling the mapped way while its "come home"
-/// pull still pointed along the pre-portal world axis. It stopped decelerating
-/// along the path it had just emerged on and traced a different arc entirely
-///.
+/// `ProjectileGameplay::accel` is a constant world acceleration the shot
+/// carries. If only the velocity were mapped, the ponytail boomerang (the only
+/// shot with a non-zero one) would leave a rotated portal with its "come home"
+/// pull still on the pre-portal axis, and trace a different arc.
 ///
-/// ⭐ HERE RATHER THAN IN THE PORTAL CORE, which knows nothing about projectiles
-/// and should not: this is the same adapter shape the carried-momentum and
-/// kernel-body reconciliations already use, reading the core's own
-/// `PortalBodyTransited` and its two normals.
+/// This lives here, not in the portal core, which knows nothing about
+/// projectiles. It is the same adapter shape as the carried-momentum and
+/// kernel-body reconciliations: it reads the core's `PortalBodyTransited` and
+/// its two normals.
 ///
-/// ⚠ A SHOT WITH NO AUTHORED ACCELERATION IS UNAFFECTED — mapping `ZERO` is
-/// `ZERO`, so this is inert for every projectile but the tail.
+/// A shot with no authored acceleration is unaffected: mapping `ZERO` gives
+/// `ZERO`.
 pub fn rotate_projectile_acceleration_after_portal_transit(
     mut transited: MessageReader<PortalBodyTransited>,
     mut shots: Query<&mut ProjectileGameplay>,
@@ -267,14 +246,14 @@ pub fn rotate_projectile_acceleration_after_portal_transit(
 
 /// Complete the kernel-body half of the portal-transit authority (ADR 0024).
 ///
-/// The portal core moves ANY `BodyKinematics` — including cluster-less
-/// projectiles — so it cannot reconcile kernel body state itself. For every
-/// transited body that IS a kernel body (full movement clusters + an explicit
-/// `MotionModel`), run the shared transit reconciliation: departure contacts
-/// invalidated, wall cling and ledge grab released, a riding momentum body
-/// arrives Airborne, an attached crawler arrives detached, and the §3.1 motion
-/// record collapses to the arrival point. Runs `.after(portal_transit)` in the
-/// same set so the reconciled state is what the next movement tick sees.
+/// The portal core moves any `BodyKinematics`, including cluster-less
+/// projectiles, so it cannot reconcile kernel body state. For every transited
+/// kernel body (full movement clusters and an explicit `MotionModel`), run the
+/// shared transit reconciliation: departure contacts invalidated, wall cling
+/// and ledge grab released, a riding momentum body arrives Airborne, an
+/// attached crawler arrives detached, and the §3.1 motion record collapses to
+/// the arrival point. Runs `.after(portal_transit)` in the same set, so the
+/// next movement tick sees the reconciled state.
 pub fn reconcile_kernel_bodies_after_portal_transit(
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
@@ -304,10 +283,10 @@ pub fn reconcile_kernel_bodies_after_portal_transit(
 /// - inserts the [`PortalInputWarp`] held-input warp iff this convention's
 ///   map flips horizontal movement and a movement input is held.
 ///
-/// [`PortalEmission`] and [`PortalInputWarp`] are INPUT and must never be
-/// referenced by the portal core. This runs `.after(portal_transit)`
-/// and `.before` the player controller so these components exist the same frame
-/// the controller runs (as they did when transit inserted them inline).
+/// [`PortalEmission`] and [`PortalInputWarp`] are input and must never be
+/// referenced by the portal core. This runs `.after(portal_transit)` and
+/// `.before` the player controller, so these components exist in the frame the
+/// controller runs.
 pub fn portal_player_input_adapter(
     mut commands: Commands,
     tuning: Res<PortalTuning>,
@@ -321,9 +300,8 @@ pub fn portal_player_input_adapter(
     drivers: Query<&ambition_characters::control::DrivingParticipant>,
 ) {
     for ev in transited.read() {
-        // Only a DRIVEN body carries input/trace side effects; autonomous actors
-        // do not. The seat is read off the body that transited, so any seat's
-        // hold is warped rather than only the primary's.
+        // Only a driven body has input and trace side effects. The seat is read off
+        // the body that transited, so any seat's hold is warped.
         let Ok(driver) = drivers.get(ev.body) else {
             continue;
         };

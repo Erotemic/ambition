@@ -8,7 +8,7 @@
 //!     → `combat::moveset::trigger_moveset_moves`   (starts the `"attack"` move)
 //!     → `combat::moveset::advance_move_playback`   (spawns the active-window
 //!        strike + slash, owned by the body, on the owner's proper-time clock)
-//!     → `project_moveset_melee_to_body_melee`      (`BodyMelee` read-model)
+//!     → `combat::moveset::melee_swing_of`          (the swing read-model)
 //!
 //! This pins, through `Platformer2dSimHarness::step`, that BOTH the player and an autonomous
 //! hostile actor enter that identical melee lifecycle and own the strike their
@@ -25,7 +25,9 @@ use ambition_platformer2d::actors::features::Hitbox;
 use ambition_platformer2d::characters::brain::ActionSet;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorTarget, FeatureId};
-use ambition_platformer2d::combat::moveset::MovePlayback;
+use ambition_platformer2d::combat::moveset::{
+    melee_swing_of, ActorMoveset, MeleeSwingQuery, MovePlayback,
+};
 use ambition_platformer2d::combat::BodyMelee;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::{placements::CharacterBrain, WindowTag};
@@ -45,14 +47,9 @@ fn player_pos(world: &mut World) -> ambition_platformer2d::engine_core::Vec2 {
     q.single(world).expect("primary player").pos
 }
 
-/// A body's melee lifecycle engaged: mid-swing, or its recovery cooldown is armed
-/// (a swing began this window — robust to fixed-timestep catch-up completing a
-/// short swing within one `sim.step`).
+/// A body's melee lifecycle engaged: its live move reads as a swing.
 fn melee_engaged(world: &mut World, e: Entity) -> bool {
-    world
-        .get::<BodyMelee>(e)
-        .map(|m| m.is_swinging() || m.cooldown > 0.0)
-        .unwrap_or(false)
+    melee_swing_of(world.get::<MovePlayback>(e), world.get::<ActorMoveset>(e)).is_some()
 }
 
 fn owns_a_strike(world: &mut World, e: Entity) -> bool {
@@ -101,7 +98,7 @@ fn observe_hostile_melee(
             &ActorDisposition,
             &ActorTarget,
             &ActionSet,
-            &BodyMelee,
+            MeleeSwingQuery,
             Option<&MovePlayback>,
         )>();
         q.iter(world)
@@ -117,7 +114,7 @@ fn observe_hostile_melee(
                         disp.is_hostile(),
                         target.entity.is_some(),
                         actions.melee.is_some(),
-                        melee.is_swinging() || melee.cooldown > 0.0 || attack_playback,
+                        melee.swing().is_some() || attack_playback,
                         attack_playback,
                         active_attack,
                     )
@@ -178,8 +175,8 @@ fn hostile_body_present(world: &mut World, feature_id: &str) -> bool {
 }
 
 /// The PLAYER's own melee flows through the moveset lifecycle (no flat melee
-/// driver exists): pressing Attack starts its `"attack"` move, projects a
-/// `BodyMelee` swing, and spawns a strike it OWNS.
+/// driver exists): pressing Attack starts its `"attack"` move, reads as a
+/// swing, and spawns a strike it OWNS.
 #[test]
 fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
     let _guard = UNIFIED_MELEE_TEST_LOCK
@@ -202,7 +199,7 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
 
     assert!(
         engaged,
-        "the player's BodyMelee lifecycle engages on Attack (via trigger_moveset_moves)"
+        "the player's melee lifecycle engages on Attack (via trigger_moveset_moves)"
     );
     assert!(
         owns_strike,
@@ -210,7 +207,7 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
     );
 }
 
-/// An autonomous hostile actor enters the SAME `BodyMelee` lifecycle from the SAME
+/// An autonomous hostile actor enters the SAME melee lifecycle from the SAME
 /// `ActorActionMessage::Melee` path — no separate actor melee driver.
 #[test]
 fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
@@ -241,7 +238,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
     // Stand still; the in-range hostile fighter commits swings on its own. Observe
     // the same production components pinned by `enemy_attacks_player`: target
     // acquisition, ActionSet availability, brain-published melee intent, then the
-    // body-owned `BodyMelee`/hitbox lifecycle. This keeps the test about the real
+    // body-owned swing/hitbox lifecycle. This keeps the test about the real
     // unified body path instead of about which support entity a narrow query happens
     // to see first.
     let mut t = HostileMeleeTally::default();
@@ -271,7 +268,7 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
     );
     assert!(
         t.engaged_frames > 0,
-        "the hostile actor must enter the shared melee lifecycle (BodyMelee projection \
+        "the hostile actor must enter the shared melee lifecycle (a swing \
          or attack MovePlayback): {t:#?}"
     );
     assert!(

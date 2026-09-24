@@ -9,12 +9,11 @@ use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_sm
 use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
 use ambition_platformer2d::content::{CompileFailure, PreparedContentPack};
 
-/// The pack manifest, embedded from the SAME file the CLI reads off disk.
+/// The pack manifest, embedded from the same file the CLI reads off disk.
 const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 
-/// The declared path of each source, exactly as `pack.ron` spells it. A
-/// mismatch is the compiler's own "no source supplied" refusal rather than a
-/// silently absent fighter.
+/// The declared path of each source, as `pack.ron` spells it. A mismatch gives
+/// the compiler's "no source supplied" error instead of a missing fighter.
 const GEORGE_FACET_PATH: &str =
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
 /// George's authored fighter facet, selected here but owned by character authoring.
@@ -56,41 +55,34 @@ pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
     lowered_smash_fighters(prepared())?.get(character)
 }
 
-/// The BODY a character's authored facet states for its FIGHTER self, layered
-/// over the body every platform fighter on this stage starts from.
+/// The body a character's authored facet states for its fighter self, layered
+/// over the base platform-fighter body.
 ///
-/// ⭐⭐ THIS IS THE OTHER HALF OF `MatchParticipant::body`. A catalog row's feel
-/// is that character's feel everywhere it appears — a hub, a room, a stage — so
-/// a character that walks around a hub and also fights states its fighter body
-/// in its own package instead, and the roster hands it to the seat.
+/// This is the other half of `MatchParticipant::body`. A catalog row's feel
+/// applies everywhere the character appears, so a character that also fights
+/// states its fighter body in its own package, and the roster gives it to the
+/// seat.
 ///
-/// `None` for a character this pack authors no facet for, and for one whose
-/// facet states no body: both mean *keep whatever body you already had*.
+/// `None` when the pack has no facet for the character or the facet states no
+/// body: keep the current body.
 pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_core::MovementTuning> {
     fighter_facet(character)?
         .body
         .as_ref()
-        // ⛔ THE BASE IS THE PLAYER-GRADE BODY, NOT THE ACTOR BASELINE, and the
-        // difference is the whole reason this road exists: a seat that reaches
-        // preparation with nothing composes over the WANDERING-ENEMY body
-        // (`BodyMovementTuning::BASELINE` — an eighth of the player's ground
-        // acceleration). A fighter that has bothered to author a body is
-        // stating its DIFFERENCES from a fighter, so the differences layer onto
-        // a fighter.
+        // The base is the player-grade body, not the actor baseline
+        // (`BodyMovementTuning::BASELINE`, the wandering-enemy body with an
+        // eighth of the player's ground acceleration). An authored body states
+        // its differences from a fighter, so they layer onto a fighter.
         .map(|body| body.over(ambition_platformer2d::engine_core::DEFAULT_TUNING))
 }
 
-/// How hard a character is to LAUNCH, where its authored facet states it.
+/// How hard a character is to launch, where its authored facet states it.
 ///
-/// ⭐⭐ THE LAST PER-ID CHARACTER TABLE IN THIS DEMO CAME OUT THROUGH HERE.
-/// `smash_reading_of_character` was a `match definition.id` writing
-/// `Vitals::knockback_weight` — an ordinary character fact the engine already
-/// owns — for a character the demo does not own. A game describing a character's
-/// weight from outside is the falsifier `character-authoring-package.md` names.
+/// The character owns its weight; a game must not set `Vitals::knockback_weight`
+/// from outside (see `character-authoring-package.md`).
 ///
-/// `None` for a character this pack authors no facet for, and for one whose
-/// facet states no weight: both mean *keep whatever weight you already had*,
-/// which for a fighter that has never thought about it is the reference body.
+/// `None` when the pack has no facet for the character or the facet states no
+/// weight: keep the current weight (the reference body by default).
 pub fn fighter_knockback_weight(character: &str) -> Option<f32> {
     fighter_facet(character)?.knockback_weight
 }

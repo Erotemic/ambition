@@ -1,4 +1,4 @@
-//! Projectile Polygon — bestial ranged reference archetype.
+//! Projectile Polygon: bestial ranged reference archetype.
 //!
 //! The third Fighting Polygon is a non-humanoid beast biped: a faceted T-rex-like
 //! body with heavy hind legs, a balancing tail, and a head-mounted cannon.
@@ -10,24 +10,21 @@ use ambition_platformer2d::character::CharacterDefinition;
 
 /// His cannon, and what holding the button buys.
 ///
-/// ⭐ THE CHARGE SHOT IS THE WHOLE CHARACTER. He is the trio's ranged member and
-/// the grid's only fighter whose combat distinction is a body-authored
-/// projectile; a neutral special that fired the same pellet however long you
-/// held it would make that distinction a bullet point rather than a mechanic.
+/// The charge shot is the character. He is the trio's ranged member and the
+/// only fighter whose combat distinction is a body-authored projectile; a
+/// neutral special that fired the same pellet however long you held it would
+/// make that distinction cosmetic.
 ///
-/// The numbers are the genre's shape rather than measurements: a full hold is
-/// worth about three and a half times a tap, arrives half again as fast, and
-/// is more than twice the size — which together is why a fully charged shot is
-/// something you respect rather than shield out of habit. The five looks are
+/// The numbers follow the genre's shape: a full hold is worth about three and
+/// a half taps, travels half again as fast and is more than twice the size, so
+/// a full charge must be respected, not shielded by habit. The five looks are
 /// the sheet's five tiers; see `crate::projectiles`.
 fn charged_cannon() -> RangedActionSpec {
     RangedActionSpec::bolt(540.0, 4)
-        // ⛔ THE FLIGHT IS AUTHORED SO THE SIZE HAS SOMETHING TO SCALE. `None`
-        // means "whatever the firing pool's default is", and a default is not a
-        // number this shot owns — `size_mult` applied to it would be applied to
-        // nothing. Stated here, at the pool's own straight envelope, so the tap
-        // is byte-identical to the shot he fired before charging existed and a
-        // full hold has a base to grow from.
+        // The flight is authored so the size has something to scale. `None` means
+        // the firing pool's default, which this shot does not own, and `size_mult`
+        // on it would scale nothing. This is the pool's straight envelope, so a tap
+        // is unchanged and a full hold has a base to grow from.
         .with_flight(ambition_characters::brain::ProjectileFlight::STRAIGHT)
         .with_charge(RangedCharge {
             damage_mult: 3.5,
@@ -37,24 +34,17 @@ fn charged_cannon() -> RangedActionSpec {
                 .map(|tier| format!("polygon_charge_shot_tier{tier}"))
                 .collect(),
         })
-        // ⭐⭐ THE SHOT LEAVES THE CANNON NOW, not the stomach. This crate, the
-        // smash select grid and the roster test all describe this fighter the
-        // same way — "a non-humanoid beast biped whose neutral special fires
-        // from a head-mounted cannon" — and until this line the shot spawned at
-        // `Muzzle::BodyOrigin`, eight pixels above his middle, because that was
-        // the only thing a ranged action without a drawn weapon could say.
+        // The shot leaves the cannon, not the stomach. The module doc, the smash
+        // select grid and the roster test all say he fires from a head-mounted
+        // cannon; `Muzzle::BodyOrigin` would spawn it eight pixels above his
+        // middle.
         //
-        // ⛔ THE CHARGE ART WAS BUILT TO HIDE IT. The tier visuals bloom around
-        // the spawn point, so a charge that grew out of his midriff had to be
-        // drawn as a body-wide aura rather than a ball at a barrel. That is the
-        // shape of the problem worth naming: the simulation was right, the
-        // authored spatial contract was too weak to say what everyone had
-        // written down in prose.
+        // The tier visuals bloom around the spawn point, so a charge at his midriff
+        // would have to be drawn as a body-wide aura, not a ball at a barrel.
         //
-        // ⚠ TUNING, NOT ARCHITECTURE. `0.22` forward and `0.34` up are chosen to
-        // sit at the head of a beast biped and are a KNOB — adjust them against
-        // the sprite rather than treating them as a derived constant. What is
-        // not a knob is that the action states them at all.
+        // Tuning, not architecture. `0.22` forward and `0.34` up put the muzzle at
+        // a beast biped's head; adjust them against the sprite. What is fixed is
+        // that the action states them.
         .with_muzzle(ambition_characters::brain::action_set::Muzzle::Offset {
             x: 0.22,
             y: -0.34,
@@ -74,14 +64,13 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: MoveStyleSpec::Walk,
             ..Default::default()
         });
-        // ⭐⭐ ITS MOVES ARE CONTENT NOW, NOT CODE (fast-iteration I2, step 5).
-        // The table this line compiled in is `assets/data/movesets/projectile_polygon.ron`,
-        // declared in `pack.ron`, validated by the `moveset` schema and applied
-        // in `crate::character_catalog::authored_intrinsics` — the one seam
-        // every buildable character passes through.
-        // ⛔ The Rust table still exists as the EXPORTER's source and the parity
-        // oracle's subject. The host reads NEITHER, so editing it changes nothing
-        // until it is re-exported.
+    // His moves are content, not code (fast-iteration I2, step 5): the table is
+    // `assets/data/movesets/projectile_polygon.ron`, declared in `pack.ron`,
+    // validated by the `moveset` schema and applied in
+    // `crate::character_catalog::authored_intrinsics`, the one seam every
+    // buildable character passes through. The Rust table is only the exporter's
+    // source and the parity oracle's subject; the host reads neither, so editing
+    // it changes nothing until it is re-exported.
     definition.vitals.max_health = Some(5);
     definition
 }
@@ -90,20 +79,16 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
 mod tests {
     use ambition_characters::brain::action_set::Muzzle;
 
-    /// The shot leaves the CANNON, and the cannon is above the middle.
+    /// The shot leaves the cannon, and the cannon is above the middle.
     ///
-    /// ⭐⭐ THREE PLACES IN THIS REPOSITORY DESCRIBE THIS FIGHTER AS FIRING FROM
-    /// A HEAD-MOUNTED CANNON — this module's own doc, the smash select grid, and
-    /// the roster moveset test — and until 2026-09-05 the shot spawned at
-    /// `Muzzle::BodyOrigin`, eight pixels above his middle. The prose and the
-    /// simulation disagreed, and the prose was the part everybody read.
+    /// The module doc, the smash select grid and the roster moveset test all
+    /// describe this fighter as firing from a head-mounted cannon; this test keeps
+    /// the simulation in agreement.
     ///
-    /// ⛔ ASSERTS THE SIGN AND THE MODEL, NOT THE NUMBERS. `0.22` / `-0.34` are
-    /// tuning against a sprite and must stay free to move; what may not move is
-    /// that the muzzle is AUTHORED, is expressed as a fraction of body height
-    /// rather than pixels, and is ABOVE the origin. A test pinning the constants
-    /// would fail on every art adjustment and teach whoever hits it to edit the
-    /// expectation.
+    /// It asserts the sign and the model, not the numbers. `0.22` / `-0.34` are
+    /// tuned against a sprite and may move. What must not move: the muzzle is
+    /// authored, expressed as a fraction of body height, and above the origin. A
+    /// test that pinned the constants would fail on every art change.
     #[test]
     fn the_charge_shot_leaves_a_cannon_above_the_body_origin() {
         let spec = super::charged_cannon();
@@ -127,9 +112,8 @@ mod tests {
             "the cannon is not forward of the body (x = {x}), so the shot would \
              be born behind the barrel it is drawn leaving"
         );
-        // ⛔ A FRACTION, NOT PIXELS. Anything past 1.0 is a pixel value that
-        // slipped into a normalized field — it would put the muzzle a full body
-        // height away and read as the shot spawning off-screen.
+        // A fraction, not pixels. Anything past 1.0 is a pixel value in a
+        // normalized field and would put the muzzle a full body height away.
         assert!(
             x.abs() <= 1.0 && y.abs() <= 1.0,
             "the muzzle offset ({x}, {y}) is not a fraction of body height — a \

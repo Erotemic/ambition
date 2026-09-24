@@ -61,17 +61,12 @@ pub struct ProjectileSpawnRequest {
     pub start: ProjectileStart,
     /// The use of the owner's move that made this shot, if a move made it.
     ///
-    /// ⭐ `None` IS A CORRECT ANSWER. It is not a placeholder. A gun, a thrown
-    /// bomb and an environmental volley have no move. The constructors leave
-    /// this field empty. Only the moveset road sets it.
+    /// `None` is a correct answer, not a placeholder: a gun, a thrown bomb and an
+    /// environmental volley have no move. Only the moveset road sets it.
     ///
-    /// ⛔⛔ A SHOT CAN LAND AFTER ITS MOVE STOPS. A damage result with no move
-    /// instance goes to the move that plays at that time. Move A fires and
-    /// stops. Move B then gets the hit. That is the A12 defect. This field
-    /// lets the damage result name the correct move.
-    ///
-    /// ⚠ THE REQUEST CARRIES THIS VALUE. DO NOT CALCULATE IT AGAIN. A read of
-    /// the owner's playback at spawn time gets the wrong move.
+    /// A shot can land after its move stops. This field lets the damage result
+    /// name the move that fired it, not the move playing at impact. Do not
+    /// compute it again from the owner's playback at spawn time.
     pub move_instance: Option<u32>,
 }
 
@@ -120,12 +115,11 @@ impl ProjectileSpawnRequest {
 
     /// Set the use of the move that made this shot, when the caller has one.
     ///
-    /// ⭐ `None` STAYS `None` AND THAT IS AN ANSWER. A technique a brain pressed
-    /// directly was authored by no move. The caller that knows this is the one
-    /// that read the request; a later reader cannot tell the two cases apart.
+    /// `None` stays `None`: a technique a brain pressed directly has no move.
+    /// Only the caller that read the request can tell the two cases apart.
     ///
-    /// ⚠ Give it the value the `ActorActionMessage` carried. Do not read the
-    /// owner's playback — see [`Self::fired_by_move`].
+    /// Pass the value the `ActorActionMessage` carried. Do not read the owner's
+    /// playback; see [`Self::fired_by_move`].
     #[must_use]
     pub fn fired_by_move_if_any(mut self, instance: Option<u32>) -> Self {
         self.move_instance = instance;

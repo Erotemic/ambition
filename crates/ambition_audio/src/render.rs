@@ -1,11 +1,12 @@
 //! Provider-relative SFX source resolution and Kira adapters.
 //!
-//! The combined App may cache many providers' authored sources. Every playback
-//! request carries a stable presentation-source id, and the active session binds
-//! each authorized source to one provider registry/bank. Procedural definitions
-//! synthesize from that source's [`SfxRegistry`](crate::spec::SfxRegistry);
-//! packed entries decode from its provider bank. The session's primary provider
-//! therefore cannot steal a same-named cue emitted by another cast member.
+//! The combined App may cache many providers' authored sources. Every
+//! playback request carries a stable presentation-source id, and the active
+//! session binds each authorized source to one provider registry or bank.
+//! Procedural definitions synthesize from that source's
+//! [`SfxRegistry`](crate::spec::SfxRegistry); packed entries decode from its
+//! provider bank. So the primary provider cannot take over a same-named cue
+//! from another cast member.
 
 use ambition_sfx::{
     self as sfx, AudioContextOwner, PresentationSourceId, SfxId, SfxProvider,
@@ -27,36 +28,27 @@ pub fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource,
     Ok(KiraAudioSource { sound })
 }
 
-/// This is the procedural path's answer to the ceiling the packed path already has —
-/// `tools/ambition_sfx_renderer` normalises every banked clip to a cue-family peak ceiling
-/// between -6 and -11 dBFS.
+/// Loudness target for procedural cues, matching the packed path, where
+/// `tools/ambition_sfx_renderer` normalizes banked clips to a cue-family peak
+/// ceiling between -6 and -11 dBFS.
 ///
-/// The number is calibrated, not invented: it is the level at which the median
-/// of the authored procedural corpus lands on the median of the shipped bank.
-/// `python3 scripts/audio_levels.py` measures both cohorts on one axis and
-/// prints the gap, which is how to re-derive it if the corpus moves.
+/// Calibrated so the median procedural cue matches the median banked clip.
+/// `python3 scripts/audio_levels.py` measures both and prints the gap; use it
+/// to re-derive this value if the corpus changes.
 pub const PROCEDURAL_CUE_REFERENCE_RMS_DBFS: f32 = -11.0;
 
 /// Deterministically synthesize one provider-authored procedural cue.
 ///
-/// [`SfxSpec::volume`] is a loudness trim, not a peak amplitude: the cue's
-/// body is rendered at unit scale, measured, and scaled so its RMS is `volume`
-/// of [`PROCEDURAL_CUE_REFERENCE_RMS_DBFS`]. Two cues authored at the same
-/// `volume` are therefore equally loud whatever waveform and noise mix they
-/// use, which is the property the peak-domain version did not have: every
-/// waveform here swings +-1, so `volume` set the PEAK, and a square's RMS
-/// equals its peak where a sine's is 3 dB below and a triangle's 4.8 dB below.
-/// Identical numbers differed by up to 4.8 dB of perceived level purely by
-/// waveform choice, and providers that reach for square and saw — Sanic uses
-/// nothing else — collected that difference on every cue.
+/// [`SfxSpec::volume`] is a loudness trim, not a peak amplitude. The cue body
+/// is rendered at unit scale, measured, and scaled so its RMS is `volume` of
+/// [`PROCEDURAL_CUE_REFERENCE_RMS_DBFS`]. Two cues with the same `volume` are
+/// equally loud whatever their waveform and noise mix. (All waveforms swing
+/// ±1, but a square's RMS equals its peak, a sine's is 3 dB lower, and a
+/// triangle's 4.8 dB lower.)
 ///
-/// What the target fixes is the level of the part you hear as the sound; what the envelope does
-/// to it afterwards is the sound design.
-///
-/// The noise mix IS in the measurement, because noise changes RMS: mixing
-/// uncorrelated noise into a tone lowers RMS while leaving the peak at 1.0, so
-/// under the old rule a noisy cue came out quieter than a clean one at the same
-/// `volume`. Under this one it does not.
+/// The target fixes the level of the body; the envelope applied afterwards is
+/// sound design. The noise mix is included in the measurement, because noise
+/// changes RMS.
 pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudioSource {
     let sample_rate = sample_rate.max(8_000);
     let duration = spec.duration.max(0.01);
@@ -126,15 +118,13 @@ pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudio
 
 /// The single scalar that puts one rendered body on the loudness target.
 ///
-/// Dividing by the body's own RMS is what makes `volume` mean loudness: it cancels whatever crest
-/// factor the waveform and noise mix happen to produce.
+/// Dividing by the body's own RMS makes `volume` mean loudness, whatever crest
+/// factor the waveform and noise produce.
 ///
-/// The `min` is a peak ceiling. An RMS target can in principle ask a very peaky
-/// body for more than full scale, and a clipped cue is a worse failure than a
-/// quiet one — the peak-domain version could not clip at all, and this keeps
-/// that guarantee. It engages on nothing shipped and has room to spare: the
-/// loudest authored cue peaks at -11.4 dBFS, and even a `volume = 1.0` cue on
-/// the peakiest body the synthesizer can produce stops around -3 dBFS.
+/// The `min` is a peak ceiling: an RMS target could ask a very peaky body for
+/// more than full scale, and clipping is worse than a quiet cue. No shipped
+/// cue reaches it (the loudest peaks at -11.4 dBFS; the peakiest possible body
+/// at `volume = 1.0` stops near -3 dBFS).
 fn procedural_body_gain(body: &[f32], volume: f32) -> f32 {
     if body.is_empty() {
         return 0.0;
@@ -158,9 +148,9 @@ pub enum SfxSourceKind {
 
 /// Stable identity of the authored source that produced one playback handle.
 ///
-/// This is deliberately independent of Bevy's opaque `Handle` allocation so
-/// lifecycle tests can prove that Sanic's procedural Dash did not accidentally
-/// resolve to Ambition's resident sample with the same logical id.
+/// Independent of Bevy's opaque `Handle` allocation, so lifecycle tests can
+/// prove that Sanic's procedural Dash did not resolve to Ambition's resident
+/// sample with the same logical id.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SfxSourceIdentity {
     pub kind: SfxSourceKind,
@@ -175,27 +165,25 @@ pub struct ResolvedSfxHandle {
 
 /// Why a cue produced no playable source.
 ///
-/// The cases are different bugs with different fixes, and collapsing them
-/// into one "no clip" message is how a diagnostic starts lying: a cue requested
-/// before its bank finished loading is not a missing cue, and a clip that will
-/// not decode is not an absent one. Reported verbatim by the playback path.
+/// The cases are different bugs with different fixes: a cue requested before
+/// its bank loaded is not missing, and a clip that fails to decode is not
+/// absent. The playback path reports them verbatim.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SfxSourceMiss {
-    /// No bank is registered for this provider yet and no procedural spec
-    /// answers the cue. Possibly transient — the bank may still be loading, and
-    /// [`ProviderSfxHandleCache`] deliberately caches nothing so the first
-    /// request after promotion succeeds.
+    /// No bank is registered for this provider yet, and no procedural spec
+    /// answers the cue. Possibly transient: the bank may still be loading, and
+    /// [`ProviderSfxHandleCache`] caches nothing so the first request after
+    /// it arrives succeeds.
     NoProviderBank,
     /// The provider declared a bank asset, but that bank file or its decoding
     /// failed before it could be registered. This is terminal for the current
     /// content, unlike [`Self::NoProviderBank`].
     BankLoadFailed,
     /// The provider's bank is loaded, has no entry for this cue, and no
-    /// procedural fallback exists. This is the terminal "nobody authored it".
+    /// The bank is loaded, has no entry, and no procedural fallback exists.
     NotInBank,
-    /// The bank HAD the clip and it would not decode, with no procedural
-    /// fallback to fall back to. The content exists and is broken — a different
-    /// fix from authoring it.
+    /// The bank has the clip but it does not decode, and there is no
+    /// procedural fallback. The content exists and is broken.
     DecodeFailed,
 }
 
@@ -237,13 +225,13 @@ impl ProviderSfxHandleCache {
             if cached_sfx_source_is_current(handle.source, bank_fingerprint) {
                 return Ok(handle.clone());
             }
-            // Do not let that fallback become sticky: the first request after bank publication
-            // upgrades the cache to the provider's higher-fidelity authored clip.
+            // Do not keep that fallback: the first request after the bank
+            // arrives upgrades to the provider's authored clip.
             self.handles.remove(&key);
         }
-        // Packed provider content is the highest-fidelity authored source.
-        // Procedural specs are provider-local fallbacks and the complete source
-        // for providers such as Sanic that intentionally ship no packed bank.
+        // Packed content is the highest-fidelity source. Procedural specs are
+        // provider-local fallbacks, and the only source for providers (such as
+        // Sanic) that ship no packed bank.
         let mut miss = match bank {
             None => SfxSourceMiss::NoProviderBank,
             Some(_) => SfxSourceMiss::NotInBank,
@@ -259,8 +247,8 @@ impl ProviderSfxHandleCache {
                     },
                 }),
                 Err(error) => {
-                    // `debug`, not `warn`: this runs on every request for a corrupt clip, and
-                    // the caller says the same thing ONCE with the cue's name attached.
+                    // `debug`, not `warn`: this runs on every request for a
+                    // corrupt clip, and the caller reports it once by name.
                     debug!("provider '{provider_id}' SFX id {id} failed to decode ({error})");
                     miss = SfxSourceMiss::DecodeFailed;
                     None
@@ -317,28 +305,21 @@ pub struct SfxPlaybackState {
     pub last_played: Option<SfxPlaybackRecord>,
     /// Number of requests accepted by the real playback decision path.
     ///
-    /// Unlike `last_played`, this monotonic counter is not cleared on an
-    /// audio-context transition, so it is a stable diagnostic of total accepted
-    /// playback.
+    /// Unlike `last_played`, not cleared on an audio-context transition, so a
+    /// stable diagnostic of total accepted playback.
     ///
-    /// It is NOT a per-request oracle: a live session emits its own legitimate
-    /// cues, so "this counter did not move" cannot show that one specific
-    /// request was refused. To prove a request was refused, assert the exact
-    /// increment of the matching rejection counter below — `audio_play_sfx_messages`
-    /// sends every message down exactly one branch, so a rejection counted is a
-    /// playback not reached.
+    /// Not a per-request check: a live session plays its own cues. To prove a
+    /// request was refused, assert the matching rejection counter's exact
+    /// increment; `audio_play_sfx_messages` sends each message down exactly
+    /// one branch.
     pub accepted_playbacks: u64,
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,
     pub missing_source: u64,
     /// WHICH cues went silent under WHICH provider, and why.
     ///
-    /// `missing_source` alone is a number: it says a cue went silent, never which one.
-    ///
-    /// Keyed by `(provider, cue)` rather than by cue alone, because the cue is
-    /// only half the fact: providers hold independent banks, and "Sanic has no
-    /// clip for `player.land`" says nothing about Mary-O. Keying on the cue made
-    /// the second provider's identical failure invisible.
+    /// Keyed by `(provider, cue)`, not cue alone: providers hold separate
+    /// banks, so the same cue can fail for one provider and not another.
     pub missing_sources: std::collections::BTreeMap<(String, ambition_sfx::SfxId), SfxSourceMiss>,
 }
 
@@ -471,8 +452,8 @@ mod tests {
             .fold(0.0_f32, |max, frame| max.max(frame.left.abs()))
     }
 
-    /// Sanic authors square and saw; the engine's own cues are sine and triangle. A provider
-    /// cannot be expected to carry that table in its head.
+    /// Sanic uses square and saw; the engine's own cues use sine and triangle.
+    /// Equal `volume` must mean equal loudness across waveforms.
     #[test]
     fn equal_volume_is_equal_loudness_whatever_the_cue_is_made_of() {
         let reference = rendered_rms_db(&cue(WaveformSpec::Sine, 0.5, 0.0));
@@ -493,8 +474,8 @@ mod tests {
         }
     }
 
-    /// Poison for the above: equality alone is satisfied by ignoring `volume`.
-    /// It stays a relative trim, and a halved trim is 6 dB quieter.
+    /// Control for the test above: `volume` is still a relative trim, and half
+    /// the trim is 6 dB quieter.
     #[test]
     fn volume_remains_a_relative_trim_in_the_loudness_domain() {
         let loud = rendered_rms_db(&cue(WaveformSpec::Square, 0.5, 0.0));
@@ -504,11 +485,9 @@ mod tests {
             "halving volume moved the level by {:.2} dB, not 6",
             loud - quiet
         );
-        // The absolute anchor, not just the ratio: an unenveloped cue at
-        // volume 1.0 IS the reference level. `scripts/audio_levels.py` carries
-        // a port of this synthesizer and the same constant by value, so this is
-        // also the number the two have to agree on for the loudness report to
-        // describe what the game plays.
+        // The absolute anchor: an unenveloped cue at volume 1.0 is the
+        // reference level. `scripts/audio_levels.py` ports this synthesizer
+        // and constant, so the two must agree.
         let mut full = cue(WaveformSpec::Saw, 1.0, 0.4);
         full.attack = 0.0;
         full.release = 0.0;
@@ -520,10 +499,8 @@ mod tests {
         );
     }
 
-    /// The peak-domain rule made clipping impossible for free (`peak == volume`,
-    /// and `volume` is clamped to 1). An RMS target does not, so the ceiling
-    /// that replaces the guarantee is asserted rather than assumed — including
-    /// on the peakiest body the synthesizer can produce.
+    /// An RMS target can clip where a peak rule could not, so the ceiling is
+    /// asserted, including on the peakiest body the synthesizer can produce.
     #[test]
     fn no_authored_volume_can_drive_a_cue_past_full_scale() {
         for waveform in [
@@ -534,8 +511,8 @@ mod tests {
         ] {
             for noise in [0.0, 0.5, 1.0] {
                 let mut spec = cue(waveform, 1.0, noise);
-                // A single partial cycle: the peakiest, lowest-RMS body a spec
-                // can ask for, which is where an RMS target strains hardest.
+                // One partial cycle: the peakiest, lowest-RMS body, where an
+                // RMS target strains most.
                 spec.frequency = 1.0;
                 spec.frequency_end = 1.0;
                 spec.duration = 0.01;
@@ -546,9 +523,8 @@ mod tests {
         assert!(rendered_peak(&cue(WaveformSpec::Square, 1.0, 0.0)) <= 1.0);
     }
 
-    /// `volume` is orthogonal to the envelope: normalising the enveloped clip
-    /// would make `release` a loudness control, so a longer tail must leave the
-    /// body's level alone and only take energy out of the whole-clip average.
+    /// `volume` is independent of the envelope: a longer tail must not change
+    /// the body's level, only lower the whole-clip average.
     #[test]
     fn a_longer_release_shapes_the_cue_without_relevelling_its_body() {
         let short = cue(WaveformSpec::Triangle, 0.4, 0.0);

@@ -23,8 +23,8 @@ pub fn record_simulation_frame(
     life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    // AC3.1.B: the melee AUTHORITY.
-    melee: &ambition_combat::BodyMelee,
+    // Whether the body is mid-swing, from its live move (`melee_swing_of`).
+    swinging: bool,
     clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
@@ -51,7 +51,7 @@ pub fn record_simulation_frame(
         life,
         facts,
         combat,
-        melee,
+        swinging,
         clock,
         safety,
         world,
@@ -189,9 +189,9 @@ pub fn record_frame_system(
             Option<&ambition_characters::actor::BodyHealth>,
             &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
             &ambition_characters::actor::BodyCombat,
-            // AC3.1.B: the melee authority, read directly rather than through the
-            // deleted `BodyCombat.attacking` mirror.
-            &ambition_combat::BodyMelee,
+            // AC3.1.B: the swing, derived from the live move rather than read
+            // through a mirror.
+            ambition_combat::moveset::MeleeSwingQuery,
             Option<&ae::BodyLifeStats>,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
@@ -261,7 +261,7 @@ pub fn record_frame_system(
         life,
         facts,
         combat,
-        melee,
+        melee.swing().is_some(),
         &clock,
         safety,
         &augmented_world,

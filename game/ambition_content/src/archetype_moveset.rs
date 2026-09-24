@@ -1,21 +1,19 @@
-//! One fighter borrowing another's TIMINGS, under its own name.
+//! One fighter borrowing another's timings, under its own name.
 //!
-//! The two easter-egg fighters are the polygon archetypes' art with different
-//! people drawn on it. Their sprite rigs say so in as many words — *"he binds
-//! to the same humanoid motion library as the polygon reference fighters, so
-//! his moveset is theirs until he earns bespoke posing"* — and every clip they
-//! publish is the archetype's clip retargeted, frame for frame.
+//! The easter-egg fighters are the polygon archetypes' art with different
+//! people drawn on it: their rigs bind to the same humanoid motion library,
+//! and every clip they publish is the archetype's clip, retargeted frame for
+//! frame.
 //!
-//! ⛔ SO THE TABLE IS NOT COPIED. A second seven-hundred-line file that starts
-//! byte-identical to the first is a table that drifts: the archetype gets tuned,
-//! the copy does not, and nothing says they were ever supposed to agree.
+//! So the table is not copied: a copy would drift when the archetype is
+//! tuned.
 //!
-//! ⛔⛔ AND IT IS NOT SHARED VERBATIM EITHER. A move id is what a causal log
+//! It is not shared verbatim either. A move id is what a causal log
 //! attributes a hit to, what a cue table addresses, and what a cancel window
-//! names. Two fighters answering to `polygon_jab` are two fighters a trace
-//! cannot tell apart. [`under_own_name`] is the whole difference: the frame
-//! data stays the archetype's and the NAMES become the borrower's, so a fighter
-//! that later wants its own jab replaces one move rather than forking a file.
+//! names; two fighters answering to `polygon_jab` cannot be told apart in a
+//! trace. [`under_own_name`] keeps the archetype's frame data and gives the
+//! moves the borrower's names, so a fighter can later replace one move
+//! without forking a file.
 
 use ambition_entity_catalog::MovesetContract;
 
@@ -37,24 +35,17 @@ use ambition_entity_catalog::MovesetContract;
 /// * a `Cancelable` window's `into` list, when it names a move rather than a
 ///   verb class.
 ///
-/// ⛔ PANICS on a move whose id carries none of the prefixes. A half-applied
-/// rename is the failure this exists to prevent, and it is the kind that
-/// surfaces as one dead button in a match rather than as a red test. It fired
-/// the first time this ran, on exactly the two ids that break the pattern.
+/// Panics on a move whose id carries none of the prefixes. A half-applied
+/// rename would show up as one dead button in a match, not as a red test.
 pub fn under_own_name(
     mut contract: MovesetContract,
     archetype: &[&str],
     owner: &str,
 ) -> MovesetContract {
-    // ⭐⭐ THE TRAVERSAL IS THE SCHEMA'S, and this function is only the PREFIX
-    // POLICY. It used to walk the three places a move id lives — `moves[].id`,
-    // `verbs`, and a `Cancelable` window's `into` list — from a crate that
-    // authors content, so every future id-bearing field on a `MoveSpec` was an
-    // obligation on a file that would never hear about it.
-    // `MovesetContract::remap_move_ids` owns the walk now, beside the type that
-    // owns the fields.
-    // Longest first: `polygon` is a prefix of nothing here, but `polygon` and
-    // `polygon_brawler` are one edit away from being each other's problem.
+    // `MovesetContract::remap_move_ids` owns the traversal of id-bearing
+    // fields, beside the type that owns them; this function is only the prefix
+    // policy.
+    // Longest first, so `polygon` cannot claim `polygon_brawler` ids.
     let mut prefixes: Vec<&str> = archetype.to_vec();
     prefixes.sort_by_key(|p| std::cmp::Reverse(p.len()));
     let rename = |id: &str| -> String {
@@ -82,21 +73,12 @@ pub fn under_own_name(
     contract
 }
 
-/// The move id with any owner prefix removed, so a borrowed move can be found
-/// beside the archetype's own.
+/// A move id with its owner prefix removed, so a renamed move can be matched
+/// to the slot its archetype named.
 ///
-/// Ids are `<owner>_<slot>`; the archetype's are `polygon_<slot>`. Taking
-/// everything after the FIRST underscore is enough to pair them and is what the
-/// rename itself does in reverse.
-/// A move id with its owner prefix removed, so a renamed move can be recognised
-/// as the same SLOT its archetype named.
-///
-/// ⛔⛔ THE PREFIXES ARE THE BORROWER'S OWN, PASSED IN. A hardcoded list paired
-/// 23 of the Director's 26 moves (his archetype carries `polygon_` AND
-/// `pointed_polygon_`) and 0 of the Officer's (whose archetype carries
-/// `polygon_brawler_`). The prefixes each borrower renames are stated once, in
-/// that borrower's own file, and asking for them is the only way this cannot
-/// drift.
+/// The prefixes are the borrower's own, passed in. The Director's archetype
+/// uses `polygon_` and `pointed_polygon_`; the Officer's uses
+/// `polygon_brawler_`. A hardcoded list would miss some.
 ///
 /// Longest first, so `pointed_polygon_` is not eaten by `polygon_`.
 #[cfg(test)]
@@ -113,14 +95,12 @@ fn strip_owner_prefix<'a>(id: &'a str, prefixes: &[&str]) -> &'a str {
 
 #[cfg(test)]
 mod tests {
-    /// EVERY BORROWED TABLE RENAMES CLEAN, and no easter egg answers to a name
-    /// its archetype answers to.
+    /// Every borrowed table renames cleanly, and no borrower answers to a name its
+    /// archetype answers to.
     ///
-    /// ⛔ THIS IS THE TEST THAT WAS MISSING. The first version of `under_own_name`
-    /// took ONE prefix, and both shipped tables use two — their taunt and dash
-    /// attack are named after the CHARACTER (`pointed_polygon_taunt`) while the
-    /// rest are named after the archetype (`polygon_jab`). Nothing said so until
-    /// the panic fired inside a headless boot, nineteen tests deep.
+    /// Shipped tables use two prefixes: the taunt and dash attack are named after
+    /// the character (`pointed_polygon_taunt`), the rest after the archetype
+    /// (`polygon_jab`).
     #[test]
     fn a_borrowed_table_renames_every_id_and_collides_with_nothing() {
         for (borrowed, archetype, owner, prefixes, owned_slots, retimed) in [
@@ -129,16 +109,11 @@ mod tests {
                 crate::pointed_polygon_moveset::pointed_polygon_moveset(),
                 "director",
                 &["polygon", "pointed_polygon"][..],
-                // ⭐ THREE OF HIS FOUR SPECIALS ARE HIS OWN, and only the neutral
-                // is still the archetype's: the teleport up-B, the counter that
-                // answers by arriving behind you, and the steered thought he
-                // flies with the stick. ⓘ The count went 1 → 2 → 3 across
-                // 2026-09-05; it is DECLARED rather than derived precisely so
-                // that taking a slot has to be said out loud here, and each of
-                // those landings turned this row red until it was.
+                // Three of his four specials are his own (the teleport up-B, the ambush
+                // counter, the steered thought); the neutral is still the archetype's.
+                // Declared, not derived, so taking a slot must be stated here.
                 3,
-                // ...and no NORMAL of his is re-timed: his frame data is the
-                // archetype's, which is what borrowing the table means.
+                // No normal of his is re-timed: his frame data is the archetype's.
                 &[][..],
             ),
             (
@@ -146,12 +121,9 @@ mod tests {
                 crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
                 "officer",
                 &["polygon_brawler", "pugnacious_polygon"][..],
-                // ⭐ THREE OF FOUR SPECIALS ARE HIS, and together they are one
-                // idea: his neutral is the gust that shoves the room back, his
-                // side-B is the draw, his down-B is the riot shield. Only the
-                // recovery is still the archetype's. ⓘ The count went 1 → 2 → 3
-                // across 2026-09-05; it is the fighter STATING how many slots it
-                // owns, and the assertion below is only exact because of it.
+                // Three of four specials are his: the gust neutral, the draw side-B, the
+                // riot shield down-B. The recovery is still the archetype's. Declared, so
+                // the assertion below can be exact.
                 3,
                 // No normal of his is re-timed.
                 &[][..],
@@ -164,27 +136,15 @@ mod tests {
                 // All four specials are hers, and the down slot is a posture
                 // pair: five verbs she authored rather than borrowed.
                 5,
-                // ⛔⛔ AND EVERY NORMAL IS HERS TOO — BY TIMING, NOT BY ID, which
-                // is a way of owning a slot this check could not previously say.
-                // Her tilts, smashes and aerials were re-timed to her OWN
-                // animation clips on 2026-09-09 (`689290cbf`): 40 ms authored
-                // poses, extended stage-light blades, 160–280 ms active time,
-                // read off the renderer's `performer_stage_v1` specs. The moves
-                // still answer to the archetype's names, so the verb pairing
-                // still finds them and the equality below called all eleven a
-                // drift — main was RED on this row from 2026-09-09 to 2026-09-10.
+                // Every normal is hers too, by timing rather than by id. Her tilts,
+                // smashes and aerials are re-timed to her own clips (40 ms poses, extended
+                // stage-light blades, 160–280 ms active, from `performer_stage_v1`), but
+                // still use the archetype's names. A borrower that re-times a slot has
+                // stopped borrowing it, so it is declared here like `owned_slots`.
                 //
-                // ⇒ The frame data being the archetype's is what BORROWING
-                // means, so a borrower that re-times a slot has stopped
-                // borrowing it. That has to be said out loud, exactly like
-                // `owned_slots` above, and the assertion below is only exact
-                // because it is.
-                //
-                // ⚠ HER TIMING HAS ITS OWN WITNESS and this is not a hole:
-                // `normal_contact_windows_match_the_authored_light_and_pose_clock`
-                // holds these against the animation clock they were taken from.
-                // This list says the archetype is no longer the authority; that
-                // test says what is.
+                // Her timing has its own test:
+                // `normal_contact_windows_match_the_authored_light_and_pose_clock` checks it
+                // against the animation clock.
                 &[
                     "attack_air",
                     "attack_air_back",
@@ -232,8 +192,8 @@ mod tests {
                     mv.id
                 );
             }
-            // EVERY PRESS STILL RESOLVES. A rename that moved the ids and not the
-            // verb table is a fighter with a full moveset and no buttons.
+            // Every press still resolves. Moving the ids without the verb table would
+            // leave a full moveset with no buttons.
             assert_eq!(
                 borrowed.verbs.len(),
                 archetype.verbs.len(),
@@ -247,26 +207,13 @@ mod tests {
                     "{owner}'s `{verb}` resolves to `{target}`, which is not a move it has"
                 );
             }
-            // ...and the FRAME DATA is the archetype's, which is the whole point
-            // of borrowing rather than copying.
+            // And the frame data is the archetype's.
             //
-            // ⛔⛔ MATCHED BY THE VERB, NOT BY POSITION AND NOT BY ID. This used
-            // to `zip` the two move lists, which reads as "the same moves in the
-            // same order" and is only true while the borrower changes NOTHING:
-            // the Director replaced his up-B with a teleport (2026-08-27) and every
-            // move after the one he removed compared against its neighbour,
-            // reporting a drift in `director_low_arc`, a move nobody touched.
-            //
-            // ⛔ AND NOT BY STRIPPED ID EITHER, which was the next thing tried:
-            // the archetype's own ids carry two different owner prefixes
-            // (`polygon_` and `pointed_polygon_`), so cutting at the first
-            // underscore paired 23 of 26 and silently skipped the rest.
-            //
-            // ⭐ THE VERB IS THE EXACT PAIRING and it is a better statement
-            // besides: the same BUTTON gives you the same frame data. A slot the
-            // borrower deliberately owns is exempt by construction — its move has
-            // nothing to have drifted from — and that is what "a fighter who
-            // borrows a table may still own a slot in it" means.
+            // Match by verb, not by list position or stripped id. Zipping by position
+            // breaks when a borrower replaces a move; stripping at the first underscore
+            // fails because the archetype's ids use two prefixes. The same button giving
+            // the same frame data is the exact pairing, and a slot the borrower owns is
+            // exempt because its move has nothing to drift from.
             let mut compared = 0usize;
             let mut retimed_seen = 0usize;
             for (verb, target) in &borrowed.verbs {
@@ -279,17 +226,14 @@ mod tests {
                 ) else {
                     continue;
                 };
-                // The borrower's OWN move for this slot: a different move, not a
-                // renamed one, so there is nothing to compare.
+                // The borrower's own move for this slot, not a renamed one: nothing to
+                // compare.
                 if !mine.id.ends_with(super::strip_owner_prefix(&theirs.id, prefixes)) {
                     continue;
                 }
-                // A slot the borrower re-timed on purpose. ⛔ ASSERTED TO STILL
-                // DIFFER, because a declaration that has stopped being true is
-                // the failure mode a hand-kept list always has: if the archetype
-                // is re-timed to match her tomorrow, this line is silently
-                // exempting a slot that no longer needs exempting, and the next
-                // real drift in it goes unseen.
+                // A slot the borrower re-timed on purpose. Assert it still differs: if the
+                // archetype is re-timed to match, the stale exemption would hide the next
+                // real drift.
                 if retimed.contains(&verb.as_str()) {
                     retimed_seen += 1;
                     assert_ne!(
@@ -308,12 +252,9 @@ mod tests {
                     mine.id
                 );
             }
-            // ⛔⛔ EXACT, NOT A TOLERANCE. This used to allow a slack of two,
-            // which was sized when one fighter owned one slot — and the moment
-            // the Performer owned three it could not tell "she authored her own down
-            // and up specials" from "the rename quietly stopped lining up",
-            // which is the only thing this assertion exists to catch. A fighter
-            // states how many slots are HERS and the rest must match.
+            // Exact, not a tolerance: a fighter states how many slots are hers, and a
+            // tolerance could not tell "she authored her own specials" from "the rename
+            // stopped lining up".
             assert_eq!(
                 compared + owned_slots + retimed_seen,
                 archetype.verbs.len(),
@@ -322,10 +263,8 @@ mod tests {
                  rename that stopped lining up makes this check vacuous",
                 archetype.verbs.len()
             );
-            // ⛔ AND EVERY DECLARED RE-TIMED VERB WAS REACHED. A name that no
-            // longer binds — a typo, or a verb the borrower dropped — would
-            // otherwise sit in the list forever, exempting nothing and looking
-            // like diligence.
+            // Every declared re-timed verb was reached, so a typo or dropped verb does
+            // not sit in the list exempting nothing.
             assert_eq!(
                 retimed_seen,
                 retimed.len(),

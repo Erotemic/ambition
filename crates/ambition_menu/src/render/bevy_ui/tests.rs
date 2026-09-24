@@ -113,8 +113,8 @@ fn spawns_one_tab_button_per_tab_with_active_flagged() {
 
 #[test]
 fn selected_and_highlighted_are_distinct_colors() {
-    // Fix 2: highlighted (cursor/hover), selected (equipped/active), and the two
-    // together must all read as DIFFERENT control backgrounds.
+    // Highlighted (cursor/hover), selected (equipped/active), and both
+    // together must all have different backgrounds.
     let k = MenuControlKind::Item;
     let highlighted = control_bg(k, true, false, false);
     let selected = control_bg(k, false, true, false);
@@ -129,8 +129,8 @@ fn selected_and_highlighted_are_distinct_colors() {
 
 #[test]
 fn focused_tab_is_flagged_on_the_tab_button() {
-    // Fix 4: when the view reports a focused tab (keyboard on the tab bar), that
-    // tab button carries `focused: true` and no other does.
+    // When the view reports a focused tab (keyboard on the tab bar), that tab
+    // button carries `focused: true` and no other does.
     let mut app = build_app();
     let (page, _) = sample_page();
     let tabs = tab_set();
@@ -242,8 +242,8 @@ fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
 
 #[test]
 fn a_press_that_leaves_the_row_activates_nothing() {
-    // a leave and a release are the same `Interaction::None`, and treating
-    // one as the other is what made dragging on a list dangerous.
+    // A leave and a release are both `Interaction::None`. The bridge must not
+    // treat a leave as a release, or dragging on a list activates rows.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
@@ -263,9 +263,8 @@ fn a_press_that_leaves_the_row_activates_nothing() {
 
 #[test]
 fn an_arm_survives_the_page_respawning_under_the_finger() {
-    // the reason the arm is keyed on the ACTION: a menu page rebuilds its
-    // controls, so press and release land on two different entities for one
-    // control. That is the `Pointer<Click>` failure this bridge must not have.
+    // The arm is keyed by control, not entity: a page rebuild puts press and
+    // release on two different entities for one control.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
@@ -333,10 +332,8 @@ fn interaction_pressed_ignores_disabled_rows() {
 
 #[test]
 fn a_tab_activates_on_the_way_up_like_every_other_control() {
-    // A tab bar is a strip of touch targets along the top of a scrollable page:
-    // a finger that lands on one and slides is moving the page. Leaving tabs on
-    // press-activate beside rows on release-activate is the drift a shared
-    // renderer exists to prevent.
+    // A finger that lands on a tab and slides is moving the page, so tabs
+    // activate on release, like rows.
     let mut app = build_app();
     install_bevy_ui_menu_tabs(&mut app);
     spawn_view(&mut app, 0, None);
@@ -417,8 +414,8 @@ fn scrollbar_spawns_track_and_thumb_with_right_fraction() {
         .query_filtered::<&Pickable, With<BevyUiMenuScrollbarThumb>>();
     let thumbs: Vec<_> = thumb_q.iter(app.world()).collect();
     assert_eq!(thumbs.len(), 1, "a scrolling scrollbar draws a thumb");
-    // The thumb must be non-pickable so a grab on the thumb falls through to the track — otherwise
-    // click-drag breaks.
+    // The thumb is not pickable, so a grab on it falls through to the track;
+    // otherwise click-drag breaks.
     assert!(
         !thumbs[0].is_hoverable && !thumbs[0].should_block_lower,
         "scrollbar thumb must be Pickable::IGNORE so the track owns the drag",
@@ -458,8 +455,8 @@ fn full_size_scrollbar_draws_no_thumb() {
 
 #[test]
 fn item_cell_with_icon_spawns_an_image_node() {
-    // Fix 3: an owned item cell carrying an icon path renders an `ImageNode`
-    // (the sprite icon) when an `AssetServer` is available, like the cube does.
+    // An owned item cell with an icon path renders an `ImageNode` when an
+    // `AssetServer` is available, like the cube.
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_plugins(bevy::asset::AssetPlugin::default())
@@ -502,8 +499,8 @@ fn item_cell_with_icon_spawns_an_image_node() {
 
 #[test]
 fn item_cell_without_assets_falls_back_to_label() {
-    // With no AssetServer (the cube/headless path), an icon cell still renders
-    // its label and NO ImageNode — the renderer degrades gracefully.
+    // With no AssetServer (the headless path), an icon cell renders its label
+    // and no ImageNode.
     let mut app = build_app();
     let mut page: MenuPageModel<Page, Action> =
         MenuPageModel::new(Page::Inventory, "Inventory", MenuColor::BLUE_PANEL);
@@ -562,9 +559,9 @@ fn thumb_layout_clamps_and_places_within_track() {
     assert!(h >= 0.08 - 1e-6);
 }
 
-/// Feature C: the pure track-rect → fraction mapping the `bevy_ui` scrollbar
-/// observers use. A pointer at the track top is 0, mid is 0.5, bottom is 1; off
-/// the ends clamps; a zero-height (unmeasured) track yields `None`.
+/// The track-rect to fraction mapping the scrollbar observers use: top is 0,
+/// middle 0.5, bottom 1; off the ends clamps; a zero-height (unmeasured)
+/// track gives `None`.
 #[test]
 fn scrollbar_fraction_maps_pointer_into_track() {
     // Track spans screen y in [100, 300] (top 100, height 200).
@@ -578,13 +575,11 @@ fn scrollbar_fraction_maps_pointer_into_track() {
     assert_eq!(scrollbar_fraction_from_rect(0.0, 0.0, 50.0), None);
 }
 
-/// A CENTRED line is centred on its container, not anchored at the centre.
+/// A centered line is centered on its container, not anchored at the center.
 ///
-/// A text node with no width shrinks to its content, so `left: Percent(50)` puts
-/// the node's LEFT EDGE at the middle and the line runs off to the right —
-/// `Justify::Center` then centres the line inside a box exactly as wide as the
-/// line, which does nothing. Every "centred" heading and footer in the shell was
-/// drawn to the RIGHT of where it was asked to be.
+/// A text node with no width shrinks to its content, so `left: Percent(50)`
+/// puts its left edge at the middle, and `Justify::Center` inside a box as
+/// wide as the line does nothing. The line would draw to the right.
 #[test]
 fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
     use super::spawn::text_node;
@@ -598,39 +593,28 @@ fn a_centred_text_node_spans_its_container_instead_of_starting_at_the_anchor() {
          centre it; anchoring at 50% makes `Justify::Center` a no-op"
     );
 
-    // Right-aligned spans up to its anchor, so the line ENDS there.
+    // Right-aligned text ends at its anchor.
     let right = text_node(90.0, 10.0, MenuTextAlign::Right);
     assert_eq!(
         (right.left, right.width),
         (Val::Percent(0.0), Val::Percent(90.0))
     );
 
-    // Left is the one case where the anchor genuinely is a left edge.
+    // Left is the one case where the anchor is a left edge.
     let left = text_node(12.0, 10.0, MenuTextAlign::Left);
     assert_eq!(left.left, Val::Percent(12.0));
 }
 
-/// The authored percentage reaches the engine as a VIEWPORT unit, and follows
+/// The authored percentage reaches the engine as a viewport unit, and follows
 /// the viewport when it changes.
 ///
-/// ⛔⛔ THE DEFECT THIS DESCENDS FROM RENDERED THE LAUNCHER TITLE FIVE PIXELS
-/// TALL. `MenuNode::Text`'s `size` is a percentage of viewport height; this
-/// backend once assigned it straight to `TextFont::font_size`, which is pixels.
-/// The repair was a `MenuTextHeightFraction` component plus a `PostUpdate`
-/// system that converted it against the primary window every frame. Bevy 0.19's
-/// `FontSize::Vh` IS that unit, so the component, the conversion pass, the
-/// once-only installer, its marker resource and the schedule constraint are all
-/// gone — and this test is what keeps the meaning after them.
+/// `MenuNode::Text`'s `size` is percent of viewport height; used as pixels it
+/// draws text a few pixels tall. The backend spawns `FontSize::Vh`.
 ///
-/// ⭐ IT RUNS NO SYSTEM OF OURS. The only Ambition code exercised is the spawn;
-/// the resolution is `ComputedUiRenderTargetInfo` propagated by Bevy's own
-/// `propagate_ui_target_cameras` and `FontSize::eval`, which is the call Bevy's
-/// text pipeline makes. If that pairing ever stops meaning "percent of the UI
-/// target's height", this fails.
-///
-/// ⭐ AND IT MEASURES TWICE. One viewport proves the arithmetic; a SECOND,
-/// taller one proves the size actually tracks the target rather than having
-/// been baked at spawn — which is the whole reason the unit is a percentage.
+/// Runs no Ambition system except the spawn. Resolution uses Bevy's
+/// `propagate_ui_target_cameras` and `FontSize::eval`, as the text pipeline
+/// does. It measures two viewports: one checks the arithmetic, the second
+/// checks that the size tracks the target and was not fixed at spawn.
 #[test]
 fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
     use bevy::camera::{Camera, ComputedCameraValues, RenderTargetInfo};
@@ -640,10 +624,9 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
     /// The authored size of the sample page's one `MenuNode::Text`.
     const AUTHORED_PERCENT: f32 = 5.0;
 
-    // A UI camera whose render target is a stated size, with no window and no
-    // render app: `ComputedCameraValues` is public precisely so a headless test
-    // can state one. This mirrors `bevy_ui`'s own `propagate_ui_target_cameras`
-    // tests.
+    // A UI camera with a stated render-target size and no window or render
+    // app. `ComputedCameraValues` is public so a headless test can set one,
+    // as `bevy_ui`'s own `propagate_ui_target_cameras` tests do.
     fn target(app: &mut App, camera: Entity, physical_height: u32) {
         app.world_mut()
             .entity_mut(camera)
@@ -665,11 +648,9 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
             .query::<(&TextFont, &bevy::ui::ComputedUiRenderTargetInfo)>();
         query
             .iter(app.world())
-            // ⛔ "NOT Px", not "is Vh". A control's label carries Bevy's
-            // `TextFont` default, `FontSize::Px(20.0)`; the menu's own
-            // typographic nodes are the ones authored in a viewport unit. Asking
-            // for `Vh` specifically would make a WRONG AXIS (`Vw`) vanish from
-            // the population instead of failing on its value.
+            // "Not Px", not "is Vh": control labels keep Bevy's default
+            // `FontSize::Px(20.0)`. Filtering for `Vh` would drop a wrong
+            // unit (`Vw`) from the set instead of failing on it.
             .filter(|(font, _)| !matches!(font.font_size, FontSize::Px(_)))
             .map(|(font, target)| font.font_size.eval(target.logical_size(), rem))
             .collect()
@@ -681,14 +662,11 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
         bevy::image::ImagePlugin::default(),
         // `UiPlugin` schedules `ui_focus_system`, which reads mouse buttons.
         bevy::input::InputPlugin,
-        // ... and, under this crate's `bevy_picking` feature, `UiPickingPlugin`.
-        //
-        // ⛔⛔ `InteractionPlugin` IS NOT OPTIONAL HERE, AND `-p ambition_menu`
-        // CANNOT TELL YOU THAT. Under `--workspace`, feature unification turns
-        // on `bevy/ui_picking` for this crate, and `UiPlugin` then schedules
-        // `widget::viewport_picking`, which reads `Res<HoverMap>` — a resource
-        // `PickingPlugin` does not own. So this test passed alone and failed in
-        // the workspace run, which is the one that ships.
+        // ... and, under this crate's `bevy_picking` feature,
+        // `UiPickingPlugin`. `PickingPlugin` is required: in a workspace
+        // build, feature unification enables `bevy/ui_picking`, and `UiPlugin`
+        // then runs `widget::viewport_picking`, which reads `Res<HoverMap>`.
+        // `-p ambition_menu` alone does not show this.
         bevy::picking::PickingPlugin,
         bevy::picking::InteractionPlugin,
         bevy::picking::input::PointerInputPlugin,
@@ -701,7 +679,7 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
     app.init_asset::<bevy::image::TextureAtlasLayout>();
     let camera = app.world_mut().spawn((Camera2d, IsDefaultUiCamera)).id();
 
-    // The real spawn path, exactly as every other test in this file uses it.
+    // The real spawn path, as in every other test here.
     spawn_view(&mut app, 0, None);
 
     target(&mut app, camera, 1080);
@@ -714,7 +692,7 @@ fn menu_text_is_sized_as_a_percentage_of_the_live_viewport() {
         AUTHORED_PERCENT / 100.0 * 1080.0
     );
 
-    // The SECOND viewport. Nothing respawns; only the target changes.
+    // The second viewport. Nothing respawns; only the target changes.
     target(&mut app, camera, 2160);
     app.update();
     assert_eq!(
@@ -744,10 +722,8 @@ fn tap(app: &mut App, entity: Entity) -> Vec<crate::MenuActionActivated<Action>>
 
 #[test]
 fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone() {
-    // `MenuTapMode::SingleTapWithDestructiveGuard` is the SHIPPED DEFAULT, and
-    // its stated reason is a stray touch on Quit. It was reaching only the rows
-    // routed through `ambition_ui_nav`; every menu drawn by this bridge — the
-    // pause menu and its Quit rows included — activated on the first release.
+    // `MenuTapMode::SingleTapWithDestructiveGuard` is the default. Menus drawn
+    // by this bridge (including the pause menu's Quit rows) must honor it.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     // No `UserSettings` resource: absent is the default policy, which is the
@@ -779,8 +755,8 @@ fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone(
         "the second tap on the SAME row is the answer to the guard"
     );
 
-    // And the arm does not survive going somewhere else in between: an armed
-    // Quit that the user walked away from must not fire on their return tap.
+    // The arm does not survive a visit elsewhere: an armed Quit the user left
+    // must not fire on their return tap.
     assert!(tap(&mut app, equip).is_empty(), "arm again");
     assert_eq!(tap(&mut app, setting).len(), 1);
     assert!(
@@ -789,18 +765,12 @@ fn the_destructive_guard_reaches_a_pointer_menu_and_leaves_its_neighbours_alone(
     );
 }
 
-/// ⛔⛔ TWO ROWS THAT DO THE SAME THING ARE STILL TWO ROWS.
+/// Two rows that do the same thing are still two rows.
 ///
-/// The destructive arm was keyed by `format!("{action:?}")`, then by `Action`
-/// itself. The second removed a `Debug` dependency and was still one layer too
-/// coarse: an action says what a row DOES. Arm destructive row A, tap
-/// destructive row B once, and B — carrying an EQUAL action — reads as already
-/// armed and fires on the first tap. In a pause menu that is *Quit to Desktop*
-/// answering a guard the user armed somewhere else.
-///
-/// ⭐ `MenuFocusKey` is the identity the menu already carries, and it is
-/// distinct here while the action is not — which is exactly the case neither
-/// earlier key could tell apart.
+/// The destructive arm is keyed by `MenuFocusKey`, not by action. Keyed by
+/// action, arming destructive row A would let row B (with an equal action)
+/// fire on its first tap. In a pause menu, that is Quit to Desktop answering
+/// a guard armed somewhere else.
 #[test]
 fn two_destructive_rows_with_the_same_action_arm_separately() {
     let mut app = build_app();
@@ -864,9 +834,8 @@ fn two_destructive_rows_with_the_same_action_arm_separately() {
 
 #[test]
 fn a_menu_that_registers_no_destructive_rows_is_unguarded() {
-    // The default for every existing host, and the reason this change needed no
-    // edit at 21 `MenuPage::control` call sites: a menu with no irreversible row
-    // registers nothing and keeps single-tap throughout.
+    // The default for every host: a menu with no irreversible row registers
+    // nothing and keeps single-tap.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
@@ -881,9 +850,8 @@ fn a_menu_that_registers_no_destructive_rows_is_unguarded() {
 
 #[test]
 fn single_tap_mode_answers_for_the_destructive_row_too() {
-    // The guard is the user's setting, not this bridge's opinion: someone who
-    // has chosen `SingleTap` has said they do not want the second tap, and a
-    // Quit row is exactly where a hardcoded policy would override them.
+    // The guard follows the user's setting. A user who chose `SingleTap` gets
+    // no second tap, even on Quit.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     app.insert_resource(crate::MenuDestructiveActions::<Action>::new(|action| {
@@ -902,18 +870,10 @@ fn single_tap_mode_answers_for_the_destructive_row_too() {
     );
 }
 
-/// ⛔ THE TAB BAR REPUBLISHES CONSTANTLY — the view respawns its nodes — so a
-/// press and its release routinely land on DIFFERENT entities carrying the same
-/// tab index. This asserts the press survives that, which is the arm the
-/// publisher's own comment calls out ("the tab bar mid-republish, whose fresh
-/// nodes read `None` until the next frame's focus pass") and which no test
-/// covered: the existing tab tests all press and release the same entity.
-///
-/// ⚠ It passes today. It is here because I predicted it would NOT, reasoning
-/// that the release arm matches on the armed ENTITY; it matches on the tab
-/// INDEX, which a respawn preserves. The test pins the property the reasoning
-/// got wrong, so the next person to touch that match does not have to re-derive
-/// it.
+/// The tab bar republishes (respawns its nodes) constantly, so a press and
+/// its release often land on different entities with the same tab index.
+/// The press must survive that. The release arm matches on the tab index,
+/// which a respawn keeps; this test pins that.
 #[test]
 fn a_press_that_survives_a_tab_bar_republish_still_activates() {
     let mut app = build_app();
@@ -941,7 +901,7 @@ fn a_press_that_survives_a_tab_bar_republish_still_activates() {
     assert!(drain(&mut app).is_empty(), "premise: down is not a tab change");
 
     // The republish: this tab's node is despawned and rebuilt, so the release
-    // lands on a DIFFERENT entity that carries the same index.
+    // lands on a different entity with the same index.
     app.world_mut().despawn(pressed);
     let fresh = app
         .world_mut()

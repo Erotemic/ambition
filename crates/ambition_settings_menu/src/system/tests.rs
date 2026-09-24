@@ -360,29 +360,16 @@ fn language_stub_only_english_available() {
     );
 }
 
-/// Every option id either REACHES a system settings screen, or says why it does not.
+/// Every option id either reaches a system settings screen, or says why it does not.
 ///
-/// ⛔⛔ THE HALF THAT WAS NOT FORCED. `settings/apply.rs` matches this enum
-/// exhaustively, so a new option cannot be added without deciding what changing it
-/// DOES. Nothing forced the other half: `settings/build.rs` composes each screen by
-/// pushing rows explicitly, so a fully wired option could appear on NO SCREEN and
-/// every test still passed — the existing coverage asserts that named screens
-/// CONTAIN named ids, and a new id is simply in none of those lists.
+/// `settings/apply.rs` matches the enum exhaustively, so each option must say
+/// what it does. `settings/build.rs` pushes rows explicitly, so a wired option
+/// could appear on no screen and other tests would still pass.
 ///
-/// ⇒ That is the exact shape of the report this menu exists to answer, in Jon's
-/// words: *"the general game-agnostic settings [should] all be available in every
-/// setting menu … video and audio settings seem not there or not hooked up"*.
-///
-/// ⚠ ITS REACH, precisely: this walks `SettingsOptionId::ALL` and requires every id
-/// on it to be reachable unless an explicit arm says otherwise. `ALL` is itself
-/// hand-kept, so an option added to the enum and NOT to `ALL` is invisible here.
-/// ⭐ THAT GAP IS NOW HELD RATHER THAN NOTED — 2026-09-18:
-/// `scripts/check_enum_all_constants_are_complete.py` compares every
-/// `const ALL: [Self; N]` in the workspace against its own enum and names the
-/// omitted variants, and `--maintenance` runs it. Three guards, and the split is
-/// exact: that one decides WHETHER a variant reaches `ALL`, this one decides WHERE
-/// it appears, and `apply.rs`'s exhaustive match decides what changing it DOES.
-/// None of the three covers another's half, and this test does not claim to.
+/// Three guards split the work:
+/// `scripts/check_enum_all_constants_are_complete.py` (run by `--maintenance`)
+/// decides whether a variant is on `ALL`; this test decides where it appears;
+/// `apply.rs`'s exhaustive match decides what changing it does.
 #[test]
 fn every_settings_option_id_reaches_a_screen() {
     let model = SystemMenuModel::build(
@@ -403,9 +390,7 @@ fn every_settings_option_id_reaches_a_screen() {
             }
         }
     }
-    // ⚠ ANTI-VACUITY: a model that surfaced nothing would pass every assertion below
-    // by having no rows to disagree with. Measured 2026-09-06: 58 of the 59 ids are
-    // reachable from the default build.
+    // Guard against a vacuous pass: the default build reaches 58 of 59 ids.
     assert!(
         reachable.len() > 50,
         "only {} settings ids are reachable — the model did not build, and the \
@@ -414,22 +399,10 @@ fn every_settings_option_id_reaches_a_screen() {
     );
 
     for id in SettingsOptionId::ALL {
-        // ⛔ WHAT THIS DOES AND DOES NOT CATCH, stated exactly — the first draft of
-        // this comment claimed an E0004 it does not produce, because the arm below is
-        // a catch-all.
-        //
-        // ✔ A new option ADDED TO `ALL` defaults to `true` here, so the assertion
-        //   below FAILS unless a player can reach it. The author then either places
-        //   it on a screen or writes an explicit exception arm saying why not. That
-        //   is the case this guard is for, and it needs no compile error.
-        // ✔ A new option NOT added to `ALL` USED TO BE INVISIBLE to this loop, and
-        //   this comment said so; it is now held by
-        //   `scripts/check_enum_all_constants_are_complete.py` (`--maintenance`),
-        //   which compares every `const ALL: [Self; N]` in the workspace against its
-        //   own enum declaration and names the omitted variants. ⇒ Two guards, and
-        //   each covers exactly what the other cannot: that one decides WHETHER the
-        //   variant is on `ALL`, this one decides WHERE it appears. `apply.rs`'s
-        //   exhaustive match remains the third, deciding what changing it DOES.
+        // The catch-all arm defaults to `true`, so a new id on `ALL` fails below
+        // unless a player can reach it or an explicit arm says why not. An id
+        // missing from `ALL` is caught by
+        // `scripts/check_enum_all_constants_are_complete.py`.
         let must_reach = match id {
             // A momentary Close / Back action, not a setting with a value, so it is
             // not a row on any settings screen.

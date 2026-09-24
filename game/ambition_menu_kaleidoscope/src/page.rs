@@ -290,8 +290,8 @@ fn spawn_control<Action>(
     // dim disabled colour, and keep it pickable for drag (see below).
     let is_scrollbar = matches!(kind, MenuControlKind::Scrollbar);
     let disabled = action.is_none() && !is_scrollbar;
-    // The scrollbar TRACK is drawn DIM (Fix 1): it's the full-height channel behind
-    // the brighter thumb, so it must not read as the solid bright blob it used to.
+    // The scrollbar track is dim: it is the full-height channel behind the
+    // brighter thumb and must not read as a solid bright blob.
     let color = if disabled {
         disabled_control_color()
     } else if is_scrollbar {
@@ -741,13 +741,11 @@ fn text_depth(y: f32) -> f32 {
 /// that alpha by the open `amount` without losing the rgb.
 /// The alpha mode a SOLID (untextured) plane is born with.
 ///
-/// It is the mode `fade_kaleidoscope_materials` would correct it to on the same
-/// frame: solid planes are always `Opaque` so depth bands resolve, and only the
-/// textured ones cross-fade. Spawning them `Blend` and correcting them one
-/// schedule later changed the material's pipeline key on every rebuild — a
-/// scroll of the System list, a modal option change — and under Bevy 0.19 that
-/// mode flip is a frame in which the plane belongs to no render phase: the
-/// flash Jon reported 2026-09-02. Born right, nothing flips.
+/// This is the mode `fade_kaleidoscope_materials` would set on the same frame:
+/// solid planes are always `Opaque` so depth bands resolve; only textured
+/// planes cross-fade. Spawning `Blend` and correcting later would change the
+/// pipeline key on every rebuild, and under Bevy 0.19 the plane would sit in
+/// no render phase for one frame and flash.
 pub(super) fn solid_plane_alpha_mode() -> AlphaMode {
     AlphaMode::Opaque
 }

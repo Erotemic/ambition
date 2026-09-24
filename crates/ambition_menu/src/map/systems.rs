@@ -6,19 +6,14 @@
 use bevy::prelude::*;
 
 use super::MapMenuState;
-// only `populate_map_rooms` builds one, and that is behind `ldtk`.
+// Only `populate_map_rooms` builds one, and it is behind `ldtk`.
 #[cfg(feature = "ldtk")]
 use super::MapRoomNode;
 
 /// The one spelling of "the player has been in this room", as a save flag.
 ///
-/// ⭐ IT WAS TWO, ELEVEN LINES APART. `track_room_visits` wrote
-/// `format!("room_visited_{id}")` and `sync_map_from_save` read
-/// `strip_prefix("room_visited_")`, so renaming either one was SILENT in the other
-/// direction: the writer would stamp a flag the reader no longer recognised, the
-/// map would come back empty from every load, and both functions would still read
-/// correctly on their own. The agreement was the fact worth guarding, and it now
-/// cannot disagree.
+/// The writer (`track_room_visits`) and reader (`sync_map_from_save`) share
+/// this prefix, so renaming it cannot make them disagree.
 pub const ROOM_VISITED_FLAG_PREFIX: &str = "room_visited_";
 
 /// The save flag id that records a visit to `room_id`.
@@ -31,20 +26,14 @@ pub fn room_from_visited_flag(flag_id: &str) -> Option<&str> {
     flag_id.strip_prefix(ROOM_VISITED_FLAG_PREFIX)
 }
 
-/// Record the active room on the save, once per room per SAVE.
+/// Record the active room on the save, once per room per save.
 ///
-/// ⛔⛔ THE EDGE IS DERIVED FROM THE SAVE, NOT FROM A `Local`. This kept
-/// `Local<Option<String>>` of the last room and wrote nothing while it matched
-/// -- process-lived memory standing in for a fact the save already holds. After
-/// a new game the player stands in the same room they were in, the local still
-/// says so, and the fresh save never learns they are there. Asking the save
-/// "is this room flagged" is the same edge with the save's lifetime, and it
-/// re-derives correctly after a reset, a rewind or a second session. A GPT
-/// review found the lifetime 2026-09-07.
+/// The edge comes from the save ("is this room flagged"), not a `Local`, so
+/// it has the save's lifetime and re-derives after a new game, a rewind, or a
+/// second session.
 ///
-/// ⚠ WRITES ONLY ON THE EDGE, and reads through `Deref` otherwise: a `ResMut`
-/// deref-mut marks the save changed for every reader downstream, and the
-/// autosave is one of them.
+/// Writes only on the edge and otherwise reads through `Deref`: a `ResMut`
+/// deref-mut marks the save changed for every reader, including autosave.
 pub fn track_room_visits(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_world::rooms::RoomSet,
@@ -60,18 +49,14 @@ pub fn track_room_visits(
 
 /// Keep the map's visited set equal to what the save says.
 ///
-/// ⛔⛔ THE VISITED SET IS A PROJECTION OF THE SAVE, with the save's lifetime,
-/// and it used to be hydrated ONCE PER PROCESS behind a `Local<bool>`. Two
-/// failures followed: a new game inherited the old game's map (the save was
-/// wiped, the set was not), and a second save activated in the same process was
-/// never read at all (the local already said "done"). `MapMenuState` is
-/// process-lived UI state; only this field mirrors the save, and it is rebuilt
-/// whenever the save CHANGES -- which is what a reset, a load and a fresh visit
-/// all are -- rather than keyed to a moment nothing else remembers.
+/// The visited set is a projection of the save, with the save's lifetime.
+/// `MapMenuState` is process-lived UI state; only this field mirrors the
+/// save, and it is rebuilt whenever the save changes (reset, load, new
+/// visit). So a new game does not inherit the old map, and a second save is
+/// read.
 ///
-/// ⚠ ASSIGNED ONLY WHEN DIFFERENT. The map view rebuilds on `map.is_changed()`,
-/// and a save that changes every tick for other reasons must not redraw a map
-/// that did not.
+/// Assigned only when different: the map view rebuilds on
+/// `map.is_changed()`, and the save changes often for other reasons.
 pub fn sync_map_from_save(
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut map: ResMut<MapMenuState>,
@@ -90,8 +75,8 @@ pub fn sync_map_from_save(
     }
 }
 
-/// Fill room geometry from the LDtk project levels. Behind `ldtk` because
-/// the map is drawable without a backend — only the room RECTANGLES need one.
+/// Fill room geometry from the LDtk project levels. Behind `ldtk`: the map
+/// draws without a backend; only the room rectangles need one.
 #[cfg(feature = "ldtk")]
 pub fn populate_map_rooms(
     project: Res<ambition_platformer2d_ldtk::ActiveLdtkProject>,

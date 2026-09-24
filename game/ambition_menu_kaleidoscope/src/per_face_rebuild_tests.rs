@@ -206,8 +206,8 @@ fn a_page_leaving_the_publication_retires_its_face() {
 
 /// A solid plane is born in the alpha mode the fade sweep would give it, so a
 /// rebuild never flips a material's pipeline key one schedule later. The flip
-/// was a frame in which the plane sat in no render phase under Bevy 0.19 — the
-/// System-face flash on every scroll and modal change (2026-09-02).
+/// was a frame in which the plane sat in no render phase under Bevy 0.19,
+/// which showed as a System-face flash on every scroll and modal change.
 #[test]
 fn a_freshly_rebuilt_solid_plane_is_already_opaque() {
     let mut app = test_app();

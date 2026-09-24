@@ -19,7 +19,7 @@ use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::control::ActorControl;
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorTarget};
-use ambition_platformer2d::combat::BodyMelee;
+use ambition_platformer2d::combat::moveset::MeleeSwingQuery;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::BodyKinematics;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -52,7 +52,7 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
         &BodyKinematics,
         &ActorDisposition,
         &ActorTarget,
-        &BodyMelee,
+        MeleeSwingQuery,
     )>();
     if let Some((_, kin, disp, target, melee)) =
         q.iter(world).find(|(f, ..)| f.as_str() == ROBOT_ID)
@@ -64,7 +64,7 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
         if target.entity.is_some() {
             t.target_some += 1;
         }
-        if melee.is_swinging() {
+        if melee.swing().is_some() {
             t.melee_swing_frames += 1;
         }
         let d = (kin.pos - player_pos).length();

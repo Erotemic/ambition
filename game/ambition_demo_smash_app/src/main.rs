@@ -6,11 +6,8 @@ const DEFAULT_TICKS: u32 = 600;
 
 #[cfg(not(feature = "visible"))]
 fn main() {
-    // Headless: step a bounded number of ticks so a CI run is a run rather
-    // than a hang, and say what happened.
-    //
-    // The other three each carried their own byte-identical parser; all four read the
-    // launcher's now.
+    // Headless: step a bounded number of ticks, so a CI run ends, and report
+    // what happened. The tick count comes from the shared launcher parser.
     let mut app = ambition_demo_smash_app::build_demo_app();
     let ticks = ambition_platformer2d::demo_shell::headless_ticks(DEFAULT_TICKS);
     for _ in 0..ticks {
@@ -21,10 +18,8 @@ fn main() {
 
 /// Drawn, through the windowed builder.
 ///
-/// NOT `build_demo_app`: its foundation is `MinimalPlugins`, so it has no
-/// renderer and no window whatever features are on, and `run()` on it spun the
-/// schedules against no display and drew nothing. That is why this shell had
-/// never been seen.
+/// Not `build_demo_app`: its foundation is `MinimalPlugins`, so it has no
+/// renderer or window whatever features are on.
 #[cfg(feature = "visible")]
 fn main() {
     ambition_demo_smash_app::build_windowed_demo_app(ambition_platformer2d::app::Display::Window)

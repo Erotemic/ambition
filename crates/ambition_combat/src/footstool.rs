@@ -32,9 +32,9 @@ pub struct FootstoolBody {
     pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
     pub team: Option<&'static crate::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::control::ActorControl>,
-    /// The swing clock, read ONLY to ask whether this body is mid-move — see
-    /// the phantom footstool in the module doc.
-    pub melee: Option<&'static crate::components::BodyMelee>,
+    /// The swing, read ONLY to ask whether this body is mid-move — see the
+    /// phantom footstool in the module doc.
+    pub swing: crate::moveset::MeleeSwingQuery,
     pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 }
 
@@ -166,7 +166,7 @@ pub fn claim_footstools(
                     // Read HERE, from the decide pass, because the effects pass
                     // has already begun changing the answer for other pairs.
                     victim.ground.on_ground,
-                    victim.melee.is_some_and(|m| m.phase().is_some()),
+                    victim.swing.swing().is_some_and(|swing| swing.phase().is_some()),
                 ));
             }
         }

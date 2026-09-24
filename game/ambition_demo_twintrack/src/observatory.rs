@@ -162,19 +162,10 @@ struct OpticalAberrationGuide;
 struct OpticalVelocityLine;
 
 pub(crate) fn install(app: &mut App) {
-    // ⭐⭐ THE OBSERVATORY IS DORMANT OUTSIDE TWINTRACK and now says so ONCE.
-    // Fifteen of these sixteen already no-opped elsewhere — eleven by an early
-    // return on a `TwinTrackExperiment` query matching nothing, three by
-    // iterating a `TwinTrackVisible` query matching nothing — which is the
-    // "install many systems, then spend every frame discovering they are idle"
-    // shape. The predicate is in THIS FILE and only two of the sixteen consulted
-    // it. A tuple-level `run_if` is collective in Bevy 0.18, so this is fifteen
-    // invocations replaced by one condition.
-    //
-    // ⚠ NOT A MEASURED WIN and not offered as one: early-returning systems cost
-    // microseconds, far under this machine's noise floor, and removing four
-    // whole experiences moved the frame by nothing. It is here because a dormant
-    // capability should be dormant.
+    // The observatory is dormant outside TwinTrack. A tuple-level `run_if` is
+    // collective in Bevy 0.18 (one condition for the whole set), so the
+    // systems do not each discover every frame that they are idle. This is
+    // not a measured speed win; a dormant capability should be dormant.
     app.add_systems(
         Update,
         (
@@ -197,11 +188,10 @@ pub(crate) fn install(app: &mut App) {
             .run_if(twintrack_display_is_live),
     );
 
-    // ⛔⛔ THE CLEANUP RUNS ON THE OPPOSITE CONDITION and must stay ungated.
-    // `cleanup_visuals_when_inactive` opens with `if twintrack_is_active { return; }`
-    // — it despawns the observatory precisely WHEN TWINTRACK IS NOT LIVE. Sweep
-    // it into the gate above and the visuals stand forever after the experience
-    // ends. Same trap as `spacetime_3d`.
+    // The cleanup runs on the opposite condition and must stay ungated.
+    // `cleanup_visuals_when_inactive` returns early while TwinTrack is active
+    // and removes the observatory when it ends. Gating it would leave the
+    // visuals standing forever. Same as `spacetime_3d`.
     app.add_systems(Update, cleanup_visuals_when_inactive);
 }
 
@@ -714,17 +704,14 @@ DIRECTIONS AROUND YOU",
     ));
 }
 
-/// WHICH OF THIS DEMO'S CAMERAS ARE DRAWING.
+/// Which of this demo's cameras are drawing.
 ///
-/// `is_active` ONLY — the physical VIEWPORT is not this demo's to write.
-/// `apply_gameplay_camera_viewport` owns `Camera::viewport` for every `MainCamera` that presents a
-/// `LocalView`, and TwinTrack's own pane cameras ARE such cameras: `spawn_pane_camera` gives each
-/// one `MainCamera` and a `PresentsView` link.
-///
-/// and the observatory camera's clear went too, though nothing contended
-/// for it. It is not a `MainCamera`, so the generic pass never sees it and it
-/// keeps the `None` it was spawned with; a line restating a default nobody
-/// writes is a second writer waiting for somebody to add the first.
+/// Writes `is_active` only; the viewport is not this demo's to write.
+/// `apply_gameplay_camera_viewport` owns `Camera::viewport` for every
+/// `MainCamera` that presents a `LocalView`, and TwinTrack's pane cameras are
+/// such cameras (`spawn_pane_camera` gives each `MainCamera` and a
+/// `PresentsView` link). The observatory camera is not a `MainCamera` and
+/// keeps the `None` it was spawned with.
 fn sync_view_cameras(
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut observatory: Query<&mut Camera, With<ObservatoryCamera>>,
@@ -735,7 +722,7 @@ fn sync_view_cameras(
     };
     let optical_active = experiment.view_mode == TwinTrackViewMode::Optical;
     if let Ok(mut camera) = observatory.single_mut() {
-        // A test in `ambition_app` measures this directly and caught the unconditional write.
+        // Compare before writing; a test in `ambition_app` checks this.
         if camera.is_active != optical_active {
             camera.is_active = optical_active;
         }
@@ -1172,12 +1159,11 @@ fn update_doppler_music_visuals(
         &TwinTrackCharacter,
         &ambition_platformer2d::engine_core::BodyKinematics,
     )>,
-    // the three marker sets are disjoint, and Bevy needs to be TOLD. All
-    // three take `&mut Visibility`, and a `With<..>` marker does not prove
-    // exclusivity — nothing stops an entity carrying two of them, so parameter
-    // validation panics at first run rather than at compile time. The
-    // `Without<..>` filters are the statement that the bars, the labels and the
-    // beat rings are three different bodies.
+    // The three marker sets are disjoint, and Bevy must be told. All three
+    // take `&mut Visibility`, and a `With<..>` marker does not prove
+    // exclusivity, so parameter validation would panic at first run. The
+    // `Without<..>` filters state that bars, labels, and beat rings are
+    // different entities.
     mut bars: Query<
         (&mut Sprite, &mut Transform, &mut Visibility),
         (
@@ -1300,10 +1286,9 @@ fn update_light_tag_guides(
         return;
     };
     let active = experiment.phase == TwinTrackPhase::LightTag;
-    // the TRAVELER's aim, named. The targeting view holds one row per
-    // observer; these are the traveler's own guides, and reading the resource
-    // through `Deref` would take the first row in label order — the laboratory
-    // twin's, since she became an observer too.
+    // The traveler's aim, by name. The targeting view holds one row per
+    // observer, and a `Deref` read would take the first row in label order
+    // (the laboratory twin's).
     let target = targeting.for_observer(traveler_entity).and_then(|aim| {
         aim.targets
             .iter()
@@ -1478,10 +1463,9 @@ fn update_optical_observer_marker(
 
 fn update_observatory_stars(
     optical: Res<RelativisticOpticalView2d>,
-    // the TRAVELER's sky, named. The optical view holds one image per
-    // observer, and reading it through `Deref` takes the first row in label
-    // order — the laboratory twin's, since she became an observer too. The
-    // observatory is the instrument the traveler is looking through.
+    // The traveler's sky, by name. The optical view holds one image per
+    // observer, and a `Deref` read would take the first row in label order
+    // (the laboratory twin's). The observatory is the traveler's instrument.
     traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut stars: Query<(
@@ -1543,7 +1527,7 @@ fn update_observatory_stars(
 
 fn update_optical_aberration_beacons(
     optical: Res<RelativisticOpticalView2d>,
-    // The TRAVELER's sky — see `update_observatory_stars`.
+    // The traveler's sky; see `update_observatory_stars`.
     traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut beacons: Query<
@@ -1656,7 +1640,7 @@ fn update_optical_aberration_beacons(
 
 fn update_optical_proxies(
     optical: Res<RelativisticOpticalView2d>,
-    // The TRAVELER's sky — see `update_observatory_stars`.
+    // The traveler's sky; see `update_observatory_stars`.
     traveler: Query<bevy::prelude::Entity, With<crate::TravelerTwin>>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut proxies: Query<
@@ -1786,14 +1770,13 @@ fn beacon_map_color(beacon: TwinTrackBeacon) -> Color {
     }
 }
 
-/// The two beacons flash TOGETHER on the laboratory map, because in the
+/// The two beacons flash together on the laboratory map, because in the
 /// laboratory frame they do.
 ///
-/// this is the flash EVENT, not its arrival. A laboratory map draws
-/// laboratory coordinate time, so lighting these on the light's arrival at any
-/// particular observer would smuggle one observer's perception into the frame
-/// that is supposed to be the shared reference. The split-observer panes are
-/// where arrival, and disagreement, belong.
+/// This shows the flash event, not its arrival. The laboratory map draws
+/// laboratory coordinate time; lighting a beacon on arrival at one observer
+/// would put that observer's perception into the shared reference frame. The
+/// split-observer panes show arrival and disagreement.
 fn update_lab_beacon_visuals(
     view: Res<TwinTrackDualObserverView>,
     mut beacons: Query<(&LabBeaconVisual, &mut Sprite)>,

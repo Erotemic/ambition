@@ -110,12 +110,9 @@ pub fn dialog_pointer_input(
     };
     let tap_mode = effective_dialog_tap_mode(configured_tap_mode, pointer_input);
 
-    //  a touch device never writes the window cursor, so `RowPress`'s drag
-    // test — the thing that makes one-tap activation safe — was being fed `None`
-    // on the only platform it was built for, and every phone drag passed it. The
-    // finger's own position is the drag evidence. Read the JUST-RELEASED finger
-    // too: on the frame it lifts, Bevy has already moved it out of `pressed`
-    // (observed against `bevy_input` 0.18, not assumed).
+    // A touch device never writes the window cursor, so `RowPress`'s drag test
+    // reads the finger's position instead. Also read the just-released finger:
+    // on the frame it lifts, Bevy has already removed it from `pressed`.
     let pointer_position = touches
         .as_deref()
         .and_then(|touches| {
@@ -178,11 +175,8 @@ pub fn dialog_pointer_input(
                 }
             }
             Interaction::Pressed => {
-                //  press SELECTS and ARMS; it no longer confirms. Activating
-                // on press is what forced touch into two-tap mode: a finger that
-                // lands on a row and then slides has already fired it. Now the
-                // row highlights, the press is remembered, and a drag can still
-                // cancel it — see `RowPress`.
+                // A press selects and arms the row; it does not confirm. The release
+                // activates it, so a drag can still cancel it (see `RowPress`).
                 let update = resolve_selectable_row_interaction(
                     interaction,
                     index,
@@ -196,19 +190,11 @@ pub fn dialog_pointer_input(
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
                 dialogue.last_pointer_position = cursor_position;
-                //  the tap mode decides WHETHER this tap activates; the release
-                // decides WHEN. `SingleTapWithDestructiveGuard` — the default on
-                // every platform — returns `Confirmed` from the press itself, so
-                // acting on it here would activate on press for every ordinary
-                // dialogue row and leave the whole release path governing nothing
-                // but an explicitly-configured two-tap mode. Arming instead keeps
-                // the policy exactly as configured (one tap for a plain row, two
-                // for a guarded one) while making that tap a real tap: down, then
-                // up, on the same row.
-                //
-                //  this is the split `MenuTapMode::default()` already argues for
-                // in its own comment — a confirmation policy answers "how many
-                // taps", and drag-cancellation belongs to the gesture layer.
+                // The tap mode decides whether this tap activates; the release decides
+                // when. The default `SingleTapWithDestructiveGuard` returns `Confirmed` from
+                // the press, so arm here instead of acting, and let the release activate.
+                // Confirmation policy answers "how many taps"; drag cancellation belongs to
+                // the gesture layer (see `MenuTapMode::default()`).
                 if update.outcome != RowPointerOutcome::Confirmed {
                     // This press only moved the selection; the mode wants another
                     // tap. Nothing is armed, so its release activates nothing.
@@ -216,30 +202,20 @@ pub fn dialog_pointer_input(
                     return;
                 }
                 dialogue.row_press.press(index, pointer_position);
-                //  a whole tap can fit inside one frame. `ui_focus_system` sets
-                // `Pressed` on the just-pressed frame and defers the reset to
-                // `None` to the NEXT frame (its `entities_to_reset` list), by which
-                // time the release edge is gone from `Touches`/`ButtonInput`. A
-                // pointer that is already up on the frame the row went down has
-                // pressed AND released here, so it completes here.
+                // A whole tap can fit in one frame. `ui_focus_system` resets `Pressed` to
+                // `None` on the next frame, when the release edge is already gone. So a
+                // pointer that is already up on the press frame completes the tap here.
                 if pointer_up.came_up() {
                     dialogue.row_press.clear();
                     dialogue.confirm_or_advance();
                 }
                 return;
             }
-            //  `Interaction::None` is NOT a release. Bevy raises it for two
-            // events this arm cannot tell apart on its own: the pointer came UP
-            // over this row, or the pointer LEFT the row while still held. A
-            // finger that presses near a short row's edge and slides a few pixels
-            // off it is the second one, and activating there fires a choice under
-            // a finger that never lifted.
-            //
-            //  the live input state is the discriminator, and it is the same one
-            // `ui_focus_system` uses to force `Pressed` → `None`: a finger came up
-            // this frame. A MOUSE release over the row it pressed reports
-            // `Hovered` (see above), so a mouse `None` is always the pointer
-            // leaving — which is why only a touch lift activates here.
+            // `Interaction::None` is not a release. Bevy raises it when the pointer
+            // comes up over the row and also when a held pointer leaves the row.
+            // Activating on the second fires a choice under a finger that never lifted.
+            // A touch that came up this frame tells them apart. A mouse release over
+            // the pressed row reports `Hovered`, so a mouse `None` is always a leave.
             Interaction::None => {
                 if pointer_up != PointerUp::Touch {
                     dialogue.row_press.left(index);

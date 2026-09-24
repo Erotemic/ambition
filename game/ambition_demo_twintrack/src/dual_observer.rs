@@ -31,9 +31,9 @@ use crate::{LaboratoryTwin, TravelerTwin, INVARIANT_SPEED, LAB_POS};
 
 /// Half the laboratory-frame distance between the two beacons.
 ///
-/// this length is the size of the lesson. The observer-frame time split
-/// is `gamma * beta * 2 * HALF_SEPARATION / c`; shrink it and the two panes
-/// stop visibly disagreeing at ordinary flight speeds.
+/// This length sets the size of the lesson. The observer-frame time split is
+/// `gamma * beta * 2 * HALF_SEPARATION / c`; shrink it and the two panes stop
+/// visibly disagreeing at ordinary flight speeds.
 pub const BEACON_HALF_SEPARATION: f32 = 520.0;
 
 /// Laboratory-frame period between synchronized flashes.
@@ -120,12 +120,12 @@ impl EventOrdering {
 pub struct BeaconReading {
     /// Laboratory-frame distance from the observer to the beacon.
     pub range: f32,
-    /// The most recent flash of THIS beacon whose light has reached the
+    /// The most recent flash of this beacon whose light has reached the
     /// observer. Drives the pane's lamp, not the ordering rows.
     pub lit_flash_index: u64,
     /// Laboratory time at which that flash's light reached the observer.
     pub lit_arrival_time: f64,
-    /// Laboratory time at which the COMPARED flash's light reached the
+    /// Laboratory time at which the compared flash's light reached the
     /// observer. This is the "light reached me" ordering axis.
     pub compared_arrival_time: f64,
     /// Negative: it lies in the observer's past. This is the "in my frame" ordering axis.
@@ -166,7 +166,7 @@ pub struct ObserverOrderingReport {
     pub seen_order: EventOrdering,
     /// Order in which the compared flashes happened in this observer's frame.
     pub frame_order: EventOrdering,
-    /// Where this observer measures ITSELF to be, relative to the beacon
+    /// Where this observer measures itself to be, relative to the beacon
     /// midpoint, in its own frame.
     pub frame_offset: Vec2,
 }
@@ -194,10 +194,10 @@ impl ObserverOrderingReport {
 
 /// The dual-observer read model: what each of the two panes is showing.
 ///
-/// not rollback state and deliberately not registered. Every field is
-/// recomputed from `SpacetimeCoordinateTime2d` and canonical `BodyKinematics`
-/// every frame; it stores no accumulator and no memo, so a rewound simulation
-/// republishes the identical value on the next pass.
+/// Not rollback state and not registered. Every field is recomputed from
+/// `SpacetimeCoordinateTime2d` and canonical `BodyKinematics` every frame,
+/// with no accumulator or memo, so a rewound simulation republishes the same
+/// value on the next pass.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct TwinTrackDualObserverView {
     pub coordinate_time: f64,
@@ -216,7 +216,7 @@ impl TwinTrackDualObserverView {
             .is_some_and(|(lab, traveler)| lab.seen_order != traveler.seen_order)
     }
 
-    /// The two observers disagree about which flash HAPPENED first. This is the
+    /// The two observers disagree about which flash happened first. This is the
     /// relativity-of-simultaneity claim.
     pub fn frame_orders_disagree(&self) -> bool {
         self.both()
@@ -251,13 +251,13 @@ fn latest_arrived_flash(now: f64, range: f32, invariant_speed: f64) -> Option<u6
 
 /// One observer's own-frame picture of a laboratory-frame displacement.
 ///
-/// this is length contraction, not a boosted event. Boosting the two
+/// This is length contraction, not a boosted event. Boosting the two
 /// laboratory-simultaneous beacon events would give `gamma` times the
-/// separation, because those two events are NOT simultaneous in the observer's
-/// frame — that number is a pair of events, not a length. What a pane draws is
-/// the separation the observer MEASURES at one instant of its own time, which
-/// for a rod at rest in the laboratory is the laboratory length divided by
-/// `gamma` along the direction of motion.
+/// separation, because those events are not simultaneous in the observer's
+/// frame; that is a pair of events, not a length. A pane draws the separation
+/// the observer measures at one instant of its own time, which for a rod at
+/// rest in the laboratory is the laboratory length divided by `gamma` along
+/// the direction of motion.
 pub fn observer_frame_offset(delta: Vec2, velocity: Vec2, lorentz_factor: f32) -> Vec2 {
     let speed = velocity.length();
     if speed <= f32::EPSILON || !lorentz_factor.is_finite() || lorentz_factor <= 0.0 {
@@ -294,10 +294,10 @@ pub fn observe_beacon_pair(
     let omega_range = position.distance(beacon_omega_position());
     let alpha_lit = latest_arrived_flash(now, alpha_range, c)?;
     let omega_lit = latest_arrived_flash(now, omega_range, c)?;
-    // the two beacons' newest ARRIVED flashes need not carry the same index
-    // when the range difference straddles a period boundary. Ordering is only
-    // meaningful about ONE pair of events, so both rows compare the newest
-    // index both beacons have delivered.
+    // The two beacons' newest arrived flashes can have different indices when
+    // the range difference straddles a period boundary. Ordering is about one
+    // pair of events, so both rows compare the newest index both beacons have
+    // delivered.
     let compared = alpha_lit.min(omega_lit);
     let compared_time = flash_coordinate_time(compared);
 
@@ -424,7 +424,7 @@ mod tests {
         let toward_alpha =
             observe_beacon_pair("t", SETTLED, beacon_midpoint(), Vec2::new(-480.0, 0.0), c())
                 .unwrap();
-        // Moving toward a flash puts it EARLIER in your own frame.
+        // Moving toward a flash puts it earlier in your own frame.
         assert_eq!(toward_omega.frame_order, EventOrdering::OmegaFirst);
         assert_eq!(toward_alpha.frame_order, EventOrdering::AlphaFirst);
         // ...while the light-delay answer is unchanged: the observer is still

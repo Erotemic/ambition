@@ -65,7 +65,7 @@ fn grapple_yanks_the_player_toward_a_grappled_wall() {
 
 #[test]
 fn grapple_into_empty_space_does_not_move_the_player() {
-    // No world (or no wall in range) → fizzle, velocity untouched.
+    // No world (or no wall in range): fizzle, velocity unchanged.
     let mut app = test_app(None);
     let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
     app.world_mut()
@@ -83,12 +83,12 @@ fn grapple_into_empty_space_does_not_move_the_player() {
 
 #[test]
 fn no_grapple_without_attack_or_with_a_different_item() {
-    // Holding grapple but not attacking → no pull.
+    // Holding grapple but not attacking: no pull.
     let mut app = test_app(Some(world_with_right_wall()));
     let player = spawn_player_holding(&mut app, GRAPPLE_ID, ae::Vec2::new(100.0, 200.0), 1.0);
     app.update();
     assert_eq!(player_vel(&app, player), ae::Vec2::ZERO);
-    // Holding the bomb + attacking → grapple_system ignores it.
+    // Holding the bomb and attacking: grapple_system ignores it.
     let mut app2 = test_app(Some(world_with_right_wall()));
     let player2 = spawn_player_holding(&mut app2, "bomb", ae::Vec2::new(100.0, 200.0), 1.0);
     app2.world_mut()
@@ -100,8 +100,7 @@ fn no_grapple_without_attack_or_with_a_different_item() {
     assert_eq!(player_vel(&app2, player2), ae::Vec2::ZERO);
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY GRAPPLES TOO — same singular-`ControlledSubject`
-/// defect as the blink.
+/// A second driven body grapples too (see the blink's version of this test).
 #[test]
 fn two_driven_bodies_each_grapple_the_wall_they_face() {
     use crate::test_support::spawn_seated_body_holding;

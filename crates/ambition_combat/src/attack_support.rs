@@ -4,9 +4,9 @@
 //!
 //! The melee LIFECYCLE lives entirely on the moveset runtime now
 //! (`combat::moveset`): a body's swing is a `"attack"`-verb move started by
-//! `trigger_moveset_moves`, advanced by `advance_move_playback`, and projected
-//! back into `BodyMelee` for the anim/HUD/telegraph read-model by
-//! `project_moveset_melee_to_body_melee`. The former flat player+actor melee
+//! `trigger_moveset_moves` and advanced by `advance_move_playback`. The
+//! anim/HUD/telegraph readers derive the swing from the move with
+//! `melee_swing_of`. The former flat player+actor melee
 //! driver (`start_body_melee`/`advance_body_melee`/`start_attack`/`advance_attack`
 //! and the single-hitbox `spawn_melee_strike`) is gone — there is ONE melee path.
 //!

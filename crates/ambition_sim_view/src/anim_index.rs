@@ -7,7 +7,6 @@ use bevy::prelude::{Query, ResMut, Resource};
 use ambition_boss_encounter::anim::boss_anim_state_for;
 use ambition_characters::actor::ai::ActorStatus;
 use ambition_combat::actor_tuning::ActorConfig;
-use ambition_combat::components::BodyMelee;
 use ambition_combat::components::FeatureId;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -21,7 +20,7 @@ use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 ///
 /// All fields are required (not `Option`): every spawned actor carries the full
 /// [`ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle`] (the same bundle the player nests)
-/// plus `ActorStatus` / `ActorConfig` / `BodyMelee`, so an entity that is missing
+/// plus `ActorStatus` / `ActorConfig`, so an entity that is missing
 /// any of them — a boss (its own cluster + anim path) or a prop — correctly does
 /// not match and is skipped, instead of half-resolving from a sparse read. This
 /// is what lets [`ecs_actor_anim_state`] build the player's FULL `BodyAnimView`
@@ -35,7 +34,9 @@ pub struct ActorSpriteData {
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub identity: &'static ambition_combat::components::ActorIdentity,
     pub config: &'static ActorConfig,
-    pub attack: &'static BodyMelee,
+    /// The body's own moveset. With `playback` it gives the swing
+    /// (`melee_swing_of`).
+    pub moveset: Option<&'static ambition_combat::moveset::ActorMoveset>,
     pub ground: &'static ambition_platformer2d_core::BodyGroundState,
     /// The published semantic movement facts (ADR 0024) — maneuver reads
     /// (dash/blink/wall/ledge/dodge/glide) come from here, never from policy
@@ -268,6 +269,7 @@ impl ActorAnimIndex {
 pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
     index.begin_rebuild();
     for a in &actors {
+        let swing = ambition_combat::moveset::melee_swing_of(a.playback, a.moveset);
         let anim = ambition_character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
@@ -277,7 +279,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
             a.env_contact,
             a.abilities,
             a.shield,
-            a.attack.swing.as_ref(),
+            swing.as_ref(),
             ambition_character_sprites::ActorAnimState {
                 alive: a.health.alive(),
                 hit_flash: a.combat.hit_flash > 0.0,

@@ -1156,23 +1156,6 @@ fn player_faction_hitbox_only_fires_once() {
     );
 }
 
-fn armed_player_melee() -> crate::BodyMelee {
-    let view = crate::AttackView {
-        pos: ae::Vec2::new(100.0, 100.0),
-        size: ae::Vec2::new(20.0, 40.0),
-        facing: 1.0,
-        on_ground: true,
-        wall_clinging: false,
-        dashing: false,
-        abilities_directional_primary: true,
-    };
-    let spec = crate::attack_spec_from_view(&view, crate::AttackIntent::Forward);
-    crate::BodyMelee {
-        swing: Some(crate::components::MeleeSwing::new(spec)),
-        ..Default::default()
-    }
-}
-
 #[test]
 fn player_melee_never_targets_its_owner() {
     let mut app = App::new();
@@ -1207,7 +1190,6 @@ fn player_melee_never_targets_its_owner() {
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
-            armed_player_melee(),
         ))
         .id();
     app.world_mut().spawn((
@@ -1269,7 +1251,6 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
             ),
-            armed_player_melee(),
         ))
         .id();
     let victim = app
@@ -2204,7 +2185,6 @@ fn parry_fixture(shield: ae::BodyShieldState) -> (App, Entity) {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(20.0, 40.0),
             ),
-            armed_player_melee(),
         ))
         .id();
     let victim = app

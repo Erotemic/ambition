@@ -1,21 +1,17 @@
-//! Meteor — a player-wielded overhead area-strike: call down a short volley
-//! of falling player-faction projectiles onto a zone ahead of the player. It
-//! fills a real gap in the wielded kit — every other ability strikes *forward*
-//! or *centered* (gun_sword, shockwave, beam, volley, vortex, dive); the meteor
-//! is the only one that hits a zone from above, so it answers a different
-//! question: not "what's in front of me" but "clear that patch of ground over
-//! there" (chip a cluster, zone a doorway, rain on a grounded mob you don't want
-//! to walk into).
+//! Meteor: a player-wielded overhead area strike. It calls down a short
+//! volley of falling player-faction projectiles onto a zone ahead of the
+//! player. Other abilities strike forward or centered (gun_sword, shockwave,
+//! beam, volley, vortex, dive); the meteor hits a zone from above, to clear a
+//! patch of ground, zone a doorway, or hit a grounded mob from a distance.
 //!
-//! It is GNU-ton's signature gauntlet — the giant whose phase-2 tell is a
-//! rain of apples from its descending head. Defeat it, wield its apple-rain
-//! yourself ("every boss a failed objective function, learn its attack").
+//! It is GNU-ton's signature (its phase-2 tell is a rain of apples): defeat it
+//! and wield the rain.
 //!
-//! Mechanically it reuses the faction-aware projectile pool the sentry/volley
-//! use (a `ProjectileSpawnRequest` owned by the wielder), spawning each
-//! meteor high above the strike zone with a downward heading + gravity so it
-//! accelerates into the ground — a readable rain, not a hitscan. Player faction,
-//! so the meteors damage enemies/bosses and spare the player.
+//! It uses the projectile pool the sentry and volley use (a
+//! `ProjectileSpawnRequest` owned by the wielder). Each meteor spawns high
+//! above the zone with a downward heading and gravity, so it is a readable
+//! rain, not a hitscan. Player faction: it damages enemies and bosses and
+//! spares the player.
 
 use bevy::prelude::*;
 
@@ -28,8 +24,8 @@ use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileSt
 /// Held-item id of the meteor gauntlet.
 pub const METEOR_ID: &str = "meteor";
 
-/// Mana the meteor spends per cast (out of 100) — the priciest wielded attack
-/// (a multi-hit zone strike), so it's gated hardest.
+/// Mana per cast (out of 100): the most expensive wielded attack (a multi-hit
+/// zone strike).
 const METEOR_MANA_COST: f32 = 32.0;
 
 /// How many meteors fall per cast.
@@ -44,16 +40,16 @@ const METEOR_DROP_HEIGHT: f32 = 270.0;
 const METEOR_SPEED: f32 = 140.0;
 /// Downward acceleration (px/s^2) — a fast, readable fall.
 const METEOR_GRAVITY: f32 = 950.0;
-/// Damage per meteor (the AOE comes from the count + spread, not big single hits).
+/// Damage per meteor (the area comes from count and spread, not large hits).
 const METEOR_DAMAGE: i32 = 2;
 const METEOR_LIFETIME: f32 = 2.0;
 const METEOR_HALF: ae::Vec2 = ae::Vec2::new(9.0, 9.0);
 
-/// Resolve the spawn origins of one cast: `METEOR_COUNT` points spread evenly
-/// across `METEOR_SPREAD`, centered `METEOR_RANGE` ahead of the player along the
-/// aim's horizontal (defaulting to `facing`), all `METEOR_DROP_HEIGHT` above the
-/// player's level so they fall *down* onto the zone. Pure so the geometry is
-/// unit-testable without the projectile pool.
+/// The spawn origins of one cast: `METEOR_COUNT` points spread evenly across
+/// `METEOR_SPREAD`, centered `METEOR_RANGE` ahead along the aim's horizontal
+/// (default `facing`), all `METEOR_DROP_HEIGHT` above the player so they fall
+/// onto the zone. Pure, so the geometry is testable without the projectile
+/// pool.
 fn meteor_strike_origins(
     player_pos: ae::Vec2,
     aim_local: ae::Vec2,
@@ -77,13 +73,12 @@ fn meteor_strike_origins(
     origins
 }
 
-/// `Attack` while holding the meteor gauntlet rains [`METEOR_COUNT`] falling
-/// `Player`-faction projectiles onto the zone ahead. Plain Attack only — `Shield
-/// + Attack` drops the item (the id is `UseSystem`).
+/// `Attack` while holding the meteor gauntlet drops [`METEOR_COUNT`] falling
+/// `Player`-faction projectiles onto the zone ahead. Plain Attack only;
+/// `Shield + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same item simply never fired.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can use it.
     driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
@@ -116,12 +111,12 @@ pub fn fire_meteor_system(
         let aim = ambition_held_items::ability_aim_local(&c, kin.facing);
         for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
             projectiles.write(ProjectileSpawnRequest::open(
-                // The firing actor owns every meteor, so a kill attributes back to
-                // the player (materialization stamps `ProjectileOwner` from this entity).
+                // The firing actor owns every meteor, so a kill is credited to
+                // it (materialization stamps `ProjectileOwner` from this).
                 entity,
                 ProjectileSpawn {
                     origin,
-                    // Straight toward local feet/down; gravity accelerates it in the same frame.
+                    // Toward local down; gravity accelerates it the same way.
                     dir: gravity_dir,
                     speed: METEOR_SPEED,
                     damage: METEOR_DAMAGE,

@@ -66,33 +66,22 @@ fn count_attempts(
 pub struct CaptureProbeArgs {
     /// How many seconds of match to simulate (60 ticks each).
     ///
-    /// ⛔ **THERE IS A CEILING AND IT IS THE MATCH, NOT THIS NUMBER.** Once both
-    /// fighters are eliminated the stage is empty and every further tick
-    /// contributes nothing — so asking for more seconds than a match lasts buys
-    /// no data. ⚠ Measured 2026-09-04: a stand-in match on the shipped ladder
-    /// resolves at about **134s**, and a 300-second probe returns a census
-    /// byte-identical to a 120-second one.
-    ///
-    /// ⇒ Which cuts both ways, and the useful half is easy to miss: a census
-    /// taken over a full match is a statement about a WHOLE match, not a
-    /// truncated window — so a move absent from it is absent from the entire
-    /// fight rather than from an arbitrary slice.
+    /// Once both fighters are eliminated, further ticks add nothing, so asking
+    /// for more seconds than a match lasts buys no data. A census over a full
+    /// match covers the whole fight: a move absent from it is absent from the
+    /// match.
     #[arg(default_value_t = 60.0)]
     pub seconds: f32,
-    /// Press Grab FOR them, when a person would. The CPU's own timing is a
-    /// policy question; whether the live game can produce a hold at all is not,
-    /// and the two are only separable by taking the timing out of the AI's
-    /// hands.
+    /// Press Grab for them when a person would. The CPU's timing is a policy
+    /// question; whether the live game can produce a hold at all is not.
+    /// Taking the timing out of the AI's hands separates the two.
     #[arg(long)]
     pub force: bool,
     /// Which fighter takes the first seat (default: the demo's stand-in).
     ///
-    /// ⛔ **A MOVE CENSUS IS ONLY ABOUT THE FIGHTERS IT RAN.** The defaults are
-    /// the two STAND-INS — both carry `fighter_moveset()`, 18 verbs against
-    /// George's 26 — so probing them and concluding anything about the demo's
-    /// authored fighter repeats the error `ladder_rig` made five separate ways
-    /// on 2026-09-04: the instrument's subject differed from the shipped game's,
-    /// and only the instrument was ever read.
+    /// A move census is only about the fighters it ran. The defaults are the
+    /// two stand-ins, which carry `fighter_moveset()` (18 verbs against
+    /// George's 26), so they say nothing about the demo's authored fighter.
     #[arg(long, value_name = "ID")]
     pub character: Option<String>,
     /// Which fighter takes the second seat (default: the demo's other stand-in).
@@ -100,11 +89,9 @@ pub struct CaptureProbeArgs {
     pub opponent: Option<String>,
     /// Load an authored difficulty ladder from a `.ron` and install it.
     ///
-    /// ⛔ **WITHOUT THIS THE PROBE MEASURES THE ENGINE FLOOR**, not the shipped
+    /// Without this, the probe measures the engine floor, not the shipped
     /// game: `build_demo_app` installs no `AuthoredFighterLadder`, so every rung
-    /// carries `UtilityWeights::default()` — which IS the level-9 row. ⇒ A move
-    /// census taken there describes a fighter no player meets, which is the
-    /// error `ladder_rig` made five separate ways on 2026-09-04.
+    /// carries `UtilityWeights::default()` (the level-9 row).
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
 }
@@ -112,7 +99,7 @@ pub struct CaptureProbeArgs {
 pub fn run(args: CaptureProbeArgs) {
     use bevy::prelude::IntoScheduleConfigs as _;
     let seconds: f32 = args.seconds;
-    // ⭐ Resolved once and REPORTED below, so a census names its own subject.
+    // Resolved once and reported below, so a census names its subject.
     let character = args
         .character
         .clone()
@@ -122,9 +109,8 @@ pub fn run(args: CaptureProbeArgs) {
         .clone()
         .unwrap_or_else(|| ambition_demo_smash::SMASH_OPPONENT_ID.to_string());
     println!("[capture_probe] fighters: `{character}` vs `{opponent}`");
-    // ⛔ A parse failure EXITS rather than falling back to the floor: a run whose
-    // header claims the authored rows while its fighters carry the floor's is the
-    // exact failure this flag exists to remove.
+    // A parse failure exits instead of falling back to the floor, so the
+    // header cannot claim rows the fighters do not carry.
     let authored_ladder = args.ladder.as_deref().map(|path| {
         let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
             eprintln!("[capture_probe] --ladder {path}: {err}");
@@ -148,19 +134,13 @@ pub fn run(args: CaptureProbeArgs) {
         }
     );
     let ticks = (seconds * 60.0) as u32;
-    // `--force`: press Grab FOR them, when a person would. The CPU's own
-    // timing is a policy question; whether the live game can produce a hold at
-    // all is not, and the two are only separable by taking the timing out of the
-    // AI's hands. Presses on the tick the two are inside grab range and the
-    // presser is not already committed to a move — which is exactly the moment a
-    // player picks.
+    // `--force` presses on the tick the two are inside grab range and the
+    // presser is not committed to a move: the moment a player picks.
     let force = args.force;
 
     let mut app = crate::build_demo_app();
-    // ⛔ BEFORE the warm-up, because `project_authored_fighter_ladder` applies the
-    // rows on `Added<Brain>`: installed after the fighters exist it reaches
-    // nobody, and the run would measure the floor under a header claiming the
-    // authored rows.
+    // Insert before the warm-up: `project_authored_fighter_ladder` applies
+    // rows on `Added<Brain>`, so a later ladder reaches nobody.
     if let Some(ladder) = authored_ladder {
         app.world_mut().insert_resource(ladder);
     }
@@ -172,10 +152,9 @@ pub fn run(args: CaptureProbeArgs) {
             ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(&mut app);
         app.add_systems(
             sim,
-            // AFTER the brain, not merely before combat. `.before(C)`
-            // orders nothing against the systems that also run before C, so a
-            // press stamped here raced the actor brain's own `*out = frame` and
-            // lost — the second time the same clobber ate this experiment.
+            // After the brain, not only before combat: `.before(C)` does not
+            // order this against other systems before C, and the brain's own
+            // `*out = frame` would overwrite the press.
             force_a_grab_in_range
                 .after(
                     ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
@@ -186,15 +165,11 @@ pub fn run(args: CaptureProbeArgs) {
     for _ in 0..30 {
         app.update();
     }
-    // CPU seats, not the select screen's — `SmashSelect::roster` makes
-    // every locked seat a HUMAN, and two humans with no controllers stand still
-    // forever. The same note `match_diagram` carries, for the same reason.
+    // CPU seats, not the select screen's: `SmashSelect::roster` makes every
+    // locked seat human, and humans with no controller stand still.
     app.world_mut()
-        // ⭐ WHICH FIGHTERS, because a move census is only about the fighters it
-        // ran. The default pair are the STAND-INS — both carry
-        // `fighter_moveset()` — so a probe of them says nothing about George's
-        // 26 authored verbs. ⇒ `--character` / `--opponent` name them, the same
-        // flags `ladder_rig` takes, and the header below says which ran.
+        // `--character` / `--opponent` name the fighters (the same flags as
+        // `ladder_rig`), and the header says which ran.
         .insert_resource(ambition_demo_smash::smash_roster([
             character.clone(),
             opponent.clone(),
@@ -219,9 +194,8 @@ pub fn run(args: CaptureProbeArgs) {
         timed_out: u32,
         held_ticks: u32,
     }
-    // Does the body even OWN a grab? The first suspect behind a zero, and
-    // the cheapest to eliminate: a fighter whose contract binds no grab verb can
-    // never be offered one however good the scoring is.
+    // Does the body own a grab? A fighter whose contract binds no grab verb
+    // can never be offered one.
     {
         let world = app.world_mut();
         let mut query = world.query::<(
@@ -258,19 +232,17 @@ pub fn run(args: CaptureProbeArgs) {
     }
 
     let mut tally = Tally::default();
-    // WHERE A ZERO COMES FROM. "No grabs happened" has five possible
-    // causes and they are indistinguishable from the relationship table alone:
-    // the kit offers none, the brain never chooses one, the press never
-    // reaches the body, the move never plays, or acquisition declines. Counting
-    // the presses and the moves that actually played localizes it in one run.
+    // Where a zero comes from. "No grabs happened" can mean: the kit offers
+    // none, the brain never chooses one, the press never reaches the body,
+    // the move never plays, or acquisition declines. Counting presses and the
+    // moves that played localizes it in one run.
     let mut grab_presses = 0u32;
-    // Of those, the ones made while the presser was already committed to a move,
-    // so the press could not start anything. See the block that fills it.
+    // Presses made while the presser was committed to a move, so the press
+    // could not start anything.
     let mut grab_presses_while_committed = 0u32;
     let mut attempts_reported = 0u32;
-    // How close these two ever actually get. A grab that reaches 42px cannot
-    // land in a fight held at 100, and that is a fact about SPACING rather than
-    // about capture.
+    // The closest the two ever get. A 42px grab cannot land in a fight held
+    // at 100px; that is spacing, not capture.
     let mut closest = f32::MAX;
     let mut ticks_in_grab_range = 0u32;
     let mut moves_started: HashMap<String, u32> = HashMap::new();
@@ -312,10 +284,8 @@ pub fn run(args: CaptureProbeArgs) {
         }
         live = now;
 
-        // WHY AN ATTEMPT WAS DECLINED, from outside the engine. An
-        // attempt reaches acquisition and a hold does not appear: the reasons
-        // are the eligibility predicate's own terms, so print those terms on the
-        // ticks it actually ran.
+        // Why an attempt was declined: print the eligibility predicate's own
+        // terms on the ticks it ran.
         {
             let world = app.world_mut();
             let mut seats = world.query::<(
@@ -384,13 +354,11 @@ pub fn run(args: CaptureProbeArgs) {
             .collect();
         grab_presses += pressing.len() as u32;
         if !pressing.is_empty() {
-            // WAS THE PRESSER FREE TO ACT? `trigger_moveset_moves` drops a
-            // requested move outright when a `MovePlayback` is running and its
-            // cancel window does not permit the new one — which for a smash into
-            // a grab it never does. Counting presses without this cannot tell a
-            // brain that grabs at the wrong DISTANCE from one that grabs at the
-            // wrong TIME, and the first natural-behaviour run showed seven
-            // presses producing exactly one grab.
+            // Was the presser free to act? `trigger_moveset_moves` drops a
+            // requested move when a `MovePlayback` is running and its cancel
+            // window does not permit the new one (never, for a smash into a
+            // grab). This separates grabbing at the wrong distance from grabbing
+            // at the wrong time.
             let mut committed = world.query::<(
                 bevy::prelude::Entity,
                 &ambition_platformer2d::combat::moveset::MovePlayback,
@@ -483,10 +451,8 @@ pub fn run(args: CaptureProbeArgs) {
     );
     let mut started: Vec<(String, u32)> = moves_started.into_iter().collect();
     started.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    // ⛔ THE DISTINCT COUNT IS THE ANSWER; THE ROWS ARE AN ILLUSTRATION. A census
-    // is usually run to see whether something NEW started, and a bare `take(12)`
-    // cannot express that — the fighters here use around a dozen distinct moves,
-    // so the list runs full and a further move falls off the end unseen.
+    // The distinct count is the answer; the rows illustrate. Print it
+    // first, so a new move is not lost past the row limit.
     println!(
         "[capture_probe]   moves started: {} distinct",
         started.len()

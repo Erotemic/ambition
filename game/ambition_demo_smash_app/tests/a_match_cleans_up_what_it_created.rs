@@ -1,31 +1,15 @@
 //! Nothing a match put in the world outlives the match.
 //!
-//! Jon, 2026-09-05, playing it: *"I also notice that a mine laid in a match still
-//! persists into the next match, that sounds like an issue with architecture
-//! expression. Ending a match should be cleaning everything up, don't hack in a
-//! solution to this, we need to find the right solution."*
+//! Ending a match must clean up everything the match created, for example a
+//! mine laid during it. `MatchScoped` is stamped where an object is created,
+//! and `sweep_objects_from_ended_matches` in `CombatSet::Trigger` removes it.
+//! The smash ruleset spawns world objects at five sites (`bomb.rs`,
+//! `bolt.rs`, `mine.rs`, `portal.rs`, `spring.rs`); without the sweep each
+//! ends only by its own rule (fuse, trigger, lifetime, next cast).
 //!
-//! ✔ **FIXED 2026-09-05, AND THIS IS THE GUARD.** It was written as a red
-//! acceptance criterion for a fix that did not exist, and the fix landed the same
-//! day: `MatchScoped`, stamped where an object is created and swept by
-//! `sweep_objects_from_ended_matches` in `CombatSet::Trigger`.
-//!
-//! ⛔ THE DEFECT IT PINS. Measured 2026-09-05: the smash ruleset spawns into the
-//! world at five sites — `bomb.rs`, `bolt.rs`, `mine.rs`, `portal.rs` and
-//! `spring.rs` — and no system despawned any of them at a match boundary. Each
-//! object ended only by its own rule: a fuse, a trigger, a lifetime, a caster's
-//! next cast. A match ending is not one of those rules.
-//!
-//! ⭐ IT NAMES THE MOVE, NOT THE MARKER, which is what keeps it honest about a
-//! future redesign: it dispatches the authored `smash.place_mine` technique and
-//! asks only whether that object survived the boundary. Any mechanism that ends a
-//! match's objects satisfies it.
-//!
-//! ⛔⛔ AND IT FAILED ONCE FOR THE WRONG REASON, which is the lesson. The first
-//! version SPAWNED a bare `PlacedMine` by hand — "fix-agnostic" — and kept
-//! failing after the fix landed, correctly: an entity the ruleset never created
-//! carries none of what the ruleset stamps on its own objects. ⇒ A test that
-//! plants its subject outside the mechanism is asking about a different object.
+//! The test names the move, not the marker: it dispatches the authored
+//! `smash.place_mine` technique and asks only whether that object survived
+//! the boundary. Any mechanism that ends a match's objects satisfies it.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
@@ -40,8 +24,8 @@ fn start_a_match(app: &mut App) {
         ],
         &[5, 5],
     );
-    // One stock, so the match decides inside a budget a test can afford. The
-    // pace is tuning; what is under test is the BOUNDARY.
+    // One stock, so the match decides inside an affordable budget. The pace
+    // is tuning; the boundary is under test.
     roster.rules.stocks = Some(1);
     app.world_mut().insert_resource(roster);
     app.world_mut()
@@ -74,15 +58,10 @@ fn nothing_a_match_created_survives_into_the_next_one() {
          the boundary it is about"
     );
 
-    // ⛔⛔ PLACED THROUGH THE GAME, NOT SPAWNED BY HAND. The first version of
-    // this test spawned a bare `PlacedMine` and it kept failing after the fix
-    // landed — correctly, because an entity the ruleset never created carries
-    // none of what the ruleset stamps on its own objects. ⇒ A test that plants
-    // its subject outside the mechanism is asking about a different object.
-    //
-    // So it dispatches the authored technique for a seated fighter and lets the
-    // real spawn path run, which is also what keeps this fix-agnostic: it names
-    // the MOVE, not the marker.
+    // Place the mine through the game; do not spawn it by hand. An entity
+    // the ruleset never created carries none of what the ruleset stamps on
+    // its own objects. So dispatch the authored technique for a seated
+    // fighter and let the real spawn path run.
     let placer = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
@@ -144,10 +123,8 @@ fn nothing_a_match_created_survives_into_the_next_one() {
         app.update();
     }
 
-    // ⛔ THE SECOND MATCH MUST ACTUALLY EXIST, or "survived into the next match"
-    // is a claim about a world with no next match in it — and the assertion
-    // below would then be failing for a reason that has nothing to do with
-    // cleanup.
+    // The second match must exist, or "survived into the next match" is
+    // about a world with no next match.
     assert!(
         seats(&mut app) >= 2,
         "the second match never seated its fighters, so the assertion below \

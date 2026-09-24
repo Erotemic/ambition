@@ -17,11 +17,11 @@ use simple::apply_simple_music_intent;
 #[cfg(test)]
 pub(super) use adaptive::should_restart_adaptive;
 
-/// Gate an adaptive directive by provider authority: an unauthorized `Play`
-/// (a cue the active provider did not author) is downgraded to `None`, so any
-/// running adaptive layer is shut down and the base channel resumes rather than
-/// a foreign cue starting. `StopNow` and `None` pass through unchanged. This is
-/// the adaptive analogue of [`simple::authorized_candidates`].
+/// Gate an adaptive directive by provider authority. An unauthorized `Play`
+/// (a cue the active provider did not author) becomes `None`, so a running
+/// adaptive layer shuts down and the base channel resumes. `StopNow` and
+/// `None` pass through. The adaptive counterpart of
+/// [`simple::authorized_candidates`].
 fn authorized_adaptive(
     authority: &crate::selection::MusicAuthority,
     adaptive: Option<AdaptiveCueDirective>,
@@ -34,14 +34,14 @@ fn authorized_adaptive(
 
 /// Content-agnostic music director.
 ///
-/// Handles both simple track selection and adaptive cue state transitions. It
-/// reads only the neutral [`MusicIntent`] (the game's content layer resolves
-/// "which cue / track for which game event" into that resource — see
-/// [`super::intent`]) plus its own catalog/assets/audio backend. It names no
-/// encounter, boss, room, or track, so the machinery is reusable across games.
+/// Handles simple track selection and adaptive cue state transitions. It reads
+/// only the neutral [`MusicIntent`] (the content layer maps game events to
+/// cues and tracks in that resource; see [`super::intent`]) plus its own
+/// catalog, assets, and audio backend. It names no encounter, boss, room, or
+/// track, so it is reusable across games.
 ///
-/// The simple track backend reuses the existing `AudioLibrary` / `MusicChannel`
-/// sources; adaptive cues use the generic layer-bank scheduler in this module.
+/// The simple track backend uses `AudioLibrary` / `MusicChannel`; adaptive
+/// cues use the layer-bank scheduler in this module.
 pub fn drive_music_director(
     time: Res<Time>,
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
@@ -71,10 +71,10 @@ pub fn drive_music_director(
         director.seconds_in_loop += dt;
     }
 
-    // Provider-relative authority (Issues 1 & 2). A governed-but-empty authority
-    // is a DELIBERATE stop: the active provider authored no music, so nothing —
-    // neither a simple track nor an adaptive cue — may play. Silence exactly once
-    // and leave the backend idle (guarded so we do not re-stop every frame).
+    // Provider-relative authority. A governed but empty authority is a
+    // deliberate stop: the active provider authored no music, so nothing may
+    // play. Silence once and leave the backend idle (guarded so it does not
+    // stop every frame).
     if intent.authority.is_deliberate_silence() {
         let already_silent =
             director.mode == MusicDirectorMode::Idle && music_state.active_track().is_empty();
@@ -90,17 +90,12 @@ pub fn drive_music_director(
     }
 
     // Only tracks the active provider authored may drive the base channel. A
-    // stale candidate carried over from another provider's resident request
-    // state is filtered out here, so it can never be resolved against the
-    // combined library.
+    // stale candidate from another provider's request state is filtered out.
     let authorized =
         simple::authorized_candidates(&intent.authority, &intent.simple_track_candidates);
     let candidates = authorized.as_slice();
     // An adaptive cue the active provider did not author must not start, even
-    // when the cue exists in the process-wide catalog and a (stale) directive
-    // requests it. Downgrade an unauthorized `Play` to `None` so any running
-    // adaptive layer is shut down and the base channel resumes — the adaptive
-    // analogue of `simple::authorized_candidates`.
+    // if it is in the process-wide catalog and a stale directive requests it.
     let adaptive = authorized_adaptive(&intent.authority, intent.adaptive.clone());
     match adaptive {
         Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
@@ -110,8 +105,8 @@ pub fn drive_music_director(
                     .and_then(|catalog| catalog.cue(&cue_id))
                     .and_then(|cue| cue.state(&state_id)),
             ) {
-                // Lazily pull this provider's cue sources on first play. Cue ids
-                // are provider-local, so the loaded-source key includes provider.
+                // Load this provider's cue sources on first play. Cue ids are
+                // provider-local, so the loaded-source key includes provider.
                 let provider_id = provider_id.expect("selected adaptive catalog has a provider");
                 assets.ensure_cue_loaded(provider_id, cue, &asset_server);
                 drive_adaptive_cue_state(
@@ -153,8 +148,8 @@ pub fn drive_music_director(
                 && director.mode != MusicDirectorMode::AdaptiveFinished
                 && director.mode != MusicDirectorMode::Idle
             {
-                // Leaving the room or losing the cue owner without a clear should
-                // not leave the adaptive channels running.
+                // Leaving the room or losing the cue owner without a clear
+                // must not leave the adaptive channels running.
                 shutdown_adaptive_cue(
                     &mut director,
                     &layer_channels,
@@ -213,8 +208,8 @@ mod adaptive_authority_tests {
 
     #[test]
     fn a_foreign_adaptive_cue_is_downgraded_to_stop() {
-        // Sanic's session (authorizes no cues) must not start Ambition's
-        // goblin cue even if a stale directive requests it.
+        // Sanic's session (no cues authorized) must not start Ambition's
+        // goblin cue, even if a stale directive requests it.
         let mut sanic = MusicAuthority::governed(vec!["you_are_too_slow".to_string()]);
         sanic.authorize_cues(Vec::<String>::new());
         assert_eq!(
@@ -280,8 +275,8 @@ mod restart_tests {
 
     #[test]
     fn should_not_restart_adaptive_on_same_cue_in_loop() {
-        // Steady-state: cue is already running its loop. Moving between
-        // wave states does NOT reset the adaptive cue from its intro.
+        // Steady state: the cue is running its loop. Moving between wave
+        // states does not restart it from its intro.
         assert!(!should_restart_adaptive(
             Some("first_goblin_tune_v2"),
             MusicDirectorMode::AdaptiveLoop,
@@ -292,8 +287,8 @@ mod restart_tests {
 
     #[test]
     fn should_restart_adaptive_when_mode_says_simple_track_playing() {
-        // (The primary fix prevents this state from being created, but the predicate is robust
-        // against other code paths.)
+        // (Normal code does not create this state, but the predicate must
+        // handle it.)
         assert!(should_restart_adaptive(
             Some("first_goblin_tune_v2"),
             MusicDirectorMode::SimpleTrack,

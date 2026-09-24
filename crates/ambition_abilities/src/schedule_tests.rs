@@ -1,19 +1,16 @@
-//! THE SCHEDULE THIS CRATE OWNS, BY SHAPE (D33 rule,
-//! `actor-monolith-decomposition.md`): the carved plugin ALONE on a bare `App`,
-//! so the kernel's `configure_sets` cannot supply an edge this crate failed to
-//! declare. Membership is COUNTED, never named — Bevy 0.19 hides system names
-//! without `bevy_ecs/debug`, so a name lookup passes or fails by who else is in
-//! the build rather than by what this plugin did.
+//! The schedule this crate owns, checked by shape (D33,
+//! `actor-monolith-decomposition.md`): the plugin alone on a bare `App`, so
+//! the kernel's `configure_sets` cannot supply a missing edge. Members are
+//! counted, not named: Bevy 0.19 hides system names without
+//! `bevy_ecs/debug`.
 //!
-//! ⛔ AND THE ABSENCE IS ASSERTED TOO, which is the half a "does it register?"
-//! test misses. This crate must NOT configure `CoreHeldItems` — that set belongs
-//! to `ambition_held_items`, and two crates configuring one set is the exact
-//! failure D33 exists to prevent. `the_chain_is_not_ours` is red the moment
-//! somebody "helpfully" adds the three-variant chain here.
+//! Absence is checked too. This crate must not configure `CoreHeldItems`
+//! (owned by `ambition_held_items`); `the_chain_is_not_ours` fails if the
+//! three-set chain is added here.
 //!
-//! Poison, both verified when written: delete `.in_set(PlayerSimulation)` and
-//! the phase test reads red; delete `ranged::meteor::fire_meteor_system` from
-//! the wielded tuple and the count reads 12.
+//! Verified poisons: removing `.in_set(PlayerSimulation)` fails the phase
+//! test; removing `ranged::meteor::fire_meteor_system` from the wielded tuple
+//! makes the count 12.
 
 use super::AbilitySimulationPlugin;
 use ambition_platformer2d_shared_tangle::schedule::{
@@ -22,8 +19,8 @@ use ambition_platformer2d_shared_tangle::schedule::{
 use bevy::app::App;
 use bevy::ecs::schedule::{NodeId, ScheduleGraph, Schedules, SystemSet};
 
-/// The two variants' member counts, as the kernel registered them before the
-/// carve. These are the numbers the move had to preserve exactly.
+/// The two sets' member counts, as the kernel registered them before the
+/// split. The move had to keep these exactly.
 const THROWN_MEMBERS: usize = 5;
 const WIELDED_MEMBERS: usize = 13;
 
@@ -99,16 +96,11 @@ fn every_member_moved_and_none_was_left_behind() {
 
 #[test]
 fn the_chain_is_not_ours() {
-    // ⛔ `CoreHeldItems` is `ambition_held_items`'s set and the three-variant
-    // chain is the KERNEL's edge, because it orders sets owned by two other
-    // crates. This plugin alone must therefore leave `CoreHeldItems` with no
-    // members and no ordering to our two — a composition that installs only
-    // this crate gets the wielded half correctly nested and nothing else.
-    // ⚠ THE ASSERTION IS ABSENCE, NOT EMPTINESS, and the first version of this
-    // test got that wrong: it looked `CoreHeldItems` up and panicked in the
-    // lookup, because a set no plugin has ever named is not IN the graph at all.
-    // That failure was the right answer arriving through the wrong door — the
-    // guard now states it directly.
+    // `CoreHeldItems` belongs to `ambition_held_items`, and the three-set
+    // chain is the kernel's edge (it orders sets from two other crates). This
+    // plugin alone must leave `CoreHeldItems` out of the graph entirely. The
+    // check is absence, not emptiness: a set no plugin names is not in the
+    // graph, and a lookup would panic.
     with_graph(|graph| {
         assert!(
             graph

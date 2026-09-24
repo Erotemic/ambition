@@ -158,13 +158,11 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         }
 
         let id = ContentId::new(facet.namespace, &SchemaId::new(ITEM_SCHEMA), dialog_id);
-        // THE SLOT IS PART OF THE ROW'S IDENTITY, so it must be in the
-        // canonical form. The pack fingerprint sorts definitions by content
-        // id, so a per-row canonical keyed only by `dialog_id` made SWAPPING two
-        // complete rows a no-op for the fingerprint — while swapping exactly
-        // which metadata belongs to which `Item` enum variant. This file is
-        // positional; the whole reason the row COUNT is checked is that the
-        // index is the binding. The same hole the music track ORDER had.
+        // The slot is part of the row's identity, so it is in the canonical form.
+        // The fingerprint sorts definitions by content id, so without the slot,
+        // swapping two rows (and so which `Item` variant gets which metadata) would
+        // not change the fingerprint. This file is positional: the index is the
+        // binding.
         out.define(id.clone(), format!("slot={index}\n{}", canonical(row)));
 
         // Two rows answering one `inventory.holds` is an authority conflict, not a

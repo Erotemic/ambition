@@ -1,13 +1,12 @@
-//! Alice's repertoire — the cryptographer, and the one who SENDS.
+//! Alice's repertoire: the cryptographer, and the one who sends.
 //!
 //! ## The character, from her own name
 //!
 //! Alice and Bob are the two names cryptography uses for the two ends of a
 //! channel, and the split is the design: Alice sends, Bob receives. So her
-//! kit is about GETTING SOMETHING ACROSS — the longest reach among the Hall's
-//! people, the quickest recovery on a whiff, and a side special that is
-//! literally a key exchange: she crosses the gap and arrives already having
-//! agreed on the terms.
+//! kit is about getting something across: the longest reach among the Hall's
+//! people, the quickest recovery on a whiff, and a side special that is a key
+//! exchange: she crosses the gap and arrives having agreed on the terms.
 //!
 //! ```text
 //!            reach   jab startup   f-smash damage   the trade
@@ -16,7 +15,7 @@
 //!   bob       26 px     0.07 s          16          slow, and it lands
 //! ```
 //!
-//! The day she gets her own art, this file is where the names change and nothing else does.
+//! When she gets her own art, only the names in this file change.
 
 use ambition_entity_catalog::authoring::Strike;
 use ambition_entity_catalog::smash_capture::{
@@ -277,20 +276,15 @@ pub fn alice_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.48)),
         on_hit: None,
     });
-    // ⭐⭐ ARMOUR, BECAUSE A ONE-TIME PAD IS THE ONE CIPHER THAT CANNOT BE BROKEN.
-    // The move was named for unbreakability and authored as an ordinary heavy
-    // swing — one of the roster's specials carrying no mechanic at all. Now she
-    // eats a hit during the wind-up and swings anyway.
+    // Armour: a one-time pad is the one cipher that cannot be broken. She takes
+    // a hit during the wind-up and swings anyway.
     //
-    // ⛔ OVER THE STARTUP ONLY, 0.06s..0.18s, ending exactly when the hitbox
-    // opens. Armour that covered the active frames would make the trade free:
-    // she would win every simultaneous exchange rather than winning the ones she
-    // committed to FIRST. The window is the commitment, and it is why this is a
-    // read rather than a button.
+    // Only over the startup, 0.06s..0.18s, ending when the hitbox opens. Armour
+    // over the active frames would win every simultaneous exchange; this rewards
+    // committing first.
     //
-    // ⚠ SHE STILL TAKES THE DAMAGE. `WindowTag::Armor` is "you get hit and you
-    // swing anyway", not invulnerability — so trading into it costs her, and a
-    // fast enough answer still beats it by hitting before 0.06s.
+    // She still takes the damage: `WindowTag::Armor` is not invulnerability, and
+    // a hit before 0.06s still beats it.
     let n_b = armor(n_b, 0.06, 0.18);
     let n_b = committed_tail(n_b, 0.66, 0.05);
     let n_b = vfx_at(n_b, 0.18, "magic_seal_break", (30.0, -4.0), SEAL_FX);
@@ -320,23 +314,19 @@ pub fn alice_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.13, "player.blink");
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `elliptic_curve`. THE RECOVERY, AND IT IS A PORTAL PAIR, not an arc.
+    // Up: `elliptic_curve`. The recovery is a portal pair, not an arc.
     //
-    // ⭐⭐ JON'S MOVE, 2026-09-05: *"up b opens a portal under him, and a portal
-    // at the very top of the stage, and when he falls into it he comes out the
-    // higher portal … it's a portal so just use the portal crate rules."*
-    // ⇒ So the RISE comes from `ambition_portal2d`'s own transit and not from an
-    // impulse this move throws. Everything else about the move is unchanged —
-    // the swing still hits, the rune still draws, the landing lag still costs.
+    // Jon: *"up b opens a portal under him, and a portal at the very top of the
+    // stage, and when he falls into it he comes out the higher portal … it's a
+    // portal so just use the portal crate rules."* So the rise comes from
+    // `ambition_portal2d`'s transit, not an impulse. The swing still hits, the
+    // rune still draws, the landing lag still costs.
     //
-    // ⛔ THE IMPULSE IS GONE, DELIBERATELY, and this is the one behavioural
-    // change: a `-760` `Set` alongside the pair would make the portal decorative
-    // and the arc the actual recovery, which is the opposite of the move. ⚠ If
-    // this reads worse in play than the curve did, the impulse is one line to
-    // restore — the slot is provisional (Jon: *"we can tune who the moves belong
-    // to later"*) and so is this.
+    // No impulse: a `-760` `Set` beside the pair would make the portals
+    // decorative. If it plays worse, the impulse is one line to restore; the
+    // slot is provisional (Jon: *"we can tune who the moves belong to later"*).
     //
-    // ⓘ Cheap to land, because her whole design is that a whiff does not end her.
+    // Cheap to land: a whiff does not end her.
     let mut up_b = strike(Strike {
         id: "elliptic_curve",
         clip: "attack_up",
@@ -352,60 +342,40 @@ pub fn alice_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_b.landing_lag_s = Some(0.22);
-    // ⭐ THE PAIR OPENS ON THE SAME BEAT THE IMPULSE USED TO FIRE, so the
-    // move's timing is untouched: the rune draws, and the way up is there.
+    // The pair opens on the beat the impulse used to fire, so the timing is
+    // unchanged.
     let up_b = ambition_entity_catalog::smash_portal::author_portal_pair(
         up_b,
         0.07,
         ambition_entity_catalog::smash_portal::PortalPairParams {
-            // ⛔⛔ IT WAS 320 AND THAT PUT THE EXIT ABOVE THE STAGE'S CEILING.
-            // Jon, 2026-09-05, playing it: *"the second portal appears too high,
-            // I want it to be placed so its above the main surface level, but in
-            // the visible part of the stage."*
+            // Jon: *"the second portal appears too high, I want it to be placed so its
+            // above the main surface level, but in the visible part of the stage."* The
+            // smash ruleset's `CEILING_BLAST_MARGIN_PX` is 240, so a 320px rise put the
+            // exit outside the playable box.
             //
-            // ⇒ Measured rather than eyeballed: the smash ruleset's own
-            // `CEILING_BLAST_MARGIN_PX` is **240**, so a 320px rise opened the
-            // exit BEYOND the blast zone — outside the playable box entirely,
-            // which is why it read as "too high" rather than merely tall.
-            //
-            // ⚠ STILL A KNOB, and still the reason the move exists: 150px is
-            // about three body heights, comfortably out of jump reach — the
-            // engine's jump ceiling is well under it — so the exit remains
-            // somewhere she could not simply jump to. What changed is that it is
-            // now inside the stage a player can see.
+            // Still a knob: 150px is about three body heights, above her jump reach,
+            // and inside the visible stage.
             rise: 150.0,
-            // Wide and shallow: you fall INTO it, so the horizontal mouth is
-            // what matters and depth would only make it a wall.
+            // Wide and shallow: you fall into it, so the horizontal mouth matters.
             half_extent: (26.0, 6.0),
-            // Long enough to fall through after the animation, short enough that
-            // the stage is not permanently rearranged by one recovery.
+            // Long enough to fall through after the animation; short enough that one
+            // recovery does not rearrange the stage.
             lifetime_s: 2.5,
-            // ⛔ A ROUTE, NOT AN ESCAPE HATCH — it stays open for anyone,
-            // including whoever is chasing her. That is the interesting version
-            // and it is the one that makes the move a stage event rather than a
-            // private button; `true` would shut it behind her.
+            // A route, not an escape hatch: it stays open for anyone, including her
+            // chaser. That makes it a stage event; `true` would shut it behind her.
             close_on_transit: false,
-            // Straight first. The angled variant is Jon's flavour and wants its
-            // own commit, because it is also the cheapest test of whether the
-            // placement seam takes an orientation at all.
-            // ⛔ THE BASE STAYS STRAIGHT. Her recovery must work when the
-            // player asks for nothing — an up-B that leaned by default would
-            // punish a neutral stick, which is what a panicked player holds.
+            // The base stays straight, so the recovery works with a neutral stick
+            // (what a panicked player holds).
             tilt_degrees: 0.0,
-            // ⭐⭐ AND THE PLAYER ANGLES IT — Jon, 2026-09-05: *"we can even
-            // exercise angled portals with directional input on the up b as a
-            // flavor that isn't actually in smash and is ours."* Hold a
-            // direction on the way out and the shaft leans that way, so the
-            // recovery covers horizontal distance as well as vertical.
+            // The player can angle it: hold a direction on the way out and the shaft
+            // leans that way, so the recovery covers horizontal distance too (a flavour
+            // that is not in Smash).
             //
-            // ⚠ 32° EITHER WAY, and the cap is doing real work: at 45° the exit
-            // normal is as horizontal as it is vertical and the pair stops being
-            // a way UP at all. This leaves the move unmistakably a recovery
-            // while giving the angle enough range to be worth aiming.
+            // 32° either way. At 45° the exit is as horizontal as vertical and stops
+            // being a way up.
             aim_tilt_degrees: 32.0,
-            // ⛔ 8+, never 0..=7: the low eight overlap the NAMED authored pairs
-            // and a room that authored that colour would find its portals linked
-            // to hers.
+            // 8 or more, never 0..=7: the low eight overlap the named authored pairs,
+            // and a room using that colour would link its portals to hers.
             channel_index: 8,
         },
     );
@@ -430,39 +400,28 @@ pub fn alice_moveset() -> MovesetContract {
         launch_dir: Some((0.75, -0.62)),
         on_hit: None,
     });
-    // ⭐⭐ TWO INPUTS, ONE OUTPUT — AUTHORED, NOT JUST NAMED. A hash collision is
-    // distinct inputs landing on the same digest, and the move was a single
-    // sweep: the comment above says "two inputs, one output" and the timeline
-    // said one hit. It was one of the roster's 13 specials carrying no mechanic.
+    // Two inputs, one output: two holding pulses, then the launch. The pulses
+    // use `VolumeReaction::Autolink`, the genre's multi-hit rule: intermediate
+    // hits keep the victim in the next box, and only the last one launches.
     //
-    // ⇒ TWO holding pulses and then the launch. The count is the name's: two
-    // things arrive, and what leaves is one. The pulses hold with
-    // `VolumeReaction::Autolink`, which is the genre's rule for a multi-hit —
-    // intermediate hits keep the victim inside the next box and only the last
-    // one sends anything anywhere.
-    //
-    // ⛔ THE ANCHOR'S x IS ZERO, for the reason Bob's rig states: the hold point
-    // is mirrored by facing, and this move is symmetric about her. A non-zero x
-    // would make a floor sweep either side of her depend on which way she
-    // happened to be looking.
+    // The anchor's x is zero: the hold point is mirrored by facing, and this move
+    // is symmetric about her.
     let down_b = multihit(
         down_b,
         2,
         Pulse {
-            // Tighter than the sweep that finishes it: the collision happens at
-            // the digest, not across the whole domain.
+            // Tighter than the finishing sweep: the collision happens at the digest.
             offset: (0.0, 16.0),
             half_extents: (28.0, 12.0),
             damage: 2,
-            // ⛔ SEPARATED. Touching windows are one hit wearing two windows'
-            // timing — the runtime's re-hit rule refuses a second hit across a
-            // contiguous track.
+            // Separated: the runtime's re-hit rule treats touching windows as one
+            // track, so they would hit once.
             active_s: 0.030,
             gap_s: 0.028,
             autolink: AutolinkVolume {
                 anchor: (0.0, 6.0),
-                // She is planted for it, so there is no motion of her own to
-                // hand on and the hold is entirely the correction's.
+                // She is planted, so she has no motion to pass on; the hold is all
+                // correction.
                 carry: 0.0,
                 pull: 19.0,
                 max_speed: 900.0,
@@ -473,19 +432,15 @@ pub fn alice_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.15, "magic_seal_break", (0.0, 16.0), SEAL_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR — `collision_dive`. Two inputs meeting at one output
-    // still works with no floor under it; she just arrives at the output.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: `collision_dive`. With no floor, she arrives at the
+    // output.
     let mut air_down_b = strike(Strike {
         id: "collision_dive",
         clip: "air_down",
@@ -504,13 +459,11 @@ pub fn alice_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.10, (0.0, 1180.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.10, "magic_seal_break", (0.0, 20.0), GLYPH_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // ALICE'S CAPTURE KIT. Quick and low-committal: the shortest startup on the
-    // roster and a middling pummel. Her throw stays flat-ish and pushes for stage
-    // control rather than for a kill.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Alice's capture kit: quick and low-commitment, the shortest startup on
+    // the roster and a middling pummel. Her throw is flat-ish, for stage control,
+    // not kills.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's clip guard refuses unpublished rows.
     let grab = author_standing_grab(
         grab_shell("alice_grab", "attack", 0.06, 0.05, 0.18),
         CaptureAttemptParams {
@@ -591,12 +544,7 @@ pub fn alice_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -618,13 +566,10 @@ pub fn alice_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    /// ⭐⭐ THE PAD IS UNBREAKABLE DURING THE WIND-UP AND NOT AFTER IT.
-    ///
-    /// ⛔ THE END OF THE ARMOUR IS THE TEST, not its presence. Armour that
-    /// covered the active frames would make the trade free — she would win every
-    /// simultaneous exchange instead of winning the ones she committed to first
-    /// — and a guard that only found a `WindowTag::Armor` passes against exactly
-    /// that move.
+    /// The pad is armoured during the wind-up and not after. The end of the
+    /// armour is the test: armour over the active frames would win every
+    /// simultaneous exchange, and a check for `WindowTag::Armor` alone would
+    /// pass that.
     #[test]
     fn her_one_time_pad_is_armoured_only_while_she_winds_up() {
         use ambition_entity_catalog::WindowTag;
@@ -655,18 +600,11 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ TWO INPUTS, ONE OUTPUT — AS AN ASSERTION RATHER THAN AS A COMMENT.
-    ///
     /// `hash_collision` holds twice and launches once. The holds are
-    /// `VolumeReaction::Autolink`, which keeps the victim inside the next box;
-    /// the finisher carries no reaction at all, which is what makes it the thing
-    /// that sends them anywhere.
+    /// `VolumeReaction::Autolink`; the finisher carries no reaction.
     ///
-    /// ⛔ THE SEPARATION IS LOAD-BEARING, NOT SPACING. The move runtime's re-hit
-    /// rule refuses a second hit across a CONTIGUOUS track, so pulses whose
-    /// windows touch land exactly once — a move that looks like a multi-hit in
-    /// this file and is a single weak poke in play. Asserting a gap between them
-    /// is the only way that failure is visible from here.
+    /// The gap between pulses matters: the re-hit rule refuses a second hit
+    /// across a contiguous track, so touching windows would land once.
     #[test]
     fn her_hash_collision_holds_twice_and_launches_once() {
         use ambition_entity_catalog::VolumeReaction;
@@ -709,14 +647,10 @@ mod tests {
         }
     }
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// Alice is not Bob with different names. The pair's split is the
@@ -767,13 +701,9 @@ mod portal_recovery_tests {
     use ambition_entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
     use ambition_entity_catalog::MoveEventKind;
 
-    /// Her up-B opens a portal pair, and does NOT also throw an impulse.
-    ///
-    /// ⛔⛔ THE SECOND HALF IS THE ASSERTION THAT MATTERS. A move carrying both
-    /// would recover on the impulse and leave the portals as scenery — the
-    /// pair would look right, play wrong, and every test asserting "it opens a
-    /// portal" would still pass. ⇒ The recovery is the portal or it is not this
-    /// move.
+    /// Her up-B opens a portal pair and does not also throw an impulse. With both,
+    /// she would recover on the impulse and the portals would be scenery, while
+    /// "it opens a portal" still passed.
     #[test]
     fn the_up_special_recovers_through_a_portal_rather_than_an_arc() {
         let kit = super::alice_moveset();
@@ -803,11 +733,8 @@ mod portal_recovery_tests {
             "the up-special still throws a start impulse alongside its portal \
              pair, so the arc is the recovery and the portals are scenery"
         );
-        // ⛔⛔ AN IMPULSE IS ITS OWN EVENT KIND, not an effect with a telling
-        // name. The first version of this assertion looked for
-        // `Effect { key: contains("impulse") }`, which cannot match anything —
-        // poisoning the impulse back in left the test GREEN, and that is the
-        // only reason this line is right.
+        // An impulse is its own event kind (`MoveEventKind::Impulse`), not an
+        // `Effect` with a telling key.
         let thrown: Vec<(f32, &ambition_entity_catalog::ImpulseMode)> = up_b
             .events
             .iter()

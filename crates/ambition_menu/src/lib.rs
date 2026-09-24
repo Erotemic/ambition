@@ -1,22 +1,19 @@
 //! Engine-side unified menu: the renderer-agnostic content model plus two
 //! interchangeable presentations of it.
 //!
-//! This crate is split into host-owned DATA and renderer-owned PRESENTATION.
-//! Hosts build generic [`MenuPageModel`] / [`ItemsOnlyPageSpec`] values from
-//! their own resources, then translate the [`MenuActionActivated`] messages this
-//! crate emits back into gameplay events; it never names `OwnedItems`, health, or
-//! player components.
+//! This crate splits host-owned data from renderer-owned presentation. Hosts
+//! build generic [`MenuPageModel`] / [`ItemsOnlyPageSpec`] values from their
+//! own resources, then turn the [`MenuActionActivated`] messages this crate
+//! emits into gameplay events. It never names `OwnedItems`, health, or player
+//! components.
 //!
-//! ⭐ CLOSING IS A HOST ACTION, NOT A SEPARATE CHANNEL. This paragraph used to
-//! name a `MenuClosedRequested` beside it — a message this crate declared,
-//! defined, and NEVER WROTE, with no reader either. The live road is the host's
-//! own action variant arriving on `MenuActionActivated`
-//! (`game_shell/src/pause_menu.rs`'s `PauseEntry::Close`), which is already
-//! generic because the host names its own actions. Two designs for one request,
-//! one of them never built; the unbuilt one is gone. This crate ships
-//! the flat tabbed [`render::bevy_ui`] renderer; the bevy_lunex 3D OoT-style
-//! cube renderer is the optional `ambition_menu_kaleidoscope` extension crate
-//! (E1e) — both consume the same page model, which is what validates the seam.
+//! Closing is a host action, not a separate channel: the host's own action
+//! variant arrives on `MenuActionActivated` (for example
+//! `game_shell/src/pause_menu.rs`'s `PauseEntry::Close`).
+//!
+//! This crate ships the flat tabbed [`render::bevy_ui`] renderer. The
+//! bevy_lunex 3D OoT-style cube renderer is the optional
+//! `ambition_menu_kaleidoscope` crate (E1e). Both consume the same page model.
 //!
 //! [`AmbitionInventoryUiPlugin`] installs only the renderer-agnostic
 //! resources/messages, so a host can keep it even with no renderer enabled.
@@ -104,14 +101,14 @@ pub enum MenuControlKind {
 
 /// A single page node.
 ///
-/// `Action` is intentionally generic so games can use their own enum instead of
-/// stringly typed callbacks. `Control::icon` is an optional asset path, relative
-/// to Bevy's asset root.
-/// `PartialEq` is a RENDERER CONTRACT, not a convenience: the kaleidoscope's
-/// `rebuild_cube_faces` compares a freshly published page against the model the
-/// live face was built from, and rebuilds only the faces whose rendered data
-/// actually differs. Value equality here is what makes that comparison mean
-/// "these two faces would draw the same thing".
+/// `Action` is generic so games can use their own enum instead of string
+/// callbacks. `Control::icon` is an optional asset path, relative to Bevy's
+/// asset root.
+///
+/// `PartialEq` is a renderer contract: the kaleidoscope's
+/// `rebuild_cube_faces` compares a new page with the model the live face was
+/// built from and rebuilds only faces that differ. Equal values must draw the
+/// same thing.
 #[derive(Clone, Debug, PartialEq)]
 pub enum MenuNode<Action> {
     Panel {
@@ -122,29 +119,22 @@ pub enum MenuNode<Action> {
     Text {
         x: f32,
         y: f32,
-        /// ⛔⛔ A PERCENTAGE OF VIEWPORT HEIGHT, NOT PIXELS. Every call site in
-        /// the tree was authored that way — `5.6` is a 60px title at 1080p —
-        /// and for a while this field had no documented unit at all while the
-        /// two renderer backends read it as two different things: the
-        /// kaleidoscope passed it to Lunex's `Rh` (percent of height), the flat
-        /// `bevy_ui` backend assigned it straight to `TextFont::font_size`
-        /// (pixels). Every heading the flat renderer drew came out two to five
-        /// pixels tall. The backend now spells it `FontSize::Vh`, which is this
-        /// unit exactly, so the engine resolves it against the live viewport.
+        /// Percent of viewport height, not pixels (`5.6` is 60px at 1080p).
+        /// Both backends read it that way: the kaleidoscope as Lunex `Rh`, the
+        /// flat backend as `FontSize::Vh`.
         size: f32,
         text: String,
         align: MenuTextAlign,
         color: MenuColor,
     },
-    /// A text node whose string is filled in place by the host (tagged with
+    /// A text node whose string the host fills in place (tagged with
     /// [`MenuDynamicText`]). Spawned empty; the host rewrites it by `slot` on
-    /// cursor change, so cursor-dependent text (the detail panel) no longer needs
-    /// a face rebuild.
+    /// cursor change, so cursor-dependent text needs no face rebuild.
     DynamicText {
         slot: u32,
         x: f32,
         y: f32,
-        /// Percent of viewport height, exactly as [`MenuNode::Text`]'s.
+        /// Percent of viewport height, as in [`MenuNode::Text`].
         size: f32,
         align: MenuTextAlign,
         color: MenuColor,
@@ -158,29 +148,27 @@ pub enum MenuNode<Action> {
         selected: bool,
         important: bool,
         action: Option<Action>,
-        /// Scrollbar thumb geometry, as fractions `0..=1` of the track (Fix 1).
-        /// Only meaningful for a [`MenuControlKind::Scrollbar`] control: `start` is
-        /// the thumb's top as a fraction of the track height, `size` its height as a
-        /// fraction. `None` (every non-scrollbar control) draws no thumb. The host
-        /// computes these from its visible/total/window-start; the renderer draws a
-        /// dim full-height track with a brighter thumb child at this geometry.
+        /// Scrollbar thumb geometry, as fractions `0..=1` of the track. Used
+        /// only by a [`MenuControlKind::Scrollbar`] control; `None` draws no
+        /// thumb. The host computes it; the renderer draws a dim track with a
+        /// brighter thumb.
         thumb: Option<ScrollThumb>,
     },
 }
 
-/// Scrollbar thumb geometry as track fractions (Fix 1). Both in `0..=1`: `start`
-/// is the thumb top (fraction of track height from the top), `size` the thumb
-/// height (visible / total). A `size >= 1.0` means the list fits and no thumb is
-/// needed; the host only emits a thumb when the list actually scrolls.
+/// Scrollbar thumb geometry as track fractions in `0..=1`: `start` is the
+/// thumb top from the track top, `size` the thumb height (visible / total).
+/// `size >= 1.0` means the list fits; the host emits a thumb only when the
+/// list scrolls.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ScrollThumb {
     pub start: f32,
     pub size: f32,
 }
 
-/// Resolve a [`ScrollThumb`] into `(top_fraction, height_fraction)` in `[0, 1]` for a vertical
-/// scrollbar track. The height is floored grabbable (min 8% of the track) and the thumb travels the
-/// remaining `1 - height`.
+/// Resolve a [`ScrollThumb`] into `(top_fraction, height_fraction)` in
+/// `[0, 1]` for a vertical track. The height is at least 8% of the track so it
+/// stays grabbable, and the thumb travels the remaining `1 - height`.
 pub fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     let start = thumb.start.clamp(0.0, 1.0);
     let size = thumb.size.clamp(0.08, 1.0);
@@ -188,8 +176,8 @@ pub fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     (start * travel, size)
 }
 
-/// Map a pointer's position along a scrollbar track into the neutral `0..=1` drag fraction (0 =
-/// top, 1 = bottom). `None` if the track has no height yet.
+/// Map a pointer's position along a scrollbar track to a `0..=1` drag
+/// fraction (0 = top, 1 = bottom). `None` if the track has no height yet.
 pub fn scrollbar_fraction_from_rect(
     track_top_y: f32,
     track_height: f32,
@@ -201,35 +189,29 @@ pub fn scrollbar_fraction_from_rect(
     Some(((pointer_y - track_top_y) / track_height).clamp(0.0, 1.0))
 }
 
-/// Backend-agnostic scroll-drag channel (Feature C).
+/// Backend-agnostic scroll-drag channel.
 ///
-/// A renderer emits [`MenuScrollDragged`] carrying a NEUTRAL fraction in
-/// `0..=1` (0 = top of the track, 1 = bottom). Neither renderer has any notion
-/// of "scroll position" — the host interprets the fraction against its own
-/// scrollable range. Both the bevy_ui grid and the `ambition_menu_kaleidoscope`
-/// cube publish through this one message, so it lives in the shared model.
+/// A renderer emits [`MenuScrollDragged`] with a fraction in `0..=1` (0 = top
+/// of the track, 1 = bottom). The host maps it to its own scroll range. Both
+/// the bevy_ui grid and the kaleidoscope cube publish this message.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct MenuScrollDragged {
     /// Drag position along the track, `0.0` (top) .. `1.0` (bottom).
     pub fraction: f32,
 }
 
-/// Which pointer (if any) is mid-drag on a menu scrollbar. Held in a RESOURCE,
-/// NOT on the scrollbar entity, because changing the scroll position triggers
-/// the host's per-step republish, which DESPAWNS + respawns the scrollbar entity
-/// each frame — a per-entity held flag would reset to `None` after the first step
-/// and the drag would die. Keyed on the persistent `PointerId`, so the drag
-/// survives any number of respawns. Shared by BOTH renderers (only one menu is
-/// active at a time), so it lives in the shared model.
+/// Which pointer, if any, is dragging a menu scrollbar.
+///
+/// A resource, not a flag on the scrollbar: a scroll change triggers a
+/// republish that respawns the scrollbar each frame, which would reset an
+/// entity flag. Keyed on the persistent `PointerId`, so the drag survives
+/// respawns. Shared by both renderers (only one menu is active at a time).
 #[derive(Resource, Default)]
 pub struct ScrollbarDragState {
     pub pressed_by: Option<bevy::picking::pointer::PointerId>,
-    /// Track screen rect (top edge + height, logical px) CACHED at press time.
-    /// The track never moves during a drag (only the pointer does), and the grid
-    /// track's `ComputedNode`/`GlobalTransform` read as ZERO on the frame it is
-    /// respawned by the per-step republish — so the manual tracker maps the live
-    /// pointer against this cached rect rather than the just-respawned entity's
-    /// geometry. Set on press, when the pressed track's geometry is valid.
+    /// Track screen rect (top edge and height, logical px), cached at press.
+    /// The track does not move during a drag, and a respawned track reads as
+    /// zero for a frame, so the tracker maps the pointer against this cache.
     pub track_top_y: f32,
     pub track_height: f32,
 }
@@ -263,9 +245,8 @@ impl<Action> MenuNode<Action> {
 
 /// Full data description for one visible page/face of the cube menu.
 ///
-/// `PartialEq` carries the same renderer contract as [`MenuNode`]'s: two equal
-/// models draw the same face, so a renderer may keep a live face instead of
-/// respawning it.
+/// `PartialEq` has the same renderer contract as [`MenuNode`]'s: equal models
+/// draw the same face, so a renderer may keep a live face.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MenuPageModel<PageId, Action> {
     pub id: PageId,
@@ -311,9 +292,8 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
         });
     }
 
-    /// A host-filled text line (see [`MenuNode::DynamicText`] / [`MenuDynamicText`]).
-    /// Spawned empty; the host rewrites it by `slot` so cursor-dependent text needs
-    /// no face rebuild.
+    /// A host-filled text line (see [`MenuNode::DynamicText`] /
+    /// [`MenuDynamicText`]). Spawned empty; the host rewrites it by `slot`.
     pub fn dynamic_text(
         &mut self,
         slot: u32,
@@ -381,12 +361,10 @@ impl<PageId, Action> MenuPageModel<PageId, Action> {
         });
     }
 
-    /// Emit a draggable scrollbar control (Fix 1): a [`MenuControlKind::Scrollbar`]
-    /// occupying `rect` (the full track), carrying the thumb geometry the renderer
-    /// draws on top of the dim track. `thumb_start` / `thumb_size` are track
-    /// fractions in `0..=1` (top / height). The host computes them from its own
-    /// visible/total/window-start; the renderer owns the track+thumb visuals + the
-    /// drag interaction. No `action`: dragging the track IS the interaction.
+    /// Emit a draggable [`MenuControlKind::Scrollbar`] control that covers
+    /// `rect` (the full track). `thumb_start` / `thumb_size` are track
+    /// fractions in `0..=1` (top / height), computed by the host. The renderer
+    /// owns the visuals and the drag. No `action`: the drag is the interaction.
     pub fn scrollbar(&mut self, rect: MenuRect, thumb_start: f32, thumb_size: f32) {
         self.nodes.push(MenuNode::Control {
             rect,
@@ -427,7 +405,7 @@ pub enum MenuShellEffect {
 
 /// Queue of shell effects generated by the menu module.
 ///
-/// This intentionally avoids hard-coding audio or music behavior into the UI.
+/// Audio and music behavior is left to the host.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct MenuShellEffects {
     pub pending: Vec<MenuShellEffect>,
@@ -479,9 +457,8 @@ impl Default for MenuGesturePolicy {
 
 /// Optional plugin marker for host games that want a single import point.
 ///
-/// The Lunex renderer remains an optional backend. This plugin installs only
-/// the renderer-agnostic resources/messages so it is safe for a host to keep
-/// even when the Lunex implementation is removed.
+/// The Lunex renderer is optional. This plugin installs only the
+/// renderer-agnostic resources and messages, so it is safe with no renderer.
 pub struct AmbitionInventoryUiPlugin;
 
 impl Plugin for AmbitionInventoryUiPlugin {
@@ -538,24 +515,22 @@ impl MenuCubeGeometry {
     /// The cube camera's VERTICAL field of view (radians).
     pub const CAMERA_FOV_RADIANS: f32 = core::f32::consts::FRAC_PI_4; // 45°
 
-    /// Fraction of the half-screen-height the active face's top edge reaches; the
-    /// remainder is the top/bottom margin. `0.80` → ~20% margin. The camera distance
-    /// is DERIVED from this (below), so the margin is an explicit, readable knob
-    /// rather than an emergent side effect of a magic camera offset — and it survives
-    /// changes to the face aspect or page size.
+    /// Fraction of the half-screen height that the active face's top edge
+    /// reaches; the rest is margin. `0.80` gives about 20% margin. The camera
+    /// distance is derived from this, so the margin holds when the face aspect
+    /// or page size changes.
     pub const TARGET_FACE_FILL: f32 = 0.80;
 
     pub fn oot_like(page_radius: f32) -> Self {
         let page_width = page_radius * 2.0;
         let page_height = page_width * (160.0 / 240.0);
         let face_half_height = page_height * 0.5;
-        // The active face is a plane at z = +page_radius; the camera sits at
-        // z = −camera_distance looking at the cube centre, so the camera-to-face
-        // distance is `page_radius + camera_distance`. With a vertical-FOV perspective
-        // camera the face's top edge reaches
+        // The active face is at z = +page_radius and the camera at
+        // z = −camera_distance, so the distance is their sum. For a
+        // vertical-FOV perspective camera the face top reaches
         //     fill = face_half_height / (distance · tan(fov/2))
-        // of the half-screen-height (aspect- AND page_radius-independent). Solve for
-        // the distance that yields `TARGET_FACE_FILL`, then back out the camera offset.
+        // of the half-screen height. Solve for the distance that gives
+        // `TARGET_FACE_FILL`, then derive the camera offset.
         let distance =
             face_half_height / (Self::TARGET_FACE_FILL * (Self::CAMERA_FOV_RADIANS * 0.5).tan());
         Self {
@@ -596,10 +571,8 @@ pub struct MenuFocusKey {
 
 /// ECS component attached to rendered controls.
 ///
-/// The data-driven builder is still the ergonomic API, but controls that make it
-/// into the world should carry their semantic action/kind as components so
-/// hover, focus, accessibility, and alternative input can be implemented by ECS
-/// systems instead of renderer-private bookkeeping.
+/// Controls in the world carry their semantic action and kind as components,
+/// so hover, focus, accessibility, and other input can be ECS systems.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct AmbitionMenuControl<Action> {
     pub kind: MenuControlKind,
@@ -609,8 +582,7 @@ pub struct AmbitionMenuControl<Action> {
 
 /// Runtime visual state for a control.
 ///
-/// This belongs in ECS. It changes frequently from hover, focus, touch, and
-/// gamepad navigation, while declarative page data can remain stable.
+/// Changes often (hover, focus, touch, gamepad), while page data stays stable.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MenuVisualState {
     pub hovered: bool,
@@ -618,33 +590,24 @@ pub struct MenuVisualState {
     pub selected: bool,
     pub pressed: bool,
     pub disabled: bool,
-    /// The control's authored emphasis, carried here so the RUNTIME state is
-    /// sufficient to recompute the control's colour.
-    ///
-    ///  it is not runtime state and it is here anyway, on purpose. Without it
-    /// a restyle has to reach back into the page data that spawned the node,
-    /// which is exactly the coupling that forced a full rebuild for a cursor
-    /// move. One component holding everything `control_bg` needs is what makes
-    /// an in-place update possible.
+    /// The control's authored emphasis. Not runtime state, but kept here so
+    /// this component holds everything `control_bg` needs and a restyle does
+    /// not read page data.
     pub important: bool,
 }
 
-/// Marks a text node whose CONTENT is filled in place by the host every frame
-/// (or on cursor change) rather than baked into the page data. This is how the
-/// cursor-dependent detail panel updates WITHOUT a full face rebuild: the page
-/// model stays cursor-independent (so a mouse move does not despawn/respawn the
-/// controls and drop a `Pointer<Click>`), and the host rewrites the focused
-/// item's / row's description by `slot` via the live `Text3d` on these entities.
+/// Marks a text node whose content the host fills in place, not baked into
+/// page data. The page model stays cursor-independent, so a mouse move does
+/// not respawn controls and drop a `Pointer<Click>`. The host rewrites the
+/// focused item's description by `slot`.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MenuDynamicText {
     /// Stable identifier the host uses to address this text line in place.
     pub slot: u32,
 }
 
-/// The live string for a [`MenuDynamicText`] line. The host writes this (a plain
-/// `String`, so the host never needs the text backend); a lib system copies it into
-/// the entity's `Text3d` on change. This is the in-place channel that lets the host
-/// rewrite cursor-dependent text WITHOUT a face rebuild.
+/// The live string for a [`MenuDynamicText`] line. The host writes a plain
+/// `String`; a lib system copies it into the entity's `Text3d` on change.
 #[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
 pub struct MenuDynamicTextContent(pub String);
 
@@ -658,9 +621,8 @@ pub struct MenuScrollPane {
 
 /// Renderer-independent active page set.
 ///
-/// Host games may maintain this resource directly, or keep their own resources
-/// and rebuild it only when the menu opens or item data changes. Renderers
-/// should treat it as read-only input.
+/// Hosts may maintain this directly, or rebuild it only when the menu opens or
+/// item data changes. Renderers treat it as read-only.
 #[derive(Resource, Clone, Debug)]
 pub struct ActiveMenuPages<PageId, Action> {
     pub pages: Vec<MenuPageModel<PageId, Action>>,
@@ -690,9 +652,8 @@ impl<PageId, Action> ActiveMenuPages<PageId, Action> {
 
 /// A host-defined action was activated by the menu.
 ///
-/// Ambition should map this back to its existing item/use/equip effects. The UI
-/// crate deliberately does not know about `OwnedItems`, health, mana, or player
-/// components.
+/// The host maps this back to its item/use/equip effects. This crate does not
+/// know about `OwnedItems`, health, mana, or player components.
 #[derive(Message, Clone, Debug, PartialEq)]
 pub struct MenuActionActivated<Action> {
     pub action: Action,
@@ -700,15 +661,10 @@ pub struct MenuActionActivated<Action> {
 
 /// Which of a menu's actions are destructive enough to want a confirm tap.
 ///
-/// `MenuTapMode::SingleTapWithDestructiveGuard` — the shipped default — spends a
-/// second tap on exactly the rows worth guarding, and it can only do that if
-/// something says which those are. Destructiveness belongs to the ACTION, not to
-/// the drawn rect: the same *Quit to Desktop* is equally final wherever a page
-/// happens to place it, so this is one registration per menu rather than a flag
-/// on all 21 `MenuPage::control` calls.
-///
-/// Absent, nothing is guarded. That is the right default for a menu with no
-/// irreversible row, and it keeps every existing host unchanged.
+/// `MenuTapMode::SingleTapWithDestructiveGuard` (the default) asks for a
+/// second tap only on these rows. Destructiveness belongs to the action, not
+/// the drawn rect, so it is one registration per menu. When absent, nothing is
+/// guarded.
 #[derive(Resource)]
 pub struct MenuDestructiveActions<Action> {
     pub is_destructive: fn(&Action) -> bool,
@@ -722,9 +678,8 @@ impl<Action> MenuDestructiveActions<Action> {
 
 /// A tab in the flat Bevy-UI renderer was activated by pointer or touch.
 ///
-/// Tabs are renderer structure rather than host-defined actions, so their
-/// activation message is intentionally non-generic. The host remains the owner
-/// of what switching to `index` means for its active page/cursor state.
+/// Tabs are renderer structure, not host actions, so this message is not
+/// generic. The host decides what switching to `index` means.
 #[derive(Message, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MenuTabActivated {
     pub index: usize,
@@ -743,9 +698,8 @@ pub struct InventorySlotId(pub usize);
 /// Host-provided description of one inventory slot.
 ///
 /// The action is generic and optional. If `owned` is false or `disabled` is
-/// true, [`ItemsOnlyPageSpec::into_page_model`] strips the action before the
-/// renderer sees it. This keeps renderer backends from accidentally allowing
-/// unowned item activation.
+/// true, [`ItemsOnlyPageSpec::into_page_model`] removes the action before the
+/// renderer sees it, so no backend can activate an unowned item.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InventoryItemNode<Action> {
     pub slot: InventorySlotId,
@@ -757,8 +711,8 @@ pub struct InventoryItemNode<Action> {
     pub action_label: Option<String>,
     /// Human-readable equipment slot name, e.g. "held item" or "body".
     ///
-    /// This is display-only. The host game remains the authority for conflicts,
-    /// slot capacity, and side effects.
+    /// Display-only. The host is the authority for conflicts, capacity, and
+    /// side effects.
     pub equip_slot_label: Option<String>,
     /// Optional host-computed note such as "will replace Axe".
     pub equip_conflict: Option<String>,
@@ -852,9 +806,9 @@ impl<Action> InventoryItemNode<Action> {
 
 /// Configuration for building an items-only inventory page.
 ///
-/// This intentionally uses normalized rectangles and host-defined actions so it
-/// can feed the Lunex cube renderer, a Bevy UI fallback, or a test-only flat
-/// renderer without changing Ambition's item resources.
+/// Uses normalized rects and host-defined actions, so it can feed the Lunex
+/// cube, a Bevy UI fallback, or a test renderer without changing Ambition's
+/// item resources.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemsOnlyPageSpec<PageId, Action> {
     pub page_id: PageId,
@@ -1031,9 +985,8 @@ fn item_detail<Action>(cell: &InventoryItemNode<Action>) -> Option<String> {
 /// Small trait for host-side adapters that build the items page from gameplay
 /// resources.
 ///
-/// Ambition can implement this over a temporary adapter struct that borrows
-/// `OwnedItems` and `GridMenuState`; the UI crate does not need to depend on
-/// those types.
+/// Ambition can implement this over an adapter that borrows `OwnedItems` and
+/// `GridMenuState`; this crate does not depend on those types.
 pub trait ItemsOnlyMenuAdapter {
     type PageId;
     type Action;
@@ -1049,10 +1002,9 @@ pub trait ItemsOnlyMenuAdapter {
 mod tests {
     use super::*;
 
-    /// The active face's vertical framing must hit `TARGET_FACE_FILL` (so the
-    /// top/bottom margin is the intended ~20%), independent of `page_radius`. This
-    /// recomputes the on-screen fill from the DERIVED camera distance + the shared
-    /// FOV, locking the camera_distance derivation in `oot_like` against drift.
+    /// The active face must hit `TARGET_FACE_FILL` (about 20% margin) for any
+    /// `page_radius`. Recomputes the fill from the derived camera distance and
+    /// the shared FOV.
     #[test]
     fn cube_face_vertical_fill_matches_target_margin() {
         for radius in [1.0_f32, 2.85, 7.5] {
@@ -1070,7 +1022,7 @@ mod tests {
                 (1.0 - MenuCubeGeometry::TARGET_FACE_FILL) * 100.0,
             );
         }
-        // 0.80 fill  a 20%-of-half-height margin, as requested.
+        // 0.80 fill gives a 20% margin of the half height.
         assert!((MenuCubeGeometry::TARGET_FACE_FILL - 0.80).abs() < 1.0e-6);
     }
 

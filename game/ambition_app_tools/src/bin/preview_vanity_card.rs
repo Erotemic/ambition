@@ -26,11 +26,10 @@ fn main() {
         resolution: (1280, 720).into(),
         ..default()
     };
-    // A phone differs from this desktop in DENSITY as well as size, and density
-    // is the axis nothing else here can reach: `capture_scene` proxies a phone's
-    // 640x360 at a scale factor of 1.0, so a card that is mis-scaled by exactly
-    // the scale factor looks perfect in every desktop check and wrong on the
-    // device. Set this to a phone's factor (2.0-3.5) to see what the phone sees.
+    // A phone differs in density as well as size. `capture_scene` proxies a
+    // phone's 640x360 at scale factor 1.0, so a card mis-scaled by exactly
+    // the scale factor looks right on desktop and wrong on the device. Set
+    // this to a phone's factor (2.0-3.5) to see what the phone sees.
     if let Ok(raw) = std::env::var(PREVIEW_SCALE_FACTOR_ENV) {
         match raw.trim().parse::<f32>() {
             Ok(factor) if factor > 0.0 => {

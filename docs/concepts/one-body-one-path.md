@@ -47,13 +47,13 @@ does not mean "make the two behave similarly".
 
 This is a STATUS inventory, not the rule. It goes stale; the rule does not.
 
-**Melee is unified end to end.** The STATE (`BodyMelee` / `MeleeSwing`), the
+**Melee is unified end to end.** The STATE (`MovePlayback`, read as a `MeleeSwing`), the
 swing MODEL (`AttackSpec`), the slash VFX (`emit_melee_slash` in `combat::util`),
 the strike SPAWN, and body CONTACT RESOLUTION are one path for the controlled
 body and every actor. The spawn goes through the moveset:
 `combat::moveset::trigger_moveset_moves` → `advance_move_playback` spawns ONE
 gravity-resolved volume that drives both the damage `Hitbox` entity and the
-slash, projected to body state by `project_moveset_melee_to_body_melee`.
+slash. Readers derive the swing from the move with `melee_swing_of`.
 `combat::hitbox::apply_hitbox_damage` then resolves every `FollowOwner` strike
 through the same victim loop: owner exclusion, relationship/team policy,
 published hurtbox geometry, per-hitbox dedup, and victim-specific knockback.
@@ -89,7 +89,7 @@ the bounding rectangle instead of the authored head/hand volumes. So the same
 strike publishes one
 `HitTarget::UnresolvedFeatures` event carrying its geometry, deduped by the
 attacker's `MovePlayback.hit_targets` (the move's own authoritative accumulator,
-never the `BodyMelee.swing` projection). ⛔ **that is not `HitTarget::Volume`**:
+the derived swing only copies it). ⛔ **that is not `HitTarget::Volume`**:
 `Volume` means "scan everything" and still belongs to the wielded world-AOE
 primitive, while `UnresolvedFeatures` means "the bodies are already resolved —
 scan only what a body resolver cannot see." A consumer that conflates them

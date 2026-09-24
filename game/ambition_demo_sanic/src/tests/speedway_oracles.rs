@@ -201,7 +201,7 @@ fn dump_window(trace: &[Sample], center: usize, before: usize, after: usize) -> 
         .join("\n")
 }
 
-/// Count how many times a CONTINUOUS ride on the loop chain crossed the arc
+/// Count how many times a continuous ride on the loop chain crossed the arc
 /// position of the loop's topmost point. Junction hops (arc teleports between
 /// coincident occurrences) are excluded, so each count is one genuine pass
 /// over the top of the loop — one lap, in either travel direction.
@@ -252,7 +252,7 @@ fn laps_until_exit(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Oracle A/B — the course contract at AUTHORED params: a runner holding Up
+// Oracle A/B — the course contract at authored params: a runner holding Up
 // (the input the course demands — it is the only way onto the ramp) must ride
 // the loop exactly once and come out the far side.
 
@@ -331,10 +331,10 @@ fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
 //
 // Sticky, slope-free tuning (the same isolation `reverse_loop_exits_after_
 // one_revolution_instead_of_reentering_forever` uses) neutralizes the
-// convex-launch pin so these oracles ask ONLY the routing question. Both
+// convex-launch pin so these oracles ask only the routing question. Both
 // loop shoulders rise, so a held Up out-scores the flat overpass and the
-// falling ramp at the mouth junction on every pass: route bias is a LEVEL,
-// re-applied per crossing, when player intent is an EDGE ("take the high
+// falling ramp at the mouth junction on every pass: route bias is a level,
+// re-applied per crossing, when player intent is an edge ("take the high
 // route at the next fork").
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -421,7 +421,7 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Oracle C/D — surface identity: landings must attach to the ROUTE CHAIN.
+// Oracle C/D — surface identity: landings must attach to the route chain.
 //
 // The floor is two coincident rideable surfaces: the authored guide chain
 // (which carries the ramp/runout junctions) and the solid block (which
@@ -435,15 +435,15 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
     let runout_idx = chain_index(&room.world, "sanic_floor_runout");
 
-    // Every drop point has clear sky down to the ground route — clear of the
-    // one-way platforms (real landings since the momentum body learned to use
-    // them) and of the raised loop structure (Oracle G territory). Drops onto
-    // the hills still land on the ROUTE chain: the hills ARE the floor route.
+    // Every drop point has clear sky down to the ground route: clear of the
+    // one-way platforms (real landings) and of the raised loop structure
+    // (Oracle G). Drops onto the hills still land on the route chain, because
+    // the hills are the floor route.
     for (x, vx) in [
         (400.0, 0.0),
         (480.0, 250.0),
         (1200.0, -250.0),
-        // 1460, not 1500: the super monitor's lid at ~1490 is a REAL solid.
+        // 1460, not 1500: the super monitor's lid at ~1490 is a real solid.
         (1460.0, 0.0),
         (3300.0, 250.0),
         (5600.0, 0.0),
@@ -514,7 +514,7 @@ fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
     let loop_idx = chain_index(&room.world, "sanic_loop");
 
     // Land the way a descent launch actually lands today (lane +1 over open
-    // floor → the block catches it), then run LEFT holding Up across BOTH
+    // floor → the block catches it), then run LEFT holding Up across both
     // raised-route forks (x=2920 runout, x=1740 ramp). A player doing this is
     // asking for the high route and must get it.
     let mut probe = Probe::airborne(
@@ -549,7 +549,7 @@ fn oracle_speed_booster_boosts_a_momentum_rider() {
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
 
     // Run right across the pad at x=1640..1712 (authored impulse (1120,-260):
-    // "Feed the raised ramp with enough horizontal speed"). For a RIDING
+    // "Feed the raised ramp with enough horizontal speed"). For a riding
     // momentum body the pad is a speed booster: the impulse projects onto the
     // running tangent, so the observable is tangential speed near the pad's
     // 1120 px/s — not an airborne launch.
@@ -752,10 +752,10 @@ fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Oracle G — jumps on the track land on the track.
 //
-// Depth lanes are an implementation detail the player cannot perceive: the ramp (-1), loop body
-// (0), and mouth deck / shoulders / runout (+1) all read as ONE solid course. Airborne collision is
-// now lane-blind (launch-coincident foreign track is suppressed only until the flight separates),
-// and these gates pin the Sonic entitlement: what you can see, you can land on.
+// The player cannot perceive depth lanes: the ramp (-1), loop body (0), and
+// mouth deck / shoulders / runout (+1) read as one solid course. Airborne
+// collision is lane-blind (launch-coincident foreign track is suppressed only
+// until the flight separates). What you can see, you can land on.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// The first riding sample after the probe has actually gone airborne.
@@ -851,9 +851,8 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
     let loop_idx = chain_index(&room.world, "sanic_loop");
 
     // Straight drop above the post-loop descent (x=2700 keeps clear sky: the
-    // marker platform at ~2600 is a REAL landing now). Under the old
-    // strict-lane rule a base-lane body fell THROUGH this visibly solid
-    // foreground track to the floor beneath; lane-blind collision catches it.
+    // marker platform at ~2600 is a real landing). A base-lane body must land
+    // on this visible foreground track, not fall through to the floor.
     let mut probe = Probe::airborne(
         ae::Vec2::new(2700.0, 520.0),
         ae::Vec2::ZERO,
@@ -1109,7 +1108,7 @@ fn oracle_full_course_run_reaches_the_finish() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
     // The showcase line: hold Up+Right the whole way (hills → booster → ramp
-    // → ONE loop lap → runout), jump the pit at the lip and hop the spike
+    // → one loop lap → runout), jump the pit at the lip and hop the spike
     // strip. The run must reach the finish approach with no hazard reset
     // (a reset shows as a giant backwards teleport to spawn).
     let mut probe = Probe::riding_chain(&room.world, floor_idx, 180.0, 200.0, sanic_params());

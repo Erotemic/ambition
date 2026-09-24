@@ -15,15 +15,12 @@ use bevy::prelude::*;
 /// Which body threw what, counted by move id.
 #[derive(Default)]
 struct MoveLedger {
-    /// Every move START observed, per seat.
+    /// Every move start observed, per seat.
     started: BTreeMap<usize, BTreeMap<String, usize>>,
-    /// Seat → ticks spent OUTSIDE the stage's own footprint.
+    /// Seat → ticks spent outside the stage's own footprint.
     ///
-    /// ⛔⛔ THE PREMISE OF EVERY "DID IT USE ITS RECOVERY" QUESTION, and it was
-    /// missing. A route home is only wanted by a fighter that is off the stage,
-    /// so a match that never puts one there cannot observe the affordance —
-    /// and the guard below spent two behaviour changes accusing the CPU of
-    /// recovering on legacy drift when the match had simply never launched it.
+    /// This is the premise of every recovery question: only a fighter off the
+    /// stage wants a route home.
     offstage_ticks: BTreeMap<usize, usize>,
     /// The last `(move id, clock)` seen per entity, so a move that is still
     /// running is not counted again every tick.
@@ -34,13 +31,9 @@ impl MoveLedger {
     fn sample(&mut self, app: &mut App) {
         let stage = ambition_demo_smash::smash_stage().world.size;
         let world = app.world_mut();
-        // ⛔⛔ POSITION IS A PROXY, and D192 widened what it covers. This counts
-        // "off the stage" to mean "knocked out toward the blast zone and trying
-        // to get home", which is the situation a recovery route answers. A
-        // fighter WAITING to respawn is also outside the stage bounds — it is
-        // left lying where it died until its beat elapses — but it cannot press
-        // anything, so counting those ticks makes "spent N ticks offstage and
-        // pressed nothing" true of a body that was never able to.
+        // Position is a proxy for "knocked out toward the blast zone and trying to
+        // get home". A fighter waiting to respawn (D192) also lies outside the
+        // stage, but cannot press anything, so exclude it.
         let mut positions = world.query_filtered::<
             (&MatchSeat, &ambition_platformer2d::actor::BodyKinematics),
             bevy::prelude::Without<ambition_platformer2d::actor::PendingRespawn>,
@@ -145,9 +138,8 @@ fn count_within(started: &BTreeMap<String, usize>, ids: &BTreeSet<&str>) -> usiz
 /// One CPU-versus-CPU match, and everything read off it.
 struct MatchReport {
     ledger: MoveLedger,
-    /// Seat → the table preparation actually gave that body. Read from the
-    /// WORLD, because what a seat WEARS is the only version that can disagree
-    /// with what was authored.
+    /// Seat → the table preparation gave that body. Read from the world,
+    /// because what a seat wears can differ from what was authored.
     tables: BTreeMap<usize, MovesetContract>,
     /// Seat → the character id that seat was asked to wear.
     characters: BTreeMap<usize, String>,
@@ -165,10 +157,8 @@ impl MatchReport {
             let started = self.started(*seat);
             let total: usize = started.values().sum();
             let (specials, aerials, routes) = (specials(table), aerials(table), routes(table));
-            // ⭐ PRINTED ON SUCCESS TOO. How long a seat spent off the stage is
-            // the premise of every route/recovery claim here, and a number only
-            // visible on failure cannot tell a reader whether a GREEN run
-            // observed the affordance or merely never asked.
+            // Printed on success too. Offstage time is the premise of every route
+            // claim, so a green run must show whether the affordance was observed.
             let offstage = self.ledger.offstage_ticks.get(seat).copied().unwrap_or(0);
             out.push_str(&format!(
                 "  seat {seat} wearing {:<22} starts={total} distinct={} \
@@ -189,51 +179,37 @@ impl MatchReport {
     }
 }
 
-/// The one seating path in this file. Two CPUs at the same rung, through the
-/// demo shell, watched for `ticks` frames after the countdown.
 /// Enough stocks that neither CPU is eliminated inside a patience budget.
 ///
-/// The mirror spends about five knockouts per 1900 ticks, so a 3600-tick window
-/// costs each seat roughly ten. Twenty-five clears that with room for a lopsided
-/// run — and if a match decides anyway the guard in `watch_a_match` FAILS rather
-/// than quietly measuring a finished one.
+/// The mirror spends about ten knockouts per seat in a 3600-tick window.
+/// Twenty-five leaves room for a lopsided run. If a match ends anyway,
+/// `run_a_match_at` fails instead of measuring a finished match.
 const STOCKS_THAT_OUTLAST_THE_WINDOW: u32 = 25;
 
 fn run_a_match(characters: [&str; 2], ticks: usize) -> MatchReport {
     run_a_match_at(characters, ticks, &[5, 5])
 }
 
-/// The same match at a NAMED PAIR OF RUNGS.
-///
-/// ⭐ the level was a literal `&[5, 5]` in the body below, and line-for-line the
-/// only thing that had to change to sweep it was this parameter — which is what
-/// `bin/ladder_probe`'s own note means by *"`participant ⊕ level`, and sweeping
-/// it is the whole point"*.
+/// The same match at a named pair of rungs. Two CPUs through the demo
+/// shell, watched for `ticks` frames after the countdown.
 fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchReport {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
     }
-    // both seats CPU, same rung. `smash_roster_at_levels` is the helper
-    // that seats every slot as a CPU; the sibling test in `the_stage_kills` has
-    // the scar from using the one that makes seat 0 a human with no controller,
-    // which measures one fighter pacing around a statue.
+    // Both seats are CPUs at the same rung. `smash_roster_at_levels` seats
+    // every slot as a CPU; the other helper makes seat 0 a human with no
+    // controller.
     let mut roster = ambition_demo_smash::smash_roster_at_levels(characters, levels);
-    // ⛔⛔ THE WINDOW MUST BE A WINDOW OF FIGHTING, not of wall clock. These tests
-    // are a PATIENCE BUDGET for a CPU to find itself offstage and throw its
-    // authored route home; a match that ENDS inside the budget spends the rest of
-    // it with nothing happening, and the claim then fails for want of OPPORTUNITY
-    // rather than for want of the route.
-    //
-    // Not hypothetical: with D192's respawn beat this mirror decides at ~1917 of
-    // these 3600 ticks — measured, and without the beat the same mirror runs to
-    // 3776 undecided — so about half the budget was dead. `STARTING_STOCKS` is the
-    // shipped economy; this raises it for the INSTRUMENT only, because what is
-    // under test is which move a CPU throws, not how long three stocks last.
+    // The window must be a window of fighting. These tests are a patience
+    // budget for a CPU to go offstage and throw its route home. A match that
+    // ends inside the budget fails for want of opportunity. With D192's
+    // respawn beat, this mirror decides at about half the budget at the
+    // shipped stock count. So raise the stocks for the instrument only: the
+    // test is about which move a CPU throws, not how long three stocks last.
     roster.rules.stocks = Some(STOCKS_THAT_OUTLAST_THE_WINDOW);
-    // Seat → character taken from the roster handed IN. What this cannot prove —
-    // that two different fighters were seated — is proved from the world instead,
-    // by the two tables differing.
+    // Seat → character from the roster handed in. That two different fighters
+    // were seated is proved from the world, by the two tables differing.
     let seat_characters: BTreeMap<usize, String> = roster
         .participants
         .iter()
@@ -247,10 +223,8 @@ fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchRe
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // the warm-up has to outlast the countdown. The stage opens suspended
-    // and every fighter carries scripted control for the whole 3-2-1-GO, so a
-    // window inside the hold measures fighters that are correctly forbidden to
-    // act. Read from the ruleset rather than restating it.
+    // The warm-up must outlast the countdown: fighters are held for the whole
+    // 3-2-1-GO. Read it from the ruleset.
     let countdown = ambition_demo_smash::smash_roster(characters)
         .rules
         .opening_countdown_ticks;
@@ -287,19 +261,13 @@ fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchRe
         ledger.sample(&mut app);
     }
 
-    // ⛔⛔ THE PREMISE, CHECKED. Everything below is a claim about what a CPU
-    // chose to throw, and that is only readable while there is a fight to throw
-    // it in. A match that ended part-way through the budget makes "it never threw
-    // its route" true for want of opportunity — which is exactly how D192's
-    // respawn beat turned two green tests red without either CPU changing its
-    // mind about anything. Fail here, loudly, rather than let a finished match be
-    // read as a measured one.
-    // ⛔ COUNT THE SEATS THAT REMAIN, do not look for `FighterEliminated`.
-    // `take_eliminated_fighters_out_of_play` DESPAWNS the loser, so a query for
-    // the marker finds nothing whether nobody was eliminated or somebody was and
-    // is gone — an absence test that agrees with the failure it is meant to
-    // catch. Probed: at three stocks it found zero eliminated seats while the
-    // match had plainly ended.
+    // Check the premise: every claim below needs a fight to throw moves in.
+    // A match that ended inside the budget makes "it never threw its route"
+    // true for want of opportunity.
+    //
+    // Count the remaining seats; do not query `FighterEliminated`.
+    // `take_eliminated_fighters_out_of_play` despawns the loser, so the marker
+    // query finds nothing in both cases.
     {
         let world = app.world_mut();
         let mut seats = world.query::<&MatchSeat>();
@@ -318,7 +286,7 @@ fn run_a_match_at(characters: [&str; 2], ticks: usize, levels: &[u8]) -> MatchRe
         tables,
         characters: seat_characters,
     };
-    // every run, not only a failing one. See the module header.
+    // Every run, not only a failing one.
     eprintln!(
         "[repertoire] {characters:?} over {ticks} ticks\n{}",
         report.render()
@@ -331,11 +299,11 @@ fn watch_a_match(character: &str, ticks: usize) -> MoveLedger {
     run_a_match([character, character], ticks).ledger
 }
 
-/// A FIGHTER WITH SIXTEEN MOVES THROWS MORE THAN ONE OF THEM.
+/// A fighter with sixteen moves throws more than one of them.
 ///
-/// and the poison is the shared table. `smash_duelist_a` carries eleven moves with no
-/// specials at all; if THAT fighter also reached this floor, the number would be measuring the
-/// brain's appetite for variety rather than George's repertoire.
+/// The poison is the shared table: `smash_duelist_a` has eleven moves and
+/// no specials. If that fighter also reached this floor, the number would
+/// measure the brain's appetite for variety, not George's repertoire.
 #[test]
 fn the_cpu_reaches_for_more_than_one_move() {
     const WINDOW: usize = 900;
@@ -351,35 +319,18 @@ fn the_cpu_reaches_for_more_than_one_move() {
     );
 }
 
-/// THE RECOVERY IS A MOVE THE CPU THROWS, NOT A MOVE IT OWNS.
+/// The recovery is a move the CPU throws, not only a move it owns.
 ///
-/// this is the one that could pass vacuously in the most expensive way. Authoring the move fixes
-/// nothing on its own; the brain has to offer it.
+/// Weak on when, strict on whether. Pinning the recovery to an offstage
+/// position would pin the demo's tuning.
 ///
-/// the measurement is deliberately weak on WHEN and strict on WHETHER.
-/// Pinning the recovery to a particular offstage position would be pinning the
-/// tuning of a demo. What must never be true is that the move is never thrown in
-/// a match where fighters are being launched off a stage.
-///
-/// this is the one test that names a move, because it is a claim about
-/// GEORGE's own way home rather than about the engine's route affordance. The
-/// generic version of the claim is `every_authored_route_gets_pressed` below.
+/// This test names a move because it is about George's own way home. The
+/// generic form is `every_authored_route_gets_pressed`.
 #[test]
 fn the_cpu_throws_its_authored_recovery_during_a_match() {
-    // ⚠ 3600, NOT 1800 — and this widening is MEASURED rather than nudged:
-    // 2100 fails, 2400 passes, so 3600 is half again past the turn. The sibling
-    // test below calls repeated widening "a hand-kept ledger" and it is right;
-    // what makes this one honest is that the CAUSE is known.
-    //
-    // ⛔⛔ THE CAUSE WAS A BUG BEING FIXED, NOT DRIFT. Until 2026-08-25 a guard
-    // forced down by leaving the ground billed the full 11-frame shield-release
-    // penalty, and `drop_lag_timer` feeds `hard_lock_timer` — so every CPU that
-    // dropped through a platform holding Shield hard-locked for it. Removing a
-    // penalty nobody earned changes how the CPUs play, and George now takes
-    // longer to find himself offstage.
-    //
-    // ⇒ THIS WINDOW IS A PATIENCE BUDGET, not a claim that a CPU recovers within
-    // N ticks. The claim is that its AUTHORED route is the one it throws.
+    // 3600 ticks is a patience budget, not a claim that a CPU recovers within
+    // N ticks. Measured: 2100 fails, 2400 passes. Behaviour changes elsewhere
+    // (for example, shield-release lag) move when George first goes offstage.
     const WINDOW: usize = 3600;
 
     let ledger = watch_a_match(ambition_demo_smash::SMASH_GEORGE_BOOUL, WINDOW);
@@ -392,7 +343,7 @@ fn the_cpu_throws_its_authored_recovery_during_a_match() {
     );
 }
 
-/// AND IT IS THE REPERTOIRE DOING IT, not the brain's appetite for variety.
+/// The repertoire causes it, not the brain's appetite for variety.
 #[test]
 fn a_fighter_that_authored_no_special_throws_none() {
     let ledger = watch_a_match(ambition_demo_smash::SMASH_CHARACTER_ID, 600);
@@ -401,27 +352,22 @@ fn a_fighter_that_authored_no_special_throws_none() {
         !seen.contains_key("excluded_middle"),
         "the stand-in table has no specials, but a seat threw one: {seen:?}"
     );
-    // It is not standing still either — the contrast is about the REPERTOIRE,
-    // and an empty ledger would make the assertion above meaningless.
+    // It is not standing still: an empty ledger would make the assertion
+    // above meaningless.
     assert!(
         !seen.is_empty(),
         "the stand-in fighters threw nothing at all, so this poison proves nothing"
     );
 }
 
-/// TWO DIFFERENT TABLES, ON ONE STAGE, PLAYING DIFFERENT GAMES.
+/// Two different tables on one stage play different games.
 ///
-/// That answers *"is the repertoire exercised"* and cannot answer the question a viewer actually
-/// asks, which is whether the two bodies on screen are doing recognisably different things.
+/// George authors sixteen moves with four specials and one commanded rise;
+/// the stand-in duelist authors eleven with no special and nothing that
+/// lifts.
 ///
-/// George authors sixteen moves with four specials and one commanded rise; the
-/// stand-in duelist authors eleven with no special and nothing that lifts. So
-/// the contrast is real content rather than two names.
-///
-/// what this asserts is DIFFERENCE, not quality. It says each fighter
-/// threw something the other's table does not even contain — so the difference a
-/// viewer sees is repertoire and not labelling. It says nothing about the SHAPE
-/// of either distribution, which the printed histogram is for.
+/// This asserts difference, not quality: each fighter threw something the
+/// other did not. The printed histogram shows the distributions.
 #[test]
 fn two_different_tables_produce_two_different_fights() {
     const WINDOW: usize = 1200;
@@ -435,9 +381,8 @@ fn two_different_tables_produce_two_different_fights() {
     );
     let report = m.render();
 
-    // THE POISON. A character id the composition does not carry is seated
-    // as a stand-in wearing the shared table, and both seats would then be the
-    // same fighter twice while every assertion below still passed.
+    // Poison: an unknown character id is seated as a stand-in on the shared
+    // table, and both seats would be the same fighter.
     let tables: Vec<&MovesetContract> = m.tables.values().collect();
     assert_ne!(
         tables[0], tables[1],
@@ -453,26 +398,16 @@ fn two_different_tables_produce_two_different_fights() {
             .flat_map(|(_, t)| t.moves.iter().map(|mv| mv.id.as_str()))
             .collect();
         let started = m.started(*seat);
-        // NON-VACUITY FIRST, because a guard placed AFTER the assertion it
-        // protects can never run. This one was written correctly and sat
-        // below, so when the claim failed for exactly the reason the guard
-        // names, the claim's message got the blame.
+        // Non-vacuity first: a guard after the assertion it protects never runs.
         assert!(
             !started.is_empty(),
             "seat {seat} threw nothing at all, so it cannot be compared to \
              anything and the claim below would be about an empty set.\n{report}"
         );
 
-        // compared against what the OPPONENT THREW, not what it COULD
-        // throw. Measuring a seat's throws against the other seat's whole
-        // TABLE is unpassable whenever one table contains the other — George
-        // authors 16 moves and the duelist 11, so the duelist could never throw
-        // anything "George's table lacks" no matter how differently it played,
-        // and the test would have reported two indistinguishable fighters while
-        // they were plainly fighting differently.
-        //
-        // a viewer sees what was DONE. Containment of authored tables is a
-        // fact about content; it is not the claim.
+        // Compare with what the opponent threw, not with its whole table. George's
+        // 16 moves contain the duelist's 11, so the duelist could never throw
+        // something George's table lacks. A viewer sees what was done.
         let mut theirs_thrown: BTreeSet<String> = BTreeSet::new();
         for other in m.tables.keys().filter(|other| *other != seat) {
             theirs_thrown.extend(m.started(*other).keys().cloned());
@@ -488,8 +423,8 @@ fn two_different_tables_produce_two_different_fights() {
              the two bodies are indistinguishable to a viewer.\n{report}",
             m.characters.get(seat).map_or("?", String::as_str),
         );
-        // The tables must still differ in what they OFFER, or a difference in
-        // what was thrown is a coin flip rather than a character.
+        // The tables must still differ in what they offer; otherwise a
+        // difference in throws is chance, not character.
         assert!(
             table
                 .moves
@@ -502,51 +437,27 @@ fn two_different_tables_produce_two_different_fights() {
     }
 }
 
-/// EVERY FIGHTER THAT AUTHORS A WAY HOME PRESSES IT — the generic form of
-/// `the_cpu_throws_its_authored_recovery_during_a_match`, with no move id in it.
+/// Every fighter that authors a way home presses it: the generic form of
+/// `the_cpu_throws_its_authored_recovery_during_a_match`, with no move id.
 ///
-/// the route set is derived by the same `lift_speed > 0` predicate the brain's
-/// `lifting_candidates` proposes from, so this measures the affordance rather
-/// than George. A fighter that authors none is skipped, and the guard below
-/// refuses to let the whole test become a skip.
+/// The route set uses the same `lift_speed > 0` predicate as the brain's
+/// `lifting_candidates`. A fighter that authors none is skipped, and a guard
+/// stops the whole test from becoming a skip.
 ///
-/// AND HERE IS WHAT IT CANNOT SEE, stated rather than implied. A throw is
-/// not a decision. Any move commanding a rise satisfies this, including one
-/// authored as a JUGGLE rather than a way home — the Pirate Admiral's `air_up`
-/// is exactly that, deliberately. So a green here means *"the fighter pressed
-/// something that displaces it"*, NOT *"the fighter recovered with its
-/// recovery"*. Only `the_decision_log` below asks the brain what it SELECTED in
-/// `Situation::Recovery`. Do not promote this to the stronger claim.
+/// A throw is not a decision. Any rising move satisfies this, including one
+/// authored as a juggle (the Pirate Admiral's `air_up`). So green means "the
+/// fighter pressed something that displaces it", not "the fighter recovered
+/// with its recovery". `the_decision_log` asks what the brain selected in
+/// `Situation::Recovery`.
 #[test]
 fn every_authored_route_gets_pressed() {
-    // THE WINDOW IS PATIENCE, NOT THE MEASUREMENT, and it moved on 2026-08-22.
-    //
-    // This probe watches a whole MATCH and asks whether a route ever got
-    // pressed, so what it really measures is when that match happens to put a
-    // fighter far enough out to want one. Fixing the airborne-grab gate changed
-    // how the two CPUs trade, George's first trip offstage landed later, and at
-    // 1800 the affordance had not been exercised yet. Nothing about his
-    // recovery changed: `the_cpu_throws_its_authored_recovery_during_a_match`
-    // above asks the brain what it SELECTED in `Situation::Recovery` and is
-    // green, which is the strong claim this test explicitly does not make.
-    //
-    // Measured rather than guessed: 2100 fails, 2400 passes. Sitting on the
-    // threshold means the next behaviour change flips it again, so this is
-    // double the original -- headroom for a probe whose cost is one more
-    // simulated match, not a promise that a CPU recovers within N ticks.
+    // The window is patience, not the measurement: it only needs a match that
+    // puts a fighter far enough out. Measured: 2100 fails, 2400 passes.
     const WINDOW: usize = 3600;
 
-    // ⛔⛔ A MIRROR MATCH, AND THAT IS THE FIX RATHER THAN A WIDER WINDOW. Only
-    // George authors a route home, so pairing him with a fighter that does not
-    // made this probe depend on GEORGE being the one knocked out — and which
-    // fighter loses first is chaotic. Measured 2026-08-25: FOUR differing
-    // turnaround decisions across 3600 ticks moved the first KO from George to
-    // his opponent, and the arm went red with the affordance simply untested.
-    // Two earlier behaviour changes did the same and were each answered by
-    // doubling `WINDOW`, which this file then called "a hand-kept ledger".
-    //
-    // ⇒ WITH BOTH SEATS CARRYING THE ROUTE, whoever loses is a fighter this
-    // probe can question.
+    // A mirror match: only George authors a route home, and which fighter is
+    // knocked out first is chaotic. With both seats carrying the route,
+    // whoever goes offstage can be checked.
     let m = run_a_match(
         [
             ambition_demo_smash::SMASH_GEORGE_BOOUL,
@@ -564,29 +475,9 @@ fn every_authored_route_gets_pressed() {
             continue;
         }
         fighters_with_a_route += 1;
-        // ⛔⛔ THE PREMISE, AND IT IS PER-MATCH RATHER THAN PER-SEAT — which is
-        // the third correction this arm has needed and the first that is not a
-        // widened window.
-        //
-        // This probe watches ONE match and asks whether a route home was ever
-        // pressed, so it can only see the affordance for a fighter that actually
-        // went off the stage. It used to demand that of EVERY seat carrying a
-        // route, which made it depend on WHICH fighter is knocked out first —
-        // and that is chaotic: measured 2026-08-25, FOUR differing turnaround
-        // decisions across a 3600-tick match (out of thousands) were enough to
-        // move the first KO from seat 0 to seat 1. Two earlier behaviour changes
-        // moved it the same way, and each was answered by doubling `WINDOW`,
-        // which the comment then called "a hand-kept ledger".
-        //
-        // ⇒ ASK IT OF THE SEATS THE MATCH ACTUALLY PUT OFFSTAGE, and require at
-        // least one, so the arm can never quietly become vacuous. The claim per
-        // fighter is unchanged and just as falsifiable; what is gone is the
-        // requirement that a particular fighter be the one to lose.
-        //
-        // ⛔ THE STRONG CLAIM IS NOT HERE. Whether the brain SELECTS its
-        // recovery in `Situation::Recovery` is
-        // `the_cpu_throws_its_authored_recovery_during_a_match`, which stayed
-        // green through all three of these.
+        // The premise is per match, not per seat. Which fighter goes offstage
+        // first is chaotic, so check only seats that went offstage, and require
+        // at least one so the test cannot become vacuous.
         let offstage = m.ledger.offstage_ticks.get(seat).copied().unwrap_or(0);
         if offstage == 0 {
             continue;
@@ -614,20 +505,17 @@ fn every_authored_route_gets_pressed() {
     );
 }
 
-/// `Situation::Recovery` → WHICH ACTION WAS SELECTED, asked of the brain's
-/// own decision facts rather than inferred from what the body did.
+/// `Situation::Recovery`: which action was selected, read from the brain's
+/// own decision facts.
 ///
-/// Everything above sees a move being THROWN. None of it can see the decision
-/// that chose one, nor the ticks where the recovery search ran and endorsed
-/// nothing — and "pressed the juggle aerial because the search came back empty"
-/// and "pressed the recovery because the kernel found it" look identical in a
-/// `MovePlayback` histogram. `fighter_decision` carries `situation`, `attack`
-/// (the selected move id), `recovery_routes` (what the repertoire proposed) and
-/// `recovery_move` (what the kernel endorsed), so the histogram is a group-by
-/// rather than a reconstruction.
+/// A `MovePlayback` histogram cannot tell "pressed the juggle aerial because
+/// the search came back empty" from "pressed the recovery the kernel
+/// found". `fighter_decision` carries `situation`, `attack` (the selected
+/// move id), `recovery_routes` (what the repertoire proposed), and
+/// `recovery_move` (what the kernel endorsed).
 ///
-/// gated on `causal`, which is NOT a default feature — recording costs
-/// work per tick and a shipped demo must not pay it:
+/// Gated on `causal`, which is not a default feature, because recording
+/// costs work per tick:
 /// `cargo test -p ambition_demo_smash_app --features causal --test smash_it -- the_repertoire_gets_used --nocapture`
 #[cfg(feature = "causal")]
 mod the_decision_log {
@@ -648,14 +536,12 @@ mod the_decision_log {
         const WINDOW: usize = 1800;
 
         let mut app = build_demo_app();
-        // the FEATURE and the PLUGIN are two switches, deliberately. The
-        // feature compiles the publishers in; only `CausalPlugin` creates the
+        // The feature compiles the publishers in; only `CausalPlugin` creates the
         // recording they write to.
         app.add_plugins(CausalPlugin);
-        // BRAIN only, and the ring is why. `CausalLog` holds 4096 facts and
-        // drops the oldest, so `RecordingPolicy::All` over a thirty-second match
-        // would leave the histogram silently describing its last second.
-        // `dropped()` is reported below either way.
+        // Brain only: `CausalLog` holds 4096 facts and drops the oldest, so
+        // recording every domain over this match would keep only its last second.
+        // `dropped()` is reported below.
         ambition_platformer2d::causal::record_domains(
             &mut app,
             RecordingPolicy::only([domains::BRAIN]),
@@ -678,9 +564,6 @@ mod the_decision_log {
                     ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
                 ),
             ));
-        // The roster's loose rule fields were folded into one `rules`; this is
-        // the second site that missed it, and like the first it is invisible to
-        // the default test run because the block is feature-gated.
         let countdown = ambition_demo_smash::smash_roster(characters)
             .rules
             .opening_countdown_ticks;
@@ -693,7 +576,7 @@ mod the_decision_log {
 
         // subject → (situation, selected action) → count.
         let mut by_subject: BTreeMap<String, BTreeMap<(String, String), usize>> = BTreeMap::new();
-        // and what the recovery SEARCH said, separately.
+        // What the recovery search said, separately.
         let mut recovery: BTreeMap<String, BTreeMap<String, usize>> = BTreeMap::new();
         let mut decisions = 0usize;
         for fact in recording
@@ -713,11 +596,10 @@ mod the_decision_log {
                 .entry((situation.clone(), action))
                 .or_default() += 1;
             if situation == "Recovery" {
-                // the PROPOSALS ride along with the outcome, because
-                // `no-route` means two different things — the repertoire offered
-                // nothing, or the kernel declined everything it was offered — and
+                // Record the proposals with the outcome: `no-route` can mean the
+                // repertoire offered nothing or the kernel declined everything, and
                 // only the second is a tuning question. `pressed` is what the
-                // decision actually armed.
+                // decision armed.
                 let proposed = text(fact, "recovery_routes").unwrap_or("[]");
                 let pressed = text(fact, "attack").unwrap_or("?");
                 let outcome = match (
@@ -753,18 +635,15 @@ mod the_decision_log {
              fighter brain is seated, or the `causal` feature stopped reaching \
              `ambition_characters`"
         );
-        // the SUBJECT is what makes a two-fighter histogram readable at all; an
-        // unattributed stream is one pile.
+        // The subject lets the histogram tell the two fighters apart.
         assert!(
             by_subject.len() >= 2,
             "both seats are CPUs and the decisions came back under {} subject(s), \
              so the histogram cannot tell the two fighters apart: {by_subject:#?}",
             by_subject.len()
         );
-        // the headline: some tick of this match was a recovery decision, and it
-        // named what it selected. A run with none means the fighters never left
-        // the stage, which makes every recovery claim in this file UNTESTED rather
-        // than passing.
+        // Some tick was a recovery decision. None means the fighters never left
+        // the stage, so every recovery claim here is untested.
         assert!(
             !recovery.is_empty(),
             "no fighter was ever classified `Situation::Recovery` in {WINDOW} \
@@ -773,45 +652,24 @@ mod the_decision_log {
     }
 }
 
-/// THE DEFENSIVE VOCABULARY IS SOMETHING THE CPU USES, NOT SOMETHING IT OWNS.
+/// The defensive vocabulary is something the CPU uses, not only owns.
 ///
-/// Two mechanics shipped tuned, reachable and unused, because the fighter brain
-/// had no verb that reached either: a smash's charge multiplier is paid out
-/// against how long Attack stays down, and a tech is armed by the evade press
-/// while tumbling. Both are read off the BODY here rather than off the frame the
-/// brain emits — a brain asking is not the claim; a body receiving is.
+/// A smash's charge multiplier is paid against how long Attack stays down,
+/// and a tech is armed by the evade press while tumbling. Both are read from
+/// the body, not from the frame the brain emits.
 ///
-/// ⭐ IT RUNS SEVERAL NOISE STREAMS AND ASKS FOR ONE, and that is not laxity —
-/// it is what the spread actually looks like. A single fixed match asserting
-/// "a charge occurred" is a coin flip dressed as a regression test.
+/// It runs several noise streams and asks for one. The measured per-stream
+/// charge rate is about 0.3, so `STREAMS = 10` decides the test about 97
+/// times in 100. If charges become rarer, re-measure the rate before raising
+/// `STREAMS`: a larger sample can hide a falling rate.
 ///
-/// ⛔⛤ **AND THREE STREAMS WAS STILL THE COIN FLIP, WHICH IS WHAT THE COMMENT
-/// ABOVE THIS ONE PREDICTED ABOUT ITSELF AND THEN DID NOT ACT ON.** It read
-/// *"it passed for a week and then failed on a change that made the fight
-/// BETTER"*, and on 2026-09-20 it did exactly that again. Measured over TEN
-/// streams rather than three: **charges in 3** (0.98, 0.99, 1.00) and none in
-/// the other seven, so the per-stream rate is about 0.3 and three draws decide
-/// this test only two times in three. The change it went red on had lifted
-/// techs from a recorded 0–29–54 to 44–116 and tumbles from 0–97–121 to
-/// 21–407; the fight was livelier and the sample was the same size.
-///
-/// ⇒ `STREAMS` is set from that rate, not from patience: ten draws at p≈0.3
-/// decide it about 97 times in 100. ⚠ If a future change makes charges
-/// genuinely rarer this gets slower to fail rather than wrong — re-measure the
-/// per-stream rate before raising it again, because a bigger sample hiding a
-/// falling rate is the failure mode a count cannot see.
-///
-/// The measurement stays strict on WHETHER and deliberately weak on WHEN.
-/// Pinning a charge to a percentage or a tech to a position would be pinning
-/// demo tuning. What must never be true again is that no stream produces either.
+/// Strict on whether, weak on when: pinning a charge percentage or a tech
+/// position would pin demo tuning.
 #[test]
 fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
-    // NINETY SECONDS, not thirty, and the reason is the event rather than the
-    // patience. A charge needs an OPENING — the brain pays a full hold only when
-    // the opponent is committed or offstage — and openings arrive on their own
-    // schedule. Measured 2026-08-23 across three streams: at 1800 ticks the best
-    // charge reached is 0.00 in all three; at 5400 it is 0.99 in two of them.
-    // The old window was hunting an event rarer than itself.
+    // Ninety seconds: a charge needs an opening (the brain holds fully only
+    // when the opponent is committed or offstage). At 1800 ticks the measured
+    // best charge was 0.00 in all streams tried.
     const WINDOW: usize = 5400;
     const STREAMS: u64 = 10;
 
@@ -841,8 +699,8 @@ fn the_cpu_charges_a_smash_and_techs_a_landing_in_some_match() {
          per-stream rate of 0.3 about 97 times in 100, so zero here is a \
          finding rather than a draw."
     );
-    // THE NON-VACUITY GUARD for the tech half. A run of matches in which nobody
-    // is ever launched into a tumble has no landing to tech.
+    // Non-vacuity for the tech half: with no tumble there is no landing to
+    // tech.
     assert!(
         tumbled_in > 0,
         "nobody tumbled in any of {STREAMS} matches, so this cannot say anything \
@@ -883,9 +741,8 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
     for _ in 0..(countdown as usize + 30) {
         app.update();
     }
-    // The stream is SUPPLIED here rather than modelled: a live fighter's is
-    // `participant ⊕ level`, and sweeping it is the whole point — the same
-    // reason `bin/ladder_probe` documents for doing it this way.
+    // Supply the stream here: a live fighter's is `participant ⊕ level`, and
+    // this sweeps it (as `bin/ladder_probe` does).
     {
         let world = app.world_mut();
         let mut q = world.query::<&mut Brain>();
@@ -930,38 +787,28 @@ fn watch_the_vocabulary(window: usize, noise_seed: u64) -> (f32, usize, usize) {
     (best_charge, techs, tumbles)
 }
 
-/// ⭐ THE JAB STRING AND THE RAPID JAB, DRIVEN BY A REAL BUTTON, IN THE REAL
-/// GAME.
+/// The jab string and the rapid jab, driven by a real button in the real
+/// game.
 ///
-/// ⛔ NOT A UNIT TEST ON A TIMELINE, and the difference is the whole point of
-/// this file. This run has shipped four mechanics that were green and dead on
-/// arrival — a smash charge whose hold could not outlast its own startup, a tech
-/// gate that stripped the button for all of hitstun, a launch-trail threshold
-/// above the launch speeds that exist, and a post-hit window that refused the
-/// second Active window of a multi-window move. Every one of them passed its own
-/// unit test. So this one presses a physical button on a physical pad, seats a
-/// human on the shipped roster, and reads what the body actually played.
+/// Not a unit test on a timeline: several mechanics passed their unit tests
+/// and did not work in the game. This presses a button on a pad, seats a
+/// human on the shipped roster, and reads what the body played.
 ///
-/// Holding Attack must walk the whole route: `jab` into `jab2` into `jab3`, and
-/// `jab3` must LOOP — the rapid jab is an authored `MoveLoop`, and a flurry that
-/// never took a second lap is a third jab with extra vocabulary.
+/// Holding Attack must walk `jab` → `jab2` → `jab3`, and `jab3` must loop:
+/// the rapid jab is an authored `MoveLoop`.
 #[test]
 fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
     use ambition_platformer2d::combat::moveset::MovePlayback;
 
     let character = ambition_demo_smash::SMASH_GEORGE_BOOUL;
     let mut app = build_demo_app();
-    // ⛔ UNDER THE `input` FEATURE THE RAW ROW BELOW IS OVERWRITTEN EVERY FRAME.
-    // `populate_seat_control_frames` derives each seat's raw frame from the
-    // device layer, so a frame written straight into `SeatRawFrames` is gone
-    // before the sim reads it — which is why this test was green per-crate and
-    // red under the workspace-unified gate (`nextest --workspace` turns
-    // `visible` → `input` on) with "What the human actually played: []". The
-    // roster seats its human on PAD 0, so be that pad: a real `Gamepad` entity,
-    // plugged in before the roster is seated, whose West button (Attack in the
-    // default preset) is pressed and HELD through Bevy's raw gamepad events. The
-    // headless build has no device layer and keeps the raw row; both roads say
-    // the same thing.
+    // Under the `input` feature, `populate_seat_control_frames` derives each
+    // seat's raw frame from the device layer every frame, so a row written
+    // into `SeatRawFrames` is overwritten (`nextest --workspace` turns
+    // `visible` → `input` on). The roster seats its human on pad 0, so spawn
+    // a real `Gamepad` before seating and hold its West button (Attack in the
+    // default preset) through raw gamepad events. The headless build has no
+    // device layer and keeps the raw row. Both roads give the same press.
     let pad = app
         .world_mut()
         .spawn(bevy::input::gamepad::Gamepad::default())
@@ -997,25 +844,15 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
             .expect("the shipped roster seats a human on the first pad")
     };
 
-    // Attack down, and never released, written at the DEVICE seam.
-    // `SeatRawFrames` is the pre-latch table a controller publishes into, one hop
-    // below `SlotControls` — so the press still crosses seat latching,
-    // `ActorControl`, the gesture resolver and the buffer before anything this
-    // slice touched sees it. ⛔ the headless demo composes `MinimalPlugins` and
-    // has no gamepad plugin at all, so a raw pad event has nothing to read it;
-    // `versus_stage` is where the pad-to-seat hop is guarded.
+    // Attack down and never released. `SeatRawFrames` is the pre-latch table
+    // one hop below `SlotControls`, so the press still crosses seat latching,
+    // `ActorControl`, the gesture resolver, and the buffer. `versus_stage`
+    // guards the pad-to-seat hop.
     let mut played: Vec<String> = Vec::new();
     let mut laps = 0.0f32;
-    // ⛔ THE PRESS WAITS FOR THE GROUND, and it used to fire on tick 0 flat. The
-    // human is still falling from spawn when this loop starts, so a fixed tick
-    // is a bet on exactly when it lands — and the bet lost the moment anything
-    // changed how long the warm-up takes in sim time (a match-level impact
-    // freeze, here). The press resolved `air_neutral` and the jab string it
-    // came to measure never began, which the failure message read as the CHAIN
-    // being broken.
-    //
-    // ⭐ pressing when standing is also what a player does, and it is what this
-    // test's claim needs: `jab` is the grounded verb.
+    // Press only when standing: the human is still falling from spawn, and
+    // `jab` is the grounded verb. A fixed tick would resolve `air_neutral`
+    // whenever the warm-up's sim time changes.
     let mut pressed_yet = false;
     for _ in 0..240 {
         let standing = app
@@ -1061,12 +898,9 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
              reached the successor its window names."
         );
     }
-    // ⛔ AND IT MUST NOT HAVE BOUGHT A ROUTE. George's jab window also names
-    // `smash` and `special` — his one way from his fast half to his slow half —
-    // and those are VERB names, not move ids. A hold may only take a successor
-    // the window names BY MOVE ID, so the string is reachable by holding and the
-    // route still costs a deliberate directed press. Without that rule a held
-    // button would throw a fully-charged smash out of a jab.
+    // A hold must not buy a route. George's jab window also names `smash` and
+    // `special`, which are verb names, not move ids. A hold may only take a
+    // successor named by move id, so the route still needs a directed press.
     assert!(
         !played.iter().any(|id| id.starts_with("smash")),
         "a HELD button bought George's smash route: {played:?}"
@@ -1081,23 +915,15 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
     );
 }
 
-/// PROBE: does a HIGHER RUNG REACH FOR MORE OF ITS KIT? Print-only; run with
+/// Probe: does a higher rung reach for more of its kit? Print-only; run with
 /// `--ignored`.
 ///
-/// ⭐⭐ THIS IS D244'S DEFINITION-OF-DONE INSTRUMENT. The decision rig
-/// (`brain::fighter::evaluation`) reports `distinct_frames` flat at 19–21 across
-/// every rung — a level 9 fighter pressing the same repertoire as a level 1,
-/// only faster — but that rig never steps a world. This one does: same match,
-/// same character, one number moved, counting the DISTINCT MOVES a seat actually
-/// started.
+/// D244's definition-of-done instrument. The decision rig
+/// (`brain::fighter::evaluation`) never steps a world. This one does: same
+/// match, same character, one rung moved, counting the distinct moves a
+/// seat started. Only the registered rungs (1, 3, 5, 6, 9) are valid.
 ///
-/// ⚠ only the REGISTERED rungs (1, 3, 5, 6, 9). The others fall back to a
-/// generic profile that is not a ladder rung, which `ladder_rig`'s header calls
-/// *"invalid for this measurement"*.
-///
-/// ⛔⛔ **THE WINDOW IS 2700 AND THAT IS NOT A ROUND NUMBER — AT 900 THIS PROBE
-/// REPORTS THE OPPOSITE CONCLUSION.** Measured 2026-08-26, same seed, same
-/// character, only the tick budget moved:
+/// Keep the window at 2700. At 900 the result reverses (same seed):
 ///
 /// ```text
 ///          900 ticks        2700 ticks
@@ -1105,19 +931,12 @@ fn holding_attack_walks_the_jab_string_into_the_rapid_jab() {
 /// L9        6 distinct      17 distinct   ← including grabs, pummels, throws
 /// ```
 ///
-/// ⇒ at the short window the top rung looked NARROWER than the bottom, which
-/// would have been reported as "difficulty makes a CPU worse". A fast rung needs
-/// LONGER to show its kit, not shorter — it spends more of a short window
-/// committed. **Do not shorten this budget to save seconds; the number it
-/// produces is a function of it.**
+/// A fast rung needs longer to show its kit, because it spends more of a
+/// short window committed. Do not shorten the budget.
 ///
-/// ⚠ **AND IT IS ONE CHARACTER AND ONE RUN, so read the SHAPE and not the
-/// steps.** The L1→L9 rise is large enough to survive noise; the L6 dip below L5
-/// and L3 is not established — a second character would settle it, and this
-/// harness cannot seat one: `build_demo_app` composes only the demo's own cast,
-/// so `npc_pirate_admiral` fails the seat-count assertion rather than reporting
-/// anything (measured 2026-08-26). Sweeping characters needs the composed host,
-/// which is `game/ambition_app`'s harness, not this one.
+/// One character and one run: read the shape, not the steps. This harness
+/// cannot seat a second character (`build_demo_app` composes only the
+/// demo's cast); sweeping characters needs `game/ambition_app`'s harness.
 #[test]
 #[ignore = "PROBE, print-only: distinct moves started per ladder rung"]
 fn probe_repertoire_by_rung() {

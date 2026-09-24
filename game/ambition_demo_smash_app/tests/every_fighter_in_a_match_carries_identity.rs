@@ -1,26 +1,18 @@
-//! D-DAMAGEABLE-BODY-IDENTITY, the arm that reaches the ROSTER.
+//! D-DAMAGEABLE-BODY-IDENTITY, for the roster.
 //!
-//! ⭐⭐ **THE POPULATION IS `StrikeVictim`'S OWN QUERY**: an entity carrying both
-//! `CenteredAabb` and `ActorFaction` is a candidate victim, and its `sim_id` is
-//! `Option` — *"a body without one still gets hit, it just cannot win the tie."*
-//! `victim_identity_key` sorts an absent identity LAST, which fixes the
-//! inversion; what it cannot fix is TWO absent identities, which compare equal
-//! and hand the tie to Bevy query order. Query order is not reproduced by a
-//! resimulation, so that tie is a desync.
+//! The population is `StrikeVictim`'s own query: an entity with both
+//! `CenteredAabb` and `ActorFaction` is a candidate victim, and its `sim_id`
+//! is optional. `victim_identity_key` sorts an absent identity last, but two
+//! absent identities compare equal and leave the tie to Bevy query order,
+//! which a resimulation does not reproduce. That tie is a desync.
 //!
-//! ⛔⛔ **THE EXISTING RUNTIME GATE REACHES THREE BODIES AND SAYS SO.**
-//! `ambition_app/tests/damageable_bodies_carry_identity.rs` sweeps the rl_sim
-//! sandbox: the player, a staged mob. **A seated match fighter is a different
-//! construction road** — `character_runtime/match_activation.rs` — and no arm
-//! reached it. That road is the whole Smash roster, in every match, which is
-//! the largest damageable population the game has.
-//!
-//! ⚠ **A STATIC SCAN CANNOT ANSWER IT.** `CenteredAabb` and `ActorFaction`
-//! arrive from separate inserts down a bundle chain, so a scanner keyed on "one
-//! spawn call naming both" describes its own method.
-//! `scripts/measure_damageable_bundles_without_identity.py` says this in its own
-//! output and calls itself a lower bound; it names `match_activation.rs:90` as a
-//! LEAD. This test is the instrument that can settle it.
+//! `ambition_app/tests/damageable_bodies_carry_identity.rs` covers the rl_sim
+//! sandbox. A seated match fighter is built on a different road
+//! (`character_runtime/match_activation.rs`), and that road is the whole
+//! Smash roster. A static scan cannot settle it, because `CenteredAabb` and
+//! `ActorFaction` arrive from separate inserts
+//! (`scripts/measure_damageable_bundles_without_identity.py` is a lower
+//! bound). This test checks the live world.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::combat::components::{ActorFaction, CenteredAabb};
@@ -71,20 +63,14 @@ fn census(world: &mut World) -> (Vec<String>, usize) {
     (unidentified, total)
 }
 
-/// ⛔ EVERY FIGHTER A MATCH SEATS CARRIES A `SimId`.
+/// Every fighter a match seats carries a `SimId`.
 ///
-/// ⚠ THE ANTI-VACUITY FLOOR IS FIRST AND IT IS NOT OPTIONAL. A route that never
-/// reached gameplay produces zero candidate victims, zero unidentified, and a
-/// green run that certifies nothing — which is this repository's most repeated
-/// instrument failure. The floor asserts the match actually stood two fighters
-/// up before the identity claim is allowed to pass.
+/// The anti-vacuity floor comes first: a route that never reached gameplay
+/// gives zero candidates and zero unidentified, which would pass.
 #[test]
 fn every_damageable_body_a_match_seats_carries_a_stable_identity() {
     let mut app = build_demo_app();
-    // ⚠ THE BOOT TICKS ARE NOT DECORATION. Routing to gameplay before the shell
-    // has come up seats nobody, and the anti-vacuity floor below then reports a
-    // harness failure rather than a finding — which is exactly what it did on
-    // the first run of this file.
+    // Boot ticks first: routing before the shell is up seats nobody.
     for _ in 0..30 {
         app.update();
     }
@@ -105,9 +91,8 @@ fn every_damageable_body_a_match_seats_carries_a_stable_identity() {
     );
 
     let (unidentified, total) = census(app.world_mut());
-    // MEASURED 2026-09-11 at this floor: the seated match presents exactly 2
-    // candidate victims, both identified. The floor is the ROSTER, not that
-    // number — pinning 2 would redden on a four-player match, which is growth.
+    // The floor is the roster, not an exact count: pinning 2 would fail on a
+    // four-player match.
     assert!(
         total >= 2,
         "{total} candidate victim(s) in a seated match: the census query matched \

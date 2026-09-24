@@ -68,12 +68,12 @@ struct BossSnapshot {
 }
 
 fn read_player(world: &mut World) -> PlayerSnapshot {
-    // AC3.1.B: `attacking` reads the melee AUTHORITY.
+    // AC3.1.B: `attacking` reads the swing of the live move.
     let mut q = world.query_filtered::<(
         &BodyKinematics,
         &BodyCombat,
         &BodyHealth,
-        &ambition_platformer2d::combat::BodyMelee,
+        ambition_platformer2d::combat::moveset::MeleeSwingQuery,
     ), PrimaryPlayerOnly>();
     let (kin, combat, health, melee) = q.single(world).expect("primary player exists");
     PlayerSnapshot {
@@ -83,7 +83,7 @@ fn read_player(world: &mut World) -> PlayerSnapshot {
         invuln: combat.damage_invuln_timer,
         hitstun: combat.hitstun_timer,
         recoil: combat.recoil_lock_timer,
-        attacking: melee.is_swinging(),
+        attacking: melee.swing().is_some(),
         hp: health.current(),
     }
 }

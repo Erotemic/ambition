@@ -1,8 +1,7 @@
 //! Test-only fixtures for ability modules.
 //!
-//! Ability unit tests mostly need the same minimal primary-player entity: a body,
-//! action set, held item, and mana. Keeping that bundle here lets each ability
-//! test focus on the behavior it is asserting instead of repeating spawn wiring.
+//! Most ability unit tests need the same minimal primary-player entity: a
+//! body, action set, held item, and mana. This keeps that spawn in one place.
 
 use ambition_combat::held_items::HeldItem;
 use ambition_characters::brain::{held_item_by_id, ActionSet};
@@ -31,22 +30,18 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
             HeldItem::new(spec),
             ambition_platformer2d_core::movement::MotionModel::default(),
             // Ability systems read the per-tick resolved frame (ADR 0024) and
-            // the FULL movement clusters (the transit authority reconciles
-            // contacts/attachment through `BodyClusterQueryData`) — both live
-            // inside `AncillaryMovementBundle`, like production spawns.
+            // the full movement clusters; both are in
+            // `AncillaryMovementBundle`, as in production spawns.
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(
                     ae::Vec2::new(100.0, 100.0),
                     ae::AbilitySet::default(),
                 ),
             ),
-            // ⛔ IDENTITY AND ITS MINT STREAM, BECAUSE A PRODUCTION BODY HAS
-            // BOTH. `ensure_sim_id` gives every production body a `SimId` before
-            // `CoreSimulation`, and the abilities that spawn a dynamic entity
-            // mint it as `SimId::spawned(this body, counter.next())`. A fixture
-            // body without them exercised the `_ => None` road that ADR 0030
-            // replaced with a refusal — so it was testing a path production
-            // cannot take.
+            // Identity and mint stream, as on every production body
+            // (`ensure_sim_id` runs before `CoreSimulation`). Abilities that
+            // spawn a dynamic entity mint `SimId::spawned(body, counter.next())`,
+            // and ADR 0030 refuses a caster without them.
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement(
                 "test_primary_player",
             ),
@@ -55,17 +50,12 @@ pub fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) -> Entity
             crate::mana::bank(),
         ))
         .id();
-    // Ability systems now key on the controlled subject, not a `PrimaryPlayer`
-    // filter. In tests the spawned player IS the controlled body.
+    // Ability systems key on the controlled subject; in tests the spawned
+    // player is the controlled body.
     app.insert_resource(ControlledSubject(Some(entity)));
     entity
 }
 
-/// A primary player holding `held_item_id` at an explicit `pos` / `facing`, with
-/// NO Mana — the minimal bundle the traversal-ability tests (blink /
-/// grapple / mark-recall) spawn. One definition so the body/`BodyBaseSize`
-/// bundle can't drift across those modules; each caller passes only the pos /
-/// facing it cares about.
 /// Set `body`'s Mana level; the body must hold Mana.
 pub fn set_mana(app: &mut App, body: Entity, current: f32) {
     let mut bank = app
@@ -84,6 +74,9 @@ pub fn mana(app: &App, body: Entity) -> f32 {
         .current
 }
 
+/// A primary player holding `held_item_id` at an explicit `pos` / `facing`,
+/// with no Mana: the minimal bundle for traversal-ability tests (blink,
+/// grapple, mark-recall). One definition, so the bundle cannot drift.
 pub fn spawn_primary_player_holding_at(
     app: &mut App,
     held_item_id: &str,
@@ -107,9 +100,8 @@ pub fn spawn_primary_player_holding_at(
             HeldItem::new(spec),
             ambition_platformer2d_core::movement::MotionModel::default(),
             // Ability systems read the per-tick resolved frame (ADR 0024) and
-            // the FULL movement clusters (the transit authority reconciles
-            // contacts/attachment through `BodyClusterQueryData`) — both live
-            // inside `AncillaryMovementBundle`, like production spawns.
+            // the full movement clusters; both are in
+            // `AncillaryMovementBundle`, as in production spawns.
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
             ),
@@ -119,18 +111,15 @@ pub fn spawn_primary_player_holding_at(
     entity
 }
 
-/// A SECOND driven body holding `held_item_id` — one that nobody possesses.
+/// A second driven body holding `held_item_id`, not possessed by anyone.
 ///
-/// ⭐⭐ THE POPULATION AN ABILITY ACTS ON IS `DrivenBodies`, NOT ONE SUBJECT.
-/// `ControlledSubject` is singular by construction, so a couch's second seat and
-/// a possessed body are invisible to it. This spawns the other half of that
-/// union: a body carrying [`DrivingParticipant`] and a stable `SimId` (the
-/// rewind-reproducible order `DrivenBodies` sorts by), with no `PrimaryPlayer`
-/// and no claim on the controlled slot.
+/// Abilities act on `DrivenBodies`, not one subject: `ControlledSubject` is
+/// singular, so a couch's second seat and a possessed body are not in it.
+/// This body has a [`DrivingParticipant`] and a stable `SimId` (the order
+/// `DrivenBodies` sorts by), no `PrimaryPlayer`, and no controlled slot.
 ///
-/// The caller inserts `ControlledSubject(None)` itself — leaving the resource out
-/// makes `DrivenBodies` panic, and an ability test that panics on a missing
-/// resource is not measuring the ability.
+/// The caller inserts `ControlledSubject(None)`; without that resource
+/// `DrivenBodies` panics.
 pub fn spawn_seated_body_holding(
     app: &mut App,
     held_item_id: &str,
@@ -158,9 +147,8 @@ pub fn spawn_seated_body_holding(
             ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
                 ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
             ),
-            // Its own pool, as a seat whose experience declared one — the
-            // population question these fixtures ask is who FIRES, not who
-            // was declared Mana.
+            // Its own pool: these fixtures test who fires, not who was
+            // declared Mana.
             crate::mana::bank(),
         ))
         .id()
@@ -168,22 +156,16 @@ pub fn spawn_seated_body_holding(
 
 /// The in-flight projectile bodies, oldest spawn first — production's ordering.
 ///
-/// ⭐⭐ A COPY, DELIBERATELY, AND THE ALTERNATIVE WAS WORSE. The original is
-/// `enemy_projectile::test_support::live_projectile_bodies` in the actor kernel,
-/// and three tests here used it across what is now a crate line. Reaching back
-/// would give this crate a dependency on the kernel — the exact edge the
-/// abilities carve (D33, 2026-09-03) removed, and one no test fixture is worth
-/// re-adding.
+/// A copy of the kernel's
+/// `enemy_projectile::test_support::live_projectile_bodies`, so this crate
+/// does not depend on the kernel (the edge the D33 split removed). It uses
+/// only types from crates below both (`ambition_projectiles`,
+/// `ambition_platformer2d_core::BodyKinematics`, shared_tangle's
+/// `ProjectileGameplay`). If a third crate needs it, move it down into
+/// `ambition_projectiles` instead of copying again.
 ///
-/// ⚠ IT COPIES CLEANLY BECAUSE IT NAMES NOTHING OF THE KERNEL'S: every type in
-/// it is from a crate below both — `ambition_projectiles::{InFlightProjectile,
-/// LiveProjectile, ProjectileBody, ProjectileSeq}`,
-/// `ambition_platformer2d_core::BodyKinematics` and shared_tangle's
-/// `ProjectileGameplay`. ⇒ If a third crate ever wants it, that is the signal to
-/// move it DOWN into `ambition_projectiles` rather than copy it again.
-///
-/// Recomposes an `InFlightProjectile` from the entity's split `BodyKinematics` +
-/// `ProjectileGameplay` so the historical collision assertions still read.
+/// Rebuilds an `InFlightProjectile` from the entity's `BodyKinematics` and
+/// `ProjectileGameplay` for the collision assertions.
 pub fn live_projectile_bodies(
     app: &mut bevy::app::App,
 ) -> Vec<ambition_projectiles::InFlightProjectile> {
@@ -192,10 +174,9 @@ pub fn live_projectile_bodies(
     use bevy::prelude::With;
 
     let world = app.world_mut();
-    // `try_query_filtered` returns `Err` when the projectile component types
-    // were never registered in this World — exactly the "no projectile ever
-    // spawned" case some historical collision fixtures assert. Treat that as an
-    // empty set rather than panicking.
+    // `try_query_filtered` returns `Err` when the projectile types were never
+    // registered in this World (no projectile ever spawned). Treat that as an
+    // empty set.
     let Some(mut q) = world.try_query_filtered::<(
         &ambition_platformer2d_core::BodyKinematics,
         &ProjectileGameplay,

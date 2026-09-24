@@ -2138,8 +2138,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     use ambition_combat::moveset::{
-        project_moveset_melee_to_body_melee, simple_melee, ActorMoveset, MovePlayback,
-        SimpleMeleeParams, ATTACK_VERB,
+        simple_melee, ActorMoveset, MovePlayback, SimpleMeleeParams, ATTACK_VERB,
     };
     use bevy::prelude::IntoScheduleConfigs;
     fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
@@ -2157,7 +2156,6 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         Update,
         (
             clear_iframes,
-            project_moveset_melee_to_body_melee,
             ambition_combat::hitbox::apply_hitbox_damage,
             apply_feature_hit_events,
         )

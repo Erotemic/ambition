@@ -73,7 +73,7 @@ fn sideways_gravity_swaps_axes() {
 
 #[test]
 fn off_axis_down_is_a_general_rotation() {
-    // A 45° "down" (toward screen down-right) is not snapped — the frame is a
+    // A 45° down (toward screen down-right) is not snapped: the frame is a
     // real rotation, so toward-feet maps along the diagonal.
     let f = AccelerationFrame::new(Vec2::new(1.0, 1.0));
     let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();
@@ -91,7 +91,7 @@ fn hybrid_control_frame_rotates_to_90_then_reverts() {
     let world = cf.to_world(Vec2::new(1.0, 0.0));
     assert!((world - Vec2::new(0.0, -1.0)).length() < 1e-6, "{world:?}");
     // Up gravity (>90°): the control frame reverts to screen, so "right" maps
-    // to screen-right (= the player's left — the accommodation).
+    // to screen-right (the player's left: the accommodation).
     let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
     let cf = up.control_frame(InputFrameMode::BodyRelativeAssist);
     assert_eq!(cf.to_world(Vec2::new(1.0, 0.0)), Vec2::new(1.0, 0.0));
@@ -113,9 +113,9 @@ const CARDINALS: [(&str, Vec2); 4] = [
 
 #[test]
 fn hybrid_resolve_input_matches_the_legacy_run_and_descend_at_every_orientation() {
-    // Hybrid MUST stay byte-identical to the old seam (the replay guard only
-    // covers normal gravity, so pin all four here). Old run: drive
-    // `control_frame(Hybrid).side` by `axis_x`. Old descend: `descend(axis_y)`.
+    // Assist mode must match the old seam at all four gravities (the replay
+    // guard covers only normal gravity). Old run: `control_frame(Hybrid).side`
+    // times `axis_x`. Old descend: `descend(axis_y)`.
     for (name, down) in CARDINALS {
         let f = AccelerationFrame::new(down);
         for &(ax, ay) in &[
@@ -144,9 +144,9 @@ fn hybrid_resolve_input_matches_the_legacy_run_and_descend_at_every_orientation(
 
 #[test]
 fn screen_mode_is_screen_relative_at_every_orientation() {
-    // In Screen mode the body moves the way the stick points ON SCREEN: the
-    // world movement direction equals the raw input vector regardless of
-    // gravity (to_world ∘ resolve_input == identity on the screen vector).
+    // In Screen mode the body moves the way the stick points on screen: the
+    // world direction equals the raw input at any gravity
+    // (to_world ∘ resolve_input is the identity on the screen vector).
     for (name, down) in CARDINALS {
         let f = AccelerationFrame::new(down);
         for &(ax, ay) in &[
@@ -197,7 +197,7 @@ fn screen_mode_matches_the_authored_quadrant_spec() {
         "input-down -> player-left"
     );
 
-    // Gravity LEFT (feet point screen-left).
+    // Gravity left (feet point screen-left).
     let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
     let l = |ax, ay| {
         left.resolve_input(InputFrameMode::ScreenRelative, ScreenAxes::new(ax, ay))
@@ -291,7 +291,7 @@ fn cardinalized_acceleration_uses_four_control_cones() {
 
 #[test]
 fn player_mode_is_the_raw_stick_in_the_player_frame() {
-    // Player mode never accommodates: the stick IS the local body frame.
+    // Player mode never accommodates: the stick is the local body frame.
     let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
     assert_eq!(
         up.resolve_input(
@@ -305,25 +305,25 @@ fn player_mode_is_the_raw_stick_in_the_player_frame() {
 
 #[test]
 fn resolve_aim_local_picks_frame_by_source_under_flipped_gravity() {
-    // Upside-down gravity: feet point up (screen). The aim stick uses the AIM
-    // policy, the movement stick uses the MOVEMENT policy, independently.
+    // Upside-down gravity: feet point up. The aim stick uses the aim policy
+    // and the movement stick the movement policy, independently.
     let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
     let modes = ControlFrameModes {
         movement: InputFrameMode::BodyRelativeStrict, // strict body-relative locomotion
         aim: InputFrameMode::ScreenRelative,          // screen-directed precision aim
     };
 
-    // Aim stick pushed screen-up (-y). Screen aim → world stays screen-up
-    // regardless of gravity: to_world(resolve) == (0,-1).
+    // Aim stick pushed screen-up (-y). Screen aim keeps world screen-up at
+    // any gravity: to_world(resolve) == (0,-1).
     let aim_local = up.resolve_aim_local(modes, ScreenAxes::new(0.0, -1.0), ScreenAxes::ZERO, 1.0);
     assert_eq!(up.to_world(aim_local.vec()), Vec2::new(0.0, -1.0));
 
-    // No aim, movement stick pushed screen-up (-y). Player movement → the
-    // stick IS the body frame, so world = side*0 + down*(-1) = -down = (0,1).
+    // No aim; movement stick pushed screen-up (-y). Player movement: the
+    // stick is the body frame, so world = side*0 + down*(-1) = -down = (0,1).
     let move_local = up.resolve_aim_local(modes, ScreenAxes::ZERO, ScreenAxes::new(0.0, -1.0), 1.0);
     assert_eq!(up.to_world(move_local.vec()), Vec2::new(0.0, 1.0));
 
-    // Neither stick → body-local facing (+x), gravity-independent in local frame.
+    // Neither stick: body-local facing (+x), gravity-independent locally.
     let facing_local = up.resolve_aim_local(modes, ScreenAxes::ZERO, ScreenAxes::ZERO, -1.0);
     assert_eq!(facing_local.vec(), Vec2::new(-1.0, 0.0));
 }
@@ -344,12 +344,12 @@ fn launch_is_away_from_feet() {
     assert_eq!(v, Vec2::new(5.0, 600.0));
 }
 
-// ── CAMERA FRAME × INPUT FRAME ───────────────────────────────────────────────
+// ── Camera frame × input frame ───────────────────────────────────────────────
 //
-//  the claim these pin is that a player-relative VIEW makes the input-frame setting inert,
-// and that this is an IDENTITY rather than a tuned approximation. `ScreenRelative` resolves
-// by projecting the stick onto `side`/`down`, which are the body basis *expressed in world
-// coordinates* — so "screen" silently means "world", correct only while no view rotates.
+// A player-relative view makes the input-frame setting inert, exactly, not
+// approximately. `ScreenRelative` projects the stick onto `side`/`down`, which
+// are the body basis in world coordinates, so "screen" means "world" unless
+// the view rotates.
 
 /// Every gravity direction worth distinguishing: down, both sideways, inverted,
 /// and an off-cardinal angle (the frame is a general rotation, not a snap).
@@ -379,10 +379,8 @@ const ALL_MODES: [InputFrameMode; 3] = [
     InputFrameMode::BodyRelativeStrict,
 ];
 
-/// Under a player-relative view every input mode resolves identically.
-///
-/// This is the whole reason the movement/aim options can read as inactive
-/// instead of being force-written: there is nothing left for them to select.
+/// Under a player-relative view every input mode resolves the same, so the
+/// movement/aim options can show as inactive instead of being overwritten.
 #[test]
 fn a_player_relative_view_collapses_every_input_mode() {
     for g in gravities() {
@@ -404,13 +402,10 @@ fn a_player_relative_view_collapses_every_input_mode() {
     }
 }
 
-/// "Press right, go right on screen" is the thing a player actually checks, and
-/// the baseline everyone already agrees on is screen-directed input under
-/// ordinary down gravity with an unrotated camera. This says a player-relative
-/// view reproduces exactly that, whatever gravity is doing.
-///
-///  stated in LOCAL axes on purpose: it needs no render-space sign convention,
-/// so it cannot pass for the wrong reason if the roll's sign is ever redefined.
+/// "Press right, go right on screen": a player-relative view reproduces
+/// screen-directed input under normal gravity with an unrotated camera,
+/// whatever gravity does. Stated in local axes, so it does not depend on a
+/// render-space sign convention.
 #[test]
 fn player_relative_at_any_gravity_matches_world_fixed_at_normal_gravity() {
     let baseline_frame = AccelerationFrame::new(Vec2::new(0.0, 1.0));
@@ -435,9 +430,9 @@ fn player_relative_at_any_gravity_matches_world_fixed_at_normal_gravity() {
     }
 }
 
-///  the poison for the above: a world-fixed view must keep the modes
-/// distinct, or the two tests above would pass on a `under_camera` that always
-/// returned `BodyRelativeStrict` and the setting would be dead everywhere.
+/// Control for the tests above: a world-fixed view keeps the modes distinct.
+/// Otherwise an `under_camera` that always returned `BodyRelativeStrict`
+/// would pass and the setting would be dead everywhere.
 #[test]
 fn a_world_fixed_view_keeps_the_input_modes_distinct() {
     let frame = AccelerationFrame::new(Vec2::new(1.0, 0.0));
@@ -458,8 +453,8 @@ fn a_world_fixed_view_keeps_the_input_modes_distinct() {
     );
 }
 
-/// A world-fixed view returns the stored mode untouched — the property that lets
-/// the camera setting leave `movement_frame_mode` alone instead of clobbering it.
+/// A world-fixed view returns the stored mode unchanged, so the camera setting
+/// does not overwrite `movement_frame_mode`.
 #[test]
 fn a_world_fixed_view_preserves_the_stored_mode() {
     for mode in ALL_MODES {

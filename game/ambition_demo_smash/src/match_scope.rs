@@ -1,23 +1,14 @@
 //! What a match created, and what ends when the match does.
 //!
-//! ⛔⛔ THE DEFECT THIS CLOSES, in Jon's words while playing (2026-09-05): *"a
-//! mine laid in a match still persists into the next match, that sounds like an
-//! issue with architecture expression. Ending a match should be cleaning
-//! everything up, don't hack in a solution to this, we need to find the right
-//! solution."*
+//! Objects this ruleset spawns (`bomb`, `bolt`, `mine`, `portal`, `spring`)
+//! each end by their own rule: a fuse, a trigger, a lifetime, the caster's next
+//! cast. The end of a match is not one of those rules, so without this module a
+//! mine laid in one match stays in the next.
 //!
-//! Measured the same day: this ruleset spawns into the world at five sites —
-//! `bomb`, `bolt`, `mine`, `portal`, `spring` — and no system despawned any of
-//! them at a match boundary. Each object ended only by its own rule: a fuse, a
-//! trigger, a lifetime, a caster's next cast. A match ending is not one of those
-//! rules.
-//!
-//! ⭐ THE OWNER IS THE MATCH, NOT THE MOVE. `MatchScoped` is stamped once where
-//! an object is created and swept once here. The alternative — a despawn in each
-//! of the five systems, or one sweep that knows the five component types — puts
-//! the end of a match's objects in N places that must each remember, which is
-//! exactly how the mine came to outlive a match while the fighters did not. The
-//! sixth technique somebody authors would be the sixth thing to forget.
+//! The owner is the match, not the move. `MatchScoped` is stamped once where an
+//! object is created and swept once here. A despawn in each system, or a sweep
+//! that knows each component type, puts this rule in many places, and the next
+//! new technique would forget it.
 
 use bevy::prelude::*;
 
@@ -26,26 +17,23 @@ use ambition_platformer2d::versus_match::{ActiveMatch, MatchScoped};
 /// The localizer's window on a match-scoped object: the identity it carries.
 pub fn match_scoped_probe(scoped: &MatchScoped) -> u64 {
     let (session, activated_on, ordinal) = scoped.0.parts();
-    // Three optional facts folded into one word: the session it belongs to, the
-    // tick it was activated on, and WHICH match of the agreed session it is.
-    // Absent reads as zero, which is what a composition with no session
-    // lifecycle stamps.
+    // Three optional facts in one word: the session, the activation tick, and
+    // which match of the agreed session it is. An absent fact reads as zero,
+    // which is what a composition with no session lifecycle stamps.
     //
-    // ⚠ THIS IS A LOCALIZER WINDOW, NOT A CHECKSUM. It deliberately shows the
-    // local halves, because what a human debugging a stray object needs to see
-    // is which activation on THIS machine owns it. Nothing compared between
-    // peers may be built this way — see `MatchInstance::peer_match_digest`.
+    // This is a localizer window, not a checksum. It shows the local halves,
+    // because a person debugging a stray object needs to see which activation
+    // on this machine owns it. Do not build a peer comparison this way; see
+    // `MatchInstance::peer_match_digest`.
     let session = session.map(|s| s.0 as u64).unwrap_or(0);
     session.rotate_left(32) ^ activated_on.unwrap_or(0) ^ ordinal.unwrap_or(0).rotate_left(16)
 }
 
 /// Stamp a freshly spawned object with the match that created it.
 ///
-/// ⚠ NO ACTIVE MATCH MEANS NO STAMP, and the object then behaves exactly as it
-/// did before this existed — the sweep only claims what a match marked. That is
-/// the right answer for a composition with no match lifecycle at all (a sandbox,
-/// a harness), and these systems only run while a move is playing, so the live
-/// case always has one.
+/// No active match means no stamp, and the sweep then ignores the object. That
+/// is correct for a composition with no match lifecycle (a sandbox, a harness).
+/// These systems only run while a move plays, so a live match always has one.
 pub fn stamp(commands: &mut Commands, entity: Entity, active: Option<&ActiveMatch>) {
     if let Some(active) = active {
         commands
@@ -54,23 +42,18 @@ pub fn stamp(commands: &mut Commands, entity: Entity, active: Option<&ActiveMatc
     }
 }
 
-/// Despawn anything the PREVIOUS match created.
+/// Despawn anything a previous match created.
 ///
-/// ⛔ THE RULE IS "NOT THE ACTIVE MATCH", not "a match ended". Stated because the
-/// two differ, and the difference is the case nobody has ruled on: a match
-/// ABANDONED mid-frame never announces a verdict, so a teardown beat hung off the
-/// verdict would leave its objects standing. Identity comparison does not care
+/// The rule is "not the active match", not "a match ended". A match abandoned
+/// mid-frame never announces a verdict, and identity comparison does not care
 /// how the last match finished.
 ///
-/// ⚠ NO ACTIVE MATCH MEANS NOTHING BELONGS. Between matches — the select screen,
-/// the shell — every match-scoped object is stale, and leaving a live mine on the
-/// select screen is the same defect wearing a different hat.
+/// No active match means nothing belongs. Between matches (select screen, the
+/// shell) every match-scoped object is stale.
 ///
-/// ⭐ ROLLBACK-SAFE BY CONSTRUCTION, and this is why the identity had to be
-/// registered: both sides of the comparison rewind. `ActiveMatch` is
-/// rollback-registered and `MatchScoped` is clone-snapshotted beside the objects
-/// it marks, so a resimulated frame reaches the same verdict about the same
-/// entity. A despawn decided from un-rewound state would be a desync.
+/// Rollback-safe: `ActiveMatch` is rollback-registered and `MatchScoped` is
+/// clone-snapshotted with the objects it marks, so a resimulated frame reaches
+/// the same result for the same entity.
 pub fn sweep_objects_from_ended_matches(
     mut commands: Commands,
     active: Option<Res<ActiveMatch>>,

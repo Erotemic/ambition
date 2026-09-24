@@ -24,11 +24,11 @@ const CONTROL_STRIP_H: f32 = 44.0;
 const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
 const START_W: f32 = 150.0;
-/// The stage cycle's width. Narrower than START because it is a setting rather
-/// than the commit, and still well over [`MIN_TOUCH_PX`].
+/// The stage cycle's width: narrower than START (a setting, not the commit),
+/// and well over [`MIN_TOUCH_PX`].
 const STAGE_W: f32 = 132.0;
-/// The stocks cycle's width. Narrower than the stage's because its label is a
-/// single digit, and still well over [`MIN_TOUCH_PX`].
+/// The stocks cycle's width: narrower than the stage's (a one-digit label),
+/// and well over [`MIN_TOUCH_PX`].
 const STOCKS_W: f32 = 108.0;
 const START_H: f32 = 34.0;
 /// Back control width, paired with the start control.
@@ -63,12 +63,10 @@ pub struct SelectLayout {
 
 /// The cell a `columns x rows` grid gets, after both aspect clamps.
 ///
-/// Free of `self` because [`SelectLayout::new`] has to ask it about grids it
-/// has not chosen yet. Portraits are authored 256x320, so a cell wider than
-/// 0.86 of its height is empty space either side of every face — and a cell
-/// TALLER than its width allows is a stripe. Clamping only the first (which is
-/// what this did until ) is why a width floor could be satisfied and
-/// then silently undone one line later.
+/// Free of `self` because [`SelectLayout::new`] asks it about grids it has not
+/// chosen yet. Portraits are authored 256x320, so a cell wider than 0.86 of its
+/// height leaves empty space beside every face, and a taller cell is a stripe.
+/// Both clamps are needed, or a width floor can be undone one line later.
 fn cell_size(area: Vec2, columns: usize, rows: usize) -> Vec2 {
     let raw = Vec2::new(
         (area.x - GAP * (columns as f32 - 1.0)) / columns as f32,
@@ -98,23 +96,16 @@ impl SelectLayout {
             (grid_bottom - grid_top).max(40.0),
         );
 
-        // THE MOST FIGHTERS A THUMB CAN STILL HIT, AND THE REST ONTO A PAGE.
+        // The most fighters a thumb can still hit; the rest go onto pages.
         //
-        // eighteen portraits do not fit on a phone, and no constant makes
-        // them. At 844x390 the grid band is 145px tall; three rows of it are
-        // 42px cells, and the portrait aspect then drags the WIDTH down to 36 —
-        // both under [`MIN_TOUCH_PX`]. Shrinking the chrome to buy the
-        // difference gets to 44.5px, which is squeaking past a floor rather than
-        // clearing it. The honest answer is fewer fighters on screen at once.
+        // Eighteen portraits do not fit on a phone: at 844x390 the grid band
+        // is 145px, and three rows give cells under [`MIN_TOUCH_PX`]. So search
+        // for the grid that shows the most cells while every cell clears the
+        // floor, and page the rest. On a monitor the search finds the whole
+        // roster on one page.
         //
-        // so this searches for the grid that shows the MOST cells while every
-        // cell still clears the floor, and pages whatever is left over. A
-        // monitor's search finds the whole roster and reports one page, so the
-        // desktop screen is unchanged and the paging never appears.
-        //
-        // never more rows than the roster needs — without that cap a tall
-        // phone would lay out seven rows for eighteen fighters and leave four
-        // empty, which is a grid that fits by describing fighters nobody has.
+        // Never more rows than the roster needs, or a tall phone would lay out
+        // empty rows.
         let mut columns = 1usize;
         let mut rows = 1usize;
         let mut best = 0usize;
@@ -124,15 +115,11 @@ impl SelectLayout {
                 if cell.x < MIN_TOUCH_PX || cell.y < MIN_TOUCH_PX {
                     continue;
                 }
-                // FIGHTERS shown, not cells offered. Scoring the capacity
-                // instead put four fighters in a 3x2 — six cells, two of them
-                // describing nobody — because six beats four. A grid is as good
-                // as the roster it shows.
+                // Score fighters shown, not cells offered, or four fighters
+                // would get a 3x2 with two empty cells.
                 let shown = (candidate_columns * candidate_rows).min(characters);
-                // Ties go to the SHALLOWER grid: the same fighters in fewer
-                // rows is the "fewest rows the cap allows" rule this screen has
-                // always had, and it is what keeps a four-fighter roster on one
-                // line instead of folding it into a square.
+                // Ties go to the shallower grid, so a four-fighter roster stays
+                // on one line.
                 if shown > best || (shown == best && candidate_rows < rows) {
                     best = shown;
                     columns = candidate_columns;
@@ -140,11 +127,10 @@ impl SelectLayout {
                 }
             }
         }
-        // a viewport too small for even one hittable cell still lays out.
-        // Returning nothing here would collapse every rectangle and make every
-        // hit test answer "nothing" — the vacuum [`HEADLESS_VIEWPORT`] exists to
-        // avoid. One cell, under the floor, is a visible problem; no cells is an
-        // invisible one.
+        // A viewport too small for one hittable cell still lays out. With no
+        // cells, every rect would collapse and every hit test answer "nothing"
+        // (the problem [`HEADLESS_VIEWPORT`] avoids). One undersized cell is a
+        // visible problem.
         if best == 0 {
             columns = 1;
             rows = 1;
@@ -154,13 +140,10 @@ impl SelectLayout {
         let pages = characters.div_ceil(per_page);
         let page = page.min(pages - 1);
 
-        // BALANCE THE ROWS OF THE LAST PAGE'S GRID. Eight fighters under a
-        // plain `min(n, 6)` wrap 6 + 2, which reads as a grid with two strays
-        // rather than as a roster. Only worth doing when everything fits on one
-        // page — rebalancing a paged grid would change the cell size per page.
-        //
-        // this only ever REMOVES columns (`ceil(n / ceil(n / c)) <= c`),
-        // so the floor chosen above survives the balancing.
+        // Balance the rows: eight fighters under `min(n, 6)` wrap 6 + 2. Only
+        // when everything fits on one page, or the cell size would change per
+        // page. This only removes columns (`ceil(n / ceil(n / c)) <= c`), so
+        // the floor chosen above survives.
         let (columns, rows) = if pages == 1 {
             let rows = characters.div_ceil(columns);
             (characters.div_ceil(rows), rows)
@@ -190,12 +173,9 @@ impl SelectLayout {
 
     /// One portrait cell's size in pixels.
     ///
-    /// ⭐ THE CURSOR'S SPEED IS SCALED FROM THIS, not from the viewport, which is
-    /// the whole reason it is public. A cursor measured in screen fractions gets
-    /// faster relative to the things it is selecting as the grid grows, and
-    /// slower as it shrinks; measured in CELLS it always takes the same time to
-    /// cross one portrait, which is the distance the player is actually
-    /// thinking in. See `CURSOR_CELLS_PER_SECOND`.
+    /// Public because the cursor speed is scaled from it
+    /// (`CURSOR_CELLS_PER_SECOND`): crossing one portrait always takes the same
+    /// time, whatever the grid size.
     pub fn cell(&self) -> Vec2 {
         self.cell
     }
@@ -223,9 +203,9 @@ impl SelectLayout {
         }
     }
 
-    /// One portrait's cell. `None` now also means "on another page", not only "past the end
-    /// of the roster". A placed token on another page is hidden here while the slot card
-    /// continues to show the fighter that was chosen.
+    /// One portrait's cell. `None` means past the roster or on another page. A
+    /// placed token on another page is hidden, while the slot card still shows
+    /// the chosen fighter.
     pub fn portrait(&self, index: usize) -> Option<HitRect> {
         if !self.page_range().contains(&index) {
             return None;
@@ -253,13 +233,11 @@ impl SelectLayout {
         }
     }
 
-    /// The diameter a token is DRAWN at, scaled to the grid it sits on.
+    /// The diameter a token is drawn at, scaled to the grid it sits on.
     ///
-    /// A phone's cells are a third of a monitor's, and a token sized for the
-    /// monitor covers the face underneath it. this is deliberately allowed to
-    /// fall below [`MIN_TOUCH_PX`] — what a finger hits is [`Self::touchable`],
-    /// and conflating the two is how a select screen ends up either unhittable
-    /// or covered in blobs.
+    /// A phone's cells are a third of a monitor's, so a fixed token would cover
+    /// the face. It may fall below [`MIN_TOUCH_PX`]; what a finger hits is
+    /// [`Self::touchable`].
     pub fn token_px(&self) -> f32 {
         (self.cell.y * 0.30).clamp(20.0, TOKEN_PX)
     }
@@ -271,9 +249,8 @@ impl SelectLayout {
 
     /// Grow a rect about its own centre to the touch floor.
     ///
-    /// the one place the floor is applied, so "drawn here" and "hittable
-    /// there" stay one derivation. A rect already big enough comes back
-    /// unchanged, so this is safe to wrap anything in.
+    /// The one place the floor is applied, so "drawn here" and "hittable there"
+    /// share a derivation. A rect already big enough is unchanged.
     pub fn touchable(rect: HitRect) -> HitRect {
         let size = rect.size();
         HitRect::from_center_size(
@@ -282,11 +259,10 @@ impl SelectLayout {
         )
     }
 
-    /// A page arrow, at the LEFT of the control strip, opposite START.
+    /// A page arrow, at the left of the control strip, opposite START.
     ///
-    /// sized to [`MIN_TOUCH_PX`] rather than to the strip's height: the strip
-    /// shrinks with the viewport and these are the two controls a phone needs
-    /// MOST, since a phone is the only place the grid pages at all.
+    /// Sized to [`MIN_TOUCH_PX`], not the strip height: the strip shrinks with
+    /// the viewport, and only a phone pages the grid.
     pub fn page_button(&self, next: bool) -> HitRect {
         let strip = self.control_strip();
         let size = Vec2::splat(MIN_TOUCH_PX);
@@ -299,10 +275,8 @@ impl SelectLayout {
 
     /// The stage cycle, immediately left of START in the same strip.
     ///
-    /// ⚠ Beside START rather than in the grid: choosing a stage is a MATCH
-    /// decision like pressing start, not a per-seat one like picking a fighter,
-    /// and putting it among the portraits would put it inside the region a
-    /// cursor sweeps while choosing a character.
+    /// Beside START, not in the grid: the stage is a match decision, and it
+    /// must stay out of the area a cursor sweeps while choosing a fighter.
     pub fn stage_button(&self) -> HitRect {
         let strip = self.control_strip();
         HitRect::from_center_size(
@@ -314,11 +288,8 @@ impl SelectLayout {
         )
     }
 
-    /// The stocks cycle, LEFT of the stage cycle.
-    ///
-    /// Both are match decisions rather than per-seat ones, so they sit together
-    /// on the same side of START, in the order a player reads them: how many
-    /// stocks, on which stage, then GO.
+    /// The stocks cycle, left of the stage cycle: both are match decisions,
+    /// read in order: how many stocks, on which stage, then GO.
     pub fn stocks_button(&self) -> HitRect {
         let strip = self.control_strip();
         HitRect::from_center_size(
@@ -338,13 +309,11 @@ impl SelectLayout {
         )
     }
 
-    /// The way out of the lobby, at the LEFT end of the title strip.
+    /// The way out of the lobby, at the left end of the title strip.
     ///
-    /// left, because the host owns the top-RIGHT corner. [`TITLE_H`]'s own
-    /// comment says so: the shell draws Menu and Back there over whatever route
-    /// is up, and a second Back under them would be two buttons fighting for one
-    /// thumb. This strip is otherwise empty — the title text is centred — so the
-    /// button costs no portrait and no card.
+    /// Left, because the shell draws Menu and Back in the top-right corner
+    /// (see [`TITLE_H`]). The title text is centred, so this costs no portrait
+    /// or card.
     pub fn back_button(&self) -> HitRect {
         let strip = self.title();
         HitRect::from_center_size(
@@ -393,8 +362,8 @@ impl SelectLayout {
     }
 
     /// Everything the cursor can act on, in a stable order.
-    ///
-    /// order is part of the contract.
+    /// Everything the cursor can act on, in a stable order. The order is part
+    /// of the contract.
     pub fn targets(&self) -> Vec<(SelectTarget, HitRect)> {
         let mut targets = Vec::with_capacity(self.characters + MAX_SMASH_SEATS + 4);
         for index in 0..self.characters {
@@ -406,24 +375,18 @@ impl SelectLayout {
             targets.push((SelectTarget::RoleButton(slot), self.role_button(slot)));
         }
         targets.push((SelectTarget::Start, self.start_button()));
-        // only when there IS another page. A button that turns to nowhere
-        // is a target the cursor can land on and a finger can miss the grid for.
+        // Only when there is another page; otherwise the arrows are dead
+        // targets.
         if self.pages > 1 {
             targets.push((SelectTarget::PagePrev, self.page_button(false)));
             targets.push((SelectTarget::PageNext, self.page_button(true)));
         }
-        // APPENDED, so every portrait keeps the position it already had.
-        // The cursor names a target by its INDEX in this list, and inserting
-        // anywhere but the end would silently re-point every walkthrough,
-        // capture and test that reaches a cell by number.
+        // Append only: the cursor names a target by its index here, so an
+        // insert would re-point every walkthrough, capture and test.
         targets.push((SelectTarget::Back, self.back_button()));
-        // ⚠ AFTER `Back`, for the same reason `Back` is last: this arrived after
-        // every existing index was already spoken for. The order is the
-        // contract, and "append" is the only edit to it that costs nothing.
+        // Appended after `Back`, by the same contract.
         targets.push((SelectTarget::Stage, self.stage_button()));
-        // APPENDED after `Stage`, by the same contract the comment above
-        // states: the cursor names a target by INDEX, so anything but an
-        // append re-points every walkthrough, capture and test.
+        // Appended after `Stage`, by the same contract.
         targets.push((SelectTarget::Stocks, self.stocks_button()));
         targets
     }
@@ -438,28 +401,19 @@ mod tests {
         SelectLayout::new(Vec2::new(1280.0, 720.0), roster())
     }
 
-    /// EVERY PORTRAIT IS REACHABLE FROM EVERY OTHER BY THE D-PAD ALONE.
+    /// Every portrait is reachable from every other by the d-pad alone.
     ///
-    /// ⛔ **This is the property Jon's complaint was about** — *"the controls
-    /// don't feel good, they are very hard to use with a gamepad"* — and the
-    /// existing snap tests could not see it: they check one hop over a handful
-    /// of synthetic rectangles, and unreachability is a property of the WHOLE
-    /// graph. A grid where one portrait can only be entered and never left, or
-    /// where a column is cut off from its neighbour, passes every one-hop test
-    /// and is unusable on a pad.
-    ///
-    /// ⇒ Walks the real layout's real targets as a directed graph — four
-    /// directions from each portrait, `cursor::snap` deciding each edge — and
-    /// asserts the portraits form ONE strongly-reachable set from any start.
+    /// One-hop snap tests cannot see this: a portrait that can be entered but
+    /// not left passes them. This walks the real layout's targets as a directed
+    /// graph (four directions per portrait, `cursor::snap` for each edge) and
+    /// asserts all portraits are reachable.
     #[test]
     fn every_portrait_is_reachable_from_every_other_by_the_dpad() {
         use crate::select_screen::cursor::{snap, CursorTarget};
         use bevy::prelude::Entity;
         use std::collections::{HashSet, VecDeque};
 
-        // ⚠ The FULL roster. `wide()` uses `SmashRoster::default()`, which is
-        // two characters — a grid of two cannot express a dead end, and the
-        // size assertion below caught that fixture before it passed vacuously.
+        // The full roster: a two-character grid cannot express a dead end.
         let layout = SelectLayout::new(Vec2::new(1280.0, 720.0), roster());
         let targets = layout.targets();
         let rects: Vec<CursorTarget> = targets
@@ -490,9 +444,8 @@ mod tests {
             Vec2::new(0.0, 1.0),
             Vec2::new(0.0, -1.0),
         ];
-        // Reachability from ONE portrait is enough for the property that
-        // matters: the graph is symmetric under direction reversal, so a set
-        // every portrait can be reached from is a set every portrait can reach.
+        // Reachability from one portrait is enough: the graph is symmetric
+        // under direction reversal.
         let start = portraits[0];
         let mut seen: HashSet<usize> = HashSet::from([start]);
         let mut queue = VecDeque::from([start]);
@@ -527,19 +480,12 @@ mod tests {
         );
     }
 
-    /// HOW MANY PRESSES IT TAKES TO CROSS THE GRID — the other half of "hard to
-    /// use with a gamepad", since reachable is not the same as reasonable.
+    /// How many presses it takes to cross the grid: reachable is not the same
+    /// as reasonable.
     ///
-    /// ⭐ **MEASURED 2026-09-04: the diameter is 8** on the shipped 23-cell
-    /// desktop grid — found by tightening this bound until it failed (≤6 fails,
-    /// ≤8 passes). That is reasonable for a grid this shape, so the answer to
-    /// the gamepad complaint is NOT "the grid is a crawl".
-    ///
-    /// ⚠ The bound is 12, deliberately loose. A bound sitting one press above
-    /// the measured value reddens on any ordinary layout tweak and teaches the
-    /// next person to raise it; this one only fires on a real regression — the
-    /// kind where a two-press hop becomes a crawl — which no per-hop test can
-    /// see. The measurement, not the bound, is the number worth quoting.
+    /// The measured diameter is 8 on the 23-cell desktop grid. The bound is 12,
+    /// deliberately loose, so it fires on a real regression and not on a layout
+    /// tweak.
     #[test]
     fn crossing_the_grid_stays_within_a_handful_of_presses() {
         use crate::select_screen::cursor::{snap, CursorTarget};
@@ -604,8 +550,7 @@ mod tests {
              holding a pad feels the difference before they can name it.",
             portraits.len()
         );
-        // ⚠ ANTI-VACUITY: a bound nothing can approach is not a bound. The grid
-        // must actually take several presses to cross, or this asserts nothing.
+        // Anti-vacuity: the grid must take several presses to cross.
         assert!(
             worst >= 3,
             "the whole grid is {worst} presses across, so the bound above cannot \
@@ -613,51 +558,29 @@ mod tests {
         );
     }
 
-    /// A phone held sideways — the viewport this screen was unusable at.
-    ///
-    /// the FULL roster, not `SmashRoster::default()`. The default is this
-    /// demo's own two stand-ins, which fit on a postage stamp; sizing a phone
-    /// against two fighters would have every assertion below pass over a screen
-    /// nobody will ever see. [`crate::select::SMASH_ROSTER`] is what a host
-    /// composes.
+    /// A phone held sideways, with the full roster (see [`roster`]); the
+    /// default two stand-ins would fit anywhere.
     fn phone() -> SelectLayout {
         SelectLayout::new(PHONE_LANDSCAPE, roster())
     }
 
-    /// The WIDEST grid any composition can build — the wish list plus random.
+    /// The widest grid any composition can build: the wish list plus random.
     ///
-    /// ⛔⛔ **THIS WAS `SMASH_ROSTER.len()` AND PRODUCTION USES `len() + 1`.**
-    /// `current_layout` passes `fighters.cell_count()`, and `cell_count` is
-    /// *"one per fighter, plus random"* — the extra cell is
-    /// [`crate::select::SlotPick::Random`], which `SmashRoster::cell` answers at
-    /// `index == len()`. ⇒ So every layout test in this module was measuring a
-    /// grid **one cell smaller than the one drawn**, and the RANDOM cell — the
-    /// last one, the one most likely to collide with the control strip — was
-    /// covered by nothing.
-    ///
-    /// ⚠ And the module disagreed with ITSELF: `wide()` built from
-    /// `SmashRoster::default().len()` while `phone()` and four other tests built
-    /// from this helper. Two counts, neither the game's. Both now come from here.
-    ///
-    /// ⛔⛔ **AND THIS IS AN UPPER BOUND, NOT "THE PRODUCTION COUNT" — I called it
-    /// that in one commit and it is a third wrong number.** `current_layout`
-    /// passes the ASSEMBLED roster's `cell_count()`, and `assemble` filters the
-    /// wish list by what the composition registers: **4 cells in the standalone
-    /// demo (3 fighters + random), ≥9 in the composed app, 24 only if every id
-    /// were available.** ⇒ Testing the widest grid is the right default — it is
-    /// the most pages, the tightest packing and the worst case for the control
-    /// strip — but it is a STRESS case, and a layout that passes here has not
-    /// been shown correct at 4. [`the_demo_sized_grid_also_packs_without_overlap`]
-    /// covers that end.
+    /// Production passes `fighters.cell_count()` (one per fighter, plus the
+    /// [`crate::select::SlotPick::Random`] cell). This is an upper bound: the
+    /// assembled roster is 4 cells in the standalone demo, 9 or more in the
+    /// composed app. The widest grid is the stress case (most pages, tightest
+    /// packing); [`the_demo_sized_grid_also_packs_without_overlap`] covers the
+    /// small end.
     fn roster() -> usize {
-        // Mirrors `SmashRoster::cell_count()`; `SMASH_ROSTER` is a `&[&str]` and
-        // has no such method, so the `+ 1` is spelled out and named.
+        // Mirrors `SmashRoster::cell_count()`; `SMASH_ROSTER` is a slice, so
+        // the `+ 1` for random is spelled out.
         crate::select::SMASH_ROSTER.len() + 1
     }
 
     const PHONE_LANDSCAPE: Vec2 = Vec2::new(844.0, 390.0);
 
-    /// EVERY PORTRAIT ON A PHONE IS BIG ENOUGH TO HIT.
+    /// Every portrait on a phone is big enough to hit.
     #[test]
     fn a_phone_shows_no_portrait_smaller_than_a_thumb() {
         let layout = phone();
@@ -676,9 +599,8 @@ mod tests {
         assert!(checked > 0, "a phone showed no portraits at all");
     }
 
-    /// The token drawing may be compact, but its hit target still receives the
-    /// same touch floor as every other direct-manipulation target. Token
-    /// placement itself belongs to the select state, not to this layout.
+    /// The token may be drawn small, but its hit target gets the touch floor.
+    /// (This is close to a tautology: `touchable` clamps to the floor.)
     #[test]
     fn a_phone_offers_a_thumb_sized_token_hit_target() {
         let layout = phone();
@@ -690,35 +612,13 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ ON A PHONE, NO TWO *TOUCHABLE* TARGETS MAY OVERLAP — which is a
-    /// different claim from the one `no_two_clickable_targets_overlap` makes.
-    ///
-    /// ⚠ **THAT TEST CHECKS THE DRAWN RECTS, ON A DESKTOP.** A finger does not
-    /// hit the drawn rect: it hits [`SelectLayout::touchable`], which expands
-    /// anything under [`MIN_TOUCH_PX`] up to it. ⇒ Two targets drawn small and apart
-    /// can have EXPANDED boxes that share pixels, and then a tap lands on
-    /// whichever the tie-break preferred — exactly the failure that test's own
-    /// doc describes, in the coordinate space nobody was testing.
-    ///
-    /// ⛔ **AND IT REPLACES A TEST OF MINE THAT COULD NOT FAIL.** I first wrote
-    /// `touchable(stage_button()).size() >= MIN_TOUCH_PX`, which is a tautology:
-    /// `touchable` clamps to that floor by construction, so the assertion is true
-    /// for every input. Poison-verified by shrinking the button to 5% — it stayed
-    /// green. ⚠ **`a_phone_offers_a_thumb_sized_token_hit_target` below has the
-    /// same shape and the same problem**; it is left alone here because deleting
-    /// somebody else's test is a bigger decision than adding a real one, but it
-    /// is not evidence of anything.
-    /// ⭐ THE OTHER END OF THE RANGE: the grid the STANDALONE DEMO actually
-    /// builds, which is four cells rather than twenty-four.
-    ///
-    /// ⛔ The widest grid is a stress case and the smallest is a different one: a
-    /// four-cell grid packs into far larger portraits, and a portrait that grows
-    /// can collide with the control strip from the other direction. ⚠ Neither end
-    /// implies the other, and the module only ever tested one.
+    /// The other end of the range: the grid the standalone demo builds (four
+    /// cells). Larger portraits can hit the control strip from the other
+    /// direction, so neither end implies the other.
     #[test]
     fn the_demo_sized_grid_also_packs_without_overlap() {
-        // 3 seatable fighters + random — `SmashRoster::assemble` in the
-        // standalone composition, per "every id this demo can SEAT" in `lib.rs`.
+        // 3 seatable fighters + random, as `SmashRoster::assemble` gives in the
+        // standalone composition.
         let layout = SelectLayout::new(PHONE_LANDSCAPE, 4);
         let targets: Vec<_> = layout
             .targets()
@@ -742,6 +642,12 @@ mod tests {
         }
     }
 
+    /// On a phone, no two touchable targets overlap.
+    ///
+    /// `no_two_clickable_targets_overlap` checks drawn rects on a desktop. A
+    /// finger hits [`SelectLayout::touchable`], which expands small targets to
+    /// [`MIN_TOUCH_PX`], so two small separate targets can share expanded
+    /// pixels.
     #[test]
     fn a_phone_leaves_no_two_touch_targets_fighting_over_the_same_pixels() {
         let layout = phone();
@@ -750,19 +656,14 @@ mod tests {
             .into_iter()
             .map(|(kind, rect)| (kind, SelectLayout::touchable(rect)))
             .collect();
-        // ⛔ AN EPSILON, AND IT IS NOT SLOPPINESS — IT IS THE DIFFERENCE BETWEEN
-        // "these overlap" AND "these are adjacent". Strict `<` reported the
-        // stage button overlapping `Portrait(10)` by **0.00002 px**: the two abut
-        // exactly at the grid line and float rounding put one a hair inside. A
-        // test that calls that a defect cries wolf on every layout that packs
-        // flush, which is every good one.
+        // An epsilon separates "overlap" from "adjacent": targets that abut at
+        // a grid line can overlap by float rounding (0.00002 px).
         const EPS: f32 = 0.5;
         let mut tightest = f32::INFINITY;
         for (i, (a_kind, a)) in targets.iter().enumerate() {
             for (b_kind, b) in targets.iter().skip(i + 1) {
-                // Positive on each axis = they overlap on that axis. Boxes
-                // overlap only when BOTH are positive, so the smaller of the two
-                // is how deep the collision is.
+                // Positive on each axis means overlap on that axis. The boxes
+                // overlap only when both are positive; the smaller is the depth.
                 let depth_x = (a.max.x.min(b.max.x) - a.min.x.max(b.min.x)).max(0.0);
                 let depth_y = (a.max.y.min(b.max.y) - a.min.y.max(b.min.y)).max(0.0);
                 let depth = depth_x.min(depth_y);
@@ -777,13 +678,10 @@ mod tests {
             }
         }
 
-        // ⚠ THE LAYOUT PASSES WITH NO ROOM TO SPARE, and that is worth an
-        // assertion of its own rather than a comment. `START_H` is 34px, under
-        // the 44px floor, so the control strip's buttons ARE expanded — and the
-        // expansion brings the stage button exactly to the grid line. ⇒ The
-        // margin is zero, not comfortable; anything that lowers the grid or
-        // grows the strip turns adjacency into overlap. This line fails if the
-        // margin ever goes properly negative rather than epsilon-negative.
+        // The layout has no room to spare: `START_H` (34px) is under the 44px
+        // floor, so the strip buttons are expanded, and the stage button
+        // reaches exactly the grid line. This fails if the margin goes
+        // properly negative.
         assert!(
             tightest <= EPS,
             "the tightest touch-box pair is {tightest:.2}px apart, which should be \
@@ -791,7 +689,7 @@ mod tests {
         );
     }
 
-    /// A PHONE PAGES THE ROSTER; A MONITOR DOES NOT.
+    /// A phone pages the roster; a monitor does not.
     #[test]
     fn the_roster_pages_on_a_phone_and_fits_on_a_monitor() {
         let desktop = SelectLayout::new(Vec2::new(1280.0, 720.0), roster());
@@ -802,10 +700,7 @@ mod tests {
         );
     }
 
-    /// EVERY FIGHTER IS ON EXACTLY ONE PAGE.
-    ///
-    /// a paged grid whose pages do not cover the roster hides a character
-    /// nothing else would report — the screen looks complete and one fighter is
+    /// Every fighter is on exactly one page; otherwise a fighter is silently
     /// unpickable.
     #[test]
     fn the_pages_cover_the_roster_exactly_once() {
@@ -857,9 +752,8 @@ mod tests {
         assert!(layout.start_button().max.y <= line);
     }
 
-    /// Nothing overlaps anything else it is not inside. two targets sharing
-    /// pixels is a click that lands on whichever the tie-break happened to
-    /// prefer, and it is invisible until somebody misses a portrait.
+    /// Nothing overlaps anything it is not inside: shared pixels send a click
+    /// to whichever target the tie-break prefers.
     #[test]
     fn no_two_clickable_targets_overlap() {
         let layout = wide();
@@ -878,8 +772,8 @@ mod tests {
         }
     }
 
-    /// Everything is inside the window. A card off the bottom edge is a card
-    /// nobody can click, and it would still pass every other test here.
+    /// Everything is inside the window: a card off the bottom edge cannot be
+    /// clicked.
     #[test]
     fn every_target_is_on_screen() {
         for size in [
@@ -902,25 +796,18 @@ mod tests {
         }
     }
 
-    /// ⭐⭐ THE LAST CELL IS THE RANDOM CELL, AND UNTIL 2026-09-04 NOTHING
-    /// TOUCHED IT.
+    /// The last cell is the random cell, and it is drawn.
     ///
-    /// ⛔ Every test in this module built its grid from `SMASH_ROSTER.len()`
-    /// while production passes `cell_count()` — *"one per fighter, plus random"*
-    /// — so the grid under test was one cell short and **the random cell was
-    /// covered by nothing**. ⚠ It is the LAST cell, which is the one most likely
-    /// to be pushed into the control strip or off a page boundary, so "covered by
-    /// nothing" was not harmless.
-    ///
-    /// ⇒ This pins the two halves that make it a real cell: the layout draws it,
-    /// and the roster answers it with [`SlotPick::Random`] rather than a fighter.
+    /// It is the cell most likely to be pushed into the control strip or off a
+    /// page. This pins that the layout draws it and the roster answers it with
+    /// [`SlotPick::Random`].
     #[test]
     fn the_last_grid_cell_is_random_and_is_drawn() {
         let layout = wide();
         let last = layout.characters - 1;
 
-        // ⛔ It is DRAWN. A grid that sizes itself for the cell without laying it
-        // out would pass every count assertion in this module.
+        // It is drawn: a grid sized for the cell but not laying it out would
+        // pass every count assertion.
         assert!(
             layout.portrait(last).is_some(),
             "the last cell has no portrait rect, so the random square is sized \
@@ -931,9 +818,8 @@ mod tests {
             "the grid laid out a cell past its own count"
         );
 
-        // ⛔ And it is RANDOM, not a fighter. `SmashRoster::cell` answers
-        // `Random` at exactly `len()`, which is the last index of a
-        // `cell_count()`-sized grid.
+        // It is random, not a fighter: `SmashRoster::cell` answers `Random` at
+        // `len()`, the last index of a `cell_count()`-sized grid.
         let roster = SmashRoster::default();
         assert_eq!(
             roster.cell(roster.len()),
@@ -955,17 +841,9 @@ mod tests {
     #[test]
     fn the_grid_holds_the_roster_plus_the_random_cell() {
         let layout = wide();
-        // ⛔⛔ THIS ASSERTED `SmashRoster::default().len()` AND THAT IS A THIRD
-        // ROSTER AGAIN. `SmashRoster::default()` is `OWN_FIGHTERS` — the two
-        // stand-ins, 2 entries. `SMASH_ROSTER` is the grid's WISH LIST, 23. And
-        // what a player sees is `assemble`d from the wish list against the
-        // composition's registry: 3 in the standalone demo, **≥8 in the composed
-        // app**. ⇒ Three different numbers, and the old assertion picked the one
-        // the grid is never built from.
-        //
-        // ⇒ Compare against the same source the fixture used, which is the only
-        // thing this test can honestly claim: the layout holds the cells it was
-        // asked for, one per entry plus random.
+        // Compare with the fixture's own source (`roster()`), not
+        // `SmashRoster::default()` (the two stand-ins): the layout holds the
+        // cells it was asked for, one per entry plus random.
         assert_eq!(layout.characters, roster());
         assert_eq!(
             roster(),
@@ -979,10 +857,8 @@ mod tests {
         );
     }
 
-    /// The rows are BALANCED, or a roster reads as a grid with strays.
-    ///
-    /// found by looking at a capture: eight fighters under a plain
-    /// `min(n, 6)` wrapped 6 + 2.
+    /// The rows are balanced: eight fighters under a plain `min(n, 6)` would
+    /// wrap 6 + 2.
     #[test]
     fn the_grid_spreads_evenly_rather_than_filling_rows_to_the_cap() {
         for (characters, expected) in [(1, (1, 1)), (4, (4, 1)), (6, (6, 1)), (8, (4, 2)), (9, (5, 2)), (13, (5, 3))] {
@@ -1004,10 +880,8 @@ mod tests {
         }
     }
 
-    /// a viewport nobody set must not collapse the screen to a point. A
-    /// headless app has no window; laying out against zero would make every hit
-    /// test answer "nothing" and every test of this screen pass over an empty
-    /// box.
+    /// A missing window must not collapse the screen to a point: a headless
+    /// app would hit-test nothing and every test would pass over an empty box.
     #[test]
     fn a_missing_window_lays_out_against_a_real_size() {
         let layout = SelectLayout::for_viewport(None, 8);
@@ -1022,8 +896,7 @@ mod tests {
         );
     }
 
-    /// The cards are in reading order and the same width. A couch reads the
-    /// cards left to right and the tokens have to match.
+    /// The cards run left to right at one width, the order a couch reads them.
     #[test]
     fn the_four_cards_run_left_to_right_at_one_width() {
         let layout = wide();

@@ -17,45 +17,37 @@ use ambition_entity_catalog::authoring::{cancelable, committed_tail, impulse, on
 
 /// The rise George's Up-B commands, engine units per second against gravity.
 ///
-/// authored as a SPEED and applied with `ImpulseMode::Set`, which is what
-/// makes it a recovery: a body pressing this while falling at terminal velocity
-/// gets exactly the same climb as one pressing it from a standstill. An additive
-/// impulse would be strongest when George least needed it.
+/// A speed applied with `ImpulseMode::Set`, which makes it a recovery: a body
+/// falling at terminal velocity gets the same climb as one at rest. An additive
+/// impulse would be weakest when George needs it most.
 pub(crate) const ASCENT_SPEED: f32 = 1020.0;
 
-/// When it arrives — the windup you can see coming, and the number the recovery
-/// probe plans around.
+/// When it arrives: a visible windup, and the number the recovery probe plans
+/// around.
 pub(crate) const ASCENT_AT_S: f32 = 0.18;
 
-/// And when the move lets go. The guard `the_ascent_is_a_save_and_not_a_flight` holds the
+/// When the move lets go. `the_ascent_is_a_save_and_not_a_flight` guards the
 /// arithmetic.
 pub(crate) const ASCENT_ENDS_S: f32 = 1.15;
 
 /// The widest startup a POKE may have, and the narrowest a COMMITMENT may have.
 ///
-/// these are the character, not tuning constants that happen to bracket the
-/// numbers: the gap between them is the excluded middle, and the guard asserts
-/// no move lands inside it. Retuning George means moving a move to one side or
-/// the other, never into the band.
+/// These define the character. The gap between them is the excluded middle,
+/// and the guard asserts no move lands inside it. Retune by moving a move to
+/// one side, never into the band.
 const POKE_MAX_STARTUP_S: f32 = 0.08;
 const COMMIT_MIN_STARTUP_S: f32 = 0.15;
 
-/// Where a smash freezes: FOUR FRAMES into its windup, and the same four frames
-/// whatever the move's own startup is.
+/// Where a smash freezes: four frames into its windup, for every move.
 ///
-/// ⭐⭐ AUTHORED, not derived. `CHARGE_POSE_FRACTION` is the engine's fallback
-/// for a move that says nothing, and it makes the pose a FRACTION of the
-/// windup — so a slow smash would hold later in real time than a fast one, for
-/// no reason a player could see. A charge pose is an ANIMATION fact: the swing
-/// starts, and a few frames in it stops. Jon, 2026-08-23: *"it needs to hold on
-/// the first frames of the smash animation, before letting the rest of the
-/// animation, which actually has the hitboxes, play."*
+/// Authored, not derived. The engine fallback `CHARGE_POSE_FRACTION` makes the
+/// pose a fraction of the windup, so a slow smash would hold later than a fast
+/// one. The hold must be on the first frames of the animation, before the
+/// frames with hitboxes.
 ///
-/// ⛔ INSIDE THE LEADING STARTUP AND STRICTLY BEFORE THE FIRST ACTIVE WINDOW —
-/// every windup in this roster is at least 0.22s, so four frames clears it with
-/// room. `CatalogError::ChargeHoldOutsideWindup` refuses an authored pose that
-/// does not, which is the check this authoring exists to satisfy rather than
-/// to lean on.
+/// It must be inside the leading startup and before the first active window.
+/// Every windup here is at least 0.22s. `CatalogError::ChargeHoldOutsideWindup`
+/// refuses a pose that is not.
 const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
 
 /// See the module doc. Sixteen moves, the genre's standard verb map plus four
@@ -65,9 +57,8 @@ const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
 pub fn george_booul_moveset() -> MovesetContract {
     // ── the three pokes ──────────────────────────────────────────────────────
     //
-    // Everything George owns that comes out quickly is also nearly harmless. He
-    // is not paid for these; they exist so that "not committing" is a legal
-    // move rather than standing still.
+    // Everything George throws quickly is nearly harmless. The pokes exist so
+    // that not committing is a legal option.
     let jab = strike(Strike {
         id: "jab",
         clip: "attack",
@@ -82,30 +73,15 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: None,
         on_hit: None,
     });
-    // THE ONE ROUTE ACROSS THE GAP, AND IT ONLY OPENS ON CONTACT.
+    // The one route across the gap, open only on contact. `OnHit`: a
+    // whiffed jab cancels into nothing, so the smash route is a reward for
+    // connecting, not a smash with a jab's startup. The window covers the
+    // active frames and the recovery.
     //
-    // George's whole problem is that he has three fast options worth nothing and
-    // eight slow ones he can never start safely. This is the answer his own
-    // character suggests: land the harmless thing and the committed thing
-    // becomes free. `OnHit` is load-bearing — a whiffed jab cancels into
-    // nothing, so the route is a REWARD for connecting rather than a way to
-    // throw a smash with a jab's startup.
-    //
-    // The window opens with the active frames and runs through the recovery, so
-    // it is the hit and its follow-through that buy the escape.
-    //
-    // ⭐ AND THE STRING GOES IN FRONT OF THE ROUTE. `jab2` is named first
-    // because it is the answer to the UNDIRECTED follow-up — a neutral re-press
-    // or a held button continues the jab — while the smash route is bought with
-    // a DIRECTED press, which never reads as a string. George had neither link
-    // until 2026-08-23: the chain shipped onto the shared table and he carries
-    // his own, so a census of a George mirror counted zero `jab2` because he had
-    // no such move, not because the brain would not choose it.
-    //
-    // ⛔ `Always` for the string and `OnHit` for the route, in ONE window,
-    // which the cancel table cannot express — so the string gets its own window
-    // and the route keeps the one it was authored with. A whiffed jab strings;
-    // it still buys nothing.
+    // The string comes first: `jab2` answers the undirected follow-up (a
+    // neutral re-press or a held button); the smash route needs a directed
+    // press. The string is `Always` and the route is `OnHit`; one window
+    // cannot hold both conditions, so each has its own window.
     let jab = cancelable(jab, 0.05, 0.25, &["jab2"], CancelCondition::Always);
     let jab = cancelable(
         jab,
@@ -114,18 +90,12 @@ pub fn george_booul_moveset() -> MovesetContract {
         &["smash", "special"],
         CancelCondition::OnHit,
     );
-    // ⭐ AND SHIELDED, IT BUYS A GRAB — the first authored `OnBlock` window in
-    // the game, and the genre's most canonical use of one. A blocked jab is the
-    // moment the defender has committed to holding shield, which is exactly when
-    // a grab beats them. Without it a shielded jab offers George nothing: the
-    // route above is `OnHit` and nothing connected, so his only blocked-jab
-    // option was to finish recovery and let the shield go.
+    // Shielded, the jab buys a grab (`OnBlock`): a blocked jab is when the
+    // defender is committed to shield, and a grab beats that.
     //
-    // ⛔ THIRD IN THE LIST, NOT FIRST. The chain takes the first successor it can
-    // resolve BY MOVE ID (see the string test below), so `jab2` has to stay the
-    // jab's first nomination; a grab named earlier would answer every held
-    // button. `grab` is a VERB rather than a move in this table — it resolves
-    // through the contract's verb map to `george_grab`.
+    // Third in the list, not first: the chain takes the first successor it
+    // can resolve by move id, so `jab2` must stay first or a grab would answer
+    // every held button. `grab` is a verb here; it resolves to `george_grab`.
     let jab = cancelable(jab, 0.05, 0.25, &["grab"], CancelCondition::OnBlock);
     let jab = feel(jab, Feel::Poke);
 
@@ -165,13 +135,11 @@ pub fn george_booul_moveset() -> MovesetContract {
     u_air.autocancel_after_s = Some(0.26);
     let u_air = feel(u_air, Feel::Launcher);
 
-    // ── the tilts, which for George are COMMITMENTS ──────────────────────────
+    // ── the tilts, which for George are commitments ──────────────────────────
     //
-    // this is the single most character-defining pair in the table. A tilt is
-    // the genre's safe middle option everywhere else — the poke you throw when
-    // you do not want to decide. George does not have one. His up-tilt starts
-    // more than twice as late as the shared table's and hits more than twice as
-    // hard, which is the same trade every one of his slow moves makes.
+    // For most fighters a tilt is the safe middle option. George has none:
+    // his up-tilt starts more than twice as late as the shared table's and hits
+    // more than twice as hard.
     let up_tilt = strike(Strike {
         id: "tilt_up",
         clip: "attack",
@@ -206,10 +174,8 @@ pub fn george_booul_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
-    // the slowest and hardest in this composition, on a body that already
-    // survives longest. That is deliberate and it is the risk: a heavyweight
-    // who also lands the biggest hits is only fair because he can never throw
-    // one without being seen doing it.
+    // The slowest and hardest smashes here, on a body that survives longest.
+    // Fair only because he can never throw one unseen.
     let f_smash = strike(Strike {
         id: "smash_forward",
         clip: "attack",
@@ -236,15 +202,10 @@ pub fn george_booul_moveset() -> MovesetContract {
             multiplier: 1.7,
         },
     );
-    // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
-    // a body reached by both takes it. This is the base: the same commitment
-    // landed at the wrong distance, which hurts and does not kill.
-    //
-    // George's forward smash is his longest commitment (0.40s of windup, 0.46s
-    // of recovery), and until now every distance inside its reach paid the
-    // same. Spacing it is a skill on the move now without the move becoming
-    // two. ⛔ the ORDER in this list is the priority — writing the base first
-    // would make every forward smash a base hit and nothing would warn you.
+    // Tip and base. The volume above is the tip, authored first, so a body
+    // reached by both takes the tip. This is the base: the same commitment at
+    // the wrong distance, which hurts but does not kill. The list order is the
+    // priority.
     for window in f_smash
         .windows
         .iter_mut()
@@ -254,14 +215,14 @@ pub fn george_booul_moveset() -> MovesetContract {
         window.volumes.push(ambition_entity_catalog::HitVolume {
             shape: ambition_entity_catalog::VolumeShape::Rect {
                 // Inboard of the tip and overlapping it, so a body between
-                // the two is genuinely reached by both.
+                // the two is reached by both.
                 offset: (16.0, -4.0),
                 half_extents: (18.0, 24.0),
             },
             damage: 11,
             knockback: 82.0,
             knockback_growth: Some(82.0 * crate::SMASH_KNOCKBACK_GROWTH),
-            // Flatter and weaker: a base hit puts them beside you, not away.
+            // Flatter and weaker: a base hit leaves them beside you.
             launch_dir: Some((1.0, -0.16)),
             ..tip
         });
@@ -327,8 +288,7 @@ pub fn george_booul_moveset() -> MovesetContract {
     // ── the committed aerials ────────────────────────────────────────────────
     //
     // Three of his five aerials are on the slow side of the gap, with landing
-    // lag to match. Jumping is not an escape for this body; it is another
-    // decision.
+    // lag to match. Jumping is another decision, not an escape.
     let mut f_air = strike(Strike {
         id: "air_forward",
         clip: "attack",
@@ -365,9 +325,8 @@ pub fn george_booul_moveset() -> MovesetContract {
     b_air.autocancel_after_s = Some(0.36);
     let b_air = feel(b_air, Feel::Heavy);
 
-    // The heaviest landing lag on the grid. A missed spike over the stage is a
-    // free smash for whoever is standing under it — which, for a fighter whose
-    // whole table is commitments, is the correct punishment.
+    // The heaviest landing lag on the grid: a missed spike over the stage is a
+    // free smash for whoever stands under it.
     let mut d_air = strike(Strike {
         id: "air_down",
         clip: "attack",
@@ -386,12 +345,10 @@ pub fn george_booul_moveset() -> MovesetContract {
     d_air.autocancel_after_s = Some(0.44);
     let d_air = feel(d_air, Feel::Dive);
 
-    // ── the forward tilt, which was MISSING ──────────────────────────────────
+    // ── the forward tilt ─────────────────────────────────────────────────────
     //
-    // without it a grounded forward press fell down the chain to the jab, so
-    // the most common input in the genre reached the weakest move in the table
-    // and George's ground game was "poke, or spend forty frames". A stride into a
-    // shoulder: the tilt that is still a commitment, because that is who he is.
+    // Without it, a grounded forward press fell through to the jab. A stride
+    // into a shoulder: still a commitment.
     let mut f_tilt = strike(Strike {
         id: "tilt_forward",
         clip: "attack",
@@ -406,27 +363,20 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.28)),
         on_hit: None,
     });
-    // A short stride, ADDITIVE: it contributes to whatever run George brought
-    // into it, so the same move covers more ground out of a dash. This is
-    // `start_impulse`'s meaning and the right one here — nothing about a shoulder
-    // check should erase the momentum behind it.
+    // A short stride, additive: it adds to any run George brought, so it
+    // covers more ground out of a dash.
     f_tilt.start_impulse = Some((190.0, 0.0));
     let f_tilt = feel(f_tilt, Feel::Heavy);
 
-    // ── THE SPECIALS ─────────────────────────────────────────────────────────
+    // ── the specials ─────────────────────────────────────────────────────────
     //
-    // this table had none, and that was the hole. Four verbs the engine
-    // has always resolved (`special` / `special_forward` / `special_up` /
-    // `special_down` through the same directional chain as every attack) and
-    // that no fighter in this demo had ever bound. None of what follows is a new
-    // engine path; three of the four are ordinary strikes with authored numbers,
-    // and the fourth needed one primitive that did not exist.
+    // `special` / `special_forward` / `special_up` / `special_down` resolve
+    // through the same directional chain as every attack. Three are ordinary
+    // strikes; the up-B needed `MoveEventKind::Impulse`.
 
-    // NEUTRAL — `bivalence`. Two active windows on one timeline: an early
-    // weak pop and a late strong throw. Standing next to George while this
-    // charges is a coin flip about which half you eat, and the answer is when you
-    // chose to be there. The lingering second window is what a "commitment" is
-    // supposed to buy.
+    // Neutral: `bivalence`. Two active windows on one timeline: an early weak
+    // pop and a late strong throw. Which half you take depends on when you
+    // stood next to him.
     let mut bivalence = strike(Strike {
         id: "bivalence",
         clip: "special",
@@ -441,24 +391,16 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.2, -1.0)),
         on_hit: None,
     });
-    // ⛔ NO `smash_charge_mult` HERE, and it used to carry 1.6. A Special never
-    // takes the smash gesture, so the multiplier could never be EARNED — and
-    // until the charge payoff had one authority it was paid anyway, off the
-    // move's own timeline, on every hit.
+    // No `smash_charge_mult`: a Special never takes the smash gesture, so the
+    // multiplier could never be earned. Its old 1.6 is baked into the numbers
+    // (damage 7→11 and 13→21, knockback 100→160 and 170→272), which matches
+    // what the runtime paid. Without it George lost his recovery situations
+    // (`the_cpu_throws_its_authored_recovery_during_a_match`). Whether this
+    // should be his damage is open in
+    // docs/planning/awaiting-maintainer-decision.md.
     //
-    // ⇒ THE 1.6 IS BAKED INTO THE NUMBERS ABOVE AND BELOW, deliberately, so
-    // this is the same George who has been fighting: damage 7→11 and 13→21,
-    // knockback 100→160 and 170→272, which is exactly what the runtime was
-    // computing (it scales damage and knockback base, never growth). Dropping
-    // the multiplier without baking it took George out of every recovery
-    // situation he had — `the_cpu_throws_its_authored_recovery_during_a_match`
-    // went red over 1800 ticks with him otherwise fighting normally.
-    //
-    // ⚠ whether this SHOULD be his damage is a real question and it is recorded
-    // in docs/planning/awaiting-maintainer-decision.md. What is not a question
-    // is that the number a reader sees must be the number that lands.
-    // The second half, authored as a window rather than a second move: same
-    // press, same clock, harder answer.
+    // The second half is a window, not a second move: same press, same clock,
+    // harder answer.
     {
         let end = bivalence.duration_s;
         bivalence.windows.push(ambition_entity_catalog::MoveWindow {
@@ -487,34 +429,18 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     let bivalence = feel(bivalence, Feel::Special);
 
-    // ⭐⭐ THE LIMIT PAYOFF, AND IT IS THE SAME PRESS. A full Limit meter turns
-    // George's neutral special into the version below; an empty one gives him
-    // exactly the `bivalence` that has always been there. ⇒ **A button the player
-    // already knows gives a different answer once the match has been fought**,
-    // and it took no engine change at all: `meter_cost`, `when_refused` and
-    // `afford_meter` were all already shipped, and the goblin's charged dive
-    // already proves the shape.
+    // The Limit payoff, on the same press. A full Limit meter turns the
+    // neutral special into the version below; an empty one gives the usual
+    // `bivalence`. Built from shipped parts: `meter_cost`, `when_refused` and
+    // `afford_meter` (as the goblin's charged dive).
     //
-    // ⚠ AND IT IS THE WHOLE METER, NOT "BLOCK YOUR WAY TO IT" — I wrote that
-    // first and the arithmetic does not support it. Against `JONS_BASELINE`
-    // (cap 60), blocking ALONE would take 60 blocks; damage taken alone 30 hits;
-    // the clock alone 120 seconds. What actually fills it is the mixture: a
-    // sixty-second exchange with ten hits taken, ten dealt and eight blocks
-    // scores 68. ⇒ Blocking CONTRIBUTES to the payoff — eight of those
-    // sixty-eight — which is the honest version of "successful defence has a
-    // consequence". A comment claiming the stronger thing would have been a
-    // design promise no number keeps.
+    // It costs the whole meter. Against `JONS_BASELINE` (cap 60), blocking alone
+    // needs 60 blocks, damage taken 30 hits, the clock 120 seconds. A mixed
+    // sixty-second exchange (ten hits taken, ten dealt, eight blocks) scores
+    // 68, so blocking contributes to the payoff.
     //
-    // ⛔ THE SMASH ROSTER HAD NO CUSTOMER FOR THIS METER, MEASURED 2026-09-06.
-    // Every non-zero `meter_cost` in production belonged to `goblin_moveset.rs`
-    // — an enemy, not a 1v1 fighter — so the block source added that morning
-    // filled a meter no fighter on the roster could spend. A capability with a
-    // filler and no spender is the same defect as one with a spender and no
-    // filler; it just fails quietly on the other end.
-    //
-    // ⛔⛔ THE CLONE IS TAKEN BEFORE THE BUFF, and the goblin's own comment says
-    // why in as many words: cloned AFTER, the "cheap" fallback would be the
-    // expensive move and the meter would buy nothing. The order is the mechanic.
+    // Clone before the buff: cloned after, the fallback would be the expensive
+    // move and the meter would buy nothing.
     let bivalence_unmetered = {
         let mut spec = bivalence.clone();
         spec.id = "bivalence_unmetered".to_string();
@@ -522,25 +448,22 @@ pub fn george_booul_moveset() -> MovesetContract {
     };
     let bivalence = ambition_entity_catalog::MoveSpec {
         gates: ambition_entity_catalog::MoveGates {
-            // ⚠ EXACTLY THE CAP (`LimitMeterFill::JONS_BASELINE.cap`), which is
-            // how "available when the meter is full" is spelled here — nothing
-            // new decides it, `afford_meter` refuses anything less.
+            // Exactly the cap (`LimitMeterFill::JONS_BASELINE.cap`):
+            // `afford_meter` refuses anything less.
             costs: vec![ambition_resource_spec::ResourceCost::new(
                 ambition_entity_catalog::smash_limit::LIMIT,
                 60.0,
             )],
-            // ⚠ BOUND TO NO VERB, like the goblin's fallback: `move_by_id`
-            // searches every move the contract carries, so this needs an id and a
-            // place in `moves`, not a press of its own.
+            // Bound to no verb, like the goblin's fallback: `move_by_id`
+            // searches every move, so it needs only an id and a place in
+            // `moves`.
             when_refused: Some(bivalence_unmetered.id.clone()),
             ..bivalence.gates.clone()
         },
         ..bivalence
     };
-    // The payoff is THE SAME STRIKE MADE DECISIVE rather than a second move:
-    // everything a player already read about the two windows stays true, and the
-    // number they cannot miss is what changed. George's late window is his
-    // commitment; this is what committing all match buys.
+    // The payoff is the same strike made decisive, not a second move: the two
+    // windows read the same, and only the numbers change.
     let bivalence = {
         let mut spec = bivalence;
         for window in &mut spec.windows {
@@ -552,12 +475,10 @@ pub fn george_booul_moveset() -> MovesetContract {
         spec
     };
 
-    // SIDE — `modus_ponens`. *If you are there, then you are here.* A
-    // travelling body-check: the burst is `Set`, so it erases whatever George was
-    // doing and replaces it with one committed direction, and the tail cannot be
-    // steered out of. Thrown offstage it is a real horizontal recovery — and a
-    // real way to die, because it also erases the fall you might have drifted
-    // out of.
+    // Side: `modus_ponens`. A travelling body-check. The burst is `Set`, so it
+    // replaces George's motion with one committed direction, and the tail
+    // cannot be steered. Offstage it is a horizontal recovery, and a way to
+    // die, because it also erases any drift.
     let side_b = strike(Strike {
         id: "modus_ponens",
         clip: "special",
@@ -572,44 +493,27 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.30)),
         on_hit: None,
     });
-    // so the zero stays as a CONTENT decision, not an engine one. George's
-    // side special is a horizontal body-check and George's way home is his Up-B;
-    // giving this move an arbitrary hop would be tuning it to please a reader.
+    // No hop: the up-B is George's way home. A content decision.
     //
-    // and the honest consequence is that this move is INVISIBLE to the
-    // search, even though its own doc above calls it "a real horizontal
-    // recovery". `lifting_candidates` filters on `lift_speed > 0`, and a purely
-    // horizontal `Set` has none — so a George who could get home by charging
-    // sideways is never offered the option. That gap is NAMED and left open on
-    // purpose: closing it means the search proposing every displacing move, not
-    // widening the lift derivation, and it is a decision about search cost rather
-    // than about this table.
-    //
-    // the guard `the_ascent_commands_its_rise_and_advertises_it` still asserts
-    // nothing else in George's table lifts. That assertion is now about GEORGE
-    // (one fighter, one way home) rather than about the engine.
+    // Known gap: `lifting_candidates` filters on `lift_speed > 0`, so the
+    // recovery search never offers this horizontal move. Closing that means
+    // the search proposing every displacing move, a search-cost decision.
+    // `the_ascent_commands_its_rise_and_advertises_it` asserts nothing else in
+    // George's table lifts.
     let side_b = impulse(side_b, 0.20, (760.0, 0.0), ImpulseMode::Set);
     let side_b = committed_tail(side_b, 0.74, 0.0);
     let side_b = feel(side_b, Feel::Special);
 
-    // UP — `excluded_middle`. THE RECOVERY.
+    // Up: `excluded_middle`, the recovery. The rise is commanded (`Set`) at
+    // `ASCENT_AT_S` after a windup (`MoveEventKind::Impulse`), so a falling
+    // George gets the same climb as a standing one. `start_impulse` fires at
+    // the press and adds, so it cannot express this.
     //
-    // *"Either you are on the stage or you are not"* — and this is the move
-    // that decides which. It is the reason `MoveEventKind::Impulse` exists: the
-    // rise is COMMANDED (`Set`) at `ASCENT_AT_S`, after a windup, so a George
-    // falling at terminal velocity gets exactly the climb a standing one does.
-    // `start_impulse` could express neither half — it fires at the press and it
-    // ADDS, which makes a recovery weakest precisely when it is needed.
+    // Not flight: with no `Cancelable` window he cannot re-press until the
+    // move ends, and the move outlasts its arc (`ASCENT_ENDS_S`), so repeated
+    // use loses height. Held by a test; no rollback state.
     //
-    // it is not flight, and the arithmetic is the reason rather than a
-    // cooldown. No `Cancelable` window means the body cannot re-press until the
-    // move ends, and the move outlasts its own arc (see `ASCENT_ENDS_S`), so
-    // repeated use LOSES height. One press is a save; four presses is a slow
-    // descent. That is a property of the authored numbers, held by a test, and
-    // it costs no rollback state at all.
-    //
-    // The hit is deliberately weak: this is a way home that happens to be
-    // dangerous to stand under, not a kill move with a rise attached.
+    // The hit is weak on purpose: a way home, not a kill move.
     let mut up_b = strike(Strike {
         id: "excluded_middle",
         clip: "special",
@@ -624,21 +528,17 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.05, -1.0)),
         on_hit: None,
     });
-    // Landing out of the ascent costs — the other half of "a recovery is a
-    // commitment". Onstage this makes it a bad panic button; offstage it is
-    // irrelevant, which is exactly the right shape.
+    // Landing out of the ascent costs, so onstage it is a bad panic button.
     up_b.landing_lag_s = Some(0.28);
     let up_b = impulse(up_b, ASCENT_AT_S, (0.0, -ASCENT_SPEED), ImpulseMode::Set);
-    // The helpless tail. `0.15` leaves George able to nudge his landing and
-    // nothing more, which is what makes an edgeguard against this move possible.
+    // The helpless tail: `0.15` lets George nudge his landing and nothing
+    // more, so an edgeguard is possible.
     let up_b = committed_tail(up_b, ASCENT_ENDS_S, 0.15);
     let up_b = feel(up_b, Feel::Recovery);
 
-    // DOWN — `reductio`. Assume you are above me; derive a contradiction.
-    // A commanded plunge with the pogo technique on contact: connect and George
-    // is thrown back up by his own landing, which is the one thing in this table
-    // that can happen twice in a row. Offstage it is a stock — for whoever is
-    // wrong about who is above whom.
+    // Down: `reductio`. A commanded plunge with pogo on contact: connect and
+    // George bounces back up, so it can happen twice in a row. Offstage it
+    // takes a stock from whoever is wrong about who is above whom.
     let mut down_b = strike(Strike {
         id: "reductio",
         clip: "special",
@@ -661,16 +561,9 @@ pub fn george_booul_moveset() -> MovesetContract {
     );
     let down_b = feel(down_b, Feel::Dive);
 
-    // it also made a census lie. The kit report probed specials standing
-    // on the ground, found `dspecial` resolving to the neutral-B, and recorded
-    // George as missing a down-B he has had all along. The census asks both
-    // postures now; this is the move it was asking for.
-    //
-    // DOWN, ON THE GROUND — `reductio_ad_absurdum`. Assume you are above me.
-    // With his feet on the stage that assumption is false, so he MAKES it true
-    // first: a short arc up, and then the same contradiction, derived on the way
-    // down. the plunge impulse and the active window are `reductio`'s numbers
-    // — this is the same argument with a premise added, not a second move.
+    // Down, on the ground: `reductio_ad_absurdum`. A short arc up, then the
+    // same plunge (`reductio`'s numbers). The kit census asks specials in both
+    // postures, so it must find this.
     let ground_down_b = strike(Strike {
         id: "reductio_ad_absurdum",
         clip: "special",
@@ -685,17 +578,11 @@ pub fn george_booul_moveset() -> MovesetContract {
         launch_dir: Some((0.0, 1.0)),
         on_hit: None,
     });
-    // THE ARC IS AN `Add`, AND THE UP-B'S POISON IS WHY. `strike`'s
-    // frame data derives `lift_speed` from `Set` impulses only — *"an `Add`
-    // states no speed, so no static reader may claim one for it"* — and
-    // `excluded_middle` is the one move in this table allowed to advertise a way
-    // home. Written as a `Set`, this hop told the recovery policy that George's
-    // DOWN-B is a recovery: offstage the CPU would press it and slam itself into
-    // the blast zone. The test below caught it, which is what it is for.
-    //
-    // and an `Add` is honest here for the same reason it is wrong on the up-B:
-    // this move is grounded-only, so he is standing still when it fires and there
-    // is no momentum for it to compose with.
+    // The arc is an `Add`: `strike` derives `lift_speed` only from `Set`
+    // impulses, and `excluded_middle` must be the only move that advertises a
+    // way home. As a `Set`, the CPU would press down-B offstage and die (the
+    // test below catches it). The move is grounded-only, so there is no
+    // momentum to compose with.
     let ground_down_b = impulse(ground_down_b, 0.10, (200.0, -620.0), ImpulseMode::Add);
     let ground_down_b = impulse(ground_down_b, 0.34, (0.0, 1500.0), ImpulseMode::Set);
     let ground_down_b = on_hit(
@@ -707,24 +594,18 @@ pub fn george_booul_moveset() -> MovesetContract {
 
     // ── The hold ────────────────────────────────────────────────────────────
     //
-    // the sixteen slots above stayed in Rust on purpose. They are built by
-    // COMPOSING `strike` / `impulse` / `on_hit` / `committed_tail` / `feel`, and
-    // the `debug_assert` below states a law about the shape of this whole table.
-    // That composition is the design; flattening it into RON would trade authored
-    // reasoning for a wall of numbers.
+    // The sixteen slots above stay in Rust: they are composed from `strike`,
+    // `impulse`, `on_hit`, `committed_tail` and `feel`, and the
+    // `debug_assert` below states a law about the whole table.
     let capture = crate::smash_pack::capture_kit(crate::SMASH_GEORGE_BOOUL);
 
     let repertoire = SmashRepertoire {
         taunt: ambition_entity_catalog::authoring::taunt("george_booul_taunt", 0.9),
 
-        // GEORGE'S DASH ATTACK IS A COMMITMENT, and his own law decided
-        // that. `no_move_lives_between_the_pokes_and_the_commitments` splits
-        // his kit at `POKE_MAX_STARTUP_S`, and `the fast half must be the weak
-        // half` — his pokes top out at 5 damage where his softest commitment is
-        // 6. A 14-damage move cannot be fast HERE, so the genre's 0.05 startup
-        // becomes `COMMIT_MIN_STARTUP_S`. that is not the law getting in the
-        // way: George is the heavy, and a shoulder charge you can see coming is
-        // what the heavy's dash attack should be.
+        // George's dash attack is a commitment. His law
+        // (`no_move_lives_between_the_pokes_and_the_commitments`) keeps the
+        // fast half weak (pokes top out at 5 damage), so a 14-damage move gets
+        // `COMMIT_MIN_STARTUP_S` instead of the genre's 0.05.
         dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "george_booul_dash_attack",
             ambition_entity_catalog::authoring::DashAttackShape {
@@ -757,24 +638,19 @@ pub fn george_booul_moveset() -> MovesetContract {
     }
     .into_contract();
 
-    // ⭐ THE STRING, FROM THE ONE PLACE IT IS AUTHORED. The verb map has a slot
-    // for the jab and none for what follows it, because a chain is a cancel
-    // table over ordinary moves rather than a verb — so the continuations join
-    // the table directly. ⛔ NOT a second copy: George's own moveset is why the
-    // chain reached nobody, and a copy would put the same trap one edit away.
+    // The jab string, from `jab_string_continuations`. A chain is a cancel
+    // table over ordinary moves, not a verb, so the continuations join the
+    // table directly. Do not copy them here.
     let mut repertoire = repertoire;
     repertoire
         .moves
         .extend(crate::moveset::jab_string_continuations());
-    // ⇒ AND THE UNMETERED FALLBACK, which is a move the contract must CARRY and
-    // no input may reach. Pressed with an empty meter, `accepted_or_variant`
-    // finds it by id and George swings the special he always had.
+    // The unmetered fallback: carried, but no input reaches it. With an empty
+    // meter, `accepted_or_variant` finds it by id.
     repertoire.moves.push(bivalence_unmetered);
 
-    // the disjunction is checked WHERE IT IS AUTHORED, not only in the
-    // test module. These two numbers are the character; a move edited into the
-    // band between them stops being George's before anything else notices, and
-    // this is the last place that still knows both halves at once.
+    // Check the poke/commitment split where it is authored, not only in
+    // tests: this is the last place that knows both numbers.
     debug_assert!(
         repertoire.moves.iter().all(|m| {
             let startup = m
@@ -803,14 +679,9 @@ mod tests {
             .clone()
     }
 
-    /// The tell before a move becomes dangerous — `None` for a move that has no
-    /// dangerous moment to lead into.
-    ///
-    /// it was an `.expect("a strike has an active window")` and the capture
-    /// beats broke it, correctly. A pummel and a throw have NO Active window
-    /// by design: they reach for nobody, because the target was selected when
-    /// the capture was established. The law below is about the tell, and a move
-    /// that cannot miss has none.
+    /// The tell before a move becomes dangerous, or `None` for a move with no
+    /// dangerous moment. Pummels and throws have no Active window: their
+    /// target was selected when the capture began.
     fn startup(m: &MoveSpec) -> Option<f32> {
         m.windows
             .iter()
@@ -827,34 +698,23 @@ mod tests {
             .unwrap_or(0)
     }
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // `SmashRepertoire` owns the verb strings and has no `Default` or private
+    // fields, so a missing or renamed slot is a compile error here. That every
+    // press is answered in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and the host ratchet
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// THE EXCLUDED MIDDLE, AS AN ASSERTION.
-    ///
-    /// the claim the module doc makes and the one thing that cannot survive a
-    /// careless retune: every move is a poke or a commitment, and the band
-    /// between them is empty. A move that drifted into it would be a perfectly
-    /// reasonable tilt and would quietly make George somebody else.
+    /// The excluded middle, as an assertion: every move is a poke or a
+    /// commitment, and the band between them is empty. A move in the band would
+    /// be a reasonable tilt and would make George somebody else.
     #[test]
     fn no_move_lives_between_the_pokes_and_the_commitments() {
         let george = george_booul_moveset();
 
-        // WHO IS EXEMPT, BY NAME. Six moves have no tell, and none of
-        // them reaches for anybody: a pummel and FOUR throws, whose target was
-        // already selected, and the TAUNT, whose whole content is that it buys
-        // nothing. Pinning the list means a STRIKE that lost its Active window
-        // fails here instead of quietly leaving the law it is supposed to obey.
-        // the grab is NOT on it: a grab reaches, so a grab has a tell, and it
-        // obeys the band like everything else (it was authored at `0.14` and
-        // this caught it).
+        // Exempt by name: six moves have no tell and reach for nobody (a
+        // pummel and four throws, whose target is already selected, and the
+        // taunt). Pinning the list means a strike that lost its Active window
+        // fails here. The grab is not exempt: it reaches, so it has a tell.
         let mut telless: Vec<&str> = george
             .moves
             .iter()
@@ -885,13 +745,9 @@ mod tests {
             );
         }
 
-        // and the two halves are separated by PAYOFF, not only by timing —
-        // otherwise "slow" would just mean "slow", and the disjunction would be
-        // about the clock rather than about the decision.
-        //
-        // pinned by name for the same reason the tell exemption is: a SMASH
-        // that lost its volumes would otherwise quietly become the softest
-        // commitment and take the assertion down with it, or worse, satisfy it.
+        // The two halves also differ by payoff, not only timing. Pinned by
+        // name like the tell exemption, so a smash that lost its volumes
+        // fails instead of becoming the softest commitment.
         let mut payless: Vec<&str> = george
             .moves
             .iter()
@@ -901,13 +757,10 @@ mod tests {
         payless.sort_unstable();
         assert_eq!(
             payless,
-            // ⭐ the RUNNING grab is here for the same reason the standing one
-            // is, and it is not authored: the capture kit derives it from this
-            // fighter's own grab. ⚠ that also means the startup band above now
-            // constrains a DERIVED move — if george's grab ever starts close
-            // enough to `POKE_MAX_STARTUP_S`, the derived wind-up can push its
-            // variant into the band this fighter says it does not have, and the
-            // assertion above is what would say so.
+            // The running grab is derived by the capture kit from George's
+            // grab, so the startup band also constrains a derived move. If the
+            // grab starts near `POKE_MAX_STARTUP_S`, the derived wind-up can
+            // land in the band, and the assertion above reports it.
             vec!["george_grab", "george_grab_dash"],
             "the set of moves that reach and deal no damage changed"
         );
@@ -915,8 +768,8 @@ mod tests {
         let (pokes, commits): (Vec<_>, Vec<_>) = george
             .moves
             .iter()
-            // A move with no tell is neither a poke nor a commitment, and a move
-            // with no damage payoff is not what this claim measures.
+            // A move with no tell is neither poke nor commitment, and a move
+            // with no damage is outside this claim.
             .filter(|m| startup(m).is_some() && damage(m) > 0)
             .partition(|m| startup(m).unwrap_or_default() <= POKE_MAX_STARTUP_S);
         let hardest_poke = pokes.iter().map(|m| damage(m)).max().expect("pokes exist");
@@ -930,10 +783,9 @@ mod tests {
             "the fast half must be the weak half ({hardest_poke} vs {softest_commit})"
         );
 
-        // the poison. The shared table has a real middle — its tilts sit
-        // at 0.06–0.07 and its aerials climb through 0.09, 0.10, 0.12 — so if
-        // this assertion ever passed for BOTH tables, the band would be
-        // describing nothing.
+        // The poison: the shared table has a real middle (tilts at
+        // 0.06–0.07, aerials at 0.09, 0.10, 0.12). If this passed for both
+        // tables, the band would describe nothing.
         let shared = crate::moveset::fighter_moveset();
         assert!(
             shared.moves.iter().any(|m| {
@@ -945,17 +797,16 @@ mod tests {
         );
     }
 
-    /// comparative for the same reason the goblin's and the admiral's tests
-    /// are: a table copied wholesale and renumbered would pass every other test
-    /// in this file.
+    /// Comparative, as for the goblin and the admiral: a table copied and
+    /// renumbered would pass every other test here.
     #[test]
     fn george_commits_longer_and_hits_harder_than_the_shared_repertoire() {
         let george = george_booul_moveset();
         let shared = crate::moveset::fighter_moveset();
         for id in ["smash_forward", "smash_up", "smash_down"] {
             let (g, s) = (find(&george, id), find(&shared, id));
-            // `expect`, not a filter: these three ARE strikes, and a smash
-            // that lost its Active window is a defect rather than an exemption.
+            // `expect`, not a filter: these are strikes, so a missing Active
+            // window is a defect.
             let (gs, ss) = (
                 startup(&g).expect("a smash has an active window"),
                 startup(&s).expect("a smash has an active window"),
@@ -969,18 +820,16 @@ mod tests {
             );
         }
 
-        // And nowhere is he FASTER. A heavyweight that also had the quicker
-        // option somewhere would just be stronger.
-        //
-        // The count below is what stops the filter from quietly emptying the loop.
+        // And nowhere is he faster; otherwise he would just be stronger.
+        // The count stops the filter from emptying the loop.
         let mut compared = 0;
         for m in &george.moves {
             let Some(s) = shared.moves.iter().find(|other| other.id == m.id) else {
                 continue;
             };
             compared += 1;
-            // Both sides are shared-table moves, so both are strikes; a `None`
-            // here means one lost its Active window and should say so loudly.
+            // Both are shared-table strikes; `None` means one lost its Active
+            // window.
             let (gs, ss) = (
                 startup(m).expect("a shared-table move has an active window"),
                 startup(s).expect("a shared-table move has an active window"),
@@ -999,14 +848,12 @@ mod tests {
     }
     // ── the specials ─────────────────────────────────────────────────────────
 
-    /// THE ASCENT IS A SAVE, NOT A FLIGHT — and the arithmetic is the reason.
+    /// The ascent is a save, not a flight.
     ///
-    /// this is the guard that lets the Up-B exist with no cooldown, no
-    /// per-airtime counter and no new rollback state. The body cannot re-press
-    /// while the move is playing (no `Cancelable` window), so the only question
-    /// is whether one full cycle gains height. It cannot: the move outlasts its
-    /// own arc, so by the time George may press again he has fallen back through
-    /// everything the burst bought and then some.
+    /// This lets the Up-B exist with no cooldown, no per-airtime counter and no
+    /// rollback state. With no `Cancelable` window the body cannot re-press
+    /// while the move plays, and the move outlasts its arc, so one full cycle
+    /// cannot gain height.
     #[test]
     fn the_ascent_is_a_save_and_not_a_flight() {
         let g = ambition_platformer2d::engine_core::DEFAULT_TUNING.gravity;
@@ -1019,24 +866,18 @@ mod tests {
              than it found him, every press, which is flight",
             2.0 * to_apex
         );
-        // And the windup is real: a recovery with no tell is a free escape.
+        // The windup is real: a recovery with no tell is a free escape.
         assert!(ASCENT_AT_S >= COMMIT_MIN_STARTUP_S);
-        // Landing out of it costs, so it is a bad panic button ON the stage.
+        // Landing out of it costs, so it is a bad panic button on the stage.
         let up_b = find(&george_booul_moveset(), "excluded_middle");
         assert!(up_b.landing_lag_s.unwrap_or(0.0) > 0.0);
     }
 
-    /// THE RISE IS COMMANDED, NOT CONTRIBUTED.
+    /// The rise is commanded (`Set`), not added.
     ///
-    /// the whole difference between a recovery and a hop. Under
-    /// `ImpulseMode::Add` a George falling at terminal velocity would climb at
-    /// whatever was left over — the move would be weakest exactly when it is the
-    /// only thing between him and the blast zone. `Set` makes the climb a
-    /// property of the MOVE.
-    ///
-    /// and the same fact is what every policy layer reads: `lift_speed` is
-    /// derived from `Set` impulses only, so this assertion is also the assertion
-    /// that the brain and the recovery probe can see this move at all.
+    /// Under `ImpulseMode::Add` a falling George would get only what was left
+    /// over. `lift_speed` is derived from `Set` impulses only, so this also
+    /// asserts that the brain and the recovery probe can see the move.
     #[test]
     fn the_ascent_commands_its_rise_and_advertises_it() {
         use ambition_entity_catalog::{ImpulseMode, MoveEventKind};
@@ -1053,16 +894,14 @@ mod tests {
         assert!(burst.1 .1 < 0.0, "the burst must point AGAINST gravity");
         assert_eq!(burst.0, ASCENT_AT_S);
 
-        // The derived affordance, which is what the brain and the recovery probe
-        // both consume. If this is zero the move is invisible to both of them and
-        // the CPU goes back to drifting at a stage it cannot reach.
+        // The derived affordance the brain and recovery probe read. At zero
+        // the CPU cannot see its recovery.
         let frames = up_b.frame_data();
         assert_eq!(frames.lift_speed, ASCENT_SPEED);
         assert_eq!(frames.lift_at_s, ASCENT_AT_S);
 
-        // the poison: nothing ELSE in the table advertises a lift. A table
-        // where every move looked like a recovery would satisfy the assertion
-        // above and tell a policy layer nothing.
+        // The poison: nothing else advertises a lift, or the assertion above
+        // would tell a policy layer nothing.
         let table = george_booul_moveset();
         let others: Vec<&str> = table
             .moves
@@ -1076,15 +915,10 @@ mod tests {
         );
     }
 
-    /// FOUR SPECIALS, FOUR MECHANISMS.
-    ///
-    /// the brief this table exists to answer forbids *"rotated or mirrored
-    /// clones of one base melee"*, and four specials built out of the same strike
-    /// with different offsets would be exactly that. So the assertion is about
-    /// MECHANISM: one commands a rise, one commands a plunge and rebounds off
-    /// what it hits, one commands a horizontal charge it cannot steer out of, and
-    /// one lands twice on one press. No two share a mechanism, and none of them
-    /// is any other one rotated.
+    /// Four specials, four mechanisms: not rotated or mirrored clones of one
+    /// base melee. One commands a rise, one a plunge that rebounds off what it
+    /// hits, one an unsteerable horizontal charge, and one lands twice on one
+    /// press.
     #[test]
     fn the_four_specials_are_four_different_mechanisms() {
         use ambition_entity_catalog::{ImpulseMode, MoveEventKind, WindowTag};
@@ -1098,10 +932,10 @@ mod tests {
                 _ => None,
             })
         };
-        // Up: a rise, and only a rise.
+        // Up: a rise only.
         let up = commanded("excluded_middle").expect("the Up-B displaces");
         assert!(up.1 < 0.0 && up.0 == 0.0);
-        // Down: a plunge, and it rebounds off a body.
+        // Down: a plunge that rebounds off a body.
         let down = commanded("reductio").expect("the dive displaces");
         assert!(down.1 > 0.0);
         assert!(find(&set, "reductio")
@@ -1109,7 +943,7 @@ mod tests {
             .iter()
             .flat_map(|w| w.volumes.iter())
             .any(|v| v.on_hit.is_some()));
-        // Side: a horizontal charge with a tail that cannot be steered.
+        // Side: a horizontal charge with an unsteerable tail.
         let side = commanded("modus_ponens").expect("the side special travels");
         assert!(side.0 > 0.0);
         assert!(
@@ -1119,7 +953,7 @@ mod tests {
                 .any(|w| matches!(w.tag, WindowTag::Recovery) && w.motion_scale == 0.0),
             "a charge you can steer out of is not a commitment"
         );
-        // Neutral: no displacement at all — it lands TWICE instead.
+        // Neutral: no displacement; it lands twice instead.
         assert!(commanded("bivalence").is_none());
         assert_eq!(
             find(&set, "bivalence")
@@ -1132,7 +966,7 @@ mod tests {
         );
     }
 
-    /// EVERY PRESS A BODY CAN MAKE REACHES A MOVE, IN BOTH POSTURES.
+    /// Every press a body can make reaches a move, in both postures.
     #[test]
     fn both_postures_reach_at_least_eight_distinct_moves() {
         use ambition_entity_catalog::AttackDir;
@@ -1166,11 +1000,11 @@ mod tests {
             "an airborne George reaches only {:?}",
             airborne
         );
-        // The recovery is reachable from BOTH — a move you have to fall off the
-        // stage to practise is a move nobody learns.
+        // The recovery is reachable from both postures, so it can be practised
+        // on stage.
         assert!(on_ground.contains("excluded_middle"));
         assert!(airborne.contains("excluded_middle"));
-        // and the forward press no longer falls through to the jab.
+        // The forward press does not fall through to the jab.
         assert_eq!(
             set.move_for_directional_verb("attack", AttackDir::Forward, true)
                 .map(|m| m.id.as_str()),
@@ -1178,26 +1012,17 @@ mod tests {
         );
     }
 
-    /// THE FEEDBACK IS DIFFERENTIATED, AND IT IS RESOLVABLE.
-    ///
-    /// Two claims in one test because they fail together: a table where every move sounds the
-    /// same has no feedback, and a table naming an effect no shipped spritesheet carries has
-    /// feedback that silently never plays.
+    /// The feedback is differentiated and resolvable. Two claims in one test
+    /// because they fail together: identical sounds give no feedback, and an
+    /// effect no shipped spritesheet carries never plays.
     #[test]
     fn important_moves_sound_and_look_like_themselves() {
         use ambition_entity_catalog::MoveEventKind;
         let set = george_booul_moveset();
         let mut effects = std::collections::BTreeSet::new();
         let mut cues = std::collections::BTreeSet::new();
-        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
-        // per-move form this replaced was MEASURED to buy nothing.
-        // `presentation_problems` returns a `Vec` because it accumulates, and a
-        // `panic!` inside a loop over it reported the FIRST problem only. But
-        // asserting per move is no better here: with the oracle rejecting every
-        // effect, all four of these tests still reported exactly ONE problem,
-        // because the first offending move names exactly one effect. The report
-        // an author actually needs — every move that references a renamed effect,
-        // in one run — exists only if the list outlives the loop.
+        // Accumulate problems across every move, then assert once, so one run
+        // lists every move that references a renamed effect.
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
@@ -1215,21 +1040,14 @@ mod tests {
                 }
             }
         }
-        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
-        // too, with a message about breadth rather than the rename.
+        // Before the palette checks below, which also fail on a renamed
+        // effect with a less useful message.
         //
-        // ⭐⭐ AND THE MESSAGE NAMES THE OTHER CAUSE, because the two look
-        // identical and only one is a content bug. The oracle
-        // (`fx::is_authored_effect`) reads a table `ambition_sprite_sheet`'s
-        // `build.rs` bakes AT COMPILE TIME from `assets/sprites`, and those
-        // sheets are GENERATED and gitignored — so a tree where they were never
-        // rendered bakes an EMPTY table and every effect name is unknown at
-        // once. Measured 2026-09-12: this fired with all 22 of George's moves
-        // listed, and the reading was "the assets are not built here", not "the
-        // moveset names a renamed effect".
-        //
-        // ⇒ the count IS the diagnosis, so the message states it rather than
-        // leaving the next reader to notice.
+        // The message names the other cause. `fx::is_authored_effect` reads a
+        // table that `ambition_sprite_sheet`'s `build.rs` bakes at compile time
+        // from the generated, gitignored `assets/sprites`. If they were never
+        // rendered, the table is empty and every move is listed. The count is
+        // the diagnosis.
         assert!(
             problems.is_empty(),
             "{} move(s) name an unknown cosmetic effect.\n{problems:?}\n\
@@ -1250,14 +1068,13 @@ mod tests {
              look the same: {effects:?}"
         );
         assert!(cues.len() >= 3, "{cues:?}");
-        // The recovery ACTIVATING has its own burst — seeing one is how you know
-        // a fighter is not dead yet.
+        // The recovery activating has its own burst.
         let up_b = find(&set, "excluded_middle");
         assert!(up_b.events.iter().any(|e| matches!(
             &e.kind,
             MoveEventKind::Vfx { effect, .. } if effect == "classic_burst"
         )));
-        // And a heavy landing is heard apart from a poke landing.
+        // A heavy landing sounds different from a poke landing.
         let heavy_hit = |id: &str| -> Option<String> {
             find(&set, id)
                 .windows
@@ -1270,16 +1087,9 @@ mod tests {
         assert!(heavy_hit("jab").is_none(), "a jab does not clang");
     }
 
-    /// THE JAB'S TWO CANCELS ARE DIFFERENT PROMISES, and the difference is the
-    /// point: the STRING continues on a whiff because every game in this genre
-    /// lets you jab at empty air three times, and the ROUTE across George's own
-    /// gap is a REWARD FOR CONNECTING, so it stays `OnHit` and a whiff buys
-    /// nothing.
-    ///
-    /// ⛔ read by what each window NAMES, never by which comes first: the
-    /// version of this test that took the first `Cancelable` window it found
-    /// started reading the string's the moment the string was authored, and
-    /// would have gone on asserting about a window it was not written for.
+    /// The jab's two cancels are different promises. The string continues on
+    /// a whiff (`Always`); the route across George's gap rewards connecting
+    /// (`OnHit`). Windows are read by what they name, not by their order.
     #[test]
     fn the_jab_strings_on_a_whiff_and_opens_the_commitments_only_when_it_lands() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
@@ -1310,10 +1120,9 @@ mod tests {
             "George's route across the gap is bought by connecting"
         );
         assert!(route.0.iter().any(|t| t == "special"));
-        // ⭐ AND THE STRING IS NAMED FIRST. The chain takes the first successor
-        // it can resolve BY MOVE ID, so an undirected follow-up has to reach
-        // `jab2`; naming the route first would have made every held button
-        // throw a smash.
+        // The string is named first: the chain takes the first successor it
+        // can resolve by move id, so an undirected follow-up reaches `jab2`,
+        // not a smash.
         assert_eq!(
             cancels[0].0.first().map(String::as_str),
             Some("jab2"),
@@ -1321,63 +1130,24 @@ mod tests {
         );
     }
 
-    /// ⭐ THE FIRST AUTHORED `OnBlock` WINDOW IN THE GAME, and the genre's most
-    /// canonical use of one: a jab that the opponent SHIELDED buys a grab.
+    /// What George leaves unanswered is the genre's shape, not a gap.
     ///
-    /// `CancelCondition::OnBlock` shipped 2026-08-31 with no customer — the
-    /// queue row closed with *"content work for whoever wants a safe-on-block
-    /// follow-up"*. This is that follow-up. A blocked jab is the moment the
-    /// defender has committed to holding shield, which is exactly when a grab
-    /// beats them; without it George's blocked jab offers nothing and his
-    /// `OnHit` route into smash/special is closed by definition, because
-    /// nothing connected.
+    /// The sibling guard in `moveset.rs` pins the stand-in's silent presses.
+    /// Both enumerate every `(base, direction, stance)` press, because
+    /// `move_for_directional_verb` falls back to the base verb.
     ///
-    /// ⛔ IT MUST NOT WIDEN THE OTHER TWO. A blocked jab is not a whiff (it
-    /// touched something) and not a hit (it connected with nothing), so this
-    /// asserts the string is still `Always` and the route is still `OnHit`
-    /// beside it — three conditions on one move, which is the whole point of
-    /// `MoveContact` carrying three facts instead of one bool.
-    /// ⭐ **WHAT GEORGE LEAVES UNANSWERED IS THE GENRE'S OWN SHAPE, NOT A GAP.**
+    /// George is silent on seven presses, all `smash`: no neutral smash, no back
+    /// smash, and no aerial smashes. That matches the genre, which uses the
+    /// `attack` family in the air. The stand-in's silent presses are specials,
+    /// which the genre has. See `awaiting-maintainer-decision.md`.
     ///
-    /// The sibling guard in `moveset.rs` pins the stand-in fighter's silences;
-    /// this one pins George's, and the two only mean something side by side.
-    /// Both enumerate every `(base, direction, stance)` PRESS rather than
-    /// inspecting the contract's keys, because `move_for_directional_verb`
-    /// falls back to the base verb — so a fighter with no `attack_forward`
-    /// binding still answers a forward tilt, with the jab. Counting bindings
-    /// answers "what did an author write"; only the press enumeration answers
-    /// "what happens when the player pushes this".
+    /// The two halves are different claims:
     ///
-    /// ⇒ George is silent on **seven** presses and **every one is a `smash`**:
-    /// no neutral smash, no back smash, and no aerial smashes at all. That is
-    /// the genre convention this demo is chasing — the fighting games this is
-    /// modelled on have forward/up/down smashes on the ground and use the
-    /// `attack` family in the air. ⭐ **So George's silences are DESIGN and the
-    /// stand-in's eight are a HOLE**: the stand-in's are specials, which the
-    /// genre very much does have, and which George answers in all ten
-    /// directions and stances. That asymmetry is the whole content of the
-    /// roster question in `awaiting-maintainer-decision.md`, and before this
-    /// pair of tests it lived only in prose.
-    ///
-    /// ⛔ **AND THE TWO HALVES OF THIS TEST ARE NOT THE SAME KIND OF CLAIM**, a
-    /// distinction the poison runs made and prose would have hidden:
-    ///
-    /// - The `smash` set is **structural**. `SmashRepertoire` has
-    ///   `forward_smash` / `up_smash` / `down_smash` and no neutral or back slot
-    ///   to author, and aerials live in the `*_air` slots that answer `attack`
-    ///   presses. ⇒ These seven cannot change while that struct's field list
-    ///   holds, which makes this arm a **schema guard**: it reddens when the
-    ///   repertoire's shape changes, which is a change nobody makes by accident
-    ///   but everybody makes silently.
-    /// - The special arm is **authored**, and it reddens. Replacing the neutral
-    ///   special with `FromBodyKit` silenced **four** presses, not two:
-    ///   `special_neutral` *and* `special_back`, in both stances. ⇒ George
-    ///   authors four specials — neutral, side, up, down — and the BACK press is
-    ///   answered by the neutral one falling down the chain. ⭐ That is the
-    ///   binding-versus-press distinction happening in front of you: no author
-    ///   ever wrote a back special, and the player who presses one is answered
-    ///   anyway.
-
+    /// - The `smash` set is structural: `SmashRepertoire` has only
+    ///   `forward_smash` / `up_smash` / `down_smash`, and aerials answer `attack`
+    ///   presses. This arm is a schema guard.
+    /// - The special arm is authored. George authors four specials (neutral,
+    ///   side, up, down); the back press falls through to the neutral one.
     #[test]
     fn the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks() {
         use ambition_entity_catalog::AttackDir;
@@ -1401,19 +1171,17 @@ mod tests {
             }
         }
 
-        // ⛔ The load-bearing half: George answers every ATTACK and every
-        // SPECIAL press, ten of each. If a special ever falls silent here, the
-        // sentence "the special gap is the stand-ins', not the roster's" has
-        // stopped being true and the maintainer decision changes shape.
+        // The load-bearing half: George answers all ten attack and all ten
+        // special presses. If a special falls silent, the maintainer decision
+        // changes shape.
         let non_smash: Vec<&String> = silent.iter().filter(|p| !p.starts_with("smash_")).collect();
         assert!(
             non_smash.is_empty(),
             "George stopped answering a non-`smash` press: {non_smash:?}. The roster question in `awaiting-maintainer-decision.md` rests on George answering all ten specials while the stand-ins answer two."
         );
 
-        // ⭐ And the seven are exactly the genre's missing presses — asserted as
-        // a SET, so a swap (gaining a back smash while losing an up smash)
-        // cannot pass by keeping the count.
+        // The seven are exactly the genre's missing presses, asserted as a
+        // set so a swap cannot pass by keeping the count.
         let mut got = silent.clone();
         got.sort();
         let mut want = vec![
@@ -1433,6 +1201,12 @@ mod tests {
         );
     }
 
+    /// A shielded jab buys a grab (`OnBlock`): a blocked jab is when the
+    /// defender is committed to shield. Without it the `OnHit` route is closed,
+    /// because nothing connected.
+    ///
+    /// It must not widen the other two: the string stays `Always` and the
+    /// route stays `OnHit`. `MoveContact` carries three facts for this.
     #[test]
     fn a_shielded_jab_buys_george_a_grab() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
@@ -1462,9 +1236,8 @@ mod tests {
             blocked[0]
         );
 
-        // ⛔ AND THE NAME HAS TO RESOLVE. `grab` is a VERB, not a move id in
-        // this table, so it only means anything if the contract's verb map
-        // binds it — which is the half a hand-written string cannot promise.
+        // The name must resolve: `grab` is a verb, not a move id, so the
+        // contract's verb map must bind it.
         let targets = george.cancel_targets(blocked[0]);
         assert!(
             !targets.is_empty(),
@@ -1494,16 +1267,10 @@ mod limit_payoff_tests {
             .expect("the special hits")
     }
 
-    /// ⛔⛔ AN `id` WITH NO MOVE BEHIND IT IS A DEAD BUTTON, and nothing else in
-    /// the build says so. `when_refused` is resolved with `move_by_id` against
-    /// the moves the contract CARRIES; a fallback that is authored, named, and
-    /// never pushed into `moves` resolves to `None`, and `accepted_or_variant`
-    /// returns `None` — so pressing neutral-B on an empty meter does NOTHING.
-    ///
-    /// ⇒ The compiler cannot ask for this: the id is a `String`. It is the exact
-    /// shape of the `detail: _` defect a peer found this morning — a field
-    /// authored, paid for, and read by nobody, except here the silence is a
-    /// button that stops working.
+    /// An `id` with no move behind it is a dead button. `when_refused` resolves
+    /// with `move_by_id` against the carried moves; a fallback never pushed into
+    /// `moves` resolves to `None`, so neutral-B on an empty meter does nothing.
+    /// The id is a `String`, so the compiler cannot check it.
     #[test]
     fn the_metered_special_falls_back_to_a_move_the_contract_actually_carries() {
         let payoff = spec("bivalence");
@@ -1520,13 +1287,9 @@ mod limit_payoff_tests {
         );
     }
 
-    /// ⛔⛔ THE ORDER IS THE MECHANIC, and the goblin's own charged dive carries
-    /// the warning in as many words: clone the fallback AFTER the buff and the
-    /// "cheap" version IS the expensive one, so the meter buys nothing and every
-    /// other test still passes — the move works, it is simply free.
-    ///
-    /// ⇒ This is the assertion that the meter is worth spending. It compares the
-    /// two specs a player can actually receive from one press.
+    /// The order is the mechanic: a fallback cloned after the buff would be
+    /// the expensive move, and the meter would buy nothing while every other
+    /// test passes. This compares the two specs one press can give.
     #[test]
     fn a_full_meter_buys_a_strictly_harder_answer_from_the_same_press() {
         let payoff = spec("bivalence");
@@ -1545,10 +1308,8 @@ mod limit_payoff_tests {
         );
     }
 
-    /// ⚠ THE PRICE IS THE CAP, which is how "available exactly when the meter is
-    /// full" is spelled — `afford_meter` refuses anything less and nothing new
-    /// decides it. A price BELOW the cap is a different mechanic (a chargeable
-    /// resource) and would be a balance decision, not a typo to leave standing.
+    /// The price is the cap: `afford_meter` refuses anything less. A lower
+    /// price would be a different mechanic (a chargeable resource).
     #[test]
     fn the_price_is_the_whole_meter() {
         assert_eq!(
@@ -1561,9 +1322,8 @@ mod limit_payoff_tests {
         );
     }
 
-    /// ⭐ THE FALLBACK IS CARRIED, NOT PRESSABLE. If it ever acquires a verb the
-    /// player can reach the cheap version directly and the meter stops being a
-    /// choice.
+    /// The fallback is carried, not pressable. With a verb, a player could
+    /// reach the cheap version directly.
     #[test]
     fn the_fallback_is_bound_to_no_input() {
         assert!(

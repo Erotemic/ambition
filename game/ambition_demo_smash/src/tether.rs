@@ -1,27 +1,20 @@
 //! The tether reel: she throws a line at a ledge and it pulls her to it.
 //!
-//! ⭐⭐ THIS MODULE CATCHES NO LEDGE. Ledge grabbing is an engine authority the
-//! movement kernel already runs every frame
-//! (`ledge_grab::try_start_ledge_grab_clusters_in_frame`, called from
-//! `movement/mod.rs`), and a `LedgeContact::anchor` is documented as *"world
-//! position the player should snap to (their center while hanging)"*. ⇒ The reel
-//! DELIVERS HER TO THE ANCHOR and then lets go. The authority catches her from
-//! her real position, on its own terms, with its own release cooldown and its
-//! own eligibility rules — none of which this module knows or may know.
+//! This module catches no ledge. The movement kernel's ledge authority
+//! (`ledge_grab::try_start_ledge_grab_clusters_in_frame`) runs every frame, and
+//! `LedgeContact::anchor` is where the body hangs. The reel delivers her to the
+//! anchor and lets go; the authority catches her with its own cooldown and
+//! eligibility rules.
 //!
-//! ⛔ THAT IS THE RULE THIS ROW EXISTS TO DEMONSTRATE: a complex move may
-//! coordinate many authorities but must not become the authority for their
-//! state. Putting her into `LedgeHang` here would be a second implementation of
-//! ledge state, and every rule written since — trumping, getup, the cooldown —
-//! would have a copy nobody maintains.
+//! A complex move may coordinate authorities but must not become one. Putting
+//! her into `LedgeHang` here would duplicate ledge state (trumping, getup, the
+//! cooldown).
 //!
-//! ⚠ AND THE RELEASE IS WHY THE ARRIVAL COMMANDS ZERO RATHER THAN COASTING. The
-//! authority catches an airborne body two ways: a requested wall normal from the
-//! STICK, or a Smash-style auto-snap that requires falling at `FALL_SNAP_MIN_VY`
-//! (45px/s). A reel that ended while still carrying her UPWARD satisfies
-//! neither, so a tether that arrived would hang in the air beside the ledge it
-//! just caught. Zeroing hands her to gravity, which crosses 45px/s in about two
-//! frames — roughly a pixel of drop, well inside the probe's own band.
+//! On arrival the reel commands zero velocity, not a coast. The authority
+//! catches an airborne body by a stick wall normal or by a Smash-style
+//! auto-snap that needs falling at `FALL_SNAP_MIN_VY` (45px/s). Still moving
+//! upward, she would hang in the air beside the ledge. From zero, gravity
+//! crosses 45px/s in about two frames, about a pixel of drop.
 
 use bevy::prelude::*;
 
@@ -32,10 +25,9 @@ use ambition_platformer2d::engine_core as ae;
 
 /// How far apart the virtual probe positions sit along the line, in world px.
 ///
-/// ⭐ A CONSTANT AND NOT A PARAMETER, because it is a sampling artefact rather
-/// than a design knob: it must be small enough that no ledge hides between two
-/// samples. A ledge's own grab band is 28px up and 30px down
-/// (`LEDGE_REACH_UP` / `LEDGE_REACH_DOWN`), so 16px cannot step over one.
+/// A constant, not a parameter: a sampling step that must not skip a ledge.
+/// A ledge's grab band is 28px up and 30px down (`LEDGE_REACH_UP` /
+/// `LEDGE_REACH_DOWN`), so 16px cannot step over one.
 const LINE_SAMPLE_PX: f32 = 16.0;
 
 /// How close counts as arrived, in world px.
@@ -43,9 +35,8 @@ const ARRIVED_PX: f32 = 0.5;
 
 /// A fighter currently being reeled to a ledge she latched.
 ///
-/// ⛔ ROLLBACK STATE. The clock and the anchor decide where a fighter IS over
-/// several frames, so a rewind that restored the reel without them puts the two
-/// peers' fighters in different places.
+/// Rollback state: the clock and anchor decide where a fighter is over several
+/// frames.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct TetherReel {
     /// Seconds before the reel gives up.
@@ -54,15 +45,13 @@ pub struct TetherReel {
     pub speed: f32,
     /// Where the line bit.
     ///
-    /// ⭐ LATCHED, NOT RE-ASKED — the deliberate contrast with `HomingDash`,
-    /// which re-asks its target every tick so a foe can leave the cone. A ledge
-    /// does not move, and a line that re-aimed itself mid-reel would not be a
-    /// line.
+    /// Latched, not re-asked (unlike `HomingDash`, which re-targets each tick).
+    /// A ledge does not move, and a line that re-aimed would not be a line.
     pub anchor: ae::Vec2,
 }
 
-/// Checksum probe: the clock and the anchor — the facts a peer can disagree
-/// about. ⛔ `speed` is a constant copied off the move and cannot diverge.
+/// Checksum probe: the clock and the anchor. `speed` is a constant copied from
+/// the move and cannot diverge.
 pub fn tether_reel_probe(reel: &TetherReel) -> u64 {
     (reel.remaining_s.to_bits() as u64).rotate_left(23)
         ^ (reel.anchor.x.to_bits() as u64)
@@ -73,7 +62,7 @@ pub fn tether_reel_probe(reel: &TetherReel) -> u64 {
 pub fn begin_authored_tether_pulls(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
-    // The composed collision read-API, the same one the pogo strike asks.
+    // The composed collision read-API, as the pogo strike uses.
     collision: ambition_platformer2d::world::collision::CollisionWorld,
     bodies: Query<(
         &ae::BodyKinematics,
@@ -99,30 +88,21 @@ pub fn begin_authored_tether_pulls(
         let Ok((kin, ground, frame)) = bodies.get(message.actor) else {
             continue;
         };
-        // ⚠ A TETHER RECOVERY IS AN AERIAL MOVE. On the ground the same fiction
-        // is her GRAB, which is a different verb with its own reach and its own
-        // recovery, and letting the line fire while standing would give her a
-        // free horizontal dash along the stage.
+        // A tether recovery is an aerial move. On the ground the same fiction
+        // is her grab; a grounded line would be a free horizontal dash.
         if ground.on_ground {
             continue;
         }
         let Some(solids) = collision.solids() else {
             continue;
         };
-        // ⭐ THE LINE GOES WHERE SHE FACES, and the wall she wants is the one
-        // whose face points BACK at her — the same reading the kernel uses for
-        // an airborne grab request (`requested_wall_normal_clusters` answers
-        // `-stick.x.signum()`).
+        // The line goes where she faces, and the wall she wants faces back at
+        // her (as `requested_wall_normal_clusters` answers `-stick.x.signum()`).
         //
-        // ⛔⛔ "WHERE SHE FACES" IS HER FRAME'S SIDE AXIS, AND THIS WALKED WORLD
-        // +X UNTIL 2026-09-06. The probe below is the frame-aware one — its
-        // `wall_normal_x` is documented as the side normal *"expressed in the
-        // controlled body's local side axis"* — so the question was asked in her
-        // frame while the walk that chose WHERE to ask it was asked in the
-        // world's. Under normal gravity the two are the same line, which is why
-        // every fixture agreed. `to_world` is the same transform the authored
-        // volumes and `spawn_body_strike` use; a tether and a hitbox must not
-        // disagree about which way forward points.
+        // "Where she faces" is her frame's side axis: the probe's
+        // `wall_normal_x` is in the body's local side axis, so the walk must
+        // use the same frame. `to_world` is the transform authored volumes and
+        // `spawn_body_strike` use.
         let reach_dir = frame
             .basis()
             .to_world(ae::Vec2::new(kin.facing.signum(), 0.0));
@@ -132,8 +112,7 @@ pub fn begin_authored_tether_pulls(
         let steps = (params.reach / LINE_SAMPLE_PX).ceil().max(1.0) as i32;
         let mut bite = None;
         for step in 0..=steps {
-            // Deterministic sampling: a fixed count derived from the authored
-            // reach, never from elapsed time or a float accumulator.
+            // Deterministic: a fixed sample count from the authored reach.
             let along = (step as f32 / steps as f32) * params.reach;
             let probe_pos = kin.pos + reach_dir * along;
             if let Some(contact) = ae::ledge_grab::probe_ledge_grab_in_frame(
@@ -148,8 +127,8 @@ pub fn begin_authored_tether_pulls(
             }
         }
         let Some(contact) = bite else {
-            // ⚠ A WHIFFED TETHER IS NOT AN ERROR. She threw a line at nothing
-            // and keeps falling, which is the punish the move is priced for.
+            // A whiffed tether is not an error: she keeps falling, which is
+            // the punish.
             info!(
                 target: "ambition::moves",
                 "tether: no ledge within {}px of {:?}", params.reach, kin.pos,
@@ -166,14 +145,9 @@ pub fn begin_authored_tether_pulls(
                 speed: params.speed,
                 anchor: contact.anchor,
             },
-            // ⭐⭐ THE LINE THE PLAYER SEES, published as an ENGINE fact rather
-            // than drawn from this component. A 150px reel that draws nothing is
-            // the mechanic without the read — the same argument `grab_reach` and
-            // `wire_anchor` each make for the two lines that already exist — and
-            // presentation must not learn what a `TetherReel` is to show it.
-            // `BodyLineAnchor` is the generic body-to-world fact; the ruleset
-            // owns when it exists, the read model projects it, and the line road
-            // that already draws grabs draws this too.
+            // The line the player sees, published as the engine's generic
+            // `BodyLineAnchor` so presentation need not know `TetherReel`. The
+            // line road that draws grabs draws this too.
             ambition_platformer2d::engine_core::BodyLineAnchor(contact.anchor),
         ));
     }
@@ -194,63 +168,34 @@ pub fn reel_tethered_fighters(
     let dt = time.sim_dt();
     let solids = collision.solids();
     for (entity, mut kin, mut reel, frame) in &mut bodies {
-        // ⛔⛔ THE BUDGET IS TESTED BEFORE IT IS SPENT, and the first version of
-        // this loop did the opposite: it decremented and THEN asked whether the
-        // reel had expired, so a reel authored at exactly its budget spent the
-        // whole allowance reaching the give-up branch and issued ZERO pulls. An
-        // N-tick reel got N−1.
-        //
-        // ⇒ What that broke is the AUTHORING CONTRACT rather than a shipped
-        // move. `author_tether_pull` asserts `speed * timeout_s >= reach` — the
-        // promise that a reel can physically cross its own reach — and the tick
-        // it lost is exactly the one that promise is measured in. The Projectile
-        // Polygon's authored values carry slack, so nothing in the game failed;
-        // the primitive was wrong for the next author.
+        // Test the budget before spending it, so an N-tick reel gets N pulls.
+        // `author_tether_pull` asserts `speed * timeout_s >= reach`, a promise
+        // measured in exactly those ticks.
         let has_budget = reel.remaining_s > 0.0;
         // Spent after the test, so this tick's pull is paid for by the budget
         // that authorised it.
         reel.remaining_s -= dt;
         let to_anchor = reel.anchor - kin.pos;
         let distance = to_anchor.length();
-        // ⛔ THE TWO EXITS ARE NOT THE SAME EXIT, and collapsing them was the
-        // first draft's bug. GIVING UP must leave her momentum alone: a reel
-        // that expires mid-flight and also stops her dead would delete the
-        // recovery she had left and read as the game freezing her in the air.
+        // Two different exits. Giving up leaves her momentum alone; stopping
+        // her dead would delete her remaining recovery.
         if !has_budget {
             info!(target: "ambition::moves", "tether: the reel gave up short of {:?}", reel.anchor);
-            // ⛔ THE LINE GOES WITH THE REEL. A body that stopped reeling and
-            // kept its anchor draws a rope to a ledge it is no longer attached
-            // to — which is worse than no line, because it is a lie the player
-            // reads as a live threat.
+            // The line goes with the reel; a line to a ledge she is no longer
+            // attached to reads as a live threat.
             commands
                 .entity(entity)
                 .try_remove::<TetherReel>()
                 .try_remove::<ambition_platformer2d::engine_core::BodyLineAnchor>();
             continue;
         }
-        // ⭐⭐ ASK THE AUTHORITY WHETHER IT WOULD CATCH HER HERE, rather than
-        // wait for her to stand on a point. That is the reel's actual job, and
-        // chasing the anchor cannot finish it:
-        //
-        // ⛔ THE ANCHOR IS A HANG POSITION, AND A HANGING BODY OVERLAPS THE WALL.
-        // Measured in a live match: her body is 34.4px wide, the anchor sat at
-        // x=63.8 and the platform's face at x=80, so the anchor puts her right
-        // edge 1px INSIDE the solid. The swept resolve correctly refuses to move
-        // her there, so she pins ~1px short and `distance <= ARRIVED_PX` never
-        // becomes true.
-        //
-        // ⚠ AND THE FIRST VERSION OF THIS COMMENT CALLED THAT A LIVELOCK, WHICH
-        // IS FALSE — the poison that was supposed to prove it PASSED. Chasing
-        // the anchor does not stop the catch, it DELAYS it: the reel runs out
-        // its whole timeout pinned against the wall, releases on the clock, and
-        // the authority then catches her anyway. Measured on the live stage:
-        // tick 22 chasing the anchor against tick 6 asking the authority. ⇒ The
-        // cost is a quarter-second of a fighter stuck to a wall doing nothing,
-        // which reads as the move failing and then working for no reason.
-        //
-        // ⇒ The moment the authority's own probe accepts where she IS, the reel
-        // is done. No tolerance to tune, and it cannot disagree with the thing
-        // it is handing her to.
+        // Ask the authority whether it would catch her here, not whether she
+        // reached the anchor. The anchor is a hang position that overlaps the
+        // wall slightly, so the swept resolve stops her about 1px short and
+        // `distance <= ARRIVED_PX` may never hold. Chasing the anchor only
+        // delays the catch until the timeout (tick 22 against tick 6 on the
+        // live stage). With the authority's own probe there is no tolerance to
+        // tune.
         let caught_here = solids.as_ref().is_some_and(|world| {
             ae::ledge_grab::probe_ledge_grab_in_frame(
                 kin.pos,
@@ -262,25 +207,18 @@ pub fn reel_tethered_fighters(
             .is_some()
         });
         if caught_here || distance <= ARRIVED_PX {
-            // ⭐ RELEASING HANDS HER TO GRAVITY AND GETS OUT OF THE WAY. See the
-            // module header: the ledge authority catches a FALLING body, so
-            // releasing her with upward velocity would leave her hanging in the
-            // air beside the ledge she just reached.
+            // Release to gravity: the ledge authority catches a falling body
+            // (see the module header).
             crate::motion::command_body_velocity(&mut kin, ae::Vec2::ZERO, "tether arrived");
-            // ⛔ THE LINE GOES WITH THE REEL. A body that stopped reeling and
-            // kept its anchor draws a rope to a ledge it is no longer attached
-            // to — which is worse than no line, because it is a lie the player
-            // reads as a live threat.
+            // The line goes with the reel.
             commands
                 .entity(entity)
                 .try_remove::<TetherReel>()
                 .try_remove::<ambition_platformer2d::engine_core::BodyLineAnchor>();
             continue;
         }
-        // ⛔ THE LAST STEP IS SHORTENED SO SHE LANDS ON THE ANCHOR RATHER THAN
-        // PAST IT. Reeling at a flat `speed` overshoots by up to one tick of
-        // travel — 15px at 900px/s — and 15px past a ledge lip is a fighter
-        // beside the ledge rather than on it.
+        // Shorten the last step so she lands on the anchor: a flat `speed`
+        // overshoots by up to one tick (15px at 900px/s).
         let step_speed = reel.speed.min(distance / dt);
         crate::motion::command_body_velocity(
             &mut kin,

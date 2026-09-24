@@ -1,10 +1,7 @@
-//! Extracted from `lib.rs` on 2026-08-30, unchanged.
+//! Input-arbitration tests for the select screen, kept in a sibling file.
 //!
-//! ⭐ THE MODULE-SIZE GATE COUNTS INLINE `#[cfg(test)]` TOWARD ITS FILE and
-//! excludes a sibling `tests.rs` centrally, so a crate's own convention —
-//! `#[cfg(test)] mod tests;` in a file of its own — is the sanctioned way to
-//! bring a module back under the limit without moving a line of production
-//! code. `lib.rs` was 5062 lines, of which 1640 were these two modules.
+//! The module-size gate counts inline `#[cfg(test)]` code toward its file but
+//! excludes a sibling test file.
 
 use super::*;
 use ambition_platformer2d::input::participant::{
@@ -28,11 +25,8 @@ fn app_with(pause_open: bool) -> App {
     // The screen's driver writes the stage the START press will use.
     app.init_resource::<crate::SmashStageChoice>();
     app.init_resource::<crate::SmashStockChoice>();
-    // the CLOCK, because the cursor roams now. `drive_the_cursor`
-    // integrates a held stick against `Time`, so a hand-built app without
-    // one fails validation on a resource rather than on anything this test
-    // is about. A real composition always has `TimePlugin`; a fixture has
-    // exactly what it says.
+    // `drive_the_cursor` integrates a held stick against `Time`, so the
+    // fixture needs a clock (a real composition has `TimePlugin`).
     app.init_resource::<Time>();
     app.init_resource::<select_screen::StartRequested>();
     app.init_resource::<select_screen::LeaveRequested>();
@@ -44,20 +38,16 @@ fn app_with(pause_open: bool) -> App {
         SMASH_SELECT_ROUTE,
         "ambition_launcher",
     ));
-    // the DEFAULT roster (this demo's own fighters), not an assembled one:
-    // there is no catalog in this fixture and none is needed. What is under
-    // test is the arbitration, and the roster only has to be non-empty so
-    // the layout has a grid to put a cursor on.
+    // The default roster (this demo's own fighters): no catalog is needed,
+    // only a non-empty grid for the cursor.
     app.init_resource::<select::SmashRoster>();
     app.add_systems(
         Update,
         (
             resolve_active_input_context,
             select_screen::drive_the_cursor.run_if(the_select_screen_owns_its_input),
-            // the real consumer, in the real order. Asserting on
-            // `LeaveRequested` alone would prove a flag was set and nothing
-            // about whether anybody acts on it — the flag is this test's
-            // subject only if the system that spends it is here too.
+            // The real consumer, in the real order: the flag matters only if
+            // the system that spends it runs too.
             leave_the_select_screen_when_asked,
         )
             .chain(),
@@ -70,9 +60,8 @@ fn app_with(pause_open: bool) -> App {
         ambition_platformer2d::input::SELECT_CONTEXT,
         context_priority::SELECT,
     ));
-    // The pause menu's claim, at its real priority. this test names it
-    // only because it is standing in for the host; neither the screen nor
-    // the pause menu names the other.
+    // The pause menu's claim, at its real priority. This test stands in for
+    // the host; neither the screen nor the pause menu names the other.
     if pause_open {
         contexts.declare(ContextClaim::capturing(
             PAUSE_CONTEXT,
@@ -99,12 +88,9 @@ fn app_with(pause_open: bool) -> App {
         prepared_session: None,
     });
 
-    // THE CURSOR IS ON SLOT 1's BUTTON. No window and no `UiPlugin` here,
-    // and it does not matter: the screen's rectangles come from
-    // `select_screen::layout`, which lays out against `HEADLESS_VIEWPORT`
-    // when there is no window. That is what makes this test press a real
-    // button rather than reach into the value — and the control below is
-    // what proves the press lands at all.
+    // The cursor is on slot 1's button. With no window, the rectangles come
+    // from `select_screen::layout` at `HEADLESS_VIEWPORT`, so the test
+    // presses a real button. The control below proves the press lands.
     let button = select_screen::layout::SelectLayout::for_viewport(
         None,
         select::SmashRoster::default().cell_count(),
@@ -127,18 +113,17 @@ fn app_with(pause_open: bool) -> App {
     app
 }
 
-/// What one seat is holding down this frame, replacing whatever
-/// [`app_with`] armed. Every BACK test below presses through the SAME
-/// `SeatMenuFrames` channel a pad, a keyboard and the touch overlay's own
-/// "Back" button all reduce to — there is no second road to fake.
+/// What one seat is holding this frame, replacing what [`app_with`] armed.
+/// BACK tests press through the same `SeatMenuFrames` channel a pad, a
+/// keyboard and the touch overlay's "Back" button all use.
 fn seat_presses(app: &mut App, seat: u8, frame: MenuControlFrame) {
     app.world_mut()
         .resource_mut::<SeatMenuFrames>()
         .set(seat, frame);
 }
 
-/// Which shell commands this frame produced. Drains, so a caller reads a
-/// FRAME rather than everything since boot.
+/// Which shell commands this frame produced. Drains, so a caller reads one
+/// frame.
 fn commands_sent(app: &mut App) -> Vec<ambition_platformer2d::game_shell::ShellCommand> {
     app.world_mut()
         .resource_mut::<Messages<ambition_platformer2d::game_shell::ShellCommand>>()
@@ -146,8 +131,8 @@ fn commands_sent(app: &mut App) -> Vec<ambition_platformer2d::game_shell::ShellC
         .collect()
 }
 
-/// Did this frame ask the shell to go home — the pause menu's own
-/// "Quit to Title" command, and the one this screen now writes?
+/// Did this frame ask the shell to go home (the pause menu's "Quit to Title"
+/// command, which this screen also writes)?
 fn asked_to_go_home(app: &mut App) -> bool {
     commands_sent(app).iter().any(|command| {
         matches!(
@@ -397,10 +382,10 @@ fn player_one_can_enable_a_slot_for_a_connected_second_player() {
     );
 }
 
-/// A LOBBY WITH A CPU BETWEEN TWO PEOPLE ROUTES THE SECOND ONE HOME.
+/// A lobby with a CPU between two people routes the second one's presses to
+/// the second one's card.
 ///
-/// The roster is SPARSE and it is not in input-seat order. Explicit join
-/// ownership can therefore produce:
+/// The roster is sparse and not in input-seat order:
 ///
 /// ```text
 /// card 0   Controller { device: 0 }
@@ -408,8 +393,8 @@ fn player_one_can_enable_a_slot_for_a_connected_second_player() {
 /// card 2   Controller { device: 1 }
 /// ```
 ///
-/// The second person reports on input seat ONE — the numbering their pad, their menu frame and
-/// their cursor all share — and the screen indexed the CARDS with it too.
+/// The second person reports on input seat one; the screen must not use that
+/// as a card index.
 #[test]
 fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
     let mut app = app_with(false);
@@ -448,8 +433,8 @@ fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
         Some(select::SlotPick::Fighter(1)),
         "the second person's press did not reach the card their controller drives"
     );
-    // the other half, and the half that was actually broken. Landing on
-    // card 2 is only right if it did NOT also land on the machine's.
+    // The other half: landing on card 2 is right only if it did not also land
+    // on the CPU's card.
     assert_eq!(
         select.slot(1).pick,
         Some(select::SlotPick::Random),
@@ -462,16 +447,11 @@ fn a_cpu_between_two_people_does_not_swallow_the_second_ones_presses() {
     );
 }
 
-/// ONE TOKEN HAS AT MOST ONE CARRIER.
+/// One token has at most one carrier.
 ///
-/// a human may pick up a CPU's token — one person setting up two machine
-/// opponents is this lobby's most ordinary use. but EVERY human could,
-/// with nothing arbitrating, so two cursors carried the same piece and
-/// `carrier_of` returned whichever the array reached first. Two people then
-/// dragged one token to two different fighters and the last writer won.
-///
-/// the incumbent keeps it, resolved in seat order — deterministic, so
-/// this cannot pass on one run and fail on the next.
+/// A human may pick up a CPU's token, but two cursors must not carry the same
+/// one. The incumbent keeps it, resolved in seat order, so the result is
+/// deterministic.
 #[test]
 fn two_people_reaching_for_one_cpu_token_do_not_both_get_it() {
     let mut app = app_with(false);
@@ -527,25 +507,20 @@ fn two_people_reaching_for_one_cpu_token_do_not_both_get_it() {
     );
 }
 
-/// ESCAPE OPENS THE PAUSE MENU AND DOES NOT ALSO QUIT.
+/// Escape opens the pause menu and does not also quit.
 ///
-/// one key, two semantic actions: `presets.rs` binds Escape to BOTH
-/// `Start` and `MenuBack`, deliberately and with `rebind.rs` testing that it
-/// does. The shell's pause menu opens on `start` and this screen's chain
-/// runs in the SAME `InputSet::Consume` with no order between them, so a
-/// bare `back` reading would have Escape open the menu AND quit the lobby
-/// out from under it — the double-fire being deterministic in whichever
-/// direction the schedule happened to resolve.
-///
-/// The explicit Back-control test above proves the screen still has a way
-/// out; this guard is specifically about Escape's combined Start+Back edge.
+/// `presets.rs` binds Escape to both `Start` and `MenuBack` (tested in
+/// `rebind.rs`). The pause menu opens on `start` in the same unordered
+/// `InputSet::Consume` set, so a bare `back` read would quit the lobby from
+/// under the menu. The Back-control test above proves the screen still has a
+/// way out.
 #[test]
 fn escape_does_not_quit_the_lobby_out_from_under_the_pause_menu_it_opens() {
     let mut app = app_with(false);
     seat_presses(
         &mut app,
         0,
-        // What Escape actually produces: both edges, one frame.
+        // What Escape produces: both edges, one frame.
         MenuControlFrame {
             back: true,
             start: true,
@@ -559,12 +534,10 @@ fn escape_does_not_quit_the_lobby_out_from_under_the_pause_menu_it_opens() {
     );
 }
 
-/// A COMPOSITION WHOSE HOME IS THIS SCREEN DRAWS NO WAY OUT.
+/// A composition whose home is this screen draws no way out.
 ///
-/// The standalone smash demo names `SMASH_SELECT_ROUTE` as its own home
-/// route, so `QuitToHome` there re-enters the route it is already on. An
-/// exit that churns the router and changes nothing on screen is a dead
-/// button, and this is the term that refuses it.
+/// The standalone demo uses `SMASH_SELECT_ROUTE` as its home route, so
+/// `QuitToHome` would re-enter the same route: a dead button.
 #[test]
 fn there_is_no_way_out_when_the_lobby_is_itself_home() {
     let mut app = app_with(false);
@@ -589,8 +562,7 @@ fn there_is_no_way_out_when_the_lobby_is_itself_home() {
     );
 }
 
-/// The screen drives when it owns its seat. The control: without this,
-/// the test below passes on a screen that never worked.
+/// The screen drives when it owns its seat. The control for the test below.
 #[test]
 fn the_select_screen_reads_its_seat_when_nothing_is_over_it() {
     let mut app = app_with(false);
@@ -604,18 +576,13 @@ fn the_select_screen_reads_its_seat_when_nothing_is_over_it() {
     );
 }
 
-/// One press moves ONE thing.
+/// One press moves one thing.
 ///
-/// With the universal pause menu open OVER this screen the arrows drove
-/// BOTH — the menu's cursor and the CPU count. They read different channels
-/// (`MenuControlFrame` and `SeatMenuFrames`), so neither could consume the
-/// other's edge, and this demo cannot name `ShellPauseMenu` at all:
-/// `basic_shell_presentation` is not in `all_capabilities`, which is the
-/// oracle rule working as intended.
-///
-/// So the arbitration is the CLAIM system. A capturing claim above `SELECT`
-/// closes this screen's context, and the screen asks whether it still owns
-/// the seat. Neither side names the other.
+/// With the pause menu open over this screen, both read the arrows through
+/// different channels (`MenuControlFrame` and `SeatMenuFrames`), and this demo
+/// cannot name `ShellPauseMenu` (`basic_shell_presentation` is not in
+/// `all_capabilities`). So the claim system arbitrates: a capturing claim
+/// above `SELECT` closes this screen's context. Neither side names the other.
 #[test]
 fn a_pause_claim_takes_the_arrows_away_from_the_select_screen() {
     let mut app = app_with(true);
@@ -631,11 +598,8 @@ fn a_pause_claim_takes_the_arrows_away_from_the_select_screen() {
 }
 
 /// The screen publishes its submit verb while it is up, and takes it back
-/// when it leaves.
-///
-/// the retraction is the half that bites. A cue outlives its surface if
-/// nothing withdraws it, and the next screen then inherits a prompt telling
-/// the player to choose a fighter on a screen with no fighters.
+/// when it leaves. A stale cue would tell the next screen's player to choose
+/// a fighter.
 #[test]
 fn the_select_screen_publishes_its_cue_and_retracts_it_on_the_way_out() {
     use ambition_platformer2d::input::{ActiveUiCues, SELECT_CONTEXT};
@@ -653,7 +617,7 @@ fn the_select_screen_publishes_its_cue_and_retracts_it_on_the_way_out() {
         "the lobby is up and nothing says what confirming does"
     );
 
-    // Leave the route — the only change.
+    // Leave the route: the only change.
     app.world_mut()
         .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
         .active = None;

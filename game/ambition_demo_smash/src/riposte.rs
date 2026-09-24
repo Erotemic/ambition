@@ -1,44 +1,28 @@
 //! The answering cut: a parry's response that hits back.
 //!
-//! ⭐⭐ THIS MODULE OWNS NO DAMAGE. It spawns one ordinary body strike through
-//! `strike::spawn_body_strike`, and the single hitbox authority every swing in
-//! the workspace goes through resolves it. What is decided here is WHERE the cut
-//! goes: in front of the fighter who answered, at the reach their move authored.
+//! This module owns no damage. It spawns one ordinary body strike through
+//! `strike::spawn_body_strike`, and the single hitbox authority resolves it.
+//! This module decides where the cut goes: in front of the fighter who
+//! answered, at the authored reach.
 //!
-//! ⛔⛔ IT IS AN ORDINARY BODY STRIKE, AND THE FIRST DRAFT GOT THAT WRONG IN A
-//! WAY NOTHING WOULD HAVE CAUGHT. It wrote an `EffectRequest::DamageBox`, the
-//! request a mine's blast writes — and `spawn_damage_box` anchors every box as
-//! `HitboxAnchor::World`, where the resolver's table reads
-//! `(HitSide::Player, HitboxAnchor::World { .. }) => None`: a player-sided world
-//! box takes no melee path and damages NOBODY. The only side that reaches
-//! bodies from a world anchor is `Environment`, and `Environment` deliberately
-//! consults no self-exclusion — *"your own bomb hurts you, and you still placed
-//! it."* ⇒ Every spelling available through a `DamageBox` was wrong: one that
-//! hurts no one, or one that cuts the fighter who parried.
+//! It must be a body strike, not an `EffectRequest::DamageBox`.
+//! `spawn_damage_box` anchors every box as `HitboxAnchor::World`, and the
+//! resolver maps `(HitSide::Player, HitboxAnchor::World { .. }) => None`: that
+//! box damages nobody. The `Environment` side reaches bodies from a world
+//! anchor but has no self-exclusion, so it would cut the fighter who parried.
+//! See `a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`.
 //!
-//! ⭐ SO THE CUT IS SPAWNED THE WAY A MOVE'S OWN VOLUME IS: `HitSide::Player`
-//! anchored `FollowOwner`, through `strike::spawn_body_strike`. The owner is
-//! excluded by identity, and `damage_lands_between` still decides teams,
-//! factions and friendly fire — so a teams match does not have the answering
-//! blade cutting an ally.
+//! So the cut is spawned like a move's own volume: `HitSide::Player`, anchored
+//! `FollowOwner`. The owner is excluded by identity, and `damage_lands_between`
+//! still decides teams, factions and friendly fire. The tests assert damage,
+//! not the request shape, for this reason.
 //!
-//! ⚠ THE MISTAKE WAS INVISIBLE UNTIL A CITATION WAS READ. The `HitSide` comment
-//! next door names the combat test that proves the hazard end
-//! (`a_hazard_hits_bystander_and_owner_alike_where_a_neutral_box_hits_neither`),
-//! and that test's own title is the correction. Its tests assert DAMAGE for
-//! exactly this reason: a request-shaped assertion is a question about my own
-//! authoring, not about the engine's answer to it.
-//!
-//! ⛔ ROLLBACK: THIS TECHNIQUE ADDS NO STATE, and that is worth stating rather
-//! than leaving a reader to check. The cut is three components that are already
-//! registered — `Hitbox` (`component-clone-entity-ref`, with `map_entities`
-//! because it carries its owner), `HitboxHits` (`component-clone-entity-set`,
-//! likewise mapped) and `HitboxLifetime` (`component-clone-probed`) — the exact
-//! set `spawn_damage_box` has always spawned. ⇒ No new component, no probe, and
-//! no schema bump: `GGRS_ROLLBACK_SCHEMA_VERSION` is untouched by this row.
-//! ⚠ The owner it stores is a FIGHTER, which is itself rollback-managed, so the
-//! entity mapping that already exists is what keeps the cut pointing at the
-//! same body after a restore.
+//! Rollback: this technique adds no state. The cut uses components that are
+//! already registered: `Hitbox` (`component-clone-entity-ref`, with
+//! `map_entities`), `HitboxHits` (`component-clone-entity-set`, mapped) and
+//! `HitboxLifetime` (`component-clone-probed`). No schema bump is needed. The
+//! stored owner is a rollback-managed fighter, so the existing entity mapping
+//! keeps the cut on the same body after a restore.
 
 use bevy::prelude::*;
 
@@ -71,10 +55,9 @@ pub fn cut_where_a_riposte_answers(
                 continue;
             }
         };
-        // ⭐ THE AUTHORING CHECK RUNS HERE BECAUSE HERE IS WHERE BOTH FACTS ARE
-        // IN HAND. A response's params are authored inside a `CounterParams`,
-        // which has no constructor to assert in, so a bad value would otherwise
-        // reach the player as a cut that does nothing.
+        // The authoring check runs here, where both facts are available.
+        // `CounterParams` has no constructor to assert in, so a bad value
+        // would otherwise reach the player as a cut that does nothing.
         let problems = params.problems();
         if !problems.is_empty() {
             error!(
@@ -87,12 +70,10 @@ pub fn cut_where_a_riposte_answers(
         let Ok((kin, frame)) = bodies.get(message.actor) else {
             continue;
         };
-        // ⭐ BODY-LOCAL, NOT WORLD, IN BOTH SENSES. The cut tracks the fighter
-        // for its whole life instead of hanging in the air where they were
-        // standing when they parried — and `+x` here means THEIR forward, not
-        // the world's. `spawn_body_strike` rotates it through the frame below;
-        // this line said "body-local" for a fortnight while passing a world
-        // vector, and only a rotated-frame fixture could tell the two apart.
+        // Body-local: the cut follows the fighter for its whole life, and
+        // `+x` is their forward, not the world's. `spawn_body_strike` rotates
+        // it through the frame below; only a rotated-frame fixture can tell a
+        // world vector from a body-local one.
         let local_offset = ae::Vec2::new(kin.facing.signum() * params.reach, 0.0);
         info!(
             target: "ambition::moves",
@@ -109,10 +90,9 @@ pub fn cut_where_a_riposte_answers(
             params.damage as i32,
             params.knockback,
             params.lifetime_s,
-            // ⭐ THE AUTHOR'S VOICE FOR THIS CUT. Resolved here rather than in
-            // the params struct because `SfxId` is a runtime hash and the
-            // authored surface stays a plain string — an author writes
-            // `"player.slash"`, not an id.
+            // The author's sound for this cut. Resolved here because `SfxId`
+            // is a runtime hash, and the authored surface stays a plain string
+            // such as `"player.slash"`.
             params
                 .hit_sfx
                 .as_deref()

@@ -10,11 +10,7 @@ fn app() -> App {
         .resource_mut::<ambition_platformer2d::time::WorldTime>();
     time.scaled_dt = 1.0 / 60.0;
     time.raw_dt = 1.0 / 60.0;
-    // ⛔ THE SAME ORDER THE PLUGIN REGISTERS: expire, THEN apply. A harness that
-    // chained them the other way would let every test here pass while the shipped
-    // game spent a tick of every dilation on the tick it was applied — which is
-    // exactly what happened, because this harness used to mirror the wrong order
-    // faithfully.
+    // The plugin's order: expire, then apply.
     app.add_systems(
         Update,
         (expire_time_dilations, apply_authored_time_dilations).chain(),
@@ -50,12 +46,10 @@ fn scale_of(app: &App, who: Entity) -> f32 {
         .0
 }
 
-/// ⭐⭐ A DILATION SLOWS A BODY AND THEN GIVES ITS TIME BACK ON THE WORLD'S CLOCK.
+/// A dilation slows a body, then gives its time back on the world clock.
 ///
-/// ⛔ THE MIDDLE ASSERTION IS THE ONE THAT MATTERS: still slow at half the
-/// duration. Without it, "slow then normal" is satisfied by a dilation cleared on
-/// the very next tick — a move that does nothing, and one that looks exactly like
-/// a move that worked.
+/// The middle assertion matters most: still slow at half the duration. Without
+/// it, a dilation cleared on the next tick would pass.
 #[test]
 fn a_dilation_slows_a_body_and_expires_on_world_time() {
     let mut app = app();
@@ -84,12 +78,10 @@ fn a_dilation_slows_a_body_and_expires_on_world_time() {
     );
 }
 
-/// ⛔⛔ AND A SECOND DILATION DOES NOT NEST.
+/// A second dilation does not nest.
 ///
-/// Two overlapping slows would multiply into a body that is barely moving, and
-/// each would try to restore a prior the other had already overwritten. ⇒ The
-/// newest wins and keeps the ORIGINAL prior, so however many land, one restore
-/// returns the body to the clock it started on.
+/// Overlapping slows would multiply, and each would restore a prior the other
+/// overwrote. The newest wins and keeps the original prior.
 #[test]
 fn a_second_dilation_replaces_the_first_and_still_restores_the_original() {
     let mut app = app();
@@ -112,7 +104,7 @@ fn a_second_dilation_replaces_the_first_and_still_restores_the_original() {
     );
 }
 
-/// ⛔ AN AUTHORED SPEED-UP IS REFUSED, and a zero-second one is too.
+/// An authored speed-up is refused, and so is a zero-second one.
 #[test]
 fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
     let mut app = app();
@@ -129,8 +121,8 @@ fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
         1.0,
         "a zero-second dilation was applied, so nothing would ever take it away"
     );
-    // ⛔ POISON GUARD. Both assertions hold for an adapter that refuses
-    // EVERYTHING, including the dilations it exists to apply.
+    // Poison guard: both assertions above hold for an adapter that refuses
+    // everything.
     ask(&mut app, who, 0.25, 0.40);
     assert_eq!(
         scale_of(&app, who),
@@ -140,20 +132,14 @@ fn a_speed_up_or_a_zero_duration_is_refused_rather_than_applied() {
     );
 }
 
-/// ⭐⭐ THE JOIN: A WITCH-TIME STANCE ACTUALLY SLOWS THE FIGHTER WHO SWUNG,
-/// THROUGH BOTH SYSTEMS IN THE ORDER THE SHIPPED SCHEDULE RUNS THEM.
+/// The join: a Witch-Time stance slows the fighter who swung, through both
+/// systems in the shipped order.
 ///
-/// The counter's own tests prove it dispatches to the attacker; this file's other
-/// tests prove the adapter applies a scale. ⛔ Neither asks whether they MEET —
-/// and in `lib.rs` the dilation adapter is registered BEFORE the counter's answer
-/// (`ContentSpecials`, 991 vs 1035), so the `ActorActionMessage` is read on the
-/// FOLLOWING tick. That is a real property of the composition, not a detail: it
-/// works only because Bevy messages survive a frame, and "two halves each tested"
-/// is exactly the shape that has hidden four defects on this campaign already.
-///
-/// ⇒ Systems added in the SHIPPED order rather than a convenient one, because a
-/// fixture that ran them the other way round would prove something the game does
-/// not do.
+/// The counter's tests prove it dispatches to the attacker; the others here
+/// prove the adapter applies a scale. In `lib.rs` the dilation adapter runs
+/// before the counter's answer, so the `ActorActionMessage` is read on the
+/// following tick. That works because messages survive a frame. The fixture
+/// uses the shipped order.
 #[test]
 fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
     use ambition_platformer2d::entity_catalog::smash_counter::CounterParams;
@@ -171,7 +157,7 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
         time.scaled_dt = 1.0 / 60.0;
         time.raw_dt = 1.0 / 60.0;
     }
-    // ⛔ THE SHIPPED ORDER: the adapter first, the counter's answer second.
+    // The shipped order: the adapter first, the counter's answer second.
     app.add_systems(
         Update,
         (
@@ -247,11 +233,9 @@ fn a_witch_time_stance_slows_the_attacker_across_the_frame_boundary() {
     );
 }
 
-/// Set the world's tick to an EXACT binary fraction, so `remaining_s -= dt`
-/// repeated N times reaches exactly zero. `1/60` is not representable in `f32`,
-/// and a countdown built from it can leave a positive crumb that buys a
-/// spurious extra tick — a flake that would look like the very off-by-one these
-/// tests exist to pin.
+/// Set the world's tick to an exact binary fraction, so `remaining_s -= dt`
+/// repeated N times reaches zero exactly. `1/60` is not representable in `f32`
+/// and can leave a crumb that buys a spurious extra tick.
 fn tick_exactly(app: &mut App, dt: f32) {
     let mut time = app
         .world_mut()
@@ -260,23 +244,13 @@ fn tick_exactly(app: &mut App, dt: f32) {
     time.raw_dt = dt;
 }
 
-/// ⛔⛔ A ONE-TICK DILATION MUST STILL BE IN FORCE WHEN THE NEXT TICK READS IT —
-/// AND FOR A WHILE IT WAS NOT, WHICH MADE THE SHORTEST SLOW A NO-OP.
+/// A one-tick dilation is still in force when the next tick reads it.
 ///
-/// The systems were chained `apply -> expire`, so the sweep subtracted `sim_dt`
-/// from a countdown inserted moments earlier in the same tick. ⭐ The phase turns
-/// that into a total loss rather than a rounding one: `ContentSpecials` is inside
-/// `Combat`, `PlayerSimulation` runs BEFORE `Combat`, so a scale written here is
-/// first OBSERVED on the following tick. Spending a tick here spends the only one
-/// that had not been spent yet.
-///
-/// ⇒ N authored ticks bought N−1 slowed ticks, and N=1 bought none: the body was
-/// back at its own clock before anything could move at the new one.
-///
-/// ⚠ THE DURATION TEST ABOVE CANNOT SEE THIS. It samples a midpoint and an
-/// eventual expiry, and "slow at the midpoint, normal at the end" is true of a
-/// slow that is one tick short at the front. A boundary needs a boundary
-/// assertion.
+/// `PlayerSimulation` runs before `Combat` (where `ContentSpecials` is), so a
+/// scale written here is first observed on the next tick. If the same tick
+/// also spent a tick of the countdown, N authored ticks would give N-1 slowed
+/// ticks, and N=1 none. The duration test above samples only a midpoint and
+/// an end, so it cannot see this.
 #[test]
 fn a_one_tick_dilation_is_still_in_force_next_tick() {
     let dt = 1.0 / 64.0;
@@ -295,13 +269,9 @@ fn a_one_tick_dilation_is_still_in_force_next_tick() {
     );
 }
 
-/// ⭐ AND THE GENERAL FORM: an authored duration buys exactly that many slowed
-/// ticks, not one fewer.
-///
-/// Counting is the point. A test that asks "is it slow" and later "is it normal"
-/// passes on a dilation that is short by a tick at either end; only a COUNT can
-/// tell N from N−1. Several durations, because an off-by-one that happens to be
-/// invisible at one length rarely is at three.
+/// The general form: an authored duration buys exactly that many slowed ticks.
+/// Only a count can tell N from N-1; several durations, because an off-by-one
+/// can hide at one length.
 #[test]
 fn an_authored_duration_buys_exactly_that_many_slowed_ticks() {
     let dt = 1.0 / 64.0;
@@ -312,9 +282,9 @@ fn an_authored_duration_buys_exactly_that_many_slowed_ticks() {
 
         ask(&mut app, who, 0.5, dt * ticks as f32);
 
-        // The scale a tick LEAVES BEHIND is what the next tick's player
-        // simulation reads, because that simulation runs before this phase. So
-        // every pass through this loop is one tick that moves at the slow scale.
+        // The scale a tick leaves behind is what the next tick's player
+        // simulation reads (it runs before this phase), so each loop pass is
+        // one tick at the slow scale.
         let mut slowed = 0_u32;
         while scale_of(&app, who) < 1.0 {
             slowed += 1;

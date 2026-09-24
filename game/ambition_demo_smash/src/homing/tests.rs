@@ -1,6 +1,5 @@
-//! ⛔⛔ THE CONE IS THE MOVE. "It steers toward a foe" would pass against a dash
-//! that finds anybody anywhere — which is a tracking move nobody has to aim, and
-//! the opposite of a read. Every test here pairs a hit with a miss.
+//! The cone is the move: a dash that finds anybody anywhere is a tracking move
+//! nobody has to aim. Every test here pairs a hit with a miss.
 
 use super::*;
 use ambition_platformer2d::actor::MatchSeat;
@@ -21,13 +20,9 @@ fn app() -> App {
     app
 }
 
-/// ⛔⛔ A FIGHTER, NOT A POSITION. This spawned `BodyKinematics` + `MatchSeat`
-/// and nothing else, so **nothing in this file could tell an ally from a corpse**
-/// — which is exactly how the dash came to steer at every body in the world.
-/// A real match gives every seated fighter `ActorFaction::Player` and its own
-/// `MatchTeam` (the smash rules keep global friendly fire OFF and say why:
-/// *"teams already decide who may hit whom"*), so a fixture without them was
-/// modelling a body that cannot legally fight anybody.
+/// A fighter, not only a position: `ActorFaction::Player` and its own
+/// `MatchTeam`, as in a real match (friendly fire is off; teams decide who may
+/// hit whom). Without them the fixture cannot tell an ally from a corpse.
 fn body(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
@@ -67,7 +62,7 @@ fn velocity(app: &App, who: Entity) -> ae::Vec2 {
     app.world().get::<ae::BodyKinematics>(who).unwrap().vel
 }
 
-/// ⭐ A foe inside the cone bends the dash toward them.
+/// A foe inside the cone bends the dash toward them.
 #[test]
 fn the_dash_bends_toward_a_foe_inside_the_cone() {
     let mut app = app();
@@ -83,8 +78,8 @@ fn the_dash_bends_toward_a_foe_inside_the_cone() {
     );
 }
 
-/// ⛔ AND A FOE OUTSIDE THE CONE DOES NOT. Without this the guard passes against
-/// a dash that homes on anybody, which is a different move.
+/// A foe outside the cone does not attract it. Without this, a dash that homes
+/// on anybody would pass.
 #[test]
 fn a_foe_behind_the_fighter_does_not_attract_the_dash() {
     let mut app = app();
@@ -102,8 +97,8 @@ fn a_foe_behind_the_fighter_does_not_attract_the_dash() {
     );
 }
 
-/// ⛔ AND ONE BEYOND THE RANGE DOES NOT EITHER — the other half of "the way I was
-/// pointing" is HOW FAR.
+/// A foe beyond the range does not either: "the way I was pointing" also means
+/// how far.
 #[test]
 fn a_foe_beyond_the_range_does_not_attract_the_dash() {
     let mut app = app();
@@ -117,8 +112,8 @@ fn a_foe_beyond_the_range_does_not_attract_the_dash() {
     );
 }
 
-/// ⛔⛔ IT ENDS. A dash whose clock never ran out would carry the fighter through
-/// his own recovery and off the stage, and there would be nothing to punish.
+/// It ends: a dash that never ran out would carry the fighter off the stage
+/// with nothing to punish.
 #[test]
 fn the_dash_stops_when_its_clock_runs_out() {
     let mut app = app();
@@ -134,9 +129,8 @@ fn the_dash_stops_when_its_clock_runs_out() {
     );
 }
 
-/// ⭐ THE COMMITTED DIRECTION IS REMEMBERED, NOT RE-READ. Turning the fighter
-/// mid-dash must not sweep the cone across the stage — that would turn a read
-/// into a search.
+/// The committed direction is remembered, not re-read: turning mid-dash must
+/// not sweep the cone.
 #[test]
 fn turning_mid_dash_does_not_sweep_the_cone() {
     let mut app = app();
@@ -155,19 +149,12 @@ fn turning_mid_dash_does_not_sweep_the_cone() {
     );
 }
 
-/// ⛔⛔ A KO'd FIGHTER IS NOT A TARGET, AND THE DASH USED TO STEER AT ONE.
+/// A KO'd fighter is not a target.
 ///
-/// `assisted_fire_direction` is deliberately GEOMETRIC and assumes its caller
-/// supplied foes; this handed it every body in the world filtered only by "not
-/// me". ⇒ A fighter who has just lost a stock carries `OutOfPlay` and — because
-/// a respawn restores it — FULL HEALTH, so nothing about their numbers says they
-/// are gone. The dash bent at a body the player could not even hit.
-///
-/// ⭐ The fix reuses `body_is_untouchable`, the combat domain's own participation
-/// gate, rather than approximating it: its doc is explicit that out-of-play
-/// belongs there precisely so TARGET SELECTION sees it, and that folding it into
-/// invulnerability would leave "a hunter going on chasing a body it merely could
-/// not damage."
+/// A fighter who lost a stock carries `OutOfPlay` and, because a respawn
+/// restores it, full health. The fix reuses `body_is_untouchable`, the combat
+/// domain's participation gate, which covers out-of-play so target selection
+/// sees it.
 #[test]
 fn a_ko_d_fighter_does_not_attract_the_dash() {
     let mut app = app();
@@ -185,18 +172,11 @@ fn a_ko_d_fighter_does_not_attract_the_dash() {
     );
 }
 
-/// ⛔⛔ AND NEITHER DOES A TEAMMATE.
+/// A teammate is not a target either: in team versus, a "not me" filter would
+/// bend a fighter at the ally beside them.
 ///
-/// The smash rules keep global friendly fire OFF and say why in place: *"teams
-/// already decide who may hit whom. Switching global friendly fire on to let two
-/// humans trade would make TEAMMATES hittable too."* ⇒ So a dash that steered by
-/// "not me" would, in team versus, bend a fighter at the ally standing beside
-/// them — a move that actively fights its owner.
-///
-/// ⭐ THE CONTROL IS THE TEST ABOVE IT, `the_dash_bends_toward_a_foe_inside_the_cone`:
-/// same geometry, same cone, one field different (a shared team), opposite
-/// outcome. Asserting only that a teammate is ignored would pass for a dash that
-/// homes on nothing at all.
+/// The control is `the_dash_bends_toward_a_foe_inside_the_cone`: same geometry,
+/// one field different (a shared team), opposite outcome.
 #[test]
 fn a_teammate_does_not_attract_the_dash() {
     let mut app = app();
@@ -214,14 +194,12 @@ fn a_teammate_does_not_attract_the_dash() {
     );
 }
 
-/// A body the dash may HIT but must not HUNT: different faction, no team, no
-/// declared hostility. `CombatRelation` calls this `Neutral` — "physical:
-/// anything not an ally can be hit", but "relational: only a declared foe. A
-/// neutral bystander is left alone."
+/// A body the dash may hit but must not hunt: different faction, no team, no
+/// declared hostility. `CombatRelation` calls this `Neutral`: damageable, but
+/// not a target.
 ///
-/// ⚠ No `MatchTeam` ON PURPOSE. Team relation outranks faction, so giving this
-/// body a team would make it a `Foe` and destroy the very distinction the tests
-/// below exist to draw.
+/// No `MatchTeam` on purpose: team relation outranks faction, so a team would
+/// make it a `Foe`.
 fn bystander(app: &mut App, at: ae::Vec2) -> Entity {
     app.world_mut()
         .spawn((
@@ -235,31 +213,21 @@ fn bystander(app: &mut App, at: ae::Vec2) -> Entity {
         .id()
 }
 
-/// ⛔⛔ THE ARBITRATION, WHICH IS THE ONLY SHAPE THAT CAN CATCH THIS.
+/// Arbitration: a nearer bystander does not outbid the foe.
 ///
-/// The dash asked `damage_lands_between` — the DAMAGE authority — to decide who
-/// to steer at. The two authorities agree everywhere except one relation:
-/// `Neutral` is damageable and NOT targetable. So a nearer bystander beat the
-/// actual opponent, and every existing test still passed, because none of them
-/// put a non-target and a foe in the same scene competing for the same cone.
-///
-/// ⭐ SEPARATE "HOMES ON FOE" AND "IGNORES TEAMMATE" ARMS CANNOT PROVE
-/// ARBITRATION. Each has one candidate, so each is satisfied by a dash that
-/// simply takes whatever it finds. Only a scene holding BOTH can tell "picked the
-/// foe" from "picked the only one offered".
-///
-/// The bystander sits at the same angle and HALF the distance, so it wins on
-/// every geometric tie-break the selector could use. If eligibility is wrong, it
-/// is chosen.
+/// `damage_lands_between` and `is_target` differ only on `Neutral`. Separate
+/// one-candidate tests cannot prove arbitration; only a scene with both can
+/// tell "picked the foe" from "picked the only one offered". The bystander is
+/// at the same angle and half the distance, so it wins every geometric
+/// tie-break if eligibility is wrong.
 #[test]
 fn a_nearer_bystander_does_not_outbid_the_actual_foe() {
     for foe_first in [true, false] {
         let mut app = app();
         let hunter = body(&mut app, 1, ae::Vec2::ZERO);
 
-        // ⛔ CONSTRUCTION ORDER IS REVERSED ON THE SECOND PASS. A filter that
-        // happens to keep the first eligible body it meets would pass one order
-        // and fail the other, and a single-order test would call that a green.
+        // Construction order is reversed on the second pass, so a filter that
+        // keeps the first eligible body it meets fails one of them.
         let (foe, bystander_entity) = if foe_first {
             let foe = body(&mut app, 0, ae::Vec2::new(160.0, -160.0));
             (foe, bystander(&mut app, ae::Vec2::new(80.0, 80.0)))
@@ -287,12 +255,9 @@ fn a_nearer_bystander_does_not_outbid_the_actual_foe() {
     }
 }
 
-/// ⛔ AND THE SCENE ABOVE IS ONLY MEANINGFUL IF THE BYSTANDER IS GENUINELY
-/// DAMAGEABLE. A body the dash ignores because it is invisible to the damage
-/// rule too would make that test pass for the wrong reason forever.
-///
-/// ⇒ This pins the disagreement itself: same pair of bodies, both authorities
-/// asked directly, opposite answers.
+/// The scene above means something only if the bystander is damageable. This
+/// asks both authorities directly about the same pair and expects opposite
+/// answers.
 #[test]
 fn the_bystander_is_damageable_and_still_not_a_target() {
     use ambition_platformer2d::combat::targeting;

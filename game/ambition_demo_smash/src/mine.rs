@@ -1,20 +1,13 @@
 //! The remote mine: a stage object that answers to one fighter and nobody else.
 //!
-//! ⭐⭐ NOTHING HERE IS OBJECT BEHAVIOUR. `GroundItem` owns sitting on the
-//! stage, falling, being picked up and being thrown; `ItemWorldPos` owns "where
-//! is this thing, whoever has it"; `DamageBoxEffect` owns the blast. This module
-//! contributes one clock and one decision. That is the whole of it, and it is
-//! the campaign's thesis again: the authorities were already here.
+//! No object behaviour lives here. `GroundItem` owns sitting on the stage,
+//! falling, pickup and throw; `ItemWorldPos` owns where it is, whoever has it;
+//! `DamageBoxEffect` owns the blast. This module adds one clock and one
+//! decision.
 //!
-//! ⛔⛔ THE OWNER IS A SEAT, NOT AN `Entity`. `MatchSeat` is rollback-registered
-//! (`actor.match_seat`), survives a rewind unchanged, and needs no entity
-//! remapping — and `match_participants`' own doc says the seat is how this
-//! codebase names a fighter durably, because "no resource stores live entity
-//! handles for the cast". An `Entity` here would have cost a `MapEntities` impl
-//! to answer a question a `usize` comparison answers.
-//!
-//! ⚠ THE CONSEQUENCE IS THAT A MINE NEEDS A SEATED PLACER, and outside a match
-//! there are no seats. That is stated rather than papered over: see
+//! The owner is a seat, not an `Entity`: `MatchSeat` is rollback-registered
+//! (`actor.match_seat`) and needs no entity remapping. So a mine needs a seated
+//! placer, and outside a match there are none; see
 //! `place_or_detonate_authored_mines`.
 
 use bevy::prelude::*;
@@ -24,22 +17,18 @@ use ambition_platformer2d::characters::brain::ActorActionMessage;
 use ambition_platformer2d::entity_catalog::smash_mine::{PlaceMineParams, PLACE_MINE};
 use ambition_platformer2d::engine_core as ae;
 
-/// How hard the mine throws what it catches, as the FEEL MULTIPLIER
-/// `DamageBoxEffect::knockback` actually is.
-///
-/// ⭐ UNDER THE BOMB'S 2.0: a mine is armed in advance and triggers on somebody
-/// else's mistake, so it trades launch for the fact that it is already there.
+/// How hard the mine throws what it catches, as the feel multiplier
+/// `DamageBoxEffect::knockback` is. Under the bomb's 2.0: a mine is armed in
+/// advance and triggers on someone else's mistake.
 const BLAST_FEEL_SCALE: f32 = 1.7;
 
 /// A mine somebody placed, and the two facts that are not the object's own.
 ///
-/// ⛔ ROLLBACK STATE. The arming clock outlives the tick that made it, so a
-/// rewind that put the mine back without putting its clock back would give the
-/// resimulated timeline a mine that answers a press the confirmed timeline
-/// ignored — which is a blast on one peer and not the other.
+/// Rollback state: a restore without the arming clock could answer a press
+/// the confirmed timeline ignored.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct PlacedMine {
-    /// Which seat may set this off. ⛔ Not an `Entity`: see the module note.
+    /// Which seat may set this off. Not an `Entity`; see the module note.
     pub owner_seat: usize,
     /// Seconds until it will answer its owner. Inert until this reaches zero.
     pub arm_s: f32,
@@ -58,11 +47,8 @@ impl PlacedMine {
 
 /// Checksum probe: the clock is the part a peer can disagree about.
 ///
-/// ⛔ THE CLOCK AND NOT THE NUMBERS BESIDE IT, for the reason `live_bomb_probe`
-/// gives: damage, radius and seat are constants copied off the move or off a
-/// component rollback already restores, and hashing them would make every mine
-/// of the same kind indistinguishable in the probe while the one field that
-/// actually moves went unwatched.
+/// The clock only, as in `live_bomb_probe`: damage, radius and seat are
+/// constants or already restored.
 pub fn placed_mine_probe(mine: &PlacedMine) -> u64 {
     mine.arm_s.to_bits() as u64
 }
@@ -75,9 +61,8 @@ pub fn arm_placed_mines(
     let dt = time.sim_dt();
     for mut mine in &mut mines {
         if mine.arm_s > 0.0 {
-            // ⭐ A CARRIED MINE STILL ARMS, like a carried bomb still burns.
-            // Custody is not consulted here at all: taking somebody's mine does
-            // not make it yours, and it does not stop it becoming live.
+            // A carried mine still arms, like a carried bomb still burns.
+            // Taking somebody's mine does not make it yours.
             mine.arm_s = (mine.arm_s - dt).max(0.0);
         }
     }
@@ -85,17 +70,13 @@ pub fn arm_placed_mines(
 
 /// Place a mine, or set off the one already out. One press, two outcomes.
 ///
-/// ⛔⛔ ONE SYSTEM FOR BOTH, because they are ONE DECISION with one input — the
-/// same reasoning `burn_fuses_and_answer_impacts` gives for keeping the fuse and
-/// the impact together. Two systems, one placing and one detonating, would both
-/// read the same press and the ordering between them would decide whether a
-/// fighter ends the frame with two mines or none.
+/// One system for both: one press is one decision. Two systems reading the same
+/// press could leave a fighter with two mines or none.
 ///
-/// ⭐ THE RULE IS ONE MINE PER SEAT, and it is what makes the arming delay a
-/// brake rather than a decoration. A press while your mine is still arming does
-/// nothing to the mine: the move plays, the recovery is spent, and that is the
-/// price of mashing. A press with no mine out places one; a press with an armed
-/// mine out sets it off from wherever it is and whoever is holding it.
+/// One mine per seat, which makes the arming delay a brake: a press while your
+/// mine is arming does nothing to it (the move plays and the recovery is
+/// spent). A press with no mine out places one; a press with an armed mine out
+/// sets it off, wherever it is and whoever holds it.
 pub fn place_or_detonate_authored_mines(
     mut commands: Commands,
     mut actions: MessageReader<ActorActionMessage>,
@@ -111,8 +92,8 @@ pub fn place_or_detonate_authored_mines(
         &ambition_platformer2d::item::ItemCustody,
     )>,
     where_it_is: ambition_platformer2d::item::ItemWorldPos,
-    // ⛔ WHICH MATCH IS RUNNING, so what this spawns dies with it. See
-    // `crate::match_scope`: the lifetime belongs to the match, not to the move.
+    // The running match, so what this spawns dies with it (see
+    // `crate::match_scope`).
     active_match: Option<Res<ambition_platformer2d::versus_match::ActiveMatch>>,
 ) {
     for message in actions.read() {
@@ -130,10 +111,8 @@ pub fn place_or_detonate_authored_mines(
                 continue;
             }
         };
-        // ⛔ NO SEAT, NO MINE, and an error rather than a silent placement. A
-        // mine whose owner cannot be named is one nobody can ever detonate, so
-        // placing it would leave permanent furniture on the stage — a worse
-        // outcome than the move doing nothing and saying why.
+        // No seat, no mine, and an error: a mine nobody can detonate would be
+        // permanent furniture.
         let Ok((kin, seat)) = placers.get(message.actor) else {
             error!(
                 "a mine was placed by {:?}, which has no MatchSeat — nobody \
@@ -164,32 +143,20 @@ pub fn place_or_detonate_authored_mines(
                 mine.damage,
             );
             effects.write(ambition_platformer2d::vfx::EffectRequest {
-                // The MINE is the owner of the effect, like the bomb's blast is
-                // the bomb's: the object is what exploded.
+                // The mine owns the effect, as the bomb owns its blast.
                 owner: entity,
                 effect: ambition_platformer2d::vfx::Effect::DamageBox(
                     ambition_platformer2d::vfx::DamageBoxEffect {
                         center: at,
-                        // ⛔ `Neutral`, the same ruling the bomb's blast carries,
-                        // and it is load-bearing HERE in a way it is not there.
-                        // The mine's owner chooses the instant, so a blast that
-                        // could not hurt them would make standing next to your
-                        // own mine free — and "get them to stand near it" is the
-                        // entire move. A neutral blast is what makes the timing
-                        // a decision instead of a formality.
-                        // ⛔⛔ `Environment`, NOT `Neutral`. This read `Neutral` with a comment
-                        // saying Neutral hurts everybody; the resolver says the exact opposite
-                        // — `melee_source` excludes it from the body path and its terminal arm
-                        // is empty, with the contract that Neutral never spawns a damaging
-                        // hitbox. ⇒ This blast damaged NOBODY, and the test only asked whether
-                        // the effect request existed.
+                        // `Environment`, not `Neutral` (`melee_source` excludes
+                        // Neutral from the body path). It hurts the owner too:
+                        // they choose the instant, so standing next to their own
+                        // mine must not be free.
                         faction: ambition_platformer2d::vfx::HitSide::Environment,
                         half_extent: ae::Vec2::splat(mine.blast_radius),
                         damage: mine.damage,
-                        // ⛔⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED. This read
-                        // `blast_radius * 2.4` = 124.8, the same units error the
-                        // bomb carried — `spawn_damage_box`'s own comment says
-                        // the field takes "values such as 1.0 or 1.6".
+                        // A feel multiplier, not a launch speed (see
+                        // `spawn_damage_box`: values such as 1.0 or 1.6).
                         knockback: BLAST_FEEL_SCALE,
                         lifetime_s: 0.08,
                         name: Some("mine blast"),
@@ -232,7 +199,7 @@ pub fn place_or_detonate_authored_mines(
                 },
             ))
             .id();
-        // The match owns this object's end. See `crate::match_scope`.
+        // The match owns this object's end; see `crate::match_scope`.
         crate::match_scope::stamp(&mut commands, spawned, active_match.as_deref());
     }
 }

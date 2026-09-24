@@ -1,18 +1,13 @@
 //! Capture's authored-effect chain, exercised end to end.
 //!
-//! ⛔⛔ **THE SYSTEM THIS TESTS MOVED TO `ambition_combat`; THESE TESTS DID NOT,
-//! AND THAT IS DELIBERATE.** Capture is an engine mechanic — its `CapturedBy`
-//! component, its twelve behaviour systems and its authored vocabulary are all
-//! engine-side — so the authored-key -> typed-request translation moved there
-//! too (2026-09-10). The TESTS stayed here because they compose the whole chain
-//! including `ambition_render`'s FX and the actor features, which
-//! `ambition_combat` does not depend on and must not: a test that forced those
-//! edges would buy coverage with an inverted dependency.
+//! The system under test lives in `ambition_combat`: capture is an engine
+//! mechanic (`CapturedBy`, its behaviour systems, its authored vocabulary). The
+//! tests stay here because the chain includes `ambition_render`'s FX and the
+//! actor features, which `ambition_combat` must not depend on.
 //!
-//! ⚠ SO THIS MODULE IS TEST-ONLY. It holds no production code; the demo installs
-//! nothing here any more. It exists because deleting the file with the system
-//! would have deleted the only end-to-end proof that an authored `smash.capture_*`
-//! reaches an acquisition, a pummel, a throw and an interruption.
+//! This module is test-only. It is the end-to-end proof that an authored
+//! `smash.capture_*` reaches an acquisition, a pummel, a throw and an
+//! interruption.
 
 #![cfg(test)]
 
@@ -38,9 +33,8 @@ use ambition_platformer2d::engine_core as ae;
         trigger_moveset_moves, ActorMoveset, MoveEventMessage, MovePlayback,
     };
 
-    /// The whole chain, in the order the plan's acceptance section states it.
-    /// Every system is the production one; only the app around them is a
-    /// fixture.
+    /// The whole chain, in the order the plan's acceptance section states.
+    /// Every system is the production one; only the app is a fixture.
     fn chain_app() -> App {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
@@ -50,13 +44,9 @@ use ambition_platformer2d::engine_core as ae;
         app.add_message::<ambition_platformer2d::combat::capture::CaptureAttemptRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CapturePummelRequested>();
         app.add_message::<ambition_platformer2d::combat::capture::CaptureThrowRequested>();
-        // ⛔⛔ AND THE CARRY, WHICH THIS FIXTURE CAUGHT THE ABSENCE OF. Adding a
-        // fourth `MessageWriter` to `ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects` made the
-        // WHOLE system fail parameter validation here, so George stopped being
-        // able to grab at all — a system that writes four messages does not run
-        // in a world that registers three. ⇒ Exactly why this repo has ruled
-        // twice against `Option<MessageWriter>`: the optional version would have
-        // left this test green and the adapter silently dead.
+        // The carry message: a system that writes four messages fails parameter
+        // validation in a world that registers three, and George cannot grab.
+        // (An `Option<MessageWriter>` would hide that.)
         app.add_message::<ambition_platformer2d::combat::capture::CaptureCarryRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.init_resource::<ambition_platformer2d::time::WorldTime>();
@@ -78,8 +68,8 @@ use ambition_platformer2d::engine_core as ae;
                 trigger_moveset_moves,
                 advance_move_playback,
                 dispatch_move_events,
-                // THE FAN-OUT, so this fixture HEARS what a match hears.
-                // `dispatch_move_events` only writes `FxRequest`s; the cue is decided here.
+                // The fan-out, so this fixture hears what a match hears:
+                // `dispatch_move_events` only writes `FxRequest`s.
                 ambition_platformer2d::render::fx::process_fx_requests,
                 ambition_platformer2d::combat::capture::systems::translate_authored_capture_effects,
                 acquire_captures,
@@ -118,15 +108,9 @@ use ambition_platformer2d::engine_core as ae;
                         on_ground: true,
                         contact_initialized: true,
                     },
-                    // A COMPLETE `CaptureParticipant`, at BOTH ends.
-                    // Acquisition requires the body role the whole lifecycle
-                    // operates on, so half a body is refused — and this fixture
-                    // built its captor without combat state, which the
-                    // interruption rule then read as *"the captor despawned"*
-                    // and dissolved every hold on the tick it formed. The
-                    // architecture states the requirement now; the fixture
-                    // satisfies it because a fighter really does carry all of
-                    // this.
+                    // A complete `CaptureParticipant` at both ends: acquisition
+                    // needs the full body role, and without combat state the
+                    // interruption rule reads the captor as despawned.
                     ambition_platformer2d::characters::actor::BodyCombat::default(),
                     ambition_platformer2d::characters::actor::BodyHealth::new(
                         ambition_platformer2d::characters::actor::Health {
@@ -137,10 +121,8 @@ use ambition_platformer2d::engine_core as ae;
                     ),
                     ambition_platformer2d::engine_core::BodyFlightState::default(),
                     // The movement columns every integrated body carries from
-                    // spawn (`MotionModel`'s own doc: *"absence is not a policy"*).
-                    // The throw hands the captive's air dodge to the shared hit
-                    // reaction, and a fixture without one is not a body the throw
-                    // system can see at all.
+                    // spawn. The throw hands the captive's air dodge to the
+                    // shared hit reaction, which needs them.
                     ambition_platformer2d::engine_core::BodyAbilities::default(),
                     ambition_platformer2d::engine_core::BodyDashState::default(),
                     ambition_platformer2d::engine_core::BodyJumpState::default(),
@@ -163,8 +145,8 @@ use ambition_platformer2d::engine_core as ae;
             ambition_platformer2d::characters::control::ActorControl(ActorControlFrame::neutral()),
         ));
         app.world_mut().entity_mut(victim).insert(
-            // SHIELDING, and it changes nothing — the third leg of the
-            // triangle, asserted in the real chain rather than in isolation.
+            // Shielding changes nothing: the third leg of the triangle, in the
+            // real chain.
             ambition_platformer2d::engine_core::BodyShieldState::default(),
         );
         (captor, victim)
@@ -181,19 +163,17 @@ use ambition_platformer2d::engine_core as ae;
         app.update();
     }
 
-    /// Run ticks until `done`, or panic. Moves take tenths of a second and the
-    /// clock is 1/60, so a bounded loop is what "play this move out" means here.
+    /// Run ticks until `done`, or panic. Moves take tenths of a second at
+    /// 1/60, so a bounded loop plays a move out.
     ///
-    /// it presses NOTHING. An edge re-sent every tick would re-trigger the
-    /// move under test, and the chain would be measuring a held button rather
-    /// than a timeline playing out.
+    /// It presses nothing: an edge re-sent every tick would re-trigger the move.
     fn run_until(app: &mut App, captor: Entity, label: &str, mut done: impl FnMut(&App) -> bool) {
         for _ in 0..120 {
             if done(app) {
                 return;
             }
-            // Production consumes control edges once; fixtures must do the same or
-            // they restart the grab every tick before its active window.
+            // Production consumes control edges once; so must the fixture, or
+            // the grab restarts every tick before its active window.
             if let Some(mut control) =
                 app.world_mut()
                     .get_mut::<ambition_platformer2d::characters::control::ActorControl>(captor)
@@ -216,7 +196,7 @@ use ambition_platformer2d::engine_core as ae;
         let (captor, victim) = stage(&mut app);
 
         // 1. The grab. Its Active window opens at 0.16s, so the capture cannot
-        //    land on the press tick — which is the tell being real.
+        //    land on the press tick.
         press(&mut app, captor, |f| f.grab_pressed = true);
         assert_eq!(
             app.world()
@@ -238,7 +218,7 @@ use ambition_platformer2d::engine_core as ae;
             |app| app.world().get::<CapturedBy>(victim).is_some(),
         );
 
-        // 2. The grab move ENDS and the relationship does not.
+        // 2. The grab move ends and the relationship does not.
         run_until(&mut app, captor, "the grab move finishes", |app| {
             app.world().get::<MovePlayback>(captor).is_none()
         });
@@ -254,8 +234,8 @@ use ambition_platformer2d::engine_core as ae;
             run_until(&mut app, captor, "the pummel finishes", |app| {
                 app.world().get::<MovePlayback>(captor).is_none()
             });
-            // the RELATION must still be there, and the COUNT is the
-            // ruleset's — two components since the split.
+            // The relation must still be there; the count is the ruleset's
+            // (a separate component).
             app.world()
                 .get::<CapturedBy>(victim)
                 .expect("the pummel released the hold it belongs to");
@@ -311,10 +291,9 @@ use ambition_platformer2d::engine_core as ae;
         );
     }
 
-    /// ⛔ THE ADAPTER ARM ITSELF. Every other carry guard starts from a
-    /// `CaptureCarryRequested` that this module is the only writer of, so
-    /// without this one a typo'd key would leave the whole feature dead with a
-    /// fully green suite behind it.
+    /// The adapter arm itself. Other carry guards start from a
+    /// `CaptureCarryRequested`, so a typo'd key would leave the feature dead
+    /// with a green suite.
     #[test]
     fn an_authored_carry_key_becomes_a_carry_request() {
         let mut app = App::new();
@@ -347,7 +326,7 @@ use ambition_platformer2d::engine_core as ae;
         assert_eq!(out.len(), 1, "the carry key produced no request");
         assert_eq!(out[0].captor, captor);
         assert_eq!(out[0].hold_offset, ae::Vec2::new(6.0, -18.0));
-        // ⛔ AND IT IS NOT A THROW. Same key, wrong arm, would end the hold.
+        // And it is not a throw: the wrong arm would end the hold.
         let throws = app.world().resource::<Messages<CaptureThrowRequested>>();
         assert_eq!(throws.get_cursor().read(throws).count(), 0);
     }

@@ -191,7 +191,8 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
         }
         // Stop after the first non-lethal hit so dropped rings cannot be re-collected
         // before the assertion. Continue through death because the body is out of play.
-        if out.deaths == 0 && (out.rings != rings || out.hp != hp0) {
+        // A HIT takes rings or HP; a ring picked up on the run-in is not one.
+        if out.deaths == 0 && (out.rings < rings || out.hp < hp0) {
             break;
         }
         // Clear of the strip and unharmed: nothing is going to happen now.

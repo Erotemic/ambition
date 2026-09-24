@@ -90,6 +90,25 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
     let mut app = build_demo_app();
     activate_player(&mut app);
     align_post_activation_fixed_timeline(&mut app);
+    // He spawns standing on the floor, so lift him into the air: a fall that
+    // ends at rest is the evidence the physics ran. (He used to spawn a few
+    // units above where he rested only because his ride circle was shorter
+    // than his box, which sank him into the floor.)
+    {
+        let mut q = app.world_mut().query_filtered::<(
+            &mut ambition_platformer2d::engine_core::BodyKinematics,
+            &mut ambition_platformer2d::engine_core::movement::MotionModel,
+        ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        let world = app.world_mut();
+        let (mut kin, mut model) = q.iter_mut(world).next().expect("the player body");
+        kin.pos.y -= 32.0;
+        if let ambition_platformer2d::engine_core::movement::MotionModel::SurfaceMomentum(momentum) =
+            &mut *model
+        {
+            momentum.state =
+                ambition_platformer2d::engine_core::SurfaceMotion::Airborne;
+        }
+    }
     let spawn = player_body(&mut app)
         .expect("player remains after alignment")
         .pos;

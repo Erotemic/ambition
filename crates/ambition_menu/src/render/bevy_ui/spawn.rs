@@ -1,6 +1,6 @@
 use super::*;
-/// Background panels sort by size, like the cube's DEPTH_BACKGROUND / LARGE_PANEL /
-/// CARD bands: a near-full-page panel is the furthest back, a small card nearer.
+/// Background panels sort by size, like the cube's DEPTH_BACKGROUND /
+/// LARGE_PANEL / CARD bands: a near-full-page panel is furthest back.
 pub(super) fn panel_layer(rect: &MenuRect) -> i32 {
     if rect.w > 98.0 && rect.h > 98.0 {
         0
@@ -43,8 +43,7 @@ pub(super) fn spawn_node<Action>(
                 Text::new(text.clone()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    // ⭐ `MenuNode::Text`'s `size` IS A PERCENTAGE OF VIEWPORT
-                    // HEIGHT, and `Vh` is that unit — see `MenuNode::Text`.
+                    // `size` is percent of viewport height; `Vh` is that unit.
                     font_size: FontSize::Vh(*size),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
@@ -62,15 +61,14 @@ pub(super) fn spawn_node<Action>(
             align,
             color,
         } => {
-            // Spawned empty; the host fills it in place by `slot`, exactly like the
+            // Spawned empty; the host fills it in place by `slot`, like the
             // cube renderer (cursor-dependent text needs no body rebuild).
             body.spawn((
                 text_node(*x, *y, *align),
                 Text::new(String::new()),
                 TextColor(to_color(*color)),
                 TextFont {
-                    // ⭐ `MenuNode::Text`'s `size` IS A PERCENTAGE OF VIEWPORT
-                    // HEIGHT, and `Vh` is that unit — see `MenuNode::Text`.
+                    // `size` is percent of viewport height; `Vh` is that unit.
                     font_size: FontSize::Vh(*size),
                     font: font.cloned().unwrap_or_default(),
                     ..default()
@@ -112,14 +110,10 @@ pub(super) fn spawn_node<Action>(
     }
 }
 
-/// Spawn one interactive control. Tagging mirrors the cube renderer so the host's
-/// picking/nav can map entity → action/focus identically across backends.
 #[allow(clippy::too_many_arguments)]
-/// Place an absolutely-positioned text node so its ALIGNMENT means what it says.
-///
-/// So a centred line SPANS its container and centres inside it, and a right-aligned
-/// one spans up to its anchor. Only `Left` treats `x` as a left edge, which is the
-/// one case where that is what it means.
+/// Place an absolutely positioned text node so its alignment is honored. A
+/// centered line spans its container and centers in it, and a right-aligned
+/// line spans up to its anchor. Only `Left` treats `x` as a left edge.
 pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
     let (left, width) = match align {
         MenuTextAlign::Left => (Val::Percent(x), Val::Auto),
@@ -135,17 +129,16 @@ pub(super) fn text_node(x: f32, y: f32, align: MenuTextAlign) -> Node {
     }
 }
 
+/// Spawn one interactive control. Tagged like the cube renderer, so the
+/// host's picking and navigation map entity to action and focus the same way
+/// in both backends.
 fn spawn_control<Action>(
     body: &mut RelatedSpawnerCommands<ChildOf>,
     rect: MenuRect,
     kind: MenuControlKind,
     label: &str,
-    // ⛔⛔ THE VALUE A SETTINGS ROW SHOWS, and this backend used to DISCARD it
-    // (`detail: _`). The kaleidoscope backend draws it (`page.rs:414`), so two
-    // renderers of ONE model disagreed about whether a control has a visible
-    // value -- and every `bevy_ui` menu drew "Master Volume" with no number.
-    // Reported by Jon 2026-09-06: "video settings and audio settings seem not
-    // there or not hooked up." They were there; they showed nothing.
+    // The value a settings row shows (for example a volume number), drawn
+    // like the kaleidoscope backend does (`page.rs`).
     detail: Option<&str>,
     icon: Option<&str>,
     selected: bool,
@@ -167,8 +160,8 @@ fn spawn_control<Action>(
     } else {
         control_bg(kind, focused, selected, important)
     };
-    // Black text only on the bright gold highlight; the muted teal selected-only bg
-    // is dark, so it keeps light text (Fix 2: selected ≠ highlighted, incl. text).
+    // Black text only on the bright gold highlight. The teal selected-only
+    // background is dark, so it keeps light text.
     let label_color = if focused {
         Color::BLACK
     } else {
@@ -185,8 +178,8 @@ fn spawn_control<Action>(
             action: action.clone(),
             focus,
         },
-        // The same kind, NON-generically, so one restyle system serves every
-        // menu in the app regardless of each one's action type.
+        // The kind, not generic, so one restyle system serves every menu
+        // whatever its action type.
         super::AmbitionMenuControlKind(kind),
         MenuVisualState {
             focused: focused || selected,
@@ -198,11 +191,10 @@ fn spawn_control<Action>(
         Name::new(if is_scrollbar { "scrollbar" } else { "control" }),
     ));
 
-    // Fix 3: an item cell with an icon renders the sprite ICON (an `ImageNode`)
-    // instead of a bare label, matching the cube's `spawn_icon`. The icon is tinted
-    // by the cell's state the same way: dim when disabled (un-owned), warm when
-    // selected, white otherwise. Falls back to the label when there is no icon or no
-    // `AssetServer` (headless tests). The detail/name still lives in the detail panel.
+    // An item cell with an icon draws the sprite (an `ImageNode`), like the
+    // cube's `spawn_icon`, tinted by state: dim when disabled (not owned),
+    // warm when selected, white otherwise. Without an icon or `AssetServer`
+    // (headless tests) it draws the label.
     let icon_handle = icon
         .zip(assets)
         .map(|(path, server)| server.load::<Image>(path.to_string()));
@@ -229,9 +221,8 @@ fn spawn_control<Action>(
         control.with_children(|c| {
             c.spawn((
                 Text::new(label.to_string()),
-                // a `Text` with no `TextFont` is not "unstyled" — Bevy inserts the default one
-                // as a required component, and that resolves the built-in ASCII-only
-                // `FiraMono-subset.ttf`.
+                // A `Text` without `TextFont` gets Bevy's default as a
+                // required component: the ASCII-only `FiraMono-subset.ttf`.
                 TextFont {
                     font: font.cloned().unwrap_or_default(),
                     ..default()
@@ -241,9 +232,8 @@ fn spawn_control<Action>(
         });
     }
 
-    // ⭐ THE VALUE, BESIDE THE LABEL. Only when there is one, so every row that
-    // carries no detail keeps exactly the layout it had — a settings row gains a
-    // number and nothing else moves.
+    // The value, beside the label. Only when present, so rows without a
+    // detail keep their layout.
     if let Some(detail) = detail.filter(|d| !d.is_empty()) {
         control.with_children(|c| {
             c.spawn((
@@ -271,8 +261,8 @@ fn spawn_control<Action>(
             size: 1.0,
         });
         control.insert(BevyUiMenuScrollbar { thumb });
-        // Only draw a thumb when the list actually scrolls (`size < 1`); a
-        // full-size thumb means the list fits, same rule as the cube.
+        // Draw a thumb only when the list scrolls (`size < 1`), as the cube
+        // does.
         if thumb.size < 1.0 {
             let (top, height) = scrollbar_thumb_layout(thumb);
             control.with_children(|track| {
@@ -287,13 +277,10 @@ fn spawn_control<Action>(
                     },
                     BackgroundColor(Color::srgba(0.85, 0.78, 0.30, 0.96)),
                     BevyUiMenuScrollbarThumb,
-                    // The thumb sits ON TOP of the track but the track owns the
-                    // drag (it carries `BevyUiMenuScrollbar` + the press/drag
-                    // handlers). Without this, grabbing the thumb — the natural
-                    // drag target — sends `Pointer<Press>` to the thumb entity,
-                    // the press handler's `get_mut(press.entity)` misses, and the
-                    // drag never starts. `IGNORE` lets the pick fall through to
-                    // the track (mirrors the cube thumb).
+                    // The track owns the drag (it has `BevyUiMenuScrollbar`
+                    // and the handlers). Without `IGNORE`, a press on the
+                    // thumb goes to the thumb entity and the drag never
+                    // starts. Same as the cube thumb.
                     Pickable::IGNORE,
                     Name::new("scrollbar thumb"),
                 ));

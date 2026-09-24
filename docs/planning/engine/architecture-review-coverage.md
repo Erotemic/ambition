@@ -147,8 +147,8 @@ section refines the affected boundary. The queue is still the only priority list
 | `bevy-0.19-leverage-campaign.md` (deleted 2026-09-24) | Retained | Closed campaign receipt; no new Bevy migration or historical replay justified. |
 | [decision-principles.md](../decision-principles.md) | Revised | Correct the unwired-validator example without changing the decision principles. |
 | [demos/README.md](../demos/README.md) | Retained | Serious secondary customers remain acceptance drivers; flagship priority unchanged. |
-| [demos/campaigns/expressive-moves-2026-09-05.md](../demos/campaigns/expressive-moves-2026-09-05.md) | Retained | Retired receipt; current vocabulary decisions remain with inventory/engine owners. |
-| [demos/campaigns/smash-fun-push-2026-08-22.md](../demos/campaigns/smash-fun-push-2026-08-22.md) | Retained | Retired product campaign; no architectural reason to reopen it. |
+| `demos/campaigns/expressive-moves-2026-09-05.md` (deleted 2026-09-24) | Retained | Retired receipt; current vocabulary decisions remain with inventory/engine owners. | <!-- cite-ok: deleted file, kept as the review record -->
+| `demos/campaigns/smash-fun-push-2026-08-22.md` (deleted 2026-09-24) | Retained | Retired product campaign; no architectural reason to reopen it. | <!-- cite-ok: deleted file, kept as the review record -->
 | [demos/hollow-lite.md](../demos/hollow-lite.md) | Retained | Customer-triggered scope remains; not a prerequisite for contact/lifecycle repairs. |
 | [demos/moveset-reviews.md](../demos/moveset-reviews.md) | Retained | Maintainer-authored move intent; do not overwrite product semantics with architecture guesses. |
 | [demos/sanic.md](../demos/sanic.md) | Retained | Distinct game/motion customer; no evidence here to change its product rules. |
@@ -156,7 +156,7 @@ section refines the affected boundary. The queue is still the only priority list
 | [demos/super-mary-o.md](../demos/super-mary-o.md) | Retained | Distinct game/motion customer; keep authored mechanics and provider acceptance. |
 | [demos/super-smash-siblings.md](../demos/super-smash-siblings.md) | Retained | Retain game rules and product direction; engine fixes go through shared owners. |
 | [demos/twintrack.md](../demos/twintrack.md) | Retained | Distinct observer/multiview customer; no broad engine redesign inferred from its existence. |
-| [demos/w8-playtest-2026-08-24.md](../demos/w8-playtest-2026-08-24.md) | Retained | Historical playtest receipt; this source-only review cannot update human observations. |
+| `demos/w8-playtest-2026-08-24.md` (deleted 2026-09-24) | Retained | Historical playtest receipt; this source-only review cannot update human observations. | <!-- cite-ok: deleted file, kept as the review record -->
 | [engine/actor-monolith-decomposition.md](actor-monolith-decomposition.md) | Revised | Authority-first migration and retained post-carve guards. |
 | [engine/actor-monolith-hard-core-edge-ledger.md](actor-monolith-hard-core-edge-ledger.md) | Revised | Replace post-P4 TBD template with current semantic families and explicit holds. |
 | [engine/actor-monolith-work-frontier.md](actor-monolith-work-frontier.md) | Revised | Twelve bounded packets with source/destination, invariants, acceptance and dependency holds. |

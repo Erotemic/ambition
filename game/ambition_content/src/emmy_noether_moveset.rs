@@ -433,7 +433,7 @@ pub fn emmy_noether_moveset() -> MovesetContract {
     // fighter whose blueprint I have not read. ⇒ What is fixed here is the false
     // sentence: somebody reading this file should learn that the counter is
     // AVAILABLE, not that the engine refuses it. See
-    // `docs/planning/demos/campaigns/expressive-moves-2026-09-05.md`.
+    // `docs/planning/engine/expressive-move-capabilities.md`.
     //
     // ⭐ AND THE MOVE BELOW IS STILL WORTH ITS OWN DEFENCE: three terms at even
     // intervals, identical every time, is the conservation idea stated AS A MOVE

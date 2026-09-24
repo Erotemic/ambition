@@ -3,8 +3,20 @@
 **Authority for:** which semantic capability owns each mechanical family, and
 what a move is allowed to own itself. **Not** a status page for Smash content —
 that stays [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md).
-The execution order lives in
-[`../demos/campaigns/expressive-moves-2026-09-05.md`](../demos/campaigns/expressive-moves-2026-09-05.md).
+Current engineering work is in [`../queue.md`](../queue.md).
+
+Lessons from the 2026-09-05 expressive-moves campaign (deleted; see Git
+history):
+
+1. Geometry origin, damage eligibility and attack attribution are separate facts.
+2. A capability that is compiled but not installed and used by content is not
+   accepted.
+3. Query or entity order is not arbitration.
+4. A move whose mechanic the player cannot read is not complete.
+5. Reusable capability mechanisms go below game-specific balance and policy.
+6. Many apparent engine gaps are existing capabilities with no authored
+   customer. Start new move work from this page and the parity inventory, not
+   from a new campaign list.
 
 Direction set by Jon, 2026-09-05, after reading the tree and the moves already
 built. It **revises** the earlier "twenty new systems" answer in one major way,
@@ -253,43 +265,21 @@ fits the rollback contract that was already there.
 ⇒ For something that outlives the move — C4, a planted mine — **the entity keeps
 the occurrence identity**. The completed `MovePlayback` does not own it.
 
-### A "sole writer" claim has a blind spot, and it has a boundary
+### A "sole writer" claim must include the rollback codec
 
-⚠ **ToothbrushAmbition, 2026-09-05, and it is worth carrying:** *"the rollback
-codec is a writer of nearly every registered field and never appears in a grep
-for assignments."* A codec builds a struct LITERAL on decode, so
-`grep 'x.field ='` cannot see it. They found this by sealing a field and letting
-the compiler name the writer their sizing grep had missed.
+A rollback codec writes nearly every registered field, and a grep for
+assignments cannot see it, because decode builds a struct literal. Thus a "sole
+writer" comment about a component field in a rollback-registered type is not
+correct until you read its `snapshot_impls`. To find the affected types, run
+`git grep -l 'impl SnapshotState'`.
 
-⇒ **So every "this is the only writer" comment about a COMPONENT FIELD in a
-rollback-registered type is suspect until `snapshot_impls` has been read.** I
-have written several such comments in the combat crates and I am not claiming to
-have audited them; the honest form is *"the only writer OUTSIDE the codec"*.
-
-✔ **AUDITED, AND IT FOUND ONE — 2026-09-05, in one command.** Toothbrush's
-triage is `git grep -l 'impl SnapshotState'`, which names the types whose fields
-a codec writes; in this lane that is `BodyCombat`, `ActorPose`, `SmashHoldState`,
-`MovePlayback` and `BodyMelee`. Checking the sole-writer comments about those
-types turned up exactly one false claim:
-`project_moveset_melee_to_body_melee` said it was **"the SOLE writer of a
-`MovesetMelee` body's swing"**, unqualified. `BodyMelee::decode` rebuilds `swing`
-wholesale from the wire on every rewind. ⇒ Corrected to "during live simulation";
-the restore is the other writer and is meant to be.
-
-⭐ **Two phrasings survive the check and they mean different things** (Toothbrush's
-distinction): *"the only writer on a live entity"* when the other writer is a
-constructor or a restore, and *"the only writer outside the codec"* when the
-codec genuinely rebuilds it. ⛔ And do not reach for `private` on a field the
-codec must rebuild — `snapshot_impls` is usually a SIBLING module, so private
-breaks it; `pub(crate)` is the honest seal.
-
-⭐ **The boundary, checked rather than assumed:** the caution does NOT reach
-MESSAGE publications. A message is registered with `clear_message_on_rollback`,
-which clears a buffer; no codec constructs one, and
-`grep 'ParriedBodyHit|BlockedBodyHit' crates/*/src/snapshot_impls.rs` is empty.
-⇒ `ParriedBodyHit`'s and `BlockedBodyHit`'s "written here and nowhere else" hold
-as written. **Component field: check the codec. Message: the claim is about
-publication, and the codec does not publish.**
+- Write "the only writer on a live entity" when the other writer is a
+  constructor or a restore.
+- Write "the only writer outside the codec" when the codec rebuilds the field.
+- Do not make such a field private. `snapshot_impls` is usually a sibling module;
+  use `pub(crate)`.
+- Messages are not affected. `clear_message_on_rollback` clears the buffer, and
+  no codec constructs a message.
 
 ## The capability inventory
 

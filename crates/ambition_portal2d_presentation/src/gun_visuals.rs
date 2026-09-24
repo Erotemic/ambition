@@ -184,14 +184,10 @@ pub fn sync_portal_mode_indicator(
                                         0.0,
                                         0.0,
                                     ),
-                                    // ⚠ UNTINTED, and a non-default gun is
-                                    // its authored colour for these frames.
-                                    // This material MULTIPLIES, and a hue
-                                    // rotation is not a multiply — writing the
-                                    // pair colour here would darken the gun
-                                    // rather than recolour it. Mid-transit is a
-                                    // few frames; a wrong colour would be worse
-                                    // than the authored one.
+                                    // Untinted: a non-default gun shows its authored
+                                    // colour for these few frames. This material
+                                    // multiplies, and a hue rotation is not a
+                                    // multiply, so a pair colour would darken it.
                                     tint: Vec4::ONE,
                                     clip0,
                                     clip1,
@@ -224,15 +220,10 @@ pub fn sync_portal_mode_indicator(
         Name::new("Held portal gun"),
         ))
         .id();
-    // ⭐ THE GUN IN THE HAND SHOWS WHICH GUN IT IS. Two authored arts, any
-    // number of pairs — so a gun on a non-default pair is the SAME drawing
-    // rotated onto its own colour, keeping shading, highlights and antialiased
-    // edges that a multiply would have flattened.
-    //
-    // ⛔ ONLY WHEN THERE IS A ROTATION. A `HueShift` of 0.0 is not free: every
-    // shader effect draws through a material, so attaching one unconditionally
-    // would move the DEFAULT blue/orange gun — the one almost every session
-    // holds — off the batched sprite path to compute a rotation by nothing.
+    // A gun on a non-default pair is the same art hue-rotated onto its own
+    // colour, which keeps shading and antialiased edges. Only add the effect
+    // for a non-zero rotation: any shader effect moves the sprite off the
+    // batched path, and most sessions hold the default gun.
     let shift = gun.next_color.art_hue_shift();
     if shift != 0.0 {
         commands

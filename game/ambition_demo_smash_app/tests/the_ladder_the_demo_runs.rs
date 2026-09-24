@@ -1,23 +1,15 @@
-//! WHICH DIFFICULTY LADDER THIS DEMO'S FIGHTERS ACTUALLY GET.
+//! Which difficulty ladder this demo's fighters get.
 //!
-//! ⛔⛔ Found 2026-09-04, and it had been true for the whole life of the ladder
-//! rig: **the standalone demo app gives every CPU rung the same utility
-//! weights**, because `Res<AuthoredFighterLadder>` is inserted by
-//! `ambition_content` and neither `ambition_demo_smash` nor
-//! `ambition_demo_smash_app` depends on it. `profile_for_level` then falls back
-//! to `FighterBrainProfile::for_level`, whose `utility_weights` is
-//! `UtilityWeights::default()` — which IS `v1()`, the level-9 row — for every
-//! level.
+//! The standalone demo app gives every CPU rung the same utility weights.
+//! `Res<AuthoredFighterLadder>` is inserted by `ambition_content`, which
+//! neither `ambition_demo_smash` nor `ambition_demo_smash_app` depends on. So
+//! `profile_for_level` falls back to `FighterBrainProfile::for_level`, whose
+//! `utility_weights` is `UtilityWeights::default()` (`v1()`, the level-9 row)
+//! for every level. The shipped game composes `ambition_content` and gets the
+//! authored rows.
 //!
-//! ⇒ The shipped game composes `ambition_content` and DOES hand its fighters the
-//! authored rows, so the rig has been measuring a different fighter from the one
-//! a player fights. Every ladder number this project recorded is a measurement
-//! of the floor.
-//!
-//! These tests do not repair that. They PIN it, so it cannot go back to being an
-//! invisible property somebody has to re-derive from a null result — and so that
-//! whoever installs a ladder here is told by a red test that the rig's claims
-//! about what it measured need updating with it.
+//! These tests pin that, so whoever installs a ladder here is told to update
+//! the rig's claims about what it measures.
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::characters::brain::fighter::{
@@ -26,9 +18,7 @@ use ambition_platformer2d::characters::brain::fighter::{
 
 /// The floor gives EVERY rung the level-9 utility weights.
 ///
-/// This is the defect stated as an arithmetic fact about the engine floor, with
-/// no app involved: if a future change makes `for_level` author real per-level
-/// weights, this reddens and the story above stops being true.
+/// If `for_level` starts authoring real per-level weights, this fails.
 #[test]
 fn the_engine_floor_gives_every_rung_the_same_utility_weights() {
     let weights: Vec<_> = (1..=9)
@@ -41,10 +31,8 @@ fn the_engine_floor_gives_every_rung_the_same_utility_weights() {
          measuring one flat scoring policy across the ladder — re-read \
          `fighter-brain.md`'s ladder section, its conclusions depend on this"
     );
-    // ⚠ ANTI-VACUITY: and they are specifically v1, the LEVEL 9 row of
-    // `fighter_brain_ladder.ron`. "All the same" would also be satisfied by a
-    // neutral all-zero default, which would be a different (and less
-    // misleading) situation.
+    // Anti-vacuity: they are specifically v1, the level-9 row of
+    // `fighter_brain_ladder.ron`, not a neutral all-zero default.
     assert_eq!(
         first,
         ambition_platformer2d::characters::brain::fighter::UtilityWeights::v1(),
@@ -55,10 +43,9 @@ fn the_engine_floor_gives_every_rung_the_same_utility_weights() {
 
 /// The demo app this crate's rig measures does NOT install the authored ladder.
 ///
-/// ⇒ When somebody fixes that — by composing `ambition_content`, or by Smash
-/// shipping its own nine rows as `for_level`'s doc invites — this test is the
-/// one that says so, and the rig's `report_which_ladder_is_in_play` line and
-/// `fighter-brain.md`'s ladder section both need updating in the same change.
+/// When that changes (by composing `ambition_content`, or by Smash shipping
+/// its own rows), update the rig's `report_which_ladder_is_in_play` line and
+/// `fighter-brain.md`'s ladder section in the same change.
 #[test]
 fn the_demo_app_still_runs_its_fighters_on_the_engine_floor() {
     let mut app = build_demo_app();

@@ -1,26 +1,15 @@
 //! Draw the stage, including the thing that kills you.
 //!
-//! Pure-Rust pixels — no GPU, no windowing, no asset tree — so it runs anywhere
-//! the crate compiles. It is the geometry half of seeing a room, in the tradition
-//! of `ambition_platformer2d_actor_monolith`' `render_room_geometry` example, and it exists separately
-//! for two reasons that are both findings:
+//! Pure-Rust pixels (no GPU, windowing, or asset tree), so it runs wherever
+//! the crate compiles. The `render_room_geometry` example of
+//! `ambition_platformer2d_actor_monolith` is bound to that crate's room list,
+//! and no other renderer draws blast margins.
 //!
-//! 1. that example is bound to `ambition_platformer2d_actor_monolith`' own room list, so a demo
-//!    cannot render its own stage with it at all; and
-//! 2. nothing in the tree draws BLAST MARGINS. Every existing renderer draws
-//!    what a body can stand on. On this stage the interesting geometry is the
-//!    line past which a body stops existing, and it is invisible in every view we
-//!    have — which is exactly the kind of thing that is wrong for a week because
-//!    nobody can look at it.
+//! It draws the world bounds, the platform, the blast envelope, and where a
+//! respawn lands.
 //!
-//! So this draws four things: the world bounds, the platform, the blast envelope,
-//! and where a respawn lands. Three of them are unrepresentable in any other view
-//! of this room.
-//!
-//! it lives in the LIB and not in the bin that prints it, because
-//! `match_diagram` needs the same drawing and pulled the bin in with `#[path]` —
-//! which made that bin's `main` dead code inside the other one, and said so as a
-//! warning on every build.
+//! It lives in the lib, not in a bin, because `match_diagram` uses the same
+//! drawing.
 
 use ambition_platformer2d::engine_core::AabbExt;
 
@@ -105,10 +94,8 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
         }
     }
 
-    // THE FIGHTERS, each with a percent bar over its head. The bar is the one
-    // thing a geometry view has never shown and the one the stocks loop is
-    // about: it is allowed to run PAST full, because that is what an unbounded
-    // meter does and a bar that clamped would hide the whole point.
+    // The fighters, each with a percent bar over its head. The bar may run
+    // past full: the meter is unbounded, and clamping would hide that.
     for (index, fighter) in fighters.iter().enumerate() {
         let tint = if index % 2 == 0 {
             [110u8, 170, 240, 255]
@@ -152,10 +139,9 @@ pub fn render_match_diagram(fighters: &[DrawnFighter]) -> Vec<u8> {
 
 /// A minimal PNG: signature, IHDR, one STORED-deflate IDAT, IEND.
 ///
-/// Hand-rolled for the same reason the external-consumer fixture hand-rolls one
-/// — this crate's dependency rule is `ambition_platformer2d` + `ambition_demo_smash` + `bevy`,
-/// and reaching for an encoder to draw five rectangles would spend the rule this
-/// crate exists to hold.
+/// Hand-rolled: this crate depends only on `ambition_platformer2d`,
+/// `ambition_demo_smash`, and `bevy`, and an encoder dependency to draw a few
+/// rectangles would break that rule.
 fn encode_png(pixels: &[[u8; 4]]) -> Vec<u8> {
     fn crc32(bytes: &[u8]) -> u32 {
         let mut table = [0u32; 256];

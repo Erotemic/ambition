@@ -6,18 +6,12 @@
 //! cargo run -p ambition_demo_smash_app --bin smash_tool -- ladder-rig --sweep-below --seeds 1
 //! ```
 //!
-//! ⭐ **WHY ONE BINARY.** Measured 2026-09-03, before the collapse: the nine
-//! executables this replaces shared **99.88% of their defined symbols**
-//! (`ladder_probe` and `roll_probe` had 501,778 of ~502,000 in common), and the
-//! union across five was 822 symbols larger than the largest single one — 0.16%.
-//! Nine copies of ~500 K symbols and ~300 MB of identical DWARF were written and
-//! linked on every build of this crate.
+//! One binary: the separate executables shared almost all their symbols,
+//! and each build linked every copy.
 //!
-//! ⛔ **A SUBCOMMAND BEHIND A FEATURE IS STILL LISTED WHEN THE FEATURE IS OFF.**
-//! Cargo's `required-features` silently omits a binary, which a caller cannot
-//! tell from the binary never having existed. Here the name is always in
-//! `--help`, and running it without its feature exits non-zero naming the
-//! feature to rebuild with.
+//! A subcommand behind a feature stays in `--help` when the feature is off.
+//! Cargo's `required-features` would omit the binary silently. Running it
+//! without the feature exits non-zero and names the feature to rebuild with.
 
 use clap::{Parser, Subcommand};
 
@@ -64,10 +58,10 @@ enum Command {
     StageDiagram(tools::stage_diagram::StageDiagramArgs),
 }
 
-/// ⚠ `match_shots` needs two features, so its argument struct only exists when
-/// they are on. The SUBCOMMAND exists either way — see the header — so this
-/// stands in for the arguments when it cannot be built, and accepts whatever
-/// the caller typed so the error is about the feature rather than about a flag.
+/// `match_shots` needs two features, so its argument struct exists only
+/// when they are on. The subcommand exists either way; this stands in for
+/// its arguments and accepts anything, so the error names the feature, not
+/// a flag.
 #[cfg(all(feature = "visible", feature = "capture"))]
 type MatchShotsCommand = tools::match_shots::MatchShotsArgs;
 

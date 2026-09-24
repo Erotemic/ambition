@@ -1,13 +1,10 @@
 //! The select screen has to be drivable by a controller, not only by a test.
 //!
-//! `SmashSelect` shipped fully unit-tested and completely inert: every state
-//! transition was covered, and nothing in the app ever WROTE to it, so the
-//! battle could not start from the screen at all. Every one of those unit tests
-//! drove the resource directly, which is exactly why they were all green over a
-//! screen nobody could use.
+//! Unit tests that drive `SmashSelect` directly cannot show that anything in
+//! the app writes to it. These tests press through the screen.
 //!
-//! The rectangles come from `select_screen::layout`, a pure function of the viewport, so a headless
-//! app clicks exactly where a windowed one draws.
+//! The rectangles come from `select_screen::layout`, a pure function of the
+//! viewport, so a headless app clicks exactly where a windowed one draws.
 
 use ambition_demo_smash::select::{
     SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS,
@@ -19,16 +16,12 @@ use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
 
-/// Plug in `count` controllers. The screen offers exactly as many seats as there
-/// are pads — one pad is one seat, which is the right answer on a couch and the
-/// reason a test has to say how many people are in the room.
+/// Plug in `count` controllers. The screen offers one seat per pad, so a
+/// test must say how many people are in the room.
 fn plug_in(app: &mut App, count: usize) {
-    // SPAWN PADS, do not insert the order. `track_local_device_order` rebuilds
-    // `LocalDeviceOrder` from live `Gamepad` entities every frame, so a
-    // hand-inserted order is clobbered on the next update — and only when the
-    // `input` feature is on, which is how this passed by default and failed
-    // under `--features input,visible`. The resource is derived; the pads are
-    // the fact.
+    // Spawn pads; do not insert the order. With the `input` feature,
+    // `track_local_device_order` rebuilds `LocalDeviceOrder` from live
+    // `Gamepad` entities every frame, so a hand-inserted order is replaced.
     let pads: Vec<Entity> = (0..count)
         .map(|_| {
             app.world_mut()
@@ -37,10 +30,8 @@ fn plug_in(app: &mut App, count: usize) {
         })
         .collect();
     app.update();
-    // …and the tracker itself is behind the `input` feature, so under default
-    // features nothing derives the order and the pads sit there unread. Seed it
-    // only when that happened: seeding unconditionally would put the test back
-    // to fighting the tracker in the configuration where the tracker runs.
+    // Without the `input` feature, nothing derives the order. Seed it only
+    // in that case, so the test does not fight the tracker when it runs.
     let derived = app
         .world()
         .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
@@ -56,14 +47,10 @@ fn plug_in(app: &mut App, count: usize) {
 #[derive(Resource, Default, Clone)]
 struct Held(Vec<(u8, MenuControlFrame)>);
 
-/// Put the press into the port AFTER the host has rebuilt it.
-///
-/// writing `SeatMenuFrames` and calling `update()` is not enough under `--features input`:
-/// `populate_seat_menu_frames` CLEARS that resource and refills it from the live participants
-/// every frame.
-///
-/// So the injection is a SYSTEM, ordered exactly where a real device's press
-/// lands: after the producer, before the screen reads.
+/// Put the press into the port after the host has rebuilt it. Under
+/// `--features input`, `populate_seat_menu_frames` clears and refills
+/// `SeatMenuFrames` every frame. So the injection is a system, ordered where
+/// a real device's press lands: after the producer, before the screen reads.
 fn install_press_port(app: &mut App) {
     app.init_resource::<Held>();
     app.add_systems(
@@ -81,8 +68,8 @@ fn install_press_port(app: &mut App) {
 fn press(app: &mut App, seat: u8, frame: MenuControlFrame) {
     app.world_mut().resource_mut::<Held>().0 = vec![(seat, frame)];
     app.update();
-    // Release, so a held button is not a new press next frame — the screen
-    // reads edges and the writer produces them.
+    // Release, so a held button is not a new press next frame: the screen
+    // reads edges.
     app.world_mut().resource_mut::<Held>().0.clear();
     app.world_mut().resource_mut::<SeatMenuFrames>().clear();
     app.update();
@@ -115,13 +102,10 @@ fn arrow(direction: &str) -> MenuControlFrame {
 
 /// A portrait index this composition actually has.
 ///
-/// the STANDALONE demo's grid is short, because the crossover roster is
-/// Ambition's own cast and this app composes none of it — `SMASH_ROSTER` is
-/// filtered to what the catalog carries, and here that is the one fighter this
-/// demo declares. So these tests pick by "the nth fighter, or the last one",
-/// which keeps them about the SCREEN rather than about how many characters ship.
-/// Two slots landing on one fighter is a mirror match, which every platform
-/// fighter allows and this one should.
+/// The standalone demo's grid is short: `SMASH_ROSTER` is filtered to what
+/// the catalog carries, and this app composes none of Ambition's cast. So
+/// tests pick "the nth fighter, or the last one". Two slots on one fighter
+/// is a mirror match, which the screen allows.
 fn nth_of(fighters: &SmashRoster, index: usize) -> usize {
     index.min(fighters.len().saturating_sub(1))
 }
@@ -132,11 +116,9 @@ fn nth(app: &App, index: usize) -> usize {
     index.min(count - 1)
 }
 
-/// The screen's own geometry, which is what it draws AND what it hit-tests.
-///
-/// from the app's OWN roster, not a constant. The standalone demo offers the
-/// four fighters it declares; a host offers its whole tagged cast, and a layout
-/// built from the wrong count would put the cursor between two cells.
+/// The screen's own geometry, which it both draws and hit-tests. Built from
+/// the app's own roster: a layout built from the wrong count would put the
+/// cursor between two cells.
 fn layout(app: &App) -> SelectLayout {
     SelectLayout::for_viewport(None, app.world().resource::<SmashRoster>().cell_count())
 }
@@ -153,9 +135,8 @@ fn placed_token(app: &App, slot: usize) -> HitRect {
     .unwrap_or_else(|| panic!("slot {slot} has no placed token on this page"))
 }
 
-/// Put ONE SEAT'S cursor somewhere. A mouse does exactly this; so does a pad,
-/// one snap at a time, and `the_arrows_alone_can_work_the_whole_screen` covers
-/// that path.
+/// Put one seat's cursor somewhere, as a mouse does.
+/// `the_arrows_alone_can_work_the_whole_screen` covers the pad path.
 fn point_at(app: &mut App, seat: u8, rect: HitRect) {
     app.world_mut()
         .resource_mut::<SelectCursors>()
@@ -197,18 +178,10 @@ fn card_text(app: &mut App) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Two people take controllers, drag a fighter each, and click START.
+/// A pad that is plugged in gets a cursor before it gets a seat, so player
+/// two can press their own card's role button to join.
 ///
-/// The whole loop, through the only surface a player has.
-/// A PAD THAT IS PLUGGED IN GETS A HAND BEFORE IT GETS A SEAT.
-///
-/// at all, so a game pad cannot join, unless player 1 lets them in."* The
-/// cursor was drawn only for a seat that already PARTICIPATED, and the way in
-/// is to press your own card's role button — so player two had nothing to press
-/// it with and had to be admitted by player one.
-///
-/// the other half is asserted too: a seat with no device and nobody in it
-/// still draws nothing, or a one-player lobby shows three hands nobody can move.
+/// The other half: a seat with no device and nobody in it draws nothing.
 #[test]
 fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
     let mut app = build_demo_app();
@@ -217,9 +190,8 @@ fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
     app.update();
     app.update();
 
-    // the premise, asserted. If plugging a pad in also SEATED it, every
-    // assertion below would pass on the old rule too and this test would be
-    // checking nothing.
+    // Premise: plugging a pad in does not seat it. Otherwise this test could
+    // not tell the two rules apart.
     assert_eq!(
         slot(&app, 1).occupant,
         SlotOccupant::Absent,
@@ -252,6 +224,8 @@ fn a_plugged_in_pad_has_a_cursor_before_anybody_admits_it() {
     );
 }
 
+/// Two people take controllers, drag a fighter each, and click START: the
+/// whole loop, through the only surface a player has.
 #[test]
 fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     let mut app = build_demo_app();
@@ -285,8 +259,8 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 0))));
     assert_eq!(slot(&app, 1).pick, Some(SlotPick::Fighter(nth(&app, 1))));
 
-    // it must NOT have started yet. A screen that launches the instant
-    // the last token lands is the one nobody can look at.
+    // It must not start yet: a screen that launches the instant the last
+    // token lands cannot be read.
     assert!(
         app.world()
             .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
@@ -318,7 +292,7 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     );
 }
 
-/// A PLAYER WHO NEVER TOUCHED THE GRID STILL STARTS THE MATCH — ON RANDOM.
+/// A player who never touched the grid still starts the match, on random.
 #[test]
 fn a_player_who_never_touched_the_grid_starts_on_random() {
     let mut app = build_demo_app();
@@ -412,10 +386,8 @@ fn a_carried_token_stays_in_hand_until_it_reaches_a_selection() {
     );
 }
 
-/// A screen that works and cannot be seen is the same bug one layer up.
-///
-/// Asserting the cards EXIST would pass over four empty boxes, so this asserts
-/// what they SAY — and says it by reading the same text the player reads.
+/// The cards say what each slot decided. This reads the same text the
+/// player reads, not only that the cards exist.
 #[test]
 fn the_cards_say_what_each_slot_has_decided() {
     let mut app = build_demo_app();
@@ -443,10 +415,8 @@ fn the_cards_say_what_each_slot_has_decided() {
     click(&mut app, 1, layout.role_button(1)); // → CPU
 
     let decided = card_text(&mut app);
-    // gives more info for debugging."*) This read `CONTROLLER 1` — the slot's own numbering
-    // said back to it — which told a person nothing about which of their two hands was seated
-    // where. `plug_in(2)` gives this fixture pads and a keyboard, and the keyboard is source
-    // zero under the couch policy.
+    // The source name, not the slot number. `plug_in(2)` gives pads and a
+    // keyboard, and the keyboard is source zero under the couch policy.
     assert_eq!(decided[0].0, "KEYBOARD");
     assert_eq!(
         decided[0].1, "George Booul",
@@ -458,8 +428,8 @@ fn the_cards_say_what_each_slot_has_decided() {
     assert_eq!(decided[3].0, "NOT PLAYING");
 }
 
-/// A participating slot's token is ON SCREEN, because the token is the only
-/// thing tying a card to the grid and an invisible one is an unplayable screen.
+/// A participating slot's token is on screen: it is the only thing tying a
+/// card to the grid.
 #[test]
 fn a_participating_slot_puts_a_visible_token_on_the_grid() {
     let mut app = build_demo_app();
@@ -493,13 +463,9 @@ fn a_participating_slot_puts_a_visible_token_on_the_grid() {
     );
 }
 
-/// THE STAGE BUTTON IS REACHABLE AND IT CHANGES THE MATCH.
-///
-/// ⛔ Two halves, and the second is the one that would rot silently. A button
-/// that cycles a resource nothing reads looks completely correct on screen —
-/// the label even changes — while every match still loads the same stage. So
-/// this presses the real button through the real screen AND then asserts the
-/// prepared world followed.
+/// The stage button is reachable and changes the match. A button that
+/// cycles a resource nothing reads still changes its label, so this also
+/// asserts that the prepared world followed.
 #[test]
 fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
     use ambition_demo_smash::SmashStageChoice;
@@ -531,8 +497,8 @@ fn the_stage_button_cycles_the_stage_the_match_will_prepare() {
         stage_label_text(&mut app)
     );
 
-    // And it cycles rather than latching — a full lap, so a stage that becomes
-    // unreachable from the button reddens here instead of passing quietly.
+    // It cycles through a full lap, so a stage unreachable from the button
+    // fails here.
     click(&mut app, 0, layout.stage_button());
     assert_eq!(
         *app.world().resource::<SmashStageChoice>(),
@@ -560,10 +526,9 @@ fn stage_label_text(app: &mut App) -> String {
 
 /// One person, one keyboard, a fight.
 ///
-/// The screen offered one seat per PAD with a floor of one, every decided seat
-/// was a human, and a match needed two — so alone, at a keyboard, there was no
-/// sequence of presses that started anything. Every unit test passed: they all
-/// drove two seats.
+/// With one seat per pad, a floor of one, every decided seat human, and two
+/// needed for a match, a lone keyboard player could not start anything. The
+/// player adds a CPU.
 #[test]
 fn a_player_alone_can_add_a_cpu_and_start_the_match() {
     let mut app = build_demo_app();
@@ -578,8 +543,8 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
         SlotOccupant::Controller { device: 0 },
         "the only source in the room did not reach the first card"
     );
-    // the SECOND card has no source left, so its button skips the controller
-    // rung entirely — one press, not two.
+    // The second card has no source left, so its button skips the controller
+    // option: one press, not two.
     click(&mut app, 0, layout.role_button(1));
     assert_eq!(
         slot(&app, 1).occupant,
@@ -611,11 +576,9 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
 
 /// The arrows alone can work the whole screen.
 ///
-/// the piece with no precedent in this repo, and the one a mouse would hide.
-/// Every stop is on something clickable, so a pad reaches the cards, the grid,
-/// the tokens and START without a pointer — and if snapping ever loses a
-/// direction, a whole third of the screen becomes unreachable with nothing else
-/// to notice.
+/// Every stop is on something clickable, so a pad reaches the cards, the
+/// grid, the tokens, and START without a pointer. If snapping loses a
+/// direction, part of the screen becomes unreachable.
 #[test]
 fn the_arrows_alone_can_work_the_whole_screen() {
     let mut app = build_demo_app();
@@ -676,13 +639,12 @@ fn slot_participates(app: &App, index: usize) -> bool {
 
 /// The select screen's own score plays in the STANDALONE demo too.
 ///
-/// The companion to `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`,
-/// and it is the half that already worked: before the select theme
-/// played here — and only here — because frontend audio was one process-global
-/// resource this app happened to own outright.
+/// Companion to
+/// `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`.
 ///
-/// The subject is the selected AUTHORITY, not the declaration. Reading a profile
-/// back out of the registry it was written into would pass under either design.
+/// The subject is the selected authority, not the declaration: reading a
+/// profile back from the registry it was written into would pass under
+/// either design.
 #[test]
 fn the_select_screen_plays_its_own_score_in_the_standalone_demo() {
     use ambition_platformer2d::audio::selection::ActiveAudioSelection;
@@ -708,27 +670,18 @@ fn the_select_screen_plays_its_own_score_in_the_standalone_demo() {
         Some(ambition_demo_smash::SMASH_SELECT_TRACK),
         "the standalone demo's select screen still selects its own score",
     );
-    // deliberately NOT claiming this proves the ROUTE declaration answered.
-    // In this app the route declaration and the composition's host default name
-    // the same track, so the outcome is identical either way and the test cannot
-    // tell them apart. Which one wins is pinned where it is actually decidable:
-    // `composition::a_route_that_declares_its_own_sound_is_not_overruled_by_the_default`
-    // asserts the precedence directly, and the Ambition host asserts the
-    // consequence — a route whose default says something else entirely.
+    // This does not prove the route declaration answered: here the route and
+    // the composition default name the same track. The precedence is pinned
+    // by `composition::a_route_that_declares_its_own_sound_is_not_overruled_by_the_default`,
+    // and the Ambition host asserts a route whose default differs.
 }
 
-/// THE STOCKS BUTTON IS REACHABLE AND THE MATCH ACTUALLY USES WHAT IT SAYS.
+/// The stocks button is reachable and the match uses what it says.
 ///
-/// ⛔⛔ THE SECOND HALF IS THE ONE THAT WOULD ROT SILENTLY, and it is the half
-/// this file's stage-button test claims in prose and does not take: a button
-/// that cycles a resource nothing reads looks completely correct on screen —
-/// the label even changes — while every match is still played at three stocks.
-/// So this presses the real button through the real screen, starts the real
-/// match, and reads the count off the roster the screen PUBLISHED.
-///
-/// ⭐ That is reachable here only because `apply_smash_match_rules` takes the
-/// count as an argument. While it read a constant, no test at any level could
-/// have told a wired button from an unwired one.
+/// A button that cycles a resource nothing reads still changes its label.
+/// So this presses the real button, starts the real match, and reads the
+/// count from the roster the screen published. That works because
+/// `apply_smash_match_rules` takes the count as an argument.
 #[test]
 fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
     use ambition_demo_smash::SmashStockChoice;
@@ -765,7 +718,7 @@ fn the_stocks_button_sets_the_count_the_published_match_is_played_at() {
         stocks_label_text(&mut app)
     );
 
-    // ⭐ ANY SEAT, like the stage cycle. Seat 1 moves it on, then back to one.
+    // Any seat can cycle it, as with the stage. Seat 1 moves it on, then back.
     click(&mut app, 1, layout.stocks_button());
     assert_eq!(
         *app.world().resource::<SmashStockChoice>(),

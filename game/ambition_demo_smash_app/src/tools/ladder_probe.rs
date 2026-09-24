@@ -12,22 +12,10 @@ use bevy::app::App;
 
 /// One minute at 60Hz.
 ///
-/// ⚠ **NO LONGER THE SAME BUDGET AS `ladder_rig`, and the two are no longer
-/// readable against each other.** That rig defaulted to sixty seconds too, and
-/// its comment said so; on 2026-09-04 it was changed to
-/// `ambition_demo_smash::SMASH_TIME_LIMIT_TICKS` — the **shipped eight-minute
-/// match** — because a bout that cannot end leaves stocks tied and sends every
-/// verdict to a damage tiebreak.
-///
-/// ⭐ **That reasoning does NOT transfer here, which is why this stays sixty.**
-/// This probe's opponent cannot attack: a bout has no winner to decide, so
-/// nothing depends on it finishing. Stock loss here counts SELF-KOs, and the
-/// clock is just the observation window. ⇒ Making it eight minutes would multiply
-/// the run time by eight and change nothing about what the number means.
-///
-/// ⛔ So do not compare a survival time from this probe against one from
-/// `ladder_rig`. They are windows onto different questions and, since 2026-09-04,
-/// different lengths.
+/// Unlike `ladder_rig`, this does not use the shipped match length. The
+/// opponent here cannot attack, so no bout has a winner to decide: stock
+/// loss counts self-KOs and the clock is only the observation window. Do
+/// not compare survival times from this probe with `ladder_rig`'s.
 const TICKS: usize = 3_600;
 
 /// How many execution-noise seeds each configuration is run under.
@@ -35,23 +23,15 @@ const TICKS: usize = 3_600;
 /// Overridable: `cargo run --bin smash_tool -- ladder-probe -- --seeds 7`.
 const DEFAULT_SEEDS: usize = 3;
 
-/// Say WHICH ladder these numbers describe, before printing any.
+/// Name the ladder before printing any numbers.
 ///
-/// a calibration table that does not name its ladder is worse than no
-/// table, and this one could not name it. The rungs here resolve through
-/// `FighterBrainProfile::for_level` — the ENGINE FLOOR — because this demo ships
-/// no ladder of its own, which `fighter-brain.md` §4 says is exactly what a game
-/// that has authored none should get: *"Games/demos ship their own rows — it's
-/// content."*
-///
-/// That is the demo gate."* Loading it here would be one game reading another game's difficulty.
-///
-/// the numbers differ where this probe's own A/B lives, which is why the
-/// line matters: the floor turns `rollout_depth: 12` on at level ≥ 6, so the
-/// ladder column below confounds depth with four other changes — while an
-/// authored ladder may set 0 on every rung (Ambition's does, deliberately), in
-/// which case the same column is a clean reaction/APM/noise sweep. Same table,
-/// two different meanings, decided entirely by whose ladder ran.
+/// The rungs resolve through `FighterBrainProfile::for_level` (the engine
+/// floor), because this demo ships no ladder of its own (`fighter-brain.md`
+/// §4: games and demos ship their own rows). The floor turns
+/// `rollout_depth: 12` on at level 6 and above, so the level column
+/// confounds depth with reaction, APM, noise, and read weight. With an
+/// authored ladder that sets depth 0 on every rung, the same column would be
+/// a clean reaction/APM/noise sweep.
 fn announce_which_ladder_is_under_test() {
     println!(
         "[ladder_probe] LADDER: engine floor (`FighterBrainProfile::for_level`) — \
@@ -81,59 +61,28 @@ pub fn run(args: LadderProbeArgs) {
         report(&run_seeds(level, None, seeds));
     }
 
-    // ── the A/B that is actually FB6e's question ─────────────────────────
-    //
-    // The ladder column above confounds depth with everything else a rung changes (reaction,
-    // APM, execution noise, read weight). `for_level` turns the rollout on at level 6, so level
-    // 5 -> 6 is NOT a depth experiment; it is five changes at once.
+    // The A/B for FB6e's question. The level column confounds depth with
+    // every other rung change; level 5 -> 6 changes five things at once. This
+    // varies only `rollout_depth` on one level-9 profile.
     println!("[ladder_probe] --- same level 9 profile, ONLY rollout_depth varied ---");
     for depth in [0u32, 12] {
         report(&run_seeds(9, Some(depth), seeds));
     }
 }
 
-// ⛔ THIS BLOCK IS ORPHANED AND NEEDS ITS OWNER. It was a `///` doc on the
-// `thread_local!` below, which is not a place a doc comment attaches — so it
-// warned, and the warning was invisible because this binary only builds under
-// `--features causal`. Its four subjects (printing an explanation, clearing the
-// log each tick, the per-subject `vel_x`, the seam's 1-in-5 sampling) describe
-// several different items, so it reads like docs left behind by items that were
-// deleted or moved. Demoted to `//` rather than reattached: silencing the
-// warning is unambiguous, deciding which item each paragraph belonged to is not.
-// Print the joined explanation for every subject that acted this tick, then
-// clear the log.
-//
-// `[fighter …]` lines on this same stream carry NO TICK, and must not be
-// aligned with `[seam] t=N` by adjacency. That is deliberate and correct —
-// `trace_decision`'s own doc explains it: a brain five hops below the ECS does
-// not know the world's clock, and a counter guessed there would be a second
-// clock no other domain could join against. The fact it publishes IS stamped;
-// only the stderr rendering is not.
-//
-// They may or may not; adjacent lines here are not evidence either way. Compare only `t=`-stamped
-// lines with each other.
-//
-// cleared every tick on purpose. A ladder run is thousands of ticks with
-// several bodies each; a log that accumulated all of it would be a memory
-// profile of the probe rather than a trace. The question here is always "what
-// happened on THIS tick", so the tick is the natural scope.
-// Per-subject `vel_x` as of the previous tick, so an UNCLAIMED velocity step can
-// be detected instead of eyeballed.
-//
-// the seam line samples 1-in-5 between decisions, so a three-tick ramp is
-// invisible to it — which is how S51's `-99`/tick ramp survived six reading
-// cycles. The data was there every tick; only the printing was sampled.
+// Per-subject `vel_x` from the previous tick, so an unclaimed velocity
+// step is detected instead of eyeballed. The seam line samples 1 tick in 5
+// between decisions, so a short ramp is invisible to it; the detector
+// checks every tick.
 #[cfg(feature = "causal")]
 thread_local! {
-    /// the detector itself now lives in `ambition_causal` — this probe was
-    /// where it was first needed, not where it belongs. The trace that motivated
-    /// it was taken in the SANDBOX composition and this binary runs the smash
-    /// LADDER; two hosts that never see each other's bodies, one question.
+    /// The detector lives in `ambition_causal`; this probe is one user.
     static UNCLAIMED: std::cell::RefCell<ambition_platformer2d::causal::UnclaimedStepDetector> =
         std::cell::RefCell::new(ambition_platformer2d::causal::UnclaimedStepDetector::new());
 }
 
-/// 1.01 is float slop and nothing else.
+/// The largest per-tick velocity step the integrator can produce, plus 1%
+/// for float slop.
 #[cfg(feature = "causal")]
 const UNCLAIMED_STEP_THRESHOLD: f32 = {
     let per_tick = if ambition_platformer2d::engine_core::RUN_ACCEL
@@ -146,6 +95,14 @@ const UNCLAIMED_STEP_THRESHOLD: f32 = {
     per_tick * 1.01
 };
 
+/// Print the joined explanation for every subject that acted this tick,
+/// then clear the log. The tick is the natural scope, and an accumulated
+/// log would grow over thousands of ticks.
+///
+/// `[fighter …]` lines on the same stream carry no tick (a brain deep below
+/// the ECS does not know the world clock; the published fact is stamped).
+/// Do not align them with `[seam] t=N` lines by adjacency. Compare only
+/// `t=`-stamped lines.
 #[cfg(feature = "causal")]
 fn trace_seam(app: &mut App, tick: usize) {
     let Some(log) = app
@@ -159,29 +116,22 @@ fn trace_seam(app: &mut App, tick: usize) {
         let explanation = log.explain(stamped, &subject);
         let received = explanation.first("control_frame_received");
         let decided = explanation.first("fighter_decision");
-        // Every kernel movement operation this tick — `Slash`, `Dash`,
-        // `WallJump`, `LedgeClimbStart`, … — not just the first. A tick can
-        // carry several and the interesting one is rarely the earliest.
+        // Every kernel movement operation this tick (`Slash`, `Dash`, `WallJump`,
+        // `LedgeClimbStart`, …), not just the first.
         let operations: Vec<String> = explanation
             .facts()
             .iter()
             .filter(|fact| fact.kind() == "movement_operation")
             .filter_map(|fact| fact.get("operation").map(|value| format!("{value}")))
             .collect();
-        // A subject with neither is some other domain's; skip rather than print
-        // an empty row for it.
+        // A subject with neither fact belongs to another domain; skip it.
         if received.is_none() && decided.is_none() {
             continue;
         }
-        // UNCLAIMED VELOCITY STEPS — checked on EVERY tick, before the
-        // sampling filter below. This is the detector S51 needed and did not
-        // have: a step larger than the integrator can produce, with no kernel
-        // operation naming a writer.
-        //
-        // it prints every fact KIND on the tick rather than only the operations,
-        // because the lesson that thread paid for twice is that a filter is a
-        // hypothesis — `knockback_applied` sat in the log through six cycles
-        // because the query asked for `contains("hit")`.
+        // Unclaimed velocity steps, checked on every tick before the sampling
+        // filter: a step larger than the integrator can produce, with no kernel
+        // operation naming a writer. Print every fact kind on the tick, not only
+        // operations: a filter is a hypothesis and can hide the writer.
         if let Some(vx) = received
             .and_then(|fact| fact.get("vel_x"))
             .and_then(|value| format!("{value}").parse::<f32>().ok())
@@ -231,19 +181,16 @@ fn trace_seam(app: &mut App, tick: usize) {
              dash_charges={} chose={} ops=[{}]",
             field(decided, "emit_locomotion_x"),
             field(received, "locomotion_x"),
-            // FACING is not decoration.
+            // Facing matters: `Slash` recoil depends on it.
             field(received, "facing"),
             field(received, "vel_x"),
             field(received, "on_ground"),
             field(received, "dash_charges"),
             field(decided, "chose"),
-            // THE KERNEL'S OWN OPERATION, and the field that finally
-            // answered this thread. The seam line reported
-            // what the brain asked and what the body held and was silent about
-            // what the ENGINE did — so three ticks of `Slash` were invisible,
-            // and `Slash` subtracts `side * facing * slash_recoil` from velocity
-            // on every press. The body was recoiling from its own attacks and
-            // the trace built to explain it could not say so.
+            // The kernel's own operation. `Slash` subtracts
+            // `side * facing * slash_recoil` from velocity on every press, so
+            // without this field a body recoiling from its own attacks is
+            // unexplained.
             operations.join(","),
         );
     }
@@ -252,14 +199,8 @@ fn trace_seam(app: &mut App, tick: usize) {
         .clear();
 }
 
-/// Whether the brain/seam trace is on. Same switch the brain reads, so the two
-/// halves of the trace are never half-enabled.
-///
-/// the `[seam]` half needs `--features causal` — it reads the causal log
-/// now instead of hand-querying components, and the log is a default-off
-/// dependency. [`warn_if_seam_trace_is_unavailable`] says so out loud rather
-/// than letting the trace come back missing half its lines.
-/// Say it, rather than printing nothing.
+/// The `[seam]` half of the trace reads the causal log and needs
+/// `--features causal`. Warn instead of printing half the trace silently.
 fn warn_if_seam_trace_is_unavailable() {
     #[cfg(not(feature = "causal"))]
     if trace_enabled() {
@@ -271,6 +212,8 @@ fn warn_if_seam_trace_is_unavailable() {
     }
 }
 
+/// Whether the brain/seam trace is on. The brain reads the same switch, so
+/// the two halves of the trace are never half-enabled.
 #[cfg_attr(not(feature = "causal"), allow(dead_code))]
 fn trace_enabled() -> bool {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
@@ -281,12 +224,11 @@ fn trace_enabled() -> bool {
 
 /// One configuration, run under `seeds` different execution-noise streams.
 ///
-/// this rig SUPPLIES its streams and does not model how a real fighter gets
-/// one. A live CPU's stream is `participant ⊕ level`
-/// (`brain_builders::fighter_cognition_seed`); sweeping `i` here is the point of
-/// the probe — it is measuring the SPREAD across streams — so it deliberately
-/// does not go through that seam. do not "fix" this to match the builder, and
-/// do not read this loop as evidence of what the builder does.
+/// This rig supplies its streams. A live CPU's stream is
+/// `participant ⊕ level` (`brain_builders::fighter_cognition_seed`); the
+/// probe sweeps `i` to measure the spread across streams. Do not change it
+/// to match the builder, and do not read it as evidence of what the
+/// builder does.
 fn run_seeds(level: u8, forced_depth: Option<u32>, seeds: usize) -> Vec<LadderRun> {
     (0..seeds.max(1))
         .map(|i| {
@@ -322,12 +264,11 @@ fn report(runs: &[LadderRun]) {
 
 /// `"5.4s"` when every seed agrees, `"5.4s ±1.2"` when they do not.
 ///
-/// The spread is the half the single-sample version could not print, and it is
-/// the number that says whether a difference between two rows means anything.
+/// The spread says whether a difference between two rows means anything.
 fn spread_label(values: impl Iterator<Item = Option<usize>> + Clone) -> String {
     let all: Vec<Option<usize>> = values.collect();
-    // A seed where the event never happened is not a large number — it is a
-    // different outcome, and averaging it in would invent a time.
+    // A seed where the event never happened is a different outcome, not a
+    // large number; averaging it in would invent a time.
     let never = all.iter().filter(|v| v.is_none()).count();
     let happened: Vec<usize> = all.iter().filter_map(|v| *v).collect();
     if happened.is_empty() {
@@ -348,7 +289,7 @@ fn spread_label(values: impl Iterator<Item = Option<usize>> + Clone) -> String {
     }
 }
 
-/// WHERE it died, as a side rather than a number. The stage is centered, so
+/// Where it died, as a side rather than a number. The stage is centered, so
 /// the authored stage centre separates left exits from right exits without
 /// duplicating a room width or platform extent in this diagnostic.
 fn death_side(runs: &[LadderRun]) -> String {
@@ -378,14 +319,12 @@ struct LadderRun {
     eliminated: Option<usize>,
     /// The fastest horizontal speed the body ever reached, in px/s.
     ///
-    /// A run tops out near `MAX_RUN_SPEED`; a dash is an impulse several times
-    /// that. So this separates "walked off" from "dashed off" without having to
-    /// instrument the brain's chosen verb — and those are different bugs.
+    /// A run tops out near `MAX_RUN_SPEED`; a dash is several times that. So
+    /// this separates "walked off" from "dashed off", which are different bugs.
     peak_speed: f32,
-    /// Where the body was standing on the tick before its FIRST self-KO.
-    ///
-    /// A death off the LEFT and a death off the RIGHT are different bugs — one is the veto
-    /// steering, the other is the veto blind.
+    /// Where the body stood on the tick before its first self-KO. A death off
+    /// the left and off the right are different bugs: one is the veto steering,
+    /// the other is the veto blind.
     death_x: Option<f32>,
     lost: u32,
     peak: f32,
@@ -394,8 +333,7 @@ struct LadderRun {
 /// Run one match.
 fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     let mut app = build_demo_app();
-    // The log the seam trace reads. Installed only when tracing, so an ordinary
-    // ladder run pays nothing for an inspector nobody opened.
+    // The log the seam trace reads. Installed only when tracing.
     #[cfg(feature = "causal")]
     if trace_enabled() {
         app.add_plugins(ambition_platformer2d::causal::CausalPlugin);
@@ -442,16 +380,11 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
         if !seed_applied {
             seed_applied = force_noise_seed(&mut app, noise_seed);
         }
-        // the APPLIED control, beside the body it is supposed to move.
-        // `AMBITION_FIGHTER_TRACE=1` prints what the BRAIN emitted; this prints what reached
-        // `ActorControl`, which is the seam between the brain phase and the movement phase.
-        //
-        // Now there is one: the engine publishes the typed fact, and this reads it.
-        //
-        // What that buys is the whole point of the thread. The brain's `fighter_decision` fact and
-        // the body's `control_frame_received` fact carry the SAME subject, so one `explain` returns
-        // both — "asked for -1.0, holding -1.0, travelling +588" is one line instead of two streams
-        // a human correlates by eye.
+        // The applied control beside the body it should move.
+        // `AMBITION_FIGHTER_TRACE=1` prints what the brain emitted; this prints
+        // what reached `ActorControl`. The brain's `fighter_decision` and the
+        // body's `control_frame_received` share a subject, so one `explain`
+        // returns both on one line.
         #[cfg(feature = "causal")]
         if trace_enabled() {
             trace_seam(&mut app, tick);
@@ -480,8 +413,8 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
             }
         }
         last_x = seat_x.or(last_x);
-        // Elimination despawns the body, so its absence AFTER it was present is
-        // the signal — there is no last frame to read a zero off.
+        // Elimination despawns the body, so its absence after it was present is
+        // the signal.
         if !present && eliminated.is_none() && first_loss.is_some() {
             eliminated = Some(tick);
         }
@@ -515,8 +448,8 @@ fn run_one(level: u8, forced_depth: Option<u32>, noise_seed: u64) -> LadderRun {
     }
 }
 
-/// Overwrite `rollout_depth` on every fighter brain present. Overwrite the execution-noise
-/// stream on every fighter brain present, so one configuration can be run under several.
+/// Overwrite the execution-noise stream on every fighter brain present, so
+/// one configuration can run under several.
 fn force_noise_seed(app: &mut App, seed: u64) -> bool {
     let world = app.world_mut();
     let mut q = world.query::<&mut Brain>();

@@ -4,10 +4,10 @@ use super::state::TouchButton;
 
 // ─── The virtual-device path: touch resolves through participant bindings ───
 //
-// These exercise the REAL leafwing pipeline: `MobileTouchState` (the collected
-// device state) → the registered input kinds → the participant's `InputMap`
-// bindings → `ActionState<Platformer2dInputActionMonolith>`. No fold, no special cases — the
-// same resolution a keyboard or gamepad gets.
+// These run the real leafwing pipeline: `MobileTouchState` → the registered
+// input kinds → the participant's `InputMap` bindings →
+// `ActionState<Platformer2dInputActionMonolith>`. The same resolution a
+// keyboard or gamepad gets.
 
 #[cfg(feature = "mobile_touch")]
 mod virtual_device_tests {
@@ -23,7 +23,7 @@ mod virtual_device_tests {
     use leafwing_input_manager::prelude::{ActionState, InputMap};
     use leafwing_input_manager::InputControlKind;
 
-    /// A minimal app with the REAL leafwing pipeline + the participant and
+    /// A minimal app with the real leafwing pipeline, the participant, and
     /// the touch virtual device bound in its `InputMap`.
     fn app() -> (App, Entity) {
         let mut app = App::new();
@@ -69,8 +69,8 @@ mod virtual_device_tests {
     #[test]
     fn a_touch_button_press_resolves_to_its_bound_actions() {
         let (mut app, participant) = app();
-        // The Jump button feeds BOTH the gameplay verb and the menu confirm —
-        // a DECLARED double-binding, not a hidden branch.
+        // The Jump button feeds both the gameplay verb and menu confirm: a
+        // declared double binding.
         hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
         app.update();
         let a = actions(&app, participant);
@@ -140,7 +140,7 @@ mod virtual_device_tests {
     #[test]
     fn the_stick_feeds_move_and_menustick_in_leafwing_convention() {
         let (mut app, participant) = app();
-        // Drag the on-screen stick fully DOWN (touch state is +Y-down).
+        // Drag the on-screen stick fully down (touch state is +Y-down).
         hold(&mut app, |s| s.0.move_y = 1.0);
         app.update();
         let a = actions(&app, participant);
@@ -166,8 +166,8 @@ mod virtual_device_tests {
             actions(&app, participant).just_pressed(&Platformer2dInputActionMonolith::MoveDown),
             "crossing the direction threshold is a MoveDown press edge"
         );
-        // Held past the threshold: no fresh edge — the double-tap-down
-        // detectors must not see a held stick as repeated taps.
+        // Held past the threshold: no new edge, so double-tap-down detectors
+        // do not see a held stick as repeated taps.
         app.update();
         let a = actions(&app, participant);
         assert!(a.pressed(&Platformer2dInputActionMonolith::MoveDown));
@@ -180,7 +180,7 @@ mod virtual_device_tests {
     #[test]
     fn a_preset_swap_keeps_the_virtual_device_bound() {
         let (mut app, participant) = app();
-        // A preset swap REPLACES the whole InputMap (sync_preset_input_map).
+        // A preset swap replaces the whole InputMap (sync_preset_input_map).
         *app.world_mut()
             .get_mut::<InputMap<Platformer2dInputActionMonolith>>(participant)
             .unwrap() = ambition_input::KeyboardPreset::by_index(1).input_map();
@@ -195,13 +195,10 @@ mod virtual_device_tests {
 
     #[test]
     fn a_second_couch_seat_neither_receives_touch_nor_blinds_the_overlay() {
-        // The overlay is ONE device on the machine's own screen: with a couch
-        // seat spawned beside the primary, a screen tap must (a) still drive
-        // the PRIMARY seat, (b) never press anything on the couch seat, and
-        // (c) still light the pressed-visual. (a)+(c) are the single-seat
-        // regressions the couch census found: `bind_touch_virtual_inputs`
-        // bound touch into EVERY map, and the pressed-visual read the
-        // participant via `single()`, which went dead at two matches.
+        // The overlay is one device on the machine's own screen. With a couch
+        // seat beside the primary, a screen tap must (a) drive the primary
+        // seat, (b) press nothing on the couch seat, and (c) still light the
+        // pressed visual (which must not use `single()`).
         use super::super::bevy_plugin::{update_button_pressed_from_actions, ButtonPressed};
         use super::super::layout::TouchActionButton;
         use ambition_input::ParticipantId;
@@ -245,9 +242,9 @@ mod virtual_device_tests {
 
 // ─── The gesture lane + presenter policy ────────────────────────────────────
 
-/// The gesture system marks Touch as the active input source on genuine
-/// activity — the symmetric counterpart of the keyboard/mouse/gamepad
-/// detector — without stomping the marker while the overlay is idle.
+/// The gesture system marks Touch as the active input source on real
+/// activity, like the keyboard/mouse/gamepad detector, and leaves the marker
+/// alone while the overlay is idle.
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn genuine_touch_activity_marks_touch_active() {
@@ -289,10 +286,9 @@ fn genuine_touch_activity_marks_touch_active() {
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn axis_override_drives_knob_only_while_gameplay_owns_the_controls() {
-    // While a menu/launcher owns the controls the gameplay axis is ~0, so
-    // the knob-drive override must NOT run — otherwise it snaps the knob to
-    // center even as the player drags it to navigate. Keyed on the resolved
-    // prompt context (the action/cue contract), never on GameMode.
+    // While a menu or launcher owns the controls, the gameplay axis is about
+    // 0, so the knob override must not run, or it snaps the knob to center
+    // during a menu drag. Keyed on the prompt context, never on GameMode.
     use super::bevy_plugin::axis_override_drives_knob;
     use ambition_sim_view::ControlContextKind;
 
@@ -341,18 +337,17 @@ fn deadzone_zero_passes_through() {
 #[cfg(feature = "mobile_touch")]
 #[test]
 fn touch_hud_z_is_above_every_menu_overlay() {
-    // The HUD's `GlobalZIndex` band must sit ABOVE every menu overlay so it
-    // renders on top AND wins bevy_ui picking (so the joystick keeps
-    // receiving drags and the Back button stays tappable while a menu's
-    // full-screen scrim is up). Assert the ordering against the concrete
-    // overlay z values used in the menu modules.
+    // The HUD's `GlobalZIndex` band must be above every menu overlay, so it
+    // renders on top and wins picking (the joystick keeps its drags, and Back
+    // stays tappable over a full-screen scrim). Compare with the menu
+    // modules' z values.
     use super::bevy_plugin::TOUCH_HUD_Z;
 
     // Local `ZIndex` values authored on the menu roots:
     const PAUSE_MENU_Z: i32 = 50;
     const MAP_Z: i32 = 60;
     const GRID_MENU_Z: i32 = 62;
-    // Documented worst-case the prompt calls out for the grid root.
+    // Documented worst case for the grid root.
     const GRID_GLOBAL_Z_WORST_CASE: i32 = 1000;
 
     assert!(TOUCH_HUD_Z > PAUSE_MENU_Z);
@@ -373,8 +368,8 @@ fn touch_action_hit_test_includes_fly_button() {
     };
     use ambition_platformer2d_shared_tangle::gameplay_presentation::ScreenRect;
 
-    // A cluster resolved somewhere arbitrary: the hit test follows the
-    // PLACEMENT, so a window-relative fixture would be testing the wrong thing.
+    // A cluster placed anywhere: the hit test follows the placement, not the
+    // window.
     let cluster = ScreenRect::from_min_size(
         bevy::prelude::Vec2::new(820.0, 2020.0),
         bevy::prelude::Vec2::new(ACTION_CLUSTER_W, ACTION_CLUSTER_H),
@@ -439,9 +434,8 @@ fn the_drawn_stick_and_the_urld_glyphs_share_one_center() {
         "resting knob center must coincide with the glyph cluster center",
     );
 
-    // And the art must stay clear of the screen edge: the reserved footprint is
-    // flush to the corner, so the drawn ring's own inset IS the edge buffer
-    // that keeps the thumb off the side-swipe gesture zone.
+    // The art stays clear of the screen edge: the footprint is flush to the
+    // corner, so the ring's inset is the buffer from the side-swipe zone.
     assert_eq!(
         layout.art_origin().x,
         layout.margin,

@@ -1,11 +1,10 @@
 //! The touch HUD's resolved on-screen placement.
 //!
-//! Now there is ONE resolved answer. This crate publishes what its clusters
-//! need ([`touch_control_footprints`]), the presentation resolver decides where
-//! they fit, and everything here — the rendered `Node`s, the raw multitouch hit
-//! test, and the menu-drag exclusions — reads the SAME rectangles out of
-//! [`TouchControlPlacement`]. Nothing in this crate infers a margin from the
-//! window any more.
+//! There is one resolved answer. This crate publishes what its clusters need
+//! ([`touch_control_footprints`]), the presentation resolver decides where
+//! they fit, and the rendered `Node`s, the raw multitouch hit test, and the
+//! menu-drag exclusions all read the same rectangles from
+//! [`TouchControlPlacement`]. Nothing here infers a margin from the window.
 
 use bevy::prelude::*;
 
@@ -24,36 +23,31 @@ pub(super) const MENU_ROW_H: f32 = 54.0;
 /// The smallest scale at which the action cluster's tightest touch target is
 /// still reliably hittable.
 ///
-/// The smallest authored circle is 64 logical px before `TOUCH_SCALE`; the
-/// minimum keeps it at roughly 40px, which is the usual floor for a thumb
-/// target. Below this the resolver prefers overlaying gameplay to shrinking
-/// further — a control you cannot hit is worse than one that covers scenery.
+/// The smallest authored circle is 64 logical px before `TOUCH_SCALE`; this
+/// keeps it at about 40px, the usual thumb-target floor. Below this, the
+/// resolver overlays gameplay instead of shrinking further.
 const ACTION_MIN_SCALE: f32 = 0.893;
 
 /// Breathing room so the controlled subject is never framed flush against a
 /// control.
 ///
-/// Declared on the FOOTPRINT rather than on the drawn node: the resolver both
-/// places the cluster and publishes what it occupies, so the padding travels
-/// with the requirement instead of being restated on whatever entity happens to
-/// carry the art.
+/// Declared on the footprint, not the drawn node: the resolver places the
+/// cluster and publishes what it occupies, so the padding goes with the
+/// requirement.
 pub const OCCUPANCY_PAD: f32 = 12.0;
 
 /// What the touch clusters need, in logical pixels.
 ///
-/// Sizes are the RESERVED footprints (the joystick's generous exclusion box and
-/// the action bezel), not the visible art, so a cluster placed at one of these
-/// rectangles has its breathing room inside the rectangle rather than spilling
-/// out of it.
+/// Sizes are the reserved footprints (the joystick's exclusion box and the
+/// action bezel), not the visible art, so the breathing room stays inside the
+/// rectangle.
 pub fn touch_control_footprints() -> ControlFootprints {
     let pad = Vec2::splat(OCCUPANCY_PAD);
     ControlFootprints {
-        // The movement stick is deliberately NOT compactible. Its knob and
-        // base art are sized by the `virtual_joystick` crate, so scaling this
-        // crate's node without scaling that art would put the touch region and
-        // the drawn stick out of agreement — the exact class of drift this
-        // module exists to remove. It either fits a reserved column or it
-        // overlays at full size.
+        // The movement stick does not compact. `virtual_joystick` sizes its
+        // knob and base art, so scaling only this node would put the touch
+        // region and the drawn stick out of step. It fits a reserved column
+        // or overlays at full size.
         movement: Some(
             ControlFootprint::fixed(Vec2::splat(JOYSTICK_EXCLUSION_SIZE))
                 .with_occlusion_padding(pad),
@@ -65,9 +59,8 @@ pub fn touch_control_footprints() -> ControlFootprints {
             )
             .with_occlusion_padding(pad),
         ),
-        // The menu row is small, cornered chrome; shrinking it buys nothing.
-        // No padding either: `SystemMenuControl` does not reserve subject space,
-        // so a halo around it would only be published for diagnostics.
+        // The menu row is small corner chrome; shrinking it gains nothing. No
+        // padding: `SystemMenuControl` does not reserve subject space.
         system_controls: Some(ControlFootprint::fixed(Vec2::new(
             MENU_ROW_W + MENU_ROW_MARGIN * 2.0,
             MENU_ROW_H + MENU_ROW_MARGIN * 2.0,
@@ -75,10 +68,9 @@ pub fn touch_control_footprints() -> ControlFootprints {
     }
 }
 
-/// The touch overlay's half of the presentation lifecycle, declared rather
-/// than implied.
+/// The touch overlay's half of the presentation lifecycle.
 ///
-/// The intended order is:
+/// The order is:
 ///
 /// ```text
 /// touch requirements and visible-action selection   (PublishRequirements)
@@ -86,16 +78,15 @@ pub fn touch_control_footprints() -> ControlFootprints {
 ///         -> apply resolved control placement       (ApplyPlacement)
 /// ```
 ///
-/// Both edges must be REAL. Hiding the touch HUD is exactly that case: the participant flips a
-/// setting and the reserved surround either collapses now or a frame later.
+/// Both edges must be real ordering constraints. Otherwise, hiding the touch
+/// HUD would collapse the reserved surround a frame late.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum TouchPresentationSet {
     /// Find the control roots this crate does not spawn itself and tag them.
     ///
-    /// The movement stick's root belongs to the `virtual_joystick` crate, so
-    /// this crate can only discover it after the fact. Discovery is part of the
-    /// lifecycle rather than a bystander system, because everything downstream
-    /// queries for the markers it attaches.
+    /// The movement stick's root belongs to `virtual_joystick`, so this crate
+    /// discovers it after the fact. Discovery is part of the lifecycle
+    /// because everything downstream queries for the markers it adds.
     Discover,
     /// What the clusters need this frame, given contextual availability and
     /// the overlay visibility setting.
@@ -109,16 +100,13 @@ impl TouchPresentationSet {
     /// Declare the lifecycle: discover, then requirements before the resolve,
     /// then placement after it.
     ///
-    /// A free function rather than something each composer restates, because a
-    /// restated edge is an edge that can be forgotten — and a forgotten one
-    /// here does not fail loudly, it just draws the controls at last frame's
-    /// rectangles.
+    /// One function, so no composer restates (and forgets) an edge; a missing
+    /// edge draws controls at last frame's rectangles without failing.
     ///
-    /// The `Discover → PublishRequirements` edge is also the deferred-command boundary.
-    /// Discovery tags roots through `Commands` and every system after it queries for exactly
-    /// those markers, so the markers must be applied in between; Bevy's
-    /// `auto_insert_apply_deferred` build pass (on by default) inserts the sync point wherever
-    /// a `Commands` system has an ordering dependency, which this edge is.
+    /// `Discover → PublishRequirements` is also the deferred-command boundary:
+    /// discovery tags roots through `Commands`, and later systems query those
+    /// markers. Bevy's `auto_insert_apply_deferred` (on by default) inserts
+    /// the sync point on this ordering edge.
     pub fn configure(app: &mut bevy::prelude::App) {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet;
         use bevy::prelude::{IntoScheduleConfigs as _, Update};
@@ -136,27 +124,19 @@ impl TouchPresentationSet {
 
 /// The touch overlay's presentation lifecycle, as one installable unit.
 ///
-/// Exists so the ordering contract has exactly ONE declaration. A composer that
-/// wired these systems up by hand — including a test — could declare the sets
-/// and forget an edge, and a forgotten edge here does not fail loudly: it draws
-/// the controls at last frame's rectangles, or leaves a freshly created
-/// joystick unplaced and visible for a frame. Installing the plugin is the only
-/// supported way to get the pipeline, so a test cannot pass against an ordering
-/// the real app lacks.
+/// The one declaration of the ordering contract. A hand-wired composer
+/// (including a test) could forget an edge and draw controls at last frame's
+/// rectangles, or show a new joystick unplaced for a frame. Installing this
+/// plugin is the only supported way to get the pipeline.
 pub struct TouchPresentationPlugin;
 
 impl bevy::prelude::Plugin for TouchPresentationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        // A SURFACE IS BORN HIDDEN.
+        // A surface starts hidden. Otherwise it shows for one frame at the
+        // joystick crate's own corner, over gameplay, whatever the setting.
         //
-        // The module docs above already name the symptom: "one visible frame at the joystick
-        // crate's own corner position, over gameplay, whatever the touch-controls setting
-        // says".
-        //
-        // An observer rather than a `display: Display::None` on each spawned
-        // `Node`, because the movement surface is not spawned here at all — it is
-        // a `TouchSurface` inserted onto an entity the joystick crate owns, and
-        // that is exactly the one the symptom names.
+        // An observer, not `Display::None` at spawn: the movement surface is
+        // a `TouchSurface` inserted onto an entity the joystick crate owns.
         app.add_observer(
             |surface: bevy::prelude::On<bevy::prelude::Add, crate::bevy_plugin::TouchSurface>,
              mut nodes: bevy::prelude::Query<&mut bevy::prelude::Node>| {
@@ -196,18 +176,17 @@ impl bevy::prelude::Plugin for TouchPresentationPlugin {
     }
 }
 
-/// THE resolved rectangles for this frame.
+/// The resolved rectangles for this frame.
 ///
-/// One resource, read by the node placement, the raw hit test, and the
-/// menu-drag exclusions — so a control cannot be drawn in one place and
-/// tappable in another.
+/// Read by node placement, the raw hit test, and the menu-drag exclusions, so
+/// a control cannot be drawn in one place and tappable in another.
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct TouchControlPlacement {
     /// The movement stick's reserved box.
     pub movement: Option<ScreenRect>,
     /// The action cluster's bezel.
     pub action_bezel: Option<ScreenRect>,
-    /// The action diamond inside the bezel — the space button positions are
+    /// The action diamond inside the bezel: the space button positions are
     /// authored in.
     pub action_cluster: Option<ScreenRect>,
     /// Uniform scale applied to the authored action layout.
@@ -244,8 +223,7 @@ pub fn sync_touch_control_placement(
 
     let action_bezel = regions.primary_actions.map(|placed| placed.rect);
     let action_scale = regions.primary_actions.map_or(1.0, |placed| placed.scale);
-    // The diamond is inset inside the bezel by the same padding it was
-    // authored with, scaled along with everything else.
+    // The diamond is inset in the bezel by its authored padding, scaled.
     let action_cluster = action_bezel.map(|bezel| {
         ScreenRect::from_min_size(
             bezel.min + Vec2::splat(ACTION_BEZEL_PAD * action_scale),
@@ -277,8 +255,8 @@ pub fn sync_touch_control_placement(
 
 /// Publish this crate's footprints so the resolver can place them.
 ///
-/// Written every frame rather than once at startup: `TouchControlsVisible` is a
-/// live setting, and a hidden HUD must stop reserving space for itself.
+/// Written every frame: `TouchControlsVisible` is a live setting, and a hidden
+/// HUD must stop reserving space.
 pub fn publish_touch_control_footprints(
     visible: Res<super::bevy_plugin::TouchControlsVisible>,
     mut footprints: ResMut<ControlFootprints>,
@@ -316,9 +294,8 @@ mod tests {
         )
     }
 
-    /// A layout with the action cluster reserved into a left-hand column and
-    /// compacted, which is the case the old window-anchored code could not
-    /// express at all.
+    /// A layout with the action cluster reserved into a left column and
+    /// compacted.
     fn reserved_and_compacted() -> ResolvedGameplayPresentation {
         let bezel = ScreenRect::from_min_size(
             Vec2::new(6.0, 700.0),
@@ -357,10 +334,9 @@ mod tests {
         app
     }
 
-    /// The rendered `Node`s and the raw hit test read the SAME rectangles.
-    ///
-    /// Now the drawn centre of every button hit-tests back to itself no matter where — or at
-    /// what scale — the cluster was placed.
+    /// The rendered `Node`s and the raw hit test read the same rectangles: the
+    /// drawn center of every button hit-tests to itself at any placement or
+    /// scale.
     #[test]
     fn drawn_buttons_and_the_hit_test_use_one_rectangle() {
         let mut app = app_with(reserved_and_compacted());
@@ -406,8 +382,8 @@ mod tests {
         }
     }
 
-    /// A compacted cluster really is smaller — otherwise the test above would
-    /// pass on an uncompacted fixture and prove nothing about scaling.
+    /// A compacted cluster is smaller; otherwise the test above would not
+    /// cover scaling.
     #[test]
     fn a_compacted_cluster_shrinks_its_buttons() {
         let mut app = app_with(reserved_and_compacted());
@@ -426,14 +402,9 @@ mod tests {
         );
     }
 
-    /// Controls that were not placed LEAVE THE LAYOUT instead of lingering at
-    /// their last rectangle, so a hidden HUD stops being tappable and stops
-    /// being drawn.
-    ///
-    /// The assertion is on `display` now, which is the property that decides
-    /// whether the subtree renders at all. A test can only catch what it looks
-    /// at, and this one was looking at the size of something whose size was
-    /// never the problem.
+    /// Controls that were not placed leave the layout, so a hidden HUD is
+    /// neither drawn nor tappable. Checks `display`, which decides whether the
+    /// subtree renders.
     #[test]
     fn an_unplaced_surface_leaves_the_layout() {
         let mut app = app_with(ResolvedGameplayPresentation::default());
@@ -456,18 +427,12 @@ mod tests {
         );
     }
 
-    /// A VISIBLE touch stick is drawn at the bottom-left, and drawn at all.
+    /// A visible touch stick is drawn at the bottom-left.
     ///
-    /// The companion to `an_unplaced_surface_leaves_the_layout`, and the half
-    /// that keeps that fix honest. Hiding an unplaced surface is only correct if
-    /// a surface that SHOULD be on screen still gets a rectangle — otherwise the
-    /// repair for "the d-pad drew in the wrong corner" would be "the d-pad does
-    /// not draw", which is worse for the person holding a phone: a misplaced
-    /// stick is playable and an absent one is not.
-    ///
-    /// Driven through the REAL resolver with this crate's real footprints and
-    /// then through the REAL placement system, so it asserts the pixels a touch
-    /// session actually gets rather than a hand-made resolved value.
+    /// The companion to `an_unplaced_surface_leaves_the_layout`: a surface
+    /// that should be on screen still gets a rectangle. A misplaced stick is
+    /// playable; an absent one is not. Runs the real resolver with the real
+    /// footprints and the real placement system.
     #[test]
     fn a_visible_touch_stick_is_placed_at_the_bottom_left_corner() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::{
@@ -507,8 +472,7 @@ mod tests {
             display.y
         );
 
-        // And the placement system turns that into a drawn node, rather than
-        // hiding it the way an unplaced surface is now hidden.
+        // The placement system makes it a drawn node, not a hidden one.
         let mut app = app_with(resolved);
         let root = app
             .world_mut()
@@ -525,14 +489,10 @@ mod tests {
         assert_eq!(node.top, Val::Px(movement.min.y));
     }
 
-    /// A surface is HIDDEN the moment it is created, before placement runs.
-    /// (Z′6)
-    ///
-    /// The module docs name the symptom: one visible frame at the joystick crate's own corner
-    /// position, over gameplay, whatever the setting says.
-    ///
-    /// Asserted WITHOUT running the placement system, because the whole point is
-    /// the state between creation and the first placement pass.
+    /// A surface is hidden the moment it is created, before placement runs
+    /// (Z′6). Otherwise it shows for one frame at the joystick crate's
+    /// corner. Checked without the placement system, because the point is the
+    /// state before the first placement pass.
     #[test]
     fn a_freshly_created_surface_is_hidden_before_placement_ever_runs() {
         let mut app = App::new();
@@ -565,14 +525,12 @@ mod tests {
         assert!(!app.world().resource::<ControlFootprints>().is_empty());
     }
 
-    /// A COMPACTED cluster reserves what it ACTUALLY covers.
+    /// A compacted cluster reserves what it actually covers.
     ///
-    /// The occupancy comes from the same resolve that placed the cluster, so a
-    /// fallback layout cannot leave a second descriptor holding the full-size,
-    /// corner-anchored rectangle. Driven through the real resolver with this
-    /// crate's real footprints, because the padding is declared on the
-    /// footprint and applied during placement — asserting it any closer to the
-    /// arithmetic would just restate the implementation.
+    /// The occupancy comes from the same resolve that placed the cluster, so
+    /// no second descriptor keeps the full-size corner rectangle. Uses the
+    /// real resolver and footprints, because the padding is declared on the
+    /// footprint and applied during placement.
     #[test]
     fn a_compacted_cluster_reserves_what_it_covers() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::{

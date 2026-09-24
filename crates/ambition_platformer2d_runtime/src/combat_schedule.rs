@@ -305,12 +305,10 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_combat::held_items::brandish_the_playing_move_s_weapon
                     .in_set(GameplayGated),
                 ambition_combat::moveset::dispatch_move_events.in_set(GameplayGated),
-                // Writes no gameplay — the real strike is the move's own hitbox.
-                ambition_combat::moveset::project_moveset_melee_to_body_melee.in_set(GameplayGated),
                 // Boss strike read-model PROJECTION (E53 Slice B+C): while a boss move
                 // is inside its Active window, `BossAttackState`'s active_* fields are
-                // DERIVED from the live `MovePlayback` (the move is the authority),
-                // mirroring the melee projection above. After `advance_move_playback`
+                // DERIVED from the live `MovePlayback` (the move is the authority).
+                // After `advance_move_playback`
                 // so `t` is current; provably equal to the brain's mirror today, it
                 // flips WHO owns the strike timing to the shared move runtime.
                 ambition_platformer2d_actor_monolith::features::project_boss_attack_state_from_move

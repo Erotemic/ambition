@@ -636,7 +636,7 @@ pub fn pick_player_anim(
     v.shooting = anim.shoot_anim_timer > 0.0;
     // Gate the attack row on the live swing's PHASE (startup/active), the same
     // read `pick_actor_anim` uses — NOT `slash_anim_timer`. Every body melees
-    // through the moveset runtime, which projects `BodyMelee.swing` but never arms
+    // through the moveset runtime, which gives the swing but never arms
     // `slash_anim_timer`, so reading the timer left the body stuck on its
     // locomotion row for the whole swing; the phase read is the melee row source.
     v.melee_attack = attack

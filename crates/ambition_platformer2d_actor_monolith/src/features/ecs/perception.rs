@@ -262,7 +262,7 @@ pub struct PerceptionPeers(pub Vec<PerceptionPeer>);
 /// frame-data table is what will give it one).
 pub fn body_phase(
     combat: Option<&ambition_characters::actor::BodyCombat>,
-    melee: Option<&ambition_combat::components::BodyMelee>,
+    swing: Option<&ambition_combat::components::MeleeSwing>,
     shield: Option<&ae::BodyShieldState>,
 ) -> (BodyPhase, f32) {
     if let Some(c) = combat {
@@ -270,7 +270,7 @@ pub fn body_phase(
             return (BodyPhase::Hitstun, c.hitstun_timer.max(c.recoil_lock_timer));
         }
     }
-    if let Some(m) = melee {
+    if let Some(m) = swing {
         match m.phase() {
             Some(ambition_combat::AttackPhase::Startup) => {
                 return (BodyPhase::AttackStartup, m.windup_remaining());
@@ -309,7 +309,7 @@ pub fn collect_perception_peers(
         Option<&ae::BodyGroundState>,
         Option<&ae::BodyShieldState>,
         Option<&ambition_characters::actor::BodyCombat>,
-        Option<&ambition_combat::components::BodyMelee>,
+        ambition_combat::moveset::MeleeSwingQuery,
         // The match team, so hostility can follow the same precedence the DAMAGE
         // rule follows. `None` for anything not seated in a match, which is most
         // of the world.
@@ -399,7 +399,8 @@ pub fn collect_perception_peers(
             );
             continue;
         };
-        let (phase, phase_remaining) = body_phase(combat, melee, shield);
+        let swing = melee.swing();
+        let (phase, phase_remaining) = body_phase(combat, swing.as_ref(), shield);
         peers.0.push(PerceptionPeer {
             knockback_weight: tuning.map_or(1.0, |t| t.weight),
             entity,

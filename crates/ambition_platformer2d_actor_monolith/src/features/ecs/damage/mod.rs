@@ -503,9 +503,6 @@ pub fn apply_feature_hit_events(
         (
             bevy::prelude::Entity,
             &mut ambition_characters::actor::BodyCombat,
-            // The attacker's live swing, so a multi-active-frame slash records
-            // which targets it has already struck and never double-hits them.
-            Option<&mut ambition_combat::BodyMelee>,
         ),
         bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
@@ -942,17 +939,14 @@ pub fn apply_feature_hit_events(
                         .is_some_and(|instance| instance == pb.instance);
                     if claims_this_use {
                         pb.landed_hit = true;
-                        // Persist one-hit-per-target dedup on the MOVE itself. The
-                        // per-swing accumulator below lives on `BodyMelee.swing`, which
-                        // a melee-routing body rebuilds every frame — so without this
-                        // the strike re-hit + re-fired the hit SFX every active tick.
-                        // `MovePlayback` is the persistent per-strike home.
+                        // Keep one-hit-per-target dedup on the MOVE. `MovePlayback`
+                        // is the only record of the targets that a strike hit.
                         if record_dedup {
                             pb.hit_targets.extend(landed_keys.iter().cloned());
                         }
                     }
                 }
-                for (entity, mut combat, active_attack) in &mut player_combat_q {
+                for (entity, mut combat) in &mut player_combat_q {
                     if entity != attacker {
                         continue;
                     }
@@ -971,15 +965,6 @@ pub fn apply_feature_hit_events(
                     // Only the body-flash is wrong.
                     if !matches!(event.source, HitSource::Projectile) {
                         combat.hit_flash = combat.hit_flash.max(0.10);
-                    }
-                    // Record the targets this slash just struck so the next active
-                    // frame's emit ignores them (one hit per target per swing).
-                    if record_dedup {
-                        if let Some(mut active) = active_attack {
-                            if let Some(state) = active.swing.as_mut() {
-                                state.hit_targets.extend(landed_keys.iter().cloned());
-                            }
-                        }
                     }
                     break;
                 }
@@ -1063,22 +1048,11 @@ pub fn apply_feature_hit_events(
         // factioned targets use. Their loop runs after the actor/boss fold-back and
         // they carry no i-frames, so without this a lingering player strike
         // re-smashed each breakable (and re-fired its Impact FX) every active tick.
-        // Persist on the move (survives the moveset swing projection) AND the flat
-        // swing (non-moveset bodies).
+        // Keep them on the move, which is the only record.
         if matches!(event.source, HitSource::Melee) && !breakable_keys.is_empty() {
             if let Some(attacker) = target_attacker {
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     pb.hit_targets.extend(breakable_keys.iter().cloned());
-                }
-                for (entity, _combat, active_attack) in &mut player_combat_q {
-                    if entity == attacker {
-                        if let Some(mut active) = active_attack {
-                            if let Some(state) = active.swing.as_mut() {
-                                state.hit_targets.extend(breakable_keys.iter().cloned());
-                            }
-                        }
-                        break;
-                    }
                 }
             }
         }

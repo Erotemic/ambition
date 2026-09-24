@@ -1183,7 +1183,7 @@ pub fn apply_hitbox_damage(
             // Publish the unresolved feature half of the strike after body targets
             // have been resolved. Feature consumers may scan bosses/breakables but
             // must not damage bodies again. Per-strike dedup is authoritative in
-            // `MovePlayback.hit_targets`, not the `BodyMelee` read model.
+            // `MovePlayback.hit_targets`, which is the only record.
             {
                 out.hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,

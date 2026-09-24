@@ -127,7 +127,8 @@ pub(crate) fn draw_debug_overlay(
             // policy's private internals (ledge anchor, blink aim) directly.
             &ae::MotionModel,
             Option<&ambition_platformer2d::characters::actor::BodyHealth>,
-            &ambition_platformer2d::combat::BodyMelee,
+            // The swing, derived from the live move.
+            ambition_platformer2d::combat::moveset::MeleeSwingQuery,
             &ambition_platformer2d::characters::actor::WornCharacter,
             // The frame-clock position the sprite is drawn at. The overlay must
             // sample the SAME clock as the camera it is drawn through, or the box
@@ -234,7 +235,7 @@ pub(crate) fn draw_debug_overlay(
             player_draw_pos,
             motion_model,
             collision.solids().as_deref().unwrap_or(world),
-            attack.swing.as_ref(),
+            attack.swing().as_ref(),
             actions,
             gameplay_active,
             &developer_tools,

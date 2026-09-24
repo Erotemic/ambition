@@ -7,12 +7,12 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`action_scheme`](src/action_scheme.rs) | Device-free character action vocabulary. |
-| [`authoring`](src/authoring.rs) | The primitives a character's move table is written with — shared, because the second character to author one must not begin by copying the first. |
+| [`authoring`](src/authoring.rs) | The primitives a character's move table is written with, shared so that a new character does not start by copying another. |
 | [`brain_profile_ref`](src/brain_profile_ref.rs) | Naming a shared autonomous-controller policy, in the two forms an authored reference and a resolved identity need to be. |
-| [`hazard`](src/hazard.rs) | **WHAT AN AUTHORED TECHNIQUE PUTS IN THE WORLD THAT CAN HURT SOMEBODY**, and the laws by which it gets there. |
-| [`launch`](src/launch.rs) | **THE LAUNCH LAW, AND THE ONLY COPY OF IT.** |
+| [`hazard`](src/hazard.rs) | What an authored technique puts in the world that can hurt somebody, and the laws by which it gets there. |
+| [`launch`](src/launch.rs) | The launch law. |
 | [`mana`](src/mana.rs) | The main game's Mana, as authored data: its identity, its pool and its refill rate. |
-| [`move_section`](src/move_section.rs) | The move family's own artifact section — fast-iteration packet I2, step 1/3. |
+| [`move_section`](src/move_section.rs) | The move family's own artifact section. |
 | [`placements`](src/placements.rs) | Pure authored placement schema lowered into runtime behavior by higher layers. |
 | [`smash_bolt`](src/smash_bolt.rs) | Authored payload for the steerable bolt technique. |
 | [`smash_bomb`](src/smash_bomb.rs) | Authored payload for dropping a bomb. |

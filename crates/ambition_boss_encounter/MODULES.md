@@ -12,21 +12,21 @@
 | [`behavior`](src/behavior.rs) | Boss behavior-profile vocabulary (data-driven). |
 | [`catalog`](src/catalog.rs) | App-local composition of provider-authored boss data. |
 | [`clusters`](src/clusters.rs) | Authoritative boss ECS components and `BossMut` / `BossRef` views. |
-| [`conditions`](src/conditions.rs) | Authored BOSS conditions — "did the player beat this one?" |
+| [`conditions`](src/conditions.rs) | Authored boss conditions: "did the player beat this one?" |
 | [`ecs`](src/ecs/mod.rs) | Boss encounter-phase projection, brain tick, and body integration systems. |
-| [`encounter_entity`](src/encounter_entity.rs) | The ENCOUNTER as a first-class, OPTIONAL entity. |
-| [`encounter_script`](src/encounter_script.rs) | Encounter-script EXECUTION + its actor-specific mechanics. |
+| [`encounter_entity`](src/encounter_entity.rs) | The encounter as a first-class, optional entity. |
+| [`encounter_script`](src/encounter_script.rs) | Encounter-script execution and its actor-specific mechanics. |
 | [`events`](src/events.rs) | Boss-encounter presentation sink. |
 | [`ids`](src/ids.rs) | Boss encounter id helper: `encounter_id_from_name` slugs an authored boss name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). |
-| [`pattern`](src/pattern/mod.rs) | THE BOSS PATTERN'S THINKING, which is this domain's own business. |
+| [`pattern`](src/pattern/mod.rs) | The boss pattern's thinking: tick, control flow, validator, seeds and profile. |
 | [`profile`](src/profile.rs) | Assembled per-boss profile: the content-facing bundle. |
-| [`registry`](src/registry.rs) | `BossEncounterRegistry` — the read-only boss DATA CATALOG. |
-| [`rewards`](src/rewards.rs) | Boss reward-chest sync — the ECS mirror of "this boss placement is cleared, so its authored `DropChest` reward exists in the room". |
+| [`registry`](src/registry.rs) | `BossEncounterRegistry`: the read-only boss data catalog. |
+| [`rewards`](src/rewards.rs) | Boss reward-chest sync: the ECS mirror of "this boss placement is cleared, so its authored `DropChest` reward exists in the room". |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_boss_encounter`. |
 | [`roster`](src/roster.rs) | The lib's generic boss-encounter base. |
 | [`specs`](src/specs.rs) | App-local boss-encounter spec access. |
 | [`sprites`](src/sprites/mod.rs) | Compatibility facade for boss sprite-sheet types. |
-| [`systems`](src/systems.rs) | Boss-encounter Bevy systems — the per-frame driver. |
+| [`systems`](src/systems.rs) | Boss-encounter Bevy systems: the per-frame driver. |
 
 _21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

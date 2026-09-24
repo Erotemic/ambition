@@ -8,12 +8,12 @@
 |---|---|
 | [`camera_continuity`](src/camera_continuity.rs) | Optional portal camera continuity: presentation-only viewpoint mapping for the camera while a controlled body straddles a portal. |
 | [`clip_material`](src/clip_material.rs) | The portal-clip material: a `Material2d` that draws one texture-accurate piece of a sprite mid-portal-transit, discarding every fragment behind a world-space clip half-plane. |
-| [`compositing`](src/compositing.rs) | Where a drawable sits relative to ONE portal pane, for compositing. |
+| [`compositing`](src/compositing.rs) | Where a drawable sits relative to one portal pane, for compositing. |
 | [`effects`](src/effects.rs) | Runtime selection between the compiled-in portal transit visual effects, for live A/B comparison and profiling (the view windows cost extra render passes; on constrained targets the host needs to measure that against the bare baseline, in the SAME session). |
-| [`far_side`](src/far_side.rs) | Draw a far-side body as the part of it the pane does NOT cover. |
+| [`far_side`](src/far_side.rs) | Draw a far-side body as the part of it the pane does not cover. |
 | [`gun_visuals`](src/gun_visuals.rs) | Compatibility visuals for Ambition's portal-gun workflow. |
 | [`plugin`](src/plugin.rs) | The drop-in presentation plugin + its schedule label. |
-| [`source_visibility`](src/source_visibility.rs) | ONE authority over a portal-presented body's own `Visibility`. |
+| [`source_visibility`](src/source_visibility.rs) | One authority over a portal-presented body's own `Visibility`. |
 | [`view_cones`](src/view_cones.rs) | Live through-portal view windows. |
 | [`visuals`](src/visuals.rs) | Default portal-seam visuals: portal quads + labels, mid-transit body-piece decomposition, and the disorientation indicator. |
 

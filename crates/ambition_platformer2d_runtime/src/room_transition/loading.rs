@@ -1138,16 +1138,17 @@ pub fn begin_room_transition_load_system(
                 .as_deref()
                 .and_then(|accepted| accepted.inputs_for_key(key))
         });
-        // ⛔ A SELECTED RESTORE ANSWERS FOR ITS LEDGER EVEN WHEN IT PINNED NONE,
-        // as it does for its mints: falling back to the live ledger would build
-        // a checkpoint's room from state the operation was not accepted with.
-        let selected_ledger = match selected_restore {
-            Some(accepted) => accepted
-                .lifecycle
-                .as_ref()
-                .map(|lifecycle| lifecycle.occurrences.remembered()),
-            None => construction_services.6.as_deref(),
-        };
+        // ⛔ A RESTORE WITH NO LIFECYCLE HALF DID NOT REWIND THE LEDGER, so the
+        // live ledger stays authoritative for it. The ledger is the held-item
+        // domain's (`HeldItemSimulationPlugin`) and exists without the lifecycle
+        // horizon; building from NO ledger instead would re-author every
+        // occurrence it remembers as carried, relocated or consumed. This is NOT
+        // the mints' rule below: the mint baseline and its restore come from one
+        // plugin, so a restore without them has no mints to rebuild.
+        let selected_ledger = selected_restore
+            .and_then(|accepted| accepted.lifecycle.as_ref())
+            .map(|lifecycle| lifecycle.occurrences.remembered())
+            .or(construction_services.6.as_deref());
         let selected_minted = match selected_restore {
             Some(accepted) => accepted.item.as_ref().map(|item| &item.minted),
             None => construction_services.7.as_deref(),

@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 pub use crate::brain::BossEncounterPhase;
 
 /// Authored thresholds + timings driving phase transitions.
+///
+/// No intrinsic trigger enters `BossEncounterPhase::Stagger`; a boss that
+/// wants one authors it in `extra_phase_triggers`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BossEncounterSpec {
@@ -21,24 +24,15 @@ pub struct BossEncounterSpec {
     pub max_hp: i32,
     /// HP fraction at which Phase1 ends and Transition begins.
     /// Default 0.66.
+    /// Phase2 begins when the `transition_seconds` tell beat ends; the beat
+    /// is invulnerable, so there is no second HP threshold.
     pub phase1_to_transition_hp: f32,
-    /// HP fraction at which Phase2 begins (after Transition).
-    /// Default same as phase1_to_transition (Transition is an
-    /// invulnerable beat, HP doesn't drop further during it).
-    pub transition_to_phase2_hp: f32,
     /// HP fraction at which Enrage triggers from Phase2. Default
     /// 0.20.
     pub phase2_to_enrage_hp: f32,
     pub intro_seconds: f32,
     pub transition_seconds: f32,
-    pub stagger_seconds: f32,
     pub death_seconds: f32,
-    /// HP fraction window where damage builds up "stagger pressure";
-    /// hitting the boss for `stagger_threshold` HP within this window
-    /// triggers a Stagger. Defaults disable stagger by setting
-    /// threshold to a large number.
-    pub stagger_threshold: i32,
-    pub stagger_window_seconds: f32,
     /// Music track ids per phase. Empty disables the swap.
     pub music_intro: String,
     pub music_phase1: String,

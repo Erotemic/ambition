@@ -733,7 +733,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// mirrors the primary body's resolved frame, and its sim readers (the
 /// zone-less `GravityCtx` arm, the posed-body resize, the pose view's facing
 /// flip, the projection retract) now read the ambient or the body's own frame.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 221;
+/// ⛔⛤ 220 -> 222: `body.offense` LEFT. `BodyOffense::damage_multiplier` had no
+/// gameplay reader; its one writer was the F3 inspector's "slash damage" knob,
+/// which therefore changed nothing. (221 is AP11's `resource.gravity_field`,
+/// numbered in parallel.)
+/// ⛔⛤ 222 -> 223: `actor.body_melee` no longer encodes `pending_axis`. Its one
+/// writer, `BodyMelee::begin`, has no production caller, and nothing read it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 223;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

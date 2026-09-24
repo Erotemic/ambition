@@ -297,7 +297,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_combat",
- "ambition_entity_catalog",
  "ambition_platformer2d_core",
  "ambition_platformer2d_shared_tangle",
  "ambition_sprite_sheet",

@@ -167,20 +167,15 @@
   call sites: it is a written contract with one consumer that honours it and one that
   does not.
 
-  ⭐⭐⭐ **AND THE CORRECT API ALREADY EXISTS AND A SIBLING USES IT — this is the
+  ⭐⭐⭐ **AND THE CORRECT API ALREADY EXISTED AND A SIBLING USED IT — this is the
   strongest form of the finding.** `shared_tangle::gravity::gravity_dir_for(aabb, zones,
-  base_dir)` resolves gravity for a body AT ITS OWN POSITION. `character_sprites`'
-  `sync_sprite_posed_bodies` takes BOTH `Res<GravityField>` and `Res<GravityZones>` and
-  calls it with the body's own box (`posed_body.rs:154`):
-
-  ```rust
-  let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
-      (Some(field), Some(zones)) =>
-          gravity_dir_for(ae::Aabb::new(kin.pos, kin.size * 0.5), zones, field.dir),
-      (Some(field), None) => field.dir,
-      _ => ae::DEFAULT_GRAVITY_DIR,
-  };
-  ```
+  base_dir)` resolves gravity for a body AT ITS OWN POSITION, and `character_sprites`'
+  `sync_sprite_posed_bodies` called it with the body's own box. ✅ **Since AP11
+  (2026-09-24) the question has one per-body answer:** `ResolvedMotionFrame`, published
+  for every body in `FrameResolveSet`, and the posed-body resize reads it directly
+  (`posed_body.rs:79`, `frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down())`).
+  `GravityField` is a derived presentation mirror of the primary body's frame; no sim
+  reader takes it.
 
   `portal2d/transit.rs` calls `gravity_dir_or_default(field)` and mentions
   `GravityZones` **ZERO** times. ⇒ Two consumers of "which way is down for THIS body",

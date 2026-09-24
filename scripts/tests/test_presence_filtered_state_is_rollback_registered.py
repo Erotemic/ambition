@@ -193,14 +193,12 @@ def test_neither_a_fixture_nor_a_paragraph_is_a_production_filter_site():
     assert kept == ["Real"], kept
 
 
-def test_the_comment_strip_removes_five_real_names_from_this_corpus():
+def test_the_comment_strip_removes_four_real_names_from_this_corpus():
     """⛔⛤ I WROTE THIS ARM TO RECORD A NEGATIVE AND THE MEASUREMENT REFUTED IT.
 
     The claim was that stripping comments in `filter_sites` is a precaution with
-    no effect on this tree. It removes **five** names that nothing else does:
+    no effect on this tree. It removes **four** names that nothing else does:
 
-        ActorConfig     shared_tangle/src/body.rs:4    `With<ActorConfig>` in a
-                                                       module-doc sentence
         Camera2d        render/.../camera.rs:141 and view_isolation.rs:26 —
                         two comments contrasting `With<MainCamera>` with the
                         broad `With<Camera2d>`
@@ -210,18 +208,19 @@ def test_the_comment_strip_removes_five_real_names_from_this_corpus():
         MovePlayback    boss_encounter/.../tick.rs:146 — prose about what a
                         filter prevents
 
-    ⇒ Every one is prose ABOUT a filter, and three of the five are prose about a
+    ⇒ Every one is prose ABOUT a filter, and three of the four are prose about a
     filter that was deliberately NOT written — the exact shape that makes a
     text-scanning census invent subjects.
 
     ⚠ **AND THE HONEST BOUNDARY, WHICH I GOT WRONG TWICE BEFORE MEASURING IT.**
     Poisoning the strip leaves the guard GREEN, and the first explanation — *"none
-    of the five is a defined component in a registering crate"* — is false: two
-    are. `ActorConfig` (`combat/src/actor_tuning.rs`) and `MovePlayback`
-    (`combat/src/moveset/mod.rs`) both are, so without this strip they enter the
-    intersection and it reads 116 instead of 114. The verdict survives because
-    both are already REGISTERED — so prose promotes two components into a census
-    that then correctly says nothing is owed about them.
+    of them is a defined component in a registering crate"* — is false:
+    `MovePlayback` (`combat/src/moveset/mod.rs`) is, so without this strip it
+    enters the intersection. The verdict survives because it is already
+    REGISTERED — so prose promotes a component into a census that then correctly
+    says nothing is owed about it. (`ActorConfig` was a fifth, prose-only in
+    `shared_tangle/src/body.rs:4`, until the residency claim began filtering
+    `With<ActorConfig>` in code: a real site now, so the strip no longer moves it.)
     ⇒ That is the failure direction to worry about, stated precisely: prose cannot
     currently invent an OWED subject here, but it can inflate the population a
     planning page quotes, and the day one of those names is unregistered it would
@@ -246,21 +245,20 @@ def test_the_comment_strip_removes_five_real_names_from_this_corpus():
                 guard._FILTER.findall(strip_test_modules(strip_comments(text)))
             )
     assert sorted(with_comments - without) == [
-        "ActorConfig",
         "Camera2d",
         "FrameTimeGraph",
         "HomingDash",
         "MovePlayback",
     ], sorted(with_comments - without)
     assert not (without - with_comments), "stripping comments cannot ADD a site"
-    # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. Two of the five ARE defined
-    # components in registering crates, so prose does move the population; the
-    # verdict survives only because both are already registered. If either stops
+    # ⭐ THE BOUNDARY, ASSERTED RATHER THAN ASSUMED. One of the four IS a defined
+    # component in a registering crate, so prose does move the population; the
+    # verdict survives only because it is already registered. If it stops
     # being registered, prose alone would invent an owed subject — and this is
     # the arm that says so.
     defs = set(guard.component_definitions(guard.registering_crates()))
     promoted = sorted((with_comments - without) & defs)
-    assert promoted == ["ActorConfig", "MovePlayback"], promoted
+    assert promoted == ["MovePlayback"], promoted
     registered = guard.registered_type_names()
     assert all(name in registered for name in promoted), [
         name for name in promoted if name not in registered

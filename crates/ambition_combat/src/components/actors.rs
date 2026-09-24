@@ -470,24 +470,18 @@ impl MeleeSwing {
 /// carries for melee. The in-flight [`MeleeSwing`] is the player's spec model;
 /// `cooldown` is the AI/recovery pacing floor a brain reads to time its next
 /// swing (independent of the swing so a body can be in recovery with no swing
-/// armed); `pending_axis` is the last committed aim for anim selection. The
-/// ranged fire-rate floor is not melee state: it is [`RangedRefire`]. (ONE BODY ONE PATH: this REPLACES the former parallel
+/// armed). The ranged fire-rate floor is not melee state: it is [`RangedRefire`]. (ONE BODY ONE PATH: this REPLACES the former parallel
 /// `PlayerAttackState`/`ActivePlayerAttack` and the timer-based actor state.)
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct BodyMelee {
     pub swing: Option<MeleeSwing>,
     /// Recovery/AI pacing floor before another swing may begin (s).
     pub cooldown: f32,
-    /// Direction of the in-flight melee attack, committed when the swing begins
-    /// (`(facing,0)` forward, `(0,-1)` up, `(0,+1)` down-air, `(-facing,0)`
-    /// back-air). Persists across the swing so it doesn't re-aim mid-windup.
-    pub pending_axis: ae::Vec2,
 }
 
 impl BodyMelee {
-    /// Begin a swing: commit the world-frame `spec`, aim, and recovery floor.
-    pub fn begin(&mut self, spec: crate::AttackSpec, pending_axis: ae::Vec2, cooldown: f32) {
-        self.pending_axis = pending_axis;
+    /// Begin a swing: commit the world-frame `spec` and the recovery floor.
+    pub fn begin(&mut self, spec: crate::AttackSpec, cooldown: f32) {
         self.cooldown = cooldown.max(0.0);
         self.swing = Some(MeleeSwing::new(spec));
     }

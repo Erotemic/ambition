@@ -94,7 +94,7 @@ fn possessed_special(
 
 /// The Attack and Special actions a possessed boss owns, for its action scheme.
 ///
-/// [`possessed_attack_choice`] reads the raw press in the boss tick, which runs
+/// `possessed_attack_choice` reads the raw press in the boss tick, which runs
 /// before the control gate. The boss's `ActionSet` and its profile-keyed moveset
 /// declare no `attack` or `special` verb, so without these the scheme has no
 /// Attack or Special slot: the prompt shows neither, and the gate treats the

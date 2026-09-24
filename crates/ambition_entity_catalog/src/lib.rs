@@ -866,6 +866,7 @@ impl VolumeShape {
     ///
     /// The single spelling of `offset ± half_extent`. [`leading_edge_x`] is a
     /// projection of it; do not write the box out by hand elsewhere.
+    ///
     /// [`leading_edge_x`]: VolumeShape::leading_edge_x
     pub fn coverage_box(&self) -> MoveCoverage {
         match *self {
@@ -2912,6 +2913,7 @@ impl MoveCoverage {
     /// out from the body (for example `pointed_polygon`'s thrust spans
     /// x ∈ [20, 76]), so `gap <= far` alone admits a foe who stands in the gap
     /// between body and box.
+    ///
     /// [`extent_toward`]: Self::extent_toward
     pub fn span_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> Option<(f32, f32)> {
         let len = (toward.0 * toward.0 + toward.1 * toward.1).sqrt();

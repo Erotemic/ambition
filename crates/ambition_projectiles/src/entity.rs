@@ -25,11 +25,9 @@ use bevy::prelude::*;
 /// Combat side is frozen separately by the actor-domain `ProjectileAllegiance`;
 /// presentation is selected by `ProjectileVisualId` and optional `ProjectileKind`.
 ///
-/// ⭐⭐ IT REQUIRES THE VICTIM LEDGER, so every road that makes a projectile gets
-/// one and no road has to remember. `step_projectiles` takes
-/// `&mut ProjectileHits`, which means a shot spawned without one is not in the
-/// query at all — it sits still and hits nothing. Three separate hand-built test
-/// fixtures each listed what production spawns and each would have needed
+/// It requires the victim ledger, so every spawn road gets one.
+/// `step_projectiles` takes `&mut ProjectileHits`, so a shot without it is
+/// not in the query: it sits still and hits nothing.
 /// patching; a fourth was one edit away. `#[require]` is the list.
 #[derive(Component)]
 #[require(ambition_platformer2d_shared_tangle::projectile::ProjectileHits)]
@@ -71,21 +69,16 @@ impl ProjectileSeqCounter {
 
 /// The use of the owner's move that fired this shot.
 ///
-/// ⛔⛔ A SHOT CAN LAND AFTER ITS MOVE STOPS. A damage result with no move
-/// instance goes to the move that plays at that time. See
-/// `moveset::verdict_belongs_to`. Move A fires and stops. Move B starts. The
-/// shot from A lands. Move B then gets `connected_hit` and its OnHit escape.
-/// Move B did not earn them.
+/// A shot can land after its move stops. A damage result with no move
+/// instance goes to the move that plays at that time (see
+/// `moveset::verdict_belongs_to`), so a later move would get `connected_hit`
+/// and its OnHit escape. The shipped fighter `officer` can do this with
+/// `officer_the_draw` and `officer_jab`.
 ///
-/// ⭐ MEASURED 2026-09-10. The fighter `officer` has a shot move
-/// (`officer_the_draw`) and a conditional cancel (`officer_jab`). The defect
-/// is possible in the shipped content.
+/// The component is absent when no move fired the shot (a gun, a thrown bomb,
+/// an environmental volley). A value of `0` would name the first use of a move.
 ///
-/// ⭐ THE COMPONENT IS ABSENT WHEN NO MOVE FIRED THE SHOT. It is not zero. A
-/// gun, a thrown bomb and an environmental volley have no move. A value of `0`
-/// would name the first use of a move that did not play.
-///
-/// ⚠ THE SPAWN REQUEST CARRIES THIS VALUE. DO NOT CALCULATE IT AGAIN. A read
-/// of the owner's playback at spawn time gets the wrong move.
+/// The spawn request carries this value. Do not compute it again from the
+/// owner's playback at spawn time; that gives the wrong move.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FiredByMoveInstance(pub u32);

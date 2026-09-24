@@ -55,7 +55,6 @@ mod tests {
             tuning: ActorTuning::default(),
             brain_profile: BrainProfile::default(),
             brain: CharacterBrain::Passive,
-            sprite_character_id: Some("npc_x".into()),
             // A fixture body, not a seated CPU twin.
             preserves_mirror_symmetry: false,
         }

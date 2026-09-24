@@ -967,7 +967,6 @@ fn boss_actor_cluster(
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        sprite_character_id: None,
         // A boss drives a `BossPattern`, never the fighter brain the trait picks
         // a stream for, and there is only ever one of it.
         preserves_mirror_symmetry: false,
@@ -1012,9 +1011,6 @@ fn boss_actor_cluster(
         // (E2 verdict b); default `1.0` here since bosses don't author weight.
         ambition_combat::CombatTuning {
             weight,
-            // Bosses pace strikes via their move scripts, and carry no sprite
-            // catalog id (their strike volumes are frame-authored).
-            sprite_character_id: None,
             // CM8: a struck boss reacts with the plain hurt profile (its death is
             // handled by the boss-death feedback, not this).
             hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
@@ -2047,8 +2043,7 @@ pub fn spawn_encounter_mob(
     let aabb = ae::Aabb::new(pos, size * 0.5);
     //  the DISPLAY name is what the renderer binds a sheet from.
     // `rebuild_actor_render_index` publishes `ActorConfig::name`, and `upgrade_actor_sprites`
-    // resolves name-first against the character registry — it never reads the seed's resolved
-    // `sprite_character_id`.
+    // resolves name-first against the character registry.
     let label = character.map_or_else(
         || id.clone(),
         |character_id| match catalog.display_name(character_id) {

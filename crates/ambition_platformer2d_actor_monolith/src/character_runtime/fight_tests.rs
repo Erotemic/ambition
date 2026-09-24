@@ -446,11 +446,9 @@ fn spawn_fighter(
             // evidence for the engine seam.
             //
             // A fighter WEARS the character it fights as. Without this the body
-            // carries a moveset and a silhouette from a provider it cannot name:
-            // `ActorClusterSeed` resolves `CombatTuning::sprite_character_id` by
-            // DISPLAY NAME out of the assembled catalog, which a registered-only
-            // character is absent from, so every cue the body emitted was credited
-            // to whoever owned the session.
+            // carries a moveset and a silhouette from a provider it cannot name,
+            // so every cue the body emitted was credited to whoever owned the
+            // session.
             ambition_characters::actor::WornCharacter::new(character_id),
             // The control seam + the gesture state §7.9 interprets.
             ActorControl(ActorControlFrame::default()),

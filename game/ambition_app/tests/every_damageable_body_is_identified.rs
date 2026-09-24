@@ -677,3 +677,47 @@ fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
         "the summoner's health override was replaced by the character's authored vitals"
     );
 }
+
+/// **The art identity the renderer binds is the character the body wears.**
+///
+/// `ActorRenderIndex` publishes each actor's sheet id; it used to publish a copy
+/// on `ActorConfig` that the seed filled once. That copy is gone, so this pins
+/// that the published id is the worn one for every worn actor in the room.
+#[test]
+fn every_worn_actor_publishes_its_worn_character_as_its_art_identity() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..SETTLE_FRAMES {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::combat::components::FeatureId,
+        &ambition_platformer2d::character::WornCharacter,
+    )>();
+    let worn: Vec<(String, String)> = q
+        .iter(world)
+        .map(|(feature, worn)| (feature.0.clone(), worn.id().to_string()))
+        .collect();
+    let index = world.resource::<ambition_platformer2d::sim_view::ActorRenderIndex>();
+    let published: Vec<(String, String, Option<String>)> = worn
+        .into_iter()
+        .filter_map(|(feature, worn)| {
+            index
+                .get(&feature)
+                .map(|view| (feature, worn, view.sprite_character_id.clone()))
+        })
+        .collect();
+    assert!(
+        !published.is_empty(),
+        "no worn actor reached the render index, so this measures nothing"
+    );
+    for (feature, worn, art) in &published {
+        assert_eq!(
+            art.as_deref(),
+            Some(worn.as_str()),
+            "actor `{feature}` wears `{worn}` but the renderer was told to draw {art:?}"
+        );
+    }
+    println!("[art identity] {} worn actors checked", published.len());
+}

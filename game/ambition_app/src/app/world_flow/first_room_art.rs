@@ -169,7 +169,7 @@ pub(crate) fn prepare_first_room_art_system(
                 let room_set = source.room_set();
                 let claimed: Vec<String> = super::room_transition_assets::residency_claims(
                     context.roster.as_deref(),
-                    context.actor_configs.iter(),
+                    context.actor_worn.iter(),
                 );
                 let owners = RoomResidencyOwners::for_room(
                     room_set,

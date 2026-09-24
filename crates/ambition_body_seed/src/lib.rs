@@ -461,9 +461,6 @@ impl ActorClusterSeed {
                 seed.place_at(start);
             }
             seed.motion = ActorMotionPath(motion);
-            // Presentation identity: an NPC resolves its sheet through the
-            // catalog id it named, exactly as it did before.
-            seed.config.sprite_character_id = character_id.map(String::from);
             seed.hurt_feedback = actor_hurt_feedback(catalog, character_id);
             // `respawn` is already `DeadStaysDead` on that road — a match
             // seat's death is the match's business and an NPC's is permanent
@@ -523,8 +520,6 @@ impl ActorClusterSeed {
                 tuning,
                 brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
-                // Peaceful actors already resolved their catalog id above.
-                sprite_character_id: character_id.map(String::from),
                 // this road takes no `CharacterBodyBlueprint`, so no authored
                 // character trait reaches it. A peaceful catalog NPC has no CPU
                 // fighter brain to give a stream to, so `false` is the answer
@@ -757,9 +752,6 @@ impl ActorClusterSeed {
                 tuning,
                 brain_profile,
                 brain: config_brain.clone(),
-                // the CHARACTER, stated rather than resolved from a display
-                // name. A seat knows exactly which character it is seating.
-                sprite_character_id: Some(character_id.to_string()),
                 // the character's own answer, carried on the blueprint —
                 // so a seat, a room spawn and a rewind rebuild all give this
                 // body the same cognitive stream.
@@ -814,7 +806,6 @@ impl ActorClusterSeed {
         // sim-heart `ActorConfig`.
         let combat_tuning = ambition_combat::CombatTuning {
             weight: self.config.tuning.weight,
-            sprite_character_id: self.config.sprite_character_id.clone(),
             // CM8: an ordinary actor reacts to being hit with the plain hurt
             // profile — no red player-hurt spray. This is the per-body seam for
             // catalog-authored reactions (robot-tagged bodies crunch; ordinary

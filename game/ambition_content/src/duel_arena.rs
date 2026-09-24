@@ -63,7 +63,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
             // `character` reaches `ActorClusterSeed::new_character_in`, which
             // takes `display_name` off the CHARACTER's blueprint and is never
             // handed this string; and the sheet binder + hitbox resolver both
-            // key on `sprite_character_id`, which `character` below states.
+            // key on the worn character, which `character` below states.
             // Pinned by `a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests`.
             name: "Perfect Cellular Automaton".to_string(),
             pos: center + ae::Vec2::new(-75.0, 0.0),

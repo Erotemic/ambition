@@ -16,39 +16,6 @@ use ambition_combat::components::{
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
 
-/// A BODY REMEMBERS WHICH CHARACTER IT IS, which is the precondition the
-/// character-first provocation branch keys on.
-///
-/// If a peaceful NPC built by the archetype road did not carry that field, every pirate's
-/// authored policy would be dead content and deleting the rows it replaces would return them
-/// all to `combatant` — silently, because a generic brawler looks like a working provoke.
-///
-/// Two terms, both observed: the id survives construction when the placement
-/// names one, AND it is the id that was named rather than whatever the display
-/// name happened to resolve to.
-#[test]
-fn a_body_built_from_a_named_character_remembers_which_one() {
-    let cast = crate::character_runtime::fixture_cast(&["npc_pirate_quartermaster"]);
-    let seed = ambition_body_seed::ActorClusterSeed::new_character_in(
-        &Default::default(),
-        &crate::character_roster::catalog(),
-        "cove_pirate".to_string(),
-        cast.get("npc_pirate_quartermaster")
-            .expect("the fixture cast holds the character it was asked for")
-            .body_blueprint()
-            .expect("a fixture character states everything a body needs"),
-        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Passive,
-        &[],
-    );
-    assert_eq!(
-        seed.config.sprite_character_id.as_deref(),
-        Some("npc_pirate_quartermaster"),
-        "a body built from a named character forgot which one, so provocation \
-         cannot ask it what it becomes and falls back to matching its name"
-    );
-}
-
 /// A body whose CHARACTER declares `template` as its controller policy.
 ///
 /// `make_enemy(brain_key)` stood here and built through an archetype row
@@ -1564,9 +1531,12 @@ mod authored_enemy_reads_its_character {
         app.update();
 
         let world = app.world_mut();
-        let mut q = world.query::<(&BodyHealth, &ActorConfig)>();
-        let (health, config) = q.iter(world).next().expect("one enemy body");
-        (health.health.max, config.sprite_character_id.clone())
+        let mut q = world.query::<(
+            &BodyHealth,
+            Option<&ambition_characters::actor::WornCharacter>,
+        )>();
+        let (health, worn) = q.iter(world).next().expect("one enemy body");
+        (health.health.max, worn.map(|worn| worn.id().to_string()))
     }
 
     #[test]

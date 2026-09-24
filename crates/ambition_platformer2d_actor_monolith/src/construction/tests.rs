@@ -3754,7 +3754,7 @@ fn a_staged_actor_takes_its_mount_from_the_character_it_names() {
 ///   `CharacterBodyBlueprint` — the CHARACTER's answer. The request's `name`
 ///   is never passed to that road at all, so it cannot be the label. (Only the
 ///   peaceful road, which takes no character, forwards a request's `name`.)
-/// * the sheet binder prefers `sprite_character_id`
+/// * the sheet binder reads the worn character
 ///   (`an_actor_binds_the_sheet_of_its_character_id_not_its_display_name`), and
 ///   `authored_attack_volume_resolver` branches on that id with NO name road —
 ///   its `None` arm falls to the PLAYER's hitbox, not to a name lookup.
@@ -3774,11 +3774,11 @@ fn a_staged_actor_naming_a_character_takes_the_characters_label_not_its_requests
         .world_mut()
         .query::<(
             &ambition_combat::components::ActorIdentity,
-            &ambition_combat::actor_tuning::ActorConfig,
+            Option<&ambition_characters::actor::WornCharacter>,
         )>()
         .iter(app.world())
         .filter(|(identity, _)| identity.id.starts_with("duel_"))
-        .map(|(identity, c)| (identity.name.clone(), c.sprite_character_id.clone()))
+        .map(|(identity, worn)| (identity.name.clone(), worn.map(|w| w.id().to_string())))
         .collect();
 
     assert_eq!(rows.len(), 2, "both staged fighters spawned");

@@ -21,11 +21,10 @@ fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::Roo
 
 #[test]
 fn sanic_demo_content_plugin_installs() {
-    // The direct-entry content plugin publishes an exact PreparedContent root at
-    // plugin-build time. That contract deliberately depends on the engine having
-    // installed its construction registries first, matching the standalone Sanic
-    // shell's real composition order. A bare App only tests catalog registration
-    // and cannot validate or fingerprint the speedway's authored ring placements.
+    // The direct-entry content plugin publishes an exact PreparedContent root
+    // at plugin-build time, which needs the engine's construction registries
+    // first (the standalone shell's real order). A bare App tests only catalog
+    // registration and cannot validate the speedway's ring placements.
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
@@ -90,7 +89,7 @@ fn super_form_edge_does_not_leak_across_sessions() {
     assert_eq!(super_form_edge(Some(true), true), (None, true));
     assert_eq!(super_form_edge(Some(false), true), (Some(false), false));
 
-    // Session A ends WHILE super (latch true): no controlled player resets the
+    // Session A ends while super (latch true): no controlled player resets the
     // latch and fires NO cue.
     assert_eq!(super_form_edge(None, true), (None, false));
     // Session B starts normal with the reset latch: no phantom detransform.
@@ -227,7 +226,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "distance labels make displacement measurable"
     );
 
-    // The raised ramp, complete loop, and runout are ONE valid rideable
+    // The raised ramp, complete loop, and runout are one valid rideable
     // route. The loop returns to its entry point after a full revolution, but
     // at a later arc length; the continuation then descends to the floor.
     let loop_chain = room
@@ -299,7 +298,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
         .find(|chain| chain.name == "sanic_floor_route")
         .expect("momentum bodies have a floor guide that can branch into the ramp");
     // The LDtk-authored floor route carries the two rolling hills as real
-    // polyline geometry: many samples, all rising FROM the flat floor (the
+    // polyline geometry: many samples, all rising from the flat floor (the
     // solid ground beneath never pokes through).
     assert!(
         floor_route.points.len() > 40,
@@ -386,8 +385,8 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "the runout must carry the rider clear of the completed loop"
     );
 
-    // The loop samples all four quadrants around the label/visual center. This
-    // rejects the earlier three-quarter-loop compromise.
+    // The loop samples all four quadrants around the label/visual center (a
+    // full loop, not three quarters).
     let loop_points = &loop_chain.points[LOOP_ENTRY_POINT_INDEX..=LOOP_CLOSURE_POINT_INDEX];
     let min_x = loop_points
         .iter()
@@ -432,10 +431,10 @@ fn sanic_speedway_composes_through_the_umbrella() {
 }
 
 /// A surface-momentum test rig: the body-state scratch plus the motion model,
-/// stepped one tick at a time through the ONE public movement gateway
-/// (`ae::step_motion`), exactly as production does. The kernel derives the
-/// ride circle radius as `size.min_element() * 0.5`, so a `splat(32.0)` body
-/// box rides as the old radius-16 circle proxy.
+/// stepped one tick at a time through the public movement gateway
+/// (`ae::step_motion`), as production does. The kernel derives the ride
+/// circle radius as `size.min_element() * 0.5`, so a `splat(32.0)` box rides
+/// as a radius-16 circle.
 struct MomentumRig {
     scratch: ae::BodyClusterScratch,
     model: ae::MotionModel,
@@ -634,12 +633,12 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     assert_eq!(q.single(app.world()).unwrap().next_milestone, 1);
 }
 
-/// The transformation fires from the DECLARED Utility technique, and the
-/// declaration is what consumes the raw verb.
+/// The transformation fires from the declared Utility technique, and the
+/// declaration consumes the raw verb.
 ///
-/// Both halves are the engine's now: because the body declares `transform` on
-/// `ControlSlot::Utility`, `resolve_control_slots` routes the press to the sanctioned edge AND
-/// clears the verb, so generic flight can never see it.
+/// The body declares `transform` on `ControlSlot::Utility`, so
+/// `resolve_control_slots` routes the press to the technique edge and clears
+/// the verb; generic flight never sees it.
 #[test]
 fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     use ambition_platformer2d::characters::action_scheme::{
@@ -664,14 +663,14 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
     );
     app.add_systems(bevy::app::Update, toggle_sanic_form);
 
-    // The body has WINGS, so the engine's own `fly_toggle` action would otherwise
-    // claim Utility. That the technique wins is the override this relies on.
+    // The body has wings, so the engine's `fly_toggle` would otherwise claim
+    // Utility. The technique must win.
     let mut abilities = ae::AbilitySet::basic();
     abilities.fly = true;
     abilities.fly_toggle = true;
     let scheme = derive_action_scheme(&abilities, None, None, &[super::transform_technique()]);
 
-    // Stand in for the persona gate: press the device verb, run THE resolver.
+    // Stand in for the persona gate: press the device verb, run the resolver.
     let press_utility = |app: &mut App| {
         let mut control = app
             .world_mut()
@@ -715,10 +714,8 @@ fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
 
 /// H2: Sanic's transformation sounds like Sanic, not like the host.
 ///
-/// The engine's attribution sweep converted every ability, damage path and projectile impact, which
-/// made the infrastructure look finished while the flagship character content was still writing
-/// through the session context . In a Sanic-only game that is invisible, because the session's
-/// provider and the character's provider are the same string.
+/// In a Sanic-only game the session's provider and the character's provider
+/// are the same string, so this uses a session owned by another provider.
 #[test]
 fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
     let mut app = App::new();
@@ -774,16 +771,11 @@ fn the_super_transformation_sounds_like_sanic_and_not_like_the_session_owner() {
 
 /// I3: the course's own sound belongs to the course, not to the host.
 ///
-/// H2 classified every call site as body-owned or world-owned, and the
-/// world-owned half was still wrong: `write_global`
-/// reaches for the session context, so under a shell host a distance marker was
-/// credited to the launcher. A distance marker is not a body's sound — no body
-/// caused it, the ROOM did — but it is emphatically Sanic's, and the third
-/// operation is what lets a call site say so.
-///
-/// Same fixture shape as the transformation test above and for the same reason:
-/// the session belongs to `some_host`, so the two answers differ. In a
-/// Sanic-only game they are the same string and nothing is observable.
+/// `write_global` uses the session context, so under a shell host a distance
+/// marker would be credited to the launcher. No body caused the sound (the
+/// room did), but it is Sanic's; `write_from` says so. Same fixture shape as
+/// the transformation test: the session belongs to `some_host`, so the two
+/// answers differ.
 #[test]
 fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
     let mut app = App::new();
@@ -851,7 +843,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         app
     }
 
-    // HOSTED, inside a `sanic` room: the mode owner spawns and the act ticks.
+    // hosted, inside a `sanic` room: the mode owner spawns and the act ticks.
     // `.chain()` puts a sync point between spawn and tick, so the owner exists
     // in time to tick on its own first frame: two frames = two ticks.
     let mut app = shell(SanicRulesPlugin::hosted(), Some(SANIC_MODE));
@@ -859,13 +851,13 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     app.update();
     assert_eq!(elapsed(&mut app), Some(1.0), "hosted rules tick in-mode");
 
-    // HOSTED, in one of Ambition's own rooms: nothing spawns, nothing ticks.
+    // hosted, in one of Ambition's own rooms: nothing spawns, nothing ticks.
     let mut app = shell(SanicRulesPlugin::hosted(), None);
     app.update();
     app.update();
     assert_eq!(elapsed(&mut app), None, "hosted rules sleep out of mode");
 
-    // GLOBAL (the demo IS the game): the rules run with no mode at all.
+    // global (the demo IS the game): the rules run with no mode at all.
     let mut app = shell(SanicRulesPlugin::global(), None);
     app.update();
     app.update();
@@ -895,15 +887,14 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
 }
 
 /// The D-C hosting oracle: a demo's room claims its mode, and the run
-/// condition that wakes a hosted ruleset inside it reaches this crate
-/// through the `ambition_platformer2d` umbrella alone. If gating a hosted demo ever
-/// needs a lower `ambition_*` crate, it fails to compile HERE.
+/// condition that wakes a hosted ruleset reaches this crate through the
+/// `ambition_platformer2d` umbrella alone. If gating a hosted demo needs a
+/// lower `ambition_*` crate, this fails to compile.
 ///
-/// The condition is evaluated directly rather than through `.run_if` on a
-/// bespoke marker resource: a crate whose manifest names only `ambition_platformer2d`
-/// cannot `#[derive(Resource)]`, because bevy's derive macros resolve
-/// `bevy_ecs` through the CONSUMER's manifest and a re-export does not
-/// satisfy them. The `.run_if` wiring itself is pinned in
+/// The condition is evaluated directly, not through `.run_if` on a marker
+/// resource: a crate whose manifest names only `ambition_platformer2d` cannot
+/// `#[derive(Resource)]`, because bevy's derive macros resolve `bevy_ecs`
+/// through the consumer's manifest. The `.run_if` wiring is covered in
 /// `ambition_platformer2d_runtime/tests/mode_scope.rs`.
 #[test]
 fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
@@ -1018,7 +1009,7 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
         .position(|chain| chain.name == "sanic_floor_route")
         .expect("the speedway owns a momentum floor route");
     let floor = &room.world.chains[floor_index];
-    // The ramp-fork junction vertex is located by POSITION: the hills give the
+    // The ramp-fork junction vertex is located by position: the hills give the
     // floor route many vertices before it, so a fixed index would drift.
     let branch_vertex = floor
         .points
@@ -1134,12 +1125,9 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
     // `sync_super_form_traits` now emits the transform cue on the worn-identity
     // edge, so the SFX channel must exist for the SfxWriter system param.
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
-    // BOTH halves, ordered as the app orders them. `sync_super_form_traits`
-    // states the super form's TRAITS and the engine's empowerment runs them —
-    // running only the first would assert that a grant was made, which is
-    // exactly the half-wiring that makes an opt-in component do nothing.
-    //
-    // the second half is no longer this test's to install.
+    // Both halves, in app order. `sync_super_form_traits` states the traits
+    // and the engine's empowerment applies them; running only the first would
+    // test a grant that does nothing.
     {
         use bevy::ecs::schedule::IntoScheduleConfigs as _;
         app.add_systems(bevy::prelude::Update, sync_super_form_traits);
@@ -1190,8 +1178,8 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
 
 #[test]
 fn the_super_row_authors_a_real_movement_boost() {
-    // The transformation must be more than a sprite swap: the super row's authored momentum
-    // strictly dominates the base row's.
+    // The transformation is more than a sprite swap: the super row's authored
+    // momentum strictly dominates the base row's.
     let fragment =
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
             provider::SANIC_EXPERIENCE,
@@ -1326,9 +1314,9 @@ fn the_speedway_authors_a_field_of_collectible_rings() {
 
 #[test]
 fn the_ring_collect_cue_is_the_shared_currency_pickup_id() {
-    // Rings ride the shared Currency pickup path, so `collect_ecs_pickups` emits
-    // `WORLD_COIN_PICKUP` on collect. The demo authorises + voices exactly that
-    // id (a private `sanic.ring` would be silently dropped by the authority gate).
+    // Rings use the shared Currency pickup path, so `collect_ecs_pickups` emits
+    // `WORLD_COIN_PICKUP`. The demo authorizes and voices that id; a private
+    // `sanic.ring` would be dropped by the authority gate.
     assert_eq!(
         ambition_platformer2d::sfx::SfxId::from_static(SFX_RING),
         ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP,
@@ -1467,10 +1455,10 @@ fn a_hit_spends_rings_instead_of_health_and_drops_them_back_as_real_pickups() {
     // content test owns only the presentation of a successful spend.
 }
 
-/// that PLACES rings in a static fan looks nothing like the classic burst. So
-/// each dropped ring must launch with a real outward velocity, ARC away from the
-/// body, and only THEN hand back to the ordinary pickup economy (so the coin
-/// magnet can't refund them the same instant they drop).
+/// A static fan of rings does not look like the classic burst. Each dropped
+/// ring must launch with a real outward velocity, arc away from the body, and
+/// only then return to the ordinary pickup economy (so the coin magnet cannot
+/// refund it at once).
 #[test]
 fn scattered_rings_burst_outward_and_then_become_collectible() {
     use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
@@ -1509,7 +1497,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
     emit_ring_shield_spend(&mut app, sanic, 6);
     app.update(); // the hit spends the rings → they burst
 
-    // Every lost ring launches with a REAL outward speed (not a static placement)
+    // Every lost ring launches with a real outward speed (not a static placement)
     // and is born AT the body.
     let bursts: Vec<crate::ScatteredRing> = {
         let mut q = app.world_mut().query::<&crate::ScatteredRing>();
@@ -1525,9 +1513,8 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
         assert_eq!(r.life, crate::SCATTER_LIFE_S, "each ring starts its clock");
     }
 
-    // RADIAL, not a fan. Every quadrant gets a ring, and the velocities sum to
-    // (nearly) nothing — which is what "even spray in all directions" means and
-    // what an upward fan can never satisfy, however wide you make it.
+    // Radial, not a fan: every quadrant gets a ring, and the velocities sum to
+    // nearly zero.
     for (name, right, down) in [
         ("up-right", true, false),
         ("down-right", true, true),
@@ -1548,8 +1535,8 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
         "an even radial spray has (almost) no net direction; got {net:?}"
     );
 
-    // Arc them: they move AWAY from the body (the whole point of "explode
-    // outward"), then after the lock they hand off to the ordinary economy.
+    // Arc them: they move away from the body, then after the lock they return
+    // to the ordinary economy.
     app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
     app.update();
     let max_dist = ring_spread(&mut app, body);
@@ -1571,7 +1558,7 @@ fn scattered_rings_burst_outward_and_then_become_collectible() {
         "past the untouchable window a ring is still a ring — collectible, not gone"
     );
 
-    // …and then it expires. A scatter you can come back to forever is not a cost.
+    // …and then it expires. A scatter that lasts forever is not a cost.
     for _ in 0..40 {
         app.update();
     }
@@ -1602,8 +1589,8 @@ fn ring_spread(app: &mut App, origin: ae::Vec2) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
-/// classic scatter. This pins the BEHAVIOUR half — a ring bounces off the floor
-/// instead of falling through the level — against real room geometry.
+/// A ring bounces off the floor instead of falling through the level, against
+/// real room geometry.
 #[test]
 fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     let floor_y = 260.0;
@@ -1669,8 +1656,8 @@ fn a_scattered_ring_bounces_off_the_floor_it_lands_on() {
     );
 }
 
-/// The isolation test above ran the arc alone and so never proved the rings aren't reclaimed the
-/// instant they spawn on top of the player. Here the whole chain runs in production order.
+/// The whole chain in production order: the rings are not reclaimed the
+/// instant they spawn on top of the player.
 #[test]
 fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
@@ -1704,7 +1691,7 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
             )],
         )),
     ));
-    // The REAL production order: magnet, then the burst arc, then collect.
+    // The real production order: magnet, then the burst arc, then collect.
     app.add_systems(
         bevy::prelude::Update,
         (
@@ -1791,12 +1778,12 @@ fn the_ring_burst_is_not_reclaimed_on_spawn_under_the_real_chain() {
     );
 }
 
-/// be DETERMINISTIC and unique — never `entity.index()`, which collides when a
-/// second burst by the SAME player lands while the first burst's rings still
-/// exist. Minting each ring from the SPAWNER's own `SimIdCounter` (one
-/// monotonic stream per body, ADR 0030) makes two overlapping bursts mint
-/// disjoint ids — and every ring carries a real `SimId::spawned` +
-/// `SpawnOrigin::Dynamic` parented to the player, not just a bare label.
+/// Dropped ring ids must be deterministic and unique. `entity.index()` would
+/// collide when a second burst by the same player lands while the first
+/// burst's rings exist. Each ring mints from the spawner's own `SimIdCounter`
+/// (one monotonic stream per body, ADR 0030), so overlapping bursts get
+/// disjoint ids. Each ring has a real `SimId::spawned` and
+/// `SpawnOrigin::Dynamic` parented to the player.
 #[test]
 fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     use ambition_platformer2d::characters::actor::{BodyHealth, BodyWallet, Health};
@@ -1857,10 +1844,9 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
         "four rings per burst, two bursts, every id distinct"
     );
 
-    // Every dropped ring is a first-class dynamic entity: a `SimId::spawned`
-    // parented to THIS player plus the matching `SpawnOrigin::Dynamic`, so a
-    // rollback rebase can reconstruct it — the identity the old global counter
-    // never gave it. The eight sequences are the player's own stream 0..8.
+    // Every dropped ring is a dynamic entity: a `SimId::spawned` parented to
+    // this player plus the matching `SpawnOrigin::Dynamic`, so a rollback
+    // rebase can rebuild it. The eight sequences are the player's stream 0..8.
     let mut rings: Vec<(SimId, SpawnOrigin)> = {
         let mut q = app
             .world_mut()
@@ -1900,14 +1886,11 @@ fn overlapping_ring_bursts_never_reuse_a_dropped_ring_id() {
     }
 }
 
-/// Going fast has to PAY, and rings have to cost something to keep.
+/// Going fast has to pay, and rings have to cost something to keep.
 ///
-/// The act score is the only place the demo's premise is expressed as a number,
-/// and it is pure arithmetic that reads correctly while being backwards: swap
-/// the time term's sign and a slow run wins; drop the ring term and the scatter
-/// mechanic stops mattering. Neither shows on screen — you would just have a
-/// game where the safe line is always right, which is the exact thing this demo
-/// exists to disprove.
+/// The act score is pure arithmetic that can be backwards and still look
+/// right: swap the time term's sign and a slow run wins; drop the ring term
+/// and the scatter stops mattering.
 #[test]
 fn the_act_score_pays_for_speed_and_for_rings_kept() {
     use crate::{act_score, act_time_text, ACT_PAR_SECONDS};
@@ -1921,16 +1904,15 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
          premise of a momentum demo"
     );
 
-    // Rings kept are worth something, all else equal. Together with the scatter
-    // rule this is the tension: the fast line is usually the one that costs you
-    // rings, so the two terms have to pull against each other.
+    // Rings kept are worth something, all else equal. The fast line usually
+    // costs rings, so the two terms must pull against each other.
     assert!(
         act_score(20.0, 30) > act_score(20.0, 0),
         "rings you finish holding must be worth keeping"
     );
 
-    // Past par the time bonus floors instead of going negative — a slow run
-    // scores poorly, it does not owe the player's ring bonus back.
+    // Past par the time bonus floors at zero; a slow run does not owe back
+    // its ring bonus.
     let past_par = act_score(ACT_PAR_SECONDS + 30.0, 10);
     assert_eq!(
         past_par,
@@ -1942,13 +1924,8 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
     assert_eq!(act_time_text(83.0), "1:23");
 }
 
-/// The splash is wide enough to be a scramble.
-///
-/// opportunity to recollect some of them after his hitstun wears off and before
-/// they disappear."*
-///
-/// What it defends is the property: a lost purse throws rings far enough that getting them back is
-/// a RUN.
+/// The splash is wide enough to be a scramble: a lost purse throws rings far
+/// enough that getting them back is a run.
 #[test]
 fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
     let mut app = App::new();
@@ -1977,9 +1954,9 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
         })
         .collect();
 
-    // Run until they have fallen a tile below the launch height — with no room
-    // geometry there is nothing to land on, so "it would have hit the ground" is
-    // the honest stopping point for measuring the SPRAY rather than the drift.
+    // Run until they fall a tile below the launch height. With no room
+    // geometry there is nothing to land on, so this measures the spray, not
+    // the drift.
     let mut widest = 0.0f32;
     for _ in 0..(60 * 2) {
         app.update();
@@ -2004,10 +1981,10 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
     );
 }
 
-/// The sign at the start line names the keys the player actually has.
+/// The sign at the start line names the keys the player has.
 ///
-/// it did not. The generated text is the honest default; the presentation pass replaces it once a
-/// seat exists.
+/// The generated text is the default; the presentation pass replaces it once
+/// a seat exists.
 #[test]
 fn the_start_line_legend_follows_the_seats_real_bindings() {
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
@@ -2016,8 +1993,8 @@ fn the_start_line_legend_follows_the_seats_real_bindings() {
     };
     use ambition_platformer2d::render::rendering::{WorldLabel, WorldLabelFamily};
 
-    // The text the room really ships with — read from the built room rather
-    // than restated, so this cannot pass against a legend that moved.
+    // The text the built room ships with, read from the room, so this cannot
+    // pass against a legend that moved.
     let room = crate::sanic_speedway();
     let baked = room
         .debug_labels
@@ -2078,19 +2055,11 @@ fn the_start_line_legend_follows_the_seats_real_bindings() {
     );
 }
 
-/// Losing your rings buys you a few seconds, the way it always has.
+/// Losing your rings buys a few seconds of recovery, as in the classic games.
 ///
-/// iframes. He should also have some hitstun and be knocked back a bit, and then
-/// have a few second of recovery iframes."*
-///
-/// the i-frames were never missing — they were 0.75s, the engine's
-/// `knockback_invulnerability_time`, whose own comment calls it "the longest window in the game".
-/// It is, for Ambition.
-///
-/// `WalletShieldSpent`'s own contract says where this belongs: *"The generic resolver owns
-/// survival; game content owns how it is expressed."* Losing your rings IS the classic trigger for
-/// the flashing window, so Sanic extends it in the same handler that already decides what losing
-/// them means.
+/// The engine's `knockback_invulnerability_time` (0.75s) is too short here.
+/// `WalletShieldSpent` leaves the expression to content, so Sanic extends the
+/// window in the handler that decides what losing rings means.
 #[test]
 fn losing_the_purse_buys_a_classic_length_recovery() {
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, BodyWallet, Health};
@@ -2144,8 +2113,8 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
          even landed yet, and the badnik that hit him is still touching him"
     );
 
-    // and it must RAISE rather than replace: a longer window already running
-    // (a hazard respawn, say) is not shortened by dropping rings inside it.
+    // Raise, do not replace: a longer running window (a hazard respawn) is
+    // not shortened by dropping rings inside it.
     app.world_mut()
         .get_mut::<BodyCombat>(sanic)
         .expect("still there")
@@ -2164,17 +2133,17 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
     );
 }
 
-/// but nothing pinned the LABEL, which is the half he could actually see. The two are
-/// independent: the technique could keep routing correctly while an authored `display_name`, or
-/// the engine's `fly_toggle` reclaiming the slot, put "Fly" back on the button — and every
-/// existing test would stay green.
+/// The Utility button's label reads "Transform", never "Fly". Routing and
+/// label are independent: an authored `display_name` or the engine's
+/// `fly_toggle` reclaiming the slot could put "Fly" back while routing still
+/// works.
 #[test]
 fn the_utility_button_reads_transform_and_never_fly() {
     use ambition_platformer2d::characters::action_scheme::derive_action_scheme;
     use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
 
-    // The body has WINGS, so the engine's own `fly_toggle` would claim Utility if the declared
-    // technique did not outrank it.
+    // The body has wings, so the engine's `fly_toggle` would claim Utility if
+    // the declared technique did not outrank it.
     let mut abilities = ae::AbilitySet::basic();
     abilities.fly = true;
     abilities.fly_toggle = true;

@@ -17,11 +17,11 @@ pub struct BallDashTuning {
     /// Charge bled off per second while crouched. Holding forever must not
     /// guarantee a max launch — the rev is a rhythm, not a timer.
     pub decay_per_s: f32,
-    /// Launch speed (px/s) at `charge == 1.0`. A full rev must OUT-run the
-    /// momentum top-speed cap (the launch writes `v_t` directly, which the kernel
-    /// permits above the cap) so a spin dash blasts through the loop: clearing a
-    /// radius-180 loop under 2250 gravity needs ~1300 px/s at the bottom, so the
-    /// full-charge launch sits comfortably above that with room for pre-loop drag.
+    /// Launch speed (px/s) at `charge == 1.0`. A full rev must outrun the
+    /// momentum top-speed cap (the launch writes `v_t` directly, which the
+    /// kernel allows above the cap), so a spin dash clears the loop: a
+    /// radius-180 loop under 2250 gravity needs ~1300 px/s at the bottom,
+    /// plus margin for drag before the loop.
     pub launch_speed: f32,
     /// Below this charge a crouch-release is just standing up.
     pub min_launch_charge: f32,
@@ -79,11 +79,11 @@ pub struct BallDashInput {
     pub grounded_at_capture: bool,
 }
 
-/// The body's action scheme declares `spin_dash` on the Attack slot (`ActorTechniques`), so
-/// `gate_body_control` routes the Attack device edge into
-/// `ResolvedTechniqueEdges["spin_dash"]` (and clears the raw melee verb); this reads that edge.
-/// Runs AFTER the gate. Vacated bodies are reset so a possession handoff cannot replay a stale
-/// rev edge.
+/// The body's action scheme declares `spin_dash` on the Attack slot
+/// (`ActorTechniques`), so `gate_body_control` routes the Attack edge into
+/// `ResolvedTechniqueEdges["spin_dash"]` and clears the raw melee verb; this
+/// reads that edge. Runs after the gate. Vacated bodies are reset so a
+/// possession handoff cannot replay a stale rev edge.
 pub fn capture_ball_dash_input(
     subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
     tuning: Res<BallDashTuning>,
@@ -145,7 +145,7 @@ pub enum BallDashStep {
 /// the PlayerInput seam — you cannot start a rev in mid-air, which is Sonic's
 /// rule and also the only one that makes the launch's `v_t` meaningful.
 ///
-/// A body must be genuinely riding to ADD charge. Once a charge exists, a short
+/// A body must be genuinely riding to add charge. Once a charge exists, a short
 /// contact grace tolerates the one-tick airborne seams produced by block/chain
 /// hand-offs and ramp lips. Staying airborne past that grace still clears the rev,
 /// so the player cannot bank a dash across an actual jump.
@@ -158,7 +158,7 @@ pub fn ball_dash_step(
     dt: f32,
     tuning: &BallDashTuning,
 ) -> BallDashStep {
-    // Release is an INPUT edge, not a statement about the contact resolver. Once
+    // Release is an input edge, not a statement about the contact resolver. Once
     // a grounded rev has armed charge, the falling edge must spend it exactly
     // once even if body-mode expansion or a surface hand-off changes support in
     // this tick. This is also what makes a ramp lip launch rather than eat the
@@ -182,7 +182,7 @@ pub fn ball_dash_step(
     let contact_is_credible = grounded || state.contact_grace > 0.0;
 
     if crouch {
-        // A rev may only START from a real ride contact. Once armed, a tiny
+        // A rev may only start from a real ride contact. Once armed, a tiny
         // airborne seam is tolerated so crossing a block/chain boundary or a
         // ramp lip cannot delete the charge before the release tick arrives.
         if rev_pressed && grounded {
@@ -218,7 +218,7 @@ pub fn tick_ball_dash(
         Entity,
         &BallDashInput,
         // The body's per-tick resolved frame (ADR 0024): the airborne launch
-        // direction is the SAME frame the momentum kernel integrates under.
+        // direction is the same frame the momentum kernel integrates under.
         &ambition_platformer2d::world::ResolvedMotionFrame,
         &mut ambition_platformer2d::actor::MotionModel,
         &mut ae::BodyKinematics,
@@ -281,11 +281,9 @@ pub fn tick_ball_dash(
             BallDashStep::Launch(charge) => {
                 let speed = tuning.launch_speed * charge;
                 let facing = if kin.facing == 0.0 { 1.0 } else { kin.facing };
-                // the sign convention (`v_t` shares facing's sign, because the
-                // kernel integrates `v_t += run * accel * dt` with
-                // `run = locomotion.x`) now lives on the op rather than in a
-                // comment here. The `false` branch is the airborne case, which
-                // this launch DOES have an answer for.
+                // `set_tangential_speed` owns the sign convention (`v_t`
+                // shares facing's sign). `false` means airborne, which this
+                // launch handles below.
                 if !m.set_tangential_speed(facing * speed) {
                     // No tangent to speak of; the local side axis is the
                     // kernel's own airborne convention.
@@ -312,7 +310,7 @@ pub fn tick_ball_dash(
 
 /// Stand back up when the roll runs out of speed. Separate from the launch so a
 /// body that gains speed some other way (a booster, a slope) keeps rolling, and
-/// so the exit reads off ONE quantity.
+/// so the exit reads off one quantity.
 pub fn tick_rolling(
     mut commands: Commands,
     mut bodies: Query<(
@@ -343,20 +341,15 @@ pub fn tick_rolling(
 
 /// Sanic's answer to "this body starts again".
 ///
-/// The engine's own reset clears the engine's own clusters, which is everything
-/// it can honestly clear: a charge stored in [`BallDash`], the crouch edge in
-/// [`BallDashInput`] and the [`Rolling`] form are Sanic's state, authored here,
-/// and no generic ruleset can know they exist. Without this, a body restarted
-/// mid-rev came back holding the charge and fired it on the next release edge,
-/// or came back still balled up.
+/// The engine's reset clears only engine state. The charge in [`BallDash`],
+/// the crouch edge in [`BallDashInput`], and the [`Rolling`] form are Sanic's
+/// state, so without this a restarted body could keep a charge and fire it on
+/// the next release, or stay balled up.
 ///
-/// An observer rather than a system, so it lands inside whichever tick did the
-/// restarting no matter which schedule slot that caller occupies — and it is
-/// inert for every body that is not Sanic, which is why it can be registered
-/// unconditionally.
+/// An observer, so it runs inside whichever tick did the restart. It is inert
+/// for non-Sanic bodies, so it is registered unconditionally.
 ///
-/// Standing up restores the size the roll borrowed, exactly as [`tick_rolling`]
-/// does: [`Rolling`] carries that size precisely so nobody has to re-derive it.
+/// Standing up restores the size the roll borrowed, as [`tick_rolling`] does.
 pub fn clear_ball_dash_on_restart(
     restart: On<ae::BodyRestarted>,
     mut commands: Commands,
@@ -374,13 +367,11 @@ pub fn clear_ball_dash_on_restart(
     }
 }
 
-/// Mirror the physical roll authority (the [`Rolling`] component that shrinks the
-/// body) onto the presentation fact the ONE animation picker reads, so a balled-up
-/// Sanic plays his looping `ball` row instead of a squished run. Per-frame
-/// re-derivation, like `aim_anim_active`: `BodyAnimFacts` booleans are
-/// presentation mirrors of live state, not latched timers. There is ONE authority
-/// for "is a ball" — the `Rolling` component `tick_ball_dash`/`tick_rolling` own —
-/// and this only projects it.
+/// Mirror the physical roll authority (the [`Rolling`] component that shrinks
+/// the body) onto the presentation fact the animation picker reads, so a
+/// balled-up Sanic plays his looping `ball` row. Re-derived every frame, like
+/// `aim_anim_active`: `BodyAnimFacts` booleans mirror live state. `Rolling`
+/// (owned by `tick_ball_dash`/`tick_rolling`) is the one authority.
 pub fn mirror_ball_anim_fact(
     mut bodies: Query<(
         Option<&Rolling>,
@@ -396,15 +387,13 @@ pub fn mirror_ball_anim_fact(
     }
 }
 
-/// The spin-dash's ACTION-SCHEME declaration: it claims Sanic's Attack slot and
-/// names the on-screen button "Spin Dash". The technique's BEHAVIOR stays in
-/// this module (the crouch-rev-release chord on `ActorControl`); this only gives
-/// the mechanic an identity so the control prompt can label it honestly.
+/// The spin dash's action-scheme declaration: it claims Sanic's Attack slot
+/// and labels the button "Spin Dash". The behavior stays in this module (the
+/// crouch-rev-release chord on `ActorControl`).
 ///
 /// Handed to `declare_sanic_techniques`, which owns `ActorTechniques` for the
-/// whole demo. Attaching it HERE alongside `BallDash` would make two systems
-/// insert the same component and the later one would silently drop the other's
-/// declaration.
+/// whole demo. Inserting it here too would make two systems write the same
+/// component, and one declaration would be lost.
 pub(crate) fn spin_dash_technique(
 ) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
     use ambition_platformer2d::entity_catalog::action_scheme as sch;

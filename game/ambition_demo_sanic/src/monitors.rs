@@ -1,26 +1,24 @@
-//! Monitor boxes — Sanic's power-up crates, pure content on two engine seams.
+//! Monitor boxes: Sanic's power-up crates, pure content on two engine seams.
 //!
-//! A monitor is an LDtk-authored NAMED solid block (`monitor_*`); the demo
-//! identifies each by its authored block name — the same durable-identity
-//! discipline as Mary-O's `GeoId` bonks, minus the contact seam, because a
-//! monitor breaks on Sanic's verbs: land on it while FALLING or touch it while
-//! ROLLING. (A riding body never sweeps against solid blocks — code smell #13
-//! — so an un-rolled runner passes through; that is survivable here and the
-//! smell entry tracks the real fix.)
+//! A monitor is an LDtk-authored named solid block (`monitor_*`); the demo
+//! identifies each by its block name, like Mary-O's `GeoId` bonks but without
+//! the contact seam. It breaks on Sanic's verbs: land on it while falling, or
+//! touch it while rolling. (A riding body never sweeps against solid blocks,
+//! code smell #13, so an unrolled runner passes through.)
 //!
-//! A broken monitor is a mid-run World SUBTRACTION done the established way:
-//! its name joins the collision overlay's per-frame `removed_block_names`
-//! (the immutable authored base is never edited), so it stops colliding and —
-//! via the render reconcile — stops drawing. Re-arms on room (re)load.
+//! A broken monitor is removed from the World the established way: its name
+//! joins the collision overlay's per-frame `removed_block_names` (the authored
+//! base is never edited), so it stops colliding and, through the render
+//! reconcile, stops drawing. It re-arms on room load and on replay.
 //!
 //! Grants:
-//! - `monitor_speed`  → SPEED SHOES: a timed multiplier on the body's OWN
-//!   `MomentumParams` (top speed + ground accel), restored exactly on expiry.
-//!   Skipped while super — the form's params are identity-authored.
+//! - `monitor_speed` → speed shoes: a timed multiplier on the body's own
+//!   `MomentumParams` (top speed and ground accel), restored exactly on
+//!   expiry. Skipped while super, because the form's params come from its
+//!   identity row.
 //!
-//! There is a key for it."* The transformation lives on the Utility action (`toggle_sanic_form`)
-//! and nowhere else, so this file has no super grant to gate, defer or make deliberate — the whole
-//! `monitor_super` block, its placement and its stomp-only rule are gone rather than tuned.
+//! There is no super monitor: the transformation lives only on the Utility
+//! action (`toggle_sanic_form`).
 
 use bevy::prelude::*;
 
@@ -45,24 +43,21 @@ const SPEED_SHOES_ACCEL_FACTOR: f32 = 1.5;
 const STOMP_BAND: f32 = 16.0;
 
 /// Which monitors are broken this run. A Vec, not a HashSet: the overlay
-/// contribution iterates it every frame and the sim determinism contract bans
-/// std-hash iteration order.
-/// `Clone` because it is ROLLBACK STATE, for the same reason Mary-O's
-/// broken bricks are: the overlay subtracts these names from collision every
-/// frame, so a rewind that does not restore the set disagrees with the world
-/// about which monitors are still solid.
+/// iterates it every frame, and the sim determinism contract bans std-hash
+/// iteration order.
+/// `Clone` because it is rollback state: the overlay subtracts these names
+/// from collision every frame, so a rewind that does not restore the set
+/// disagrees with the world about which monitors are solid.
 #[derive(Resource, Default, Clone)]
 pub struct SpentMonitors(pub Vec<String>);
 
 impl SpentMonitors {
-    /// A checksum over WHICH monitors are spent.
+    /// A checksum over which monitors are spent.
     ///
-    /// order-independent even though this is a `Vec`. The vector's order is
-    /// the order they broke in, which is genuine information — but two peers
-    /// running identical simulations break them in the same order anyway, so
-    /// XORing per-name hashes loses nothing a desync check needs and survives a
-    /// later switch to a set. (Its Mary-O siblings are a `BTreeSet` and a
-    /// `HashSet`; all three answer the same way now.)
+    /// Order-independent even though this is a `Vec`: peers running the same
+    /// simulation break monitors in the same order, so XORing per-name hashes
+    /// loses nothing a desync check needs, and it would survive a switch to a
+    /// set.
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         self.0.iter().fold(0u64, |acc, name| {
@@ -78,7 +73,7 @@ impl SpentMonitors {
 }
 
 /// The timed speed-shoes grant riding on the player body. Carries the saved
-/// authored params so expiry restores EXACTLY what the catalog authored.
+/// authored params so expiry restores exactly what the catalog authored.
 #[derive(Component, Debug)]
 pub struct SpeedShoes {
     pub remaining: f32,
@@ -140,13 +135,9 @@ pub fn break_monitor_boxes(
             color: [0.55, 0.75, 0.95, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Shard,
         });
-        // The monitor's own pop (the super grant's transform sound fires
-        // separately from the worn-identity edge in `sync_super_form_traits`).
-        //
-        // H2/I3: the COURSE's. A monitor is a world PROP authored into this
-        // course — not a body, so it has no character to sound like, but it is
-        // still Sanic's prop and not the host's. The BREAKER's cue (the roll, the
-        // stomp bounce) is emitted by the breaker.
+        // The monitor's own pop. H2/I3: a monitor is a prop in this course,
+        // so the sound is the course's, not the host's. The breaker's own cue
+        // (roll, stomp bounce) is emitted by the breaker.
         sfx.write_from(
             crate::provider::SANIC_EXPERIENCE,
             ambition_platformer2d::sfx::SfxMessage::Play {
@@ -156,10 +147,10 @@ pub fn break_monitor_boxes(
         );
         match block.name.as_str() {
             SPEED_MONITOR => {
-                // Never stack: a second pair of shoes while one is live would
-                // save the already-multiplied params and "restore" them — and
-                // shoes over the SUPER form would save the form's authored
-                // params and "restore" them after the form is toggled off.
+                // Never stack: a second pair of shoes would save the
+                // already-multiplied params and "restore" them, and shoes over
+                // the super form would restore the form's params after it is
+                // toggled off.
                 if shoes.is_none() && worn.id() != SUPER_SANIC_CHARACTER_ID {
                     if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *model {
                         commands.entity(entity).insert(SpeedShoes {
@@ -174,9 +165,6 @@ pub fn break_monitor_boxes(
             }
             other => {
                 // An authored monitor with no grant is a level-authoring bug.
-                //
-                // The authoring mistake is exactly the kind nobody finds by reading a level
-                // file.
                 debug_assert!(false, "monitor block '{other}' has no authored grant");
                 bevy::log::error!(
                     target: "ambition_platformer2d::sanic",
@@ -188,7 +176,7 @@ pub fn break_monitor_boxes(
     }
 }
 
-/// Count the shoes down on the SIM clock and restore the authored params
+/// Count the shoes down on the sim clock and restore the authored params
 /// exactly on expiry.
 pub fn tick_speed_shoes(
     mut commands: Commands,
@@ -208,9 +196,9 @@ pub fn tick_speed_shoes(
     }
 }
 
-/// Contribute each broken monitor's authored NAME to the collision overlay's
+/// Contribute each broken monitor's authored name to the collision overlay's
 /// per-frame `removed_block_names` — the engine's immutable-base subtraction
-/// seam. Runs AFTER the overlay rebuild clears the list (its clean-slate
+/// seam. Runs after the overlay rebuild clears the list (its clean-slate
 /// contract), the same slot Mary-O's bricks take.
 pub fn contribute_broken_monitors_to_overlay(
     spent: Res<SpentMonitors>,
@@ -219,17 +207,13 @@ pub fn contribute_broken_monitors_to_overlay(
     overlay.removed_block_names.extend(spent.0.iter().cloned());
 }
 
-/// Spent monitors are per-attempt: the next LIFE starts against a full set of
+/// Spent monitors are per-attempt: the next life starts with a full set of
 /// boxes.
 ///
-/// ⛔⛔ THIS RE-ARM ANSWERED THE LOAD ONLY, AND IT WAS A PLAYER-VISIBLE BUG.
-/// Sanic declares `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS
-/// the room in place — and an in-place replay does NOT emit `RoomLoaded`, which
-/// is written from exactly one place, an actual room load. A monitor broken
-/// before the death stayed broken after the respawn and its grant was
-/// unreachable for the rest of the run. ⇒ the trait exists so that shape can no
-/// longer be written: an implementor names WHAT to re-arm, never which signal
-/// counts.
+/// Sanic declares `DeathRules::replay_level_after(0.0)`, so a pit death
+/// replays the room in place, and an in-place replay does not emit
+/// `RoomLoaded`. `AttemptScoped` re-arms on both signals; an implementor
+/// names what to re-arm, not which signal counts.
 impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonitors {
     /// The speedway alone — these names are authored in that room.
     const ROOM: Option<&'static str> = Some(SPEEDWAY_ROOM_ID);
@@ -266,11 +250,9 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
-        // ⛔⛔ REQUIRED EVEN THOUGH THIS ARM NEVER WRITES IT. A world that does
-        // not register a message a system READS fails parameter validation and
-        // DROPS the system silently -- the test then passes or fails for a
-        // reason that has nothing to do with its subject. Adding the replay
-        // reader broke this arm exactly that way.
+        // Required even though this arm never writes it. A system that reads
+        // an unregistered message fails parameter validation and is dropped
+        // silently, so the test would pass or fail for an unrelated reason.
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
         app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
         app.world_mut()
@@ -285,18 +267,10 @@ mod tests {
         );
     }
 
-    /// ⭐ THE ROOM SCOPE, WHICH NOTHING PINNED UNTIL THE TRAIT MADE IT VISIBLE.
-    /// `SpentMonitors` declares `ROOM = Some(SPEEDWAY_ROOM_ID)`, so a load of a
-    /// DIFFERENT room must leave the speedway's monitors alone -- these names
-    /// are authored in the speedway and re-arming them from someone else's
-    /// boundary would restock a room the player is not in.
-    ///
-    /// ⚠ FOUND BY A POISON THAT DID NOT FIRE. Replacing the const's branch with
-    /// a bare `began()` left all 79 Sanic tests green: the scope was a real
-    /// behavioural claim with no test behind it, in both the hand-written system
-    /// and its replacement. (The REPLAY leg is deliberately unfiltered -- a
-    /// replay is always in the room you are in -- which
-    /// `a_death_replay_rearms_the_monitors` covers.)
+    /// The room scope. `SpentMonitors` declares `ROOM = Some(SPEEDWAY_ROOM_ID)`,
+    /// so loading a different room must leave the speedway's monitors alone.
+    /// (The replay path is unfiltered, because a replay is always in the
+    /// current room; `a_death_replay_rearms_the_monitors` covers it.)
     #[test]
     fn a_load_of_another_room_leaves_the_speedways_monitors_spent() {
         let mut app = App::new();
@@ -320,15 +294,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE DEFECT THIS SYSTEM SHIPPED WITH. Sanic declares
-    /// `DeathRules::replay_level_after(0.0)`, so a pit death REPLAYS the room in
-    /// place -- and an in-place replay never emits `RoomLoaded`. A monitor
-    /// broken before the death stayed broken after the respawn, and its grant
-    /// was unreachable for the rest of the run.
-    ///
-    /// ⚠ The old test asserted a RELOAD rearms, and passed throughout. The two
-    /// messages are different on purpose, so covering one proves nothing about
-    /// the other.
+    /// A pit death replays the room in place and never emits `RoomLoaded`
+    /// (`DeathRules::replay_level_after(0.0)`), so the replay must re-arm the
+    /// monitors. A reload test does not cover this; the two messages differ.
     #[test]
     fn a_death_replay_rearms_the_monitors() {
         let mut app = App::new();
@@ -353,9 +321,9 @@ mod tests {
         );
     }
 
-    /// ⚠ And nothing rearms them when neither signal fires -- otherwise the two
-    /// arms above would pass on a system that simply clears every frame, which
-    /// would hand the player an infinite supply mid-run.
+    /// Nothing re-arms them when neither signal fires. Otherwise the arms
+    /// above would pass on a system that clears every frame, which would give
+    /// an infinite supply mid-run.
     #[test]
     fn a_quiet_frame_leaves_broken_monitors_broken() {
         let mut app = App::new();

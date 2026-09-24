@@ -103,11 +103,10 @@ pub const RESULTS_HUD_SLOT: &str = "sanic_results";
 
 /// Publish the ring count into the declared HUD.
 ///
-/// The count needs no new simulation: rings are authored as ordinary
-/// `currency:1` pickups, the shared economy credits the collector's
-/// `BodyWallet`, and `PlayerHudFacts` already republishes that balance for the
-/// controlled subject every tick. So this is the whole feature — read the fact,
-/// name it "RINGS", hand it to the slot.
+/// Rings are ordinary `currency:1` pickups: the shared economy credits the
+/// collector's `BodyWallet`, and `PlayerHudFacts` republishes that balance
+/// for the controlled subject every tick. This reads the fact, names it
+/// "RINGS", and hands it to the slot.
 fn publish_sanic_ring_readout(
     facts: bevy::prelude::Res<ambition_platformer2d::sim_view::PlayerHudFacts>,
     act: bevy::prelude::Query<&crate::SanicActState>,

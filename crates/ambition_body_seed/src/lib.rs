@@ -530,14 +530,16 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
-            // ⚠ THIS ROAD DOES NOT ASK THE CHARACTER. It passed
-            // `AbilitySet::NONE` and the constructor's union turned that into
-            // the floor, so the default was arriving disguised as an authored
-            // answer. Naming it changes nothing today and makes the gap
-            // visible: a catalog NPC that authors an ability set is not read
-            // here (`new_character_in` is the road that reads one).
+            // ⛔ NOTHING AUTHORED THIS BODY, SO IT IS GIVEN NOTHING. A character
+            // that can carry a body took `new_character_in` above; this road is
+            // the placement that names no character (the cut-rope victory NPC),
+            // a prepared character with no body blueprint, and an id nobody
+            // prepared (reported as a content error). It used to take the
+            // ruleset's actor default, so an anonymous NPC was handed a jump, a
+            // double jump and an attack no author stated. A test fixture that
+            // wants a walking anonymous NPC states that body itself.
             body: ActorBody::from_abilities(
-                ActorBody::default_actor_abilities(),
+                ambition_platformer2d_core::AbilitySet::NONE,
                 is_aerial,
                 collision_size,
             ),
@@ -1374,6 +1376,41 @@ mod tests {
             "the constructor conferred a capability this character declined \
              (jump={}, double_jump={}, attack={}) — an authored body cannot be \
              widened, or authoring a narrow creature is impossible",
+            built.jump,
+            built.double_jump,
+            built.attack,
+        );
+    }
+
+    /// **AN NPC NOBODY AUTHORED IS GIVEN NO CAPABILITY.** The peaceful road's
+    /// fallthrough (a placement naming no character) used to take
+    /// [`ActorBody::default_actor_abilities`], so an anonymous body could jump,
+    /// double-jump and attack.
+    ///
+    /// ⚠ THE EDIT THAT MAKES THIS FALSE is handing that fallthrough any default.
+    #[test]
+    fn an_anonymous_npc_is_built_with_no_abilities() {
+        let aabb = ae::Aabb::new(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(8.0, 12.0));
+        let interactable = ambition_interaction::Interactable::new(
+            "anonymous".to_string(),
+            "Talk".to_string(),
+            aabb,
+            ambition_interaction::InteractionKind::Npc {
+                character_id: None,
+                dialogue_id: None,
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+                brain_override: None,
+            },
+        );
+        let (seed, _) =
+            ActorClusterSeed::new_peaceful_npc("anonymous", "Anonymous", aabb, &interactable, &[]);
+        let built = seed.body.0.abilities.abilities;
+        assert_eq!(
+            built,
+            ae::AbilitySet::NONE,
+            "an NPC no author described was given capabilities (jump={}, \
+             double_jump={}, attack={}): the fallthrough invented a body",
             built.jump,
             built.double_jump,
             built.attack,

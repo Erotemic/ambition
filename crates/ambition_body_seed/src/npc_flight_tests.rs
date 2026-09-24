@@ -315,3 +315,52 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
     // The control: the same placement naming no character keeps its own box.
     assert_eq!(seed_for(None, None).kin.size, ae::Vec2::new(32.0, 48.0));
 }
+
+/// A PREPARED CHARACTER WITHOUT A BLUEPRINT KEEPS THE ABILITIES IT AUTHORED.
+///
+/// "No blueprint" means only that `locomotion` is unauthored; it does not mean
+/// nobody described the body. The Hall's `mary_o`/`sanic` take this road and
+/// author `RunJump`. Handing them the anonymous NPC's NONE left a possessed
+/// Hall body unable to run or jump, and the per-body control gate then
+/// faithfully enforced that wrong set.
+#[test]
+fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
+    let run_jump = ae::AbilityGrant::RunJump.to_set();
+    let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        "npc_test_walker",
+        "Test Walker",
+        "test",
+    )
+    .with_abilities(run_jump);
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
+        definition,
+        &ambition_characters::prepared::CharacterBindings::default(),
+    );
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    registry.insert_prepared(finalized.prepared);
+    assert!(
+        registry.get("npc_test_walker").unwrap().body_blueprint().is_err(),
+        "the premise: no locomotion, so no blueprint, so the peaceful road builds it"
+    );
+
+    let (seed, _) = ActorClusterSeed::new_peaceful_npc_in(
+        &Default::default(),
+        &CharacterCatalog::empty(),
+        Some(&registry),
+        "walker",
+        "Walker",
+        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0)),
+        &npc_at(Some("npc_test_walker")),
+        &[],
+    );
+    assert_eq!(
+        seed.body.0.abilities.abilities, run_jump,
+        "the no-blueprint road dropped the character's authored abilities"
+    );
+
+    // The control: nobody authored the anonymous placement, so it stays NONE.
+    assert_eq!(
+        seed_for(None, None).body.0.abilities.abilities,
+        ae::AbilitySet::NONE
+    );
+}

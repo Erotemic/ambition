@@ -407,9 +407,9 @@ impl ActorClusterSeed {
         // patrol/chase speed remains controller policy. A possessed NPC can use
         // its physical top speed without changing its autonomous stroll. Respawn
         // policy remains placement-owned rather than character-owned.
-        let authored_body = character_id
-            .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
-            .and_then(|prepared| prepared.body_blueprint().ok());
+        let prepared_character =
+            character_id.and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)));
+        let authored_body = prepared_character.and_then(|prepared| prepared.body_blueprint().ok());
         // The pool this body spawns with, held as a local because
         // `BodyHealth` is the only thing that keeps it (AC6.2): `ActorTuning`
         // carried a `max_health` beside it, and the two were written
@@ -553,16 +553,20 @@ impl ActorClusterSeed {
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
-            // ⛔ NOTHING AUTHORED THIS BODY, SO IT IS GIVEN NOTHING. A character
-            // that can carry a body took `new_character_in` above; this road is
-            // the placement that names no character (the cut-rope victory NPC),
-            // a prepared character with no body blueprint, and an id nobody
-            // prepared (reported as a content error). It used to take the
-            // ruleset's actor default, so an anonymous NPC was handed a jump, a
-            // double jump and an attack no author stated. A test fixture that
-            // wants a walking anonymous NPC states that body itself.
+            // ⛔ A BODY GETS WHAT WAS AUTHORED FOR IT, AND NOTHING ELSE. A
+            // character that can carry a body took `new_character_in` above;
+            // this road serves three populations that are NOT alike. A prepared
+            // character with no body blueprint lacks only `locomotion`, and may
+            // well author its abilities (the Hall's `mary_o`/`sanic` state
+            // `RunJump`), so it gets exactly those. The placement that names no
+            // character (the cut-rope victory NPC) and an id nobody prepared
+            // (reported as a content error) have no author, so they get NONE —
+            // never the ruleset's actor default, which handed an anonymous NPC
+            // a jump, a double jump and an attack.
             body: ActorBody::from_abilities(
-                ambition_platformer2d_core::AbilitySet::NONE,
+                prepared_character
+                    .and_then(|prepared| prepared.abilities)
+                    .unwrap_or(ambition_platformer2d_core::AbilitySet::NONE),
                 is_aerial,
                 collision_size,
             ),

@@ -256,7 +256,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "FeatureEcsWorldOverlay": (
         "crates/ambition_encounter_features/src/lock_walls.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs",
-        "crates/ambition_platformer2d_actor_monolith/src/world/overlay.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_overlay.rs",
         "game/ambition_content/src/bosses/gnu_ton.rs",
         "game/ambition_content/src/falling_sand.rs",
         "game/ambition_content/src/falling_sand_sim.rs",
@@ -1998,7 +1998,7 @@ ADJUDICATED: dict[str, str] = {
     "FeatureEcsWorldOverlay": (
         "CORRECT — ONE REBUILDER, EIGHT CONTRIBUTORS AND A FIELD SPLIT THE "
         "COMPILER ENFORCES. `rebuild_feature_ecs_world_overlay` "
-        "(`actor_monolith/src/world/overlay.rs`) calls "
+        "(`actor_monolith/src/features/ecs/world_overlay.rs`) calls "
         "`clear_engine_contributions` in `FeatureWorldOverlaySet`, and every "
         "contributor carries an explicit `.after(FeatureWorldOverlaySet)` edge — "
         "verified per registration 2026-09-18: `contribute_encounter_lock_walls` "

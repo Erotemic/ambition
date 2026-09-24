@@ -1451,7 +1451,7 @@ fn a_room_that_fails_verification_is_not_published() {
 
     let verification = app
         .world()
-        .resource::<crate::features::LastConstructionVerification>()
+        .resource::<crate::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         !verification.published,
@@ -1484,7 +1484,7 @@ fn the_same_room_publishes_once_its_relation_lands() {
 
     let verification = app
         .world()
-        .resource::<crate::features::LastConstructionVerification>()
+        .resource::<crate::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         verification.violations.is_empty(),

@@ -11,7 +11,6 @@
 
 pub mod authored_switch_commands;
 pub mod gated_lock_walls;
-pub mod overlay;
 pub mod physics;
 pub mod platforms;
 pub mod rooms;

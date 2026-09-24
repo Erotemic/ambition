@@ -166,7 +166,7 @@ components, not destructible state, and are counted nowhere above.
 ## Readers — measured, and NOT writers
 
 `damage_predicates.rs`, `projectile/systems.rs`, `projectile/intercept.rs`,
-`world/physics.rs`, `world/overlay.rs`, `features/ecs/anim_helpers.rs`,
+`world/physics.rs`, `features/ecs/world_overlay.rs`, `features/ecs/anim_helpers.rs`,
 `construction/mod.rs`, `world/rooms/reconstitution.rs`, `features/ecs/summon.rs`,
 `features/ecs/damage/boss_hit.rs`.
 
@@ -281,7 +281,7 @@ surface are the same rectangle for structural reasons rather than by coincidence
 — and that is exactly the kind of agreement that stays true until somebody
 offsets one, silently and asymmetrically. ⇒ Guarded now, and poison-verified by a
 3px offset:
-`world/overlay.rs::breakable_geometry_agreement`.
+`features/ecs/world_overlay.rs::breakable_geometry_agreement`.
 
 ⚠ **THE ELIGIBILITY PREDICATES DELIBERATELY DIVERGE, AND THE GUARD DOES NOT TOUCH
 THAT.** The two systems answer different questions:

@@ -14,13 +14,6 @@ use bevy::prelude::*;
 use ambition_combat::*;
 
 
-/// The set `rebuild_feature_ecs_world_overlay` runs in.
-///
-/// ⭐ MOVED DOWN to `shared_tangle::schedule` (2026-09-03, the encounter seam
-/// design): five ordering edges outside this crate already named it, and two
-/// more crates described it in prose because they could not. Its rationale —
-/// including WHY it stays a one-member set — lives with the definition now.
-pub use ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet;
 
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,

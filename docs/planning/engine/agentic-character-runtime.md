@@ -2,120 +2,34 @@
 
 **State:** OPEN / LATER — architecture direction is useful now; implementation should wait for actor/navigation/world-fact foundations.
 
-> **RE-MEASURED against `3c3b0d695` (2026-09-03) and re-checked 2026-09-17: TWO
-> of the three stated foundations EXIST, and the wait is gated on exactly one.
-> ⚠ Every line number in this block moved in two weeks and none of the facts
-> did** — the four types are where they were, under different line numbers, which
-> is the ordinary way a citation rots.
->
-> | foundation | state |
-> |---|---|
-> | world facts | ✔ **exists** — `world_facts` module and `WorldFactConditionsPlugin` (`crates/ambition_platformer2d_actor_monolith/src/world_facts.rs:187`), installed by `ambition_platformer2d_runtime` |
-> | observations / memory | ✔ **exists** — `WorldMemory` (`crates/ambition_characters/src/perception.rs:785`), `PerceptionMemory` (`crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:457`), plus `AgentObservation` / `CombatObservation` in the sim harness |
-> | navigation / reachability | ⛔ **absent** — no reachability type, no nav graph, no pathfinding of any kind |
->
-> ⇒ **So "wait for the foundations" now means "wait for navigation".** The other
-> two arrived without this page noticing, and a reader deciding whether to start
-> would have been told to wait for three things when two are already here. Owner
-> of the remaining one:
-> [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md).
->
-> ⚠ **The absence was double-checked, because it is the load-bearing half.** A
-> broad `reachab` grep returns only incidental English (`unreachable!`, "not
-> reachable in today's content"), and a `pathfind|a_star|astar|navmesh` sweep
-> returned nothing but SUBSTRING noise — `a_star` matching
-> `the_visual_follows_a_restored_set_instead_of_remembering_a_start` and
-> `EXTRA_STARTUP`. A pattern that matches
-> inside unrelated identifiers is not evidence either way, which is why the
-> conclusion rests on the concept sweep and not on that one.
->
-> ⛔ **RE-CHECKED 2026-09-17, AND THE NEAR-MISSES ARE NAMED SO THE NEXT SWEEP DOES
-> NOT RE-FIND THEM AS EVIDENCE.** `ambition_entity_catalog`'s
-> `reachable_from_start` / `reaches_finish` are a real reachability algorithm over
-> an AUTHORED FLOW GRAPH — the branch validator — and `rollback_ggrs`'s session
-> module computes reachability over the SYSTEM DEPENDENCY graph. Neither is world
-> navigation. And `SolidKind`'s *"coarse reachability test"* is the closest real
-> thing: the fighter's recovery reasoning (`ambition_combat/src/brain/fighter/recovery.rs`)
-> turns each perceived kind into an `ae::Block` and lets `OneWay` be passable —
-> movement reasoning over PERCEIVED LOCAL TERRAIN, one body, one recovery, no
-> graph and no route. ⇒ The absence holds as stated: no reachability type over
-> world geometry, no nav graph, no pathfinding.
+## Current state (checked 2026-09-17)
 
-> **RE-MEASURED AGAIN against `4149f26b6` (2026-09-03), one layer at a time
-> rather than one foundation at a time — and the diagram below is half built.**
->
-> | layer in the diagram | state |
-> |---|---|
-> | authoritative world + actor facts | ✔ exists (`world_facts`, above) |
-> | observations / memory / goals | ◐ observations and memory exist (above); **goals do not** |
-> | planner or policy | ⛔ **exists but is CLOSED — see below** |
-> | typed engine action intent | ✔ **exists and is live** |
-> | ordinary actor/control/interact systems | ✔ consume it today |
->
-> ⭐ **THE ACTION SEAM IS NOT ASPIRATIONAL.** `ActionRequest`
-> (`ambition_characters/src/brain/action_set/mod.rs:1368`), carried by
-> `ActorActionMessage`, is consumed in production by the traversal abilities
-> (`abilities/traversal/{flyline.rs,trapdoor.rs,teleport.rs}`), by
-> `features/ecs/brain_effects.rs` and by `ambition_held_items/src/lib.rs`.
-> ✔ **The stale comment this row reported is FIXED.** It described itself as *"the
-> *shape* of the resolver output"* pending wiring that had already landed; it now
-> says so in situ, with this page's own misreading recorded beside it as what the
-> staleness cost.
-> ⇒ **The requirement "typed action vocabulary rather than free-form mutation"
-> is already met**, which is worth knowing before anyone designs it again.
->
-> ⛔ **BUT THE POLICY LAYER ABOVE IT IS A CLOSED ENUM, AND THAT IS A SECOND GATE
-> THIS PAGE DOES NOT NAME.** `CharacterBrainTemplate`
-> (`crates/ambition_characters/src/brain/mod.rs:406`) has nine variants — re-derived
-> 2026-09-17, and the NAMES are unchanged, which is the durable form of this
-> claim — `StandStill`,
-> `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,
-> `Aerial`, `Fighter` — with **no trait object, no registry and no `Custom`
-> arm**. So a new policy provider is a new variant *inside*
-> `ambition_characters`.
->
-> ⇒ That directly contradicts two of this page's own requirements. "LLM-backed
-> reasoning, scripted planners, utility AI and deterministic fallback brains
-> should be interchangeable policy providers above the same action seam" is not
-> satisfiable as the types stand, and "no dependency from low-level actor/world
-> crates on an LLM service" cannot be honoured by *any* separate adapter crate:
-> the adapter cannot supply a brain without editing the low-level crate that
-> owns the enum.
->
-> ⇒ **So "wait for navigation" is not the whole wait.** Navigation is owned
-> ([`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md)).
-> The policy seam is not. ⓘ
-> [`control-authority-and-ai-policy.md`](control-authority-and-ai-policy.md)
-> knows this enum. ⚠ **It no longer tracks moving `Smash` and `Fighter` out of
-> the crate, and this sentence said it did** — the BEHAVIOUR left on 2026-08-27,
-> and the remaining 2,255 non-test lines of data are ⊘ WITHDRAWN as a carve by
-> that page's DECIDED section, because every shape that could move them either
-> needs a runtime registry or makes a mount system link a combat crate. That
-> strengthens the point being made here rather than weakening it: a carve that
-> relocates two variants would have left the enum exactly as closed as it is
-> now, and the carve is not even available. Opening the seam is
-> unowned work, and unlike navigation it is cheap to prototype: it changes a
-> type, not a subsystem.
->
-> ⚠ **AND THERE IS A `Custom` ARM THAT LOOKS LIKE THE ESCAPE HATCH AND IS NOT.**
-> This was nearly recorded wrongly, so it is worth stating plainly: the workspace
-> has **two** brain vocabularies, and the exhaustive matches outside
-> `ambition_characters` are almost all on the other one.
->
-> | type | shape | role |
-> |---|---|---|
-> | `entity_catalog::placements::CharacterBrain` | **open** — has `Custom(String)` | what a LEVEL authors on a spawn |
-> | `ambition_characters::brain::CharacterBrainTemplate` | **closed** — nine variants | what the runtime actually runs |
->
-> The authored `Custom(String)` names a character archetype, not a behaviour —
-> e.g. `CharacterBrain::Custom("giant_gnu_hands")`
-> (`actor_monolith/src/construction/mod.rs:1832`) — and the archetype it names
-> carries a `BrainProfile` whose `template` field
-> (`ambition_characters/src/brain/profile.rs:111`) is one of the same nine.
-> ⇒ **So the string-keyed openness is an AUTHORING indirection that resolves back
-> into the closed set.** It lets content name a new creature; it does not let
-> anything supply a new policy. Anyone sizing this work by grepping for `Custom`
-> will conclude the seam is already open, and it is not.
+| layer | state |
+|---|---|
+| authoritative world and actor facts | exists: `world_facts`, `WorldFactConditionsPlugin` |
+| observations and memory | exist: `WorldMemory`, `PerceptionMemory`, `AgentObservation`, `CombatObservation` |
+| goals | absent |
+| navigation and reachability over world geometry | absent; owner: [`platformer-navigation-and-reachability.md`](platformer-navigation-and-reachability.md) |
+| planner or policy | exists but closed (see below) |
+| typed engine action intent | exists and is live: `ActionRequest` in `ActorActionMessage`, consumed by traversal abilities, `brain_effects.rs` and `ambition_held_items` |
+
+The implementation waits for two things, not one:
+
+1. **Navigation.** The reachability code that exists is not world navigation:
+   `reachable_from_start` / `reaches_finish` in `ambition_entity_catalog` walk
+   an authored flow graph, the rollback session walks the system dependency
+   graph, and the fighter recovery code reasons over local perceived terrain.
+2. **An open policy seam.** `CharacterBrainTemplate`
+   (`crates/ambition_characters/src/brain/mod.rs`) is a closed enum of nine
+   variants (`StandStill`, `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`,
+   `ChargeCrash`, `Smash`, `Aerial`, `Fighter`) with no trait object, registry
+   or `Custom` arm. A new policy provider must therefore edit
+   `ambition_characters`, and an LLM adapter crate cannot supply a brain. No
+   plan owns this work; it changes a type, not a subsystem.
+
+`entity_catalog::placements::CharacterBrain::Custom(String)` is not that seam.
+It names a character archetype, whose `BrainProfile.template` resolves back to
+one of the nine variants.
 
 ## Goal
 

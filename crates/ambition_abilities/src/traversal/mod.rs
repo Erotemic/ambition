@@ -1,9 +1,8 @@
 //! Traversal abilities a held item FIRES: blink, dive, grapple, mark/recall.
 //!
-//! ⛔ Possession, teleport, trapdoor and flyline are NOT here. They share the
-//! kernel's `abilities/traversal/` directory and nothing else: they are
-//! runtime-registered control authority, not wielded verbs. The crate header
-//! carries the measurement.
+//! Possession, teleport, trapdoor, and flyline are not here. They share the
+//! kernel's `abilities/traversal/` directory, but they are runtime-registered
+//! control authority, not wielded verbs. See the crate header.
 
 pub mod blink;
 pub mod dive;

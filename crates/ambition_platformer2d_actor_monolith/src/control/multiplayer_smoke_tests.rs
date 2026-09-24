@@ -1,5 +1,5 @@
 //! Multi-player smoke tests: spawn two player entities and assert their
-//! per-player components (attacks, safety anchors) plus slot-owned input, and the
+//! per-player components (safety anchors) plus slot-owned input, and the
 //! singleton queries / heal routing stay independent and correct.
 
 // ⚠ NAMED HERE NOW. This file is `#[path]`-included from `components.rs`, which
@@ -7,84 +7,12 @@
 // `LocalPlayer` moved to the floor crate and left the module with nothing else.
 use bevy::prelude::*;
 
-use ambition_combat::BodyMelee;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_characters::control::PlayerSlot;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
-
-fn dummy_attack_spec() -> ambition_combat::AttackSpec {
-    // Construct via the live `attack_spec` builder; a minimal Player
-    // is enough — only the `intent` field is meaningful for these
-    // tests, and the builder gives us a well-formed spec with
-    // non-zero timings so the `MeleeSwing::done()` path
-    // doesn't short-circuit.
-    let world = ae::World::new(
-        "smoke",
-        ae::Vec2::new(1000.0, 1000.0),
-        ae::Vec2::new(100.0, 900.0),
-        vec![],
-    );
-    let scratch = crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
-    let view = ambition_combat::AttackView {
-        pos: scratch.kinematics.pos,
-        size: scratch.kinematics.size,
-        facing: scratch.kinematics.facing,
-        on_ground: scratch.ground.on_ground,
-        wall_clinging: scratch.axis().wall_clinging,
-        dashing: scratch.axis().dash_timer > 0.0,
-        abilities_directional_primary: scratch.abilities.abilities.directional_primary,
-    };
-    ambition_combat::attack_spec_from_view(&view, ambition_combat::AttackIntent::Forward)
-}
-
-/// Two player entities each carry their own `BodyMelee`, so a swing on one player does not silently
-/// affect the other.
-#[test]
-fn two_players_have_independent_active_attacks() {
-    let mut app = App::new();
-    let p1 = app
-        .world_mut()
-        .spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyMelee::default(),
-        ))
-        .id();
-    let p2 = app
-        .world_mut()
-        .spawn((PlayerEntity, BodyMelee::default()))
-        .id();
-
-    // Start an attack on player 1 only.
-    let attack_spec = dummy_attack_spec();
-    app.world_mut()
-        .entity_mut(p1)
-        .get_mut::<BodyMelee>()
-        .expect("p1 has the component")
-        .swing = Some(ambition_combat::components::MeleeSwing::new(attack_spec));
-
-    let p1_attack = app
-        .world()
-        .entity(p1)
-        .get::<BodyMelee>()
-        .expect("p1 has the component");
-    let p2_attack = app
-        .world()
-        .entity(p2)
-        .get::<BodyMelee>()
-        .expect("p2 has the component");
-
-    assert!(p1_attack.is_swinging(), "p1 should be mid-attack");
-    assert!(
-        !p2_attack.is_swinging(),
-        "p2's attack must not pick up p1's swing — that's the whole \
-             point of moving CurrentPlayerAttack onto the player entity \
-             (OVERNIGHT-TODO #17.4)"
-    );
-}
 
 /// Two players each carry their own `PlayerSafetyState`; updating
 /// one player's safe position must not move the other player's
@@ -183,55 +111,6 @@ fn player_entity_query_iterates_all_spawned_players() {
     let mut expected: Vec<String> = (0..3).map(|n| SimId::player_slot(n).as_str().to_string()).collect();
     expected.sort_unstable();
     assert_eq!(ids, expected);
-}
-
-/// `BodyMelee::clear` zeroes the attack on its own
-/// entity without touching sibling players.
-#[test]
-fn clear_is_per_entity() {
-    let mut app = App::new();
-    let attack_spec = dummy_attack_spec();
-    let p1 = app
-        .world_mut()
-        .spawn((
-            PlayerEntity,
-            BodyMelee {
-                swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec.clone())),
-                ..Default::default()
-            },
-        ))
-        .id();
-    let p2 = app
-        .world_mut()
-        .spawn((
-            PlayerEntity,
-            BodyMelee {
-                swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec)),
-                ..Default::default()
-            },
-        ))
-        .id();
-
-    app.world_mut()
-        .entity_mut(p1)
-        .get_mut::<BodyMelee>()
-        .unwrap()
-        .clear();
-
-    assert!(!app
-        .world()
-        .entity(p1)
-        .get::<BodyMelee>()
-        .unwrap()
-        .is_swinging());
-    assert!(
-        app.world()
-            .entity(p2)
-            .get::<BodyMelee>()
-            .unwrap()
-            .is_swinging(),
-        "clearing p1's attack must not touch p2's component"
-    );
 }
 
 /// A `PlayerHealRequested` carrying `target: Some(p2)` heals p2,

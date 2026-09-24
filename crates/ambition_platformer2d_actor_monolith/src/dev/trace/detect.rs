@@ -191,8 +191,8 @@ pub fn build_frame(
     life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    // AC3.1.B: the melee AUTHORITY.
-    melee: &ambition_combat::BodyMelee,
+    // Whether the body is mid-swing, from its live move (`melee_swing_of`).
+    swinging: bool,
     clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
@@ -244,7 +244,7 @@ pub fn build_frame(
             resets: life.resets,
             wall_normal_x: clusters.wall.wall_normal_x,
             ledge_grabbing: facts.ledge.is_some(),
-            attacking: melee.is_swinging(),
+            attacking: swinging,
             hitstun_timer: combat.hitstun_timer,
             damage_invuln_timer: combat.damage_invuln_timer,
             attack_ability_enabled: clusters.abilities.abilities.attack,

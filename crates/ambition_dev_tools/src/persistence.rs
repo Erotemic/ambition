@@ -73,10 +73,8 @@ pub fn save_developer(path: &Path, developer: &DeveloperTools) -> std::io::Resul
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_developer_at_startup(
     mut developer: ResMut<DeveloperTools>,
-    // Same App-owned root the settings and save use: a windowless host writes
-    // its own directory rather than the user's. `developer.ron` was the file
-    // that kept moving after the other two stopped, because this system resolved
-    // the path from the environment on its own.
+    // Use the same App-owned root as settings and saves, not the environment, so
+    // a windowless host writes its own directory, not the user's.
     root: Res<ambition_persistence::PersistenceRoot>,
 ) {
     let path = developer_path_under(&root.0);

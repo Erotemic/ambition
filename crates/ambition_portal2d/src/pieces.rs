@@ -4,37 +4,29 @@
 //! > portal-aware spatial pieces. Every system that asks "where is this thing?"
 //! > uses those pieces instead of the raw body AABB.
 //!
-//! A portal pair topologically glues two parts of the world together. A body
-//! straddling a portal plane is ONE logical object with TWO spatial pieces: the
-//! part still on the entry side (`here`), and the part that has crossed the
-//! plane, mapped through to emerge from the linked exit portal (`through`).
+//! A portal pair joins two parts of the world. A body that straddles a portal
+//! plane is one object with two pieces: the part on the entry side (`here`),
+//! and the part that crossed, mapped to the exit portal (`through`).
 //!
-//! This module is the pure, deterministic, allocation-light heart of that math:
-//! the portal map (point / AABB / velocity), half-space clipping, the
-//! piece-decomposition ([`compute_body_pieces`]), and the host-surface carve
-//! HOLE ([`carve_hole`] — the rectangle set-difference it feeds is
-//! `ambition_platformer2d_core::geometry::subtract_aabb`, plain AABB algebra that lives
-//! in the foundation). It has no ECS, no Bevy systems, no RNG — so the headless
-//! sim and the unit tests exercise the exact same geometry the game runs.
+//! This module holds the pure, deterministic math: the portal map (point,
+//! AABB, velocity), half-space clipping, the piece decomposition
+//! ([`compute_body_pieces`]), and the carve hole ([`carve_hole`]; the
+//! rectangle subtraction is `ambition_platformer2d_core::geometry::subtract_aabb`).
+//! It has no ECS and no RNG, so headless sims and tests use the same geometry
+//! as the game.
 //!
-//! Current implementation note: gameplay pieces are still AABB-backed, so production use is
-//! restricted to cardinal floor / wall / ceiling portals.
+//! Pieces are AABBs, so production use is limited to cardinal floor, wall,
+//! and ceiling portals.
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
 
-// The engine-level aperture vocabulary (CC5): the frame type and pair map live
-// in `ambition_platformer2d_core::frame`; this module builds the AABB piece/carve
-// geometry ON them.
+// The frame and aperture types live in `ambition_platformer2d_core::frame`.
 pub use ambition_platformer2d_core::frame::{PortalAperture, PortalFrame};
 
-// The pure portal-map vector math (orientation-between-two-normals transforms)
-// lives in the content-free `ambition_platformer2d_shared_tangle` crate (delegating
-// to `engine_core::frame`), including the game-wide convention dispatch.
-// Re-export it here so portal_pieces' AABB/piece geometry and every other
-// in-sandbox user (world_overlay, debug_overlay, portal/*) keep referencing
-// `crate::pieces::{portal_rotation, rotate, portal_tangent,
-// portal_map_vec}` unchanged.
+// The portal-map vector math lives in `ambition_platformer2d_shared_tangle`.
+// Re-exported so users can keep referencing `crate::pieces::{portal_rotation,
+// rotate, portal_tangent, portal_map_vec}`.
 pub use ambition_platformer2d_shared_tangle::math::{
     portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, portal_rotation,
     portal_tangent, rotate, MapConvention,
@@ -91,8 +83,8 @@ pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
     ae::geometry::aabb_from_min_max(x0, y0, x1, y1)
 }
 
-/// Clip `b` laterally to a portal's opening span (so a body wider than the
-/// aperture only shows the slice that fits through the doorway).
+/// Clip `b` laterally to a portal's opening span, so a body wider than the
+/// aperture shows only the slice that fits through.
 fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
     let along = ap.frame.tangent();
     let half = ap.half_length;
@@ -129,8 +121,8 @@ pub struct ThroughPiece {
 /// straddled portal. Their union reconstructs the whole body across two charts.
 #[derive(Clone, Copy, Debug)]
 pub struct BodyPieces {
-    /// The piece on the body's authoritative side — clipped to the front of the
-    /// straddled portal when mid-transit, else the whole body.
+    /// The piece on the body's own side: clipped to the front of the straddled
+    /// portal when mid-transit, else the whole body.
     pub here: ae::Aabb,
     /// The piece that has crossed the portal plane, mapped to the exit side.
     /// `None` when the body straddles no portal.
@@ -172,10 +164,9 @@ pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
 /// maps the crossed slice through to the linked exit as `through`. If the body
 /// straddles neither portal, returns the whole body.
 ///
-/// Direction-agnostic: it works the same before the centroid crosses (body on
-/// the entry side, trailing nothing) and after (body on the exit side, its
-/// trailing slice mapped back to the entry) — whichever plane it currently
-/// straddles is the "entry" for the decomposition.
+/// Works in both directions: before the centroid crosses and after it (the
+/// trailing slice maps back to the entry). The plane the body straddles now
+/// is the "entry".
 pub fn compute_body_pieces(
     body: ae::Aabb,
     pair: Option<(PortalAperture, PortalAperture)>,
@@ -188,8 +179,8 @@ pub fn compute_body_pieces(
         if !straddles(body, &enter) {
             continue;
         }
-        // Front slice stays here (clipped at the plane so it never shows inside
-        // the wall); the back slice is what has crossed.
+        // The front slice stays here, clipped at the plane; the back slice has
+        // crossed.
         let here = clip_halfspace(body, enter.frame.origin, enter.frame.normal).unwrap_or(body);
         let through = clip_halfspace(body, enter.frame.origin, -enter.frame.normal)
             .map(|back| map_aabb(back, &enter.frame, &exit.frame, convention))
@@ -205,8 +196,8 @@ pub fn compute_body_pieces(
 
 /// Signed distance of `point` from `frame`'s plane along its outward normal:
 /// positive = in front (room side), negative = behind (into the wall). The
-/// centroid transfer fires when this changes sign. (This IS
-/// `frame.to_local(point).y` — kept as the named domain verb.)
+/// centroid transfer fires when this changes sign. Same as
+/// `frame.to_local(point).y`.
 pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
     (point - frame.origin).dot(frame.normal)
 }
@@ -214,27 +205,22 @@ pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
 // ---------------------------------------------------------------------------
 // Host-surface carve: the floor / wall must become non-solid in the opening.
 //
-// The rectangle set-difference itself is `ae::geometry::subtract_aabb` — plain AABB algebra, so
-// it lives in the foundation (refactor-chain R3). The portal-specific part — how deep and how
-// wide the hole is — is below.
+// The rectangle subtraction is `ae::geometry::subtract_aabb`. The hole size
+// is below.
 
-/// How deep (px) into the host surface a portal carves its doorway. Just past a
-/// body's half-depth so the leading slice can sink in up to the centroid before
-/// the transfer fires; small enough that it never punches through to far-side
-/// geometry on a thick wall.
+/// How deep (px) into the host surface a portal carves its doorway. Just past
+/// a body's half-depth, so the body can sink to its centroid before the
+/// transfer, but not through a thick wall.
 pub const CARVE_DEPTH: f32 = 60.0;
 
-/// How far OUTWARD of the portal face (px) the carve also reaches. A portal
-/// authored on a surface can land a few px off the grid-snapped collision edge
-/// (e.g. a floor whose IntGrid top is y=896 but the portal face is y=900); the
-/// carve must reach back across that gap or a thin solid LIP survives in the
-/// opening and the body rests on it instead of sinking in. One grid cell covers
-/// any realistic snap; for a floor it only removes the lip (open room is above).
+/// How far outward of the portal face (px) the carve also reaches. An
+/// authored portal can sit a few px off the grid-snapped collision edge (e.g.
+/// IntGrid top y=896, face y=900). Without this, a thin solid lip stays in the
+/// opening and the body rests on it. One grid cell covers any snap.
 pub const SURFACE_GRACE: f32 = 16.0;
 
-/// The carve hole for a portal: the opening width along the surface, cut from a
-/// little OUTWARD of the face ([`SURFACE_GRACE`], to clear any grid-snap lip)
-/// through [`CARVE_DEPTH`] inward.
+/// The carve hole for a portal: the opening width along the surface, from
+/// [`SURFACE_GRACE`] outside the face to [`CARVE_DEPTH`] inside it.
 pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
     carve_hole_with_depth(ap, f32::INFINITY)
 }

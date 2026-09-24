@@ -3,20 +3,16 @@
 //! `cargo run -p ambition_demo_smash_app --bin smash_tool -- select-walkthrough`
 //!
 //! Drives the real screen with a real cursor and real button presses, and
-//! prints what it says after each one — through the SAME functions the cards
-//! render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`), so
-//! this cannot show a screen the player would not see.
+//! prints what it says after each one, through the same functions the cards
+//! render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`).
 //!
-//! the geometry is real too. `select_screen::layout` is a pure function
-//! of the viewport, so a headless app lays the screen out against
-//! `HEADLESS_VIEWPORT` and the cursor lands on the same rectangles a windowed
-//! build would draw. That is what lets a text walkthrough click a BUTTON rather
-//! than reach into the decision and set the answer — reaching into the answer is
-//! how this screen once came to be fully unit-tested and completely inert.
+//! `select_screen::layout` is a pure function of the viewport, so a headless
+//! app lays the screen out against `HEADLESS_VIEWPORT` and the cursor lands
+//! on the rectangles a windowed build draws. So the walkthrough clicks
+//! buttons instead of setting the decision directly.
 //!
-//! It is text rather than pixels on purpose: `capture_scene --route smash_select`
-//! photographs the real thing, and this prints what the screen BELIEVES, which a
-//! photograph cannot.
+//! Text, not pixels: `capture_scene --route smash_select` photographs the
+//! screen; this prints what the screen believes.
 
 use ambition_demo_smash::select::{SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use ambition_demo_smash::select_screen::cursor::SelectCursors;
@@ -52,13 +48,8 @@ pub fn run() {
     // Human hands can select portraits directly. The CPU has no hand, so P1
     // borrows its token to choose that card's fighter.
     //
-    // ⛔⛔ THE CARDS ARE DERIVED, NOT SPELLED. These were the literals `4`, `0`
-    // and `6`, and the demo shell's own catalog carries three fighters — so the
-    // walkthrough asked the layout for a portrait cell that does not exist and
-    // died on `expect("an authored portrait")`, naming ART for what was an INDEX.
-    // A roster is content and changes; a tap written by eye against yesterday's
-    // grid is a tool that breaks the first time somebody adds or removes a
-    // fighter. Spread across whatever is actually there instead.
+    // Derive the cards from the roster; do not spell indices. The catalog's
+    // fighter count is content and changes.
     let cards = fighters.len();
     assert!(
         cards >= 2,

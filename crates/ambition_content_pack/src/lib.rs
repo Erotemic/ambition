@@ -165,9 +165,8 @@ pub fn compile(
     let mut prepared_sources: Vec<Source> = Vec::new();
     let mut facet_requirements: BTreeSet<CapabilityId> = BTreeSet::new();
     let mut defining_schemas: BTreeSet<SchemaId> = BTreeSet::new();
-    //  EVERY fragment, in DECLARED order — not the first, and not the last.
-    // Which of them becomes the runtime artifact is the aggregation stage's
-    // question, and it cannot be answered while only one source has been read.
+    // Keep every fragment, in declared order. The aggregation stage decides
+    // which becomes the runtime artifact, after all sources are read.
     let mut fragments: BTreeMap<SchemaId, Vec<(String, std::sync::Arc<dyn std::any::Any + Send + Sync>)>> =
         BTreeMap::new();
 
@@ -277,20 +276,13 @@ pub fn compile(
         }
     }
 
-    //  WHAT A SCHEMA LOWERS MUST ALSO BE DEFINED, or it is invisible to the
-    // pack's IDENTITY.
+    // A schema that lowers must also define, or it is invisible to the pack's
+    // identity. `canonical_bytes` is built from `define`d rows, so a lowering
+    // schema with no content would not move the fingerprint, which breaks cache
+    // invalidation, packaging, session compatibility and peer comparison.
     //
-    // `canonical_bytes` is built from `define`d rows, so a schema that lowers a
-    // runtime artifact and declares no content contributes NOTHING to the
-    // fingerprint: its authored values can change the running game while the
-    // pack reports the same identity. That defeats cache invalidation, packaging,
-    // session compatibility, and peer-content comparison.
-    //
-    //  this checks the LINK, not the CONTENT of the canonical form. A handler
-    // can still define a row whose canonical string omits the field it lowered,
-    // and no compiler check can see that. What this removes is the whole silent
-    // CLASS — lowering with no identity at all — so the remaining mistake has to
-    // be made one field at a time, in a canonical form somebody wrote on purpose.
+    // This checks the link, not the canonical form. A handler can still define a
+    // row whose canonical string omits a lowered field.
     for schema in fragments.keys() {
         if !defining_schemas.contains(schema) && !diagnostics.iter().any(Diagnostic::is_error) {
             diagnostics.push(

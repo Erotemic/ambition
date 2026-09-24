@@ -1,28 +1,25 @@
-//! `SwingShape` — the ORIENTED shape of a swing, as presentation needs it.
+//! `SwingShape`: the oriented shape of a swing, as presentation needs it.
 //!
-//! A [`CombatVolume`] answers "does this overlap that". A slash effect needs a
-//! different question answered: *where does the swing start, which way does it
-//! go, how far, and how wide is it at each end.* Those are the numbers the
-//! sprite generator authors a blade arc from (`cone(origin, dir, length,
-//! near_w, far_w)`), and until this type existed there was no way to carry them
+//! A [`CombatVolume`] answers "does this overlap that". A slash effect needs
+//! where the swing starts, which way it goes, how far, and how wide it is at
+//! each end. The sprite generator authors a blade arc from those numbers
+//! (`cone(origin, dir, length, near_w, far_w)`), and this type carries them
 //! from the damage volume to the effect that draws it.
 //!
 //! ## Why a projection and not the hull itself
 //!
-//! The renderer draws a sprite, and a sprite is a quad; handed a hull it would
-//! derive exactly these numbers to place one. Carrying the projection keeps the
-//! cue `Copy` and small, keeps hull math in one place, and stays forward
-//! compatible: a future mesh path builds a conforming cone from the SAME five
-//! numbers with no change to the message.
+//! The renderer draws a quad and would derive these numbers from a hull
+//! anyway. The projection keeps the cue `Copy` and small, keeps hull math in
+//! one place, and lets a future mesh path build a cone from the same five
+//! numbers with no message change.
 
 use crate::{AabbExt, CombatVolume, Vec2};
 
 /// The oriented extent of a swing, world space.
 ///
-/// Deliberately NOT a rectangle: a swing that flares (every blade arc in the
-/// game) is a trapezoid, and an oriented rectangle is the degenerate case where
-/// `near_half == far_half`. Presentation that only wants a box takes
-/// [`SwingShape::oriented_bounds`].
+/// Not a rectangle: a flaring swing (every blade arc) is a trapezoid, and an
+/// oriented rectangle is the case `near_half == far_half`. Presentation that
+/// wants a box uses [`SwingShape::oriented_bounds`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SwingShape {
     /// A directional sweep: from `origin`, along unit `dir`, for `length`, with
@@ -36,15 +33,14 @@ pub enum SwingShape {
         near_half: f32,
         far_half: f32,
     },
-    /// A body-centred sweep with no forward axis — the aerial-neutral spin that
-    /// goes all the way around. This is NOT a degenerate `Sweep`: a sweep has a
-    /// direction and a radial swing does not, and collapsing the two would make
-    /// the renderer guess an orientation for a shape that has none.
+    /// A body-centered swing with no forward axis: the aerial-neutral spin.
+    /// Not a degenerate `Sweep`: a radial swing has no direction, and merging
+    /// the two would make the renderer guess an orientation.
     Radial { center: Vec2, radius: Vec2 },
 }
 
 impl SwingShape {
-    /// The centre of the swept region — where a quad drawn for this shape sits.
+    /// The center of the swept region: where a quad for this shape sits.
     pub fn center(&self) -> Vec2 {
         match self {
             SwingShape::Sweep {
@@ -57,11 +53,9 @@ impl SwingShape {
         }
     }
 
-    /// Half-extents of the swing in its OWN frame: `x` along the swing axis,
-    /// `y` across it. For a radial swing the frame is world-axis-aligned.
-    ///
-    /// This is what a quad-drawing renderer wants; it takes the WIDER end, so
-    /// the quad contains the whole sweep rather than clipping the flare.
+    /// Half-extents in the swing's own frame: `x` along the swing axis, `y`
+    /// across it. For a radial swing the frame is world-axis-aligned. Uses
+    /// the wider end, so the quad contains the whole flare.
     pub fn oriented_bounds(&self) -> Vec2 {
         match self {
             SwingShape::Sweep {
@@ -85,11 +79,10 @@ impl SwingShape {
 
     /// Move the whole swing by `delta`.
     ///
-    /// The cue carries a BODY-LOCAL swing so presentation can re-place it on a
-    /// moving attacker every frame, which is what stops the drawn blade being
-    /// left behind by the damage box that tracks the body. Deriving the shape
-    /// needs the volume in the world (that is how the projection knows which end
-    /// is the handle), so the subtraction happens after.
+    /// The cue carries a body-local swing, so presentation can re-place it on
+    /// a moving attacker every frame and the drawn blade follows the damage
+    /// box. The shape is derived in world space (that is how the projection
+    /// finds the handle end), and the offset is subtracted afterwards.
     pub fn translated(&self, delta: Vec2) -> Self {
         match *self {
             SwingShape::Sweep {
@@ -112,13 +105,11 @@ impl SwingShape {
         }
     }
 
-    /// Scale the swing's EXTENT about its origin without moving or turning it.
+    /// Scale the swing's extent about its origin without moving or turning it.
     ///
-    /// This is the presentation margin — art reads better when it overshoots
-    /// the damage volume slightly. It is a separate, named step precisely
-    /// because the scalar it replaced (`SLASH_EFFECT_SCALE = 2.0`, applied to
-    /// the longer side of a bounding box) was indistinguishable from the shape
-    /// derivation itself.
+    /// This is the presentation margin: art reads better when it slightly
+    /// overshoots the damage volume. A separate named step, so it is not
+    /// mixed into the shape derivation.
     pub fn scaled(&self, factor: f32) -> Self {
         let factor = factor.max(0.0);
         match *self {
@@ -143,14 +134,13 @@ impl SwingShape {
     }
 }
 
-/// Fraction of the swing's length treated as "the near end" when measuring the
-/// width a sweep starts at. The near edge of an authored cone is a single
-/// segment, so any small window recovers the authored `near_w` exactly; the
-/// window exists so a hull with a slightly bevelled root does not report a
-/// near width of zero.
+/// Fraction of the swing's length treated as the near end when measuring the
+/// starting width. An authored cone's near edge is one segment, so any small
+/// window gives the authored `near_w`; the window stops a slightly beveled
+/// root from reporting zero width.
 const NEAR_BAND: f32 = 0.15;
 
-/// A swing axis shorter than this is not a direction, it is noise.
+/// A swing axis shorter than this is noise, not a direction.
 const MIN_AXIS_LEN: f32 = 1.0e-3;
 
 impl CombatVolume {
@@ -158,9 +148,9 @@ impl CombatVolume {
     /// attacker position `from`. Circles remain radial; other volumes use the
     /// attacker-to-centroid axis to identify the rooted end.
     ///
-    /// This axis is an approximation: vertically offset authored sweeps can tilt
-    /// toward their centroid. The exact fix is to retain the authored sweep axis
-    /// in `CombatVolume` rather than infer it from geometry.
+    /// The axis is an approximation: vertically offset authored sweeps can
+    /// tilt toward their centroid. The exact fix is to keep the authored sweep
+    /// axis in `CombatVolume` instead of inferring it.
     pub fn swing_shape(&self, from: Vec2) -> SwingShape {
         if let CombatVolume::Circle { center, radius } = self {
             return SwingShape::Radial {
@@ -170,9 +160,9 @@ impl CombatVolume {
         }
         let axis = self.center() - from;
         let Some(dir) = normalized(axis) else {
-            // Degenerate: the volume is centred on the attacker, so there is no
-            // outward direction to sweep along. Read it as radial rather than
-            // inventing a facing — this is the aerial spin's shape anyway.
+            // Degenerate: the volume is centered on the attacker, so there is
+            // no outward direction. Treat it as radial (the aerial spin's
+            // shape) instead of inventing a facing.
             let bounds = self.bounds();
             return SwingShape::Radial {
                 center: bounds.center(),
@@ -206,13 +196,13 @@ impl CombatVolume {
             dir,
             length,
             near_half,
-            // A hull whose widest station IS its near edge (a retreating wedge)
-            // would otherwise report a far end wider than the shape.
+            // A hull whose widest station is its near edge (a retreating
+            // wedge) must not report a far end wider than the shape.
             far_half: far_half.max(near_half),
         }
     }
 
-    /// World-space outline points — the corners a projection measures against.
+    /// World-space outline points: the corners a projection measures.
     fn outline(&self) -> Vec<Vec2> {
         match self {
             CombatVolume::Aabb(a) => {
@@ -230,7 +220,7 @@ impl CombatVolume {
                 rotation,
             } => crate::combat_volume::obb_corners(*center, *half, *rotation),
             CombatVolume::Convex { points, .. } => points.clone(),
-            // Unreachable in practice; the coarse box is the honest answer.
+            // Not reached in practice; the coarse box is the safe answer.
             CombatVolume::Circle { center, radius } => {
                 let h = Vec2::splat(*radius);
                 vec![
@@ -254,11 +244,10 @@ mod tests {
     use super::*;
     use crate::Aabb;
 
-    /// The protagonist's `attack_side` hull, in the body-local frame the
-    /// manifest authors it in (feet at the origin, +x forward, y down), scaled
-    /// out of frame pixels. Reproduced from
-    /// `robot_side.py::attack_hitboxes`'s `cone(...)` call so the projection is
-    /// tested against the shape an artist actually wrote.
+    /// The protagonist's `attack_side` hull in its body-local manifest frame
+    /// (feet at the origin, +x forward, y down), scaled out of frame pixels.
+    /// Copied from `robot_side.py::attack_hitboxes`'s `cone(...)` call, so the
+    /// projection is tested against the artist's shape.
     fn attack_side_hull() -> Vec<Vec2> {
         vec![
             Vec2::new(-9.18, -13.68),
@@ -283,9 +272,9 @@ mod tests {
         else {
             panic!("a forward blade arc is a sweep, not a radial swing");
         };
-        // The authored cone: origin at the near edge, length w*1.34 plus an 18%
-        // tip, near half-width h*0.22, far half-width h*0.62 — in the same
-        // pixel units the hull is written in.
+        // The authored cone: origin at the near edge, length w*1.34 plus an
+        // 18% tip, near half-width h*0.22, far half-width h*0.62, in the
+        // hull's pixel units.
         assert!(dir.x > 0.99, "swing points forward, got {dir:?}");
         assert!(
             (length - 202.39).abs() < 1.0,
@@ -302,9 +291,8 @@ mod tests {
         );
     }
 
-    /// The cue this type replaces, reproduced exactly: `slash_effect_size` took
-    /// the volume's AABB, kept its LONGER side, doubled it, and the renderer
-    /// splatted that into a square.
+    /// The old cue for comparison: `slash_effect_size` took the volume's AABB,
+    /// kept its longer side, doubled it, and the renderer drew a square.
     fn legacy_square_side(volume: &CombatVolume) -> f32 {
         ((volume.bounds().half_size() * 2.0).max_element() * 2.0).max(24.0)
     }
@@ -325,7 +313,7 @@ mod tests {
 
     #[test]
     fn the_quad_takes_the_swings_height_not_its_length() {
-        // The square could only ever be as tall as the swing is LONG.
+        // The square could only be as tall as the swing is long.
         let hull = CombatVolume::convex(attack_side_hull());
         let half = hull.swing_shape(Vec2::new(-9.18, -41.84)).oriented_bounds();
         assert!(
@@ -343,8 +331,7 @@ mod tests {
     #[test]
     fn a_rotated_swing_keeps_its_extent_while_its_bounding_box_inflates() {
         // Under non-screen-down gravity the strike hull rotates. An
-        // axis-aligned box grows for no reason; the oriented projection does
-        // not, which is the whole argument for carrying an axis at all.
+        // axis-aligned box grows; the oriented projection does not.
         let upright = CombatVolume::convex(attack_side_hull());
         let from = Vec2::new(-9.18, -41.84);
         let (sin, cos) = std::f32::consts::FRAC_PI_4.sin_cos();
@@ -360,12 +347,10 @@ mod tests {
             (upright_half - tilted_half).length() < 1.0,
             "the swing is the same swing: {upright_half:?} vs {tilted_half:?}"
         );
-        // The axis-aligned box it replaces does not have that property: the
-        // same swing, tilted, covers 20% more area for no reason. (Its LONGER
-        // side happens to shrink for this particular wedge — which is its own
-        // argument against deriving a size from one, since the number moves
-        // with the gravity frame in whichever direction the shape happens to
-        // favour.)
+        // The axis-aligned box does not have that property: the same swing,
+        // tilted, covers 20% more area. (Its longer side shrinks for this
+        // wedge, which shows that a size from one side moves with the gravity
+        // frame.)
         let area = |v: &CombatVolume| {
             let s = v.bounds().half_size() * 2.0;
             s.x * s.y
@@ -381,7 +366,7 @@ mod tests {
 
     #[test]
     fn a_plain_box_swing_reads_as_a_straight_poke() {
-        // The prefab fallback rect: 36 wide, 32 tall, centred 21.6 ahead.
+        // The prefab fallback rect: 36 wide, 32 tall, centered 21.6 ahead.
         let vol = CombatVolume::aabb(Aabb::new(Vec2::new(21.6, 0.0), Vec2::new(18.0, 16.0)));
         let SwingShape::Sweep {
             near_half,
@@ -406,7 +391,7 @@ mod tests {
             circle.swing_shape(Vec2::ZERO),
             SwingShape::Radial { .. }
         ));
-        // The aerial spin: a hull centred ON the attacker has no outward axis.
+        // The aerial spin: a hull centered on the attacker has no outward axis.
         let ring = CombatVolume::convex(vec![
             Vec2::new(30.0, 0.0),
             Vec2::new(0.0, -30.0),

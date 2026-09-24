@@ -1172,9 +1172,20 @@ mod tests {
                 .chain(),
         );
 
-        // Kit A: a striker (has melee). Pressing melee.
+        // Kit A: a striker (has melee). Pressing melee. A kit is the ActionSet AND
+        // the moveset built from it — the Attack slot is the moveset's `attack`
+        // verb, which `build_actor_moveset` folds from the melee spec.
         let mut kit_a = ActionSet::default();
         kit_a.melee = Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT));
+        let kit_a_moves = ActorMoveset(
+            ambition_characters::moveset_prefabs::build_actor_moveset(
+                None,
+                kit_a.melee.as_ref(),
+                None,
+                None,
+            )
+            .expect("a melee kit builds a moveset"),
+        );
         let mut frame = ActorControlFrame::neutral();
         frame.melee_pressed = true;
         let body = app
@@ -1185,6 +1196,7 @@ mod tests {
                 WornCharacter::new("hero"),
                 BodyAbilities::new(AbilitySet::sandbox_all()),
                 kit_a,
+                kit_a_moves,
                 ResolvedTechniqueEdges::default(),
                 ActorControl(frame),
             ))
@@ -1220,6 +1232,8 @@ mod tests {
             let mut set = app.world_mut().get_mut::<ActionSet>(body).unwrap();
             *set = ActionSet::peaceful();
         }
+        // A peaceful kit builds no moveset at all.
+        app.world_mut().entity_mut(body).remove::<ActorMoveset>();
         app.world_mut()
             .get_mut::<ActorControl>(body)
             .unwrap()

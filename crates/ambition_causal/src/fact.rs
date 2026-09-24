@@ -39,11 +39,10 @@ pub mod domains {
 }
 
 /// Which body a fact is about.
-///
-/// A raw `Entity` will not do: indices are recycled and `to_bits` ordering is
-/// a trap this repo has already been bitten by. A subject is whatever STABLE
-/// identity the publishing domain has — a `SimId` string, a seat, or a bare
-/// index when that is genuinely all there is — and the explainer joins on
+/// A raw `Entity` does not work: indices are recycled and `to_bits` ordering
+/// is unreliable. A subject is the stable identity the publishing domain has
+/// (a `SimId` string, a seat, or a bare index when nothing else exists). The
+/// explainer joins on equality.
 /// equality without caring which.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SubjectKey {

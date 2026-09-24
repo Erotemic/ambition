@@ -366,11 +366,15 @@ fn upsert(actions: &mut Vec<ActionSpec>, spec: ActionSpec) {
 
 /// Resolve combat actions from the authorities that currently execute them.
 ///
-/// Melee moves come from the moveset but require `AbilitySet::attack`; ranged and
-/// special slots may still come from `ActionSet`. Labels prefer authored moveset
-/// labels and otherwise use the verb id.
-/// TODO(compat-remove): fold ranged/special execution into the moveset resolver,
-/// then remove the `ActionSet` combat union here.
+/// Attack and Special come from the moveset alone, ceilinged by
+/// `AbilitySet::attack`: `build_actor_moveset` folds `ActionSet::melee` and
+/// `ActionSet::special` into the `attack` / `special` verbs, so asking the
+/// `ActionSet` as well was a second answer to the same question. Projectile still
+/// unions `ActionSet::ranged`, because a charging character's ranged verb is
+/// deliberately NOT a moveset verb (its `ChargesProjectiles` path fires it).
+/// Labels prefer authored moveset labels and otherwise use the verb id.
+/// TODO(compat-remove): fold charged ranged execution into the moveset resolver,
+/// then remove the last `ActionSet` term here.
 fn combat_actions(
     abilities: &AbilitySet,
     moveset: Option<&MovesetContract>,
@@ -404,8 +408,7 @@ fn combat_actions(
         }
     };
     push(
-        abilities.attack
-            && (has_directional_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some())),
+        abilities.attack && has_directional_verb(ids::ATTACK),
         ControlSlot::Attack,
         ids::ATTACK,
     );
@@ -415,9 +418,7 @@ fn combat_actions(
         ids::RANGED,
     );
     push(
-        abilities.attack
-            && (has_directional_verb(ids::SPECIAL)
-                || action_set.is_some_and(|a| a.special.is_some())),
+        abilities.attack && has_directional_verb(ids::SPECIAL),
         ControlSlot::Special,
         ids::SPECIAL,
     );
@@ -444,9 +445,10 @@ fn combat_actions(
 /// - Movement actions from the `AbilitySet` (jump/dash/blink/fly/shield).
 /// - Interact when the body's `AbilitySet` grants it. Not universal: a
 ///   restricted kit (`RunJump`) has no talk verb, so no button is drawn for one.
-/// - Combat actions unioned from the moveset AND the `ActionSet`, with the
-///   melee family (Attack / Special) CEILINGED by `AbilitySet::attack` — see
-///   [`combat_actions`] for why a table is not a permission.
+/// - Combat actions from the moveset (plus the `ActionSet`'s ranged spec for the
+///   Projectile slot), with the melee family (Attack / Special) CEILINGED by
+///   `AbilitySet::attack` — see [`combat_actions`] for why a table is not a
+///   permission.
 /// - Techniques (content-declared, already `Technique`-gated `ActionSpec`s)
 ///   are layered last and OVERRIDE any base action on the same slot.
 ///
@@ -652,6 +654,28 @@ mod tests {
                 ControlSlot::Interact,
             ]
         );
+    }
+
+    /// The moveset is the one answer for Attack and Special. An `ActionSet`
+    /// naming a melee or special its moveset does not carry is a kit whose
+    /// moveset was never built from it, and the scheme must not advertise (nor
+    /// the gate keep) a verb nothing will execute. Ranged is the exception, as
+    /// a charging character's ranged verb is not a moveset verb.
+    #[test]
+    fn attack_and_special_are_the_movesets_answer_not_the_action_sets() {
+        use crate::brain::{MeleeActionSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec};
+        let ab = abilities(|a| a.attack = true);
+        let set = ActionSet {
+            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
+            ranged: Some(RangedActionSpec::bolt(380.0, 1)),
+            special: Some(SpecialActionSpec::Special("bubble_shield".to_owned())),
+            ..Default::default()
+        };
+        let empty = moveset(&[]);
+        let scheme = derive_action_scheme(&ab, Some(&empty), Some(&set), &[]);
+        assert!(!scheme.has_slot(ControlSlot::Attack), "{:?}", slots(&scheme));
+        assert!(!scheme.has_slot(ControlSlot::Special), "{:?}", slots(&scheme));
+        assert!(scheme.has_slot(ControlSlot::Projectile));
     }
 
     #[test]

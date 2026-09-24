@@ -219,22 +219,15 @@ impl DialogState {
         self.runner_done_pending_close = false;
     }
 
-    /// ⭐⭐ **WHAT A CLOSED DIALOGUE LOOKS LIKE, IN ONE PLACE.**
+    /// The one definition of a closed dialogue.
     ///
-    /// ⛔⛔ THERE WERE THREE ANSWERS TO THAT AND NO TWO AGREED. `close` cleared
-    /// the reveal, the speech style and the whole pointer/focus group and left
-    /// `selected_option` set; the `pending_close` drain in `bridge.rs` cleared
-    /// `selected_option` and left the pointer group set; and
-    /// `confirm_or_advance`'s runner-finished branch cleared neither, hiding the
-    /// UI and leaving the rest to whichever of the other two ran next. Neither
-    /// was a superset of another, so "is this field reset on close" had no
-    /// answer, and a FOURTH ending — a cancel, a room change, an abandoned
-    /// session — would have had to reinvent one of the three.
+    /// `close`, the `pending_close` drain in `bridge.rs`, and the runner-finished
+    /// branch of `confirm_or_advance` all call this, so every road that ends a
+    /// conversation resets the same fields.
     ///
-    /// ⇒ The request half deliberately stays at the call sites: what a closed
-    /// dialogue LOOKS like is one fact, and what each road asks the runner to do
-    /// is another. `close` stashes `pending_close`, the drain has already taken
-    /// it and calls `runner.stop()`, and `confirm_or_advance` is the press that
+    /// The runner request stays at each call site: `close` stashes
+    /// `pending_close`, the drain takes it and calls `runner.stop()`, and
+    /// `confirm_or_advance` dismisses accumulated text.
     /// dismisses accumulated text.
     pub(crate) fn clear_conversation_presentation(&mut self) {
         self.active = false;
@@ -599,23 +592,15 @@ mod closed_state_tests {
     use super::*;
     use crate::context::DialogueContext;
 
-    /// ⭐⭐ **A FIELD IS A LEAK ONLY IF SOMETHING READS IT BEFORE THE NEXT WRITER
-    /// SETS IT, so this pins BOTH writers and lets the compiler keep the list.**
+    /// A field leaks only if something reads it before the next writer sets it.
+    /// This test pins both writers: close and [`DialogState::start`].
     ///
-    /// ⛔ THE EXHAUSTIVE DESTRUCTURE IS THE RATCHET, not the assertions: adding a
-    /// field to [`DialogState`] fails to compile here until somebody decides which
-    /// half it belongs to. A `..` would turn this into a description of the past.
+    /// The exhaustive destructure is the guard: a new field on [`DialogState`]
+    /// fails to compile here until someone decides which half it belongs to. Do
+    /// not add `..`.
     ///
-    /// ⛔⛤ THIS WAS RECORDED AS "not mechanical here -- eleven judgements, several
-    /// of them survives-on-purpose". The eleven was a mis-census: five of its
-    /// members ARE cleared, two that are not were missing, and the function it
-    /// named (`close_dialogue` in `bridge.rs`) does not exist. Measured, the
-    /// survivors are SIX and every one of them is rewritten by
-    /// [`DialogState::start`] -- which is the only road back to a visible
-    /// conversation. That is what made the guard mechanical.
-    ///
-    /// ⚠ EACH SURVIVOR IS NAMED WITH ITS REASON. A guard whose arms are mostly
-    /// `// intentionally kept` reads as enforcement while encoding guesses.
+    /// Each field that survives a close is rewritten by [`DialogState::start`],
+    /// the only road back to a visible conversation. Each survivor names its reason.
     #[test]
     fn every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start() {
         let mut state = DialogState::default();
@@ -654,7 +639,7 @@ mod closed_state_tests {
             pointer_armed,
             focus,
             last_pointer_position,
-            // —— the close REQUEST, which is the one thing close ADDS ——
+            // The close request; the one thing close adds.
             pending_close,
             // —— the six survivors ——
             npc_name,
@@ -695,9 +680,8 @@ mod closed_state_tests {
         // Widget-lifetime input state, cleared by `start`. It is a pointer's
         // press bookkeeping, not a fact about a conversation.
         let _ = row_press;
-        // A request for the NEXT dialogue. Clearing it here would drop the
-        // conversation about to begin -- this is the field that makes "reset
-        // everything on close" the WRONG rule.
+        // A request for the next dialogue. Clearing it here would drop the
+        // conversation about to begin, so "reset everything on close" is wrong.
         assert_eq!(
             pending_start.as_ref().map(|p| p.dialogue_id.as_str()),
             Some("guide"),

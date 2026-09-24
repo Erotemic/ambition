@@ -51,35 +51,29 @@ pub(super) fn register(app: &mut App) {
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
         ),
-        // ⭐ THE ADMIRAL'S OWN GUN-SWORD, drawn as the gun-sword it is. A
-        // distinct ITEM id (its shot is a special's payoff, not a raider's
-        // sidearm) wearing the same art, exactly as the heavy above does.
+        // The Admiral's own gun-sword. A distinct item id (its shot is a special's
+        // payoff, not a raider's sidearm) with the same art, like the heavy above.
         HeldItemArtEntry::new(
             "admiral_gun_sword",
             "sprites/props/gunsword.png",
             Vec2::new(54.0, 14.0),
         ),
-        // ⛔⛔ AND THE TWO THE POLYGON AUTHORED, because a held item with no art
-        // registration is not a silent fallback — it is an `ERROR` per spawn
-        // ("unknown held item art `polygon_bomb`") and an object drawn as
-        // nothing. Measured on the first engine take of her new down-B, which
-        // otherwise worked end to end.
+        // The Polygon's held items. A held item with no art registration is not a
+        // silent fallback: it logs an `ERROR` per spawn ("unknown held item art
+        // `polygon_bomb`") and draws nothing.
         //
-        // ✔ ALL THREE NOW WEAR THEIR OWN ART (they borrowed the gauntlet bomb,
-        // the beacon and the javelin until 2026-09-06). The drawings live in
-        // `item_icons.py::HELD_ITEM_ICON_SPECS` and are installed here by
-        // `scripts/regen/sprites.sh`; each `key` there is the id on this line.
+        // Each has its own art: the drawings live in
+        // `item_icons.py::HELD_ITEM_ICON_SPECS` and `scripts/regen/sprites.sh`
+        // installs them; each `key` there is the id on this line.
         //
-        // ⭐ THE BOMB AND THE MINE ARE DRAWN TO BE TOLD APART AT A GLANCE, which
-        // is a gameplay requirement and not a taste one: both are her stage
-        // objects and they do opposite things. The bomb is a tall faceted hex on
-        // a lit fuse; the mine is a wide low puck on anchor prongs with one red
-        // eye. Silhouette carries it, so the distinction survives at 16px and in
-        // the colour-blind case.
+        // The bomb and the mine must be told apart at a glance: both are her stage
+        // objects and they do opposite things. The bomb is a tall faceted hex on a
+        // lit fuse; the mine is a wide low puck on anchor prongs with one red eye.
+        // The silhouette carries it, so it survives at 16px and for colour-blind
+        // players.
         //
-        // ⚠ ALL THREE SOURCES ARE SQUARE (64×64), so these extents must stay
-        // square too — the javelin's 44×6 was the shape of the art it borrowed,
-        // and keeping it would have squashed the tress flat.
+        // All three sources are square (64×64), so these extents must stay square
+        // too, or the art is squashed.
         HeldItemArtEntry::new(
             "polygon_bomb",
             "sprites/props/polygon_bomb.png",
@@ -118,10 +112,8 @@ mod tests {
         let mut app = App::new();
         register(&mut app);
         let manifest = app.world().resource::<HeldItemArtManifest>();
-        // ⭐ THE POLYGON'S THREE ARE NAMED EXPLICITLY, because this module's own
-        // note records that a missing art registration is not a silent fallback
-        // — it is an `ERROR` per spawn and an object drawn as nothing, measured
-        // on the first engine take of her down-B. Her mine is the third.
+        // The Polygon's three are named explicitly, because a missing art
+        // registration logs an `ERROR` per spawn and draws nothing (see above).
         for id in [
             "axe",
             "javelin",

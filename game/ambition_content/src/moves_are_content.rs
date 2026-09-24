@@ -1,32 +1,29 @@
-//! Are this provider's move tables really CONTENT now — the same tables, read
-//! from files rather than compiled in?
+//! Are this provider's move tables content: the same tables, read from files
+//! instead of compiled in?
 //!
-//! ⭐⭐ **THREE CLAIMS, AND THEY FAIL FOR DIFFERENT REASONS.** One: each file
-//! says what its Rust table said, exactly (a migration that changed a fighter is
-//! a balance edit smuggled inside a plumbing change). Two: the HOST takes its
-//! table from the file — which a parity test cannot show, because a parity test
-//! passes just as well when the host is still reading the compiled copy. Three:
-//! every character a file NAMES is one this game builds, which is the claim that
-//! nearly went wrong.
+//! Three claims that fail for different reasons. One: each file says exactly
+//! what its Rust table said (a migration that changed a fighter would hide a
+//! balance edit in a plumbing change). Two: the host takes its table from the
+//! file, which a parity test cannot show, because it also passes when the host
+//! reads the compiled copy. Three: every character a file names is one this
+//! game builds.
 //!
-//! ⛔ THE RUST TABLES ARE THE ORACLE AND NOT A FALLBACK. No `authored/*.rs`
-//! calls `with_moveset` any more; `crate::<x>_moveset::<x>_moveset()` is reached
-//! from this file and from `moveset_source_export`, and by nothing the game
-//! runs. That is fast-iteration I2 step 5's own allowance — *"a test-only old
-//! table may be a temporary parity oracle, not a runtime fallback"* — and the
-//! distinction is the whole point: a fallback would give a fighter two tables
-//! and hide exactly the failure the second test below is for.
+//! The Rust tables are the oracle, not a fallback. No `authored/*.rs` calls
+//! `with_moveset`; `crate::<x>_moveset::<x>_moveset()` is reached only from
+//! this file and from `moveset_source_export`. Fast-iteration I2 step 5
+//! allows this: *"a test-only old table may be a temporary parity oracle, not
+//! a runtime fallback"*. A fallback would give a fighter two tables and hide
+//! the failure the second test below checks.
 
 #![cfg(test)]
 
 use ambition_characters::moveset_content_schema::lowered_movesets;
 
-/// ⛔ THE WHOLE CONTRACT, COMPARED STRUCTURALLY, FOR EVERY MIGRATED CHARACTER:
+/// The whole contract, compared structurally, for every migrated character:
 /// every verb and every move.
 ///
-/// ⚠ THE FLOOR IS FIRST. A pack that stopped carrying the sources, or a table
-/// that came back empty, makes the equality below trivially true over nothing —
-/// this repository's most repeated instrument failure.
+/// The floor is first. A pack without the sources, or an empty table, would
+/// make the equality below trivially true.
 #[test]
 fn every_content_move_table_is_the_table_it_used_to_compile_with() {
     let table =
@@ -66,7 +63,7 @@ fn every_content_move_table_is_the_table_it_used_to_compile_with() {
                 contract.moves.len(),
                 "`{id}`'s content file carries a different number of moves"
             );
-            // ⛔ PER MOVE, so a failure names WHICH one rather than printing 100 KB.
+            // Per move, so a failure names which one instead of printing 100 KB.
             for (a, b) in from_content.moves.iter().zip(contract.moves.iter()) {
                 assert_eq!(a, b, "`{id}`/`{}` did not survive the export intact", b.id);
             }
@@ -74,18 +71,15 @@ fn every_content_move_table_is_the_table_it_used_to_compile_with() {
     }
 }
 
-/// ⛔⛔ **EVERY CHARACTER A MOVE FILE NAMES IS ONE THIS GAME BUILDS — AND NINE OF
-/// NINETEEN NEARLY WERE NOT.** `authored_movesets::tables()` keys its entries by
-/// *"the name a failure should print"*, which is the FILE's name: eight of them
-/// are a rename of the character id (`alice`/`npc_alice`,
-/// `patent_clerk`/`special_patent_clerk`, …) and a ninth is one table for two
-/// ids. A file written under the wrong key is SILENT — `authored_intrinsics`
-/// asks `table.get(id)`, gets `None`, and leaves the fighter exactly as its own
-/// module built it.
+/// Every character a move file names is one this game builds.
+/// `authored_movesets::tables()` keys its entries by the file's name, and many
+/// differ from the character id (`alice`/`npc_alice`,
+/// `patent_clerk`/`special_patent_clerk`, …; one table serves two ids). A file
+/// under the wrong key fails silently: `authored_intrinsics` gets `None` from
+/// `table.get(id)` and leaves the fighter as its module built it.
 ///
-/// ⚠ **THE OFFICER COULD NEVER HAVE CAUGHT THIS**, which is why the migration
-/// did not stop at him: his table name and his character id are the same string,
-/// so every test about him passes under both spellings.
+/// The Officer alone cannot catch this: his table name and character id are
+/// the same string.
 #[test]
 fn every_character_the_move_section_names_is_one_this_game_builds() {
     let buildable: std::collections::BTreeSet<&str> =
@@ -111,18 +105,16 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
     );
 }
 
-/// ⭐⭐ **AND THE HOST TAKES ITS TABLE FROM THE FILE.** The tests above cannot
-/// show this: they compare values, and would pass unchanged if
-/// `authored_intrinsics` still read the compiled ones.
+/// The host takes its table from the file. The tests above compare values and
+/// would pass if `authored_intrinsics` still read the compiled tables.
 ///
-/// ⛔ SO THIS ONE ASKS THE CHARACTER DEFINITION the game actually builds.
-/// `authored_intrinsics` is the single seam every buildable character passes
-/// through (`register_declared_cast`'s one loop calls it), so what it returns IS
+/// So this asks the character definition the game builds.
+/// `authored_intrinsics` is the one seam every buildable character passes
+/// through (`register_declared_cast`'s loop calls it), so what it returns is
 /// what the cast is registered with.
 ///
-/// ⛔⛔ AND IT RUNS OVER EVERY MIGRATED CHARACTER, NOT A SAMPLE. The Officer is
-/// the one whose table name and character id happen to match, so a test that
-/// checked only him would pass with the other sixteen keyed wrongly.
+/// It runs over every migrated character, not a sample: the Officer's table
+/// name matches his id, so checking only him would miss wrong keys.
 #[test]
 fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
     let table =
@@ -150,9 +142,7 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
                 "the definition the game builds for `{id}` is not the table the \
                  content file carries — something is still supplying a compiled one"
             );
-            // ⛔ AND IT IS NOT VACUOUS: real moves with real timings, so "they
-            // matched" is a statement about a fighter rather than about two
-            // empty maps that happen to be equal.
+            // Not vacuous: real moves with real timings, not two equal empty maps.
             assert!(
                 moveset.moves.len() >= 20,
                 "`{id}` was built with {} move(s) — a table nobody would notice \
@@ -172,25 +162,19 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
     );
 }
 
-/// ⛔ AND THE ROBOT LINEAGE IS EXCLUDED FOR A REASON A READER CAN CHECK.
+/// The robot lineage is excluded, for a reason a reader can check.
 ///
-/// ⛔⛤ I FIRST WROTE THAT `player_robot` HAS NO CAST ID. It has THREE
-/// (`player_robot_v3`, `player_robot_fable`, `player_robot_v2`) — a peer
-/// re-deriving the mapping found it. The TRUE claim is that
+/// `player_robot` has three cast ids (`player_robot_v3`,
+/// `player_robot_fable`, `player_robot_v2`). But
 /// `player_robot_lineage::register` builds its definitions with
 /// `definition_from(&catalog, incarnation)` and never calls
-/// `authored_intrinsics`, and `register_declared_cast` skips lineage ids
-/// outright. ⇒ A guard written on the false premise would have stayed green for
-/// the wrong reason and stopped being re-derived.
+/// `authored_intrinsics`, and `register_declared_cast` skips lineage ids.
 #[test]
 fn the_robot_lineage_does_not_reach_the_seam_the_pack_applies_moves_at() {
     let table = lowered_movesets(crate::pack::prepared()).expect("a move section");
-    // ⛔⛤ THE POPULATION IS `LINEAGE` ITSELF, NOT A PREFIX FILTER OVER THE
-    // BUILDABLE CAST. My first version asked `buildable_cast()` for ids starting
-    // `player_robot` and floored it at three because the CATALOG has three rows
-    // — and got TWO, because the lineage registers on its own road and its
-    // members are not all in that cast. A floor guessed from a different
-    // population is a floor that fails for a reason unrelated to its subject.
+    // The population is `LINEAGE` itself, not a prefix filter over the
+    // buildable cast: the lineage registers on its own road, and not all its
+    // members are in that cast.
     let lineage: Vec<&str> = crate::player_robot_lineage::LINEAGE
         .iter()
         .map(|incarnation| incarnation.id)

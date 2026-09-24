@@ -2,19 +2,17 @@
 //! transactional reload it offers the developer controls.
 //!
 //! This watcher is format-agnostic. It lives here because its consumers are
-//! the developer controls: the
-//! Developer settings page's auto-apply row sits directly beside rows sourced
-//! from [`DeveloperRuntimeState`](crate::dev_tools::DeveloperRuntimeState) and
-//! [`DeveloperTools`](crate::dev_tools::DeveloperTools), both of which are this
-//! crate's. The APPLY half — parse the file, validate the room graph, commit or
-//! reject — stays with the game that knows the format.
+//! the developer controls: the Developer settings page's auto-apply row sits
+//! beside rows sourced from
+//! [`DeveloperRuntimeState`](crate::dev_tools::DeveloperRuntimeState) and
+//! [`DeveloperTools`](crate::dev_tools::DeveloperTools). The apply half (parse,
+//! validate the room graph, commit or reject) stays with the game that knows
+//! the format.
 //!
-//!  the watcher does not resolve its own path. Resolution needs the asset
-//! catalog and the world manifest, which are the composing game's; a
-//! constructor that took both is what put an asset-profile decision inside a
-//! format adapter. [`WorldSourceHotReload::watching`] takes the path the caller
-//! already resolved, and [`WorldSourceHotReload::unavailable`] takes the
-//! caller's reason for there not being one.
+//! The watcher does not resolve its own path; that needs the composing game's
+//! asset catalog and world manifest. [`WorldSourceHotReload::watching`] takes
+//! a resolved path, and [`WorldSourceHotReload::unavailable`] takes the reason
+//! there is none.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -121,32 +119,18 @@ fn modified_time_for(path: &Path) -> Result<SystemTime, String> {
 
 /// Debounced mtime poll. Short-circuits when no path is armed.
 ///
-/// ⛔ THE COUNTDOWN LIVES IN A `Local`, NOT IN THE RESOURCE. `ResMut` marks its
-/// resource changed the moment it is dereferenced, so ticking the timer through
-/// it announced "the hot-reload watcher changed" on every frame of every run —
-/// a lie that costs every `Res<WorldSourceHotReload>` reader its change
-/// detection. The resource is now touched mutably only when something about the
-/// WATCH actually moved.
+/// The countdown is in a `Local`, not the resource: dereferencing `ResMut`
+/// marks the resource changed, which would defeat change detection for every
+/// reader on every frame. The resource is written only when the watch changes.
 ///
-/// ⚠ `fs::metadata` is a BLOCKING syscall on the main thread. Debounced to ~3Hz
-/// it is invisible on a local disk, and it was measured at up to 3.9ms on
-/// virtiofs. On a network mount, Android storage, or a slow card it is a frame
-/// hitch.
+/// `fs::metadata` is a blocking syscall on the main thread (up to 3.9 ms on
+/// virtiofs). If it shows up in a frame, move it off-thread; do not poll less
+/// often. See `docs/planning/engine/performance-and-iteration.md`.
 ///
-/// ⛔⛔ **REGISTER THIS IN `Update`, NEVER IN THE SIMULATION SCHEDULE.** It ran in
-/// `WorldPrep` — the sim's largest phase — until 2026-08-29, which put a blocking
-/// stat on the deterministic tick. It is also unfit for that schedule on its own
-/// terms: the debounce lives in a `Local`, which does NOT rewind, so a session
-/// that actually rolled back would re-stat the file once per re-simulated tick.
-/// Every reader of `WorldSourceHotReload` is a menu system in `Update` anyway.
-///
-/// ⛔ NOT a reason, though it reads like one: `Res<Time>` is FINE inside the sim.
-/// `bevy_ggrs` swaps `Time<()>` for the rolled-back `Time<GgrsTime>` for the
-/// duration of `GgrsSchedule`, and ADR 0023 rule 2 says so explicitly — the
-/// wall-clock rule is about `std::time`, not `Res<Time>`.
-///
-/// ⇒ If the remaining ~3Hz stat ever shows up in a frame, move it off-thread —
-/// do NOT poll less often. See `docs/planning/engine/performance-and-iteration.md`.
+/// Register this in `Update`, never in the simulation schedule: the blocking
+/// stat would sit in the deterministic tick, and the `Local` debounce does not
+/// rewind. (`Res<Time>` alone would be fine in the sim; see ADR 0023 rule 2.)
+/// All readers of `WorldSourceHotReload` are menu systems in `Update`.
 pub fn poll_world_source_changes(
     time: Res<Time>,
     mut state: ResMut<WorldSourceHotReload>,

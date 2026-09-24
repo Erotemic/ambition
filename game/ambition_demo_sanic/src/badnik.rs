@@ -1,23 +1,22 @@
-//! The speedway badnik — a stompable, roll-through-able walker, pure content.
+//! The speedway badnik: a stompable, roll-through-able walker, pure content.
 //!
-//! The Mary-O crony pattern applied to Sanic's verbs, with zero engine
-//! edits:
+//! The Mary-O crony pattern applied to Sanic's verbs, with no engine edits:
 //!
-//! - Placement comes from the demo's LDtk file: `EnemySpawn` entities
-//!   carrying `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns` and
-//!   the engine's room staging spawns them — no demo staging system at all.
-//! - ⛔⛔ Body + walk + contact damage are the GENERIC COMBATANT'S, not a
-//!   badnik's. There is no `sanic_badnik` roster archetype — not in this crate,
-//!   not in Ambition's `character_archetypes.ron` — and `spec_for_brain` answers
-//!   `combatant` for a key it does not know. So health, walk speed and contact
-//!   damage are the FALLBACK's, silently, and a doc describing a 1-HP wanderer
-//!   here would be describing a row that does not exist.
+//! - Placement comes from the demo's LDtk file: `EnemySpawn` entities with
+//!   `brain: "sanic_badnik"` lower into `RoomSpec::enemy_spawns`, and the
+//!   engine's room staging spawns them.
+//! - Body, walk, and contact damage come from the generic combatant. There is
+//!   no `sanic_badnik` roster archetype, and `spec_for_brain` returns
+//!   `combatant` for an unknown key. A true 1-HP wanderer needs a
+//!   `sanic_badnik` character definition, because health and movement are
+//!   character facts.
+//! - The defeat is Sanic's, not Mary-O's: a descending bounce on the head
+//!   (classic stomp), or any overlap while rolling (ball dash or crouch-roll).
+//!   Both despawn the badnik the same frame, so the shared contact-damage pass
+//!   never bills the attacker.
 //!
-//! The 1-HP wanderer is not implemented; making it authoritative requires a `sanic_badnik`
-//! character definition because health and movement are character facts.
-//! - The defeat is Sanic's, not Mary-O's: a descending bounce on the head (classic stomp, with the bounce) OR any overlap while ROLLING (the ball dash / crouch-roll is the weapon — rolling through a badnik at speed is the Sonic fantasy). Both despawn the badnik the same frame so the shared contact-damage pass never bills the attacker.
-//!
-//! Every type it names comes through the `ambition_platformer2d` umbrella — the E9 oracle.
+//! Every type it names comes through the `ambition_platformer2d` umbrella (the
+//! E9 oracle).
 
 use bevy::prelude::*;
 
@@ -35,20 +34,15 @@ pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
 pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
-/// How near Sanic has to be for a badnik to keep thinking.
+/// How near Sanic must be for a badnik to keep thinking.
 ///
-/// So this is derived rather than borrowed: the same 2.4s of lead against
-/// Sanic's fastest tuning (`top_speed: 2000.0`).
-///
-/// Recorded here rather than acted on, because one game is not enough evidence to change an
-/// engine seam's units.
+/// Derived from Sanic's fastest tuning (`top_speed: 2000.0`): 2.4s of lead.
 pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
 
 /// Badniks stop thinking when Sanic is nowhere near them.
 ///
-/// declared per character, never inherited. An actor with no
-/// `DormancyPolicy` is always awake, which is what makes "not inherent" the
-/// default rather than an opt-out.
+/// Dormancy is declared per character, never inherited. An actor with no
+/// `DormancyPolicy` is always awake.
 pub fn tag_sanic_badniks(
     mut commands: Commands,
     fresh: Query<
@@ -82,11 +76,10 @@ const STOMP_BAND: f32 = 16.0;
 /// How tall a badnik stands, in world units (what the catalog join gave it).
 const BADNIK_STANDING_HEIGHT: f32 = 48.0;
 
-/// Register the badnik as a CHARACTER — the body its deleted row described.
+/// Register the badnik as a character.
 ///
 /// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
-/// offense is the body it walks into you with, which is what makes it a
-/// stomp-and-die badnik rather than a fight.
+/// offense is walking into you.
 pub fn register_badnik_character(app: &mut App) {
     use ambition_platformer2d::character::CharacterDefinition;
     use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
@@ -101,7 +94,7 @@ pub fn register_badnik_character(app: &mut App) {
         crate::provider::SANIC_EXPERIENCE,
     )
     // It wears the published `ai_slop` sheet under its own name — the catalog
-    // row says so, and a character states the TARGET rather than the file.
+    // row says so, and a character states the target rather than the file.
     .with_sheet("ai_slop")
     // Its body is its art at one scale, so the quad sits on its feet (the
     // catalog join sized the box right but published no offset, and the art
@@ -128,21 +121,17 @@ pub fn register_badnik_character(app: &mut App) {
     app.register_character(definition);
 }
 
-/// The defeat rule. A player descending onto a badnik's head bounces up
-/// and squashes it; a ROLLING player squashes it on any overlap and keeps its
-/// speed (rolling through a line of badniks is the point of rolling); a SUPER
-/// player squashes it on any overlap, full stop (the classic invincible-form
-/// contract — walking through badniks is the super fantasy). A side touch
-/// while un-rolled and un-super is left alone and lands as normal contact
-/// damage.
+/// The defeat rule. A player descending onto a badnik's head bounces and
+/// squashes it. A rolling player squashes it on any overlap and keeps its
+/// speed. A super player squashes it on any overlap. A side touch while not
+/// rolling and not super lands as normal contact damage.
 ///
-/// Ordered BEFORE the shared body-contact-damage pass: the squash zeroes the
-/// badnik's health THIS frame (a component write, immediately visible), so the
-/// contact pass sees a not-alive attacker and skips it; the body is then
-/// despawned. Direct despawn (not the deferred actor-death pipeline) for the
-/// same reasons as the Mary-O crony: the shared path is a stage late and would
-/// hurt the stomper first, and a badnik carries no drops/score. The visible
-/// pop comes from a dust burst through the engine's own vfx seam.
+/// Ordered before the shared body-contact-damage pass: the squash zeroes the
+/// badnik's health this frame, so the contact pass skips a dead attacker; the
+/// body is then despawned. Direct despawn (not the deferred actor-death
+/// pipeline), as for the Mary-O crony: the shared path runs a stage late and
+/// would hurt the stomper first, and a badnik has no drops or score. The pop
+/// is a dust burst through the engine's vfx seam.
 pub fn defeat_badniks(
     mut commands: Commands,
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
@@ -151,7 +140,7 @@ pub fn defeat_badniks(
         (
             &mut ae::BodyKinematics,
             Option<&crate::ball_dash::Rolling>,
-            // What is TRUE of this body, not who it is. Optional so the thin
+            // What is true of this body, not who it is. Optional so the thin
             // test harnesses need not dress the body.
             Option<&ambition_platformer2d::actors::features::empowerment::Empowered>,
         ),
@@ -165,10 +154,9 @@ pub fn defeat_badniks(
     let Ok((mut player, rolling, empowered)) = players.single_mut() else {
         return;
     };
-    // Squashing on touch is a TRAIT the body holds, not a name it wears.
-    //
-    // Rolling joins it for the kill condition but not for the bounce: a super
-    // stomp still bounces like any stomp.
+    // Squashing on touch is a trait the body holds, not a name it wears.
+    // Rolling joins the kill condition but not the bounce: a super stomp
+    // still bounces.
     let harms_on_contact = empowered.is_some_and(|e| {
         e.traits.holds(
             ambition_platformer2d::actors::features::empowerment::Empowerment::HARMS_ON_CONTACT,
@@ -206,7 +194,7 @@ pub fn defeat_badniks(
             color: [0.85, 0.62, 0.35, 1.0],
             kind: ambition_platformer2d::vfx::ParticleKind::Dust,
         });
-        // H2: the badnik is a BODY, and this is it popping. Its own voice.
+        // H2: the badnik is a body, and this is it popping. Its own voice.
         sfx.write_for(
             entity,
             ambition_platformer2d::sfx::SfxMessage::Play {
@@ -299,7 +287,7 @@ mod tests {
         );
     }
 
-    /// A body that HARMS ON CONTACT squashes on any touch — un-rolled, not
+    /// A body that harms on contact squashes on any touch — un-rolled, not
     /// falling, a plain walk-into.
     #[test]
     fn a_body_that_harms_on_contact_squashes_a_badnik_on_any_touch() {
@@ -319,9 +307,9 @@ mod tests {
         );
     }
 
-    /// And the SUPER IDENTITY alone does not — it is the empowerment the form
-    /// grants that does the work, so a body wearing the name without the trait
-    /// is an ordinary body.
+    /// The super identity alone does not: the empowerment the form grants
+    /// does the work, so a body with the name and without the trait is
+    /// ordinary.
     #[test]
     fn the_super_identity_alone_is_not_what_squashes() {
         let mut app = defeat_app();
@@ -342,7 +330,7 @@ mod tests {
 
     #[test]
     fn the_base_form_walking_into_a_badnik_does_not_squash() {
-        // The same walk-into WITHOUT the super identity: the badnik survives
+        // The same walk-into without the super identity: the badnik survives
         // (and the shared contact pass bills the player instead).
         let mut app = defeat_app();
         let badnik = spawn_badnik(&mut app, ae::Vec2::new(10.0, 0.0));

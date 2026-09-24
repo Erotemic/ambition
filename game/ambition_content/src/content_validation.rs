@@ -56,17 +56,12 @@ impl ContentValidationReport {
 
 /// Validate the checked-in sandbox content graph.
 #[cfg_attr(not(test), allow(dead_code))]
-/// Normalize one AUTHORED optional string: trim it, and treat blank as ABSENT.
+/// Normalize one authored optional string: trim it, and treat blank as absent.
 ///
-/// ⛔⛔ THIS RULE WAS WRITTEN FOUR TIMES in this file -- for a loading zone's
-/// `target_room` and `target_zone`, and for a placement's `character_id` and
-/// `brain_override`. Each spelled `.map(|v| v.trim().to_string()).filter(|v|
-/// !v.is_empty())`.
-/// ⇒ It is a rule about what an AUTHOR typed, not a formatting detail: a field
-/// left as `"  "` in the editor means the author left it EMPTY, and a site that
-/// forgot the `filter` would carry `Some("")` into a lookup and report
-/// *"targets unknown room ''"* instead of treating the field as unset. Four
-/// copies is four chances to write the confusing error.
+/// A field left as `"  "` in the editor means the author left it empty. A site
+/// that kept `Some("")` would report *"targets unknown room ''"* instead of
+/// treating the field as unset. Loading-zone `target_room` / `target_zone` and
+/// placement `character_id` / `brain_override` all use this one rule.
 fn authored_optional(value: String) -> Option<String> {
     let trimmed = value.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())
@@ -279,15 +274,15 @@ fn validate_npc_brain_overrides(
                      (a brain preset can only be qualified inside a character's provider namespace)",
                     level.identifier, entity.iid, brain_override
                 )),
-                // A catalog-backed NPC: character must exist and the override (if
-                // any) must resolve. `validate_brain_override` handles both.
+                // A catalog-backed NPC: the character must exist and the override (if any)
+                // must resolve. `validate_brain_override` checks both.
                 (Some(character_id), brain_override) => {
                     match character_catalog
                         .validate_brain_override(&character_id, brain_override.as_deref())
                     {
                         Ok(_) => {}
-                        // A character owned by a provider not loaded in this
-                        // composition — skipped (the full host validates it).
+                        // A character owned by a provider not loaded in this composition:
+                        // skipped (the full host validates it).
                         Err(BrainBuildError::UnknownCharacter(_)) => {}
                         Err(error) => report.push_error(format!(
                             "level '{}' NpcSpawn '{}': {}",
@@ -316,17 +311,15 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    // the same book the plugin installs, read from the prepared pack rather
-    // than from a process-global the validator happens to share with whatever
-    // App ran first. That sharing is exactly what made the old seam look
-    // provider-local while not being.
+    // The same book the plugin installs, read from the prepared pack, not from
+    // a process-global shared with whichever App ran first.
     let waves =
         ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
             .cloned()
             .map(ambition_encounter::EncounterWaveBook);
-    // Holding an `LdtkProject` is legitimate HERE — validating the map is this function's job —
-    // but asking the encounter loader to read one was the edge that kept the map format in the
-    // actor monolith.
+    // Holding an `LdtkProject` is correct here: validating the map is this
+    // function's job. The encounter loader must not read one, which would put
+    // the map format back in the actor monolith.
     let rooms = project
         .to_room_set(
             &crate::worlds::world_manifest(),
@@ -342,7 +335,7 @@ fn validate_quest_conditions(
         );
     for (id, spec, _) in loaded_encounters {
         // Exactly-empty, matching `encounter/systems.rs`'s own
-        // `!spec.music_track.is_empty()` gate — same reason as the boss phases.
+        // `!spec.music_track.is_empty()` gate, for the same reason as boss phases.
         if !spec.music_track.is_empty() && !valid_tracks.contains(spec.music_track.as_str()) {
             report.push_error(format!(
                 "encounter '{}' references unknown music track '{}'",
@@ -398,8 +391,8 @@ fn validate_quest_conditions(
                     }
                 }
                 ambition_persistence::quest::QuestStepCondition::NpcTalked(npc) => {
-                    // Gameplay emits the runtime NPC object id for NpcTalked. Most current
-                    // quests use flags instead, but keep the validator honest for future ones.
+                    // Gameplay emits the runtime NPC object id for NpcTalked. Most quests use
+                    // flags, but future ones may use this.
                     if !authored_npc_ids(project).contains(npc.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown NPC id '{}'",
@@ -412,27 +405,20 @@ fn validate_quest_conditions(
     }
 }
 
-/// The content compiler now checks this too, for pack-supplied content.
-/// ⛔⛤ **THE GAP THIS FUNCTION EXISTS FOR.** `default_room_cutscene_bindings`
-/// bound `"central_hub_main"` — an LDtk LEVEL id, not a runtime room id — to
-/// `test_intro`, and nothing at startup or in a test caught it: unlike a quest
-/// `RoomEntered` condition (`validate_quest_conditions`, right above), no
-/// validator ever read `RoomCutsceneBindings` against the real room
-/// population. The row could never fire; found by inspection 2026-09-18, not
-/// by a test. This closes that gap the same way its neighbor does.
+/// The content compiler also checks this, for pack-supplied content. No other
+/// validator reads `RoomCutsceneBindings` against the real room population,
+/// so a binding to an LDtk level id (for example `"central_hub_main"`)
+/// instead of a runtime room id would never fire and nothing would report it.
+/// This works like `validate_quest_conditions` above.
 fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidationReport) {
     let room_ids = active_area_ids(project);
-    // ⛔⛤ **BOTH ENDPOINTS, BECAUSE ONLY ONE WAS CHECKED AND THE RUNTIME IS
-    // SILENT ABOUT THE OTHER.** `drain_cutscene_triggers` does
-    // `let Some(script) = library.get(&id) else { continue; }`, so a binding
-    // naming a cutscene that does not exist is not an error at runtime — it is
-    // nothing at all. `("central_hub_complex", "test_intr0")` would have passed
-    // this function and become another permanently dead binding of exactly the
-    // kind the room half was added to catch.
+    // Both endpoints. `drain_cutscene_triggers` does
+    // `let Some(script) = library.get(&id) else { continue; }`, so a binding to
+    // a missing cutscene is silent at runtime.
     //
-    // ⚠ The library must be the ASSEMBLED one. The intro installs five scripts
-    // of its own (`install_intro_cutscenes`), and validating against the
-    // defaults alone would reject every intro binding as unknown.
+    // The library must be the assembled one. The intro installs five scripts
+    // (`install_intro_cutscenes`), and validating against the defaults alone
+    // would reject every intro binding.
     let mut library = crate::dialogue::cutscene_defaults::default_cutscene_library();
     crate::intro::cutscene::install_intro_cutscenes(&mut library);
 
@@ -451,14 +437,11 @@ fn validate_cutscene_bindings(project: &LdtkProject, report: &mut ContentValidat
     check_cutscene_bindings(&room_ids, &library, &rows, report);
 }
 
-/// ⛔⛤ **THE RULES LIVE HERE SO A POISON HAS SOMEWHERE TO LAND.** When the room
-/// check moved into this file (`cf3cd7479`), the arm that had held it
-/// (`room_cutscene_bindings_resolve.rs`) was deleted and nothing replaced it: a
-/// content-validation error ABORTS the process, so a bad binding fails every
-/// test in the target at once and no arm says which rule caught it. Reading the
-/// real tables also cannot exercise a rule the real tables do not violate. So
-/// the three rules take their inputs as arguments and the caller above supplies
-/// the shipped ones.
+/// The rules take their inputs as arguments so a test can plant a violation.
+/// A content-validation error aborts the process, so a bad shipped binding
+/// fails every test in the target and none says which rule caught it; and the
+/// real tables cannot exercise a rule they do not violate. The caller above
+/// supplies the shipped inputs.
 fn check_cutscene_bindings(
     room_ids: &BTreeSet<String>,
     library: &ambition_cutscene::CutsceneLibrary,
@@ -484,14 +467,12 @@ fn check_cutscene_bindings(
         per_room.entry(room).or_default().push(cutscene);
     }
 
-    // ⛔⛤ **ONE CUTSCENE PER ROOM, AND THE REASON IS THAT A SECOND ONE DOES NOT
-    // QUEUE — IT SLIPS A VISIT.** `auto_trigger_room_cutscenes` enqueues every
-    // matching row, but only when the room CHANGES (the `LastCutsceneRoom`
-    // latch). `drain_cutscene_triggers` then `mem::take`s the whole queue and
-    // `break`s on the first admissible script, so the rest are dropped rather
-    // than deferred. A room with two bindings plays the first one now and the
-    // second only on a LATER visit, once the first has set its seen flag —
-    // which no author writing two rows would predict.
+    // One cutscene per room, because a second one does not queue.
+    // `auto_trigger_room_cutscenes` enqueues every matching row, but only when
+    // the room changes (the `LastCutsceneRoom` latch). `drain_cutscene_triggers`
+    // then `mem::take`s the whole queue and `break`s on the first admissible
+    // script, so the rest are dropped. The second binding would play only on a
+    // later visit, after the first sets its seen flag.
     for (room, bound) in &per_room {
         if bound.len() > 1 {
             report.push_error(format!(
@@ -509,8 +490,8 @@ fn check_cutscene_bindings(
 /// so an unknown track in Ambition's own encounters is refused at reference
 /// resolution — before startup, with the field named.
 ///
-/// This is NOT dead: it reads the ASSEMBLED catalog, so it still covers a provider that
-/// contributes bosses WITHOUT shipping a content pack.
+/// It reads the assembled catalog, so it also covers a provider that
+/// contributes bosses without a content pack.
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
     boss_catalog: &ambition_boss_encounter::BossCatalog,
@@ -530,9 +511,8 @@ fn validate_boss_music_tracks(
             ("music_phase2", spec.music_phase2.as_str()),
             ("music_enrage", spec.music_enrage.as_str()),
         ] {
-            // Exactly-empty, matching `phase_music`'s own gate: a
-            // whitespace-only field is a request the runtime makes and must not
-            // be waved through here.
+            // Exactly-empty, matching `phase_music`'s own gate: the runtime requests a
+            // whitespace-only field, so it must not pass here.
             if !track.is_empty() && !tracks.contains(track) {
                 report.push_error(format!(
                     "boss spec '{}' {field} references unknown music track '{}'",
@@ -653,11 +633,10 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     }
                 }
             }
-            // PickupSpawn entities with `kind: "flag:<id>"` set the
-            // named flag in save state when collected. Mirror the
-            // runtime parse rule in `world/ldtk_world/fields.rs::parse_pickup_kind`
-            // so quest steps that depend on a story-flag pickup
-            // validate without needing the flag listed elsewhere.
+            // PickupSpawn entities with `kind: "flag:<id>"` set the named flag in
+            // save state when collected. This mirrors the runtime parse rule in
+            // `world/ldtk_world/fields.rs::parse_pickup_kind`, so quest steps that
+            // depend on a story-flag pickup validate without the flag listed elsewhere.
             if entity.identifier == "PickupSpawn" {
                 if let Some(kind) = field_string(entity, "kind") {
                     if let Some(flag) = kind.trim().strip_prefix("flag:") {
@@ -677,16 +656,11 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
 
 #[cfg(test)]
 mod tests {
-    /// ⛔⛔ BLANK MEANS ABSENT, and nothing checked it. Poisoning
-    /// `authored_optional` to return `Some("")` for a blank field left all 309
-    /// crate tests green -- so the rule four call sites depend on was running
-    /// unguarded.
+    /// Blank means absent.
     ///
-    /// It matters at the AUTHORING surface: a field left as `"  "` in the editor
-    /// means the author left it empty, and carrying `Some("")` into a lookup
-    /// reports *"targets unknown room ''"* instead of treating the field as
-    /// unset. A confusing error is worse than none, because it sends the author
-    /// looking for a room they never named.
+    /// A field left as `"  "` in the editor means the author left it empty.
+    /// Carrying `Some("")` into a lookup reports *"targets unknown room ''"*, which
+    /// sends the author looking for a room they never named.
     #[test]
     fn a_blank_authored_field_is_absent_not_empty() {
         assert_eq!(super::authored_optional("  ".to_string()), None);
@@ -733,9 +707,8 @@ mod tests {
         (rooms, library)
     }
 
-    /// ⭐ CONTROL, and it is the load-bearing arm: every assertion below is
-    /// "this input produces an error", which a function that always errors
-    /// would also satisfy.
+    /// The control, and the key test: every assertion below is "this input
+    /// produces an error", which a function that always errors would also pass.
     #[test]
     fn a_binding_naming_a_real_room_and_a_real_cutscene_is_accepted() {
         let (rooms, library) = binding_fixture();
@@ -748,9 +721,9 @@ mod tests {
     fn a_binding_naming_a_cutscene_that_does_not_exist_is_refused() {
         let (rooms, library) = binding_fixture();
         let mut report = ContentValidationReport::default();
-        // ⛔ The exact typo a review used: the room resolves, so the room half
-        // of this validator passes it, and `drain_cutscene_triggers` skips a
-        // missing script in silence — a permanently dead binding.
+        // The room resolves, so the room half passes it, and
+        // `drain_cutscene_triggers` skips a missing script silently: a permanently
+        // dead binding.
         check_cutscene_bindings(&rooms, &library, &[("b", "hub", "intr0")], &mut report);
         assert_eq!(report.errors.len(), 1, "{:?}", report.errors);
         assert!(
@@ -778,8 +751,8 @@ mod tests {
         );
     }
 
-    /// Two ROOMS with one cutscene each is the ordinary case and must not trip
-    /// the cardinality rule — the count is per room, not per table.
+    /// Two rooms with one cutscene each is the ordinary case and must not trip
+    /// the cardinality rule: the count is per room, not per table.
     #[test]
     fn one_cutscene_each_for_two_rooms_is_accepted() {
         let (rooms, library) = binding_fixture();
@@ -798,12 +771,11 @@ mod tests {
         let project = LdtkProject::load_default_for_dev(&crate::worlds::world_manifest())
             .expect("embedded LDtk loads");
         let room_ids = active_area_ids(&project);
-        // Non-vacuity: an LDtk LEVEL id, not a runtime room id, must NOT
-        // resolve -- this is the exact defect `validate_cutscene_bindings`
-        // exists to catch (`central_hub_main` was bound to `test_intro` and
-        // could never fire, since the runtime room is `central_hub_complex`).
-        // If this ever starts passing, the level/room merge changed shape and
-        // the assertions below need re-checking for the opposite reason.
+        // Non-vacuity: an LDtk level id, not a runtime room id, must not resolve.
+        // This is the defect `validate_cutscene_bindings` catches
+        // (`central_hub_main` vs the runtime room `central_hub_complex`). If this
+        // starts passing, the level/room merge changed shape; re-check the
+        // assertions below.
         assert!(
             !room_ids.contains("central_hub_main"),
             "central_hub_main is an LDtk level id, not a room id -- room_ids: {room_ids:?}"

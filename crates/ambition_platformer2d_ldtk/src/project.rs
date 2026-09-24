@@ -123,14 +123,9 @@ impl LdtkLevel {
                 .filter(|value| *value >= 0)
                 .map(|value| value as usize)
         };
-        // A DISTANCE in whole pixels. Zero is meaningful — "you are out the
-        // instant you cross my edge" is a legitimate stage — so only NEGATIVE
-        // values are rejected, and they are REJECTED rather than clamped: a
-        // negative margin would put the out-of-bounds line INSIDE the room, and
-        // a clamp turns an authoring mistake into a room that merely behaves
-        // oddly. One closure rather than one `filter` per field, because the
-        // three margins had already made three copies of it and the fourth
-        // distance field would have made the copy the pattern.
+        // A distance in whole pixels. Zero is valid ("out as soon as you cross my
+        // edge"). Negative values are rejected, not clamped: a negative margin
+        // would put the out-of-bounds line inside the room.
         let take_px = |name: &str| self.field_i32(name).filter(|px| *px >= 0);
         ambition_platformer2d_world::rooms::RoomMetadata {
             biome: take("biome"),
@@ -147,10 +142,8 @@ impl LdtkLevel {
             nameplate_policy: ambition_platformer2d_world::rooms::RoomNameplatePolicy {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),
                 fade_out_count: take_count("nameplate_fade_out_count"),
-                // ⛔ NOT AN LDtk FIELD YET, deliberately. Only a room with a
-                // CAST needs it, and those are declared in Rust rather than
-                // authored in LDtk; adding a field nothing sets would put a
-                // widget in the editor for a question its rooms never ask.
+                // Not an LDtk field yet: only rooms with a cast need it, and those
+                // are declared in Rust.
                 label_driven_bodies: None,
             },
             gallery: self.field_bool("gallery").unwrap_or(false),

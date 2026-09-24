@@ -166,8 +166,8 @@ pub fn record_body_control_frame(
         // `Option`, because a body without a combat cluster is a legal body
         // and must not vanish from the log for lacking one.
         Option<&ambition_characters::actor::BodyCombat>,
-        // AC3.1.B: the melee AUTHORITY.
-        Option<&ambition_combat::BodyMelee>,
+        // AC3.1.B: the swing, derived from the live move.
+        ambition_combat::moveset::MeleeSwingQuery,
         // THE INTEGRATOR'S OWN INPUTS, added after six candidates were
         // eliminated one at a time and the cause was still not found (S51). The
         // unauthored steps are a near-constant `-99`/tick, which is an
@@ -234,7 +234,7 @@ pub fn record_body_control_frame(
                 combat.map_or(0.0, ambition_characters::actor::BodyCombat::hard_lock_timer),
             )
             .field("hitstun", combat.map_or(0.0, |c| c.hitstun_timer))
-            .field("attacking", melee.is_some_and(|m| m.is_swinging()))
+            .field("attacking", melee.swing().is_some())
             // The two acceleration terms the integrator adds, in world units per
             // second squared. At 60Hz a `-99`/tick step needs `-5940` here.
             .field(

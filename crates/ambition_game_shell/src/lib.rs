@@ -21,8 +21,7 @@ mod session;
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
 
-// ⛔ UNGATED ON PURPOSE: `plugin.rs` is not gated and consumes these, so a
-// presentation-gated home broke the crate at default features.
+// Not gated: the ungated `plugin.rs` uses it.
 mod audio_controls;
 #[cfg(feature = "basic_presentation")]
 mod pause_menu;

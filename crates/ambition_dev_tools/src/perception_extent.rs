@@ -1,25 +1,16 @@
 //! A measurement knob: widen every `Sighted` body's viewport at fixed population.
 //!
-//! ⭐ THIS EXISTS BECAUSE THE HALL CANNOT ASK THE QUESTION.
-//! `bounded-perception-and-attention.md` measures `kept` saturating at ~14.4
-//! from 65 to 130 bodies and concludes, in its own words, that *"the hall CANNOT
-//! demonstrate why attention is needed — its geometry already solves it"*. The
-//! regime an attention budget is FOR is density: fighters packed inside one
-//! another's viewports, where `kept` keeps rising with population. Population is
-//! swept by [`crate::population_cap`]; this is the other axis.
+//! `bounded-perception-and-attention.md` finds `kept` saturating at about 14.4
+//! from 65 to 130 bodies: the hall's geometry already bounds attention. An
+//! attention budget matters at high density, where `kept` keeps rising.
+//! [`crate::population_cap`] sweeps population; this sweeps the other axis.
 //!
-//! ⛔⛔ IT CHANGES THE SIMULATION, AND THAT IS THE POINT — the same warning the
-//! population cap carries. A widened run is not the shipped hall and no number
-//! taken under it describes the shipped hall.
+//! A widened run is not the shipped hall. Vary one axis at a time: population
+//! and extent both move `kept`. The sweep script pins one and records which.
 //!
-//! ⛔ HOLD ONE AXIS AT A TIME. Population and extent both move `kept`, so a run
-//! that varies both cannot attribute the result to either. The sweep script
-//! pins one and varies the other, and records which.
-//!
-//! ⚠ NOT A GAMEPLAY FEATURE. Read from the environment exactly once, absent
-//! costs nothing, and it must never become a `UserSettings` knob: a per-body
-//! perception override is a legitimate GAME capability (the type already has a
-//! field for one) and is a different thing from this.
+//! Not a gameplay feature. Read from the environment once; absent costs
+//! nothing. Do not make it a `UserSettings` knob; a per-body perception
+//! override is a separate game capability.
 
 use ambition_characters::perception::PerceptionExtentOverride;
 
@@ -27,18 +18,14 @@ use ambition_characters::perception::PerceptionExtentOverride;
 /// single number applied to both axes. Unset means the shipped default.
 pub const PERCEPTION_EXTENT_ENV: &str = "AMBITION_PERCEPTION_VIEWPORT_HALF";
 
-/// The value the environment asks for, read ONCE at plugin build and published
+/// The value the environment asks for, read once at plugin build and published
 /// as a resource the sim reads; nothing in the simulation names this crate.
 ///
-/// ⭐ THE SAME INVERSION AS `population_cap::from_env` and
-/// `brain_override::from_env`. D33 removed the actor kernel's three developer
-/// reads; a knob that read the environment from inside `ensure_perception`
-/// would add a fourth and undo it.
+/// Like `population_cap::from_env` and `brain_override::from_env`, this keeps
+/// environment reads out of the actor kernel (D33).
 ///
-/// ⛔ An unparsable value is NO OVERRIDE, not a panic — a measurement
-/// convenience should not stop a run — but it is logged, because a density
-/// curve taken under a silently ignored knob is a wrong curve, and every point
-/// on it would look like the shipped default while claiming not to be.
+/// An unparsable value gives no override, not a panic, but it is logged so a
+/// curve is not taken under a silently ignored knob.
 pub fn from_env() -> PerceptionExtentOverride {
     let Ok(raw) = std::env::var(PERCEPTION_EXTENT_ENV) else {
         return PerceptionExtentOverride::NONE;
@@ -58,9 +45,8 @@ pub fn from_env() -> PerceptionExtentOverride {
 
 /// `"960x640"` → both axes; `"960"` → a square half-extent.
 ///
-/// ⛔ A NON-POSITIVE EXTENT IS REFUSED rather than clamped. Zero would give
-/// every body an empty viewport and a `kept` of zero, which reads exactly like
-/// a working budget of zero — a plausible measurement of nothing.
+/// A non-positive extent is refused, not clamped. Zero gives every body an
+/// empty viewport and `kept` of zero, which looks like a working budget.
 fn parse(raw: &str) -> Option<ambition_platformer2d_core::Vec2> {
     let (w, h) = match raw.split_once(['x', 'X']) {
         Some((w, h)) => (w.trim().parse::<f32>().ok()?, h.trim().parse::<f32>().ok()?),
@@ -95,7 +81,7 @@ mod tests {
         );
     }
 
-    /// ⛔ THE VALUES THAT WOULD MEASURE SOMETHING FALSE.
+    /// Values that would measure something false.
     #[test]
     fn a_degenerate_extent_is_refused_rather_than_clamped() {
         for raw in [
@@ -111,8 +97,7 @@ mod tests {
         }
     }
 
-    /// The knob is INERT unless the environment asks, and absence is the
-    /// shipped default rather than any particular number.
+    /// The knob is inert unless set, and absence means the shipped default.
     #[test]
     fn an_unset_environment_publishes_no_override() {
         assert_eq!(PerceptionExtentOverride::NONE.half_extent(), None);

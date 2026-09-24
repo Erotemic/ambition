@@ -1,40 +1,36 @@
-//! `VolumeShape` — an authored hit/hurt shape in LOCAL space.
+//! `VolumeShape`: an authored hit/hurt shape in local space.
 //!
-//! This is the authoring currency for combat geometry: a tiny, serializable
-//! value type (RON-friendly) describing a shape *relative to a placement
-//! origin*, with `+x` = the actor's forward/facing direction. It is the same
-//! type whether the shape is authored *with a sprite* (a per-animation hitbox)
-//! or *with an effect* (an explosion's blast radius) — the two authoring homes
-//! share one currency.
+//! The authoring currency for combat geometry: a small, serializable (RON)
+//! value that describes a shape relative to a placement origin, with `+x` =
+//! the actor's facing. The same type is used for a shape authored with a
+//! sprite (a per-animation hitbox) and with an effect (a blast radius).
 //!
-//! [`VolumeShape::place_at`] is the one "place an effect at the right position"
-//! operation: it mirrors the local shape to the actor's facing and orients it to
-//! the actor's reference frame (gravity / clung surface), producing the
-//! world-space [`CombatVolume`] the damage path consumes. Under vertical gravity
-//! and a `Box` shape this is just an `Aabb` (the common, cheapest case).
+//! [`VolumeShape::place_at`] is the one "place an effect" operation: it
+//! mirrors the shape to the actor's facing and orients it to the actor's
+//! reference frame (gravity or clung surface), giving the world-space
+//! [`CombatVolume`] the damage path uses. Under vertical gravity a `Box` is a
+//! plain `Aabb`.
 //!
-//! Missing authored data falls back to [`VolumeShape::default`] — a small dummy
-//! box — so the game stays playable when a sprite's RON/PNG fails to load and no
-//! shape was authored. (Game state differs without the authored data, but it
-//! does not break.)
+//! Missing authored data falls back to [`VolumeShape::default`], a small
+//! dummy box, so the game stays playable when a sprite's RON/PNG fails to
+//! load.
 
 use crate::reference_frame::AccelerationFrame;
 use crate::{CombatVolume, Vec2};
 
-/// Half-extent of the [`VolumeShape::default`] dummy box — the fallback used
-/// when no shape was authored (e.g. a sprite sheet failed to load). Small but
-/// non-zero so combat still functions.
+/// Half-extent of the [`VolumeShape::default`] dummy box, used when no shape
+/// was authored. Small but non-zero, so combat still works.
 pub const DUMMY_HALF: f32 = 12.0;
 
 /// An authored shape in local space (origin = placement point, `+x` = forward).
 /// Resolve to a world [`CombatVolume`] with [`VolumeShape::place_at`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum VolumeShape {
-    /// Axis-aligned box (in the actor's frame) — the common, cheapest case.
+    /// Axis-aligned box (in the actor's frame): the common, cheapest case.
     Box { half: Vec2 },
     /// Box rotated `angle` radians (CCW) within the actor's frame.
     Obb { half: Vec2, angle: f32 },
-    /// Circle / disc — explosions, radial AoE.
+    /// Circle: explosions, radial AoE.
     Circle { radius: f32 },
     /// Arbitrary convex polygon, local points (`+x` forward). Authored for blade
     /// arcs, cones, etc.
@@ -67,15 +63,15 @@ impl VolumeShape {
         }
     }
 
-    /// Place this local shape into the world at `origin`, mirrored to `facing`
-    /// (`< 0` flips local `+x`) and oriented so the actor's local `down` points
-    /// along `frame_down` (gravity or a clung surface). Returns the world
-    /// [`CombatVolume`] for intersection. Identity orientation under vertical
-    /// gravity, so the common case is a plain `Aabb`.
+    /// Place this local shape in the world at `origin`, mirrored to `facing`
+    /// (`< 0` flips local `+x`) and oriented so local `down` points along
+    /// `frame_down` (gravity or a clung surface). Returns the world
+    /// [`CombatVolume`]. Under vertical gravity the orientation is the
+    /// identity, so the common case is a plain `Aabb`.
     pub fn place_at(&self, origin: Vec2, facing: f32, frame_down: Vec2) -> CombatVolume {
         let frame = AccelerationFrame::new(frame_down);
-        // Frame rotation angle: the angle of the local +x (side) axis. Zero
-        // under vertical gravity → boxes stay axis-aligned (fast Aabb path).
+        // Angle of the local +x (side) axis. Zero under vertical gravity, so
+        // boxes stay axis-aligned (fast Aabb path).
         let theta = frame.side.y.atan2(frame.side.x);
         let face = if facing < 0.0 { -1.0 } else { 1.0 };
         // Map a local point (+x forward, +y down) into world space.
@@ -128,8 +124,8 @@ mod tests {
 
     #[test]
     fn box_under_sideways_gravity_rotates() {
-        // Gravity points +x: the box should rotate ~90°, so a tall box (half
-        // 4x20) now reaches far in x and little in y.
+        // Gravity points +x: the box rotates about 90°, so a tall box (half
+        // 4x20) reaches far in x and little in y.
         let vol = VolumeShape::box_half(Vec2::new(4.0, 20.0)).place_at(
             Vec2::ZERO,
             1.0,

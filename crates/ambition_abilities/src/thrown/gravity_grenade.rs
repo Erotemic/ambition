@@ -1,14 +1,11 @@
-//! Gravity grenade — a thrown held item that, on its fuse, opens a short-lived
-//! up-gravity *well* instead of exploding. Enemies and items caught in it fall
-//! UP and float — a crowd-control tool that emerges from the localized-gravity
-//! system: the grenade just spawns a [`GravityZone`]; the existing per-actor
-//! gravity (`gravity_dir_at`) does the lifting, so no bespoke "lift" code is
-//! needed.
+//! Gravity grenade: a thrown held item that, when its fuse ends, opens a
+//! short-lived up-gravity well instead of exploding. Enemies and items in it
+//! fall up and float. The grenade only spawns a [`GravityZone`]; the per-actor
+//! gravity (`gravity_dir_at`) does the lifting.
 //!
-//! Reuses the bomb's substrate: a "pure throwable" `HeldItemSpec` (no melee /
-//! ranged verb), armed with a fuse the frame it starts moving (thrown), then on
-//! expiry it spawns a [`TemporaryZone`] gravity well and despawns. A resting
-//! debug grenade never arms until thrown.
+//! Uses the bomb's substrate: a pure-throwable `HeldItemSpec` (no melee or
+//! ranged verb), armed when thrown. On expiry it spawns a [`TemporaryZone`]
+//! gravity well and despawns. A grenade that was never thrown does not arm.
 
 use bevy::prelude::*;
 
@@ -36,15 +33,13 @@ pub struct GravityGrenadeFuse {
     pub timer: f32,
 }
 
-/// Arm a thrown gravity grenade: a moving `gravity_grenade` [`GroundItem`] (just
-/// thrown) that isn't armed yet gets a lit fuse. A grenade nobody threw stays
-/// safe so the player can pick it up.
+/// Arm a thrown gravity grenade: a `gravity_grenade` [`GroundItem`] with
+/// [`ReleasedAs`] throw gets a lit fuse. A grenade nobody threw stays safe to
+/// pick up.
 ///
-/// ⛔⛔ SAME DEFECT AS THE BOMB, same repair. This asked `ground.vel != ZERO`,
-/// which arms an authored grenade the moment gravity moves it and leaves a lit
-/// fuse burning in the hand of whoever catches one. [`ReleasedAs`] carries the
-/// decision the release transaction already made; disarming lives here too, and
-/// is chained ahead of the ticker so a caught grenade cannot detonate in custody.
+/// Same rule as the bomb: arming reads [`ReleasedAs`] (the release decision),
+/// not velocity, so falling does not arm it. Disarming is here too, chained
+/// before the ticker, so a caught grenade cannot detonate in custody.
 pub fn arm_thrown_gravity_grenades(
     mut commands: Commands,
     grenades: Query<(
@@ -73,25 +68,20 @@ pub fn arm_thrown_gravity_grenades(
     }
 }
 
-/// Open one temporary up-gravity well. THE seam a grenade's well comes into the
-/// world through.
+/// Open one temporary up-gravity well. The only way a grenade's well enters
+/// the world.
 ///
-/// ⭐ ONE PLACE, like `deploy_sentry` and `open_vortex_well`: an archetype that
-/// only exists after a fuse burns down is invisible to a census of a booted
-/// room, and a named seam is what lets a test build the real thing rather than
-/// an approximation of it.
+/// One place, like `deploy_sentry` and `open_vortex_well`, so tests can build
+/// the real entity; it otherwise exists only after a fuse burns down.
 ///
-/// ⛔⛔ AN AUTHORED GRAVITY COLUMN AND THIS ARE NOT THE SAME KIND OF THING. The
-/// authored one is room geometry a room load rebuilds; this one is spawned
-/// mid-match, counts `remaining` down, and despawns itself. `TemporaryZone` is
-/// therefore the rollback ANCHOR of the pair — see the shared-tangle
-/// registration, which says why anchoring `GravityZone` instead would enlist
-/// every authored column for nothing.
+/// Not the same kind of thing as an authored gravity column. That is room
+/// geometry rebuilt on room load; this one is spawned mid-match, counts
+/// `remaining` down, and despawns itself. So `TemporaryZone` is the rollback
+/// anchor (see the shared-tangle registration for why `GravityZone` is not).
 ///
-/// `sim_id` is the well's identity, minted under the GRENADE that burned down
-/// (`SimId::spawned(grenade, counter)`); `None` only for a fixture with no
-/// grenade in hand. The well is rollback-anchored, and an anchored entity
-/// without an identity rewinds anonymously (S4).
+/// `sim_id` is the well's identity, minted under the grenade that burned
+/// down (`SimId::spawned(grenade, counter)`); `None` only for fixtures. An
+/// anchored entity without an identity rewinds anonymously (S4).
 pub fn open_temporary_gravity_well(
     commands: &mut Commands,
     scope: SessionSpawnScope,
@@ -143,12 +133,9 @@ pub fn tick_gravity_grenade_fuses(
         if fuse.timer > 0.0 {
             continue;
         }
-        // ⛔ REFUSE RATHER THAN OPEN AN UNNAMEABLE WELL — ADR 0030. This was
-        // `_ => None`.
-        //
-        // ⚠ AND IT STILL DESPAWNS. The fuse has already expired; skipping the
-        // whole arm would leave a spent grenade retrying every tick forever, so
-        // the refusal costs the EFFECT, not the cleanup.
+        // Refuse to open an unnameable well (ADR 0030). The grenade still
+        // despawns: its fuse has expired, and skipping cleanup would retry
+        // every tick forever.
         let (Some(grenade), Some(counter)) = (grenade_id, counter.as_deref_mut()) else {
             warn!(
                 "a gravity grenade's well was refused: the grenade carries no \
@@ -197,9 +184,7 @@ mod tests {
         )
     }
 
-    /// ⭐ ASKED OF THE RELEASE, NOT THE VELOCITY. This used to spawn a grenade
-    /// with a nonzero velocity and call it "thrown" — which is the heuristic
-    /// under test, so the arm agreed with the bug by construction.
+    /// Arming reads the release, not the velocity.
     #[test]
     fn a_thrown_grenade_arms_but_a_grenade_nobody_threw_does_not() {
         let mut app = App::new();
@@ -211,8 +196,7 @@ mod tests {
                 ReleasedAs(Release::Throw),
             ))
             .id();
-        // FALLING, not thrown: the velocity a second of free-fall gives an
-        // authored grenade, which the old rule could not tell from a throw.
+        // Falling, not thrown: the velocity of a second of free fall.
         let falling = app
             .world_mut()
             .spawn(grenade_ground(ae::Vec2::new(0.0, 980.0)))
@@ -228,9 +212,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AND CATCHING ONE PUTS THE FUSE OUT. Same defect, same repair as the
-    /// bomb: taking custody retracts `ReleasedAs`, and the arming system — which
-    /// is chained ahead of the ticker — removes the fuse before it can burn.
+    /// Catching one puts the fuse out: taking custody removes `ReleasedAs`,
+    /// and the arming system (chained before the ticker) removes the fuse.
     #[test]
     fn catching_a_live_grenade_puts_the_fuse_out() {
         let mut app = App::new();
@@ -266,10 +249,9 @@ mod tests {
                 GravityGrenadeFuse {
                     timer: GRAVITY_GRENADE_FUSE_SECS,
                 },
-                // ⛔ THE WELL MINTS UNDER THE GRENADE, so a grenade with no
-                // identity now opens nothing (ADR 0030). A production grenade
-                // always carries one; a fixture that omitted it was testing the
-                // `_ => None` road this refusal replaced.
+                // The well mints under the grenade, so a grenade with no
+                // identity opens nothing (ADR 0030). Production grenades
+                // always have one.
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_grenade"),
                 ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             ))

@@ -739,7 +739,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// numbered in parallel.)
 /// ⛔⛤ 222 -> 223: `actor.body_melee` no longer encodes `pending_axis`. Its one
 /// writer, `BodyMelee::begin`, has no production caller, and nothing read it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 223;
+/// ⛔⛤ 223 -> 224: `actor.body_melee` no longer encodes the swing. The swing was
+/// a copy of the live `MovePlayback`, and readers now derive it from the move
+/// (`melee_swing_of`). The `MovePlayback` checksum now also hashes
+/// `attack_intent`, which the swing bytes used to carry.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 224;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

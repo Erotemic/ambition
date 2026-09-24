@@ -1,28 +1,22 @@
-//! Write a shipped move table out as the authored CONTENT file the host loads.
+//! Write a shipped move table out as the authored content file the host loads.
 //!
-//! ⭐⭐ **THIS IS THE BUILDER HALF OF FAST-ITERATION I2.** The host stops
-//! compiling a move table and reads one; something has to produce the file, and
-//! for a table that exists in Rust today that something is a one-way export. It
-//! is a MIGRATION tool and a REGENERATOR both: run it after editing the Rust
-//! table to refresh the content file, until the Rust table stops being the
-//! source at all.
+//! This is the builder half of fast-iteration I2: the host reads a move table
+//! instead of compiling one, and this exports a Rust table to that file. It
+//! is a migration tool and a regenerator: run it after editing the Rust table,
+//! until the Rust table is no longer the source.
 //!
 //! ```text
 //! cargo run -p ambition_app_tools --bin moveset_source_export -- officer
 //! ```
 //!
-//! ⛔ **IT READS `authored_movesets::tables()`, THE SOURCE, AND NOT A LIVE
-//! HOST.** The prepared registry's copy is not the authored one: the
-//! `Unauthored` arm of character preparation calls `revoke_host_owned_ranged`
-//! on the stored moveset, so a fighter's live table has had ranged verbs
-//! stripped from it. Exporting that would write a file whose reimport changes
-//! the game — which `moveset_export` (the JSON balance bundle, a different tool
-//! for a different question) says about itself from the other direction: it
-//! reads the composed host ON PURPOSE, because balance is about what the game
-//! resolves.
+//! It reads `authored_movesets::tables()`, the source, not a live host. The
+//! prepared registry's copy differs: the `Unauthored` arm of character
+//! preparation calls `revoke_host_owned_ranged`, which strips ranged verbs.
+//! Exporting that would write a file whose reimport changes the game.
+//! (`moveset_export`, the JSON balance bundle, reads the composed host on
+//! purpose, because balance is about what the game resolves.)
 //!
-//! ⛔ **NO APP, NO BEVY GRAPH, NO RENDERER.** `tables()` is a pure function, so
-//! this costs a link and a millisecond rather than a boot.
+//! No App, no Bevy graph, no renderer: `tables()` is a pure function.
 
 use std::io::Write as _;
 
@@ -46,9 +40,8 @@ fn main() {
     let tables = ambition_content::authored_movesets::tables();
     if args.iter().any(|a| a == "--list") {
         for (id, contract) in &tables {
-            // ⭐ THE CHARACTER IDS, not just the table name — the whole reason a
-            // `--list` is useful here is to see which of the two spellings a
-            // file will be keyed by.
+            // The character ids, not only the table name, so `--list` shows
+            // which spelling a file will be keyed by.
             println!(
                 "{id}\t{} move(s)\t{} verb(s)\t{:?}",
                 contract.moves.len(),
@@ -59,8 +52,8 @@ fn main() {
         }
         return;
     }
-    // ⛔ AN UNKNOWN FLAG IS A REFUSAL, not a shrug — the sibling tool's own
-    // lesson, where a typo'd flag exported the default and said nothing.
+    // An unknown flag is a refusal; a typo must not export the default
+    // silently.
     if let Some(bad) = args
         .iter()
         .skip(1)
@@ -86,8 +79,8 @@ fn main() {
     std::fs::create_dir_all(&out_dir).expect("the output directory is writable");
     for id in wanted {
         let Some((_, contract)) = tables.iter().find(|(name, _)| name == id) else {
-            // ⛔ A NAME THAT MATCHES NOTHING IS A REFUSAL. Writing an empty file
-            // for a typo'd id is how a fighter loses its moveset silently.
+            // A name that matches nothing is a refusal. An empty file for a
+            // typo would silently remove a fighter's moveset.
             eprintln!(
                 "moveset_source_export: no shipped table named '{id}'. Known: {}",
                 tables
@@ -98,17 +91,15 @@ fn main() {
             );
             std::process::exit(2);
         };
-        // ⛔⛤ **THE ENTITY ID IS THE CHARACTER'S, NOT THE TABLE'S, AND SEVEN OF
-        // NINETEEN DISAGREE.** `tables()` keys by *"the name a failure should
-        // print"* — a FILE name — while the host looks a move table up by
-        // character id. `alice` is `npc_alice`; `patent_clerk` is
-        // `special_patent_clerk`. A file written under the table's name is one
-        // `authored_intrinsics` misses in silence.
+        // The entity id is the character's, not the table's, and they often
+        // differ. `tables()` keys by a file name, while the host looks up a
+        // move table by character id (`alice` is `npc_alice`; `patent_clerk`
+        // is `special_patent_clerk`). A file under the table's name would be
+        // missed by `authored_intrinsics`.
         //
-        // ⭐ AND ONE TABLE MAY BE SEVERAL CHARACTERS: the two cellular automatons
-        // are the same authored body under two names, which the cast already
-        // says with a slice. The document holds an entity per id, which is what
-        // `EntityCatalogDoc` is shaped for.
+        // One table may serve several characters (the two cellular automatons
+        // share one body), so the document holds an entity per id, as
+        // `EntityCatalogDoc` expects.
         let Some(characters) = ambition_content::authored_movesets::characters_for(id) else {
             eprintln!(
                 "moveset_source_export: `{id}` is a table no cast id claims, so a \
@@ -134,9 +125,8 @@ fn main() {
         };
         let text = doc.to_ron().expect("a shipped table serializes");
         let path = std::path::Path::new(&out_dir).join(format!("{id}.ron"));
-        // ⛔ WRITE THEN RENAME. A generator interrupted mid-write leaves a
-        // truncated content file that the pack compiler reads as a malformed
-        // source — a failure whose cause is the tool rather than the content.
+        // Write, then rename. An interrupted write would leave a truncated
+        // file that the pack compiler reads as malformed content.
         let tmp = path.with_extension("ron.tmp");
         let mut file = std::fs::File::create(&tmp).expect("the output file is writable");
         writeln!(

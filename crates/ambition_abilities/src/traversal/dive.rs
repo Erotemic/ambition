@@ -1,25 +1,21 @@
-//! Overflow Crash — a player-wielded lunge strike: dash forward along the
-//! aim and skewer everything in the dash corridor. The wielded kit's only
-//! *offensive mobility* attack — [`crate::ranged::shockwave`] / [`crate::ranged::beam`] /
-//! [`crate::ranged::volley`] are all stationary, and while [`crate::traversal::blink`] also
-//! teleports, blink is a *defensive* reposition (a tiny poof at the arrival
-//! point); the dive is an *offensive* gap-closer whose damage is the whole
-//! path from start to landing. Close the distance and cut a line through
-//! the mob in one commit.
+//! Overflow Crash: a player-wielded lunge strike. Dash forward along the aim
+//! and hit everything in the dash corridor. The wielded kit's only offensive
+//! mobility attack: [`crate::ranged::shockwave`], [`crate::ranged::beam`],
+//! and [`crate::ranged::volley`] are stationary, and
+//! [`crate::traversal::blink`] is a defensive reposition. The dive's damage
+//! covers the whole path from start to landing.
 //!
-//! It is the overflow boss signature gauntlet — an aerial dive-bomber that
-//! bursts past its bounds and crashes into you. Defeat it, wield its crash
-//! yourself ("every boss a failed objective function, learn its attack").
+//! It is the overflow boss's signature, an aerial dive-bomber: defeat it and
+//! wield its crash.
 //!
-//! Mechanically it reuses two proven primitives: [`ambition_platformer2d_core::cast::raycast_solids`]
-//! (the same wall-stop the blink uses, so the lunge never lands inside geometry)
-//! and a one-shot `Player`-faction [`ambition_combat::events::HitEvent`] over the dash
-//! corridor (a `PlayerSlash` source, so it damages enemies and spares the
-//! player). A *one-shot* event — not a lingering `Hitbox` — because a dash hits
-//! at the instant it crosses, it doesn't leave a damaging box behind.
+//! It reuses [`ambition_platformer2d_core::cast::raycast_solids`] (the blink's
+//! wall-stop, so the lunge never lands inside geometry) and a one-shot
+//! `Player`-faction [`ambition_combat::events::HitEvent`] over the corridor
+//! (`PlayerSlash` source: damages enemies, spares the player). One-shot, not
+//! a lingering `Hitbox`, because a dash hits as it crosses.
 //!
-//! The lunge axis-snaps (dominant aim axis, defaulting to facing) so the
-//! corridor stays a clean thin rectangle; a rotated dash is a feel follow-up.
+//! The lunge snaps to the dominant aim axis (default: facing), so the
+//! corridor is a thin rectangle.
 
 use bevy::prelude::*;
 
@@ -31,8 +27,7 @@ use ambition_platformer2d_shared_tangle::class_b::{ClassBRemap, ClassBRemapLog};
 /// Held-item id of the dive gauntlet.
 pub const DIVE_ID: &str = "dive";
 
-/// Mana the dive spends per lunge (out of 100). A committed gap-closer — gated
-/// like the rest of the wielded kit so it can't be spammed across a room.
+/// Mana per lunge (out of 100), so it cannot be spammed across a room.
 const DIVE_MANA_COST: f32 = 26.0;
 
 /// How far (px) the player lunges along the aim, absent a wall.
@@ -44,10 +39,9 @@ const DIVE_DAMAGE: i32 = 4;
 /// Horizontal shove imparted to struck enemies (signed by the lunge direction).
 const DIVE_KNOCKBACK: f32 = 1.4;
 
-/// Axis-snap an aim + facing to the lunge direction (a unit vector along the
-/// dominant axis). A null aim falls back to `facing` (a forward dash), so a
-/// plain Attack with no directional hold still lunges — it's an attack, not a
-/// precise teleport like the blink (which needs an explicit aim).
+/// Snap an aim and facing to a lunge direction (a unit vector on the
+/// dominant axis). A null aim uses `facing`, so a plain Attack still lunges;
+/// the blink, in contrast, needs an explicit aim.
 fn dive_dir(aim: ae::Vec2, facing: f32) -> ae::Vec2 {
     let horizontal = if aim == ae::Vec2::ZERO {
         true
@@ -66,9 +60,9 @@ fn dive_dir(aim: ae::Vec2, facing: f32) -> ae::Vec2 {
     }
 }
 
-/// The damaging corridor swept from `from` to `to` — an axis-aligned box that
-/// bounds both endpoints, padded by a body-width so the dash has thickness. For
-/// an axis-snapped lunge this is a clean thin rectangle along the dash.
+/// The damaging corridor from `from` to `to`: an axis-aligned box around both
+/// endpoints, padded by a body width. For a snapped lunge this is a thin
+/// rectangle.
 fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
     let center = (from + to) * 0.5;
     let half = ae::Vec2::new(
@@ -78,15 +72,14 @@ fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
     ae::Aabb::new(center, half)
 }
 
-/// `Attack` while holding the dive gauntlet lunges the player along the aim and
-/// emits a one-shot `Player`-faction hit over the dash corridor. Plain Attack
-/// only — `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
+/// `Attack` while holding the dive gauntlet lunges the player along the aim
+/// and emits a one-shot `Player`-faction hit over the corridor. Plain Attack
+/// only; `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_dive_system(
     world: ambition_platformer2d_world::collision::CollisionWorld,
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same item simply never acted.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can act.
     driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
@@ -98,8 +91,8 @@ pub fn fire_dive_system(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
     mut hits: MessageWriter<ambition_combat::events::HitEvent>,
-    // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
-    // that never added the engine's schedule plugin still dives.
+    // Optional diagnostic Class-B ledger (§3.2), so a minimal test app still
+    // dives.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     for subject in driven.entities() {
@@ -126,14 +119,14 @@ pub fn fire_dive_system(
         let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
         let dir = frame.to_world(local_dir).normalize_or_zero();
         let from = clusters.kinematics.pos;
-        // Stop a body-half short of the wall so the lunge never embeds. The pull-back
-        // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
-        // vertical dive, not half-width -- the same direction-aware clamp the blink
-        // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
+        // Stop a body-half short of the wall so the lunge never embeds. Use
+        // the body's extent in the lunge direction (half-height for a vertical
+        // dive), as the blink does, or a downward dive embeds in the floor
+        // and trips the OOB detector.
         let half = clusters.kinematics.size * 0.5;
         let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
-        // One composited collision view, shared by the clamp raycast and the embed
-        // safety net, so the lunge is stopped by moving platforms / ECS solids too.
+        // One collision view for the clamp raycast and the embed check, so
+        // moving platforms and ECS solids also stop the lunge.
         let collision = world.solids();
         let mut target = match collision.as_ref().and_then(|w| {
             ambition_platformer2d_core::cast::raycast_solids(
@@ -147,8 +140,8 @@ pub fn fire_dive_system(
             Some((hit, _normal)) => hit - dir * margin,
             None => from + dir * DIVE_LUNGE,
         };
-        // Safety net: if the landing AABB still overlaps a solid (a corner / grazing
-        // the center-ray missed), fall back to the start instead of embedding.
+        // Safety net: if the landing AABB still overlaps a solid (a corner
+        // the center ray missed), stay at the start instead of embedding.
         if let Some(w) = collision.as_ref() {
             let landing = ae::Aabb::new(target, half);
             let embeds = w.blocks.iter().any(|b| {
@@ -161,28 +154,26 @@ pub fn fire_dive_system(
                 target = from;
             }
         }
-        // THE discrete-transit authority: arrive with momentum kept, departure
-        // contacts and any attachment reconciled (ADR 0024 authority model).
+        // The discrete-transit authority: arrive with momentum kept, and
+        // reconcile departure contacts and attachment (ADR 0024).
         ae::movement::transit_body(
             &mut motion_model,
             &mut clusters,
             target,
             ae::movement::TransitVelocity::Keep,
         );
-        // Class-B transit authority (`docs/concepts/movement-collision.md`): a traversal
-        // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
-        // mid-dive is a death, not a dive.
+        // Class-B transit (`docs/concepts/movement-collision.md`): a
+        // traversal ability that moves a body is a scripted teleport, ranked
+        // weakest, so dying mid-dive is a death, not a dive.
         if let Some(log) = class_b.as_mut() {
             log.record(player, ClassBRemap::ScriptedTeleport);
         }
         if local_dir.x.abs() > 0.001 {
             clusters.kinematics.facing = local_dir.x.signum();
         }
-        // The dash corridor cuts everything between start and landing — a one-shot
-        // PlayerSlash volume (spares the player, shoves enemies along the dash).
-        //
-        // so the shove is 1.4× what shipped: that is the authored number finally being used,
-        // not a new one, and it is a constant above if it wants tuning.
+        // The corridor hits everything between start and landing: a one-shot
+        // PlayerSlash volume that spares the player and pushes enemies along
+        // the dash. The push uses `DIVE_KNOCKBACK` above.
         let corridor: ambition_platformer2d_core::CombatVolume = dive_corridor(from, target).into();
         let corridor_center = corridor.center();
         hits.write(ambition_combat::events::HitEvent {

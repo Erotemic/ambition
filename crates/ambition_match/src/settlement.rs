@@ -1,51 +1,37 @@
 //! Rollback-safe match settlement state.
 //!
 //! These facts describe one `MatchInstance`, not a particular stocks ruleset.
-//! Rules decide and enter sudden death from above; match identity owns the stamped
-//! state so clocks, presentation, and other consumers do not depend on the actor
-//! monolith's rules module.
+//! Rules decide and enter sudden death from above. Match identity owns the
+//! stamped state, so clocks, presentation, and other consumers do not depend
+//! on the actor monolith's rules module.
 
 use bevy::prelude::{Resource, World};
 use ambition_combat::stocks::MatchVerdict;
 use crate::{ActiveMatch, MatchInstance};
 
-/// THE STOCKS OUTCOME FOR ONE MATCH: which match has been settled.
+/// The stocks outcome for one match: which match was settled, and how.
 ///
-/// Set once a stocks ruleset has decided the live match, so the
-/// outcome is announced once rather than every tick after it becomes true.
+/// Set once a stocks ruleset decides the live match, so the outcome is
+/// announced once.
 ///
-/// this was a bare `bool` about the PROCESS, and is what that costs. A match that ended set
-/// it true; nothing on this stage set it back, because the only retraction was
-/// `decide_stocks_match` observing NO active match and there is no tick between two matches on
-/// which the receipt is absent.
+/// Stamped with the match it is about, so it goes stale automatically when a
+/// different match activates. Nobody retracts it, and nothing is ordered
+/// against activation.
 ///
-/// it is not a timeless global. It is the outcome for match X, and saying
-/// so is the whole fix: a verdict stamped with the match it is about goes stale
-/// BY CONSTRUCTION when a different match activates. Nobody retracts it, nothing
-/// has to be ordered against activation, and a composition that never installed
-/// this ruleset is not mentioned anywhere on the activation road.
-///
-/// still a resource rather than a `Local`, and still rollback state: a `Local`
-/// does not rewind, and this gates a message the ruleset acts on, so a rewind
-/// across the deciding frame must be able to un-decide the match. It rewinds
-/// alongside [`ActiveMatch`], which is what makes the comparison below correct
-/// after a rewind rather than merely plausible.
+/// A rollback resource, not a `Local`: it gates a message the ruleset acts
+/// on, so a rewind across the deciding frame must un-decide the match. It
+/// rewinds with [`ActiveMatch`], so the comparison stays correct.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct StocksMatchSettled(Option<(MatchInstance, MatchVerdict)>);
 
-/// Hash a mechanical fact plus a discriminant, for the checksum projections
-/// below.
+/// Hash a mechanical fact plus a match discriminant, for the checksum
+/// projections below.
 ///
-/// ⛔ ONLY `MatchInstance`'s PEER HALF REACHES THIS, through
-/// `peer_match_digest`. Its local terms count something per-App — activations
-/// for `session`, sim steps for `activated_on` — so neither can be compared
-/// between peers. See `MatchInstance::activation_tick`.
-///
-/// ⛔⛤ AND `which` IS NOT OPTIONAL. These projections excluded the instance
-/// ENTIRELY for a day, which made them false-negative: the same verdict stamped
-/// for a different match checksummed identically while `settled(active)`
-/// disagreed. A projection has to say WHICH match it describes, in the peer's
-/// vocabulary.
+/// Only `MatchInstance`'s peer half reaches this, through
+/// `peer_match_digest`. Its local terms are per-App counts (see
+/// `MatchInstance::activation_tick`). `which` is required: without it, the
+/// same verdict for a different match checksums the same while
+/// `settled(active)` differs.
 fn peer_stable_digest(domain: &str, which: u64, extra: u64) -> u64 {
     ambition_platformer2d_core::snapshot::PeerDigest::in_domain(domain)
         .u64(which)
@@ -54,14 +40,9 @@ fn peer_stable_digest(domain: &str, which: u64, extra: u64) -> u64 {
 }
 
 impl StocksMatchSettled {
-    /// What two PEERS may compare about this verdict: WHICH match was decided,
-    /// in the peer's vocabulary, and HOW.
-    ///
-    /// ⛔⛤ IT HASHED THE VERDICT ALONE for a day. A `Winner("left")` stamped for
-    /// the PREVIOUS match then checksummed identically to one stamped for the
-    /// current match — while `settled(active)` answered `false` on the first and
-    /// `true` on the second, so the two peers ran different simulations from
-    /// identical checksums.
+    /// What two peers may compare about this verdict: which match was decided
+    /// (peer ordinal) and how. The verdict alone is not enough; a verdict for
+    /// the previous match would checksum the same as one for this match.
     pub fn peer_stable_checksum(&self) -> u64 {
         let which = match &self.0 {
             None => 0,
@@ -83,31 +64,24 @@ impl StocksMatchSettled {
         peer_stable_digest("match.stocks_verdict", which, verdict)
     }
 
-    /// Has THIS match been decided? A verdict for a different match is not
-    /// this match's, which is the whole reason the stamp is here.
+    /// Whether this match was decided. A verdict for a different match does
+    /// not count.
     pub fn settled(&self, active: &ActiveMatch) -> bool {
         self.decided_match() == Some(active.instance())
     }
 
-    /// Record that this match has been decided, and HOW.
+    /// Record that this match was decided, and how.
     ///
-    /// ⭐⭐ THE VERDICT LIVES HERE BECAUSE PRESENTATION MAY NOT READ A MESSAGE.
-    /// The winner card and the return countdown both reacted to
-    /// `StocksMatchDecided`, which a SPECULATIVE frame can write — and neither
-    /// is retractable. The countdown was fixed by reading this latch, which
-    /// rewinds; the CARD could not follow because the latch said only WHETHER,
-    /// and the outcome it needs was in the message.
-    ///
-    /// ⛔ AND WAITING FOR CONFIRMATION IS NOT ENOUGH ON A MESSAGE. A reader that
-    /// declines to consume until the frame is confirmed keeps its cursor, and a
-    /// message channel is two frames deep — so a confirmation arriving later
-    /// than that loses the announcement rather than delaying it. State has no
-    /// cursor.
+    /// The verdict is state here because presentation must not read a
+    /// message: a speculative frame can write `StocksMatchDecided`, and the
+    /// winner card cannot retract. This latch rewinds. Waiting for
+    /// confirmation on a message also fails: the channel is two frames deep,
+    /// so a late confirmation loses the message. State has no cursor.
     pub fn settle(&mut self, active: &ActiveMatch, verdict: MatchVerdict) {
         self.0 = Some((active.instance(), verdict));
     }
 
-    /// How THIS match ended, or `None` for a match that has not been decided.
+    /// How this match ended, or `None` if it is not decided.
     pub fn verdict(&self, active: &ActiveMatch) -> Option<&MatchVerdict> {
         self.0
             .as_ref()
@@ -121,9 +95,8 @@ impl StocksMatchSettled {
         Self(decided)
     }
 
-    /// The match this verdict is about, for the wire format. not a
-    /// "has anything been decided" predicate — that question needs the live
-    /// match to compare against, which is [`Self::settled`].
+    /// The match this verdict is about, for the wire format. Not a "was
+    /// anything decided" check; use [`Self::settled`] with the live match.
     #[doc(hidden)]
     pub fn decided_match(&self) -> Option<MatchInstance> {
         self.0.as_ref().map(|(instance, _)| instance.clone())
@@ -136,11 +109,9 @@ impl StocksMatchSettled {
     }
 }
 
-/// Has the LIVE match been decided? — both halves of the question, for a
-/// caller holding a world rather than a system's parameters.
-///
-/// A latch with a verdict in it says nothing on its own; it has to be the verdict for the match
-/// that is running.
+/// Whether the live match was decided, for a caller that holds a world
+/// instead of system parameters. A verdict means nothing unless it is for the
+/// running match.
 pub fn the_live_match_is_settled(world: &World) -> bool {
     match (
         world.get_resource::<ActiveMatch>(),
@@ -151,30 +122,24 @@ pub fn the_live_match_is_settled(world: &World) -> bool {
     }
 }
 
-/// THE MATCH ENTERED SUDDEN DEATH, and WHICH match it is about.
+/// The match entered sudden death, and which match.
 ///
-/// ⭐ THE SAME STAMPED SHAPE AS [`StocksMatchSettled`], for the same reason and
-/// with the same payoff: a fact about match X goes stale BY CONSTRUCTION when
-/// match Y activates, so nobody has to retract it and nothing has to be ordered
-/// against activation.
+/// Same stamped shape as [`StocksMatchSettled`]: a fact about match X goes
+/// stale automatically when match Y activates.
 ///
-/// ⛔⛔ AND IT IS WHAT KEEPS THE CLOCK FROM RE-FIRING. Sudden death is entered by
-/// NOT settling the match, so `time_expired` stays true for every tick that
-/// follows — without this latch the tie would be re-entered sixty times a second
-/// and every fighter would be reset to the starting damage forever.
+/// This latch stops the clock from re-firing. Sudden death is entered by not
+/// settling the match, so `time_expired` stays true. Without the latch, the
+/// tie would re-enter every tick and reset every fighter's damage.
 ///
-/// Rollback state for the reason its sibling is: this gates a message the
-/// ruleset acts on, so a rewind across the entering frame must be able to
-/// un-enter it.
+/// Rollback state for the same reason as its sibling: a rewind across the
+/// entering frame must un-enter it.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SuddenDeathEntered(Option<MatchInstance>);
 
 impl SuddenDeathEntered {
-    /// What two PEERS may compare: WHICH match entered sudden death, in the
-    /// peer's vocabulary, and whether anything is latched at all.
-    ///
-    /// ⛔⛤ IT HASHED ONLY `is_some()` for a day — one BIT — so a latch belonging
-    /// to the previous match agreed with a latch belonging to this one.
+    /// What two peers may compare: which match entered sudden death (peer
+    /// ordinal) and whether anything is latched. One bit alone would let a
+    /// latch for the previous match agree with one for this match.
     pub fn peer_stable_checksum(&self) -> u64 {
         let which = match &self.0 {
             None => 0,
@@ -183,7 +148,7 @@ impl SuddenDeathEntered {
         peer_stable_digest("match.sudden_death", which, u64::from(self.0.is_some()))
     }
 
-    /// Is THIS match in sudden death?
+    /// Whether this match is in sudden death.
     pub fn entered(&self, active: &ActiveMatch) -> bool {
         self.0 == Some(active.instance())
     }
@@ -212,9 +177,8 @@ mod peer_stable_projection_tests {
     use ambition_combat::stocks::MatchVerdict;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId;
 
-    /// A stamp whose LOCAL halves vary and whose PEER half is fixed at match 3.
-    /// Two peers describing the same match of the same agreed session look like
-    /// this: the same ordinal, different session counts, different ticks.
+    /// A stamp whose local halves vary and whose peer half is fixed at match
+    /// 3: two peers describing the same match of one agreed session.
     fn stamp(session: u64, tick: u64) -> MatchInstance {
         MatchInstance::from_snapshot(Some(SessionScopeId(session)), Some(tick), Some(3))
     }
@@ -225,18 +189,10 @@ mod peer_stable_projection_tests {
         MatchInstance::from_snapshot(Some(SessionScopeId(77)), Some(123_456), Some(ordinal))
     }
 
-    /// ⛔⛤ **THE FALSE-NEGATIVE ARM: IDENTICAL PAYLOAD, DIFFERENT MATCH.**
-    ///
-    /// This is the case that made removing the local stamp insufficient. Two
-    /// peers can hold the same verdict value where one's stamp belongs to the
-    /// CURRENT match and the other's to the PREVIOUS one. `settled(active)` then
-    /// answers `true` on one and `false` on the other — different simulation —
-    /// and before 2026-09-15 their checksums were equal, because the projection
-    /// hashed the verdict and nothing about which match it was for.
-    ///
-    /// ⇒ A checksum that agrees while the simulation diverges is worse than one
-    /// that disagrees while it does not: the first hides a desync, the second
-    /// only reports one.
+    /// Same payload, different match. Two peers can hold the same verdict
+    /// where one stamp is for the current match and the other for the
+    /// previous. `settled(active)` then differs, so the checksums must differ.
+    /// A checksum that agrees while the simulation diverges hides a desync.
     #[test]
     fn the_same_verdict_for_a_different_match_is_a_different_checksum() {
         let verdict_for = |ordinal: u64| {
@@ -253,8 +209,7 @@ mod peer_stable_projection_tests {
              identically, so a peer holding a STALE verdict agrees with one \
              holding the live one while `settled(active)` disagrees"
         );
-        // ⚠ AND "NO ORDINAL AUTHORITY" IS NOT MATCH ZERO. A bare fixture with no
-        // ordinal must not agree with the first match of a real session.
+        // "No ordinal authority" is not match zero.
         assert_ne!(
             verdict_for(0),
             StocksMatchSettled::from_snapshot(Some((
@@ -264,18 +219,15 @@ mod peer_stable_projection_tests {
             .peer_stable_checksum(),
             "an absent ordinal projects as ordinal 0"
         );
-        // ⛔ AND THE SUDDEN-DEATH LATCH HAS THE SAME SHAPE, one bit wide, so it
-        // was even easier to collide: a latch for match 2 agreed with a latch
-        // for match 3.
+        // The sudden-death latch has the same shape.
         assert_ne!(
             SuddenDeathEntered::from_snapshot(Some(peer_match(3))).peer_stable_checksum(),
             SuddenDeathEntered::from_snapshot(Some(peer_match(2))).peer_stable_checksum(),
             "sudden death latched for match 3 and for match 2 checksum \
              identically"
         );
-        // ⚠ AND THE LOCAL HALVES MUST STILL BE EXCLUDED, or this arm's fix is
-        // the old defect returning: the SAME match named by two peers with
-        // different session counts and different activation ticks must agree.
+        // The local halves must still be excluded: the same match, named by
+        // peers with different session counts and ticks, must agree.
         assert_eq!(
             SuddenDeathEntered::from_snapshot(Some(MatchInstance::from_snapshot(
                 Some(SessionScopeId(1)),
@@ -308,10 +260,8 @@ mod peer_stable_projection_tests {
             "the verdict's checksum moves with the host's prior session count, so \
              two peers who agree on the outcome would desync"
         );
-        // ⛔⛤ AND THE ACTIVATION TICK IS THE SAME KIND OF TERM. It counts this
-        // App's sim steps, menus included, so two hosts that idled on the select
-        // screen for different numbers of frames stamp the same match
-        // differently. This arm FAILED before 2026-09-15.
+        // The activation tick is also local: it counts this App's sim steps,
+        // menus included.
         assert_eq!(
             settled(1).peer_stable_checksum(),
             StocksMatchSettled::from_snapshot(Some((
@@ -322,8 +272,7 @@ mod peer_stable_projection_tests {
             "the verdict's checksum moves with the ABSOLUTE sim tick the match \
              activated on, which counts menu frames"
         );
-        // ⛔ AND IT MUST STILL SEE THE OUTCOME, or the exclusion above would be
-        // satisfied by a constant.
+        // It must still see the outcome, or a constant would pass.
         assert_ne!(
             settled(1).peer_stable_checksum(),
             StocksMatchSettled::from_snapshot(Some((
@@ -371,8 +320,8 @@ mod peer_stable_projection_tests {
         );
     }
 
-    // ⛔ The two projections must not collide: they are checksummed into the same
-    // frame, and a swap between them would then be invisible.
+    // The two projections are checksummed into the same frame and must not
+    // collide, or a swap between them would be invisible.
     #[test]
     fn the_two_settlement_projections_do_not_share_a_digest() {
         assert_ne!(

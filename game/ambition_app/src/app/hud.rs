@@ -38,7 +38,8 @@ pub(super) struct HudCameraParams<'w, 's> {
             Option<&'static super::combo_trace::ComboTrace>,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::actor::BodyCombat,
-            &'static ambition_platformer2d::combat::BodyMelee,
+            // The swing, derived from the live move.
+            ambition_platformer2d::combat::moveset::MeleeSwingQuery,
         ),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
@@ -257,8 +258,7 @@ pub(super) fn update_hud(
     let body_mode = hud_body_mode.body_mode.label();
     let movement_line = format!("\nLOCO: {locomotion}  BODY: {body_mode}");
     let attack_line = hud_attack
-        .swing
-        .as_ref()
+        .swing()
         .map(|attack| {
             let intent = attack.spec.intent.label();
             let phase = attack.phase().map(|phase| phase.label()).unwrap_or("done");

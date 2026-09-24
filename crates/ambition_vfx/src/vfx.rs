@@ -95,19 +95,12 @@ pub enum ImpactMaterial {
     Metal,
 }
 
-/// How ONE body reacts to being struck (CM8): the VICTIM-owned half of hit
-/// feedback — a default hurt sound plus the optional particle spray and physics
-/// debris that body throws off. The victim owns these because they describe the
-/// body being hurt, not the attack; an attack contributes only its own STRIKE
-/// SOUND, which overrides `sfx` but never the spray. That split is the whole
-/// point of CM8: an enemy struck by another enemy uses [`HurtFeedback::ENEMY`]
-/// and so never borrows the player's red "you got hurt" burst (the old
-/// `is_player`-keyed attacker-side payload, which fired for every victim of a
-/// body-contact hit), while the player always keeps its hurt flash regardless of
-/// what hit it.
-///
-/// `Copy`: projected onto the combat-owned `CombatTuning`, so it carries no
-/// snapshot weight of its own (`SfxId` is a `u64`, [`ParticleKind`]/
+/// How one body reacts to being struck (CM8): the victim-owned half of hit
+/// feedback. It is a default hurt sound plus the optional particle spray and
+/// physics debris. An attack contributes only its strike sound, which
+/// overrides `sfx` but not the spray. So an enemy struck by another enemy uses
+/// [`HurtFeedback::ENEMY`] and never the player's red hurt burst, and the
+/// player always keeps its hurt flash.
 /// [`PhysicsDebrisCue`] are small enums).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HurtFeedback {
@@ -365,28 +358,16 @@ impl FxRequest {
 
 /// A fighter left play: draw the knockout beat where it went out.
 ///
-/// ⛔⛔ A MESSAGE, AND IT USED TO BE A REBUILT READ-MODEL. `KnockoutsView` was a
-/// `Resource` cleared and refilled on every SIMULATION ADVANCE and sampled once
-/// per RENDER FRAME, which is two different clocks: a rollback host can run
-/// several advances before one frame, so a knockout on an intermediate advance
-/// was erased before presentation ever saw it — and a knockout on the latest
-/// SPECULATIVE advance was drawn immediately, walking straight past the
-/// confirmed-effect quarantine every other cue goes through.
+/// This is a message, not a rebuilt read-model. A rollback host can run
+/// several simulation advances per render frame, so a per-advance resource
+/// loses intermediate knockouts and shows speculative ones. As an intent it
+/// rides the same path as its SFX and camera shake: journalled by producing
+/// frame, replaced on resimulation, released on confirmation, discarded if
+/// the branch is abandoned.
 ///
-/// ⭐ AS AN INTENT IT RIDES THE SAME PATH AS THE SFX AND THE CAMERA SHAKE THAT
-/// ACCOMPANY IT: journalled by producing frame, replaced on resimulation,
-/// released only when the frame is confirmed, and discarded outright if the
-/// branch is abandoned. That is what the view was imitating badly.
-///
-/// ⭐⭐ AND IT CARRIES THE POSITION RATHER THAN AN `Entity`, which is what
-/// retired the view's other defect. The view kept a `LastSeenBodies` cache in a
-/// non-rollback `Local` because the KO position was destroyed before any
-/// consumer could look — a respawn teleported the body on the same tick. D201
-/// changed that: a body waiting out its death beat is not placed until the
-/// window closes, so its position is simply READABLE where the stock is spent.
-/// The cache had outlived the problem it existed for, and a `Local` that a
-/// rewind does not restore was answering "where did the body leave play" from
-/// the abandoned branch.
+/// It carries the position, not an `Entity`. A body waiting out its death beat
+/// is not placed until the window closes (D201), so its position is readable
+/// where the stock is spent.
 #[derive(Message, Clone, Copy, Debug, PartialEq)]
 pub struct KnockoutBeatRequested {
     /// Where the body was when it left play, in world space.

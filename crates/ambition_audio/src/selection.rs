@@ -114,12 +114,11 @@ impl SfxAuthority {
 
 /// Authored audio profile for one frontend shell route.
 ///
-/// The profile is explicit rather than an exception to gameplay authority. A
-/// launcher/startup/loading/select route may own one title track and a narrow
-/// menu-SFX allowlist. The provider supplies the actual source definitions; the
-/// declaration chooses which subset belongs to that screen.
-///
-/// Declarations now live in [`FrontendAudioRegistry`], keyed by route.
+/// Explicit, not an exception to gameplay authority. A launcher, startup,
+/// loading, or select route may own one title track and a narrow menu-SFX
+/// allowlist. The provider supplies the source definitions; the declaration
+/// picks the subset for that screen. Declarations live in
+/// [`FrontendAudioRegistry`], keyed by route.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FrontendAudioProfile {
     provider_id: String,
@@ -164,34 +163,28 @@ impl FrontendAudioProfile {
     }
 }
 
-/// Every frontend audio DECLARATION in this App, keyed by the route that owns
-/// it — plus the one profile currently in effect.
+/// Every frontend audio declaration in this App, keyed by owning route, plus
+/// the profile in effect.
 ///
-/// Two kinds of entry, because there are two honest claims:
+/// Two kinds of entry:
 ///
-/// * a route declaration — "this screen sounds like this", made by whoever
-///   authored the screen, and it travels with the provider into any host;
-/// * the host default — "screens I own sound like this", made once by the
-///   host for its own launcher/startup/loading routes.
+/// * a route declaration ("this screen sounds like this"), made by the
+///   screen's author; it travels with the provider into any host;
+/// * the host default ("screens I own sound like this"), made once by the
+///   host for its launcher, startup, and loading routes.
 ///
-/// A route with no declaration of its own falls back to the host default. A host
-/// with no default either leaves that route deliberately silent rather than
-/// inheriting somebody else's music.
+/// A route without its own declaration uses the host default. With no default
+/// either, the route is silent; it never inherits another route's music.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct FrontendAudioRegistry {
     by_route: BTreeMap<String, FrontendAudioProfile>,
     host_default: Option<FrontendAudioProfile>,
-    /// The resolved profile of the most recent frontend route — what frontend
-    /// playback is acting on.
+    /// The resolved profile of the most recent frontend route: what frontend
+    /// playback acts on.
     ///
-    /// Not cleared when that route deactivates. The reason is narrower than
-    /// it first looks, and the difference is worth stating because the obvious
-    /// justification is wrong.
-    ///
-    /// So this is a cheap precaution, NOT a demonstrated fix, and it is written down that way
-    /// rather than as a claim a test backs. If a route change ever does span frames — a frontend
-    /// route behind a real load barrier is the candidate — this is already correct and no test had
-    /// to predict it.
+    /// Not cleared when that route deactivates. This is a cheap precaution
+    /// for a route change that spans frames (for example a frontend route
+    /// behind a load barrier); no test depends on it.
     in_effect: Option<FrontendAudioProfile>,
 }
 
@@ -222,16 +215,15 @@ impl FrontendAudioRegistry {
 
     /// Resolve `route_id` and make it the profile in effect.
     ///
-    /// Returns the resolved profile so the caller does not have to ask twice —
-    /// the two-step form is how an authority grows a follow-up call nobody
-    /// remembers to make.
+    /// Returns the resolved profile, so the caller does not need a second
+    /// call.
     pub fn enter_route(&mut self, route_id: &str) -> Option<&FrontendAudioProfile> {
         self.in_effect = self.resolve(route_id).cloned();
         self.in_effect.as_ref()
     }
 
-    /// The profile frontend playback is acting on. See [`Self::in_effect`]'s
-    /// field docs for why this outlives the activation that selected it.
+    /// The profile frontend playback acts on. See the `in_effect` field for
+    /// why it outlives the activation that selected it.
     pub fn in_effect(&self) -> Option<&FrontendAudioProfile> {
         self.in_effect.as_ref()
     }
@@ -249,9 +241,9 @@ impl FrontendAudioRegistry {
 
 /// Declare frontend audio at plugin-build time.
 ///
-/// Mirrors [`crate::catalog::AudioCatalogAppExt`]: a provider states what its
-/// own screens sound like beside the audio fragment it already registers, and
-/// composing that provider into any host carries the declaration with it.
+/// Like [`crate::catalog::AudioCatalogAppExt`]: a provider states what its
+/// screens sound like next to the audio fragment it registers, and the
+/// declaration goes with the provider into any host.
 pub trait FrontendAudioAppExt {
     /// "This screen sounds like this." Made by whoever authored the screen.
     fn declare_route_frontend_audio(
@@ -296,10 +288,9 @@ impl FrontendAudioAppExt for bevy::prelude::App {
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ActiveAudioSelection {
     current: Option<ActiveAudioAuthority>,
-    /// Presentation sources two different providers both tried to claim.
-    ///
-    /// Recorded rather than fatal. It also could not tell that case apart from the ROUTINE one: the
-    /// same provider re-authorizing its own source as asynchronously-loaded bank ids arrive.
+    /// Presentation sources that two different providers both tried to claim.
+    /// Recorded, not fatal. The same provider re-authorizing its own source
+    /// (as async bank ids arrive) is routine and not a conflict.
     sfx_source_conflicts: Vec<SfxSourceClaimConflict>,
 }
 
@@ -318,9 +309,9 @@ pub struct SfxSourceClaimConflict {
 /// One presentation source authorized inside the active audio context.
 ///
 /// Source identity is stable and authored; provider identity selects the
-/// backing procedural registry/bank. They are separate so a future prepared
-/// character or stage may expose a stable package id without coupling every
-/// emitter to storage details.
+/// backing procedural registry or bank. They are separate so a prepared
+/// character or stage can expose a stable package id without tying emitters
+/// to storage.
 #[derive(Debug, Clone)]
 struct ActiveSfxSource {
     provider_id: String,
@@ -367,13 +358,12 @@ impl ActiveSfxSource {
             Self::authorized_ids(&self.sfx, bank_ids, self.explicit_allowlist.as_ref());
     }
 
-    /// Fold another view of the SAME source into this one.
+    /// Merge another view of the same source into this one.
     ///
-    /// Union on the authorized set and prefer a present registry over an absent
-    /// one, so the result is independent of which view arrived first. Two callers
-    /// looking at one source at different moments of an async bank load are both
-    /// telling the truth about a different instant; the union is the only answer
-    /// that is true at every instant after both.
+    /// Union the authorized sets and prefer a present registry over an absent
+    /// one, so the result does not depend on arrival order. During an async
+    /// bank load, two views describe different instants; the union is true
+    /// after both.
     fn absorb(&mut self, other: ActiveSfxSource) {
         if self.sfx.is_none() {
             self.sfx = other.sfx;
@@ -500,12 +490,9 @@ impl ActiveAudioSelection {
         let primary_sfx_source = PresentationSourceId::new(provider_id.clone());
         let primary =
             ActiveSfxSource::new(provider_id.clone(), sfx, bank_ids, explicit_sfx_allowlist);
-        // A new authority starts with a clean conflict list. The conflicts
-        // describe cues that fail to resolve UNDER THE ACTIVE SELECTION — that
-        // is what the accessor's own documentation promises — so carrying them
-        // across a selection change turns a live diagnostic into historical
-        // residue, and every later clean session reports the first bad one
-        // forever.
+        // A new authority starts with an empty conflict list. Conflicts
+        // describe the active selection; carried across a change, one bad
+        // session would be reported forever.
         self.sfx_source_conflicts.clear();
         self.current = Some(ActiveAudioAuthority {
             owner,
@@ -573,11 +560,10 @@ impl ActiveAudioSelection {
 
     /// Is this presentation source allowed to resolve cues in the current session?
     ///
-    /// Distinct from [`Self::sfx_for_source`], which answers "and does it have a
-    /// PROCEDURAL registry" — a source authorized with `sfx: None` (bank-only, or a
-    /// provider whose catalog has not loaded) is fully authorized and would read as
-    /// unauthorized through that lookup. Conflating the two makes a legitimately
-    /// registry-free provider look denied.
+    /// Different from [`Self::sfx_for_source`], which also requires a
+    /// procedural registry. A source authorized with `sfx: None` (bank-only,
+    /// or a catalog not yet loaded) is fully authorized but would look denied
+    /// through that lookup.
     pub fn is_sfx_source_authorized(&self, source: &PresentationSourceId) -> bool {
         self.current
             .as_ref()
@@ -600,9 +586,9 @@ impl ActiveAudioSelection {
 
     /// Add one authored presentation source to the current session authority.
     ///
-    /// This does not change the session owner or primary music provider. The
-    /// character/stage preparation layer supplies the exact source set; audio
-    /// owns only the stable source-to-provider binding and cue allowlist.
+    /// Does not change the session owner or primary music provider. The
+    /// character/stage preparation layer supplies the source set; audio owns
+    /// only the source-to-provider binding and cue allowlist.
     pub fn authorize_sfx_source(
         &mut self,
         source: impl Into<PresentationSourceId>,
@@ -610,8 +596,7 @@ impl ActiveAudioSelection {
         sfx: Option<SfxRegistry>,
         bank_ids: BTreeSet<SfxId>,
     ) {
-        // Split the borrow up front: the conflict list and the authority are
-        // independent fields, and the conflict arm needs both.
+        // Split the borrow: the conflict arm needs both fields.
         let conflicts = &mut self.sfx_source_conflicts;
         let Some(current) = self.current.as_mut() else {
             return;
@@ -620,40 +605,28 @@ impl ActiveAudioSelection {
         let provider_id = provider_id.into();
         let candidate = ActiveSfxSource::new(provider_id, sfx, bank_ids, None);
         match current.sfx_sources.get_mut(&source) {
-            // The SAME provider authorizing its own source again. Legitimate and routine: bank ids
-            // arrive asynchronously, so two callers on two ticks hold two honest views of the same
-            // source.
-            //
-            // Merged, not replaced, and that is the load-bearing choice: the
-            // authorized set only GROWS within a session, so the outcome does not
-            // depend on which caller ran first or on when a bank finished loading.
-            // Replacement would let an early empty-bank view silently downgrade a
-            // richer one.
+            // The same provider authorizing its own source again: routine,
+            // because bank ids arrive asynchronously. Merge, do not replace.
+            // The authorized set only grows within a session, so the result
+            // does not depend on caller order or bank load time, and an early
+            // empty-bank view cannot downgrade a richer one.
             Some(existing) if existing.provider_id == candidate.provider_id => {
                 existing.absorb(candidate);
             }
-            // A DIFFERENT provider claiming a source another already owns. That is
-            // a content conflict, not a timing artifact, and no merge is correct:
-            // two providers' cue tables under one identity means every cue
-            // resolves to whichever won.
-            //
-            // Loud and deterministic rather than fatal. A panic here kills a
-            // running game over a misconfiguration whose worst honest outcome is
-            // one provider's cues not resolving — and the same judgement the
-            // binding boundary makes (a placeholder beats a session that refuses
-            // to boot). FIRST wins, so the result does not depend on iteration
-            // order.
+            // A different provider claiming an owned source: a content
+            // conflict, and no merge is correct. Record it and keep the first
+            // claim, so the result does not depend on iteration order. Not a
+            // panic: the worst outcome is that one provider's cues do not
+            // resolve.
             Some(existing) => {
                 let conflict = SfxSourceClaimConflict {
                     source: source.clone(),
                     holder: existing.provider_id.clone(),
                     rejected: candidate.provider_id.clone(),
                 };
-                // RECORDED, not logged. This crate builds without `bevy_log`
-                // (default features off), and a value beats a log line anyway: a
-                // test can assert on it, and a tick-scoped reporter in a
-                // full-Bevy crate can surface each conflict ONCE instead of
-                // every frame.
+                // Recorded, not logged: this crate builds without `bevy_log`.
+                // A value can be asserted by tests and reported once by a
+                // full-Bevy reporter.
                 if !conflicts.contains(&conflict) {
                     conflicts.push(conflict);
                 }
@@ -849,14 +822,10 @@ mod tests {
         assert_eq!(selection.provider_id(), Some("ambition"));
     }
 
-    /// §4.5, and §3.5's single point of loss.
-    ///
-    /// `ProviderSfxHandleCache` was already keyed `(provider_id, SfxId)`, so the resolution table
-    /// was source-qualified the whole time and only the emission had lost the emitter.
-    ///
-    /// So the sharp case is ONE logical cue id emitted from two sources. Under the
-    /// old routing both resolved to the session's primary provider and Sanic's dash
-    /// played Ambition's sound. Here they must resolve to different providers.
+    /// §4.5 / §3.5: one logical cue id emitted from two sources must resolve
+    /// to two providers. `ProviderSfxHandleCache` is keyed
+    /// `(provider_id, SfxId)`, so the emission must keep its source. Routed
+    /// only by session, Sanic's dash would play Ambition's sound.
     #[test]
     fn cue_resolves_through_its_emitting_source_not_the_active_provider() {
         let mut selection = ActiveAudioSelection::default();
@@ -882,8 +851,8 @@ mod tests {
         // Both sources authorize the SAME cue id...
         assert!(selection.sfx_authority_for_source(&host).allows(dash));
         assert!(selection.sfx_authority_for_source(&guest).allows(dash));
-        // ...and each resolves against its OWN provider registry/bank, which is the
-        // whole point: same id, different sound.
+        // ...and each resolves against its own provider registry or bank:
+        // same id, different sound.
         assert_eq!(selection.sfx_provider_for_source(&host), Some("ambition"));
         assert_eq!(
             selection.sfx_provider_for_source(&guest),
@@ -891,9 +860,9 @@ mod tests {
             "a guest cast member's cue must not resolve through the session's \
              primary provider merely because that provider is the active one"
         );
-        // The session owner is unchanged by any of this: ownership says which live
-        // session may reach the speakers, source says whose package supplies the
-        // cue, and overloading one into the other is what §4.5 forbids.
+        // The session owner does not change. Ownership says which session may
+        // reach the speakers; source says whose package supplies the cue
+        // (§4.5).
         assert_eq!(selection.owner(), Some(AudioContextOwner::Gameplay(9)));
         assert_eq!(selection.provider_id(), Some("ambition"));
     }
@@ -958,10 +927,7 @@ mod source_claim_tests {
         selection
     }
 
-    /// The routine case that used to be a panic.
-    ///
-    /// Bank ids load asynchronously, so two callers on two ticks hold two honest views of one
-    /// source.
+    /// Re-authorizing a source as bank ids load is routine, not a conflict.
     #[test]
     fn a_later_view_of_the_same_source_adds_cues_rather_than_crashing() {
         let mut selection = gameplay();
@@ -979,8 +945,8 @@ mod source_claim_tests {
         assert!(selection.sfx_source_conflicts().is_empty());
     }
 
-    /// Order must not matter. A union is the only merge that is true at every
-    /// instant after both views, which is what makes an async bank load safe.
+    /// Order must not matter. The union is true after both views, so an async
+    /// bank load is safe.
     #[test]
     fn the_merge_does_not_depend_on_which_view_arrived_first() {
         let ids = |selection: &ActiveAudioSelection| {
@@ -1002,12 +968,9 @@ mod source_claim_tests {
         assert_eq!(ids(&backward), 2);
     }
 
-    /// A conflict describes the ACTIVE selection, not the history of the process.
-    ///
-    /// `sfx_source_conflicts` documents itself as "a provider's cues currently
-    /// fail to resolve". Carrying the list across a selection change makes that
-    /// sentence false: one bad session poisons every later clean one, and the
-    /// diagnostic quietly becomes residue nobody can act on.
+    /// A conflict describes the active selection, not process history. Carried
+    /// across a selection change, one bad session would mark every later clean
+    /// one.
     #[test]
     fn a_new_selection_does_not_inherit_the_previous_one_s_conflicts() {
         let mut selection = gameplay();
@@ -1026,9 +989,8 @@ mod source_claim_tests {
             "a conflict outlived the selection it described"
         );
 
-        // ...and so does selecting a NEW authority on the same resource, which
-        // is the path a shell host takes between two games — it re-selects
-        // rather than clearing first.
+        // ...and so does selecting a new authority on the same resource. A
+        // shell host re-selects between two games without clearing first.
         let mut across_games = gameplay();
         across_games.authorize_sfx_source("shared", "sanic", None, BTreeSet::from([cue("a")]));
         across_games.authorize_sfx_source("shared", "mary_o", None, BTreeSet::from([cue("b")]));
@@ -1040,12 +1002,9 @@ mod source_claim_tests {
         );
     }
 
-    /// The genuine conflict, which is NOT a merge.
-    ///
-    /// Two providers under one source identity means every cue resolves to
-    /// whichever won. Recorded and deterministic — first claim holds — rather
-    /// than fatal: a panic kills a running game over a misconfiguration whose
-    /// worst honest outcome is one provider's cues not resolving.
+    /// A real conflict is not merged. Two providers under one source identity
+    /// would resolve every cue to one of them. The first claim holds, and the
+    /// conflict is recorded, not fatal.
     #[test]
     fn two_providers_claiming_one_source_is_recorded_and_the_first_holds() {
         let mut selection = gameplay();
@@ -1069,9 +1028,8 @@ mod source_claim_tests {
         );
     }
 
-    /// Reported once, not once per tick. The production authorizer runs every
-    /// frame, and a conflict list that grows without bound is a leak and a log
-    /// nobody can read.
+    /// Reported once, not once per tick: the authorizer runs every frame, and
+    /// an unbounded list would leak.
     #[test]
     fn a_repeated_conflict_is_recorded_once() {
         let mut selection = gameplay();

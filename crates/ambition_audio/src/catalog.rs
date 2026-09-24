@@ -114,9 +114,8 @@ impl AudioCatalogRegistry {
     }
 
     /// Whether `provider_id` registered an audio fragment (music, SFX, or an
-    /// explicitly-empty one for deliberate silence). A registered-but-empty
-    /// fragment is how a silent provider declares intent; absence is a
-    /// composition error the session bridge refuses to treat as silence.
+    /// explicitly empty one). An empty fragment is how a silent provider
+    /// declares intent; absence is a composition error, not silence.
     pub fn has_provider(&self, provider_id: &str) -> bool {
         self.fragments.contains_key(provider_id)
     }
@@ -143,10 +142,9 @@ impl AudioCatalogRegistry {
             })?
             .default_track
             .clone();
-        // id -> (first provider, its resolved asset path). Two providers naming
-        // the SAME id for the SAME underlying asset (a shared track in the
-        // common asset tree) is a benign duplicate — dedup it. Two providers
-        // naming one id for DIFFERENT assets is a genuine conflict.
+        // id -> (first provider, its resolved asset path). Two providers
+        // naming the same id for the same asset is a benign duplicate; the
+        // same id for different assets is a conflict.
         let mut seen = BTreeMap::<String, (String, String)>::new();
         let mut tracks = Vec::<MusicTrack>::new();
         for (provider_id, fragment) in &self.fragments {
@@ -180,11 +178,9 @@ impl AudioCatalogRegistry {
         Ok(combined)
     }
 
-    /// A shared track (same id, same resolved asset path) may legitimately
-    /// appear in more than one provider's registry — Ambition owns a superset
-    /// of the asset tree and a demo carries a small subset that points at the
-    /// SAME files. That is benign. Only a genuine collision — one id mapped to
-    /// two DIFFERENT assets — is an error.
+    /// A shared track (same id, same resolved path) may appear in several
+    /// providers (a demo can point at the same files as Ambition). Only one
+    /// id mapped to two different assets is an error.
     pub fn validate_global_music_ids(&self) -> Result<(), AudioCatalogError> {
         let mut seen = BTreeMap::<String, (String, String)>::new();
         for (provider_id, fragment) in &self.fragments {
@@ -220,18 +216,15 @@ impl AudioCatalogRegistry {
 
 /// Provider-contributed SFX bank ids, App-local, indexed by provider.
 ///
-/// A provider's procedural cues live in its [`SfxRegistry`]; the arbitrary
-/// [`SfxId`]s carried by the open-ended `SfxMessage::Play { id }` path live in a
-/// packed bank instead. This registry records which provider *contributes* each
-/// bank id (paired with a content fingerprint) so the session bridge can build
-/// that provider's authorized id set. It is the SFX analogue of the music
-/// track-id index: storage is App-local, authority is provider-relative.
+/// A provider's procedural cues live in its [`SfxRegistry`]; the open
+/// [`SfxId`]s of `SfxMessage::Play { id }` live in a packed bank. This records
+/// which provider contributes each bank id (with a content fingerprint), so
+/// the session bridge can build that provider's authorized set. Storage is
+/// App-local; authority is provider-relative.
 ///
-/// Combined indexing is deterministic (`BTreeMap` order). Two providers naming
-/// the SAME id for the SAME underlying entry (matching fingerprint) is a benign
-/// duplicate — Ambition owns the superset bank and a demo may point at the same
-/// entry. Two providers naming one id for DIFFERENT entries is a genuine
-/// conflict, rejected transactionally.
+/// Combined indexing is deterministic (`BTreeMap` order). The same id with a
+/// matching fingerprint from two providers is a benign duplicate; a different
+/// fingerprint is a conflict, rejected transactionally.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SfxBankRegistry {
     /// provider id -> (bank id -> content fingerprint).
@@ -240,10 +233,9 @@ pub struct SfxBankRegistry {
 
 impl SfxBankRegistry {
     /// Record the bank ids `provider_id` contributes, each with a content
-    /// fingerprint (a hash of the packed entry). Re-registering a provider with
-    /// an identical map is idempotent; a different map, or an id colliding with
-    /// another provider's DIFFERENT fingerprint, is rejected and leaves the
-    /// registry unchanged.
+    /// fingerprint. Re-registering the same map is idempotent. A different
+    /// map, or an id that collides with another provider's different
+    /// fingerprint, is rejected and changes nothing.
     pub fn register(
         &mut self,
         provider_id: impl Into<String>,
@@ -290,9 +282,8 @@ impl SfxBankRegistry {
             .unwrap_or_default()
     }
 
-    /// Whether `provider_id` has contributed a non-empty bank. Per-frame
-    /// readiness polls use this instead of building `ids_for`'s fresh
-    /// `BTreeSet` just to test emptiness.
+    /// Whether `provider_id` contributed a non-empty bank. Cheaper than
+    /// building `ids_for`'s `BTreeSet` in per-frame readiness polls.
     pub fn has_ids(&self, provider_id: &str) -> bool {
         self.fragments
             .get(provider_id)
@@ -484,7 +475,7 @@ mod tests {
     }
 
     /// A track whose id collides with another provider's but points at a
-    /// DIFFERENT asset — a genuine conflict.
+    /// different asset: a real conflict.
     fn music_at(id: &str, asset_path: &str) -> MusicRegistry {
         MusicRegistry {
             default_track: id.to_string(),
@@ -540,7 +531,7 @@ mod tests {
                 AudioCatalogFragment::new("a", Some(music_at("same", "a/x.ogg")), None).unwrap(),
             )
             .unwrap();
-        // Same id, DIFFERENT asset — a genuine conflict.
+        // Same id, different asset: a real conflict.
         registry
             .register(
                 AudioCatalogFragment::new("b", Some(music_at("same", "b/y.ogg")), None).unwrap(),
@@ -558,8 +549,8 @@ mod tests {
 
     #[test]
     fn shared_track_across_providers_is_deduped_not_a_conflict() {
-        // Ambition owns the superset; a demo carries a small subset pointing at
-        // the SAME asset. Same id + same resolved path is benign.
+        // A demo pointing at the same asset as Ambition: same id and resolved
+        // path is benign.
         let mut registry = AudioCatalogRegistry::default();
         registry
             .register(AudioCatalogFragment::new("ambition", Some(music("shared")), None).unwrap())
@@ -574,9 +565,8 @@ mod tests {
                 .unwrap(),
             )
             .unwrap();
-        // `music("shared")` resolves to the conventional
-        // `audio/music/generated/shared/full.ogg` — the same asset the demo
-        // names explicitly, so validation and combination both accept it.
+        // `music("shared")` resolves to `audio/music/generated/shared/full.ogg`,
+        // the asset the demo names explicitly.
         registry.validate_global_music_ids().unwrap();
         let combined = registry.combined_music_registry("ambition").unwrap();
         assert_eq!(
@@ -613,8 +603,8 @@ mod tests {
 
     #[test]
     fn sfx_bank_registry_indexes_ids_per_provider_deterministically() {
-        // Ambition contributes the superset bank; the ids belong to it and to
-        // nobody else until another provider ships a bank.
+        // Ambition contributes the bank; its ids belong only to it until
+        // another provider ships a bank.
         let mut a = SfxBankRegistry::default();
         a.register(
             "ambition",
@@ -640,7 +630,7 @@ mod tests {
 
     #[test]
     fn shared_sfx_entry_across_providers_is_deduped_not_a_conflict() {
-        // Same id + same fingerprint = the same underlying entry: benign.
+        // Same id and fingerprint: the same entry, benign.
         let mut registry = SfxBankRegistry::default();
         registry
             .register("ambition", BTreeMap::from([(id("shared.thud"), 42)]))
@@ -655,8 +645,8 @@ mod tests {
 
     #[test]
     fn conflicting_sfx_entry_is_rejected_transactionally_in_both_orders() {
-        // Same id + DIFFERENT fingerprint = incompatible assets: a hard error,
-        // and the failed registration must leave the registry untouched.
+        // Same id, different fingerprint: an error, and the failed
+        // registration leaves the registry unchanged.
         let mut forward = SfxBankRegistry::default();
         forward
             .register("a", BTreeMap::from([(id("clash"), 1)]))

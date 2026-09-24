@@ -519,12 +519,8 @@ impl Item {
 /// [`Self::to_persisted`] and never serializes that projection as a second
 /// ownership authority.
 ///
-/// ⛔ THERE IS NO `equipped` FIELD ANY MORE (I1, 2026-09-02). One existed: a
-/// process-global mirror of "some body holds X", written by every equip road
-/// and read by the menu. Four seats cannot share one slot as authority — seat
-/// two picking up a gun-sword marked it equipped in seat one's menu — and a
-/// mirror that has to be written beside the truth is the shape this tree keeps
-/// paying for. The hand is read where it lives.
+/// There is no `equipped` field (I1). A body's hand is the record of what it
+/// holds; a global mirror cannot serve four seats.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct OwnedItems {
     counts: [u32; ITEM_COUNT],

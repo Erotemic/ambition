@@ -114,21 +114,11 @@ struct SpacetimeLegend3d(usize);
 pub(crate) fn install(app: &mut App) {
     app.init_resource::<SpacetimeMinimapState>();
 
-    // ⭐⭐ THE SPACETIME DISPLAY IS DORMANT OUTSIDE TWINTRACK, and it now says so
-    // ONCE instead of thirteen times. Every one of these already no-opped
-    // elsewhere — most by an early return on a `TwinTrackExperiment` query that
-    // matches nothing — which is the "install many systems, then spend every
-    // frame discovering they have nothing to do" shape. The predicate was
-    // already in this file; only two of the thirteen consulted it.
-    //
-    // ⭐ A tuple-level `run_if` in Bevy 0.18 is COLLECTIVE — it builds one
-    // anonymous set and is evaluated at most once per schedule run — so this is
-    // twelve system invocations replaced by one condition.
-    //
-    // ⚠ NOT A MEASURED SPEED WIN, and it should not be sold as one: twelve
-    // early-returning systems are microseconds, far under this machine's noise
-    // floor. It is here because a dormant capability should be dormant, which
-    // is the invariant the whole runtime-composition direction rests on.
+    // The spacetime display is dormant outside TwinTrack. A tuple-level
+    // `run_if` in Bevy 0.18 is collective (one anonymous set, evaluated at most
+    // once per schedule run), so the systems do not each discover every frame
+    // that they are idle. This is not a measured speed win; a dormant
+    // capability should be dormant.
     app.add_systems(
         Update,
         (
@@ -148,12 +138,10 @@ pub(crate) fn install(app: &mut App) {
             .run_if(twintrack_display_is_live),
     );
 
-    // ⛔⛔ THE CLEANUP IS DELIBERATELY UNGATED, and gating it with the rest would
-    // be a bug rather than an optimization. It despawns the 3D visuals and
-    // restores the minimap flag precisely WHEN TWINTRACK IS NOT ACTIVE — putting
-    // it inside a live-only gate means leaving the display standing forever
-    // after the experience ends. Its own first line is `if twintrack_is_active
-    // { return; }`, which is the opposite condition to the tuple above.
+    // The cleanup is not gated. It removes the 3D visuals and restores the
+    // minimap flag when TwinTrack is not active (its first line is
+    // `if twintrack_is_active { return; }`). Inside the live-only gate it would
+    // never run, and the display would stay after the experience ends.
     app.add_systems(Update, cleanup_spacetime_3d_when_inactive);
 }
 
@@ -212,19 +200,15 @@ fn translucent_material(
     })
 }
 
-/// `Option<ResMut<Assets<..>>>`, NOT `ResMut`, and this is not a style
-/// preference. A plain `ResMut<Assets<Mesh>>` is a system-parameter VALIDATION
-/// failure in any app without the render plugins — and under Bevy 0.18 that is a
-/// panic through `Main::run_main`, not a skipped system. Every headless test in
-/// the workspace that steps the schedule dies, whatever it was about: fifteen
-/// boss, actor-phase and reachability tests went down together, none of them
-/// twintrack's.
+/// `Option<ResMut<Assets<..>>>`, not `ResMut`. A plain `ResMut<Assets<Mesh>>`
+/// fails system-parameter validation in an app without the render plugins,
+/// and in Bevy 0.18 that panics through `Main::run_main` instead of skipping
+/// the system, which breaks every headless test that steps the schedule.
 ///
-/// the same shape the presentation crates already use —
+/// The presentation crates do the same:
 /// `ambition_render::rendering::unauthored_volumes` and
-/// `ambition_portal2d_presentation::visuals` both take the assets optionally for
-/// this reason. A 3D overlay is presentation; a simulation test must be able to
-/// run without one.
+/// `ambition_portal2d_presentation::visuals` take the assets optionally. A
+/// simulation test must run without a 3D overlay.
 fn spawn_spacetime_3d(
     mut commands: Commands,
     roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
@@ -235,8 +219,8 @@ fn spawn_spacetime_3d(
     if !twintrack_is_active(&roots) || !existing.is_empty() {
         return;
     }
-    // No render app, no meshes to build into. The overlay simply does not exist
-    // in a headless composition, which is the honest answer rather than a panic.
+    // No render app, no meshes: the overlay does not exist in a headless
+    // composition.
     let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
         return;
     };
@@ -451,12 +435,10 @@ fn spawn_spacetime_3d(
     }
 }
 
-/// `Option<Res<ButtonInput<..>>>` — a headless app installs no input
-/// plugin, and under Bevy 0.18 a missing `Res` is a system-parameter validation
-/// failure that panics through `Main::run_main` rather than skipping the system.
-/// The KEYBOARD shortcut is a convenience beside the traveler's own `special`
-/// press, so its absence costs the shortcut and nothing else. See
-/// `spawn_spacetime_3d` for the same note at more length.
+/// `Option<Res<ButtonInput<..>>>`: a headless app installs no input plugin,
+/// and in Bevy 0.18 a missing `Res` panics through `Main::run_main` instead
+/// of skipping the system. The keyboard shortcut is a convenience beside the
+/// traveler's own `special` press. See `spawn_spacetime_3d`.
 fn toggle_spacetime_minimap(
     keys: Option<Res<ButtonInput<KeyCode>>>,
     slots: Res<ambition_platformer2d::characters::control::SlotControls>,

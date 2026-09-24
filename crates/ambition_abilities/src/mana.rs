@@ -2,8 +2,7 @@
 //!
 //! A body holds Mana only because the experience that built it declared the
 //! pool (the Ambition provider declares it on the home body). A body without
-//! it cannot pay a Mana price — absence is never free — and nothing here or in
-//! the engine hands a body Mana for existing.
+//! it cannot pay a Mana price, and nothing gives a body Mana by default.
 //!
 //! The declaration itself is authored data in `ambition_entity_catalog::mana`,
 //! re-exported here beside the rules that spend it.

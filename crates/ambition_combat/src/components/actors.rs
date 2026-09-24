@@ -416,30 +416,26 @@ pub enum AggressionTarget {
     Foe,
 }
 
-/// One in-flight melee swing, driven by the player's [`AttackSpec`] model.
+/// The melee swing a body is performing NOW, as a read-only view.
 ///
-/// This is THE swing state for EVERY body — the human player and every
-/// brain-driven actor — so a swing's lifecycle (startup → active → recovery),
-/// per-swing hit dedup, and pogo bookkeeping have a single definition. The spec
-/// is stored already rotated into the body's world frame (the moveset resolves
-/// the move's authored volumes into the gravity frame at spawn), so
-/// `phase_at(elapsed)` and the hitbox geometry are read directly without
-/// re-rotating.
+/// ⛔ NOT STORED. It is derived on demand from the body's live
+/// [`MovePlayback`](crate::moveset::MovePlayback) by
+/// [`melee_swing_of`](crate::moveset::melee_swing_of). It used to be
+/// `BodyMelee::swing`, a copy the moveset projected every tick and the rollback
+/// codec also restored, and two damage sites wrote hit keys into the copy that
+/// the next projection threw away. The move owns every one of these facts;
+/// this only reshapes them for the anim picker, the HUD, the gizmos and the
+/// brain snapshot.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeleeSwing {
-    /// Resolved swing parameters in WORLD frame (timing, reach, knockback, art).
+    /// The swing's timing and read-model direction. Every geometry and impulse
+    /// field is inert: the real strike is the move's own hitbox.
     pub spec: crate::AttackSpec,
-    /// Seconds since the swing began.
+    /// Seconds since the swing began (the move's `t`).
     pub elapsed: f32,
-    /// `prefix:id` keys of every target already struck this swing, so an
-    /// every-active-frame hitbox only damages each target once. Used by the
-    /// universal hit resolver (`apply_feature_hit_events`).
+    /// `prefix:id` keys of every target this swing has struck (the move's
+    /// `hit_targets`).
     pub hit_targets: Vec<String>,
-    /// True once the active window has begun (first-active-frame edge latch).
-    pub active_started: bool,
-    /// True once a downward/pogo active-frame attack has produced its bounce, so
-    /// one long active window can't bounce every frame.
-    pub pogo_applied: bool,
 }
 
 impl MeleeSwing {
@@ -448,8 +444,6 @@ impl MeleeSwing {
             spec,
             elapsed: 0.0,
             hit_targets: Vec::new(),
-            active_started: false,
-            pogo_applied: false,
         }
     }
 
@@ -464,31 +458,6 @@ impl MeleeSwing {
     pub fn progress(&self) -> f32 {
         (self.elapsed / self.spec.total_seconds().max(0.001)).clamp(0.0, 1.0)
     }
-}
-
-/// Unified body melee state — the ONE component every body (player + actors)
-/// carries for melee. The in-flight [`MeleeSwing`] is the player's spec model;
-/// `cooldown` is the AI/recovery pacing floor a brain reads to time its next
-/// swing (independent of the swing so a body can be in recovery with no swing
-/// armed). The ranged fire-rate floor is not melee state: it is [`RangedRefire`]. (ONE BODY ONE PATH: this REPLACES the former parallel
-/// `PlayerAttackState`/`ActivePlayerAttack` and the timer-based actor state.)
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct BodyMelee {
-    pub swing: Option<MeleeSwing>,
-    /// Recovery/AI pacing floor before another swing may begin (s).
-    pub cooldown: f32,
-}
-
-impl BodyMelee {
-    /// Begin a swing: commit the world-frame `spec` and the recovery floor.
-    pub fn begin(&mut self, spec: crate::AttackSpec, cooldown: f32) {
-        self.cooldown = cooldown.max(0.0);
-        self.swing = Some(MeleeSwing::new(spec));
-    }
-
-    pub fn phase(&self) -> Option<crate::AttackPhase> {
-        self.swing.as_ref().and_then(|s| s.phase())
-    }
 
     pub fn is_winding_up(&self) -> bool {
         matches!(self.phase(), Some(crate::AttackPhase::Startup))
@@ -498,51 +467,45 @@ impl BodyMelee {
         matches!(self.phase(), Some(crate::AttackPhase::Active))
     }
 
-    /// True while ANY swing is in flight (startup, active, OR recovery) — the
-    /// "is the body mid-swing" signal the player mirrors onto `BodyCombat`
-    /// (distinct from `is_active`, which is only the hitbox window).
-    pub fn is_swinging(&self) -> bool {
-        self.swing.is_some()
-    }
-
-    /// Cancel any in-flight swing (room transition / reset).
-    pub fn clear(&mut self) {
-        self.swing = None;
-    }
-
-    pub fn on_cooldown(&self) -> bool {
-        self.cooldown > 0.0
-    }
-
     /// Seconds of windup (startup) remaining, for the AI telegraph snapshot.
     pub fn windup_remaining(&self) -> f32 {
-        match &self.swing {
-            Some(s) if self.is_winding_up() => (s.spec.startup_seconds - s.elapsed).max(0.0),
-            _ => 0.0,
+        if self.is_winding_up() {
+            (self.spec.startup_seconds - self.elapsed).max(0.0)
+        } else {
+            0.0
         }
     }
 
     /// Seconds of active (hitbox) window remaining, for the AI snapshot.
     pub fn active_remaining(&self) -> f32 {
-        match &self.swing {
-            Some(s) if self.is_active() => {
-                (s.spec.startup_seconds + s.spec.active_seconds - s.elapsed).max(0.0)
-            }
-            _ => 0.0,
+        if self.is_active() {
+            (self.spec.startup_seconds + self.spec.active_seconds - self.elapsed).max(0.0)
+        } else {
+            0.0
         }
     }
+}
 
-    /// Advance the swing + the cooldown floors by `dt`. Drops a spent swing once
-    /// it passes recovery (the cooldown floor keeps ticking independently).
+/// The body's melee pacing floor — the one melee fact the body itself holds.
+///
+/// `cooldown` is the AI/recovery floor a brain reads to time its next swing.
+/// ⚠ Nothing arms it in production (AP12 records the decision), so it reads 0.
+/// The swing in flight is not stored here: see [`MeleeSwing`]. The ranged
+/// fire-rate floor is not melee state: it is [`RangedRefire`].
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct BodyMelee {
+    /// Recovery/AI pacing floor before another swing may begin (s).
+    pub cooldown: f32,
+}
+
+impl BodyMelee {
+    pub fn on_cooldown(&self) -> bool {
+        self.cooldown > 0.0
+    }
+
+    /// Advance the cooldown floor by `dt`.
     pub fn tick(&mut self, dt: f32) {
-        let dt = dt.max(0.0);
-        self.cooldown = (self.cooldown - dt).max(0.0);
-        if let Some(swing) = &mut self.swing {
-            swing.elapsed += dt;
-            if swing.phase().is_none() {
-                self.swing = None;
-            }
-        }
+        self.cooldown = (self.cooldown - dt.max(0.0)).max(0.0);
     }
 }
 

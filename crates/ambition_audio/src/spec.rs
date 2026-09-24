@@ -1,16 +1,14 @@
 //! Audio data schema: the authored (RON) shapes for procedural SFX and
-//! pre-rendered music. Kira-free — parse/validation only; the playback
-//! runtime lives behind this crate's `kira` feature.
+//! pre-rendered music. Kira-free: parse and validation only; playback is
+//! behind this crate's `kira` feature.
 //!
-//! SFX and music are deliberately split into two registries
-//! ([`SfxRegistry`] ← `sfx_registry.ron`, [`MusicRegistry`] ←
-//! `music_registry.ron`): they are different concerns with different
-//! authorship. SFX specs are hand-tuned procedural synthesis; the music
-//! registry is a *generated* projection of the rendered-OGG asset tree
-//! (see `scripts/regen_music_registry.py` + `scripts/regen/music.sh`). Keeping
-//! them apart means the auto-generated music list never churns the
-//! hand-authored sound-design data, and neither lives inside the
-//! gameplay-tuning `platformer_defaults.ron`.
+//! SFX and music use two registries ([`SfxRegistry`] from
+//! `sfx_registry.ron`, [`MusicRegistry`] from `music_registry.ron`) because
+//! their authorship differs. SFX specs are hand-tuned synthesis; the music
+//! registry is generated from the rendered-OGG asset tree (see
+//! `scripts/regen_music_registry.py` and `scripts/regen/music.sh`). So the
+//! generated list never churns hand-authored sound design, and neither lives
+//! in `platformer_defaults.ron`.
 
 use ambition_sfx::SfxId;
 use bevy::prelude::Resource;
@@ -19,9 +17,8 @@ use std::collections::{BTreeSet, HashSet};
 
 /// Procedural SFX-synthesis registry, authored in `sfx_registry.ron`.
 ///
-/// Hand-tuned sound design: the synth `sample_rate` plus one [`SfxSpec`]
-/// per cue. Deliberately separate from [`MusicRegistry`] — different
-/// concern, different file.
+/// Hand-tuned sound design: the synth `sample_rate` and one [`SfxSpec`] per
+/// cue. Separate from [`MusicRegistry`].
 #[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
 #[serde(deny_unknown_fields)]
 pub struct SfxRegistry {
@@ -48,11 +45,9 @@ impl SfxRegistry {
     }
 
     /// The [`SfxId`]s this registry authorizes through its procedural cue
-    /// specs. This is the *authority* projection of the registry (kira-free):
-    /// a provider that authors a cue authorizes the id that cue resolves to,
-    /// so provider-relative playback can gate an [`ambition_sfx::SfxMessage`]
-    /// without the resident synth handle table. A registry with no cues
-    /// authorizes no procedural ids — deliberate silence for that path.
+    /// specs (kira-free). A provider that authors a cue authorizes its id, so
+    /// provider-relative playback can gate an [`ambition_sfx::SfxMessage`]
+    /// without the synth handle table. No cues means no procedural ids.
     pub fn authorized_cue_ids(&self) -> BTreeSet<SfxId> {
         self.sfx
             .iter()
@@ -61,8 +56,8 @@ impl SfxRegistry {
     }
 
     /// Provider-authored procedural definition for `id`, if this registry owns
-    /// it. Playback uses this directly, so authorizing a cue and rendering its
-    /// actual sound cannot drift onto another provider's resident handle.
+    /// it. Playback uses it directly, so a cue cannot render another
+    /// provider's sound.
     pub fn spec_for_id(&self, id: SfxId) -> Option<&SfxSpec> {
         self.sfx.iter().find(|spec| spec.sfx_id().ok() == Some(id))
     }
@@ -70,8 +65,8 @@ impl SfxRegistry {
 
 impl SoundCueKey {
     /// The stable [`SfxId`] a procedural cue resolves to. Mirrors the
-    /// consumer-side `SoundCue::sfx_id` table but lives in the kira-free data
-    /// layer so provider authority can be derived without the playback crate.
+    /// consumer's `SoundCue::sfx_id` table, in the kira-free layer, so
+    /// provider authority does not need the playback crate.
     pub fn sfx_id(self) -> SfxId {
         use ambition_sfx::ids;
         match self {
@@ -130,21 +125,16 @@ pub struct SfxSpec {
     pub frequency: f32,
     pub frequency_end: f32,
     pub duration: f32,
-    /// Loudness trim in `[0, 1]` — a fraction of the renderer's procedural
+    /// Loudness trim in `[0, 1]`: a fraction of the renderer's procedural
     /// reference level, in the RMS domain.
     ///
-    /// It is deliberately NOT a peak amplitude. Every [`WaveformSpec`] swings
-    /// +-1, so a peak-domain `volume` made the same number mean different
-    /// loudnesses for different waveforms (a square's RMS is its peak; a
-    /// triangle's is 4.8 dB below), and made a noisy cue quieter than a clean
-    /// one. As a loudness trim it means one thing: `0.5` is half the reference
-    /// level, whatever the cue is made of, and two cues at the same `volume`
-    /// are equally loud. Relative differences between cues survive — that is
-    /// what the trim is for — the level they are relative TO is now defined.
+    /// Not a peak amplitude. Every [`WaveformSpec`] swings ±1, so a peak value
+    /// would mean different loudness per waveform and make noisy cues
+    /// quieter. As a loudness trim, `0.5` is half the reference level for any
+    /// cue, and equal values are equally loud.
     ///
-    /// The reference and the normalisation live in
-    /// `crate::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS`; this field
-    /// carries no level of its own without a renderer to interpret it.
+    /// The reference and normalization are in
+    /// `crate::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS`.
     pub volume: f32,
     pub attack: f32,
     pub release: f32,
@@ -165,17 +155,15 @@ impl SfxSpec {
 
 /// Music-cue registry, authored in `music_registry.ron`.
 ///
-/// This file is GENERATED by `scripts/regen_music_registry.py` from
-/// the rendered-OGG asset tree (`audio/music/generated/*/full.ogg`), wired
-/// into `scripts/regen/music.sh`. Hand-edits get overwritten on the next render —
-/// adjust the generator's denylist / display-name map instead. The format
-/// is intentionally trivial (just ids) precisely so it can be generated:
-/// there is no tempo/arrangement metadata because the OGG is what plays
-/// and the runtime music director owns looping/crossfade.
+/// Generated by `scripts/regen_music_registry.py` from the rendered-OGG tree
+/// (`audio/music/generated/*/full.ogg`), through `scripts/regen/music.sh`.
+/// Hand edits are overwritten; change the generator's denylist or display-name
+/// map instead. The format is only ids, so it can be generated: the OGG sets
+/// the length, and the music director owns looping and crossfade.
 #[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
 #[serde(deny_unknown_fields)]
 pub struct MusicRegistry {
-    /// Track id played at startup / when no radio station is selected.
+    /// Track id played at startup, or when no radio station is selected.
     pub default_track: String,
     pub tracks: Vec<MusicTrack>,
 }
@@ -213,12 +201,9 @@ impl MusicRegistry {
 
 /// One playable music track: a pointer to a pre-rendered OGG.
 ///
-/// `asset_path` is optional — when omitted it defaults to the conventional
-/// `audio/music/generated/{id}/full.ogg`, which covers every plain
-/// renderer cue. Set it explicitly only for off-convention assets (e.g. an
-/// adaptive cue's section mix). No arrangement/tempo metadata: that data
-/// was vestigial (the OGG dictates length), and dropping it is what lets
-/// the registry be generated from `id` alone.
+/// `asset_path` is optional; the default is the conventional
+/// `audio/music/generated/{id}/full.ogg`. Set it only for off-convention
+/// assets (for example an adaptive cue's section mix).
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct MusicTrack {
@@ -228,15 +213,12 @@ pub struct MusicTrack {
     pub asset_path: Option<String>,
     /// Play once and stop, instead of looping.
     ///
-    /// A STING — a death cue, a course-clear fanfare — is written to end. The
-    /// music channel loops everything by default, which is right for a level
-    /// theme and wrong for these: Mary-O's three-second victory fanfare played
-    /// on repeat until the level reset. Marking the cue is better than teaching
-    /// each caller to stop it on a timer, because the length that matters is the
-    /// one baked into the file.
+    /// A sting (a death cue, a course-clear fanfare) is written to end, but
+    /// the music channel loops by default. Marking the cue uses the length in
+    /// the file, instead of each caller stopping it on a timer.
     ///
-    /// The tier stays CLAIMED after the sting ends, so what follows is silence
-    /// rather than the level theme resuming for the last second of a sequence.
+    /// The tier stays claimed after the sting ends, so silence follows, not
+    /// the level theme.
     #[serde(default)]
     pub one_shot: bool,
 }

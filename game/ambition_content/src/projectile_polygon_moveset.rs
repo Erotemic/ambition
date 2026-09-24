@@ -23,57 +23,48 @@ use ambition_entity_catalog::{
 /// How long the fill row runs, in seconds: 14 frames at 62ms, from
 /// `polygon_charge_shot`'s own authoring.
 ///
-/// ⭐ THE ART AND THE MECHANIC AGREE BY CONSTRUCTION. The VFX row was drawn as
-/// one long climb rather than a loop precisely so a player could read "nearly
-/// there" off the ring count without a meter, and that only works if the fill
-/// finishes exactly when the charge does.
+/// The VFX row is one long climb, not a loop, so a player can read "nearly
+/// there" from the ring count. That works only if the fill ends exactly when
+/// the charge does.
 const CHARGE_FILL_S: f32 = 14.0 * 0.062;
 
 /// Where in the windup he latches. Early, so the charge reads as "the shot
-/// started and stopped" rather than "the shot is about to leave and stopped" —
-/// the same rule the smash charge pose states.
+/// started and stopped", as the smash charge pose does.
 const CHARGE_HOLD_AT_S: f32 = 0.10;
 
 /// Where the charge is drawn, body-local (`+x` toward facing, `+y` gravity-down).
 ///
-/// ⛔ THIS IS THE SPAWN POINT, NOT THE CANNON. See [`charge_shot`]'s note: the
-/// shared fire site launches from the body centre plus `(0, -8)`, and an effect
-/// that disagreed with it would show the ball jumping across his body on
-/// release.
+/// This is the spawn point, not the cannon art. See [`charge_shot`]: the
+/// effect must match where the shot leaves, or the ball jumps on release.
 const MUZZLE: (f32, f32) = (0.0, -8.0);
 
 /// When the shot leaves, measured from the move's start. Everything before it is
 /// windup that plays out on release.
 const CHARGE_FIRE_AT_S: f32 = 0.26;
 
-/// The held-item id her side-B takes hold of. See `polygon_ponytail` in the
-/// held-item registry: a held item for a thing that is part of her, because the
-/// seam is "while this move plays the fighter is WIELDING this, and its ranged
-/// verb is the shot" — which is what throwing your own tail is.
 /// How far her line reaches, in world px.
 ///
-/// ⭐⭐ ONE NUMBER FOR TWO MOVES, because they are one fiction. Her GRAB is a
-/// tether (`offset.0 + half_extents.0` = 86 + 64) and her UP-B throws the same
-/// line at a ledge. A tether that reached further off-stage than it does
-/// on-stage would be two moves wearing one animation, and the way that happens
-/// is somebody tuning one of them. ⇒ `the_tether_reaches_as_far_as_her_grab`
-/// holds the two together, because a constant only stops drift where it is
-/// actually read, and the grab's is authored as a box rather than a distance.
+/// One number for two moves: her grab is a tether
+/// (`offset.0 + half_extents.0` = 86 + 64) and her up-B throws the same line
+/// at a ledge. `the_tether_reaches_as_far_as_her_grab` keeps them equal,
+/// because the grab is authored as a box, not a distance.
 const THE_TETHERS_REACH: f32 = 150.0;
 
+/// The held-item id her side-B takes hold of. See `polygon_ponytail` in the
+/// held-item registry: while this move plays she wields her tail, and its
+/// ranged verb is the throw.
 const PONYTAIL: &str = "polygon_ponytail";
 
 /// When the tail leaves her hand. Late enough to read as a wind-up and be
 /// punishable on reaction.
 const PONYTAIL_THROWN_AT_S: f32 = 0.16;
 
-/// When the move ends — and with it the grip. Shorter than the tail's round
-/// trip on purpose: she is free to act while it is still out, which is the
-/// whole reason a boomerang is worth throwing.
+/// When the move ends, and with it the grip. Shorter than the tail's round
+/// trip on purpose: she can act while it is still out.
 const PONYTAIL_ENDS_S: f32 = 0.40;
 
-/// The held-item id her down-B lays. It has to be a REGISTERED held item or
-/// nobody can pick the bomb up, which is half the move.
+/// The held-item id her down-B lays. It must be a registered held item, or
+/// nobody can pick the bomb up.
 const BOMB_ITEM: &str = "polygon_bomb";
 const MINE_ITEM: &str = "polygon_mine";
 
@@ -84,51 +75,25 @@ const BOMB_LAID_AT_S: f32 = 0.18;
 /// cost of putting a live thing on the stage.
 const BOMB_ENDS_S: f32 = 0.46;
 
-/// THE CHARGE BALL — the genre's held neutral-B, and this fighter's identity.
+/// The charge ball: the genre's held neutral-B, and this fighter's identity.
 ///
-/// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the ball
-/// builds at the muzzle; let go (or hit the maximum, which fires on its own —
-/// a full charge is LOADED, not stored) and the rest of the windup plays into
-/// the shot. What comes out is scaled by how long it was held: see
+/// Hold Special and the timeline freezes at [`CHARGE_HOLD_AT_S`] while the
+/// ball builds at the muzzle. Release (or reach the maximum) and the rest of
+/// the windup plays into the shot, scaled by hold time: see
 /// `crate::authored::projectile_polygon`'s `charged_cannon`.
 ///
-/// ⭐ AND IT STORES. See `stores` on the policy below: a full charge WAITS
-/// rather than firing itself, and an interrupted one is banked for the next
-/// press. That is Samus/Mewtwo parity and it is what makes the ball a plan.
+/// It stores (see `stores` below): a full charge waits instead of firing, and
+/// an interrupted one is banked for the next press (Samus/Mewtwo parity).
 ///
-/// ⛔ NO `smash_charge_mult`. That number scales the damage of a melee volume
-/// this move does not have — the payoff is entirely in the projectile — so
-/// setting one here would be a multiplier that multiplies nothing. The
-/// explicitly authored `smash_charge` is what says this move holds.
+/// No `smash_charge_mult`: that scales a melee volume this move does not
+/// have. The explicit `smash_charge` is what makes it hold.
 ///
-/// ⚠ THE BALL BUILDS WHERE THE SHOT LEAVES, which is not where his cannon is.
-/// `spawn_projectiles_from_brain_actions` launches every ordinary shot from the
-/// ⛔⛔ THAT PARAGRAPH RECORDED A DEFERRAL AND THE DEFERRAL EXPIRED, so it is
-/// rewritten rather than left to mislead. It used to say the shot spawns at
-/// `body centre + (0, -8)`, that drawing the charge at the head-mounted cannon
-/// while firing from the chest would read as the ball teleporting, and that
-/// *"a per-action MUZZLE offset would fix both ends at once; it does not exist,
-/// and inventing one here would be a fighter reaching into the shared fire
-/// site."*
+/// The shot leaves the cannon through `Muzzle::Offset { x: 0.22, y: -0.34 }`
+/// on her ranged action in `authored/projectile_polygon.rs`.
 ///
-/// ⭐ IT EXISTS AND SHE IS ITS CUSTOMER. `Muzzle::Offset { x: 0.22, y: -0.34 }`
-/// is authored on her ranged action in `authored/projectile_polygon.rs`, and the
-/// note there records what it bought: *"THE SHOT LEAVES THE CANNON NOW, not the
-/// stomach"* — and that the charge art had been drawn as a body-wide aura
-/// specifically to hide a ball blooming out of her midriff. ⇒ The old objection
-/// was right in its own terms: the fix belonged in the SHARED fire site as a
-/// spatial contract an action can state, not in this fighter.
-///
-/// ⚠ A DEFERRAL IS A MEASUREMENT AND MEASUREMENTS EXPIRE. Left as written, this
-/// comment would have taught the next author that the engine refuses something
-/// it now offers — which is worse than saying nothing, because it reads as
-/// having been checked.
-///
-/// ⚠ THE FILL IS FIRED ONCE, AT THE LATCH, and that is a real limitation rather
-/// than a design. A move event is a point on a timeline and a charge is a
-/// stretch of one, so nothing re-fires the VFX if the hold outlasts the row;
-/// what makes it read anyway is that the row was drawn to the same length as
-/// the hold. A hold that could outlast its own fill would want a sustained
+/// The fill VFX fires once, at the latch. A move event is a point in time,
+/// so nothing re-fires it if the hold outlasts the row; the row is drawn to
+/// the same length as the hold. A longer hold would need a sustained
 /// presentation channel, which does not exist yet.
 fn charge_shot() -> MoveSpec {
     MoveSpec {
@@ -148,8 +113,8 @@ fn charge_shot() -> MoveSpec {
                 sustain_effect: None,
                 motion_scale: 1.0,
             },
-            // No Active volume: the projectile IS the damage, as it is for every
-            // ranged move. The recovery is the settle he owes for committing.
+            // No Active volume: the projectile is the damage. The recovery is the
+            // settle he owes for committing.
             MoveWindow {
                 start_s: CHARGE_FIRE_AT_S,
                 end_s: 0.58,
@@ -160,8 +125,8 @@ fn charge_shot() -> MoveSpec {
             },
         ],
         events: vec![
-            // The intake first: loose energy pulled toward the muzzle, so the
-            // player knows the button took before the ball is visible.
+            // The intake first, so the player sees the button took before the ball
+            // appears.
             MoveEvent {
                 at_s: 0.01,
                 kind: MoveEventKind::Vfx {
@@ -200,19 +165,10 @@ fn charge_shot() -> MoveSpec {
         smash_charge: Some(SmashChargeSpec {
             hold_at_s: CHARGE_HOLD_AT_S,
             max_hold_s: CHARGE_FILL_S,
-            // ⭐⭐ IT STORES, AND THAT IS THE OTHER HALF OF THE CHARACTER. Jon,
-            // 2026-08-27: *"This should have parity with samus / mewtwo 'b', so
-            // that means it needs to be able to store a charge and fire at
-            // different sizes."* Firing at different sizes was already here —
-            // `charged_cannon`'s `RangedCharge` ladder and the sheet's five
-            // tiers. Storing was not, and without it the only way to reach a
-            // full ball was to stand still for the whole fill with nobody
-            // touching you, which on a platform-fighter stage is never.
-            //
-            // ⛔ AND IT REPLACES A COMMENT THAT SAID THE OPPOSITE. The doc above
-            // read *"a full charge is LOADED, not stored"*, which was true of the
-            // engine and wrong for this character: at maximum the shot now
-            // WAITS, and getting hit banks it instead of wasting it.
+            // It stores (Samus/Mewtwo parity). The `RangedCharge` ladder and the
+            // sheet's five tiers give different sizes; storing lets a player reach a
+            // full ball without standing still through the whole fill. At maximum the
+            // shot waits, and getting hit banks it.
             stores: true,
             roots: true,
             sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
@@ -330,40 +286,33 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         on_hit: None,
     });
     down_smash.smash_charge_mult = 1.75;
-    // ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"probably the remote mine as their down
-    // smash."* — AND THE SWING IS UNTOUCHED. Every number above is exactly as it
-    // was; the mine is an event ADDED to the move, not a replacement for it.
+    // The remote mine is added to the down smash; the swing is unchanged.
     //
-    // ⛔ THAT IS WHY THE SMASH IS STILL A SMASH. A hitless mine-placer would
-    // have made `smash_charge_mult` a lie — nothing about a planted mine gets
-    // stronger for being charged — and would have cost her a charged down smash
-    // to buy a technique. Composing the two keeps the charge meaningful and
-    // makes the move read as one thing: she sweeps low and leaves something
-    // behind.
+    // So the smash stays a smash. A hitless mine-placer would make
+    // `smash_charge_mult` meaningless and cost her a charged down smash. She
+    // sweeps low and leaves something behind.
     //
-    // ⭐ PRESSING IT AGAIN SETS THE MINE OFF AND SWINGS ANYWAY, because the
-    // ruleset decides which half of the press happened and the hitbox is not
-    // conditional. Detonating from across the stage costs you a swing at air;
-    // detonating from on top of it is a two-hit option that can also kill you,
-    // since the blast is neutral. Both of those are choices, which is the point.
+    // Pressing again detonates the mine and still swings: the hitbox is not
+    // conditional. Detonating from far away costs a swing at air; detonating
+    // on top of it is a two-hit option that can hurt her too (the blast is
+    // neutral).
     let down_smash = ambition_entity_catalog::smash_mine::author_place_mine(
         down_smash,
-        // The end of the active window: the sweep plants it. Placing during
-        // STARTUP would let her cancel the smash and keep the mine.
+        // End of the active window: the sweep plants it. Placing during startup
+        // would let her cancel the smash and keep the mine.
         0.28,
         ambition_entity_catalog::smash_mine::PlaceMineParams {
             item_id: MINE_ITEM.to_string(),
-            // ⭐ LONGER THAN THE MOVE ITSELF (0.57s), so plant-and-detonate is
-            // never one continuous input. You have to survive the wait.
+            // Longer than the move (0.57s), so plant-and-detonate is never one
+            // continuous input.
             arm_s: 1.2,
-            // ⚠ UNDER the bomb's 12, and that is intentional: the mine chooses
-            // its own moment, and a trigger you aim in time should not also win
-            // the damage comparison against one you cannot.
+            // Below the bomb's 12 on purpose: a mine picks its own moment, so it
+            // should not also win on damage.
             damage: 10,
             blast_radius: 52.0,
             half_extents: (8.0, 8.0),
-            // Behind and below the sweep, like the bomb, so it is not planted
-            // inside her own body where nobody can pick it up.
+            // Behind and below the sweep, like the bomb, so it is not inside her body
+            // where nobody can pick it up.
             offset: (-18.0, 14.0),
         },
     );
@@ -442,22 +391,15 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 
     let neutral_special = charge_shot();
 
-    // SIDE — `polygon_ponytail_boomerang`. SHE THROWS HER OWN TAIL.
+    // Side: `polygon_ponytail_boomerang`. Jon: *"use her ponytail as a boomarang
+    // for her side-b."*
     //
-    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"I think the projectile polygon should be
-    // able to use her ponytail as a boomarang for her side-b."* It replaces
-    // `polygon_projectile_vector_rush`, a lunging body-check that said nothing
-    // about the ranged member of the trio being ranged.
+    // It uses the same seam as the admiral's gun-sword: `MoveSpec::equips` puts
+    // a thing in her hands while the move's clock runs and fires its ranged
+    // verb. So grab-and-throw is one move, and the tail's flight is authored on
+    // the tail.
     //
-    // ⭐ THE THROW IS THE SAME SEAM THE ADMIRAL'S GUN-SWORD USES.
-    // `MoveSpec::equips` puts a thing in the fighter's hands for exactly as long
-    // as the move's own clock runs and fires ITS ranged verb — so "grab your
-    // ponytail and throw it" is one move rather than an equip the player has to
-    // sequence, and the tail's flight is authored on the tail rather than on
-    // her.
-    //
-    // ⛔ NO MELEE VOLUME. The tail IS the damage, going out and coming back;
-    // a move that also carried a strike would be two moves on one button.
+    // No melee volume: the tail is the damage, going out and coming back.
     let side_special = ambition_entity_catalog::authoring::hitless_special(
         "polygon_ponytail_boomerang",
         "attack_side",
@@ -471,8 +413,8 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         at_s: PONYTAIL_THROWN_AT_S,
         kind: MoveEventKind::Ranged,
     });
-    // A small forward step on the throw — additive, so it is a lean rather than
-    // a lunge and advertises no route to a recovery search.
+    // A small additive step on the throw: a lean, not a lunge, and no route for
+    // a recovery search.
     let side_special = impulse(
         side_special,
         PONYTAIL_THROWN_AT_S,
@@ -497,55 +439,42 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
 
-    // ⭐⭐ AND THE LIFT THROWS HER LINE, which is what makes her recovery HERS.
-    // A 745px/s pop is a recovery every fighter could have; a tether that bites
-    // a ledge and reels her onto it is the ranged fighter's version of the same
-    // verb she already grabs with. ⇒ The reach is `THE_TETHERS_REACH`, the same
-    // number her grab uses, because they are one fiction: a line that reached
-    // further off-stage than it does on-stage would be two moves wearing one
-    // animation.
+    // The up-B throws her line: a tether that bites a ledge and reels her in,
+    // the ranged fighter's version of her grab. The reach is
+    // `THE_TETHERS_REACH`, the same as her grab.
     //
-    // ⛔ IT CATCHES NOTHING BY ITSELF. The reel delivers her to the anchor the
-    // ledge authority wants a hanging body to occupy and then lets go; the
-    // kernel's own `try_start_ledge_grab_clusters_in_frame` decides whether she
-    // catches, with its release cooldown and its eligibility intact. See
-    // `ambition_demo_smash::tether` for why that separation is the point.
+    // It catches nothing by itself. The reel brings her to the anchor the ledge
+    // authority wants and lets go; `try_start_ledge_grab_clusters_in_frame`
+    // decides if she catches, with its cooldown and eligibility. See
+    // `ambition_demo_smash::tether`.
     //
-    // ⚠ AND IT HAS TO BE AIMED. The line goes where she FACES, so a recovery
-    // that drifts out facing away from the stage gets the plain 745px/s pop and
-    // nothing more — which is the read that keeps a tether from being a free
-    // return ticket.
+    // It must be aimed: the line goes where she faces. Facing away from the
+    // stage gives only the 745px/s pop.
     let up_special = ambition_entity_catalog::smash_tether::author_tether_pull(
         up_special,
-        // Just after the pop, so the line goes out while she is rising rather
-        // than at the apex where she has already spent the height.
+        // Just after the pop, so the line goes out while she is still rising.
         0.10,
         ambition_entity_catalog::smash_tether::TetherPullParams {
             reach: THE_TETHERS_REACH,
-            // Faster than the pop that threw her: once the line bites, the reel
-            // IS her motion, and a reel slower than a fall would lose ground.
+            // Faster than the pop: once the line bites, the reel is her motion, and a
+            // reel slower than a fall would lose ground.
             speed: 900.0,
-            // 315px of travel against a 150px line — the failsafe is generous
-            // on purpose, because the case it exists for is a ledge that stops
-            // being reachable, not a reel that is merely slow.
+            // 315px of travel for a 150px line: a generous failsafe for a ledge that
+            // stops being reachable.
             timeout_s: 0.35,
         },
     );
 
-    // DOWN (grounded) — `polygon_lay_bomb`. SHE PUTS A LIVE BOMB ON THE FLOOR.
+    // Down (grounded): `polygon_lay_bomb`. She puts a live bomb on the floor.
     //
-    // ⭐⭐ JON'S DESIGN, 2026-08-27: *"The projectile polygon should poop a bomb
-    // onto the stage, they should be able to pick it up and throw it. The bomb
-    // should detonate in 4 seconds or if it hits something with enough velocity,
-    // whichever comes first."*
+    // Jon: *"The bomb should detonate in 4 seconds or if it hits something with
+    // enough velocity, whichever comes first."* Anyone can pick it up and throw
+    // it.
     //
-    // ⭐ THE OBJECT IS A GROUND ITEM, which is what makes the second sentence
-    // free: picking things up and throwing them is machinery the engine already
-    // installs in every game. See `ambition_demo_smash::bomb`.
+    // The bomb is a ground item, so pick-up and throw come from existing engine
+    // machinery. See `ambition_demo_smash::bomb`.
     //
-    // ⛔ NO MELEE VOLUME. Laying a bomb is not a hit — the bomb is — and a
-    // down-B that also struck would be two moves on one button. It replaces
-    // `polygon_low_burst`, an ordinary low arc that said nothing about her.
+    // No melee volume: the bomb is the hit.
     let grounded_down_special = ambition_entity_catalog::authoring::hitless_special(
         "polygon_lay_bomb",
         "attack_down",
@@ -559,18 +488,17 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
         BOMB_LAID_AT_S,
         ambition_entity_catalog::smash_bomb::DropBombParams {
             item_id: BOMB_ITEM.to_string(),
-            // ⭐ JON'S NUMBER, verbatim: *"detonate in 4 seconds"*.
+            // The design value: detonate in 4 seconds.
             fuse_s: 4.0,
             damage: 12,
             blast_radius: 56.0,
-            // ⭐ "ENOUGH VELOCITY" IS A NUMBER, and this one sits between the two
-            // ways a bomb stops moving: `THROW_SPEED_X` is 320, so a THROWN bomb
-            // detonates on what it hits, and a bomb that merely fell out of her
-            // hands does not.
+            // "Enough velocity" sits between the two ways a bomb stops:
+            // `THROW_SPEED_X` is 320, so a thrown bomb detonates on impact and a dropped
+            // one does not.
             impact_speed: 260.0,
             half_extents: (9.0, 9.0),
-            // Just behind and below her, so laying one does not put it inside
-            // her own body where nobody can pick it up.
+            // Just behind and below her, so it is not inside her body where nobody can
+            // pick it up.
             offset: (-16.0, 14.0),
         },
     );
@@ -600,36 +528,27 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
     let airborne_down_special =
         impulse(airborne_down_special, 0.10, (0.0, 1080.0), ImpulseMode::Set);
 
-    // ⭐⭐ THE TETHER, AND IT IS THE GRAB — not a special, and not a new
-    // mechanic. Samus's grab is a tether, and this fighter is the grid's ranged
-    // one, so the reach belongs on the verb she already had. ⇒ Verified before
-    // authoring rather than assumed: `acquire_captures` builds its box as
+    // The tether is her grab, not a special or a new mechanic: she is the
+    // grid's ranged fighter. `acquire_captures` builds its box as
     // `CenteredAabb::new(captor.pos + placed.world_offset, placed.half_extent)`
-    // and there is no distance term anywhere in `ambition_combat::capture` — no
-    // ceiling, no clamp, no range check. A tether grab is authored reach and
-    // nothing else, which is why this is a numbers change.
+    // with no distance limit in `ambition_combat::capture`, so a tether grab is
+    // only authored reach.
     //
-    // ⛔ THE VERTICAL EXTENT SHRINKS AS THE HORIZONTAL GROWS, and that is the
-    // whole balance of it. 150px of reach with her old 16px height would be a
-    // wall a third of the platform wide that also happens to grab; 10px makes it
-    // a LINE, which has to be aimed by standing at the right height. The reach
-    // is the reward and the precision is the price.
+    // The height shrinks as the reach grows. 150px of reach at 16px tall would
+    // be a grabbing wall; at 10px it is a line she must aim by height.
     //
-    // ⚠ AND THE RECOVERY PAYS FOR IT. 0.34s against the old 0.21s, with a
-    // slower extension (0.10s startup against 0.06s): a whiffed tether is a
-    // committed animation at the range where a ranged fighter least wants to be
-    // committed. A long grab that recovered like a short one would simply be a
-    // better grab.
+    // The recovery pays for it: 0.34s (was 0.21s) and a slower extension
+    // (0.10s startup, was 0.06s). A whiffed tether is a committed animation at
+    // long range.
     let grab = author_standing_grab(
         grab_shell("polygon_projectile_grab", "grab", 0.10, 0.06, 0.34),
         CaptureAttemptParams {
-            // ⭐ 86 + 64 = `THE_TETHERS_REACH`. Her up-B throws the same line
-            // and reads the constant, so the two cannot drift apart silently.
+            // 86 + 64 = `THE_TETHERS_REACH`. Her up-B reads the constant, so the two
+            // stay equal.
             offset: (86.0, 1.0),
             half_extents: (64.0, 10.0),
-            // The SAME hold as before. Where a captive is held is a property of
-            // this fighter's hands, not of how far away she caught them, and the
-            // throws that follow are shared.
+            // The same hold as before: where a captive is held depends on her hands,
+            // not on how far away she caught them, and the throws are shared.
             hold_offset: (14.0, 3.0),
         },
     );
@@ -725,20 +644,17 @@ pub fn projectile_polygon_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
 
-    /// ⛔⛤ **HER WHOLE NEUTRAL GAME IS INVISIBLE TO A HIT-VOLUME SCAN.**
+    /// Her neutral game has no hit volume.
     ///
-    /// The boomerang and the charge shot author no Active volume at all —
-    /// *"the projectile IS the damage, as it is for every ranged move"* — so
-    /// `MoveFrameData::coverage` is `None` for both, and an option layer that
-    /// reads `None` as *"reaches nobody"* takes the reference projectile
-    /// fighter's two neutral options off her own attack menu. Her admission
-    /// rides `hazard_reach` instead, and the only thing in the authoring that
-    /// says so is a `MoveEventKind::Ranged` event.
+    /// The boomerang and the charge shot author no Active volume (the projectile
+    /// is the damage), so `MoveFrameData::coverage` is `None` for both. An option
+    /// layer that read `None` as "reaches nobody" would remove both from her
+    /// attack menu. She is admitted through `hazard_reach`, from the
+    /// `MoveEventKind::Ranged` event.
     ///
-    /// ⚠ This is a claim about the JOIN, not about the number: 1000px is a
-    /// stage-crossing placeholder the catalog picks because the BODY, not the
-    /// move, owns the shot's real speed and flight. Narrow it where the two
-    /// meet and this test should be retuned, not deleted.
+    /// This tests the join, not the number: 1000px is a stage-crossing
+    /// placeholder, because the body owns the shot's real speed and flight.
+    /// Retune this test if that changes; do not delete it.
     #[test]
     fn her_two_neutral_projectiles_tell_the_brain_they_cross_the_stage() {
         let set = projectile_polygon_moveset();
@@ -752,20 +668,17 @@ mod tests {
                 .find(|m| m.id == id)
                 .unwrap_or_else(|| panic!("`{id}` is in her moveset"));
             let frames = m.frame_data();
-            // The premise. If someone gives one of these a hit volume the
-            // test below stops meaning anything, so it is stated out loud.
+            // Premise: if one of these gets a hit volume, the test below means
+            // nothing.
             assert!(
                 frames.coverage.is_none(),
                 "`{id}` now authors a hit volume, so this test no longer \
                  guards the road it was written for",
             );
-            // ⭐ THE REQUEST, NOT A DISTANCE — and that is the point of the
-            // variant. Her shot's speed, flight and lifetime are on the BODY,
-            // so the catalog says so instead of inventing a number; the kit
-            // builder answers it with her own `RangedActionSpec`. A reader
-            // that never joins a body still gets the standing
-            // `RANGED_ACTION_REACH` through `MoveHazard::reach`, which is
-            // asserted beside it so the fallback stays a measured claim.
+            // A request, not a distance. The shot's speed, flight and lifetime are on
+            // the body, so the catalog asks and the kit builder answers with her
+            // `RangedActionSpec`. A reader that never joins a body gets the standing
+            // `RANGED_ACTION_REACH` through `MoveHazard::reach`, asserted beside it.
             assert_eq!(
                 frames.hazard,
                 Some(ambition_entity_catalog::MoveHazard::OwnersRangedAction),
@@ -779,10 +692,9 @@ mod tests {
         }
     }
 
-    /// ⭐ AND THE CONTROL: a move on the same fighter that reaches through
-    /// something it spawns ITSELF answers that thing's flight, not the
-    /// stage-crossing placeholder. Without this, the test above passes just
-    /// as well against a catalog that answers every hitless move 1000px.
+    /// Control: a move that reaches through something it spawns itself answers
+    /// that thing's flight, not the placeholder. Without this, a catalog that
+    /// answered every hitless move 1000px would pass the test above.
     #[test]
     fn her_bomb_answers_its_own_flight_rather_than_the_ranged_placeholder() {
         let set = projectile_polygon_moveset();
@@ -796,22 +708,17 @@ mod tests {
             .hazard
             .expect("her bomb puts a hazard in the world");
         let reach = hazard.reach();
-        // ⛔⛤ **AND IT IS NOT LIVE WHEN IT LANDS — THIS ARM SAID IT WAS UNTIL
-        // 2026-09-20.** It asserted `speed == 0.0`, documented as *"all of its
-        // reach is available the moment it exists"*, which is the opposite of
-        // what the move authors: *"laying a bomb is not a hit — the bomb
-        // is"*. The fuse is four seconds, and a brain pricing the drop as an
-        // immediate blast was pricing a trap as a strike.
+        // Not live when it lands: laying the bomb is not a hit, and the fuse is
+        // four seconds. Pricing the drop as an immediate blast would price a trap
+        // as a strike.
         assert_eq!(
             hazard.detonates_by_s(),
             4.0,
             "her bomb's fuse is not the four seconds it authors: {}s",
             hazard.detonates_by_s()
         );
-        // ⚠ AND ITS TRAVEL IS ZERO, WHICH IS THE OTHER HALF OF THE SPLIT: it is
-        // placed where it is placed, so there is nothing to aim. Merging the
-        // two questions spent the fuse as a flight time and deleted the move
-        // from her repertoire — see `ThreatTravel::live_at_s`.
+        // Its travel is zero: it is placed, so there is nothing to aim. See
+        // `ThreatTravel::live_at_s`.
         assert_eq!(hazard.travel_to(reach - 1.0), Some(0.0));
         assert_eq!(
             hazard.travel_to(reach + 1.0),
@@ -825,9 +732,8 @@ mod tests {
         );
     }
 
-    /// ⛔ THE COMMENT ON HER GRAB CLAIMS 86 + 64 IS THE TETHER'S REACH. That is
-    /// a specification, so it is checked here rather than trusted: retune either
-    /// move alone and this reddens.
+    /// Her grab's comment says 86 + 64 is the tether's reach. Check it: retuning
+    /// either move alone fails this.
     #[test]
     fn the_tether_reaches_as_far_as_her_grab() {
         let set = projectile_polygon_moveset();
@@ -836,10 +742,9 @@ mod tests {
             .iter()
             .find(|m| m.id == "polygon_projectile_grab")
             .expect("she has a grab");
-        // ⛔ A GRAB'S REACH IS NOT ON ITS TIMELINE. `author_standing_grab` hangs
-        // the capture on the ACTIVE WINDOW as a `sustain_effect` — the attempt
-        // is live for the window's duration rather than fired at an instant —
-        // so a scan of `events` finds nothing. Written after that scan failed.
+        // A grab's reach is not on its timeline. `author_standing_grab` hangs the
+        // capture on the active window as a `sustain_effect`, so a scan of `events`
+        // finds nothing.
         let capture: ambition_entity_catalog::smash_capture::CaptureAttemptParams = grab
             .windows
             .iter()
@@ -894,10 +799,7 @@ mod tests {
             "polygon_projectile_air_back",
             "polygon_projectile_air_up",
             "polygon_projectile_air_down",
-            // ⭐ THE CHARGE SHOT REPLACED THE PLAIN ONE. This row still named
-            // `polygon_projectile_shot` after `charge_shot()` became the neutral
-            // special, and the id exists nowhere else in the tree — the list was
-            // the last reference to a move that had been renamed out.
+            // The charge shot is the neutral special.
             "polygon_projectile_charge_shot",
             "polygon_ponytail_boomerang",
             "polygon_projectile_recoil_lift",
@@ -916,11 +818,8 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE MINE IS AN ADDITION AND THE SWING IS UNTOUCHED — both halves, in
-    /// one test, because they are one claim. A guard that only checked for the
-    /// mine event would pass against a down smash that had quietly lost its
-    /// hitbox to make room for it, which is exactly the change this move was
-    /// authored to avoid.
+    /// The mine is an addition and the swing is unchanged. Both in one test: a
+    /// check for the mine alone would pass a down smash that lost its hitbox.
     #[test]
     fn her_down_smash_still_swings_and_now_also_plants_a_mine() {
         let moves = projectile_polygon_moveset();
@@ -960,8 +859,8 @@ mod tests {
             })
             .expect("her down smash plants a mine");
 
-        // ⭐ THE BRAKE. Plant-and-detonate must never be one continuous input:
-        // the mine has to still be arming when the move that planted it ends.
+        // Plant-and-detonate must never be one continuous input: the mine is still
+        // arming when the planting move ends.
         assert!(
             params.arm_s > down_smash.duration_s,
             "the mine arms in {}s but the move lasts {}s, so she could plant and \
@@ -970,12 +869,9 @@ mod tests {
             down_smash.duration_s,
         );
 
-        // ⛔ AND THE OBJECT HAS TO BE PICKABLE. An unregistered held item is an
-        // object nobody can pick up, which is half of what a stage object is.
-        // ⇒ Its ART is the other half and is guarded where the art lives, in
-        // `items::held_visuals` — `register` is `pub(in crate::items)` and this
-        // module cannot reach it, so splitting the claim beat widening a
-        // visibility to let one test see it.
+        // The object must be pickable, so its held item must be registered. Its art
+        // is checked in `items::held_visuals` (`register` is
+        // `pub(in crate::items)`).
         assert!(
             ambition_characters::brain::held_item_by_id(&params.item_id).is_some(),
             "`{}` is not a registered held item, so nobody could pick the mine up",
@@ -988,29 +884,22 @@ mod tests {
 mod threat_timing_tests {
     use super::*;
 
-    /// ⛔⛤ **A PROJECTILE GOES LIVE WHEN IT IS THROWN, AND `startup_s` SAYS IT
-    /// GOES LIVE WHEN THE MOVE ENDS.**
+    /// A projectile goes live when it is thrown, not when the move ends.
     ///
-    /// `startup_s` is *"time until the first Active window"* and falls back to
-    /// the whole move duration when a move has none — which is the shape of
-    /// every ranged move in the game, because the projectile IS the attack.
-    /// A consumer leading a moving target by that number aims hundreds of
-    /// milliseconds past them: reviewed 2026-09-20, `charge_shot` fires at
-    /// 0.26s and reports `startup_s` 0.58s, which at a closing speed of
-    /// 200px/s is 64px of error against an `ADMISSION_SLACK_PX` of 24.
+    /// `startup_s` is "time until the first Active window" and falls back to the
+    /// whole move duration when there is none, as for every ranged move. Leading
+    /// a target by it overshoots: `charge_shot` fires at 0.26s but reports
+    /// `startup_s` 0.58s, which at 200px/s closing speed is 64px of error against
+    /// an `ADMISSION_SLACK_PX` of 24.
     ///
-    /// ⭐ THIS IS THE SUBJECT. Its CONTROL is
-    /// [`a_strike_threatens_when_its_hitbox_opens`], which asserts the two
-    /// numbers are the SAME for an ordinary swing — without it, "the threat
-    /// time is early" would also be satisfied by a field that is simply always
-    /// early, and the split this field exists for would be invisible.
+    /// Control: [`a_strike_threatens_when_its_hitbox_opens`], where the two
+    /// numbers are equal. Without it, a field that is always early would pass.
     #[test]
     fn a_projectile_threatens_when_it_is_thrown_not_when_the_move_ends() {
         let set = projectile_polygon_moveset();
-        // ⭐ THE AUTHORED TRIGGER TIMES, read from the constants the moves are
-        // BUILT from rather than re-derived from the events the derivation
-        // itself folds — otherwise the arm restates the implementation and
-        // agrees with any mistake in it.
+        // Read the authored trigger times from the constants the moves are built
+        // from, not from the events the derivation reads, so the test does not
+        // restate the implementation.
         for (id, thrown_at) in [
             ("polygon_projectile_charge_shot", CHARGE_FIRE_AT_S),
             ("polygon_ponytail_boomerang", PONYTAIL_THROWN_AT_S),
@@ -1035,7 +924,7 @@ mod threat_timing_tests {
                  by the whole move duration after all",
                 f.startup_s
             );
-            // ⚠ AND IT IS THE AUTHORED THROW, not merely "something smaller".
+            // And it is the authored throw time, not just something smaller.
             assert!(
                 (live - thrown_at).abs() < 1e-4,
                 "{id} is authored to throw at {thrown_at:.3}s and reports its \
@@ -1044,8 +933,8 @@ mod threat_timing_tests {
         }
     }
 
-    /// ⭐ THE CONTROL: for a move whose threat IS its hitbox, the two numbers
-    /// are the same by construction. See the arm above for why this matters.
+    /// Control: for a move whose threat is its hitbox, the two numbers are equal
+    /// by construction.
     #[test]
     fn a_strike_threatens_when_its_hitbox_opens() {
         let set = projectile_polygon_moveset();
@@ -1065,8 +954,8 @@ mod threat_timing_tests {
         );
     }
 
-    /// ⭐ AND A MOVE THAT OFFERS THE OPPONENT NOTHING SAYS SO WITH `None`,
-    /// which is the same population the attack menu's third arm refuses.
+    /// A move that offers the opponent nothing reports `None`: the same
+    /// population the attack menu's third arm refuses.
     #[test]
     fn a_move_that_threatens_nobody_names_no_time() {
         let set = projectile_polygon_moveset();

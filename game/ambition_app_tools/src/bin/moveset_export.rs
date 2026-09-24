@@ -1,23 +1,16 @@
 //! Export every smash fighter's balance data as one JSON bundle.
 //!
-//! ⭐ THE POINT IS TO ANSWER BALANCE QUESTIONS WITHOUT A PLAYTEST. Jon,
-//! 2026-08-27: *"I want a moveset balance stats diagnostic presentation... things
-//! related to balancing or inspecting characters that is faster to do than
-//! loading up the game and doing a playtest match with them."*
+//! It answers balance questions without a playtest.
 //!
-//! ⛔⛔ AND IT READS THE COMPOSED HOST, NOT THE AUTHORING FILES. A tool that
-//! parsed `*_moveset.rs` would report what somebody wrote; this boots
+//! It reads the composed host, not the authoring files. It boots
 //! `build_visible_app`, waits for the `Startup` systems that fill the prepared
-//! registry, and reports what the SHIPPED GAME resolves — which is the only
-//! version of the numbers a balance decision can be made against. The two differ
-//! whenever a repertoire slot overwrites a move (see `UpSpecial::into_spec`) or a
-//! provider composes a fighter out of another one's table.
+//! registry, and reports what the shipped game resolves. That can differ from
+//! the source when a repertoire slot overwrites a move (see
+//! `UpSpecial::into_spec`) or a provider builds a fighter from another's table.
 //!
-//! ⛔ THE SCHEMA HERE IS ITS OWN, and deliberately not `serde(MoveSpec)`. The
-//! catalog's field names are an internal contract that moves when the engine
-//! moves; a viewer keyed to them would break on a rename that changed nothing it
-//! displays. This file is the ONE translation, so the UI has one shape to know
-//! and one place to update.
+//! The schema here is its own, not `serde(MoveSpec)`. The catalog's field
+//! names change with the engine; this file is the one translation, so the UI
+//! has one shape to know.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -39,17 +32,14 @@ fn frames(seconds: f32) -> f32 {
 
 /// The atlas table for every sheet the exported cast names.
 ///
-/// ⭐⭐ ENOUGH TO BLIT A FRAME, and nothing more. Per sheet: the logical frame
-/// size, the page images, the body's own rectangle and feet pixel, and every
-/// row's per-frame sub-rects with their trim offsets. That is exactly the input
-/// `trimmed_render` takes, so the viewer can place a frame the way the engine
-/// does instead of guessing.
+/// Enough to blit a frame: per sheet, the logical frame size, the page
+/// images, the body rectangle and feet pixel, and each row's per-frame
+/// sub-rects with trim offsets. That is the input `trimmed_render` takes, so
+/// the viewer places a frame as the engine does.
 ///
-/// ⛔ THE FEET PIXEL IS THE HORIZONTAL ORIGIN, not the frame centre. A frame is a
-/// packed cell sized by the widest pose and the art sits wherever the crop left
-/// it — `projectile_polygon` is 17% of a 377px frame left of centre. Drawing a
-/// frame centred on the body reproduces, in the viewer, the exact defect the
-/// engine's own anchor had until 2026-08-27.
+/// The feet pixel is the horizontal origin, not the frame centre. A frame is
+/// a packed cell sized by the widest pose, and the art sits wherever the crop
+/// left it (`projectile_polygon` is 17% of a 377px frame left of centre).
 fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
     use ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key;
 
@@ -87,9 +77,8 @@ fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
                     "frame_count": row.frame_count,
                     "duration_secs": row.duration_secs,
                     "page": row.page,
-                    // `[x, y, w, h, page, off_x, off_y]` per frame — a flat
-                    // tuple rather than an object because a big sheet has
-                    // hundreds and the bundle is read by a browser.
+                    // `[x, y, w, h, page, off_x, off_y]` per frame: a flat
+                    // tuple, because a big sheet has hundreds of frames.
                     "rects": row
                         .rects
                         .iter()
@@ -127,9 +116,8 @@ fn sheet_atlas_json(characters: &[serde_json::Value]) -> serde_json::Value {
 
 /// One authored hit volume, flattened to the rectangle a viewer draws.
 ///
-/// A circle is reported with its radius AND the enclosing half-extents, so a
-/// viewer that only knows rectangles still draws something true rather than
-/// nothing.
+/// A circle reports its radius and its enclosing half-extents, so a
+/// rectangle-only viewer still draws something true.
 fn volume_json(volume: &ambition_entity_catalog::HitVolume) -> serde_json::Value {
     let (offset, half, radius) = match volume.shape {
         VolumeShape::Rect {
@@ -160,8 +148,8 @@ fn volume_json(volume: &ambition_entity_catalog::HitVolume) -> serde_json::Value
 
 fn window_json(
     window: &ambition_entity_catalog::MoveWindow,
-    // The contract this window belongs to, because a broad cancel rule means
-    // THIS CHARACTER'S moves and nothing else can say which those are.
+    // The contract this window belongs to: a broad cancel rule means this
+    // character's moves.
     moveset: Option<&ambition_entity_catalog::MovesetContract>,
 ) -> serde_json::Value {
     let (tag, cancel_into) = match &window.tag {
@@ -170,21 +158,17 @@ fn window_json(
         WindowTag::Recovery => ("recovery".to_string(), Vec::new()),
         WindowTag::Invuln => ("invuln".to_string(), Vec::new()),
         WindowTag::Armor => ("armor".to_string(), Vec::new()),
-        // ⭐ THE THRESHOLD IS IN THE TAG STRING, not dropped. An export that
-        // called this plain `"armor"` would tell every downstream reader — the
-        // inspector, the clock census — that a move with threshold armor has
-        // SUPER armor, which is the one distinction this tag exists to make.
+        // Keep the threshold in the tag string. Plain `"armor"` would read as
+        // super armor.
         WindowTag::ArmorUnder { damage } => (format!("armor_under:{damage}"), Vec::new()),
         WindowTag::Cancelable { into, condition } => (
             format!("cancelable:{condition:?}").to_lowercase(),
             into.clone(),
         ),
     };
-    // ⭐⭐ THE BROAD RULES, RESOLVED. `["attack", "smash", "any_attack"]` is what
-    // the author wrote; the question a reader has is WHICH MOVES that is, and
-    // the answer is the character's own repertoire. `cancel_targets` is the
-    // catalog's — the same verb-class names the trigger road matches on — so
-    // this exports a resolution rather than inventing one.
+    // Resolve the broad rules (`["attack", "smash", "any_attack"]`) to
+    // this character's move ids. `cancel_targets` is the catalog's own
+    // resolution, the same verb-class names the trigger path matches.
     let resolved: Vec<String> = if cancel_into.is_empty() {
         Vec::new()
     } else {
@@ -201,9 +185,9 @@ fn window_json(
     serde_json::json!({
         "tag": tag,
         "cancel_into": cancel_into,
-        // The move ids `cancel_into` admits, for this character. Empty when the
-        // window authors no cancel; a rule that resolves to nothing is a rule
-        // naming moves this fighter does not have, which is worth seeing.
+        // The move ids `cancel_into` admits for this character. Empty when the
+        // window authors no cancel. A rule that resolves to nothing names moves
+        // this fighter does not have.
         "cancel_into_resolved": resolved,
         "start_s": window.start_s,
         "end_s": window.end_s,
@@ -215,21 +199,12 @@ fn window_json(
     })
 }
 
-/// The one-line summary a balance table sorts on.
-///
-/// ⛔ `startup` IS THE FIRST ACTIVE WINDOW'S START, not the first Startup
-/// window's end. Those are the same number for an ordinary strike and NOT the
-/// same for a move whose timeline has a gap, a multi-hit, or an `Invuln` window
-/// wedged in — and "how long until this can hit me" is the question the genre
-/// asks.
-/// The move's Active windows grouped into PULSES: one continuous stretch of
+/// The move's Active windows grouped into pulses: one continuous stretch of
 /// Active time each, in start order.
 ///
-/// ⛔ CONTIGUITY IS THE RULE THE RUNTIME USES, so it is the rule here. Windows
-/// that touch or overlap are one pulse and share one per-victim ledger; a real
-/// GAP between them earns a second connection. Deriving a carry any other way
-/// makes a sweetspot pair look like a multihit and a genuine multihit look the
-/// same as one.
+/// Contiguity is the runtime's rule. Windows that touch or overlap are one
+/// pulse and share one per-victim ledger; a real gap earns a second
+/// connection. Any other rule makes a sweetspot pair look like a multihit.
 fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_entity_catalog::MoveWindow>> {
     let mut actives: Vec<&ambition_entity_catalog::MoveWindow> = spec
         .windows
@@ -241,8 +216,8 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_entity_catalog::MoveWindo
     let mut pulses: Vec<Vec<&ambition_entity_catalog::MoveWindow>> = Vec::new();
     let mut open_until = f32::NEG_INFINITY;
     for window in actives {
-        // `>` and not `>=`: windows that merely TOUCH leave no Active gap, so
-        // the fighter never stopped swinging and the ledger never reset.
+        // `>` not `>=`: windows that only touch leave no Active gap, so the
+        // ledger never reset.
         if window.start_s > open_until {
             pulses.push(Vec::new());
             open_until = f32::NEG_INFINITY;
@@ -259,72 +234,55 @@ fn active_pulses(spec: &MoveSpec) -> Vec<Vec<&ambition_entity_catalog::MoveWindo
 /// How much of the body's own silhouette a move's forward reach covers, and
 /// where the holes are.
 ///
-/// ⭐⭐ D203, and it is Jon's ask stated as a measurement rather than a rule:
-/// *"a DIRECTIONAL SMASH should cover a contiguous region in the facing
-/// direction at least as tall as the character; forward smash should leave NO
-/// HOLE a crouching opponent can duck under."* Hit volumes are authored in
-/// ABSOLUTE numbers — `VolumeShape::Rect { offset, half_extents }` is
-/// entity-local and knows nothing about whose body it is — so a bigger fighter
-/// inherits a box drawn for somebody else's silhouette, and the only lever is
-/// retyping numbers per move per character.
+/// D203: a directional smash should cover a contiguous region in the facing
+/// direction at least as tall as the character, and a forward smash should
+/// leave no hole a crouching opponent can duck under. Hit volumes are authored
+/// in absolute numbers (`VolumeShape::Rect { offset, half_extents }` is
+/// entity-local), so a bigger fighter inherits a box drawn for a smaller one.
 ///
-/// ⛔ IT REPORTS, IT DOES NOT JUDGE. Jon wants moves that deliberately break the
-/// rule, so a pass/fail here would be a policy with no way to declare an
-/// exception — and an undeclared exception is indistinguishable from a mistake.
-/// The census is the evidence the pattern gets designed from; the verdict is a
-/// later question with an authored answer.
+/// It reports; it does not judge. Some moves break the rule on purpose, and a
+/// pass/fail here would have no way to declare an exception.
 ///
-/// `coverage` is the union of a move's authored Active volumes in body-local
-/// space where `+x` is facing and the origin is the body's centre.
+/// `coverage` is the union of a move's Active volumes in body-local space,
+/// where `+x` is facing and the origin is the body's centre.
 ///
-/// ⛔⛔ IT DESCRIBES THE VOLUME, NOT WHERE THE MOVE LANDS. A move that carries a
-/// `start_impulse` moves the BODY while its window is open, so its world-space
-/// reach exceeds `reach_px` by however far the impulse carries it — this is
-/// arithmetic, not a caveat. The oni leader's `iaijutsu` authors `impulse(0.05,
-/// (700.0, 0.0))` at the same instant as its Active window (*"the draw and the
-/// cut are one motion… he crosses the distance already having swung"*) and is
-/// thrown at a median gap of **3.81× its 64px coverage**, which is past even
-/// what `REACH_TOLERANCE` allows and is correct behaviour for that move.
-///
-/// ⚠ so a small `covers_body_fraction` on a lunge is not the finding it looks
-/// like. ⛔ and the converse is NOT true either: 5 of the 8 moves thrown past
-/// their reach in the 2026-08-28 grid census carry no impulse at all, so this
-/// does not explain the general pattern — see D190.
+/// It describes the volume, not where the move lands. A move with a
+/// `start_impulse` moves the body while its window is open, so its world
+/// reach exceeds `reach_px`. Example: the oni leader's `iaijutsu`
+/// (`impulse(0.05, (700.0, 0.0))` at the start of its Active window). So a
+/// small `covers_body_fraction` on a lunge is expected. Many moves thrown past
+/// their reach have no impulse, so this does not explain that pattern (see
+/// D190).
 fn coverage_census(coverage: &MoveCoverage, body_height: f32) -> Option<serde_json::Value> {
-    // A move that reaches nowhere forward is not a directional attack, and
-    // asking what fraction of the body it fronts is the wrong question about it.
+    // A move that reaches nowhere forward is not a directional attack; this
+    // question does not apply.
     if coverage.max.0 <= 0.0 || body_height <= 0.0 {
         return None;
     }
     let half = body_height / 2.0;
-    // The silhouette, in the same body-local frame. World y is DOWN, so the
+    // The silhouette, in the same body-local frame. World y is down, so the
     // "duck under" hole is the one toward +y.
     let (top, bottom) = (-half, half);
     let covered_top = coverage.min.1.max(top);
     let covered_bottom = coverage.max.1.min(bottom);
     let covered = (covered_bottom - covered_top).max(0.0);
-    // ⛔ ROUNDED IN f64, not f32. These are read by a person and byte-diffed
-    // between bundles; an f32 third of 48 widens to `0.3330000042915344`, which
-    // is noise wearing a measurement's precision.
+    // Round in f64, not f32. People read these and bundles are byte-diffed;
+    // an f32 third of 48 widens to `0.3330000042915344`.
     let round = |v: f32, places: f64| (f64::from(v) * places).round() / places;
     Some(serde_json::json!({
         // What a reader compares between two characters: 1.0 is a box as tall
         // as its owner.
         "covers_body_fraction": round(covered / body_height, 1000.0),
-        // The band above the volume — an opponent standing tall on a slope, or
+        // The band above the volume: an opponent standing tall on a slope, or
         // an aerial the move passes under.
         "gap_above_px": round((coverage.min.1 - top).max(0.0), 10.0),
-        // ⭐ THE ONE JON NAMED: the band between the bottom of the volume and
-        // the owner's feet.
+        // The band between the bottom of the volume and the owner's feet.
         "gap_below_px": round((bottom - coverage.max.1).max(0.0), 10.0),
-        // ⭐⭐ AND THE QUESTION THAT BAND IS A PROXY FOR, answered directly.
-        // *"forward smash should leave NO HOLE a crouching opponent can duck
-        // under"* — and a crouch is exactly HALF height in this engine
-        // (`BodyShape::Crouching`, width unchanged), so a same-sized opponent
-        // crouching beside you occupies the LOWER HALF of your silhouette.
-        // ⇒ this is how much of that half the volume actually overlaps. `0.0`
-        // is duckable; anything above it is not, and the gap in pixels alone
-        // cannot say which because it does not know the crouch ratio.
+        // The question that band stands for, answered directly. A crouch is
+        // half height in this engine (`BodyShape::Crouching`, same width), so
+        // a same-sized crouching opponent fills the lower half of the
+        // silhouette. This is how much of that half the volume overlaps: `0.0`
+        // is duckable. The pixel gap alone cannot say this.
         "covers_crouched_fraction": round(
             ((coverage.max.1.min(bottom) - coverage.min.1.max(0.0)).max(0.0)) / half,
             1000.0,
@@ -334,8 +292,12 @@ fn coverage_census(coverage: &MoveCoverage, body_height: f32) -> Option<serde_js
     }))
 }
 
-/// `body_ranged` is the fighter's STANDING ranged kit — the action a firing move
-/// uses when it equips nothing of its own.
+/// `body_ranged` is the fighter's standing ranged kit: the action a firing
+/// move uses when it equips nothing of its own.
+///
+/// `startup` is the first Active window's start, not the end of the first
+/// Startup window. They differ for a timeline with a gap, a multi-hit, or an
+/// `Invuln` window.
 fn derived_json(
     spec: &MoveSpec,
     body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
@@ -353,22 +315,13 @@ fn derived_json(
         .sum::<f32>()
         .max(0.0);
     let volumes: Vec<_> = spec.windows.iter().flat_map(|w| w.volumes.iter()).collect();
-    // The biggest single connection, which is what a kill-power comparison
-    // wants; the SUM is what a multi-hit's full carry is worth, and they are
-    // different questions, so both ship.
+    // The biggest single connection (for kill power) and the full carry of a
+    // multi-hit are different questions, so both ship.
     let max_damage = volumes.iter().map(|v| v.damage).max().unwrap_or(0);
-    // ⛔⛔ THE CARRY IS BY PULSE, NOT BY VOLUME, and flattening every volume into
-    // one sum reported a SWEETSPOT/SOURSPOT attack as a multihit — the UI drew
-    // `21 (32 all hits)` for a move that can only ever land one of them. The
-    // runtime is explicit: *"A pulse is ONE continuous stretch of Active time,
-    // and it owns ONE per-victim ledger shared by every sibling volume in it. A
-    // GAP in Active time starts a new pulse and earns a second hit"* — so
-    // siblings inside a pulse are ALTERNATIVES and only separated pulses
-    // accumulate.
-    //
-    // ⭐ THE STATIC UPPER BOUND, said as what it is: the best reachable outcome
-    // of each pulse, summed over the pulses. A file cannot know which volume
-    // connects; it can know that at most one of them does.
+    // The carry is by pulse, not by volume. Sibling volumes inside a pulse
+    // share one per-victim ledger, so they are alternatives; only separate
+    // pulses accumulate. This is the static upper bound: the best volume of
+    // each pulse, summed.
     let sum_damage: i32 = active_pulses(spec)
         .iter()
         .map(|pulse| {
@@ -381,9 +334,8 @@ fn derived_json(
         })
         .sum();
     let max_knockback = volumes.iter().map(|v| v.knockback).fold(0.0f32, f32::max);
-    // Reach is measured to the FAR EDGE of the volume along the facing axis:
-    // a box centred at 34 with a 26 half-extent reaches 60, and that is the
-    // spacing a player actually feels.
+    // Reach is to the far edge of the volume along the facing axis: a box
+    // centred at 34 with a 26 half-extent reaches 60.
     let reach = volumes
         .iter()
         .map(|v| match v.shape {
@@ -404,16 +356,10 @@ fn derived_json(
             VolumeShape::Circle { offset, radius } => offset.1.abs() + radius,
         })
         .fold(0.0f32, f32::max);
-    // ⛔⛔ A RANGED MOVE WAS EXPORTED AS A BOOLEAN AND NOTHING ELSE, so every
-    // number beside it described a move that does not exist: no startup (it has
-    // no Active melee window), zero damage, zero knockback, zero reach, and its
-    // WHOLE DURATION as endlag. The admiral's side-B and Projectile Polygon's
-    // charged neutral-B both read as harmless.
-    //
-    // ⭐ THE SCHEMA SAYS WHAT A RANGED MOVE IS instead of coercing it into melee
-    // terminology: WHEN it fires, and what the shot it fires is worth. A move
-    // can have body-strike damage AND projectile damage; they are different
-    // questions and both ship.
+    // A ranged move is described in its own terms: when it fires, and what
+    // the shot is worth. Melee fields alone would show no startup, zero
+    // damage, and the whole duration as endlag. A move can have both body
+    // damage and projectile damage; both ship.
     let fire_at_s = spec
         .events
         .iter()
@@ -421,16 +367,9 @@ fn derived_json(
         .map(|e| e.at_s)
         .fold(f32::NAN, f32::min);
     let fires_projectile = !fire_at_s.is_nan();
-    // ⭐⭐ THE SHOT, IN THE RUNTIME'S OWN PRECEDENCE: what the move EQUIPS, then
-    // the body's standing ranged kit.
-    //
-    // ⛔⛔ THE SECOND HALF USED TO BE OMITTED ON PURPOSE, and the reasoning was
-    // wrong. The note here said the body's kit "is not a property of the move
-    // and is deliberately not reported" — but a move whose whole content is
-    // firing that kit HAS no other offence, so omitting it exported Projectile
-    // Polygon's neutral-B, the grid's one charge shot, as a move with no damage
-    // and no speed. The move does not OWN the kit; it does determine that the
-    // kit is what comes out, and that is the question a balance view asks.
+    // The shot, in the runtime's precedence: what the move equips, then the
+    // body's standing ranged kit. A move whose content is firing that kit has
+    // no other offence, so the kit must be reported for it.
     let equipped = spec
         .equips
         .as_deref()
@@ -441,21 +380,14 @@ fn derived_json(
     } else {
         "body"
     };
-    // ⛔⛔ ONLY FOR A MOVE THAT ACTUALLY FIRES. Resolving the shot unconditionally
-    // reported the BODY's standing kit on every move the fighter has: Projectile
-    // Polygon's jab, tilts and aerials all exported cannon damage and speed
-    // because she owns a cannon, which is misinformation now that the view
-    // renders those fields. The kit answers "what comes out of THIS move" and a
-    // move that fires nothing has no answer — not the body's.
-    //
-    // ⭐ THE PRECEDENCE ABOVE IS STILL THE RUNTIME'S: what the move equips, then
-    // the body's kit. This gates WHETHER the question is asked, not how.
+    // Only for a move that fires. Otherwise every move of a fighter who owns
+    // a cannon would report cannon damage. The precedence above is unchanged;
+    // this gates whether the question is asked.
     let shot = fires_projectile
         .then(|| equipped.or_else(|| body_ranged.cloned()))
         .flatten();
-    // ⭐ AND A CHARGEABLE SHOT OWES ITS CEILING. A tap and a full hold are two
-    // different moves in every balance conversation the genre has; reporting the
-    // uncharged base alone describes the one nobody is worried about.
+    // A chargeable shot reports its ceiling too: a tap and a full hold are
+    // different balance facts.
     let charged = shot.as_ref().and_then(|r| {
         r.charge.as_ref().map(|c| {
             (
@@ -465,13 +397,9 @@ fn derived_json(
             )
         })
     });
-    // Endlag: from the last hittable instant to the end of the move. A move
-    // with no active window owes its whole duration, which is the honest answer
-    // for a pure-mobility special.
-    // ⭐ AND A MOVE WHOSE OFFENCE IS A SHOT OWES ENDLAG FROM THE SHOT, not from
-    // its whole length. "No Active window" means "nothing hittable ON THE BODY",
-    // which for a ranged move is true and irrelevant — the fire frame is its
-    // last committed instant.
+    // Endlag: from the last committed instant to the end of the move. For a
+    // ranged move that is the fire frame. With neither, the move owes its
+    // whole duration.
     let last_committed = if actives.is_empty() {
         (!fire_at_s.is_nan()).then_some(fire_at_s)
     } else {
@@ -479,8 +407,7 @@ fn derived_json(
     };
     let endlag_s = match last_committed {
         Some(at) => (spec.duration_s - at).max(0.0),
-        // A pure-mobility special really does owe its whole duration, which is
-        // the honest answer for it.
+        // A pure-mobility special owes its whole duration.
         None => spec.duration_s,
     };
     serde_json::json!({
@@ -502,17 +429,16 @@ fn derived_json(
         "fire_f": fires_projectile.then(|| frames(fire_at_s)),
         "projectile_damage": shot.as_ref().map(|r| r.damage),
         "projectile_speed": shot.as_ref().map(|r| r.speed),
-        // WHOSE shot this is. A viewer that could not tell an equipped weapon
-        // from the body's own kit would report the same number for two
-        // different balance facts.
+        // Whose shot: an equipped weapon and the body's own kit are different
+        // balance facts.
         "projectile_source": shot.as_ref().map(|_| shot_source),
         // `None` for a shot that does not charge, which is every ranged action
         // that has not opted in.
         "projectile_damage_charged": charged.map(|(d, _, _)| d),
         "projectile_speed_charged": charged.map(|(_, s, _)| s),
         "projectile_size_charged": charged.map(|(_, _, m)| m),
-        // The charge payoff a fully held release applies, so a smash's real
-        // ceiling is one multiplication away rather than folklore.
+        // The charge payoff a full hold applies, so a smash's ceiling is one
+        // multiplication away.
         "max_damage_charged": (max_damage as f32 * spec.smash_charge_mult).round() as i32,
     })
 }
@@ -522,16 +448,14 @@ fn event_json(event: &ambition_entity_catalog::MoveEvent) -> serde_json::Value {
         MoveEventKind::Sfx { cue } => ("sfx", cue.clone()),
         MoveEventKind::Vfx { effect, .. } => ("vfx", effect.clone()),
         MoveEventKind::Effect(effect) => ("effect", effect.key.clone()),
-        // ⭐ EXHAUSTIVE ON PURPOSE. A new event kind is a new thing a move can
-        // do, and a catch-all would report it as `"other"` in a tool whose whole
-        // job is to show what a move does. The compiler names the gap instead.
+        // Exhaustive on purpose: a new event kind is a new thing a move can
+        // do, and the compiler should name it instead of a catch-all "other".
         MoveEventKind::Impulse { local, mode, .. } => {
             ("impulse", format!("{mode:?} ({}, {})", local.0, local.1))
         }
         MoveEventKind::Ranged => ("ranged", String::new()),
-        // The DURATION is in the detail because it is the half a reader cannot
-        // infer: a scale says how much lighter the body gets, and only the
-        // seconds say whether the regime outlives the move that opened it.
+        // The duration is in the detail: a scale says how much lighter the
+        // body gets, and only the seconds say whether it outlives the move.
         MoveEventKind::GravityModifier { scale, seconds } => {
             ("gravity_modifier", format!("x{scale} for {seconds}s"))
         }
@@ -551,9 +475,8 @@ fn move_json(
     // this fighter actually has.
     moveset: Option<&ambition_entity_catalog::MovesetContract>,
     body_ranged: Option<&ambition_platformer2d::characters::brain::RangedActionSpec>,
-    // How tall its OWNER stands, so the coverage census can say what fraction of
-    // that silhouette this move fronts. `0.0` when the character declares none
-    // and its `body_kind` has no default, which is the honest "cannot say".
+    // How tall the owner stands, for the coverage census. `0.0` when the
+    // character declares none and its `body_kind` has no default.
     body_height: f32,
 ) -> serde_json::Value {
     serde_json::json!({
@@ -592,10 +515,9 @@ fn move_json(
             .collect::<Vec<_>>(),
         "events": spec.events.iter().map(event_json).collect::<Vec<_>>(),
         "derived": derived_json(spec, body_ranged),
-        // ⭐ D203's census. `None` for a move with no forward Active volume, or
-        // for a character whose height nobody has stated — both of which are
-        // "cannot say" rather than "covers nothing". Read it, do not gate on it:
-        // see `coverage_census`.
+        // D203's census. `None` for a move with no forward Active volume, or
+        // a character with no stated height: "cannot say", not "covers
+        // nothing". Read it; do not gate on it. See `coverage_census`.
         "coverage": spec
             .frame_data()
             .coverage
@@ -653,15 +575,15 @@ fn character_json(
 ) -> serde_json::Value {
     let contract = prepared.kit.projectable_moveset();
     let by_move = contract.map(verbs_by_move).unwrap_or_default();
-    // ⭐ THE BODY'S STANDING RANGED KIT, which a firing move that equips nothing
-    // is the one that comes out of. See `derived_json`.
+    // The body's standing ranged kit: what a firing move that equips nothing
+    // fires. See `derived_json`.
     let body_ranged = prepared
         .kit
         .action_set()
         .and_then(|set| set.ranged.as_ref());
-    // ⭐ THE CHARACTER'S OWN HEIGHT, which is what D203's rules of thumb are
-    // stated against — an authored `standing_height`, else what its `body_kind`
-    // answers for (48 for `Standard`, nothing for the rest).
+    // The character's own height, which D203's rules are stated against: an
+    // authored `standing_height`, else its `body_kind` default (48 for
+    // `Standard`, none for the rest).
     let body_height = catalog
         .and_then(|e| {
             e.standing_height
@@ -729,9 +651,8 @@ fn character_json(
             "pilotable_classes": m.pilotable_classes,
         })),
         "held_item": prepared.held_item.clone(),
-        // The silhouette the volumes are offset FROM. Without it a viewer can
-        // draw a hitbox rectangle and nothing to judge its size against, which
-        // is the one thing a reach number cannot tell you by itself.
+        // The silhouette the volumes are offset from, so a viewer can judge a
+        // hitbox's size.
         "body": prepared.body.as_ref().map(|body| match body {
             ambition_platformer2d::characters::actor::definition::BodySource::Explicit {
                 half_extents,
@@ -775,16 +696,13 @@ NOTES:
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    // ⛔⛔ BEFORE THE APP BOOTS. `--help` used to build the entire engine, ignore
-    // the flag, and do the export anyway — a help request that costs a minute
-    // and then writes a file is worse than no help at all.
+    // Handle `--help` before the app boots.
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print!("{USAGE}");
         return;
     }
-    // ⛔ AND AN UNKNOWN FLAG IS A REFUSAL, not a shrug. This parser matches
-    // `--out` by scanning pairs, so every other argument was silently ignored:
-    // a typo'd flag exported the default and said nothing.
+    // An unknown flag is a refusal. The parser scans pairs for `--out`, so
+    // other arguments would otherwise be ignored silently.
     if let Some(bad) = args
         .iter()
         .skip(1)
@@ -803,9 +721,8 @@ fn main() {
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    // ⛔ THE REGISTRY IS FILLED BY A `Startup` SYSTEM, so a build that has never
-    // updated has a catalog and no registry at all — the exact trap
-    // `smash_roster_movesets` records. One frame is enough; several are cheap.
+    // A `Startup` system fills the registry, so before the first update there
+    // is a catalog and no registry. One frame is enough; several are cheap.
     for _ in 0..4 {
         app.update();
     }
@@ -819,19 +736,16 @@ fn main() {
         .expect("the composed host has an assembled character catalog");
     let grid = ambition_demo_smash::select::SmashRoster::assemble(registry);
     let on_grid: Vec<String> = grid.ids().map(|id| id.to_string()).collect();
-    // The select screen resolves still portraits through this same baked
-    // registry. Build it once for the export rather than reparsing every
-    // portrait manifest once per fighter.
+    // The select screen resolves still portraits through this baked registry.
+    // Build it once, not once per fighter.
     let portraits = ambition_platformer2d::sprite_sheet::baked_portrait_registry();
 
     let mut characters = Vec::new();
     for (id, prepared) in registry.iter() {
-        // Only fighters with a moveset are balance subjects. A Hall NPC with no
-        // authored table is a real catalog row and an empty inspector page.
-        //
-        // ⛔ AND AN EMPTY TABLE IS THE SAME ABSENCE. `projectable_moveset` answers
-        // `Some` for a contract with no moves in it, which reaches the viewer as a
-        // fighter whose whole page is blank — indistinguishable from a load failure.
+        // Only fighters with a moveset are balance subjects. A Hall NPC with
+        // no table would be an empty page. An empty table is the same:
+        // `projectable_moveset` returns `Some` for a contract with no moves,
+        // and a blank page looks like a load failure.
         if prepared
             .kit
             .projectable_moveset()
@@ -848,11 +762,7 @@ fn main() {
         ));
     }
 
-    // ⭐⭐ AND THE ART, because a balance tool that cannot show the move is half a
-    // tool. Jon, 2026-08-27: *"The UI does not show any art, or how the move looks
-    // animated in game."* The brief said so from the start — *"we will see things
-    // like the pirate flying around on the shark"* — and boxes on a canvas are not
-    // that. One atlas table per sheet the cast actually uses, so the viewer can
+    // The art: one atlas table per sheet the cast uses, so the viewer can
     // blit the same sub-rect the engine does.
     let sheets = sheet_atlas_json(&characters);
 
@@ -888,17 +798,10 @@ mod tests {
     use super::*;
     use ambition_platformer2d::characters::brain::RangedActionSpec;
 
-    /// A cannon on the BODY is not a cannon on every move.
+    /// A cannon on the body is not a cannon on every move.
     ///
-    /// ⛔⛔ `derived_json` resolved the shot unconditionally, so a fighter who
-    /// owns a standing ranged kit exported that kit's damage and speed on her
-    /// JAB, her tilts and her aerials. Harmless while nothing read the fields;
-    /// misinformation once the inspector rendered them.
-    ///
-    /// ⭐ THE PAIR IS THE POINT. A move that fires must still report the kit —
-    /// that was a real under-reporting bug, fixed earlier, and a gate written
-    /// carelessly would bring it back. So the firing arm is asserted beside the
-    /// silent one, from the same body kit.
+    /// Both arms are asserted from the same body kit: a move that fires must
+    /// report the kit, and a move that does not must not.
     fn cannon() -> RangedActionSpec {
         RangedActionSpec::pistol(900.0, 11)
     }
@@ -930,19 +833,15 @@ mod tests {
         spec
     }
 
-    /// ⭐⭐ D203's CENSUS, on the case Jon named: *"forward smash should leave NO
-    /// HOLE a crouching opponent can duck under."*
+    /// D203's census on the forward-smash case: no hole a crouching opponent
+    /// can duck under.
     ///
-    /// A hit volume is authored in ABSOLUTE numbers and knows nothing about
-    /// whose body it is, so the same box on a taller fighter fronts less of him.
-    /// The census is what makes that visible per character instead of per
-    /// retyped number.
-    ///
-    /// ⛔ IT REPORTS RATHER THAN JUDGES — Jon wants moves that break the rule on
-    /// purpose — so these arms check the MEASUREMENT, not a verdict.
+    /// A hit volume is absolute, so the same box fronts less of a taller
+    /// fighter. The census reports rather than judges, so these arms check
+    /// the measurement, not a verdict.
     #[test]
     fn the_census_names_the_band_a_crouching_opponent_would_duck_into() {
-        // World y is DOWN, so a 48-tall body spans -24 (head) to +24 (feet).
+        // World y is down, so a 48-tall body spans -24 (head) to +24 (feet).
         let waist_high = MoveCoverage {
             min: (10.0, -12.0),
             max: (46.0, 4.0),
@@ -952,19 +851,18 @@ mod tests {
         // 16 of 48 covered.
         assert_eq!(census["covers_body_fraction"], serde_json::json!(0.333));
         assert_eq!(census["gap_above_px"], serde_json::json!(12.0));
-        // ⛔ THE ONE THAT MATTERS: 20px of standing room below the swing.
+        // 20px of standing room below the swing.
         assert_eq!(census["gap_below_px"], serde_json::json!(20.0));
-        // A crouching opponent occupies the lower half — `0..24` here — and this
-        // swing reaches to `+4`, so it overlaps 4 of those 24.
+        // A crouching opponent fills the lower half (`0..24` here). This swing
+        // reaches `+4`, so it overlaps 4 of those 24.
         assert_eq!(census["covers_crouched_fraction"], serde_json::json!(0.167));
     }
 
-    /// ⛔⛔ AND THE PIXELS ALONE CANNOT ANSWER JON'S QUESTION, which is why the
-    /// crouch fraction is its own field. A crouch is HALF height in this engine
-    /// (`BodyShape::Crouching`), so a swing that stops at the standing body's
-    /// midline touches a crouching opponent at exactly one point and a swing
-    /// that stops above it touches nothing — two moves whose `gap_below_px`
-    /// differ by a pixel and whose outcomes differ completely.
+    /// The pixel gap alone cannot answer the crouch question, so the crouch
+    /// fraction is its own field. A crouch is half height
+    /// (`BodyShape::Crouching`): a swing that stops at the standing midline
+    /// touches a crouching opponent at one point, and a swing one pixel above
+    /// it touches nothing.
     #[test]
     fn a_swing_that_stops_above_the_midline_is_the_one_a_crouch_ducks() {
         let stops_at_the_midline = MoveCoverage {
@@ -994,8 +892,7 @@ mod tests {
         );
     }
 
-    /// A box as tall as its owner has no hole either way — the shape the rule
-    /// asks for, and the one a reader compares the others against.
+    /// A box as tall as its owner has no hole either way: the reference shape.
     #[test]
     fn a_volume_as_tall_as_its_owner_reports_no_gap() {
         let full = MoveCoverage {
@@ -1008,11 +905,9 @@ mod tests {
         assert_eq!(census["gap_below_px"], serde_json::json!(0.0));
     }
 
-    /// ⛔ AND TWO THINGS THE CENSUS MUST REFUSE TO ANSWER, because a number
-    /// invented here would be read as a measurement. A move whose volumes are
-    /// all behind the owner is not a directional attack — asking what fraction
-    /// of the body it fronts is the wrong question — and a character whose
-    /// height nobody has stated has no silhouette to compare against.
+    /// Two cases the census must refuse: a move whose volumes are all behind
+    /// the owner (not a directional attack), and a character with no stated
+    /// height (nothing to compare against).
     #[test]
     fn the_census_says_nothing_rather_than_guessing() {
         let behind = MoveCoverage {

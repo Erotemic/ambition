@@ -1,19 +1,15 @@
-//! Profile an ACTUAL Smash match — windowless on a machine with no GPU, or in a
-//! REAL WINDOW on a machine that has one.
+//! Profile a real Smash match: windowless on a machine with no GPU, or in a
+//! real window on a machine that has one.
 //!
-//! ⛔⛔ THIS EXISTS BECAUSE NOTHING ELSE PROFILES A MATCH. Measured 2026-08-29:
-//! `run_game.sh smash` builds the standalone demo, passes `--window` AND
-//! `--headless`, and opens on CHARACTER SELECT — so it profiles a menu. And
-//! every headless room measures a two-body world: sweeping `--start-room` over
-//! `goblin_encounter`, `central_hub_complex` and the default all report
-//! `entities=64, bodies=1-2`. Every frame baseline taken before this therefore
-//! describes the engine's FIXED OVERHEAD, not gameplay.
+//! Other paths do not profile a match. `run_game.sh smash` opens on
+//! character select, and headless rooms have only one or two bodies, so
+//! their baselines describe the engine's fixed overhead, not gameplay.
 //!
-//! ⭐ The road is the one `app_it` already proves works — build the visible app,
-//! install a roster, and route to the gameplay screen. That is the SHIPPED
-//! composition (rollback host and all), not the demo shell, so what it measures
-//! is what Jon plays. The two render modes differ in ONE argument and in who
-//! drives the loop; everything about reaching a live round is shared.
+//! This follows the path `app_it` proves: build the visible app, install a
+//! roster, and route to the gameplay screen. That is the shipped composition
+//! (rollback host included), not the demo shell. The two render modes differ
+//! in one argument and in who drives the loop; reaching a live round is
+//! shared.
 //!
 //! ```bash
 //! # No GPU: step the match by hand, as fast as the machine will go.
@@ -25,16 +21,16 @@
 //!   cargo run -p ambition_app_tools --bin smash_match_profile -- --window
 //! ```
 //!
-//! ⚠ Census rows are sampled on WALL time. A windowless match runs far faster
-//! than real time, so leave `AMBITION_PROFILE_CENSUS_HZ` high enough that the run
-//! outlives the first interval — otherwise the only row you get is startup, and
-//! a `frames=1` row reporting `Update=127ms` is PLUGIN BUILD, not a frame. A
-//! WINDOWED run is paced by the display, so its default 1 Hz is right.
+//! Census rows are sampled on wall time. A windowless match runs far faster
+//! than real time, so keep `AMBITION_PROFILE_CENSUS_HZ` high enough that the
+//! run outlives the first interval. Otherwise the only row is startup, and a
+//! `frames=1` row reporting `Update=127ms` is plugin build, not a frame. A
+//! windowed run is paced by the display, so the default 1 Hz is right.
 //!
-//! ⛔ THE TWO MODES ARE NOT COMPARABLE AND MUST NEVER BE SUBTRACTED. `NoWindow`
-//! selects `backends: None`: no adapter, no render app, no drawing at all. The
-//! bundle's `gpu.rendering` field carries `headless` vs `hardware` into the
-//! history's comparability key for exactly this reason.
+//! Never compare or subtract the two modes. `NoWindow` selects
+//! `backends: None`: no adapter, no render app, no drawing. The bundle's
+//! `gpu.rendering` field (`headless` vs `hardware`) is part of the history's
+//! comparability key for this reason.
 
 use bevy::prelude::*;
 
@@ -47,17 +43,15 @@ use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 const SETTLE_FRAMES: u32 = 30;
 
 /// Frames to wait for the opening ceremony to release the cast before giving
-/// up. Ten seconds at 60 Hz — the ceremony is ~3s and dev mode runs it 10x
-/// fast, so this bounds a HANG, it does not encode the ceremony's length.
+/// up. Ten seconds at 60 Hz. The ceremony is ~3s and dev mode runs it 10x
+/// fast, so this bounds a hang; it does not encode the ceremony's length.
 const LIVE_DEADLINE_FRAMES: u32 = 600;
 
 /// How often the windowed run re-checks that a match is still happening.
 ///
-/// ⚠ NOT EVERY FRAME, AND THE INSTRUMENT IS THE REASON. `World::query` builds a
-/// fresh `QueryState` on each call, which walks the archetype set — and a live
-/// match takes this app past two thousand entities. Twice a frame, forever, in
-/// the harness's OWN system, is the profiler perturbing the thing it measures.
-/// Twice every two seconds is not.
+/// Not every frame: `World::query` builds a fresh `QueryState` that walks the
+/// archetype set, and a live match has over two thousand entities. Checking
+/// every frame would perturb the measurement.
 const PREMISE_CHECK_EVERY: u32 = 120;
 
 fn arg_value(args: &[String], name: &str) -> Option<String> {
@@ -71,50 +65,21 @@ fn arg_flag(args: &[String], name: &str) -> bool {
     args.iter().any(|a| a == name)
 }
 
-/// The cast, as the round's own state: how many seats exist, and how many are
-/// still held by the opening ceremony's scripted control.
-///
-/// ⛔⛔ WAIT FOR THE ROUND, NOT FOR A NUMBER. A fixed frame count silently
-/// encodes the ceremony's LENGTH, and dev mode runs that ceremony 10x fast —
-/// the same mistake has broken four fixture families. The condition is
-/// observable: a cast exists, and nothing in it is still held.
 /// Spawn `count` plain sprites into the live match, spread over the stage.
 ///
-/// ⭐⭐ THE SCALING KNOB THE CAMPAIGN LACKED. Every measurement so far has been a
-/// two-body match with about forty sprites, and the question the whole campaign
-/// was opened about — *a room with hundreds of sprites can visibly chug* — could
-/// not be ASKED at that size. This varies ONE dimension on the REAL stack: same
-/// app, same schedules, same render path, more sprites.
+/// This varies one dimension (sprite count) on the real stack: same app,
+/// schedules, and render path.
 ///
-/// ⛔ THEY ARE DELIBERATELY PLAIN. No gameplay components, no bodies, no
-/// collision — a `Sprite` with a `Transform` and a `Visibility`, which is what
-/// Bevy's extraction and batching see. Adding gameplay would measure the
-/// gameplay instead and confound the dimension being varied.
-///
-/// ⚠ ONE SHARED COLOUR AND NO TEXTURE, so this measures the per-sprite path and
-/// NOT batch breaking. Varying texture/material to find batch breaks is a
-/// separate curve and needs its own knob — say so rather than letting a reader
-/// assume this one covers it.
+/// The sprites are plain (`Sprite`, `Transform`, `Visibility`): no gameplay
+/// components, which would measure gameplay instead. They share one colour
+/// and no texture, so this measures the per-sprite path, not batch breaking.
+/// Batch breaking needs a separate knob.
 fn spawn_scaling_sprites(world: &mut World, count: usize) {
-    // ⛔⛔ ANCHOR ON A SPRITE THE CAMERA ALREADY DRAWS. The first version placed
-    // a grid around the world origin and every single one was CULLED: the census
-    // reported `sprites=1025` beside `sprites_visible=6`, so the curve measured
-    // a thousand invisible sprites and came out flat. A scaling curve whose
-    // population is culled is worse than no curve, and only having
-    // `sprites_visible` in the same census row caught it.
-    // ⛔⛔ ANCHOR ON A FIGHTER, NOT ON "ANY VISIBLE SPRITE". The previous version
-    // took the first entity with `ViewVisibility` set and still culled all
-    // thousand: the camera census reports `Main Camera layers=0+2+5` beside a
-    // `Front HUD Camera layers=1`, so "visible" matched a HUD sprite in SCREEN
-    // space and the grid landed nowhere the world camera looks. A `MatchSeat`
-    // body is world-space by definition and is what the match camera frames.
-    // ⛔⛔ THE FIGHTER'S POSITION IS IN `BodyKinematics`, NOT IN A `GlobalTransform`.
-    // Querying `(&MatchSeat, &GlobalTransform)` matched NOTHING and tripped the
-    // abort below even though the round was live — because this engine splits
-    // simulation from presentation: the sim body carries `BodyKinematics`, and
-    // the `Transform` lives on a separate presentation entity projected from it.
-    // Anchoring on the sim position is anchoring on where the fighter actually
-    // IS, which is what the match camera follows.
+    // Anchor on a fighter, where the world camera looks. A sprite with
+    // `ViewVisibility` set can be a HUD sprite in screen space. The fighter's
+    // position is in `BodyKinematics`, not a `GlobalTransform`: the sim body
+    // carries kinematics, and its `Transform` lives on a separate presentation
+    // entity.
     let anchor = {
         let mut seated = world.query::<(&MatchSeat, &BodyKinematics)>();
         seated.iter(world).map(|(_, kin)| kin.pos).next()
@@ -127,9 +92,8 @@ fn spawn_scaling_sprites(world: &mut World, count: usize) {
         std::process::exit(3);
     };
 
-    // A tight deterministic grid around that anchor: same placement every run at
-    // the same count, so a comparison is not a lottery over what the camera
-    // happens to frame.
+    // A deterministic grid around the anchor: the same placement every run at
+    // the same count.
     let columns = (count as f32).sqrt().ceil().max(1.0) as usize;
     let pitch = 6.0;
     let half = (columns as f32 * pitch) * 0.5;
@@ -155,21 +119,13 @@ fn spawn_scaling_sprites(world: &mut World, count: usize) {
     );
 }
 
-/// Say — loudly — when a scaling population was spawned and then CULLED.
+/// Report loudly when a scaling population was spawned and then culled.
 ///
-/// ⛔⛔ THE GUARD THAT WAS MISSING. `spawn_scaling_sprites` checks it has an
-/// anchor; it cannot check that the sprites became VISIBLE, because visibility
-/// is computed later in the frame. Four placement attempts each spawned a
-/// thousand sprites and each measured a flat curve, and only
-/// `[census] draws sprites_visible` — a number in a DIFFERENT row — revealed
-/// that none of them was ever drawn.
-///
-/// ⚠ AND THE ANSWER TURNED OUT TO BE ARCHITECTURAL: a raw
-/// `Sprite + Transform + Visibility` is never drawn in this composition at all.
-/// Presentation is PROJECTED PER VIEW (`[census] draws per_view_projections`),
-/// so a sprite outside that projection is invisible wherever it is put. A
-/// synthetic sprite benchmark here has to go THROUGH the projection. This check
-/// exists so the next person learns that in one run instead of four.
+/// `spawn_scaling_sprites` cannot check visibility, which is computed later
+/// in the frame. Note: a raw `Sprite + Transform + Visibility` is never drawn
+/// in this composition. Presentation is projected per view
+/// (`[census] draws per_view_projections`), so a synthetic sprite benchmark
+/// must go through that projection.
 fn warn_if_scaling_sprites_were_culled(world: &mut World, spawned: usize) {
     if spawned == 0 {
         return;
@@ -188,6 +144,12 @@ fn warn_if_scaling_sprites_were_culled(world: &mut World, spawned: usize) {
     }
 }
 
+/// The cast, as the round's own state: how many seats exist, and how many are
+/// still held by the opening ceremony's scripted control.
+///
+/// Wait for the round, not for a frame count. A count encodes the ceremony's
+/// length, and dev mode runs the ceremony 10x fast. The condition is
+/// observable: a cast exists, and nothing in it is held.
 fn cast_state(world: &mut World) -> (usize, usize) {
     let seated = world.query::<&MatchSeat>().iter(world).count();
     let held = world
@@ -199,17 +161,14 @@ fn cast_state(world: &mut World) -> (usize, usize) {
 
 /// Install the roster and ask the shell for the gameplay route. Both in one
 /// tick, in this order: the route activation reads the roster.
-/// ⭐ ANY CHARACTER THE COMPOSITION CARRIES, not just the default stand-in.
 ///
-/// D189 records that the smash rigs can only measure the DEMO SHELL's three ids,
-/// so two regressions were missed on characters only the full app seats. This bin
-/// composes the FULL app — `composition_can_seat=` reports 21, including
-/// `npc_pirate_admiral` — so the roster it seats should not be hard-coded to one.
+/// Any character the composition carries, not only the default stand-in. This
+/// bin composes the full app (`composition_can_seat=` reports 21, including
+/// `npc_pirate_admiral`), while the smash rigs reach only the demo shell's
+/// three ids (D189).
 ///
-/// ⛔ An unseatable id must FAIL LOUDLY. Seating a character the catalog does not
-/// carry produces a match with no fighter brain and every number zero, which
-/// reads as "a quiet fight" rather than "you asked for somebody who is not here"
-/// — the exact failure `match_report` had to grow an abort for.
+/// An unseatable id must fail loudly. Otherwise the match has no fighter
+/// brain and every number is zero, which reads as a quiet fight.
 fn seat_the_match(world: &mut World, fighters: usize, character: &str) {
     world.insert_resource(ambition_demo_smash::smash_roster(vec![character; fighters]));
     world.write_message(ShellCommand::GoTo(ShellRouteId::new(
@@ -217,15 +176,12 @@ fn seat_the_match(world: &mut World, fighters: usize, character: &str) {
     )));
 }
 
-/// ⛔ THE PREMISE, CHECKED RATHER THAN ASSUMED. A profile of a match that
-/// quietly ended is a profile of a results screen, and it looks exactly like a
-/// cheap frame.
+/// Check the premise. A profile of a match that ended is a profile of a
+/// results screen, which looks like a cheap frame.
 fn report_end_of_run(world: &mut World, seats_at_start: usize) {
     let (seats, _) = cast_state(world);
-    // ⛔⛔ A KO DURING THE MEASURED WINDOW CHANGES THE POPULATION UNDER THE
-    // MEASUREMENT. The frame mean then averages two different matches, and two
-    // arms that each lost a different number of fighters are not comparable at
-    // all. `seats == 0` is only the extreme case of this.
+    // A KO during the measured window changes the population, so the mean
+    // averages two different matches. `seats == 0` is the extreme case.
     if seats != seats_at_start && seats > 0 {
         eprintln!(
             "[smash-profile] ⚠ POPULATION CHANGED DURING MEASUREMENT: {seats_at_start} seats at \
@@ -243,39 +199,33 @@ fn report_end_of_run(world: &mut World, seats_at_start: usize) {
 }
 
 fn main() {
-    // ⭐ THE STARTUP ANCHOR, FIRST LINE. `StartupProfiler` measures from here;
-    // without it the report begins mid-plugin-build and says so
-    // ("app construction NOT MEASURED"), which is what this binary printed
-    // until now. Startup is the number a phone player feels, and plugin build
-    // scales with registered systems — so this is what prices a composition
-    // change that the FRAME cannot see.
+    // The startup anchor, first line. `StartupProfiler` measures from here;
+    // without it the report starts mid-plugin-build ("app construction NOT
+    // MEASURED"). Plugin build scales with registered systems, so this prices
+    // composition changes the frame cannot see.
     ambition_platformer2d::dev_tools::profiling::note_process_start();
     let args: Vec<String> = std::env::args().collect();
     let ticks: u32 = arg_value(&args, "--ticks")
         .and_then(|v| v.parse().ok())
         .unwrap_or(3000);
-    // Four is the cap: `SlotControls::MAX_SLOTS` is 4, so a roster longer than
-    // that is not a scaling axis — it is a silently clamped one.
+    // Four is the cap: `SlotControls::MAX_SLOTS` is 4, and a longer roster
+    // would be silently clamped.
     let fighters: usize = arg_value(&args, "--fighters")
         .and_then(|v| v.parse().ok())
         .unwrap_or(2)
         .clamp(2, SlotControls::MAX_SLOTS);
-    // ⭐ WHICH FIGHTER. Defaults to the stand-in this bin has always seated, so
-    // every existing invocation measures exactly what it measured before. The
-    // full app carries 21 ids (`composition_can_seat=`), which is the point:
-    // D189's rigs can reach three.
+    // Which fighter. The default is the stand-in this bin has always seated,
+    // so existing invocations measure the same thing.
     let character: String = arg_value(&args, "--character").unwrap_or_else(|| "performer".to_string());
-    // Wall seconds of LIVE match to measure before quitting, windowed only.
-    // ⭐ It starts when the ROUND goes live, not when the process starts: a cold
-    // launch spends ten-plus seconds on cargo, assets and the shell, and a
-    // budget that counted those would measure a different window on every
-    // machine. Zero (the default) means "play until you close the window".
+    // Wall seconds of live match to measure before quitting, windowed only.
+    // It starts when the round goes live, not at process start, because cold
+    // launch time varies by machine. Zero (the default) means "until the
+    // window closes".
     let seconds: f32 = arg_value(&args, "--seconds")
         .and_then(|v| v.parse().ok())
         .unwrap_or(0.0);
 
-    // ⭐ The scaling dimension. Zero (the default) leaves every prior measurement
-    // in this binary exactly comparable — the knob adds nothing when unused.
+    // The scaling dimension. Zero (the default) adds nothing.
     let scaling_sprites: usize = arg_value(&args, "--sprites")
         .and_then(|value| value.parse().ok())
         .unwrap_or(0);
@@ -290,17 +240,14 @@ fn main() {
 /// The no-GPU arm: build the app with no window, step it by hand, measure a
 /// fixed number of ticks after the round goes live.
 fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character: String) {
-    // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
-    // subscriber safe here and unsafe in the test binary — which is why
-    // `build_visible_app` drops `LogPlugin` from every windowless mode. Tracy's
-    // recorder is a LAYER ON THAT SUBSCRIBER, so without this a
-    // `--features profile` capture of this binary records ZERO zones, and
-    // per-system timing is the one measurement a machine with no GPU still has.
-    // ⛔ IN THE COMPOSE HOOK: a `NoWindow` build finishes and cleans up its
-    // plugins before returning, and Bevy 0.19 panics on `add_plugins` after
-    // that — so under `--features profile` this arm died before it measured
-    // anything. The `#[cfg]` stays INSIDE the closure: a `cfg` on the statement
-    // above would drift onto whatever followed it.
+    // One App, one process, so a global tracing subscriber is safe here.
+    // `build_visible_app` drops `LogPlugin` from windowless modes, and Tracy's
+    // recorder is a layer on that subscriber, so without this a
+    // `--features profile` capture records no zones.
+    // Add it in the compose hook: a `NoWindow` build finishes its plugins
+    // before returning, and Bevy 0.19 panics on `add_plugins` after that. The
+    // `#[cfg]` stays inside the closure so it cannot attach to the next
+    // statement.
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
@@ -313,13 +260,9 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
     for _ in 0..SETTLE_FRAMES {
         app.update();
     }
-    // ⭐ WHICH CAST THIS COMPOSITION CAN ACTUALLY SEAT. `SmashRoster` is
-    // `SMASH_ROSTER` filtered at `Startup` to the ids the ASSEMBLED CATALOG
-    // carries, so it is a fact about the composition rather than about the grid.
-    // Printed because a profile that does not name its cast invites a number
-    // being quoted at a roster it never measured — and because D189 asks
-    // precisely this: what a rig gains by composing the FULL app instead of the
-    // demo shell (which carries three).
+    // Which cast this composition can seat. `SmashRoster` is `SMASH_ROSTER`
+    // filtered at `Startup` to ids in the assembled catalog. Printed so a
+    // profile names its cast (see D189).
     let seatable = app
         .world()
         .get_resource::<ambition_demo_smash::select::SmashRoster>()
@@ -346,12 +289,8 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
         }
     }
     let Some(live_at) = live_at else {
-        // ⛔⛔ NAME THE REAL CAUSE. The generic "the ceremony never released the
-        // cast" is true but points at the ceremony, and the commonest reason to
-        // reach it is a character this composition does not carry — measured
-        // 2026-08-29 with `--character not_a_real_character`, which aborted with
-        // the ceremony message and sent the reader to the wrong place. The
-        // seatable list is already in hand, so say which it is.
+        // Name the real cause. The common reason to get here is a character
+        // this composition does not carry, not a stuck ceremony.
         if !seatable.is_empty() && !seatable.iter().any(|id| id == &character) {
             eprintln!(
                 "[smash-profile] ABORT: '{character}' is not one of the {} ids this \
@@ -368,11 +307,9 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
         }
         std::process::exit(3);
     };
-    // ⛔⛔ THE ROSTER YOU ASKED FOR IS NOT NECESSARILY THE ROSTER THAT SEATED, and
-    // a run that quietly seats fewer answers a DIFFERENT question than the one
-    // on the command line. Measured 2026-08-29: `--fighters 4` reported 3
-    // bodies, which invalidated a fighter-count scaling comparison that
-    // otherwise looked like three clean arms.
+    // The roster asked for is not always the roster that seated (for
+    // example `--fighters 4` can seat 3). A different count answers a
+    // different question, so check it.
     let (seated_now, _) = cast_state(app.world_mut());
     if seated_now != fighters {
         eprintln!(
@@ -381,20 +318,16 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
              against another arm compares different rosters."
         );
     }
-    // ⭐ THE ENTITY COUNT AT THE QUIET MOMENT. Differencing TOTAL live entities
-    // between a 2- and a 4-fighter run does not work later on: combat VFX spawn
-    // and despawn make `live` swing ~40 WITHIN a single run, which is as large as
-    // the whole fighter delta. Right here the round has just gone live and no
-    // combat has happened, so two arms differ by their ROSTER and little else —
-    // which is what makes "how many entities is a fighter" askable at all.
+    // The entity count at the quiet moment. Later, combat VFX make the live
+    // count swing by ~40 within one run, as much as a whole fighter. Right
+    // after the round goes live, two runs differ only by roster.
     let live_entities = app
         .world_mut()
         .query::<bevy::prelude::Entity>()
         .iter(app.world())
         .count();
-    // ⭐ SPRITES TOO, at the same quiet moment. 8 entities per fighter cannot
-    // explain the ~39us of `PostUpdate` a fighter adds, so the next candidate is
-    // what the pipeline actually DRAWS rather than what was spawned.
+    // Sprites too, at the same moment: what the pipeline draws, not only what
+    // was spawned.
     let live_sprites = app
         .world_mut()
         .query::<&bevy::prelude::Sprite>()
@@ -406,30 +339,22 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
          measuring={ticks}"
     );
 
-    // ⛔ AFTER the round goes live, not before: sprites spawned into the opening
-    // ceremony would be swept by the session teardown that runs between the
-    // lobby and the stage, and the run would silently measure zero of them.
+    // After the round goes live: sprites spawned during the opening ceremony
+    // are removed by the teardown between lobby and stage.
     if scaling_sprites > 0 {
         spawn_scaling_sprites(app.world_mut(), scaling_sprites);
-        // Visibility is computed later in the frame, so ask on the NEXT one.
+        // Visibility is computed later in the frame, so check on the next one.
         app.update();
         warn_if_scaling_sprites_were_culled(app.world_mut(), scaling_sprites);
     }
 
-    // ⛔⛆ COUNT HOW MUCH OF THE MEASURED WINDOW ACTUALLY HAD A MATCH IN IT.
-    // A long run OUTLIVES the match, and post-match frames are less than half the
-    // cost of match frames (1.84ms against 4.31ms measured 2026-08-29). A 16000
-    // tick run spent 44% of itself on a results screen, which dragged the mean
-    // down 27% and diluted a spike-rate comparison until it understated the
-    // effect by a third.
+    // Count how much of the measured window had a match in it. A long run
+    // outlives the match, and post-match frames cost much less than match
+    // frames (1.84ms vs 4.31ms), which pulls the mean down. The coverage goes
+    // in the summary line, beside the numbers it qualifies.
     //
-    // ⭐ THE WARNING AT THE END WAS NOT ENOUGH — it existed, it fired, and it was
-    // grepped away by an analyst filtering for the numbers. So the coverage goes
-    // in the SUMMARY LINE, beside the numbers it qualifies.
-    //
-    // Sampled every 50 ticks rather than every tick: the query is cheap but this
-    // is an instrument, and an instrument must not join the population it
-    // measures.
+    // Sampled every 50 ticks, so the instrument does not join the population
+    // it measures.
     let mut live_samples = 0usize;
     let mut total_samples = 0usize;
     for tick in 0..ticks {
@@ -461,27 +386,20 @@ fn run_windowless(fighters: usize, ticks: u32, scaling_sprites: usize, character
 
 /// The GPU arm: a real window, winit's event loop, hardware rendering.
 ///
-/// ⛔ THE LOOP IS NOT OURS HERE. `app.run()` never returns until the window
-/// closes, so the settle / seat / wait-for-live sequence the windowless arm
-/// writes as straight-line code has to become a system that reaches the same
-/// states one frame at a time. [`MatchDriver`] is that sequence, not a second
-/// policy — the conditions it tests are the ones above.
+/// The loop is not ours here: `app.run()` returns only when the window
+/// closes. [`MatchDriver`] runs the windowless arm's settle / seat /
+/// wait-for-live sequence one frame at a time, with the same conditions.
 fn run_windowed(fighters: usize, seconds: f32, character: String) {
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::Windowed,
         true,
         |app| {
-            // ⛔ A PROFILING RUN MUST NOT WRITE THE DEVELOPER'S SAVE. The
-            // windowless modes get this from `build_visible_app` because a
-            // non-session App must not have the side effect; a windowed one
-            // normally SHOULD have it, and this process is the exception —
-            // it is an instrument wearing the game's composition.
+            // A profiling run must not write the developer's save. A normal
+            // windowed app does; this process is an instrument.
             app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
         },
     );
-    // ⭐ NO STARTUP CEREMONY. `run_visible` composes the "Powered by Ambition"
-    // run-in for the shipped binary; this run is about the match, and the cards
-    // are ten seconds of measured logo.
+    // No startup ceremony: its cards are ten seconds of measured logo.
     app.insert_resource(MatchDriver {
         fighters,
         character,
@@ -529,16 +447,15 @@ struct MatchDriver {
     /// Frames since the round went live, for [`PREMISE_CHECK_EVERY`].
     live_frames: u32,
     warned_empty: bool,
-    /// Seats at the moment the round went LIVE — the baseline a KO is measured
-    /// against, so `report_end_of_run` can say the cast changed underneath.
+    /// Seats when the round went live: the baseline for detecting a KO in
+    /// `report_end_of_run`.
     seats_at_live: usize,
     stage: Stage,
 }
 
-/// An EXCLUSIVE system on purpose: seating a match inserts a resource, writes a
-/// shell command, and queries two populations, which is `&mut World` work in any
-/// case — and writing it that way lets this arm call the SAME helpers the
-/// windowless arm calls instead of restating their conditions in system params.
+/// An exclusive system: seating a match inserts a resource, writes a shell
+/// command, and queries two populations. It also lets this arm call the same
+/// helpers as the windowless arm.
 fn drive_match(world: &mut World) {
     // Taken out and put back so the body can mutate the world freely; the
     // alternative is threading a resource borrow through every helper.
@@ -578,10 +495,8 @@ fn drive_match(world: &mut World) {
             }
         }
         Stage::Live(since) => {
-            // ⛔ THE PREMISE, WHILE IT IS STILL CHECKABLE. An unattended run
-            // that outlives its own match records a results screen; say so at
-            // the moment it happens rather than only at the end, because a
-            // developer who closes the window never reaches the end.
+            // Check the premise while it is still checkable. A developer who
+            // closes the window never reaches the end-of-run report.
             driver.live_frames += 1;
             if !driver.warned_empty
                 && driver.live_frames % PREMISE_CHECK_EVERY == 0

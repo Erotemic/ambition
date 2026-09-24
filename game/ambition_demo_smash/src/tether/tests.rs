@@ -1,23 +1,15 @@
-//! ⛔⛔ THE REACH IS THE MOVE. "It pulls her to a ledge" would pass against a
-//! tether that finds any ledge anywhere, which is a recovery nobody has to
-//! position for and the opposite of what a tether costs to use. So the bite
-//! tests come in pairs: the same stage, the same fighter, one reach that
-//! arrives and one that does not.
+//! The reach is the move: a tether that finds any ledge anywhere is not a
+//! tether. So bite tests come in pairs: the same stage and fighter, one reach
+//! that arrives and one that does not.
 //!
-//! ⚠ THE FIXTURE INTEGRATES POSITION ITSELF. These tests run the two tether
-//! systems without the movement kernel, so nothing would turn a commanded
-//! velocity into travel and a reel would never arrive. `integrate` below is a
-//! stand-in for exactly one thing the kernel does — `pos += vel * dt` — and it
-//! is deliberately the dumbest possible version, because a smarter one would be
-//! this file quietly testing a second implementation of movement.
+//! The fixture integrates position itself. These tests run the two tether
+//! systems without the movement kernel; `integrate` does only `pos += vel * dt`,
+//! kept minimal so the file does not test a second movement implementation.
 //!
-//! ⛔ WHAT THESE TESTS DO NOT COVER, said plainly rather than left to a reader
-//! to discover: they do not prove she ENDS IN A LEDGE HANG. That is the ledge
-//! authority's job and it runs inside the kernel, so it needs a fixture with
-//! real movement. What these prove is the contract this module actually owns —
-//! that the line bites only within its reach, that the reel lands ON the anchor
-//! rather than past it, and that it hands her over in the state the authority
-//! can catch.
+//! These tests do not prove she ends in a ledge hang; that is the ledge
+//! authority's job inside the kernel. They prove what this module owns: the
+//! line bites only within reach, the reel lands on the anchor, and it hands
+//! her over in a state the authority can catch.
 
 use super::*;
 use ambition_platformer2d::engine_core::world::Block;
@@ -59,9 +51,8 @@ fn app(blocks: Vec<Block>) -> App {
         time.raw_dt = 1.0 / 60.0;
     }
     // The room reaches `CollisionWorld` as a component on the session-world
-    // root, not as a resource — `SessionWorldRef` is a `Single<Ref<T>, With<
-    // SessionRoot>>`. This helper is the sanctioned way to put one there, and
-    // using it keeps the fixture honest about how production supplies geometry.
+    // root (`SessionWorldRef` is a `Single<Ref<T>, With<SessionRoot>>`), as in
+    // production.
     ambition_platformer2d::session::insert_session_world_component(
         app.world_mut(),
         ae::RoomGeometry(ae::World::new(
@@ -125,7 +116,7 @@ fn body(app: &App, who: Entity) -> ae::BodyKinematics {
     app.world().get::<ae::BodyKinematics>(who).unwrap().clone()
 }
 
-/// ⭐ A line long enough to reach the lip bites it and starts reeling.
+/// A line long enough to reach the lip bites it and starts reeling.
 #[test]
 fn a_line_within_reach_bites_the_ledge() {
     let mut app = app(stage());
@@ -139,35 +130,24 @@ fn a_line_within_reach_bites_the_ledge() {
     );
 }
 
-/// ⭐⭐ THE LINE GOES WHERE SHE FACES, AND "WHERE SHE FACES" IS HER FRAME'S SIDE
-/// AXIS, NOT WORLD +X.
+/// The line goes where she faces, in her frame's side axis, not world +x.
 ///
-/// ⛔⛔ IT WALKED WORLD +X WHILE ASKING A FRAME-AWARE QUESTION. Every sample fed
-/// `frame.down()` to `probe_ledge_grab_in_frame`, whose `wall_normal_x` is
-/// documented as *"the side-face normal expressed in the controlled body's local
-/// side axis"* — so the probe reasoned in her frame while the walk that chose
-/// where to probe reasoned in the world's. Under normal gravity those are the
-/// same line and no fixture here could tell them apart.
+/// `probe_ledge_grab_in_frame`'s `wall_normal_x` is in the body's local side
+/// axis, so the walk must be too. Under normal gravity the two agree.
 ///
-/// ⭐ THE STAGE IS THE ONE ABOVE, TURNED 90°. Rotating the whole scene by
-/// `(x,y) -> (y,-x)` and sliding it back into the room maps the reference block
-/// onto ITSELF, so this test and `a_line_within_reach_bites_the_ledge` are the
-/// same geometry asked in two frames — and the expected anchor is the rotation
+/// The stage is the one above turned 90°: `(x,y) -> (y,-x)`, slid back into
+/// the room, maps the block onto itself. The expected anchor is the rotation
 /// of that test's, `(87,119) -> (119,313)`.
 ///
-/// ⚠ THE DECOY IS WHAT MAKES THE RED HONEST. Without it the bug shows up as "no
-/// bite", which a dozen unrelated breakages also produce. The decoy sits exactly
-/// where the world-x walk was looking — its lip 90..135px along world +x, its
-/// side face 10px from her reaching side — so the shipped code LATCHES it and
-/// reels her the wrong way. The two blocks are mutually invisible: the reference
-/// block is 60px off the world-x walk's reaching side (the magnet is 10px), and
-/// the decoy's lip is 200 where the frame-correct walk's head band tops out at
-/// 117.
+/// The decoy makes a failure specific: it sits where a world-x walk would look
+/// (lip 90..135px along world +x, side face 10px from her reaching side), so
+/// the wrong walk latches it and reels her the wrong way. The two blocks are
+/// invisible to each other's walk.
 #[test]
 fn the_line_sweeps_her_own_side_axis_when_the_frame_is_turned() {
     let mut app = app(vec![
         stage().remove(0),
-        // Where the world-x walk searched, and nowhere the correct walk looks.
+        // Where a world-x walk would search, and nowhere the correct walk looks.
         Block::solid(
             "decoy",
             ae::Vec2::new(200.0, 320.0),
@@ -195,8 +175,7 @@ fn the_line_sweeps_her_own_side_axis_when_the_frame_is_turned() {
     );
 }
 
-/// ⛔ THE PAIRED MISS, and it is the half that makes the test above mean
-/// something: the SAME stage and the SAME fighter with a line too short.
+/// The paired miss: the same stage and fighter with a line too short.
 #[test]
 fn a_line_too_short_bites_nothing() {
     let mut app = app(stage());
@@ -208,8 +187,8 @@ fn a_line_too_short_bites_nothing() {
     );
 }
 
-/// ⛔ A TETHER IS AN AERIAL MOVE. On the ground the same fiction is her grab,
-/// and a line that fired while standing would be a free horizontal dash.
+/// A tether is an aerial move. On the ground the same fiction is her grab,
+/// and a grounded line would be a free horizontal dash.
 #[test]
 fn a_tether_thrown_from_the_ground_does_not_fire() {
     let mut app = app(stage());
@@ -218,9 +197,8 @@ fn a_tether_thrown_from_the_ground_does_not_fire() {
     assert!(reel(&app, her).is_none(), "the line fired while standing");
 }
 
-/// ⭐⭐ SHE LANDS ON THE ANCHOR, NOT PAST IT. At 900px/s a tick covers 15px, so
-/// a reel that ran at a flat speed would overshoot the lip by up to that much —
-/// and 15px past a ledge is a fighter beside the ledge rather than on it.
+/// She lands at the anchor, not past it. At 900px/s a tick covers 15px, and
+/// 15px past a ledge is beside it, not on it.
 #[test]
 fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
     let mut app = app(stage());
@@ -235,17 +213,11 @@ fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
     }
     assert!(reel(&app, her).is_none(), "the reel never let go");
     let kin = body(&app, her);
-    // ⛔⛔ NOT "ON THE ANCHOR", AND THAT CHANGE IS THE WHOLE LESSON OF THIS ROW.
-    // This asserted arrival within 1px, and a live match showed why that is the
-    // wrong contract: the anchor is a HANG position, and a hanging body overlaps
-    // the wall. Her body is 34.4px wide, the anchor sat 1px inside the solid,
-    // the swept resolve correctly refused to move her there, and she pinned
-    // ~1px short until the reel's clock ran out — 22 ticks to be caught instead
-    // of 6, a quarter-second stuck to a wall. ⇒ The reel's contract is "somewhere the
-    // authority accepts", which
-    // `where_the_reel_releases_her_is_a_place_the_authority_would_catch` states
-    // directly. What is still true here is that she gets CLOSE — a reel that
-    // released at its starting position would be a whiff wearing a success.
+    // Not "on the anchor": the anchor is a hang position that overlaps the
+    // wall slightly, so the swept resolve stops her about 1px short. The
+    // reel's contract is "somewhere the authority accepts"
+    // (`where_the_reel_releases_her_is_a_place_the_authority_would_catch`).
+    // Here we check she gets close.
     assert!(
         (kin.pos - anchor).length() < 24.0,
         "released at {:?}, {}px from the anchor {:?} — that is not a reel, it is \
@@ -254,9 +226,8 @@ fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
         (kin.pos - anchor).length(),
         anchor,
     );
-    // ⭐ ZERO, because the ledge authority catches a FALLING body: it wants a
-    // requested wall normal from the stick or `FALL_SNAP_MIN_VY` of descent, and
-    // a fighter still travelling upward at the lip satisfies neither.
+    // Zero: the ledge authority catches a falling body (a stick wall normal
+    // or `FALL_SNAP_MIN_VY` of descent), not one moving upward.
     assert_eq!(
         kin.vel,
         ae::Vec2::ZERO,
@@ -264,17 +235,12 @@ fn the_reel_stops_on_the_anchor_and_hands_her_to_gravity() {
     );
 }
 
-/// ⭐⭐ THE HANDOVER, PUT TO THE AUTHORITY'S OWN PROBE RATHER THAN TO A MODEL OF
-/// IT. The other tests prove the reel arrives; this one asks the question that
-/// actually matters at the seam — is where it LET GO a place
-/// `probe_ledge_grab_in_frame` accepts? That is the same function the movement
-/// kernel calls every frame from `try_start_ledge_grab_clusters_in_frame`, so a
-/// reel that delivered her a few pixels wrong would fail here rather than in a
-/// playtest.
+/// The handover, checked with the authority's own probe:
+/// `probe_ledge_grab_in_frame`, which the kernel calls every frame from
+/// `try_start_ledge_grab_clusters_in_frame`.
 ///
-/// ⚠ THIS IS THE GEOMETRIC HALF ONLY, and the file header says why the other
-/// half needs the kernel: catching also wants a stick-requested wall normal or
-/// `FALL_SNAP_MIN_VY` of descent, and gravity is what supplies the descent.
+/// This is the geometric half only; catching also needs a stick wall normal or
+/// `FALL_SNAP_MIN_VY` of descent, which gravity supplies (see the header).
 #[test]
 fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
     let mut app = app(stage());
@@ -297,8 +263,8 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
     let contact = ae::ledge_grab::probe_ledge_grab_in_frame(
         kin.pos,
         kin.size,
-        // She faces right, so the wall she caught is on her right and its face
-        // points back at her: the same -1.0 the reference probe test uses.
+        // She faces right, so the wall's face points back at her: -1.0, as in
+        // the reference probe test.
         -1.0,
         &world,
         ambition_platformer2d::world::ResolvedMotionFrame::default().down(),
@@ -311,20 +277,12 @@ fn where_the_reel_releases_her_is_a_place_the_authority_would_catch() {
     );
 }
 
-/// ⛔ GIVING UP IS NOT ARRIVING. The first draft collapsed the two exits, which
-/// meant an expired reel also stopped her dead — deleting the recovery she had
-/// left and reading as the game freezing her in the air.
-/// ⭐⭐ A REEL AUTHORED AT EXACTLY ITS BUDGET MUST PULL, and it did not.
+/// A reel authored at exactly its budget must pull.
 ///
-/// `author_tether_pull` asserts `speed * timeout_s >= reach` — the authoring
-/// contract that a reel can physically cross its own reach. ⛔ `reel_tethered_
-/// fighters` decremented `remaining_s` and THEN tested the timeout, so a reel
-/// authored at exactly the budget spent its whole allowance reaching the
-/// give-up branch and issued **zero** pulls. An N-tick reel got N−1.
-///
-/// ⚠ THE ASSERTION IS THE MOVEMENT, NOT THE COMPONENT. A test that only checked
-/// the reel still exists passes against a version that keeps the component and
-/// pulls nothing, which is the defect wearing a different face.
+/// `author_tether_pull` asserts `speed * timeout_s >= reach`. The budget is
+/// tested before it is spent, so an N-tick reel gets N pulls. The assertion is
+/// the movement, not the component: a reel that exists but pulls nothing
+/// would pass a presence check.
 #[test]
 fn a_reel_with_exactly_one_tick_left_spends_it_pulling() {
     let mut app = app(stage());
@@ -333,7 +291,7 @@ fn a_reel_with_exactly_one_tick_left_spends_it_pulling() {
     {
         let world = app.world_mut();
         world.entity_mut(her).insert(TetherReel {
-            // EXACTLY one tick at the fixture's 1/60 dt — the boundary the
+            // Exactly one tick at the fixture's 1/60 dt, the boundary the
             // authoring assert accepts.
             remaining_s: 1.0 / 60.0,
             speed: 900.0,
@@ -353,10 +311,8 @@ fn a_reel_with_exactly_one_tick_left_spends_it_pulling() {
     );
 }
 
-/// The other half of the same interval bug: N ticks of budget must buy N pulls.
-///
-/// ⛔ Counted rather than asserted qualitatively, because "it moved" is true of
-/// a reel that lost one tick out of five.
+/// N ticks of budget buy N pulls, counted: "it moved" is true of a reel that
+/// lost one tick of five.
 #[test]
 fn a_reel_spends_every_tick_of_its_budget() {
     let mut app = app(stage());
@@ -371,10 +327,8 @@ fn a_reel_spends_every_tick_of_its_budget() {
             anchor,
         });
     }
-    // ⛔ THE VELOCITY IS ZEROED BEFORE EVERY TICK, and the first draft of this
-    // test did not do that: `vel` PERSISTS between updates, so leftover motion
-    // from the previous pull made the give-up tick look like a pull and the test
-    // passed against the very bug it was written for.
+    // Zero the velocity before every tick: `vel` persists, so leftover motion
+    // could make the give-up tick look like a pull.
     let mut pulls = 0;
     for _ in 0..4 {
         app.world_mut()
@@ -390,6 +344,8 @@ fn a_reel_spends_every_tick_of_its_budget() {
     assert_eq!(pulls, 3, "three ticks of budget must buy three pulls, not {pulls}");
 }
 
+/// Giving up is not arriving: an expired reel leaves her momentum alone, or
+/// it would delete her remaining recovery.
 #[test]
 fn a_reel_that_gives_up_leaves_her_momentum_alone() {
     let mut app = app(stage());
@@ -398,14 +354,8 @@ fn a_reel_that_gives_up_leaves_her_momentum_alone() {
     {
         let world = app.world_mut();
         world.entity_mut(her).insert(TetherReel {
-            // Already expired: this update is the one that gives up.
-            //
-            // ⚠ THIS WAS `1.0 / 120.0` AND THAT ENCODED THE OFF-BY-ONE. Half a
-            // tick read as "expired" only because the loop decremented before
-            // testing, so any budget below one tick reached the give-up branch
-            // without pulling. Under the corrected interval ownership a reel with
-            // ANY budget spends it — which is what `speed * timeout_s >= reach`
-            // promises — so expressing "expired" now means exactly that.
+            // Already expired: this update gives up. Any budget above zero is
+            // spent pulling.
             remaining_s: 0.0,
             speed: 900.0,
             anchor: ae::Vec2::new(4000.0, 110.0),

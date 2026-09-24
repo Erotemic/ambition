@@ -2557,63 +2557,16 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     let mut special = attack.clone();
     special.id = "special".to_string();
 
-    let mut app = App::new();
-    app.add_systems(Update, project_moveset_melee_to_body_melee);
-
-    // Playing the RANGED move → no swing (the body isn't attacking).
-    let firing = app
-        .world_mut()
-        .spawn((
-            ActorMoveset(contract.clone()),
-            BodyMelee::default(),
-            MovePlayback::new(fire, 1.0),
-        ))
-        .id();
-    // Playing the ATTACK move → a swing (the read-model the flat swing published).
-    let swinging = app
-        .world_mut()
-        .spawn((
-            ActorMoveset(contract.clone()),
-            BodyMelee::default(),
-            MovePlayback::new(attack, 1.0),
-        ))
-        .id();
-    // Playing a SPECIAL → no swing, for the same reason as the ranged shot.
-    let specialing = app
-        .world_mut()
-        .spawn((
-            ActorMoveset(contract.clone()),
-            BodyMelee::default(),
-            MovePlayback::new(special, 1.0),
-        ))
-        .id();
-    app.update();
+    let moveset = ActorMoveset(contract);
+    let swing_of = |spec| melee_swing_of(Some(&MovePlayback::new(spec, 1.0)), Some(&moveset));
     assert!(
-        app.world()
-            .get::<BodyMelee>(specialing)
-            .unwrap()
-            .swing
-            .is_none(),
+        swing_of(special).is_none(),
         "a body mid-SPECIAL reads as mid-swing — `is_melee_swing_move` is \
          classifying by playback presence rather than by verb, which is exactly \
-         the phantom swing this projection exists to prevent"
+         the phantom swing this read exists to prevent"
     );
-    assert!(
-        app.world()
-            .get::<BodyMelee>(firing)
-            .unwrap()
-            .swing
-            .is_none(),
-        "a firing body must not read as mid-swing"
-    );
-    assert!(
-        app.world()
-            .get::<BodyMelee>(swinging)
-            .unwrap()
-            .swing
-            .is_some(),
-        "the attack move still projects its swing read-model"
-    );
+    assert!(swing_of(fire).is_none(), "a firing body must not read as mid-swing");
+    assert!(swing_of(attack).is_some(), "the attack move still gives its swing");
 }
 
 /// Routing derives from the melee VERB family, not from requiring a base
@@ -2644,23 +2597,12 @@ fn a_smash_verb_projects_the_melee_read_model() {
         moves: vec![smash.clone()],
     };
 
-    let mut app = App::new();
-    // `buffer_combat_action_presses` decays its windows on the owner's own
-    // clock, so the chain needs one.
-    app.init_resource::<WorldTime>();
-    app.add_systems(Update, project_moveset_melee_to_body_melee);
-    let body = app
-        .world_mut()
-        .spawn((
-            BodyMelee::default(),
-            ActorMoveset(contract),
-            MovePlayback::new(smash, 1.0),
-        ))
-        .id();
-
-    app.update();
     assert!(
-        app.world().get::<BodyMelee>(body).unwrap().swing.is_some(),
+        melee_swing_of(
+            Some(&MovePlayback::new(smash, 1.0)),
+            Some(&ActorMoveset(contract))
+        )
+        .is_some(),
         "a smash-bound move must present as a melee swing"
     );
 }
@@ -3750,11 +3692,10 @@ fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() 
     assert!(worn.wears("spark_blossom"));
 }
 
-/// The accumulator now lives on the persistent `MovePlayback`; the projection must COPY it onto the
-/// swing so `apply_hitbox_damage` re-emits it as `ignored_targets`.
+/// The accumulator lives on the persistent `MovePlayback`; the derived swing must COPY it
+/// so that a reader of the swing sees the targets that the strike already hit.
 #[test]
-fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
-    let mut app = App::new();
+fn the_derived_swing_carries_the_hit_dedup_accumulator() {
     let swing = simple_melee(&SimpleMeleeParams::default());
     let moveset = ActorMoveset(MovesetContract {
         verbs: std::collections::BTreeMap::from([(ATTACK_VERB.to_string(), swing.id.clone())]),
@@ -3762,15 +3703,7 @@ fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
     });
     let mut playback = MovePlayback::new(swing, 1.0);
     playback.hit_targets = vec!["enemy:already_struck".to_string()];
-    let body = app
-        .world_mut()
-        .spawn((playback, BodyMelee::default(), moveset))
-        .id();
-    app.add_systems(Update, project_moveset_melee_to_body_melee);
-    app.update();
-
-    let melee = app.world().get::<BodyMelee>(body).unwrap();
-    let swing = melee.swing.as_ref().expect("a melee move projects a swing");
+    let swing = melee_swing_of(Some(&playback), Some(&moveset)).expect("a melee move gives a swing");
     assert_eq!(
         swing.hit_targets,
         vec!["enemy:already_struck".to_string()],
@@ -8703,14 +8636,10 @@ fn the_read_model_swing_takes_its_direction_from_the_gesture_not_the_move_id() {
                 on_ground: grounded,
                 ..Default::default()
             });
-        // ⭐ THE REAL PROJECTION, not the field. What consumers read is
-        // `BodyMelee.swing.spec.intent`, and asserting on the playback alone
+        // ⭐ THE REAL READ MODEL, not the field. What consumers read is
+        // `melee_swing_of(..).spec.intent`, and asserting on the playback alone
         // would pin the capture while leaving the read model free to keep
         // spelling out the move id — which is exactly what it was doing.
-        app.world_mut()
-            .entity_mut(body)
-            .insert(BodyMelee::default());
-        app.add_systems(Update, project_moveset_melee_to_body_melee);
         set_frame(&mut app, body, |f| {
             f.attack_axis = dir;
             f.melee_pressed = true;
@@ -8720,18 +8649,13 @@ fn the_read_model_swing_takes_its_direction_from_the_gesture_not_the_move_id() {
             app.world().get::<MovePlayback>(body).is_some(),
             "the press started no move, so the read model below is about nothing"
         );
-        // A second tick, because the projection was added unordered and the
-        // playback has to exist before it can be projected.
-        set_frame(&mut app, body, |f| f.attack_axis = dir);
-        app.update();
-        app.world()
-            .get::<BodyMelee>(body)
-            .expect("the body carries the read-model swing")
-            .swing
-            .as_ref()
-            .expect("a melee move projects a swing")
-            .spec
-            .intent
+        melee_swing_of(
+            app.world().get::<MovePlayback>(body),
+            app.world().get::<ActorMoveset>(body),
+        )
+        .expect("a melee move gives a swing")
+        .spec
+        .intent
     };
 
     // UP TILT, authored `polygon_tilt_up`.

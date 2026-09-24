@@ -40,7 +40,7 @@ fn attack_with_the_beam_spawns_one_player_faction_line_hitbox() {
         "beam carries the player's side so it damages enemies, not the player"
     );
     assert_eq!(boxes[0].owner, player);
-    // Default facing (+x), no directional hold → a forward HORIZONTAL lance:
+    // Default facing (+x), no directional hold: a forward horizontal lance,
     // long along x, thin along y, offset forward of the player.
     assert!(
         boxes[0].half_extent.x > boxes[0].half_extent.y,
@@ -87,8 +87,8 @@ fn beam_costs_mana_and_is_blocked_when_empty() {
 
 #[test]
 fn vertical_aim_makes_a_tall_thin_beam() {
-    // Aim straight up → a tall vertical lance (long along y, thin along x),
-    // offset above the player. Engine y grows downward, so "up" is -y.
+    // Aim up: a tall vertical lance, offset above the player. Engine y grows
+    // downward, so "up" is -y.
     let (offset, half) = beam_geometry(ae::Vec2::new(0.0, -1.0), 1.0);
     assert!(
         half.y > half.x,
@@ -128,8 +128,7 @@ fn beam_geometry_is_c4_equivariant_for_local_aim() {
     }
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY FIRES ITS OWN BEAM, anchored to ITS position.
-/// Same singular-`ControlledSubject` defect as the volley.
+/// A second driven body fires its own beam, anchored at its own position.
 #[test]
 fn two_driven_bodies_each_fire_their_own_beam() {
     use crate::test_support::spawn_seated_body_holding;
@@ -150,8 +149,8 @@ fn two_driven_bodies_each_fire_their_own_beam() {
     let owners: Vec<_> = boxes.iter().map(|hitbox| hitbox.owner).collect();
     assert!(owners.contains(&a), "seat a fired no beam: {owners:?}");
     assert!(owners.contains(&b), "seat b fired no beam: {owners:?}");
-    // ⭐ AND EACH LANCE IS WHERE ITS OWN BODY IS. One seat firing twice would
-    // satisfy a count; two lances at 100 and 900 could not come from one body.
+    // Each lance is at its own body. One seat firing twice would pass a count;
+    // lances at 100 and 900 cannot come from one body.
     let centers: Vec<f32> = boxes
         .iter()
         .filter_map(|hitbox| match hitbox.anchor {
@@ -165,10 +164,9 @@ fn two_driven_bodies_each_fire_their_own_beam() {
     );
 }
 
-/// ⛔ ABSENCE IS NEVER AFFORDABLE. A body that holds no Mana — a possessed
-/// enemy, a body from an experience that declared no pool — cannot fire a Mana
-/// ability, however much it would cost. The control is the same body WITH its
-/// pool firing, so the refusal is the missing resource speaking.
+/// A body with no Mana (a possessed enemy, or a body whose experience declared
+/// no pool) cannot fire a Mana ability. The control is the same body with its
+/// pool, so the refusal comes from the missing resource.
 #[test]
 fn a_body_that_holds_no_mana_cannot_fire_the_beam() {
     let mut app = test_app();

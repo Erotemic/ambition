@@ -1,33 +1,24 @@
-//! HOW FAR DOES A SHIELD ROLL ACTUALLY TRAVEL?
+//! How far does a shield roll actually travel?
 //!
 //! `cargo run -p ambition_demo_smash_app --bin smash_tool -- roll-probe`
 //!
-//! ⭐⭐ THIS EXISTS BECAUSE A REPORT AND THE TUNING DISAGREE. Jon, 2026-08-24:
-//! *"shield rolls have too much motion to them. They send the character flying
-//! across the stage."* The authored numbers say otherwise — 530 px/s over a
-//! 0.22s window, against 7600 px/s² of ground friction, is a roll that should be
-//! motionless after about four frames and roughly fourteen pixels. One of those
-//! two is wrong, and reading the constants again cannot settle it.
+//! A play report said shield rolls send the character across the stage. The
+//! authored numbers (530 px/s over 0.22 s against 7600 px/s² of ground
+//! friction) predict about fourteen pixels. This drives a real shield roll on
+//! the real stage and prints every frame. It is observational: no threshold,
+//! no pass/fail.
 //!
-//! So this drives a REAL shield roll on the REAL stage and prints every frame of
-//! it. It is observational: no threshold, no pass/fail. What it answers is
-//! "where did the body go, how fast, and for how long", which is the question a
-//! play session raises and a unit test keeps failing to reach.
+//! It drives the production input road through `drive_control_frame`, the
+//! only driver that works on this host (under GGRS `ControlFrame` is an
+//! output). Setting the roll's velocity directly would measure the number
+//! just written.
 //!
-//! ⛔ IT DRIVES THE PRODUCTION INPUT ROAD. `drive_control_frame` is the only
-//! driver that works on this host — under GGRS `ControlFrame` is an OUTPUT, and
-//! four other ways to press a button were measured doing nothing at all. A probe
-//! that set the roll's velocity directly would measure the number it just wrote.
+//! It prints velocity as well as position: a position that differs is not
+//! a position that is still changing.
 //!
-//! ⭐ AND IT PRINTS VELOCITY, not just position. A position that DIFFERS is not
-//! a position that is still CHANGING; this exact defect was misdiagnosed twice
-//! by comparing two positions, and the velocity column is what separates "it
-//! moved once" from "it is still moving".
+//! # What makes the press land
 //!
-//! # ⭐⭐ WHAT IT TOOK TO MAKE THE PRESS LAND, measured 2026-08-25
-//!
-//! Four runs measured nothing before this one worked, and each failure looked
-//! exactly like "the roll does nothing":
+//! Each failed setup looked like "the roll does nothing":
 //!
 //! ```text
 //! CPU seats                the BRAIN presses over the top; walk-speed drift
@@ -38,29 +29,26 @@
 //! the press held 4 ticks   the roll fires
 //! ```
 //!
-//! ⇒ **a one-tick press is not a press.** It assumes the body steps after the
-//! frame is committed within the same update, and a probe has no business
-//! modelling that ordering — a player holds the button, so this holds it.
+//! A one-tick press is not a press: it assumes the body steps after the
+//! frame is committed within the same update. A player holds the button, so
+//! this holds it.
 //!
-//! ⛔ AND THE BRAIN STILL HAS TO COME OFF seat zero: a seated fighter's brain
-//! writes its `ControlFrame` every tick. That is a probe-side removal and it is
-//! honest for an instrument — production binds a human seat through the select
-//! screen, which a binary cannot click. It changes WHO drives the body, not what
-//! a roll does.
+//! The brain must also come off seat zero, because a seated fighter's brain
+//! writes its `ControlFrame` every tick. This is a probe-side removal: it
+//! changes who drives the body, not what a roll does.
 //!
-//! # THE ANSWER, on the real stage
+//! # Result on the real stage
 //!
 //! ```text
 //! TRAVELLED 11.2px = 2.3% of the platform, peak 530px/s, still after 3 frames
 //! ```
 //!
-//! ⭐ The roll launches at exactly its authored 530px/s and is motionless three
-//! frames later, having crossed about a fortieth of the stage. ⛔ SO THE REPORT
-//! AND THE TUNING STILL DISAGREE: whatever sends a fighter flying across the
-//! stage, it is not `dodge_roll_speed`. Read the `state` column before believing
-//! any run — while it says `-`, the reading is a fighter standing still.
+//! The roll launches at its authored 530px/s and stops three frames later.
+//! So `dodge_roll_speed` is not what sends a fighter across the stage. Read
+//! the `state` column before trusting any run: `-` means the fighter is
+//! standing still.
 //!
-//! # WHAT THIS INSTRUMENT HAS ALREADY REFUTED, 2026-08-25
+//! # Candidates this probe has refuted
 //!
 //! ```text
 //! the roll's own distance   11.2px, 2.3% of the platform
@@ -71,41 +59,18 @@
 //!                           it back
 //! ```
 //!
-//! ⛔⛔ **AND THE AIR DODGE IS REFUTED TOO, measured 2026-08-25 in the KERNEL**
-//! (where a tick is a tick, which is what this probe cannot promise): it
-//! launches at its authored 440px/s and travels **29.5px**, stopped by frame 15.
-//! `AIR_FRICTION` is 650 against ground's 7600, so the arithmetic suggested
-//! ~149px of coast. ⚠ THAT ARITHMETIC WAS INCOMPLETE, not the measurement:
-//! `AIR_STOP_ASSIST` is 3750 — a hands-off airborne stop assist that stacks with
-//! the friction — so ~30px is the tuning working, and nothing cancels the
-//! dodge's velocity.
+//! The air dodge, measured in the kernel (where a tick is a tick), launches
+//! at its authored 440px/s and travels 29.5px. `AIR_FRICTION` (650) plus
+//! `AIR_STOP_ASSIST` (3750) stop it; nothing cancels its velocity.
 //!
-//! ⇒ **NOTHING IN THE EVADE FAMILY MOVES A FIGHTER MORE THAN ~30px.** Ground
-//! roll 11.2, roll off the lip 12.7, air dodge 29.5, chained rolls ~26px/s.
-//! Whatever crosses the stage is not an evade at all — the remaining candidates
-//! are KNOCKBACK (a hit during or after the roll), the LEDGE getup roll, which
-//! is a different mechanism entirely, or another fighter's authored tuning.
+//! So nothing in the evade family moves a fighter more than about 30px. The
+//! remaining candidates are knockback (a hit during or after the roll), the
+//! ledge getup roll, and another fighter's authored tuning.
 //!
-//! ⇒ **THE AIR DODGE WAS THE LEADING CANDIDATE AND IS NOT THE ANSWER.** Shield + a direction
-//! IN THE AIR is not a roll, it is `air_dodge_speed` (440px/s) with air friction
-//! rather than ground friction under it — and it looks like a roll. `--air`
-//! jumps first so the same press resolves as one.
-//!
-//! ⛔⛔ BUT `--air` DOES NOT YET GET THE BODY MEANINGFULLY AIRBORNE, and the
-//! reason is a limit of this whole probe worth knowing before trusting any
-//! number in it: **`app.update()` is a FRAME, not a sim tick.** A held jump
-//! samples at 46px/s against an authored `JUMP_SPEED` of 630 and rises 0.4px —
-//! not because the jump is broken, but because the hop begins and ends between
-//! two samples. The ground roll survives this because its launch happens to be
-//! caught (530px/s, exactly the authored value); a fast vertical arc does not.
-//!
-//! ⇒ testing the air dodge properly wants a fixed-tick harness rather than
-//! `App::update`, or a body held airborne by something other than its own jump.
-//!
-//! ⛔ The other untested candidates are things a headless probe cannot reach:
-//! another fighter's authored tuning, or the LEDGE getup roll, which is a
-//! different mechanism from this one.
-//!
+//! `--air` jumps first so the same press resolves as an air dodge. Limit:
+//! `app.update()` is a frame, not a sim tick, so a fast vertical arc (a hop)
+//! can begin and end between two samples, and `--air` does not get the body
+//! meaningfully airborne. Test the air dodge with a fixed-tick harness.
 use crate::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame};
@@ -115,14 +80,13 @@ use bevy::prelude::*;
 /// the window, the endlag, and any slide either of them leaves behind.
 const WATCH_FRAMES: usize = 60;
 
-/// Frames of shield BEFORE the roll press. A roll out of shield is the thing
-/// being measured, so the guard has to actually be up first.
+/// Frames of shield before the roll press: the guard must be up first.
 const SHIELD_FRAMES: usize = 12;
 
 #[derive(clap::Args, Debug)]
 pub struct RollProbeArgs {
-    /// Probe the AIRBORNE reading instead of the grounded one — `air_dodge_speed`
-    /// with air friction under it, which looks like a roll to a player.
+    /// Probe the airborne reading instead: `air_dodge_speed` with air friction
+    /// under it, which looks like a roll to a player.
     #[arg(long)]
     pub air: bool,
 }
@@ -133,11 +97,8 @@ pub fn run(args: RollProbeArgs) {
         app.update();
     }
 
-    // ⛔ HUMAN SEATS, NOT CPUs. `smash_roster_at_levels` gives every seat a
-    // fighter BRAIN, and the first run of this probe measured exactly that: the
-    // brain pressed its own buttons over the top of the roll, the body drifted
-    // at walking speed, and no roll ever fired. `smash_roster` locks the seats
-    // as human, so the only input in the reading is the one below.
+    // Human seats, not CPUs: `smash_roster_at_levels` gives every seat a brain
+    // that presses its own buttons. `smash_roster` locks the seats as human.
     let characters = [
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
         ambition_demo_smash::SMASH_GEORGE_BOOUL,
@@ -162,9 +123,7 @@ pub fn run(args: RollProbeArgs) {
         return;
     };
 
-    // The stage, so the answer can be stated as a FRACTION of it. "Flying across
-    // the stage" is a claim about the stage, and a pixel count alone cannot
-    // confirm or refute it.
+    // The stage, so the answer can be stated as a fraction of it.
     let stage = ambition_demo_smash::smash_stage().world;
     let platform = stage.blocks[0].aabb;
     let platform_width = platform.max.x - platform.min.x;
@@ -181,46 +140,28 @@ pub fn run(args: RollProbeArgs) {
         ambition_platformer2d::engine_core::GROUND_FRICTION,
     );
 
-    // ⛔ WHO IS DRIVING THIS BODY? A probe that presses a button nobody is
-    // listening for measures a fighter standing still and reads as "the roll
-    // does nothing". Say the binding out loud before pressing anything.
+    // Report who drives this body before pressing anything. A press nobody
+    // listens for reads as "the roll does nothing".
     report_binding(&mut app, body);
 
-    // ⭐⭐ TAKE THE BRAIN OFF SEAT ZERO, which is what makes the press land.
-    //
-    // ⛔⛔ THE FIRST TWO RUNS OF THIS PROBE MEASURED NOTHING because of this: a
-    // seated fighter carries a `Brain`, the brain writes the body's
-    // `ControlFrame` every tick, and a frame delivered from outside is
-    // overwritten before the kernel reads it. Run one (CPU seats) drifted at
-    // walking speed; run two (human seats) did not move at all. Neither was
-    // about the roll.
-    //
-    // ⛔ A PROBE-SIDE REMOVAL, and it is honest for an instrument: production
-    // binds a human seat through the select screen, which a binary cannot click.
-    // What this changes is WHO drives the body, not what a roll does — the
-    // movement kernel, the tuning and the out-of-shield policy are untouched.
+    // Take the brain off seat zero so the press lands: the brain writes the
+    // body's `ControlFrame` every tick. Production binds a human seat through
+    // the select screen, which a binary cannot click. The kernel, tuning, and
+    // out-of-shield policy are untouched.
     app.world_mut()
         .entity_mut(body)
         .remove::<ambition_platformer2d::characters::brain::Brain>();
     app.update();
 
-    // ⭐ THE AIRBORNE VARIANT, on request: `--air` jumps first, so the same press
-    // resolves as an AIR DODGE rather than a roll. That is the candidate the
-    // ground readings point at — `air_dodge_speed` with air friction under it,
-    // and it looks like a roll to a player.
+    // `--air` jumps first, so the same press resolves as an air dodge.
     let airborne = args.air;
     if airborne {
-        // ⛔ HELD, not tapped, for the same reason the roll press is: a one-tick
-        // press assumes an ordering this probe has no business modelling. An
-        // earlier attempt teleported the body upward instead and it simply
-        // landed before the press.
+        // Held, not tapped, as for the roll press.
         for tick in 0..8 {
             drive(
                 &mut app,
                 ControlFrame {
-                    // ⛔ ONE RISING EDGE, then HELD — which is what a pad does.
-                    // Re-pressing every tick is not a longer press; it is eight
-                    // presses, and the jump law reads the edge.
+                    // One rising edge, then held, as a pad does. The jump reads the edge.
                     jump_pressed: tick == 0,
                     jump_held: true,
                     ..ControlFrame::default()
@@ -235,8 +176,8 @@ pub fn run(args: RollProbeArgs) {
         println!("[roll_probe] jumped; grounded={grounded:?}");
     }
 
-    // GUARD UP FIRST. `shield_held` with no direction is a shield; the roll is
-    // the burst that comes out of it.
+    // Guard up first. `shield_held` with no direction is a shield; the roll
+    // is the burst out of it.
     for _ in 0..if airborne { 1 } else { SHIELD_FRAMES } {
         drive(
             &mut app,
@@ -250,16 +191,10 @@ pub fn run(args: RollProbeArgs) {
     let start = position(&app, body);
     println!("[roll_probe] shield up at x={:.2}; rolling right", start.x);
 
-    // THE ROLL: shield still held, burst pressed, stick right. All three, because
-    // that is what a player does — a burst with no guard is a dash, and the
-    // direction is what makes it a roll rather than a spot dodge.
-    // ⛔ BOTH THE AXIS AND THE DISCRETE DIRECTION. `axis_x` is the analogue
-    // reading and `right_pressed` the digital edge; which one a gate consults is
-    // not this probe's business to model, so it supplies the press a real pad
-    // would supply and lets the kernel choose.
-    // ⚠ HELD FOR SEVERAL TICKS, not one. A single-tick press assumes the body
-    // steps after the frame is committed within the same update, and the probe
-    // has no business modelling that ordering — a player holds the button.
+    // The roll: shield held, burst pressed, stick right. A burst with no
+    // guard is a dash; the direction makes it a roll, not a spot dodge.
+    // Supply both the axis and the digital direction, as a real pad does.
+    // Held for several ticks.
     for _ in 0..4 {
         drive(
             &mut app,
@@ -284,14 +219,12 @@ pub fn run(args: RollProbeArgs) {
         peak_speed = peak_speed.max(vel.x.abs());
         let step = pos.x - previous;
         previous = pos.x;
-        // ⭐ THE FIRST FRAME THE BODY IS ACTUALLY STILL, which is the number the
-        // report is really about — not the frame the timer says the roll ended.
+        // The first frame the body is still, which is what the report is about.
         if still_frame.is_none() && frame > 0 && vel.x.abs() < 1.0 {
             still_frame = Some(frame);
         }
-        // ⭐ WHETHER THE ROLL IS ACTUALLY HAPPENING, which is the column the
-        // first run of this probe lacked and needed: without it, "the body moved
-        // 15px" reads as a short roll when it was really no roll at all.
+        // Whether a roll is happening: without this column, "moved 15px" can be
+        // no roll at all.
         println!(
             "[roll_probe] {frame:>5}  {:>8.2}  {step:>7.2}  {:>11.1}  {travelled:>13.2}  \
              {:>8.1}%  {}",
@@ -345,14 +278,9 @@ fn position(app: &App, body: Entity) -> Vec2 {
     sample(app, body).0
 }
 
-/// WHICH SLOT drives this body, and whether it also carries a brain.
-///
-/// ⛔⛔ THE FIRST TWO RUNS OF THIS PROBE WERE BOTH MEASURING THE WRONG THING,
-/// and this line is what would have said so immediately. Run one seated CPUs, so
-/// a fighter brain pressed its own buttons over the roll and the body drifted at
-/// walking speed. Run two seated humans, and the body did not move AT ALL —
-/// a press with no listener. Neither reading is about the roll; both look like
-/// "the roll barely does anything".
+/// Which slot drives this body, and whether it also carries a brain. With
+/// CPU seats the brain presses over the roll; with no driver the press has
+/// no listener. Both look like "the roll barely does anything".
 fn report_binding(app: &mut App, body: Entity) {
     let slot = app
         .world()
@@ -380,10 +308,8 @@ fn report_binding(app: &mut App, body: Entity) {
 
 /// What the body says it is DOING, from the published movement facts.
 ///
-/// ⛔ THE FACTS, not the policy's private timers. `BodyMotionFacts` is the seam
-/// every other reader outside the kernel uses, so a probe reading it is reading
-/// what animation and combat read — and a roll that is invisible here is
-/// invisible to them too.
+/// Reads `BodyMotionFacts`, the seam animation and combat also read, not the
+/// policy's private timers.
 fn state_of(app: &App, body: Entity) -> String {
     let Some(facts) = app
         .world()
@@ -414,10 +340,9 @@ fn state_of(app: &App, body: Entity) -> String {
     }
 }
 
-/// ⛔ THE ONLY DRIVER THAT WORKS ON THIS HOST. Writing `ControlFrame` between
-/// updates, or from a system ordered before the commit set, was measured doing
-/// nothing: under GGRS the frame is an OUTPUT that the session rewrites from its
-/// confirmed inputs every advance.
+/// The only driver that works on this host. Under GGRS the session rewrites
+/// `ControlFrame` from its confirmed inputs every advance, so writing it
+/// between updates does nothing.
 fn drive(app: &mut App, frame: ControlFrame) {
     ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
 }

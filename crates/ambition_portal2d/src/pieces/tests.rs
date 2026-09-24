@@ -154,9 +154,8 @@ fn front_distance_signs() {
 fn carve_hole_reaches_through_the_surface_grace() {
     let f = floor(Vec2::new(100.0, 300.0));
     let hole = carve_hole(&f);
-    // The hole reaches a little OUTWARD of the face (y < 300 by SURFACE_GRACE)
-    // so it clears any thin solid lip left by a portal authored a few px off
-    // the grid-snapped surface...
+    // The hole reaches `SURFACE_GRACE` outward of the face (y < 300), to
+    // clear a lip from grid-snap error...
     assert!(
         (hole.min.y - (300.0 - SURFACE_GRACE)).abs() < 1e-3,
         "hole reaches SURFACE_GRACE outward: {hole:?}"
@@ -170,8 +169,7 @@ fn carve_hole_reaches_through_the_surface_grace() {
     assert!((hole.max.x - hole.min.x - 92.0).abs() < 1e-3, "{hole:?}");
 }
 
-/// The PURE vector layer is exact for ARBITRARY (non-cardinal) normals — pinned at 45° so
-/// slanted portals "just work" at this layer when authoring arrives.
+/// The pure vector layer is exact for non-cardinal normals (checked at 45°).
 #[test]
 fn slanted_normals_are_exact_in_the_vector_layer() {
     let inv_sqrt2 = 1.0 / 2.0_f32.sqrt();

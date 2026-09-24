@@ -65,9 +65,8 @@ fn go(app: &mut App, route: &str, experience: &str) {
     release_departed_experience_state(app.world_mut());
 }
 
-/// The leak this exists for. A resource a provider published survived the
-/// route that published it, and the next experience inherited it — which is how
-/// picking Oni Leader in the smash lobby redressed the body Ambition controls.
+/// A resource a provider published must not outlive its routes, or the next
+/// experience inherits it.
 #[test]
 fn state_a_provider_published_leaves_with_it() {
     let mut app = app_with_scope();
@@ -94,9 +93,9 @@ fn state_a_provider_published_leaves_with_it() {
 
 /// A provider's own screens are not a departure.
 ///
-/// The select screen and the match are two experiences of one provider, and the
-/// roster is published by the first FOR the second. A scope that released on any
-/// change of experience id would delete it on the frame it was handed over.
+/// The select screen and the match are two experiences of one provider. The
+/// select screen publishes the roster for the match, so moving between them
+/// must not release it.
 #[test]
 fn moving_between_a_providers_own_experiences_releases_nothing() {
     let mut app = app_with_scope();
@@ -113,11 +112,8 @@ fn moving_between_a_providers_own_experiences_releases_nothing() {
 
 /// A route waiting on its load barrier has not left yet.
 ///
-/// The premise the release rule is allowed to be this simple on: `activate`
-/// takes the old activation and installs the new one in one call, so while the
-/// match route waits for its barrier, `active` still names the lobby. Nothing
-/// observes a gap — which is why this asks `active` alone and does not consult
-/// `pending`.
+/// While the match route waits for its barrier, `active` still names the
+/// lobby. This is why the release rule reads only `active`.
 #[test]
 fn a_route_waiting_on_its_barrier_has_not_left_its_experience() {
     let mut app = app_with_scope();
@@ -138,8 +134,8 @@ fn a_route_waiting_on_its_barrier_has_not_left_its_experience() {
 
 /// Cleanup removes what this owner published, not what the resource is.
 ///
-/// The roster is a global another experience also publishes into. Releasing it
-/// by type would be one game deleting another's match.
+/// Another experience also publishes the roster. Releasing it by type would
+/// delete the other game's state.
 #[test]
 fn a_strangers_value_in_a_shared_resource_is_left_alone() {
     let mut app = app_with_scope();
@@ -157,8 +153,8 @@ fn a_strangers_value_in_a_shared_resource_is_left_alone() {
     );
 }
 
-/// The run condition reads the router, so it is correct wherever it is
-/// scheduled — and says NO in a composition with no routes at all.
+/// The run condition reads the router, so it is correct anywhere, and it is
+/// false in a composition with no routes.
 #[test]
 fn the_active_experience_run_condition_answers_from_the_router() {
     let mut app = App::new();
@@ -186,8 +182,8 @@ struct Activation(u8);
 
 /// A witnessed release leaves a stranger's state alone, and takes its own.
 ///
-/// The shape `ActiveMatch` needs: rollback state that deliberately carries no
-/// identity, released on the word of the plan it came from.
+/// This is what `ActiveMatch` needs: rollback state with no owner identity,
+/// released through the plan it came from.
 #[test]
 fn a_witnessed_release_asks_the_witness_who_owns_it() {
     let mut app = App::new();
@@ -230,9 +226,8 @@ fn a_witnessed_release_asks_the_witness_who_owns_it() {
     );
 }
 
-/// a witness released before the thing that reads it is a release that
-/// silently stops working, so declaring them in that order is refused where
-/// the mistake is made rather than discovered later as a leak.
+/// A witness released before its dependent would make that release silently
+/// stop working, so the declaration panics.
 #[test]
 #[should_panic(expected = "already released earlier in this scope")]
 fn a_witness_may_not_be_released_before_its_dependent() {

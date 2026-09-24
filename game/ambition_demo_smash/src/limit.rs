@@ -1,15 +1,13 @@
 //! The game half of the Limit meter: who gains what, and when.
 //!
-//! ⭐⭐ FOUR SOURCES, ONE METER, AND NONE OF THEM IS A NEW AUTHORITY. Time comes
-//! from `WorldTime`, damage from `ResolvedBodyHit` (which now carries the amount
-//! that actually landed), and a move-driven fill from an ordinary technique. The
-//! meter is the `smash_limit::LIMIT` slot of a body's `ActorResources`, which a
-//! Limit-priced move spends. ⇒ This system decides nothing about what a meter
-//! IS; it decides what goes into one.
+//! Four sources fill one meter, and none of them is a new authority. Time comes
+//! from `WorldTime`, damage from `ResolvedBodyHit` (the amount that landed), and
+//! a move-driven fill from an ordinary technique. The meter is the
+//! `smash_limit::LIMIT` slot of a body's `ActorResources`. This module decides
+//! what goes into a meter, not what a meter is.
 //!
-//! ⛔ AND IT DOES NOT DECIDE WHO HAS ONE. A body holds a Limit only because the
-//! match declared one for its seats; every other body — Ambition's player, a
-//! room's enemies — has no Limit slot, and nothing here can reach it.
+//! It also does not decide who has a meter. Only the match's seats get a Limit
+//! slot, so other bodies (Ambition's player, room enemies) are not reachable.
 
 use bevy::prelude::*;
 
@@ -28,28 +26,24 @@ fn limit_of(bank: &mut ActorResources) -> Option<&mut ResourceLevel> {
 pub struct SmashLimitFill(pub LimitMeterFill);
 
 /// This ruleset's Limit. Its declaration is also the match's seat resource, so
-/// a seat is BUILT with the meter this rule fills rather than adopted into it.
+/// a seat is built with the meter this rule fills.
 pub const SMASH_LIMIT: LimitMeterFill = LimitMeterFill::JONS_BASELINE;
 
 /// Fill every seated fighter's meter from the clock and from the hits that
 /// landed this tick.
 ///
-/// ⛔⛔ ONE SYSTEM FOR THREE SOURCES, because they are one decision about one
-/// tick's worth of meter. Splitting them would make "did this fighter cross the
-/// cap this frame" a question with three answers, and the move that spends a
-/// full meter reads exactly that.
-/// Is guarding the SAFE option rather than the greedy one under this fill?
+/// One system for all sources, because they are one decision about one tick of
+/// meter. Split systems would give three answers to "did this fighter cross the
+/// cap this frame", and the move that spends a full meter reads that.
+/// Is guarding the safe option rather than the greedy one under this fill?
 ///
-/// ⭐⭐ A SMASH BALANCE DOCTRINE, AND IT LIVES HERE BECAUSE OF WHAT IT IS. It was
-/// briefly a validity rule inside `LimitMeterFill::problems()` — the generic
-/// vocabulary of independent meter sources — where it would have refused to let a
-/// future meter that deliberately rewards defensive play (parry 10, damage taken
-/// 0) exist at all. ⇒ The mechanism answers "is this fill well formed"; whether
-/// one source should outrank another is this ruleset's question.
+/// This is a smash balance rule, so it lives here and not in
+/// `LimitMeterFill::problems()`. That check only answers "is this fill well
+/// formed"; a future meter can reward defensive play on purpose.
 ///
-/// In THIS game blocking is the safe option, so a meter paying more for guarding
-/// than for eating the hit inverts the defensive read: the maximising play becomes
-/// to guard, and taking damage stops being a cost.
+/// In this game blocking is the safe option. A meter that pays more for guarding
+/// than for taking the hit makes guarding the best play, and damage stops being
+/// a cost.
 pub fn guarding_is_the_safe_option(fill: &LimitMeterFill) -> bool {
     fill.on_block <= 0.0 || fill.on_block < fill.on_damage_taken
 }
@@ -77,29 +71,25 @@ pub fn fill_limit_meters(
         if dt > 0.0 && fill.per_second > 0.0 {
             limit.refill(fill.per_second * dt);
         }
-        // ⛔ FILL FIRST, THEN DRAIN: it matters when the
-        // two rates are equal: a meter authored to hold steady holds steady
-        // instead of drifting by one frame's worth every tick.
+        // Fill first, then drain. When the two rates are equal, a meter
+        // authored to hold steady does not drift by one frame each tick.
         //
-        // ⚠ FLOORED AT ZERO, NOT WRAPPED. A meter that went negative would need
-        // to be refilled past zero before a priced move became reachable again,
-        // which is a debt nobody authored.
+        // Floored at zero, not wrapped. A negative meter would need a refill
+        // past zero before a priced move is available again.
         if dt > 0.0 && fill.decay_per_second > 0.0 {
             limit.drain(fill.decay_per_second * dt);
         }
     }
 
     for hit in hits.read() {
-        // ⛔ THE VICTIM ALWAYS, THE ATTACKER ONLY IF THE ROAD KNOWS ONE. A blast
-        // zone, a hazard and a stage spike all resolve with no attacker, and a
-        // meter that credited "somebody" for those would pay a fighter for the
-        // stage killing their opponent.
+        // Always the victim; the attacker only if one is known. A blast zone,
+        // a hazard or a stage spike has no attacker, and the stage must not
+        // pay a fighter for killing their opponent.
         if let Some(limit) = meters.get_mut(hit.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
             limit.refill(fill.taken(hit.damage));
         }
         if let Some(attacker) = hit.attacker {
-            // ⛔ AND NOT FOR HITTING YOURSELF. A self-damaging move — a recoil, a
-            // hazard the caster walked into — would otherwise pay twice.
+            // Not for hitting yourself: a self-damaging move would pay twice.
             if attacker != hit.victim {
                 if let Some(limit) = meters.get_mut(attacker).ok().and_then(|bank| limit_of(bank.into_inner())) {
                     limit.refill(fill.dealt(hit.damage));
@@ -108,21 +98,14 @@ pub fn fill_limit_meters(
         }
     }
 
-    // ⭐⭐ A SUCCESSFUL BLOCK PAYS THE FIGHTER WHO BLOCKED, and until 2026-09-06
-    // it paid nobody. `BlockedBodyHit` was read in exactly one place — to arm an
-    // `OnBlock` cancel on the ATTACKER — so the defender's half of a defensive
-    // exchange had no consequence at all.
+    // A successful block pays the fighter who blocked.
     //
-    // ⛔ THE DEFENDER ONLY, NEVER THE ATTACKER, and this is the one arm that
-    // needs saying. The loop above pays an attacker through `dealt()` for damage
-    // they actually did; a blocked strike did none. Paying them here would mean
-    // throwing attacks INTO a shield charges your own meter, which rewards the
-    // pressure this source exists to make costly.
+    // The defender only, never the attacker. The loop above pays an attacker
+    // through `dealt()` for damage done; a blocked strike did none. Paying here
+    // would let attacks into a shield charge the attacker's meter.
     //
-    // ⚠ AND NOT GATED ON KNOWING THE ATTACKER. `BlockedBodyHit::attacker` is an
-    // `Option` because a hazard has no striker — but the guard still ate it, and
-    // a fighter who blocks a stage spike blocked something. The defender is the
-    // half this road always knows.
+    // Not gated on a known attacker. `BlockedBodyHit::attacker` is `None` for a
+    // hazard, but the defender still blocked it.
     for block in blocks.read() {
         if let Some(limit) = meters.get_mut(block.victim).ok().and_then(|bank| limit_of(bank.into_inner())) {
             limit.refill(fill.blocked());

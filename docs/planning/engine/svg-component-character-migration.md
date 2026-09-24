@@ -4,47 +4,18 @@
 rewrite the roster immediately. Profiling and ordinary character work may make
 small enabling changes when they pay for themselves now.
 
-> **RE-MEASURED against `ea4edb90d` (2026-09-02): the ENABLING WORK IS BUILT and
-> adoption is deliberately tiny, which is what this status asks for.**
->
-> - ⭐ **The equivalence tooling the two levels below require exists**:
->   `tools/ambition_sprite2d_renderer/equivalence_harness.py`, which cites this
->   page for its rationale and compares a Pillow reference against an SVG
->   candidate (`compare --ref pil_out/ --cand svg_out/`). Level 2 is therefore
->   checkable rather than aspirational.
-> - **Adoption: 2 of 138 character target files are SVG-sourced by name**
->   (`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`, plus the `_svg_poc` and
->   `_svg_fighter_effects` helpers); 22 of the 138 mention `svg` at all.
-> - ⭐ **And `charley_beagle` genuinely SHIPS from it** — independently observed,
->   not inferred from the target list: `sprites_potato/charley_beagle_svg_spritesheet.png`
->   appears in the `[image-census]` of a real `capture_scene` run of
->   `hall_of_characters` taken the same day.
->
-> ⇒ **So the status line is accurate and should not be escalated.** The migration
-> has a working harness and one shipping character plus one proof-of-concept, on
-> a roster of 138. ⛔ That is the intended shape of a DIRECTION — the enabling
-> work paid for itself and the rewrite did not happen.
->
-> ✔ **RE-MEASURED 2026-09-17, which is what this row asked its next reader to do,
-> and NOTHING MOVED.** The roster is still exactly **138** top-level target files;
-> the SVG-sourced set is still `charley_beagle_svg.py` and `mary_o_v2_svg_poc.py`
-> plus the two helpers; `charley_beagle` still ships, with published
-> `charley_beagle_svg_spritesheet.png` / `.ron` under
-> `crates/ambition_platformer2d_actor_monolith/assets/`; and
-> `tools/ambition_sprite2d_renderer/equivalence_harness.py` is still there. The
-> one number that moved is 22 → **23** files mentioning `svg`.
->
-> ⚠ **THE INSTRUMENT, because the 22 nearly became a 39.** The roster is
-> `find targets/characters -maxdepth 1 -name '*.py'` — top level only, since the
-> 169 files under it include per-boss subdirectories. The mention count is
-> case-SENSITIVE lowercase `svg`: any-case gives 39, because `SVG` appears in
-> prose comments across a third of the roster. ⇒ Two flags span 23 against 39 on
-> one tree, and *"a third of the roster mentions SVG"* would have read as adoption.
->
-> ⇒ **Fifteen days of no movement is the ANSWER to "is slow adoption a problem",
-> not the question.** A direction whose enabling work is done and whose adoption
-> is two is behaving as designed; escalate it only when a character wants the
-> road and cannot take it.
+State on 2026-09-17: the enabling work is built and adoption is small, as
+intended.
+
+- `tools/ambition_sprite2d_renderer/equivalence_harness.py` compares a Pillow
+  reference with an SVG candidate (`compare --ref pil_out/ --cand svg_out/`).
+- Two of 138 top-level character targets are SVG-sourced
+  (`charley_beagle_svg.py`, `mary_o_v2_svg_poc.py`). `charley_beagle` ships from
+  SVG.
+- Count the roster with `find targets/characters -maxdepth 1 -name '*.py'`.
+
+Slow adoption is not a defect. Escalate only when a character needs this road
+and cannot use it.
 
 ## Decision
 
@@ -252,7 +223,7 @@ Do not authorize a roster-wide campaign until the P2 proof demonstrates:
 - a credible render-time result after caching;
 - a clean legacy-to-svg-to-consolidated lifecycle.
 
-## Progress (2026-07-23)
+## Implemented tooling
 
 Landed in `tools/ambition_sprite2d_renderer`:
 
@@ -278,7 +249,7 @@ Landed in `tools/ambition_sprite2d_renderer`:
   `equivalence_harness.py export` writes the editable per-frame SVG artifacts to
   disk.
 
-### The authoring system (2026-07-23, second pass)
+### The authoring system
 
 The end state Jon specified: PIL remains a first-class authoring language for
 NEW sprites, but every target — characters, props, tiles — routes to an SVG
@@ -336,7 +307,7 @@ the universal path but their raster-composited layers (rotate/paste) are
 capture gaps reported by coverage; assembler renormalization makes the
 conservative verifier under-report matches.
 
-### Discovery correctness pass (2026-07-23, GPT 5.6 review)
+### Discovery correctness
 
 Three structural bugs in the universal converter's part discovery were fixed
 (`authoring/auto_capture.py` + `equivalence_harness.py`): occurrences that
@@ -354,7 +325,7 @@ checked; `partial` = any gap. `autoconvert`/`coverage --full` verify every
 frame; the mockingbird boss reaches `captured 36/36` under `--full`. Poison
 tests: `tests/test_part_discovery.py`, `tests/test_status_levels.py`.
 
-### Fidelity metric (2026-07-23, GPT 5.6 review)
+### Fidelity metric
 
 `equivalence_harness._frame_defects` grades two alpha-aware defect fractions
 (numpy) over a ±1 alignment search that translates onto a transparent canvas

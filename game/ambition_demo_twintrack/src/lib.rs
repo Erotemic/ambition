@@ -71,7 +71,7 @@ pub const TWINTRACK_EXPERIENCE: &str = "twintrack";
 pub const TWINTRACK_GAMEPLAY_ROUTE: &str = "twintrack_gameplay";
 pub const TWINTRACK_LAUNCHER_ROUTE: &str = "twintrack_launcher";
 pub const TWINTRACK_CHARACTER_ID: &str = "twintrack_traveler";
-/// The SECOND participant's character — Emmy, at rest in the laboratory
+/// The second participant's character — Emmy, at rest in the laboratory
 /// until somebody on a second controller moves her.
 pub const TWINTRACK_LAB_TWIN_CHARACTER_ID: &str = "twintrack_lab_twin";
 pub const TWINTRACK_ROOM_ID: &str = "twintrack_plaza";
@@ -89,14 +89,14 @@ pub const ROOM_HEIGHT: f32 = 900.0;
 pub const LAB_POS: Vec2 = Vec2::new(720.0, 450.0);
 pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(470.0, 700.0);
 pub const DJ_POS: Vec2 = Vec2::new(1_010.0, 680.0);
-// AMBITION_REVIEW(spatial): the light-tagger's OFFSET FROM `LAB_POS` IS THE LESSON, not decoration.
-// The tagger flies +x (orbit phase -PI/2 puts it at the bottom of a 4 km arc), so the angle between
-// "where you SEE it" and "where you must AIM" is the TRANSVERSE fraction of that velocity as seen
-// from the observer at `LAB_POS` — i.e. it is set by `TAG_START_POS.y - LAB_POS.y`. Put the tagger
-// on the observer's eye line and the lead angle goes to zero: the red visible-image marker, the
-// green intercept marker and the cyan aim ray all collapse onto one another and the overlay teaches
-// nothing. The 150 px offset restored here is the one the SR-3 overlay was authored against. Keep
-// the tagger well off `LAB_POS.y`; `x` is free.
+// AMBITION_REVIEW(spatial): the light-tagger's offset from `LAB_POS` is the
+// lesson. The tagger flies +x (orbit phase -PI/2 puts it at the bottom of a
+// 4 km arc), so the angle between "where you see it" and "where you must aim"
+// is the transverse part of that velocity as seen from `LAB_POS`, set by
+// `TAG_START_POS.y - LAB_POS.y`. On the observer's eye line the lead angle is
+// zero and the visible-image marker, intercept marker, and aim ray collapse
+// together. The SR-3 overlay is authored against this 150 px offset. Keep the
+// tagger well off `LAB_POS.y`; `x` is free.
 pub const TAG_START_POS: Vec2 = Vec2::new(1_060.0, 300.0);
 const TAG_ORBIT_CENTER: Vec2 = Vec2::new(1_060.0, 4_300.0);
 
@@ -322,9 +322,9 @@ pub enum TwinTrackViewMode {
     Spacetime,
     /// Two observers side by side, each pane resolved in its own frame.
     ///
-    /// appended on purpose. The discriminant is the snapshot byte, so a
-    /// new variant may only be added at the end or every stored view mode
-    /// shifts under an old save.
+    /// Appended on purpose: the discriminant is the snapshot byte, so a new
+    /// variant must go at the end or stored view modes shift under an old
+    /// save.
     SplitObservers,
 }
 
@@ -534,37 +534,27 @@ pub fn install_twintrack_content(app: &mut App) {
                 TWINTRACK_EXPERIENCE,
             )
             .with_sheet("noether")
-            // a character has to author its own locomotion to be BUILT.
-            // The traveler never needed this: the starting character is worn by
-            // the session's home avatar, which brings its own body. A second
-            // participant goes through ordinary actor construction, and that
-            // road refuses a character that cannot say how it moves rather than
-            // inheriting somebody's idea of a walk.
+            // A character must author its own locomotion to be built. The
+            // traveler wears the session's home avatar, which brings its own
+            // body. A second participant goes through ordinary actor
+            // construction, which refuses a character that cannot say how it
+            // moves.
             .with_locomotion(
                 ambition_platformer2d::characters::actor::CharacterLocomotion {
                     run_speed: 540.0,
                     move_style: ambition_platformer2d::characters::brain::MoveStyleSpec::Float,
-                    // The plaza has no gravity. Silence would resolve to GROUNDED,
-                    // which is a body falling forever through an open room.
+                    // The plaza has no gravity. Leaving this unset would resolve
+                    // to grounded: a body falling forever through an open room.
                     baseline_free_flight: Some(true),
                     ..Default::default()
                 },
             )
-            // ⛔⛔ SHE IS BUILT STILL, AND WITHOUT THIS SHE WAS BUILT A BRAWLER.
-            // `BrainProfile::default().template` is `MeleeBrute`, so a character
-            // that authors no profile is CONSTRUCTED as one — and
-            // `adopt_the_laboratory_twin` QUEUES her seat, which does not land
-            // until the commands flush. That left exactly one tick of her life
-            // driven by a brute's brain: one stroll step worth -96 px/s, bled by
-            // drag over seven ticks into a permanent 6.16px offset, on a body
-            // whose whole exhibit is that she sits equidistant between two
-            // beacons.
-            //
-            // ⭐ AUTHORED, NOT REPAIRED. A system used to put her back on her
-            // mark the tick after adoption, which fixes the two fields it knows
-            // about and leaves whatever else that tick touched. Standing still is
-            // what an unmanned reference frame DOES, so saying so at construction
-            // means the wrong authority never had anything to do.
+            // She is built standing still. `BrainProfile::default().template`
+            // is `MeleeBrute`, and `adopt_the_laboratory_twin` queues her seat,
+            // which lands only when commands flush. Without this, one tick of
+            // a brute's brain would move her off the point equidistant between
+            // the beacons, which is her whole exhibit. An unmanned reference
+            // frame stands still, so say so at construction.
             .with_autonomous_profile(ambition_platformer2d::characters::brain::BrainProfile {
                 template:
                     ambition_platformer2d::characters::brain::CharacterBrainTemplate::StandStill,
@@ -756,12 +746,9 @@ impl Plugin for TwinTrackExperiencePlugin {
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))
-                // ⛔ THE LEAF SET ALONE. Naming the parent phase BESIDE it was
-                // redundant while `ControlGate` lived in `PlayerInput` and became
-                // a schedule-build error the moment it moved to `WorldPrep`
-                // (D202) — the system was then in two ordered phases at once.
-                // A membership declares itself; restating its parent pins a fact
-                // that is not this call site's to know.
+                // The leaf set alone. Also naming the parent phase would pin a
+                // fact this call site does not own, and it breaks the schedule
+                // build when `ControlGate` moves phase (D202).
                 .in_set(PlayerInputSet::ControlGate),
         )
         .add_systems(
@@ -779,9 +766,9 @@ impl Plugin for TwinTrackExperiencePlugin {
             )),
         );
 
-        // an `Update` read model, not a simulation system. It writes no
-        // canonical state and holds no memo, so it is deliberately absent from
-        // the rollback registration above; see `TwinTrackDualObserverView`.
+        // An `Update` read model, not a simulation system. It writes no
+        // canonical state and holds no memo, so it is not registered for
+        // rollback; see `TwinTrackDualObserverView`.
         app.init_resource::<TwinTrackDualObserverView>()
             .init_resource::<TwinTrackLightPulseView>()
             .add_systems(
@@ -988,8 +975,7 @@ fn install_twintrack_session(
 
 fn spawn_character(
     commands: &mut Commands,
-    // a `SessionScopeId`, not an `Entity` — `SessionRoot` stopped carrying a
-    // raw handle, and `SessionScopedEntity` is what consumes this.
+    // A `SessionScopeId`, not an `Entity`: `SessionScopedEntity` consumes it.
     root: SessionScopeId,
     character: TwinTrackCharacter,
     rest_frequency: f64,
@@ -1242,9 +1228,9 @@ fn capture_twintrack_interaction(
         return;
     }
 
-    // The 3D spacetime teaching surface is now a default-on minimap and never
-    // replaces gameplay. Keep the historical Spacetime enum decode-compatible,
-    // but normalize old/restored state back to the laboratory view.
+    // The 3D spacetime surface is a default-on minimap and never replaces
+    // gameplay. Keep the old `Spacetime` enum value decode-compatible, but
+    // normalize restored state back to the laboratory view.
     if experiment.view_mode == TwinTrackViewMode::Spacetime {
         experiment.view_mode = TwinTrackViewMode::Laboratory;
     }
@@ -1452,11 +1438,10 @@ fn publish_twintrack_hud(
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
-    // WHOSE eyes this line is written from. Both resources hold one row
-    // per observer, and reading them through `Deref` takes the FIRST row in
-    // label order — which became the laboratory twin the moment she became an
-    // observer, because "laboratory" sorts before "traveler". This teacher line
-    // says "YOUR NOW" and "FOX IMAGE AGE"; it is the traveler's.
+    // Whose eyes this line uses. Both resources hold one row per observer,
+    // and a `Deref` read takes the first row in label order, which is the
+    // laboratory twin ("laboratory" sorts before "traveler"). This teacher
+    // line ("YOUR NOW", "FOX IMAGE AGE") is the traveler's.
     traveler_observer: Query<Entity, With<TravelerTwin>>,
     dual: Res<TwinTrackDualObserverView>,
     pulse: Res<TwinTrackLightPulseView>,
@@ -1703,9 +1688,9 @@ fn publish_twintrack_hud(
     }
 }
 
-/// One line naming, for each observer, which flash it saw first and which flash
-/// it says HAPPENED first. Two orderings that differ is the whole exhibit, so
-/// the line says so out loud rather than leaving a viewer to compare numbers.
+/// One line naming, for each observer, which flash it saw first and which
+/// flash it says happened first. Two differing orderings are the exhibit, so
+/// the line states it.
 fn dual_observer_teacher_line(view: &TwinTrackDualObserverView) -> String {
     let Some((lab, traveler)) = view.both() else {
         return "BOTH BEACONS FLASH TOGETHER IN THE LAB — WAIT FOR THEIR LIGHT TO REACH BOTH \
@@ -1730,7 +1715,7 @@ fn dual_observer_teacher_line(view: &TwinTrackDualObserverView) -> String {
     )
 }
 
-/// One line comparing what the two observers measure about the SAME light
+/// One line comparing what the two observers measure about the same light
 /// pulse: the same speed, a different direction, a different colour.
 ///
 /// The speeds are printed rather than asserted because printing them is the

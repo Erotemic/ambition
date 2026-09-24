@@ -31,16 +31,14 @@ impl Plugin for AmbitionContentPlugin {
         // Ensure every character offered by this provider is constructible.
         super::player_robot_lineage::register_declared_cast(app);
 
-        // ⭐⭐ **THE RELOAD TRANSACTION'S PUBLICATION HALF, REGISTERED SO IT IS
-        // NOT A ROAD NOTHING CALLS.** `reload::request_reload` stages a cast
-        // revision and asks the shell to re-prepare; this is what lets the
-        // revision through when the route activates, and what DISCARDS it when
-        // the preparation fails instead. Without the registration the request
-        // road would stage edits that nothing ever published or threw away.
-        // ⚠ `reload::register` OWNS HOW IT IS INSTALLED — the run condition and
-        // the ordering against provider session construction are both half of
-        // that, and spelling either here would make this a second place to keep
-        // it true.
+        // The reload transaction's publication half. `reload::request_reload`
+        // stages a cast revision and asks the shell to re-prepare; this lets the
+        // revision through when the route activates, and discards it when the
+        // preparation fails. Without it, staged edits would never be published or
+        // discarded.
+        // `reload::register` owns how it is installed (the run condition and the
+        // ordering against provider session construction); do not repeat either
+        // here.
         super::reload::register(app);
 
         // App-local world manifest shared by runtime and presentation readers.
@@ -53,21 +51,11 @@ impl Plugin for AmbitionContentPlugin {
                 .clone(),
         );
 
-        // ⛔⛔ **WHAT THE GAME STARTS OWNING, STATED ONCE.** This line was in TWO
-        // places: `ambition_app`'s `init_sandbox_resources` and
-        // `AmbitionItemRosterPlugin`, which the app installs from
-        // `install_menu_setup_and_hotkeys`. The windowed app ran both and the
-        // headless harness ran only the first, so each composition saw one and
-        // neither reader could tell there were two. `plugins.rs` said so out
-        // loud — *"the later content plugin registration is byte-identical and
-        // therefore idempotent"* — which is a SYNC standing in for an authority.
-        //
-        // ⭐ AND THE ROSTER PLUGIN'S OWN COMMENT ALREADY NAMED THE RIGHT HOME:
-        // *"the 24-item catalog ownership model is always-on core state (pickups
-        // and dialogue read/write it regardless of which menu renders it)"*. It
-        // sat behind a menu installer anyway. This plugin is the one production
-        // installer both compositions reach, and the catalog above is lowered
-        // three lines up — the roster is what the catalog is a roster OF.
+        // The one place the game starts owning the item roster. The windowed app
+        // and the headless harness both install this plugin, so both see it. The
+        // 24-item catalog ownership model is always-on core state (pickups and
+        // dialogue read and write it whatever menu renders it), and it is the
+        // roster of the catalog installed above.
         app.insert_resource(ambition_items::OwnedItems::starter());
 
         // Register Ambition's adaptive music catalog under its content provider.
@@ -122,11 +110,10 @@ impl Plugin for AmbitionContentPlugin {
             app.add_systems(
                 bevy::prelude::Update,
                 super::yarn_vocabulary::refresh_yarn_state_mirror
-                    // ⭐ Only while a conversation is live — the mirror's only
-                    // reader is a Yarn `<<if>>`. See the system's own docs for
-                    // why the gate is conversation liveness and NOT dialog-box
-                    // presence: the mirror must be fresh on the frame the `<<if>>`
-                    // runs, and a presentation gate is one frame late.
+                    // Only while a conversation is live: the mirror's only reader is a
+                    // Yarn `<<if>>`. The gate is conversation liveness, not dialog-box
+                    // presence, because a presentation gate is one frame late (see the
+                    // system's docs).
                     .run_if(super::yarn_vocabulary::a_conversation_is_live)
                     .in_set(ambition_dialog::YarnStateMirrorRefreshed)
                     .after(ambition_dialog::YarnPresentationCueCleared),

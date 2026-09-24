@@ -6,19 +6,17 @@ fn app() -> App {
     app
 }
 
-/// ⚠ SESSION IS `None` HERE ON PURPOSE. This crate cannot name `SessionScopeId`
-/// — it depends only on the umbrella, which does not re-export it — so the arm
-/// that proves identity is BOTH facts lives with the type, in
-/// `ambition_match::seating`. What these tests own is the SWEEP.
+/// Session is `None` here on purpose. This crate cannot name `SessionScopeId`
+/// (the umbrella does not re-export it), so the test that identity uses both
+/// facts lives in `ambition_match::seating`. These tests own the sweep.
 fn seated(seats: usize, tick: u64) -> ActiveMatch {
     ActiveMatch::activated(seats, None, None, Some(tick), None)
 }
 
-/// ⛔⛔ AN OBJECT OUTLIVES ITS MOVE AND NOT ITS MATCH.
+/// An object outlives its move but not its match.
 ///
-/// Jon, playing: *"a mine laid in a match still persists into the next match…
-/// Ending a match should be cleaning everything up."* Three arms, because the
-/// first two alone are satisfied by a sweep that despawns everything.
+/// Three checks, because the first two alone pass for a sweep that despawns
+/// everything.
 #[test]
 fn only_objects_from_a_different_match_are_swept() {
     let mut app = app();
@@ -54,11 +52,10 @@ fn only_objects_from_a_different_match_are_swept() {
     );
 }
 
-/// ⛔ AND BETWEEN MATCHES, NOTHING BELONGS.
+/// Between matches, nothing belongs.
 ///
-/// The select screen has no `ActiveMatch`, and a mine sitting there is the same
-/// defect wearing a different hat. ⚠ Asserted separately because the arm above
-/// always has an active match, so it cannot see this answer at all.
+/// The select screen has no `ActiveMatch`, so a mine there is stale. This is a
+/// separate test because the test above always has an active match.
 #[test]
 fn with_no_active_match_every_scoped_object_is_stale() {
     let mut app = app();

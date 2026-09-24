@@ -2,31 +2,22 @@
 //!
 //! `cargo run -p ambition_demo_smash_app --bin smash_tool -- match-report -- [SECONDS] [CHARACTER] [--runs N]`
 //!
-//! ⭐ **With `--features causal` it also prints WHAT THE BRAIN DECIDED, grouped by
-//! the situation it was answering.** The outcome half of this report says what a
-//! fight did; the decision half says why, and separating a behaviour change from
-//! its second-order consequences needs both at once. Three hand edits to the
-//! fighter's movement scores were reverted in one night for want of exactly this
-//! pairing: the change did what it said to the verb it named, and the damage came
-//! two steps away, through the situation classifier.
+//! With `--features causal` it also prints what the brain decided, grouped by
+//! the situation it answered. The outcome half says what a fight did; the
+//! decision half says why. A behaviour change can have second-order effects
+//! (for example, through the situation classifier), and both halves are
+//! needed to see them.
 //!
-//! Every mechanic in this demo is authored, tuned and reachable; the question
-//! that keeps going unanswered is whether anybody USES it. Three separate
-//! slices — the smash charge, directional influence, the tech — shipped green
-//! and inert, and each one was caught by counting in a real match rather than by
-//! a unit test. This is that counting, made cheap enough to run after any change
-//! that claims to affect how a fight goes.
+//! Mechanics can be authored, tuned, and reachable, and still unused by the
+//! CPUs. Counting in a real match finds that; unit tests do not. Run this
+//! after any change that claims to affect how a fight goes.
 //!
-//! It is observational and has no pass/fail threshold. The one guard that DOES
-//! assert lives in `tests/the_repertoire_gets_used.rs`; this prints the whole
-//! vocabulary so a number that moved can be seen next to the ones that did not.
+//! It is observational and has no pass/fail threshold. The asserting guard is
+//! in `tests/the_repertoire_gets_used.rs`.
 //!
-//! ⛔ `--runs N` IS NOT DECORATION, AND ONE RUN IS NOT A MEASUREMENT. Two
-//! fighters carry an execution-noise stream each, and a single thirty-second
-//! sample of a fight is noisy enough that tuning against it makes things worse:
-//! measured 2026-08-23, an option-scorer change judged on one run took the smash
-//! suite from two failures to four. With `--runs` the spread is printed as
-//! `min–median–max`, which is the shape a threshold should be picked off.
+//! Use `--runs N`: one run is not a measurement. Each fighter has an
+//! execution-noise stream, and one thirty-second sample is too noisy to tune
+//! against. With `--runs` the spread prints as `min–median–max`.
 
 use crate::build_demo_app;
 use ambition_platformer2d::actor::MatchSeat;
@@ -38,44 +29,32 @@ use bevy::prelude::*;
 /// One seat's tally. Ticks unless the name says otherwise.
 #[derive(Default, Clone)]
 struct Tally {
-    /// PEAK percent, not the final reading. A KO resets a body to zero, so the
-    /// last value read is a measure of how recently somebody died rather than of
-    /// how much the fight did — and a run in which both fighters were killed
-    /// reads as a run in which nothing happened.
+    /// Peak percent, not the final reading. A KO resets a body to zero, so the
+    /// last value says how recently somebody died.
     damage: i32,
     hitstun: usize,
     tumbling: usize,
     knocked_down: usize,
     evading: usize,
-    /// Ticks this body could not be struck at all — the damage rule's own
-    /// answer, inverted. The number that separates "the CPUs are defensive" from
-    /// "the CPUs are unhittable".
+    /// Ticks this body could not be struck at all. Separates "the CPUs are
+    /// defensive" from "the CPUs are unhittable".
     unhittable: usize,
-    /// WHICH of the four terms in `body_vulnerable` was false, counted
-    /// separately. "A quarter of the match is untouchable" is a symptom; which
-    /// term owns it is the fix.
+    /// Which of the terms in `body_vulnerable` was false, counted separately,
+    /// so the owning term can be fixed.
     unhit_invuln: usize,
     unhit_evading: usize,
-    /// The LEDGE's share of `unhit_evading` — a refinement of it, not a
-    /// sibling, so the two columns do not add up to `unhittable`.
-    ///
-    /// Worth its own column because the ledge was invisible until its
-    /// intangibility was split off the dodge roll's timer: a body camped on an
-    /// edge and a body mid-evade both read as `dodge_rolling`, so "evading 659"
-    /// could have been either, and nobody could tune one without the other.
+    /// The ledge's share of `unhit_evading`. It is a part of that column, so
+    /// the columns do not add up to `unhittable`. The ledge has its own
+    /// intangibility flag, so it can be tuned apart from the dodge roll.
     unhit_ledge: usize,
     unhit_parry_window: usize,
     unhit_iframes: usize,
-    /// HOW OFTEN THIS FIGHTER CHANGES ITS MIND about which way to walk —
-    /// counted as sign changes in its own locomotion intent, ignoring ticks it
-    /// asked for nothing.
+    /// How often this fighter changes its walking direction: sign changes in
+    /// its locomotion intent, ignoring ticks with no intent.
     ///
-    /// ⭐ IT IS HERE BECAUSE THE INITIAL DASH IS PAID FOR PER CHANGE, not per
-    /// tick: the phase re-arms on a new direction, and a body that re-arms
-    /// constantly restarts its dash instead of travelling. Measured in the
-    /// kernel: a body flipping every 4 ticks covers 675px where a steady one
-    /// covers 1339. This column is the other half of that — whether a real
-    /// fighter flips anywhere near that often.
+    /// The initial dash (D217) re-arms on each new direction, so a body that
+    /// flips often restarts its dash instead of travelling. In the kernel, a
+    /// body flipping every 4 ticks covers 675px where a steady one covers 1339.
     steer_flips: usize,
     /// Ticks this fighter asked for a direction at all, so `steer_flips` has a
     /// denominator and "rarely flips" cannot mean "rarely moves".
@@ -88,57 +67,43 @@ struct Tally {
     best_charge: f32,
     /// Distinct move starts, so a match that throws one move reads as one.
     moves_started: usize,
-    /// The fastest launch this body was ever handed, and the speed its own
-    /// tuning says a launch has to beat to become a tumble. Printed together
-    /// because "nobody tumbled" has two very different causes and only these two
-    /// numbers separate them.
+    /// The fastest launch this body was handed, and the speed its own tuning
+    /// says a launch must beat to become a tumble. Together they separate the
+    /// two causes of "nobody tumbled".
     ///
-    /// ⛔ hitstun-gated on purpose. Plain top speed is not a launch: every attack
-    /// in this engine lunges, and George's lunge alone reads 1500 px/s against a
-    /// 500 px/s tumble threshold — a number that says a body was thrown when
-    /// nothing threw it.
+    /// Sampled only on hitstun. Every attack lunges (George's lunge reads
+    /// 1500 px/s against a 500 px/s tumble threshold), so plain top speed is
+    /// not a launch.
     top_speed: f32,
     tumble_speed: f32,
-    /// Ticks spent within a body-width or two of the nearest opponent. A match
-    /// where nothing happens is usually a match where nobody was ever in range,
-    /// and "moves thrown" cannot tell those apart.
+    /// Ticks within a body-width or two of the nearest opponent. "Moves thrown"
+    /// cannot tell a quiet match from one where nobody was in range.
     in_range: usize,
-    /// Times this body's percent fell back to zero from a live reading — a KO,
-    /// observed at the one edge that survives the body being removed and
-    /// replaced.
+    /// Times this body's percent fell back to zero from a live reading: a KO,
+    /// seen at the one edge that survives the body being replaced.
     kos: usize,
-    /// Every move START, by id. The decision histogram says what the brain
-    /// PRESSED; this says what the body actually threw — and the two differ
-    /// wherever the runtime takes a cancel window's nomination, which is exactly
-    /// where a chain lives.
+    /// Every move start, by id. The decision histogram says what the brain
+    /// pressed; this says what the body threw. They differ where the runtime
+    /// takes a cancel window's nomination, which is where chains live.
     started: std::collections::BTreeMap<String, usize>,
-    /// Launches HANDED to this body: rising edges of hitstun, the same edge
-    /// `top_speed` is sampled on. The peak alone cannot say whether a match had
-    /// one big hit or forty.
+    /// Launches handed to this body: rising edges of hitstun, the same edge
+    /// `top_speed` is sampled on. Separates one big hit from forty.
     launches: usize,
-    /// Ticks inside the HARD control lock at the front of a launch
-    /// (`BodyCombat::recoil_lock_timer`) while launched — the window
-    /// presentation reads as the launch BEAT, and the only thing that separates
-    /// a body thrown this instant from one that has been tumbling for a second.
-    /// Beside `launches` it says how long a beat lasts in practice; `0` means
-    /// the beat is inert and every launch trail is the same trail.
+    /// Ticks inside the hard control lock at the start of a launch
+    /// (`BodyCombat::recoil_lock_timer`), which presentation reads as the
+    /// launch beat. Beside `launches` it gives the beat length in practice;
+    /// `0` means the beat is inert.
     beat_ticks: usize,
-    /// THE SPEED A LAUNCHED BODY ACTUALLY FLIES AT, one sample per tick it
-    /// spends in involuntary flight (`hitstun > 0 || tumbling` — the same
-    /// predicate `LaunchedBodiesView` publishes).
+    /// The speed a launched body flies at, one sample per tick of involuntary
+    /// flight (`hitstun > 0 || tumbling`, the predicate `LaunchedBodiesView`
+    /// publishes).
     ///
-    /// ⛔ NOT `top_speed`. That is the speed at the tick the launch was WRITTEN,
-    /// which is the right statistic for "how hard do hits throw people" and the
-    /// wrong one for anything that watches a body in flight: gravity keeps
-    /// working, and a launched body reaching 1500 px/s in a match whose reported
-    /// peak launch was 1000 is ordinary, not an anomaly. Presentation gates its
-    /// launch cues on THIS distribution, so a threshold picked off the other one
-    /// is fitted to a number the gate never sees.
+    /// Not `top_speed`, which is the speed when the launch was written.
+    /// Gravity keeps working in flight. Presentation gates its launch cues on
+    /// this distribution, so fit such thresholds to it.
     flight_speeds: Vec<f32>,
-    /// Ticks this body spent HELD by somebody. A grab is the most visible beat
-    /// in the genre that a CPU can simply never throw, and "moves started"
-    /// cannot see it: a grab that is refused and a grab that is never attempted
-    /// look identical from the move table.
+    /// Ticks this body spent held by somebody. A refused grab and a grab never
+    /// attempted look the same in the move table.
     held: usize,
 }
 
@@ -155,10 +120,10 @@ pub struct MatchReportArgs {
     pub runs: usize,
     /// Load an authored difficulty ladder from a `.ron` and install it.
     ///
-    /// ⛔ **WITHOUT THIS THIS REPORT MEASURES THE ENGINE FLOOR**, not the shipped
-    /// game: `build_demo_app` installs no `AuthoredFighterLadder`, so every seat
-    /// carries `UtilityWeights::default()` — which IS the level-9 row — while
-    /// seated at level 5 for reaction, APM and noise. No player meets that.
+    /// Without it, this reports the engine floor, not the shipped game:
+    /// `build_demo_app` installs no `AuthoredFighterLadder`, so every seat
+    /// carries `UtilityWeights::default()` (the level-9 row) at level-5
+    /// reaction, APM, and noise.
     #[arg(long, value_name = "PATH")]
     pub ladder: Option<String>,
 }
@@ -171,8 +136,8 @@ pub fn run(args: MatchReportArgs) {
     #[cfg(feature = "causal")]
     let mut decisions = DecisionTally::new();
     let mut carried: Vec<String> = Vec::new();
-    // Parsed ONCE and cloned per run: a parse failure is a caller error and must
-    // stop before any match is simulated, not `runs` times in the middle of one.
+    // Parse once: a parse failure is a caller error and must stop before any
+    // match runs.
     let authored_ladder = args.ladder.as_deref().map(|path| {
         let text = std::fs::read_to_string(path).unwrap_or_else(|err| {
             eprintln!("[match_report] --ladder {path}: {err}");
@@ -186,11 +151,8 @@ pub fn run(args: MatchReportArgs) {
                 });
         ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder(ladder)
     });
-    // ⛔ WHICH LADDER, BEFORE THE FIRST NUMBER — and in `run` rather than in a
-    // report, because `runs == 1` and `runs > 1` take different report roads and a
-    // declaration in one of them is absent exactly half the time. A tool that
-    // measures a non-default configuration and does not say so is
-    // indistinguishable, in its output, from one that measures the default.
+    // Name the ladder before the first number. Do it here, not in a report
+    // function: `runs == 1` and `runs > 1` take different report paths.
     println!(
         "match_report: ladder: {}",
         if authored_ladder.is_some() {
@@ -215,12 +177,9 @@ pub fn run(args: MatchReportArgs) {
         })
         .collect();
 
-    // ⛔ AN EMPTY REPORT IS AN ANSWER NOBODY CAN READ. A character this demo's
-    // composition does not carry seats no fighter, every tally stays zero, and
-    // the tables below print their headers over nothing — which reads as "the
-    // fight was quiet" rather than "you asked about somebody who is not here".
-    // Measured 2026-08-23 with `npc_pirate_admiral`, which `app_it` seats
-    // successfully because it runs the FULL app; this bin runs the demo shell.
+    // An empty report is unreadable. A character this composition does not
+    // carry seats no fighter, and every tally stays zero, which looks like a
+    // quiet fight. This binary runs the demo shell, not the full app.
     if all.iter().all(|run| {
         run.iter()
             .all(|tally| tally.damage == 0 && tally.moves_started == 0)
@@ -258,10 +217,9 @@ type DecisionTally = std::collections::BTreeMap<(String, String), usize>;
 
 /// Count this tick's fighter decisions off the causal log.
 ///
-/// ⭐ THE FACT, not the trace line. `AMBITION_FIGHTER_TRACE=1` prints the same
-/// content as prose and counting it means a regex over wording somebody may
-/// improve; `first("fighter_decision").get("chose")` is a field lookup. That is
-/// the reason the fact exists and its own doc says so.
+/// Reads the fact, not the `AMBITION_FIGHTER_TRACE=1` prose:
+/// `first("fighter_decision").get("chose")` is a field lookup that wording
+/// changes cannot break.
 #[cfg(feature = "causal")]
 fn collect_decisions(app: &App, into: &mut DecisionTally) {
     let Some(log) = app
@@ -287,13 +245,8 @@ fn collect_decisions(app: &App, into: &mut DecisionTally) {
         *into
             .entry((situation.clone(), format!("move {chose}")))
             .or_default() += 1;
-        // THE ATTACK IS A SECOND DECISION, and counting only the movement verb
-        // hid that. The mechanics lane found the jab chain inert CPU-versus-CPU
-        // and had to reach for a separate move-id histogram to see it, because
-        // this one reported no attack row at all — it was not that the brain
-        // never attacked, it was that the instrument only asked one of the two
-        // questions the fact answers. `"none"` is a real answer here, distinct
-        // from a move called none.
+        // The attack is a second decision, so count it too. `"none"` is a real
+        // answer here, not a move called none.
         let attack = decided
             .get("attack")
             .map(|value| format!("{value}"))
@@ -338,9 +291,8 @@ fn run_one(
     seconds: usize,
     noise_seed: u64,
     #[cfg(feature = "causal")] decisions: &mut DecisionTally,
-    // ⭐ OUT-PARAM, because the header must MEASURE the composition rather than
-    // assert it, and this is the only place a built app is in hand. Filled on
-    // every run; they agree, and reading it here costs nothing.
+    // Out-param: the header must measure the composition, and this is where
+    // a built app is in hand. Filled on every run.
     carried: &mut Vec<String>,
     authored_ladder: Option<&ambition_platformer2d::characters::brain::fighter::AuthoredFighterLadder>,
 ) -> Vec<Tally> {
@@ -361,17 +313,15 @@ fn run_one(
     for _ in 0..30 {
         app.update();
     }
-    // Resolved at `Startup` from the ids the assembled catalog actually carries.
-    // Absent only if the demo's own plugin did not run, in which case the header
-    // says so rather than naming a list nobody verified.
+    // Resolved at `Startup` from the ids the assembled catalog carries. Absent
+    // only if the demo's own plugin did not run; the header then says so.
     *carried = app
         .world()
         .get_resource::<ambition_demo_smash::select::SmashRoster>()
         .map(|roster| roster.0.clone())
         .unwrap_or_default();
-    // BOTH SEATS CPU. `SmashSelect::roster` makes every locked seat a HUMAN,
-    // which is right for a couch game and wrong here: a report driven through it
-    // measures two fighters standing still while nobody presses anything.
+    // Both seats are CPUs. `SmashSelect::roster` makes every locked seat
+    // human, and nobody presses anything here.
     let characters = [character, character];
     let roster = ambition_demo_smash::smash_roster_at_levels(characters, &[5, 5]);
     app.world_mut().insert_resource(roster);
@@ -381,9 +331,8 @@ fn run_one(
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // Past the ceremony: every fighter carries scripted control for the whole
-    // 3-2-1-GO, so ticks inside the hold measure bodies that are forbidden to
-    // act. Read the count from the ruleset rather than restating it.
+    // Wait past the 3-2-1-GO: fighters are held for the whole ceremony. Read
+    // the count from the ruleset.
     let countdown = ambition_demo_smash::smash_roster(characters)
         .rules
         .opening_countdown_ticks;
@@ -391,9 +340,8 @@ fn run_one(
         app.update();
     }
 
-    // THE STREAM IS FORCED, and this rig supplies it rather than modelling how a
-    // live fighter gets one — the point is the SPREAD across streams, exactly as
-    // `ladder_probe` documents for the same reason.
+    // Force the stream: the point is the spread across streams (as
+    // `ladder_probe` does).
     {
         use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
         let world = app.world_mut();
@@ -480,9 +428,8 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
     if !moves.is_empty() {
         let mut rows: Vec<_> = moves.into_iter().collect();
         rows.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(b.0)));
-        // ⛔ THE TOTAL FIRST, AND SAY WHEN ROWS ARE WITHHELD. A bare `take(12)`
-        // cannot express the question a census is usually asked — whether anything
-        // NEW started — because a further row is dropped in silence.
+        // Print the total first and say when rows are withheld, so a new move
+        // is not dropped in silence.
         println!("\nwhat the bodies actually threw: {} distinct", rows.len());
         for (id, count) in rows.iter().take(12) {
             println!("  {id:<28} {count:>5}");
@@ -491,12 +438,8 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
             println!("  … and {} more not shown", rows.len() - 12);
         }
     }
-    // ⭐ HOW OFTEN A FIGHTER CHANGES ITS MIND about which way to walk. The
-    // initial dash (D217) is paid per direction CHANGE, not per tick — the
-    // phase re-arms on a new direction — so a body that flips often restarts
-    // its dash instead of travelling. Measured in the kernel: flipping every 4
-    // ticks covers 675px where a steady body covers 1339. This says whether a
-    // real fighter is anywhere near that.
+    // How often a fighter changes its walking direction. See
+    // `Tally::steer_flips`.
     println!("\nhow often each body changes its walking direction:");
     println!(
         "{:<6} {:>12} {:>12} {:>18}",
@@ -528,8 +471,7 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
             seat,
             tally.unhit_invuln,
             tally.unhit_evading,
-            // A SHARE of the column before it, not a sibling: these do not sum
-            // to `unhittable`.
+            // A share of the column before it: these do not sum to `unhittable`.
             tally.unhit_ledge,
             tally.unhit_parry_window,
             tally.unhit_iframes
@@ -539,9 +481,7 @@ fn report_one(character: &str, seconds: usize, totals: &[Tally], carried: &[Stri
         "\nticks are counts of SAMPLED TICKS in that state; damage is final percent, \
          parries and techs are events, charge is the best fraction reached."
     );
-    // THE ONE READING WORTH SAYING OUT LOUD. A match where nobody is ever
-    // launched is not a match, however much damage it accumulates, and that
-    // exact state shipped once already.
+    // Flag a match where nobody was launched, however much damage it has.
     if totals.iter().all(|t| t.tumbling == 0) {
         println!(
             "\n⚠ NOBODY TUMBLED. Hits are landing and nothing is being launched — \
@@ -562,9 +502,8 @@ fn sample(
     last_damage: &mut [i32],
     steer_was: &mut [f32],
 ) {
-    // THE STEER, sampled on its own pass because it lives on the control frame
-    // rather than on the body — and counted as SIGN CHANGES, which is the unit
-    // the initial dash is actually paid in.
+    // The steer lives on the control frame, not the body, so sample it in its
+    // own pass. Count sign changes: the initial dash is paid per change.
     {
         let world = app.world_mut();
         let mut q = world.query::<(
@@ -608,14 +547,11 @@ fn sample(
                 (
                     seat.0,
                     health.damage_taken(),
-                    // THE DAMAGE RULE'S OWN ANSWER, asked here rather than
-                    // reconstructed: a report that guessed at eligibility would
-                    // be a second opinion about the thing it measures.
+                    // Ask the damage rule's own answer; do not reconstruct eligibility.
                     (
                         health.health.invulnerable.any(),
                         facts.is_some_and(|f| f.evading()),
-                        // The ledge's own intangibility, which used to be
-                        // spelled as a dodge roll and so could not be counted.
+                        // The ledge's own intangibility.
                         facts.is_some_and(|f| f.ledge_intangible),
                         shield.is_some_and(|s| s.parrying()),
                         !combat.vulnerable(),
@@ -642,8 +578,8 @@ fn sample(
             },
         )
         .collect();
-    // WAS ANYBODY IN RANGE? A quiet match and a busy one both throw moves; only
-    // the distance between the bodies tells them apart.
+    // Was anybody in range? Only the distance between the bodies separates a
+    // quiet match from a busy one.
     const IN_RANGE_PX: f32 = 120.0;
     let positions: Vec<(usize, f32)> = rows.iter().map(|row| (row.0, row.10)).collect();
     for (
@@ -679,10 +615,8 @@ fn sample(
         {
             tally.in_range += 1;
         }
-        // ON THE RISING EDGE OF HITSTUN, which is the tick the launch was
-        // written. Sampling any later reads gravity's work as the attacker's:
-        // a body launched downward is faster every tick it falls, and the
-        // threshold it had to beat was the one it left with.
+        // Sample on the rising edge of hitstun, the tick the launch was written.
+        // Later ticks include gravity's work.
         if hitstun > 0.0 && hitstun_was[seat] <= 0.0 {
             tally.top_speed = tally.top_speed.max(speed);
             tally.launches += 1;
@@ -732,7 +666,7 @@ fn sample(
             if shield.active {
                 tally.shielding += 1;
             }
-            // An EVENT, not a state: the timer is counted on the tick it rises.
+            // An event, not a state: count the tick the timer rises.
             if shield.parry_caught_timer > parry_was[seat] {
                 tally.parries_caught += 1;
             }
@@ -761,26 +695,13 @@ fn sample(
     }
 }
 
-/// `min–median–max` across runs, which is the shape a threshold should be picked
-/// off. One number from one run is a sample of a noisy process, and this rig
-/// ⭐⭐ WHAT COMPOSITION THIS MEASUREMENT IS OF, printed on every run.
+/// The composition this measurement is of, printed on every run.
 ///
-/// ⛔ A PROOF THAT DOES NOT CARRY ITS SCOPE GETS BELIEVED BEYOND IT, and this
-/// has now cost two separate findings. This binary composes the SMASH DEMO
-/// SHELL, whose character catalog is a fraction of the full app's — twice in one
-/// day a lane proved a change live here, correctly, and the regression it missed
-/// existed only in the full app: once for a respawn interval that reads clean on
-/// George and costs `npc_pirate_admiral` two-thirds of its damage, and once for
-/// a perception bound that only bites characters this shell cannot seat.
-///
-/// So the header says which game was measured. A reader who then quotes the
-/// number at the shipped roster is making a claim this line already refused.
-/// ⛔⛔ THIS USED TO ASSERT THREE HARD-CODED IDS, AND A HAND-KEPT LIST DESCRIBING A
-/// COMPOSED ONE GOES STALE — which is the exact failure this header exists to
-/// prevent. `SmashRoster` is RESOLVED AT `Startup` from the ids the assembled
-/// catalog actually carries, so the honest header reads that resource instead of
-/// naming constants beside it. ⇒ if the demo shell's catalog grows, this line
-/// grows with it and nobody has to notice.
+/// This binary composes the smash demo shell, whose catalog is a fraction
+/// of the full app's. A change can look fine here and regress only in the
+/// full app, for characters this shell cannot seat. The list comes from
+/// `SmashRoster`, which is resolved at `Startup` from the catalog, so it
+/// cannot go stale.
 fn composition_scope(carried: &[String]) -> String {
     let names = if carried.is_empty() {
         "NOTHING — the catalog resolved empty".to_string()
@@ -799,7 +720,7 @@ fn composition_scope(carried: &[String]) -> String {
     )
 }
 
-/// exists because a change judged on one made the suite worse.
+/// `min–median–max` across runs: one run is a sample of a noisy process.
 fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &[String]) {
     println!(
         "match_report: {character} vs {character}, {seconds}s × {} runs, per-run TOTALS across both seats\n{}\n",
@@ -841,8 +762,7 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
     println!("  evading     {}", spread(|t| t.evading as f32));
     println!("  unhittable  {}", spread(|t| t.unhittable as f32));
     println!("  shielding   {}", spread(|t| t.shielding as f32));
-    // THE INITIAL DASH IS PAID PER DIRECTION CHANGE, so this is the number that
-    // says whether the phase would help a fighter or pin one. See D217.
+    // The initial dash is paid per direction change (D217).
     println!("  steer held  {}", spread(|t| t.steer_held as f32));
     println!("  steer flips {}", spread(|t| t.steer_flips as f32));
     println!(
@@ -858,9 +778,8 @@ fn report_spread(character: &str, seconds: usize, all: &[Vec<Tally>], carried: &
     println!("  launch beat {}", spread(|t| t.beat_ticks as f32));
     println!("  best charge {}", peak(|t| t.best_charge));
     println!("  peak launch {}", peak(|t| t.top_speed));
-    // POOLED, not min–median–max: this is a distribution over TICKS OF FLIGHT,
-    // not a per-run total, and a percentile of it is what a presentation gate
-    // on flight speed is actually choosing.
+    // Pooled, not min–median–max: this is a distribution over ticks of flight,
+    // and a presentation gate on flight speed picks a percentile of it.
     let mut flight: Vec<f32> = all
         .iter()
         .flat_map(|run| run.iter().flat_map(|t| t.flight_speeds.iter().copied()))

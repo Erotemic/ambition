@@ -7,9 +7,8 @@ use bevy::prelude::*;
 
 /// Portal-owned schedule labels.
 ///
-/// These labels are intentionally local to the portal subsystem. External
-/// systems should order against them only when they have a real semantic
-/// dependency on portal behavior; otherwise use the broader app-level sets.
+/// Order external systems against these only for a real dependency on portal
+/// behavior; otherwise use the app-level sets.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum PortalSet {
     /// Publish portal collision carves (the host orders this against any
@@ -17,9 +16,8 @@ pub enum PortalSet {
     Carves,
     /// Input rewrites that happen before the host input frame is synced.
     InputWarp,
-    /// Host input → portal intent translation (a host adapter), run
-    /// before the weapon/projectile consumers so the intents are visible the
-    /// same frame.
+    /// Host input to portal intent (a host adapter). Runs before the weapon
+    /// and projectile consumers, in the same frame.
     InputAdapter,
     /// Fire, toggle, and projectile systems (gameplay-gated by the host).
     WeaponAndProjectiles,
@@ -31,10 +29,10 @@ pub enum PortalSet {
     /// Temporary ability suppression while crossing a portal aperture.
     TransitGuards,
     /// This tick's portal frames: link resolution, aperture equalisation, and
-    /// the eviction of any body straddling a plane that moved or closed. The
-    /// eviction CARRIES a body, so a host places this set with its other
-    /// carries — before anything reads the tick's travelled path — and
-    /// [`PortalSet::Transit`] always follows it.
+    /// eviction of bodies straddling a plane that moved or closed. Eviction
+    /// moves bodies, so a host places this set with its other carries, before
+    /// anything reads the tick's travelled path. [`PortalSet::Transit`] follows
+    /// it.
     Frame,
     /// PlacedPortal cooldown, body transit, item transit, and actor roll updates.
     Transit,

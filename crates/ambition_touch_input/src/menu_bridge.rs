@@ -1,16 +1,15 @@
-//! The touch pointer-GESTURE lane and the touch active-input marker.
+//! The touch pointer-gesture lane and the touch active-input marker.
 //!
-//! Touch BUTTONS and the STICK are a virtual device resolved through the
-//! participant's bindings (see [`super::virtual_device`]) — they never write
-//! the semantic frames directly. What remains here is exactly what is a
-//! gesture rather than a bindable control:
+//! Touch buttons and the stick are a virtual device resolved through the
+//! participant's bindings (see [`super::virtual_device`]); they never write
+//! the semantic frames directly. Only true gestures remain here:
 //!
-//! - one-finger drags outside the on-screen controls fold into
-//!   [`MenuControlFrame::scroll_y`], the same lane the mouse wheel uses
-//!   (`populate_menu_control_frame_from_actions` adds wheel scroll; this
-//!   system adds drag scroll after it);
-//! - genuine touch activity marks the primary seat [`ActiveDevice::Touch`], the symmetric
-//!   counterpart of the keyboard/mouse/gamepad detector.
+//! - one-finger drags outside the controls fold into
+//!   [`MenuControlFrame::scroll_y`], the mouse wheel's lane
+//!   (`populate_menu_control_frame_from_actions` adds wheel scroll; this adds
+//!   drag scroll after it);
+//! - real touch activity marks the primary seat [`ActiveDevice::Touch`], like
+//!   the keyboard/mouse/gamepad detector.
 
 use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
@@ -21,12 +20,11 @@ use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
 use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
 
 /// Fold non-control touch drags into menu scroll, and mark touch as the
-/// active input source while the overlay is genuinely driving the game.
+/// active input source while the overlay drives the game.
 ///
 /// Runs after `populate_menu_control_frame_from_actions` (which rebuilds the
-/// frame from the participant's actions each frame) and before
-/// `MenuNavConsume`, so the drag contribution lands in the frame the menus
-/// read this frame.
+/// frame each frame) and before `MenuNavConsume`, so the drag lands in the
+/// frame menus read this frame.
 #[allow(clippy::too_many_arguments)]
 pub fn fold_touch_gestures(
     state: Res<MobileTouchState>,
@@ -39,14 +37,12 @@ pub fn fold_touch_gestures(
     mut frame: ResMut<MenuControlFrame>,
     mut devices: ResMut<SeatActiveDevices>,
 ) {
-    // The on-screen joystick / touch buttons are a FIRST-CLASS input source:
-    // any genuine overlay input this frame marks the primary seat's device
-    // `Touch`, which keeps the mouse hover-gate from being the active source
-    // while a finger drives a menu. The central detector already marks raw
-    // `Touches`; this covers the overlay's virtual controls, which a MOUSE
-    // can drive without any finger existing. A motionless stick + no buttons
-    // leaves the marker untouched (last-writer-wins), so it does not stomp
-    // keyboard/gamepad.
+    // Any real overlay input this frame marks the primary seat's device as
+    // `Touch`, so the mouse hover gate is not the active source while a
+    // finger drives a menu. The central detector marks raw `Touches`; this
+    // covers the virtual controls, which a mouse can also drive. A still
+    // stick and no buttons leave the marker alone (last writer wins), so
+    // keyboard and gamepad are not overridden.
     let touch = state.0;
     let stick_mag = (touch.move_x * touch.move_x + touch.move_y * touch.move_y).sqrt();
     let any_button_active = [
@@ -90,9 +86,8 @@ pub fn fold_touch_gestures(
 
 /// Should `pos` count as occupied by an on-screen touch control?
 ///
-/// Used by the menu drag-scroll path so dragging the move stick or tapping an
-/// action button doesn't accidentally trigger menu scroll. Reads the resolved
-/// placement, so it follows the controls wherever they were actually put.
+/// Used by menu drag-scroll, so dragging the stick or tapping a button does
+/// not scroll the menu. Reads the resolved placement.
 pub(super) fn touch_control_area_contains(
     pos: Vec2,
     placement: &crate::placement::TouchControlPlacement,

@@ -32,16 +32,6 @@ pub enum PaneRelation {
     Transiting,
 }
 
-/// Classify `drawable` (world-space bounds, as drawn) against one `pane`
-/// ([`pane_relation`]).
-///
-/// `transiting` wins over geometry. A body crossing the plane is already drawn
-/// as clipped pieces, and a second classification would add a duplicate copy.
-///
-/// A drawable exactly on the plane counts as the viewer's side. A body resting
-/// against the hole from the room is the ordinary near case, and this bias
-/// fails visible rather than invisible.
-///
 /// The pane's world rect: what it covers, and what is subtracted from a
 /// far-side drawable. [`pane_relation`] and the compositor both use this rect.
 /// Two spellings of `pos ± half_extent` could leave a hairline of the far body
@@ -50,6 +40,14 @@ pub fn pane_cover_rect(pane: &PlacedPortal) -> (Vec2, Vec2) {
     (pane.pos - pane.half_extent, pane.pos + pane.half_extent)
 }
 
+/// Classify `drawable` (world-space bounds, as drawn) against one `pane`.
+///
+/// `transiting` wins over geometry. A body crossing the plane is already drawn
+/// as clipped pieces, and a second classification would add a duplicate copy.
+///
+/// A drawable exactly on the plane counts as the viewer's side. A body resting
+/// against the hole from the room is the ordinary near case, and this bias
+/// fails visible rather than invisible.
 pub fn pane_relation(
     pane: &PlacedPortal,
     viewer: Vec2,

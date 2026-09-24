@@ -430,9 +430,18 @@ fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
         true,
         rules,
     );
-    let mut melee = crate::components::BodyMelee::default();
-    melee.begin(swing(), 0.0);
-    app.world_mut().entity_mut(victim).insert(melee);
+    // A melee move in its first frame: the swing is derived from it.
+    let strike = crate::moveset::simple_melee(&crate::moveset::SimpleMeleeParams::default());
+    let moveset = crate::moveset::ActorMoveset(ambition_entity_catalog::MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            crate::moveset::ATTACK_VERB.to_string(),
+            strike.id.clone(),
+        )]),
+        moves: vec![strike.clone()],
+    });
+    app.world_mut()
+        .entity_mut(victim)
+        .insert((crate::moveset::MovePlayback::new(strike, 1.0), moveset));
 
     app.update();
 
@@ -447,20 +456,6 @@ fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
         0.0,
         "a committed body was interrupted"
     );
-}
-
-/// A swing in flight, which is all the phantom-footstool rule reads.
-fn swing() -> crate::AttackSpec {
-    crate::AttackSpec {
-        intent: crate::AttackIntent::Neutral,
-        startup_seconds: 0.1,
-        active_seconds: 0.1,
-        recovery_seconds: 0.1,
-        hitbox_offset: ae::Vec2::ZERO,
-        hitbox_half_size: ae::Vec2::new(8.0, 8.0),
-        self_impulse: ae::Vec2::ZERO,
-        knockback: ae::Vec2::ZERO,
-    }
 }
 
 /// A TEAMMATE IS NOT A PLATFORM UNTIL THE MATCH SAYS SO.

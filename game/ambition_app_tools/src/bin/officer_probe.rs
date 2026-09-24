@@ -1,35 +1,22 @@
-//! WHICH WAY DOES THE OFFICER'S ROUND ACTUALLY GO?
+//! Which way does the officer's round go?
 //!
 //! `cargo run -p ambition_app_tools --bin officer_probe -- right`
 //! `cargo run -p ambition_app_tools --bin officer_probe -- left`
 //!
-//! ⭐⭐ THIS EXISTS BECAUSE THE DRAW WAS FIXED AND STILL FIRES BACKWARDS. Jon,
-//! 2026-08-30: *"the officer is still firing backwards, I thought we fixed that
-//! bug yesterday."* `fb9230363` pinned WHEN the round leaves — frame 6, 0.348s,
-//! where the muzzle flares — and added a test for it. Nothing anywhere states
-//! which WAY it leaves, so the fix and the complaint are about different facts.
+//! The existing test pins when the round leaves (frame 6, 0.348s, where the
+//! muzzle flares). Nothing else states which way it leaves.
 //!
-//! ⛔ A MOVESET TEST WOULD NOT CATCH THIS, which is `wire_probe`'s first lesson
-//! and the reason this is a probe. `MoveEventKind::Ranged` carries no direction:
-//! the spec says "fire the owner's ranged weapon" and the direction is chosen
-//! later, in `moveset/mod.rs`, from three sources in priority order:
+//! A moveset test cannot catch this. `MoveEventKind::Ranged` carries no
+//! direction; `moveset/mod.rs` chooses it later from three sources, in order:
 //!
-//!   1. `control.fire` — a live fire edge
-//!   2. `playback.aim` — the aim captured when the move STARTED
-//!   3. `kin.facing.signum()` — the body's facing
+//!   1. `control.fire`: a live fire edge
+//!   2. `playback.aim`: the aim captured when the move started
+//!   3. `kin.facing.signum()`: the body's facing
 //!
-//! A test over `officer_moveset()` proves the spec and never reaches any of
-//! them. This drives the production input road on a real host and reads the
-//! round that comes out.
-//!
-//! ⛔ IT REPORTS TWO SIGNS AND COMPARES THEM. The round's `vel.x` and the
-//! officer's `facing` are each meaningless alone — the question is only ever
-//! whether they agree. A probe that printed the velocity would leave the reader
-//! doing the comparison that is the whole point.
-//!
-//! ⚠ AND IT RUNS BOTH WAYS. A direction bug that reverses the shot looks
-//! identical to a correct shot if you only ever fire the way the character
-//! happens to start facing.
+//! This drives the production input path on a real host and reads the round
+//! that comes out. It reports the round's `vel.x` and the officer's `facing`
+//! and says whether they agree. It runs both ways, because a reversed shot
+//! looks correct if you only fire the way the character starts facing.
 
 #[path = "../probe_stage.rs"]
 mod probe_stage;
@@ -41,17 +28,9 @@ use bevy::prelude::*;
 /// Watch well past it so a round that arrives late is still seen.
 const WATCH_TICKS: usize = 90;
 
-/// ⛔⛔ THE OFFSET COLUMN WAS READING ONE TICK OF TRAVEL AS A MUZZLE OFFSET.
-/// A round is only VISIBLE to this probe on the tick after it spawns, by which
-/// point it has already moved `speed × dt` — for the Officer's 560 px/s that is
-/// 560 ÷ 60 = **9.33 px**, which is exactly the "+9.3 (ahead)" this probe
-/// reported and a handoff then cited as proof the spawn origin was correct.
-/// It was not measuring the spawn origin at all: the shot was born at
-/// `Muzzle::BodyOrigin`, a purely VERTICAL offset, i.e. horizontally ON him.
-///
-/// ⇒ back the travel out before judging where the round was BORN. An instrument
-/// that cannot distinguish "left from the barrel" from "left from his sternum
-/// and flew for one tick" cannot answer the question it exists to answer.
+/// A round is visible to this probe only on the tick after it spawns, when it
+/// has already moved `speed × dt` (560 ÷ 60 = 9.33 px for the Officer). Back
+/// that travel out before judging where the round was born.
 const SIM_DT: f32 = 1.0 / 60.0;
 
 fn main() {
@@ -71,27 +50,14 @@ fn main() {
         demo_host,
         rendered,
     });
-    // ⛔⛔ GET THE SPARRING PARTNER OUT OF THE MUZZLE, or the probe cannot
-    // measure the thing it exists to measure.
-    //
-    // Both seats are Officers standing close, and this probe HOLDS the stick to
-    // keep the facing — so firing toward seat1 walks into him as well as
-    // shooting at him. Once the muzzle moved to the hand (`Muzzle::Hand`) the
-    // round was being born close enough to land on the SAME TICK it spawned:
-    // 2026-08-30 the `right` run printed *"NO ROUND EVER SPAWNED"* while the
-    // sim clock printed `impact_hitstop` — the shot fired, connected and
-    // despawned between two samples, and `live_round` polls surviving
-    // projectiles.
-    //
-    // ⚠ THAT IS NOT A BUG IN THE SHOT. A point-blank hit is a hit. It is a bug
-    // in the INSTRUMENT: a probe whose answer depends on which way the other
-    // fighter happens to be standing reports "no round" for a working move,
-    // which is exactly the vacuous reading its own header warns about.
-    // ⭐ PLACED BEHIND THE SHOOTER RATHER THAN FAR AWAY. A big absolute teleport
-    // can leave the stage and be clamped or culled, which would trade this
-    // problem for a less obvious one; standing him a fixed distance BEHIND the
-    // muzzle keeps him on the stage and keeps the firing lane empty whichever
-    // way the run steers.
+    // Move the sparring partner out of the firing lane. Both seats are
+    // Officers standing close, and this probe holds the stick, so firing
+    // toward seat 1 walks into him. With the muzzle at the hand
+    // (`Muzzle::Hand`), a point-blank round can hit and despawn on the tick
+    // it spawns, and `live_round` only sees surviving projectiles. That would
+    // report "no round" for a working move.
+    // Place him a fixed distance behind the shooter, not far away: a large
+    // teleport can leave the stage and be clamped or culled.
     let (here, _) = probe_stage::kin(&app, seat0);
     let there = probe_stage::kin(&app, seat1).0;
     probe_stage::place(&mut app, seat1, Vec2::new(here.x - 220.0 * steer, there.y));
@@ -106,9 +72,8 @@ fn main() {
         if steer < 0.0 { "LEFT" } else { "RIGHT" }
     );
 
-    // ⛔⛔ THE INSTRUMENT PROVES ITSELF FIRST. If no round is ever spawned, every
-    // sign below is vacuous — and "no round" and "a round going the right way"
-    // both print nothing alarming unless the probe says which happened.
+    // The instrument proves itself first: if no round spawns, every sign
+    // below is vacuous, so say which happened.
     let settle = |app: &mut App, frame: ControlFrame, ticks: usize| {
         for _ in 0..ticks {
             ambition_platformer2d::sim::drive_control_frame(app.world_mut(), frame);
@@ -118,9 +83,8 @@ fn main() {
 
     settle(&mut app, ControlFrame::default(), 120);
 
-    // Turn him first, on its own, so the facing under test is settled BEFORE the
-    // special is pressed. Pressing a direction and the button on the same tick
-    // conflates "which way is he facing" with "which way was the stick".
+    // Turn him first, on its own, so the facing is settled before the special
+    // is pressed. Pressing both on one tick conflates facing with stick.
     settle(
         &mut app,
         ControlFrame {
@@ -148,17 +112,14 @@ fn main() {
          (stick {:+.0})",
         facing_at_press, steer
     );
-    // ⭐ THE OFFSET IS THE QUESTION THE VELOCITY CANNOT ANSWER. A round with the
-    // right velocity that leaves from BEHIND him still reads as firing
-    // backwards — that is what `fb9230363` ("the shot leaves where the flash
-    // is") was about, and a probe that only compared signs would call this run
-    // correct.
+    // The offset answers what the velocity cannot: a round with the right
+    // velocity that leaves from behind him still reads as firing backwards.
     println!(
         "  tick  facing   move                     officer.x   round.x   offset   vel.x"
     );
 
     let mut rounds_seen = 0usize;
-    // (tick, facing, observed offset, BORN offset with the tick of travel backed
+    // (tick, facing, observed offset, born offset with the tick of travel backed
     // out, vel.x)
     let mut first_round: Option<(usize, f32, f32, f32, f32)> = None;
     for tick in 0..WATCH_TICKS {
@@ -202,10 +163,9 @@ fn main() {
         }
         Some((tick, f, offset, born, vx)) => {
             let agree = (vx > 0.0 && f > 0.0) || (vx < 0.0 && f < 0.0);
-            // ⛔ THE VERDICT IS ON WHERE IT WAS BORN, NOT WHERE IT WAS FIRST
-            // SEEN. See `SIM_DT`: the seen offset always leads the born one by a
-            // full tick of travel, which is enough to make a shot that starts on
-            // his sternum look like it started ahead of him.
+            // Judge where the round was born, not where it was first seen. The
+            // seen offset leads the born one by a tick of travel (see
+            // `SIM_DT`).
             let muzzle_ahead = (born > 0.0 && f > 0.0) || (born < 0.0 && f < 0.0);
             println!(
                 "first round at tick {tick}: BORN at {born:+.1} from the officer \

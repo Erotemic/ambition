@@ -3,8 +3,8 @@
 //! Translates the Ambition [`ControlFrame`] (and the nearest-interactable HUD
 //! state) into the reusable portal intent messages
 //! ([`FirePortalGun`] / [`TogglePortalGun`] / [`DropPortalGun`] /
-//! [`PickUpPortalGun`]). Portal core consumes only those intents, so it never
-//! reads `ControlFrame` for the gun's gestures — a replay or a different input
+//! [`PickUpPortalGun`]). Portal core consumes only those intents and never
+//! reads `ControlFrame` for the gun's gestures, so a replay or another input
 //! layer can drive the gun by emitting the same messages.
 //!
 //! Gesture ownership lives here:
@@ -38,13 +38,12 @@ pub fn pick_aim(control: &ControlFrame, facing: f32) -> Vec2 {
     Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
 }
 
-/// Translate this frame's controller input into portal-gun intents for the body
-/// the local player is DRIVING (the controlled subject — home avatar or possessed
-/// actor). The gun is a `PortalGun` held BY that body, so gestures come from the
-/// controlled body's slot and the aim/holder from its own kinematics: possess an
-/// actor holding the gun and it fires from that actor, not the vacated home avatar.
-/// Runs in the portal weapon set so the intents are visible to the core
-/// fire/toggle/pickup/drop systems the same frame.
+/// Translate this frame's controller input into portal-gun intents for each
+/// driven body. The gun is a `PortalGun` held by that body, so gestures come
+/// from the body's slot and aim and holder from its own kinematics: possess an
+/// actor holding the gun and it fires from that actor, not the vacated home
+/// avatar. Runs in the portal weapon set so the core fire, toggle, pickup and
+/// drop systems see the intents in the same frame.
 #[allow(clippy::too_many_arguments)]
 pub fn portal_input_adapter_system(
     nearest: Option<Res<NearestInteractable>>,
@@ -53,17 +52,16 @@ pub fn portal_input_adapter_system(
     slots: Res<SlotControls>,
     // The controlled body: its brain (→ slot), position and held gun (if any).
     //
-    // A producer cannot know whether the action it names will be ACCEPTED — the drop is refused for
-    // a body holding a throwable, the fire is refused for an inactive gun — so spending the press
-    // here spent it for actions that never happened. See the drop branch below.
+    // A producer cannot know whether its action will be accepted (the drop is
+    // refused for a body holding a throwable, the fire for an inactive gun), so
+    // it does not spend the press. See the drop branch below.
     holders: Query<(
         Option<&DrivingParticipant>,
         &BodyKinematics,
         Option<&PortalGun>,
     )>,
-    // The seated half of the driven population — the union `DrivenBodies`
-    // names, spelled here because that `SystemParam` is the actor crate's and
-    // this adapter is content's.
+    // The seated half of the driven population: the union `DrivenBodies`
+    // names, written out here because that `SystemParam` is the actor crate's.
     driven_seats: Query<
         (
             Entity,
@@ -77,14 +75,13 @@ pub fn portal_input_adapter_system(
     mut drop: MessageWriter<DropPortalGun>,
     mut pickup: MessageWriter<PickUpPortalGun>,
 ) {
-    // ⭐ EVERY DRIVEN BODY MAKES ITS OWN GESTURES, and each gesture names the
-    // body that made it — so a couch's second seat can fire, toggle, drop and
-    // pick up its own gun. This resolved ONE `ControlledSubject`; the second
-    // seat's presses reached nothing.
+    // Every driven body makes its own gestures, and each gesture names its
+    // body, so a couch's second seat can fire, toggle, drop and pick up its own
+    // gun.
 
     let mut subjects: Vec<Entity> = Vec::new();
-    // ⛔ HELD SEPARATELY, because ONE thing here is not per-body: the held-gun
-    // presentation. See the `PortalAimHint` write below.
+    // Held separately, because the held-gun presentation is not per-body. See
+    // the `PortalAimHint` write below.
     let presented_subject = controlled.as_deref().and_then(|held| held.0);
     if let Some(subject) = presented_subject {
         subjects.push(subject);
@@ -101,16 +98,13 @@ pub fn portal_input_adapter_system(
             subjects.push(entity);
         }
     }
-    // The body whose gun is DRAWN: the controlled subject, else the first seat in
+    // The body whose gun is drawn: the controlled subject, else the first seat in
     // stable order. Never "whichever seat the loop visited last".
-    // ⛔ GATED TO MATCH ITS ONLY CONSUMER. The reader below is
-    // `#[cfg(feature = "portal_render")]`, so without that feature this binding
-    // had no use and the crate's own default build warned — a warning the
-    // WORKSPACE gate never shows, because feature unification turns
-    // `portal_render` on for somebody else. ⇒ Gated rather than underscored:
-    // `_presented_subject` would silence the report while leaving a computation
-    // nothing reads, and the honest structure is that the value exists exactly
-    // when its reader does.
+    // Gated to match its only reader, which is
+    // `#[cfg(feature = "portal_render")]`. Without the gate the crate's default
+    // build warns, which the workspace build never shows because feature
+    // unification enables `portal_render`. An underscore name would hide the
+    // warning but keep an unread computation.
     #[cfg(feature = "portal_render")]
     let presented_subject = presented_subject.or_else(|| subjects.first().copied());
     for subject in subjects {
@@ -123,19 +117,15 @@ pub fn portal_input_adapter_system(
         // Color toggle: Interact, but only when no genuine interactable (door / NPC /
         // switch) claims the press — matching the HUD label.
         if control.interact_pressed {
-            // ⛔⛔ THIS BODY'S REACH, NOT SEAT ZERO'S. It asked the singleton
-            // `NearestInteractable.0` — one answer computed from ONE controlled
-            // subject — inside a loop over every driven body. With two people
-            // playing, seat zero standing near a chest suppressed seat one's
-            // toggle, and seat zero standing clear let seat one both toggle AND
-            // interact.
+            // This body's reach, not seat zero's. The singleton
+            // `NearestInteractable.0` answers for one controlled subject, so inside
+            // this loop it would let seat zero's position suppress or allow seat one's
+            // toggle.
             //
-            // ⚠ IT IS STILL A PREDICTION, and that is a property of the phase
-            // rather than a shortcut: this adapter runs in `PlayerSimulation`
-            // and the interaction road SPENDS the press later, in
-            // `FeatureInteraction`, so the claim cannot be read — only
-            // anticipated. Both use the same `strict_intersects` reach, which is
-            // what keeps the anticipation right.
+            // It is still a prediction: this adapter runs in `PlayerSimulation`, and
+            // the interaction road spends the press later, in `FeatureInteraction`.
+            // Both use the same `strict_intersects` reach, which keeps the prediction
+            // right.
             let claimed = nearest
                 .as_deref()
                 .is_some_and(|n| !matches!(n.for_body(subject), InteractVariant::None));
@@ -144,21 +134,18 @@ pub fn portal_input_adapter_system(
             }
         }
         // Publish the resolved aim for the visible-build held-gun presentation
-        // (`sync_portal_mode_indicator`), so portal presentation reads this hint
-        // instead of `ControlFrame`. Render-only: the `PortalAimHint` resource exists
-        // exclusively behind `portal_render`.
+        // (`sync_portal_mode_indicator`), so presentation reads this hint, not
+        // `ControlFrame`. Render-only: `PortalAimHint` exists only behind
+        // `portal_render`.
         //
-        // ⛔⛔ THE CONTROLLED SUBJECT'S AIM ONLY, AND THIS IS INSIDE A LOOP OVER
-        // EVERY DRIVEN BODY. `PortalAimHint` is a SINGLETON, and the gun it
-        // describes is drawn for exactly one body — the `PortalAffordanceBody`
-        // sourced from `ControlledSubject`, read back with `carriers.single()`.
-        // Writing it once per seat meant the LAST seat in the loop won: with two
-        // people playing, seat zero's gun pointed wherever seat one was aiming.
+        // The controlled subject's aim only, inside a loop over every driven body.
+        // `PortalAimHint` is a singleton, and the gun it describes is drawn for one
+        // body: the `PortalAffordanceBody` from `ControlledSubject`, read back with
+        // `carriers.single()`. Writing it per seat would let the last seat win.
         //
-        // ⭐ THE GAMEPLAY ABOVE IS CORRECTLY PER-BODY; this one line is
-        // presentation, and presentation here has ONE viewer. If every seat ever
-        // gets a drawn gun, this becomes per-body state keyed by
-        // `PortalAffordanceBody` — not a singleton written N times.
+        // The gameplay above is per-body; this line is presentation, which has one
+        // viewer. If every seat gets a drawn gun, make this per-body state keyed by
+        // `PortalAffordanceBody`, not a singleton written N times.
         #[cfg(feature = "portal_render")]
         if Some(subject) == presented_subject {
             if let Some(aim_hint) = aim_hint.as_deref_mut() {
@@ -169,18 +156,14 @@ pub fn portal_input_adapter_system(
 
         if control.attack_pressed {
             if control.shield_held {
-                // Shield+Attack is the drop gesture — an INTENT, not a claim on the
-                // press.
+                // Shield+Attack is the drop gesture: an intent, not a claim on the press.
                 //
-                // So a body holding a laser sword pressed Shield+Attack, this spent the press, the drop
-                // refused the intent, and `throw_held_item_system` — whose Shield+Attack throw is the
-                // correct answer — found `melee_pressed == false` and did nothing. The item could not
-                // be thrown at all.
-                //
-                //  the press is spent where the action COMMITS. That also removes
-                // an ordering question rather than answering it: the drop and the
-                // throw are mutually exclusive by `Without<HeldItem>`, so whichever
-                // runs first, only the one that actually acts consumes the edge.
+                // The press is spent where the action commits. Otherwise a body holding a
+                // laser sword would lose the press here, the drop would refuse, and
+                // `throw_held_item_system` (whose Shield+Attack throw is correct) would see
+                // `melee_pressed == false`. The drop and the throw are mutually exclusive
+                // by `Without<HeldItem>`, so whichever runs first, only the one that acts
+                // consumes the edge.
                 drop.write(DropPortalGun { body: subject });
             } else if holding_gun {
                 // Plain Attack while holding the gun fires it.
@@ -188,32 +171,25 @@ pub fn portal_input_adapter_system(
                     aim: pick_aim(control, kin.facing),
                     body: subject,
                 });
-                // the press IS spent for a fire — but at the seam that accepts it. A weapon in
-                // hand owns the Attack press, and `trigger_moveset_moves` arbitrates that from
-                // `HeldItem` — which the portal gun is not, and must not become (its own component
-                // is the right shape).
+                // The press is spent for a fire, at the seam that accepts it:
+                // `resolve_portal_fire_intent`, after the gun answers (it refuses a gun
+                // that is not `active`). A weapon in hand owns the Attack press, and
+                // `trigger_moveset_moves` arbitrates from `HeldItem`, which the portal gun
+                // is not and must not become.
                 //
-                // but not HERE. `resolve_portal_fire_intent` refuses a gun
-                // that is not `active`, so spending the press in this branch spent it
-                // for fires that never happened, exactly as the drop branch above
-                // did. It is consumed there, after the gun has actually answered.
-                //
-                // still not special-cased in the arbiter: a third branch in
-                // `trigger_moveset_moves` naming `PortalGun` would add a path to the
-                // one place whose entire job is having a single one. Marking the
-                // press spent where it is spent is the mechanism the pickup and the
-                // throw already use, and it crosses the phase boundary for free —
-                // both run in `PlayerSimulation`, the trigger looks in `Combat`.
+                // The arbiter has no `PortalGun` branch: its job is to be the single path.
+                // Marking the press spent where it is spent is what the pickup and the
+                // throw do, and it crosses the phase boundary (both run in
+                // `PlayerSimulation`; the trigger reads in `Combat`).
                 //
                 // The gun stays tappable on a phone because the slot is untouched.
             } else {
                 // Plain Attack while NOT holding the gun is a pickup attempt
                 // (consumed only if overlapping an armed pickup).
                 //
-                // NOT consumed here. The grant path clears the press itself
-                // when it actually picks something up (`items::pickup`), and a press
-                // that grabs nothing must still reach the wearer's jab — swinging at
-                // empty air is the correct answer to "Attack while holding nothing".
+                // Not consumed here. The grant path clears the press when it picks
+                // something up (`items::pickup`), and a press that grabs nothing must
+                // still reach the wearer's jab.
                 pickup.write(PickUpPortalGun { body: subject });
             }
         }
@@ -225,10 +201,9 @@ mod tests {
     use super::*;
     use ambition_characters::control::ActorControl;
 
-    /// A body driving the gun, with the Attack press already on its slot AND on
-    /// its brain-resolved frame — which is how a real press arrives: the slot
-    /// carries the device gesture and `ActorControl` carries what the body will
-    /// act on.
+    /// A body driving the gun, with the Attack press on its slot and on its
+    /// brain-resolved frame, as a real press arrives: the slot carries the device
+    /// gesture and `ActorControl` carries what the body will act on.
     fn app_with_holder(holding: bool) -> (App, Entity) {
         let mut app = App::new();
         app.add_message::<FirePortalGun>();
@@ -257,8 +232,8 @@ mod tests {
         }
         let body = body.id();
         app.insert_resource(ControlledSubject(Some(body)));
-        // the COMPOSED path, not the adapter alone. The adapter is a read-only intent producer
-        // now; the press is spent by whichever system ACCEPTS the action.
+        // The composed path, not the adapter alone: the adapter only produces
+        // intents, and the system that accepts the action spends the press.
         app.add_message::<ambition_portal2d::PortalFireIntent>();
         app.add_systems(
             Update,
@@ -279,16 +254,12 @@ mod tests {
             .melee_pressed
     }
 
-    /// the gun answers the press, so the jab must not.
+    /// The gun answers the press, so the jab must not.
     ///
-    /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and the portal gun
-    /// is its own component — so the arbiter cannot see it and the wearer's jab answered the
-    /// same press.
-    ///
-    /// this now runs the adapter AND the resolver, because the press is
-    /// spent where the fire is accepted rather than where it is requested. The
-    /// outcome is identical for a real fire; what changed is that a REFUSED
-    /// action can no longer eat the press.
+    /// `trigger_moveset_moves` arbitrates the Attack press from `HeldItem`, and
+    /// the portal gun is its own component, so the arbiter cannot see it. This
+    /// runs the adapter and the resolver, because the press is spent where the
+    /// fire is accepted: a refused action cannot eat the press.
     #[test]
     fn firing_the_gun_spends_the_attack_press() {
         let (mut app, body) = app_with_holder(true);
@@ -307,10 +278,9 @@ mod tests {
         );
     }
 
-    /// The poison, and it is the case that must NOT change. Attack while holding
-    /// nothing is a pickup attempt; if it grabs nothing, the press belongs to the
-    /// wearer's jab. Swinging at empty air is the correct answer, and consuming
-    /// the press here would silently delete the unarmed attack.
+    /// The negative control. Attack while holding nothing is a pickup attempt;
+    /// if it grabs nothing, the press belongs to the wearer's jab. Consuming it
+    /// here would silently delete the unarmed attack.
     #[test]
     fn attacking_with_no_gun_leaves_the_press_for_the_body() {
         let (mut app, body) = app_with_holder(false);
@@ -329,14 +299,10 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ TWO SEATS, TWO GUNS, TWO PORTALS — from one tick's presses.
+    /// Two seats, two guns, two portals, from one tick's presses.
     ///
-    /// ⛔⛔ THE GESTURE CARRIED AN AIM AND NOTHING ELSE, so this adapter
-    /// resolved one `ControlledSubject` and the resolver re-derived the firer
-    /// the same way. A second seat holding a portal gun made a press that
-    /// reached nothing, and a resolver that had simply looped driven bodies
-    /// would have had to GUESS whose press it was and fired one shot per body
-    /// for one press. Every gun gesture names its body now.
+    /// Every gun gesture names its body. Without that, the resolver would have to
+    /// guess whose press it was, or fire one shot per body for one press.
     #[test]
     fn two_driven_bodies_each_fire_their_own_portal_gun() {
         let mut app = App::new();
@@ -401,8 +367,8 @@ mod tests {
             2,
             "two seats each pressed Attack holding an active gun; got {origins:?}"
         );
-        // ⛔ AND EACH SHOT LEAVES ITS OWN BODY. Two intents could both come from
-        // one body if the resolver still re-derived the firer.
+        // Each shot leaves its own body. Both intents could come from one body if
+        // the resolver re-derived the firer.
         assert!(
             origins.contains(&100.0) && origins.contains(&900.0),
             "each shot must originate at its own firer: {origins:?}"

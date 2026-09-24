@@ -98,10 +98,9 @@ fn teleported_portal_evicts_straddler_but_stable_portal_does_not() {
     );
 }
 
-/// CC6: a HOSTED aperture riding its face is the same portal in motion,
-/// not a close — a straddling body must NOT be evicted (the dynamic
-/// straddle re-evaluates; eviction stays a CLOSE-only pushout). A
-/// teleport of the same channel still evicts (covered above).
+/// A hosted aperture moving with its face is not a close, so a straddling
+/// body is not evicted. A teleport of the same channel still evicts (tested
+/// above).
 #[test]
 fn host_carried_motion_does_not_evict_a_straddler() {
     let mut app = app();

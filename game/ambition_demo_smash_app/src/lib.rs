@@ -1,23 +1,19 @@
-//! This crate exists for one reason that the content crate cannot supply: until
-//! something runs the stage, every claim about the stocks loop is a unit test.
-//! The loop is spend → respawn → eliminate → end, and each step is covered
-//! individually; what is NOT covered anywhere is that a fighter knocked off THIS
-//! platform, with THIS blast margin, reaches the world's edge at all.
-//!
-//! That is the gap a demo app closes and a fixture cannot: the numbers stop
-//! being arguments and start being a fight.
+//! The runnable smash demo. Unit tests cover each step of the stocks loop
+//! (spend → respawn → eliminate → end). This app runs the stage, so tests can
+//! check that a fighter knocked off this platform, with this blast margin,
+//! reaches the world's edge.
 
 use bevy::prelude::*;
 
-/// Assemble the demo: foundation + engine group + host group + the smash
-/// experience under a standalone shell host. Zero engine edits, zero
-/// `ambition_app`.
+/// Draw the stage and its blast margins as a PNG.
 pub mod stage_diagram;
 
-/// The `smash_tool` subcommands. One module each; see `tools/mod.rs` for why
-/// they are modules of the library rather than nine separate binaries.
+/// The `smash_tool` subcommands, one module each (see `tools/mod.rs`).
 pub mod tools;
 
+/// Assemble the headless demo: foundation, engine group, host group, and
+/// the smash experience under a standalone shell host, with no engine edits
+/// and no `ambition_app`. This is also the harness for this crate's tests.
 pub fn build_demo_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
@@ -26,74 +22,44 @@ pub fn build_demo_app() -> App {
     #[cfg(feature = "visible")]
     app.add_plugins(ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default());
     compose_smash_shell(&mut app);
-    // This shell was the third and never joined.
+    // After `compose_smash_shell`: the assets plugin reads the catalogs the
+    // shell registers, and panics on the wrong order.
     //
-    // AFTER `compose_smash_shell`, because the plugin READS the catalogs it
-    // registers — the plugin's own doc says so, and it panics naming the
-    // composition-order mistake rather than booting art-less.
-    //
-    // `visible` only, deliberately. `build_demo_app` is also the harness
-    // for this crate's regression tests, and they assert on a stepping
-    // simulation rather than on pixels; sanic draws the same line by keeping its
-    // asset install in `build_windowed_demo_app`.
+    // `visible` only: the regression tests use this builder and assert on the
+    // stepping simulation, not on pixels.
     #[cfg(feature = "visible")]
     {
         // No world manifest: the stage is authored in Rust, so this demo ships
-        // no `.ldtk` and a world-less catalog contributes no world rows while
-        // every other entry still lands — the same shape as sanic.
+        // no `.ldtk`. A world-less catalog contributes no world rows; every
+        // other entry still lands.
         app.add_plugins(
             ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
                 ambition_demo_smash::SMASH_EXPERIENCE,
             )
             // Startup binding precedes activation, so the theme comes from the
-            // authored stage rather than a session root that does not exist yet.
+            // authored stage.
             .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
         );
         app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
     }
-    // ⛔⛔ OUTSIDE THE `visible` BLOCK, AND NOT ONLY TO SILENCE A WARNING. The
-    // smash ruleset's answer to "how do portals present" does not depend on
-    // whether this composition is drawing: a headless run that later gains a
-    // renderer, a diagnostic that reads the resource, and the windowed shell
-    // should all get the same answer. ⇒ Stating it unconditionally removes the
-    // cfg coupling entirely rather than adding an `allow(dead_code)` over it.
-    //
-    // ⚠ It is inert without the render plugin — two resources nobody reads —
-    // which is the correct cost of a host stating a preference it may not be
-    // able to act on yet.
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app
 }
 
-/// The same demo, DRAWN.
+/// The same demo, drawn.
 ///
-/// [`build_demo_app`] starts from `add_headless_foundation` — `MinimalPlugins`
-/// plus assets, images, transforms and states — so it has no renderer, no
-/// window and no `winit`, whatever features are on. Under `visible` it gains
-/// presentation SYSTEMS and still has nothing to present to, and `main`'s
-/// `app.run()` then spins the schedules against no display. **This demo has
-/// therefore never been seen through its own shell**; Smash on a screen has
-/// been the main app's versus route, which is a different composition.
+/// [`build_demo_app`] starts from `add_headless_foundation`
+/// (`MinimalPlugins` plus assets, images, transforms, and states), so it has
+/// no renderer, window, or `winit` whatever features are on. This goes
+/// through the engine's windowed foundation.
 ///
-/// This is that missing half, and it goes through the ENGINE's windowed
-/// foundation rather than a fourth hand-rolled `DefaultPlugins`.
-/// [`Display::Offscreen`] is what a capture runs on: a real backend with no
-/// window, which also means no app runner, so an offscreen caller steps the app
-/// itself.
-///
-/// ✅ mary-o, sanic and twintrack were migrated to this same foundation on
-/// 2026-08-29, so there is no longer a hand-rolled `DefaultPlugins` among the
-/// demos. Each keeps its own `RenderMode` enum as its public vocabulary and maps
-/// it to `Display` in one `From` impl.
-///
-/// ⛔ THE ONE THING THAT DID NOT TRANSFER, and it is worth knowing before adding
-/// a fourth demo: those builders also installed `ScheduleRunnerPlugin` on their
-/// offscreen arm. This foundation deliberately does NOT — `Display::Offscreen`
-/// is CALLER-STEPPED, which is what a capture wants — so each demo's `capture_*`
-/// binary now asks for the runner itself, because it is the only consumer that
-/// calls `run()`.
+/// [`Display::Offscreen`] is a real backend with no window and no app
+/// runner, so an offscreen caller steps the app itself. Unlike the old
+/// hand-rolled builders, this foundation installs no `ScheduleRunnerPlugin`
+/// on the offscreen arm; a `capture_*` binary that calls `run()` must add
+/// it.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> App {
     let mut app = App::new();
@@ -105,8 +71,7 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     compose_smash_shell(&mut app);
-    // AFTER the shell, because the plugin READS the catalogs it registers —
-    // the same order `build_demo_app` states and for the same reason.
+    // After the shell: the assets plugin reads the catalogs it registers.
     app.add_plugins(
         ambition_platformer2d::game_assets::PlatformerAssetsPlugin::for_experience(
             ambition_demo_smash::SMASH_EXPERIENCE,
@@ -114,9 +79,7 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
         .with_room(ambition_demo_smash::smash_stage().metadata.clone()),
     );
     app.add_plugins(ambition_platformer2d::presentation::PlatformerPresentationPlugin);
-    // One `update()` is exactly one sim tick, as in `build_demo_app`. For a
-    // capture this is the difference between "about a second later" and "sixty
-    // ticks later".
+    // One `update()` is exactly one sim tick, as in `build_demo_app`.
     let timestep = app
         .world()
         .resource::<bevy::time::Time<bevy::time::Fixed>>()
@@ -125,60 +88,19 @@ pub fn build_windowed_demo_app(display: ambition_platformer2d::app::Display) -> 
     app
 }
 
-/// ⭐⭐ A VERSUS MATCH CANNOT USE THE SEAMLESS PORTAL PRESENTATION, AND SAYING SO
-/// HERE IS THE POINT — Jon, 2026-09-05: *"because it is not a 1 player game, we
-/// can't use the seamless portal presentation. This will be a good check to make
-/// sure that it can be disabled on a case by case basis. I think we can use the
-/// static small cone presentation though."*
-///
-/// ⛔ THE REASON IS THE CAMERA, NOT TASTE. `PortalCameraTransitMode::Continuous`
-/// maps the viewpoint through an aperture while a CONTROLLED BODY straddles it —
-/// a single-subject effect by construction. A smash camera frames the whole
-/// cast, so there is no one body whose transit the view should follow, and a
-/// continuity roll taken on one fighter's behalf moves the frame the OTHER
-/// player is reading. ⇒ `Pop`: the camera behaves exactly as it always does, and
-/// a portal becomes something that happens inside the shot rather than to it.
-///
-/// ⭐ AND `Static` RATHER THAN `Off`, which is the more interesting half. The
-/// view window still draws — Alice's up-B opens two apertures and a player has
-/// to see where the far one leads — it simply stops being viewer-dependent.
-/// `Dynamic` gates the cone on one viewer's line of sight, which asks the same
-/// unanswerable question the camera does: WHOSE. The authored cone is identical
-/// for both players, and small because a fighter-sized aperture is what she
-/// opens.
-///
-/// ⇒ **This is the case-by-case check Jon asked for, and it is one resource
-/// each.** Both are plain overwrites on the host, which `camera_continuity`'s
-/// own module doc names as the sanctioned road: *"The resource in this module is
-/// the single source of truth for the live mode. Hosts may surface it in a debug
-/// menu, but should not mirror the default into a second `DeveloperTools` or
-/// settings field."* ⛔ So the smash demo gains no portal-presentation setting of
-/// its own; it states its answer to the one that already exists.
-///
-/// ⚠ CALLED AFTER `PlatformerPresentationPlugin`, deliberately. The plugin
-/// installs the engine defaults (`Continuous`, `Dynamic`), and an override
-/// placed before it would be silently replaced or not depending on whether the
-/// plugin used `init_resource` or `insert_resource` — which is not a detail a
-/// host should have to know to be correct.
-
 fn compose_smash_shell(app: &mut App) {
-    // HOME is the select screen, not the stage. A platform fighter that opens on
-    // the stage has already decided who you are, and leaving a match should
-    // return to the screen that chose it rather than to a launcher listing one
-    // experience.
+    // Home is the select screen, not the stage: a platform fighter asks who
+    // you are before the match, and leaving a match returns to that screen.
     ambition_platformer2d::provider::ShellComposition::new(
         ambition_demo_smash::SMASH_EXPERIENCE,
         ambition_demo_smash::SMASH_SELECT_ROUTE,
         ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
     )
-    // Boot onto SELECT. Neither `PrimaryGameplay` nor `Launcher` says this, which
-    // is why `starting_at` exists.
+    // Boot onto select. Neither `PrimaryGameplay` nor `Launcher` says this,
+    // so use `starting_at`.
     .starting_at(ambition_demo_smash::SMASH_SELECT_ROUTE)
-    // by keying frontend audio on the route instead of the process.
-    //
-    // What stays here is the DEFAULT for this app's other frontend routes —
-    // loading, and anything a future screen adds — which is a claim about this
-    // composition and belongs to the composition.
+    // The default frontend audio for this app's other frontend routes
+    // (loading, and any future screen). It belongs to this composition.
     .with_frontend_audio(
         ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
             ambition_demo_smash::SMASH_EXPERIENCE,
@@ -195,23 +117,15 @@ fn compose_smash_shell(app: &mut App) {
 
 #[cfg(test)]
 mod portal_presentation_tests {
-    // ⚠ NO `use super::*`: this module no longer builds an app. It asserts the
-    // ENGINE's defaults, which it names through the umbrella, and the behavioural
-    // half moved to a test that composes the real thing.
+    // No `use super::*`: this module builds no app. It checks the engine's
+    // defaults; the behavioural half is
+    // `the_ruleset_states_the_portal_presentation_not_the_binary`.
 
-    /// ⭐⭐ THE SMASH HOST TURNS THE SEAMLESS PORTAL PRESENTATION OFF, AND THE
-    /// ENGINE DEFAULT PROVES IT IS AN OVERRIDE — Jon, 2026-09-05: *"a good check
-    /// to make sure that it can be disabled on a case by case basis."*
-    ///
-    /// ⛔ THE CONTROL IS THE WHOLE TEST. Asserting only that the host holds `Pop`
-    /// and `Static` would pass just as well if those were the ENGINE defaults and
-    /// this function did nothing — the case-by-case claim would be untested and
-    /// the day the default flips, silently false. So both halves are asserted:
-    /// the engine ships `Continuous`/`Dynamic`, and the host ships neither.
-    ///
-    /// ⚠ It also fails LOUDLY if somebody promotes `Pop` to the engine default,
-    /// which is correct: at that moment this override stops being a per-case
-    /// decision and becomes a restatement, and somebody should have to look.
+    /// The smash ruleset turns the seamless portal presentation off
+    /// (`Pop`/`Static`). This checks the premise: the engine still defaults to
+    /// `Continuous`/`Dynamic`, so the ruleset's choice is a real per-case
+    /// override. If the engine default changes, this fails so that someone
+    /// re-checks the override.
     #[test]
     fn the_engine_defaults_still_make_the_rulesets_choice_an_override() {
         use ambition_platformer2d::portal_presentation as portal_view;
@@ -232,24 +146,8 @@ mod portal_presentation_tests {
              host's `Static` proves nothing about disabling it per case"
         );
 
-        // ⛔⛔ WHAT THIS TEST NO LONGER ASKS, and why. It used to build an app,
-        // call this crate's own `select_smash_portal_presentation`, and assert
-        // the two resources came out `Pop`/`Static`. That function is GONE: it
-        // was the divergence itself. The selection lived in this BINARY, so the
-        // standalone demo drew the static cone while the game a player actually
-        // reaches Smash through — the main app's versus route — drew the engine
-        // default. Jon found it by playing.
-        //
-        // ⇒ `SmashExperiencePlugin` states it now, and both compositions install
-        // that plugin. The behavioural half moved to
-        // `the_ruleset_states_the_portal_presentation_not_the_binary`, which asks
-        // the COMPOSED app rather than a hand-built one — the only shape that can
-        // tell "the ruleset declared it" from "this test declared it".
-        //
-        // ⭐ WHAT STAYS HERE IS THE PREMISE, which nothing else checks: the two
-        // asserts above prove the engine still DEFAULTS to seamless and
-        // viewer-dependent, so the ruleset's `Pop`/`Static` remain real overrides
-        // rather than restatements of a default that quietly changed underneath
-        // them.
+        // `SmashExperiencePlugin` states the presentation, and every composition
+        // installs it. `the_ruleset_states_the_portal_presentation_not_the_binary`
+        // asks the composed app. This test only checks the engine defaults above.
     }
 }

@@ -158,7 +158,7 @@ fn possessed_actor_reads_this_frame_slot_input() {
 #[test]
 fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
     use ambition_platformer2d::actors::features::Hitbox;
-    use ambition_platformer2d::combat::components::BodyMelee;
+    use ambition_platformer2d::combat::moveset::{melee_swing_of, ActorMoveset, MovePlayback};
 
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
@@ -172,10 +172,8 @@ fn attack_while_possessing_starts_the_possessed_actors_melee_not_the_home() {
 
     // Robust to catch-up; still proves "attack started this body's melee".
     let melee_engaged = |sim: &mut Platformer2dSimHarness, e: Entity| {
-        sim.world_mut()
-            .get::<BodyMelee>(e)
-            .map(|m| m.is_swinging() || m.cooldown > 0.0)
-            .unwrap_or(false)
+        let world = sim.world_mut();
+        melee_swing_of(world.get::<MovePlayback>(e), world.get::<ActorMoveset>(e)).is_some()
     };
 
     // Hold Attack across a window. The possessed actor holds the primary seat, so its

@@ -1,6 +1,5 @@
-//! ⛔⛔ THE RATE LIMIT IS THE MOVE. "Holding a direction turns it" would pass
-//! against a bolt that SNAPS to the stick — which is a cursor, not a bolt, and
-//! removes the one cost the move has: a turn spends distance.
+//! The rate limit is the move. A bolt that snaps to the stick is a cursor, and
+//! it removes the move's one cost: a turn spends distance.
 
 use super::*;
 use ambition_platformer2d::actor::MatchSeat;
@@ -11,11 +10,9 @@ fn app() -> App {
     let mut app = App::new();
     app.init_resource::<ambition_platformer2d::time::WorldTime>();
     app.add_message::<EffectRequest>();
-    // ⛔⛔ THE TRAIL CHANNEL, AND WITHOUT IT `steer_and_fly_bolts` DOES NOT RUN.
-    // A world that does not register a message a system WRITES fails that
-    // system's parameter validation and drops it silently — every bolt test went
-    // red at once when the bolt learned to draw itself. FOURTH time this shape
-    // has appeared in this demo today, and it is always a whole file at once.
+    // The trail channel. `steer_and_fly_bolts` writes it, and a system that
+    // writes an unregistered message fails parameter validation and is
+    // dropped without an error.
     app.add_message::<ambition_platformer2d::vfx::vfx::VfxMessage>();
     app.add_message::<ActorActionMessage>();
     let mut time = app
@@ -72,9 +69,8 @@ fn fire(app: &mut App, actor: Entity) {
 /// Hold `stick` on `who` from now on.
 fn hold(app: &mut App, who: Entity, stick: ae::Vec2) {
     let mut control = app.world_mut().get_mut::<ActorControl>(who).unwrap();
-    // ⭐ `undamped_locomotion` IS what `steer_axis()` returns — the field that
-    // survives the damped republish, and the reason a rooted move can be aimed
-    // at all.
+    // `undamped_locomotion` is what `steer_axis()` returns: the field that
+    // survives the damped republish, so a rooted move can be aimed.
     control.0.undamped_locomotion = Some(ae::LocalAxes::new(stick.x, stick.y));
 }
 
@@ -97,9 +93,8 @@ fn the_bolt_leaves_forward_and_belongs_to_the_seat_that_fired_it() {
     assert!(out[0].vel.x > 0.0, "it left backwards: {:?}", out[0].vel);
 }
 
-/// ⭐ THE TURN IS RATE-LIMITED, WHICH IS THE WHOLE COST OF STEERING. At 220°/s
-/// one tick turns it under 4°, so a bolt that snapped to the stick would be
-/// pointing the other way immediately and this test is what tells them apart.
+/// The turn is rate-limited, which is the cost of steering. At 220°/s one tick
+/// turns under 4°; a bolt that snapped would point the other way at once.
 #[test]
 fn the_stick_turns_the_bolt_gradually_and_never_snaps_it() {
     let mut app = app();
@@ -120,8 +115,7 @@ fn the_stick_turns_the_bolt_gradually_and_never_snaps_it() {
         "the bolt did not turn at all"
     );
 
-    // ⛔ AND THE SPEED IS UNCHANGED BY TURNING. A rotation that also scaled the
-    // velocity would make a steered bolt faster or slower than an authored one.
+    // The speed does not change when the bolt turns.
     assert!(
         (after_one.length() - opening.length()).abs() < 0.5,
         "turning changed the speed from {} to {}",
@@ -138,16 +132,15 @@ fn the_stick_turns_the_bolt_gradually_and_never_snaps_it() {
     }
 }
 
-/// ⭐⭐ THE THUNDER JACKET: it comes home and throws him.
+/// The thunder jacket: the bolt comes home and launches its caster.
 #[test]
 fn the_bolt_launches_its_caster_and_does_not_damage_him() {
     let mut app = app();
     let caster = fighter(&mut app, 1, 0.0);
     fire(&mut app, caster);
-    // ⭐ IT MUST LEAVE HIM FIRST, which is the move's own rule and not a fixture
-    // convenience: a bolt that has not got clear cannot answer its caster, or
-    // every press would be an instant self-launch. Ten ticks at 300px/s is
-    // 50px, comfortably outside his box.
+    // The bolt must leave him first. This is the move's rule: otherwise every
+    // press would be an instant self-launch. Ten ticks at 300px/s is 50px,
+    // outside his box.
     for _ in 0..10 {
         app.update();
     }
@@ -185,8 +178,8 @@ fn the_bolt_launches_its_caster_and_does_not_damage_him() {
     );
 }
 
-/// ⛔ AND A FOE TAKES THE HIT INSTEAD, which is the other half: a bolt that only
-/// ever answered its caster would be a recovery with no offence at all.
+/// A foe takes the hit instead. A bolt that only hit its caster would be a
+/// recovery with no offence.
 #[test]
 fn the_bolt_damages_somebody_else_and_is_spent() {
     let mut app = app();
@@ -247,19 +240,14 @@ fn a_caster_with_no_seat_fires_nothing() {
     assert!(bolts(&mut app).is_empty());
 }
 
-/// ⛔⛔ CASTER AND RIVAL IN ONE BOLT: THE SAME THING HAPPENS IN EITHER SPAWN
-/// ORDER, AND IT IS THE OFFENSIVE HIT.
+/// Caster and rival in one bolt: the result is the offensive hit in either spawn
+/// order.
 ///
-/// This loop broke on the first overlapping body, so when the returning bolt
-/// found its caster and a rival on the same tick, Bevy's iteration order chose
-/// between the Thunder Jacket (a recovery, launching the caster) and an
-/// offensive hit (a `DamageBox` on the rival). ⇒ Two completely different moves,
-/// selected by nothing anybody authored, and not stable across a rollback
-/// resimulation.
-///
-/// ⭐ A RIVAL BEATS THE CASTER — the design statement, not just a stabilised
-/// coin-toss: a bolt that COULD connect does the offensive thing, and the jacket
-/// is what it does when it finds nobody else.
+/// If the loop stops on the first overlapping body, Bevy's iteration order
+/// chooses between the thunder jacket and the hit on the rival. That choice is
+/// not authored and is not stable across a rollback resimulation. A rival
+/// beats the caster by design: the jacket is what the bolt does when it finds
+/// nobody else.
 #[test]
 fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
     let meeting = ae::Vec2::new(0.0, 0.0);
@@ -287,8 +275,8 @@ fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
             damage: 8,
             knockback: 90.0,
             self_launch: 640.0,
-            // It has left him: the jacket is legal this tick, which is what
-            // makes the two outcomes genuinely available at once.
+            // It has left him, so the jacket is legal this tick and both
+            // outcomes are available.
             clear_of_caster: true,
         });
         app.update();
@@ -319,20 +307,12 @@ fn a_bolt_touching_both_prefers_the_rival_in_either_spawn_order() {
     );
 }
 
-/// ⛔⛔ THE BOLT DRAWS ITSELF WHILE IT FLIES, AND THE MOVE IS UNPLAYABLE WITHOUT
-/// IT.
+/// The bolt draws a trail while it flies. The caster steers it, so without a
+/// visible path the move is unusable.
 ///
-/// `SteeredBolt` emitted a `DamageBox` on contact and NOTHING ELSE — no sprite,
-/// no effect, no trail. ⇒ A projectile whose entire mechanic is that the player
-/// steers it with the stick, which the player could not see. **That is worse than
-/// an invisible trap: a trap the opponent cannot see is unfair, a TOOL THE CASTER
-/// CANNOT SEE is unusable.**
-///
-/// ⭐ THE INTERVAL IS ASSERTED, NOT JUST THE PRESENCE. A 60Hz trail is sixty
-/// effect requests a second for one projectile that lives for seconds — the
-/// authored `trail_every_s` is what keeps the path readable without making one
-/// move the loudest thing on the channel. Counting marks over a known span is the
-/// only way to tell "it draws" from "it floods".
+/// The test asserts the interval, not only the presence. A trail every tick is
+/// sixty effect requests a second; the authored `trail_every_s` keeps the path
+/// readable without flooding the channel.
 #[test]
 fn the_bolt_marks_its_path_on_the_authored_interval_rather_than_every_tick() {
     let mut app = app();

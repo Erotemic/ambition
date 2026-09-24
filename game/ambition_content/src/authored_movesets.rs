@@ -1,31 +1,16 @@
-//! Every moveset THIS CRATE authors, in one list.
+//! Every moveset this crate authors, in one list.
 //!
-//! ⛔⛔ NOT THE SELECTABLE CAST, and the distinction cost a real proof. The
-//! shark's one-hit survivability census scanned this list and read as a
-//! statement about the game. Twenty-one fighters are selectable; this list holds
-//! the ones whose tables live in THIS crate, and a hand-kept list narrows in
-//! silence because the crate that owns it cannot know a fighter was added
-//! somewhere else.
+//! This is not the selectable cast. Some fighters (Mary-O, Sanic) keep their
+//! tables in their own crates, and this crate cannot see them. A hand-kept
+//! list can also fall behind silently when a fighter is added.
 //!
-//! ⚠ **AND IT HAD NARROWED, EXACTLY AS THAT SENTENCE PREDICTED — 12 of 19,
-//! found 2026-09-05 and completed the same day.** This paragraph used to name
-//! Pointed, Projectile and Pugnacious Polygon, the Director, the Performer, the
-//! Officer and the Medic as fighters the roster seats and this list does not
-//! hold. Six of those seven have their moveset file in this crate, so they were
-//! never examples of the cast/list distinction — they were the gap, sitting
-//! inside a sentence written to explain why a gap was fine. ⇒ Mary-O and Sanic
-//! ARE that distinction: their tables live in their own crates, and no list
-//! here can reach them.
+//! The cast's authority is `SmashRoster::assemble` against a live
+//! `PreparedCharacterRegistry`, then each prepared character's
+//! `kit.projectable_moveset()`. That needs an app;
+//! `a_recovery_mount_cannot_be_deleted_by_one_hit` uses it.
 //!
-//! ⭐ THE CAST HAS AN AUTHORITY AND IT IS NOT A TABLE: `SmashRoster::assemble`
-//! against a live `PreparedCharacterRegistry`, then each prepared character's
-//! `kit.projectable_moveset()`. It costs an app, which is why this list existed
-//! — but a census is worth an app, and
-//! `a_recovery_mount_cannot_be_deleted_by_one_hit` now pays it.
-//!
-//! ⇒ WHAT THIS LIST IS FOR is the question it can actually answer: does every
-//! move THIS CRATE authors drive its own seam correctly (`moveset_sound`). That
-//! subject and this list are the same thing by construction.
+//! Use this list for questions about moves this crate authors (for example
+//! `moveset_sound`).
 
 use ambition_entity_catalog::MovesetContract;
 
@@ -69,13 +54,6 @@ pub fn tables() -> Vec<(&'static str, MovesetContract)> {
             "theorem_chain",
             crate::player_robot_moveset::theorem_chain_moveset(),
         ),
-        // ⭐⭐ THE SEVEN THIS LIST NAMED AS ABSENT AND THEN WAS COMPLETED WITH,
-        // 2026-09-05. The module doc above explained that the Smash roster seats
-        // fighters this list does not hold — true of Mary-O and Sanic, whose
-        // tables live in their own crates, and NOT true of these seven, whose
-        // moveset files are in this crate. So the header's "every moveset THIS
-        // CRATE authors" was the accurate sentence and the list was the thing
-        // out of step: 12 of 19.
         ("director", crate::director_moveset::director_moveset()),
         ("medic", crate::medic_moveset::medic_moveset()),
         ("officer", crate::officer_moveset::officer_moveset()),
@@ -101,33 +79,29 @@ mod reach_tests {
 
     /// The ordinary ceiling for a grab's reach, in pixels.
     ///
-    /// A fifth of the shipped smash platform's 480px width — the same number
-    /// and the same reasoning as the smash demo's own ceiling, stated against
-    /// the STAGE rather than the body so it means something a reader can check.
+    /// A fifth of the shipped smash platform's 480px width, the same as the
+    /// smash demo's ceiling. It is stated against the stage, not the body.
     const ORDINARY_REACH_PX: f32 = 96.0;
 
     /// What a declared TETHER may reach instead.
     ///
-    /// A third of the platform. A tether is supposed to be startling; what it
-    /// may not be is a grab that covers the stage.
+    /// A third of the platform: a tether may surprise, but must not cover the
+    /// stage.
     const TETHER_REACH_PX: f32 = 160.0;
 
     /// The grabs allowed past [`ORDINARY_REACH_PX`], and why.
     ///
-    /// ⛔⛔ AN ALLOWLIST RATHER THAN A RAISED CEILING, and the difference is the
-    /// whole guard. Lifting the single ceiling to 160 would let EVERY fighter
-    /// grow a tether silently, one authored number at a time, and the guard
-    /// would report nothing until the whole roster reached a third of the stage.
-    /// Naming the exceptions makes "this fighter has a tether" a reviewed fact
-    /// with a line number.
-    /// ⭐ NAMES THE AUTHORED GRAB ONLY. `author_standing_grab` derives a running
-    /// variant by cloning the standing grab's WINDOWS — so a tether standing
-    /// grab is automatically a tether dash grab, which is genre-correct and is
-    /// also not a second decision. Listing `…_grab_dash` separately would make
-    /// the derivation look like an independent permission and let the two drift.
+    /// An allowlist, not a raised ceiling. Raising the ceiling to 160 would let
+    /// every fighter grow a tether without review. Naming each exception makes it
+    /// a reviewed fact.
+    ///
+    /// Name only the authored grab. `author_standing_grab` derives the running
+    /// variant by cloning the standing grab's windows, so a tether standing grab
+    /// is also a tether dash grab. Listing `…_grab_dash` separately would let the
+    /// two drift.
     const TETHERS: &[&str] = &[
-        // The grid's ranged fighter. Samus's grab is a tether, and hers is the
-        // only combat identity on the roster built around distance.
+        // The ranged fighter. Its identity is built around distance, so its grab is
+        // a tether.
         "polygon_projectile_grab",
     ];
 
@@ -140,22 +114,13 @@ mod reach_tests {
     }
 
     /// No authored grab reaches further than the stage allows, across every
-    /// moveset THIS CRATE authors.
+    /// moveset this crate authors.
     ///
-    /// ⛔⛔ ITS SIBLING IN THE SMASH DEMO COULD NOT SEE THIS CRATE AT ALL, and
-    /// that is why this exists rather than a shared helper.
-    /// `no_grab_this_demo_authors_reaches_further_than_the_stage_allows`
-    /// (renamed from `no_authored_grab_…` in this same commit, because the old
-    /// name was the overclaim) iterates the stand-in kit and George — the two
-    /// movesets the demo owns — while
-    /// `ambition_demo_smash` does not depend on `ambition_content`, so eleven
-    /// selectable fighters' grabs were outside a guard whose NAME says
-    /// "no authored grab". A reader checking whether tethers were covered would
-    /// have read that name and stopped.
-    ///
-    /// ⇒ The population is `tables()`, which was itself 12 of the 19 movesets
-    /// this crate authors until the same day this landed. A guard is only as
-    /// honest as the list it walks.
+    /// The smash demo's
+    /// `no_grab_this_demo_authors_reaches_further_than_the_stage_allows` covers
+    /// only the demo's own movesets, because `ambition_demo_smash` does not
+    /// depend on `ambition_content`. This test covers the movesets in
+    /// `tables()`.
     #[test]
     fn no_authored_grab_reaches_further_than_the_stage_allows() {
         let mut seen = 0usize;
@@ -206,22 +171,17 @@ mod reach_tests {
                 }
             }
         }
-        // ⛔ THE POPULATION FLOOR. This crate authors several standing grabs; a
-        // run that found none would pass every assertion above and mean the
-        // capture key, the window shape or `tables()` had moved under it.
+        // Population floor. This crate authors several standing grabs; finding none
+        // means the capture key, the window shape or `tables()` changed.
         assert!(
             seen >= 3,
             "only {seen} authored capture attempt(s) were found across \
              {} movesets, so this guard is measuring nothing rather than passing",
             super::tables().len(),
         );
-        // ⛔ AND THE ALLOWLIST MUST BE LIVE. A `TETHERS` entry naming a move that
-        // no longer exists is a permission nobody can see being granted, and it
-        // would keep the ceiling raised for a move id a typo could reintroduce.
-        // ⛔ AND THE ALLOWLIST MUST BE LIVE. An entry naming a move that no
-        // longer exists is a permission nobody can see being granted. Each
-        // tether contributes TWO — itself and the derived running variant — so
-        // a count below that also catches the derivation silently disappearing.
+        // The allowlist must be live: an entry naming a removed move is an invisible
+        // permission. Each tether contributes two moves (itself and the derived
+        // running variant), so a lower count also catches a lost derivation.
         assert_eq!(
             tethers_seen,
             TETHERS.len() * 2,
@@ -239,41 +199,28 @@ mod reach_tests {
 mod flow_tests {
     use super::tables;
 
-    /// ⛔⛔ **EVERY SHIPPED FLOW STILL RUNS THE TRACE IT WAS AUTHORED FOR** —
-    /// A12's last acceptance row, asked of the AUTHORED CONTENT rather than of a
-    /// synthetic fixture.
+    /// Every shipped flow still runs the trace it was authored for (A12).
     ///
-    /// `ambition_combat`'s own flow tests build their graphs by hand, so every
-    /// one of them would keep passing while a shipped flow's edges were rewired
-    /// underneath them. `problems()` runs at authoring and is STRUCTURAL — it
-    /// catches a dangling edge and an unreachable `Finish` and says nothing about
-    /// what the flow DOES. Nothing anywhere ran a shipped flow through the
-    /// interpreter, so "existing flows retain their traces" was an acceptance row
-    /// with no witness.
+    /// `ambition_combat`'s flow tests use hand-built graphs, and `problems()` is
+    /// structural only (dangling edges, unreachable `Finish`). This runs each
+    /// shipped flow through the interpreter.
     ///
-    /// ⭐ BOTH ROADS OF EVERY FLOW, because these are all `Wait`-shaped and a
-    /// trace taken on one road cannot see the other. The satisfied road is the
-    /// grab; the timeout road is the whiff, and the whiff emitting NOTHING is the
-    /// half a careless edit breaks — an `on_timeout` pointed at the `Emit`
-    /// instead of at `Finish` hands the fighter a free grab for missing, which is
-    /// exactly the balance decision the goblin's own comment agonises over.
+    /// Every road of every flow is checked, because these are all `Wait`-shaped.
+    /// The timeout road (the whiff) must emit nothing: an `on_timeout` pointed at
+    /// the `Emit` instead of `Finish` would give a free grab on a miss.
     ///
-    /// ⚠ THE EXPECTED TABLE IS EXACT AND MUST COVER THE DISCOVERED SET. A new
-    /// authored flow FAILS this test until somebody writes down what it emits.
-    /// That is the ratchet: a hand-kept list that only ever gets read is the
-    /// failure mode this file's own header describes.
+    /// The expected table is exact and must cover the discovered set, so a new
+    /// authored flow fails this test until its trace is written down.
     #[test]
     fn every_shipped_flow_still_runs_the_trace_it_was_authored_for() {
         use ambition_combat::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
         use ambition_entity_catalog::MoveEventKind;
         use bevy::prelude::*;
 
-        // ⛔ A ROAD IS A CONTACT STATE, NOT A BOOLEAN. The oni's flow BRANCHES on
-        // `Blocked` after waiting on `Overlapped`, so it has three roads, and a
-        // two-road table would leave the branch untested — the exact shape of a
-        // guard walking half its subject. `MoveContact::overlapped` is derived as
-        // `landed || connected || blocked`, so a blocked road needs no separate
-        // landed flag to count as having touched something.
+        // A road is a contact state, not a boolean. The oni's flow branches on
+        // `Blocked` after waiting on `Overlapped`, so it has three roads.
+        // `MoveContact::overlapped` is `landed || connected || blocked`, so a blocked
+        // road needs no separate landed flag.
         #[derive(Clone, Copy)]
         struct Road {
             what: &'static str,
@@ -306,31 +253,26 @@ mod flow_tests {
         // Every shipped flow, every road, and what it emits there.
         let expected: std::collections::BTreeMap<&str, Vec<(Road, Vec<&str>)>> = [
             (
-                // THE GOBLIN'S TACKLE, three nodes: wait on the connect, grab,
-                // finish. A landed charge grabs; a whiff is the punish window and
-                // has to stay empty-handed.
+                // The goblin's tackle: wait on the connect, grab, finish. A landed charge
+                // grabs; a whiff must stay empty-handed.
                 "headlong_charge",
                 vec![
                     (CONNECTED, vec![grab]),
                     (WHIFFED, vec![]),
-                    // ⭐ A BLOCKED CHARGE MUST NOT GRAB, and this road is the one
-                    // the move's own comment argues for: waiting on the overlap
-                    // "would hand the goblin a grab for running into a shield —
-                    // the single most punishable thing in the genre becoming its
-                    // best option". That is a balance decision written in prose
-                    // beside an authored edge; this is the assertion of it.
+                    // A blocked charge must not grab. Waiting on the overlap would give the
+                    // goblin a grab for running into a shield; this asserts the move's
+                    // comment.
                     (BLOCKED, vec![]),
                 ],
             ),
             (
-                // THE ONI LEADER'S IAIJUTSU, four nodes: wait on the overlap,
-                // branch on the guard, teleport behind them, finish.
+                // The oni leader's iaijutsu: wait on the overlap, branch on the guard,
+                // teleport behind them, finish.
                 "iaijutsu",
                 vec![
                     (BLOCKED, vec![teleport]),
-                    // ⛔ HE DOES NOT ESCAPE A HIT THAT LANDED. The branch's
-                    // `otherwise` is `Finish`; a connect taking the teleport road
-                    // would let him cut and vanish with no answer.
+                    // He does not escape a hit that landed: the branch's `otherwise` is
+                    // `Finish`.
                     (CONNECTED, vec![]),
                     (WHIFFED, vec![]),
                 ],
@@ -341,18 +283,10 @@ mod flow_tests {
 
         /// What the flow emitted, in order.
         ///
-        /// ⛔⛔ **A SYSTEM WITH A `MessageReader`, NOT A CURSOR TAKEN PER TICK,
-        /// AND THE DIFFERENCE IS A WRONG ANSWER THAT LOOKS RIGHT.** The first
-        /// version of this called `Messages::get_cursor()` inside the tick loop.
-        /// A fresh cursor starts at the OLDEST buffered message and bevy holds
-        /// messages for two frames, so every emission was counted TWICE and both
-        /// flows reported `[grab, grab]`. A `MessageReader` in a system keeps its
-        /// cursor in system-local state and reads each message once.
-        ///
-        /// ⚠ THE EMPTY ROADS COULD NOT HAVE CAUGHT IT — zero doubled is zero — so
-        /// the roads that emit are the only arms with any power over this class
-        /// of instrument bug. That is an argument for pinning the exact trace
-        /// rather than asserting "the grab happened".
+        /// Use a `MessageReader` in a system, not a cursor per tick. A fresh cursor
+        /// starts at the oldest buffered message, and bevy keeps messages for two
+        /// frames, so each emission would be counted twice. Only the roads that emit
+        /// can catch that, which is why the exact trace is pinned.
         #[derive(bevy::prelude::Resource, Default)]
         struct Seen(Vec<String>);
 
@@ -389,8 +323,8 @@ mod flow_tests {
             app.add_systems(Update, (advance_move_playback, capture).chain());
 
             let mut pb = MovePlayback::new(spec.clone(), 1.0);
-            // The contact fact the flow branches on, stated up front — the same
-            // fields the strike seam and the damage road write in production.
+            // The contact fact the flow branches on, set up front in the same fields
+            // the strike seam and damage road write in production.
             pb.landed_hit = road.landed;
             pb.connected_hit = road.connected;
             pb.blocked_hit = road.blocked;
@@ -447,10 +381,8 @@ mod flow_tests {
             wrong.join("\n  ")
         );
 
-        // ⛔ THE RATCHET, both directions. A flow this crate authors that nobody
-        // wrote an expectation for is not covered, and an expectation naming a
-        // move that no longer authors a flow is a stale line pretending to guard
-        // something.
+        // Ratchet in both directions: a flow with no expectation is not covered,
+        // and an expectation for a move with no flow is stale.
         let want: std::collections::BTreeSet<String> =
             expected.keys().map(|k| (*k).to_string()).collect();
         assert_eq!(
@@ -459,7 +391,7 @@ mod flow_tests {
              apart — a new authored flow needs its trace written down here, and a \
              removed one needs its line taken out"
         );
-        // ⛔ ANTI-VACUITY: an empty roster would satisfy both assertions above.
+        // Anti-vacuity: an empty roster would satisfy both assertions above.
         assert!(
             found.len() >= 2,
             "this crate authors fewer than two flows, so the walk found almost \
@@ -467,40 +399,21 @@ mod flow_tests {
         );
     }
 
-    /// ⛔⛔ EVERY HELD ITEM A MOVE CREATES HAS ART, OR IT IS A PLACEHOLDER QUAD.
+    /// Every held item a move creates has an art entry. Without one,
+    /// `HeldItemArt` resolves to the placeholder quad.
     ///
-    /// Jon, 2026-09-05, asked for three icons — the mine, the bomb and the
-    /// ponytail — and this is the executable form of that ask. `HeldItemArt`'s
-    /// own doc says the resolution is *"absent / unmatched → the placeholder
-    /// quad"*, so a move that spawns a pickup nobody drew ships a grey box that
-    /// no test notices and every player does.
+    /// The scan is structural: `ParamValue` is a `ron::Value`, so this walks
+    /// every authored effect's params for a field named `item_id`, whatever the
+    /// technique. A new move is covered automatically.
     ///
-    /// ⭐ THE SCAN IS STRUCTURAL, NOT A LIST OF TECHNIQUES. `ParamValue` is a
-    /// `ron::Value`, so this walks every authored effect's params for a field
-    /// literally named `item_id` — whatever technique owns it. A future move
-    /// that names a held item is covered without anybody remembering this test,
-    /// which is the failure mode a hand-kept list of keys always has.
-    ///
-    /// ⚠ IT PASSES, AND I EXPECTED IT TO FAIL — which corrected the row it was
-    /// written for. The campaign recorded the mine, the bomb and the ponytail as
-    /// "drawing the placeholder quad", and I read that as missing REGISTRATIONS.
-    /// They are all three registered (`items/held_visuals.rs`); my earlier grep
-    /// matched only literal `HeldItemArtEntry::new("…")` calls and missed how
-    /// these are declared. ⇒ What is actually missing is the ART FILE — no
-    /// `polygon_*.png` exists anywhere in the asset tree.
-    ///
-    /// ⛔ AND THAT IS NOT THIS TEST'S QUESTION, deliberately. Sprites are
-    /// GENERATED and gitignored, so a Rust test asserting a PNG exists would
-    /// fail on every checkout that has not run the sprite pipeline. Presence
-    /// belongs to `scripts/check_published_sheets_are_present.py`, which asks the
-    /// renderer what it claims to install. What THIS holds is the half that is
-    /// always true on every machine: a move that names a held item must have an
-    /// entry, or the id resolves to nothing whatever the asset tree looks like.
+    /// This checks registration only, not that the PNG exists. Sprites are
+    /// generated and gitignored, so a file check would fail on a fresh checkout.
+    /// `scripts/check_published_sheets_are_present.py` checks presence.
     #[test]
     fn every_held_item_a_move_creates_has_art() {
         use bevy::prelude::App;
 
-        // What the roster ASKS FOR: every `item_id` any authored effect names.
+        // What the roster asks for: every `item_id` any authored effect names.
         fn item_ids_in(params: &ambition_entity_catalog::ParamValue) -> Vec<String> {
             let ron::Value::Map(map) = &params.0 else {
                 return Vec::new();
@@ -516,14 +429,9 @@ mod flow_tests {
                 .collect()
         }
 
-        // ⛔⛔ **IT WALKED TWO OF THE FOUR SITES A MOVE CAN NAME A TECHNIQUE
-        // FROM.** This reached into `windows[..].sustain_effect` and
-        // `events[..].kind` by hand and never looked at a volume's `on_hit` or a
-        // flow node's `Emit` — so a held item created from either was invisible
-        // here and shipped the placeholder quad, which is precisely the failure
-        // this test exists to catch. `MoveSpec::effect_refs` is exhaustive by
-        // destructure, so a fifth site is a compile error at the walk rather than
-        // a silent gap in every consumer that hand-listed four.
+        // Use `MoveSpec::effect_refs`, which is exhaustive by destructure. It covers
+        // all sites (window sustains, events, volume `on_hit`, flow `Emit`), and a
+        // new site is a compile error there.
         let mut wanted: std::collections::BTreeSet<String> = Default::default();
         for (_, contract) in tables() {
             for mv in &contract.moves {
@@ -533,15 +441,14 @@ mod flow_tests {
             }
         }
 
-        // ⛔ ANTI-VACUITY. A walk that finds no item at all passes forever, and
-        // it is what a structural scan looks like when the field is renamed.
+        // Anti-vacuity: a renamed field would make the walk find nothing.
         assert!(
             !wanted.is_empty(),
             "no authored effect names an `item_id`, so this guard is comparing \
              an empty set against the manifest"
         );
 
-        // What the game DRAWS.
+        // What the game draws.
         let mut app = App::new();
         app.add_plugins(crate::items::AmbitionItemRosterPlugin);
         let drawn: std::collections::BTreeSet<String> = app
@@ -563,24 +470,16 @@ mod flow_tests {
         );
     }
 
-    /// ⛔⛔ AN AUTHORED PORTAL RISE HAS TO LAND INSIDE THE STAGE A PLAYER CAN SEE.
+    /// An authored portal rise must land inside the visible stage.
     ///
-    /// Jon, 2026-09-05, playing it: *"the second portal appears too high, I want
-    /// it to be placed so its above the main surface level, but in the visible
-    /// part of the stage."* Alice's up-B opened its exit **320 px** above her,
-    /// and the smash ruleset's ceiling blast margin is **240** — so the exit sat
-    /// outside the playable box entirely. That is why it read as "too high"
-    /// rather than merely tall.
+    /// Alice's up-B once opened its exit 320 px above her, past the smash
+    /// ruleset's 240 px ceiling blast margin, so it was outside the playable box.
     ///
-    /// ⛔ THE BOUND IS ANOTHER CRATE'S NUMBER, AND THAT IS THE WEAKNESS OF THIS
-    /// GUARD, stated rather than hidden. `ambition_demo_smash::CEILING_BLAST_MARGIN_PX`
-    /// owns it; this crate cannot depend on the ruleset, so the value is repeated
-    /// here. ⇒ It is `pub` over there with a doc pointing at this test, so a
-    /// change has one place that names the other — but nothing MAKES them agree,
-    /// and a reviewer moving the margin has to remember this line.
+    /// The bound belongs to `ambition_demo_smash::CEILING_BLAST_MARGIN_PX`, which
+    /// this crate cannot depend on, so it is repeated here. That constant's doc
+    /// points at this test, but nothing forces them to agree.
     ///
-    /// ⚠ IT DOES NOT PIN THE VALUE. 150 is tuning and Jon's to move; what this
-    /// holds is that whatever it becomes stays somewhere a player can watch it.
+    /// The rise value itself (150) is tuning and is not pinned.
     #[test]
     fn an_authored_portal_rise_stays_inside_the_stage() {
         use ambition_entity_catalog::smash_portal::{PortalPairParams, PORTAL_PAIR};
@@ -589,10 +488,8 @@ mod flow_tests {
         /// crate is below the ruleset and cannot read it.
         const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
 
-        // ⛔ THE TIMELINE'S EVENTS, NOT A WINDOW'S SUSTAIN. `author_portal_pair`
-        // attaches the pair as a `MoveEvent` at a beat — it takes a TIME — and
-        // scanning sustains found nothing at all. The anti-vacuity arm below is
-        // what caught that, which is the whole reason it is there.
+        // Scan the timeline's events, not window sustains: `author_portal_pair`
+        // attaches the pair as a `MoveEvent` at a time.
         let mut checked = 0usize;
         for (fighter, contract) in tables() {
             for mv in &contract.moves {
@@ -621,8 +518,7 @@ mod flow_tests {
             }
         }
 
-        // ⛔ ANTI-VACUITY. No authored portal pair means this walked nothing,
-        // which is what a roster that dropped the move looks like.
+        // Anti-vacuity: no portal pair means the roster dropped the move.
         assert!(
             checked >= 1,
             "no shipped move authors a portal pair, so this guard is checking an \
@@ -630,28 +526,16 @@ mod flow_tests {
         );
     }
 
-    /// ⛔⛔ EVERY CANCEL TARGET RESOLVES, AND THE ROSTER ACTUALLY USES THE
-    /// CONDITIONAL CANCEL.
+    /// Every cancel target resolves, and the roster uses the conditional cancel.
     ///
-    /// A `Cancelable` window's `into` list shares one namespace — literal move
+    /// A `Cancelable` window's `into` list shares one namespace: literal move
     /// ids, verbs, and the classes `cancel_class_names()` derives from
-    /// `cancel_names_for`. A name in none of the three is a DEAD STRING:
+    /// `cancel_names_for`. A name in none of these is dead: the window opens, the
+    /// press is looked up, and nothing answers.
     ///
-    /// ⚠ That read *"the classes in `CANCEL_CLASS_NAMES`"* until 2026-09-19,
-    /// and the body of this very test records why the const went: it omitted
-    /// `smash`, `grab` and `taunt`, which produced a FALSE POSITIVE on the
-    /// medic's `smash`. The correcting paragraph was added 25 lines below and
-    /// this sentence was left standing, so the doc comment introduced the guard
-    /// with the definition the guard itself had rejected. the window opens, the press is looked up, and
-    /// nothing answers. Silent, and indistinguishable from a move whose author
-    /// never wrote a follow-up.
-    ///
-    /// ⭐ AND THE SECOND HALF IS THE ONE THAT CAUGHT SOMETHING. Measured
-    /// 2026-09-05: `CancelCondition::OnHit`, `OnWhiff` and `OnBlock` had **zero**
-    /// customers across the whole roster, while `OnHit`'s own doc describes the
-    /// genre's most-pressed sequence ("combo confirm — jab chains into jab2 on
-    /// hit"). A capability with no customer is a capability nobody has proved,
-    /// so this guard requires one to exist.
+    /// The second half requires at least one customer of
+    /// `CancelCondition::OnHit` / `OnWhiff` / `OnBlock`, so the capability is
+    /// exercised.
     #[test]
     fn every_cancel_target_resolves_and_a_confirm_is_authored() {
         use ambition_entity_catalog::{
@@ -664,23 +548,14 @@ mod flow_tests {
         for (fighter, contract) in tables() {
             let ids: std::collections::BTreeSet<&str> =
                 contract.moves.iter().map(|m| m.id.as_str()).collect();
-            // ⛔⛔ THE NAMESPACE IS WIDER THAN THE OLD `CANCEL_CLASS_NAMES`
-            // CONST, and reading that const as the whole of it made this guard's
-            // first run report a FALSE POSITIVE on the medic's `smash`. The const
-            // omitted `smash`, `grab` and `taunt` while `cancel_names_for` hands
-            // them to the trigger seam. ⇒ The const is now DERIVED from that
-            // function (`cancel_class_names()`), so this guard and the catalog's
-            // own validator ask one question instead of two that disagreed.
+            // The class names come from `cancel_class_names()`, derived from
+            // `cancel_names_for`, so this guard and the catalog's validator ask one
+            // question. It includes `smash`, `grab` and `taunt`.
             //
-            // ⛔⛤ **AND THE RAW BOUND VERB DOES NOT BELONG IN THIS SET.** It was
-            // seeded with `contract.verbs.keys()`, which made this guard WIDER
-            // than the runtime: `trigger_moveset_moves` asks
-            // `cancel_names_for(base_verb_of(verb), ..)`, so a `special_forward`
-            // press offers `["special"]` and never the directional spelling.
-            // The oni leader's `shadow_answer` authored `into:
-            // ["special_forward"]` and this guard passed it for five days while
-            // the confirm did nothing — found 2026-09-11 by the content-pack
-            // validator, which had no such hole.
+            // Do not seed this with the raw bound verbs (`contract.verbs.keys()`).
+            // `trigger_moveset_moves` asks `cancel_names_for(base_verb_of(verb), ..)`,
+            // so a `special_forward` press offers `["special"]` and never the
+            // directional spelling.
             let mut verbs: std::collections::BTreeSet<&str> = Default::default();
             for verb in contract.verbs.keys() {
                 let base = base_verb_of(verb);
@@ -722,8 +597,7 @@ mod flow_tests {
             "cancel windows naming nothing:\n  {}",
             dead.join("\n  ")
         );
-        // ⛔ ANTI-VACUITY on the census itself: a roster with no cancel windows
-        // at all would satisfy the emptiness above forever.
+        // Anti-vacuity: a roster with no cancel windows would pass forever.
         assert!(
             windows >= 1,
             "no shipped move authors a Cancelable window, so this guard walked \
@@ -739,22 +613,17 @@ mod flow_tests {
         );
     }
 
-    /// ⛔⛔ EVERY NAMED REFUSAL VARIANT RESOLVES TO A MOVE THAT EXISTS.
+    /// Every named refusal variant resolves to a move that exists.
     ///
-    /// `MoveGates::when_refused` carries a MOVE ID, and an id matching nothing
-    /// degrades to "no fallback at all" — deliberately, so a typo cannot crash a
-    /// match. ⇒ That is exactly why it needs a guard: the failure is a DEAD
-    /// BUTTON, which is the thing the field exists to prevent, and it is
-    /// indistinguishable from an author who simply chose not to write one.
+    /// `MoveGates::when_refused` holds a move id, and an unknown id falls back to
+    /// "no fallback" so a typo cannot crash a match. The failure is then a dead
+    /// button, so it needs a guard.
     ///
-    /// ⚠ THE VARIANT NEED NOT OWN A VERB. The goblin's uncharged dive is bound
-    /// to no press and is reachable only through this field, so the question is
-    /// membership in `moves` — what `move_by_id` actually searches — and not
-    /// whether anything can press it.
+    /// The variant need not own a verb. The goblin's uncharged dive is reachable
+    /// only through this field, so the check is membership in `moves` (what
+    /// `move_by_id` searches).
     ///
-    /// ⭐ ASKED OF THE WHOLE CRATE rather than per fighter, for the reason the
-    /// flow census below gives: a variant authored on a THIRD fighter tomorrow
-    /// is covered by no per-fighter test.
+    /// Checked across the whole crate so a variant on any fighter is covered.
     #[test]
     fn every_named_move_variant_resolves() {
         let mut dangling: Vec<String> = Vec::new();
@@ -787,9 +656,8 @@ mod flow_tests {
             "refusal variants that cannot resolve:\n  {}",
             dangling.join("\n  ")
         );
-        // ⛔ ANTI-VACUITY, and this guard needs it more than most: it passed
-        // every day before the field existed, and would pass again the day
-        // somebody deleted the last authored variant.
+        // Anti-vacuity: this would also pass if the last authored variant were
+        // deleted.
         assert!(
             named >= 1,
             "no move in any shipped roster authors `when_refused`, so this guard \
@@ -797,26 +665,15 @@ mod flow_tests {
         );
     }
 
-    /// ⭐⭐ EVERY AUTHORED FLOW IN EVERY SHIPPED ROSTER VALIDATES — the POPULATION,
-    /// not the two moves that happen to have one today.
+    /// Every authored flow in every shipped roster validates.
     ///
-    /// ⛔ THIS DOC WAS SITTING ON `every_held_item_a_move_creates_has_art`,
-    /// twelve tests above its own function, where it read as a second paragraph
-    /// of that test's rationale. A doc block detached from what it describes is
-    /// the shape a deleted test leaves behind, and it is why the next reader
-    /// cannot tell which guard makes which claim.
+    /// `TechniqueFlow::problems()` exists because each failure is silent at
+    /// runtime: a transition past the end, no reachable `Finish`, a `Wait` that
+    /// never times out, a cycle, a stranded node. Each gives a move that does only
+    /// part of its job.
     ///
-    /// ⛔ `TechniqueFlow::problems()` exists because each of its failures is
-    /// SILENT at runtime: a transition past the end of the list, a flow with no
-    /// reachable `Finish`, a `Wait` that can never time out, a cycle, a stranded
-    /// node. Each produces a move that plays and does PART of what it says —
-    /// which reads to whoever is holding the controller as a move that "doesn't
-    /// work sometimes" rather than as bad data.
-    ///
-    /// ⚠ THE PER-FIGHTER TESTS ARE NOT THIS TEST. The oni's and the goblin's each
-    /// validate their own flow, so a flow authored on a THIRD fighter tomorrow is
-    /// covered by neither. ⇒ This asks the question of the whole crate, which is
-    /// the only shape that stays true as the roster grows.
+    /// The per-fighter tests cover only their own flow; this covers the whole
+    /// crate.
     #[test]
     fn every_authored_flow_in_the_shipped_rosters_validates() {
         let mut broken: Vec<String> = Vec::new();
@@ -837,9 +694,7 @@ mod flow_tests {
             "authored flows that cannot run:\n  {}",
             broken.join("\n  ")
         );
-        // ⛔ ANTI-VACUITY. A census that walks no flows passes forever, and this
-        // one would have passed every day before the first flow was authored —
-        // including a day when somebody deleted them all.
+        // Anti-vacuity: a census that walks no flows passes forever.
         assert!(
             flows >= 2,
             "only {flows} authored flow(s) found across every shipped roster, so \
@@ -854,20 +709,11 @@ mod expressiveness_census {
 
     /// Why this move does something a strike cannot — empty when it is a strike.
     ///
-    /// ⛔⛔ ONE DEFINITION FOR TWO CENSUSES, AND EXTRACTING IT IS A REPAIR. This
-    /// file holds two: `the_roster_does_not_get_less_expressive` counts FIGHTERS
-    /// and ratchets; `the_census_of_specials_that_carry_no_technique` lists
-    /// SPECIALS and reads. They were written with two different ideas of
-    /// "expressive", and the second repeated the mistake the first had already
-    /// fixed in a comment a few lines below — it did not count VOLUME REACTIONS,
-    /// so it reported `officer_disperse`, "the first authored windbox on the
-    /// roster", as carrying no authoring at all. ⇒ I read my own output and went
-    /// looking for a way to improve that move, which is the second time this
-    /// file records somebody about to author a mechanic for a fighter that
-    /// already had one, on the strength of a guard's definition.
-    ///
-    /// ⭐ The GRAINS stay different on purpose — fighters against specials, a
-    /// floor against a list. What cannot differ is what counts.
+    /// One definition for two censuses:
+    /// `the_roster_does_not_get_less_expressive` (counts fighters, ratchets) and
+    /// `the_census_of_specials_that_carry_no_technique` (lists specials). Their
+    /// grains differ on purpose; what counts as expressive must not. For example,
+    /// volume reactions count, so `officer_disperse` (a windbox) is expressive.
     fn expressive_reasons(
         mv: &ambition_entity_catalog::MoveSpec,
     ) -> Vec<&'static str> {
@@ -878,13 +724,9 @@ mod expressiveness_census {
         if mv.windows.iter().any(|w| w.sustain_effect.is_some()) {
             why.push("stance");
         }
-        // A window with TWO volumes is a sweetspot: `StrikeRank` is the move's
-        // own reading order and the strike seam takes the first that reaches, so
-        // authoring a second volume is authoring where the move is strong.
-        // ⛔ TWO DAMAGING VOLUMES, not two volumes. `wake` appends a windbox that
-        // does no damage, so a plain `len() > 1` reported the goblin's dirt kick
-        // as a "sweetspot" — which it is not, and the printed reason is what a
-        // reader picks their next move from.
+        // Two damaging volumes in one window is a sweetspot: `StrikeRank` is the
+        // move's reading order, and the strike seam takes the first that reaches.
+        // Count damaging volumes only; `wake` appends a no-damage windbox.
         if mv
             .windows
             .iter()
@@ -892,8 +734,8 @@ mod expressiveness_census {
         {
             why.push("sweetspot");
         }
-        // `VolumeReaction::{Autolink, Windbox}` change what a hit DOES — a
-        // gather, a shove — which is authoring a plain strike cannot express.
+        // `VolumeReaction::{Autolink, Windbox}` change what a hit does (a gather,
+        // a shove), which a plain strike cannot express.
         if mv
             .windows
             .iter()
@@ -925,15 +767,10 @@ mod expressiveness_census {
         {
             why.push("gravity regime");
         }
-        // ⛔⛔ THE OTHER TWO MECHANICAL EVENT KINDS, AND LEAVING THEM OUT IS HOW
-        // THIS DEFINITION UNDERCOUNTED. `MoveEventKind` has exactly six variants:
-        // `Sfx` and `Vfx` are cosmetic, and `Effect`, `GravityModifier`, `Ranged`
-        // and `Impulse` are mechanics. Counting the first two of the mechanics
-        // and calling the rest "events" put Alice's `key_exchange` — a 640 px/s
-        // committed lunge, authored as `MoveEventKind::Impulse` — in the same
-        // bucket as a move whose whole authoring is a sound.
-        // ⇒ A census over a closed enum should name every variant, so that adding
-        // a seventh is a compile error here rather than a silent miscount.
+        // `MoveEventKind` has six variants: `Sfx` and `Vfx` are cosmetic;
+        // `Effect`, `GravityModifier`, `Ranged` and `Impulse` are mechanics (for
+        // example Alice's `key_exchange` is an `Impulse` lunge). Name every variant
+        // so a seventh is a compile error here.
         if mv.events.iter().any(|e| {
             matches!(
                 e.kind,
@@ -950,26 +787,17 @@ mod expressiveness_census {
         }) {
             why.push("ranged");
         }
-        // ⛔⛔ AND THE SAME DISCIPLINE APPLIED TO THE OTHER TWO CLOSED SETS, so
-        // that this definition is complete BY CONSTRUCTION rather than by
-        // whatever the last author happened to need. Enumerating `MoveEventKind`
-        // is what moved the answer from 48 to 13; enumerating `WindowTag`,
-        // `HitVolume` and `MoveSpec`'s own fields is the rest of that job, and it
-        // was done in one pass on 2026-09-06 after the third consecutive move I
-        // sat down to author turned out to want a mechanic the census could not
-        // see (set knockback, then armour, then a cancel).
+        // The same rule for the other closed sets (`WindowTag`, `HitVolume`,
+        // `MoveSpec` fields): enumerate them so the definition is complete by
+        // construction. A change here is an instrument change, not an authoring
+        // change; report the two separately.
         //
-        // ⚠ THE COUNT THIS MOVES IS AN INSTRUMENT DELTA, NOT AUTHORING. Reported
-        // separately for that reason: a definition that grows and a roster that
-        // improves are two different facts and they must never be added together.
-        // ⛔ MATCHED EXHAUSTIVELY IN A CLOSURE rather than pushed from a loop, so
-        // a move with three invulnerable windows says "invuln" once — and so that
-        // a seventh `WindowTag` is a COMPILE error here rather than a silent
-        // omission, which is the whole lesson of the `MoveEventKind` miscount.
+        // Match exhaustively in a closure, so three invulnerable windows report
+        // "invuln" once and a new `WindowTag` is a compile error.
         let tagged = |wanted: fn(&ambition_entity_catalog::WindowTag) -> bool| {
             mv.windows.iter().any(|w| wanted(&w.tag))
         };
-        // Invincibility frames: a move you can throw THROUGH something.
+        // Invincibility frames: a move you can throw through something.
         if tagged(|t| {
             matches!(t, ambition_entity_catalog::WindowTag::Invuln)
         }) {
@@ -979,8 +807,7 @@ mod expressiveness_census {
         if tagged(|t| matches!(t, ambition_entity_catalog::WindowTag::Armor)) {
             why.push("armor");
         }
-        // A cancel window is authored follow-up: what this move is ALLOWED to
-        // become, which a plain strike cannot say.
+        // A cancel window is authored follow-up: what this move may become.
         if tagged(|t| {
             matches!(
                 t,
@@ -989,9 +816,8 @@ mod expressiveness_census {
         }) {
             why.push("cancelable");
         }
-        // A technique the volume fires ON CONTACT — the conditional sibling of an
-        // `Effect` event, and it was uncounted because it hangs off the VOLUME
-        // rather than off the timeline.
+        // A technique the volume fires on contact: the conditional sibling of an
+        // `Effect` event, attached to the volume, not the timeline.
         if mv
             .windows
             .iter()
@@ -999,9 +825,8 @@ mod expressiveness_census {
         {
             why.push("on-hit technique");
         }
-        // ⭐ SET KNOCKBACK. `knockback_growth: Some(0.0)` means the launch is the
-        // same at 0% and at 150%, which is the genre's combo-starter and its
-        // set-up-a-kill tool. `fixed_knockback` is the verb that authors it.
+        // Set knockback: `knockback_growth: Some(0.0)` gives the same launch at 0%
+        // and 150% (combo starter, kill setup). Authored by `fixed_knockback`.
         if mv.windows.iter().any(|w| {
             w.volumes
                 .iter()
@@ -1009,71 +834,49 @@ mod expressiveness_census {
         }) {
             why.push("set knockback");
         }
-        // A move that LOOPS is a held stance rather than a swing.
+        // A move that loops is a held stance, not a swing.
         if mv.repeat.is_some() {
             why.push("loop");
         }
-        // ⛔⛔ THESE THREE LIVED ONLY IN THE PER-SPECIAL CENSUS BELOW, as its own
-        // private `extras` list, and that is how this file came to state one
-        // definition of "expressive" and compute another. A charge, a launch
-        // impulse and a second hit window are mechanics by anyone's reading;
-        // they belong to the SHARED definition, not to one caller's idea of it.
-        // Moved here 2026-09-06 so there is exactly one of this number in the
-        // file — the same failure a peer found the same day in a planning table
-        // that disagreed with the prose six lines above it.
+        // Charge, launch impulse and a second hit window are mechanics, so they
+        // belong to this shared definition.
         if mv.smash_charge.is_some() {
             why.push("charge");
         }
         if mv.start_impulse.is_some() {
             why.push("impulse");
         }
-        // Two windows that both strike is a move with a rhythm — a jab-jab, a
-        // hit that sets up its own second hit. One window is a swing.
+        // Two striking windows give a move a rhythm (jab-jab, a hit that sets up
+        // its own second hit). One window is a swing.
         if mv.windows.iter().filter(|w| !w.volumes.is_empty()).count() > 1 {
             why.push("hit windows");
         }
         why
     }
 
-    /// ⭐⭐ HOW MANY FIGHTERS HAVE A SPECIAL THAT DOES SOMETHING A STRIKE CANNOT —
-    /// the goal's own complaint, measured instead of felt.
+    /// How many fighters have a special that does something a strike cannot.
     ///
-    /// Jon's standing goal says *"many have boring specials"*, and every roster
-    /// decision on this campaign has been argued from a reading rather than a
-    /// number. ⇒ This counts, from the authored DATA rather than from a grep over
-    /// the source: a special is EXPRESSIVE when it carries a technique
-    /// (`MoveEventKind::Effect`), a stance (`sustain_effect`), a flow, or a
-    /// gravity regime. A strike with cues is not.
+    /// A special is expressive when `expressive_reasons` is non-empty (a
+    /// technique, stance, flow, gravity regime, and so on). A strike with cues is
+    /// not.
     ///
-    /// ⛔ IT IS A RATCHET, NOT A TARGET. Asserting that EVERY fighter must be
-    /// expressive would be a design claim nobody has made — a plain-strike
-    /// brawler is a legitimate character. What is not legitimate is going
-    /// BACKWARDS silently, so this holds the floor at what the roster has today
-    /// and prints the ranking when it fails.
+    /// This is a ratchet, not a target. A plain-strike brawler is valid; going
+    /// backwards silently is not. It holds the floor and prints the ranking.
     ///
-    /// ⚠ IT WALKS THIS CRATE'S TABLES, WHICH IS NOT THE SMASH GRID.
-    /// `tables()` is *"every table in this crate that authors move events"* — so
-    /// it includes `theorem_chain`, Robot **v2**'s DUEL-ARENA moveset, which
-    /// shares a file with v3's platform-fighter table. It is counted as plain and
-    /// that is correct: it is a two-hit combo demo and deliberately data-only.
-    /// ⇒ Do not read the plain list as "boring smash fighters" without checking
-    /// which composition each entry belongs to.
-    ///
-    /// ⚠ THE PRINTED LIST IS HALF THE POINT. When this fails, the message names
-    /// which fighters are carrying the roster and which are not, which is the
-    /// question "many have boring specials" was actually asking.
+    /// It walks this crate's tables, which are not the smash grid. `tables()`
+    /// includes `theorem_chain`, Robot v2's duel-arena moveset, which is plain on
+    /// purpose. Check which composition an entry belongs to before reading the
+    /// plain list as "boring smash fighters".
     #[test]
     fn the_roster_does_not_get_less_expressive() {
 
-        /// The floor, raised deliberately as fighters gain techniques. Bumping it
-        /// is a decision; watching it silently fall is the failure.
+        /// The floor, raised on purpose as fighters gain techniques.
         const FLOOR: usize = 18;
 
         let mut expressive: Vec<&str> = Vec::new();
         let mut plain: Vec<&str> = Vec::new();
         for (fighter, contract) in tables() {
-            // Only the SPECIALS: a jab with a technique is not what the goal is
-            // asking about.
+            // Specials only.
             let special_ids: Vec<&String> = contract
                 .verbs
                 .iter()
@@ -1091,11 +894,8 @@ mod expressiveness_census {
             }
         }
 
-        // ⭐ A CENSUS THAT NAMES ITS MEMBERS. The count alone answers "did it get
-        // worse"; the NAMES answer "who is next", which is the question anybody
-        // running this actually has. Printed on the way past rather than only in
-        // the failure message, because the failure message is unreachable while
-        // the roster is healthy and that is exactly when you want the list.
+        // Print the names every run, not only on failure: they answer "who is
+        // next".
         println!(
             "[expressiveness] {} expressive, {} plain\n  plain: {plain:?}",
             expressive.len(),
@@ -1109,57 +909,21 @@ mod expressiveness_census {
         );
     }
 
-    /// ⭐⭐ THE SAME QUESTION IN THE UNIT JON ASKED IT IN — the SPECIAL, not the
-    /// fighter.
+    /// The same question per special, not per fighter.
     ///
-    /// ⛔⛔ THE RATCHET ABOVE SATURATED AND WENT BLIND, and it was being reported
-    /// as this campaign's progress while it did. It passes when every fighter has
-    /// AT LEAST ONE interesting special, and the roster reached that on
-    /// 2026-09-05: 19 of 19, floor 18. ⇒ From that day on, a fighter carrying one
-    /// technique and three bare swings scored exactly the same as one whose whole
-    /// kit reads, and no authoring could move the number in either direction.
-    /// A ratchet at its ceiling is not a ratchet.
+    /// The per-fighter ratchet saturated (every fighter has at least one
+    /// expressive special), so it no longer moves. This counts specials, using the
+    /// same `expressive_reasons` definition.
     ///
-    /// ⇒ Jon's words were *"a lot of characters have boring specials"*. The
-    /// SPECIAL is the unit of that sentence, and counting it changes the answer
-    /// from "0 plain" to this: measured 2026-09-06, **75 of 88 specials carry a
-    /// mechanic and 4 do not** (it opened at 75/13 and nine specials have been
-    /// authored since). Both numbers come from `expressive_reasons`, the
-    /// one definition in this file, so this test and the per-special census
-    /// cannot drift apart the way the census and its own doc comment did.
+    /// A floor cannot catch inflation: adding something cosmetic to
+    /// `expressive_reasons` would raise the count and pass. The defence is that
+    /// there is one definition, next to the rule that cues do not count.
     ///
-    /// ⚠⚠ AND THE ONE THING THIS CANNOT CATCH, SAID PLAINLY BECAUSE IT IS THE
-    /// EXACT DEFECT THAT PRODUCED THE WRONG HEADLINE: a ratchet holds a FLOOR, so
-    /// it sees the number fall and never sees it INFLATE. Padding
-    /// `expressive_reasons` with something cosmetic — which is what `extras` did
-    /// to the plain verdict — would raise this count and pass. ⇒ The defence is
-    /// not here. It is that there is now exactly ONE definition, sited next to
-    /// its own bold sentence about cues, so inflating the number means editing
-    /// the paragraph that forbids it.
-    ///
-    /// ⛔⛔ AND THE FIRST NUMBER THIS TEST SHIPPED WITH WAS 40, WHICH WAS WRONG
-    /// IN THE SAME WAY AS THE THING IT WAS WRITTEN TO FIX. It read "48 specials
-    /// carry no mechanic" because the definition counted two of `MoveEventKind`'s
-    /// four mechanical variants and lumped `Impulse` and `Ranged` in with the
-    /// cues — so Alice's `key_exchange`, a 640 px/s committed lunge, was counted
-    /// as a move whose whole authoring is a sound. ⇒ A census over a closed enum
-    /// must name every variant. Naming all six moved the answer from 48 to 13,
-    /// and the correction was found by reading one authored move against the
-    /// number rather than by re-reading the census.
-    ///
-    /// ⭐ POISONED 2026-09-06, one reason at a time, and the counts are the
-    /// evidence that each is load-bearing rather than decorative:
-    /// technique → 61, the event-kind impulse → 43, both impulse roads → 42,
-    /// ranged → 74, charge → 74, and pointing the corpus at a verb prefix
-    /// nothing uses → 0. All RED. ⚠ Two attempts had to be re-run before they
-    /// meant anything: one pushed an empty string (a non-empty vec of nothing,
-    /// still GREEN) and one matched a string that appears twice and edited
-    /// neither, printing GREEN for a file it never touched.
+    /// Each reason was checked by removing it and seeing this test fail.
     #[test]
     fn the_specials_do_not_get_less_expressive() {
-        /// Raised deliberately as specials gain mechanics. ⛔ Raising it is a
-        /// decision with a commit behind it; watching it fall silently is the
-        /// failure this exists to catch.
+        /// Raised on purpose as specials gain mechanics. A fall is the failure this
+        /// catches.
         const FLOOR: usize = 84;
 
         let mut rich: Vec<String> = Vec::new();
@@ -1184,9 +948,7 @@ mod expressiveness_census {
             }
         }
 
-        // ⭐ NAMED, like its sibling, because "which special next" is the
-        // question anybody running this actually has — and unlike its sibling
-        // this list is long enough to choose from.
+        // Print the names, as the sibling does: "which special next".
         println!(
             "[expressiveness/special] {} with a mechanic, {} without\n  without: {bare:#?}",
             rich.len(),
@@ -1199,33 +961,16 @@ mod expressiveness_census {
             rich.len(),
         );
 
-        /// ⭐⭐ AND A CEILING ON PLAINNESS, WHICH IS THE HALF A FLOOR CANNOT HOLD.
+        /// A ceiling on plainness, which a floor cannot hold. A new bare special
+        /// raises the total and leaves `rich` unchanged, so the floor stays green.
         ///
-        /// A floor catches a mechanic being REMOVED. It cannot catch a plain
-        /// special being ADDED: a new bare swing raises the roster's total and
-        /// leaves `rich` exactly where it was, so `rich >= FLOOR` stays green
-        /// while the thing Jon complained about gets worse. ⇒ Both directions or
-        /// neither.
+        /// A count, not a name allowlist: a name list grows to silence the guard.
+        /// Each current plain special states its reason in its own file: the goblin's
+        /// `scrap_flail`, `cellular_pulse` (not to be retuned during migration),
+        /// `performer_the_line` (refuses `MoveEventKind::Ranged`) and
+        /// `performer_trapdoor_air` (a deliberate feint).
         ///
-        /// ⛔ FOUR, AND ALL FOUR ARE DELIBERATE — a count, never an allowlist of
-        /// names, because a name list absorbs the guard's own weaknesses the
-        /// moment somebody adds a row to quiet it. Each of the four states its
-        /// reason in its own file: the goblin's `scrap_flail` (*"no technique at
-        /// all: it turns its whole body into the swing and hopes"*),
-        /// `cellular_pulse` (a migration promise not to retune it),
-        /// `performer_the_line` (an explicit refusal of `MoveEventKind::Ranged`)
-        /// and `performer_trapdoor_air` (a deliberate FAKE — the same first
-        /// frames as the real trapdoor and no door, explicitly no i-frames, whose
-        /// whole design is that it does nothing).
-        ///
-        /// ⇒ Raising this is a design decision with a commit behind it, exactly
-        /// like lowering the floor. A plain-strike brawler is legitimate; a
-        /// plain-strike brawler nobody decided on is the complaint.
-        ///
-        /// ⭐ POISONED 2026-09-06 with an ADDITION rather than a removal, because
-        /// that is the case the floor cannot see: widening the corpus to every
-        /// verb starting with "s" took plainness to 57 and reddened THIS while
-        ///  stayed green throughout.
+        /// Raising this is a design decision, like lowering the floor.
         const PLAIN_CEILING: usize = 4;
 
         assert!(
@@ -1237,26 +982,15 @@ mod expressiveness_census {
         );
     }
 
-    // ⛔ THE PER-SPECIAL CENSUS LIVES HERE, in the module that already owned
-    // this question, and it did not when it was written: it was a second
-    // `mod tests` at the foot of the same file with its own idea of what
-    // counts as authoring. Two modules, two definitions, one subject — which
-    // is how it came to report the roster's first authored windbox as plain.
+    // The per-special census lives in this module so it uses the same
+    // definition as the other census.
     use ambition_entity_catalog::MoveEventKind;
 
-    /// Does this move carry a TECHNIQUE, or is it a hitbox and nothing else?
+    /// Does this move carry a technique, or is it a hitbox and nothing else?
     ///
-    /// ⛔⛔ **EVERY ROAD COUNTS, AND THIS CENSUS HAS ALREADY MISSED ONE ONCE.**
-    /// Its previous version read `events[..].kind` only, and reported the tether
-    /// grab — a move whose whole point is its capture — as featureless, because
-    /// a technique live for a WINDOW hangs off `sustain_effect`. The fix added
-    /// the second road by hand and left two more unread: a volume's `on_hit` and
-    /// a flow node's `Emit`. A move whose only technique sits in either would be
-    /// counted bare today, which is the identical failure one iteration later.
-    ///
-    /// ⇒ `MoveSpec::effect_refs` is exhaustive by destructure, so a fifth site is
-    /// a compile error at the walk instead of a silent gap in every hand-listed
-    /// copy of it.
+    /// Every site counts. `MoveSpec::effect_refs` is exhaustive by destructure
+    /// (events, window `sustain_effect`, volume `on_hit`, flow `Emit`), so a new
+    /// site is a compile error.
     fn techniques(spec: &ambition_entity_catalog::MoveSpec) -> Vec<String> {
         let mut keys: Vec<String> = spec
             .effect_refs()
@@ -1268,29 +1002,16 @@ mod expressiveness_census {
         keys
     }
 
-    /// ⭐⭐ THE CENSUS JON ASKED FOR IN AS MANY WORDS: *"we have a lot of
-    /// characters with boring specials, and when we build the code for these we
-    /// should exercise them in the characters."* A special with no technique is
-    /// a hitbox on a different button — it may be perfectly tuned, but nothing
-    /// about it is the fighter's own.
+    /// Census of specials by technique: a special with no technique is a hitbox
+    /// on another button.
     ///
-    /// ⛔ IT ASSERTS ONLY THAT IT MEASURED SOMETHING. There is no correct number
-    /// of bare specials: a brawler's up-B that is honestly just a rising hitbox
-    /// is a legitimate design, and a floor on "techniques per fighter" would be
-    /// this file inventing a quota. What it is for is READING — run it with
-    /// `--nocapture` and the roster sorts itself by how much of each fighter is
-    /// actually authored.
+    /// It asserts only that it measured something. There is no correct number of
+    /// bare specials. Run with `--nocapture` to read the roster.
     ///
-    /// ⛔⛔ AND "BARE" MEANS NO TECHNIQUE, NOT "BORING" — a distinction this
-    /// census learned the hard way. Reading the first version I went looking for
-    /// the emptiest fighter and found the Perfect Cellular Automaton with five
-    /// bare specials, then opened its down-B: a three-pulse `multihit` collapse
-    /// with authored autolink volumes, a telegraph, and its own cue. Nothing
-    /// about it wants a technique key. ⇒ A fighter can be richly authored with
-    /// none, so the census now reports what ELSE a special carries — extra
-    /// windows, a charge, a start impulse, timeline events. A special with
-    /// NEITHER a technique nor any of those is the only row that is honestly
-    /// a hitbox on a different button, and those are the ones worth reading.
+    /// "Bare" means no technique, not "boring". The Perfect Cellular Automaton's
+    /// down-B has no technique but is a three-pulse `multihit` with autolink
+    /// volumes and a telegraph. So the census also reports what else a special
+    /// carries; a special with neither is the one worth reading.
     #[test]
     fn the_census_of_specials_that_carry_no_technique() {
         let tables = tables();
@@ -1311,18 +1032,8 @@ mod expressiveness_census {
                 };
                 special_total += 1;
                 let keys = techniques(spec);
-                // What a move carries besides a technique. Every one of these is
-                // authoring a reader would call expressive.
-                // ⛔⛔ CUES ONLY, AND THEY DO NOT COUNT TOWARDS THE VERDICT.
-                // This list used to also carry charge / impulse / hit windows and
-                // was consulted by the plain test below, which meant a special
-                // whose entire authoring was a SOUND counted as not-plain — while
-                // `expressive_reasons`, in this same file, says in bold that "a
-                // strike with cues is not". The mechanics moved to the shared
-                // definition; what is left here is colour for the printout, which
-                // is worth keeping because "it at least has a cue" is a genuinely
-                // different state from "nothing at all" when you are deciding
-                // which special to work on next.
+                // Cues only, for the printout; they do not count toward the verdict.
+                // "Has a cue" is still a useful state when choosing what to work on.
                 let mut extras: Vec<String> = Vec::new();
                 let cues = spec
                     .events
@@ -1337,15 +1048,12 @@ mod expressiveness_census {
                 if cues > 0 {
                     extras.push(format!("{cues} cue(s)"));
                 }
-                // ⛔ THE PLAIN VERDICT USES THE SHARED DEFINITION, not this
-                // test's own idea of authoring. `expressive_reasons` counts a
-                // VOLUME REACTION, which this census did not — and so it called
-                // the roster's first authored windbox plain.
+                // The plain verdict uses the shared definition, which counts volume
+                // reactions.
                 let reasons = expressive_reasons(spec);
                 if keys.is_empty() {
                     bare_total += 1;
-                    // ⛔ THE SHARED DEFINITION AND NOTHING ELSE. `extras` is a
-                    // cue count and a cue is not a mechanic.
+                    // Shared definition only: a cue is not a mechanic.
                     if reasons.is_empty() {
                         plain_total += 1;
                     }
@@ -1361,8 +1069,8 @@ mod expressiveness_census {
                     } else if extras.is_empty() {
                         "— PLAIN (no technique, no other authoring)".to_string()
                     } else {
-                        // Reached only when `reasons` is EMPTY, so this move is
-                        // plain and the cue count says how it is plain.
+                        // Reached only when `reasons` is empty; the cue count says how it is
+                        // plain.
                         format!("— PLAIN (no mechanic; {} only)", extras.join(" + "))
                     },
                 );
@@ -1388,26 +1096,18 @@ mod stance_coupling {
     use super::tables;
     use ambition_entity_catalog::AttackDir;
 
-    /// ⛔⛔ **THE ONE WIRE BETWEEN THE ATTACK KIT AND MOVEMENT SCORING IS INERT,
-    /// AND THAT IS WHY IT CANNOT EXPLAIN A MOVEMENT CHANGE.**
+    /// The one link from the attack kit to movement scoring is inert on this
+    /// roster.
     ///
     /// `generate_options` scores movement with
-    /// `movement_options(&view, situation, !lifts.is_empty())` — a single boolean
-    /// derived from the ATTACK KIT by `lifting_candidates`. It is the only path
-    /// by which what a body can hit with reaches how it decides to move, so it is
-    /// the first thing to suspect when a kit change moves a body differently.
+    /// `movement_options(&view, situation, !lifts.is_empty())`, a boolean from the
+    /// attack kit via `lifting_candidates`. For every shipped fighter it is the
+    /// same whether the kit is resolved standing or running, so a kit change
+    /// cannot change movement scoring through it.
     ///
-    /// ⇒ MEASURED across the roster: for every shipped fighter, that boolean is
-    /// the SAME whether the kit is resolved standing or running. The wire exists
-    /// and never fires. ⭐ So a kit change cannot alter movement scoring through
-    /// it, and an investigation that stops at "the scorers are coupled" has
-    /// stopped at something true and inert.
-    ///
-    /// ⚠ THIS IS NOT AN ARGUMENT THAT THE COUPLING IS HARMLESS. It is an
-    /// argument that it is not firing TODAY, on THIS roster — which is exactly
-    /// the kind of fact that rots. A fighter whose only lifting move is a smash
-    /// or a tilt would make it fire the moment a run pre-empts that press, and
-    /// nothing else in the tree would notice. That is what this guard is for.
+    /// That can change. A fighter whose only lifting move is a smash or a tilt
+    /// would make it fire when a run pre-empts that press. This guard catches
+    /// that.
     #[test]
     fn no_shipped_fighter_changes_its_lift_availability_with_stance() {
         use ambition_platformer2d::entity_catalog as cat;
@@ -1419,9 +1119,9 @@ mod stance_coupling {
             AttackDir::Down,
         ];
 
-        // The kit the brain would hold in one stance, resolved the way the PRESS
-        // ROAD resolves it: a run pre-empts the smash gesture and forces the base
-        // to ATTACK, and a special never takes that road at all.
+        // The kit in one stance, resolved as the press road resolves it: a run
+        // pre-empts the smash gesture and forces the base to attack; a special never
+        // takes that road.
         let kit_lifts = |set: &ambition_entity_catalog::MovesetContract,
                          running: bool|
          -> Vec<String> {
@@ -1477,10 +1177,9 @@ mod stance_coupling {
             fires.join("\n  ")
         );
 
-        // ⛔ ANTI-VACUITY, both halves. A roster nobody walked, and a roster where
-        // NOBODY lifts, each satisfy the emptiness above forever — and the second
-        // is the one that would creep in, because "no lifts either way" is not the
-        // same finding as "the same lifts either way".
+        // Anti-vacuity, both halves: a roster nobody walked, and a roster where
+        // nobody lifts. "No lifts either way" is a different finding from "the same
+        // lifts either way".
         assert!(
             walked >= 15,
             "only {walked} fighters walked; this guard is reporting on almost nothing"
@@ -1498,34 +1197,22 @@ mod stance_coupling {
 mod a12_projectile_credit_census {
     use super::tables;
 
-    /// ⭐⭐ CAN A PROJECTILE'S VERDICT EVER REACH A CONNECT CONDITION?
+    /// Can a projectile's verdict reach a connect condition?
     ///
-    /// A12 blocker 4: a damage verdict carrying `attacker_move_instance: None`
-    /// is credited to whatever move the attacker is playing NOW
-    /// (`moveset::verdict_belongs_to`). A projectile's verdict carries `None` —
-    /// three sites in `projectile/systems.rs` hardcode it — so move A can fire a
-    /// shot, end, and move B can be credited with `connected_hit` it never
-    /// earned, taking an OnHit escape it did not pay for.
+    /// A12 blocker 4: a damage verdict with `attacker_move_instance: None` is
+    /// credited to the move the attacker is playing now
+    /// (`moveset::verdict_belongs_to`). Projectile verdicts carry `None` (three
+    /// sites in `projectile/systems.rs`), so move A can fire a shot and move B can
+    /// be credited with a `connected_hit` and take an OnHit escape.
     ///
-    /// ⛔ THE PREDICATE'S OWN COMMENT DEFENDS ADMITTING `None`, and its reasoning
-    /// is sound as far as it goes: *"contact attrition, a hazard, the blast zone
-    /// and an ability's own volume all resolve through it and no move claims
-    /// them."* It never addresses the projectile, which is the case at issue.
+    /// The full fix propagates the instance to the shot (expensive: 43
+    /// construction sites) and then requires a claim. This census checks if the
+    /// first half is needed: does any fighter author both a shooting move and a
+    /// conditional cancel? If not, no projectile verdict reaches a connect
+    /// condition.
     ///
-    /// ⇒ THE FIX HAS TWO HALVES — propagate the instance to the shot, then
-    /// require a claim — and the second is much cheaper than the first (the
-    /// message gains a field across 43 construction sites). **This census exists
-    /// to find out whether the first half is needed at all**, by asking the
-    /// decidable version of the question: does any fighter author BOTH a move
-    /// that fires a shot AND a move that takes a conditional cancel? If no
-    /// fighter does, no projectile verdict can reach a connect condition, and
-    /// the cheap half is complete on its own.
-    ///
-    /// ⚠ THE AUTHORED SET IS A SUPERSET OF THE ADMITTED ONE, which is what makes
-    /// this instrument sound for a NEGATIVE result: a pairing absent from
-    /// everything authored is absent from everything seated. A POSITIVE result
-    /// would have to be re-asked of the composed app, because a character can be
-    /// withheld at the admission barrier.
+    /// The authored set is a superset of the admitted one, so a negative result
+    /// is sound. A positive result must be re-checked on the composed app.
     #[test]
     fn a_shot_and_a_conditional_cancel_never_share_a_fighter() {
         use ambition_entity_catalog::{CancelCondition, MoveEventKind, WindowTag};
@@ -1569,11 +1256,8 @@ mod a12_projectile_credit_census {
             }
         }
 
-        // ⚠ ANTI-VACUITY, AND BOTH HALVES ARE LOAD-BEARING. A roster with no
-        // shooters, or none with a conditional cancel, would report "no overlap"
-        // while measuring nothing — and a guard that requires a confirm to exist
-        // already lives in this file, so zero here means this walk is broken
-        // rather than that the roster changed.
+        // Anti-vacuity, both halves. Another guard in this file requires a confirm
+        // to exist, so zero here means the walk is broken.
         assert!(
             shooters >= 1,
             "no authored move fires a shot, so this census walked nothing"
@@ -1595,51 +1279,35 @@ mod a12_projectile_credit_census {
     }
 }
 
-/// Which CHARACTER IDS each table above is the moveset FOR.
+/// The character ids each table above is the moveset for.
 ///
-/// ⛔⛤ **THE KEYS OF [`tables`] ARE FILE NAMES, NOT IDENTITIES, AND NINE OF
-/// NINETEEN DISAGREE.** That function keys its entries *"by the name a failure
-/// should print"*. **EIGHT are a rename** — `alice`, `bob`, `carl_stargan`,
-/// `emmy_noether`, `oiler`, `pirate_admiral`, `ninja_shadow_oni_leader`,
-/// `patent_clerk` against `npc_alice`, `npc_bob`, `npc_carl_stargan`,
-/// `npc_emmy_noether`, `npc_oiler`, `npc_pirate_admiral`,
-/// `npc_ninja_shadow_oni_leader`, `special_patent_clerk` — and the ninth,
-/// `cellular_automaton`, is one table for TWO ids. A content file written under
-/// a file name is a file `authored_intrinsics` looks up by character id, misses,
-/// and silently ignores — the fighter keeps whatever its own module gave it and
-/// nothing says so.
+/// The keys of [`tables`] are file names, not identities, and many differ
+/// from the cast id (`alice` vs `npc_alice`, `patent_clerk` vs
+/// `special_patent_clerk`, and so on). `cellular_automaton` is one table for
+/// two ids. A content file keyed by a file name is looked up by character id
+/// in `authored_intrinsics`, misses, and is silently ignored.
 ///
-/// ⛔⛔ **AND ONE OF THE EIGHT HIDES BEHIND A DIFFERENT VOCABULARY.** The bare
-/// `ninja_shadow_oni_leader` DOES exist in the tree — as a SHEET id
-/// (`sprites_0_25x/ninja_shadow_oni_leader_actor.ron` carries <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
-/// `sheet_id: "ninja_shadow_oni_leader"`). So a check asking *"does this name
-/// exist anywhere"* answers YES for that one and NO for the other seven. ⇒ **A
-/// key two vocabularies share is not an identity**, and the only question that
-/// separates them is *"is it a CAST id"*. Found by a peer re-deriving this list
-/// independently; my own first prose said seven.
+/// A name that exists elsewhere is not necessarily a cast id:
+/// `ninja_shadow_oni_leader` is a sheet id (in
+/// `sprites_0_25x/ninja_shadow_oni_leader_actor.ron`), not a cast id. <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
 ///
-/// ⭐ **AND IT CANNOT BE DERIVED ANY MORE, WHICH IS WHY IT IS WRITTEN DOWN.**
-/// The link used to exist in the creature's own file, as
-/// `.with_moveset(crate::alice_moveset::alice_moveset())`. Migrating the table
-/// to content is exactly the act that removes it, so the mapping has to become
-/// an explicit statement at the same moment. `the_table_character_map_covers_every_table`
-/// and `every_character_the_move_section_names_is_one_this_game_builds` are what
-/// keep it from drifting.
+/// This cannot be derived: the old link was `.with_moveset(...)` in each
+/// creature's file, and moving tables to content removed it.
+/// `the_table_character_map_covers_every_table` and
+/// `every_character_the_move_section_names_is_one_this_game_builds` keep it
+/// in step.
 ///
-/// ⚠ TWO IDS FOR ONE TABLE IS A REAL CASE, not a quirk: the two cellular
-/// automatons are the same authored body under two names, which
-/// `authored::AUTHORED_CAST` already says with a slice.
+/// Two ids for one table is real: the two cellular automatons are one
+/// authored body under two names (see `authored::AUTHORED_CAST`).
 ///
-/// ⛔ `player_robot` AND `theorem_chain` ARE ABSENT ON PURPOSE, FOR TWO
-/// DIFFERENT REASONS, AND THE FIRST ONE I STATED WAS FALSE.
-/// * `player_robot`: **not** "no cast id" — the catalog has THREE rows
-///   (`player_robot_v3`, `player_robot_fable`, `player_robot_v2`). The true
-///   claim is that `player_robot_lineage::register` builds its definitions with
-///   `definition_from(&catalog, incarnation)` and **never calls
-///   `authored_intrinsics`**, and `register_declared_cast` skips lineage ids
-///   outright. `the_lineage_never_reaches_the_authored_intrinsics_seam` pins
-///   that, because it is the claim a future reader can check.
-/// * `theorem_chain`: an archetype table no catalog row names at all.
+/// Absent on purpose:
+/// * `player_robot`: the catalog has rows (`player_robot_v3`,
+///   `player_robot_fable`, `player_robot_v2`), but
+///   `player_robot_lineage::register` builds them with `definition_from` and
+///   never calls `authored_intrinsics`, and `register_declared_cast` skips
+///   lineage ids. `the_lineage_never_reaches_the_authored_intrinsics_seam`
+///   pins that.
+/// * `theorem_chain`: an archetype table no catalog row names.
 pub const TABLE_CHARACTERS: &[(&str, &[&str])] = &[
     ("alice", &["npc_alice"]),
     ("bob", &["npc_bob"]),
@@ -1676,9 +1344,9 @@ pub fn characters_for(table: &str) -> Option<&'static [&'static str]> {
 mod table_character_tests {
     use super::*;
 
-    /// ⛔⛔ THE TWO LISTS CANNOT DRIFT. A table added above with no entry in
-    /// [`TABLE_CHARACTERS`] is a table nobody can migrate; an entry naming a
-    /// table that no longer exists is a mapping for nothing.
+    /// The two lists cannot drift. A table with no entry in
+    /// [`TABLE_CHARACTERS`] cannot be migrated; an entry for a removed table maps
+    /// nothing.
     #[test]
     fn the_table_character_map_covers_every_table() {
         let tables: std::collections::BTreeSet<&str> =
@@ -1687,8 +1355,8 @@ mod table_character_tests {
             TABLE_CHARACTERS.iter().map(|(name, _)| *name).collect();
         assert!(tables.len() >= 10, "{} table(s) is not the roster", tables.len());
 
-        // ⛔ THE TWO DELIBERATE ABSENCES ARE NAMED, not tolerated by a filter:
-        // a third one appearing must fail this rather than join them in silence.
+        // The two deliberate absences are named, not filtered, so a third one
+        // fails.
         let unmapped: Vec<&str> = tables.difference(&mapped).copied().collect();
         assert_eq!(
             unmapped,
@@ -1703,9 +1371,8 @@ mod table_character_tests {
         );
     }
 
-    /// ⛔ AND EVERY MAPPED ID IS A CHARACTER THIS GAME BUILDS. Without this the
-    /// map could name a plausible id nobody registers, which is exactly the
-    /// silent miss it exists to prevent.
+    /// Every mapped id is a character this game builds, so the map cannot name a
+    /// plausible id nobody registers.
     #[test]
     fn every_mapped_character_is_one_this_game_builds() {
         let buildable: std::collections::BTreeSet<&str> =
@@ -1733,14 +1400,11 @@ mod offer_census {
 
     /// PROBE: how far out does an authored hit region START?
     ///
-    /// ⭐ THE QUESTION BEHIND A SPECIFICATION. The option layer admits a move
-    /// when the opponent lies between the near and far sides of its region,
-    /// forgiving `ADMISSION_SLACK_PX` on each. On the FAR side that slack is
-    /// small against the reach it forgives; on the NEAR side it is compared
-    /// against a number nobody has ever looked at. If every authored box
-    /// starts within the slack, the near test can never refuse anything and
-    /// the layer's *"the region contains them"* is still only *"the region
-    /// reaches them"* — which is worth knowing before anybody tunes it.
+    /// The option layer admits a move when the opponent lies between the near
+    /// and far sides of its region, with `ADMISSION_SLACK_PX` slack on each. If
+    /// every authored box starts within the slack, the near test never refuses
+    /// anything, and "the region contains them" means only "the region reaches
+    /// them". Check this before tuning.
     #[test]
     #[ignore = "PROBE, print-only: where each authored hit region begins"]
     fn probe_how_far_out_an_authored_region_begins() {
@@ -1752,9 +1416,8 @@ mod offer_census {
                     continue;
                 };
                 total += 1;
-                // Straight ahead, against a point target: the near side with
-                // nothing forgiven, which is the number the slack is compared
-                // against.
+                // Straight ahead, against a point target: the near side with nothing
+                // forgiven.
                 let Some((near, far)) = coverage.span_toward((1.0, 0.0), (0.0, 0.0)) else {
                     continue;
                 };
@@ -1776,18 +1439,13 @@ mod offer_census {
     }
     /// PROBE: which roster moves offer the attack scorer nothing to price?
     ///
-    /// Print-only. `MoveFrameData::coverage` is `None` for four unrelated
-    /// things — a counter, a buff, a projectile launcher and a pure-motion
-    /// recovery — and the option scorer treated them as one, so this printed
-    /// the population before anything was decided about it.
+    /// Print-only. `MoveFrameData::coverage` is `None` for four different kinds
+    /// of move (a counter, a buff, a projectile launcher, a pure-motion
+    /// recovery), and the option scorer treated them as one.
     ///
-    /// ⚠ **THE MEMBERSHIP RULE HERE IS THE ADMISSION RULE, AND IT MUST STAY
-    /// THAT WAY.** It was a straight copy of `generate_options`' `(None, None)`
-    /// arm when that arm read `lift_speed <= 0.0`; the arm has since learned
-    /// `hazard_reach`, and while this lagged it went on printing 127
-    /// unchanged after a change that freed seven of them —
-    /// a census agreeing with itself rather than with the engine. Poison it by
-    /// widening the arm and watching this number fall.
+    /// The membership rule must match `generate_options`' `(None, None)` arm
+    /// (including `hazard_reach`). Check it by widening the arm and watching this
+    /// number fall.
     #[test]
     #[ignore = "PROBE, print-only: the roster's hitless, shoveless, motionless moves"]
     fn probe_the_moves_that_offer_the_attack_scorer_nothing() {

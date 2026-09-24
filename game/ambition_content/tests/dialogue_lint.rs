@@ -1,14 +1,12 @@
-//! Static arity lint for Yarn dialogue commands (moved to the content
-//! crate with the yarn payload — R3.2; the lint guards authored CONTENT).
+//! Static arity lint for Yarn dialogue commands.
 //!
-//! Yarn only compiles + runs under the `ui` feature, so a `<<command>>` call
-//! with the wrong argument count crashes the *running game*, not any test —
-//! exactly the `<<give_item "sealednote">>` panic ("Passed too few arguments to
-//! YarnFn") that shipped and crashed on taking Alice's note (fixed `9c52e787`).
+//! Yarn compiles and runs only under the `ui` feature, so a `<<command>>` call
+//! with the wrong argument count crashes the running game, not a test (for
+//! example "Passed too few arguments to YarnFn" from a short `<<give_item>>`).
 
-/// MUST match the `In<...>` tuple arities of the generic commands in `ambition_dialog` and the
-/// game commands in `yarn_vocabulary.rs` (both are `ui`-gated, so this table is duplicated
-/// here to remain runtime-independent): no `In`  0, `In<T>`  1, `In<(A, B)>`  2.
+/// Must match the `In<...>` tuple arities of the generic commands in `ambition_dialog` and the
+/// game commands in `yarn_vocabulary.rs`. Both are `ui`-gated, so the table is duplicated here to
+/// stay runtime-independent: no `In` → 0, `In<T>` → 1, `In<(A, B)>` → 2.
 const FIXED_ARITY_COMMANDS: &[(&str, usize)] = &[
     ("present_speaker", 1),
     ("portrait_clip", 1),
@@ -76,10 +74,8 @@ struct CommandCall {
 /// Yarn built-ins (`if`/`set`/`jump`/…) and inline functions (`can_afford(…)`, called inside
 /// `<<if …>>`) are naturally skipped — they aren't in the table.
 fn extract_command_calls(file: &str, text: &str) -> Vec<CommandCall> {
-    // ⭐ ONE DEFINITION OF AN EXECUTABLE REGION. This function used to carry its
-    // own `<<`/`>>` walk — the only one in the repo that was RIGHT, while three
-    // other instruments scanned whole files and grew private prose heuristics.
-    // It now calls the library so there is nothing left to drift from.
+    // The library owns the one definition of an executable region, so the
+    // scanners cannot drift.
     ambition_content::dialogue::yarn::executable_regions(text)
         .into_iter()
         .filter_map(|(line, inner)| {
@@ -131,8 +127,8 @@ mod tests {
     /// Pull `-> Buy Axe — 25g <<if can_afford(25)>>` and the `<<buy_item "axe" 25>>`
     /// that follows it.
     ///
-    /// ⚠ The `buy_item` is looked for on the NEXT FEW lines rather than the same
-    /// one, because Yarn puts an option's body under it, indented.
+    /// The `buy_item` is looked for on the next few lines, not the same one,
+    /// because Yarn puts an option's body under it, indented.
     fn shop_lines(file: &str, text: &str) -> Vec<ShopLine> {
         let lines: Vec<&str> = text.split('\n').collect();
         let mut out = Vec::new();
@@ -178,31 +174,26 @@ mod tests {
         out
     }
 
-    /// ⛔⛔ A SHOP LINE STATES ITS PRICE THREE TIMES AND NOTHING CHECKED THAT THEY
-    /// AGREE.
+    /// A shop line states its price three times; they must agree.
     ///
     /// `-> Buy Axe — 25g <<if can_afford(25)>>` / `<<buy_item "axe" 25>>` writes
-    /// one fact in three places: the number the PLAYER READS, the number the
-    /// menu GREYS OUT ON, and the number the wallet is CHARGED. An author
-    /// changing a price edits one line and the other two go quietly wrong, each
-    /// in a different way:
+    /// one fact in three places: the number the player reads, the number the menu
+    /// greys out on, and the number the wallet is charged. Each mismatch fails
+    /// differently:
     ///
-    /// - label ≠ charged — the player is told one price and billed another;
-    /// - guard > charged — an affordable item looks unaffordable and cannot be
-    ///   bought at all;
-    /// - guard < charged — the option is offered, the player picks it, and
-    ///   `shop::buy` refuses for lack of funds. **The menu entry does nothing
-    ///   and says nothing**, which is the worst of the three because it reads
-    ///   as a broken game rather than a wrong number.
+    /// - label ≠ charged: the player is told one price and billed another;
+    /// - guard > charged: an affordable item looks unaffordable and cannot be
+    ///   bought;
+    /// - guard < charged: the option is offered, and `shop::buy` refuses for lack
+    ///   of funds. The menu entry does nothing and says nothing, which reads as a
+    ///   broken game.
     ///
-    /// ⭐ THIS IS THE CODE-SIDE DEFECT ONE LAYER OUT. `wallet.can_afford` and
-    /// `cmd_buy_item` read the authored price two different ways until
-    /// 2026-09-04, when `ambition_items::shop::authored_price` became the single
-    /// reading. That fixed the two CONSUMERS; this checks the three
-    /// STATEMENTS. One fact, three writers, is the same shape wherever it sits.
+    /// `ambition_items::shop::authored_price` is the single reading for the two
+    /// consumers (`wallet.can_afford` and `cmd_buy_item`); this test checks the
+    /// three statements.
     ///
-    /// ⚠ NOT a style rule. It asserts nothing about how a shop line is phrased —
-    /// only that the numbers a line already wrote say the same thing.
+    /// Not a style rule: it checks only that the numbers a line already wrote
+    /// agree.
     #[test]
     fn a_shop_lines_three_prices_agree() {
         let mut files = Vec::new();
@@ -217,9 +208,8 @@ mod tests {
             found.extend(shop_lines(name, &text));
         }
 
-        // ⛔ A FLOOR, because this walks a directory and parses by shape: if the
-        // menu is rewritten or the option grammar changes, an empty walk would
-        // pass every assertion below it.
+        // A floor: this walks a directory and parses by shape, so if the menu or
+        // option grammar changes, an empty walk would pass every assertion below.
         assert!(
             found.len() >= 10,
             "only {} shop line(s) parsed across {} authored .yarn file(s) — the \
@@ -245,25 +235,17 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A SELL LINE'S GUARD AND ITS SALE MUST NAME THE SAME ITEM.
+    /// A sell line's guard and its sale must name the same item.
     ///
     /// `-> Sell Axe — 12g <<if condition("inventory.holds", "axe")>>` /
-    /// `<<sell_item "axe" 12>>` states the ITEM twice and the PRICE twice. The
-    /// item pair is the sharper of the two: if the guard and the sale disagree,
-    /// the option appears when the player holds one thing and sells another —
-    /// or appears and does nothing, because `shop::sell` refuses an item that is
-    /// not owned. Neither failure says anything to the player.
+    /// `<<sell_item "axe" 12>>` states the item twice and the price twice. If the
+    /// items disagree, the option appears when the player holds one thing and
+    /// sells another, or does nothing because `shop::sell` refuses an item not
+    /// owned. Neither failure tells the player anything.
     ///
-    /// ⚠ THE PRICE CHECK IS CONDITIONAL AND THE ITEM CHECK IS NOT, which is a
-    /// fact about the content rather than caution. `intro.yarn`'s
-    /// `<<sell_item "sealednote" 0>>` is a hand-over beat, not a sale: it has no
-    /// price in its label because there is no price. ⇒ Requiring a label price
-    /// everywhere would fail a line that is correct, so the price pair is
-    /// checked only where the author wrote one.
-    ///
-    /// ⭐ Measured before the rule was written: four guarded sell lines, all
-    /// four agreeing on the item, and three of them stating a price that
-    /// matches. It lands green as a ratchet rather than a repair.
+    /// The price check is conditional and the item check is not. `intro.yarn`'s
+    /// `<<sell_item "sealednote" 0>>` is a hand-over, not a sale, and has no label
+    /// price. So the price pair is checked only where the author wrote one.
     #[test]
     fn a_sell_lines_guard_and_its_sale_name_the_same_item() {
         let mut files = Vec::new();
@@ -325,7 +307,7 @@ mod tests {
             }
         }
 
-        // ⛔ A FLOOR: this parses by shape, so a rewritten option grammar would
+        // A floor: this parses by shape, so a rewritten option grammar would
         // leave it walking nothing and passing.
         assert!(
             checked >= 3,
@@ -340,22 +322,20 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ EVERY AUTHORED ITEM ID MUST RESOLVE, and the resolver is asked
-    /// rather than re-implemented.
+    /// Every authored item id must resolve, and the resolver is asked, not
+    /// re-implemented.
     ///
     /// `<<give_item "sealednote" 1>>`, `<<buy_item "axe" 25>>` and
-    /// `condition("inventory.holds", "gunsword")` all pass an author-typed
-    /// string. `Item::from_dialog_id` is the single owner of loose spelling —
-    /// it accepts `HealthPotion`, `health_potion` and `healthcell` alike — so a
-    /// misspelling is not a compile error and not a Yarn error. The command
-    /// `warn!`s and returns; the condition answers `Unanswerable`, which
-    /// collapses to false. ⇒ Either way the line silently does nothing.
+    /// `condition("inventory.holds", "gunsword")` all pass an author-typed string.
+    /// `Item::from_dialog_id` owns loose spelling (it accepts `HealthPotion`,
+    /// `health_potion` and `healthcell`), so a misspelling is neither a compile
+    /// error nor a Yarn error. The command `warn!`s and returns; the condition
+    /// answers `Unanswerable`, which collapses to false. Either way the line
+    /// silently does nothing.
     ///
-    /// ⭐ THIS CALLS `Item::from_dialog_id` INSTEAD OF LISTING THE ITEMS. A
-    /// hand-kept table of valid spellings would be a second authority on
-    /// normalisation and would drift the first time an alias is added — the
-    /// exact defect `normalize_item_id` was deleted for, which was a second copy
-    /// of that logic that agreed until it did not.
+    /// This calls `Item::from_dialog_id` instead of listing the items: a
+    /// hand-kept table of spellings would be a second authority on normalisation
+    /// and would drift when an alias is added.
     #[test]
     fn every_authored_item_id_resolves_to_a_real_item() {
         use ambition_items::Item;
@@ -386,7 +366,7 @@ mod tests {
             }
         }
 
-        // ⛔ A FLOOR ABOVE THE LARGEST SINGLE FILE: `kernel.yarn` alone supplies
+        // A floor above the largest single file: `kernel.yarn` alone supplies
         // most of these, so a floor of 1 would survive losing every other file.
         assert!(
             asked.len() >= 15,
@@ -633,24 +613,21 @@ mod tests {
 }
 
 
-/// The id the Yarn alias fixtures seed a boss under — SYNTHETIC, and deliberately
-/// not a name any shipped `.yarn` file types.
+/// The id the Yarn alias fixtures seed a boss under. It is synthetic and is
+/// not a name any shipped `.yarn` file uses.
 ///
-/// ⭐⭐ IT LIVES HERE, IN AN UNGATED MODULE, AND ITS GUARD WITH IT. The fixtures
-/// that USE it are `#![cfg(feature = "ui")]` because they drive a real Yarn
-/// interpreter; this constant and the check below need nothing but
-/// `YARN_SOURCES` strings. ⛔ Measured 2026-09-05, before the move:
+/// It lives in this ungated module with its guard. The fixtures that use it
+/// are `#![cfg(feature = "ui")]` because they drive a real Yarn interpreter;
+/// this constant and the check below need only `YARN_SOURCES`. Those fixtures
+/// compile in a workspace run only because another crate enables
+/// `ambition_content/ui`, and
 /// `cargo test -p ambition_content --test content_it yarn_condition_aliases`
-/// reported **running 0 tests** while the same tests PASS at 2604/7150 under
-/// `cargo nextest run --workspace` — they compile only because another workspace
-/// crate turns on `ambition_content/ui` and cargo unifies features. ⇒ A guard
-/// whose existence depends on a feature edge in somebody else's crate is one
-/// that vanishes silently, and a `-p` run reports zero rather than failing.
+/// reports 0 tests instead of failing. A guard that depends on another crate's
+/// feature edge can vanish silently.
 pub const SYNTHETIC_BOSS: &str = "yarn_alias_test_boss";
 
-/// ⭐ THE FIXTURE ID MUST STAY UNSPEAKABLE IN SHIPPED CONTENT, so nobody can cite
-/// the alias fixtures as coverage of a line an author wrote. If someone ever
-/// names a real boss this, those tests quietly become a claim about the game.
+/// The fixture id must never appear in shipped content, so the alias fixtures
+/// cannot be cited as coverage of a line an author wrote.
 #[test]
 fn the_boss_fixture_id_is_not_a_name_any_shipped_dialogue_uses() {
     let spoken: Vec<&str> = ambition_content::dialogue::yarn::YARN_SOURCES

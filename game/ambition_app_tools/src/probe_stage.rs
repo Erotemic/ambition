@@ -1,29 +1,21 @@
-//! SEATING A REAL SMASH MATCH AND TAKING THE BRAIN OFF — the setup every
-//! move probe needs, and the part that was hard to get right.
+//! Seat a real Smash match and take the brain off: the setup every move probe
+//! needs.
 //!
-//! ⛔⛔ THIS IS A `#[path]` MODULE, NOT A LIB, and that is deliberate: this
-//! package's `Cargo.toml` says in as many words that it has no lib on purpose,
-//! because a lib would relink every binary in it whenever any of them changed.
-//! Two binaries including one file share the code without buying that.
+//! A `#[path]` module, not a lib. This package has no lib on purpose (see its
+//! `Cargo.toml`), because a lib relinks every binary when any of them
+//! changes. Binaries include this file directly.
 //!
-//! ⭐⭐ IT EXISTS BECAUSE `trap_probe` PAID FOR ALL OF IT. Four separate
-//! findings are baked into the sixty lines below, and every one of them was a
-//! run that measured nothing:
+//! It handles four pitfalls:
 //!
 //! * `VisibleRenderMode::NoWindow` sets `backends: None` and omits the render
-//!   app ENTIRELY, so every presentation number a probe reports under it is a
-//!   zero that means nothing.
-//! * A hand-stepped `app.update()` does NOT wait for the wgpu device that
-//!   `app.run()` waits for, and panics inside `no_automatic_skin_batching` with
-//!   *"Res\<RenderDevice\> ... Resource does not exist"*.
-//! * The two hosts do not announce the round the same way, and waiting on the
-//!   app host's condition against the demo shell panics on a live match.
-//! * A seated fighter carries a `Brain` that writes its own `ControlFrame`
-//!   every tick, so a frame delivered from outside is overwritten before the
-//!   kernel reads it. Two probe runs measured nothing for exactly this.
-//!
-//! ⛔ A PROBE THAT REDISCOVERS ANY OF THESE HAS SPENT A DAY TO ARRIVE WHERE
-//! THIS FILE STARTS.
+//!   app, so every presentation count under it is zero.
+//! * A hand-stepped `app.update()` does not wait for the wgpu device that
+//!   `app.run()` waits for, and panics inside `no_automatic_skin_batching`
+//!   with *"Res\<RenderDevice\> ... Resource does not exist"*.
+//! * The two hosts announce the round differently; waiting on the app host's
+//!   condition in the demo shell panics on a live match.
+//! * A seated fighter's `Brain` writes its own `ControlFrame` every tick, so
+//!   a frame delivered from outside is overwritten before the kernel reads it.
 
 #![allow(dead_code)]
 
@@ -35,13 +27,10 @@ use bevy::prelude::*;
 pub struct StageRequest<'a> {
     /// The two fighters to seat, by character id.
     pub cast: [&'a str; 2],
-    /// ⭐⭐ `run_game.sh smash` launches `ambition_demo_smash_app`, NOT
-    /// `ambition_app` — a different shell composing its own catalogs. A probe
-    /// that only ever measures the app host cannot see a defect that lives in
-    /// the shell somebody plays.
+    /// `run_game.sh smash` launches `ambition_demo_smash_app`, not
+    /// `ambition_app`; that shell composes its own catalogs.
     pub demo_host: bool,
-    /// ⭐⭐ GIVE THIS PROBE A PRESENTATION LAYER. Without it there is no render
-    /// app at all and no visual question is answerable.
+    /// Give the probe a presentation layer. Without it there is no render app.
     pub rendered: bool,
 }
 
@@ -63,9 +52,8 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     let mut app = if demo_host {
         ambition_demo_smash_app::build_demo_app()
     } else if rendered {
-        // ⛔ MIRRORING `capture_scene` EXACTLY, because a bare
-        // `build_visible_app(OffscreenGpu, ..)` panics here in
-        // `no_automatic_skin_batching`. The working recipe is
+        // Mirror `capture_scene`: a bare `build_visible_app(OffscreenGpu, ..)`
+        // panics in `no_automatic_skin_batching`. Use
         // `build_visible_app_with` plus a declared `HeadlessDisplaySurface`.
         let mut app = ambition_app::app::build_visible_app_with(
             ambition_app::app::VisibleRenderMode::OffscreenGpu,
@@ -81,9 +69,9 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     } else {
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true)
     };
-    // ⛔⛔ WAIT FOR THE PLUGINS, WHICH `app.run()` DOES FOR YOU AND
-    // `app.update()` DOES NOT. `OffscreenGpu` initialises its wgpu device
-    // ASYNCHRONOUSLY during plugin finish.
+    // Wait for the plugins, which `app.run()` does and `app.update()` does
+    // not. `OffscreenGpu` initialises its wgpu device asynchronously during
+    // plugin finish.
     if rendered {
         while app.plugins_state() != bevy::app::PluginsState::Ready {
             bevy::tasks::tick_global_task_pools_on_main_thread();
@@ -94,33 +82,18 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     for _ in 0..30 {
         app.update();
     }
-    // ⛔⛔⛔ AN UNTIMED MATCH, OR THE PROBE EVENTUALLY MEASURES A CORPSE.
+    // An untimed match. A probe runs far longer than
+    // `SMASH_TIME_LIMIT_TICKS` (`8 * 60 * 60` = 28_800). When the clock runs
+    // out, the cast is despawned, handles dangle, and every later trial
+    // refuses with no message.
     //
-    // MEASURED 2026-09-13 in `ko_envelope`: 184 of 209 refusals in ONE matchup
-    // reported `seats_now=0` — no `MatchSeat` entity left at all. The round had
-    // ENDED and the whole cast was despawned, so `self.victim` was a dangling
-    // handle: the pin silently early-returned (`get_mut` found no component),
-    // `pos()` answered `(0,0)` from `unwrap_or_default()`, and every remaining
-    // trial refused forever. A full table of `REFUSED@0` rows was published as
-    // measurements of MOVES while the cast they described did not exist.
+    // `0` means untimed, not expire at once: `MatchRules::time_remaining` is
+    // `(self.time_limit_ticks > 0).then(..)`, and `time_expired` is false for
+    // an untimed match.
     //
-    // `SMASH_TIME_LIMIT_TICKS` is `8 * 60 * 60` = 28_800 ticks. A probe spends
-    // far more: up to 150 ticks per trial, plus a 600-tick settle loop and a
-    // 40-tick landing loop, times hundreds of trials. The clock runs out in the
-    // middle of every long run — and nothing said so, because a timed-out match
-    // looks exactly like a body that will not stand still.
-    //
-    // ⭐ `0` IS UNTIMED, NOT EXPIRE-IMMEDIATELY, and that distinction is load
-    // bearing: `MatchRules::time_remaining` is `(self.time_limit_ticks > 0)
-    // .then(..)`, and `time_expired` is documented as *"false for an untimed
-    // match, which is what makes this safe to consult unconditionally"*.
-    //
-    // ⛔ AND THE ROSTER IS THE ONLY ROAD. `PreparedMatch` keeps `rules` PRIVATE
-    // and hands out `&MatchRules`, so the live plan cannot be edited after it is
-    // prepared. The roster is what the plan is built FROM, and
-    // `MatchParticipantRoster::rules` is public precisely so a ruleset can state
-    // what its match is played under — `smash_roster` sets the clock this very
-    // way at `ambition_demo_smash/src/lib.rs:206`.
+    // Set it on the roster. `PreparedMatch` keeps `rules` private, so the
+    // plan cannot change after preparation. `MatchParticipantRoster::rules`
+    // is public for this; `smash_roster` sets the clock the same way.
     let mut roster = ambition_demo_smash::smash_roster(cast);
     roster.rules.time_limit_ticks = 0;
     app.world_mut().insert_resource(roster);
@@ -131,11 +104,10 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
             ),
         ));
 
-    // ⛔⛔ THE TWO HOSTS DO NOT ANNOUNCE THE ROUND THE SAME WAY. The app host
-    // holds its cast under `ControlHolds` through the ceremony and releasing
-    // it is observable; the demo shell boots straight into `smash_stage` and
-    // never satisfies that condition, so waiting on it panics against a match
-    // that is perfectly live. Wait on the ROSTER'S OWN countdown there.
+    // The two hosts announce the round differently. The app host holds its
+    // cast under `ControlHolds` through the ceremony, and the release is
+    // observable. The demo shell boots straight into `smash_stage` and never
+    // meets that condition, so wait on the roster's own countdown there.
     if demo_host {
         let countdown = ambition_demo_smash::smash_roster(cast)
             .rules
@@ -166,7 +138,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
     }
 
     let (seat0, seat1) = seats(&mut app);
-    // ⛔⛔ TAKE THE BRAIN OFF, or every frame delivered from outside is
+    // Take the brain off, or every frame delivered from outside is
     // overwritten before the kernel reads it.
     app.world_mut()
         .entity_mut(seat0)
@@ -194,16 +166,11 @@ pub fn kin(app: &App, body: Entity) -> (Vec2, Vec2) {
     (Vec2::new(k.pos.x, k.pos.y), Vec2::new(k.vel.x, k.vel.y))
 }
 
-/// Stand `body` at `pos`, at rest, THROUGH THE MOVEMENT AUTHORITY.
+/// Stand `body` at `pos`, at rest, through the movement authority.
 ///
-/// ⛔ NOT `kin.pos.x = `. A probe places a real fighter in a real match, so the
-/// body it moves has contacts, an attachment and a resolved frame — the things
-/// `transit_body` reconciles and a bare field write silently keeps. A probe
-/// whose fixture leaves a body standing on a surface it is no longer touching
-/// measures the fixture.
-///
-/// `officer_probe` needed this to stand the second fighter out of the firing
-/// lane; every later probe gets the seam instead of the field.
+/// Not `kin.pos.x = `. A real fighter has contacts, an attachment, and a
+/// resolved frame; `transit_body` reconciles them, and a bare field write
+/// keeps stale ones.
 pub fn place(app: &mut App, body: Entity, pos: Vec2) {
     let world = app.world_mut();
     let mut q = world.query::<(
@@ -222,39 +189,26 @@ pub fn place(app: &mut App, body: Entity, pos: Vec2) {
     );
 }
 
-/// Stand `body` at `pos`, at rest, WITHOUT disturbing the contacts it already
-/// has — the counterpart to [`place`], and the two are NOT interchangeable.
+/// Stand `body` at `pos`, at rest, without disturbing its current contacts.
+/// This is the counterpart to [`place`]; they are not interchangeable.
 ///
-/// ⛔⛤ `constrain_body_pose`, NOT `transit_body`, AND THE DIFFERENCE IS
-/// MEASURED. [`place`] is the discrete-transit authority: `reconcile_transit`
-/// invalidates ground and wall contact BY DESIGN, which is exactly right for a
-/// teleport and exactly wrong for a fixture that stands a body on a floor and
-/// then asserts it is standing there.
-///
-/// Measured 2026-09-13 in `ko_envelope`: routing its per-trial placement
-/// through [`place`] turned five measured centre KO thresholds (219, 185, 163,
-/// 121, 108) into `REFUSED@0` and raised centre refusals 70 -> 79 across a
-/// 224-cell matrix, because the victim never retook the floor it was resting
-/// on. A 40-tick settle-until-grounded loop did not rescue it: that run came
-/// back CELL-FOR-CELL IDENTICAL to the unsettled one, which is what "never
-/// re-grounds" looks like. It also scored a body arriving airborne at the ledge
-/// and falling as a KO at 18% with no `ko_ticks`.
-///
-/// The pin's own contract is the one a fixture wants — it "does not fabricate
-/// or clear contact facts" — and it is the same two assignments a bare
-/// `kin.pos = ` / `kin.vel = ` made, under the authority
+/// This uses `constrain_body_pose`, not `transit_body`. [`place`] is the
+/// discrete-transit authority: `reconcile_transit` clears ground and wall
+/// contact by design. That suits a teleport, but a fixture that stands a body
+/// on a floor and asserts it is standing needs the contacts kept (with
+/// [`place`], the body does not re-ground). The pin "does not fabricate or
+/// clear contact facts", and it is the authority
 /// `engine.pose-writes-are-authority-only` asks for.
 ///
-/// ⇒ USE THIS when the body is already supported and you are sliding it along
-/// the surface it is on. USE [`place`] when the body is genuinely teleporting
-/// and SHOULD lose the contacts it had.
+/// Use this when the body is already supported and slides along its surface.
+/// Use [`place`] when the body teleports and should lose its contacts.
 pub fn pin_grounded_at_rest(app: &mut App, body: Entity, pos: Vec2) {
     let Some(mut kin) = app.world_mut().get_mut::<BodyKinematics>(body) else {
         return;
     };
     ambition_platformer2d::engine_core::movement::constrain_body_pose(
         &mut kin,
-        // A fixture placement is not travel; the sample stops ending here, so
+        // A fixture placement is not travel, so the sample ends here and
         // readers fall back to the live pose.
         None,
         pos,
@@ -270,9 +224,8 @@ pub fn playing_move(app: &App, body: Entity) -> Option<String> {
 
 /// How many bodies the presentation layer has built.
 ///
-/// ⛔⛔ THE INSTRUMENT PROVES ITSELF FIRST. Every presentation count a probe
-/// takes queries a component, and a presentation layer that was never installed
-/// answers zero for the same reason a missing visual does.
+/// The instrument proves itself first. A presentation layer that was never
+/// installed also answers zero for every presentation count.
 pub fn player_visuals(app: &mut App) -> usize {
     let world = app.world_mut();
     let mut q = world.query::<&ambition_platformer2d::platformer::lifecycle::PlayerVisual>();

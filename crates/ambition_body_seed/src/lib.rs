@@ -372,9 +372,32 @@ impl ActorClusterSeed {
                 ldtk_collision,
             )
         });
-        let (collision_size, render_size) = match body {
-            Some(b) => (b.collision, Some(b.render_size)),
-            None => (ldtk_collision, None),
+        // ⛔ A CHARACTER THAT AUTHORS ITS BODY IS SIZED FROM IT, on this road
+        // as on the blueprint road below: the same `posed_body_geometry(Idle)`
+        // the live pose pass asks, so construction and the first pose tick
+        // cannot disagree. Measured 2026-09-24 in the Hall of Characters, whose
+        // `mary_o` authors a sprite body but no locomotion and so takes this
+        // road: the catalog join built her at 32x48 (quad 91x110) and the pose
+        // pass stood her at 21.3x32 (quad 61x73) a tick later.
+        let posed = character_id
+            .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
+            .and_then(|prepared| match (prepared.body.as_ref(), prepared.sheet.as_deref()) {
+                (
+                    Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
+                        world_per_pixel,
+                    }),
+                    Some(sheet),
+                ) => ambition_sprite_sheet::character::sheets::posed_body_geometry(
+                    sheet,
+                    ambition_sprite_sheet::character::CharacterAnim::Idle,
+                    *world_per_pixel,
+                ),
+                _ => None,
+            });
+        let (collision_size, render_size) = match (posed, body) {
+            (Some(geometry), _) => (geometry.collision, Some(geometry.render)),
+            (None, Some(b)) => (b.collision, Some(b.render_size)),
+            (None, None) => (ldtk_collision, None),
         };
         let pos = motion
             .as_ref()
@@ -543,9 +566,9 @@ impl ActorClusterSeed {
             ),
             caps: ambition_combat::CombatCapabilities::default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
-            // This is the road for a placement that names no character it can
-            // build a body from, so there is no `BodySource` to have resolved.
-            posed: None,
+            // Resolved above when the character authors a sprite body; `None`
+            // for a placement whose character states no `BodySource`.
+            posed,
         };
         (seed, render_size)
     }

@@ -1,24 +1,16 @@
 //! Device-conditional glyph rendering for a seat's bindings.
 //!
-//! `glyph_for` names the physical control a prompt should show for an action,
-//! in the vocabulary of the device the seat is actually using: "Z" on the
-//! keyboard preset, "A" on an Xbox pad, "Cross" on a DualShock, nothing on
-//! touch (the on-screen button IS its own glyph).
+//! `glyph_for` names the physical control a prompt shows for an action, in the
+//! vocabulary of the seat's current device: "Z" on a keyboard preset, "A" on
+//! an Xbox pad, "Cross" on a DualShock, nothing on touch (the on-screen button
+//! is its own glyph).
 //!
-//! Two questions, deliberately separated:
+//! Two separate questions:
 //!
-//! * WHICH control — read from [`crate::ActionBindings`], projected from
-//!   the very `InputMap` the router reads. Nothing to keep in step: a rebind
-//!   moves the glyph because it moved the binding.
-//! * HOW TO DRAW IT — [`GamepadStyle`]: the same `GamepadButton::South`
-//!   is "A" on an Xbox pad, "Cross" on a DualShock and "B" on a Switch pad,
-//!   because Nintendo mirrors the positions.
-//!
-//! This lived in the actor monolith's `affordances::devices` (with its own
-//! private device detector); it is input-layer vocabulary through and
-//! through — every input it takes is defined in this crate — and moving it
-//! here removed the touch overlay's only reason to name the actor crate for
-//! glyphs.
+//! * Which control: read from [`crate::ActionBindings`], projected from the
+//!   same `InputMap` the router reads. A rebind moves the glyph.
+//! * How to draw it: [`GamepadStyle`]. `GamepadButton::South` is "A" on Xbox,
+//!   "Cross" on DualShock, and "B" on Switch (Nintendo mirrors positions).
 
 use std::borrow::Cow;
 
@@ -32,8 +24,8 @@ use crate::Platformer2dInputActionMonolith;
 /// Name the glyph that represents `action` on `device`, for a seat whose
 /// bindings are `bindings` and whose keyboard preset is `preset`.
 ///
-/// The mouse draws keyboard glyphs — it is half of the keyboard-and-mouse
-/// bundle, and a click does not move the player's other hand off the keys.
+/// The mouse draws keyboard glyphs, because it is part of the
+/// keyboard-and-mouse pair.
 pub fn glyph_for(
     action: Platformer2dInputActionMonolith,
     preset: &KeyboardPreset,
@@ -49,11 +41,9 @@ pub fn glyph_for(
 
 /// The physical control of a kind this seat has bound to `action`.
 ///
-/// an action bound to nothing of this kind yields nothing, and the caller
-/// renders an empty glyph. That is the honest answer for a GLYPH — a picture of
-/// a button nobody has bound is a lie, where the text label can fall back and be
-/// understood. The two miss policies differ on purpose and are stated at each
-/// call site rather than buried in the selection.
+/// If nothing of this kind is bound, this returns `None` and the caller draws
+/// an empty glyph. A glyph for an unbound button would be wrong; a text label
+/// can fall back instead. Each call site states its own miss policy.
 fn bound_control(
     bindings: &ActionBindings,
     action: Platformer2dInputActionMonolith,
@@ -62,8 +52,8 @@ fn bound_control(
     let device = if want_key {
         ActiveDevice::Keyboard
     } else {
-        // Selection only cares about the CLASS; the caller re-spells with the
-        // seat's real style, so any pad style resolves the same control here.
+        // Only the class matters here; the caller spells the result with the
+        // seat's real style.
         ActiveDevice::Gamepad(GamepadStyle::default())
     };
     bindings.control_for(&action, device)
@@ -71,9 +61,8 @@ fn bound_control(
 
 /// Keyboard glyph for an action.
 ///
-/// Movement returns the preset's SUMMARY label ("Arrows" / "WASD"), which no
-/// single binding can produce — it names four keys at once. Every other verb
-/// comes from the seat's live binding.
+/// Movement returns the preset's summary label ("Arrows" / "WASD"), which
+/// names four keys at once. Other verbs come from the seat's live binding.
 fn keyboard_glyph(
     action: Platformer2dInputActionMonolith,
     preset: &KeyboardPreset,
@@ -94,8 +83,8 @@ fn keyboard_glyph(
         | Platformer2dInputActionMonolith::MenuNavigateDown
         | Platformer2dInputActionMonolith::MenuNavigateLeft
         | Platformer2dInputActionMonolith::MenuNavigateRight => Cow::Borrowed(movement_label),
-        // Pogo has no dedicated key on every preset; the chord is the fallback
-        // and it is a CHORD, which no single binding can name.
+        // Pogo has no dedicated key on every preset. The fallback is a chord,
+        // which no single binding can name.
         Platformer2dInputActionMonolith::Pogo
             if bound_control(bindings, action, true).is_none() =>
         {
@@ -110,8 +99,8 @@ fn keyboard_glyph(
 
 /// Gamepad glyph for an action under the given vendor style.
 ///
-/// WHICH control now comes from the binding projection; only the vendor's SPELLING of it is a
-/// table, and that is a real presentation fact.
+/// The binding projection gives the control; only the vendor spelling is a
+/// table.
 fn gamepad_glyph(
     action: Platformer2dInputActionMonolith,
     style: GamepadStyle,
@@ -142,23 +131,19 @@ fn gamepad_glyph(
     }
     match bound_control(bindings, action, false) {
         Some(PhysicalControl::Button(button)) => Cow::Borrowed(button_label(*button, style)),
-        // Bound to no gamepad control. Empty — and it stops being empty the
-        // day somebody binds it, which is exactly what `Special` is waiting
-        // for.
+        // Bound to no gamepad control: empty until someone binds it (for
+        // example `Special`).
         _ => Cow::Borrowed(""),
     }
 }
 
-/// How this pad's vendor draws a button. Presentation only — WHICH button is
-/// pressed is the binding's answer, not this function's.
-///
-/// THE one gamepad-button label table.
+/// How this pad's vendor draws a button. Presentation only; the binding
+/// decides which button. This is the only gamepad-button label table.
 pub(crate) fn button_label(button: GamepadButton, style: GamepadStyle) -> &'static str {
     match button {
         GamepadButton::South => match style {
             GamepadStyle::PlayStation => "Cross",
-            // Switch mirrors the A/B positions: the button in the SOUTH
-            // position is physically labelled "B".
+            // Switch mirrors A/B: the south button is labelled "B".
             GamepadStyle::Switch => "B",
             _ => "A",
         },
@@ -210,8 +195,7 @@ pub(crate) fn button_label(button: GamepadButton, style: GamepadStyle) -> &'stat
         GamepadButton::DPadDown => "D-Down",
         GamepadButton::DPadLeft => "D-Left",
         GamepadButton::DPadRight => "D-Right",
-        // A Bevy upgrade adding a variant must print something odd, never
-        // panic a HUD.
+        // A new Bevy variant prints a placeholder; the HUD must not panic.
         _ => "Button",
     }
 }
@@ -220,9 +204,8 @@ pub(crate) fn button_label(button: GamepadButton, style: GamepadStyle) -> &'stat
 mod tests {
     use super::*;
 
-    /// The seat's bindings, projected from the preset's own `InputMap` — the
-    /// same map the router reads. Building them here rather than hand-writing
-    /// expectations is the point of the design these tests cover.
+    /// The seat's bindings, projected from the preset's own `InputMap` (the
+    /// map the router reads), not hand-written expectations.
     fn bindings(preset: &KeyboardPreset) -> ActionBindings {
         ActionBindings::from_map(&preset.input_map())
     }

@@ -1,7 +1,7 @@
-//! Menu-side input vocabulary: the device-agnostic `MenuInputFrame` /
-//! `MenuControlFrame` / `MenuInputState` resources and the `MenuDir` / `analog_to_dir`
-//! helpers. The menu companion to `control` — keyboard/gamepad/touch fold into one
-//! semantic UI intent here so menu systems never read leafwing or raw touch events.
+//! Menu-side input vocabulary: the `MenuInputFrame`, `MenuControlFrame`, and
+//! `MenuInputState` resources and the `MenuDir` / `analog_to_dir` helpers.
+//! Keyboard, gamepad, and touch fold into one semantic UI intent here, so menu
+//! systems never read leafwing or raw touch events.
 
 use super::*;
 
@@ -40,8 +40,7 @@ pub struct SeatMenuFrames {
 
 impl SeatMenuFrames {
     /// What this seat pressed this frame. A seat with no controller reads as
-    /// `default()` — pressing nothing — rather than as an error, because "slot 3
-    /// has no pad" is the ordinary state of a couch, not a fault.
+    /// `default()` (nothing pressed), not as an error.
     pub fn for_seat(&self, slot: u8) -> MenuControlFrame {
         self.seats.get(&slot).copied().unwrap_or_default()
     }
@@ -62,12 +61,11 @@ impl SeatMenuFrames {
 
 /// Device-agnostic per-frame UI/menu intent.
 ///
-/// This is the menu-side companion to [`ControlFrame`]. Keyboard/gamepad,
-/// mouse wheel, touch gestures, on-screen buttons, and eventually Android
-/// system back should all fold into this resource before menu systems run.
-/// Menus consume semantic intents instead of raw Leafwing `ActionState` or
-/// raw touch events, which keeps RL/gameplay controls separate from UI
-/// ergonomics.
+/// This is the menu-side companion to [`ControlFrame`]. Keyboard, gamepad,
+/// mouse wheel, touch gestures, on-screen buttons, and Android system back
+/// fold into this resource before menu systems run. Menus read semantic
+/// intents, not raw Leafwing `ActionState` or touch events, so gameplay
+/// controls stay separate from UI ergonomics.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct MenuControlFrame {
     pub up: bool,
@@ -81,49 +79,36 @@ pub struct MenuControlFrame {
     pub start: bool,
     pub inventory: bool,
     pub map: bool,
-    /// Left shoulder bumper (L1 / LB), or its keyboard equivalent. A direct
-    /// "turn the page LEFT" intent for paged menus (the 3D inventory cube),
-    /// independent of the arrow/d-pad cursor navigation. Just-pressed edge.
+    /// Left shoulder (L1 / LB) or its keyboard equivalent: turn a paged menu
+    /// (the 3D inventory cube) one page left. Independent of cursor navigation.
+    /// Just-pressed edge.
     pub page_left: bool,
-    /// Right shoulder bumper (R1 / RB), or its keyboard equivalent. Direct
-    /// "turn the page RIGHT" intent. Just-pressed edge.
+    /// Right shoulder (R1 / RB) or its keyboard equivalent: turn one page
+    /// right. Just-pressed edge.
     pub page_right: bool,
     /// Positive values mean “navigate/scroll up”, negative values mean
     /// “navigate/scroll down”. Mouse wheels and touch drags both add here.
     pub scroll_y: f32,
-    /// The ANALOG STICK's held deflection, in SCREEN space: `+x` right, `+y`
-    /// DOWN. Nothing else is in here.
+    /// The analog stick's held deflection, in screen space: `+x` right, `+y`
+    /// down. Only the stick writes this field.
     ///
-    /// ⭐ A POINTER AND A LIST WANT DIFFERENT INPUTS, and this field exists to
-    /// keep them apart. Every other direction on this struct is a just-pressed
-    /// EDGE with repeat — exactly right for walking a list, and unusable for a
-    /// cursor, because integrating an edge gives a hand that jumps one step per
-    /// tap and cannot be steered. A character-select screen that wants Smash's
-    /// roaming hand needs the stick's actual deflection, so this carries it.
+    /// A cursor needs deflection; a list needs edges. The other directions on
+    /// this struct are just-pressed edges with repeat, which suit a list but
+    /// give a cursor that jumps one step per tap. A roaming character-select
+    /// hand reads this field instead.
     ///
-    /// ⛔⛔ AND IT USED TO CARRY THE D-PAD TOO. This was `nav`, and it summed the
-    /// stick with the HELD digital directions (`held_x`/`held_y`) into one
-    /// vector — which made the two semantics indistinguishable downstream. A
-    /// direction EDGE implies the same direction is held on that very frame, so
-    /// on a stick the select screen snapped to the next portrait and then, on
-    /// the very next frame, roamed away from it at full cursor speed. "You flick
-    /// toward something, it lands there, and then immediately shoots away unless
-    /// you release precisely." A consumer cannot separate what the producer
-    /// merged, so the split is here.
+    /// Do not add the d-pad here. If held digital directions are summed in,
+    /// a direction edge and the held direction arrive on the same frame, so the
+    /// cursor snaps to a target and then moves away from it at full speed.
     ///
-    /// ⭐ SCREEN SPACE, NOT STICK SPACE — `+y` is DOWN, matching the rectangles a
-    /// UI hit-tests against, and deliberately NOT matching [`Self::scroll_y`] one
-    /// field up, whose positive is up. Two conventions on one struct is a real
-    /// cost; the alternative was every consumer flipping a sign at the point of
-    /// use, which is where sign errors live.
+    /// `+y` is down to match UI hit-test rectangles. This is the opposite of
+    /// [`Self::scroll_y`], where positive is up.
     ///
-    /// ⚠ MAGNITUDE IS MEANINGFUL and already through the seat's own deadzone, so
-    /// a consumer gets analog speed for free and must not re-normalise. A
-    /// keyboard or d-pad contributes NOTHING here — it has no deflection to
-    /// report, and pretending it has one is what this field was split to stop.
+    /// The magnitude is already through the seat's deadzone. Consumers get
+    /// analog speed from it and must not normalise it. Keyboard and d-pad
+    /// give nothing here.
     ///
-    /// `Vec2::ZERO` when the stick is at rest, which is the resting state and
-    /// not a missing reading.
+    /// `Vec2::ZERO` is the resting stick, not a missing reading.
     pub analog: Vec2,
 }
 
@@ -151,17 +136,15 @@ impl MenuControlFrame {
         self.any_directional() || self.scroll_y.abs() >= 0.5
     }
 
-    /// Clear the one-shot NAVIGATION edges (directional + select / back / page-turn)
-    /// after a menu has consumed this frame, so a SECOND consumer sharing the same
-    /// `Res<MenuControlFrame>` in the same frame can't re-fire them.
+    /// Clear the one-shot navigation edges (directions, select, back, page
+    /// turn) after a menu consumes this frame, so a second consumer of the same
+    /// `Res<MenuControlFrame>` in the same frame cannot fire them again.
     ///
-    /// This matters when two inventory backends (the flat Grid and the 3D Cube) are
-    /// both installed: each gates its nav on the live `InventoryUiBackend`, and the
-    /// "Menu Backend" row flips that backend MID-FRAME. Without consuming, whichever
-    /// nav runs second re-evaluates its (now-satisfied) gate and re-processes the same
-    /// press — flipping the backend back, so the toggle nets to nothing intermittently.
-    /// The continuous holds (`*_held`, `scroll_y`) and the open/close edges
-    /// (`start` / `inventory` / `map`, owned by separate routing systems) are left intact.
+    /// Example: the Grid and Cube inventory backends both gate on
+    /// `InventoryUiBackend`, and the "Menu Backend" row changes it mid-frame.
+    /// Without this, the second backend sees the same press and changes the
+    /// backend back. Holds (`*_held`, `scroll_y`) and the open/close edges
+    /// (`start`, `inventory`, `map`) stay set; other systems own those.
     pub fn consume_nav_edges(&mut self) {
         self.up = false;
         self.down = false;
@@ -228,10 +211,8 @@ impl MenuInputState {
         initial_delay: f32,
         repeat_interval: f32,
     ) -> MenuInputFrame {
-        // Cardinal edges (D-pad / keyboard) always emit on the press
-        // edge regardless of the held analog state. Repeat is reserved
-        // for the analog axis so users who hold a stick get predictable
-        // pacing rather than cardinal-edge mashing.
+        // Cardinal edges (d-pad, keyboard) always emit on the press edge.
+        // Only the analog axis repeats.
         let mut frame = MenuInputFrame {
             up: edge_up,
             down: edge_down,

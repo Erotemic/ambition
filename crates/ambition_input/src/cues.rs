@@ -1,20 +1,14 @@
-//! Resolved UI cues — what the submit-functional controls DO right now, in
-//! the owning surface's own words.
+//! Resolved UI cues: what the submit controls do now, in the owning surface's
+//! words.
 //!
 //! A surface that owns (or may own) an input context publishes a [`UiCue`]
-//! keyed by its [`InputContextId`] — the shell's startup cards publish
+//! keyed by its [`InputContextId`]. For example, startup cards publish
 //! "Continue", the launcher publishes the focused row's verb ("Play",
-//! "Exit"), the app's inventory publishes the focused item's verb ("Equip" /
-//! "Use"). Presenters never read these directly: the cue for the ACTIVE
-//! context is folded into the one presenter-facing read-model
-//! (`ambition_sim_view::ControlPrompt`) by whichever provider owns the
-//! active context. This keys cues by context identity instead of hardcoding
-//! a menu bridge, so gameplay's `ActionSchemeContract` labels and any future
-//! surface (dialogue, vehicles) join the same vocabulary rather than a
-//! parallel prompt system.
-//!
-//! A cue is presentation data only. It never carries device state and never
-//! routes input; deleting every cue changes labels, not behavior.
+//! "Exit"), and the inventory publishes the focused item's verb ("Equip",
+//! "Use"). Presenters do not read cues directly. The provider that owns the
+//! active context folds its cue into `ambition_sim_view::ControlPrompt`.
+//! Keying by context lets gameplay's `ActionSchemeContract` labels and future
+//! surfaces (dialogue, vehicles) use the same vocabulary.
 
 use bevy::prelude::*;
 
@@ -22,9 +16,9 @@ use crate::participant::InputContextId;
 
 /// One surface's published cue: the submit verb for its context.
 ///
-/// Deliberately label-first today (matching `ControlPrompt`); glyphs, icons,
-/// enabled state, hold/tap presentation, and accessibility descriptions grow
-/// HERE as fields when a consumer exists for them.
+/// Label only for now (like `ControlPrompt`). Add glyphs, icons, enabled
+/// state, hold/tap, and accessibility text here as fields when a consumer
+/// needs them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UiCue {
     pub context: InputContextId,

@@ -413,7 +413,7 @@ fn accept_external_launch(
             let mut body = SurfaceBody {
                 pos: clusters.kinematics.pos,
                 vel: clusters.kinematics.vel,
-                radius: clusters.kinematics.size.min_element() * 0.5,
+                radius: surface_ride_radius(clusters.kinematics.size),
                 depth_lane: momentum.depth_lane,
                 motion: momentum.state,
                 route_memory: momentum.route_memory,
@@ -437,6 +437,19 @@ fn accept_external_launch(
     false
 }
 
+/// The ride circle's radius: half the body's extent along its OWN down axis,
+/// so the circle's bottom is the box's bottom — the body's feet are where the
+/// solver holds it against the surface.
+///
+/// ⛔ It was `size.min_element() * 0.5`, the smaller half-extent. For a body
+/// taller than it is wide that circle is shorter than the box, and the box
+/// (and the art drawn on it) hung below the surface it rode by the
+/// difference: Sanic, 33.7x48, rode a radius-16.8 circle and stood 7.2 units
+/// into the track (9 at his old 30x48). A square or rolled body is unchanged.
+pub(crate) fn surface_ride_radius(size: crate::Vec2) -> f32 {
+    size.y * 0.5
+}
+
 fn step_surface_momentum(
     motion: &mut super::SurfaceMomentumMotion,
     clusters: &mut BodyClustersMut<'_>,
@@ -446,7 +459,7 @@ fn step_surface_momentum(
     let mut body = SurfaceBody {
         pos: clusters.kinematics.pos,
         vel: clusters.kinematics.vel,
-        radius: clusters.kinematics.size.min_element() * 0.5,
+        radius: surface_ride_radius(clusters.kinematics.size),
         depth_lane: motion.depth_lane,
         motion: motion.state,
         route_memory: motion.route_memory,

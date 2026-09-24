@@ -29,11 +29,10 @@ use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_c
 
 /// Presentation consumer of [`ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested`].
 ///
-/// The sim (sandbox reset) emits the request after flipping the active room; this
-/// reads the active room from [`RoomSet`] and rebuilds its static visuals +
-/// parallax. Keeping the spawn on the render side means the sim never imports the
-/// render layer, and a headless build (no presentation plugins) simply never runs
-/// this system — correct, since it needs no visuals.
+/// The sim (sandbox reset) emits the request after it changes the active room.
+/// This system reads the active room from [`RoomSet`] and rebuilds its static
+/// visuals and parallax. The spawn stays on the render side, so the sim does not
+/// import the render layer. A headless build does not run this system.
 pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
@@ -101,11 +100,10 @@ pub fn spawn_room_visuals(
     for zone in &spec.loading_zones {
         spawn_loading_zone(commands, session_scope, world, zone, assets);
     }
-    // Per-family authored visuals. Each family carries an Authored<T>
-    // payload; spawn_authored_visual builds the sprite + label.
-    // Hazards lower through the single `placements` channel (fable audit F9.2).
-    // The visual only needs the footprint + the constant hazard sprite, so a
-    // minimal `HazardVolumeSpec` reconstruction is sufficient here.
+    // Per-family authored visuals. Each family carries an `Authored<T>`
+    // payload; `spawn_authored_visual` builds the sprite and label.
+    // Hazards come through the `placements` channel. The visual needs only the
+    // footprint and the hazard sprite, so a minimal `HazardVolumeSpec` is enough.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Hazard(hazard) = &record.schema
         {
@@ -118,13 +116,13 @@ pub fn spawn_room_visuals(
             spawn_authored_hazard(commands, session_scope, world, &authored, assets);
         }
     }
-    // Pickups lower through the single `placements` channel (fable audit F9.2).
+    // Pickups come through the `placements` channel.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Pickup(pickup) = &record.schema
         {
-            // A pickup may author an animated sheet (a spinning ring, a pulsing
-            // gem): when it resolves to a prop asset, bind it as a looping
-            // character sheet; otherwise fall back to the static per-kind sprite.
+            // A pickup may author an animated sheet (a spinning ring). When it
+            // resolves to a prop asset, bind it as a looping character sheet;
+            // otherwise use the static per-kind sprite.
             let animated = pickup
                 .sprite
                 .as_deref()
@@ -154,7 +152,7 @@ pub fn spawn_room_visuals(
             }
         }
     }
-    // Chests lower through the single `placements` channel (fable audit F9.2).
+    // Chests come through the `placements` channel.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
             let authored = ambition_platformer2d_world::rooms::Authored {
@@ -166,7 +164,7 @@ pub fn spawn_room_visuals(
             spawn_authored_chest(commands, session_scope, world, &authored, assets);
         }
     }
-    // Breakables lower through the single `placements` channel (fable audit F9.2).
+    // Breakables come through the `placements` channel.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) =
             &record.schema
@@ -185,12 +183,11 @@ pub fn spawn_room_visuals(
         }
     }
     for enemy in &spec.enemy_spawns {
-        // ONE actor kind — the sandbag/enemy depiction is resolved by the actor
-        // sprite-upgrade fallback (keyed off `is_sandbag`), not a render variant.
+        // One actor kind: the actor sprite-upgrade fallback (keyed off
+        // `is_sandbag`) picks the sandbag or enemy look.
         let kind = FeatureVisualKind::Actor;
-        // ADR 0020: a mount and its rider are now two SEPARATE authored
-        // `EnemySpawn`s (linked by a `mounted_on` ref), so each renders through
-        // the normal single-actor path below — no composite fan-out.
+        // ADR 0020: a mount and its rider are separate `EnemySpawn`s (linked by
+        // `mounted_on`), so each renders through the single-actor path.
         spawn_authored_basic(
             commands,
             session_scope,
@@ -216,8 +213,7 @@ pub fn spawn_room_visuals(
             assets,
         );
     }
-    // Interactables lower through the single `placements` channel (fable audit
-    // F9.2); the presentation visual reads the same records.
+    // Interactables come through the `placements` channel.
     for record in &spec.placements {
         if let ambition_entity_catalog::placements::PlacementSchema::Interactable(spec_i) =
             &record.schema
@@ -251,24 +247,11 @@ pub fn spawn_room_visuals(
     }
 }
 
-/// Spawn the visual entity for one [`PropSpec`]. Falls back to a
-/// colored rectangle when the prop's `kind` is unknown or its asset
-/// hasn't loaded yet.
+/// Render size and anchor for a prop's sprite, by the kind of thing it is.
 ///
-/// Always inserts:
-/// - `RoomVisual` so the room-swap path despawns the prop with the
-///   rest of the room's presentation.
-/// - `PropVisual { id, kind, name, size }` so the generic prop-anim tick
-///   can find it, debug overlays can label it, and per-name presentation
-///   systems (gate-portal visibility / ring rotation, the cut-rope arena)
-///   match it — a render-local fact; render no longer inserts the sim's
-///   `FeatureName` (E4 slice 10).
-/// Render size + anchor for a prop's sprite, by what KIND of thing it is.
-///
-/// It now scales the frame so the sheet's own art lands on the collider, which leaves only the
-/// crop's transparent margin (4.9% for the pipe head). Built world still needs its own path: it
-/// wants the box EXACTLY and centred, and a feet anchor slides a block off the surface at any
-/// scale.
+/// Scenery scales the frame so the sheet's art lands on the collider, which
+/// leaves only the crop's transparent margin. Built world takes the box exactly,
+/// centred, because a feet anchor would slide a block off its surface.
 pub(crate) fn prop_sprite_geometry(
     draw: PropDraw,
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
@@ -285,8 +268,7 @@ pub(crate) fn prop_sprite_geometry(
     }
 }
 
-/// A provider that re-registers its own sheets each frame marks that resource changed
-/// constantly, so the revert landed every frame and the authored look never appeared at all.
+/// Build the sprite, anchor and animator for a prop sheet at its collision size.
 pub(crate) fn prop_sprite_bundle(
     draw: PropDraw,
     flip_y: bool,
@@ -296,11 +278,18 @@ pub(crate) fn prop_sprite_bundle(
     let (render_size, anchor) = prop_sprite_geometry(draw, &asset.spec, collision);
     let (mut sprite, anchor, animator) =
         build_character_presentation_with_render_size(asset, render_size, anchor);
-    // Which way the prop POINTS is authored data, not a second sheet.
+    // Which way the prop points is authored data, not a second sheet.
     sprite.flip_y = flip_y;
     (sprite, anchor, animator)
 }
 
+/// Spawn the visual entity for one [`PropSpec`]. Falls back to a coloured
+/// rectangle when the prop's `kind` is unknown or its asset has not loaded.
+///
+/// Always inserts `RoomVisual` (so the room swap despawns it) and
+/// `PropVisual { id, kind, name, size }` (for the prop-anim tick, debug
+/// overlays, and per-name presentation systems). Render does not insert the
+/// sim's `FeatureName`.
 pub fn spawn_room_prop(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -308,14 +297,11 @@ pub fn spawn_room_prop(
     prop: &PropSpec,
     assets: Option<&GameAssets>,
 ) {
-    // Decorative props borrow the actor placeholder kind for their z/color
-    // fallback (a pre-existing conflation — a cart is not an actor; the enum has
-    // no decorative-prop arm). Only the z is read here; the sprite comes from the
-    // prop asset. SMELL: a dedicated neutral placeholder kind would be cleaner.
+    // Decorative props use the actor placeholder kind for their z/colour
+    // fallback; only the z is read. A dedicated neutral kind would be cleaner.
     let kind = FeatureVisualKind::Actor;
-    // Built world takes the FRONT so a body inside it is swallowed rather than
-    // drawn on top of it; scenery sits behind the cast. The spec says which kind
-    // of thing this is, the renderer picks the layer.
+    // Built world draws in front, so a body inside it is hidden; scenery sits
+    // behind the cast.
     let z = if prop.draw.occludes_bodies() {
         WORLD_Z_PLAYER + 1.0
     } else {
@@ -344,9 +330,8 @@ pub fn spawn_room_prop(
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
         entity.insert(prop_sprite_bundle(prop.draw, prop.flip_y, asset, collision));
     } else {
-        // Fallback: a translucent placeholder rectangle so authors
-        // see a visible marker for unregistered prop kinds. Same
-        // pattern as other "asset missing" fallbacks in the renderer.
+        // Fallback: a translucent placeholder rectangle, so authors see a
+        // marker for unregistered prop kinds.
         entity.insert(Sprite::from_color(
             Color::srgba(0.55, 0.45, 0.85, 0.55),
             collision,
@@ -354,16 +339,12 @@ pub fn spawn_room_prop(
     }
 }
 
-/// Render a single `WaterRegion` as a tinted overlay quad. Source-
-/// agnostic: any region — IntGrid `Water` or entity `WaterVolume` —
-/// uses the same path. Two layers per kind:
+/// Render a single `WaterRegion` as a tinted overlay quad. Any region source
+/// (IntGrid `Water` or entity `WaterVolume`) uses this path. Two layers:
 ///
-/// - Body: a tinted rect spanning the whole region. Clear sits
-///   *behind* the player so the player is visible while submerged;
-///   Murky sits *in front of* the player so it actually hides what
-///   is underneath.
-/// - Surface strip: a brighter band along the top edge so the
-///   water surface reads at a glance even with a flat tint.
+/// - Body: a tinted rect over the whole region. Clear sits behind the player
+///   so the player stays visible; Murky sits in front and hides what is below.
+/// - Surface strip: a brighter band along the top edge.
 fn spawn_water_region(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -373,11 +354,9 @@ fn spawn_water_region(
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
     let (body_color, body_z) = match region.kind {
-        // Cool blue, mostly transparent. Z just above blocks so the
-        // floor tint shows through; player draws on top normally.
+        // Cool blue, mostly transparent, just above blocks.
         ae::WaterKind::Clear => (Color::srgba(0.24, 0.72, 0.88, 0.32), WORLD_Z_BLOCK + 5.0),
-        // Dark teal, near-opaque. Z above the player so anything
-        // beneath the surface is genuinely hidden.
+        // Dark teal, near-opaque, above the player so it hides what is below.
         ae::WaterKind::Murky => (Color::srgba(0.10, 0.20, 0.18, 0.88), WORLD_Z_PLAYER + 5.0),
     };
     commands.spawn_session_scoped(
@@ -390,9 +369,8 @@ fn spawn_water_region(
         ),
     );
 
-    // Surface strip: a brighter band 4px tall at the very top of the
-    // region. The strip always renders above the body and the
-    // player so the surface reads cleanly even through Murky.
+    // Surface strip: a 4px band at the top of the region, above the body and
+    // the player, so the surface shows even through Murky.
     let strip_color = match region.kind {
         ae::WaterKind::Clear => Color::srgba(0.82, 0.95, 1.0, 0.85),
         ae::WaterKind::Murky => Color::srgba(0.55, 0.78, 0.62, 0.95),
@@ -411,11 +389,9 @@ fn spawn_water_region(
     );
 }
 
-/// Render a single `ClimbableRegion` as a tinted overlay quad +
-/// "rung" stripes for visual rhythm. Mirror of `spawn_water_region`'s
-/// shape; placeholder until proper ladder/vine/wall sprite art lands.
-/// All three kinds share the same overlay shape but with kind-specific
-/// tint so the player can tell at a glance what they're touching.
+/// Render a single `ClimbableRegion` as a tinted overlay quad with rung
+/// stripes. Placeholder until ladder/vine/wall art exists. Each kind has its
+/// own tint so the player can tell what they touch.
 fn spawn_climbable_region(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -424,8 +400,7 @@ fn spawn_climbable_region(
 ) {
     let size = region.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // Sit above blocks but below the player so the ladder reads as
-    // background scenery the player climbs in front of.
+    // Above blocks, below the player: the player climbs in front of it.
     let body_z = WORLD_Z_BLOCK + 4.0;
     let (body_color, rung_color) = match region.kind {
         // Brown ladder with darker rung accents.
@@ -454,9 +429,7 @@ fn spawn_climbable_region(
         ),
     );
 
-    // Add rung stripes spaced every 16 px on the y axis. Skipped for
-    // Wall (rung_color alpha=0). Quick visual rhythm so a tall ladder
-    // doesn't look like a flat colored block.
+    // Rung stripes every 16 px on y. Skipped for Wall (rung alpha 0).
     if rung_color.alpha() > 0.0 {
         let rung_h = 3.0;
         let rung_size = BVec2::new(size.x, rung_h);
@@ -479,8 +452,7 @@ fn spawn_climbable_region(
 
 /// Draw the simulation's rideable surface chains as thin, rotated strips.
 ///
-/// This is intentionally generic room presentation rather than Sanic-specific drawing; any game
-/// that authors a chain gets a matching visual.
+/// Generic room presentation: any game that authors a chain gets this visual.
 pub fn spawn_surface_chain_visuals(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -554,9 +526,8 @@ pub fn spawn_grid(commands: &mut Commands, session_scope: SessionSpawnScope, wor
 }
 
 /// Pick a `Tiled` stretch value that keeps the slice count under
-/// `MAX_TILES_PER_AXIS²`. Tiles are sized at `source × stretch`, so
-/// raising the stretch reduces tile count proportionally. Returns 1.0
-/// (native size) when the block fits inside the cap.
+/// `MAX_TILES_PER_AXIS²`. Tiles are `source × stretch`, so a larger stretch
+/// gives fewer tiles. Returns 1.0 (native size) when the block fits the cap.
 fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
     const MAX_TILES_PER_AXIS: f32 = 32.0;
     let source = source_px.max(1.0);
@@ -566,16 +537,14 @@ fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
     needed.ceil()
 }
 
-/// Marker for already-spawned single-image entity sprites whose `Handle<Image>`
-/// should be rebound when `GameAssets` is rebuilt for a confirmed quality
-/// change. The marker is intentionally handle-only: it preserves the current
-/// sprite size, image mode, atlas-free shape, tint, visibility, and entity
-/// identity, avoiding the despawn/respawn bugs from earlier live-refresh attempts.
+/// Marker for spawned single-image entity sprites whose `Handle<Image>` is
+/// rebound when `GameAssets` is rebuilt for a quality change. It rebinds the
+/// handle only, and keeps size, image mode, tint, visibility and entity
+/// identity. Do not despawn and respawn instead.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundEntitySprite {
-    // `pub(crate)`: `apply_block_art` REWRITES this when a
-    // game names its own art for a block, and it is the resolved binding the
-    // asset-reload refresher reads back.
+    // `pub(crate)`: `apply_block_art` rewrites this when a game names its own
+    // art for a block. The asset-reload refresher reads it back.
     pub(crate) key: game_assets::EntitySprite,
 }
 
@@ -587,10 +556,10 @@ impl BoundEntitySprite {
 
 /// Apply game-authored [`BlockArt`] over the kind-derived block presentation.
 ///
-/// Update `BoundEntitySprite` as well as `Sprite` so asset reloads preserve the
-/// resolved binding. Blocks without authored art retain their kind-derived texture.
-/// Clear the placeholder tint when named art takes over because `Sprite::color`
-/// multiplies the image and can keep hidden or tinted placeholders invisible.
+/// Update `BoundEntitySprite` as well as `Sprite`, so asset reloads keep the
+/// resolved binding. Blocks without authored art keep their kind texture.
+/// Clear the placeholder tint when named art takes over: `Sprite::color`
+/// multiplies the image.
 pub fn apply_block_art(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -614,24 +583,17 @@ pub fn apply_block_art(
                     bound.key = *art;
                 }
             }
-            // `try_insert`, and the reason is this crate's own harness
-            // (`deferred_write_safety`): a block visual is room-scoped, so a room
-            // transition can despawn it between this query and the frame's
-            // command flush, and a plain `insert` panics inside Bevy's command
-            // error handler when it does. `flinch_struck_blocks` reaches the same
-            // population and made the same call.
+            // `try_insert`: a block visual is room-scoped, so a room transition
+            // can despawn it before the command flush, and `insert` would panic.
+            // See `deferred_write_safety`. `flinch_struck_blocks` does the same.
             None => {
                 commands
                     .entity(entity)
                     .try_insert(BoundEntitySprite::new(*art));
             }
         }
-        // a missing handle used to be a SILENT no-op, which is how this
-        // seam shipped, passed its crate's tests and drew nothing: a game names
-        // art the catalog does not hold and the block keeps its kind's texture,
-        // saying so nowhere. "Silence is not a fallback" — the whole point of a
-        // per-block override is that somebody asked for something specific, so
-        // not having it is news.
+        // Warn on a missing handle. A per-block override means somebody asked
+        // for specific art, so its absence must be reported, not silent.
         let Some(handle) = assets.entities.get(*art) else {
             warn!(
                 "BlockArt names {art:?}, which is not in `GameAssets.entities` — \
@@ -643,11 +605,9 @@ pub fn apply_block_art(
         if sprite.image != *handle {
             sprite.image = handle.clone();
         }
-        // The authored placeholder colour (or the kind's fallback tint) has been
-        // superseded: a game has named this block's picture, and a tint is a
-        // multiplier over that picture rather than a look of its own. Done AFTER
-        // the handle check on purpose — art the catalog cannot supply leaves the
-        // block exactly as it was rather than half-applied and white.
+        // Named art replaces the placeholder tint, which is only a multiplier.
+        // Do this after the handle check, so missing art leaves the block as it
+        // was rather than half-applied and white.
         if sprite.color != Color::WHITE {
             sprite.color = Color::WHITE;
         }
@@ -690,22 +650,16 @@ pub fn spawn_block(
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
     // Tiled surfaces repeat the kind's tile at native scale so visible edges
-    // match collision edges. Point objects may use prop art instead. Missing art
-    // falls back to a colored quad. `BlockArt` can replace the default later.
+    // match collision edges. Point objects may use prop art. Missing art falls
+    // back to a coloured quad. `BlockArt` can replace the default later.
     let tile_key = game_assets::block_tile_sprite(block.kind);
     let is_tiled_surface = tile_key.is_some();
     let sprite_key = tile_key.or_else(|| game_assets::point_block_sprite(block.kind));
-    // An authored placeholder colour wins over every art path AT SPAWN: content
-    // has said this shape has no sprite yet, and a flat quad is the honest way to
-    // draw it. Taken BEFORE the art lookup so no texture is bound — the block
-    // keeps its placeholder look even once the shared art for its kind exists,
-    // and `refresh_entity_sprite_handles_on_game_assets_change` (which rebinds
-    // from `BoundEntitySprite`) cannot quietly paint over it on the next asset
-    // reload.
-    //
-    // The colour now says what to draw UNTIL a game names art for this block; `apply_block_art`
-    // creates the binding when it takes over, so the absence below is a starting look and not a gag
-    // order.
+    // An authored placeholder colour wins over every art path at spawn: the
+    // shape has no sprite yet. Read it before the art lookup so no texture is
+    // bound, and `refresh_entity_sprite_handles_on_game_assets_change` cannot
+    // paint over it on an asset reload. `apply_block_art` creates a binding
+    // when a game names art for this block.
     let placeholder = block
         .art_color
         .map(|c| Sprite::from_color(Color::srgba(c[0], c[1], c[2], c[3]), render));
@@ -727,12 +681,9 @@ pub fn spawn_block(
                 image_mode: bevy::sprite::SpriteImageMode::Tiled {
                     tile_x: true,
                     tile_y: true,
-                    // Clamp the slice count for very large IntGrid
-                    // surfaces. With a 32px source tile and 1.0 stretch,
-                    // a single 3072×3328 floor would emit ~9984 slices
-                    // and trigger a bevy_sprite performance warning.
-                    // Scaling the tile up keeps the visual tiling but
-                    // bounds the per-block slice count.
+                    // Clamp the slice count for very large IntGrid surfaces:
+                    // at 1.0 stretch a 3072×3328 floor gives ~9984 slices and
+                    // a bevy_sprite performance warning.
                     stretch_value: tiled_block_stretch(render, 32.0),
                 },
                 ..Default::default()
@@ -751,13 +702,12 @@ pub fn spawn_block(
             sprite,
             Transform::from_translation(world_to_bevy(world, block.aabb.center(), WORLD_Z_BLOCK)),
             Name::new(format!("Block: {}", block.name)),
-            // Carry the authored name so a mid-run overlay subtraction (a broken
-            // brick, a gate-dropped wall) can despawn this sprite — the render half
-            // of `removed_block_names`, reconciled by `sync_removed_block_visuals`.
+            // The authored name lets a mid-run overlay subtraction (a broken
+            // brick) despawn this sprite; see `sync_removed_block_visuals`.
             BlockVisual {
                 block_name: block.name.clone(),
-                // The DURABLE identity beside the human label — a bonk arrives as
-                // `ContactSource::Block { id, .. }` and has no name to offer.
+                // The durable identity: a bonk arrives as
+                // `ContactSource::Block { id, .. }` and has no name.
                 geo_id: block.id.clone(),
             },
             RoomVisual,
@@ -780,10 +730,9 @@ fn spawn_static_collider_for_block(
 }
 
 /// Width-to-height aspect of the authored `door_zone.png` (published with
-/// `ground = true`, so its bottom edge is the door's feet). A door preserves
-/// this aspect instead of stretching to fill the trigger box — which can be
-/// any size — so it never looks squashed. Keep in sync with the `door_zone`
-/// drawer in the sprite renderer.
+/// `ground = true`, so its bottom edge is the door's feet). A door keeps this
+/// aspect instead of stretching to the trigger box. Keep in sync with the
+/// `door_zone` drawer in the sprite renderer.
 const DOOR_SPRITE_ASPECT: f32 = 0.56;
 
 pub fn spawn_loading_zone(
@@ -797,23 +746,17 @@ pub fn spawn_loading_zone(
     let fallback_color = match zone.activation {
         LoadingZoneActivation::EdgeExit => Color::srgba(0.20, 0.95, 1.0, 0.22),
         LoadingZoneActivation::Door => Color::srgba(1.0, 0.72, 0.18, 0.46),
-        // Walk-through portal: green tint to distinguish from edge
-        // exits while still reading as "step in and go."
+        // Walk-through portal: green, to differ from edge exits.
         LoadingZoneActivation::Walk => Color::srgba(0.40, 1.00, 0.55, 0.30),
     };
-    // A `Door` is a standing prop: render it like a character. Its feet (the
-    // sprite's bottom edge) plant on the bottom (floor) face of the trigger
-    // box via a bottom-centre anchor, and it keeps its authored aspect rather
-    // than stretching to the box. Edge-exit / walk zones stay box-filling
-    // tints, anchored at the box centre. This is why doors stand on the
-    // ground without any per-placement nudging — the box is authored flush
-    // to the floor, and the feet anchor does the rest.
+    // A `Door` is a standing prop: a bottom-centre anchor plants its feet on
+    // the floor face of the trigger box, and it keeps its authored aspect.
+    // Edge-exit and walk zones stay box-filling tints anchored at the centre.
     let grounded = matches!(zone.activation, LoadingZoneActivation::Door);
     let (render, sprite_pos, anchor) = if grounded {
         let height = size.y;
         let width = height * DOOR_SPRITE_ASPECT;
-        // Bottom-centre of the box in world space (y-down → +half_y is the
-        // floor edge).
+        // Bottom-centre of the box in world space (y-down, so +half_y is the floor).
         let foot = zone.aabb.center() + ae::Vec2::new(0.0, zone.aabb.half_size().y);
         (BVec2::new(width, height), foot, Anchor::BOTTOM_CENTER)
     } else {
@@ -835,10 +778,8 @@ pub fn spawn_loading_zone(
             anchor,
             Transform::from_translation(world_to_bevy(world, sprite_pos, WORLD_Z_BLOCK + 6.0)),
             Name::new(format!("Loading zone: {}", zone.name)),
-            // Marker carrying the zone id so portal-aware systems can
-            // hide the debug door visual for portal-mode LoadingZones
-            // (the portal sprite IS the door visual; the DoorZone box
-            // behind it reads as a second door).
+            // Carries the zone id so portal-aware systems can hide this debug
+            // door for portal-mode zones (the portal sprite is the door).
             crate::rendering::primitives::LoadingZoneVisual {
                 id: zone.id.clone(),
             },
@@ -867,10 +808,9 @@ pub fn spawn_loading_zone(
     }
 }
 
-/// Common spawn body for an authored entity with a sprite and no
-/// label. Hazards, pickups, breakables, enemies, bosses all funnel
-/// through here — they differ only in `kind` + which `EntitySprite`
-/// the asset bank resolves to.
+/// Common spawn body for an authored entity with a sprite and no label.
+/// Hazards, pickups, breakables, enemies and bosses differ only in `kind` and
+/// the `EntitySprite` the asset bank resolves.
 fn spawn_authored_basic(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -884,8 +824,8 @@ fn spawn_authored_basic(
 ) {
     let size = aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // Initial placeholder color only (a neutral, not-yet-fighting actor); the
-    // per-frame `sync_visuals` repaints from `FeatureView::fighting` immediately.
+    // Initial placeholder colour only; `sync_visuals` repaints from
+    // `FeatureView::fighting` on the next frame.
     let sprite = match assets {
         Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, false, false)),
         None => Sprite::from_color(feature_color(kind, false, false), render),
@@ -905,13 +845,11 @@ fn spawn_authored_basic(
     }
 }
 
-/// Spawn a pickup whose visual is an animated character sheet (a spinning ring,
-/// a pulsing gem). It is an ordinary [`FeatureVisual`] — `sync_visuals` positions
-/// it by id and hides it on collection, exactly like the static coin — that also
-/// carries a [`CharacterAnimator`], so the shared `animate_feature_sprites` idle
-/// tick spins its looping `idle` row. No prop conflation: a pickup is a feature,
-/// not a decorative prop; the animator is just presentation state on the feature.
-/// A collectible floats, so it is centre-anchored rather than foot-planted.
+/// Spawn a pickup whose visual is an animated character sheet (a spinning ring).
+/// It is an ordinary [`FeatureVisual`]: `sync_visuals` positions it and hides it
+/// on collection. It also carries a [`CharacterAnimator`], so
+/// `animate_feature_sprites` plays its looping `idle` row. It floats, so it is
+/// centre-anchored.
 fn spawn_animated_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -985,7 +923,7 @@ fn spawn_authored_chest(
         game_assets::entity_sprite_for_chest(&authored.payload),
         assets,
     );
-    // Chest label (mirrors the pre-migration behavior).
+    // Chest label.
     let half_h = authored.aabb.half_size().y;
     spawn_world_label(
         commands,
@@ -1031,17 +969,12 @@ fn spawn_authored_interactable(
         game_assets::entity_sprite_for_interactable(interactable),
         assets,
     );
-    // NPC labels are rendered by the presentation nameplate system. Keep this
-    // spawn path to sprites/features only so authored map labels, chest labels,
-    // and non-door loading-zone labels remain independent presentation surfaces.
+    // The nameplate system renders NPC labels. This path spawns only
+    // sprites/features, so map labels, chest labels and zone labels stay separate.
 }
 
-/// Block-name prefixes whose presence in `world.blocks` should be
-/// reflected as a `LockWallVisual` Bevy entity. The encounter system
-/// writes `lockwall:<id>` blocks; the intro-v1 flag-gated lock-wall
-/// system writes `intro_lock:<id>` blocks. Both are surfaced with the
-/// same `LockWallTile` sprite so a Task 08 conditional gate reads the
-/// same way as an encounter-driven slam.
+/// Block-name prefixes that `sync_lock_wall_visuals` draws with the
+/// `LockWallTile` sprite: encounter lock walls and flag-gated lock walls.
 const LOCK_WALL_BLOCK_PREFIXES: &[&str] = &["lockwall:", "gated_lock:"];
 
 fn is_lock_wall_block(name: &str) -> bool {
@@ -1050,20 +983,15 @@ fn is_lock_wall_block(name: &str) -> bool {
         .any(|prefix| name.starts_with(prefix))
 }
 
-/// Reconcile `LockWallVisual` Bevy entities against the encounter-
-/// driven `lockwall:*` and intro flag-gated `intro_lock:*` gate solids
-/// the gates contribute to the per-frame collision overlay. Spawn a
-/// sprite for any new lock wall, despawn entities whose backing block
-/// has been removed (encounter cleared / failed, or flag unlocked).
+/// Reconcile `LockWallVisual` entities against the lock-wall gate solids in
+/// the per-frame collision overlay. Spawn a sprite for each new lock wall;
+/// despawn a visual whose block is gone (encounter cleared or failed, flag
+/// unlocked).
 ///
-/// The walls live in [`FeatureEcsWorldOverlay::gate_solids`] (derived
-/// each frame), NOT the authored `RoomGeometry` base — so this reads the
-/// overlay for the block set and the base only for the world→screen
-/// coordinate frame. Without this system the lock wall has collision
-/// (the overlay folds it into every collision read-path) but no rendered
-/// tile — the player bumps into an invisible barrier. The dedicated
-/// `LockWallTile` asset keeps the visual distinct from regular solid
-/// walls so the "this just slammed shut" beat reads at a glance.
+/// The walls live in [`FeatureEcsWorldOverlay::gate_solids`], not the authored
+/// `RoomGeometry` base. Read the base only for the world-to-screen frame.
+/// Without this system a lock wall collides but is invisible. `LockWallTile`
+/// keeps it distinct from ordinary walls.
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -1082,17 +1010,15 @@ pub fn sync_lock_wall_visuals(
         return;
     };
 
-    // Index existing visuals by their backing block name so we can
-    // diff against the world snapshot in linear time.
+    // Index existing visuals by block name to diff in linear time.
     let mut existing_by_name: std::collections::HashMap<String, Entity> =
         std::collections::HashMap::new();
     for (entity, visual) in &existing {
         existing_by_name.insert(visual.block_name.clone(), entity);
     }
 
-    // Pass 1: spawn a visual for any lock-wall block (encounter or
-    // intro flag-gated) that doesn't have one yet. Mark consumed
-    // names so the despawn pass below leaves them alone.
+    // Pass 1: spawn a visual for each lock-wall block without one. Mark
+    // consumed names so pass 2 keeps them.
     let mut consumed: std::collections::HashSet<String> = std::collections::HashSet::new();
     for block in &overlay.gate_solids {
         if !is_lock_wall_block(&block.name) {
@@ -1104,9 +1030,8 @@ pub fn sync_lock_wall_visuals(
         }
         let size = block.aabb.half_size() * 2.0;
         let render = BVec2::new(size.x, size.y);
-        // Bright purple fallback when no asset is loaded — distinct
-        // from the standard solid-block fallback so a missing tile
-        // is obvious in playtest.
+        // Bright purple fallback, distinct from the solid-block fallback, so a
+        // missing tile is obvious.
         let fallback = Color::srgba(0.65, 0.20, 0.85, 0.92);
         let sprite = match assets.as_deref() {
             Some(a) => entity_sprite_or_color(
@@ -1124,8 +1049,7 @@ pub fn sync_lock_wall_visuals(
                 Transform::from_translation(world_to_bevy(
                     &world.0,
                     block.aabb.center(),
-                    // Sit just above the regular block layer so a lock
-                    // wall reads on top of any floor/wall art it overlaps.
+                    // Just above the block layer, over any floor/wall art.
                     WORLD_Z_BLOCK + 4.0,
                 )),
                 Name::new(format!("LockWall: {}", block.name)),
@@ -1139,9 +1063,7 @@ pub fn sync_lock_wall_visuals(
         consumed.insert(block.name.clone());
     }
 
-    // Pass 2: despawn visuals whose gate solid disappeared (encounter
-    // cleared / failed, or flag unlocked → the contributor stopped
-    // deriving the block this frame).
+    // Pass 2: despawn visuals whose gate solid is gone.
     for (name, entity) in &existing_by_name {
         if !consumed.contains(name) {
             commands.entity(*entity).despawn();
@@ -1149,27 +1071,14 @@ pub fn sync_lock_wall_visuals(
     }
 }
 
-/// Despawn the sprite of any authored block the collision overlay is SUBTRACTING
-/// this frame (`removed_block_names`). This is the render half of the immutable-base
-/// subtraction seam: the overlay already drops the block from every collision read
-/// (`apply_overlay_subtractions`), and this makes it vanish from the DRAWN world too,
-/// so a broken brick (or any gate-dropped authored block) stops colliding AND stops
-/// drawing — the two halves of "remove a block mid-run" without editing the authored
-/// [`RoomGeometry`](ambition_platformer2d_core::RoomGeometry) base.
+/// A struck block flinches; the collision box does not move.
 ///
-/// One-directional by design: room (re)load respawns the full authored block set via
-/// [`spawn_room_visuals`], and the content contributor clears `removed_block_names`
-/// on a re-arm, so a rebuilt brick simply reappears with the room — no respawn logic
-/// A struck block flinches, and the collision box does not move.
+/// The offset lives only on the visual's transform. Moving the block would
+/// lift or push bodies and give rollback an animation to rewind. The geometry
+/// is authoritative and static.
 ///
-/// the offset lives on the VISUAL's transform and nowhere else. Moving the
-/// block itself would lift a body standing on it, shove one beside it, and give a
-/// rollback an animation to rewind. This is presentation; the geometry is
-/// authoritative and static.
-///
-/// against GRAVITY, not "up" — resolved from the acceleration frame, so a
-/// block struck in a flipped room flinches the way that room means it. Same
-/// relativity rule the engine applies to feet and jumps.
+/// The flinch is against gravity, from the acceleration frame, so a block in a
+/// flipped room flinches the way that room means.
 pub fn flinch_struck_blocks(
     mut commands: Commands,
     mut struck: MessageReader<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>,
@@ -1179,14 +1088,10 @@ pub fn flinch_struck_blocks(
     mut flinching: Query<(Entity, &mut Transform, &mut BlockFlinch, &BlockVisual)>,
 ) {
     for message in struck.read() {
-        // a RE-STRIKE resets the clock and KEEPS the home. Inserting a
-        // fresh `BlockFlinch` replaces the live one, and the animation pass below
-        // fills a `None` home from `transform.translation` — which, mid-flinch, is
-        // the DISPLACED position. So every strike during the animation adopted the
-        // current offset as the new resting place and the drawn block walked away
-        // from its static collider, a few pixels per hit. The comment beside the
-        // component claimed this was prevented; resetting the component reset the
-        // very thing that would have prevented it.
+        // A re-strike resets the clock and keeps the home. A fresh
+        // `BlockFlinch` would have a `None` home, and the pass below would fill
+        // it from the displaced position, so the block would drift away from
+        // its collider on each hit.
         let mut restruck = false;
         for (_, _, mut flinch, visual) in &mut flinching {
             if visual.geo_id == message.id {
@@ -1212,9 +1117,8 @@ pub fn flinch_struck_blocks(
         .unwrap_or(ambition_platformer2d_core::Vec2::new(0.0, 1.0));
     let rise = -down.normalize_or(ambition_platformer2d_core::Vec2::new(0.0, 1.0));
     for (entity, mut transform, mut flinch, _) in &mut flinching {
-        // The home position is captured on the FIRST frame rather than at insert:
-        // a second strike while one is playing must not record the flinched
-        // position as home, or the block walks away from its own geometry.
+        // Capture the home on the first frame, not at insert, so a second
+        // strike does not record the flinched position as home.
         let home = *flinch.home.get_or_insert(transform.translation);
         flinch.elapsed += time.delta_secs();
         let f = ambition_platformer2d_shared_tangle::block_nudge::nudge_fraction(flinch.elapsed);
@@ -1224,9 +1128,8 @@ pub fn flinch_struck_blocks(
             continue;
         }
         let offset = f * ambition_platformer2d_shared_tangle::block_nudge::NUDGE_RISE_PX;
-        // World -> Bevy: the render layer's y is flipped relative to the sim's,
-        // which is why this reads the rise through the same conversion the spawn
-        // did rather than adding to y directly.
+        // World to Bevy: y is flipped, so convert the rise the same way the
+        // spawn did.
         transform.translation = home + Vec3::new(rise.x * offset, -rise.y * offset, 0.0);
     }
 }
@@ -1239,31 +1142,28 @@ pub struct BlockFlinch {
     home: Option<Vec3>,
 }
 
-/// is owed here. Generic over the block name, so it serves every game the reusable
-/// presentation plugin drives, not just Mary-O's bricks.
+/// Despawn the sprite of any authored block the collision overlay subtracts
+/// this frame (`removed_block_names`). The overlay already drops the block from
+/// collision (`apply_overlay_subtractions`); this removes it from the drawn
+/// world, without editing the authored
+/// [`RoomGeometry`](ambition_platformer2d_core::RoomGeometry) base.
 ///
-/// # A NAME IN BOTH LISTS IS A REPLACEMENT, AND THE REMOVAL HALF MUST NOT WIN
+/// One-directional: room reload respawns the full block set via
+/// [`spawn_room_visuals`]. Generic over the block name, so it serves every game.
 ///
-/// The overlay's two block lists are not independent. A contributor that changes
-/// what an authored block *is* — rather than deleting it — states that as a
-/// subtraction by name plus an addition at the same box: Mary-O's
-/// `contribute_discovered_hidden_blocks_to_overlay` promotes a struck `BonkOnly`
-/// to a `Solid` by pushing the block's own name into `removed_block_names` AND
-/// the promoted block into `blocks`, same name, same box, same `GeoId`.
+/// # A name in both lists is a replacement
 ///
-///  so a subtracted name that the SAME overlay is re-adding is skipped. Both
-/// lists are cleared and refilled together by
-/// `rebuild_feature_ecs_world_overlay`, so the two halves are always read from
-/// one frame's answer and there is no ordering hazard here — deliberately NOT a
-/// second reconciler racing this one.
+/// A contributor that changes what an authored block is states it as a
+/// subtraction by name plus an addition with the same name, box and `GeoId`
+/// (Mary-O's `contribute_discovered_hidden_blocks_to_overlay` promotes a
+/// struck `BonkOnly` to a `Solid`). So a subtracted name that the same overlay
+/// re-adds is skipped. `rebuild_feature_ecs_world_overlay` refills both lists
+/// together, so there is no ordering hazard.
 ///
-/// and NOT "draw everything in `overlay.blocks`". That list is mostly
-/// engine-contributed collision volumes that must never be drawn: pogo-bounce
-/// targets riding actors (`ecs-pogo-target …`, `BlockKind::PogoOrb`) and
-/// breakable ghosts, all carrying `GeoId::anon()` and synthesised names no
-/// authored room ever uses — so none of them can appear in `removed_block_names`
-/// and none of them is rescued here. The narrow claim is about the INTERSECTION
-/// of the two lists, which is exactly the set that means "replaced".
+/// Do not draw everything in `overlay.blocks`. Most of it is engine collision
+/// volumes (pogo targets, breakable ghosts) with `GeoId::anon()` and synthetic
+/// names that never appear in `removed_block_names`. Only the intersection of
+/// the two lists means "replaced".
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
     overlay: Option<
@@ -1285,9 +1185,7 @@ pub fn sync_removed_block_visuals(
         {
             continue;
         }
-        // The replacement half. See the header: this is a re-statement of the
-        // block, not its deletion, and the visual is what the replacement wants
-        // dressed.
+        // The replacement half: see the header.
         if overlay
             .blocks
             .iter()
@@ -1329,11 +1227,9 @@ mod lock_wall_visual_tests {
         names
     }
 
-    /// The reconcile reads the overlay's `gate_solids` (NOT the authored base):
+    /// The reconcile reads the overlay's `gate_solids`, not the authored base:
     /// a gate solid spawns a `LockWallVisual`, and dropping it from the overlay
-    /// despawns the visual. This is what keeps lock walls visible after the
-    /// move off the base — the render contract the base→overlay conversion must
-    /// preserve.
+    /// despawns the visual.
     #[test]
     fn lock_wall_visual_tracks_overlay_gate_solids() {
         let mut app = App::new();
@@ -1354,8 +1250,7 @@ mod lock_wall_visual_tests {
             "a gate solid spawns its LockWallVisual"
         );
 
-        // Encounter cleared / flag unlocked → the contributor stops deriving the
-        // wall, so the overlay no longer carries it and the visual despawns.
+        // The contributor stops deriving the wall, so the visual despawns.
         app.world_mut()
             .resource_mut::<FeatureEcsWorldOverlay>()
             .gate_solids
@@ -1367,11 +1262,8 @@ mod lock_wall_visual_tests {
         );
     }
 
-    /// The removed-block reconcile despawns exactly the block visuals the overlay
-    /// is subtracting this frame (`removed_block_names`) — the render half of the
-    /// immutable-base subtraction. A broken brick's sprite vanishes; every other
-    /// block visual is left standing, and a re-armed brick (name dropped from the
-    /// list) simply respawns with the room, which is not this system's job.
+    /// The removed-block reconcile despawns exactly the block visuals the
+    /// overlay subtracts this frame. Other block visuals stay.
     #[test]
     fn removed_block_visual_despawns_only_subtracted_blocks() {
         let mut app = App::new();
@@ -1406,16 +1298,10 @@ mod lock_wall_visual_tests {
         );
     }
 
-    /// THE INVARIANT: a name in BOTH overlay lists is a REPLACEMENT.
+    /// A name in both overlay lists is a replacement, and the visual survives.
     ///
-    /// A contributor that re-states an authored block (Mary-O promoting a
-    /// discovered hidden `BonkOnly` to a `Solid`) subtracts the name and adds the
-    /// replacement in one pass. The visual must SURVIVE, because it is the thing
-    /// the replacement wants dressed.
-    ///
-    /// the poison is in the same test, and it is the one that matters: an added block under
-    /// a DIFFERENT name — which is what every engine-contributed pogo/breakable volume in
-    /// `overlay.blocks` is — must not rescue an ordinary removal.
+    /// Also: an added block under a different name (like every engine pogo or
+    /// breakable volume) must not rescue an ordinary removal.
     #[test]
     fn a_replaced_block_keeps_its_visual_while_a_removed_one_does_not() {
         let mut app = App::new();
@@ -1445,8 +1331,8 @@ mod lock_wall_visual_tests {
                     ae::Vec2::new(100.0, 100.0),
                     ae::Vec2::new(16.0, 16.0),
                 ),
-                // The poison: an unrelated overlay block, the shape every
-                // engine-contributed pogo volume takes.
+                // The poison: an unrelated overlay block, shaped like an engine
+                // pogo volume.
                 ae::Block::solid(
                     "ecs-pogo-target 7 0",
                     ae::Vec2::new(400.0, 200.0),
@@ -1498,15 +1384,10 @@ mod prop_geometry_tests {
 
     /// A pipe's art must match the surface a body stands on.
     ///
-    /// on the top." The pipe pieces were sized like a CHARACTER — whose art
-    /// deliberately overflows its collider and hangs off a feet anchor — so a
-    /// 64×32 pipe head rendered at 128×64 with its lip drawn a whole tile ABOVE
-    /// the block she actually stands on. It went unnoticed while the player drew
-    /// in front of props; the moment a pipe had to swallow her, it swallowed her
-    /// standing on it too.
-    ///
-    /// This reads the REAL baked pipe-head sheet, so it fails if the sheet's
-    /// frame geometry ever drifts from the box the level authors for it.
+    /// Sizing pipe pieces like a character (art overflowing the collider on a
+    /// feet anchor) drew the lip a tile above the standing surface. This reads
+    /// the real baked pipe-head sheet, so it fails if the sheet's frame
+    /// geometry drifts from the authored box.
     #[test]
     fn a_structure_props_art_exactly_fills_the_collider_a_body_stands_on() {
         let spec = try_load_spec_for_target("super_mary_o_pipe_top", &SheetTuning::new(1.0, 0))
@@ -1526,9 +1407,8 @@ mod prop_geometry_tests {
             "and centred on that box — a feet anchor would slide it off the block"
         );
 
-        // The bbox-quad route sizes the quad so the sheet's own art lands on the box, so what is
-        // left over is the transparent margin the crop leaves — 4.9% here, not 100%. The reason
-        // built world keeps its own path is now the ANCHOR and the exactness, not the scale.
+        // The bbox-quad route leaves only the crop's transparent margin (4.9%
+        // here). Built world keeps its own path for the anchor and exactness.
         let (decoration, decoration_anchor) =
             prop_sprite_geometry(PropDraw::Decoration, &spec, authored);
         assert!(

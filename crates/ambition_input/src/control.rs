@@ -1,10 +1,10 @@
 //! Device adapters that build the engine-owned `ControlFrame` resource.
 //!
-//! The pure, brain-facing [`ControlFrame`] vocabulary lives in
-//! `ambition_platformer2d_core`; this module is the input adapter that translates
-//! Leafwing `Platformer2dInputActionMonolith`s, control settings, and trigger hysteresis into that
-//! frame. Headless/replay/netcode callers can construct `ControlFrame` directly
-//! without depending on this crate.
+//! The brain-facing [`ControlFrame`] vocabulary lives in
+//! `ambition_platformer2d_core`. This module translates Leafwing
+//! `Platformer2dInputActionMonolith` actions, control settings, and trigger
+//! hysteresis into that frame. Headless, replay, and netcode callers can build
+//! `ControlFrame` directly without this crate.
 
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
@@ -17,23 +17,13 @@ use crate::actions::Platformer2dInputActionMonolith;
 
 /// The largest movement magnitude the walk modifier permits.
 ///
-/// ⛔⛔ IT MUST STAY BELOW `LocomotionTuning::run_commit_frac`, whose default is
-/// [`ambition_platformer2d_core::movement::tuning::RUN_COMMIT_FRAC`] (0.55) —
-/// that constant is what the simulation compares the magnitude against to decide
-/// walk from run, so a cap at or above it would produce a "walk" that runs.
-/// Stated as a named constant with the coupling written down rather than a 0.5
-/// somebody has to rediscover.
-///
-/// ⚠ A body may author its OWN `run_commit_frac`. A kit that authors one above
-/// this cap simply walks at this speed; a kit that authors one BELOW it would
-/// run while the modifier is held, and that body wants its own answer rather
-/// than a smaller global number.
-// Gated to match its only use site: the walk cap is applied in
-// `read_gameplay_control_frame_with_settings`, which reads the leafwing
-// `Platformer2dInputActionMonolith::Walk` action and so exists only under
-// `input`. ⚠ WITHOUT THIS the crate warns when built ALONE -- its default
-// feature set is empty -- while the workspace check stays clean, because
-// feature unification turns `input` on for everyone. Two different programs.
+/// Keep this below `LocomotionTuning::run_commit_frac` (default
+/// [`ambition_platformer2d_core::movement::tuning::RUN_COMMIT_FRAC`], 0.55).
+/// The simulation compares the magnitude with that value to select walk or
+/// run, so a cap at or above it gives a "walk" that runs. A body that authors
+/// a lower `run_commit_frac` runs while walk is held.
+// Gated like its only use site. Without the gate, a standalone build of this
+// crate (no default features) warns; the workspace build does not.
 #[cfg(feature = "input")]
 pub const WALK_AXIS_CAP: f32 = 0.5;
 
@@ -53,11 +43,9 @@ pub fn read_gameplay_control_frame_with_settings(
     edges: crate::settings::GameplayEdgeState,
 ) -> (ControlFrame, crate::settings::GameplayEdgeState) {
     let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
-    // Deadzone first, so analog drift does not pollute the magnitude the
-    // simulation reads as a gait: the stick's MAGNITUDE is the walk/run
-    // distinction (`run * max_run_speed`, cut by `run_commit_frac`), so drift
-    // here is a body that walks on its own.
-    //
+    // Deadzone first. The simulation reads stick magnitude as the gait
+    // (`run * max_run_speed`, cut by `run_commit_frac`), so drift here would
+    // make a body walk by itself.
     let (deadzoned_x, deadzoned_y) = crate::settings::ControlSettings::apply_deadzone(
         raw_move.x,
         raw_move.y,
@@ -65,33 +53,17 @@ pub fn read_gameplay_control_frame_with_settings(
     );
     let axis = bevy::math::Vec2::new(deadzoned_x, deadzoned_y);
 
-    // The modifier slot is reported RAW — held level and press edge — and the adapter assigns it no
-    // meaning. Now the state travels intact to the simulation and a body's own rules decide what
-    // sustaining it does.
+    // Report the modifier raw (held level and press edge). The adapter gives it
+    // no meaning; each body's rules decide what holding it does.
     let modifier_held = actions.pressed(&Platformer2dInputActionMonolith::Modifier);
     let modifier_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::Modifier);
-    // ⭐⭐ THE WALK. The simulation reads the stick's MAGNITUDE as the gait —
-    // below `run_commit_frac` is a walk, at or above it is a run — and a DIGITAL
-    // source can only ever say 1.0. So a keyboard or D-pad fighter could not
-    // walk at all: no walk approach, no walk-to-tilt spacing, and
-    // `BodyMotionFacts::running` permanently true, which answers every grounded
-    // Attack press with the dash attack.
+    // Walk: the simulation reads stick magnitude as the gait, and a digital
+    // source always gives 1.0, so without this cap a keyboard or D-pad body
+    // cannot walk. Cap the magnitude; do not scale it, so an analog tilt that
+    // is already a walk stays the same. The rule is the same for every source
+    // bound to `Move`.
     //
-    // ⭐ A CAP, NOT A SCALE, and the difference matters on an analog stick. A
-    // scale would take a player already tilting 0.3 down to 0.15 — punishing
-    // them for asking to walk while already walking. Capping says what the
-    // player means: *do not exceed a walk*. It is therefore source-independent,
-    // which is what the composite `Move` binding needs: a gamepad binds BOTH the
-    // D-pad and the left stick to it, and a rule that read differently on each
-    // would drift the two apart.
-    //
-    // ⛔ THE LOCOMOTION HALF IS NOT TOUCHED, deliberately: the parity inventory's
-    // row says the gap is INPUT and that the gait itself works
-    // (`a_light_tilt_walks_and_a_full_one_runs` measures it). This is the one
-    // place a key becomes an axis.
-    // ⛔ THE `Walk` ACTION, NOT `Modifier`. The modifier slot is already claimed
-    // — Mary-O reads `modifier_held` as her RUN — so capping on it here would
-    // make her run key slow her down. See `Platformer2dInputActionMonolith::Walk`.
+    // Read `Walk`, not `Modifier`: Mary-O uses `modifier_held` as her run.
     let walk_held = actions.pressed(&Platformer2dInputActionMonolith::Walk);
     let axis = if walk_held {
         let magnitude = axis.length();
@@ -108,14 +80,14 @@ pub fn read_gameplay_control_frame_with_settings(
     let up_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveUp);
     let down_pressed = actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown);
 
-    // BURST-press hysteresis: read the analog right trigger value plus the binary
-    // RT2 button as the "press level". The settings-defined press / release
-    // thresholds collapse trigger jitter into a single edge.
+    // Burst press level: the larger of the analog right trigger and the binary
+    // Burst button. The press/release thresholds from settings collapse
+    // trigger jitter into one edge.
     //
-    // the device-side names moved to BURST too, and the WIRE did not. A
-    // stored remap is keyed by the action's `Debug` spelling, so `"Dash"` is
-    // carried to `"Burst"` by `settings::ControlSettings::migrate_renamed_actions`;
-    // the persisted `dash_input_mode` key is PINNED with `#[serde(rename)]`.
+    // Stored remaps use the action's `Debug` name, so
+    // `settings::ControlSettings::migrate_renamed_actions` maps `"Dash"` to
+    // `"Burst"`. The persisted `dash_input_mode` key stays pinned with
+    // `#[serde(rename)]`.
     let raw_trigger = actions
         .value(&Platformer2dInputActionMonolith::BurstAnalog)
         .clamp(0.0, 1.0);
@@ -143,7 +115,7 @@ pub fn read_gameplay_control_frame_with_settings(
         }
     };
 
-    // This is the fix for old-controller drift pushing the blink target upward.
+    // Deadzone the aim stick so controller drift does not move the blink target.
     let raw_aim = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::AimStick);
     let (aim_x_raw, aim_y_raw) = crate::settings::ControlSettings::apply_deadzone(
         raw_aim.x,
@@ -156,22 +128,18 @@ pub fn read_gameplay_control_frame_with_settings(
         aim_y_raw
     };
 
-    // ⭐⭐ THE C-STICK. In an attack mode the right stick's deflection is a
-    // PRESS, not an aim: crossing `AIM_STICK_ATTACK_THRESHOLD` from rest throws
-    // the authored strength in that direction, and the same hysteresis the
-    // burst trigger uses stops a stick held out from re-firing every frame.
+    // C-stick: in an attack mode, a right-stick deflection is a press, not an
+    // aim. Crossing `AIM_STICK_ATTACK_THRESHOLD` from rest throws the authored
+    // strength in that direction. The burst-trigger hysteresis stops a held
+    // stick from firing again each frame.
     //
-    // ⛔⛔ THE DIRECTION RIDES ITS OWN PAIR, and the version that reused
-    // `aim_x`/`aim_y` was WRONG ACROSS THE LATCH. Those are LEVELS — newest
-    // device sample wins — while the press, the strength and
-    // `attack_from_aim_stick` are EDGES. A flick that recentered before the sim
-    // tick therefore delivered an armed C-stick attack with the aim already back
-    // at zero, and `attack_axis` fell through to the MOVEMENT axis: flick right
-    // while running left and the attack came out LEFT. `attack_aim_x/y` is the
-    // same value latched WITH the edge it qualifies.
+    // The direction uses its own pair (`attack_aim_x/y`), not `aim_x`/`aim_y`.
+    // Aim values are levels (newest sample wins); the press and strength are
+    // edges. A flick that recenters before the sim tick would otherwise give an
+    // attack with zero aim, and `attack_axis` would fall back to the movement
+    // axis and attack the wrong way.
     //
-    // ⚠ AND THE STICK STOPS AIMING, which is the whole reason this is a MODE. A
-    // player whose right stick throws attacks is not aiming a blink with it.
+    // In this mode the stick does not aim.
     let (next_aim_stick_state, aim_stick_flicked) = crate::settings::update_trigger_edge(
         edges.aim_stick,
         bevy::math::Vec2::new(aim_x_raw, aim_y_raw).length(),
@@ -184,11 +152,9 @@ pub fn read_gameplay_control_frame_with_settings(
         .filter(|_| aim_stick_flicked);
 
     let frame = ControlFrame {
-        // ⚠ THE DEVICE ADAPTER DOES NOT KNOW THE SEAT'S FRAME POLICY, and must
-        // not: this crate reads pads and keyboards, and the mode is a settings
-        // fact stamped on at capture by `populate_seat_control_frames`. Left at
-        // the default here so a frame that never reaches that stage still
-        // resolves the way it did before the field existed.
+        // The device adapter does not know the seat's frame policy. That mode is
+        // a settings fact that `populate_seat_control_frames` stamps on at
+        // capture. The default here keeps a frame that skips that stage valid.
         control_frame_modes: ambition_platformer2d_core::ControlFrameModes::default(),
         axis_x: axis.x,
         // Ambition's simulation uses screen-space world coordinates: +Y is
@@ -212,17 +178,11 @@ pub fn read_gameplay_control_frame_with_settings(
             || stick_attack.is_some(),
         attack_held: actions.pressed(&Platformer2dInputActionMonolith::Attack),
         attack_released: actions.just_released(&Platformer2dInputActionMonolith::Attack),
-        // ⭐ ALL THREE ARE BOUND. `RightStickMode::TiltAttack`/`SmashAttack`
-        // make the right stick force `Tilt` or `Smash` at deflection (parity
-        // inventory §9) — this comment said "no device produces that yet" until
-        // 2026-08-31, one commit after the mode shipped in this same function.
-        // An unbound hint is `Auto`, the interpreter reading the stick, which is
-        // what every ordinary attack button asks for.
-        // ⭐ THE STICK OUTRANKS THE BUTTON when both speak on one frame, because
-        // the stick's whole purpose is to force a strength the interpreter would
-        // not have chosen. A `StrongAttack` press with no stick flick still means
-        // `Smash`, and everything else is `Auto` — the interpreter reading the
-        // stick, which is what an ordinary attack button asks for.
+        // `RightStickMode::TiltAttack`/`SmashAttack` make the right stick force
+        // `Tilt` or `Smash`. The stick outranks the button on the same frame,
+        // because its purpose is to force a strength. A `StrongAttack` press
+        // without a flick means `Smash`. Otherwise `Auto`: the interpreter
+        // reads the stick, as an ordinary attack button asks.
         attack_strength_hint: stick_attack.unwrap_or(
             if actions.pressed(&Platformer2dInputActionMonolith::StrongAttack) {
                 ambition_platformer2d_core::AttackStrengthHint::Smash
@@ -231,9 +191,8 @@ pub fn read_gameplay_control_frame_with_settings(
             },
         ),
         attack_from_aim_stick: stick_attack.is_some(),
-        // The flick's OWN direction, captured on the frame it happened. Zero
-        // unless this frame carries a C-stick press, so the latch has nothing to
-        // preserve for an ordinary attack.
+        // The flick's own direction, latched with its edge. Zero when this frame
+        // has no C-stick press.
         attack_aim_x: if stick_attack.is_some() {
             aim_x_raw
         } else {
@@ -250,13 +209,11 @@ pub fn read_gameplay_control_frame_with_settings(
         projectile_held: actions.pressed(&Platformer2dInputActionMonolith::Projectile),
         projectile_released: actions.just_released(&Platformer2dInputActionMonolith::Projectile),
         shield_held: actions.pressed(&Platformer2dInputActionMonolith::Shield),
-        // `just_pressed`, not `pressed`: the grab is an ATTEMPT, and the
-        // authored grab move owns how long that attempt stays active. Reading
-        // the level here would re-attempt every tick a player leans on the
-        // button, which deletes the cost of whiffing one.
+        // Read the edge, not the level: a grab is one attempt, and the grab
+        // move owns how long it stays active. Reading the level would retry
+        // every tick the button is held and remove the cost of a miss.
         grab_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Grab),
-        // A taunt is one press, one performance — the same reason grab reads the
-        // edge rather than the level.
+        // A taunt is one press, one performance. Read the edge, as for grab.
         taunt_pressed: actions.just_pressed(&Platformer2dInputActionMonolith::Taunt),
         modifier_held,
         modifier_pressed,

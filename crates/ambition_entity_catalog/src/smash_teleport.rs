@@ -27,9 +27,9 @@ pub struct TeleportParams {
     /// Move-clock seconds of intangibility starting at transit. `0.0` disables it. The helper clamps the window to the move duration.
     #[serde(default)]
     pub intangible_s: f32,
-    /// The effect drawn where the fighter LEFT.
+    /// The effect drawn where the fighter left.
     pub depart_vfx: String,
-    /// The effect drawn where the fighter ARRIVED.
+    /// The effect drawn where the fighter arrived.
     pub arrive_vfx: String,
 }
 

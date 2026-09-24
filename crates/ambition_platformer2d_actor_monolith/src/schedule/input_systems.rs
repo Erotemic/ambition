@@ -27,9 +27,7 @@ use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame,
     Platformer2dInputActionMonolith,
 };
-use ambition_platformer2d_shared_tangle::lifecycle::{
-    ActiveSessionScope, SessionGatedSimulation, SessionRoot,
-};
+use ambition_platformer2d_shared_tangle::lifecycle::LiveSessionScope;
 use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
@@ -406,23 +404,18 @@ pub fn seat_input_participants_for_roster(
 /// The session lifecycle's context claim: a live gameplay session owns the
 /// participant's actions.
 ///
-/// Mirrors `session_world_exists` (the canonical [`SessionRoot`] must exist
-/// and, on shell-gated hosts, match the active scope). The SESSION is the
-/// surface that owns gameplay input, so the claim follows the session —
-/// never `GameMode`, never controlled-body presence.
+/// ⛔ [`LiveSessionScope`], the resolver `session_world_exists` uses, and not
+/// a restatement of it: a shell-routed host selects its root BY SCOPE, so a
+/// retired root that has not been despawned yet is not a candidate. A
+/// `roots.single()` here reads that frame as "no session" and drops the claim
+/// while the simulation it feeds is authorized. The SESSION is the surface that
+/// owns gameplay input, so the claim follows the session — never `GameMode`,
+/// never controlled-body presence.
 pub fn declare_gameplay_input_context(
-    gate: Option<Res<SessionGatedSimulation>>,
-    active_scope: Option<Res<ActiveSessionScope>>,
-    roots: Query<&SessionRoot>,
+    live: LiveSessionScope,
     mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
 ) {
-    let session_live = roots.single().is_ok_and(|root| {
-        gate.is_none()
-            || active_scope
-                .as_deref()
-                .and_then(ActiveSessionScope::current)
-                == Some(root.0)
-    });
+    let session_live = live.get().is_some();
     for mut contexts in &mut participants {
         // Touch the component only when the claim actually moves.
         if contexts.is_declared(GAMEPLAY_CONTEXT) != session_live {
@@ -2325,6 +2318,49 @@ mod focus_gate_tests {
                 .entity(participant)
                 .contains::<ActionState<Platformer2dInputActionMonolith>>(),
             "participant device state survives session teardown"
+        );
+    }
+
+    #[test]
+    fn a_shell_host_still_holding_a_retired_root_claims_gameplay_for_the_live_one() {
+        use ambition_platformer2d_shared_tangle::lifecycle::{
+            ActiveSessionScope, SessionGatedSimulation,
+        };
+        let owned = |app: &App| {
+            app.world()
+                .resource::<SeatInputContexts>()
+                .primary()
+                .gameplay_owned()
+        };
+        let mut app = App::new();
+        app.init_resource::<SeatInputContexts>();
+        app.insert_resource(SessionGatedSimulation);
+        let mut scopes = ActiveSessionScope::default();
+        let retired = scopes.begin();
+        let live = scopes.begin();
+        app.insert_resource(scopes);
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                declare_gameplay_input_context,
+                resolve_active_input_context,
+            )
+                .chain(),
+        );
+        app.world_mut().spawn(SessionRoot(retired));
+        let live_root = app.world_mut().spawn(SessionRoot(live)).id();
+        app.update();
+        assert!(
+            owned(&app),
+            "the active scope names its root; a retired root not yet despawned is not a candidate"
+        );
+
+        app.world_mut().despawn(live_root);
+        app.update();
+        assert!(
+            !owned(&app),
+            "a retired root alone is not a live session on a shell host"
         );
     }
 

@@ -1,25 +1,16 @@
-//! Where a drawable sits relative to ONE portal pane, for compositing.
+//! Where a drawable sits relative to one portal pane, for compositing.
 //!
-//! ⛔⛔ THE RENDERER CANNOT ANSWER THIS WITH A Z CONSTANT, AND TODAY IT TRIES.
-//! [`crate::PORTAL_WINDOW_Z`] is `9.5`; a generic actor draws at
-//! `WORLD_Z_DUMMY + 1.0 = 11.0` and the player at `WORLD_Z_PLAYER = 20.0`. So
-//! EVERY actor wins the depth test against EVERY pane. The constant's own doc
-//! states the intent — *"below actors so a near-side actor still occludes it"* —
-//! and a single global ordering can only serve half of it: a FAR-side actor
-//! standing behind the aperture is drawn over the captured image it should be
-//! hidden by. Reported by Jon 2026-09-05 with a screenshot of a far-side
-//! Perfect Cellular Automaton punching through a seamless window.
+//! A z constant cannot answer this. [`crate::PORTAL_WINDOW_Z`] is `9.5`; a
+//! generic actor draws at `WORLD_Z_DUMMY + 1.0 = 11.0` and the player at
+//! `WORLD_Z_PLAYER = 20.0`. Every actor wins the depth test against every pane,
+//! so a far-side actor behind the aperture draws over the captured image that
+//! should hide it.
 //!
-//! ⭐ THE RELATION IS PER PANE, WHICH IS WHY IT IS NOT A Z. One body can be NEAR
-//! one pane and FAR of another in the same frame, and a single entity z cannot
-//! represent both. ⇒ This module answers the question for one (pane, drawable)
-//! pair and holds no opinion about how the renderer then composites it: the
-//! classification is the shared authority, and the drawing road is free to be a
-//! clipped overlay, a stencil, or a dedicated pass.
-//!
-//! ⚠ NOTHING CONSUMES THIS FOR DRAWING YET. It is built first because the
-//! diagnostics and the eventual compositor need the SAME answer, and a dump that
-//! computed its own would be a second authority for the fact under repair.
+//! The relation is per pane. One body can be near one pane and far of another
+//! in the same frame, and one entity z cannot represent both. This module
+//! classifies one (pane, drawable) pair. It does not decide how the renderer
+//! composites the result. The diagnostics and the compositor use this same
+//! answer.
 
 use ambition_platformer2d_core::Vec2;
 use ambition_portal2d::PlacedPortal;
@@ -33,35 +24,28 @@ pub enum PaneRelation {
     /// On the VIEWER's side of the pane and overlapping it: it may occlude the
     /// aperture, which is what today's global z already gives.
     NearOccluder,
-    /// On the FAR side and overlapping: the pane's captured image should cover
-    /// the overlapping pixels. ⛔ This is the case the current z policy gets
-    /// wrong, every time.
+    /// On the far side and overlapping: the pane's captured image should cover
+    /// the overlapping pixels. A global z gets this case wrong.
     FarCovered,
     /// Mid-transit: the split here/through presentation owns this body and the
     /// compositor must not add a third copy of it.
     Transiting,
 }
 
-/// Classify `drawable` (world-space bounds, as DRAWN) against one `pane`.
+/// Classify `drawable` (world-space bounds, as drawn) against one `pane`
+/// ([`pane_relation`]).
 ///
-/// ⚠ `transiting` WINS OVER GEOMETRY, deliberately. A body crossing the plane is
-/// already drawn as clipped pieces; asking whether its bounds overlap the pane
-/// would classify it a second time and invite a duplicate copy.
+/// `transiting` wins over geometry. A body crossing the plane is already drawn
+/// as clipped pieces, and a second classification would add a duplicate copy.
 ///
-/// ⚠ A drawable exactly ON the plane counts as the VIEWER's side. The pane is a
-/// hole in a surface, so a body resting against it from the room is the ordinary
-/// near case; `front_distance` returning exactly zero for a far-side body is a
-/// measure-zero coincidence, and biasing it toward "occludes" fails visible
-/// rather than invisible.
-/// The pane's world rect: what it covers, and the region a far-side drawable
-/// must be subtracted by.
+/// A drawable exactly on the plane counts as the viewer's side. A body resting
+/// against the hole from the room is the ordinary near case, and this bias
+/// fails visible rather than invisible.
 ///
-/// ⭐ ONE READING, BECAUSE THE TWO CALLERS MUST NOT DISAGREE. [`pane_relation`]
-/// says a drawable is `FarCovered` because it overlaps THIS rect, and the
-/// compositor then subtracts a rect from that drawable. If those were two
-/// spellings of `pos ± half_extent`, a body could be classified as covered and
-/// then clipped against a slightly different region -- which shows up as a hairline
-/// of the far body along the pane edge, exactly the artefact this repair is for.
+/// The pane's world rect: what it covers, and what is subtracted from a
+/// far-side drawable. [`pane_relation`] and the compositor both use this rect.
+/// Two spellings of `pos ± half_extent` could leave a hairline of the far body
+/// along the pane edge.
 pub fn pane_cover_rect(pane: &PlacedPortal) -> (Vec2, Vec2) {
     (pane.pos - pane.half_extent, pane.pos + pane.half_extent)
 }
@@ -85,10 +69,8 @@ pub fn pane_relation(
         return PaneRelation::Disjoint;
     }
 
-    // ⭐ ONE READING OF "WHICH SIDE", the portal domain's own named verb. A
-    // second `.dot(normal)` here would be a private copy of a rule the sim
-    // already owns and would drift from it the day a moving host changes what
-    // "in front" means.
+    // Use the portal domain's side test, not a private `.dot(normal)` that
+    // could drift from it.
     let frame = pane.frame();
     let centre = (drawable_min + drawable_max) * 0.5;
     let drawable_front = ambition_portal2d::pieces::front_distance(centre, &frame);
@@ -102,25 +84,11 @@ pub fn pane_relation(
     }
 }
 
-/// Does the drawn ordering MATCH the relation, given the two actual z values?
+/// Does the drawn ordering match the relation, given the two actual z values?
 ///
-/// ⭐ THE POINT IS TO MAKE THE BUG COUNTABLE. A diagnostic that printed the
-/// relation without saying which ones the renderer then gets wrong would leave
-/// the reader to re-derive the very comparison the finding is about.
-///
-/// ⛔⛔ IT TAKES THE Z VALUES RATHER THAN ASSUMING THEM, AND THE FIRST VERSION
-/// DID NOT. It was a bare `match` returning `false` for `FarCovered` — a hardcoded
-/// statement that actors always outrank panes, written beside a dump that
-/// computed the same fact from `z > PORTAL_WINDOW_Z`. **Two readings of one
-/// fact, and the constant one goes stale the moment somebody moves a z.** If
-/// `PORTAL_WINDOW_Z` were raised above the actor band tomorrow, the hardcoded
-/// version would still report every far-side body as a violation and every
-/// near-side one as fine — with the truth exactly inverted, in the instrument
-/// built to find that class of error.
-///
-/// ⇒ Now there is ONE reading: the caller supplies what was actually drawn and
-/// what the pane actually is, and the answer follows. The dump no longer needs a
-/// second comparison of its own.
+/// This makes the bug countable in the diagnostics. It takes the z values
+/// instead of assuming them, so the answer stays correct if a z constant
+/// moves. The dump uses this and has no comparison of its own.
 pub fn current_z_policy_is_correct_for(
     relation: PaneRelation,
     drawable_z: f32,
@@ -140,11 +108,9 @@ pub fn current_z_policy_is_correct_for(
 
 /// One axis-aligned piece of a drawable that the compositor may draw.
 ///
-/// A piece is a SUB-RECT of the original sprite, so the four sides of the
-/// rectangle it must not exceed come from the quad's own extent. That is why
-/// this road needs no clip planes: [`crate::PortalClipMaterial`] carries three
-/// half-planes and an axis-aligned rectangle wants four, but a quad IS its own
-/// four planes.
+/// A piece is a sub-rect of the original sprite. The quad's own extent gives
+/// its four outer edges, so this road needs no extra planes for them.
+/// [`crate::PortalClipMaterial`] carries three half-planes.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UncoveredPiece {
     pub min: Vec2,
@@ -203,24 +169,19 @@ impl UncoveredPieces {
 /// The part of `drawable` that `cover` does NOT hide, as up to four disjoint
 /// axis-aligned pieces.
 ///
-/// ⭐⭐ THIS IS WHAT MAKES THE DEFECT INEXPRESSIBLE RATHER THAN CAUGHT. Jon's
-/// report is a far-side body drawn over the pane that should hide it, and the
-/// two obvious repairs were both ruled out for good reasons: raising
-/// [`crate::PORTAL_WINDOW_Z`] above the player only inverts the bug onto
-/// near-side bodies, and moving an actor's single z cannot serve two panes that
-/// disagree about it in the same frame. ⇒ The covered region is never handed to
-/// the renderer AT ALL. There is no ordering to get wrong, because the pixels
-/// that could be wrong are not in any piece — asserted by
-/// `no_piece_ever_overlaps_the_cover` over a grid of offsets.
+/// The covered region is never given to the renderer, so there is no ordering
+/// to get wrong. A higher [`crate::PORTAL_WINDOW_Z`] would invert the bug onto
+/// near-side bodies, and one actor z cannot serve two panes that disagree.
+/// `no_piece_ever_overlaps_the_cover` checks this over a grid of offsets.
 ///
-/// The decomposition is the standard one and its shape is load-bearing: a
-/// full-width band below the cover, a full-width band above it, then the left
-/// and right pieces of the middle band only. Cutting the bands full-width first
-/// is what keeps the four disjoint; four half-open half-planes would overlap at
-/// the corners and draw them twice, which for a translucent sprite is visible.
+/// The shape of the decomposition matters: a full-width band below the cover,
+/// a full-width band above it, then the left and right pieces of the middle
+/// band. Full-width bands keep the four pieces disjoint. Four half-planes would
+/// overlap at the corners and draw them twice, which shows on a translucent
+/// sprite.
 ///
-/// Total on no overlap (one whole piece) and on total cover (none), so the
-/// caller needs no special case for either.
+/// No overlap gives one whole piece; total cover gives none. The caller needs
+/// no special case.
 pub fn uncovered_remainder(
     drawable_min: Vec2,
     drawable_max: Vec2,
@@ -240,8 +201,8 @@ pub fn uncovered_remainder(
         max: cover_max,
     };
     // No overlap: the cover hides nothing of this drawable, so it draws whole.
-    // ⚠ A degenerate cover takes this road too — a zero-area aperture must hide
-    // NOTHING, and treating it as covering everything would blank the actor.
+    // A degenerate cover takes this road too: a zero-area aperture hides
+    // nothing, and must not blank the actor.
     if cover.is_degenerate() || !whole.overlaps(&cover) {
         out.push(whole);
         return out;
@@ -271,17 +232,13 @@ pub fn uncovered_remainder(
     out
 }
 
-/// The clip half-planes one piece needs, as `(point, inward normal)` in ENGINE
+/// The clip half-planes one piece needs, as `(point, inward normal)` in engine
 /// world space, ready for `clip_plane_render` to map into the render frame.
 ///
-/// ⭐ ONE DERIVATION, NOT TWO. A plane is needed exactly where the piece's edge
-/// differs from the drawable's own edge, because the quad already supplies the
-/// sprite's four outer edges. Deriving that here — from the same rects
-/// [`uncovered_remainder`] produced — is what keeps the piece list and the plane
-/// list from becoming two accounts of one fact that can disagree.
-///
-/// At most three are ever `Some`, which
-/// `no_piece_needs_more_than_the_materials_three_clip_planes` pins;
+/// A plane is needed only where the piece's edge differs from the drawable's
+/// own edge; the quad supplies the four outer edges. This uses the same rects
+/// that [`uncovered_remainder`] produced. At most three are `Some`
+/// (`no_piece_needs_more_than_the_materials_three_clip_planes`);
 /// [`crate::PortalClipMaterial`] carries exactly three.
 pub fn piece_clip_edges(
     piece: &UncoveredPiece,
@@ -317,9 +274,8 @@ pub fn piece_clip_edges(
 mod clip_edge_tests {
     use super::*;
 
-    /// The planes must actually RECONSTRUCT the piece: a normal pointing the
-    /// wrong way keeps the complement, which is the original bug wearing a
-    /// different mask — the far body would draw exactly where it must not.
+    /// The planes must reconstruct the piece. A normal pointing the wrong way
+    /// keeps the complement, and the far body draws where it must not.
     #[test]
     fn the_planes_keep_the_piece_and_reject_outside_it() {
         let (dmin, dmax) = (Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
@@ -352,9 +308,8 @@ mod clip_edge_tests {
         }
     }
 
-    /// ⚠ The count must match the budget the material actually has, and it is
-    /// asserted against the SAME pieces the drawing road uses rather than a
-    /// hand-written rect — a piece list and a plane list are one fact.
+    /// The count must match the material's budget. It is checked against the
+    /// same pieces the drawing road uses.
     #[test]
     fn a_whole_uncovered_sprite_needs_no_planes_at_all() {
         let (dmin, dmax) = (Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
@@ -381,10 +336,8 @@ mod remainder_tests {
         uncovered_remainder(d.0, d.1, c.0, c.1)
     }
 
-    /// ⭐⭐ THE PROPERTY THE WHOLE REPAIR RESTS ON, over a grid rather than a
-    /// hand-picked case: whatever the cover is, NO emitted piece overlaps it.
-    /// A far-side body cannot draw inside the aperture because those pixels are
-    /// never in a piece — there is no z, and no ordering, to get wrong.
+    /// For any cover, no emitted piece overlaps it. A far-side body cannot draw
+    /// inside the aperture because those pixels are never in a piece.
     #[test]
     fn no_piece_ever_overlaps_the_cover() {
         let d = rect(0.0, 0.0, 10.0, 10.0);
@@ -402,8 +355,7 @@ mod remainder_tests {
                 }
             }
         }
-        // ⚠ An anti-vacuity floor that clears the largest arrangement, not zero:
-        // 17x17 offsets, and the interior ones emit all four pieces.
+        // Anti-vacuity floor: 17x17 offsets, and the interior ones emit four pieces.
         assert!(checked > 400, "only {checked} pieces examined");
     }
 
@@ -431,9 +383,8 @@ mod remainder_tests {
         }
     }
 
-    /// Disjointness is not implied by the two properties above — a double-drawn
-    /// corner tiles the right AREA only if you count it twice, and on a
-    /// translucent sprite it shows as a bright square.
+    /// Disjointness is not implied by the two properties above. A double-drawn
+    /// corner shows as a bright square on a translucent sprite.
     #[test]
     fn the_pieces_never_overlap_each_other() {
         let d = rect(0.0, 0.0, 10.0, 10.0);
@@ -456,10 +407,8 @@ mod remainder_tests {
         assert!(out.is_empty(), "fully covered drawable emitted {}", out.len());
     }
 
-    /// ⚠ Both of the ways "nothing is hidden" arrives, because they take
-    /// DIFFERENT roads through the function and a zero-area aperture reading as
-    /// a total cover would blank the actor outright — the loudest possible
-    /// version of the bug being repaired.
+    /// Both ways "nothing is hidden" arrives take different roads through the
+    /// function. A zero-area aperture read as total cover would blank the actor.
     #[test]
     fn nothing_hidden_draws_the_whole_sprite_once() {
         for cover in [
@@ -474,19 +423,13 @@ mod remainder_tests {
         }
     }
 
-    /// ⭐⭐ THE THREE-HALF-PLANE BUDGET, PINNED. A piece is NOT drawn as a
-    /// sub-rect quad: `clip_piece_transform` scales the quad to the WHOLE
-    /// sprite and every cut is a half-plane in [`crate::PortalClipMaterial`],
-    /// which carries exactly THREE. So a piece is affordable only if it differs
-    /// from the drawable's own bounds on at most three edges — the sprite's
-    /// outer edges come free with the quad, and only the edges the cover moved
-    /// need a plane.
+    /// The three-half-plane budget. `clip_piece_transform` scales the quad to
+    /// the whole sprite, and every cut is a half-plane in
+    /// [`crate::PortalClipMaterial`], which carries three. A piece fits only if it
+    /// differs from the drawable's bounds on at most three edges.
     ///
-    /// Cutting the bands full-width FIRST is what buys that: the two bands move
-    /// one edge each, and the two middle pieces move three. Four half-planes
-    /// meeting at the corners would need four on some piece and would not fit.
-    /// ⇒ The decomposition's shape is now load-bearing for a SECOND independent
-    /// reason, and this test fails if anyone re-cuts it.
+    /// Full-width bands make this true: each band moves one edge, and each middle
+    /// piece moves three. This test fails if the decomposition is re-cut.
     #[test]
     fn no_piece_needs_more_than_the_materials_three_clip_planes() {
         let d = rect(0.0, 0.0, 10.0, 10.0);
@@ -513,8 +456,7 @@ mod remainder_tests {
                 }
             }
         }
-        // ⚠ Anti-vacuity: if nothing ever needed 3 the budget would be untested
-        // and a 4-plane decomposition could slip in under a looser bound.
+        // Anti-vacuity: some piece must need all three planes.
         assert_eq!(worst, 3, "no piece exercised the full three-plane budget");
     }
 
@@ -556,9 +498,8 @@ mod tests {
         (centre - half, centre + half)
     }
 
-    /// ⛔⛔ THE REPORTED BUG, as a classification. A body BEHIND the pane whose
-    /// sprite overlaps it must be covered by the captured image — and the
-    /// current global-z policy draws it on top, every time.
+    /// A body behind the pane whose sprite overlaps it must be covered by the
+    /// captured image. The global-z policy draws it on top.
     #[test]
     fn a_far_side_body_overlapping_the_pane_is_covered_and_the_z_policy_gets_it_wrong() {
         // Pane on a floor facing up (+y is "into the room" here); viewer above.
@@ -571,14 +512,13 @@ mod tests {
             !current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z),
             "the whole finding is that today's z draws this one on top of the pane"
         );
-        // ⭐ AND THE ANSWER FOLLOWS THE NUMBERS, not a hardcoded verdict: put the
-        // same far-side body BELOW the pane and it is composited correctly. A
-        // constant `false` here would have called the fixed world broken too.
+        // The answer follows the numbers: the same far-side body drawn below the
+        // pane is composited correctly.
         assert!(current_z_policy_is_correct_for(relation, 9.0, crate::PORTAL_WINDOW_Z));
     }
 
-    /// ⚠ THE CONTROL. Without it, a classifier that answered `FarCovered` for
-    /// everything would pass the test above and be strictly worse than the bug.
+    /// The control: a classifier that answered `FarCovered` for everything
+    /// would pass the test above.
     #[test]
     fn a_near_side_body_overlapping_the_pane_may_occlude_it() {
         let p = pane(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0));
@@ -587,8 +527,8 @@ mod tests {
         let relation = pane_relation(&p, viewer, min, max, false);
         assert_eq!(relation, PaneRelation::NearOccluder);
         assert!(current_z_policy_is_correct_for(relation, 11.0, crate::PORTAL_WINDOW_Z));
-        // ⚠ And a near-side body drawn BELOW the pane is wrong for the opposite
-        // reason -- it would be hidden by an aperture it is standing in front of.
+        // A near-side body drawn below the pane is wrong too: the aperture it
+        // stands in front of would hide it.
         assert!(!current_z_policy_is_correct_for(relation, 9.0, crate::PORTAL_WINDOW_Z));
     }
 
@@ -602,8 +542,8 @@ mod tests {
         );
     }
 
-    /// ⚠ Transit wins over geometry: the split presentation already draws this
-    /// body, and a compositor that also classified it would add a third copy.
+    /// Transit wins over geometry: the split presentation already draws this
+    /// body, so classifying it too would add a third copy.
     #[test]
     fn a_transiting_body_belongs_to_the_split_presentation_whatever_its_bounds() {
         let p = pane(Vec2::new(100.0, 300.0), Vec2::new(0.0, 1.0));
@@ -614,12 +554,11 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ THE POISON JON NAMED: ONE BODY, TWO PANES, DIFFERENT ANSWERS.
+    /// One body, two panes, different answers.
     ///
-    /// This is the case that forbids fixing the bug by mutating the actor's
-    /// single z. The body sits between two apertures facing each other: it is on
-    /// the viewer's side of one and behind the other, in the same frame. Any
-    /// implementation that stores one ordering per actor MUST fail here.
+    /// The body sits between two facing apertures: in front of one and behind
+    /// the other, in the same frame. Any fix that stores one ordering per actor
+    /// fails here.
     #[test]
     fn one_body_is_near_one_pane_and_far_of_another_in_the_same_frame() {
         let viewer = Vec2::new(100.0, 360.0);
@@ -642,8 +581,7 @@ mod tests {
         );
     }
 
-    /// ⚠ Order independence: the relation is a function of geometry, so building
-    /// the same scene the other way round must not change it.
+    /// The relation depends only on geometry, so build order must not change it.
     #[test]
     fn the_relation_does_not_depend_on_which_pane_is_asked_first() {
         let viewer = Vec2::new(100.0, 360.0);
@@ -666,25 +604,16 @@ mod tests {
 
 #[cfg(test)]
 mod band_tests {
-    /// ⛔⛔ THE OTHER HALF OF "THE PORTAL BAND SITS BELOW THE ACTOR BAND", and the
-    /// half THIS crate can see unconditionally.
+    /// The portal band sits at or below `WORLD_Z_DUMMY`.
     ///
-    /// The claim spans two crates: the portal z constants live here, and the
-    /// `+ 1.0` that puts an actor above `WORLD_Z_DUMMY` lives in
-    /// `ambition_render`. Asserting all of it there needed the optional
-    /// `portal_render` feature — which is `default = []`, so the guard ran only
-    /// under the exhaustive lane and would not have stopped anyone.
+    /// The full claim spans two crates. This crate pins
+    /// `portal band <= WORLD_Z_DUMMY`, and `ambition_render` pins
+    /// `WORLD_Z_DUMMY < actor`. Together: `portal band <= WORLD_Z_DUMMY < actor`,
+    /// with no optional feature on either side.
     ///
-    /// ⇒ Split on the shared term. `WORLD_Z_DUMMY` is the datum both crates
-    /// already depend on, so this pins `portal band <= datum` and
-    /// `ambition_render` pins `datum < actor`; together
-    /// `portal band <= WORLD_Z_DUMMY < actor`, with **no optional feature on
-    /// either side**.
-    ///
-    /// ⭐⭐ THIS IS THE GUARD AGAINST THE RULED-OUT CHEAP FIX. Raising
-    /// [`crate::PORTAL_WINDOW_Z`] above the cast is the two-line change that
-    /// makes a reported screenshot look right and INVERTS the bug — a near-side
-    /// actor would vanish behind an aperture it stands in front of.
+    /// This guards against raising [`crate::PORTAL_WINDOW_Z`] above the actors.
+    /// That inverts the bug: a near-side actor would vanish behind an aperture it
+    /// stands in front of.
     #[test]
     fn the_portal_band_stays_at_or_below_the_shared_world_datum() {
         let datum = ambition_platformer2d_core::config::WORLD_Z_DUMMY;
@@ -705,8 +634,7 @@ mod band_tests {
         }
     }
 
-    /// ⚠ The control: the band must be ORDERED within itself, or "below the
-    /// datum" is satisfied by three constants that say nothing about each other.
+    /// The control: the band must also be ordered within itself.
     #[test]
     fn the_portal_band_is_ordered_within_itself() {
         assert!(crate::PORTAL_EXIT_COPY_Z < crate::PORTAL_WINDOW_Z);

@@ -3,10 +3,9 @@
 //! post-boss NPCs, and reward chests). Static LDtk-derived features are
 //! handled by [`super::world::spawn_room_visuals`] at room load.
 //!
-//! Pure consumer of the sim-built
-//! [`ambition_sim_view::DynamicFeatureViews`] rows (E4 slice
-//! 9): the sim resolves identity / geometry / placeholder-sprite facts; this
-//! pass only spawns the missing visuals.
+//! A pure consumer of the sim-built [`ambition_sim_view::DynamicFeatureViews`]
+//! rows. The sim resolves identity, geometry, and placeholder-sprite facts;
+//! this pass only spawns the missing visuals.
 
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
@@ -42,7 +41,7 @@ pub fn spawn_dynamic_feature_visuals(
     else {
         return;
     };
-    // A DIAGNOSTIC placeholder does not count as a claim.
+    // A diagnostic placeholder does not count as a claim.
     let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
     let mut placeholders: std::collections::HashMap<&str, Entity> =
         std::collections::HashMap::new();
@@ -58,17 +57,16 @@ pub fn spawn_dynamic_feature_visuals(
         if known.contains(fact.id.as_str()) {
             continue;
         }
-        // The real thing is arriving: retire the stand-in in the same flush, so
-        // the frame never shows both.
+        // The real visual arrives: despawn the stand-in in the same flush, so the
+        // frame never shows both.
         if let Some(placeholder) = placeholders.get(fact.id.as_str()) {
             commands.entity(*placeholder).try_despawn();
         }
         let render = BVec2::new(fact.size.x, fact.size.y);
         let fallback = feature_color(fact.visual_kind, fact.fighting, false);
-        // A drop may name an ANIMATED sheet (a spinning ring): bind it exactly
-        // as the room-load pass binds an authored pickup's, so a ring that burst
-        // out of the player is the same spinning ring as one lying in the level
-        // — not a static coin standing in for it.
+        // A drop can name an animated sheet (a spinning ring). Bind it like the
+        // room-load pass binds an authored pickup, so a dropped ring looks the
+        // same as one placed in the level.
         let animated = fact
             .prop_sheet
             .as_deref()
@@ -94,8 +92,8 @@ pub fn spawn_dynamic_feature_visuals(
                     session_scope,
                     (
                         sprite,
-                        // A collectible floats: centre-anchored, like the
-                        // authored animated pickup.
+                        // A collectible floats: centre-anchored, like the authored
+                        // animated pickup.
                         anchor,
                         animator,
                         transform,
@@ -127,28 +125,23 @@ pub fn spawn_dynamic_feature_visuals(
     }
 }
 
-/// A visual THIS pass spawned, and therefore this pass is responsible for.
+/// Marks a visual that this module spawned and must clean up.
 ///
-/// Room-load visuals live until the room does; a dynamic one outlives its sim
-/// entity only as an invisible orphan. The marker keeps the cleanup below
-/// strictly symmetric with the spawn above — it can only ever despawn something
-/// this module created, so it cannot mistake a static visual for a dead one
-/// during a frame when the sim's view index hasn't been built yet.
+/// The cleanup below despawns only entities with this marker. So it cannot
+/// mistake a static room-load visual for a dead one on a frame when the view
+/// index is not built yet.
 #[derive(Component)]
 pub struct DynamicFeatureVisual;
 
-/// Despawn the visual of a dynamic feature the sim has finished with.
+/// Despawn the visual of a dynamic feature that the sim no longer has.
 ///
-/// A dropped ring expires. Without this, its sprite lingers for the life of the
-/// ROOM — hidden (a `FeatureVisual` with no view is hidden by `sync_visuals`),
-/// but accumulating one entity per drop for as long as the player keeps taking
-/// hits.
+/// For example, a dropped ring expires. Without this, its hidden sprite stays
+/// for the life of the room, one entity per drop.
 ///
-/// GONE means gone from BOTH read-models. Falling out of `DynamicFeatureViews`
-/// alone does not mean a feature died: that list is a discovery feed with
-/// per-family conditions (a mob that turns peaceful drops out of it while very
-/// much still standing there). The feature is dead only when the per-frame
-/// `FeatureViewIndex` — which every live feature appears in — has also lost it.
+/// A feature is gone only when it is absent from both read-models.
+/// `DynamicFeatureViews` is a discovery feed with per-family conditions (a mob
+/// that turns peaceful leaves it but still exists). `FeatureViewIndex` holds
+/// every live feature.
 pub fn despawn_dead_dynamic_feature_visuals(
     mut commands: Commands,
     dynamic: Res<DynamicFeatureViews>,
@@ -175,11 +168,9 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// drawing requires world geometry.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
-    //  `Option`, and that is load-bearing. `SessionWorldRef` is a `Single`,
-    // so an app with no session world SKIPS the whole system — including the
-    // census below, which the cover then reads a frame (or a hundred) stale.
-    // Publishing is unconditional; only the DRAWING needs a world to place a
-    // rectangle in.
+    // `Option` is required. `SessionWorldRef` is a `Single`, so without a
+    // session world the whole system would skip, and the census below would go
+    // stale. Publishing is unconditional; only drawing needs a world.
     world: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
             ambition_platformer2d_core::RoomGeometry,
@@ -189,13 +180,12 @@ pub fn draw_unclaimed_feature_views(
     views: Res<ambition_sim_view::FeatureViewIndex>,
     existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>)>,
     mut unsettled: ResMut<UnclaimedFeatureViews>,
-    // How many consecutive frames each id has been unclaimed. The stand-in's
-    // grace period; see `UNCLAIMED_STAND_IN_GRACE_FRAMES`.
+    // Consecutive unclaimed frames per id. See
+    // `UNCLAIMED_STAND_IN_GRACE_FRAMES`.
     mut unclaimed_streak: Local<std::collections::HashMap<String, u32>>,
 ) {
-    // Split the drawn ids into the REAL visuals and this system's own stand-ins,
-    // in one pass, because "claimed" and "standing in for a claim" are different
-    // answers and the old single `known` set could not tell them apart.
+    // Split drawn ids into real visuals and this system's own stand-ins.
+    // "Claimed" and "standing in for a claim" are different answers.
     let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
     let mut stand_ins: Vec<(Entity, &str)> = Vec::new();
     for (entity, visual, is_stand_in) in &existing {
@@ -205,40 +195,35 @@ pub fn draw_unclaimed_feature_views(
             known.insert(visual.id.as_str());
         }
     }
-    // The real thing arrived: retire the stand-in. Before the session-scope
-    // guard below, because despawning needs no scope to spawn into — and a
-    // placeholder that outlives its session's scope resolution is exactly the
-    // one that would hold a cover open.
+    // The real visual arrived: despawn the stand-in. Do this before the
+    // session-scope guard, because despawn needs no scope, and a stale
+    // placeholder would hold the cover open.
     for (entity, id) in &stand_ins {
         if known.contains(id) {
             commands.entity(*entity).try_despawn();
         }
     }
 
-    // ── The CENSUS: the cover's question, answered every frame this runs ─────
-    //
-    //  `stand_ins` is deliberately NOT subtracted. A stand-in is not art; a view wearing
-    // one is still a view nothing drew.
+    // Census, for the room-transition cover. Stand-ins are not subtracted: a
+    // view that wears one is still a view that nothing drew.
     let mut unclaimed_now: Vec<(&str, &ambition_sim_view::FeatureView)> = views
         .iter()
         .filter(|(id, view)| {
-            // Zero-sized views are read-models for things with no body (a
-            // trigger volume's state). Nothing is waiting to draw them and a
-            // rectangle of no size is not a diagnosis.
+            // Zero-sized views have no body (for example trigger state).
+            // Nothing will draw them.
             !known.contains(id) && view.size.x > 0.0 && view.size.y > 0.0
         })
         .collect();
-    // `FeatureViewIndex::iter` is hash-ordered. Presentation-only, so the order
-    // cannot enter a trajectory — but a REPORT that names these ids should read
-    // the same twice, and so should the spawn order below.
+    // `FeatureViewIndex::iter` is hash-ordered. Sort so reports and spawn
+    // order are stable.
     unclaimed_now.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
     unsettled.ids.clear();
     unsettled
         .ids
         .extend(unclaimed_now.iter().map(|(id, _)| id.to_string()));
 
-    // An id that is claimed (or gone) starts its grace over. Without this the
-    // map grows one entry per feature per room, forever.
+    // A claimed or removed id restarts its grace. This also keeps the map
+    // from growing forever.
     unclaimed_streak.retain(|id, _| unsettled.ids.binary_search(id).is_ok());
 
     let Some(world) = world else {
@@ -255,14 +240,9 @@ pub fn draw_unclaimed_feature_views(
         if already_standing.contains(id) {
             continue;
         }
-        // ── The DIAGNOSIS, and it is allowed to be late ──────────────────────
-        //
-        // Standing in immediately made this instrument 100% false positives on the happy path —
-        // 190 warnings against 0 cover give-ups in one healthy 290 s session — and put a
-        // magenta box on screen for anything the cover was not over.
-        //
-        // `a_permanently_unclaimed_view_still_gets_its_stand_in` is the poison that keeps it
-        // that way.
+        // Diagnosis, which is allowed to be late. Drawing the stand-in at once
+        // gave only false positives on the happy path. Guarded by
+        // `a_permanently_unclaimed_view_still_gets_its_stand_in`.
         let streak = unclaimed_streak.entry(id.to_string()).or_insert(0);
         *streak = streak.saturating_add(1);
         if *streak < UNCLAIMED_STAND_IN_GRACE_FRAMES {
@@ -295,38 +275,34 @@ pub fn draw_unclaimed_feature_views(
     }
 }
 
-/// Presentation is dormant, so nothing is waiting on it.
-///
-/// So the dormant answer is published as explicitly as the live one. Same
-/// statement, inverse condition, registered beside its twin.
+/// Presentation is dormant, so nothing is waiting on it. Publish an empty
+/// census explicitly. This is the inverse of the live publisher.
 pub fn forget_unclaimed_feature_views_while_dormant(mut unsettled: ResMut<UnclaimedFeatureViews>) {
     if !unsettled.ids.is_empty() {
         unsettled.ids.clear();
     }
 }
 
-/// This visual is the FLOOR's stand-in, not a render family's picture of the
-/// feature. See [`draw_unclaimed_feature_views`].
+/// Marks the fallback stand-in, not a render family's visual. See
+/// [`draw_unclaimed_feature_views`].
 #[derive(Component)]
 pub struct UnclaimedBodyPlaceholder;
 
-/// Which published feature views nothing has drawn.
+/// The published feature views that nothing has drawn.
 ///
-/// Republished every frame by [`draw_unclaimed_feature_views`]: every
+/// [`draw_unclaimed_feature_views`] republishes it every frame: every
 /// [`ambition_sim_view::FeatureViewIndex`] row with a body (`size > 0`) that no
-/// render family has claimed with a real [`FeatureVisual`].
-///
-/// ##  This is NOT "how many magenta boxes are on screen"
+/// render family claims with a real [`FeatureVisual`].
+/// ## This is not the count of magenta boxes on screen
 ///
 /// | role | question | wants to fire |
 /// |---|---|---|
 /// | the stand-in ([`UnclaimedBodyPlaceholder`]) | *did somebody forget a family marker?* | late — only once a view has stayed unclaimed long enough to be a real orphan |
 /// | this resource | *is the new room finished drawing?* | immediately — the instant a view is unclaimed, so the cover keeps waiting |
 ///
-///  a view wearing a stand-in is still counted here. A stand-in is not art.
-/// That subtraction is the one place the two counts differed.
+/// A view that wears a stand-in is still counted here. A stand-in is not art.
 ///
-/// ORDERING. A reader must be ordered AFTER the publisher in the SAME schedule.
+/// A reader must run after the publisher in the same schedule.
 #[derive(Resource, Default, Debug)]
 pub struct UnclaimedFeatureViews {
     /// Sorted, so a report that names them reads the same twice.
@@ -344,19 +320,15 @@ impl UnclaimedFeatureViews {
         self.ids.is_empty()
     }
 
-    /// The undrawn ids, sorted — for a report that has to say WHICH.
+    /// The undrawn ids, sorted — for a report that has to say which.
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
         self.ids.iter().map(String::as_str)
     }
 }
 
-/// Consecutive frames a view must stay unclaimed before the floor draws its
-/// magenta stand-in and warns about it.
-///
-/// Small on purpose.
-///
-/// What a measurement would change: a long tail (tens of frames) means raising this, and costs
-/// nothing now that the cover no longer depends on it.
+/// Consecutive frames a view must stay unclaimed before the fallback draws its
+/// magenta stand-in and warns. Small on purpose. Raise it if measurements
+/// show a long tail; the cover does not depend on it.
 const UNCLAIMED_STAND_IN_GRACE_FRAMES: u32 = 5;
 
 /// Magenta, because nobody ships magenta on purpose.
@@ -371,12 +343,10 @@ mod tests {
     fn app_with_a_room() -> App {
         let mut app = App::new();
         app.init_resource::<DynamicFeatureViews>();
-        //  not optional, and its absence is silent. `ResMut<..>` of a
-        // missing resource fails param validation, which SKIPS the system — so a
-        // fixture that forgot this would exercise nothing and pass.
+        // Required. Without it, `ResMut` param validation skips the system and
+        // the test passes without running anything.
         app.init_resource::<UnclaimedFeatureViews>();
-        // A real session, so the spawn path takes its scoped arm rather than the
-        // unscoped fixture arm — the placeholder swap has to work where it ships.
+        // A real session, so the spawn path uses its scoped arm.
         let mut active = ActiveSessionScope::default();
         let scope = active.begin();
         app.insert_resource(active);
@@ -436,15 +406,14 @@ mod tests {
         }
     }
 
-    /// A diagnosis must not outlive the bug it diagnosed.
+    /// A diagnosis must not outlive the bug.
     ///
-    /// The floor spawns a `FeatureVisual`, and the family spawner skips any id that already has
-    /// one — so a stand-in drawn on a frame where a family was not yet ready would make that
-    /// family unreachable for the rest of the feature's life.
+    /// The family spawner skips any id that already has a `FeatureVisual`, so a
+    /// stand-in that stays would block the real family forever.
     #[test]
     fn the_real_visual_replaces_the_unclaimed_stand_in() {
         let mut app = app_with_a_room();
-        // The floor got there first.
+        // The fallback got there first.
         app.world_mut().spawn((
             FeatureVisual {
                 id: "late_arrival".into(),
@@ -477,17 +446,17 @@ mod tests {
         );
     }
 
-    /// An authored feature's placeholder must retire when its real visual arrives;
-    /// otherwise the placeholder keeps the room-transition cover active.
+    /// An authored feature's placeholder must despawn when its real visual
+    /// arrives. Otherwise it keeps the room-transition cover active.
     #[test]
     fn the_stand_in_for_an_authored_feature_is_retired_when_its_visual_arrives() {
         let mut app = app_with_a_room();
-        // An authored feature: in the view index, never in the dynamic feed.
+        // An authored feature: in the view index, not in the dynamic feed.
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
             "authored_brick".to_string(),
             a_view(),
         )]));
-        // The floor drew its stand-in on a frame the room's visuals were not up.
+        // The fallback drew its stand-in before the room visuals were up.
         app.world_mut().spawn((
             FeatureVisual {
                 id: "authored_brick".into(),
@@ -495,7 +464,7 @@ mod tests {
             DynamicFeatureVisual,
             UnclaimedBodyPlaceholder,
         ));
-        // ...and now the room-load spawner has caught up and drawn the real one.
+        // Then the room-load spawner draws the real one.
         app.world_mut().spawn((
             FeatureVisual {
                 id: "authored_brick".into(),
@@ -520,8 +489,8 @@ mod tests {
         );
     }
 
-    /// The poison, and it is the whole limit on the grace period. The floor must still DRAW
-    /// a stand-in for a view nothing will ever claim.
+    /// Limit on the grace period: the fallback must still draw a stand-in for a
+    /// view that nothing will ever claim.
     #[test]
     fn a_permanently_unclaimed_view_still_gets_its_stand_in() {
         let mut app = app_with_a_room();
@@ -549,11 +518,9 @@ mod tests {
         );
     }
 
-    ///  THE SPLIT, stated in one assertion.
-    ///
-    /// On the very first frame a view is unclaimed, the cover must already know
-    /// the room is not drawn — and no magenta box may exist yet, because a
-    /// one-flush ordering gap is not a diagnosis.
+    /// The split in one test. On the first unclaimed frame the census must
+    /// already report the view, and no magenta box may exist yet: a one-flush
+    /// ordering gap is not a diagnosis.
     #[test]
     fn a_view_is_censused_as_unsettled_before_any_stand_in_is_drawn() {
         let mut app = app_with_a_room();
@@ -587,12 +554,9 @@ mod tests {
         );
     }
 
-    /// A view published now and claimed two flushes later leaves the room
-    /// unsettled on the frames in between.
-    ///
-    /// The guard the conflation makes impossible: once the stand-in has a grace
-    /// period, a placeholder-based count cannot express this at all — it reads
-    /// zero on frames 1 and 2 and would retire the cover into the gap.
+    /// A view claimed two flushes after publish keeps the room unsettled on the
+    /// frames between. A placeholder-based count would read zero on frames 1
+    /// and 2 and retire the cover too early.
     #[test]
     fn a_view_claimed_two_flushes_later_is_unsettled_until_it_is_drawn() {
         let mut app = app_with_a_room();
@@ -627,11 +591,9 @@ mod tests {
         );
     }
 
-    /// A stand-in is not art. A view wearing one is still a view no render
-    /// family drew, so it must still hold the cover. Subtracting the stand-ins —
-    /// which the draw loop legitimately does, so it does not spawn a second box
-    /// — is exactly the mistake that made a magenta rectangle look like a
-    /// finished room.
+    /// A stand-in is not art. A view that wears one must still hold the cover.
+    /// The draw loop subtracts stand-ins to avoid a second box; the census must
+    /// not.
     #[test]
     fn a_view_wearing_a_stand_in_is_still_unsettled() {
         let mut app = app_with_a_room();
@@ -639,7 +601,7 @@ mod tests {
             "wearing_magenta".to_string(),
             a_view(),
         )]));
-        // The floor already stood in for it on an earlier frame.
+        // The fallback already stood in for it on an earlier frame.
         app.world_mut().spawn((
             FeatureVisual {
                 id: "wearing_magenta".into(),
@@ -672,12 +634,11 @@ mod tests {
         );
     }
 
-    /// Presentation is dormant, so the census must say so.
+    /// Presentation is dormant, so the census must be empty.
     ///
-    /// The publisher is session-gated. A `Resource` it stops writing keeps its
-    /// last value — unlike the session-scoped entities it replaced, which the
-    /// lifecycle sweeps — and a stale non-zero census is a transition cover
-    /// holding a black screen to its full give-up deadline.
+    /// The publisher is session-gated. A `Resource` keeps its last value when
+    /// nobody writes it (unlike session-scoped entities), and a stale non-zero
+    /// census holds the transition cover black until its deadline.
     #[test]
     fn a_dormant_presentation_publishes_an_empty_census() {
         let mut app = App::new();
@@ -702,8 +663,7 @@ mod tests {
         );
     }
 
-    /// And the ordinary case still holds: a family that has already drawn an id
-    /// is not asked to draw it twice.
+    /// A family that already drew an id is not asked to draw it again.
     #[test]
     fn a_real_visual_is_not_respawned() {
         let mut app = app_with_a_room();

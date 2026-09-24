@@ -1,15 +1,14 @@
 //! Boss-encounter presentation sink.
 //!
-//! `publish_events` fans an entity-local [`BossPhaseEvent`] out to the
-//! presentation layer: a `PhaseChanged` drives the gameplay banner text + queues
-//! the `boss_intro_<id>` cutscene, and a change INTO `Death` adds the victory
-//! banner. Called by `systems` after every phase-machine tick.
+//! `publish_events` sends an entity-local [`BossPhaseEvent`] to the
+//! presentation layer: a `PhaseChanged` sets the gameplay banner text and
+//! queues the `boss_intro_<id>` cutscene, and a change into `Death` adds the
+//! victory banner. Called by `systems` after every phase-machine tick.
 //!
-//! Music is deliberately NOT set here: `update_boss_encounters` owns the
-//! adaptive-music request as a LEVEL-triggered lifetime (it re-derives the track
-//! from the current phase every tick and clears it when no boss is fighting), so
-//! an edge-triggered set here would only be overwritten the same tick. One music
-//! authority, not two.
+//! Music is not set here. `update_boss_encounters` owns the adaptive-music
+//! request as a level-triggered lifetime (it re-derives the track from the
+//! current phase every tick and clears it when no boss is fighting), so an
+//! edge-triggered set here would be overwritten the same tick.
 
 use crate::{BossEncounterPhase, BossPhaseEvent};
 use ambition_cutscene::CutsceneTriggerQueue;
@@ -52,7 +51,7 @@ pub(super) fn publish_events(
         BossEncounterPhase::Dormant => String::new(),
     };
     banner.show(text, 1.4);
-    // The victory banner supersedes the "DEFEATED" phase banner on a kill.
+    // The victory banner replaces the "DEFEATED" phase banner on a kill.
     if matches!(to, BossEncounterPhase::Death) {
         banner.show(format!("VICTORY: {encounter_id}"), 2.5);
     }

@@ -260,12 +260,9 @@ the measurement and the reproduction are in
 ⇒ Found beside it, and [RULED](maintainer-decisions.md) 2026-09-19 (`Q138`):
 an invalidated harness must REFUSE or FAIL rather than silently produce frozen
 observations. Today an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
-`SimTick` in silence. ⚠ This linked `Q130` until 2026-09-18, which asked the
-SAME question with an older census; `Q130` is now a pointer to `Q138`. And the
-sentence that followed — *"none of them because a guard made it do so"* — has
-been false since `scripts/a_rollback_arm_must_refuse_a_frozen_world.py` landed:
-every sync-test arm now either reads a health API or carries a written reading
-of what a frozen world breaks in it, and the guard runs in `--maintenance`.
+`SimTick` in silence. `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`
+runs in `--maintenance`: each sync-test arm reads a health API or states what a
+frozen world breaks in it.
 
 ### Content generations and fast iteration
 

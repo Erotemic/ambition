@@ -1,23 +1,19 @@
 //! A clock a body is carrying, drawn where the player is already looking.
 //!
-//! ⭐ THE RENDER HALF OF `BodyClocksView`. The sim publishes "this body has this
-//! much of a countdown left"; this draws a bar above the body's head that
-//! shrinks with it. It knows nothing about WHY the body has a clock — the
-//! delayed mark is the first customer and a poison or a fuse would be the next,
-//! and neither would touch this file.
+//! The render half of `BodyClocksView`. The sim publishes how much of a
+//! countdown a body has left; this draws a bar above the body's head that
+//! shrinks with it. It does not know why the body has a clock (the delayed
+//! mark today; a poison or a fuse would need no change here).
 //!
-//! ⛔ ONE PERSISTENT DRAWABLE PER CLOCKED BODY, not a clear-and-respawn every
-//! frame like the recall beacon. A drawable that names its body
-//! (`PresentationOf`) is what the portal compositor classifies and clips, and
-//! that bookkeeping (`PortalDependantHidden`, the compositing candidate) rides
-//! the drawable's entity across frames; an entity that is new every frame would
-//! be claimed and discarded before the claim could act.
+//! One persistent drawable per clocked body, not a clear-and-respawn each
+//! frame. The portal compositor classifies and clips a drawable that names
+//! its body (`PresentationOf`), and that state (`PortalDependantHidden`, the
+//! compositing candidate) lives on the entity across frames.
 //!
-//! ⭐ A PLAIN COLOUR SPRITE, DELIBERATELY. An unparented `Sprite` with a
-//! `custom_size` is the population the portal publisher evaluates and the
-//! far-side compositor rebuilds, so this telegraph is portal-correct by
-//! construction rather than by a later workaround. Bevy inserts a 1x1 white
-//! image under the default handle, which is what `sprite_frame_basis` needs.
+//! A plain colour sprite on purpose: an unparented `Sprite` with a
+//! `custom_size` is what the portal publisher evaluates and the far-side
+//! compositor rebuilds. Bevy's 1x1 white image under the default handle is
+//! what `sprite_frame_basis` needs.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -32,16 +28,16 @@ pub struct BodyClockVisual {
     pub body: Entity,
 }
 
-/// Width of a full clock, in world px. About a body's width, so the read is
-/// "a bar the size of the fighter" rather than a HUD element.
+/// Width of a full clock, in world px. About a body's width, so it reads as
+/// part of the fighter, not a HUD element.
 const FULL_WIDTH: f32 = 28.0;
 const HEIGHT: f32 = 4.0;
 /// Gap between the top of the body and the bar.
 const RISE: f32 = 10.0;
-/// Above the fighters, below the panes the portal band pins at `WORLD_Z_DUMMY`
-/// and above: the compositor decides what a pane hides, not z.
+/// Above the fighters, below the portal band at `WORLD_Z_DUMMY` and up. The
+/// compositor decides what a pane hides, not z.
 const Z: f32 = 9.5;
-/// A warning colour, so the read is "something is about to happen to you".
+/// A warning colour: something is about to happen to this body.
 const COLOUR: Color = Color::srgb(1.0, 0.55, 0.1);
 
 /// Keep one bar per clocked body, sized to what is left on the clock, and drop
@@ -76,14 +72,11 @@ pub fn sync_body_clock_visuals(
         drawn.push(bar.body);
         sprite.custom_size = Some(bar_size(fact.remaining_fraction));
         transform.translation = bar_translation(&world.0, fact);
-        // ⭐ THIS SYSTEM OWNS THE BAR'S VISIBILITY, EVERY FRAME. The bar is a
-        // compositing candidate in its own right; the portal resolver hides it
-        // while a pane covers it and RELEASES WITHOUT ASSERTING once the pane
-        // does not, on the premise that every candidate's owner writes its
-        // value each frame. A bar that walked out from behind a pane stayed
-        // hidden until the clock ended, because nothing here said otherwise.
-        // `Inherited` is the no-opinion value; the resolver, which runs later,
-        // reasserts `Hidden` while a reason stands.
+        // This system owns the bar's visibility every frame. The portal
+        // resolver hides the bar while a pane covers it and releases without
+        // writing a value when the pane moves, expecting each owner to write
+        // every frame. `Inherited` is the no-opinion value; the resolver (later)
+        // reasserts `Hidden` while it has a reason.
         if *visibility != Visibility::Inherited {
             *visibility = Visibility::Inherited;
         }
@@ -97,8 +90,8 @@ pub fn sync_body_clock_visuals(
                 BodyClockVisual { body: fact.body },
                 sprite,
                 Transform::from_translation(bar_translation(&world.0, fact)),
-                // ⭐ WHOSE BODY THIS DRAWS, in the one spelling every consumer
-                // asks for — the portal compositor among them.
+                // Which body this draws, in the shared spelling that consumers such as
+                // the portal compositor read.
                 PresentationOf(fact.body),
                 Name::new("Body clock telegraph"),
             ),
@@ -106,7 +99,7 @@ pub fn sync_body_clock_visuals(
     }
 }
 
-/// The bar shrinks from the full width to nothing; never below a sliver, so the
+/// The bar shrinks from full width to a sliver, never to nothing, so the
 /// last frames still read as "almost".
 fn bar_size(remaining_fraction: f32) -> Vec2 {
     Vec2::new(
@@ -167,9 +160,9 @@ mod tests {
             .collect()
     }
 
-    /// ⭐ THE BAR IS THE CLOCK: it exists while the clock does, shrinks with it,
-    /// and goes when the clock goes. A telegraph that appeared and never
-    /// changed would say "marked" and not "how long".
+    /// The bar is the clock: it exists while the clock does, shrinks with it,
+    /// and goes when the clock goes. A bar that never changed would show
+    /// "marked" but not "how long".
     #[test]
     fn the_bar_follows_the_clock_and_leaves_with_it() {
         let mut app = app();
@@ -203,10 +196,8 @@ mod tests {
         );
     }
 
-    /// ⛔ THE DRAWABLE NAMES ITS BODY, which is the whole reason it is a
-    /// persistent unparented sprite: that is what the portal compositor asks
-    /// for, and a bar that did not say whose it was would be hidden wholesale
-    /// or drawn through a pane.
+    /// The drawable names its body. The portal compositor needs this; a bar
+    /// without an owner would be hidden whole or drawn through a pane.
     #[test]
     fn the_bar_says_whose_body_it_draws() {
         let mut app = app();

@@ -151,7 +151,7 @@ pub fn sync_default_dialog_ui(
 
     commands
         .spawn((
-            // Spawned into the reading rect straight away so the FIRST frame is
+            // Spawned into the reading rect at once so the first frame is
             // right; `fit_to_reading_rect` keeps it right across resizes.
             {
                 let mut node = Node {

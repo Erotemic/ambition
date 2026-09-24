@@ -24,9 +24,9 @@ fn upright_gravity_is_the_plain_centered_box() {
 
 #[test]
 fn sideways_gravity_lays_the_body_along_the_wall() {
-    // Under sideways gravity the footprint rotates: width<->height swap so
-    // the body lies along the wall (the relativity principle). Same box the
-    // gizmo's `aabb_oriented` draws.
+    // Under sideways gravity the footprint rotates: width and height swap so
+    // the body lies along the wall. This is the box the gizmo's
+    // `aabb_oriented` draws.
     let aabb = collision_aabb(&geom(ae::Vec2::new(1.0, 0.0)));
     assert_eq!(aabb.center(), ae::Vec2::new(10.0, 20.0));
     assert_eq!(aabb.half_size(), ae::Vec2::new(24.0, 15.0));

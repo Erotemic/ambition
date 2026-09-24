@@ -93,6 +93,8 @@ Prefer a narrow validation path. A good architecture change should usually have 
 
 Do not let TUNING block architecture (Jon, 2026-07-06). Numeric feel/quality values — DI angles, boss-quality thresholds, slope feel, fighter-brain weights, visual-quality defaults, and the like — are KNOBS, not Jon-blocking decisions. When the right variable already exists as a knob, treat choosing its value as data/playtest work and pick a reasonable default (or leave the existing one); ship it BLIND and let Jon adjust. Only escalate when the KNOB ITSELF is missing (an architecture gap), not when only its value is unset. A tuning task is never a reason to stall a structural carve.
 
+Adopt an upstream (Bevy or crate) primitive when it owns the same semantics as the local code. Do not migrate only to reduce local code or because a new upstream API exists.
+
 ## When a verification is green, ask what question it actually answered
 
 ⛔ **An instrument that CANNOT SEE and an instrument that WAS ASKED SOMETHING ELSE

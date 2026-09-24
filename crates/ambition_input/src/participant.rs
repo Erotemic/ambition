@@ -1,20 +1,18 @@
 //! The persistent input participant — the person in front of a controller.
 //!
-//! A participant exists before, during, and after any gameplay session: it is
-//! the entity that owns device/action state (leafwing `ActionState` +
-//! `InputMap`, attached by the host), the declared input contexts, and —
-//! through its [`ParticipantId`] → `PlayerSlot` correspondence — the seat that
-//! the body carrying `DrivingParticipant(slot)` reads. Possession, session
-//! relaunch, and actor death
-//! never touch the participant; they only change which body interprets the
-//! participant's deterministic `ControlFrame` downstream.
+//! A participant exists before, during, and after any gameplay session. It
+//! owns device and action state (leafwing `ActionState` + `InputMap`, attached
+//! by the host), the declared input contexts, and, through its
+//! [`ParticipantId`] to `PlayerSlot` mapping, the seat that the body carrying
+//! `DrivingParticipant(slot)` reads. Possession, session relaunch, and actor
+//! death do not change the participant; they change only which body reads its
+//! `ControlFrame`.
 //!
-//! Contexts are explicit ownership claims, not inferences: the surface that
-//! owns a UI state (the shell sequence, the launcher, the session lifecycle)
-//! declares a [`ContextClaim`] on the participant and retracts it when the
-//! surface goes away. [`resolve_active_input_context`] reduces the claims to
-//! one ordered answer per frame ([`ActiveInputContext`]) with priority +
-//! capture semantics; nothing derives input ownership from `GameMode` or from
+//! Contexts are explicit ownership claims. The surface that owns a UI state
+//! (shell sequence, launcher, session lifecycle) declares a [`ContextClaim`]
+//! and retracts it when it goes away. [`resolve_active_input_context`] reduces
+//! the claims to one ordered answer per frame ([`ActiveInputContext`]) by
+//! priority and capture. Input ownership never comes from `GameMode` or from
 //! the presence of a controlled body.
 
 use bevy::prelude::*;
@@ -33,16 +31,12 @@ impl ParticipantId {
     /// The second local seat — couch versus.
     pub const SECONDARY: Self = Self(1);
 
-    // ⚠ these used to differ in KIND: primary "owned the global `ControlFrame`"
-    // and secondary "wrote `SlotControls[1]` directly and never touched the
-    // global frame". That asymmetry is what made half the input path
-    // primary-only, and D175 removed it — every seat publishes through
-    // `SlotControls` / `SeatRawFrames`, and the global frame is a device-edge
-    // adapter for the local primary, not a routing table.
+    // Every seat is the same kind: each publishes through `SlotControls` /
+    // `SeatRawFrames`. The global frame is only a device-edge adapter for the
+    // local primary, not a routing table.
 
     /// The controller slot this seat drives. Participant ids and player slots
-    /// are the same numbering on purpose: a seat IS a slot, and two maps that
-    /// have to agree eventually disagree.
+    /// use the same numbering, so no second map can disagree.
     pub const fn slot(self) -> u8 {
         self.0
     }
@@ -83,17 +77,14 @@ pub const GAMEPLAY_CONTEXT: InputContextId = InputContextId("gameplay");
 
 // ── in-session surfaces ─────────────────────────────────────────────────────
 //
-// These sit BETWEEN the shell and gameplay: they appear while a session is
+// These rank between the shell and gameplay: they appear while a session is
 // live, and a shell overlay still outranks them.
 //
-// an in-session surface is not the same fact as a stopped world. Pausing
-// stops the world — global, `GameMode`, every seat. A surface owning a seat's
-// input does not: one player reading a dialogue box while another keeps
-// running is the ordinary state of a couch, and it is the thing this engine
-// could not express before these ids existed.
+// An in-session surface does not stop the world. Pause stops the world for
+// every seat. A surface that owns one seat's input leaves the others running,
+// for example one player in a dialogue while another keeps playing.
 
-/// A dev/tool overlay that has grabbed input. Above every in-session surface,
-/// because a developer reaching for the inspector means it.
+/// A dev/tool overlay that has grabbed input. Above every in-session surface.
 pub const DEBUG_CONTEXT: InputContextId = InputContextId("debug");
 /// A scripted cutscene owns advance/skip.
 pub const CUTSCENE_CONTEXT: InputContextId = InputContextId("cutscene");
@@ -101,20 +92,16 @@ pub const CUTSCENE_CONTEXT: InputContextId = InputContextId("cutscene");
 pub const DIALOGUE_CONTEXT: InputContextId = InputContextId("dialogue");
 /// An inventory / equipment screen.
 pub const INVENTORY_CONTEXT: InputContextId = InputContextId("inventory");
-/// A character-select surface. Distinct from the launcher: a select screen is
-/// reached FROM a launcher row and is a question, not a game.
+/// A character-select surface. Distinct from the launcher: a launcher row
+/// opens it.
 pub const SELECT_CONTEXT: InputContextId = InputContextId("select");
 
 /// The universal pause menu owns input while it is open.
 ///
-/// Neither could consume the other's edge because they read different channels (`MenuControlFrame`
-/// and `SeatMenuFrames`), and a demo cannot even NAME `ShellPauseMenu` (`basic_shell_presentation`
-/// is not in `all_capabilities`, which is the oracle rule working as intended).
-///
-/// So the answer is not a feature edge from a demo to the shell — it is the
-/// claim system that was already built for exactly this: the pause menu
-/// DECLARES a capturing context, and any surface underneath asks whether it
-/// still owns its seat. Neither side names the other.
+/// The pause menu declares a capturing context, and each surface below it asks
+/// whether it still owns its seat. Neither side names the other. (They read
+/// different channels, `MenuControlFrame` and `SeatMenuFrames`, and a demo
+/// cannot name `ShellPauseMenu`.)
 pub const PAUSE_CONTEXT: InputContextId = InputContextId("pause");
 
 /// Recommended claim priorities for the engine's own contexts. Higher wins.
@@ -123,16 +110,12 @@ pub const PAUSE_CONTEXT: InputContextId = InputContextId("pause");
 pub mod context_priority {
     pub const STARTUP_ACKNOWLEDGE: i32 = 300;
     pub const LAUNCHER: i32 = 200;
-    /// Above the in-session surfaces: a developer opening a tool over a
-    /// dialogue box wants the tool.
+    /// Above the in-session surfaces: a tool opened over a dialogue gets input.
     pub const DEBUG: i32 = 195;
-    /// Above dialogue: a cutscene that starts mid-conversation is the thing on
-    /// screen.
-    /// A pause menu opens OVER everything an experience is doing.
-    ///
-    /// Above cutscene, dialogue, select and gameplay — all four are things a
-    /// player pauses out of — and below `DEBUG`, because an inspector that a
-    /// pause could hide would be useless exactly when it is wanted.
+    /// Above dialogue: a cutscene that starts mid-conversation is on screen.
+    /// A pause menu opens over everything an experience does. Above cutscene,
+    /// dialogue, select, and gameplay (a player pauses out of each). Below
+    /// `DEBUG`, so a pause cannot hide the inspector.
     pub const PAUSE: i32 = 190;
     pub const CUTSCENE: i32 = 180;
     pub const DIALOGUE: i32 = 150;
@@ -217,10 +200,10 @@ impl ParticipantContexts {
     }
 }
 
-/// The per-frame resolved answer to "which input context owns ONE
-/// participant's actions". `owner` is the highest-priority claim; `open`
-/// additionally lists non-capturing claims above it. Empty = disabled/no
-/// target (no surface claims input; every routed output stays neutral).
+/// The per-frame answer to "which input context owns one participant's
+/// actions". `owner` is the highest-priority claim; `open` also lists
+/// non-capturing claims above it. Empty means no surface claims input, and
+/// every routed output stays neutral.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActiveInputContext {
     open: Vec<InputContextId>,
@@ -242,10 +225,9 @@ impl ActiveInputContext {
     }
 }
 
-/// The empty answer, returned for a seat nobody has resolved. A seat with no
-/// participant owns no context — which routes every output neutral — rather
-/// than being an error, because "slot 3 has no pad" is the ordinary state of a
-/// couch.
+/// The empty answer, for a seat nobody has resolved. A seat with no participant
+/// owns no context (every output neutral). This is not an error: an empty slot
+/// is normal.
 static NO_CONTEXT: ActiveInputContext = ActiveInputContext { open: Vec::new() };
 
 /// Resolved input context for each participant seat.
@@ -264,9 +246,8 @@ impl SeatInputContexts {
     }
 
     /// The local primary seat: the device-edge `ControlFrame` adapter and the
-    /// on-screen prompts. Consumers that are genuinely about the local primary
-    /// — the touch overlay, the control-prompt HUD, the `ControlFrame` bridge —
-    /// say so by calling this rather than by being the only reader of a global.
+    /// on-screen prompts. Consumers that are about the local primary (touch
+    /// overlay, control-prompt HUD, `ControlFrame` bridge) call this.
     pub fn primary(&self) -> &ActiveInputContext {
         self.for_seat(ParticipantId::PRIMARY.slot())
     }
@@ -286,12 +267,12 @@ impl SeatInputContexts {
     }
 }
 
-/// Resolve EVERY participant's claims into [`SeatInputContexts`].
-/// Runs after every declaring surface (end of `InputSet::ResolveContext`),
-/// before any router reads the answer (`InputSet::Route`).
+/// Resolve every participant's claims into [`SeatInputContexts`]. Runs after
+/// every declaring surface (end of `InputSet::ResolveContext`) and before any
+/// router reads the answer (`InputSet::Route`).
 ///
-/// A seat whose participant has gone away is dropped rather than left holding
-/// its last answer: a departed seat must not keep owning gameplay.
+/// A seat whose participant is gone is dropped, so it cannot keep owning
+/// gameplay.
 pub fn resolve_active_input_context(
     participants: Query<(&InputParticipant, &ParticipantContexts)>,
     mut active: ResMut<SeatInputContexts>,
@@ -385,11 +366,8 @@ mod participant_tests {
         assert!(!active.allows(LAUNCHER_CONTEXT));
     }
 
-    /// Two seats, two different answers, in one resolution pass.
-    ///
-    /// This is the whole point of keying the resolved context. The claims were
-    /// always per-participant; the ANSWER was one global fold of seat 0, so a
-    /// second seat could declare whatever it liked and no router could see it.
+    /// Two seats get two different answers in one resolution pass. Claims are
+    /// per participant, so the resolved answer must be per seat too.
     fn resolve(app: &mut bevy::prelude::App) {
         use bevy::ecs::system::RunSystemOnce;
         app.world_mut()
@@ -437,9 +415,8 @@ mod participant_tests {
         // A seat nobody has resolved owns nothing rather than inheriting seat 0.
         assert!(!seats.gameplay_owned(3) && seats.for_seat(3).owner().is_none());
 
-        // A departed seat stops owning gameplay rather than holding its last
-        // answer forever — otherwise unplugging a pad mid-match leaves a slot
-        // that the router still believes is being driven.
+        // A departed seat stops owning gameplay. Otherwise an unplugged pad
+        // leaves a slot that the router still treats as driven.
         app.world_mut().despawn(seat_one);
         resolve(&mut app);
         let seats = app.world().resource::<SeatInputContexts>();

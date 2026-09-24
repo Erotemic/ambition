@@ -6,11 +6,9 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::ActorSpriteMetrics;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
 
-/// Centered pixel bbox at frame center → world AABB at world_center.
-/// The 128×128 frame with a 64×64 bbox at (32, 32) should map to
-/// a world AABB at world_center with half-size = (16, 16) when the
-/// world_size is (64, 64) (1:1 px/world). Tests the basic
-/// pixel-frame → world-space transform.
+/// Centered pixel bbox at frame center → world AABB at world_center. A 128×128
+/// frame with a 64×64 bbox at (32, 32) maps to a world AABB at world_center
+/// with half-size (16, 16) when world_size is (64, 64) (1:1 px/world).
 #[test]
 fn world_aabb_from_centered_pixel_rect_lands_at_world_center() {
     let bbox = PixelRect {
@@ -38,9 +36,8 @@ fn world_aabb_from_centered_pixel_rect_lands_at_world_center() {
     assert!((half.y - 16.0).abs() < 1e-3);
 }
 
-/// Off-center bbox should land off-center in world too. A bbox
-/// in the top-left quadrant of the frame should produce a world
-/// AABB above-and-left of the world_center.
+/// An off-center bbox lands off-center in world too: a bbox in the top-left
+/// quadrant gives a world AABB above and left of world_center.
 #[test]
 fn world_aabb_from_off_center_bbox_translates_correctly() {
     let bbox = PixelRect {
@@ -64,10 +61,8 @@ fn world_aabb_from_off_center_bbox_translates_correctly() {
     assert!((center.y - 476.0).abs() < 1e-3);
 }
 
-/// Multi-part metadata returns one world AABB per pixel part.
-/// Verifies the "disjointed character pieces" path the user
-/// asked for — three named rects yield three world AABBs in the
-/// same order.
+/// Multi-part metadata returns one world AABB per pixel part: three named
+/// rects give three world AABBs in the same order.
 #[test]
 fn world_space_body_aabbs_emits_one_per_named_part() {
     let parts = vec![
@@ -150,9 +145,9 @@ fn world_space_body_aabbs_empty_when_no_metadata() {
     assert!(aabbs.is_empty());
 }
 
-/// `bounding_aabb` returns a tight envelope around a list of
-/// AABBs. Verifies the combat_size derivation path collapses
-/// multi-part bodies into one for movement / clamping.
+/// `bounding_aabb` returns a tight envelope around a list of AABBs: the
+/// combat_size derivation collapses a multi-part body into one for movement
+/// and clamping.
 #[test]
 fn bounding_aabb_envelops_disjoint_parts() {
     let parts = vec![
@@ -174,19 +169,13 @@ fn bounding_aabb_returns_none_for_empty_input() {
     assert!(bounding_aabb(&[]).is_none());
 }
 
-/// Doubling the spawn size doubles the derived world AABB on both axes (with identical sprite
-/// metadata). Pins the "boss in the intro is 2× larger" change — the intro arena's BossSpawn went
-/// from 64×80 → 128×160 and the runtime's combat_size derived from the SAME `body_pixel_bbox` MUST
-/// scale 2× in both dimensions. If this test breaks the sprite-metadata-driven body math diverged
-/// from the spawn AABB. End-to-end pin: `damageable_volumes` MUST return the per-animation hurtbox
-/// when the boss's sprite metrics carries one for the current animation.
+/// `damageable_volumes` must return the per-animation hurtbox when the boss's
+/// sprite metrics have one for the current animation.
 ///
-/// Builds a fake `ActorSpriteMetrics` with a clearly-distinct
-/// per-animation hurtbox for `side_sweep`, sets
-/// `attack_state.active_profile = Some(SideSweep)`, and
-/// asserts the consumer returns an AABB matching the wide
-/// `side_sweep` hurtbox (~128 wide) rather than the static
-/// `body_pixel_bbox` (~106 wide).
+/// Builds a fake `ActorSpriteMetrics` with a distinct per-animation hurtbox
+/// for `side_sweep`, sets `attack_state.active_profile = Some(SideSweep)`, and
+/// checks the result matches the wide `side_sweep` hurtbox (~128 wide), not
+/// the static `body_pixel_bbox` (~106 wide).
 #[test]
 fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     use crate::behavior::BossBehaviorProfile;
@@ -194,10 +183,8 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, PixelRect};
     use std::collections::BTreeMap;
 
-    // Build a sprite-metrics snapshot with a distinct
-    // `side_sweep` hurtbox (much wider than the static body
-    // bbox) so we can prove the consumer picked the
-    // per-animation one.
+    // A sprite-metrics snapshot with a `side_sweep` hurtbox much wider than
+    // the static body bbox, to prove the per-animation one is picked.
     let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
     animations.insert(
         "side_sweep".to_string(),
@@ -230,10 +217,8 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
         // Match the BOSS_SHEET render: `max(boss.size) * 1.6`
         // = `160 * 1.6` = `256` for a (128,160) spawn.
         sprite_render_size: ae::Vec2::new(256.0, 256.0),
-        // Test fixture: zero offset keeps `boss.aabb()` centered
-        // on `boss.pos` (the pre-offset behavior) so the
-        // half-size assertion below doesn't have to factor in
-        // body-center bias.
+        // Zero offset keeps `boss.aabb()` centered on `boss.pos`, so the
+        // half-size assertion below needs no body-center bias.
         combat_offset: ae::Vec2::ZERO,
         animations,
     };
@@ -257,10 +242,9 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     let volumes = damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
     let half = volumes[0].bounds().half_size();
-    // side_sweep hurtbox: 127 wide / 128 frame × 256 render =
-    // 254 wide. Half = 127. Static body bbox at render scale
-    // would give 106/2 * 2 = 106. So we expect half.x > 120 to
-    // pin the per-animation path.
+    // side_sweep hurtbox: 127 wide / 128 frame × 256 render = 254 wide, half
+    // 127. The static body bbox at render scale gives 106/2 * 2 = 106. So
+    // half.x > 120 proves the per-animation path.
     assert!(
         half.x > 120.0,
         "expected per-animation side_sweep hurtbox (wider than static body); got half.x = {} (would be ~106 if falling back to body_pixel_bbox)",
@@ -268,13 +252,6 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     );
 }
 
-/// Pin the scale-to-render-size fix: when `sprite_render_size`
-/// is 2× `ctx.size`, the cyan hurtbox must be 2× bigger than
-/// when `sprite_render_size` is zeroed (legacy path). Without
-/// this, the user's complaint — "in the sprites the box covers
-/// the boss head, but in game it is the old boxes" — comes back
-/// because the visible sprite renders 1.6× bigger than `boss.size`
-/// but the hurtbox would scale by `boss.size` only.
 #[test]
 fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     use crate::behavior::BossBehaviorProfile;
@@ -290,9 +267,8 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
         AnimationMetrics {
             frame_duration_secs: Some(0.1),
             hurtbox: Some(AnimationBox {
-                // Coarse fallback is deliberately different from
-                // the sampled frame so the assertion proves that
-                // the per-frame path was taken.
+                // The coarse fallback differs from the sampled frame, so the
+                // assertion proves the per-frame path was taken.
                 parts: vec![NamedPixelRect {
                     name: "head".to_string(),
                     x: 45,
@@ -678,6 +654,10 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     );
 }
 
+/// Hurtboxes scale to `sprite_render_size`: when it is 2× `ctx.size`, the
+/// hurtbox is 2× larger than with `sprite_render_size` zeroed. Otherwise a
+/// sprite drawn larger than `boss.size` would have hurtboxes that do not match
+/// the drawn body.
 #[test]
 fn damageable_volumes_scales_to_sprite_render_size() {
     use crate::behavior::BossBehaviorProfile;
@@ -758,6 +738,9 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     );
 }
 
+/// Doubling the spawn size doubles the derived world AABB on both axes, with
+/// the same sprite metadata. The combat_size derived from one
+/// `body_pixel_bbox` must scale with the spawn AABB.
 #[test]
 fn world_space_body_aabbs_doubles_when_spawn_doubles() {
     let bbox = PixelRect {
@@ -796,11 +779,8 @@ fn world_space_body_aabbs_doubles_when_spawn_doubles() {
     );
 }
 
-/// Larger world_size (e.g. boss lab boss at 150×185 vs intro at
-/// 64×80) scales the body AABB proportionally — the same pixel
-/// bbox yields a bigger world AABB. This is the scaling promise
-/// of the sprite-metadata-driven approach: one source of body
-/// shape, multiple sizes.
+/// A larger world_size (e.g. 150×185 vs 64×80) scales the body AABB
+/// proportionally: one pixel bbox gives any number of world sizes.
 #[test]
 fn world_space_body_aabbs_scales_with_world_size() {
     let bbox = PixelRect {
@@ -836,8 +816,7 @@ fn world_space_body_aabbs_scales_with_world_size() {
 }
 
 // ============================================================
-// "Attack inside the boss doesn't connect" investigation
-// .
+// Attacks inside the boss that do not connect
 // ============================================================
 
 #[test]
@@ -869,10 +848,10 @@ fn attack_fully_inside_boss_volume_still_registers() {
     );
 }
 
-/// That box is SMALLER than the visible sprite and carries no alignment offset, so attacks that
-/// visually connect with the sprite but land outside the smaller combat box miss. Mockingbird:
-/// `combat_size (500x185)` but the sprite frame is `576x216`. An authored hurtbox covering the
-/// visible sprite (as GNU-ton has) fixes it.
+/// That box is smaller than the visible sprite and has no alignment offset, so
+/// attacks that visually connect with the sprite but land outside it miss.
+/// Mockingbird: `combat_size (500x185)` but the sprite frame is `576x216`. An
+/// authored hurtbox covering the visible sprite (as GNU-ton has) fixes it.
 #[test]
 fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     use crate::behavior::BossBehaviorProfile;
@@ -883,7 +862,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     let attack_state = BossAttackState::default();
 
     // An attack on the visible upper body: inside the 216-tall sprite
-    // (±108) but ABOVE the fallback combat box (±92.5).
+    // (±108) but above the fallback combat box (±92.5).
     let attack = ae::Aabb::new(ae::Vec2::new(0.0, -103.0), ae::Vec2::new(4.0, 4.0));
 
     // Current state: no authored hurtbox -> combat_size fallback (±92.5 tall).
@@ -1038,7 +1017,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
     // Elapsed alone would pick frame 1 (0.15s at 0.1s/frame).
     attack_state.active_elapsed = 0.15;
 
-    // THE ALIAS: the profile matches the active one, and the key names a row
+    // The alias: the profile matches the active one, and the key names a row
     // that is not the one being sampled. Today the profile decides.
     let aliased = BossAnimationFrameSample {
         profile: Some(BossAttackProfile::Strike("head_descent".to_string())),
@@ -1071,15 +1050,13 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
     );
 }
 
-/// The same pin for the HITBOX path, which the hurtbox test above cannot
-/// reach — that is how the third identity check was found.
+/// The same check for the hitbox path, which the hurtbox test above cannot
+/// reach.
 ///
 /// `active_attack_volumes` → `sprite_authored_volumes` →
-/// `authored_animation_frame_index` (`frame.rs`) is a SEPARATE
-/// `sample.profile.as_ref() == Some(profile)`. Probing it left the hurtbox test
-/// green, which is only possible if they are different code paths, and they are.
-///
-/// PROBED: swapping `frame.rs`'s check to a key comparison fails THIS one.
+/// `authored_animation_frame_index` (`frame.rs`) has its own
+/// `sample.profile.as_ref() == Some(profile)` check. Changing that check to a
+/// key comparison fails this test.
 #[test]
 fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
     use crate::behavior::BossBehaviorProfile;
@@ -1093,7 +1070,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
         AnimationMetrics {
             frame_duration_secs: Some(0.1),
             hurtbox: None,
-            // The HITBOX, not the hurtbox: this is what routes through
+            // The hitbox, not the hurtbox: this is what routes through
             // `sprite_authored_volumes`.
             hitbox: Some(AnimationBox {
                 parts: Vec::new(),
@@ -1170,19 +1147,16 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
     );
 }
 
-/// The IDLE arm — and it is the one no `animation_key` can express.
+/// The idle arm, which no `animation_key` can express.
 ///
 /// `AnimationSelection::live_frame_index`'s `None` arm reads
-/// `sample.profile.is_none().then_some(sample.frame_index)`: "the rendered row
-/// is the REST POSE", said as an ABSENT profile. That is what makes an idle
-/// hurtbox bob with the breathing animation instead of locking to frame 0 — the
-/// sample's own doc says so.
+/// `sample.profile.is_none().then_some(sample.frame_index)`: an absent profile
+/// means the rendered row is the rest pose. That lets an idle hurtbox bob
+/// with the breathing animation instead of locking to frame 0.
 ///
-/// an absent `animation_key` is a different fact: it means the renderer could not resolve one.
-/// So a key-only sample cannot distinguish "this is the rest pose" from "I don't know what row this
-/// is", and the fold's clean design (`animation_key: Option<String>`) silently loses the idle case.
-///
-/// This pins the behaviour that would be lost.
+/// An absent `animation_key` means something else: the renderer could not
+/// resolve one. A key-only sample cannot tell "rest pose" from "unknown row",
+/// so it would lose the idle case. This test pins that behavior.
 #[test]
 fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     use crate::behavior::BossBehaviorProfile;
@@ -1190,7 +1164,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     use std::collections::BTreeMap;
 
     let mut animations: BTreeMap<String, AnimationMetrics> = BTreeMap::new();
-    // The REST row. `hurtbox_selection` passes `&["rest"]` as its rest keys when
+    // The rest row. `hurtbox_selection` passes `&["rest"]` as its rest keys when
     // no profile is active, so that — not "idle" — is the name to author.
     for key in ["rest"] {
         animations.insert(
@@ -1245,7 +1219,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
     // NO active profile: the boss is at rest.
     let attack_state = BossAttackState::default();
 
-    // An IDLE sample: `profile: None` is how it says "the rest pose", and it
+    // An idle sample: `profile: None` is how it says "the rest pose", and it
     // still carries a live frame so the hurtbox breathes.
     let idle = BossAnimationFrameSample {
         profile: None,
@@ -1371,7 +1345,7 @@ fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
     };
     let behavior = BossBehaviorProfile::gnu_ton_rider();
     let mut attack_state = BossAttackState::default();
-    // An UNREGISTERED special: `boss_animation_keys_for_profile` returns `[]`,
+    // An unregistered special: `boss_animation_keys_for_profile` returns `[]`,
     // which is exactly what the shipped catalog gives for `apple_rain`.
     attack_state.active_profile = Some(BossAttackProfile::Special("apple_rain".to_string()));
     attack_state.active_elapsed = 0.0;

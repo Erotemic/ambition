@@ -10,26 +10,25 @@ use ambition_platformer2d_core::config::{
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 
-// Runtime-owned room lifecycle markers. Re-exported so presentation systems +
-// existing `presentation::rendering::RoomVisual` call sites keep resolving; the
-// canonical home is `ambition_platformer2d_shared_tangle::lifecycle` (content-free, so sim
-// systems can tag visual entities without importing presentation).
+// Runtime-owned room lifecycle markers, re-exported so existing
+// `presentation::rendering::RoomVisual` call sites still resolve. The
+// canonical home is `ambition_platformer2d_shared_tangle::lifecycle`
+// (content-free, so sim systems can tag visuals without importing
+// presentation).
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
     LoadingZoneVisual, PlayerVisual, RoomScopedEntity, RoomVisual,
 };
 
-/// Standing-stance render size of the textured player sprite, recorded
-/// at sprite-build time. The crouch-squash hack in `sync_visuals` uses
-/// it to scale the sprite vertically to the current `body_mode`'s
-/// height while keeping the feet planted — the sprite anchor is in
-/// normalized space, so a proportional vertical squash preserves foot
-/// alignment without re-anchoring.
+/// Standing-stance render size of the textured player sprite, recorded when
+/// the sprite is built. The crouch squash in `sync_visuals` uses it to scale
+/// the sprite vertically to the current `body_mode` height with the feet
+/// planted. The anchor is normalized, so a proportional squash keeps the feet
+/// aligned without re-anchoring.
 ///
-/// HACK(crouch-sprite-row): the robot sheet has no authored Crouching
-/// row yet, so we visually squash the standing pose as a placeholder.
-/// Once the sprite generator emits a real Crouch (and Crawl/MorphBall)
-/// animation, this baseline + the squash branch in `sync_visuals` can
-/// go away and the standing anchor will plant feet directly.
+/// HACK(crouch-sprite-row): the robot sheet has no Crouching row yet, so the
+/// standing pose is squashed as a placeholder. When the generator emits real
+/// Crouch, Crawl, and MorphBall rows, remove this baseline and the squash
+/// branch in `sync_visuals`.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PlayerSpriteBaseline {
     pub standing_render: Vec2,
@@ -39,56 +38,46 @@ pub struct PlayerSpriteBaseline {
 #[derive(Component)]
 pub struct HudText;
 
-/// Marker for the dedicated quest-log panel. Separated from `HudText`
-/// so the quest list lives in its own UI surface (top-right anchored)
-/// instead of trailing the debug-stats dump. Updated by
-/// `update_quest_panel`.
+/// Marker for the quest-log panel. Separate from `HudText`, so the quest list
+/// has its own UI surface (top-right). Updated by `update_quest_panel`.
 #[derive(Component)]
 pub struct QuestPanelText;
 
-/// Marker for an encounter-driven lock-wall block visual. The
-/// encounter system inserts `Block::solid` entries named
-/// `lockwall:<encounter_id>` into `world.blocks` while the encounter
-/// is in flight; `sync_lock_wall_visuals` reads that name and keeps
-/// one Bevy entity per matching block in sync (spawn on first sight,
-/// despawn when the block is removed). `block_name` is the full name
-/// (`lockwall:goblin_encounter`, etc.) so the dedup is bullet-proof against
-/// multiple concurrent encounters in the same world.
+/// Marker for an encounter-driven lock-wall block visual. The encounter
+/// system inserts `Block::solid` entries named `lockwall:<encounter_id>` into
+/// `world.blocks` while the encounter runs. `sync_lock_wall_visuals` keeps one
+/// entity per matching block (spawn on first sight, despawn on removal).
+/// `block_name` is the full name, so concurrent encounters do not collide.
 #[derive(Component, Clone, Debug)]
 pub struct LockWallVisual {
     pub block_name: String,
 }
 
-/// Marker carrying an authored block visual's name, so a mid-run SUBTRACTION of
-/// that block (the collision overlay's `removed_block_names` — a content gate
-/// dropping authored geometry, e.g. a broken brick) can find and despawn its
-/// sprite. `spawn_block` tags every block visual with this; `sync_removed_block_visuals`
-/// reconciles them against the overlay. `block_name` is the authored
-/// [`Block::name`](ambition_platformer2d_core::Block), the same key `removed_block_names`
-/// carries, so the match is exact.
+/// Marker with an authored block visual's name, so a mid-run removal of that
+/// block (the collision overlay's `removed_block_names`, for example a broken
+/// brick) can find and despawn its sprite. `spawn_block` tags every block
+/// visual; `sync_removed_block_visuals` reconciles them against the overlay.
+/// `block_name` is the authored [`Block::name`](ambition_platformer2d_core::Block),
+/// the same key `removed_block_names` carries.
 #[derive(Component, Clone, Debug)]
 pub struct BlockVisual {
     pub block_name: String,
-    /// Durable geometry identity. `block_name` is the human label the removal
-    /// reconciler matches on; this is what a CONTACT names, and the two are kept
-    /// side by side for the same reason `ae::Block` keeps both.
+    /// Durable geometry identity. `block_name` is the label the removal
+    /// reconciler matches; this is what a contact names. Both are kept, as
+    /// in `ae::Block`.
     pub geo_id: ambition_platformer2d_core::GeoId,
 }
 
-/// This block's art, said by the game rather than inherited from its
-/// `BlockKind`.
+/// This block's art, chosen by the game instead of by its `BlockKind`.
 ///
-/// every block of a kind drew the same picture, and nothing could say
-/// otherwise. `spawn_block` resolves art from `BlockKind` alone —
-/// `block_tile_sprite(Solid) -> SolidTile` for every code-authored solid in the
-/// room — so a bonus block, a used bonus block and a wall were one texture.
-/// `art_color` was the only per-block lever and it can only say "no art yet"
-/// (a flat quad), which is a statement about ABSENCE, not identity.
+/// `spawn_block` resolves art from `BlockKind` alone
+/// (`block_tile_sprite(Solid) -> SolidTile`), so a bonus block, a used bonus
+/// block, and a wall would share one texture. `art_color` can only say "no art
+/// yet" (a flat quad). The identity can also change during play (a `?` block
+/// becomes a used block), which a spawn-time field on `ae::Block` cannot
+/// express.
 ///
-/// and the identity a game needs is DYNAMIC. A `?`-block becomes a used block mid-play; a
-/// spawn-time field on `ae::Block` could never express that.
-///
-/// Presentation only. Collision never reads it, exactly as `art_color` does not.
+/// Presentation only. Collision never reads it, like `art_color`.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BlockArt(pub ambition_sprite_sheet::game_assets::EntitySprite);
 
@@ -97,11 +86,10 @@ pub struct FeatureVisual {
     pub id: String,
 }
 
-/// Marker for sprites spawned from `RoomSpec.props`. Generic prop
-/// animation (idle row tick) runs against `With<PropVisual>` so the
-/// sprite stays alive without the engine ever seeing a feature
-/// entity for the prop. Filtered with `Without<PortalSprite>` so
-/// the gate ring + gate portal stay owned by the portal systems.
+/// Marker for sprites spawned from `RoomSpec.props`. Prop animation (idle row
+/// tick) runs on `With<PropVisual>`, so the engine needs no feature entity for
+/// the prop. `Without<PortalSprite>` leaves the gate ring and gate portal to
+/// the portal systems.
 #[derive(Component, Clone, Debug)]
 pub struct PropVisual {
     /// LDtk iid — for debug overlay + future save-key joins.
@@ -111,18 +99,17 @@ pub struct PropVisual {
     pub kind: String,
     pub name: String,
     pub size: Vec2,
-    /// The authored [`PropDraw`], carried for the same reason as `size`: the
-    /// sprite is REBUILT on a `GameAssets` change, and a rebuild that does not
-    /// know a prop is built world silently reverts it to character sizing.
+    /// The authored [`PropDraw`], kept like `size`: the sprite is rebuilt on a
+    /// `GameAssets` change, and a rebuild without it would revert a world-built
+    /// prop to character sizing.
     pub draw: ambition_platformer2d_world::rooms::PropDraw,
     /// The authored vertical mirror, carried for the same reason.
     pub flip_y: bool,
 }
 
-/// Tag on the portal + gate-ring visual entities so the generic
-/// `animate_characters` / `animate_props` systems skip them. Without this
-/// filter the generic animator re-pins them to `Idle` every frame and
-/// clobbers the row the gate-portal presentation systems request from
+/// Tag on the portal and gate-ring visuals so `animate_characters` and
+/// `animate_props` skip them. Otherwise the generic animator sets `Idle`
+/// every frame and overrides the row the gate-portal systems request from
 /// `GatePortalPhase`. Those systems own these entities' animator request,
 /// frame tick, and atlas index.
 #[derive(Component, Clone, Copy, Debug)]
@@ -141,9 +128,9 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
             tier: ae::BlinkWallTier::Hard,
         } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
-        // FULLY TRANSPARENT: this is the in-game fill, and a hidden block that
-        // tinted itself would announce the secret it exists to keep. A game that
-        // wants it seen once found dresses it (Mary-O swaps to the spent tile).
+        // Fully transparent: this is the in-game fill, and a tinted hidden
+        // block would reveal its secret. A game that wants it seen once found
+        // changes its art (Mary-O swaps to the spent tile).
         ae::BlockKind::BonkOnly => Color::srgba(0.0, 0.0, 0.0, 0.0),
         ae::BlockKind::Hazard => Color::srgba(0.96, 0.18, 0.26, 0.92),
         ae::BlockKind::PogoOrb => Color::srgba(0.30, 0.95, 0.64, 0.95),
@@ -151,9 +138,8 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
     }
 }
 
-/// Switch on-color: green = encounter cleared / armed for fresh attempt
-/// disabled. Used as an override on top of `feature_color` when
-/// `FeatureView::switch_on` is true.
+/// Switch on-colour (green: encounter cleared). Used instead of
+/// `feature_color` when `FeatureView::switch_on` is true.
 pub fn switch_on_color() -> Color {
     Color::srgba(0.20, 0.90, 0.30, 1.0)
 }
@@ -165,17 +151,15 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Pickup => WORLD_Z_DUMMY + 4.0,
         FeatureVisualKind::Chest => WORLD_Z_DUMMY + 3.0,
         FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
-        // ONE z for every actor. The former Npc-one-layer-higher nuance died with
-        // the variant; if actor draw order ever matters it must come from a real
-        // signal, not the visual kind.
+        // One z for every actor. If actor draw order ever matters, it must come
+        // from a real signal, not the visual kind.
         FeatureVisualKind::Actor => WORLD_Z_DUMMY + 1.0,
     }
 }
 
-/// Placeholder rectangle color for a feature with no bound sprite. For an actor
-/// the tint modulates on the FIGHTING state (`fighting` = engaged) — information
-/// about state, not type; every actor is ONE kind, a fighting one just reads
-/// warmer. `fighting` is ignored for non-actor kinds.
+/// Placeholder rectangle colour for a feature with no bound sprite. For an
+/// actor the tint changes with the fighting state (`fighting` = engaged): a
+/// fighting actor reads warmer. `fighting` is ignored for other kinds.
 pub(super) fn feature_color(kind: FeatureVisualKind, fighting: bool, flash: bool) -> Color {
     if flash {
         return Color::srgba(1.0, 1.0, 1.0, 1.0);
@@ -192,24 +176,24 @@ pub(super) fn feature_color(kind: FeatureVisualKind, fighting: bool, flash: bool
         FeatureVisualKind::Breakable => Color::srgba(0.62, 0.42, 0.24, 0.96),
         FeatureVisualKind::Chest => Color::srgba(1.0, 0.74, 0.22, 0.96),
         FeatureVisualKind::Pickup => Color::srgba(0.42, 1.0, 0.74, 0.96),
-        // Default off-state color for switches (red — encounter armed).
-        // The on-state override happens in `sync_visuals` via the
-        // `FeatureView::switch_on` flag.
+        // Default off-state colour for switches (red: encounter armed).
+        // `sync_visuals` applies the on-state colour from
+        // `FeatureView::switch_on`.
         FeatureVisualKind::Switch => Color::srgba(0.95, 0.18, 0.18, 1.0),
     }
 }
 
-/// Colour of a static world label at full opacity. Named because the placement
-/// pass ([`super::label_layout`]) is the single writer of the rendered
-/// `TextColor` and needs the un-faded value to fade FROM.
+/// Colour of a static world label at full opacity. The placement pass
+/// ([`super::label_layout`]) is the only writer of the rendered `TextColor`
+/// and needs the unfaded value to fade from.
 pub(super) const WORLD_LABEL_COLOR: Color = Color::srgba(0.86, 0.94, 1.0, 0.94);
 
 /// Spawn one static world-space label.
 ///
-/// `owner_id` must be unique across every label family — the placement pass
-/// keys its resolved layout by it. Static labels are prefixed by their caller
-/// (`signage:` / `fixture:`) so they can never collide with a nameplate's
-/// view identity, which is a bare feature/zone id.
+/// `owner_id` must be unique across every label family: the placement pass
+/// keys its layout by it. Callers prefix static labels (`signage:`,
+/// `fixture:`) so they never collide with a nameplate's bare feature or zone
+/// id.
 pub(super) fn spawn_world_label(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
@@ -235,11 +219,10 @@ pub(super) fn spawn_world_label(
             RoomVisual,
             super::label_layout::WorldLabel::new(owner_id, family, anchor)
                 .with_colors(WORLD_LABEL_COLOR, None),
-            // Room load has no view in scope — it runs once for a room, not once
-            // per observer — so this label is spawned unkeyed and
-            // `mirror_static_world_labels_per_view` gives it to the lowest-id
-            // view and copies it to the rest. In a one-view game that is exactly
-            // this entity and nothing else.
+            // Room load has no view in scope, so this label is spawned unkeyed and
+            // `mirror_static_world_labels_per_view` gives it to the lowest-id view
+            // and copies it to the rest. In a one-view game this is the only
+            // entity.
             super::label_layout::StaticWorldLabel,
         ),
     );
@@ -250,36 +233,20 @@ pub(super) fn spawn_world_label(
 mod actor_band_tests {
     use super::*;
 
-    /// ⛔⛔ HALF OF "THE PORTAL BAND SITS BELOW THE ACTOR BAND", AND THE HALF THIS
-    /// CRATE CAN SEE UNCONDITIONALLY.
+    /// Every feature kind stays inside the z band its offset names.
     ///
-    /// The claim spans two crates and my first attempt asserted all of it here,
-    /// behind `#[cfg(feature = "portal_render")]` — which `ambition_render`
-    /// declares `default = []`, so **the guard ran only under
-    /// `--run-everything-you-probably-dont-need-this`.** A guard whose job is to
-    /// stop a two-line wrong fix is worthless if it does not run in the plan the
-    /// person making that fix will run.
+    /// `feature_z` adds an offset to a datum: `WORLD_Z_BLOCK + 8.0` for a hazard,
+    /// `WORLD_Z_DUMMY + 4.0` for a pickup. The tightest margin is `Hazard` (8.0
+    /// against a 10.0 gap to `WORLD_Z_DUMMY`), so a kind at `WORLD_Z_BLOCK + 11.0`
+    /// would draw above the whole actor band.
     ///
-    /// ⇒ SPLIT AT THE CRATE BOUNDARY so each half runs in its own crate's default
-    /// build: this one pins `WORLD_Z_DUMMY < actor`, and
-    /// `ambition_portal2d_presentation` pins `portal band <= WORLD_Z_DUMMY`.
-    /// `WORLD_Z_DUMMY` is the shared term — both crates already depend on
-    /// `ambition_platformer2d_core` — so together they imply
-    /// `portal band <= WORLD_Z_DUMMY < actor` with no optional feature anywhere.
-    /// ⛔⛔ EVERY FEATURE KIND SITS IN THE BAND ITS OFFSET CLAIMS, AND THE
-    /// TIGHTEST MARGIN IN THE TABLE IS TWO.
+    /// This also pins `WORLD_Z_DUMMY < actor`. `ambition_portal2d_presentation`
+    /// pins `portal band <= WORLD_Z_DUMMY` in its own default build, so together
+    /// they give `portal band <= WORLD_Z_DUMMY < actor` without an optional
+    /// feature (`ambition_render` has `default = []`).
     ///
-    /// `feature_z` places kinds in two bands by adding an offset to a datum:
-    /// `WORLD_Z_BLOCK + 8.0` for a hazard, `WORLD_Z_DUMMY + 4.0` for a pickup.
-    /// Nothing checked that an offset stays INSIDE its band. `Hazard` is the
-    /// tight one — 8.0 against a 10.0 gap to `WORLD_Z_DUMMY` — so a kind added at
-    /// `WORLD_Z_BLOCK + 11.0` would draw above the entire actor band while
-    /// looking, at its own line, exactly as reasonable as its neighbours.
-    ///
-    /// ⭐ THE MATCH IS EXHAUSTIVE ON PURPOSE. A new `FeatureVisualKind` fails to
-    /// compile here (E0004) until somebody says which band it belongs to, which
-    /// is the question the offset silently answers. That is the check: not the
-    /// numbers below, which merely record today's table.
+    /// The match is exhaustive on purpose: a new `FeatureVisualKind` fails to
+    /// compile here (E0004) until someone places it in a band.
     #[test]
     fn every_feature_kind_stays_inside_the_band_its_offset_names() {
         let block = ambition_platformer2d_core::config::WORLD_Z_BLOCK;
@@ -294,7 +261,7 @@ mod actor_band_tests {
             FeatureVisualKind::Pickup,
             FeatureVisualKind::Switch,
         ] {
-            // ⭐ No `_` arm: adding a kind is a compile error until it is placed.
+            // No `_` arm: a new kind is a compile error until it is placed.
             let (band_name, floor, ceiling) = match kind {
                 FeatureVisualKind::Hazard | FeatureVisualKind::Breakable => {
                     ("the BLOCK band", block, dummy)

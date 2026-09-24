@@ -1,9 +1,9 @@
-//! S2: the reusable selected-character presentation binder.
+//! Tests for the reusable selected-character presentation binder.
 //!
-//! Proves the binder derives presentation from the canonical `WornCharacter`
-//! identity — generically (two character profiles, no per-character branch),
-//! binding on first appearance, rebinding on identity change, and leaving no
-//! stale/duplicate sheet components — using deterministic sheet fixtures and
+//! The binder derives presentation from the canonical `WornCharacter`
+//! identity, generically (two character profiles, no per-character branch):
+//! it binds on first appearance, rebinds on identity change, and leaves no
+//! stale or duplicate sheet components. Uses deterministic sheet fixtures and
 //! nothing from `ambition_app`.
 use super::bind_worn_character_presentation;
 use super::{PlayerSpriteCharacter, PlayerVisual};
@@ -29,9 +29,9 @@ fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
     }
 }
 
-/// Two distinct character profiles resolve through the SAME binder with no
-/// per-character code: "robot" and "goblin" each bind their own sheet and are
-/// marked with their own id.
+/// Two character profiles through the same binder with no per-character code:
+/// "robot" and "goblin" each bind their own sheet and are marked with their
+/// own id.
 fn two_character_assets() -> GameAssets {
     let mut assets = GameAssets::default();
     assets.characters.publish("robot", fixture("robot"));
@@ -39,13 +39,12 @@ fn two_character_assets() -> GameAssets {
     assets
 }
 
-/// A worn player the sim has already published a pose for — the ordinary shape.
+/// A worn player with a published pose: the ordinary shape.
 ///
-/// The pose is not decoration here: a sheet-backed presentation is FINAL only
-/// once `BodyPoseView` exists, because that is where the authored quad and
-/// offset come from and `CharacterAnimator::render_basis` is initialized once.
-/// A fixture with no pose exercises the PROVISIONAL state instead — see
-/// [`spawn_worn_before_its_pose`].
+/// A sheet-backed presentation is final only once `BodyPoseView` exists: the
+/// authored quad and offset come from it, and
+/// `CharacterAnimator::render_basis` is initialized once. A fixture with no
+/// pose tests the provisional state; see [`spawn_worn_before_its_pose`].
 fn spawn_worn(app: &mut App, id: &str) -> Entity {
     app.world_mut()
         .spawn((
@@ -80,7 +79,7 @@ fn binds_on_first_appearance_for_two_profiles() {
     let goblin = spawn_worn(&mut app, "goblin");
     app.update();
 
-    // Each body is bound to ITS OWN identity through the one generic path.
+    // Each body is bound to its own identity through the one generic path.
     assert_eq!(
         app.world().get::<PlayerSpriteCharacter>(robot).unwrap().id,
         "robot"
@@ -89,11 +88,11 @@ fn binds_on_first_appearance_for_two_profiles() {
         app.world().get::<PlayerSpriteCharacter>(goblin).unwrap().id,
         "goblin"
     );
-    // A real sheet resolved → an animator + textured sprite were installed.
+    // A real sheet resolved, so an animator and textured sprite exist.
     assert!(app.world().get::<CharacterAnimator>(robot).is_some());
     assert!(app.world().get::<Sprite>(goblin).is_some());
-    // The two bodies bound DIFFERENT identities through one generic path —
-    // the genericity claim (no per-character branch).
+    // The two bodies bound different identities through one generic path
+    // (no per-character branch).
     assert_ne!(
         app.world().get::<PlayerSpriteCharacter>(robot).unwrap().id,
         app.world().get::<PlayerSpriteCharacter>(goblin).unwrap().id
@@ -108,8 +107,8 @@ fn binds_on_first_appearance_for_two_profiles() {
 fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    // Only "robot" has a sheet; the second identity has NONE, exercising the
-    // sheet → fallback rebind (the stale-component path).
+    // Only "robot" has a sheet; the second identity has none, which tests the
+    // sheet-to-fallback rebind (the stale-component path).
     let mut assets = GameAssets::default();
     assets.characters.publish("robot", fixture("robot"));
     app.insert_resource(assets);
@@ -126,9 +125,9 @@ fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
         "robot"
     );
 
-    // Re-wear to an identity with no sheet: the binder must REPLACE the stale
-    // animator/anchor/baseline with the colored-rectangle fallback, not layer
-    // a duplicate.
+    // Re-wear to an identity with no sheet: the binder must replace the
+    // stale animator, anchor, and baseline with the coloured-rectangle
+    // fallback, not add a duplicate.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("no_such_sheet");
     app.update();
     assert_eq!(
@@ -152,9 +151,9 @@ fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
 
 #[test]
 fn no_game_assets_still_draws_a_marked_fallback() {
-    // An art-free demo shell (no GameAssets) must still draw the worn player:
-    // the binder installs the colored-rectangle fallback AND marks the identity,
-    // so a demo without a sheet never renders an invisible player.
+    // An art-free demo shell (no `GameAssets`) must still draw the worn
+    // player: the binder installs the coloured-rectangle fallback and marks
+    // the identity.
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_systems(Update, bind_worn_character_presentation);
@@ -177,11 +176,10 @@ fn no_game_assets_still_draws_a_marked_fallback() {
 
 #[test]
 fn already_bound_identity_is_not_rebound() {
-    // Non-vacuity: a body correctly bound to its identity (same id AND a real
-    // sheet installed) is SKIPPED — the binder does not thrash the sprite every
-    // frame. Prove it by advancing the animator's frame cursor and confirming a
-    // no-change update preserves it (a rebind would install a fresh frame-0
-    // animator).
+    // Non-vacuity: a body already bound to its identity (same id and a real
+    // sheet) is skipped, so the binder does not rebuild the sprite every
+    // frame. Advance the animator's frame cursor and check that an unchanged
+    // update keeps it (a rebind would install a new frame-0 animator).
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.insert_resource(two_character_assets());
@@ -202,9 +200,9 @@ fn already_bound_identity_is_not_rebound() {
 
 #[test]
 fn a_fallback_upgrades_when_its_sheet_appears_later() {
-    // The reusable binder must not permanently stick on a fallback: if GameAssets
-    // (or the id's sheet) arrives AFTER the first bind, the next run upgrades the
-    // marked fallback to the real sheet.
+    // The binder must not stay on a fallback: if `GameAssets` (or the id's
+    // sheet) arrives after the first bind, the next run upgrades the marked
+    // fallback to the real sheet.
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     app.add_systems(Update, bind_worn_character_presentation);
@@ -228,14 +226,13 @@ fn a_fallback_upgrades_when_its_sheet_appears_later() {
     );
 }
 
-/// A body's sprite baseline is its OWN standing size, not a constant.
+/// A body's sprite baseline is its own standing size, not a constant.
 ///
-/// `standing_collision` is the reference `sync_visuals` scales the art against
-/// (`base_size / standing_collision`), and that ratio exists only for the dev
-/// menu's live body-profile experiment. Seeding it from the default player size
-/// made the ratio non-1 for any body that simply is not that size, so Mary-O
-/// growing to her tall collider stretched the tall sheet's art by 1.5 instead of
-/// drawing the tall art at the tall size — her forms have their own SHEETS, and
+/// `standing_collision` is the reference `sync_visuals` scales the art by
+/// (`base_size / standing_collision`), a ratio that exists only for the dev
+/// menu's live body-profile experiment. Seeded from the default player size,
+/// the ratio is not 1 for a body of another size: Mary-O's tall collider
+/// would stretch the tall sheet by 1.5. Her forms have their own sheets, so
 /// growing must never scale art.
 #[test]
 fn the_sprite_baseline_records_the_bodys_own_standing_size() {
@@ -249,10 +246,8 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
         .spawn((
             PlayerVisual,
             WornCharacter::new("robot"),
-            // the READ-MODEL, not the sim's `BodyBaseSize`. Presentation reads
-            // `ambition_sim_view` (E4), and building the fixture from the live
-            // cluster made this test disagree with the system it exercises the
-            // moment that rule was enforced.
+            // The read model, not the sim's `BodyBaseSize`: presentation reads
+            // `ambition_sim_view`.
             ambition_sim_view::BodyPoseView {
                 base_size: tall,
                 ..Default::default()
@@ -288,23 +283,20 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
     );
 }
 
-/// ⛔⛔ A FORM CHANGE AND ITS RESIZE LAND ON DIFFERENT FRAMES, and the binder
-/// finalizes on the second one.
+/// A form change and its resize land on different frames, and the binder
+/// finalizes on the second.
 ///
-/// MEASURED ON THE REAL DEMO (2026-09-23). Mary-O's `sync_grown_form` swaps the
-/// identity in `FeatureInteraction`; the prepared body for the new form is
-/// granted at the head of the next tick. The pose published in between read
-/// `mary_o_tall` at base 21x32, offset -19.8 — the small form's — and settled
-/// a tick later at 21x64, offset -4.6. The binder keyed on identity alone, so
-/// it rebound on the swap frame and spent `CharacterAnimator::render_basis`,
-/// which is initialized once, on the form she was leaving.
+/// Mary-O's `sync_grown_form` swaps the identity in `FeatureInteraction`; the
+/// prepared body for the new form arrives at the head of the next tick. The
+/// pose between reads `mary_o_tall` with the small form's base (21x32, offset
+/// -19.8), then settles a tick later (21x64, offset -4.6). Binding on the
+/// swap frame would spend the once-only `CharacterAnimator::render_basis` on
+/// the old form.
 ///
-/// ⇒ The pose says whether its geometry is the worn identity's
-/// (`BodyPoseView::geometry`). On the swap frame the body keeps the binding it
-/// has, which still matches the body it has; the final bind waits for the
-/// settled pose. This replaces a test that pinned the stale baseline as
-/// deliberate: that argument was about RE-SEEDING on a size change, and the
-/// basis — not the baseline — is what the stale bind actually burned.
+/// The pose says whether its geometry belongs to the worn identity
+/// (`BodyPoseView::geometry`). On the swap frame the body keeps its current
+/// binding, which still matches its body; the final bind waits for the
+/// settled pose.
 #[test]
 fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
     let mut app = App::new();
@@ -328,8 +320,8 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
         .id();
     app.update();
 
-    // The frame she grows: the identity swaps and the pose still carries the
-    // form she is leaving — which it says.
+    // The frame she grows: the identity swaps, and the pose still carries
+    // the old form and says so.
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("goblin");
     app.world_mut()
         .get_mut::<ambition_sim_view::BodyPoseView>(body)
@@ -346,7 +338,7 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
         "the body stopped being drawn while its new geometry was pending"
     );
 
-    // The next frame: her new body is granted and the pose settles.
+    // The next frame: her new body arrives and the pose settles.
     {
         let mut pose = app
             .world_mut()
@@ -373,11 +365,10 @@ fn a_form_change_binds_the_new_form_only_once_its_geometry_is_settled() {
 
 /// A trimmed character must never be drawable at its full logical-frame size.
 ///
-/// Regression for the title-shell launch pop: the binder used to insert frame
-/// zero's packed atlas rect with the FULL logical `custom_size`, and only the
-/// first animation pass applied its trim. That exposed one giant robot frame
-/// before `BodyPoseView` existed. Construction now composes the sprite and
-/// animator geometry before either becomes drawable.
+/// Construction composes the sprite and animator geometry before either is
+/// drawable. Otherwise frame zero's packed atlas rect would show at the full
+/// logical `custom_size` before the first animation pass applies the trim
+/// (a giant frame at launch, before `BodyPoseView` exists).
 #[test]
 fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
     let mut app = App::new();
@@ -393,8 +384,7 @@ fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
     app.insert_resource(assets);
     app.add_systems(Update, bind_worn_character_presentation);
 
-    // Deliberately NO BodyPoseView: this is the exact zero-sim-tick state the
-    // title shell exposed in the failing launch frame.
+    // No `BodyPoseView`: the zero-sim-tick state of the first launch frame.
     let player = spawn_worn(&mut app, "player_robot_v3");
     app.update();
 
@@ -434,18 +424,17 @@ fn a_trimmed_character_is_geometry_complete_on_its_first_drawable_frame() {
     );
 }
 
-/// **A WORN PLAYER IS NOT FINALLY BOUND UNTIL ITS POSE EXISTS.**
+/// A worn player is not finally bound until its pose exists.
 ///
-/// `CharacterAnimator::render_basis` is initialized once — every later frame is
-/// derived from it — and the authored quad and offset that belong in it live on
-/// `BodyPoseView`. So the readiness rule and the one-basis rule are the same
-/// rule: a sheet-backed presentation may not be installed before the pose, or
-/// the single initialization is spent on a collision-derived guess that the
-/// binder's only key (the worn identity) can never invalidate.
+/// `CharacterAnimator::render_basis` is initialized once, and the authored
+/// quad and offset for it are on `BodyPoseView`. So a sheet-backed
+/// presentation must not be installed before the pose, or the one
+/// initialization is spent on a collision-derived guess that the binder's
+/// only key (the worn identity) cannot invalidate.
 ///
-/// Pre-pose the player is still DRAWN — the fallback rectangle, marked with the
-/// identity — and still ELIGIBLE, because it carries no animator. When the pose
-/// lands the first final basis is the authored one, with no identity change.
+/// Before the pose the player is still drawn (the fallback rectangle, marked
+/// with the identity) and still eligible, because it has no animator. When
+/// the pose lands, the first final basis is the authored one.
 #[test]
 fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
     let mut app = App::new();
@@ -467,12 +456,12 @@ fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
             .map(|b| b.render_size)
     };
 
-    // Not finally bound: no animator, so nothing has claimed the one basis.
+    // Not finally bound: no animator has claimed the basis.
     assert!(
         basis(&app).is_none(),
         "a worn player with no pose took the one render basis on a guess"
     );
-    // Still drawn, and still marked — a pre-pose player is never invisible.
+    // Still drawn and marked: a pre-pose player is never invisible.
     assert!(
         app.world().get::<Sprite>(player).is_some(),
         "the pre-pose player must still draw something"
@@ -485,9 +474,9 @@ fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
         "player_robot_v3"
     );
 
-    // The pose lands, carrying the sheet's authored quad and offset — what
-    // `sync_sprite_posed_bodies` publishes once it has run. The worn identity
-    // does NOT change.
+    // The pose lands with the sheet's authored quad and offset (what
+    // `sync_sprite_posed_bodies` publishes). The worn identity does not
+    // change.
     let authored = ambition_platformer2d_core::Vec2::new(70.0, 84.0);
     app.world_mut()
         .entity_mut(player)
@@ -501,9 +490,8 @@ fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
     app.update();
 
     let authored_quad = Vec2::new(authored.x, authored.y);
-    // ANTI-VACUITY: a collision-derived bind of this same body would NOT have
-    // produced the authored quad, so the arm below is not satisfied by a
-    // fixture whose two answers coincide.
+    // Non-vacuity: a collision-derived bind of this body would not give the
+    // authored quad, so the two answers differ.
     let (collision_derived, _) = super::character_render_basis(
         &fixture("player_robot_v3").spec,
         authored,
@@ -524,8 +512,7 @@ fn a_worn_player_is_not_finally_bound_until_its_pose_exists() {
          authored answer existed"
     );
 
-    // And it is initialized ONCE: a further pass over an unchanged pose leaves
-    // the basis alone rather than re-deriving it.
+    // Initialized once: another pass over an unchanged pose keeps the basis.
     app.update();
     assert_eq!(
         basis(&app),

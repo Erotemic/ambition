@@ -1,6 +1,5 @@
-//! Optional debug health-bar overlay rendered above every actor with
-//! a `Health` resource. Toggled via
-//! `DeveloperTools::show_health_bars`.
+//! Optional debug health-bar overlay above every actor with a `Health`
+//! resource. Toggled by `DeveloperTools::show_health_bars`.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;

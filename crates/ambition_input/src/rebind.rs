@@ -18,11 +18,9 @@ pub fn bindable(control: &PhysicalControl) -> Option<OverrideControl> {
 /// The override a capture frame produces, or `None` if nothing bindable was
 /// pressed.
 ///
-/// `pressed` is this frame's physical controls in the order the reader saw
-/// them; the first bindable one wins. A frame with only unbindable presses
-/// captures nothing and leaves the row armed, which is the honest behaviour —
-/// the player pressed something the game cannot store, so it must not pretend
-/// it stored it.
+/// `pressed` is this frame's physical controls in reader order; the first
+/// bindable one wins. A frame with only unbindable presses captures nothing
+/// and the row stays armed, because the game cannot store that press.
 pub fn capture(
     action: &Platformer2dInputActionMonolith,
     pressed: impl IntoIterator<Item = PhysicalControl>,
@@ -57,22 +55,16 @@ pub fn also_bound_to(
 
 /// This frame's physical presses, in a stable order, for a capture.
 ///
-///  the keyboard is read RAW, not through the seat's `InputMap`. A rebind
-/// screen has to see a key the map does not bind — that is the entire point of
-/// rebinding — and the map only reports actions it already knows. Routing a
-/// capture through the map would make the set of rebindable controls exactly the
-/// set already bound, so a player could permute their bindings and never reach a
-/// key the preset never used.
+/// The keyboard is read raw, not through the seat's `InputMap`. The map only
+/// reports keys it already binds, so reading through it would limit rebinding
+/// to keys that are already bound.
 ///
-///  order is the enum's, not the hardware's. `ButtonInput` iterates a hash
-/// set, so "the first key pressed this frame" is not a fact it can supply; two
-/// keys down on one frame would resolve differently run to run, and a rebind
-/// that lands on a different key each time is worse than one that refuses. The
-/// pressed set is sorted so a two-key frame is at least DECIDED — and a capture
-/// screen should tell the player to press one key at a time regardless.
+/// Order is the enum order, not hardware order. `ButtonInput` iterates a hash
+/// set, so it cannot say which key was first. Sorting makes a two-key frame
+/// give the same result on every run. A capture screen should still ask for
+/// one key at a time.
 ///
-/// Pads are included for the same reason the override model has a gamepad half:
-/// a couch seat rebinds a button, not a key.
+/// Pads are included because a couch seat rebinds buttons, not keys.
 #[cfg(feature = "input")]
 pub fn pressed_controls_this_frame(
     keys: Option<&bevy::input::ButtonInput<bevy::prelude::KeyCode>>,
@@ -84,8 +76,7 @@ pub fn pressed_controls_this_frame(
         .map(|key| PhysicalControl::Key(*key))
         .collect();
     out.extend(pads.into_iter().map(PhysicalControl::Button));
-    // `PhysicalControl` derives `Ord`; sorting makes a multi-press frame
-    // deterministic instead of hash-ordered.
+    // Sort so a multi-press frame is deterministic, not hash-ordered.
     out.sort();
     out
 }
@@ -109,9 +100,8 @@ mod tests {
 
     #[test]
     fn an_unnameable_press_captures_nothing_rather_than_something_wrong() {
-        //  `Other` exists so the PROJECTION can be total. Storing one would be
-        // a settings file that loads into silence, because nothing can rebuild
-        // the control from its debug string.
+        // `Other` exists so the projection is total. It cannot be rebuilt
+        // from its debug string, so a stored `Other` would load as nothing.
         assert!(capture(
             &Platformer2dInputActionMonolith::Jump,
             [PhysicalControl::Other("Chord(A, B)".into())]
@@ -134,8 +124,8 @@ mod tests {
 
     #[test]
     fn a_collision_is_reported_rather_than_refused() {
-        //  the game itself ships one: Escape drives Start AND MenuBack, on
-        // purpose. A capture that refused collisions would forbid that shape.
+        // The game binds Escape to both Start and MenuBack on purpose, so a
+        // capture must report collisions, not refuse them.
         let map = KeyboardPreset::arrows_zxc().input_map();
         let bindings = ActionBindings::from_map(&map);
         let start = bindings
@@ -169,9 +159,7 @@ mod tests {
 
     #[test]
     fn a_multi_key_frame_resolves_the_same_way_every_run() {
-        //  `ButtonInput` iterates a hash set, so "the first key this frame" is
-        // not a fact it can supply. Two runs picking different keys is a rebind
-        // that lands somewhere new each time, which is worse than refusing.
+        // `ButtonInput` iterates a hash set; the result must not depend on it.
         let mut keys = bevy::input::ButtonInput::<KeyCode>::default();
         keys.press(KeyCode::KeyZ);
         keys.press(KeyCode::KeyA);
@@ -183,9 +171,7 @@ mod tests {
 
     #[test]
     fn a_key_no_preset_binds_is_still_capturable() {
-        //  the reason the keyboard is read RAW. Routing a capture through the
-        // seat's `InputMap` would make the rebindable set exactly the bound set,
-        // so a player could permute their bindings and never reach a new key.
+        // The keyboard is read raw, so a key no preset binds can be captured.
         let mut keys = bevy::input::ButtonInput::<KeyCode>::default();
         keys.press(KeyCode::F13);
         let map = KeyboardPreset::arrows_zxc().input_map();

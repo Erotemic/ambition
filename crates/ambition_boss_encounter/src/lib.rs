@@ -9,17 +9,14 @@
 //! sets so game-specific systems can interleave without the runtime depending on
 //! boss content.
 //!
-//! ⛔⛔ WHAT THIS CRATE REFUSES, because a destination that says nothing accepts
-//! everything — and this one accepted for months.
+//! What this crate does not own:
 //!
-//! - **Generic body geometry.** A boss was the FIRST customer of AABB overlap,
-//!   swept extents and the shared `CombatGeometry` vocabulary, not their owner,
-//!   and holding them made every consumer read that vocabulary as boss-specific.
-//!   531 lines left for `ambition_combat::body_geometry` and the sprite metrics
-//!   for `ambition_sprite_sheet`; ⛔ do not let the next generic concept land here
-//!   because a boss needed it first.
-//! - **Anything whose second consumer would not be a boss.** That is the test,
-//!   and it is answerable before the code moves.
+//! - Generic body geometry. A boss was the first user of AABB overlap, swept
+//!   extents and the shared `CombatGeometry` vocabulary, not their owner. That
+//!   code lives in `ambition_combat::body_geometry`, and sprite metrics in
+//!   `ambition_sprite_sheet`. Do not add a generic concept here because a
+//!   boss needed it first.
+//! - Anything whose second user would not be a boss.
 
 pub mod anim;
 pub mod attack_geometry;
@@ -53,7 +50,7 @@ pub use ambition_characters::boss_encounter::{
     PhaseTriggerCondition,
 };
 pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, LimbRoute};
-// The boss DATA MODEL — the authoritative components + the borrow views the per-tick systems
+// The boss data model — the authoritative components + the borrow views the per-tick systems
 // mutate/read.
 #[cfg(any(test, feature = "test-support"))]
 pub use catalog::test_boss_catalog;
@@ -76,8 +73,8 @@ pub use encounter_script::{
     FallingHazard,
 };
 // The generic timeline vocabulary lives in `ambition_encounter` (the one
-// timeline authority); re-exported here so boss content + the schedule keep
-// importing it through `boss_encounter`.
+// timeline authority); re-exported so boss content and the schedule import it
+// through `boss_encounter`.
 pub use ambition_encounter::{
     EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
 };
@@ -94,26 +91,19 @@ pub use systems::{
 /// Installs the boss-encounter capability: its sim systems, its messages and its
 /// resources.
 ///
-/// ⭐⭐ THE POINT IS THAT A CONSUMER CAN NOW OMIT IT. Before this, these eight
-/// systems were scheduled by `ambition_platformer2d_runtime`'s
-/// `progression_schedule`, its three messages were registered there, and two of
-/// its resources were initialised in `sim_core_resources` — so "generic
-/// encounters without boss encounters", one of the compositions named in
-/// `docs/planning/engine/decomposition.md`, could not be written at all: there
-/// was no seam to omit the capability through. It is a `.disable::<_>()` now.
+/// A consumer can omit this plugin (`.disable::<_>()`), for example to compose
+/// generic encounters without boss encounters
+/// (`docs/planning/engine/decomposition.md`).
 ///
-/// ⭐ IT NAMES ONLY PUBLISHED SET VOCABULARY. `ProgressionSet::BossAdvance` and
-/// `BossHazards` live in `ambition_platformer2d_shared_tangle::schedule`, which
-/// this crate already depended on, so nothing had to move to make this possible
-/// and no ordering was renegotiated. That is what made it a plugin rather than a
-/// carve — and it is the check worth running before proposing the next one:
-/// a capability whose ordering edges name another capability's SYSTEMS cannot be
-/// installed this way, however coherent its authority is.
+/// It names only published set vocabulary: `ProgressionSet::BossAdvance` and
+/// `BossHazards` live in `ambition_platformer2d_shared_tangle::schedule`. A
+/// capability whose ordering edges name another capability's systems cannot
+/// be installed as a plugin like this.
 ///
-/// ⚠ THE HOST STILL OWNS THE SETS. This plugin does not `configure_sets`; the
-/// runtime anchors `ProgressionSet` into the engine chain, and this only says
-/// which systems belong in two of its slots. A capability that configured the
-/// ordering it runs in would be a second authority over the schedule.
+/// The host owns the sets. This plugin does not `configure_sets`; the runtime
+/// anchors `ProgressionSet` into the engine chain, and this only places
+/// systems in two of its slots. A capability that configured its own ordering
+/// would be a second authority over the schedule.
 pub struct BossEncounterSimulationPlugin;
 
 impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
@@ -156,31 +146,31 @@ impl bevy::prelude::Plugin for BossEncounterSimulationPlugin {
     }
 }
 
-// ── Progression-phase content slots (E-track de-weave) ──────────────────────
+// ── Progression-phase content slots ──────────────────────────────────────────
 //
-// The `Platformer2dSimulationPhaseMonolith::Progression` chain is ENGINE-generic (boss-encounter tick,
-// save mirrors, room metadata/music, portal phase, map visits). Named-game
-// CONTENT that must interleave with it hangs on these labeled slots; the host
-// anchors each slot into the engine chain via `configure_sets`, and content
-// plugins register their systems `.in_set(the slot)` — the engine chain never
-// names a content system (anti-god rule 3), same shape as the combat-schedule
-// (`CombatSet::ContentSpecials`/`ContentFlavor`) and reset (`ContentRoomResetSet`)
-// slots. Co-located here because Progression is the boss-encounter-dominated
-// phase (mirrors `session::reset` owning both of ITS content slots).
+// The `Platformer2dSimulationPhaseMonolith::Progression` chain is
+// engine-generic (boss-encounter tick, save mirrors, room metadata/music,
+// portal phase, map visits). Named-game content that must interleave with it
+// uses these labeled slots: the host anchors each slot into the engine chain
+// via `configure_sets`, and content plugins register systems
+// `.in_set(the slot)`, so the engine chain never names a content system. This
+// is the same shape as the combat-schedule (`CombatSet::ContentSpecials` /
+// `ContentFlavor`) and reset (`ContentRoomResetSet`) slots. They live here
+// because Progression is mostly the boss-encounter phase.
 
 /// Progression slot for content that sets up an encounter's scripted state
-/// MID boss-tick — after the engine advances encounter progress, before the
+/// mid boss-tick: after the engine advances encounter progress, before the
 /// scripted hazards/beats tick (e.g. the cut-rope arena's per-attempt setup).
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentEncounterScriptSet;
 
-/// Progression slot for content that reacts to an encounter's RESOLUTION —
+/// Progression slot for content that reacts to an encounter's resolution:
 /// after the boss chain finishes (payloads released, phase feedback), before
 /// the save mirrors run (e.g. spawning a victory NPC once the payload is free).
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentEncounterVictorySet;
 
-/// Progression slot for content quest-completion effects — after the engine's
+/// Progression slot for content quest-completion effects: after the engine's
 /// quest advance pump, before room metadata/music sync (e.g. granting authored
 /// completion rewards).
 #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]

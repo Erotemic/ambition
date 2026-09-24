@@ -13,9 +13,8 @@
 //! atomically (they live in the same tier dir; the catalog names its pages).
 //!
 //! A consumer never reads pack pixels for gameplay: the synthesized
-//! [`SheetRecord`](crate::SheetRecord) view carries no
-//! `body_metrics` (packs are visual storage truth only — see
-//! the 2026-07 sprite-pipeline review `data-driven-sprites-and-characters` -- deleted from the checkout 2026-09-05, still in git history).
+//! [`SheetRecord`](crate::SheetRecord) view carries no `body_metrics`. Packs
+//! are visual storage only.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -28,9 +27,9 @@ mod baked {
     include!(concat!(env!("OUT_DIR"), "/baked_pack_catalogs.rs"));
 }
 
-/// The pack tier directory for a texture-resolution scale. Total mapping —
-/// every scale has a tier — but the tier's catalog may be absent on a
-/// checkout that never ran regen (see [`catalog_for_tier`]).
+/// The pack tier directory for a texture-resolution scale. Every scale has a
+/// tier, but the tier's catalog may be absent on a checkout that never ran
+/// regen (see [`catalog_for_tier`]).
 pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
     match scale {
         TextureResolutionScale::Full => "full",
@@ -40,15 +39,13 @@ pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
     }
 }
 
-/// The scale a pack tier directory name denotes — the exact inverse of
+/// The scale a pack tier directory name denotes: the inverse of
 /// [`pack_tier_for_scale`], and `None` for a name that is not a tier.
 ///
-/// exists so a caller can record what [`catalog_for_scale`] actually
-/// resolved. That function answers a request and may hand back `full` instead;
-/// its caller then has the physical tier only as a directory name, and stamping
-/// a realization needs it as a scale. Re-deriving the fallback rule at the call
-/// site would be a second copy of the policy — see
-/// [`crate::character::CharacterSpriteAsset::resolved_tier`].
+/// [`catalog_for_scale`] may return `full` instead of the requested tier. The
+/// caller then has the physical tier only as a directory name, and needs it
+/// as a scale to stamp the realization. Use this instead of repeating the
+/// fallback rule (see [`crate::character::CharacterSpriteAsset::resolved_tier`]).
 pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
     match tier {
         "full" => Some(TextureResolutionScale::Full),
@@ -61,9 +58,9 @@ pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
 
 /// Parse-once index of every baked pack catalog, keyed by tier name.
 ///
-/// §5 classification: immutable asset cache — derived from the
-/// compile-time [`BAKED_PACK_CATALOGS`] table, pure and override-free, so a
-/// process-global `OnceLock` (same shape as the sheet `record_index`).
+/// §5 classification: immutable asset cache. It is derived from the
+/// compile-time [`BAKED_PACK_CATALOGS`] table, so it is a process-global
+/// `OnceLock` (like the sheet `record_index`).
 fn catalogs() -> &'static HashMap<&'static str, SpritePackCatalog> {
     static CATALOGS: OnceLock<HashMap<&'static str, SpritePackCatalog>> = OnceLock::new();
     CATALOGS.get_or_init(|| {
@@ -100,10 +97,9 @@ pub fn catalog_for_tier(tier: &str) -> Option<&'static SpritePackCatalog> {
     catalogs().get(tier)
 }
 
-/// Pick the pack catalog for a texture scale, falling back to the `full`
-/// tier when the requested tier was not generated. Returns the tier name
-/// actually chosen alongside the catalog so the caller's page paths match
-/// the catalog it resolves frames from.
+/// Pick the pack catalog for a texture scale. Fall back to the `full` tier
+/// when the requested tier was not generated. Returns the chosen tier name
+/// with the catalog, so the caller's page paths match the catalog.
 pub fn catalog_for_scale(
     scale: TextureResolutionScale,
 ) -> Option<(&'static str, &'static SpritePackCatalog)> {
@@ -123,13 +119,13 @@ pub fn pack_page_path(tier: &str, page_image: &str) -> String {
 mod tests {
     use super::*;
 
-    /// The baked pack table is optional (regen output is gitignored), but when
-    /// it IS present every tier must parse, validate, and cover the same
-    /// target set — a tier that silently lost targets would fall back
-    /// per-target at runtime and hide a broken regen.
+    /// The baked pack table is optional (regen output is gitignored). When it
+    /// is present, every tier must parse, validate, and cover the same targets.
+    /// A tier that lost targets would fall back per target at runtime and hide
+    /// a broken regen.
     ///
-    /// `has_baked_packs` is a build-script cfg over the same table, so the run says `ignored`
-    /// and says why.
+    /// `has_baked_packs` is a build-script cfg over the same table, so a skip
+    /// shows as `ignored` with a reason.
     #[test]
     #[cfg_attr(
         not(has_baked_packs),
@@ -156,16 +152,12 @@ mod tests {
 
     /// The other half (pixels on screen) is the in-app run.
     ///
-    /// the third `eprintln!`-and-`return` in this file, and the last. See
-    /// `baked_pack_tiers_parse_and_agree_on_coverage`: a skip that only reaches
-    /// stderr is invisible on a passing run, so the tick meant "checked" and
-    /// "there was nothing to check" identically.
+    /// Skips as `ignored`, not with `eprintln!` and `return`, so a skip is
+    /// visible on a passing run.
     ///
-    /// this one wants EVERY tier, not just any — it asks `full` and `potato`
-    /// by name. A tree with a PARTIAL pack set fails it, and should: a regen
-    /// that produced some tiers and not others is exactly the broken state
-    /// `baked_pack_tiers_parse_and_agree_on_coverage` guards from the other
-    /// side.
+    /// This test needs every tier (it asks for `full` and `potato` by name). A
+    /// partial pack set fails it on purpose: a regen that produced only some
+    /// tiers is broken (see `baked_pack_tiers_parse_and_agree_on_coverage`).
     #[test]
     #[cfg_attr(
         not(has_baked_packs),
@@ -198,7 +190,7 @@ mod tests {
                 .join(pack_page_path(tier, &spec.page_images[0]));
             assert!(page0.is_file(), "missing {page0:?}");
         }
-        // Tier sizes really differ (the whole point of quality tiers).
+        // Tier sizes differ.
         let (full_spec, _) =
             try_load_pack_spec_for_target("intro_cart", &tuning, TextureResolutionScale::Full)
                 .unwrap();
@@ -220,9 +212,8 @@ mod tests {
         }
     }
 
-    /// The two directions are one mapping. A tier a caller cannot turn back
-    /// into a scale is a realization that cannot record what it loaded, and the
-    /// two halves are written far enough apart to drift.
+    /// Both directions are one mapping. A tier that cannot map back to a scale
+    /// is a realization that cannot record what it loaded.
     #[test]
     fn a_tier_dir_name_round_trips_back_to_its_scale() {
         for scale in [
@@ -231,18 +222,12 @@ mod tests {
             TextureResolutionScale::Quarter,
             TextureResolutionScale::Potato,
         ] {
-            // ⭐ THE MATCH IS THE GUARD, NOT THE ARRAY ABOVE. The hand-listed
-            // variants are only how the loop iterates; a FIFTH tier added to
-            // `TextureResolutionScale` would simply be absent from that list, every
-            // assertion below would keep passing, and the new tier would never be
-            // round-tripped -- while `scale_for_pack_tier`'s `_ => None` silently
-            // swallowed it. This exhaustive match with no `_` arm makes that a
-            // COMPILE ERROR (E0004) here instead.
+            // The exhaustive match (no `_` arm) is the guard, not the array
+            // above. A new `TextureResolutionScale` variant causes a compile
+            // error (E0004) here, so it cannot skip the round trip.
             //
-            // ⚠ It deliberately does NOT restate the tier NAMES. That table has one
-            // authority in `pack_tier_for_scale`, and copying it into the test would
-            // be a second place to update -- the round trip below already pins the
-            // pair without naming either half.
+            // It does not repeat the tier names; `pack_tier_for_scale` is the
+            // only authority for them.
             match scale {
                 TextureResolutionScale::Full
                 | TextureResolutionScale::Half
@@ -255,7 +240,7 @@ mod tests {
                 "{scale:?} does not survive the round trip"
             );
         }
-        // And the poison: a name that is not a tier is not silently a scale.
+        // A name that is not a tier is not a scale.
         assert_eq!(scale_for_pack_tier("Full"), None);
         assert_eq!(scale_for_pack_tier("0_5x"), None);
         assert_eq!(scale_for_pack_tier(""), None);

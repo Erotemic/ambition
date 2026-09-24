@@ -1,56 +1,40 @@
 //! The character-body overlay: damage flash and intangibility blink.
 //!
-//! ONE sibling `Material2d` mesh per character sprite carries both cues — the
-//! same world-space sibling pattern content-owned overlays use (the
-//! [`super::ActorOverlaySet`] seam) — with a tiny shader that outputs a flat
-//! tint masked by the source sprite's alpha. When neither cue is showing the
-//! shader discards every fragment (no GPU work) and the source sprite renders
-//! normally.
+//! One sibling `Material2d` mesh per character sprite carries all cues. It uses
+//! the same world-space sibling pattern as content-owned overlays (the
+//! [`super::ActorOverlaySet`] seam), with a small shader that outputs a flat
+//! tint masked by the source sprite's alpha. When no cue shows, the shader
+//! discards every fragment and the source sprite renders normally.
 //!
-//! Five cues, one overlay, and the priority between them is decided in
-//! [`overlay_look`] rather than by whichever pass wrote last:
+//! [`overlay_look`] decides the priority between the five cues:
 //!
-//! - **impact flash**, a hot strength-scaled pop for exactly the hitlag a
-//!   connect bought. A jab gets almost nothing and a smash gets a wall of
-//!   light, off one resolved number and with no threshold in between;
-//! - **parry flash**, a hard white-gold snap for a perfect shield that
-//!   actually CAUGHT a strike. It reads `parry_flash_secs`, never
-//!   `parrying()` — the window standing open is true of every raised guard for
-//!   a few ticks, and a cue driven off that fires on every shield raise;
-//! - **damage flash**, pure white, held then faded over its `hit_flash` timer;
-//! - **intangibility blink**, a pale pulse selected by the ACTIVE ROUTE from
-//!   the sim-published semantic causes of untouchability. Games opt causes into
-//!   this shared cue; character-owned effects remain independent, so Mary-O's
-//!   empowerment can draw a quasar while a simultaneous dodge still blinks.
-//! - **smash-charge pulse**, a hot amber that pulses FASTER and brighter as the
-//!   held charge fills, so latched / building / loaded are three readings of
-//!   one number.
+//! - **impact flash**: a hot, strength-scaled pop for exactly the hitlag of
+//!   a connect. A jab gets little light and a smash a lot, with no threshold.
+//! - **parry flash**: a hard white-gold snap for a perfect shield that caught
+//!   a strike. It reads `parry_flash_secs`, not `parrying()`: the parry window
+//!   is open on every guard raise.
+//! - **damage flash**: pure white, held, then faded over its `hit_flash` timer.
+//! - **intangibility blink**: a pale pulse, selected by the active route from
+//!   the sim-published causes of untouchability. Character-owned effects stay
+//!   independent, so Mary-O's empowerment can draw a quasar while a dodge
+//!   still blinks.
+//! - **smash-charge pulse**: amber that pulses faster and brighter as the
+//!   held charge fills.
 //!
-//! The order is impact, then parry, then damage flash, then blink, then
-//! charge, and each step of it is a decision about what an opponent needs to
-//! know first. A landed hit is the loudest fact there is and it is over in a
-//! few frames; its tail is the damage flash. A parry sits just under it and
-//! the two almost never collide — a parry is now a full negation, so the body
-//! that caught the strike took no hit to flash for. Where they DO collide is a
-//! second strike arriving inside the parry's beat, and there being struck is
-//! the more urgent correction. Intangibility outranks the charge because
-//! misreading it wastes a whole attack, where misreading a charge costs
-//! spacing — and a body that is both is telling you the same thing either way:
-//! do not go in.
+//! Priority: impact, parry, damage flash, blink, charge. A landed hit is the
+//! loudest fact and lasts a few frames; the damage flash is its tail. A parry
+//! negates the strike, so it rarely collides with an impact; if a second strike
+//! lands inside the parry beat, being struck wins. Intangibility outranks the
+//! charge because misreading it wastes a whole attack.
 //!
-//! The parry flash is the ONLY thing that tells a spectator a parry happened.
-//! Because a caught strike is negated outright — no hit event, no landed-hit
-//! fact, no cost to the guard — there is no impact, no damage flash and no
-//! shield-stress change to infer it from.
+//! The parry flash is the only sign of a parry. A caught strike has no hit
+//! event, no damage, and no shield-stress change.
 //!
-//! The two cues an impact interrupts are STATES, and they RESUME rather than
-//! restart: both are pure functions of the sim tick, so when the flash ends
-//! the blink and the pulse are exactly where they would have been. That is
-//! what lets the impact be brief without costing the state it covered.
+//! The blink and the charge pulse are pure functions of the sim tick, so they
+//! resume at the correct phase after an impact.
 //!
-//! Every cue is drawn by sampling the SOURCE sprite's own atlas frame and flip
-//! flag, so silhouette and facing are preserved by construction rather than by
-//! a rule somebody has to keep.
+//! Every cue samples the source sprite's atlas frame and flip flag, so
+//! silhouette and facing always match.
 //!
 //! Source-of-truth per body kind:
 //!
@@ -75,89 +59,75 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
-/// Hold the flash at full intensity for the first 80% of the timer,
-/// then fade smoothly to zero. Without this the flash ends in a
-/// sudden cut that reads as a missing frame; the fade keeps the
-/// transition readable at the cost of one extra frame of bright
-/// pixels.
+/// Hold the flash at full intensity for the first 80% of the timer, then fade
+/// to zero. A sudden cut reads as a missing frame.
 const FLASH_HOLD_FRACTION: f32 = 0.80;
 
 const REFERENCE_FLASH_SECONDS: f32 = 0.24;
 
-/// The intangibility blink, in SIM TICKS per cycle. Sim-derived rather than
-/// wall-clock so the pulse is the same in a capture, a replay and on screen,
-/// and the same at any refresh rate. At the shipped 60Hz step this is a ~6Hz
-/// pulse — fast enough to read as "cannot be hit", slow enough not to strobe.
+/// The intangibility blink, in sim ticks per cycle. Sim-derived so the pulse
+/// is the same in a capture, a replay, and on screen, at any refresh rate. At
+/// 60 Hz this is about 6 Hz: readable, but not a strobe.
 const BLINK_PERIOD_TICKS: u64 = 10;
 
-/// Peak overlay intensity of the blink. Well under the damage flash's 1.0: the
-/// tell has to be legible without erasing the silhouette it is drawn over.
+/// Peak blink intensity. Below the damage flash's 1.0, so the silhouette
+/// stays visible.
 const BLINK_PEAK_INTENSITY: f32 = 0.55;
 
-/// The three cue colours. White is the strike, pale blue is "you cannot touch
-/// this right now", amber is a held smash gathering.
+/// The cue colours. White is a strike, pale blue is "cannot be touched now",
+/// amber is a held smash charging.
 const FLASH_TINT: Vec3 = Vec3::new(1.0, 1.0, 1.0);
 const BLINK_TINT: Vec3 = Vec3::new(0.62, 0.86, 1.0);
 const CHARGE_TINT: Vec3 = Vec3::new(1.0, 0.71, 0.28);
 
-/// The smash-charge pulse, in cycles per SIM TICK at zero and full charge.
-/// At the shipped 60Hz step that is a lazy ~2Hz throb when the hold latches
-/// and a hard ~10Hz strobe when it is loaded — the rate IS the readout.
+/// The smash-charge pulse, in cycles per sim tick at zero and full charge.
+/// At 60 Hz: about 2 Hz when the hold latches, about 10 Hz when loaded.
 const CHARGE_RATE_LATCHED: f32 = 2.0 / 60.0;
 const CHARGE_RATE_LOADED: f32 = 10.0 / 60.0;
 
-/// Peak overlay intensity at zero and full charge. The pulse gets brighter as
-/// well as faster so "loaded" is unmistakable at a glance.
+/// Peak intensity at zero and full charge. The pulse also brightens, so
+/// "loaded" is clear at a glance.
 const CHARGE_PEAK_LATCHED: f32 = 0.34;
 const CHARGE_PEAK_LOADED: f32 = 0.72;
 
-/// The tick count the pulse's phase wraps on. Large enough that the seam is
-/// once a minute at 60Hz, small enough that `tick as f32` keeps its precision.
+/// The tick count where the pulse phase wraps. The seam is once a minute at
+/// 60 Hz, and `tick as f32` keeps its precision.
 const CHARGE_PHASE_WRAP: u64 = 3600;
 
-/// The impact flash's colour: hotter and yellower than the damage flash's
-/// white, so a heavy connect and its own fading tail are two readings rather
-/// than one long one.
+/// The impact flash colour: hotter and yellower than the damage flash's white,
+/// so the connect and its fading tail read as two events.
 const IMPACT_TINT: Vec3 = Vec3::new(1.0, 0.93, 0.74);
 
-/// Overlay intensity of an impact at the weakest connect and at the ceiling.
+/// Impact intensity at the weakest connect and at the ceiling.
 ///
-/// The floor is deliberately non-zero: every connect that produces hitlag at
-/// all is worth a frame of light, and the strength read is what separates a
-/// jab from a smash — not a threshold. Playtesting can add one; nothing here
-/// assumes it.
+/// The floor is non-zero: every connect with hitlag gets a frame of light.
+/// Strength, not a threshold, separates a jab from a smash.
 const IMPACT_MIN_INTENSITY: f32 = 0.30;
 const IMPACT_MAX_INTENSITY: f32 = 1.0;
 
-/// The parry flash: a hard white-gold snap, brighter than the guard's own
-/// window colour so the catch is unmistakably a different event from holding
-/// the shield up.
+/// The parry flash: a hard white-gold snap, brighter than the guard's window
+/// colour, so a catch is clearly different from holding the shield.
 const PARRY_TINT: Vec3 = Vec3::new(1.0, 0.97, 0.72);
 
-/// How long a parry flash stays at full before falling away, as a fraction of
-/// the published beat, and the beat this normalizes against.
+/// How long a parry flash stays at full, as a fraction of the published beat,
+/// and the beat it normalizes against.
 ///
-/// A separate reference from the damage flash's because the two are different
-/// KINDS of event: a damage flash is a wound fading, a parry is a snap. This
-/// one holds almost the whole beat and then cuts.
+/// Separate from the damage flash: a damage flash fades like a wound, a parry
+/// snaps. This one holds almost the whole beat, then cuts.
 const PARRY_HOLD_FRACTION: f32 = 0.70;
 const REFERENCE_PARRY_SECONDS: f32 = 0.18;
 
-/// Z bias for the overlay mesh — must sit IN FRONT of every other
-/// per-character overlay so the white silhouette is never covered.
-/// Content-owned overlay siblings (the [`super::ActorOverlaySet`]
-/// seam — e.g. Ambition's puppy-slug deep-dream material) sit at a
-/// z bias of ~0.9, so a flash bias below that gets the white blanked
-/// out. 1.5 gives a comfortable margin over those (0.9) and the
-/// HazardColumn telegraph quad (+1.0 of boss z) without colliding
-/// with HUD layers, which live in the hundreds.
+/// Z bias for the overlay mesh. It must be in front of every other
+/// per-character overlay. Content-owned overlays (the
+/// [`super::ActorOverlaySet`] seam, for example the puppy-slug deep-dream
+/// material) use ~0.9, and the HazardColumn telegraph quad uses +1.0 of boss
+/// z. HUD layers are in the hundreds.
 const FLASH_OVERLAY_Z_BIAS: f32 = 1.5;
 
 /// Install the material plugin behind the hit-flash overlay.
 pub fn add_hit_flash_material_plugin(app: &mut App) {
-    // Standalone renderer harnesses may not install the provider lifecycle. The
-    // default is deliberately no shared defense effect; a gameplay route opts
-    // into one through its authored presentation policy.
+    // Standalone harnesses may not install the provider lifecycle. The default
+    // has no shared defense effect; a route opts in through its policy.
     app.init_resource::<
         ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
     >();
@@ -166,9 +136,8 @@ pub fn add_hit_flash_material_plugin(app: &mut App) {
 
 /// Material2d backing the white-silhouette overlay.
 ///
-/// Bindings mirror the puppy-slug deep-dream material so the shader
-/// driver can re-use the same WebGL2-friendly layout (vec4 uniforms,
-/// no struct UBOs).
+/// Bindings mirror the puppy-slug deep-dream material, so they use the same
+/// WebGL2-friendly layout (vec4 uniforms, no struct UBOs).
 #[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
 pub struct HitFlashMaterial {
     /// Current atlas frame as a UV rect on the loaded spritesheet.
@@ -182,8 +151,8 @@ pub struct HitFlashMaterial {
     #[texture(2)]
     #[sampler(3)]
     pub color_texture: Handle<Image>,
-    /// `rgb` is the silhouette colour; `a` is unused. A uniform rather than a
-    /// shader constant because ONE overlay draws every cue.
+    /// `rgb` is the silhouette colour; `a` is unused. A uniform because one
+    /// overlay draws every cue.
     #[uniform(4)]
     pub tint: Vec4,
 }
@@ -198,9 +167,8 @@ impl Material2d for HitFlashMaterial {
     }
 }
 
-/// Marker placed on the source sprite entity once an overlay sibling
-/// has been spawned for it. Stores the overlay's entity id so we can
-/// despawn / re-sync it without scanning.
+/// Marker on the source sprite entity after its overlay sibling spawns.
+/// Stores the overlay entity so it can be synced or despawned without a scan.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct HitFlashSource {
     overlay: Entity,
@@ -243,18 +211,15 @@ pub fn attach_hit_flash_overlays(
     >,
 ) {
     for (source_entity, transform, sprite, anchor, feature, player, session_owner) in &candidates {
-        // Eligibility: a textured sprite (atlas OR plain image) that
-        // belongs to a character — FeatureVisual covers
-        // enemies/NPCs/bosses, PlayerVisual covers the player. Props
-        // are excluded by the query filter.
+        // Eligible: a textured sprite (atlas or plain image) of a character.
+        // `FeatureVisual` covers enemies, NPCs, and bosses; `PlayerVisual`
+        // covers the player. The query filter excludes props.
         if feature.is_none() && player.is_none() {
             continue;
         }
         let Some(render_size) = sprite.custom_size else {
-            // Sprites without `custom_size` haven't been sized by
-            // the render pipeline yet (initial spawn frame). Skip
-            // and try again next frame — the upgrade systems set
-            // custom_size on the next tick.
+            // Not sized yet (first spawn frame). The upgrade systems set
+            // `custom_size` next tick; try again then.
             continue;
         };
         let Some(uv_rect) = current_sprite_uv_rect(sprite, &texture_layouts) else {
@@ -264,9 +229,8 @@ pub fn attach_hit_flash_overlays(
 
         let material = materials.add(HitFlashMaterial {
             uv_rect,
-            // Start hidden — `intensity = 0.0` causes the shader to
-            // discard every fragment. The sync system bumps this
-            // up whenever the source's hit_flash timer is positive.
+            // Start hidden: `intensity = 0.0` makes the shader discard every
+            // fragment. The sync system raises it when a cue is active.
             control: Vec4::new(0.0, flip_flag(sprite), 0.0, 0.0),
             color_texture: sprite.image.clone(),
             tint: FLASH_TINT.extend(1.0),
@@ -283,23 +247,19 @@ pub fn attach_hit_flash_overlays(
                     Mesh2d(mesh),
                     MeshMaterial2d(material),
                     overlay_transform,
-                    // Stay `Visible` always — the shader's `discard`
-                    // arm zero-cost-culls fragments when `intensity == 0`,
-                    // and starting with `Hidden` can stick the auto-inserted
-                    // `InheritedVisibility` at false in a way that
-                    // PostUpdate's propagator can't fix on the same tick
-                    // (see the deep-dream comment for the same gotcha).
+                    // Always spawn `Visible`. The shader discards fragments at zero
+                    // intensity. Spawning `Hidden` can leave the auto-inserted
+                    // `InheritedVisibility` false for that tick (same issue as the
+                    // deep-dream overlay).
                     Visibility::Visible,
                     HitFlashOverlay {
                         source: source_entity,
                     },
-                    // ⭐⭐ WHAT THIS MESH PAINTS, DECLARED, so the portal
-                    // compositor can clip it like a sprite instead of hiding it
-                    // wholesale when its body is partly behind a pane. A unit
-                    // quad whose transform scale is the drawn size, centre
-                    // origin with the anchor already folded into the
-                    // translation: `size` ONE, `anchor` ZERO. Kept current by
-                    // `sync_hit_flash_overlays` beside the material.
+                    // Declares what this mesh paints, so the portal compositor can
+                    // clip it like a sprite instead of hiding it when its body is
+                    // partly behind a pane. A unit quad scaled to the drawn size, with
+                    // the anchor folded into the translation: `size` ONE, `anchor`
+                    // ZERO. `sync_hit_flash_overlays` keeps it current.
                     ambition_sprite_fx::DeclaredFrame {
                         color_texture: sprite.image.clone(),
                         uv_rect,
@@ -309,52 +269,38 @@ pub fn attach_hit_flash_overlays(
                         size: Vec2::ONE,
                         anchor: Vec2::ZERO,
                     },
-                    // ⭐ THE OWNERSHIP FACT, stated where the drawable is made.
-                    // `source` above is this overlay's own business (it mirrors
-                    // that sprite); this says WHOSE BODY it draws, in the one
-                    // spelling every consumer can ask for -- portal composition
-                    // among them, which could not previously see that a far-side
-                    // character has a silhouette as well as a base sprite.
+                    // Ownership: which body this overlay draws. `source` above is for
+                    // mirroring the sprite; `PresentationOf` is the shared spelling
+                    // that consumers such as portal composition read.
                     ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(
                         source_entity,
                     ),
-                    // NOT `RoomVisual` — that requires `RoomScopedEntity`,
-                    // and the room-transition pass despawns every
-                    // RoomScopedEntity. The player isn't room-scoped, so
-                    // adding RoomVisual here would orphan the player's
-                    // HitFlashSource against a dead overlay every time
-                    // the player crossed a loading zone, and the
-                    // `Without<HitFlashSource>` attach gate would
-                    // refuse to re-create it. Instead,
-                    // `cleanup_hit_flash_overlays` despawns orphans by
-                    // checking whether the source entity still has its
-                    // `HitFlashSource` marker — that handles enemies'
-                    // room-scoped sources cleanly without depending on
-                    // RoomScopedEntity for the overlay itself.
+                    // Not `RoomVisual`: that requires `RoomScopedEntity`, which the
+                    // room transition despawns. The player is not room-scoped, so
+                    // the overlay would die at every loading zone while the
+                    // `HitFlashSource` stayed, and the attach gate would not
+                    // re-create it. `cleanup_hit_flash_overlays` despawns orphans
+                    // by checking the source's `HitFlashSource` marker instead.
                     Name::new("HitFlash Overlay"),
                 ),
             )
             .id();
-        // `try_insert`: this pass's own comment above notes that enemy sources
-        // are ROOM-SCOPED, so a room transition despawns them — and a body can
-        // take its last hit on the frame it is torn down. Marking a corpse as a
-        // flash source has no meaning, and the same L23 reasoning applies: a
-        // deferred presentation write must tolerate its target going away.
+        // `try_insert`: enemy sources are room-scoped, and a body can take its
+        // last hit on the frame a room transition despawns it. A deferred
+        // presentation write must tolerate its target going away (L23).
         commands.entity(source_entity).try_insert(HitFlashSource {
             overlay: overlay_entity,
         });
     }
 }
 
-/// Mirror the source sprite's atlas frame / facing / world transform
-/// into the overlay material and toggle visibility based on the
-/// source's current `hit_flash` timer.
+/// Mirror the source sprite's atlas frame, facing, and transform into the
+/// overlay material, and set the cue intensity.
 #[cfg(target_os = "android")]
 pub fn sync_hit_flash_overlays() {}
 
-/// Mirror the source sprite's atlas frame / facing / world transform
-/// into the overlay material and toggle visibility based on the
-/// source's current `hit_flash` timer.
+/// Mirror the source sprite's atlas frame, facing, and transform into the
+/// overlay material, and set the cue intensity.
 #[cfg(not(target_os = "android"))]
 pub fn sync_hit_flash_overlays(
     mut commands: Commands,
@@ -364,9 +310,9 @@ pub fn sync_hit_flash_overlays(
     defense_policy: Res<
         ambition_platformer2d_shared_tangle::gameplay_presentation::ActiveDefensePresentationPolicy,
     >,
-    // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
-    // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
-    // on the SAME entity that carries the sprite.
+    // Sim-built read models: a feature's flash timer is on its
+    // `FeatureView` row; a player body's is on `BodyPoseView` on the
+    // sprite's own entity.
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
     anim_frames: Res<ambition_sim_view::ActorAnimIndex>,
     poses: Query<&ambition_sim_view::BodyPoseView>,
@@ -379,14 +325,12 @@ pub fn sync_hit_flash_overlays(
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
             &HitFlashSource,
-            // The source's OWN visibility. The overlay is a separate root entity
-            // (see the spawn site), so it does not inherit a hidden source — see
-            // `overlay_look`.
+            // The source's own visibility. The overlay is a separate root, so it
+            // does not inherit a hidden source. See `overlay_look`.
             Option<&Visibility>,
-            // ⭐ ...EXCEPT WHEN THE PORTAL IS THE ONE HIDING IT. A far-side body
-            // is `Hidden` because clipped pieces are drawing it, and the overlay
-            // now composites into pieces of its own — so the flash must keep
-            // its intensity, or the pieces would be silhouettes of nothing.
+            // Except when the portal hides the source: then clipped pieces draw
+            // the body, and the overlay composites into its own pieces, so it
+            // must keep its intensity.
             PortalHidIt,
         ),
         Without<HitFlashOverlay>,
@@ -420,14 +364,8 @@ pub fn sync_hit_flash_overlays(
         };
         let flip = flip_flag(source_sprite);
 
-        // Single dispatch covers every character type the universal
-        // Brain/ActorControl architecture knows about — player, NPC,
-        // enemy, boss. Each routes through a different per-entity
-        // storage today (BodyCombat vs the actor cluster vs
-        // the boss cluster components) but they all converge on one shader uniform
-        // through this lookup. A future refactor that unifies them
-        // into a single `HitFlash` component can collapse this to
-        // one query without changing the overlay sync.
+        // One dispatch for player, NPC, enemy, and boss. Each has different
+        // storage, but all reach the same shader uniform through this lookup.
         let facts = overlay_facts_for_source(
             source_entity,
             feature,
@@ -452,11 +390,9 @@ pub fn sync_hit_flash_overlays(
             mut overlay_visibility,
         )) = overlays.get_mut(source.overlay)
         else {
-            // Overlay despawned underneath us (could happen if a
-            // cleanup pass beat us this tick on a source that's
-            // about to die). Drop the stale `HitFlashSource` so the
-            // attach gate spawns a fresh overlay next frame instead
-            // of letting the source flash silently forever.
+            // The overlay was despawned (a cleanup pass ran first on a dying
+            // source). Remove the stale `HitFlashSource` so the attach gate
+            // spawns a new overlay next frame.
             commands
                 .entity(source_entity)
                 .try_remove::<HitFlashSource>();
@@ -465,42 +401,24 @@ pub fn sync_hit_flash_overlays(
         if overlay.source != source_entity {
             continue;
         }
-        // ⭐ THIS SYSTEM OWNS THE OVERLAY'S VISIBILITY, EVERY FRAME,
-        // UNCONDITIONALLY. It used to stay `Visible` permanently (the shader's
-        // `discard` arm makes an idle overlay free), and that was fine while
-        // nothing else wrote it. Now the overlay is a compositing candidate in
-        // its own right: the portal resolver hides it while a pane covers it
-        // and RELEASES WITHOUT ASSERTING when the pane no longer does -- on the
-        // stated premise that every candidate has a per-frame owner. This is
-        // that owner, and it asserts `Visible` here and lets the resolver, which
-        // runs later, reassert `Hidden` while a reason stands -- exactly
-        // `sync_visuals`' arrangement with bodies.
-        // ⛔⛔ NOT "unless the portal's marker is on it". The first version
-        // skipped the write while last frame's `PortalSourceHidden` was still
-        // present, so on the frame a body crossed to the near side the resolver
-        // dropped its claim without asserting, this system had not asserted
-        // either, and the flash vanished for one frame. Found by a GPT review
-        // 2026-09-07.
+        // This system owns the overlay's visibility every frame. The overlay
+        // is a compositing candidate: the portal resolver hides it while a pane
+        // covers it and releases without asserting when the pane moves. So
+        // this system asserts `Visible` every frame, and the resolver (later)
+        // reasserts `Hidden` while it has a reason, like `sync_visuals` with
+        // bodies. Do not skip the write when `PortalSourceHidden` is present:
+        // on the frame a body crosses to the near side, the flash would vanish
+        // for one frame.
         if *overlay_visibility != Visibility::Visible {
             *overlay_visibility = Visibility::Visible;
         }
         *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
-        // ⛔⛔ READ BEFORE WRITING, AND ONLY WRITE A CHANGE. `Assets::get_mut`
-        // MARKS THE ASSET MODIFIED, and a modified material is re-uploaded to the
-        // GPU that frame. These overlays are deliberately kept alive forever (see
-        // the visibility note above — the shader's `discard` makes an idle one
-        // free), so an unconditional `get_mut` re-uploaded EVERY overlay EVERY
-        // frame including the idle ones.
-        //
-        // Measured on hardware 2026-08-29:
-        // `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>` cost **312.8us
-        // mean over 28,353 frames — 8.87s of the session**, the largest recurring
-        // cost in the trace, for an effect that is invisible most of the time.
-        //
-        // ⭐ The rule is already written down in this repo, in
-        // `converge_character_residency_to_active_quality`: *"it is READ first,
-        // because a `ResMut` deref-mut marks it changed for every reader
-        // downstream, every frame, forever."* Same defect, different asset.
+        // Read before writing, and write only a change. `Assets::get_mut` marks
+        // the asset modified, so the material is re-uploaded to the GPU that
+        // frame. Overlays live forever, so an unconditional `get_mut` would
+        // re-upload every idle overlay every frame, which is costly in
+        // `prepare_assets<PreparedMaterial2d<HitFlashMaterial>>`. Same rule as
+        // `converge_character_residency_to_active_quality`.
         let control = Vec4::new(intensity, flip, 0.0, 0.0);
         let tint = tint.extend(1.0);
         let unchanged = materials.get(&material_handle.0).is_some_and(|material| {
@@ -517,9 +435,8 @@ pub fn sync_hit_flash_overlays(
                 material.tint = tint;
             }
         }
-        // The declaration, kept current beside the material and under the same
-        // read-before-write rule (a component write is cheaper than an asset
-        // re-upload, but `Changed` still fans out).
+        // Keep the declaration current, with the same read-before-write rule
+        // (`Changed` still fans out).
         let declared_now = ambition_sprite_fx::DeclaredFrame {
             color_texture: source_sprite.image.clone(),
             uv_rect,
@@ -535,8 +452,8 @@ pub fn sync_hit_flash_overlays(
     }
 }
 
-/// "Is the portal the one hiding this entity" -- a fact the render crate can
-/// only ask when the portal presentation crate is composed in.
+/// "Is the portal hiding this entity?" The render crate can ask only when
+/// the portal presentation crate is composed in.
 #[cfg(feature = "portal_render")]
 type PortalHidIt = Has<ambition_portal2d_presentation::PortalSourceHidden>;
 #[cfg(feature = "portal_render")]
@@ -551,19 +468,17 @@ fn portal_hid_it((): ()) -> bool {
     false
 }
 
-/// Remove orphan overlays whose source entity despawned. Mirrors the
-/// deep-dream cleanup pass — without it a despawn between
-/// FeatureViewSync and PresentationVisualAnimationPlugin can leave
-/// the white silhouette frozen mid-air for one frame on the next
-/// scene load.
+/// Remove orphan overlays whose source entity despawned, like the
+/// deep-dream cleanup. Without it, a despawn between `FeatureViewSync` and
+/// `PresentationVisualAnimationPlugin` can leave the silhouette frozen for
+/// one frame on the next scene load.
 #[cfg(target_os = "android")]
 pub fn cleanup_hit_flash_overlays() {}
 
-/// Remove orphan overlays whose source entity despawned. Mirrors the
-/// deep-dream cleanup pass — without it a despawn between
-/// FeatureViewSync and PresentationVisualAnimationPlugin can leave
-/// the white silhouette frozen mid-air for one frame on the next
-/// scene load.
+/// Remove orphan overlays whose source entity despawned, like the
+/// deep-dream cleanup. Without it, a despawn between `FeatureViewSync` and
+/// `PresentationVisualAnimationPlugin` can leave the silhouette frozen for
+/// one frame on the next scene load.
 #[cfg(not(target_os = "android"))]
 pub fn cleanup_hit_flash_overlays(
     mut commands: Commands,
@@ -582,34 +497,29 @@ pub fn cleanup_hit_flash_overlays(
 pub struct OverlayFacts {
     /// Seconds left on the damage flash, if this source has that timer at all.
     pub hit_flash_secs: Option<f32>,
-    /// The active route opted at least one of this body's semantic defense
-    /// causes into the shared i-frame blink. Resolved from the sim-published
-    /// cause mask plus route policy; the renderer does not special-case games,
-    /// characters, or individual invulnerability reasons.
+    /// The active route opted at least one of this body's defense causes
+    /// into the shared i-frame blink. Resolved from the sim cause mask and
+    /// route policy; the renderer has no per-game special cases.
     pub iframe_blink: bool,
-    /// Seconds left on a parry that actually CAUGHT a strike; `0.0` almost
-    /// always. Resolved sim-side from `BodyShieldState::parry_caught_timer`.
-    ///
-    /// ⛔ not the parry WINDOW. See the module docs.
+    /// Seconds left on a parry that caught a strike; usually `0.0`.
+    /// Resolved sim-side from `BodyShieldState::parry_caught_timer`. Not the
+    /// parry window; see the module docs.
     pub parry_flash_secs: f32,
-    /// How hard the hit currently freezing this body was, `0..=1`; `0.0` when
-    /// no hitlag is running. Resolved sim-side from the hitlag the hit already
-    /// set, so nothing here touches hit resolution.
+    /// How hard the hit that freezes this body was, `0..=1`; `0.0` when no
+    /// hitlag runs. Resolved sim-side from the hitlag the hit set.
     pub hit_strength: f32,
-    /// A smash charge is being HELD, normalized `0..=1`. Resolved sim-side by
-    /// `MovePlayback::smash_charge_fraction`; `None` the instant it releases.
-    ///
-    /// ⛔ never re-derived here from a move name or Startup progress — a tapped
-    /// smash and a fully held one share both.
+    /// A held smash charge, normalized `0..=1`, from
+    /// `MovePlayback::smash_charge_fraction`; `None` on release. Do not derive
+    /// it here from a move name or Startup progress: a tapped smash and a held
+    /// one share both.
     pub smash_charge: Option<f32>,
 }
 
 /// Unified overlay-fact dispatch.
 ///
-/// One entry point for every character type the universal-Brain unification
-/// covers — caller doesn't need to know whether the source is a player, enemy,
-/// NPC, or boss. Both roads publish the same two facts on their own read-model
-/// row, so adding overlay feedback to a new body kind is "publish the row".
+/// One entry point for every character type, so the caller need not know the
+/// source kind. Each kind publishes the same facts on its read-model row, so a
+/// new body kind only needs to publish the row.
 ///
 /// | type | read-model row |
 /// |------|----------------|
@@ -621,24 +531,23 @@ fn overlay_facts_for_source(
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     feature_views: &ambition_sim_view::FeatureViewIndex,
-    // The charge rides the per-frame POSE row on the actor road, not the
-    // feature row, so the two indexes are joined on the same feature id here.
+    // The charge is on the per-frame pose row, not the feature row, so join
+    // the two indexes on the feature id.
     anim_frames: &ambition_sim_view::ActorAnimIndex,
     poses: &Query<&ambition_sim_view::BodyPoseView>,
     defense_policy: ambition_platformer2d_shared_tangle::gameplay_presentation::DefensePresentationPolicy,
 ) -> OverlayFacts {
-    // Player path: the entity that carries `PlayerVisual` is the same one
-    // that carries the sim-built `BodyPoseView`, so read ITS row —
-    // per-entity, so player clones flash independently.
+    // Player path: the `PlayerVisual` entity also carries `BodyPoseView`.
+    // Per-entity, so player clones flash independently.
     if player.is_some() {
         return poses
             .get(source_entity)
             .map(|p| overlay_facts_from_pose(p, defense_policy))
             .unwrap_or_default();
     }
-    // Feature path: the facts ride the `FeatureView` row (actors, seated
-    // fighters and bosses alike; the "no silhouette over a boss corpse" rule
-    // is applied at the rebuild site). Kinds with no body carry the defaults.
+    // Feature path: facts are on the `FeatureView` row (actors, seated
+    // fighters, bosses). The rebuild site applies "no silhouette over a boss
+    // corpse". Kinds with no body get the defaults.
     let Some(feature) = feature else {
         return OverlayFacts::default();
     };
@@ -686,24 +595,19 @@ fn overlay_facts_from_feature(
     }
 }
 
-/// The overlay's shader intensity AND colour for one source this frame.
+/// The overlay's shader intensity and colour for one source this frame.
 ///
-/// This is where the two cues are ARBITRATED, once, instead of each pass
-/// writing the material and the last one winning. The damage flash outranks
-/// the blink: a body struck out of its own dodge should read as struck.
+/// The cues are arbitrated here, once, instead of by the last writer.
 ///
-/// A hidden body shows nothing. The overlay is a separate ROOT entity that
-/// stays `Visibility::Visible` permanently — a deliberate workaround for the
-/// `InheritedVisibility`-propagation gotcha documented at its spawn site — and it
-/// is textured with the SOURCE sprite's own image. So it does not inherit a hidden
-/// source: while the player is balled up (body `Hidden`, morph-ball sprite drawn),
-/// taking a hit would have painted the robot's silhouette right over the ball.
+/// A hidden body shows nothing. The overlay is a separate root that stays
+/// `Visible` (see its spawn site) and uses the source sprite's image, so it
+/// does not inherit a hidden source. Without this check, a hit while balled
+/// up (body `Hidden`, morph-ball sprite drawn) would paint the robot's
+/// silhouette over the ball.
 ///
-/// Hiding a body must hide everything that draws it. `Visibility::Inherited` is
-/// treated as visible here, which is correct at the top level and conservative
-/// under a hidden ancestor: a fully-hidden hierarchy has an ancestor whose
-/// overlay is likewise suppressed, and the shader's `discard` arm makes a
-/// zero-intensity overlay free either way.
+/// `Visibility::Inherited` counts as visible. That is correct at the top
+/// level and safe under a hidden ancestor, whose own overlay is also
+/// suppressed.
 fn overlay_look(
     facts: OverlayFacts,
     tick: u64,
@@ -712,14 +616,12 @@ fn overlay_look(
     if matches!(source_visibility, Some(Visibility::Hidden)) {
         return (0.0, FLASH_TINT);
     }
-    // The IMPACT, first and briefest: it lasts exactly the hitlag the connect
-    // bought, which is a few frames for a jab and a real beat for a smash.
+    // Impact first: it lasts exactly the hitlag of the connect.
     let impact = impact_intensity(facts.hit_strength);
     if impact > 0.0 {
         return (impact, IMPACT_TINT);
     }
-    // The PARRY, and it is the only evidence there is: a caught strike is
-    // negated outright, so nothing else on this body changed to imply it.
+    // Parry: the only evidence, because a caught strike changes nothing else.
     let parry = normalize_parry_flash(facts.parry_flash_secs);
     if parry > 0.0 {
         return (parry, PARRY_TINT);
@@ -739,11 +641,8 @@ fn overlay_look(
 
 /// The impact flash's intensity for a connect of this strength.
 ///
-/// `0.0` means no hitlag is running, and only that: a body IN hitlag always
-/// flashes, because the weakest connect the hitlag law admits is still a
-/// connect. Between the floor and the ceiling the read is proportional, so a
-/// jab and a smash differ by how much light rather than by whether there is
-/// any — no threshold, and none needed unless playtesting asks.
+/// `0.0` only when no hitlag runs: a body in hitlag always flashes. Between
+/// the floor and ceiling the intensity is proportional, with no threshold.
 fn impact_intensity(strength: f32) -> f32 {
     if strength <= 0.0 {
         return 0.0;
@@ -754,8 +653,8 @@ fn impact_intensity(strength: f32) -> f32 {
 
 /// Map a parry beat's seconds-remaining into a `0..=1` intensity.
 ///
-/// Holds near full for most of the beat and then cuts away, which is what makes
-/// it read as a SNAP rather than as the damage flash's slower bloom-and-fade.
+/// Holds near full for most of the beat, then cuts, so it reads as a snap,
+/// not a slow fade.
 fn normalize_parry_flash(seconds: f32) -> f32 {
     if seconds <= 0.0 {
         return 0.0;
@@ -770,17 +669,14 @@ fn normalize_parry_flash(seconds: f32) -> f32 {
 
 /// The smash-charge pulse's intensity at one sim tick.
 ///
-/// Both the RATE and the peak rise with the held fraction, monotonically, so
-/// the same three beats are readable two ways at once: a slow dim throb when
-/// the hold latches, a hard bright strobe when it is loaded. The exact curve is
-/// a presentation tuning constant; that it never falls as the charge rises is
-/// not.
+/// Rate and peak both rise monotonically with the held fraction: a slow dim
+/// throb when the hold latches, a hard bright strobe when loaded. The exact
+/// curve is tuning; that it never falls as charge rises is a rule.
 fn charge_pulse_intensity(charge: f32, tick: u64) -> f32 {
     let charge = charge.clamp(0.0, 1.0);
     let rate = CHARGE_RATE_LATCHED + (CHARGE_RATE_LOADED - CHARGE_RATE_LATCHED) * charge;
     let peak = CHARGE_PEAK_LATCHED + (CHARGE_PEAK_LOADED - CHARGE_PEAK_LATCHED) * charge;
-    // Phase as a fraction of a cycle. Wrapped before the float conversion so a
-    // long match cannot grind the precision away.
+    // Wrap before the float conversion so a long match keeps precision.
     let phase = (((tick % CHARGE_PHASE_WRAP) as f32) * rate).fract();
     // Triangle, like the blink: a square wave reads as a dropped frame.
     peak * (1.0 - (2.0 * phase - 1.0).abs())
@@ -789,17 +685,15 @@ fn charge_pulse_intensity(charge: f32, tick: u64) -> f32 {
 /// The blink's intensity at one sim tick: a triangle wave over
 /// [`BLINK_PERIOD_TICKS`], peaking at [`BLINK_PEAK_INTENSITY`].
 ///
-/// A triangle rather than an on/off square because a hard square at 6Hz reads
-/// as a dropped frame; the ramp reads as a pulse.
+/// A triangle, not a square: a hard square at 6 Hz reads as a dropped frame.
 fn blink_intensity(tick: u64) -> f32 {
     let phase = (tick % BLINK_PERIOD_TICKS) as f32 / BLINK_PERIOD_TICKS as f32;
     BLINK_PEAK_INTENSITY * (1.0 - (2.0 * phase - 1.0).abs())
 }
 
-/// Map raw seconds-remaining into a [0, 1] intensity. Holds at 1.0
-/// for the first 80% of `REFERENCE_FLASH_SECONDS`, then ramps
-/// linearly to 0 over the last 20%. Above `REFERENCE_FLASH_SECONDS`
-/// stays clamped at 1.0; at or below zero stays at 0.0.
+/// Map seconds remaining to a [0, 1] intensity. Holds 1.0 for the first 80% of
+/// `REFERENCE_FLASH_SECONDS`, then ramps linearly to 0. Clamped to 1.0 above
+/// the reference and 0.0 at or below zero.
 fn normalize_hit_flash(seconds: f32) -> f32 {
     if seconds <= 0.0 {
         return 0.0;
@@ -812,27 +706,17 @@ fn normalize_hit_flash(seconds: f32) -> f32 {
     }
 }
 
-/// NO `Assets<Image>`, and the plain-image branch shows why it was never
-/// needed. This fetched the image for one value — `texture_descriptor.size`,
-/// to normalise the frame rect — which `TextureAtlasLayout::size` already
-/// carries; and in the whole-image branch it computed that size and then
-/// returned the constant `(0, 0, 1, 1)` without using it. There, the lookup was
-/// doing nothing but gating on "has the texture decoded", a question the frame
-/// rect does not depend on.
+/// Does not read `Assets<Image>`. The frame rect needs only the atlas size,
+/// which `TextureAtlasLayout::size` has. Bevy keeps decoded sheets in
+/// main-world RAM (`MAIN_WORLD | RENDER_WORLD`), and each main-world reader is
+/// a blocker for dropping `MAIN_WORLD`.
 ///
-/// it mattered because of what the dependency BLOCKED. Bevy loads images as
-/// `MAIN_WORLD | RENDER_WORLD`, so every decoded sheet keeps its full RGBA in
-/// main-world RAM — 1803 MB entering Hall of Characters. Each main-world reader
-/// of a loaded sheet is one more thing standing between the game and dropping
-/// `MAIN_WORLD`, and this one wanted two integers.
-///
-/// there are THREE implementations of this computation — here,
-/// `ambition_content::presentation::deep_dream`, and
-/// `ambition_portal2d_presentation::clip_material::sprite_frame_basis` (whose
-/// doc says it "mirrors the hit-flash overlay's UV resolution", which is a
-/// citation, not a mechanism). All three now agree; converging them needs a home
-/// both `ambition_render` and `ambition_portal2d_presentation` can reach, and
-/// the dependency runs render → portal, so it is not either of them.
+/// Two other copies of this computation exist:
+/// `ambition_content::presentation::deep_dream` and
+/// `ambition_portal2d_presentation::clip_material::sprite_frame_basis`. All
+/// three agree. Merging them needs a crate that both `ambition_render` and
+/// `ambition_portal2d_presentation` can reach; render depends on portal, so it
+/// cannot be either one.
 fn current_sprite_uv_rect(
     sprite: &Sprite,
     texture_layouts: &Assets<TextureAtlasLayout>,
@@ -917,17 +801,14 @@ mod tests {
         assert_eq!(normalize_hit_flash(between), 1.0);
     }
 
-    /// A hidden body flashes nothing. The overlay is a separate root entity,
-    /// permanently `Visible`, textured with the SOURCE's own sprite image. Nothing
-    /// made it follow the source's visibility, so taking a hit while balled up
-    /// (body `Hidden`, morph-ball sprite drawn) painted the robot's silhouette
-    /// right over the ball. That is a live suspect for tracks.md's "morph ball
-    /// still draws the robot".
+    /// A hidden body flashes nothing. The overlay is a separate root, always
+    /// `Visible`, using the source's image. Without the visibility check, a hit
+    /// while balled up painted the robot silhouette over the morph ball.
     #[test]
     fn a_hidden_source_shows_nothing_however_hard_it_was_hit() {
         assert_eq!(look(flash(10.0), 0).0, 0.0);
         assert_eq!(look(flash(0.2), 0).0, 0.0);
-        // And the blink is hidden by the same rule, at its own peak tick.
+        // The blink is hidden by the same rule, at its peak tick.
         assert_eq!(look(intangible(), BLINK_PERIOD_TICKS / 2).0, 0.0);
 
         fn look(facts: OverlayFacts, tick: u64) -> (f32, Vec3) {
@@ -935,10 +816,8 @@ mod tests {
         }
     }
 
-    /// The guard is narrow: a visible, inherited, or unknown source flashes
-    /// exactly as it did before. `Inherited` reads as visible, which is right at
-    /// the top level and harmless below one — a hidden ancestor suppresses its own
-    /// overlay, and the shader discards a zero-intensity fragment for free.
+    /// The guard is narrow: a visible, inherited, or unknown source flashes as
+    /// before.
     #[test]
     fn a_visible_source_still_flashes_exactly_as_before() {
         for vis in [Some(Visibility::Visible), Some(Visibility::Inherited), None] {
@@ -949,10 +828,9 @@ mod tests {
         }
     }
 
-    /// The renderer receives semantic causes plus the ACTIVE ROUTE policy, not
-    /// a Mary-O-shaped exception boolean. Ordinary iframe policy leaves
-    /// content-owned empowerment alone, while another route may opt that cause
-    /// into the shared blink explicitly.
+    /// The renderer gets semantic causes plus the active route policy, not a
+    /// Mary-O special case. Ordinary iframe policy leaves content-owned
+    /// empowerment alone; another route can opt that cause into the blink.
     #[test]
     fn route_policy_composes_character_owned_empowerment_with_shared_iframes() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::{
@@ -977,9 +855,8 @@ mod tests {
             "a route cannot explicitly opt empowerment into the shared effect"
         );
 
-        // Add an independent defensive grant on the SAME body. The character-owned
-        // empowerment remains independent while the move iframe opts the shared
-        // blink in.
+        // Add a move iframe on the same body. The empowerment stays independent;
+        // the move iframe opts into the shared blink.
         pose.defense_cues = DefenseCueCauses::EMPOWERED.union(DefenseCueCauses::MOVE_IFRAME);
         let facts = overlay_facts_from_pose(&pose, ordinary_iframes);
         assert!(facts.iframe_blink);
@@ -997,9 +874,8 @@ mod tests {
         assert!(!overlay_facts_from_pose(&pose, ordinary_iframes).iframe_blink);
     }
 
-    /// THE PRIORITY, stated once: a body struck out of its own dodge reads as
-    /// struck. Without this the blink would overwrite the flash on the exact
-    /// frames the flash exists to mark.
+    /// A body struck out of its own dodge reads as struck. Otherwise the blink
+    /// would hide the flash on the frames the flash marks.
     #[test]
     fn the_damage_flash_outranks_the_intangibility_blink() {
         let both = OverlayFacts {
@@ -1015,7 +891,7 @@ mod tests {
             assert_eq!(tint, FLASH_TINT, "tick {tick}");
             assert_eq!(intensity, normalize_hit_flash(0.2), "tick {tick}");
         }
-        // And once the flash drains, the blink takes over rather than nothing.
+        // Once the flash drains, the blink takes over.
         let after = OverlayFacts {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
@@ -1056,8 +932,7 @@ mod tests {
         }
     }
 
-    /// THE THREE BEATS, from one number: the pulse gets both FASTER and
-    /// brighter as the hold fills, and never dimmer.
+    /// The pulse gets faster and brighter as the hold fills, never dimmer.
     #[test]
     fn the_charge_pulse_quickens_and_brightens_monotonically() {
         let peak_over_a_cycle = |charge: f32| {
@@ -1067,8 +942,8 @@ mod tests {
                 .fold(0.0_f32, f32::max)
         };
         let crossings = |charge: f32| {
-            // How often the pulse returns to its bright half — the readable
-            // proxy for "rate", measured rather than asserted from the constant.
+            // How often the pulse returns to its bright half: a measured proxy
+            // for rate.
             (1..600)
                 .filter(|tick| {
                     let previous = charge_pulse_intensity(charge, tick - 1);
@@ -1092,9 +967,8 @@ mod tests {
         );
     }
 
-    /// The charge is the LOWEST-priority cue, and the order is the point:
-    /// being struck outranks everything, and intangibility outranks a charge
-    /// because misreading it wastes a whole attack.
+    /// The charge is the lowest-priority cue. Being struck outranks everything;
+    /// intangibility outranks a charge because misreading it wastes an attack.
     #[test]
     fn a_charge_yields_to_both_louder_cues() {
         let charging = OverlayFacts {
@@ -1107,7 +981,7 @@ mod tests {
         let mid = (CHARGE_PHASE_WRAP / 7) as u64;
         assert_eq!(overlay_look(charging, mid, None).1, CHARGE_TINT);
 
-        // Intangible while charging — an armoured smash — reads as intangible.
+        // Intangible while charging (an armoured smash) reads as intangible.
         let intangible_and_charging = OverlayFacts {
             iframe_blink: true,
             ..charging
@@ -1136,8 +1010,8 @@ mod tests {
         }
     }
 
-    /// A connect flashes in proportion to how hard it was, with no threshold
-    /// in between — and a body that is not in hitlag does not flash at all.
+    /// A connect flashes in proportion to its strength, with no threshold. A
+    /// body not in hitlag does not flash.
     #[test]
     fn the_impact_flash_scales_with_the_connect_rather_than_switching_on() {
         assert_eq!(impact_intensity(0.0), 0.0, "no hitlag, no impact");
@@ -1161,9 +1035,8 @@ mod tests {
         assert_eq!(impact_intensity(9.0), IMPACT_MAX_INTENSITY);
     }
 
-    /// The impact is the LOUDEST cue, and the states it interrupts RESUME
-    /// where they would have been rather than restarting. That is what lets it
-    /// be brief without costing the state it covered.
+    /// The impact is the loudest cue, and the states it interrupts resume at
+    /// their tick phase instead of restarting.
     #[test]
     fn an_impact_interrupts_the_states_without_resetting_them() {
         let struck_mid_charge = OverlayFacts {
@@ -1180,8 +1053,7 @@ mod tests {
             "a landed hit outranks the flash, the blink and the pulse"
         );
 
-        // The moment the hitlag ends, the states are exactly where the tick
-        // says they should be — not restarted from zero.
+        // When hitlag ends, the states are where the tick puts them.
         let after = OverlayFacts {
             hit_strength: 0.0,
             ..struck_mid_charge
@@ -1213,12 +1085,12 @@ mod tests {
         );
     }
 
-    /// A caught parry snaps, and it is the ONLY evidence: the body that
-    /// caught the strike took no hit, so nothing else on it changed.
+    /// A caught parry snaps, and it is the only evidence: the body took no hit,
+    /// so nothing else changed.
     #[test]
     fn a_caught_parry_snaps_and_is_the_only_evidence() {
-        // A parried body is unhittable while its window is open and is holding
-        // no charge and no wound — exactly the state a real parry leaves.
+        // A parried body: unhittable while the window is open, no charge, no
+        // wound. This is the state a real parry leaves.
         let parried = OverlayFacts {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: REFERENCE_PARRY_SECONDS,
@@ -1230,7 +1102,7 @@ mod tests {
         assert_eq!(tint, PARRY_TINT, "the parry outranks the i-frame blink");
         assert_eq!(intensity, 1.0);
 
-        // It SNAPS: near full for most of the beat, then cuts.
+        // It snaps: near full for most of the beat, then cuts.
         let fade_end = REFERENCE_PARRY_SECONDS * (1.0 - PARRY_HOLD_FRACTION);
         assert_eq!(normalize_parry_flash(fade_end), 1.0);
         let cutting = normalize_parry_flash(fade_end * 0.5);
@@ -1246,8 +1118,7 @@ mod tests {
         assert_eq!(overlay_look(after, 7, None).0, blink_intensity(7));
     }
 
-    /// Where a parry and an impact DO collide — a second strike arriving
-    /// inside the parry's beat — being struck is the more urgent correction.
+    /// If a second strike lands inside the parry beat, being struck wins.
     #[test]
     fn a_strike_landing_inside_the_parry_beat_still_reads_as_a_strike() {
         let struck_mid_parry = OverlayFacts {
@@ -1267,8 +1138,8 @@ mod tests {
             hit_flash_secs: Some(0.0),
             parry_flash_secs: 0.0,
             hit_strength: 0.0,
-            // A raised guard inside its parry WINDOW is unhittable, which is
-            // exactly the state a cue driven off `parrying()` would fire on.
+            // A raised guard in its parry window is unhittable: the state a cue
+            // driven by `parrying()` would fire on.
             iframe_blink: true,
             smash_charge: None,
         };

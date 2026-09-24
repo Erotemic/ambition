@@ -1,59 +1,43 @@
-//! Per-image STAGE ledger: when an image was demanded, when its decoded pixels
+//! Per-image stage ledger: when an image was demanded, when its decoded pixels
 //! reached `Assets<Image>`, and when the GPU copy was prepared.
 //!
-//! A frame spike during a room reveal has three different owners — the IO
-//! pool decoding, the main world inserting, the render world uploading — and
-//! `[image]` lines alone name only the middle one. This ledger keeps the three
-//! instants per asset so a late image can say WHICH stage was late, and how
-//! long after it was asked for.
+//! A frame spike during a room reveal can come from the IO pool (decode), the
+//! main world (insert), or the render world (upload). This ledger keeps the
+//! three instants per asset, so a late image can say which stage was late.
 //!
-//! Process-global on purpose: the demand is recorded by a free function with no
-//! world in hand (`load_sheet_image`), the insertion by a main-world system, and
-//! the GPU preparation by a RENDER-world system. Three worlds, one ledger. It is
-//! a diagnostic — and it is never rollback state.
+//! The ledger is process-global: the demand is recorded by a free function with
+//! no world (`load_sheet_image`), the insertion by a main-world system, and the
+//! GPU preparation by a render-world system. It is a diagnostic. It is never
+//! rollback state.
 //!
-//! ⛔⛔ THIS HEADER USED TO SAY "nothing authoritative reads it". THAT WAS FALSE
-//! AND IT COST A CORRECTNESS BUG. `inspect_room_asset_manifest` read
-//! [`ImageStageLedger::is_awaiting_gpu`] as a REVEAL CONDITION — the cover over a
-//! room transition would not lift until this ledger said the GPU had the pixels.
-//! A process-global structure keyed by `UntypedAssetId` was deciding an App-local
-//! question, and asset ids are LOCAL TO AN App (this repository has measured them
-//! colliding), so one App's upload could lift another App's cover.
+//! Do not use this ledger to make decisions. Asset ids are local to an App and
+//! can collide across Apps, so a process-global ledger cannot answer an
+//! App-local question. The reveal authority is [`AppGpuPreparedImages`], one
+//! per App. The ledger mirrors every stamp for the `[image-gpu]` lines, the
+//! insert→gpu timings and the census.
 //!
-//! ⭐ Since 2026-09-02 the authority is [`AppGpuPreparedImages`], one per App,
-//! written by that App's render-world stamper and read by that App's reveal. The
-//! ledger still MIRRORS every stamp and must keep doing so — the `[image-gpu]`
-//! lines, the insert→gpu timings and the census all read it. What it may not do
-//! is decide. If you are about to read this ledger to make a decision rather
-//! than to print a number, that is the bug this paragraph is here to stop.
-//!
-//! Coverage is exactly the images demanded through a road that calls
+//! Coverage is the images demanded through a road that calls
 //! [`note_demand`]: `load_sheet_image` and the manifest catalog's
 //! `load_optional`. An image that arrives by another road still gets its
-//! insertion and GPU stamps (keyed by asset id when the census first sees it)
-//! but reports `demand=unknown`.
+//! insertion and GPU stamps, but reports `demand=unknown`.
 //!
-//! ⛔ THE ROAD VOCABULARY IS CLOSED AT EIGHT, and an addition wants a reason:
+//! The road vocabulary is closed at eight. Add a road only with a reason:
 //!
 //! ```text
 //! character-sheet  parallax  fx-sheet  boss-sheet
 //! asset-manifest   portrait  projectile-art  held-item
 //! ```
 //!
-//! They name CONTENT ART decoded at runtime, because that is the population a
-//! room reveal waits on. ⚠ Menu icons, shell presentation images and prop pngs
-//! are deliberately NOT stamped — small, loaded once, and not what a reveal
-//! waits for; labelling them would make these rows less comparable rather than
-//! more. A `demand=unknown` on one of those is expected, not work.
+//! They name content art decoded at runtime, because a room reveal waits on
+//! that art. Menu icons, shell presentation images and prop pngs are not
+//! stamped: they are small, load once, and a reveal does not wait for them.
+//! `demand=unknown` on those is expected.
 //!
-//! ⚠ AND `demand=unknown` HAS A SECOND CAUSE, so it is not simply "a road still
-//! to route": see [`ImageStageLedger::removed`] — a dropped image loses its
-//! demand row, so a RE-DECODE arrives unattributed. Two very different facts
-//! print the same word.
+//! `demand=unknown` has a second cause: a dropped image loses its demand row
+//! (see [`ImageStageLedger::removed`]), so a re-decode can arrive unattributed.
 //!
 //! Keyed by [`UntypedAssetId`] so a generic `load_optional::<T>` can record a
-//! demand without knowing it is an image; the census only ever asks about
-//! image ids, so a non-image row is simply never consulted.
+//! demand without knowing it is an image. The census asks only about image ids.
 
 use bevy::asset::UntypedAssetId;
 use bevy::prelude::Resource;
@@ -79,57 +63,40 @@ pub struct ImageStages {
     pub inserted_at: Option<Instant>,
     #[cfg(not(target_arch = "wasm32"))]
     pub gpu_prepared_at: Option<Instant>,
-    /// THE READINESS FACT, on every target: this App's render world has
+    /// The readiness fact, on every target: this App's render world has
     /// prepared the image.
     ///
-    /// ⛔⛔ SEPARATE FROM THE TIMESTAMP ABOVE BECAUSE `Instant` IS NATIVE-ONLY,
-    /// AND CONFLATING THEM PUT A HOLE IN THE WEB REVEAL. `is_gpu_prepared` used
-    /// to read `gpu_prepared_at.is_some()`, so on wasm it was always `false`,
-    /// so `is_awaiting_gpu` was always `false`, so the browser lifted its cover
-    /// the moment pixels reached `Assets<Image>` — without waiting for the GPU
-    /// upload the whole barrier exists to move under the cover. Every branch
-    /// type-checks, so a wasm compile check cannot see it; found by review
-    /// 2026-09-02.
-    ///
-    /// ⇒ A READINESS DECISION READS THIS. A report reads the timestamp.
+    /// This is separate from `gpu_prepared_at` because `Instant` is
+    /// native-only. If readiness read the timestamp, wasm would never wait for
+    /// the GPU upload. A readiness decision reads this field; a report reads
+    /// the timestamp.
     pub gpu_prepared: bool,
-    /// The first frame this image would actually be DRAWN — the fourth stage.
+    /// The first frame this image would be drawn: the fourth stage.
     ///
-    /// ⭐⭐ THE OTHER THREE ARE ALL ABOUT THE ASSET ARRIVING. Demand, insert and
-    /// GPU say it was asked for, decoded and uploaded; none of them says it was
-    /// ever USED. That gap is why the re-decode census and the reveal barrier
-    /// both have to talk about *"prepared"* rather than *"drawn"*, and why
-    /// `[image-dropped]` can only report pixels decoded for nobody after the
-    /// fact.
+    /// The other three stages are about the asset arriving. Only this one says
+    /// the asset was used.
     ///
-    /// ⛔ ABSENT MEANS TWO DIFFERENT THINGS AND A READER MUST NOT CONFLATE THEM:
-    /// "no render world at all" (a `NoWindow` or headless composition, where
-    /// nothing is ever extracted and this can never be set) and "drawn by
-    /// nobody yet". [`RenderWorldPresent`] — the asking App's — is the fact
-    /// that separates them, the same asymmetry `is_awaiting_gpu` documents.
+    /// `None` means either "no render world" (a `NoWindow` or headless
+    /// composition, where this is never set) or "not drawn yet". The asking
+    /// App's [`RenderWorldPresent`] separates the two.
     #[cfg(not(target_arch = "wasm32"))]
     pub first_drawn_at: Option<Instant>,
     pub megapixels: f64,
     /// Whether gameplay was live when the pixels were inserted.
     pub live_at_insert: Option<bool>,
-    /// Whether gameplay was live the first time this image was DRAWN.
+    /// Whether gameplay was live the first time this image was drawn.
     ///
-    /// ⭐⭐ THIS IS THE POP, AND IT IS THE FACT THE WHOLE HITCH LANE IS ABOUT.
-    /// A cover exists so a room's art arrives before anybody can see the room;
-    /// an image whose FIRST DRAW happens while gameplay is live is one the cover
-    /// did not cover — it appeared in front of the player. `live_at_insert`
-    /// beside it answers a different question (did the DECODE cost a live
-    /// frame), and the two can disagree in both directions: art decoded under
-    /// the cover and first drawn minutes later is fine, and art decoded live but
-    /// never seen is waste rather than a pop.
+    /// This is the pop. A cover exists so a room's art arrives before anybody
+    /// can see the room. An image first drawn while gameplay is live appeared
+    /// in front of the player. `live_at_insert` answers a different question
+    /// (did the decode cost a live frame); the two can disagree either way.
     ///
-    /// `None` where nothing could tell — no game mode, or no render world.
+    /// `None` where nothing could tell: no game mode, or no render world.
     pub live_at_first_draw: Option<bool>,
-    /// How many times THIS PATH has been inserted since the process started
-    /// (1 = the first decode). A second insertion of the same path is a
-    /// re-decode: the asset was dropped and demanded again, or loaded twice
-    /// under two ids — asset open work 5 in
-    /// `asset-preparation-and-residency.md`.
+    /// How many times this path has been inserted since the process started
+    /// (1 = the first decode). A second insertion is a re-decode: the asset was
+    /// dropped and demanded again, or loaded under two ids. See asset open work
+    /// 5 in `asset-preparation-and-residency.md`.
     pub insertions_of_path: u32,
 }
 
@@ -169,12 +136,10 @@ impl ImageStages {
     /// `demand→insert 123ms via character-sheet`, `first demanded via <road>`
     /// for a re-decode, or `demand=unknown`.
     ///
-    /// ⚠ THE THREE ARE DIFFERENT FACTS AND USED TO PRINT AS TWO. A re-decode has
-    /// a known demander but no honest wait — `removed` took its row, and the
-    /// path's first demand instant belongs to the earlier decode — so quoting a
-    /// duration would be inventing one. It says who asked and stops there.
-    /// `demand=unknown` is now reserved for what it claims: an image that
-    /// reached `Assets<Image>` by a road that stamps nothing.
+    /// A re-decode has a known demander but no valid wait: `removed` deleted
+    /// its row, and the path's first demand instant belongs to the earlier
+    /// decode. So it names the demander and gives no duration.
+    /// `demand=unknown` means the image arrived by a road that stamps nothing.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn demand_phrase(&self) -> String {
         match (self.demand_to_insert(), self.source) {
@@ -186,18 +151,10 @@ impl ImageStages {
         }
     }
 }
-/// Whether THIS App has a render world. A per-App fact, and therefore an App
-/// resource rather than a field on the process-global ledger.
-///
-/// ⛔⛔ IT WAS A `bool` ON THE LEDGER, AND THE LEDGER IS A `static` SHARED BY
-/// EVERY APP IN THE PROCESS. That field answered "did ANY App in this process
-/// install a render plugin", which is a different question from "does the App
-/// asking have one" the moment a headless App runs beside a rendering one — and
-/// `app_it` is exactly that process, with one `[[test]]` target running its
-/// files as parallel threads. A headless App would be told its images were
-/// awaiting a GPU that will never look at them, and a reveal gated on that waits
-/// forever. Latent while all 97 `VisibleRenderMode` uses were `NoWindow`; live
-/// the day one test builds a render world beside one that does not.
+/// Whether this App has a render world. This is a per-App fact, so it is an
+/// App resource and not a field on the process-global ledger. Otherwise a
+/// headless App beside a rendering one (as in parallel `app_it` tests) would
+/// wait forever for a GPU that never looks at its images.
 ///
 /// Absent means `false`: an App that never installed the census never had a
 /// render world stamping stage 3.
@@ -217,46 +174,26 @@ impl RenderWorldPresent {
 
 /// The images THIS App's render world has prepared.
 ///
-/// ⛔⛔ WHY THIS EXISTS AND THE LEDGER CANNOT DO IT. [`ImageStageLedger`] is
-/// process-global and keyed by `UntypedAssetId`, and asset ids are LOCAL TO AN
-/// App — this repository has measured them colliding across Apps. So a render
-/// world preparing image id 7 in App A marked "id 7 is prepared" for App B as
-/// well, and B's reveal cover could lift on A's upload. The ledger's own
-/// `is_awaiting_gpu` says as much in its doc: it "cannot know which App is
-/// asking".
+/// Asset ids are local to an App and can collide across Apps, so the
+/// process-global [`ImageStageLedger`] cannot hold this. One instance is made
+/// per App and inserted into both that App's main world and its render
+/// sub-app. The stamper and the reveal share one `Arc`; a sibling App holds a
+/// different one.
 ///
-/// ⭐ THE FIX IS OWNERSHIP, NOT A BETTER KEY. One of these is created per App
-/// and inserted into BOTH that App's main world and its render sub-app, so the
-/// stamper and the reveal read the same `Arc` and a sibling App holds a
-/// different one. Two Apps cannot see each other's preparation because they
-/// never share the set.
-///
-/// ⚠ The global ledger still MIRRORS these stamps, and must keep doing so: the
-/// `[image-gpu]` lines, the insert→gpu timings and the census all read it. What
-/// it may no longer do is DECIDE whether a cover lifts.
+/// The global ledger still mirrors these stamps for reports. It must not
+/// decide whether a cover lifts.
 #[derive(Default, Debug)]
 struct AppReadiness {
     /// Images this App's main world has seen arrive and not yet seen prepared.
-    /// ⛔⛔ THE CANDIDATE SET MUST BE APP-LOCAL TOO. It used to be the process
-    /// ledger's `awaiting_gpu`, and moving only the ANSWER per-App left the
-    /// WORK QUEUE that produces the answer shared — two defects, one shape:
-    ///   * on wasm the census never recorded arrivals at all, so the global
-    ///     list stayed empty, nothing was ever stamped, and `is_awaiting_gpu`
-    ///     answered "owed" forever. The cover could not lift.
-    ///   * with two rendering Apps holding the same `UntypedAssetId`, whichever
-    ///     render world looked first CONSUMED the single global candidate, and
-    ///     the other App could never discover its own preparation.
+    /// This candidate set must be App-local too. A shared set never fills on
+    /// wasm, and with two rendering Apps the first render world would consume
+    /// the other App's candidate.
     awaiting: HashSet<UntypedAssetId>,
-    /// Images whose CURRENT contents this App's render world has prepared.
+    /// Images whose current contents this App's render world has prepared.
     ///
-    /// ⛔⛔ "CURRENT", NOT "EVER". This set used to mean *"this id reached the
-    /// GPU at least once"*: `mark_awaiting` refused to re-open anything already
-    /// in it, and a test pinned that refusal. But Bevy re-extracts and re-prepares
-    /// an asset that was MODIFIED in place, and the reveal barrier consumes this
-    /// as positive proof — so an image prepared, then modified, then asked about
-    /// before its new contents reached the GPU answered "ready" about a copy that
-    /// no longer existed. The lifetime of the proof has to be the lifetime of the
-    /// contents it is proof of.
+    /// "Current", not "ever": Bevy re-prepares an asset that was modified in
+    /// place, and the reveal barrier treats this set as proof. The proof must
+    /// last only as long as the contents it proves.
     prepared: HashSet<UntypedAssetId>,
 }
 
@@ -266,18 +203,13 @@ struct AppReadiness {
 pub struct AppGpuPreparedImages(Arc<Mutex<AppReadiness>>);
 
 impl AppGpuPreparedImages {
-    /// This App's main world saw `id`'s CURRENT contents arrive in
-    /// `Assets<Image>` — an `Added` or a `Modified`. Recorded on EVERY target:
-    /// this is the readiness fact's input, not telemetry.
+    /// This App's main world saw `id`'s current contents arrive in
+    /// `Assets<Image>` (an `Added` or a `Modified`). Recorded on every target:
+    /// this is the readiness input, not telemetry.
     ///
-    /// ⛔⛔ IT RETIRES ANY EARLIER PROOF, and that reversal is the fix. This used
-    /// to REFUSE to re-open an id already in `prepared`, on the reasoning that a
-    /// late duplicate `Added` would send a settled reveal back to waiting. The
-    /// reasoning was right about the symptom and wrong about the rule: a
-    /// `Modified` means the bytes changed and Bevy will prepare them again, and
-    /// an `Added` for a recycled id names different contents entirely. In both
-    /// cases the old stamp is proof about something that is gone. A barrier that
-    /// consumed it would lift over an image the GPU does not have.
+    /// This retires any earlier proof. A `Modified` means new bytes that Bevy
+    /// will prepare again, and an `Added` for a recycled id names different
+    /// contents. The old stamp no longer applies.
     pub fn mark_awaiting(&self, id: UntypedAssetId) {
         if let Ok(mut state) = self.0.lock() {
             state.prepared.remove(&id);
@@ -285,16 +217,14 @@ impl AppGpuPreparedImages {
         }
     }
 
-    /// `id` has no GPU representation and no claim to one — Bevy's `Unused`,
-    /// which is what removes it from `RenderAssets`.
+    /// `id` has no GPU representation and no claim to one: Bevy's `Unused`,
+    /// which removes it from `RenderAssets`.
     ///
-    /// ⚠ `Unused` ONLY, deliberately. A plain `Removed` is the main-world handle
-    /// going away and does NOT carry the same meaning in Bevy's render-asset
-    /// pipeline; treating the two alike would be this file guessing at a
-    /// distinction the engine draws on purpose.
+    /// Use `Unused` only. A plain `Removed` is the main-world handle going
+    /// away, and Bevy's render-asset pipeline treats it differently.
     ///
-    /// Both sets, because an id can be retired from either state: pending when it
-    /// was dropped before the GPU saw it, prepared when it was dropped after.
+    /// Clear both sets: the id can be pending (dropped before the GPU saw it)
+    /// or prepared (dropped after).
     pub fn mark_retired(&self, id: UntypedAssetId) {
         if let Ok(mut state) = self.0.lock() {
             state.awaiting.remove(&id);
@@ -316,7 +246,7 @@ impl AppGpuPreparedImages {
     }
 
     /// Record that this App's render world has a GPU copy of `id`'s current
-    /// contents — the pending generation is now proven.
+    /// contents.
     pub fn mark_prepared(&self, id: UntypedAssetId) {
         if let Ok(mut state) = self.0.lock() {
             state.awaiting.remove(&id);
@@ -324,7 +254,7 @@ impl AppGpuPreparedImages {
         }
     }
 
-    /// Has THIS App prepared `id`?
+    /// Has this App prepared `id`?
     pub fn is_prepared(&self, id: UntypedAssetId) -> bool {
         self.0
             .lock()
@@ -337,9 +267,8 @@ impl AppGpuPreparedImages {
 
     /// The reveal-readiness term: this App draws, and has not yet prepared `id`.
     ///
-    /// ⭐ POSITIVE PROOF, exactly as the ledger's version was: an id with no
-    /// stamp yet is OWED, not assumed ready. A headless App answers `false`
-    /// because it never prepares anything and nothing may wait on it.
+    /// This needs positive proof: an id with no stamp yet is owed, not ready.
+    /// A headless App answers `false`, because it never prepares anything.
     pub fn is_awaiting_gpu(&self, id: UntypedAssetId, render_world: RenderWorldPresent) -> bool {
         render_world.is_present() && !self.is_prepared(id)
     }
@@ -357,29 +286,20 @@ pub struct ImageStageLedger {
     /// world's report (it has no `GameMode` of its own).
     gameplay_live: Option<bool>,
     saw_covered_frame: bool,
-    /// Insertions per PATH, across ids and across removals: the re-decode
-    /// census. Survives `removed`, which is the point.
+    /// Insertions per path, across ids and across removals: the re-decode
+    /// census. Survives `removed`.
     insertions_by_path: BTreeMap<String, u32>,
-    /// The FIRST demand recorded for a path, kept beside the insertion count and
-    /// for the same reason.
+    /// The first demand recorded for a path. Like the insertion count, it
+    /// survives `removed`.
     ///
-    /// ⛔⛔ WITHOUT THIS, A RE-DECODE IS UNATTRIBUTABLE. `removed` deletes the
-    /// whole per-id row, demand included, and `demand()` only ever runs at a LOAD
-    /// call site — a second `load` of a resident path is a handle lookup, not a
-    /// decode. So a demote-then-redecode came back reading `demand=unknown`,
-    /// which is also what an unrouted road prints. Two very different facts, one
-    /// word, and chasing the wrong one costs an afternoon looking for roads that
-    /// are already stamped.
+    /// `removed` deletes the per-id row, and `demand()` runs only at a load
+    /// call site (a second `load` of a resident path is a handle lookup). So
+    /// without this a re-decode reads `demand=unknown`, like an unrouted road.
+    /// The wasted decode is the one whose demander must be named.
     ///
-    /// ⇒ The count survived a removal and the attribution for it did not, which
-    /// is backwards: the wasted decode is exactly the one whose demander you want
-    /// named, and `dropped_before_gpu` exists to count that population.
-    /// ⛔ NATIVE-ONLY, because it carries an `Instant` and `Instant` is
-    /// native-only in this module. Leaving it ungated broke the WASM build
-    /// outright: `image_stages` is compiled whenever the `bevy` feature is on,
-    /// which the web composition turns on, so the field's type named a type that
-    /// was not in scope there. Found by review 2026-09-02 and reproduced with
-    /// `cargo check --target wasm32-unknown-unknown`.
+    /// Native-only: it holds an `Instant`. `image_stages` compiles on wasm
+    /// when the `bevy` feature is on, so an ungated field breaks the wasm
+    /// build.
     #[cfg(not(target_arch = "wasm32"))]
     demand_by_path: BTreeMap<String, (&'static str, Instant)>,
     /// Total insertions that were a path's second or later.
@@ -447,17 +367,12 @@ impl ImageStageLedger {
                 self.re_decodes += 1;
             }
             let count = *count;
-            // ⭐ A RE-DECODE INHERITS THE PATH'S FIRST DEMAND. `removed` deleted
-            // the per-id row, so this insertion's row is blank even though the
-            // file was demanded by a known road earlier — without this the
-            // re-decode prints `demand=unknown`, which is also what an UNROUTED
-            // load prints, and the two are not the same fact at all.
+            // A re-decode inherits the path's first demand source. `removed`
+            // deleted the per-id row, so without this the re-decode prints
+            // `demand=unknown`, like an unrouted load.
             //
-            // ⚠ `demanded_at` is the FIRST demand's instant, not this decode's,
-            // so `wait()` would measure from the wrong moment. Only the SOURCE is
-            // adopted; the row keeps no `demanded_at`, and the readout says
-            // "first demanded via <road>" rather than quoting a duration it
-            // cannot honestly compute.
+            // Adopt only the source. `demanded_at` would be the first demand's
+            // instant, so the row keeps none and the readout gives no duration.
             #[cfg(not(target_arch = "wasm32"))]
             let inherited = self.demand_by_path.get(&path).map(|(source, _)| *source);
             // WASM never stamps a demand (`note_demand` is a no-op there), so
@@ -480,21 +395,17 @@ impl ImageStageLedger {
     }
 
     pub fn set_gameplay_live(&mut self, live: Option<bool>) {
-        // ⛔⛔ REMEMBER THAT A COVER EXISTED AT ALL. `capture_scene` puts the app
-        // in `playing` from boot on every road it has — measured 2026-09-02:
-        // `[game-mode] 0.633s initial playing`, before the room even loads — so
-        // on that road EVERY first draw is trivially "during gameplay" and a POP
-        // readout would report eighteen findings where there is no cover to have
-        // failed. This is the fact that separates "the cover did not cover this"
-        // from "this composition has no cover", and a readout that skips it is
-        // measuring its own harness.
+        // Remember that a cover existed at all. `capture_scene` is in
+        // `playing` from boot, so on that road every first draw is "during
+        // gameplay". This flag separates "the cover did not cover this" from
+        // "this composition has no cover".
         if live == Some(false) {
             self.saw_covered_frame = true;
         }
         self.gameplay_live = live;
     }
 
-    /// Has this process ever observed a frame where gameplay was NOT live?
+    /// Has this process ever observed a frame where gameplay was not live?
     ///
     /// A `false` here means no cover, no countdown and no transition has run,
     /// so [`ImageStages::live_at_first_draw`] is `true` for everything and says
@@ -512,48 +423,34 @@ impl ImageStageLedger {
         &self.awaiting_gpu
     }
 
-    /// READINESS TERM: a render world exists and has NOT yet been seen to
-    /// prepare `id`. `false` whenever no render world stamps stage 3 — a
-    /// headless run never waits on a GPU it does not have.
+    /// Readiness term: a render world exists and has not yet been seen to
+    /// prepare `id`. `false` when no render world stamps stage 3.
     ///
-    /// ⛔ THE CALLER SUPPLIES THE RENDER-WORLD FACT, from ITS OWN App's
+    /// The caller supplies the render-world fact from its own App's
     /// [`RenderWorldPresent`]. The ledger is process-global and cannot know
     /// which App is asking.
     ///
-    /// ⭐ POSITIVE PROOF, not "not known to be waiting". The insertion stamp
-    /// comes from the main world's `Last` (an `AssetEvent::Added` reader) while
+    /// This needs positive proof. The insertion stamp comes from `Last`, and
     /// room readiness polls in `Update`, so on the frame an image lands the
-    /// poll runs BEFORE the row exists; a term that read the awaiting list
-    /// called that image ready, latched the reveal, and only then did `Last`
-    /// stamp it and the render world (possibly) defer its upload under a
-    /// byte-per-frame budget — the exact frame this term exists to keep under
-    /// the cover. So the question is "has the GPU stamp landed", and an id with
-    /// no row yet is owed like any other. The cost is one frame of cover per
-    /// image on an unpaced upload, which is cover time.
+    /// poll runs before the row exists. An id with no row is therefore owed.
+    /// The cost is one frame of cover per image on an unpaced upload.
     ///
-    /// A room whose reveal waits on this converts the upload of its cast from a
-    /// frame after the cover lifts into cover time: the pixels were paid for
-    /// either way, and under a byte-per-frame budget they pace while the cover
-    /// still holds.
+    /// A reveal that waits on this moves the upload of its cast under the
+    /// cover, where a byte-per-frame budget can pace it.
     pub fn is_awaiting_gpu(&self, id: UntypedAssetId, render_world: RenderWorldPresent) -> bool {
         render_world.is_present() && !self.is_gpu_prepared(id)
     }
 
-    /// The render world has stamped `id` prepared (stage 3). The proof the
-    /// readiness term above asks for.
-    ///
-    /// ⭐ ONE DEFINITION FOR EVERY TARGET. There used to be two — a native one
-    /// reading the timestamp and a wasm one hardcoded to `false` — which is
-    /// what made the browser skip the GPU wait entirely.
+    /// The render world has stamped `id` prepared (stage 3). One definition
+    /// for every target.
     pub fn is_gpu_prepared(&self, id: UntypedAssetId) -> bool {
         self.rows.get(&id).is_some_and(|row| row.gpu_prepared)
     }
 
     /// The render world saw `id` prepared. Returns the row for reporting.
     ///
-    /// ⭐ `at` IS OPTIONAL BECAUSE THE WEB HAS NO `Instant`, and the readiness
-    /// fact must be recordable without one. Passing `None` still marks the
-    /// image prepared; it only forgoes the duration a report would print.
+    /// `at` is optional because the web has no `Instant`. `None` still marks
+    /// the image prepared; only the duration is lost.
     pub fn gpu_prepared(
         &mut self,
         id: UntypedAssetId,
@@ -584,19 +481,14 @@ impl ImageStageLedger {
         Some(snapshot)
     }
 
-    /// This image was extracted for drawing — the FOURTH stage, and the first
-    /// one that is about USE rather than arrival.
+    /// This image was extracted for drawing: the fourth stage, the first one
+    /// about use and not arrival.
     ///
-    /// ⛔⛔ FIRST WRITE WINS, and that is not tidiness. Extraction runs every
-    /// frame for every visible sprite, so a stamp that overwrote would be a
-    /// per-frame write on the whole visible set and the ledger's own cost would
-    /// show up in what it measures. The question is *"when was this first
-    /// drawn"*, which is asked once and answered forever.
+    /// First write wins. Extraction runs every frame for every visible sprite,
+    /// so overwriting would add a per-frame write for the whole visible set.
     ///
-    /// Returns the elapsed demand→draw when this call is the one that stamped
-    /// it and the demand is known, so a caller can report the wait without
-    /// re-reading the row; `None` on every later frame, which is also how a
-    /// caller knows not to print.
+    /// Returns demand→draw when this call stamped the row and the demand is
+    /// known. Returns `None` on every later frame, so the caller prints once.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn first_drawn(&mut self, id: UntypedAssetId, at: Instant) -> Option<Duration> {
         let live = self.gameplay_live;
@@ -610,29 +502,19 @@ impl ImageStageLedger {
         Some(at.duration_since(demanded))
     }
 
-    /// What is resident and NEVER DRAWN, by the road that demanded it.
+    /// What is resident and never drawn, grouped by the road that demanded it.
+    /// This names the owners of undrawn megapixels (the same buckets as
+    /// [`Self::resident_by_road`]), so an eviction discussion can start from
+    /// an owner.
     ///
-    /// ⭐⭐ THE TOTAL CANNOT ANSWER THE QUESTION IT RAISES. A run that reports
-    /// "23.2 MP never drawn" immediately invites *"whose?"* — and the owners are
-    /// exactly the buckets [`Self::resident_by_road`] already names, so an
-    /// eviction conversation can start from an owner instead of a number. It is
-    /// what decides whether the FX set's 9.6 MP is an effect vocabulary or a
-    /// preload (asset open work 2's third row).
+    /// Same caveat as [`Self::resident_never_drawn`]: without a render world
+    /// this returns every resident image. Check the asking App's
+    /// [`RenderWorldPresent`] before reporting it as a finding.
     ///
-    /// ⛔ SAME RENDER-WORLD CAVEAT AS [`Self::resident_never_drawn`]: without one
-    /// this returns every resident image under its road and means "nobody could
-    /// have drawn anything". The caller must consult the ASKING App's
-    /// [`RenderWorldPresent`] before printing it as a finding — the ledger is
-    /// process-global and cannot know which App is reading it.
-    ///
-    /// ⛔⛔ AND [`ROAD_PROCEDURAL`] IS NEVER A FINDING IN THIS READOUT, whatever
-    /// its megapixels say. The stage is stamped from `ExtractedSprites`, and a
-    /// render target, a shader input or a material texture is never a sprite —
-    /// it is written to or sampled, not extracted. So those rows are
-    /// PERMANENTLY "never drawn" by construction, and a reader chasing the 4-6
-    /// MP this bucket reports in a hall capture is chasing the instrument rather
-    /// than the assets. Only the file-backed roads answer a residency question
-    /// here.
+    /// [`ROAD_PROCEDURAL`] is never a finding here. The stage is stamped from
+    /// `ExtractedSprites`, and a render target, shader input or material
+    /// texture is never an extracted sprite, so those rows are always "never
+    /// drawn". Only file-backed roads answer a residency question here.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn never_drawn_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
         let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
@@ -655,13 +537,9 @@ impl ImageStageLedger {
 
     /// Every resident image the render world has never extracted, largest first.
     ///
-    /// ⛔⛔ ONLY MEANINGFUL WITH A RENDER WORLD, and the caller must say so.
-    /// Without one nothing is ever extracted, so this returns EVERY resident
-    /// image and means "nobody could have drawn anything" — not "these were
-    /// decoded for nobody". [`RenderWorldPresent`] — the ASKING App's, not the
-    /// process's — separates the two readings, and a readout that prints this
-    /// without consulting it is accusing a headless run of waste it cannot
-    /// commit.
+    /// Meaningful only with a render world. Without one, this returns every
+    /// resident image. The asking App's [`RenderWorldPresent`] separates the
+    /// two readings; check it before reporting waste.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_never_drawn(&self) -> Vec<(f64, &str)> {
         let mut rows: Vec<(f64, &str)> = self
@@ -705,12 +583,11 @@ impl ImageStageLedger {
         self.rows.get(&id)
     }
 
-    /// Every image inserted and not yet removed, in id order — the per-row
-    /// form of [`Self::resident_by_road`], for a census that wants the PATHS.
+    /// Every image inserted and not yet removed, in id order: the per-row
+    /// form of [`Self::resident_by_road`].
     ///
-    /// ⛔ Native-only for the same reason as [`Self::demand_by_path`]: residency
-    /// here is defined by `inserted_at`, a timestamp this module does not keep
-    /// on WASM.
+    /// Native-only: residency is defined by `inserted_at`, which this module
+    /// does not keep on wasm.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_rows(&self) -> impl Iterator<Item = &ImageStages> {
         self.rows.values().filter(|row| row.inserted_at.is_some())
@@ -721,17 +598,10 @@ impl ImageStageLedger {
         self.rows.values()
     }
 
-    /// The UNROUTED resident images, largest first: every image that came from a
-    /// FILE and reached `Assets<Image>` without passing a stamped demand road.
+    /// The unrouted resident images, largest first: every image that came from
+    /// a file and reached `Assets<Image>` without a stamped demand road.
     ///
-    /// ⛔⛔ THE ONE BUCKET A COUNT CANNOT ANSWER. Unrouted means *nobody claims
-    /// to have asked for this*, so the next question is always WHICH — and until
-    /// this existed the only way to find out was to probe the ledger by hand.
-    /// That is how the Hall's one unrouted image was identified on 2026-09-02
-    /// (the LDtk editor-preview tileset), and it should not have taken a bespoke
-    /// probe.
-    ///
-    /// ⛔ FILE-BACKED ONLY, and the split is the whole point. See
+    /// Use this to find which image is unrouted. File-backed only; see
     /// [`Self::procedural_resident`].
     #[cfg(not(target_arch = "wasm32"))]
     pub fn unrouted_resident(&self) -> Vec<(f64, &str)> {
@@ -741,24 +611,18 @@ impl ImageStageLedger {
             .filter(|row| row.inserted_at.is_some() && row.source.is_none())
             .filter_map(|row| Some((row.megapixels, row.path.as_deref()?)))
             .collect();
-        // Megapixels descending, then path, so two censuses diff cleanly and the
-        // expensive one is the one that gets read.
+        // Megapixels descending, then path, so two censuses diff cleanly.
         rows.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(b.1)));
         rows
     }
 
-    /// Resident images that came from no file at all — inserted directly into
-    /// `Assets<Image>` rather than decoded: render targets, procedural sprites,
-    /// shader inputs.
+    /// Resident images that came from no file: inserted directly into
+    /// `Assets<Image>` rather than decoded (render targets, procedural
+    /// sprites, shader inputs).
     ///
-    /// ⛔⛔ NOT THE SAME FACT AS UNROUTED, AND THEY SHARED A BUCKET. A row with
-    /// `source == None` was keyed `"?"` whether it was a FILE nobody stamped or
-    /// an image with no file to stamp — and the second kind can never acquire a
-    /// demand road, because there is no load to stamp. Measured 2026-09-02 on
-    /// the Hall: 24 of the 24 "unrouted" images had no path at all, so a census
-    /// line reading `UNROUTED(no demand) 24×4.5MP` reported 24 findings where
-    /// there were none, and on the host would have buried the one that matters
-    /// (the 7.6 MP LDtk editor-preview tileset) inside its own noise.
+    /// These are not unrouted. They have no load to stamp, so they can never
+    /// get a demand road. Keep them apart so they do not hide real unrouted
+    /// files.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn procedural_resident(&self) -> (usize, f64) {
         self.rows
@@ -768,13 +632,12 @@ impl ImageStageLedger {
             .fold((0usize, 0f64), |(n, mp), row| (n + 1, mp + row.megapixels))
     }
 
-    /// WHAT IS RESIDENT, BY THE ROAD THAT DEMANDED IT: megapixels of every
-    /// image inserted and not yet removed, grouped by source label (asset open
-    /// work 4 asks for the owner of retained assets before any eviction policy;
-    /// this is the measurement that names the owners). Images no road stamped
-    /// group under [`ROAD_UNROUTED`] when they came from a file and
-    /// [`ROAD_PROCEDURAL`] when they did not. Deterministic order, so two
-    /// censuses diff cleanly.
+    /// What is resident, by the road that demanded it: megapixels of every
+    /// image inserted and not yet removed, grouped by source label. This names
+    /// the owners of retained assets (asset open work 4). Images no road
+    /// stamped group under [`ROAD_UNROUTED`] (from a file) or
+    /// [`ROAD_PROCEDURAL`] (no file). Deterministic order, so two censuses diff
+    /// cleanly.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn resident_by_road(&self) -> BTreeMap<&'static str, (usize, f64)> {
         let mut by_road: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
@@ -792,18 +655,16 @@ impl ImageStageLedger {
     }
 }
 
-/// [`ImageStageLedger::resident_by_road`] key for a FILE-backed image that
+/// [`ImageStageLedger::resident_by_road`] key for a file-backed image that
 /// reached `Assets<Image>` without passing a stamped demand road. A finding:
 /// something loaded art and no road said so.
 pub const ROAD_UNROUTED: &str = "?";
 
 /// [`ImageStageLedger::resident_by_road`] key for an image with no file behind
-/// it — inserted directly rather than decoded.
+/// it, inserted directly rather than decoded.
 ///
-/// ⛔ NOT A FINDING, and it shared a key with one until 2026-09-02. A procedural
-/// image can never acquire a demand road, because there is no load to stamp;
-/// counting it as unrouted put 24 non-findings in the Hall's bucket and would
-/// have buried the single real one on the host.
+/// Not a finding: a procedural image has no load to stamp, so it can never
+/// get a demand road.
 pub const ROAD_PROCEDURAL: &str = "~procedural";
 
 static LEDGER: Mutex<ImageStageLedger> = Mutex::new(ImageStageLedger {
@@ -852,18 +713,12 @@ mod tests {
         .untyped()
     }
 
-    /// ⛔⛔ A RE-DECODE KNOWS WHO ASKED FOR IT THE FIRST TIME.
+    /// A re-decode knows who first asked for it.
     ///
-    /// `removed` deletes the per-id row, and `demand()` only runs at a LOAD call
-    /// site — a second `load` of a resident path is a handle lookup, not a
-    /// decode. So a demote-then-redecode used to come back reading
-    /// `demand=unknown`, which is ALSO what an image loaded by an unstamped road
-    /// prints. Two entirely different facts wearing one word: one is "this road
-    /// needs routing", the other is "this file was decoded twice". Chasing the
-    /// first when it was the second costs an afternoon.
-    ///
-    /// The path's first demand now outlives the row, exactly as
-    /// `insertions_by_path` already did.
+    /// `removed` deletes the per-id row, and `demand()` runs only at a load
+    /// call site. Without the per-path demand, a re-decode reads
+    /// `demand=unknown`, like an unstamped road. The path's first demand now
+    /// outlives the row, as `insertions_by_path` does.
     #[test]
     fn a_re_decode_inherits_the_road_that_first_demanded_the_path() {
         let mut ledger = ImageStageLedger::default();
@@ -881,7 +736,7 @@ mod tests {
             "premise: dropped before GPU"
         );
 
-        // The same FILE decoded again under a new asset id, with nothing calling
+        // The same file decoded again under a new asset id, with nothing calling
         // `demand()` for it — the shape a quality demote-and-restore produces.
         let second = ledger.inserted(
             id(2),
@@ -900,8 +755,7 @@ mod tests {
         assert_eq!(second.insertions_of_path, 2, "and it is the path's second");
         assert_eq!(ledger.re_decodes, 1);
 
-        // ⚠ NO WAIT IS QUOTED. `demanded_at` belongs to the FIRST decode;
-        // measuring this insertion against it would invent a duration.
+        // No wait is quoted: `demanded_at` belongs to the first decode.
         assert_eq!(second.demand_to_insert(), None);
         assert_eq!(second.demand_phrase(), "first demanded via character-sheet");
     }
@@ -959,8 +813,8 @@ mod tests {
         assert_eq!(ledger.re_decodes, 1);
     }
 
-    /// The readiness term is POSITIVE proof of the GPU stamp while a render
-    /// world is present — and NOTHING without a render world.
+    /// The readiness term needs positive proof of the GPU stamp while a render
+    /// world is present, and is `false` without a render world.
     #[test]
     fn the_gpu_readiness_term_wants_the_gpu_stamp_while_a_render_world_is_present() {
         let mut ledger = ImageStageLedger::default();
@@ -976,19 +830,15 @@ mod tests {
             ledger.is_awaiting_gpu(id(10), rendering),
             "inserted and unprepared: owed"
         );
-        // ⛔⛔ THE PER-APP POINT, and the whole reason this argument exists: ONE
-        // ledger answers BOTH Apps in the same breath, on the same id. While the
-        // fact lived on the ledger these two calls could not disagree, so a
-        // rendering sibling made a headless App wait for a GPU nothing would
-        // ever stamp.
+        // The render-world fact is per App: one ledger gives different
+        // answers to a rendering App and a headless App for the same id.
         assert_ne!(
             ledger.is_awaiting_gpu(id(10), headless),
             ledger.is_awaiting_gpu(id(10), rendering),
             "the same ledger must answer a headless App and a rendering App differently"
         );
-        // ⭐ THE RACE: readiness polls in `Update`, the insertion is stamped in
-        // `Last`. An id the ledger has not seen yet is OWED, not ready — the
-        // old "awaiting list contains it" reading called it ready here.
+        // Readiness polls in `Update`; the insertion is stamped in `Last`. An
+        // id the ledger has not seen yet is owed, not ready.
         assert!(
             ledger.is_awaiting_gpu(id(11), rendering),
             "not yet stamped inserted: the GPU has not proven anything, so owed"
@@ -1007,17 +857,12 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE READINESS FACT MUST NOT DEPEND ON A TIMESTAMP — THIS IS THE WEB
-    /// REVEAL HOLE. `is_gpu_prepared` read `gpu_prepared_at.is_some()`, and
-    /// `Instant` is native-only, so on wasm it was a stub returning `false`:
-    /// nothing was ever prepared, so `is_awaiting_gpu` was never true, so the
-    /// browser lifted its cover the instant pixels reached `Assets<Image>` —
-    /// skipping the GPU upload the barrier exists to move under the cover.
+    /// The readiness fact must not depend on a timestamp. `Instant` is
+    /// native-only, so wasm would never see an image as prepared and would
+    /// lift the cover before the GPU upload.
     ///
-    /// ⭐ THE WEB CASE IS REACHABLE FROM A NATIVE TEST: passing `None` for the
-    /// timestamp is exactly what a clockless target does. Every branch
-    /// type-checks, so the wasm CHECK could not see this; a stamp without a
-    /// clock is what it takes.
+    /// Passing `None` for the timestamp reproduces the wasm case in a native
+    /// test.
     #[test]
     fn a_gpu_stamp_with_no_clock_still_makes_the_image_ready() {
         let mut ledger = ImageStageLedger::default();
@@ -1029,7 +874,7 @@ mod tests {
             "premise: inserted and unprepared is owed"
         );
 
-        // The clockless stamp — what the web does.
+        // The clockless stamp, as on the web.
         assert!(ledger.gpu_prepared(id(40), None).is_some());
         assert!(
             ledger.is_gpu_prepared(id(40)),
@@ -1041,7 +886,7 @@ mod tests {
             "so the reveal must stop waiting — on the web exactly as on native"
         );
 
-        // And the telemetry is honestly absent rather than faked.
+        // The telemetry is absent, not faked.
         let row = ledger.rows.get(&id(40)).expect("the row exists");
         assert!(row.gpu_prepared, "the fact is recorded");
         assert!(
@@ -1050,7 +895,7 @@ mod tests {
         );
     }
 
-    /// A native stamp records BOTH, so the report keeps its duration.
+    /// A native stamp records both, so the report keeps its duration.
     #[test]
     fn a_gpu_stamp_with_a_clock_records_the_fact_and_the_duration() {
         let mut ledger = ImageStageLedger::default();
@@ -1097,28 +942,19 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AN UNROUTED FILE AND A PROCEDURAL IMAGE ARE NOT THE SAME FINDING,
-    /// AND THEY SHARED A BUCKET.
+    /// An unrouted file and a procedural image are different findings.
     ///
-    /// `source == None` was keyed `"?"` for both — a FILE that decoded with
-    /// nobody claiming to have asked for it, and an image with no file at all.
-    /// The second can never acquire a demand road, because there is no load to
-    /// stamp. Measured on the Hall 2026-09-02: 24 of the 24 "unrouted" images
-    /// had no path, so the census line read `UNROUTED(no demand) 24×4.5MP` and
-    /// every one of them was a non-finding — while the one that matters on the
-    /// host (the 7.6 MP LDtk editor-preview tileset) would have been the 25th
-    /// entry in a bucket nobody could read.
-    ///
-    /// ⛔ BOTH HALVES, because either alone passes on a ledger that puts
-    /// everything in one bucket: the split is what is being pinned, not the
-    /// presence of a key.
+    /// A file with no demand stamp is a finding. An image with no file can
+    /// never get a demand road, because it has no load to stamp. Check both
+    /// buckets: either check alone passes on a ledger that puts everything in
+    /// one bucket.
     #[test]
     fn a_file_nobody_demanded_is_a_finding_and_a_procedural_insert_is_not() {
         let mut ledger = ImageStageLedger::default();
         let t0 = Instant::now();
-        // A FILE with no demand stamp: something loaded art and no road said so.
+        // A file with no demand stamp: something loaded art and no road said so.
         ledger.inserted(id(30), 7.6, None, Some("preview_tileset.png".into()), t0);
-        // Two images with no file behind them at all.
+        // Two images with no file behind them.
         ledger.inserted(id(31), 0.3, None, None, t0);
         ledger.inserted(id(32), 1.0, None, None, t0);
 
@@ -1143,17 +979,11 @@ mod tests {
         assert_eq!(ledger.procedural_resident(), (2, 1.3));
     }
 
-    /// ⛔⛔ FIRST WRITE WINS, AND THE SECOND CALL MUST SAY NOTHING.
+    /// First write wins, and the second call returns nothing.
     ///
-    /// The fourth stage is stamped from the render world's extraction, which
-    /// runs EVERY FRAME for EVERY VISIBLE SPRITE. A stamp that overwrote would
-    /// be a per-frame write on the whole visible set, and the ledger's own cost
-    /// would land in what it measures — so the rule is not tidiness, it is the
-    /// reason the stage can exist at all.
-    ///
-    /// ⛔ AND THE RETURN IS THE TELL. A caller prints the demand→draw wait when
-    /// it gets one; a `None` on the second frame is how it knows not to print
-    /// the same line sixty times a second.
+    /// Extraction runs every frame for every visible sprite, so an overwriting
+    /// stamp would add a per-frame write for the whole visible set. The
+    /// caller prints the demand→draw wait only when it gets `Some`.
     #[test]
     fn the_first_draw_is_stamped_once_and_later_frames_report_nothing() {
         let mut ledger = ImageStageLedger::default();
@@ -1182,17 +1012,14 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ A FIRST DRAW WHILE GAMEPLAY IS LIVE IS A POP, and that is the fact
-    /// the whole hitch lane is about: a cover exists so a room's art arrives
-    /// before anyone can see the room. This pins that the flag follows the
-    /// ledger's live state at the DRAW rather than at the insert — the two
-    /// answer different questions and can disagree in both directions.
+    /// A first draw while gameplay is live is a pop. The flag follows the live
+    /// state at the draw, not at the insert.
     #[test]
     fn a_first_draw_while_gameplay_is_live_is_recorded_as_one() {
         let mut ledger = ImageStageLedger::default();
         let t0 = Instant::now();
 
-        // Decoded under a cover, drawn under it too: not a pop.
+        // Decoded under a cover and drawn under it: not a pop.
         ledger.set_gameplay_live(Some(false));
         ledger.demand(id(60), "character-sheet", "covered.png".into(), t0);
         ledger.inserted(id(60), 2.0, Some(false), None, t0);
@@ -1202,8 +1029,8 @@ mod tests {
             Some(false),
         );
 
-        // Decoded under the cover and first drawn AFTER it lifted: a pop, and
-        // `live_at_insert` cannot see it — which is why this field exists.
+        // Decoded under the cover and first drawn after it lifted: a pop that
+        // `live_at_insert` cannot see.
         ledger.demand(id(61), "character-sheet", "late.png".into(), t0);
         ledger.inserted(id(61), 2.0, Some(false), None, t0);
         ledger.set_gameplay_live(Some(true));
@@ -1223,14 +1050,11 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AND A COMPOSITION THAT NEVER COVERS ANYTHING CANNOT HAVE A POP.
+    /// A composition that never covers anything cannot have a pop.
     ///
-    /// `capture_scene` boots straight into `playing` on every road it has, so
-    /// every first draw there is trivially "during gameplay" — a POP readout
-    /// would have reported eighteen findings in one hall shot, all of them the
-    /// harness. This is the fact that separates "the cover did not cover this"
-    /// from "nothing here has a cover", and it is what the readout consults
-    /// before it says the word.
+    /// `capture_scene` boots straight into `playing`, so every first draw
+    /// there is "during gameplay". The readout checks `saw_covered_frame`
+    /// before it reports a pop.
     #[test]
     fn a_process_that_never_covered_a_frame_can_report_no_pop() {
         let mut ledger = ImageStageLedger::default();
@@ -1259,11 +1083,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AND THE TOTAL CANNOT SAY WHOSE. A run reporting "23.2 MP never
-    /// drawn" invites exactly one question, and the roads answer it: an eviction
-    /// conversation starts from an owner, not from a number. This pins that the
-    /// split adds up to the total and that a drawn image leaves its OWN bucket
-    /// rather than the whole road.
+    /// Never-drawn megapixels split by road. The split adds up to the total,
+    /// and a drawn image leaves only its own bucket.
     #[test]
     fn never_drawn_splits_by_owner_and_the_split_adds_up() {
         let mut ledger = ImageStageLedger::default();
@@ -1300,12 +1121,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ NEVER-DRAWN IS NOT A FINDING WITHOUT A RENDER WORLD, and the list
-    /// cannot tell the caller that — only the asking App's
-    /// [`RenderWorldPresent`] can. This pins the shape a readout has to
-    /// respect: with nothing extracted,
-    /// EVERY resident image is "never drawn", which on a headless road means
-    /// nobody could have drawn anything rather than that the pixels were wasted.
+    /// Never-drawn is not a finding without a render world. With nothing
+    /// extracted, every resident image is "never drawn". Only the asking App's
+    /// [`RenderWorldPresent`] tells the caller which reading applies.
     #[test]
     fn every_resident_image_is_never_drawn_until_something_extracts_one() {
         let mut ledger = ImageStageLedger::default();
@@ -1343,8 +1161,8 @@ mod tests {
     fn a_prepared_report_for_an_image_nobody_awaited_is_none() {
         let mut ledger = ImageStageLedger::default();
         assert!(ledger.gpu_prepared(id(3), Some(Instant::now())).is_none());
-        // And a removal before preparation stops the wait, and is counted as a
-        // decode nobody drew.
+        // A removal before preparation stops the wait and counts as a decode
+        // nobody drew.
         ledger.inserted(id(4), 1.5, None, None, Instant::now());
         let dropped = ledger
             .removed(id(4))
@@ -1353,7 +1171,7 @@ mod tests {
         assert!(ledger.awaiting_gpu().is_empty());
         assert!(ledger.gpu_prepared(id(4), Some(Instant::now())).is_none());
         assert_eq!(ledger.dropped_before_gpu, 1);
-        // A removal AFTER preparation is an ordinary retirement.
+        // A removal after preparation is an ordinary retirement.
         ledger.inserted(id(5), 1.0, None, None, Instant::now());
         ledger.gpu_prepared(id(5), Some(Instant::now()));
         assert!(ledger.removed(id(5)).is_none());
@@ -1365,9 +1183,8 @@ mod tests {
 mod app_local_gpu_readiness {
     use super::*;
 
-    /// The same shape the module's other tests use — `bevy::image::Image` and a
-    /// bare `uuid` crate are neither of them reachable here, and inventing them
-    /// is how this test first failed to compile.
+    /// Same shape as the module's other tests: `bevy::image::Image` and a bare
+    /// `uuid` crate are not reachable here.
     fn id(n: u128) -> UntypedAssetId {
         bevy::asset::AssetId::<bevy::asset::LoadedUntypedAsset>::Uuid {
             uuid: bevy::asset::uuid::Uuid::from_u128(n),
@@ -1375,13 +1192,8 @@ mod app_local_gpu_readiness {
         .untyped()
     }
 
-    /// ⛔⛔ THE ACCEPTANCE CONDITION. Two rendering Apps that share an asset id —
-    /// which this repository has measured happening, because ids are App-LOCAL —
-    /// must not settle each other's reveal.
-    ///
-    /// Before `AppGpuPreparedImages` this was unprovable: the only readiness
-    /// authority was a process-global ledger keyed by that id, so "App A prepared
-    /// id 7" and "App B prepared id 7" were the same sentence.
+    /// Two rendering Apps that share an asset id must not settle each other's
+    /// reveal. Asset ids are App-local and can collide.
     #[test]
     fn preparation_in_one_app_does_not_settle_another_that_shares_the_id() {
         let a = AppGpuPreparedImages::default();
@@ -1389,7 +1201,7 @@ mod app_local_gpu_readiness {
         let rendering = RenderWorldPresent(true);
         let shared = id(7);
 
-        // Non-vacuity: both are waiting on the SAME id before anything happens.
+        // Non-vacuity: both wait on the same id before anything happens.
         assert!(a.is_awaiting_gpu(shared, rendering));
         assert!(b.is_awaiting_gpu(shared, rendering));
 
@@ -1409,16 +1221,12 @@ mod app_local_gpu_readiness {
         assert_eq!(b.prepared_count(), 0);
     }
 
-    /// ⛔⛔ PREPARING A MUST NOT CONSUME B'S OPPORTUNITY TO BECOME PREPARED.
+    /// Preparing in App A must not consume App B's candidate.
     ///
-    /// The test above proves A's stamp is not B's ANSWER. This one proves it is
-    /// not B's CANDIDATE either, which is the half that was still broken after
-    /// the answer moved per-App: the render world drew candidates from the
-    /// process ledger's single `awaiting_gpu` list, keyed by bare
-    /// `UntypedAssetId`, and `gpu_prepared()` REMOVES the entry it matches. So
-    /// with two rendering Apps holding the same id, whichever looked first took
-    /// the only candidate and the other's stamper never saw the id again —
-    /// permanently unprepared, permanently "owed", cover never lifts.
+    /// The test above proves A's stamp is not B's answer. This one proves it
+    /// is not B's candidate either. With a shared candidate list,
+    /// `gpu_prepared()` removes the entry, so the other App would never see the
+    /// id again and its cover would never lift.
     #[test]
     fn preparing_one_app_leaves_the_other_app_its_own_candidate() {
         let a = AppGpuPreparedImages::default();
@@ -1466,15 +1274,12 @@ mod app_local_gpu_readiness {
         assert!(app.is_prepared(id(1)));
     }
 
-    /// ⛔⛔ AN ARRIVAL FOR AN ALREADY-PREPARED ID *DOES* RE-OPEN IT, and the
-    /// test that used to pin the opposite pinned the defect.
+    /// An arrival for an already-prepared id re-opens it.
     ///
-    /// The old rule was "a late duplicate `Added` must not send a settled reveal
-    /// back to waiting". It protected the symptom and lost the property: the
-    /// stamp means *these contents are on the GPU*, so anything that replaces the
-    /// contents must retire it. An `Added` for a recycled id names a different
-    /// image; a `Modified` names different bytes for the same one. Keeping the
-    /// old stamp lets a barrier lift over a GPU copy that no longer exists.
+    /// The stamp means "these contents are on the GPU". An `Added` for a
+    /// recycled id names a different image, and a `Modified` names different
+    /// bytes. Both must retire the old stamp, or a barrier lifts over a GPU
+    /// copy that no longer exists.
     #[test]
     fn arriving_again_retires_the_proof_and_makes_the_id_pending() {
         let app = AppGpuPreparedImages::default();
@@ -1495,14 +1300,11 @@ mod app_local_gpu_readiness {
         );
     }
 
-    /// THE WHOLE GENERATION CYCLE, IN THE ORDER A MODIFIED IMAGE ACTUALLY LIVES
-    /// IT: arrive, prepare, settle; modify, go pending, prepare again, settle
-    /// again.
+    /// The full generation cycle of a modified image: arrive, prepare, settle;
+    /// modify, go pending, prepare again, settle again.
     ///
-    /// ⛔ THE MIDDLE ASSERTION IS THE ONE THAT WAS FAILING IN PRODUCTION. Every
-    /// other step passed before this fix; the reveal barrier's question
-    /// (`is_awaiting_gpu`) answered "settled" the instant after the modify,
-    /// about a GPU copy Bevy was still preparing.
+    /// The middle assertion is the important one: right after the modify,
+    /// `is_awaiting_gpu` must say "owed" while Bevy prepares the new copy.
     #[test]
     fn a_modified_image_is_pending_again_until_the_gpu_has_the_new_contents() {
         let app = AppGpuPreparedImages::default();
@@ -1527,12 +1329,11 @@ mod app_local_gpu_readiness {
         assert!(!app.is_awaiting_gpu(id(5), drawing), "settled again");
     }
 
-    /// `Unused` RETIRES THE ID FROM BOTH SETS, from either state.
+    /// `Unused` retires the id from both sets, from either state.
     ///
-    /// An image dropped before the GPU saw it must leave the candidate queue, or
-    /// the render world polls forever for something that will never arrive. One
-    /// dropped after must lose its proof, because `Unused` is what removes the
-    /// render representation.
+    /// An image dropped before the GPU saw it must leave the candidate queue,
+    /// or the render world polls for it forever. One dropped after must lose
+    /// its proof, because `Unused` removes the render representation.
     #[test]
     fn an_unused_image_leaves_both_the_queue_and_the_proof() {
         let app = AppGpuPreparedImages::default();
@@ -1563,8 +1364,8 @@ mod app_local_gpu_readiness {
         assert!(headless.is_awaiting_gpu(id(7), RenderWorldPresent(true)));
     }
 
-    /// The set is shared through its `Arc`, which is how the render sub-app's
-    /// write reaches the main world's read inside ONE App.
+    /// The set is shared through its `Arc`, so the render sub-app's write
+    /// reaches the main world's read inside one App.
     #[test]
     fn a_clone_is_the_same_set_because_one_app_shares_it_across_worlds() {
         let main_world = AppGpuPreparedImages::default();

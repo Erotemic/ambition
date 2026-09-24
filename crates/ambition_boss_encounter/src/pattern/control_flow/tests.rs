@@ -52,14 +52,14 @@ fn near_and_far_split_at_the_authored_radius() {
     assert!(!bucket_holds(SituationBucket::PlayerNear, &c));
     assert!(bucket_holds(SituationBucket::PlayerFar, &c));
 
-    // Exactly on the radius reads as NEAR — the boundary belongs to the arm
+    // Exactly on the radius reads as near: the boundary belongs to the arm
     // that can reach, so a sweep authored at its own reach never whiffs by a
     // float.
     c.target_pos = ae::Vec2::new(PLAYER_NEAR_PX, 0.0);
     assert!(bucket_holds(SituationBucket::PlayerNear, &c));
 }
 
-/// `+y` is down. A player ABOVE the boss is at a negative delta.
+/// `+y` is down. A player above the boss is at a negative delta.
 #[test]
 fn above_respects_the_engines_downward_y() {
     let mut c = ctx();
@@ -131,7 +131,7 @@ fn an_ineligible_arm_leaves_the_denominator_too() {
         arm(1.0, Some(SituationBucket::PlayerFar), "far"),
         arm(1.0, Some(SituationBucket::PlayerNear), "near"),
     ];
-    // `far` is out, so `near` owns the WHOLE interval.
+    // `far` is out, so `near` owns the whole interval.
     for unit in [0.0, 0.5, 0.99] {
         assert_eq!(
             pick_arm(&table, &c, unit).unwrap().steps,
@@ -160,7 +160,7 @@ fn a_zero_or_negative_weight_never_wins() {
     assert!(pick_arm(&table, &c, 0.5).is_none());
 }
 
-/// Resolution splices the winning arm IN PLACE, keeping the beats around it.
+/// Resolution splices the winning arm IN place, keeping the beats around it.
 #[test]
 fn resolution_splices_the_winning_arm_between_its_neighbours() {
     let c = ctx();
@@ -212,8 +212,7 @@ fn a_select_consumes_one_draw_even_when_nothing_is_eligible() {
 }
 
 /// Nested `Select`s resolve depth-first, and the depth limit stops a
-/// self-referencing table from hanging the sim rather than pretending it is
-/// authored correctly.
+/// self-referencing table from hanging the sim.
 #[test]
 fn nested_selects_resolve_depth_first_and_bottom_out() {
     let c = ctx();
@@ -437,9 +436,9 @@ fn on_phase_enter_fires_on_the_rising_edge_only() {
     assert_eq!(tick_interrupts(&rules, &mut s, &c, None, 0), None);
 }
 
-/// The trap this rule exists to avoid. A 1s timer behind a 5s cooldown must
-/// not bank five firings and spend them all at t=5. The accumulator resets when
-/// the trigger CONDITION holds, not when the interrupt is allowed to fire.
+/// A 1s timer behind a 5s cooldown must not bank five firings and spend them
+/// all at t=5. The accumulator resets when the trigger condition holds, not
+/// when the interrupt is allowed to fire.
 #[test]
 fn a_timer_behind_a_long_cooldown_does_not_bank_its_firings() {
     let c = BossPatternContext { dt: 0.5, ..ctx() };
@@ -457,7 +456,7 @@ fn a_timer_behind_a_long_cooldown_does_not_bank_its_firings() {
     assert_eq!(fires, 2, "one at t=1, one after the 5s cooldown expires");
 }
 
-/// Only ONE rule fires per tick, and it is the first in authored order — so a
+/// Only one rule fires per tick, and it is the first in authored order — so a
 /// fight's interrupt priority is readable off the RON rather than emergent.
 #[test]
 fn at_most_one_rule_fires_per_tick_and_authored_order_is_the_priority() {

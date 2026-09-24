@@ -1,21 +1,17 @@
 //! A moving platform's picture, drawn the way every other room feature's is.
 //!
-//! this replaces a spawn inside the room-construction transaction, and that is the whole
-//! point of the slice. `spawn_moving_platforms` ran between `transaction::open` and
-//! `transaction::close`, so the platform's VISUAL was installed by the commit that produced its
-//! STATE.
+//! This family derives the picture from the authoritative
+//! `MovingPlatformSet`. The visual is not spawned inside the
+//! room-construction transaction (`transaction::open` to
+//! `transaction::close`).
 //!
-//! the seam already existed. Every other room feature is drawn reactively:
-//! *"every render family discovers its own population"*, and
-//! [`super::features`] draws a marked rectangle for any published id no family
-//! claims, so an unclaimed feature is LOUD. The moving platform was simply the
-//! one piece of authored room geometry that never joined that model. Joining it
-//! deletes the problem rather than designing around it — a family that only
-//! derives pictures cannot split a transaction it does not participate in.
+//! Every room feature is drawn reactively: each render family discovers its
+//! own population, and [`super::features`] draws a marked rectangle for any
+//! published id no family claims. Moving platforms follow the same model.
 //!
-//! Nothing here writes platform state: the set is read, never touched, and the visuals are
-//! reconciled to whatever it says. A restore that rewinds `MovingPlatformSet` is followed on the
-//! next frame by visuals that agree with it, which is the property the old reset broke.
+//! Nothing here writes platform state. The set is only read, and the visuals
+//! are reconciled to it. A restore that rewinds `MovingPlatformSet` is
+//! followed on the next frame by matching visuals.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_BLOCK};
@@ -28,10 +24,9 @@ use bevy::prelude::*;
 /// The picture of one moving platform, tied to its index in the authoritative
 /// [`MovingPlatformSet`].
 ///
-/// the index IS the identity, exactly as the deleted monolith component's
-/// was: the set is a positional roster rebuilt by room construction, so a
-/// platform has no id of its own to key on. A room change replaces the whole
-/// roster and retires the whole visual population with it.
+/// The index is the identity: the set is a positional roster rebuilt by room
+/// construction, so a platform has no id of its own. A room change replaces
+/// the whole roster and all its visuals.
 #[derive(Component)]
 pub struct MovingPlatformVisual {
     pub index: usize,
@@ -40,9 +35,9 @@ pub struct MovingPlatformVisual {
 /// Reconcile the moving-platform visuals against the authoritative set.
 ///
 /// Spawns what is missing, retires what the set no longer has, and moves and
-/// resizes the rest. Idempotent by construction — it compares populations
-/// rather than reacting to an event — which is why it needs no change detection
-/// and cannot double-spawn across a rollback resimulation.
+/// resizes the rest. Idempotent: it compares populations instead of reacting
+/// to events, so it needs no change detection and cannot double-spawn during
+/// a rollback resimulation.
 pub fn sync_moving_platform_visuals(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -50,8 +45,8 @@ pub fn sync_moving_platform_visuals(
     platform_set: Res<MovingPlatformSet>,
     mut existing: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
-    // Retire first, so an index that vanished cannot be mistaken for one of the
-    // survivors when a shorter roster reuses its slot.
+    // Retire first, so a vanished index is not mistaken for a survivor when a
+    // shorter roster reuses its slot.
     let mut drawn = vec![false; platform_set.0.len()];
     for (entity, visual, mut transform, mut sprite) in &mut existing {
         let Some(platform) = platform_set.0.get(visual.index) else {
@@ -63,8 +58,8 @@ pub fn sync_moving_platform_visuals(
         sprite.custom_size = Some(Vec2::new(platform.size.x, platform.size.y));
     }
 
-    // Spawning needs a session to be scoped to; retiring above does not, so a
-    // teardown mid-frame still clears the population.
+    // Spawning needs a session scope; retiring does not, so a mid-frame
+    // teardown still clears the population.
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -146,11 +141,8 @@ mod tests {
         rows
     }
 
-    /// THE CARVE'S CLAIM: a platform gets its picture without the room
-    /// construction transaction spawning one.
-    ///
-    /// Here nothing constructs anything — the authoritative set simply exists, and the family draws
-    /// it.
+    /// A platform gets its visual without the room construction transaction
+    /// spawning one: the set exists, and the family draws it.
     #[test]
     fn a_platform_in_the_set_gets_a_visual_without_any_construction_commit() {
         let mut app = app_with_platforms(vec![platform("a", 100.0), platform("b", 400.0)]);
@@ -161,22 +153,19 @@ mod tests {
         assert_eq!(drawn[1].0, 1);
     }
 
-    /// It follows the authoritative set rather than remembering.
+    /// It follows the authoritative set instead of remembering.
     ///
-    /// this is the property the deleted `sync_moving_platform` LOST once:
-    /// it carried a room-change reset of its own, and that hidden second
-    /// authority clobbered freshly RESTORED platform state after a staged
-    /// cross-room restore. A pure reconcile cannot — it has nothing to
-    /// remember. Moving a platform by any means (a tick, a room change, a
-    /// rollback restore) is followed, not overwritten.
+    /// A reconcile keeps no state, so it cannot overwrite restored platform
+    /// state after a cross-room restore. A platform moved by any means (a tick,
+    /// a room change, a rollback restore) is followed.
     #[test]
     fn the_visual_follows_a_restored_set_instead_of_remembering_a_start() {
         let mut app = app_with_platforms(vec![platform("a", 100.0)]);
         app.update();
         let before = visuals(&mut app)[0].1;
 
-        // The kind of jump a rollback restore or a room change produces: the
-        // authoritative set says somewhere else, with no event to react to.
+        // A jump like a rollback restore or room change: the set says somewhere
+        // else, with no event.
         app.world_mut().resource_mut::<MovingPlatformSet>().0[0].pos = ae::Vec2::new(900.0, 200.0);
         app.update();
         let after = visuals(&mut app)[0].1;

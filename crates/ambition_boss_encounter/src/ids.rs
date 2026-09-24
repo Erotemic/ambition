@@ -1,6 +1,6 @@
 //! Boss encounter id helper: `encounter_id_from_name` slugs an authored boss
 //! name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). The
-//! engine names no boss — every boss's chest reward is authored data
+//! engine names no boss: every boss's chest reward is authored data
 //! (`BossRewardProfile::DropChest` in `boss_profiles.ron`), resolved through
 //! the generic `encounter_chest_<id>` naming.
 
@@ -29,28 +29,23 @@ pub fn encounter_id_from_name(name: &str) -> String {
     }
 }
 
-/// Encounter ids that were RENAMED, and what they became.
+/// Encounter ids that were renamed, and what they became.
 ///
-/// ⛔⛔ THIS FACT WAS WRITTEN TWICE. `gradient_sentinel -> clockwork_warden`
-/// lived as a hardcoded arm in BOTH `profile.rs::for_encounter_id_or_name` and
-/// `behavior.rs::for_authored_boss`, in two crates' worth of reading apart, and
-/// nothing made them agree. A second rename would have had to be remembered in
-/// both — and the failure of remembering is silent: the profile resolves and the
-/// BEHAVIOUR falls through to `generic`, so an old save loads a boss that looks
-/// right and fights like nothing in particular.
+/// This is the only place a rename is recorded. The profile road
+/// (`profile.rs::for_encounter_id_or_name`) and the behavior road
+/// (`behavior.rs::for_authored_boss`) both read it. A missed rename fails
+/// silently: the profile resolves but the behavior falls back to `generic`.
 ///
-/// ⚠ NOT folded into [`encounter_id_from_name`], which is a pure SLUGGER
-/// (`"Clockwork Warden"` -> `"clockwork_warden"`). Alias resolution is a
-/// different job, and a caller that wants the literal slug — a sprite-sheet key,
-/// say — must not have its id silently rewritten underneath it.
+/// Not folded into [`encounter_id_from_name`], which only slugs
+/// (`"Clockwork Warden"` -> `"clockwork_warden"`). A caller that wants the
+/// literal slug (a sprite-sheet key, for example) must not get a rewritten id.
 const RENAMED_ENCOUNTER_IDS: &[(&str, &str)] = &[("gradient_sentinel", "clockwork_warden")];
 
 /// What a retired encounter id became, if it is one.
 ///
-/// The one reading of the rename. Callers keep their own fallback SHAPE — the
-/// profile road tries it after a miss, the behaviour road takes it before
-/// consulting the catalog — because those are different control flow, but
-/// neither spells the pair itself.
+/// The one reading of the rename. Callers keep their own fallback shape (the
+/// profile road tries it after a miss; the behavior road takes it before
+/// consulting the catalog), but neither spells the pair itself.
 pub fn renamed_encounter_id(id: &str) -> Option<&'static str> {
     RENAMED_ENCOUNTER_IDS
         .iter()
@@ -69,9 +64,8 @@ mod renamed_id_tests {
         assert_eq!(renamed_encounter_id("cove_mockingbird"), None);
     }
 
-    /// ⛔ A RENAME MUST NOT POINT AT ANOTHER RENAME, or the one lookup every
-    /// caller makes resolves to an id that is itself retired — and no caller
-    /// loops, so the chain would silently stop one hop short.
+    /// A rename must not point at another rename: callers make one lookup
+    /// and do not loop, so a chain would stop one hop short.
     #[test]
     fn no_rename_targets_an_id_that_is_itself_retired() {
         for (retired, current) in RENAMED_ENCOUNTER_IDS {

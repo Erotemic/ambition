@@ -18,25 +18,21 @@ use ambition_sprite_sheet::character::CharacterAnimator;
 use ambition_sprite_sheet::fx::{authored_effects, AuthoredEffect};
 use ambition_vfx::FxId;
 
-// The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_vfx`
-// (presentation-neutral data, so a sim system can emit a cue without depending on
-// this render module). Re-exported here so existing `crate::fx::*`
-// paths keep resolving.
+// The VFX message vocabulary lives in `ambition_vfx`, so a sim system can
+// emit a cue without depending on this render module. Re-exported so
+// `crate::fx::*` paths still resolve.
 pub use ambition_vfx::vfx::{FireworksRequest, FxRequest, ParticleKind, SlashKind, VfxMessage};
 
 /// What an [`FxId`] names: the authored row, the sheet holding it, and the
 /// packed cue that ships with it.
 ///
-/// this index IS the engine's effect vocabulary, and nothing declares it.
-/// It is built by walking the FX sheets' own baked records and hashing each row
-/// name — so the set of drawable effects is the set of shipped rows, by
-/// construction. That is what replaced `move_vfx_kind` (name→enum),
-/// `explosion_anim` (enum→pose) and `explosion_sfx` (enum→cue): three tables
-/// whose whole job was getting back to the string the content already had.
+/// This index is the engine's effect vocabulary. It is built by walking the
+/// FX sheets' baked records and hashing each row name, so the drawable effects
+/// are exactly the shipped rows.
 ///
-/// `SfxId` is precomputed here rather than at every spawn: the cue name is
-/// derived from the row (`vfx.<family>.<row>`), and hashing it once at first
-/// use keeps the draw path allocation-free.
+/// The `SfxId` is precomputed: the cue name comes from the row
+/// (`vfx.<family>.<row>`), and hashing it once keeps the draw path
+/// allocation-free.
 struct EffectIndex {
     by_id: std::collections::HashMap<FxId, (&'static AuthoredEffect, SfxId)>,
 }
@@ -56,21 +52,19 @@ pub fn authored_effect_for(fx: FxId) -> Option<&'static AuthoredEffect> {
     effect_index().by_id.get(&fx).map(|(effect, _)| *effect)
 }
 
-/// The sound `fx` makes. A property of the NAME, not of the call site: the
-/// bank ships one `vfx.<family>.<row>` cue for every authored row, so an
-/// emitter that says which effect has already said which sound.
+/// The sound `fx` makes. A property of the name, not the call site: the bank
+/// ships one `vfx.<family>.<row>` cue for every authored row.
 pub fn effect_cue(fx: FxId) -> Option<SfxId> {
     effect_index().by_id.get(&fx).map(|(_, cue)| *cue)
 }
 
 /// Say once, per id, that an effect named nothing.
 ///
-/// SFX's policy, for SFX's reason: the vocabulary is open (a game may author
-/// effects the engine never heard of), so a miss is a report rather than a
-/// refusal — but a per-frame warning for a move that fires sixty times a second
-/// trains everyone to filter the channel. the id is a one-way hash and the
-/// name is not among the shipped rows *by definition of being a miss*, so the
-/// report can only print the hash. That is the honest amount of information.
+/// Same policy as SFX: the vocabulary is open (a game may author effects the
+/// engine does not know), so a miss is reported, not refused. Report once per
+/// id, because a per-frame warning trains people to filter the channel. The
+/// id is a one-way hash and a miss is by definition not a shipped row, so only
+/// the hash can be printed.
 fn note_effect_miss(fx: FxId) {
     use std::collections::HashSet;
     use std::sync::Mutex;
@@ -138,9 +132,7 @@ pub struct FireworkBurstSpec {
     scale: f32,
 }
 
-/// One floating line of speech.
-///
-/// This struct is only the line's clock.
+/// One floating line of speech. This struct is only the line's clock.
 #[derive(Component)]
 pub struct SpeechBubbleVisual {
     pos: ae::Vec2,
@@ -148,10 +140,9 @@ pub struct SpeechBubbleVisual {
     duration: f32,
 }
 
-/// Marker on the shadow copies drawn behind a bubble's text. Their colour is
-/// painted by the placement pass along with the line they shadow
-/// (`paint_outlines`), so this exists to say which children are the shadow
-/// pass rather than to drive one.
+/// Marker on the shadow copies behind a bubble's text. The placement pass
+/// paints their colour with the line (`paint_outlines`); this marker only
+/// identifies them.
 #[derive(Component)]
 pub struct SpeechBubbleOutline;
 
@@ -162,26 +153,23 @@ const SPEECH_BUBBLE_BASE_RISE: f32 = 14.0;
 const SPEECH_BUBBLE_TEXT_ALPHA: f32 = 0.95;
 const SPEECH_BUBBLE_OUTLINE_ALPHA: f32 = 0.88;
 
-/// One ember of the live blink-destination indicator. Spawned in a small
-/// rotating ring at the predicted teleport landing while the blink button is
-/// held, despawned when the player releases or the blink ability is gated.
+/// One ember of the live blink-destination indicator: a small rotating ring
+/// at the predicted landing while blink is held. Despawned on release or when
+/// blink is gated.
 #[derive(Component)]
 pub struct BlinkPreviewVisual {
-    /// Phase offset around the ring, in radians. Each ember has a distinct
-    /// constant so the ring keeps its shape while the ring as a whole spins.
-    /// Read by `update_blink_preview` (the ring spin) in render's own builds;
-    /// `allow(dead_code)` because a feature-stripped dep-build (e.g. content's
-    /// `--all-features` pulling render) compiles that reader out, and the
-    /// -D-warnings CI must stay clean across configs.
+    /// Phase offset around the ring, in radians, so the ring keeps its shape
+    /// while it spins. Read by `update_blink_preview`. `allow(dead_code)`
+    /// because a feature-stripped dependency build compiles that reader out,
+    /// and CI uses `-D warnings` for every config.
     #[allow(dead_code)]
     angle_offset: f32,
 }
 
-/// Fan out reusable effect requests into the visual and audio message channels.
-/// Simulation code writes an [`FxRequest`] instead of remembering to pair a
-/// visual `VfxMessage::Effect` with the matching packed-bank cue; headless
-/// tests can still ignore the render/audio backends while gameplay stays
-/// ECS-native.
+/// Fan out effect requests into the visual and audio message channels.
+/// Simulation code writes one [`FxRequest`] instead of pairing a
+/// `VfxMessage::Effect` with its cue. Headless tests can ignore the render and
+/// audio backends.
 pub fn process_fx_requests(
     mut requests: MessageReader<FxRequest>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -192,15 +180,13 @@ pub fn process_fx_requests(
             pos: request.pos,
             fx: request.fx,
             scale: request.scale,
-            // the REQUESTER's pose, not identity — this is the whole route a move's committed
-            // facing takes to the artwork.
+            // The requester's pose: the route a move's committed facing takes to
+            // the art.
             pose: request.pose,
         });
-        // The override if there is one, otherwise the cue the effect's own name
-        // already addresses. A caller has nothing to remember.
-        //
-        // `unscoped` is the default and means what it always did — the active context's primary
-        // source decides — so every existing caller is byte-identical.
+        // The override if there is one, otherwise the cue that the effect's
+        // name addresses. `unscoped` is the default: the active context's
+        // primary source decides.
         if let Some(id) = request.sfx.or_else(|| effect_cue(request.fx)) {
             let play = SfxMessage::Play {
                 id,
@@ -317,9 +303,8 @@ pub fn vfx_spawn_messages(
     >,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    // Speech bubbles quote their text with real typographic quotes, so they
-    // need a real face. `None` falls back to Bevy's ASCII-only subset, which is
-    // the honest outcome when a composition loads no fonts at all.
+    // Speech bubbles use typographic quotes, so they need a real face.
+    // `None` falls back to Bevy's ASCII-only subset.
     ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
 ) {
     let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
@@ -379,10 +364,9 @@ pub fn vfx_spawn_messages(
             } => {
                 spawn_blink_effects(&mut commands, spawn_scope, world, from, to, precision);
             }
-            // The melee slash effect is a sheet-driven visual handled by its own
-            // self-contained system, `rendering::slash_visuals::spawn_slash_effects`
-            // (co-located with the shrine visual). No-op here so this particle
-            // dispatcher's match stays exhaustive.
+            // The melee slash is drawn by
+            // `rendering::slash_visuals::spawn_slash_effects`. No-op here so the
+            // match stays exhaustive.
             VfxMessage::Slash { .. } => {}
             VfxMessage::ResetEffects { from, to } => {
                 spawn_reset_effects(&mut commands, spawn_scope, world, from, to);
@@ -394,11 +378,10 @@ pub fn vfx_spawn_messages(
     }
 }
 
-/// Can `fx` be drawn as ART right now, and from what?
+/// Can `fx` be drawn as art now, and from what?
 ///
-/// The decision `spawn_effect` makes, factored out so a test can ask the engine
-/// rather than re-derive it: `None` here IS the particle fallback. Two ways to
-/// get it — the id names no shipped row, or the sheet holding that row is not
+/// The decision `spawn_effect` makes, factored out for tests. `None` means the
+/// particle fallback: the id names no shipped row, or the row's sheet is not
 /// decoded in these assets.
 pub fn resolve_drawable(
     assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
@@ -416,19 +399,16 @@ pub fn resolve_drawable(
 
 /// How big an unscaled authored effect is drawn, in world units.
 ///
-/// the number is now the DEFAULT, not the answer. A move authors
-/// `Vfx { scale }` (see `MoveEventKind::Vfx`), so a flourish asks for less and a
-/// super asks for more — which is the expressive range the constant took away.
-/// This value is a little under a fighter's height on purpose: an effect the
-/// same size as the body reads as the body's own, which is what a move's burst
-/// is.
+/// This is the default. A move can author `Vfx { scale }` (see
+/// `MoveEventKind::Vfx`). The value is a little under a fighter's height, so
+/// the effect reads as the body's own burst.
 pub const FX_DEFAULT_WORLD_SIZE: f32 = 56.0;
 
-/// Draw the authored effect `fx`, or say why not.
+/// Draw the authored effect `fx`, or fall back.
 ///
-/// Three ways this ends, and they are different facts: the id names no shipped row (a counted miss
-/// — the authored id is wrong or the art was never made); the sheet holding the row is not decoded
-/// (`--no-assets`, or a build whose FX manifests were not baked); or it draws.
+/// Three outcomes: the id names no shipped row (a counted miss: wrong id or
+/// missing art); the row's sheet is not decoded (`--no-assets`, or FX
+/// manifests not baked); or it draws.
 fn spawn_effect(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -475,37 +455,27 @@ fn spawn_effect(
 
 /// The generic hit marker: what an ordinary impact looks like.
 ///
-/// the art was already shipped and nothing asked for it. The engine's
-/// own `generic_action_fx` sheet carries `hit_soft`, `hit_hard`, `hit_metal` and
-/// `hit_energy`; the marker is simply a consumer that never joined — the same
-/// shape as the 189-rows-on-disk / 5-reachable-from-Rust finding that
-/// `ambition_sprite_sheet::fx` was built to close.
+/// Uses the engine's `generic_action_fx` sheet, which has `hit_soft`,
+/// `hit_hard`, `hit_metal`, and `hit_energy`.
 ///
-/// `hit_soft` for every impact, deliberately. [`ambition_vfx:ImpactMaterial`] already
-/// distinguishes flesh / robot / metal, and the sheet already draws all three — but the
-/// material lives on the VICTIM's `HurtFeedback` and `VfxMessage:Impact` carries a position and
-/// nothing else, so joining those two vocabularies is a message change and a taste call, not
-/// part of giving the marker art.
+/// `hit_soft` for every impact. [`ambition_vfx:ImpactMaterial`] tells flesh,
+/// robot, and metal apart, but the material is on the victim's `HurtFeedback`
+/// and `VfxMessage:Impact` has only a position. Joining them needs a message
+/// change and a design decision.
 pub const GENERIC_HIT_FX: FxId = FxId::from_static("hit_soft");
 
 /// How big a generic hit draws, as a multiple of [`FX_DEFAULT_WORLD_SIZE`].
 ///
-/// MEASURED, not reasoned. The first attempt read the sheet's
-/// `body_pixel_bbox` (48 of a 128px frame) and predicted that `0.9` would draw a
-/// 19-unit spark. Photographed, its solid core came out 51 x 56 world units:
-/// the bbox describes ONE rect of the opening frame, and the clip's later frames
-/// fill the square. So the drawn size is the frame size, `0.9 x 56 = 50` — as
-/// tall as the 46-unit fighter being hit.
-///
-/// `0.6` puts the spark at about 34 units, two-thirds of a fighter: unmistakable at the contact
-/// point without becoming the thing you look at.
+/// Measured, not derived. The sheet's `body_pixel_bbox` (48 of a 128px frame)
+/// describes only the opening frame; later frames fill the square, so the drawn
+/// size is the frame size. At `0.6` the spark is about 34 units, two-thirds of
+/// a 46-unit fighter: clear at the contact point, but not the focus.
 const GENERIC_HIT_FX_SCALE: f32 = 0.6;
 
 /// Draw the shipped hit art at `pos`, or fall back to the bare marker.
 ///
-/// the fallback is [`spawn_impact`] and NOT [`spawn_effect`]'s particle burst:
-/// a composition with no decoded sheets should look exactly as it did before,
-/// and a burst of 24 sparks per hit is not "exactly as before".
+/// The fallback is [`spawn_impact`], not [`spawn_effect`]'s particle burst,
+/// so a composition with no decoded sheets looks as it did before.
 fn spawn_hit_marker(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -533,9 +503,9 @@ fn spawn_hit_marker(
     );
 }
 
-/// Spawn one resolved effect clip. The half of [`spawn_effect`] that runs
-/// once the art is in hand, shared with [`spawn_hit_marker`] so the two cannot
-/// drift in how an effect is sized, posed, animated or scoped.
+/// Spawn one resolved effect clip. Shared by [`spawn_effect`] and
+/// [`spawn_hit_marker`] so both size, pose, animate, and scope effects the
+/// same way.
 #[allow(clippy::too_many_arguments)]
 fn draw_effect_clip(
     commands: &mut Commands,
@@ -550,9 +520,9 @@ fn draw_effect_clip(
 ) {
     let scale = scale.max(0.1);
     let render_size = BVec2::splat(FX_DEFAULT_WORLD_SIZE * scale);
-    // NOT `build_character_sprite_with_render_size`: that opens on
-    // `CharacterAnim::Idle`, and an effect sheet has no idle row — asking for
-    // one panics. The first frame of the clip is the right opening frame anyway.
+    // Not `build_character_sprite_with_render_size`: that opens on
+    // `CharacterAnim::Idle`, and an effect sheet has no idle row, so it
+    // panics. The clip's first frame is the correct opening frame.
     let mut sprite = Sprite::from_atlas_image(
         asset.texture.clone(),
         bevy::image::TextureAtlas {
@@ -561,8 +531,8 @@ fn draw_effect_clip(
         },
     );
     sprite.custom_size = Some(render_size);
-    // `FxPose:UPRIGHT` is the identity, so every emitter that never had an opinion draws
-    // exactly as before.
+    // `FxPose:UPRIGHT` is the identity, so emitters with no pose draw as
+    // before.
     sprite.flip_x = pose.mirror;
     let mut animator = CharacterAnimator::new(asset);
     animator.request_clip(
@@ -580,7 +550,7 @@ fn draw_effect_clip(
             EffectVisual {
                 pos,
                 age: 0.0,
-                // the AUTHORED length, not a magic 0.72.
+                // The authored clip length.
                 duration: effect.clip_secs().max(0.05),
             },
         ),
@@ -604,9 +574,8 @@ fn speech_bubble_progress(age: f32, duration: f32) -> f32 {
     (age / duration).clamp(0.0, 1.0)
 }
 
-/// The slow float every line does while it fades. Shared, bounded by 14, and
-/// applied to the ANCHOR the line asks for — the placement pass adds whatever
-/// further lift the frame turns out to need.
+/// The slow float every line does while it fades, at most 14. Applied to the
+/// anchor; the placement pass adds any further lift the frame needs.
 fn speech_bubble_rise(age: f32, duration: f32) -> f32 {
     SPEECH_BUBBLE_BASE_RISE * speech_bubble_progress(age, duration)
 }
@@ -621,13 +590,11 @@ fn speech_bubble_alpha(age: f32, duration: f32) -> f32 {
     alpha.clamp(0.0, 1.0)
 }
 
-/// Say where the line wants to be and how strongly it wants to be seen — and
-/// stop there.
+/// Publish where the line wants to be and how visible it wants to be.
 ///
-/// it writes neither the `Transform` nor the `TextColor`. The placement pass
-/// is the single writer of both for every [`WorldLabel`], and two writers
-/// sharing one placement is how a label drifts: a pass that reads back the
-/// transform it moved last frame accumulates its own correction.
+/// It writes neither `Transform` nor `TextColor`. The placement pass is the
+/// only writer of both for every [`WorldLabel`]. With two writers, a pass that
+/// reads back its own last transform accumulates its correction and drifts.
 fn publish_speech_bubble_label(
     world: &ae::World,
     bubble: &SpeechBubbleVisual,
@@ -761,20 +728,17 @@ pub fn spawn_speech_bubble(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
-    // The speaker's head, in world space. Where the line is DRAWN is not
-    // decided here and cannot be: the placement pass separates it from every
-    // other world label on the next pass over the frame.
+    // The speaker's head, in world space. The placement pass decides where
+    // the line is drawn, on its next pass.
     pos: ae::Vec2,
     text: &str,
-    // The face the bubble draws in. Threaded rather than repaired a frame later
-    // (the way `label_layout` patches world labels) because a bubble lives about
-    // a second and fades the whole time — one frame in the wrong font is a
-    // meaningful fraction of the thing.
+    // The bubble's font. Passed in, not patched a frame later like
+    // `label_layout` does, because a bubble lives about a second and one
+    // frame in the wrong font is noticeable.
     font: &TextFont,
 ) {
-    // this line is why the font MATTERS here more than anywhere else: the bubble supplies its
-    // own non-ASCII. Left at `TextFont::default()` the curly quotes resolved Bevy's built-in
-    // `FiraMono-subset.ttf` — the same handle the menu tofu came down to. See
+    // The bubble adds its own non-ASCII quotes. With `TextFont::default()`
+    // they resolve to Bevy's `FiraMono-subset.ttf`, which lacks them. See
     // `ambition_menu::render::bevy_ui::MenuFont`.
     let bubble_text = format!("\u{201c}{text}\u{201d}");
     let Some(session_scope) = session_scope else {
@@ -793,22 +757,21 @@ pub fn spawn_speech_bubble(
                 font_size: FontSize::Px(18.0),
                 ..font.clone()
             },
-            // width only. `TextBounds`' own doc says characters outside
-            // the bounds after wrapping are TRUNCATED, so a height bound would
-            // silently eat the end of a long bark — the one thing worse than a
-            // wide one.
+            // Width only. `TextBounds` truncates characters outside the bounds
+            // after wrapping, so a height bound would cut off a long bark.
             TextBounds {
                 width: Some(SPEECH_BUBBLE_MAX_WIDTH),
                 height: None,
             },
-            // Wrapped lines centre under each other, so the bubble stays a
-            // block over its speaker rather than a left-aligned ladder.
+            // Wrapped lines centre under each other, so the bubble stays a block
+            // over its speaker.
             TextLayout::justify(Justify::Center),
             TextColor(text_color),
             Name::new(format!("Speech bubble: {text}")),
         ),
     );
-    // Two speakers can say the same words from the same spot; only the entity is theirs alone.
+    // Two speakers can say the same words from the same spot; only the
+    // entity is unique.
     let owner_id = format!("speech:{}", bubble.id().index());
     let mut label = WorldLabel::new(owner_id, WorldLabelFamily::Speech, Vec3::ZERO)
         .with_colors(text_color, Some(outline_color));
@@ -833,15 +796,15 @@ pub fn spawn_speech_bubble(
                         font_size: FontSize::Px(18.0),
                         ..font.clone()
                     },
-                    // the shadow must wrap EXACTLY as the line it shadows;
-                    // a different bound here is four ghosts at four offsets.
+                    // The shadow must wrap exactly like the line; a different bound
+                    // gives four misaligned copies.
                     TextBounds {
                         width: Some(SPEECH_BUBBLE_MAX_WIDTH),
                         height: None,
                     },
                     TextLayout::justify(Justify::Center),
-                    // Painted every frame by the placement pass along with the
-                    // line it shadows; this is only the first frame's value.
+                    // The placement pass paints this every frame with the line; this
+                    // is only the first frame's value.
                     TextColor(outline_color),
                     Transform::from_xyz(offset.x, offset.y, -0.1),
                     SpeechBubbleOutline,
@@ -931,16 +894,16 @@ const fn particle_gravity(kind: ParticleKind) -> f32 {
     }
 }
 
-/// How far the FURTHEST particle of a burst travels, in world units.
+/// How far the furthest particle of a burst travels, in world units.
 ///
 /// [`update_particles`] damps velocity by [`particle_drag`] every frame, which
 /// integrates to `v0/drag * (1 - e^(-drag * t))`; the furthest particle leaves
 /// at the full `speed` and lives [`BURST_MIN_LIFETIME`] +
 /// [`BURST_LIFETIME_SPREAD`].
 ///
-/// ⭐ Exposed because a caller that has to keep a burst ON SCREEN needs the
-/// burst's ENVELOPE, not its centre, and a caller that re-derives the envelope
-/// beside the spawner drifts from it the first time a drag constant moves.
+/// Public because a caller that keeps a burst on screen needs its envelope,
+/// not its centre. A copy of this formula elsewhere would drift when a drag
+/// constant changes.
 pub fn burst_reach(speed: f32, kind: ParticleKind) -> f32 {
     let drag = particle_drag(kind);
     let lifetime = BURST_MIN_LIFETIME + BURST_LIFETIME_SPREAD;
@@ -996,14 +959,11 @@ pub fn spawn_burst(
     }
 }
 
-/// One coin, up and back down — the acknowledgement a struck coin block owes.
+/// One coin, up and back down: the acknowledgement for a struck coin block.
 ///
-/// A single ballistic particle rather than a burst: the coin leaves straight up, gravity brings
-/// it back, and it is gone inside a third of a second.
-///
-/// the four numbers are the whole feel and they are together on purpose.
-/// Rise, gravity, size and colour are the dials worth turning; everything else
-/// about the effect follows from them.
+/// One ballistic particle, not a burst: the coin goes straight up, gravity
+/// brings it back, and it is gone within a third of a second. Rise, gravity,
+/// size, and colour are the tuning values; everything else follows from them.
 pub fn spawn_coin_pop(
     commands: &mut Commands,
     session_scope: Option<SessionSpawnScope>,
@@ -1029,7 +989,7 @@ pub fn spawn_coin_pop(
             ParticleVisual {
                 kind: ParticleKind::Shard,
                 pos,
-                // NEGATIVE y is up: world y is down-positive here.
+                // Negative y is up: world y is down-positive.
                 vel: ae::Vec2::new(0.0, -RISE_SPEED),
                 age: 0.0,
                 // Long enough to rise and fall back past where it started.
@@ -1144,8 +1104,8 @@ pub fn update_blink_preview(
     let session_scope = spawn_scope.expect("active preview requires a spawn scope");
     let target = fact.target;
     let precision = fact.precision;
-    // Match the post-blink burst palette so the preview reads as
-    // "this is what's about to happen here".
+    // Match the post-blink burst palette, so the preview shows what is
+    // about to happen.
     let color = if precision {
         rgba(0.92, 0.42, 1.00, 0.85)
     } else {
@@ -1193,14 +1153,10 @@ pub fn update_blink_preview(
 mod tests {
     use super::*;
 
-    /// The generic hit marker names a row the art actually ships.
+    /// The generic hit marker names a row that the art ships.
     ///
-    /// The only thing that would notice is somebody photographing a match, which is how it was
-    /// found the first time.
-    ///
-    /// the id is a one-way hash, so this asks the index rather than
-    /// comparing strings: `authored_effect_for` answers only for a name the
-    /// shipped sheets carry.
+    /// The id is a one-way hash, so this asks the index instead of comparing
+    /// strings: `authored_effect_for` answers only for a shipped name.
     #[test]
     fn the_generic_hit_marker_names_a_shipped_row() {
         let effect = authored_effect_for(GENERIC_HIT_FX).expect(
@@ -1211,13 +1167,12 @@ mod tests {
         assert_eq!(effect.sheet, "generic_action_fx");
     }
 
-    /// Every shipped effect row is addressable by its hashed name, and the
-    /// sound comes with it.
+    /// Every shipped effect row is addressable by its hashed name, and the sound
+    /// comes with it.
     ///
-    /// The index is the whole vocabulary now, so its size is the number of rows
-    /// the art actually ships — not a number anyone typed. Asserting both
-    /// directions on a sample keeps the *pairing* honest: the same string that
-    /// finds the clip finds the cue.
+    /// The index size is the number of shipped rows, not a typed number. Checking
+    /// both lookups on a sample makes sure the same string finds the clip and the
+    /// cue.
     #[test]
     fn an_effect_id_resolves_to_its_row_and_its_cue() {
         assert_eq!(
@@ -1250,12 +1205,8 @@ mod tests {
         }
     }
 
-    /// The old five are ordinary rows now.
-    ///
-    /// `ExplosionKind`'s variants were the five rows of one sheet, reached
-    /// through three tables. They resolve through exactly the same path as the
-    /// other 184 — which is the claim the deletion rests on, so it is worth
-    /// saying out loud rather than inferring from the absence of the enum.
+    /// The five `generic_explosions` rows resolve through the same path as every
+    /// other row.
     #[test]
     fn the_five_former_enum_variants_take_the_same_path_as_every_other_row() {
         use ambition_vfx::fx::ids;
@@ -1270,28 +1221,24 @@ mod tests {
             assert_eq!(effect.name, name);
             assert_eq!(effect.sheet, "generic_explosions");
         }
-        // and one from outside it, resolved by the same call — the property
-        // the enum made impossible.
+        // A row from another sheet, resolved by the same call.
         assert_eq!(
             authored_effect_for(ids::SONIC_BOOM).map(|e| e.sheet),
             Some("generic_exotic_fx"),
         );
     }
 
-    /// An id no sheet carries resolves to nothing rather than to row 0 of
-    /// something — the `unwrap_or(0)` habit `first_bound_row` exists to refuse.
+    /// An id no sheet carries resolves to nothing, not to row 0 of something.
     #[test]
     fn an_unknown_effect_resolves_to_nothing_not_to_row_zero() {
         assert!(authored_effect_for(FxId::new("kaboom")).is_none());
         assert!(effect_cue(FxId::new("kaboom")).is_none());
     }
-    /// A request's SOURCE survives the fan-out.
+    /// A request's source survives the fan-out.
     ///
-    /// `dispatch_move_events` scopes its `Sfx` arm by the event's presentation source, and its
-    /// `Vfx` arm writes a bare `VfxMessage::Effect` — going around the pairing.
-    ///
-    /// both arms asserted: the unscoped default must stay on the plain write,
-    /// or every existing caller changes behaviour to buy this.
+    /// `dispatch_move_events` scopes its `Sfx` arm by the event's presentation
+    /// source, and its `Vfx` arm writes a bare `VfxMessage::Effect`. Both arms
+    /// are checked: the unscoped default must stay on the plain write.
     #[test]
     fn a_requests_presentation_source_reaches_the_cue_it_pairs() {
         use ambition_sfx::{OwnedSfxMessage, PresentationSourceId};
@@ -1330,10 +1277,9 @@ mod tests {
         );
     }
 
-    // ── Speech-bubble placement (, then ) ────────────────────────────
-    //
-    // The column is gone: a bubble is a `WorldLabel` and the shared ranked pass separates it from
-    // every other world label, its own family included.
+    // Speech-bubble placement. A bubble is a `WorldLabel`, and the shared
+    // ranked pass separates it from every other world label, its own family
+    // included.
 
     use crate::rendering::label_layout::{
         label_size, LabelBox, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin,
@@ -1373,9 +1319,8 @@ mod tests {
                 SessionRoot(SessionScopeId(0)),
                 ambition_platformer2d_core::RoomGeometry(stage()),
             ));
-            // The pass ranks per VIEW, so a composition without one places
-            // nothing at all — a fixture that forgot this would pass by
-            // drawing nobody.
+            // The pass ranks per view, so without a view it places nothing and
+            // the test would pass vacuously.
             app.world_mut().spawn((
                 ambition_sim_view::LocalView,
                 ambition_sim_view::LocalViewId::FIRST,
@@ -1413,9 +1358,9 @@ mod tests {
             ));
         }
 
-        /// `app.update()` is NOT a tick of sim time, so the clock is
-        /// advanced explicitly. Ageing is what makes "the older line" mean
-        /// anything, and it is what moves a line's anchor as it floats.
+        /// `app.update()` does not advance sim time, so advance the clock
+        /// explicitly. Ageing orders the lines and moves each anchor as it
+        /// floats.
         fn tick(&mut self, secs: f32) {
             self.app
                 .world_mut()
@@ -1457,8 +1402,7 @@ mod tests {
         }
     }
 
-    /// No two drawn labels occupy the same pixels — the property, stated where
-    /// the reader looks.
+    /// No two drawn labels occupy the same pixels.
     #[track_caller]
     fn assert_no_overlap(drawn: &[(String, LabelBox)]) {
         for (i, (a_text, a)) in drawn.iter().enumerate() {
@@ -1477,8 +1421,8 @@ mod tests {
 
     /// Two lines from two speakers never print through each other.
     ///
-    /// The pass has no per-speaker offset to be right about: it compares the BOXES the lines land
-    /// in, in one space.
+    /// The pass has no per-speaker offset: it compares the boxes the lines use,
+    /// in one space.
     #[test]
     fn speakers_at_different_heights_do_not_print_through_each_other() {
         let floor = |x: f32| ae::Vec2::new(x, 225.44);
@@ -1502,9 +1446,8 @@ mod tests {
             assert_no_overlap(&lines);
         }
 
-        // The photographed frame: George from the floor twice, then the pirate
-        // from the air — and the same three arriving as ONE burst, which is how
-        // two CPUs taunting on the same tick reach the renderer.
+        // George from the floor twice, then the pirate from the air; and the
+        // same three as one burst, as when two CPUs taunt on the same tick.
         for burst in [false, true] {
             let mut frame = SpeechFrame::new();
             let arrivals = [
@@ -1527,17 +1470,15 @@ mod tests {
 
     /// A line already on screen and a line born this frame are placed together.
     ///
-    /// The behavioural half. What the two deleted make-room routines could not
-    /// give was that each swept its own population, so a bubble cleared every
-    /// member of the other list and could still land on one of them. The pass
-    /// has one population by construction — it iterates the labels that exist.
+    /// The pass iterates every label that exists, so a new bubble is placed
+    /// against live bubbles and other labels in one population.
     #[test]
     fn a_live_line_and_a_line_born_this_frame_are_placed_together() {
         let mut frame = SpeechFrame::new();
         frame.say(ae::Vec2::new(150.7, 225.44), TAUNT);
         frame.tick(1.0 / 60.0);
-        // A beat passes, so the second line meets a LIVE entity rather than a
-        // queued neighbour, which is the whole point.
+        // A beat passes, so the second line meets a live entity, not a queued
+        // neighbour.
         frame.tick(0.2);
         frame.say(ae::Vec2::new(180.6, 196.62), BELAY);
         frame.tick(1.0 / 60.0);
@@ -1549,14 +1490,12 @@ mod tests {
 
     /// Four fighters all get a line, and a fifth speaker never costs legibility.
     ///
-    /// A four-fighter free-for-all is the widest supported match, so four lines
-    /// at four heights is the load the placement budget is sized for. The
-    /// fifth is the honest limit: a line the pass cannot place is HIDDEN, never
-    /// drawn onto its neighbour.
+    /// A four-fighter match is the widest supported, so four lines at four
+    /// heights is what the placement budget is sized for. A fifth line that the
+    /// pass cannot place is hidden, never drawn over its neighbour.
     #[test]
     fn a_four_fighter_free_for_all_fits_and_a_fifth_never_prints_through() {
-        // Four fighters at four heights — the same assorted anchors measured, which is where
-        // its per-speaker offsets cancelled.
+        // Four fighters at four assorted heights.
         let assorted = [
             (ae::Vec2::new(131.1, 225.44), TAUNT),
             (ae::Vec2::new(150.7, 208.84), BELAY),
@@ -1576,8 +1515,7 @@ mod tests {
         );
         assert_no_overlap(&lines);
 
-        // A fifth speaker: whatever the budget allows is drawn, and nothing
-        // that is drawn is drawn through anything else.
+        // A fifth speaker: whatever fits is drawn, and nothing drawn overlaps.
         frame.say(ae::Vec2::new(210.0, 200.0), "Five of us?");
         frame.tick(1.0 / 60.0);
         let lines = frame.drawn_lines();
@@ -1606,13 +1544,12 @@ mod tests {
         assert_no_overlap(&drawn);
     }
 
-    /// The plate holds its ground and the LINE moves.
+    /// The plate stays and the line moves.
     ///
-    /// The ranking argument, asserted rather than described: a plate is
-    /// permanent furniture on a body the eye is tracking, so displacing it
-    /// would make it hop once per taunt; a bubble is born rising and gone in
-    /// two seconds. `WorldLabelFamily`'s declaration order says so and this is
-    /// what says it is still true.
+    /// A plate is on a body the eye tracks, so displacing it would make it hop
+    /// once per taunt; a bubble already rises and is gone in two seconds.
+    /// `WorldLabelFamily`'s declaration order encodes this, and this test checks
+    /// it.
     #[test]
     fn the_bubble_yields_to_the_name_plate_and_not_the_other_way_round() {
         let speaker = ae::Vec2::new(150.7, 225.44);
@@ -1647,25 +1584,19 @@ mod tests {
 
 /// Install the reusable FX cue pipeline: requests fan out, spawn, then age.
 ///
-/// ⭐ THE CAPABILITY OWNS ITS OWN THREE-STAGE ORDER. The host registered these eight
-/// systems and carried every ordering argument for them; both move here, where the
-/// systems and the sets they name live.
+/// This function owns the three-stage order. `Platformer2dSimulationPhaseMonolith`
+/// and `session_world_exists` come from `ambition_platformer2d_shared_tangle`
+/// (already a dependency), and `rendering::WorldLabelLayoutSet` is this
+/// crate's own.
 ///
-/// ⚠ NO DEPENDENCY INVERTS. `Platformer2dSimulationPhaseMonolith` and
-/// `session_world_exists` are `ambition_platformer2d_shared_tangle`'s — which this
-/// crate already depends on, despite the monolith-shaped name — and
-/// `rendering::WorldLabelLayoutSet` is this crate's own.
-///
-/// ⛔ THE THREE STAGES ARE NOT COSMETIC AND THEIR REASONS MOVED WITH THEM:
-/// · Requests fan out into typed visual/audio messages, so they must land BEFORE the
-///   subscriber (`vfx_spawn_messages`) reads them.
-/// · A speech bubble is spawned by `vfx_spawn_messages` and PLACED by the shared
-///   world-label pass, so `.before(WorldLabelLayoutSet)` buys the sync point that lets a
-///   line born this frame be placed this frame rather than drawing once at its raw
-///   anchor.
-/// · Age / integrate / despawn last. Without them a spawned particle is a sprite that
-///   never moves and never leaves — so moving the spawner alone would have been the
-///   worse half of the fix.
+/// The three stages:
+/// · Requests fan out into typed visual and audio messages, so they must run
+///   before the subscriber (`vfx_spawn_messages`) reads them.
+/// · `vfx_spawn_messages` spawns speech bubbles and the shared world-label
+///   pass places them, so `.before(WorldLabelLayoutSet)` gives the sync point
+///   that places a new line this frame instead of at its raw anchor.
+/// · Age, integrate, and despawn last. Without them a particle never moves
+///   and never leaves.
 pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_exists;
     use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
@@ -1708,18 +1639,13 @@ pub fn install_fx_pipeline(app: &mut bevy::prelude::App) {
 mod install_tests {
     /// The installer registers all three stages of the FX pipeline.
     ///
-    /// ⛔⛔ THIS EXISTS BECAUSE A POISON COULD NOT WITNESS THE CARVE. Deleting the
-    /// `install_fx_pipeline` call from the host leaves `app_it` at 578/578 — not because
-    /// the pipeline is unused (`ambition_combat::moveset` writes `FxRequest` in
-    /// production) but because the app suite is HEADLESS and asserts no visual outcome.
-    /// ⇒ "The suite stayed green" is evidence about the SUITE here, not about the move,
-    /// so the move needs a check that can see it.
+    /// The app suite is headless and checks no visual outcome, so removing the
+    /// `install_fx_pipeline` call would not fail it. This test checks the
+    /// installer directly.
     ///
-    /// ⚠ BY COUNT, and the count is the whole point: carving systems out of a
-    /// composition and dropping one is silent, and dropping a `.chain()` edge is
-    /// silent too. This pins that all eight arrive. It does NOT pin the edges — Bevy
-    /// strips system names without its `debug` feature, so an edge-level assertion in
-    /// this build would compare placeholders and pass vacuously.
+    /// It checks by count: dropping a system or a `.chain()` edge is otherwise
+    /// silent. It does not check edges, because Bevy strips system names without
+    /// its `debug` feature, so an edge assertion would pass vacuously.
     #[test]
     fn the_fx_installer_registers_every_stage() {
         use bevy::prelude::*;
@@ -1736,17 +1662,11 @@ mod install_tests {
         update
             .initialize(app.world_mut())
             .expect("the Update schedule initializes");
-        // ⚠ ELEVEN, NOT EIGHT, AND THE DIFFERENCE IS BEVY'S: the eight registered
-        // systems plus the three `apply_deferred` sync points it inserts between chained
-        // members. ⛔ They cannot be filtered out here — Bevy strips system names
-        // without its `debug` feature, so every row reads "<Enable the debug feature to
-        // see the name>" and an `ends_with("apply_deferred")` filter matches NOTHING.
-        // Tried, and it left the count unchanged at 11.
-        //
-        // ⇒ So the number includes them, deliberately and with the arithmetic written
-        // down. It still catches the failure this guard is for — a stage dropped in the
-        // carve — and it WILL move if Bevy changes its sync-point policy, which is a
-        // legible reason to re-read this line rather than a silent break.
+        // Eleven: the eight registered systems plus the three `apply_deferred`
+        // sync points Bevy inserts between chained members. They cannot be
+        // filtered out, because without the `debug` feature every system name
+        // is a placeholder. If Bevy changes its sync-point policy, update this
+        // count.
         assert_eq!(
             update.systems_len(),
             11,

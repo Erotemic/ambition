@@ -1,16 +1,15 @@
 //! The measurement the semantic typography layer stands on.
 //!
 //! [`ambition_render::ui_fonts::UiFonts::text_font`] answers "product UI,
-//! semibold" with a FAMILY plus a WEIGHT instead of a handle to a particular
-//! file. That is only true if Ambition's two bundled Inter faces actually
-//! register as ONE family in Parley's collection, distinguished by weight — and
-//! that depends on which OpenType name record fontique reads. This file asks the
-//! real font files, through Bevy's own registration system.
+//! semibold" with a family plus a weight, not a handle to a file. That works
+//! only if the two bundled Inter faces register as one family in Parley's
+//! collection, told apart by weight. That depends on which OpenType name
+//! record fontique reads. These tests check the real font files through
+//! Bevy's own registration system.
 //!
-//! ⛔ THE BYTES ARE `include_bytes!`, NOT A FILESYSTEM PROBE. A missing bundled
-//! font must not turn this into a test that silently passes by skipping; it is a
-//! compile error instead, which is the same contract
-//! `ambition_asset_manager::platformer_assets::embedded` already relies on.
+//! The bytes use `include_bytes!`, not a filesystem probe, so a missing
+//! bundled font is a compile error, not a silent skip. Same contract as
+//! `ambition_asset_manager::platformer_assets::embedded`.
 
 use bevy::asset::Assets;
 use bevy::prelude::*;
@@ -33,10 +32,9 @@ const JETBRAINS_MONO: &[u8] = include_bytes!(
     "../../ambition_platformer2d_actor_monolith/assets/fonts/bundled/JetBrainsMono-Regular.ttf"
 );
 
-/// A world holding the three bundled faces, registered exactly the way the app
-/// registers them: as `Font` ASSETS, swept into the collection by Bevy's own
-/// system. Nothing here reaches into fontique directly, because what has to be
-/// true is a fact about the path the game uses.
+/// A world with the three bundled faces, registered like the app does: as
+/// `Font` assets, added to the collection by Bevy's own system. Nothing here
+/// calls fontique directly, because the fact must hold on the game's path.
 fn app_with_bundled_fonts() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
@@ -45,11 +43,10 @@ fn app_with_bundled_fonts() -> App {
         .init_resource::<FontCx>()
         .add_systems(Update, load_font_assets_into_font_collection);
 
-    // ⛔ THE HANDLES MUST BE HELD. Dropping them releases the assets before the
+    // Hold the handles. If they drop, the assets are released before the
     // next frame, the collection is rebuilt without them, and every assertion
-    // below reads an EMPTY family list — which is the same contract `UiFonts`
-    // states for holding its three handles, demonstrated here by having got it
-    // wrong first.
+    // below sees an empty family list. `UiFonts` holds its handles for the
+    // same reason.
     let mut held = Vec::new();
     for bytes in [INTER_REGULAR, INTER_SEMIBOLD, JETBRAINS_MONO] {
         let font = Font::from_bytes(bytes.to_vec());
@@ -69,15 +66,13 @@ fn app_with_bundled_fonts() -> App {
 #[derive(Resource)]
 struct HeldFonts(#[allow(dead_code)] Vec<Handle<Font>>);
 
-/// ⭐⭐ THE LOAD-BEARING FACT: two files, ONE family, TWO weights.
+/// Two files, one family, two weights.
 ///
-/// `InterDisplay-Regular.otf` carries family name (id 1) "Inter Display".
-/// `InterDisplay-SemiBold.otf` carries family name (id 1) "Inter Display
-/// SemiBold" — a DIFFERENT string — but typographic family name (id 16)
-/// "Inter Display", and fontique reads id 16 first. If that preference ever
-/// flips, these are two unrelated families, `FontSource::Family` can no longer
-/// express "semibold", and every caller has to go back to knowing which file is
-/// which. This test is what would say so.
+/// `InterDisplay-Regular.otf` has family name (id 1) "Inter Display".
+/// `InterDisplay-SemiBold.otf` has family name (id 1) "Inter Display
+/// SemiBold", but typographic family name (id 16) "Inter Display", and
+/// fontique reads id 16 first. If that preference changes, these become two
+/// unrelated families and `FontSource::Family` cannot express "semibold".
 #[test]
 fn the_two_bundled_inter_faces_are_one_family_with_two_weights() {
     let mut app = app_with_bundled_fonts();
@@ -117,7 +112,7 @@ fn the_two_bundled_inter_faces_are_one_family_with_two_weights() {
     );
 }
 
-/// Debug monospace is a different ROLE, and so a different family — not a weight.
+/// Debug monospace is a different role, so a different family, not a weight.
 #[test]
 fn debug_monospace_is_its_own_family() {
     let mut app = app_with_bundled_fonts();
@@ -130,11 +125,11 @@ fn debug_monospace_is_its_own_family() {
     assert_ne!(PRODUCT_FAMILY, DEBUG_MONO_FAMILY);
 }
 
-/// ⛔ AND THE FALLBACK STILL HAS TO BE STATED, not discovered.
+/// With nothing loaded, no family is named.
 ///
-/// An unresolvable `FontSource::Family` does not error — Parley falls back — so
-/// naming a family whose file never loaded would turn "no bundled font" from a
-/// warned condition into invisible tofu.
+/// An unresolvable `FontSource::Family` falls back silently, so naming a
+/// family whose file never loaded would turn a warned condition into
+/// invisible tofu.
 #[test]
 fn nothing_loaded_names_no_family() {
     let fonts = UiFonts::default();

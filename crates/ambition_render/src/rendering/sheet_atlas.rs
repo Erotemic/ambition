@@ -1,22 +1,20 @@
-//! Record → atlas plumbing for animated-prop / effect visuals (the shrine
-//! obelisk, the `robot_slash` melee effect, …).
+//! Record-to-atlas plumbing for animated-prop and effect visuals (the shrine
+//! obelisk, the `robot_slash` melee effect, and so on).
 //!
-//! These are thin name-keyed adapters over the ONE frame algebra in
-//! [`ambition_sprite_sheet`]: an effect addresses its sheet by animation name,
-//! so these resolve the name to a record row and then delegate the pixel work
-//! (atlas cells, flat index) to the shared `SheetRecord` methods. No frame-rect
-//! or inset math lives here anymore — it's the same implementation the
-//! character and boss readers use, so a regenerated (or future packed) effect
-//! sheet flows through unchanged.
+//! Thin name-keyed adapters over the frame algebra in [`ambition_sprite_sheet`].
+//! An effect addresses its sheet by animation name; these resolve the name to
+//! a record row and delegate the pixel work (atlas cells, flat index) to the
+//! shared `SheetRecord` methods, the same implementation the character and
+//! boss readers use.
 //!
 //! Effect sheets are single-page and untrimmed by policy (see the renderer's
-//! pack-group classification), so page 0 + the page-local flat index is the
-//! whole story here; if an effect ever needs paging/trim it graduates to the
-//! `CharacterAnimator` path that already drives both.
+//! pack-group classification), so page 0 and the page-local flat index are
+//! enough. An effect that needs paging or trim moves to the
+//! `CharacterAnimator` path.
 //!
-//! Name resolution goes through the binding boundary. Now a miss is recorded in the caller's
-//! [`BindingLedger`] and the caller reports it; the visible fallback stays, but the run also says
-//! what it could not find.
+//! Name resolution goes through the binding boundary: a miss is recorded in
+//! the caller's [`BindingLedger`] and the caller reports it. The visible
+//! fallback still draws.
 
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
 use ambition_sprite_sheet::character::build_atlas_layout;
@@ -30,9 +28,9 @@ const FRAME_INSET: u32 = 1;
 /// Everything needed to play one row of an effect sheet: where its frames start
 /// in the flat atlas, how many there are, and how long each is held.
 ///
-/// One struct rather than three name-keyed lookups, because the three facts come
-/// from the same row and a caller that resolves the name once cannot end up
-/// mixing row `up`'s start with row `down`'s frame count.
+/// One struct, not three name-keyed lookups: the three facts come from the
+/// same row, so a caller cannot mix one row's start with another's frame
+/// count.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct RowPlayback {
     pub(crate) start: usize,
@@ -48,9 +46,8 @@ pub(crate) fn atlas_layout_from_record(record: &SheetRecord) -> TextureAtlasLayo
 
 /// Resolve `animation` against `record`'s rows, recording a miss in `ledger`.
 ///
-/// `declared_by` names the visual asking, so the report reads
-/// "unknown anim row `activate` declared by `shrine visual`" rather than leaving
-/// a reader to guess which of a dozen effect sheets is wrong.
+/// `declared_by` names the visual asking, so the report reads "unknown anim
+/// row `activate` declared by `shrine visual`".
 pub(crate) fn row_playback(
     record: &SheetRecord,
     animation: &str,
@@ -58,9 +55,8 @@ pub(crate) fn row_playback(
     ledger: &mut BindingLedger,
 ) -> Option<RowPlayback> {
     let rows = record.anim_rows();
-    // A regenerated sheet with two rows called `idle` resolves to the first and
-    // draws fine, so nothing ever complained — while the second row, and every
-    // frame in it, was unreachable.
+    // Two rows with the same name resolve to the first, so the second row
+    // is unreachable without any error. Report duplicates.
     ledger.note_duplicates(&rows, format!("sheet `{}`", record.key));
     let bound = ledger.resolve(&rows, &AnimRowRef::new(animation), declared_by)?;
     let row = record.row(&bound);

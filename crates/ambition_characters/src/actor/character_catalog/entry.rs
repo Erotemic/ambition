@@ -825,7 +825,6 @@ pub enum BrainPreset {
         reaction_delay_s: f32,
         commit_probability: f32,
         accuracy: f32,
-        mash_speed_hz: f32,
     },
 }
 

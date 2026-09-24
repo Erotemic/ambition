@@ -105,8 +105,7 @@ Remaining acceptance work is product/content work
   ⚠ **STILL OPEN:** the high-route-beats-safe-route comparison — completion is
   proven, the two-route contest is not.
 
-The detailed 2026-07-11 recovery investigation is archived at
-docs/archive/reviews/sanic-visible-playable-recovery-2026-07-11.md (removed from the checkout 2026-09-05; still in git history) (docs/archive/reviews/sanic-visible-playable-recovery-2026-07-11.md — removed from the checkout 2026-09-05; still in git history).
+Git history has the detailed 2026-07-11 recovery investigation.
 
 ## Consumes
 

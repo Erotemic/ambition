@@ -14,17 +14,15 @@ use crate::bindings::{BindingRecipe, PhysicalControl};
 
 /// One physical button, and the gameplay action a layout puts on it.
 ///
-/// `action: None` is a DECLARED BLANK, not an omission: the layout claims the button (so whatever
-/// the base preset had there is cleared) and deliberately leaves it dead.
+/// `action: None` is a declared blank, not an omission: the layout claims the
+/// button (clearing what the base preset had there) and leaves it dead.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PadSlot {
     pub button: GamepadButton,
-    /// What this layout puts on the button — or `None` for a button it CLAIMS
-    /// and leaves empty.
-    ///
-    /// the `None` is load-bearing, not a placeholder: [`BindingLayout::apply`] clears every claimed
-    /// button's gameplay bindings first and only then binds the ones with an action, so a blank
-    /// slot is how a layout TAKES A BUTTON AWAY from the base preset without giving it a new verb.
+    /// What this layout puts on the button, or `None` to claim it and leave it
+    /// empty. [`BindingLayout::apply`] clears every claimed button first and
+    /// then binds the slots that have an action, so a blank slot removes a
+    /// button from the base preset.
     pub action: Option<Platformer2dInputActionMonolith>,
 }
 
@@ -37,10 +35,9 @@ const fn slot(button: GamepadButton, action: Platformer2dInputActionMonolith) ->
 
 /// Which game/mode layout a seat's pad is arranged for.
 ///
-/// A fact about the GAME, not about the player and not about the pad hardware.
-///  it is NOT [`crate::settings::ControllerProfileId`] — that one is
-/// HARDWARE CALIBRATION (deadzones, trigger thresholds per pad brand) and is a
-/// different axis entirely. A Steam Controller playing smash needs both.
+/// A fact about the game, not the player or the pad hardware. It is not
+/// [`crate::settings::ControllerProfileId`], which is hardware calibration
+/// (deadzones, trigger thresholds per pad brand). A seat can need both.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BindingLayout {
     /// The base preset's own pad, untouched. Ambition's layout: A=Jump.
@@ -49,12 +46,12 @@ pub enum BindingLayout {
     Smash,
 }
 
-/// | DPadUp / DPadDown | Taunt | Move | Movement is stick-only in a fighter, which is what the genre does and what frees a button for a taunt. |
+/// The smash pad layout. DPadUp and DPadDown taunt, because a fighter moves on
+/// the stick only.
 ///
-/// Everything the table does not name is the base preset's: RightTrigger still
-/// shields and interacts, RightTrigger2 still fires the burst, the sticks,
-/// Select/Start and the thumb clicks are untouched. *"The rest of the bindings
-/// are normal I think."*
+/// Buttons not listed keep the base preset: RightTrigger still shields and
+/// interacts, RightTrigger2 still fires the burst, and the sticks,
+/// Select/Start, and thumb clicks do not change.
 const SMASH_PAD: &[PadSlot] = &[
     slot(
         GamepadButton::South,
@@ -66,9 +63,7 @@ const SMASH_PAD: &[PadSlot] = &[
         Platformer2dInputActionMonolith::Special,
     ),
     slot(GamepadButton::North, Platformer2dInputActionMonolith::Grab),
-    //  the D-pad taunts, because a fighting game moves on the STICK. That
-    // is the genre's own layout; the base preset's `DPad → Move` is what a
-    // platform fighter gives up to get a taunt button at all.
+    // The d-pad taunts; a fighter moves on the stick.
     slot(
         GamepadButton::DPadUp,
         Platformer2dInputActionMonolith::Taunt,
@@ -88,9 +83,9 @@ const SMASH_PAD: &[PadSlot] = &[
 ];
 
 impl BindingLayout {
-    /// The buttons this layout CLAIMS, and what it puts on each. `Standard`
-    /// claims nothing — it is the base preset speaking for itself, so there is
-    /// no second table to keep in step with `insert_gamepad_bindings`.
+    /// The buttons this layout claims, and what it puts on each. `Standard`
+    /// claims nothing, so there is no second table to keep in step with
+    /// `insert_gamepad_bindings`.
     pub fn pad_slots(self) -> &'static [PadSlot] {
         match self {
             Self::Standard => &[],
@@ -100,10 +95,9 @@ impl BindingLayout {
 
     /// Layer this layout onto a built map.
     ///
-    /// Clear-then-install, in two passes rather than one: a single pass would
-    /// let the clear for a later slot remove what an earlier slot just
-    /// installed, since one action may legitimately appear on two buttons
-    /// (Shield does).
+    /// Clear all claimed buttons first, then install, in two passes. One pass
+    /// would let a later slot's clear remove an earlier slot's install, because
+    /// one action can be on two buttons (Shield is).
     pub fn apply(self, map: &mut InputMap<Platformer2dInputActionMonolith>) {
         let slots = self.pad_slots();
         if slots.is_empty() {
@@ -120,13 +114,11 @@ impl BindingLayout {
     }
 }
 
-/// Take `button` away from every GAMEPLAY action that binds it.
+/// Remove `button` from every gameplay action that binds it.
 ///
-///  not `clear_action`, which would drop the action's KEYBOARD half too —
-/// a layout re-arranges a pad and must not silently unbind somebody's keys.
-/// The removal is by BUTTON, through the same `PhysicalControl` projection a
-/// prompt reads, so "what this layout displaced" is by construction what the
-/// screen was showing.
+/// Do not use `clear_action`: it also drops the action's keyboard bindings.
+/// Removal is by button, through the same `PhysicalControl` projection that
+/// prompts read, so what the layout displaces is what the screen showed.
 fn clear_gameplay_bindings_of(
     map: &mut InputMap<Platformer2dInputActionMonolith>,
     button: GamepadButton,
@@ -157,24 +149,21 @@ fn clear_gameplay_bindings_of(
     }
 }
 
-/// What a game asks its pad to mean. Present means a mode has declared a
-/// layout; absent means [`BindingLayout::Standard`] — the base preset speaking
-/// for itself, which is Ambition's answer.
+/// The pad layout a game declares. When absent, the layout is
+/// [`BindingLayout::Standard`] (the base preset, Ambition's layout).
 ///
-/// A resource rather than a per-seat setting because it is a fact about the
-/// GAME, and every seat in a match plays the same game. That is also why
-/// [`apply_active_binding_layout_to_recipes`] reaches EVERY participant and not
-/// just the primary, unlike the keyboard-preset sync beside it: a preset is one
-/// person's taste, a layout is the mode's.
+/// This is a resource, not a per-seat setting, because it is a fact about the
+/// game and all seats play the same game. For this reason
+/// [`apply_active_binding_layout_to_recipes`] writes every participant, not
+/// only the primary as the keyboard-preset sync does.
 ///
-///  DECLARE, don't edit. The alternative — teaching `insert_gamepad_bindings` about smash
-/// — would make one game's taste every game's default, and the rule is the opposite: *"B=jump
-/// is the way I like my smash controller, it's probably non standard."* A=Jump stays right for
-/// Ambition, and it stays right by the smash layout never touching it.
+/// Games declare a layout; they do not edit `insert_gamepad_bindings`. That
+/// keeps one game's preference (smash: B=Jump) out of every game's default
+/// (Ambition: A=Jump).
 ///
-/// Same shape as `DeclaredCombatRules`, for the same reason: the declaration
-/// carries its OWNER so an experience leaving can give back its own without
-/// deleting another provider's. Two games in one binary is the normal case here.
+/// Like `DeclaredCombatRules`, the declaration records its owner, so an
+/// experience that leaves removes only its own declaration. Two games in one
+/// binary is normal.
 #[derive(Resource, Clone, Debug, PartialEq, Eq)]
 pub struct DeclaredBindingLayout {
     /// Which shell experience declared this layout.
@@ -197,30 +186,25 @@ impl DeclaredBindingLayout {
 
 /// Carry the declared layout into every seat's [`BindingRecipe`].
 ///
-/// It writes the RECIPE, not the map — so a layout change goes through exactly
-/// the machinery a preset change and a remap already go through
-/// (`rebuild_maps_from_recipes` rebuilds, `publish_seat_bindings` re-projects
-/// the glyphs, the touch overlay's `Changed<InputMap>` hook re-binds), and
-/// there is no second path that could disagree with the first.
+/// This writes the recipe, not the map. A layout change therefore uses the
+/// same path as preset changes and remaps (`rebuild_maps_from_recipes`
+/// rebuilds, `publish_seat_bindings` updates glyphs, the touch overlay's
+/// `Changed<InputMap>` hook re-binds). There is no second path.
 ///
-///  must run AFTER the settings→recipe sync and BEFORE the rebuild. The
-/// settings sync rewrites the primary's whole recipe from the persisted preset;
-/// it carries the current layout forward for exactly this reason, and the
-/// ordering is the belt to that suspenders.
+/// Run after the settings-to-recipe sync and before the rebuild. The settings
+/// sync rewrites the primary's recipe from the persisted preset and also
+/// carries the current layout forward; the ordering is a second guard.
 ///
-///  and the absent case is LIVE, not a no-op. Removing the declaration on
-/// the way out of a mode is how the pad goes back to normal — a system that
-/// only acted when a declaration existed would leave B jumping in Ambition
-/// forever after one smash match.
+/// The absent case also writes. Removing the declaration when a mode exits is
+/// how the pad goes back to `Standard`.
 pub fn apply_active_binding_layout_to_recipes(
     declared: Option<Res<DeclaredBindingLayout>>,
     mut recipes: Query<&mut BindingRecipe>,
 ) {
     let wanted = declared.map(|d| d.layout).unwrap_or_default();
     for mut recipe in &mut recipes {
-        // Write only on a real change: `BindingRecipe` is `Changed`-watched by
-        // the rebuild, and touching it every frame would reset every seat's
-        // `ActionState` every frame.
+        // Write only on a real change. The rebuild watches `BindingRecipe`
+        // with `Changed`, so a write each frame resets every `ActionState`.
         if recipe.layout != wanted {
             recipe.layout = wanted;
         }
@@ -232,8 +216,8 @@ mod tests {
     use super::*;
     use crate::presets::KeyboardPreset;
 
-    /// What a button DRIVES, so a test asks about the pad rather than about a
-    /// table's insertion order.
+    /// The gameplay actions a button drives, so tests ask about the pad and
+    /// not about table insertion order.
     fn gameplay_actions_on(
         map: &InputMap<Platformer2dInputActionMonolith>,
         button: GamepadButton,
@@ -260,7 +244,7 @@ mod tests {
         map
     }
 
-    ///  the permutation, stated as "one button, one verb".
+    /// The permutation, stated as "one button, one verb".
     #[test]
     fn every_button_the_smash_layout_claims_drives_exactly_one_verb() {
         let map = smash_pad();
@@ -298,9 +282,8 @@ mod tests {
         }
     }
 
-    /// The displaced actions, named — because "it is legitimate for the profile
-    /// to leave it unbound" is a DECISION and has to be visible, not a silent
-    /// drop nobody noticed.
+    /// The displaced actions are named, because leaving them unbound on the
+    /// pad is a decision.
     #[test]
     fn the_actions_smash_displaces_lose_the_pad_and_keep_the_keyboard() {
         let base = KeyboardPreset::arrows_zxc().input_map();
@@ -359,11 +342,10 @@ mod tests {
         }
     }
 
-    ///  THE RULING: this is a profile, not a new default.
+    /// The smash layout is a profile, not a new default.
     ///
-    /// Applying the smash layout to one map must not move Ambition's pad. If
-    /// this ever goes red, somebody edited the shared preset instead of adding
-    /// a layout, and every other game silently inherited one game's taste.
+    /// Applying it to one map must not change Ambition's pad. A failure means
+    /// the shared preset was edited instead of adding a layout.
     #[test]
     fn installing_the_smash_layout_does_not_move_the_generic_preset() {
         let before = KeyboardPreset::of(KeyboardPreset::by_index(0).id)
@@ -389,7 +371,7 @@ mod tests {
         assert_ne!(smash, after, "…and the smash map really is different");
     }
 
-    /// `Standard` is the base speaking for itself — no second table to drift.
+    /// `Standard` is the base preset unchanged; there is no second table.
     #[test]
     fn the_standard_layout_is_the_identity() {
         let mut map = KeyboardPreset::arrows_zxc().input_map();

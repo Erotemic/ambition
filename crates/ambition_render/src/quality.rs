@@ -11,16 +11,14 @@ use ambition_persistence::settings::{DetectedGpuClass, UserSettings, VisualQuali
 
 pub use ambition_persistence::settings::ResolvedVisualQuality;
 
-/// The resource and the system that keeps it true, together.
+/// The resource and the system that keeps it current, together.
 ///
-/// They were apart, and the half that MOVES was app-local. `ResolvedVisualQuality` was
-/// initialised by `PlatformerPresentationPlugin` (and again by `game/ambition_app`), while
-/// `sync_resolved_visual_quality` — the only thing that ever reads `UserSettings` into it — was
-/// registered by the app alone.
+/// `sync_resolved_visual_quality` is the only reader of `UserSettings` into
+/// `ResolvedVisualQuality`, so it must be installed wherever the resource is.
 ///
-/// Idempotent (`is_unique() -> false` plus a marker) because two plugins
-/// legitimately need it: `PlatformerPresentationPlugin` for a demo, and
-/// `SessionRoomVisualsPlugin` for the shipped host, which adds that one alone.
+/// Idempotent (`is_unique() -> false` plus a marker), because two plugins
+/// need it: `PlatformerPresentationPlugin` for a demo, and
+/// `SessionRoomVisualsPlugin` for the shipped host, which adds only that one.
 pub struct VisualQualityPlugin;
 
 /// Present once [`VisualQualityPlugin`] has built.
@@ -39,21 +37,13 @@ impl Plugin for VisualQualityPlugin {
         app.insert_resource(VisualQualityInstalled);
         log_quality_profile_override();
         app.init_resource::<ResolvedVisualQuality>();
-        // ⭐ STARTUP, AND ONCE — but AFTER the settings file lands.
-        //
-        // ⛔⛔ `PostStartup`, NOT `PreStartup`. `load_settings_at_startup` runs
-        // in `Startup` and REPLACES the whole `UserSettings` resource with the
-        // file's contents. Seeding before it meant the load overwrote the
-        // seeded tier and restored the file's `hardware_seeded: false` — and
-        // because this system is startup-only it never ran again. An existing
-        // install on an integrated GPU, which is the exact machine the seed was
-        // written for, therefore migrated on no boot, ever. A fresh install
-        // (no file, the loader returns early) migrated fine, which is why the
-        // unit tests on `seed_from_hardware` and a first-run play-through both
-        // looked correct.
-        //
-        // `PostStartup` still precedes the first `Update`, so the pair below
-        // reads the seeded tier into the resolved budget before frame one.
+        // Once, in `PostStartup`, after the settings file loads.
+        // `load_settings_at_startup` runs in `Startup` and replaces the whole
+        // `UserSettings` resource with the file's contents. Seeding earlier would
+        // be overwritten, and the file's `hardware_seeded: false` restored, so an
+        // existing install would never be seeded. `PostStartup` still precedes the
+        // first `Update`, so the pair below reads the seeded tier before frame
+        // one.
         app.add_systems(PostStartup, seed_visual_quality_from_adapter);
         app.add_systems(
             Update,
@@ -74,11 +64,9 @@ impl Plugin for VisualQualityPlugin {
 /// Translate the graphics API's adapter class into the tier policy's own
 /// vocabulary.
 ///
-/// ⭐ THE TRANSLATION IS ALL THIS SEAM DOES. Which tier a class of hardware
-/// should start on is `ambition_persistence`'s decision, next to the tiers it
-/// decides between and testable without a GPU — which is the only way it is
-/// testable on the machines it matters for. This function is the only place in
-/// the codebase that names `wgpu::DeviceType`.
+/// This function only translates. Which tier a hardware class starts on is
+/// decided in `ambition_persistence`, beside the tiers, where it is testable
+/// without a GPU. This is the only place that names `wgpu::DeviceType`.
 fn detected_gpu_class(device_type: wgpu::DeviceType) -> DetectedGpuClass {
     match device_type {
         wgpu::DeviceType::DiscreteGpu => DetectedGpuClass::Discrete,
@@ -89,24 +77,22 @@ fn detected_gpu_class(device_type: wgpu::DeviceType) -> DetectedGpuClass {
     }
 }
 
-/// Seed the visual quality tier from the adapter the renderer actually came up
-/// on — ONCE, on a profile the player has not touched.
+/// Seed the visual quality tier from the renderer's adapter, once, on a
+/// profile the player has not changed.
 ///
-/// ⛔⛔ A DETECTED DEFAULT IS A FIRST-RUN SEED, NEVER A PER-BOOT OVERRIDE.
-/// Re-deciding every launch would silently undo the settings menu. Both guards
-/// live in [`VisualQualitySettings::seed_from_hardware`] — a persisted
-/// `hardware_seeded` flag AND the profile still being the untouched default —
-/// so this system only supplies the adapter class and reports what happened.
+/// A detected default is a first-run seed, never a per-boot override:
+/// deciding every launch would undo the settings menu. Both guards are in
+/// [`VisualQualitySettings::seed_from_hardware`] (a persisted
+/// `hardware_seeded` flag, and the profile still at the default), so this
+/// system only supplies the adapter class and reports the result.
 ///
-/// ⚠ WHY IT IS NEEDED: `default_visual_quality_profile()` decides by TARGET OS,
-/// so every desktop booted `High`, including one whose renderer is an Intel
-/// HD 630. Measured on `calculex` 2026-08-29: p50 51.0ms (~19.6 FPS) at High.
-/// The OS was never the thing that made it slow.
+/// Needed because `default_visual_quality_profile()` decides by target OS, so
+/// every desktop starts at `High`, even on an integrated GPU (Intel HD 630
+/// measured p50 51 ms at High).
 ///
-/// ⛔ EVERY PARAM IS OPTIONAL AND THAT IS DELIBERATE. A headless composition has
-/// no `RenderAdapterInfo` and a fixture may carry no `UserSettings`; a `Res` that
-/// matches nothing is a system-param VALIDATION PANIC, not a skip. A world with
-/// no renderer has no adapter to read, which is an ordinary state here.
+/// Every parameter is optional. A headless composition has no
+/// `RenderAdapterInfo` and a fixture may have no `UserSettings`; a `Res` that
+/// matches nothing panics in parameter validation.
 pub fn seed_visual_quality_from_adapter(
     adapter: Option<Res<bevy::render::renderer::RenderAdapterInfo>>,
     settings: Option<ResMut<UserSettings>>,
@@ -130,9 +116,9 @@ pub fn seed_visual_quality_from_adapter(
     }
 }
 
-/// Say once, at startup, that a forced profile is in force — and say it when the
-/// value was set but not understood, which is the case that would otherwise look
-/// exactly like the override working.
+/// Log once, at startup, that a forced profile is active. Also log when the
+/// value is set but not understood, which would otherwise look like the
+/// override working.
 fn log_quality_profile_override() {
     let Ok(raw) = std::env::var(ambition_persistence::settings::QUALITY_PROFILE_ENV) else {
         return;
@@ -189,26 +175,21 @@ pub fn sync_portal_quality_budget(
 /// Apply the [`RasterBudget`](ambition_persistence::settings::RasterBudget): the
 /// DPI-scale cap on the window, and MSAA on every camera that draws to it.
 ///
-/// ⭐ THESE ARE THE TWO COSTS THAT SCALE WITH SCREEN AREA. Every other knob in
-/// the quality budget trades away scene detail; these trade away fragments, and
-/// on hardware without a discrete GPU the fragments are the frame. Measured on
-/// `calculex` (Intel HD 630) 2026-08-29: a 1600x900 window on a 2x Wayland
-/// session rasterised at 3200x1800, every full-screen pass reported exactly
-/// 5,760,000 fragment invocations, and the frame sat at a p50 of ~50ms.
+/// These are the two costs that scale with screen area. Other budget knobs
+/// trade scene detail; these trade fragments, and without a discrete GPU the
+/// fragments are the frame. (Example: a 1600x900 window on a 2x Wayland
+/// session rasterized at 3200x1800 on an Intel HD 630, at p50 ~50 ms.)
 ///
-/// ⛔ CAPTURE CAMERAS ARE NOT TOUCHED. `ambition_render::capture` pins
-/// `Msaa::Off` on the image targets it adopts, deliberately, and a blanket
-/// write here would undo it. Only cameras whose target is a WINDOW are the
-/// screen-area cost this budget is about.
+/// Capture cameras are not touched. `ambition_render::capture` sets
+/// `Msaa::Off` on the image targets it adopts, and a blanket write would undo
+/// it. Only window-target cameras are in scope.
 ///
-/// ⚠ THE SCALE CAP IS A REQUEST, AND THE INSTRUMENT THAT CONFIRMS IT ALREADY
-/// EXISTS. `set_scale_factor_override` asks winit for a smaller buffer; whether
-/// a given compositor honours it by upscaling (what we want) rather than by
-/// shrinking the window is a property of the platform, not of this code. The
-/// check is one number in any profiling bundle:
-/// `render/upscaling/fragment_shader_invocations` is the framebuffer's pixel
-/// count exactly. If capping the scale does not divide it, the cap did not take
-/// and the next lever is an explicit reduced render target — do not assume.
+/// The scale cap is a request. `set_scale_factor_override` asks winit for a
+/// smaller buffer; whether the compositor upscales (wanted) or shrinks the
+/// window depends on the platform. To check, read
+/// `render/upscaling/fragment_shader_invocations` in a profiling bundle: it
+/// equals the framebuffer's pixel count. If capping does not reduce it, the
+/// cap did not apply, and the next step is an explicit reduced render target.
 pub fn sync_raster_budget(
     quality: Res<ResolvedVisualQuality>,
     mut windows: Query<&mut Window, With<bevy::window::PrimaryWindow>>,
@@ -219,7 +200,7 @@ pub fn sync_raster_budget(
 
     for mut window in &mut windows {
         // Read through `Deref` so an unchanged window is not marked changed;
-        // only the assignment below takes `DerefMut`.
+        // only the assignment below uses `DerefMut`.
         let reported = window.resolution.base_scale_factor();
         let desired = raster.effective_scale_factor(reported);
         if window.resolution.scale_factor_override() != desired {
@@ -245,11 +226,9 @@ pub fn sync_raster_budget(
 
 /// The hardware seed against the schedule that actually runs it.
 ///
-/// ⭐ THESE ARE INTEGRATION TESTS ON PURPOSE. `seed_from_hardware` is unit
-/// tested next to the tiers it decides between, and those tests pass whether or
-/// not the seed ever reaches a real settings file — the whole defect this
-/// module had was an ORDERING one, invisible to any test that calls the
-/// function directly.
+/// Integration tests on purpose. `seed_from_hardware` has unit tests beside
+/// the tiers, but those pass whether or not the seed reaches a real settings
+/// file. The risk here is ordering, which only the real schedule shows.
 #[cfg(test)]
 mod seed_schedule_tests {
     use super::*;
@@ -272,9 +251,8 @@ mod seed_schedule_tests {
                 driver: String::new(),
                 driver_info: String::new(),
                 backend: wgpu::Backend::Noop,
-                // wgpu 29 added these; `AdapterInfo` has no `Default`, so they
-                // are spelled out. Inert here for the same reason as the rest:
-                // the seed reads `device_type` and `name`.
+                // wgpu 29 added these; `AdapterInfo` has no `Default`, so they are
+                // written out. Inert: the seed reads only `device_type` and `name`.
                 device_pci_bus_id: String::new(),
                 subgroup_min_size: 0,
                 subgroup_max_size: 0,
@@ -289,10 +267,9 @@ mod seed_schedule_tests {
         let mut app = App::new();
         app.insert_resource(root);
         app.init_resource::<UserSettings>();
-        // The schedule plugin installs the SAVE systems beside the settings
-        // ones and they take their resource non-optionally; the composition
-        // that ships inits both. Naming them here keeps this test on the real
-        // plugin rather than a hand-copied subset of its schedule.
+        // The schedule plugin installs the save systems too, and they need their
+        // resource. The shipped composition inits both; doing so here keeps the
+        // test on the real plugin.
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
         app.add_plugins(PersistenceSchedulePlugin);
         app.add_plugins(VisualQualityPlugin);
@@ -300,19 +277,16 @@ mod seed_schedule_tests {
         app
     }
 
-    /// ⛔⛔ THE CASE THE FEATURE WAS WRITTEN FOR. An install that predates the
-    /// seed has a settings file on disk with no `hardware_seeded` key, so serde
-    /// gives it `false` — and that file lands in `Startup`, after `PreStartup`.
-    /// Seeding before the load meant the load overwrote the seed AND restored
-    /// the un-seeded flag, and the startup-only system never ran again: the
-    /// exact machine this was for migrated on no boot, ever.
+    /// An install from before the seed has a settings file with no
+    /// `hardware_seeded` key, so serde gives `false`, and that file loads in
+    /// `Startup`. The seed must still apply after the load.
     #[test]
     fn an_existing_settings_file_still_receives_its_first_run_seed() {
         let root = PersistenceRoot::isolated();
         let path = settings_path_under(&root.0);
         let mut stored = UserSettings::default();
-        // Proof the file was really loaded — without it a green result could
-        // just mean the load silently did nothing.
+        // Proof the file was loaded; otherwise a pass could mean the load did
+        // nothing.
         stored.audio.master_volume = 0.37;
         assert!(
             !stored.video.quality.hardware_seeded,
@@ -342,9 +316,7 @@ mod seed_schedule_tests {
         );
     }
 
-    /// The other half of the same order: a player who ALREADY chose a tier keeps
-    /// it. Moving the seed after the load is what makes this arm reachable at
-    /// all — before, the load always won by accident.
+    /// A player who already chose a tier keeps it.
     #[test]
     fn a_chosen_tier_in_an_existing_file_survives_the_seed() {
         let root = PersistenceRoot::isolated();
@@ -369,9 +341,7 @@ mod seed_schedule_tests {
         );
     }
 
-    /// A fresh install — no file — must still seed. This is the case the
-    /// original `PreStartup` placement did get right, and moving the system
-    /// must not lose it.
+    /// A fresh install with no file must still seed.
     #[test]
     fn a_fresh_install_with_no_settings_file_is_seeded() {
         let root = PersistenceRoot::isolated();
@@ -390,10 +360,9 @@ mod seed_schedule_tests {
         );
     }
 
-    /// The migration REACHES DISK. `hardware_seeded` is the guard that stops
-    /// the seed re-examining a player every boot, and it only does that job if
-    /// the settings writer commits it — the seed writes the resource, and the
-    /// `Update` writer is what makes the answer durable.
+    /// The migration reaches disk. `hardware_seeded` stops the seed from
+    /// re-examining a player every boot only if the settings writer commits it:
+    /// the seed writes the resource, and the `Update` writer persists it.
     #[test]
     fn the_seed_is_persisted_so_it_is_not_re_examined_next_boot() {
         let root = PersistenceRoot::isolated();

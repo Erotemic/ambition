@@ -8,9 +8,8 @@
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::ActorSpriteMetrics;
 
-// The volumes this module returns are shaped now, so the LIB stopped measuring
-// boxes with this trait — but the sibling test modules still do, and they
-// inherit their imports from here through `use super::*`.
+// The library no longer uses this trait, but the sibling test modules do, and
+// they get their imports from here through `use super::*`.
 #[cfg_attr(not(test), allow(unused_imports))]
 use ambition_platformer2d_core::AabbExt;
 
@@ -21,22 +20,14 @@ use ambition_characters::brain::{BossAttackProfile, BossAttackState};
 use super::behavior::BossBehaviorProfile;
 
 mod frame;
-// ⭐⭐ THE UNIVERSAL HALF LEFT FOR `ambition_combat::body_geometry` (2026-08-28,
-// D117): `CombatGeometry`, `AnimationSelection`, `SimpleActorGeometry`, the
-// hurtbox/collision derivation and the pixel-rect → world AABB math. What is left
-// here is the BOSS half — the context a boss feeds that math, its impl of the
-// trait, and the per-profile strike geometry.
+// The universal half is in `ambition_combat::body_geometry`:
+// `CombatGeometry`, `AnimationSelection`, `SimpleActorGeometry`, the
+// hurtbox/collision derivation and the pixel-rect → world AABB math. This
+// module has the boss half: the context a boss feeds that math, its impl of
+// the trait, and the per-profile strike geometry.
 //
-// ⛔ RE-EXPORTED rather than repointed at ~30 in-crate call sites, and that is the
-// ONE republication this crate keeps on purpose: the names are re-exported here
-// because the boss half's own signatures speak them. ⚠ A CONSUMER OUTSIDE THIS
-// CRATE SHOULD NAME `ambition_combat::body_geometry` — republishing a peer
-// domain's vocabulary under this crate's address is the defect four carves went
-// looking for today.
-// ⭐ `pub(crate)` NOW, 2026-08-28: every consumer outside this crate names
-// `ambition_combat::body_geometry` directly, so the re-export is no longer a
-// republication of a peer domain — it is this crate's own convenience, and the
-// compiler enforces that rather than a comment asking for it.
+// Re-exported `pub(crate)` for this crate's own signatures only. Consumers
+// outside this crate name `ambition_combat::body_geometry` directly.
 pub(crate) use ambition_combat::body_geometry::*;
 use frame::*;
 
@@ -50,21 +41,21 @@ pub struct BossVolumeContext<'a> {
     pub combat_size: ae::Vec2,
     pub behavior: &'a BossBehaviorProfile,
     pub attack_state: &'a BossAttackState,
-    /// Sprite-driven body metrics. `Some` for bosses whose sprite
-    /// RON carries `body_metrics` and the derivation system has
-    /// snapshotted it. `damageable_volumes` prefers multi-rect
-    /// hurtboxes from here over the legacy single-AABB fallback.
+    /// Sprite-driven body metrics. `Some` for bosses whose sprite RON carries
+    /// `body_metrics` and the derivation system has captured it.
+    /// `damageable_volumes` prefers multi-rect hurtboxes from here over the
+    /// single-AABB fallback.
     pub sprite_metrics: Option<&'a ambition_sprite_sheet::ActorSpriteMetrics>,
     /// Optional frame sample from the live boss sprite animator.
     /// When present and its profile matches the requested attack,
-    /// sprite-authored hit/hurt boxes use this exact frame index
-    /// instead of re-deriving a frame from attack timers. That keeps
-    /// gameplay/debug boxes locked to the rendered animation frame.
+    /// sprite-authored hit/hurt boxes use this exact frame index, not a frame
+    /// derived from attack timers, so gameplay and debug boxes follow the
+    /// rendered frame.
     pub animation_frame: Option<&'a BossAnimationFrameSample>,
     /// Boss facing (sign of x). The sprite flips horizontally to face the
-    /// player, so an off-center body's hurtboxes must mirror too — otherwise
-    /// they land on the wrong side when the boss faces left. `1.0` = right
-    /// (no mirror), `< 0.0` = flipped. See [`mirror_x_if_flipped`].
+    /// player, so an off-center body's hurtboxes must mirror too, or they land
+    /// on the wrong side when the boss faces left. `1.0` = right (no mirror),
+    /// `< 0.0` = flipped. See [`mirror_x_if_flipped`].
     pub facing: f32,
 }
 
@@ -105,9 +96,9 @@ impl<'a> BossVolumeContext<'a> {
         Self {
             boss_catalog,
             pos: boss.kin.pos,
-            // The sprite render-BASIS (AS4b) — the world scale sprite-metric hurtboxes
-            // derive from. Was `kin.size`; that's now the COLLISION envelope, so read
-            // the render basis explicitly to keep hurtbox scaling byte-identical.
+            // The sprite render basis: the world scale sprite-metric hurtboxes
+            // derive from. `kin.size` is the collision envelope, so read the
+            // render basis explicitly.
             size: boss.render_size(),
             combat_size: boss.combat_size(),
             behavior: &boss.config.behavior,
@@ -182,14 +173,13 @@ impl CombatGeometry for BossVolumeContext<'_> {
 /// against the player body by the damage system. Returns empty when
 /// no strike is live (`attack_state.active_profile == None`).
 ///
-/// Priority: sprite-author-declared per-animation hitbox (from
-/// `ActorSpriteMetrics::animations[animation_name].hitbox`) wins
-/// over the hardcoded `volumes_for_profile` math. So when an
-/// adapter declares the FloorSlam hitbox as `(4, 88, 120, 30)` in
-/// pixel-frame coords, that's what damages the player — scaled to
-/// world by the boss's render size. Falls back to
-/// `volumes_for_profile` when the sprite has no per-animation
-/// hitbox for this profile.
+/// Priority: the sprite author's per-animation hitbox (from
+/// `ActorSpriteMetrics::animations[animation_name].hitbox`) wins over the
+/// `volumes_for_profile` math. For example, a FloorSlam hitbox declared as
+/// `(4, 88, 120, 30)` in pixel-frame coords is what damages the player,
+/// scaled to world by the boss's render size. Falls back to
+/// `volumes_for_profile` when the sprite has no per-animation hitbox for this
+/// profile.
 pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::CombatVolume> {
     let Some(profile) = ctx.attack_state.active_profile.as_ref() else {
         return Vec::new();
@@ -197,49 +187,41 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::CombatVolume> {
     if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.active_elapsed) {
         return volumes;
     }
-    // The hardcoded strike-geometry table is rectangles by authorship, so it
-    // stays rectangles here — a box that says it is a box costs nothing and
-    // keeps the cheap overlap path.
+    // The strike-geometry table is rectangles by authorship, so it stays
+    // rectangles here and keeps the cheap overlap path.
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
         .into_iter()
         .map(ae::CombatVolume::aabb)
         .collect()
 }
 
-// HOW SPRITE-DECLARED GEOMETRY IS READ, kept as module notes because neither
-// paragraph documents an item in this file any more — they were `///` runs
-// concatenating onto `StrikeRect`'s doc three items below.
+// How sprite-declared geometry is read.
 //
 // A sprite-author-declared hitbox for an attack profile comes from
-// `ctx.sprite_metrics.animations`; `None` (not empty) means the sprite has no
-// hitbox for that animation and the caller falls back to `volumes_for_profile`
-// math, while an empty `Vec` means an entry with no usable rects.
+// `ctx.sprite_metrics.animations`. `None` (not empty) means the sprite has no
+// hitbox for that animation, and the caller falls back to
+// `volumes_for_profile`; an empty `Vec` means an entry with no usable rects.
 //
-// Damageable hurtbox volumes — where the player's attacks register as hits —
-// are one AABB from `combat_size` for a single-piece boss, and one per piece
-// for a multi-part boss (sprite RON carrying `body_pixel_parts`), so
-// head/body/arms hit independently. Animation boxes may carry per-frame
-// samples so a large moving part like GNU-ton's head tracks the drawn pose
-// instead of one coarse per-animation rectangle. The live spawner is
-// `ecs/sync.rs`'s `boss_spawn_hurtboxes`.
+// Damageable hurtbox volumes (where the player's attacks register) are one
+// AABB from `combat_size` for a single-piece boss, and one per piece for a
+// multi-part boss (sprite RON with `body_pixel_parts`), so head/body/arms hit
+// independently. Animation boxes may carry per-frame samples, so a large
+// moving part such as GNU-ton's head follows the drawn pose. The live spawner
+// is `boss_spawn_hurtboxes` in `ecs/sync.rs`.
 
 // No bespoke boss damage poll.
 //
-// NOTE: `active_attack_volumes` / `volumes_for_profile` below are now consumed only by
-// the DEBUG overlay (telegraph/strike gizmos) and the hurtbox-pose selection — the
-// gameplay strike geometry is authored into each boss move's `HitVolume`s at spawn
-// (`boss_attack_moveset`). The sprite-frame-tracking multi-part geometry those helpers
-// still express is the fidelity the static move volumes approximate (bulk-review).
+// `active_attack_volumes` / `volumes_for_profile` are used only by the debug
+// overlay (telegraph/strike gizmos) and the hurtbox-pose selection. Gameplay
+// strike geometry is authored into each boss move's `HitVolume`s at spawn
+// (`boss_attack_moveset`).
 
-/// One body-local strike rectangle, as DATA.
-///
-/// Pure data over `ae::Vec2`; nothing about it needed to be here.
+/// One body-local strike rectangle, as data.
 pub use crate::pattern::profile::StrikeRect;
 
-// Built-in per-profile strike geometry, as DATA. Each was a hardcoded `vec![Aabb::new
-// (..)]` arm in `volumes_for_profile`; the numbers are IDENTICAL (pinned byte-for-byte
-// by `strike_geometry_is_byte_identical_to_the_old_hardcoded_match`). A content boss's
-// authored geometry would slot in beside these.
+// Built-in per-profile strike geometry, as data. Pinned by
+// `strike_geometry_is_byte_identical_to_the_old_hardcoded_match`. A content
+// boss's authored geometry goes beside these.
 const FLOOR_SLAM: &[StrikeRect] = &[StrikeRect {
     offset_factor: ae::Vec2::new(0.0, 0.5),
     offset_const: ae::Vec2::new(0.0, 22.0),
@@ -287,16 +269,16 @@ const CONVERGING_SHOCKWAVE: &[StrikeRect] = &[StrikeRect::scaled(
     ae::Vec2::new(0.90, 0.08),
 )];
 
-/// The body-local strike rectangles for a profile, as DATA. `Special(_)` carries no
-/// body-mounted volume (its damage flows through the content Technique's own effects),
-/// so it returns an empty slice. This is the single per-profile geometry table both the
-/// gameplay path (`boss_attack_moveset` → `HitVolume`s) and the debug/pose fallback
-/// (`volumes_for_profile`) read.
+/// The body-local strike rectangles for a profile, as data. `Special(_)` has
+/// no body-mounted volume (its damage comes from the content technique's own
+/// effects), so it returns an empty slice. Both the gameplay path
+/// (`boss_attack_moveset` → `HitVolume`s) and the debug/pose fallback
+/// (`volumes_for_profile`) read this one table.
 pub fn strike_geometry(move_id: &str) -> &'static [StrikeRect] {
-    // Keyed by the profile's `move_id` (the strike key). The built-in geometry
-    // vocabulary is `BossAttackProfile::BUILTIN_STRIKE_KEYS`; any other key
-    // (a content-technique `Special`, or a geometry strike a boss authors ONLY
-    // via its RON `strike_geometry` override) has no built-in rects here.
+    // Keyed by the profile's `move_id` (the strike key). The built-in
+    // vocabulary is `BossAttackProfile::BUILTIN_STRIKE_KEYS`; any other key (a
+    // content-technique `Special`, or a strike a boss authors only through its
+    // RON `strike_geometry` override) has no built-in rects here.
     match move_id {
         "floor_slam" => FLOOR_SLAM,
         "side_sweep" => SIDE_SWEEP,
@@ -313,29 +295,26 @@ pub fn strike_geometry(move_id: &str) -> &'static [StrikeRect] {
     }
 }
 
-/// World-space hitbox volumes for a specific attack profile — the DATA-driven resolve
-/// of [`strike_geometry`] at this body's origin/size (fable §C6: the geometry is now a
-/// declarative [`StrikeRect`] table, not a hardcoded per-variant `match`). Pure
-/// function of the profile + body fields. Used as the fallback path when the boss has
-/// no `sprite_metrics`-driven per-animation hitbox. The gradient sentinel and (since
-/// ) GNU-ton route through `sprite_authored_volumes` instead — the geometry
-/// table here is still required for bosses whose sprite RONs don't yet carry
-/// per-animation hitbox.parts, AND is the source `boss_attack_moveset` derives each
-/// boss move's `HitVolume`s from at spawn.
+/// World-space hitbox volumes for an attack profile: [`strike_geometry`]
+/// resolved at this body's origin and size. A pure function of the profile and
+/// body fields. It is the fallback when the boss has no
+/// `sprite_metrics`-driven per-animation hitbox (the gradient sentinel and
+/// GNU-ton use `sprite_authored_volumes`), and it is the source
+/// `boss_attack_moveset` derives each boss move's `HitVolume`s from at spawn.
 pub fn volumes_for_profile(
     attack: &BossAttackProfile,
     pos: ae::Vec2,
     combat_size: ae::Vec2,
     behavior: &BossBehaviorProfile,
 ) -> Vec<ae::Aabb> {
-    // The strike origin: the boss body position shifted by its authored attack
-    // offset. Each profile's DATA rects resolve against it.
+    // The strike origin: the boss body position shifted by its authored
+    // attack offset. Each profile's rects resolve against it.
     let origin = pos + behavior.attack_origin_offset;
-    // A boss may AUTHOR its own rects for this move (§C6 "out of core"): an override
-    // in `behavior.strike_geometry` (RON, keyed by `move_id`) REPLACES the built-in
-    // table — so a content boss supplies its strike shapes with no core edit. Empty =
-    // the built-in per-profile geometry. This one resolve feeds BOTH the debug/pose
-    // path AND `boss_attack_moveset`'s gameplay `HitVolume`s (its single source).
+    // A boss may author its own rects for this move: an override in
+    // `behavior.strike_geometry` (RON, keyed by `move_id`) replaces the
+    // built-in table, so a content boss needs no core edit. Empty means the
+    // built-in geometry. This one resolve feeds both the debug/pose path and
+    // `boss_attack_moveset`'s gameplay `HitVolume`s.
     let move_id = attack.move_id();
     let rects: &[StrikeRect] = behavior
         .strike_geometry
@@ -348,11 +327,10 @@ pub fn volumes_for_profile(
         .collect()
 }
 
-// `gnu_ton_part_aabb` / `gnu_ton_sprite_scale` /
-// GNU-ton's per-animation hit/hurt-box geometry lives in
-// `gnu_ton_boss_spritesheet.ron`'s `body_metrics.animations` map, derived via
-// the generic `world_aabb_from_pixel_rect` pixel→world transform (the same one
-// the gradient sentinel uses).
+// GNU-ton's per-animation hit/hurt-box geometry is in
+// `gnu_ton_boss_spritesheet.ron`'s `body_metrics.animations` map, converted by
+// the generic `world_aabb_from_pixel_rect` pixel→world transform (as for the
+// gradient sentinel).
 
 #[cfg(test)]
 mod sprite_metadata_derivation_tests;

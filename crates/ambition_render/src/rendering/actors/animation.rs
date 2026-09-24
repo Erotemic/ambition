@@ -6,19 +6,17 @@ use crate::rendering::primitives::{FeatureVisual, PlayerVisual, PropVisual};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_sprite_sheet::character::CharacterAnimator;
 
-/// How a stance compaction (crouch / crawl / slide / morph) squashes the DRAWN
+/// How a stance compaction (crouch, crawl, slide, morph) squashes the drawn
 /// art, for a sheet that has no row for the compact pose.
 ///
-/// The RATIO is what the collision box did — `current AABB height / base
-/// height`, clamped (0, 1]. The PIVOT is which point of the quad holds still
-/// while that happens, and the two sprite-placement schemes disagree about it,
-/// so it cannot be assumed:
+/// The ratio is the collision-box ratio `current AABB height / base height`,
+/// clamped to (0, 1]. The pivot is the point of the quad that holds still.
+/// The two sprite-placement schemes use different pivots:
 ///
-/// - A FEET-ANCHORED quad puts the body's feet AT the transform, so scaling
-///   about the anchor already holds them.
-/// - An AUTHORED-OFFSET quad is anchored at its CENTRE — the placement is
-///   carried by the translation (`sync_visuals`) — so the same scale lifts the
-///   art clear of the floor. Its foot line is the quad's own +gravity edge.
+/// - A feet-anchored quad puts the feet at the transform, so scaling about
+///   the anchor holds them.
+/// - An authored-offset quad is anchored at its centre and placed by the
+///   translation (`sync_visuals`). Its foot line is the quad's +gravity edge.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct StanceSquash {
     pub(crate) ratio_y: f32,
@@ -49,26 +47,18 @@ impl StanceSquash {
     }
 }
 
-/// The shared animation TAIL every animated actor (player, enemy, NPC) runs:
-/// request the chosen anim, tick the animator by the entity's dt, push the
-/// resulting atlas frame onto the sprite, apply the gravity-aware facing flip,
-/// and set the sprite tint. The per-actor systems differ only in how they SELECT
-/// the anim + tint — pay-for-use: the player's picker reads its rich clusters
-/// (crouch / slide / ladder / blink / …), the enemy/NPC picker reads its small
-/// actor state. The frame-application MECHANISM is identical for every actor, so
-/// it lives here once instead of being duplicated per render path.
+/// The shared animation tail for every animated actor (player, enemy, NPC):
+/// request the anim, tick the animator by the entity dt, set the atlas frame,
+/// apply the gravity-aware facing flip, and set the tint. The per-actor
+/// systems differ only in how they select the anim and tint.
 pub(crate) fn apply_character_frame(
     sprite: &mut Sprite,
     animator: &mut CharacterAnimator,
     anchor: Option<&mut bevy::sprite::Anchor>,
     anim: ambition_sprite_sheet::character::CharacterAnim,
-    // What the body's ACTIVE MOVE asks to be drawn as, when one is playing.
-    //
-    // sprite redirect P0: `anim` is the 56-variant semantic vocabulary and
-    // the new fighter sheets carry rows it has no variant for — `smash_forward`,
-    // `air_dodge`, `tumble`. A move already names its clip and its fallbacks, so
-    // the exact row is drawn when this sheet has it, the author's fallbacks when
-    // it does not, and `anim`'s pose ladder when it has none of them.
+    // The clip that the body's active move requests, if any. `anim` has no
+    // variant for some sheet rows (`smash_forward`, `air_dodge`, `tumble`). The
+    // move names its clip and fallbacks; `anim`'s pose ladder is the last resort.
     clip: Option<&ambition_sim_view::ClipRequest>,
     dt: f32,
     facing: f32,
@@ -76,8 +66,8 @@ pub(crate) fn apply_character_frame(
     color: Color,
     stance: StanceSquash,
 ) {
-    // The stance squash is a PLACEHOLDER for sheets that lack a row for the compact pose (the
-    // fallback then shows standing art at a shrunken AABB).
+    // The stance squash is a placeholder for sheets that lack a row for the
+    // compact pose.
     let stance = if animator.spec.maps(anim) {
         StanceSquash::NONE
     } else {
@@ -105,16 +95,10 @@ pub(crate) fn apply_character_frame(
         atlas.index = index;
     }
     // Gravity-aware facing flip: a ~180° up-gravity roll already mirrors the
-    // sprite, so the flip inverts (fixes #33 "move left, face right upside down").
-    //
-    // XORed with the SHEET's own drawn facing, so the mirror asks "does the
-    // requested facing differ from the facing this art was drawn in" rather
-    // than "is facing negative". `authored_faces_left` is false for all but a
-    // handful of sheets, so every +x-drawn character is byte-identical. This
-    // is the same term `animate_bosses` has applied since the mockingbird —
-    // the character path was simply the half that never got it, which is why
-    // the Patent Clerk (an SVG rig whose paperdoll view is `Side Left`) faced
-    // away from wherever he was going.
+    // sprite, so the flip inverts (#33). The flip is XORed with the sheet's
+    // authored facing (`authored_faces_left`), the same term `animate_bosses`
+    // uses. This makes left-drawn rigs such as the Patent Clerk face the way
+    // they move.
     let flip = ambition_sprite_sheet::art_is_mirrored(
         animator.spec.authored_faces_left(),
         facing,
@@ -122,19 +106,17 @@ pub(crate) fn apply_character_frame(
     );
     sprite.flip_x = flip;
     sprite.color = color;
-    // Compatibility fallback for specialized/legacy sprite construction. Normal
-    // character construction seeds this basis BEFORE the sprite becomes drawable,
-    // which is what prevents frame zero of a packed sheet from flashing at the
-    // full logical size. `ensure_render_basis` is a no-op once initialized.
+    // Compatibility fallback for legacy sprite construction. Normal construction
+    // seeds this basis before the sprite is drawable, so frame zero of a packed
+    // sheet does not flash at full logical size. No-op once initialized.
     if let (Some(size), Some(a)) = (sprite.custom_size, anchor.as_deref()) {
         animator.ensure_render_basis(size, a.0);
     }
     // The anchor x mirrors with the facing flip so an off-centre trim stays consistent
     // left/right.
     if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
-        // Crouch/crawl/slide/morph: scale the trimmed height by the collision-shrink
-        // ratio so the feet stay planted. Without this a trimmed sheet renders
-        // standing height at the lowered crouch pos and sinks through the floor.
+        // Crouch/crawl/slide/morph: scale the trimmed height by the collision
+        // ratio so the feet stay on the floor.
         (size.y, anchor_v.y) = stance.squash(size.y, anchor_v.y);
         sprite.custom_size = Some(size);
         if flip {
@@ -147,10 +129,9 @@ pub(crate) fn apply_character_frame(
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 ///
-/// The anim pick and every cluster read moved SIM-side (E4 slices 1–3):
-/// `rebuild_body_pose_views` resolves the pose in `FeatureViewSync` and this
-/// system is a pure consumer of [`BodyPoseView`] — it only ticks the
-/// animator by presentation dt and pushes the frame onto the sprite.
+/// The anim pick is sim-side: `rebuild_body_pose_views` resolves the pose in
+/// `FeatureViewSync`. This system only consumes [`BodyPoseView`], ticks the
+/// animator by presentation dt, and sets the frame.
 pub fn animate_player(
     presentation_time: ambition_time::PresentationTime,
     mut query: Query<
@@ -164,27 +145,20 @@ pub fn animate_player(
         With<PlayerVisual>,
     >,
 ) {
-    // Iterate EVERY player-bodied visual, not just the primary: the human player
-    // and any brain-driven player clone animate through the identical picker
-    // (sim-side, in the pose rebuild). The player body is not special to
-    // rendering, only the camera/HUD are.
+    // Iterate every player-bodied visual, not only the primary. A brain-driven
+    // player clone uses the same sim-side picker.
     for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
-        // Presentation time uses this rendered frame's delta while applying the authoritative
-        // world-clock and proper-time scales.
+        // Presentation dt, scaled by the world clock and proper time.
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
-        // Hit feedback is drawn by the white-silhouette overlay in
-        // `presentation::rendering::hit_flash` — a sibling mesh that samples this
-        // atlas frame and outputs pure white modulated by the pose's flash fact.
-        // The source sprite stays untinted (`WHITE`); the overlay flashes.
+        // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`.
+        // The source sprite stays `WHITE`.
         apply_character_frame(
             &mut sprite,
             &mut animator,
             anchor.map(|a| a.into_inner()),
             pose.anim,
-            // and the local player's move names its row too — the same
-            // request the actor road carries, so a human-driven fighter and a
-            // CPU one on the same character draw the same animation for the same
-            // move. That is the property the whole seam exists for.
+            // A human and a CPU fighter on the same character draw the same row for
+            // the same move.
             pose.clip.as_ref(),
             dt,
             pose.facing,
@@ -192,26 +166,19 @@ pub fn animate_player(
             Color::WHITE,
             StanceSquash {
                 ratio_y: pose.stance_ratio_y,
-                // The authored placement carries the body on the TRANSLATION and
-                // anchors the quad at its centre, so the squash has nothing at
-                // the feet to pivot on unless it takes the quad's own edge.
+                // The authored placement uses the translation and a centre anchor, so
+                // the squash must pivot on the quad's own foot edge.
                 about_quad_foot: pose.authored_offset.is_some(),
             },
         );
     }
 }
 
-/// Drive enemy AND NPC sprite animation, atlas index, and facing flip.
+/// Drive enemy and NPC sprite animation, atlas index, and facing flip.
 ///
-/// Enemies and NPCs both render through `CharacterAnimator`; their
-/// per-frame state is owned by separate runtime lists, but a feature
-/// id only ever appears in one of them at a time. We try the enemy
-/// lookup first (most entities in the room) and fall through to the
-/// NPC lookup, so a stationary General sheet ticks its 8 idle frames
-/// once the animator is attached.
-///
-/// One system instead of two avoids the borrow conflict on the
-/// shared `(&mut Sprite, &mut CharacterAnimator)` query.
+/// A feature id is in only one of the enemy or NPC runtime lists. One system
+/// for both avoids a borrow conflict on the shared
+/// `(&mut Sprite, &mut CharacterAnimator)` query.
 pub fn animate_characters(
     presentation_time: ambition_time::PresentationTime,
     mut query: Query<
@@ -228,35 +195,25 @@ pub fn animate_characters(
             Without<PropVisual>,
         ),
     >,
-    // Materialized per-actor pose read-model (built by `rebuild_actor_anim_index`
-    // in the render presentation chain just before this system) — the renderer
-    // animates from a snapshot, no longer borrowing the live actor clusters.
+    // Per-actor pose read-model, built by `rebuild_actor_anim_index` just before
+    // this system. The renderer does not borrow live actor clusters.
     anim_index: Res<ambition_sim_view::ActorAnimIndex>,
-    // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
-    // ceiling flips the right way (the same gravity-aware facing the player got).
+    // Localized gravity, so a wall-walking or ceiling actor flips correctly.
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
 ) {
-    // ADR 0011 — per-entity proper time on the presentation frame clock.
-    // SP today: no entity carries ProperTimeScale, so every actor ticks at
-    // the current world rate. The seam matters once a
-    // boss freezes the world but leaves the player un-frozen, or
-    // future MP boosts one player's proper time.
+    // ADR 0011: per-entity proper time on the presentation clock. No SP entity
+    // carries `ProperTimeScale` yet, so every actor ticks at the world rate.
     for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
-        // ONE actor path — enemy and NPC alike resolve through the SAME picker the
-        // player uses, built from the actor's real `Body*` clusters. An actor
-        // attacks when its `BodyMelee` is active, whatever its disposition.
+        // Enemies and NPCs resolve through the same picker as the player, from
+        // their `Body*` clusters.
         let Some(frame) = anim_index.get(&visual.id) else {
             continue;
         };
-        // Hit feedback (taking damage) is drawn by the white-silhouette overlay in
-        // `presentation::rendering::hit_flash`; the source sprite stays untinted
-        // (`WHITE`). Actors deliberately do NOT flash/tint on their OWN outgoing
-        // attack — a flash on an attack is something a character should opt INTO,
-        // not out of, and nothing wants it by default. If a game later needs
-        // per-character attack presentation (a warm windup tint, a charge glow), it
-        // belongs behind an explicit game-authored customization seam (a
-        // per-character presentation spec), not a hardcoded default here.
+        // Hit feedback is the white-silhouette overlay in `rendering::hit_flash`;
+        // the source sprite stays `WHITE`. Actors do not tint on their own attack.
+        // Per-character attack presentation belongs in a game-authored spec, not a
+        // default here.
         apply_character_frame(
             &mut sprite,
             &mut animator,
@@ -267,8 +224,7 @@ pub fn animate_characters(
             frame.facing,
             gravity.dir_at(frame.pos),
             Color::WHITE,
-            // Enemies/NPCs don't drive the crouch stance-scale seam (their compaction,
-            // if any, is authored per-anim); full standing height.
+            // Enemies and NPCs do not use the stance squash.
             StanceSquash::NONE,
         );
     }
@@ -278,13 +234,11 @@ fn generic_feature_anim_owns(kind: FeatureVisualKind) -> bool {
     !matches!(kind, FeatureVisualKind::Actor)
 }
 
-/// Idle-tick the animation of every non-actor [`FeatureVisual`] that carries a
-/// [`CharacterAnimator`] — an animated pickup (a spinning ring), and any future
-/// animated feature (a pulsing hazard, a glowing switch). It is the feature
-/// counterpart to [`animate_props`]: `sync_visuals` positions these entities by
-/// id, and this advances their looping `idle` row. Players (their own picker),
-/// index-driven actors ([`animate_characters`]), props ([`animate_props`]), and
-/// portal sprites are excluded, so each animator is ticked by exactly one system.
+/// Idle-tick the animation of every non-actor [`FeatureVisual`] that has a
+/// [`CharacterAnimator`] (for example a spinning ring pickup). This is the
+/// feature counterpart to [`animate_props`]. Players, actors
+/// ([`animate_characters`]), props ([`animate_props`]), and portal sprites
+/// are excluded, so each animator is ticked by one system only.
 pub fn animate_feature_sprites(
     presentation_time: ambition_time::PresentationTime,
     feature_views: Res<ambition_sim_view::FeatureViewIndex>,
@@ -307,10 +261,8 @@ pub fn animate_feature_sprites(
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
         };
-        // Actors are owned by `animate_characters`, which selects their live pose
-        // from `ActorAnimIndex`. Letting this generic idle-loop pass touch them as
-        // well advances an Idle actor twice per frame, and continually switches a
-        // moving flyer Fly -> Idle -> Fly so neither clip can leave frame zero.
+        // `animate_characters` owns actors. Ticking them here too advances Idle
+        // twice per frame and makes a flyer switch Fly -> Idle -> Fly every frame.
         if !generic_feature_anim_owns(view.kind) {
             continue;
         }
@@ -332,29 +284,19 @@ pub fn animate_feature_sprites(
     }
 }
 
-/// Prop kinds whose authored "Idle" row depicts motion (e.g. rolling
-/// wheels). These props stay pinned at frame 0 in [`animate_props`]
-/// until a `PropMotionState` component lands to gate their tick by
-/// real motion. Add a kind here when its sprite's idle frame reads
-/// as "this prop is moving" — the cart is the v1 case.
+/// Prop kinds whose authored Idle row shows motion (for example rolling
+/// wheels). [`animate_props`] holds them at frame 0 until a `PropMotionState`
+/// component can gate their tick by real motion.
 pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 
-/// Tick the idle animation row for every `PropVisual` sprite that
-/// owns a `CharacterAnimator`. Props have no ECS actor entity, so
-/// the regular `animate_characters` lookup would skip them — without
-/// this system the sprite stays pinned to frame 0 forever.
+/// Tick the idle row for every `PropVisual` sprite that has a
+/// `CharacterAnimator`. Props have no actor entity, so `animate_characters`
+/// skips them.
 ///
-/// Filtered with `Without<super::super::primitives::PortalSprite>` so the gate
-/// ring + gate portal stay owned by the portal-presentation systems
-/// (which drive the animator from `GatePortalPhase` instead of a flat
-/// Idle row tick).
+/// `Without<PortalSprite>` leaves the gate ring and portal to the portal
+/// systems, which drive the animator from `GatePortalPhase`.
 ///
-/// Motion-gated props: a kind listed in [`PROP_KINDS_STATIC_UNTIL_MOVING`]
-/// stays pinned at frame 0. The intro cart's authored "idle" row is a
-/// wheel-rolling cycle that reads as "the cart is moving"; without a
-/// real motion source today (no scripted push), looping it makes the
-/// cart look like it's drifting in place. Until a `PropMotionState`
-/// component lands, hold these kinds at rest.
+/// Kinds in [`PROP_KINDS_STATIC_UNTIL_MOVING`] stay at frame 0.
 pub fn animate_props(
     presentation_time: ambition_time::PresentationTime,
     mut query: Query<
@@ -368,12 +310,10 @@ pub fn animate_props(
         Without<super::super::primitives::PortalSprite>,
     >,
 ) {
-    // ADR 0011 — per-entity proper time on the presentation frame clock.
-    // Props that need to keep ticking when the world freezes (a clock prop in
-    // a frozen boss arena, say) get a non-1.0 ProperTimeScale.
+    // ADR 0011: per-entity proper time. A prop that must tick while the world
+    // is frozen gets a non-1.0 `ProperTimeScale`.
     for (mut sprite, mut animator, prop, scale, anchor) in &mut query {
-        // Static-until-moving props hold frame 0 (dt = 0, so `tick` doesn't
-        // advance); everything else ticks at its proper time.
+        // Static-until-moving props use dt = 0, so `tick` does not advance.
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
         } else {
@@ -409,13 +349,10 @@ mod tests {
         assert!(generic_feature_anim_owns(FeatureVisualKind::Hazard));
     }
 
-    /// Which way a sheet's body POINTS ON SCREEN, as the renderer draws it.
+    /// The screen direction that a sheet's body points, as drawn.
     ///
-    /// This is `apply_character_frame`'s flip decision composed with the fact
-    /// it is deciding about: the art itself points `-x` when it was drawn
-    /// facing left, and mirroring negates whichever way it points. A test that
-    /// only checked `flip_x` would be checking a mechanism against itself —
-    /// the answerable question is which way the character ends up looking.
+    /// This combines the flip decision with the art's authored direction. A test
+    /// of `flip_x` alone would test the mechanism against itself.
     fn drawn_direction(authored_faces_left: bool, facing: f32) -> f32 {
         let art_points = if authored_faces_left { -1.0 } else { 1.0 };
         let flip = ambition_sprite_sheet::art_is_mirrored(authored_faces_left, facing, Vec2::NEG_Y);
@@ -426,29 +363,19 @@ mod tests {
         }
     }
 
-    /// A left-drawn character faces the way they are going, exactly like a
-    /// character whose art was drawn the other way round.
+    /// A left-drawn character faces the way it moves, like a right-drawn one.
     ///
-    /// facing WEST (the SVG paperdoll view is `Patent Clerk - Side Left`, and
-    /// his rig declares `features.facing: "west"`), while the renderer assumed
-    /// every sheet is drawn facing +x — so the one mirror it applied pointed
-    /// him away from his own movement. Carl Stargan is the same paperdoll shape
-    /// and was found in the same sweep.
-    ///
-    /// The comparison is the point: the goblin is drawn facing right, and Emmy
-    /// (`noether`) is a rigged character from the SAME pipeline drawn facing
-    /// east — so this is not "rigged characters are special", it is "the sheet
-    /// says which way it was drawn". Given the same facing every one of these
-    /// must LOOK the same way, and the right-drawn ones may not move.
+    /// The Patent Clerk and Carl Stargan are west-drawn paperdolls
+    /// (`features.facing: "west"`). The goblin and Emmy (`noether`) are drawn
+    /// facing east; Emmy comes from the same rig pipeline. For the same facing,
+    /// all of them must look the same way.
     #[test]
     fn a_left_drawn_character_faces_the_way_they_are_going_like_a_right_drawn_one() {
         for left_drawn in ["patent_clerk", "carl_stargan"] {
             let sheet = record_for_sheet_key(left_drawn)
                 .unwrap_or_else(|| panic!("{left_drawn}'s sheet is baked into the sheet table"));
-            // The premise, pinned: this really is a LEFT-drawn sheet. Without
-            // it the comparison passes for a sheet that never exercised the
-            // term — which is precisely the state Carl was left in when his rig
-            // declared `west` and his manifest published nothing.
+            // Premise: this sheet is left-drawn. Without this check the comparison
+            // passes for a sheet that never uses the term.
             assert!(
                 sheet.authored_faces_left,
                 "{left_drawn}'s manifest must publish the drawn facing its rig declares \
@@ -472,10 +399,7 @@ mod tests {
         }
     }
 
-    /// Every baked sheet points where its body is facing — however it was
-    /// drawn. The whole-population form of the rule above, so the term can
-    /// never be right for the one character it was added for and wrong for the
-    /// rest.
+    /// Every baked sheet points where its body faces, however it was drawn.
     #[test]
     fn every_baked_sheet_is_drawn_pointing_where_its_body_faces() {
         let mut left_drawn: Vec<&str> = Vec::new();
@@ -500,31 +424,19 @@ mod tests {
             checked > 100,
             "expected the baked sheet table to hold the whole cast, saw {checked}"
         );
-        // THE OTHER SHEETS ARE UNMOVED, as a measurement rather than a
-        // hope. `authored_faces_left` is `#[serde(default)]` and the
-        // generator emits it only when true, so a sheet absent from this list
-        // resolves `flip_x` to exactly `facing < 0` — byte-identical to what it
-        // did before the field existed. This list is the complete set of sheets
-        // whose drawing changed.
-        //
-        // the list is EXACT on purpose. It fails both ways: if a left-drawn
-        // sheet silently stops publishing its facing (a regen against a stale
-        // generator), and if some other sheet starts declaring one without
-        // anybody deciding that its art was redrawn.
+        // The list is exact. `authored_faces_left` is `#[serde(default)]` and the
+        // generator emits it only when true, so an absent sheet keeps
+        // `flip_x == facing < 0`. The test fails if a left-drawn sheet stops
+        // publishing its facing, or if another sheet starts to declare one.
         left_drawn.sort_unstable();
         let expected: Vec<&str> = vec![
             "carl_stargan",
             "carl_stargan.0_25x",
             "carl_stargan.0_5x",
             "carl_stargan.potato",
-            // ⭐ THE DIRECTOR AND THE OFFICER ARE POINTED POLYGON'S PAPERDOLLS,
-            // so they inherit its west-drawn art — their sheets declare
-            // `authored_faces_left: true` for the same reason its own do. Added
-            // 2026-08-25 when the easter-egg fighters shipped; the guard caught
-            // it, which is what a hand-kept list is for. ⚠ The Director's stems
-            // were `author*` until the 2026-09-18 rename, which is why they moved
-            // from the top of this list to here: it is compared against a SORTED
-            // vector, so a stem's spelling decides its position.
+            // The Director and the Officer are Pointed Polygon paperdolls, so they
+            // inherit its west-drawn art. The vector is sorted, so a stem's spelling
+            // sets its position.
             "director",
             "director.0_25x",
             "director.0_5x",
@@ -537,12 +449,11 @@ mod tests {
             "patent_clerk.0_25x",
             "patent_clerk.0_5x",
             "patent_clerk.potato",
-            // The list did not know because this test only sees sheets that are ON DISK, and the
-            // polygons' art is gitignored: a checkout without it passes vacuously. that is the real
-            // lesson here, not the row.
+            // This test sees only sheets on disk. The polygon art is gitignored, so a
+            // checkout without it passes vacuously.
             //
-            // the BRAWLER is deliberately absent: its SVG declares no facing,
-            // so its sheets keep the +x default. Two polygons, one facing.
+            // The brawler is absent: its SVG declares no facing, so its sheets keep
+            // the +x default.
             "pointed_polygon",
             "pointed_polygon.0_25x",
             "pointed_polygon.0_5x",
@@ -565,9 +476,8 @@ mod stance_squash_tests {
         (-(anchor_y + 0.5) * height, (0.5 - anchor_y) * height)
     }
 
-    /// The feet-anchored scheme plants the body AT the transform, so the squash
-    /// must leave the anchor alone — anything else moves a quad whose placement
-    /// was already correct.
+    /// The feet-anchored scheme puts the body at the transform, so the squash
+    /// must not move the anchor.
     #[test]
     fn squashing_about_the_anchor_leaves_the_anchor_where_it_was() {
         let squash = StanceSquash {
@@ -579,10 +489,9 @@ mod stance_squash_tests {
         assert!((anchor - -0.3).abs() < 1e-6, "the anchor moved to {anchor}");
     }
 
-    /// The authored-offset scheme anchors the quad at its CENTRE and carries the
-    /// placement on the translation, so the squash has to hold the art's own
-    /// foot edge. Without this the crouch lifts the body clear of the floor by
-    /// half of everything below the frame centre.
+    /// The authored-offset scheme anchors the quad at its centre, so the squash
+    /// must hold the art's foot edge. Otherwise the crouch lifts the body off
+    /// the floor.
     #[test]
     fn squashing_about_the_quad_foot_holds_the_foot_edge() {
         for (anchor_in, ratio) in [(0.0_f32, 0.5_f32), (-0.3, 0.4), (0.2, 0.85)] {
@@ -606,8 +515,7 @@ mod stance_squash_tests {
         }
     }
 
-    /// A body at full standing height is untouched by either pivot — the
-    /// no-crouch path must be byte-identical to having no squash at all.
+    /// A body at full height is unchanged by either pivot.
     #[test]
     fn a_standing_body_is_left_exactly_as_it_was() {
         for about_quad_foot in [false, true] {

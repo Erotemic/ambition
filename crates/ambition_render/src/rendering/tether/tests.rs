@@ -1,9 +1,6 @@
-//! ⛔⛔ THE ACTOR-ROAD ARM IS THE LOAD-BEARING ONE, for the reason the flyline's
-//! tests state: the trapdoor's visual was declared done twice while the move was
-//! visibly broken, and both times every test spawned a `PlayerVisual` — which is
-//! inserted in exactly ONE place in the engine and is not what a match fighter
-//! carries. A tether that draws only on the player road is a tether that never
-//! appears in a versus match, which is the whole reason it exists.
+//! The actor-road tests matter most. `PlayerVisual` is on only the one
+//! exploration player, not on match fighters, so a tether drawn only on the
+//! player road never appears in a versus match.
 
 use super::*;
 
@@ -78,17 +75,12 @@ fn lines(app: &mut App) -> Vec<Entity> {
         .collect()
 }
 
-/// A MATCH FIGHTER'S tether draws. This is the arm the trapdoor did not have.
-/// ⛔⛔ **A LEDGE REEL DRAWS ITS LINE, AND IT IS NOT A GRAB.** Until 2026-09-10
-/// the only fact this file consumed was `grab_reach`, so a fighter latching a
-/// ledge and being reeled across a third of the stage drew NOTHING — the reel
-/// was visible only through the movement it caused, which is the mechanic
-/// without the read that the module header argues against for grabs.
+/// A match fighter's tether draws.
 ///
-/// ⭐ THE FIX WAS A FACT, NOT A BRANCH. The ruleset publishes a generic
-/// `BodyLineAnchor`; the read models project it as `line_anchor`; this file
-/// draws `grab_reach.or(line_anchor)`. Nothing here learned what a `TetherReel`
-/// is, and a third line mechanic draws itself by publishing the same component.
+/// A ledge reel also draws its line, and it is not a grab. The ruleset
+/// publishes a generic `BodyLineAnchor`, the read models project it as
+/// `line_anchor`, and this file draws `grab_reach.or(line_anchor)`. Nothing
+/// here knows what a `TetherReel` is.
 #[test]
 fn a_fighter_reeled_to_a_ledge_gets_a_line_without_a_grab() {
     let mut app = tether_app();
@@ -113,8 +105,8 @@ fn a_fighter_reeled_to_a_ledge_gets_a_line_without_a_grab() {
     );
 }
 
-/// ⭐ THE CONTROL, and without it the test above passes on a road that draws a
-/// line for every body whether or not it is lined to anything.
+/// The control: without it, the test above passes on a system that draws a
+/// line for every body, lined to anything or not.
 #[test]
 fn a_fighter_lined_to_nothing_gets_no_line() {
     let mut app = tether_app();
@@ -139,10 +131,9 @@ fn a_match_fighter_reaching_gets_a_line() {
     );
 }
 
-/// And it is retired the moment the grab stops reaching.
+/// The line is removed when the grab stops reaching.
 ///
-/// ⛔ A LINE THAT OUTLIVES ITS GRAB IS WORSE THAN NONE: it shows a threat that
-/// is not there, and a player who respects it is being lied to.
+/// A line that outlives its grab shows a threat that is not there.
 #[test]
 fn the_line_is_retired_when_the_grab_ends() {
     let mut app = tether_app();

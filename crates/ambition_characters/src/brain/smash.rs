@@ -481,13 +481,6 @@ pub struct DifficultyProfile {
     /// the attack axis proportionally. Applied to MeleeAttack /
     /// RangedAttack only.
     pub accuracy: f32,
-    /// Hz — informational, for downstream cooldown / mashing
-    /// systems to consult.
-    #[allow(
-        dead_code,
-        reason = "consumer lives in the EFFECTS-stage cooldown gate"
-    )]
-    pub mash_speed_hz: f32,
 }
 
 impl DifficultyProfile {
@@ -495,19 +488,16 @@ impl DifficultyProfile {
         reaction_delay_s: 0.30,
         commit_probability: 0.55,
         accuracy: 0.65,
-        mash_speed_hz: 1.0,
     };
     pub const MEDIUM: Self = Self {
         reaction_delay_s: 0.15,
         commit_probability: 0.85,
         accuracy: 0.85,
-        mash_speed_hz: 1.4,
     };
     pub const HARD: Self = Self {
         reaction_delay_s: 0.05,
         commit_probability: 0.98,
         accuracy: 0.98,
-        mash_speed_hz: 2.0,
     };
 }
 

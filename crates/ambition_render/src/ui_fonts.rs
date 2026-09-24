@@ -4,10 +4,8 @@
 //! resource for the dialog overlay, HUD, and menus. All path/existence policy
 //! goes through `ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`.
 
-// UI font loading. All path/existence policy goes through
-// `ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`; there are no
-// `target_os = "android"` cfg branches or `BEVY_ASSET_ROOT` probes
-// in this module.
+// There are no `target_os = "android"` cfg branches or `BEVY_ASSET_ROOT`
+// probes in this module.
 
 use bevy::log::{info, warn};
 use bevy::prelude::*;
@@ -18,11 +16,10 @@ use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 
 /// The family name Parley resolves Ambition's product typeface under.
 ///
-/// ⭐⭐ MEASURED, NOT ASSUMED, and the whole semantic layer rests on it. Bevy
-/// 0.19 registers every loaded [`Font`] asset into Parley's collection under the
-/// family name EMBEDDED IN THE FILE, and fontique reads name id 16 (typographic
-/// family) in preference to name id 1 (legacy family). Read out of the two
-/// bundled files:
+/// Measured from the files. Bevy 0.19 registers each loaded [`Font`] asset
+/// into Parley's collection under the family name embedded in the file, and
+/// fontique prefers name id 16 (typographic family) over name id 1 (legacy
+/// family). The two bundled files:
 ///
 /// ```text
 /// InterDisplay-Regular.otf    name 1  = "Inter Display"           weight 400
@@ -30,30 +27,28 @@ use ambition_asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
 ///                             name 16 = "Inter Display"  name 17 = "SemiBold"
 /// ```
 ///
-/// Because name 16 WINS, both faces land in ONE family and the weight chooses
-/// between them. Had fontique preferred name 1 they would have been two
-/// unrelated families and [`UiFonts::text_font`] could not name a weight — it
-/// would still have to know which file is semibold, which is the thing this
-/// layer exists to stop callers doing.
+/// Because name 16 wins, both faces are one family and the weight picks the
+/// face. If fontique preferred name 1, they would be two unrelated families
+/// and [`UiFonts::text_font`] could not select by weight.
 pub const PRODUCT_FAMILY: &str = "Inter Display";
 
 /// `JetBrainsMono-Regular.ttf`, family name "JetBrains Mono", weight 400.
 ///
-/// A SEPARATE family on purpose: debug monospace is a different typographic
-/// role, not a weight of the product face.
+/// A separate family on purpose: debug monospace is a different role, not a
+/// weight of the product face.
 pub const DEBUG_MONO_FAMILY: &str = "JetBrains Mono";
 
 /// The bundled product faces, and the one place their identity is known.
 ///
-/// ⛔ THE HANDLES ARE NOT DECORATION EVEN THOUGH NOTHING READS THEM FOR LAYOUT.
-/// Text resolves through [`PRODUCT_FAMILY`] now, but a family is registered in
-/// Parley's collection only while its `Font` ASSET is alive, and Bevy CLEARS AND
-/// REBUILDS the whole collection when one is removed. Holding the strong handles
-/// here is what keeps the families resolvable for the life of the app.
+/// The handles matter even though layout does not read them. Text resolves
+/// through [`PRODUCT_FAMILY`], but a family stays in Parley's collection only
+/// while its `Font` asset is alive, and Bevy rebuilds the whole collection
+/// when one is removed. Holding strong handles here keeps the families
+/// resolvable for the life of the app.
 ///
-/// They are also the honest answer to "did the bundled fonts load at all"
-/// ([`UiFonts::has_dialog_font`]), which a family name cannot give: an
-/// unresolvable `FontSource::Family` does not error, it silently falls back.
+/// They also answer "did the bundled fonts load" ([`UiFonts::has_dialog_font`]).
+/// A family name cannot: an unresolvable `FontSource::Family` falls back
+/// silently.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct UiFonts {
     pub regular: Option<Handle<Font>>,
@@ -74,33 +69,24 @@ impl UiFonts {
         }
     }
 
-    /// A [`TextFont`] for a SEMANTIC role — "product UI, semibold", "debug
-    /// monospace" — with no caller anywhere naming an asset path, a file, or a
-    /// handle.
+    /// A [`TextFont`] for a semantic role ("product UI, semibold", "debug
+    /// monospace"), with no caller naming an asset path, file, or handle.
     ///
-    /// The source is a FAMILY plus a WEIGHT rather than a handle, and that is
-    /// the difference that matters:
+    /// The source is a family plus a weight, not a handle. A handle names one
+    /// face, so semibold needed a second handle through every seam. A family lets
+    /// the weight pick the face.
     ///
-    /// - a handle names ONE FACE, so semibold had to be a second handle
-    ///   threaded through every presentation seam;
-    /// - a family names a typeface and lets the weight pick the face, so
-    ///   `Semibold` is a property of the request instead of a different asset.
+    /// It handles async arrival: Bevy's `load_font_assets_into_font_collection`
+    /// marks a `TextFont` changed when its `FontSource::Family` resolves, so text
+    /// spawned before its font loads is laid out again when it does.
     ///
-    /// ⭐ AND IT SURVIVES ASYNC ARRIVAL BY ITSELF. Bevy's
-    /// `load_font_assets_into_font_collection` marks every `TextFont` CHANGED
-    /// whose `FontSource::Family` newly resolves, so text spawned before its
-    /// font loads is re-laid-out the moment it does. That is what retired the
-    /// every-frame world-label font repair.
+    /// The family is named only when its asset loaded. An unresolvable
+    /// `FontSource::Family` does not error (Parley falls back silently), so a
+    /// missing file would show as tofu. With no handle the source stays at Bevy's
+    /// default, and [`Self::has_dialog_font`] reports the condition.
     ///
-    /// ⛔ THE FAMILY IS NAMED ONLY WHEN ITS ASSET LOADED. An unresolvable
-    /// `FontSource::Family` does NOT error — Parley falls back silently — so
-    /// asking for a family whose file is missing would turn "no bundled font" from
-    /// a stated condition into invisible tofu. With no handle the source is left
-    /// at Bevy's default, which is exactly what the old handle path did, and
-    /// [`Self::has_dialog_font`] stays the one place that says so.
-    ///
-    /// `size` takes `impl Into<FontSize>` so a caller holding a `TextFont`'s own
-    /// `font_size` can pass it straight through; a bare `f32` still means pixels.
+    /// `size` takes `impl Into<FontSize>` so a caller can pass a `TextFont`'s own
+    /// `font_size`; a bare `f32` means pixels.
     pub fn text_font(&self, size: impl Into<FontSize>, weight: UiFontWeight) -> TextFont {
         let mut font = TextFont {
             font_size: size.into(),
@@ -115,20 +101,16 @@ impl UiFonts {
 
     /// The [`FontSource`] a role resolves to, or `None` when nothing is loaded.
     ///
-    /// ⛔ THIS NAMES ONLY A FAMILY SOMETHING ACTUALLY REGISTERED, and the
-    /// distinction is the whole reason it is a function rather than a lookup
-    /// table. `UiFontWeight::family` says which family a role WANTS; this says
-    /// which one is there. Naming the monospace family when the JetBrains file
-    /// is missing would ask Parley for a family nothing registered, and an
-    /// unresolvable family does not error — it falls back silently, which turns
-    /// a missing bundled asset into tofu nobody reported. The old handle path
-    /// fell back to the regular FACE in exactly that case, and so does this.
+    /// Names only a family that is registered. `UiFontWeight::family` says which
+    /// family a role wants; this says which one is there. Naming the monospace
+    /// family when the JetBrains file is missing would fall back silently to
+    /// tofu. Instead this falls back to the regular face.
     pub fn font_source(&self, weight: UiFontWeight) -> Option<FontSource> {
         let family = match weight {
             UiFontWeight::Regular => self.regular.is_some().then_some(PRODUCT_FAMILY),
-            // Both product weights are ONE family, so a missing semibold FILE is
-            // only a problem when regular is missing too — and even then the
-            // request degrades to the 400 face rather than to nothing.
+            // Both product weights are one family, so a missing semibold file
+            // matters only when regular is missing too. Otherwise the request uses
+            // the 400 face.
             UiFontWeight::Semibold => {
                 (self.semibold.is_some() || self.regular.is_some()).then_some(PRODUCT_FAMILY)
             }
@@ -142,7 +124,7 @@ impl UiFonts {
     }
 }
 
-/// The typographic ROLES Ambition draws in. Not a list of files.
+/// The typographic roles Ambition draws in (not a list of files).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiFontWeight {
     Regular,
@@ -151,8 +133,8 @@ pub enum UiFontWeight {
 }
 
 impl UiFontWeight {
-    /// The family this role WANTS. What it actually gets, given which bundled
-    /// files loaded, is [`UiFonts::font_source`].
+    /// The family this role wants. What it gets, given which bundled files
+    /// loaded, is [`UiFonts::font_source`].
     pub fn family(self) -> &'static str {
         match self {
             // Both product weights are one family; see `PRODUCT_FAMILY`.
@@ -161,7 +143,7 @@ impl UiFontWeight {
         }
     }
 
-    /// The weight that picks the face WITHIN that family.
+    /// The weight that picks the face within that family.
     pub fn font_weight(self) -> FontWeight {
         match self {
             UiFontWeight::Regular | UiFontWeight::Monospace => FontWeight::NORMAL,
@@ -170,21 +152,18 @@ impl UiFontWeight {
     }
 }
 
-/// The set [`load_ui_fonts`] runs in — UI font handles exist.
+/// The set [`load_ui_fonts`] runs in; after it, UI font handles exist.
 ///
-/// Anything spawning text at Startup has to follow it, and both the touch
-/// overlay (another crate) and the app's own UI said so by name.
-///
-/// an empty set makes `.before`/`.after` VACUOUS, and Bevy does not warn.
+/// Anything that spawns text at Startup must run after it (for example the
+/// touch overlay in another crate, and the app's UI). If the set is empty,
+/// `.before`/`.after` do nothing, and Bevy does not warn.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UiFontsLoaded;
 
-/// Owns the UI font load — the resource AND the system that fills it.
+/// Owns the UI font load: the resource and the system that fills it.
 ///
-/// a consumer that pins [`UiFontsLoaded`] should install this itself, via
-/// [`ensure_installed`], rather than assuming some other plugin did. That is the
-/// difference between an ordering edge that holds in every composition and one
-/// that holds in the app that happened to wire it.
+/// A consumer that orders against [`UiFontsLoaded`] should install this
+/// itself with [`ensure_installed`], so the edge holds in every composition.
 pub struct UiFontsPlugin;
 
 impl bevy::prelude::Plugin for UiFontsPlugin {
@@ -197,10 +176,9 @@ impl bevy::prelude::Plugin for UiFontsPlugin {
 impl UiFontsPlugin {
     /// Install [`UiFontsPlugin`] unless it is already present.
     ///
-    /// every call site must go through this. Bevy PANICS on a duplicate
-    /// plugin, and the whole point is that more than one crate now takes
-    /// responsibility for the font load being present — the app and the touch
-    /// overlay both do, and neither can know which built the `App` first.
+    /// Every call site must use this: Bevy panics on a duplicate plugin, and
+    /// more than one crate (the app, the touch overlay) installs it without
+    /// knowing which ran first.
     pub fn ensure_installed(app: &mut bevy::prelude::App) {
         if !app.is_plugin_added::<Self>() {
             app.add_plugins(Self);
@@ -208,17 +186,16 @@ impl UiFontsPlugin {
     }
 }
 
-/// Bevy startup system: walk each font's canonical + legacy catalog
-/// ids, pick the first one whose asset is present under the active
-/// [`ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`] profile, and store
-/// the resulting `Handle<Font>` in [`UiFonts`].
+/// Startup system: for each font, walk its canonical and legacy catalog ids,
+/// pick the first present under the active
+/// [`ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog`]
+/// profile, and store the `Handle<Font>` in [`UiFonts`].
 ///
-/// Missing fonts are non-fatal — the rendering layer falls back to
-/// Bevy's default font and ASCII selector. The font catalog uses
-/// `MissingAssetPolicy::WarnAndPlaceholder` (canonical) /
-/// `SilentPlaceholder` (legacy) so the warning text below is the only
-/// noise on a fresh checkout that hasn't run
-/// `scripts/grab_font_assets.py`.
+/// Missing fonts are not fatal; rendering falls back to Bevy's default font
+/// and the ASCII selector. The catalog uses
+/// `MissingAssetPolicy::WarnAndPlaceholder` (canonical) and
+/// `SilentPlaceholder` (legacy), so the warning below is the only noise on a
+/// checkout that has not run `scripts/grab_font_assets.py`.
 pub fn load_ui_fonts(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -330,11 +307,10 @@ mod tests {
         assert_eq!(font.font_size, FontSize::Px(14.0));
     }
 
-    /// ⛔ WITH NO BUNDLED FONT, DO NOT NAME A FAMILY.
+    /// With no bundled font, do not name a family.
     ///
-    /// An unresolvable `FontSource::Family` does not error; Parley falls back and
-    /// the missing asset becomes invisible. Leaving the default source keeps the
-    /// old behaviour AND keeps `has_dialog_font` the single statement of it.
+    /// An unresolvable `FontSource::Family` falls back silently. The default
+    /// source keeps the old behaviour, and `has_dialog_font` reports it.
     #[test]
     fn a_missing_bundled_font_names_no_family() {
         let fonts = UiFonts::default();
@@ -349,12 +325,11 @@ mod tests {
         );
     }
 
-    /// ⭐ THE TWO PRODUCT WEIGHTS ARE ONE FAMILY AND TWO WEIGHTS.
+    /// The two product weights are one family with two weights.
     ///
-    /// This is the claim the whole layer rests on: a caller says "semibold" and
-    /// gets the semibold FACE without anyone naming `InterDisplay-SemiBold.otf`.
-    /// `crates/ambition_render/tests/typography.rs` proves the resolution against
-    /// the real font files; this pins the REQUEST.
+    /// A caller asks for semibold and gets the semibold face without naming
+    /// `InterDisplay-SemiBold.otf`. `crates/ambition_render/tests/typography.rs`
+    /// checks resolution against the real files; this checks the request.
     #[test]
     fn semibold_is_a_weight_of_the_product_family_not_a_second_family() {
         let fonts = UiFonts {
@@ -369,19 +344,18 @@ mod tests {
         assert_ne!(regular.weight, semibold.weight, "two weights");
         assert_eq!(semibold.weight, FontWeight::SEMIBOLD);
 
-        // Debug monospace is a DIFFERENT ROLE, so a different family.
+        // Debug monospace is a different role, so a different family.
         let mono = fonts.text_font(14.0, UiFontWeight::Monospace);
         assert_eq!(mono.font, FontSource::Family(DEBUG_MONO_FAMILY.into()));
         assert_ne!(mono.font, regular.font);
     }
 
-    /// ⛔ A ROLE WHOSE OWN FILE IS MISSING MUST NOT NAME ITS FAMILY ANYWAY.
+    /// A role whose own file is missing must not name its family.
     ///
-    /// A fresh checkout that ran `grab_font_assets.py` only partly can have the
-    /// product face and no monospace one. Asking for `JetBrains Mono` there names
-    /// a family nothing registered, and Parley falls back WITHOUT SAYING SO —
-    /// which is how a missing bundled asset becomes tofu nobody reports. The
-    /// handle path fell back to the regular face; so does this.
+    /// A checkout can have the product face and no monospace face. Naming
+    /// `JetBrains Mono` there asks for an unregistered family, and Parley falls
+    /// back silently to tofu. Like the handle path, this falls back to the
+    /// regular face.
     #[test]
     fn a_role_falls_back_to_the_family_that_actually_loaded() {
         let fonts = UiFonts {

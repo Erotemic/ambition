@@ -18,9 +18,9 @@ fn world_with(boss: &str, state: PersistedEncounterState) -> App {
     app
 }
 
-/// THE BOSS ANSWERS ONLY WHEN IT WAS BEATEN — and the closed arm is asserted
-/// first, from a boss the save KNOWS about: "never fought" and "lost" are
-/// different answers and both must stay shut.
+/// The boss answers only when it was beaten. The closed arm is asserted first,
+/// from a boss the save knows: "never fought" and "lost" are different answers,
+/// and both stay closed.
 #[test]
 fn only_a_defeated_boss_satisfies_the_condition() {
     let app = world_with("mockingbird", PersistedEncounterState::Failed);
@@ -33,10 +33,9 @@ fn only_a_defeated_boss_satisfies_the_condition() {
     assert_eq!(ask(app.world(), "mockingbird"), ConditionOutcome::Satisfied);
 }
 
-/// ⚠ AN UNRECORDED BOSS IS `NotSatisfied`, NOT `Unanswerable`. The save
-/// reconstructs a missing row as `Untouched`, so absence is a real state — and
-/// the why-not must say so in the domain's own words rather than leaving a
-/// reader to guess that nobody asked.
+/// An unrecorded boss is `NotSatisfied`, not `Unanswerable`. The save
+/// reconstructs a missing row as `Untouched`, so absence is a real state, and
+/// the why-not says so in the domain's words.
 #[test]
 fn a_boss_the_save_has_never_heard_of_is_simply_not_beaten() {
     let app = world_with("mockingbird", PersistedEncounterState::Cleared);
@@ -54,9 +53,8 @@ fn a_boss_the_save_has_never_heard_of_is_simply_not_beaten() {
     );
 }
 
-/// ⛔ NO SAVE LAYER IS `Unanswerable`, and that is a different answer from
-/// `false`. A composition with no save recorded nothing; reporting "not beaten"
-/// there would be a confident claim about a world that has no memory.
+/// No save layer is `Unanswerable`, which differs from `false`: a composition
+/// with no save recorded nothing, so "not beaten" would be a false claim.
 #[test]
 fn a_composition_with_no_save_layer_cannot_answer() {
     let app = App::new();

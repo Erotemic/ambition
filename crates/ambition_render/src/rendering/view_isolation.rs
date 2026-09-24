@@ -23,65 +23,56 @@ pub struct ProjectionRestingLayers(pub RenderLayers);
 
 /// Give each camera only its own view's projections.
 ///
-/// `With<MainCamera>`, not `With<Camera2d>`, for the reason `camera_follow`
-/// gives: the portal view-cone renderer spawns offscreen capture `Camera2d`s
-/// and the cube menu spawns a `Camera3d`. A capture rig is not an observer of the
-/// simulation, it is a lens inside one, and dragging it into the per-view scheme
-/// would hand it a view it does not present.
+/// `With<MainCamera>`, not `With<Camera2d>`, as in `camera_follow`: the portal
+/// view-cone renderer spawns offscreen capture `Camera2d`s and the cube menu
+/// spawns a `Camera3d`. A capture rig is a lens inside the simulation, not an
+/// observer, so it presents no view.
 ///
-/// this system is the SINGLE WRITER of `RenderLayers` on anything keyed by
-/// `PresentedForView` (and on that entity's descendants — a nameplate's outline
-/// copies are children with their own `Text2d`, and `RenderLayers` does not
-/// inherit down a hierarchy in Bevy, so an unvisited child would keep drawing
-/// into both cameras while its parent moved).
+/// This system is the only writer of `RenderLayers` on anything keyed by
+/// `PresentedForView` and on its descendants. `RenderLayers` does not inherit
+/// down a hierarchy in Bevy, so an unvisited child (for example a nameplate's
+/// outline copy) would keep drawing into both cameras.
 ///
-/// so a projection does not hand-set its own layer, it DECLARES the one it
-/// rests on ([`ProjectionRestingLayers`]). A spawner that simply wrote a
-/// `RenderLayers` and hoped would be fighting this pass every frame; a spawner
-/// that states its resting mask is telling this pass what to restore, and the two
-/// stop disagreeing. The room's parallax panels are the family that needed it.
+/// So a projection does not set its own layer; it declares the layer it rests
+/// on ([`ProjectionRestingLayers`]), and this pass restores that. The room's
+/// parallax panels need this.
 pub fn isolate_per_view_projections(
     mut commands: Commands,
     views: Query<(Entity, &ambition_sim_view::LocalViewId), With<ambition_sim_view::LocalView>>,
     cameras: Query<(Entity, Option<&ambition_sim_view::PresentsView>), With<MainCamera>>,
     projections: Query<(Entity, &ambition_sim_view::PresentedForView)>,
     children: Query<&Children>,
-    // Read on every entity of a projection's subtree, not only its root: a
-    // family may put its root on a private layer while its children rest on the
-    // world layer, and each entity answers for itself.
+    // Read on every entity of a projection's subtree: a root can rest on a
+    // private layer while its children rest on the world layer.
     resting: Query<&ProjectionRestingLayers>,
-    // ONE mutable handle on `RenderLayers` for cameras, projections and their
-    // children alike. Two mutable queries split by `With`/`Without` would express
-    // the same thing and would make this system's write access a pair of claims
-    // that have to stay disjoint as the population widens.
+    // One mutable query on `RenderLayers` for cameras, projections, and
+    // children. Two queries split by `With`/`Without` would need to stay
+    // disjoint as the population grows.
     mut layers: Query<&mut RenderLayers>,
 ) {
-    // Sorted by the view's own stable ordinal, so a view's layer is the same
-    // answer on every frame and every run. Archetype iteration order is neither,
-    // and this population is small enough that the sort is free.
+    // Sorted by the view's stable ordinal, so a view's layer is the same on
+    // every frame and run. Archetype order is not, and the sort is cheap.
     let mut ordered: Vec<(ambition_sim_view::LocalViewId, Entity)> =
         views.iter().map(|(view, id)| (*id, view)).collect();
     ordered.sort();
 
-    // The whole switch: one observer has nobody to be isolated from.
+    // With one observer there is nothing to isolate.
     let isolating = ordered.len() > 1;
 
     let on_hand = ambition_sim_view::ViewsOnHand::survey(ordered.iter().map(|(_, view)| *view));
 
     for (camera, link) in &cameras {
-        // The camera's own link, through the shared binding rule — a camera that
-        // names none of several views is refused there, loudly, and lands here as
-        // `None`. It keeps the world and gets no view's text, which is the honest
-        // picture for a camera nobody said what to present.
+        // The camera's own link, through the shared binding rule. A camera that
+        // names none of several views is refused there and arrives as `None`: it
+        // keeps the world and gets no view's text.
         let wanted = on_hand
             .presented_by(link.copied())
             .and_then(|view| view_layer(&ordered, view, isolating));
         match layers.get_mut(camera) {
             Ok(mut current) => {
-                // the authored layers are KEPT and only the view band is
-                // rewritten: a host composes its main camera's layers itself
-                // (world + parallax, plus the portal window layer when that
-                // feature is on) and this pass owns exactly one band of them.
+                // Keep the authored layers and rewrite only the view band. A host
+                // composes its camera's layers (world, parallax, and the portal
+                // window layer when enabled); this pass owns only one band.
                 let base = without_view_layers(&current);
                 let desired = match wanted {
                     Some(layer) => base.with(layer),
@@ -106,20 +97,17 @@ pub fn isolate_per_view_projections(
     for (root, key) in &projections {
         let band = view_layer(&ordered, key.0, isolating);
 
-        // The projection AND its descendants — see the system doc for why the
-        // children are not optional.
+        // The projection and its descendants; see the system doc.
         let mut pending: Vec<Entity> = vec![root];
         while let Some(entity) = pending.pop() {
             let desired = match band {
                 Some(layer) => RenderLayers::none().with(layer),
-                // isolating, but the view this copy names is GONE. No camera may draw it: it
-                // belongs to nobody, and the empty mask says exactly that in the renderer's own
-                // vocabulary.
+                // Isolating, but the named view is gone. No camera may draw
+                // it, so the mask is empty.
                 None if isolating => RenderLayers::none(),
-                // Not isolating: back to wherever this entity rests. Almost
-                // always the world layer; a family that chose otherwise says so
-                // with `ProjectionRestingLayers`, which is the only way this pass
-                // can know — see that type's doc.
+                // Not isolating: back to this entity's resting layers. Usually
+                // the world layer; a family that rests elsewhere declares it
+                // with `ProjectionRestingLayers`.
                 None => resting
                     .get(entity)
                     .map(|resting| resting.0.clone())
@@ -160,13 +148,11 @@ fn view_layer(
         .map(local_view_render_layer)
 }
 
-/// A camera's authored layers with the per-view band cleared — what it would
-/// render if no view had claimed it.
+/// A camera's authored layers with the per-view band cleared: what it renders
+/// if no view claims it.
 ///
-/// derived, not remembered. Stashing the base at spawn would be a second
-/// copy of a value the entity already holds, and it would go stale the moment a
-/// host added a layer afterwards (which `PlatformerPresentationPlugin`'s doc
-/// invites it to do).
+/// Derived, not stored. A base saved at spawn would go stale if a host added
+/// a layer later (which `PlatformerPresentationPlugin`'s doc allows).
 fn without_view_layers(layers: &RenderLayers) -> RenderLayers {
     let mut base = layers.clone();
     for layer in layers.iter() {
@@ -197,11 +183,9 @@ mod tests {
             .unwrap_or_default()
     }
 
-    /// The renderer's own rule, not a proxy for it. `check_visibility` reads
-    /// each side's mask, defaults a missing one to layer 0, and draws the entity
-    /// in that view when the two intersect. Asking the same question here is what
-    /// makes these assertions about the picture rather than about a bookkeeping
-    /// component this test invented.
+    /// The renderer's own rule. `check_visibility` reads each side's mask,
+    /// defaults a missing one to layer 0, and draws the entity in that view when
+    /// the masks intersect. So these assertions are about the picture.
     fn camera_draws(world: &World, camera: Entity, entity: Entity) -> bool {
         mask(world, camera).intersects(&mask(world, entity))
     }
@@ -214,16 +198,16 @@ mod tests {
         /// Plate and outline child, keyed to `presented[i]`.
         plates: [Entity; 2],
         outlines: [Entity; 2],
-        /// A room sprite belonging to no view — the shared world both observers
-        /// are looking at.
+        /// A room sprite that belongs to no view: the shared world both observers
+        /// see.
         scenery: Entity,
     }
 
     /// One simulation, two views, two cameras, one per-view projection each.
     ///
-    /// `first_presents_lower` is the ONLY thing that differs between runs: it
-    /// swaps which view each camera names while leaving spawn order, entity ids
-    /// and every other value untouched.
+    /// `first_presents_lower` is the only difference between runs: it swaps
+    /// which view each camera names, and keeps spawn order, entity ids, and
+    /// every other value.
     fn two_views(first_presents_lower: bool) -> TwoViews {
         let mut world = World::new();
         let lower = world.spawn((LocalView, LocalViewId(0))).id();
@@ -243,7 +227,7 @@ mod tests {
         let mut outlines = [Entity::PLACEHOLDER; 2];
         let plates = [0usize, 1].map(|slot| {
             let plate = world.spawn(PresentedForView(presented[slot])).id();
-            // A nameplate's outline copies are CHILDREN carrying their own text.
+            // A nameplate's outline copies are children with their own text.
             let outline = world.spawn(ChildOf(plate)).id();
             outlines[slot] = outline;
             plate
@@ -260,23 +244,14 @@ mod tests {
         }
     }
 
-    /// EACH CAMERA DRAWS ITS OWN VIEW'S PROJECTIONS AND NOT THE OTHER'S.
+    /// Each camera draws its own view's projections and not the other's.
     ///
-    /// This is the acceptance still owed. Both views' transforms were already per-view correct
-    /// and every drawn copy still reached every camera, so a two-view session produced two
-    /// frames each carrying both views' text — each label placed for an observer that was not
-    /// the one looking at it.
+    /// The shared world is checked too. Showing each camera nothing would also
+    /// isolate the views; both cameras must still draw the room.
     ///
-    /// the shared world is asserted too, in the same breath. "Isolate the
-    /// views" is trivially satisfiable by showing each camera nothing; what makes
-    /// the pictures right is that both cameras still draw the room. A mechanism
-    /// that isolated the WORLD as well would pass every negative assertion here.
-    ///
-    /// the falsifier is inside the test. The second run swaps only the two
-    /// `PresentsView` links — same spawn order, same entities, same components —
-    /// and the two cameras must swap with them. An implementation that keys off
-    /// camera iteration order, or off `LocalViewId` as a bit, passes the first run
-    /// and fails this one.
+    /// The second run swaps only the two `PresentsView` links, and the cameras
+    /// must swap too. An implementation keyed on camera iteration order, or on
+    /// `LocalViewId` as a bit, fails that run.
     #[test]
     fn each_camera_draws_only_the_projections_of_the_view_it_names() {
         for first_presents_lower in [true, false] {
@@ -324,13 +299,12 @@ mod tests {
         }
     }
 
-    /// A ONE-VIEW COMPOSITION IS LEFT EXACTLY AS IT WAS.
+    /// A one-view composition is left exactly as it was.
     ///
-    /// Every composition that ships today is single-view, so the mechanism must
-    /// cost them nothing: no component appears on a projection that did not have
-    /// one, and the camera's authored layers come out byte-identical. A pass that
-    /// moved single-view labels onto a private layer would still look correct in
-    /// the main camera and would silently drop them out of every portal capture.
+    /// Every shipped composition is single-view, so the mechanism must cost
+    /// nothing there: no new component on a projection, and the camera's layers
+    /// unchanged. Moving single-view labels to a private layer would look right
+    /// in the main camera but drop them from every portal capture.
     #[test]
     fn a_single_view_composition_is_untouched() {
         let mut world = World::new();
@@ -362,19 +336,17 @@ mod tests {
         );
     }
 
-    /// A PROJECTION THAT RESTS ON A PRIVATE LAYER IS RETURNED TO IT, NOT
-    /// TO LAYER 0.
+    /// A projection that rests on a private layer returns to it, not to layer 0.
     ///
-    /// The room's parallax panels are the family this exists for: they sit on
-    /// `PARALLAX_BACKGROUND_LAYER` precisely so the portal capture cameras do NOT
-    /// draw them (a shared panel sampled from a capture rig's eye is the wrong
-    /// background), and they became per-view projections because a panel's
-    /// transform and size are functions of the camera that draws it.
+    /// The room's parallax panels are on `PARALLAX_BACKGROUND_LAYER` so the portal
+    /// capture cameras do not draw them (a capture rig's eye would sample the
+    /// wrong background). They are per-view projections because a panel's
+    /// transform and size depend on its camera.
     ///
-    /// the collapse is the half that cannot be derived. While isolating, the mask is
-    /// `none().with(band)` and nothing of the spawner's choice survives in it — so a pass that
-    /// "derived" the resting layers would send the backdrop to layer 0 on the way back down to
-    /// one view, and every portal capture in the room would start drawing it.
+    /// The collapse cannot be derived. While isolating, the mask is
+    /// `none().with(band)` with nothing of the spawner's choice left, so a derived
+    /// resting layer would send the backdrop to layer 0 and every portal capture
+    /// would draw it.
     #[test]
     fn a_projection_with_private_resting_layers_returns_to_them_when_the_split_collapses() {
         let mut world = World::new();
@@ -383,7 +355,7 @@ mod tests {
         for view in [lower, upper] {
             world.spawn((MainCamera, authored_camera_layers(), PresentsView(view)));
         }
-        // A backdrop panel per view, each declaring the layer it rests on.
+        // A backdrop panel per view, each declaring its resting layer.
         let panels = [lower, upper].map(|view| {
             world
                 .spawn((
@@ -393,16 +365,16 @@ mod tests {
                 ))
                 .id()
         });
-        // And an ordinary plate beside them, which rests on the world layer and
-        // must be unaffected by any of this.
+        // An ordinary plate, which rests on the world layer and must not be
+        // affected.
         let plate = world.spawn(PresentedForView(lower)).id();
 
         world
             .run_system_once(isolate_per_view_projections)
             .expect("the isolation pass reads only components the fixture spawns");
 
-        // Non-vacuity: the split phase must really have moved the panels, or the
-        // collapse below proves nothing.
+        // Non-vacuity: the split must really move the panels, or the collapse
+        // below proves nothing.
         assert_ne!(
             mask(&world, panels[0]),
             mask(&world, panels[1]),
@@ -415,8 +387,8 @@ mod tests {
              every main camera renders it, so both views would draw both panels"
         );
 
-        // The second view retires with its whole set, exactly as the mirror
-        // despawns it.
+        // The second view retires with its whole set, as the mirror despawns
+        // it.
         world.entity_mut(upper).despawn();
         world.entity_mut(panels[1]).despawn();
         world
@@ -438,10 +410,8 @@ mod tests {
         );
     }
 
-    /// A RETIRED VIEW LEAVES THE SURVIVOR RESET, NOT STRIPPED.
-    ///
-    /// The projection that outlives the second view keeps its `RenderLayers` and has it set back to
-    /// the default.
+    /// A retired view leaves the survivor reset, not stripped: the remaining
+    /// projection keeps its `RenderLayers`, set back to the default.
     #[test]
     fn collapsing_to_one_view_resets_the_layer_rather_than_removing_it() {
         let mut fixture = two_views(true);
@@ -458,7 +428,7 @@ mod tests {
              collapse below proves nothing"
         );
 
-        // The second view goes away with its whole projection set, exactly as a
+        // The second view goes away with its whole projection set, as a
         // retirement despawns it.
         fixture.world.entity_mut(fixture.presented[1]).despawn();
         fixture.world.entity_mut(fixture.plates[1]).despawn();

@@ -47,46 +47,36 @@ pub struct AssetScaleVariant {
 
 /// Filename row for a character spritesheet.
 ///
-/// `filename` is a BASENAME under the shared sprite folder — the engine's own
-/// convention, and the reason a consumer's art could not get through this seam:
-/// every path was reduced to a basename and rebuilt as
-/// `{sprite_folder}/{filename}`, so an authored `game://sprites/mine.png` came
-/// out as `sprites/game://sprites/mine.png`.
+/// `filename` is a basename under the shared sprite folder, rebuilt as
+/// `{sprite_folder}/{filename}`.
 ///
-/// `qualified` is the escape: a path that already names its own SOURCE
-/// (`game://…`, `embedded://…`) is carried through verbatim and never rebuilt.
-/// A consumer's art keeps its identity from the catalog to the manifest, which
-/// is what "a game gets to own its own art" has to mean past the reader.
+/// `qualified` holds a path that already names its own source (`game://…`,
+/// `embedded://…`). It is carried through verbatim and never rebuilt, so a
+/// consumer's art keeps its identity from the catalog to the manifest.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CharacterSpriteCatalogRow {
     pub name: String,
     pub filename: String,
-    /// `Some(path)` when the catalog named a source-qualified path. Mutually
-    /// exclusive with the folder convention: when it is set, `filename` is only
-    /// a display echo and the manifest uses this.
+    /// `Some(path)` when the catalog named a source-qualified path. When set,
+    /// `filename` is only a display echo and the manifest uses this.
     pub qualified: Option<String>,
 }
 
-/// Does this authored path name its own asset SOURCE?
+/// Does this authored path name its own asset source?
 ///
-/// Bevy's own spelling: `source://path`. Deliberately not a general URL parse —
-/// the question is only whether the author already said where this lives, and
-/// anything with a scheme did.
+/// Uses Bevy's spelling, `source://path`. This is not a general URL parse:
+/// any path with a scheme already says where it lives.
 pub fn is_source_qualified(path: &str) -> bool {
     path.split_once("://")
         .is_some_and(|(scheme, rest)| !scheme.is_empty() && !rest.is_empty())
 }
 
-/// Join an authored filename to the folder convention — UNLESS the author
+/// Join an authored filename to the folder convention, unless the author
 /// already said where the file lives.
 ///
-/// The one place this join is allowed to happen, because doing it inline is a
-/// mistake this repo has now made three times in three different seams
-/// (catalog→manifest, the sheet index, and the desktop load gate), each time by
-/// treating `game://sprites/x.png` as a relative path and producing
-/// `sprites/game://sprites/x.png` or looking for a file at a root that could
-/// never hold it. A fourth is only a matter of which builder somebody edits
-/// next, so the join has a name now and the name knows the rule.
+/// Use this function for every such join. An inline join treats
+/// `game://sprites/x.png` as relative and produces
+/// `sprites/game://sprites/x.png`.
 pub fn logical_asset_path(folder: &str, filename: &str) -> String {
     if is_source_qualified(filename) {
         filename.to_owned()
@@ -98,11 +88,9 @@ pub fn logical_asset_path(folder: &str, filename: &str) -> String {
 /// The scaled-variant sibling of [`logical_asset_path`], or `None` when the
 /// author owns the path.
 ///
-/// A `sprites_0_5x/…` twin is generated into the ENGINE's tree by this repo's
-/// own tooling. Inventing that layout inside somebody else's asset source is a
-/// convention they never agreed to, so a source-qualified asset simply has no
-/// variants — it renders at full resolution, which is correct and visible,
-/// rather than resolving to a path that does not exist.
+/// `sprites_0_5x/…` twins are generated into the engine's tree by this repo's
+/// tooling. A source-qualified asset has no variants and renders at full
+/// resolution.
 pub fn scaled_logical_asset_path(
     folder: &str,
     subdir_suffix: &str,
@@ -267,14 +255,10 @@ impl Platformer2dAssetCatalog {
             | AssetProfile::DesktopInstalled
             | AssetProfile::SteamDeckInstalled => {
                 resolved.missing_policy.is_required()
-                    // A SOURCE-QUALIFIED path belongs to a custom `AssetSource`, and this
-                    // pre-check cannot see inside one: it walks the desktop asset roots looking
-                    // for `<root>/<rel>`, and `game://sprites/x.png` is not a relative file
-                    // path — no candidate can ever exist.
-                    //
-                    // The source owns its own existence check, exactly as the
-                    // Android/iOS arms trust the packager. Attempt the load and
-                    // let the reader answer.
+                    // A source-qualified path belongs to a custom `AssetSource`.
+                    // This pre-check walks desktop roots for `<root>/<rel>` and
+                    // cannot see inside a source, so let the reader answer, as
+                    // the Android/iOS arms do.
                     || is_source_qualified(path)
                     || self.resolve_local_file_path(path).is_some()
             }
@@ -286,15 +270,10 @@ impl Platformer2dAssetCatalog {
                         Some(AssetSourceProfile::EmbeddedBinary)
                     )
             }
-            // WebServedAssets attempts every resolution that produces
-            // a Bevy-pathable URL: either an authored `Embedded`
-            // candidate (delivered from `EmbeddedAssetRegistry`) or
-            // the synthesized `BevyPath` from `logical_path` (which
-            // Bevy's wasm HTTP reader fetches from `/assets/<path>`).
-            // Missing files surface as Bevy load-failure logs + the
-            // renderer's existing placeholder fallbacks; we cannot
-            // pre-check the host filesystem from the browser, so the
-            // "trust Bevy to fetch" stance matches Android/iOS.
+            // Attempt every resolution that gives a Bevy-pathable URL: an
+            // authored `Embedded` candidate or the synthesized `BevyPath`
+            // (fetched from `/assets/<path>`). The browser cannot pre-check
+            // the host filesystem, so trust Bevy to fetch, as on Android/iOS.
             AssetProfile::WebServedAssets => {
                 matches!(
                     resolved.source_used,
@@ -385,23 +364,18 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     candidates
 }
 
-/// The AssetServer FILE-SOURCE root a windowed app must set as
+/// The AssetServer file-source root a windowed app must set as
 /// `AssetPlugin.file_path` on a loose desktop dev checkout: the absolute
-/// `crates/ambition_platformer2d_actor_monolith/assets` directory, where the generated sprite sheets,
-/// music, dialogue, and menu icons live.
+/// `crates/ambition_platformer2d_actor_monolith/assets` directory, where the
+/// generated sprite sheets, music, dialogue, and menu icons live.
 ///
-/// Bevy's default file root is the cwd-relative `"assets"`, which in this
-/// workspace has no `sprites/` tree — so an app that does not override it renders
-/// every character as a bare box while the load silently no-ops (the profile gate
-/// resolves the file through [`desktop_candidate_roots`], but the default reader
-/// cannot). This is the ONE value that fixes that, and it is shared by the hosted
-/// app AND every standalone demo app precisely so the two cannot diverge — a demo
-/// that draws nothing standalone was exactly that divergence.
+/// Bevy's default root, `"assets"`, has no `sprites/` tree in this workspace,
+/// so without this every character renders as a bare box. The hosted app and
+/// every standalone demo share this value so they cannot diverge.
 ///
 /// Resolution mirrors the candidate walker: an explicit `BEVY_ASSET_ROOT` wins
-/// (return the relative `"assets"` so the override keeps full control); else the
-/// dev-checkout absolute path when it exists; else the exe-relative `"assets"`
-/// default for shipped builds.
+/// (return the relative `"assets"`); else the dev-checkout absolute path when
+/// it exists; else the exe-relative `"assets"` default for shipped builds.
 pub fn actors_desktop_asset_root() -> String {
     if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
         return "assets".to_string();
@@ -418,16 +392,13 @@ pub fn actors_desktop_asset_root() -> String {
 mod asset_root_tests {
     use super::actors_desktop_asset_root;
 
-    /// The resolved root must be the directory that actually holds the generated
-    /// sprite sheets — the entire reason a windowed app sets it as the AssetServer
-    /// `file_path`, and the fix for "a demo renders every character as a bare box
-    /// standalone". Asserting the `sprites/` tree (not a specific file) keeps this
-    /// robust to sprite renames.
+    /// The resolved root must hold the generated sprite sheets. Check the
+    /// `sprites/` tree, not a specific file, so sprite renames do not break
+    /// this test.
     #[test]
     fn resolved_root_contains_the_generated_sprite_tree() {
-        // An explicit override or a shipped build (no dev tree) both fall back to
-        // the relative `"assets"`; the disk assertion only applies to the dev
-        // checkout this test runs in.
+        // An override or a shipped build falls back to the relative `"assets"`;
+        // the disk check applies only to the dev checkout.
         if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
             return;
         }
@@ -513,9 +484,8 @@ mod authored_path_tests {
         );
     }
 
-    /// A consumer's asset gets NO invented scale siblings: `sprites_0_5x/…` is
-    /// this repo's generated layout, not a convention somebody else's asset
-    /// source agreed to.
+    /// A consumer's asset gets no invented scale siblings: `sprites_0_5x/…` is
+    /// this repo's generated layout.
     #[test]
     fn a_source_qualified_path_has_no_scaled_siblings() {
         assert_eq!(
@@ -528,12 +498,9 @@ mod authored_path_tests {
         );
     }
 
-    /// The guard against a fourth layer. Every FAMILY that joins a folder to
-    /// an authored filename is exercised here with a source-qualified path, and
-    /// the manifest must carry it verbatim.
-    ///
-    /// A family added later that re-implements the join fails this test rather than waiting for
-    /// somebody to render it.
+    /// Every family that joins a folder to an authored filename is exercised
+    /// with a source-qualified path, and the manifest must carry it verbatim.
+    /// A new family that re-implements the join fails this test.
     #[test]
     fn every_manifest_family_carries_a_consumers_own_path_verbatim() {
         const OWN: &str = "game://sprites/consumer_owned.png";
@@ -564,11 +531,8 @@ mod authored_path_tests {
             &scale_variants,
         );
 
-        // Audio joins no folder — a music row carries `asset_path` verbatim — so
-        // it is covered by INSPECTION rather than by the helper. Asserting it
-        // anyway is the difference between "we believe it passes through" and a
-        // test that fails the day somebody adds a folder convention here, which
-        // is precisely how the three sprite layers were introduced.
+        // Audio joins no folder: a music row carries `asset_path` verbatim.
+        // Assert it anyway, so this fails if a folder convention is added.
         builders::extend_with_music_entries(
             &mut manifest,
             &[MusicCatalogRow {
@@ -591,9 +555,8 @@ mod authored_path_tests {
                  reads `{}`, and the asset it names does not exist",
                 entry.logical_path
             );
-            // ...and no invented sibling under this repo's generated layout.
-            // Audio has no scale variants at all, so this is vacuous there and
-            // load-bearing for the two image families.
+            // No invented sibling under this repo's generated layout. Vacuous
+            // for audio (no scale variants); it matters for the image families.
             assert!(
                 manifest
                     .get(&scaled_asset_id(&id, Some("0_5x")).expect("a variant id"))

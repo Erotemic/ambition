@@ -130,7 +130,7 @@ fn a_seed_with_no_fair_counter_is_refused() {
     );
 }
 
-/// An inverted band matches NOTHING, so every instance silently falls outside
+/// An inverted band matches nothing, so every instance silently falls outside
 /// it — the check that looks like it is running is the one doing nothing.
 #[test]
 fn an_inverted_duration_band_is_refused() {
@@ -147,7 +147,7 @@ fn an_inverted_duration_band_is_refused() {
 }
 
 /// An attack belongs to exactly one archetype: the classification is what the
-/// seed MEANS, so two claims is a contradiction rather than a duplicate.
+/// seed means, so two claims is a contradiction rather than a duplicate.
 #[test]
 fn one_attack_claimed_by_two_seeds_is_a_conflict() {
     let text = r#"{
@@ -217,10 +217,10 @@ fn a_zero_tick_rate_is_refused() {
 
 /// A fingerprint that moves between processes is not a fingerprint.
 ///
-/// `canonical` is derived `Debug`, which follows iteration order, so any map in
-/// a canonicalized type must be ORDERED. `strike_geometry` was a `HashMap`:
-/// building the same overrides in a different insertion order produced a
-/// different canonical string, so two identical rosters got two fingerprints.
+/// `canonical` is derived `Debug`, which follows iteration order, so any map
+/// in a canonicalized type must be ordered. With a `HashMap` for
+/// `strike_geometry`, the same overrides built in a different insertion order
+/// gave a different canonical string.
 #[test]
 fn the_canonical_form_does_not_depend_on_map_construction_order() {
     let forward = seeds_with_overrides(["alpha", "beta", "gamma", "delta"]);
@@ -268,8 +268,8 @@ const ENCOUNTER: &str = r#"(
 
 fn encounter_music_diagnostics(name: &str, text: &str) -> Vec<String> {
     // A single-source draft cannot resolve the `boss` reference either, so
-    // asserting merely "some UnresolvedReference" would pass for the wrong
-    // reason. Look only at the MUSIC diagnostics.
+    // "some UnresolvedReference" would pass for the wrong reason. Look only at
+    // the music diagnostics.
     let failure = compile(
         &draft(
             name,
@@ -290,7 +290,7 @@ fn encounter_music_diagnostics(name: &str, text: &str) -> Vec<String> {
         .collect()
 }
 
-/// A whitespace-only music field is a REQUEST, not an absence.
+/// A whitespace-only music field is a request, not an absence.
 #[test]
 fn a_whitespace_only_music_field_is_refused_not_skipped() {
     let text = ENCOUNTER.replace(
@@ -308,9 +308,8 @@ fn a_whitespace_only_music_field_is_refused_not_skipped() {
     );
 }
 
-/// The complement, and the reason this is a predicate change and not a ban: an
-/// EXACTLY empty field really does mean "no swap for this phase" and must NOT
-/// become a reference.
+/// The complement: an exactly empty field means "no swap for this phase" and
+/// must not become a reference.
 #[test]
 fn an_exactly_empty_music_field_is_no_swap_and_makes_no_reference() {
     let text = ENCOUNTER.replace(
@@ -365,10 +364,9 @@ fn refuse_encounters(name: &str, files: &[(&str, &str)]) -> CompileFailure {
     .expect_err("no boss profiles in these drafts, so they always refuse eventually")
 }
 
-/// Two files claiming one encounter id, caught where only the MERGE can see
+/// Two files claiming one encounter id, caught where only the merge can see
 /// it. A per-facet handler reads one file and cannot know another named the
-/// same encounter; the runtime resolves by id and would simply have used
-/// whichever won.
+/// same encounter; the runtime resolves by id and would use whichever won.
 #[test]
 fn two_files_claiming_one_encounter_id_are_refused_by_the_merge() {
     let failure = refuse_encounters(
@@ -388,14 +386,14 @@ fn two_files_claiming_one_encounter_id_are_refused_by_the_merge() {
     );
 }
 
-/// The complement, and what makes the test above about the ID rather than about
-/// the count: two DISTINCT encounters merge, and the compile gets all the way to
-/// reference resolution — which then refuses for the reason every single-source
-/// encounter draft here does, that no boss profile exists to point back.
+/// The complement, which makes the test above about the id and not the count:
+/// two distinct encounters merge, and the compile reaches reference
+/// resolution. It then refuses, as for every single-source encounter draft
+/// here, because no boss profile points back.
 ///
-/// negative space, deliberately: this crate cannot author a minimal boss
-/// profile (the row is the whole struct), so the positive artifact is probed
-/// where the real nine files live — `ambition_content`'s
+/// This crate cannot author a minimal boss profile (the row is the whole
+/// struct), so the positive case is tested where the real files live:
+/// `ambition_content`'s
 /// `the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged`.
 #[test]
 fn two_distinct_encounters_merge_rather_than_conflict() {

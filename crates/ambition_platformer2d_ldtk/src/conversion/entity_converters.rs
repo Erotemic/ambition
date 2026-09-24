@@ -1,9 +1,8 @@
-//! The engine's standard LDtk entity converters — the built-in vocabulary
-//! registered in `standard_converters()`. One `convert_*` per LDtk entity
-//! type, all with the uniform [`LdtkEntityConverter`] signature so the
-//! registry treats engine and content converters identically. Helpers +
-//! `RoomEmission` stay in the parent and are reached via `super::*`
-//! (descendant visibility).
+//! The engine's standard LDtk entity converters, registered in
+//! `standard_converters()`. One `convert_*` per LDtk entity type, all with the
+//! [`LdtkEntityConverter`] signature, so engine and content converters are the
+//! same to the registry. Helpers and `RoomEmission` are in the parent
+//! (`super::*`).
 
 use super::*;
 use ambition_entity_catalog::placements::{HazardSpec, PlacementSchema};
@@ -30,18 +29,14 @@ pub(super) fn convert_consumed_elsewhere(_ctx: &LdtkEntityCtx<'_>) -> Result<Roo
     Ok(RoomEmission::ignored())
 }
 
-/// An encounter's trigger volume, into the room IR.
-///
-/// this is the inversion: the encounter loader read `EncounterTrigger`
-/// straight off the `LdtkProject`, which is why it — and therefore the actor
-/// monolith — needed the LDtk crate at all. The marker joins the emission stream
-/// like every other authored family now, and the loader reads rooms.
+/// An encounter's trigger volume, into the room IR. The encounter loader reads
+/// rooms, not the `LdtkProject`, so it does not depend on the LDtk crate.
 pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
     Ok(RoomEmission {
         encounter_triggers: vec![ambition_platformer2d_world::rooms::EncounterTriggerSpec {
-            // Empty is meaningful: the loader falls back to the AREA id,
-            // which is a fact the IR does not have.
+            // Empty is meaningful: the loader falls back to the area id, which the IR
+            // does not have.
             id: field_string(entity, "id").unwrap_or_default(),
             min,
             size,
@@ -52,15 +47,14 @@ pub(super) fn convert_encounter_trigger(ctx: &LdtkEntityCtx<'_>) -> Result<RoomE
 }
 
 /// An encounter's lock wall, into the room IR. See
-/// [`convert_encounter_trigger`] for why this stopped being read off the project.
+/// [`convert_encounter_trigger`].
 pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
     Ok(RoomEmission {
         lock_walls: vec![ambition_platformer2d_world::rooms::EncounterLockWallSpec {
             id: field_string(entity, "id").unwrap_or_default(),
-            // empty is NOT the same as absent here, and both mean "not a
-            // gate": `authored_gated_lock_walls` skips a wall without a
-            // condition because it belongs to an encounter instead.
+            // Empty and absent both mean "not a gate": `authored_gated_lock_walls`
+            // skips a wall without a condition because it belongs to an encounter.
             gated_by: field_string(entity, "gated_by")
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
@@ -73,9 +67,9 @@ pub(super) fn convert_lock_wall(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_loading_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // an unrecognised spelling is REFUSED, not defaulted. This was
-    // `_ => Door`, so a typo produced an interact door where the author meant a
-    // walk-through and nothing said so. See `LoadingZoneActivation::from_authored`.
+    // An unknown spelling is refused, not defaulted, so a typo does not give a
+    // door where the author meant a walk-through. See
+    // `LoadingZoneActivation::from_authored`.
     let authored = field_string(entity, "activation").unwrap_or_else(|| "Door".to_string());
     let activation = LoadingZoneActivation::from_authored(&authored).ok_or_else(|| {
         format!(
@@ -106,15 +100,11 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
         path.points = offset_points(path.points, offset);
         path
     });
-    // Hazards flow through the single `placements` channel (fable audit F9.2 arc
-    // exit). The Tier-0 `HazardSpec` carries `path_id` only, so a legacy INLINE
-    // motion path is LIFTED here to a room-level `KinematicPath`: synthesize a
-    // path entry keyed by `{iid}__inline_motion`, reference it via `path_id`, and
-    // emit a normal hazard placement. This is behavior-preserving —
-    // `HazardRuntime::new_with_paths` resolves `path_id` to that room path and
-    // sets `volume.motion`, identical to the old inline case. (No live map
-    // authored inline-motion hazards — F7 audited all four .ldtk files — so this
-    // is the F7 dissolution completing, not a live behavior change.)
+    // Hazards go through the `placements` channel. `HazardSpec` carries only
+    // `path_id`, so an inline motion path is lifted to a room-level
+    // `KinematicPath` keyed `{iid}__inline_motion` and referenced by `path_id`.
+    // `HazardRuntime::new_with_paths` resolves it and sets `volume.motion`, the
+    // same result as an inline path.
     let mut kinematic_paths = Vec::new();
     let path_id = if let Some(motion) = inline_motion {
         let synth_id = format!("{}__inline_motion", entity.iid);
@@ -149,13 +139,12 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     })
 }
 
-/// `SurfaceChain` — a rideable surface polyline (demo plan S3, momentum
-/// locomotion). Fields: `points` (semicolon `x,y` pairs, level-local — the
-/// KinematicPath convention), optional `closed: bool` (a loop; the closing
-/// segment is implicit). One-sided by winding (author floors left→right);
-/// the engine validator runs at conversion so inverted joins / degenerate
-/// segments / self-intersections fail LOUDLY here instead of masquerading as
-/// physics bugs in play.
+/// `SurfaceChain`: a rideable surface polyline (momentum locomotion). Fields:
+/// `points` (semicolon `x,y` pairs, level-local, as for KinematicPath) and
+/// optional `closed: bool` (a loop; the closing segment is implicit). One-sided
+/// by winding: author floors left→right. The engine validator runs at
+/// conversion, so inverted joins, degenerate segments, and self-intersections
+/// fail here and not as physics bugs in play.
 pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, _min, _size) = ctx.parts();
     let points = offset_points(
@@ -175,13 +164,11 @@ pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     Ok(RoomEmission::chain(chain))
 }
 
-/// `SurfaceLoop` — a rideable full LOOP (the Sonic loop), authored as a MARKER
-/// so a level need not hand-plot 24 points (demo plan S3b / Q17). Fields:
-/// `radius` (px, required) and optional `segments` (polygon resolution, default
-/// 24, min 3). The converter GENERATES the closed polygon chain at conversion
-/// time and emits it into the same `chains` channel `SurfaceChain` uses — the
-/// second real consumer of the content-registered converter seam, strictly
-/// better than a script-injection escape hatch.
+/// `SurfaceLoop`: a rideable full loop, authored as a marker so a level need not
+/// plot every point. Fields: `radius` (px, required) and optional `segments`
+/// (polygon resolution, default 24, min 3). The converter generates the closed
+/// polygon at conversion and emits it into the `chains` channel that
+/// `SurfaceChain` uses.
 ///
 /// The marker's center (`min + size/2`) is the loop center.
 pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
@@ -244,8 +231,8 @@ impl RampOrientation {
         }
     }
 
-    /// Unit vector from the corner toward the arc CENTER — i.e. into the open
-    /// room. Each component is `±1`, so the base arc table mirrors by sign alone.
+    /// Unit vector from the corner toward the arc center (into the open room).
+    /// Each component is `±1`, so the base arc table mirrors by sign.
     fn into_room(self) -> ae::Vec2 {
         match self {
             Self::FloorToRightWall => ae::Vec2::new(-1.0, -1.0),
@@ -256,23 +243,20 @@ impl RampOrientation {
     }
 }
 
-/// `SurfaceRamp` — the quarter-circle fillet that lets a momentum body carry
-/// its speed from a floor onto a wall (Q27; pinned math in
-/// `docs/architecture/spatial-model.md` §`SurfaceRamp`).
+/// `SurfaceRamp`: the quarter-circle fillet that lets a momentum body carry its
+/// speed from a floor onto a wall (math in `docs/architecture/spatial-model.md`
+/// §`SurfaceRamp`).
 ///
 /// Fields: `radius` (px, required), `orientation` (one of the four
 /// [`RampOrientation`] names, default `FloorToRightWall`), `segments` (polygon
 /// resolution, default 8, min 2).
 ///
-/// AMBITION_REVIEW(spatial): the arc table is the doc's, verbatim, for the base
-/// orientation. The winding sign is NOT hand-derived per orientation — the
-/// doc explicitly forbids that, and it is right to: a floor's outward normal must
-/// point up, a ceiling's down, and mirroring the point list flips the sign of
-/// `normal = (t.y, -t.x)` in a way that is genuinely hard to see. Instead the
-/// converter DERIVES the order: a fillet's surface normal points from the arc
-/// toward its center, so the point list is reversed whenever the first segment's
-/// normal points away from it. One code path, four orientations, and the winding
-/// oracle (`surface_ramp_winding_oracle`) proves each one by riding it.
+/// AMBITION_REVIEW(spatial): the arc table is the doc's table for the base
+/// orientation. Do not hand-derive the winding per orientation: mirroring the
+/// point list flips the sign of `normal = (t.y, -t.x)`. The converter derives
+/// the order instead. A fillet's normal points from the arc toward its center,
+/// so the list is reversed when the first segment's normal points away. The
+/// winding oracle (`surface_ramp_winding_oracle`) rides each orientation.
 pub(super) fn convert_surface_ramp(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
     let radius = field_f32(entity, "radius").unwrap_or(0.0);
@@ -313,8 +297,8 @@ pub(super) fn convert_surface_ramp(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 /// P(90°) = (x1, y0 − r)   — tangent on the wall
 /// ```
 ///
-/// The other three are axis mirrors of the SAME table, which `into_room()`'s
-/// `±1` components apply.
+/// The other three orientations are axis mirrors of this table, applied by the
+/// `±1` components of `into_room()`.
 pub fn surface_ramp_points(
     corner: ae::Vec2,
     radius: f32,
@@ -327,15 +311,15 @@ pub fn surface_ramp_points(
     let mut points: Vec<ae::Vec2> = (0..=n)
         .map(|k| {
             let theta = std::f32::consts::FRAC_PI_2 * (k as f32) / (n as f32);
-            // Base table, then mirrored by `sign`. `sin` runs along the wall axis
-            // and `cos` along the floor axis, exactly as the doc writes it.
+            // Base table, mirrored by `sign`. `sin` runs along the wall axis and `cos`
+            // along the floor axis, as in the doc.
             center + ae::Vec2::new(-sign.x * theta.sin(), -sign.y * theta.cos()) * radius
         })
         .collect();
 
-    // Derive the winding rather than tabulate it. `SurfaceChain`'s outward normal
-    // is `(t.y, -t.x)`; on a fillet it must point from the surface toward the arc
-    // center. If the first segment's does not, the list runs the wrong way.
+    // Derive the winding. `SurfaceChain`'s outward normal is `(t.y, -t.x)`; on a
+    // fillet it must point from the surface toward the arc center. If the first
+    // segment's normal does not, reverse the list.
     let t = (points[1] - points[0]).normalize_or_zero();
     let normal = ae::Vec2::new(t.y, -t.x);
     if normal.dot(center - points[0]) < 0.0 {
@@ -379,10 +363,9 @@ pub(super) fn convert_kinematic_path(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmis
 
 pub(super) fn convert_prop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // Decorative-only entity. Renders a sprite via `PropRegistry`, but
-    // never grows an `Interactable` or a `RoomObject` — so the player
-    // can walk past with no dialogue prompt and the engine never sees
-    // it.
+    // Decorative-only entity. It renders a sprite through `PropRegistry` but gets
+    // no `Interactable` or `RoomObject`, so it has no prompt and the engine does
+    // not see it.
     let kind = field_string(entity, "kind").unwrap_or_default();
     if kind.trim().is_empty() {
         return Err("Prop requires non-empty `kind` field".to_string());
@@ -402,14 +385,12 @@ pub(super) fn convert_prop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Stri
 
 pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // LDtk NpcSpawns carry a stable `character_id` keying into
-    // `assets/data/character_catalog.ron`. This crate is the world-IR backend
-    // and deliberately has no catalog dependency, so it cannot resolve a human
-    // label here — `Authored.name` carries the character_id (every NpcSpawn
-    // shares the LDtk identifier "NpcSpawn", so the entity name is useless as a
-    // label). `spawn_static::lower_interactable_placement` resolves the real display name
-    // from the catalog at spawn, keyed off the character_id that travels in
-    // `InteractionKindSpec::Npc` below.
+    // An NpcSpawn carries a `character_id` that keys into
+    // `assets/data/character_catalog.ron`. This crate has no catalog dependency,
+    // so `Authored.name` holds the character_id (the entity name is always
+    // "NpcSpawn"). `spawn_static::lower_interactable_placement` resolves the
+    // display name from the catalog at spawn, using the character_id in
+    // `InteractionKindSpec::Npc`.
     let character_id = field_string(entity, "character_id").unwrap_or_default();
     let display_name = if character_id.is_empty() {
         name
@@ -421,12 +402,12 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
         ambition_platformer2d_world::rooms::InteractionKindSpec::Npc {
             character_id: (!character_id.is_empty()).then(|| character_id.clone()),
             dialogue_id: field_string(entity, "dialogue_id"),
-            // Optional `patrol_radius` field on NpcSpawn: a lane-radius PARAMETER
-            // consumed by a selected patrol brain preset, not a brain selector.
+            // Optional `patrol_radius`: a lane-radius parameter for a patrol brain
+            // preset. It does not select the brain.
             patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
             patrol_path_id: field_string(entity, "path_id"),
-            // Optional explicit initial brain preset override. Absent/empty ->
-            // the character's catalog `default_brain`.
+            // Optional initial brain preset override. Absent or empty uses the
+            // character's catalog `default_brain`.
             brain_override: field_string(entity, "brain_override"),
         },
     );
@@ -445,8 +426,8 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     let mut pickup = ambition_platformer2d_world::rooms::PickupSpec::new(parse_pickup_kind(
         &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
     ));
-    // Optional animated sprite sheet (a `GameAssets` prop kind) — a spinning ring
-    // instead of the static per-kind entity art. Reward stays on `kind`.
+    // Optional animated sprite sheet (a `GameAssets` prop kind), for example a
+    // spinning ring. The reward stays on `kind`.
     if let Some(sprite) = field_string(entity, "sprite").filter(|s| !s.trim().is_empty()) {
         pickup.sprite = Some(sprite.trim().to_string());
     }
@@ -462,11 +443,10 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 
 pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // Authored held-item pickup. `held_item` is a brain held-item registry id
-    // (`meteor`, `bomb`, `puppy_slug_gun`, `gun_sword`, ...); resolution to a
-    // `HeldItemSpec` happens at spawn, where an unregistered / feature-gated id
-    // is tolerated (the item simply doesn't appear) rather than failing the
-    // whole room load.
+    // Authored held-item pickup. `held_item` is a held-item registry id (`meteor`,
+    // `bomb`, `puppy_slug_gun`, `gun_sword`, ...). It resolves to a `HeldItemSpec`
+    // at spawn. An unregistered or feature-gated id makes the item not appear; the
+    // room load does not fail.
     let held_item = field_string(entity, "held_item").unwrap_or_default();
     if held_item.trim().is_empty() {
         return Err("GroundItem requires non-empty `held_item` field".to_string());
@@ -489,23 +469,21 @@ pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
 #[cfg(feature = "portal_ldtk")]
 pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // The box gives the pickup's center + half-extent; `id`/`name`/`pair` are
-    // all optional. Spawns an already-armed `PortalGunPickup` at room load.
+    // The box gives the pickup's center and half-extent. `id`, `name`, and `pair`
+    // are optional. Spawns an armed `PortalGunPickup` at room load.
     let id = field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| entity.iid.clone());
-    // WHICH PORTAL PAIR THIS GUN OWNS. Absent means 0, the classic
-    // blue/orange gun, so every room authored before this field keeps its
-    // behaviour. A room wanting a second, differently-coloured gun places
-    // another `PortalGunSpawn` with a different `pair`.
+    // The portal pair this gun owns. Absent means 0, the classic blue/orange gun.
+    // For a second gun of a different color, place another `PortalGunSpawn` with
+    // a different `pair`.
     //
-    // A negative or out-of-range authored value WRAPS rather than being
-    // refused: a mistyped number should hand the level author a gun of some
-    // other colour to notice, not a room that fails to load. Only the `u8` fit
-    // is done here — the pair space itself wraps inside `PortalGunColor`, and
-    // this layer deliberately does not depend on the portal crate to learn its
-    // width (see the portal-api FIXME about baking the gun palette outward).
+    // An out-of-range value wraps and is not refused: a wrong number gives a gun
+    // of another color, not a room that fails to load. This code only fits the
+    // value into a `u8`. `PortalGunColor` wraps the pair space, and this layer
+    // does not depend on the portal crate (see the portal-api FIXME about the gun
+    // palette).
     let pair = field_i32(entity, "pair").unwrap_or(0).rem_euclid(256) as u8;
     Ok(RoomEmission::portal_gun_spawn(
         ambition_platformer2d_world::rooms::PortalGunSpawnSpec {
@@ -521,9 +499,9 @@ pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEm
 #[cfg(feature = "portal_ldtk")]
 pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // `color` names the pair (its partner is the linked exit); `normal` is the
-    // surface the portal sits on (up = floor, down = ceiling, left = right-wall,
-    // right = left-wall — y is down in world space). The box center is the face.
+    // `color` names the pair (its partner is the linked exit). `normal` is the
+    // surface the portal sits on (up = floor, down = ceiling, left = right wall,
+    // right = left wall; y is down). The box center is the face.
     let color_str = field_string(entity, "color").unwrap_or_default();
     let color = ambition_platformer2d_world::rooms::PortalChannelColorSpec::from_name(&color_str)
         .ok_or_else(|| format!("Portal '{name}' has unknown color '{color_str}'"))?;
@@ -534,17 +512,17 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         Some("up") | None => ae::Vec2::new(0.0, -1.0),
         Some(other) => return Err(format!("Portal '{name}' has unknown normal '{other}'")),
     };
-    // Explicit link id (preferred pairing); empty/absent  legacy color pairing.
+    // Explicit link id (preferred pairing). Empty or absent uses color pairing.
     let link = field_string(entity, "link")
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
-    // Authored opening size: the box dimension ALONG the surface (perpendicular
-    // to the normal). Floor/ceiling (vertical normal) → width; wall → height.
+    // Authored opening size: the box dimension along the surface. Floor or
+    // ceiling (vertical normal) → width; wall → height.
     let along = if normal.x.abs() > 0.5 { size.y } else { size.x };
     let half_length = (along > 1.0).then_some(along * 0.5);
-    // The face center (`pos = min + size*0.5`) is exactly the placement record's
-    // `aabb.center()`, so the Tier-0 mirror stores only `normal` (+ color/link/
-    // half_length) and the actor lowering derives `pos` from the record aabb.
+    // The face center (`min + size*0.5`) is the placement record's
+    // `aabb.center()`, so the Tier-0 mirror stores only `normal`, color, link, and
+    // half_length. The actor lowering derives `pos` from the record aabb.
     let aabb = object_aabb(min, size);
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         authored_id(entity),
@@ -560,11 +538,9 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     Ok(RoomEmission::placement(record))
 }
 
-// Portal-authored entities require the `portal_ldtk` feature. Per the
-// refactor anti-goal ("do NOT make LDtk silently ignore portal-authored
-// entities when portal is disabled — fail loudly"), a portal-OFF /
-// portal_ldtk-OFF build registers explicit ERROR converters rather than
-// dropping the entities.
+// Portal entities need the `portal_ldtk` feature. Without it, register
+// converters that fail with an error, so LDtk does not drop portal entities
+// without notice.
 #[cfg(not(feature = "portal_ldtk"))]
 pub(super) fn convert_portal_gun_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     portal_compiled_out(ctx)
@@ -645,17 +621,13 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let (entity, name, min, size) = ctx.parts();
     let authored_brain = field_string(entity, "brain").unwrap_or_default();
     let authored_brain = authored_brain.trim();
-    // THE PATROL PATH IS A NATIVE REFERENCE. `path_ref` is an LDtk
-    // `EntityRef` at a `KinematicPath`, so the editor draws the link, every tool
-    // discovers it from the project schema alone, and a target that is not there
-    // is caught by LDtk's own referential integrity instead of by a spelling
-    // convention three resolvers each implemented differently.
+    // The patrol path is a native reference. `path_ref` is an LDtk `EntityRef` to
+    // a `KinematicPath`. The editor draws the link, tools find it from the schema,
+    // and LDtk's referential integrity catches a missing target.
     //
-    // the `Patrol:<id>` string it replaces is REFUSED, not tolerated.
-    // Falling through to `CharacterBrain::Custom` would leave an un-migrated
-    // placement looking exactly like a healthy one — the same silence that let
-    // sandbox's basement patroller stand still for months. Delete this arm once
-    // no `.ldtk` in the repo authors the prefix:
+    // The old `Patrol:<id>` string is refused. If it fell through to
+    // `CharacterBrain::Custom`, an unmigrated placement would look valid. Delete
+    // this arm when no `.ldtk` in the repo uses the prefix:
     //   grep -l '"Patrol:' game/*/assets/worlds/*.ldtk
     if authored_brain.starts_with("Patrol:") {
         return Err(format!(
@@ -667,9 +639,8 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let path_ref = ctx
         .kinematic_path_ref("path_ref")
         .map_err(|problem| format!("EnemySpawn `{name}` {problem}"))?;
-    // ONE authority per placement. A `path_ref` beside a `Guard:96` is two
-    // answers to "what drives this body", and picking one silently is how an
-    // authored intent disappears.
+    // One authority per placement. A `path_ref` together with `Guard:96` gives two
+    // answers to "what drives this body"; refuse instead of picking one.
     if path_ref.is_some() && !authored_brain.is_empty() {
         return Err(format!(
             "EnemySpawn `{name}` authors both `path_ref` and brain \
@@ -696,11 +667,9 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             )
         })?;
     let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain, character_id);
-    // WHICH WAY THIS OCCURRENCE STARTS. Facing is placement context: the
-    // character and controller are reusable, while two instances of the same
-    // pair may enter a room looking opposite ways. Missing/blank keeps the
-    // historical construction default (`Right` / +1); an authored misspelling
-    // refuses rather than silently changing initial locomotion.
+    // Initial facing is placement context: two instances of the same character
+    // can enter a room facing opposite ways. Missing or blank keeps the default
+    // (`Right` / +1). A misspelling is refused.
     if let Some(facing) = field_string(entity, "facing") {
         match facing.trim() {
             "" | "Right" => {}
@@ -712,15 +681,14 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
-    // WHEN THIS ONE COMES BACK — the placement's own answer, when it has one (ADR 0022). A
-    // migrated character has no archetype row to inherit a policy from, and the same creature
-    // is a permanent casualty in a story room and a repopulating trash mob in a corridor.
+    // Respawn policy for this placement, when it has one (ADR 0022). A migrated
+    // character has no archetype row to inherit from, and the same creature can
+    // be permanent in a story room and repopulating in a corridor.
     if let Some(respawn) = field_string(entity, "respawn") {
         match parse_respawn_policy(respawn.trim()) {
             Some(policy) => payload.respawn = Some(policy),
-            // LOUD. A misspelled policy that silently meant "the archetype's"
-            // is the shape this repo has paid for repeatedly: it looks exactly
-            // like authoring nothing.
+            // Refuse a misspelled policy. Falling back to the archetype's policy would
+            // look the same as authoring nothing.
             None if !respawn.trim().is_empty() => {
                 return Err(format!(
                     "EnemySpawn `{name}` authors respawn `{}`, which is not one of \
@@ -731,7 +699,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             None => {}
         }
     }
-    // HOSTILE OR NOT, authored here rather than inherited from a creature.
+    // Hostility is authored here, not inherited from a creature.
     if let Some(disposition) = field_string(entity, "disposition") {
         match disposition.trim() {
             "" => {}
@@ -751,13 +719,12 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
-    // WHO DRIVES IT, when this placement wants a policy other than the
-    // character's own. See `EnemySpawnSpec::brain_profile`: the same body with
-    // two placements is a patroller in one corridor and a door guard in the
-    // next, which the creature itself must not have to decide.
+    // Brain override, when this placement wants a policy other than the
+    // character's own. See `EnemySpawnSpec::brain_profile`: the same body can be a
+    // patroller in one corridor and a door guard in the next.
     //
-    // PROVIDER-RELATIVE, like every other authored profile reference — a level
-    // author writes `medium_striker`, never `ambition::medium_striker`.
+    // Provider-relative, like other authored profile references: a level author
+    // writes `medium_striker`, not `ambition::medium_striker`.
     if let Some(profile) = field_string(entity, "brain_profile") {
         let profile = profile.trim();
         if !profile.is_empty() {
@@ -767,10 +734,9 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     let mut emission = RoomEmission::enemy_spawn(
         ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, payload),
     );
-    // ADR 0020: a rider EnemySpawn carrying a `mounted_on` entity-ref emits an
-    // authored mount link `(rider_id, mount_id)`. The ref stores the mount's
-    // LDtk `iid`; authored linked pairs carry no explicit `id` field, so the
-    // mount's `FeatureId` equals its `iid` and resolution matches on it.
+    // ADR 0020: a rider EnemySpawn with a `mounted_on` entity-ref emits a mount
+    // link `(rider_id, mount_id)`. The ref stores the mount's LDtk `iid`. Linked
+    // pairs have no explicit `id`, so the mount's `FeatureId` equals its `iid`.
     if let Some(mount_id) = field_entity_ref(entity, "mounted_on") {
         emission.mount_links.push((id, mount_id));
     }
@@ -800,27 +766,19 @@ pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission
     let brain =
         parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()));
     let (_iid, name, aabb) = authored_triple(entity, name, min, size);
-    // ⭐⭐ THE AUTHORED ENCOUNTER ID IS THE PLACEMENT'S ID, not a second field
-    // beside it. Jon's ruling on question 57 (2026-09-05): *"Boss progress is
-    // keyed only by stable authored encounter/placement IDs"*, and
-    // `boss.cleared(id)` asks whether THIS authored encounter is cleared.
+    // The authored encounter id is the placement's id, not a separate field.
+    // Boss progress is keyed only by stable authored encounter/placement ids
+    // (maintainer ruling, question 57), and `boss.cleared(id)` asks about this
+    // encounter. The durable record is written under this id
+    // (`boss_encounter/src/systems.rs`), and a Yarn author can only type a name
+    // they know, so the id must be the authored one, not the LDtk iid.
     //
-    // ⛔⛔ IT USED TO BE THE LDtk IID, AND THAT MADE EVERY AUTHORED CALL FALSE.
-    // The durable record is written under this id (`boss_encounter/src/systems.rs`)
-    // and `boss.cleared` looks it up exactly — but an author writing Yarn can
-    // only type a name they can know, so `kernel.yarn` and `cove.yarn` asked
-    // `boss_cleared("mockingbird")`, the BEHAVIOUR id, against a save keyed
-    // `BossSpawn-4308`. Three executable branches that could never open.
+    // Resolve it here so there is one authority: the save key, `FeatureId`, the
+    // duplicate-id check, and mount links all read this `id`. An unauthored
+    // placement falls back to the iid.
     //
-    // ⭐ Resolving it HERE, at the authoring boundary, is what keeps it one
-    // authority: everything downstream — the save key, `FeatureId`, the
-    // duplicate-id check, mount links — reads the same `id`, so there is no
-    // second spelling to keep in step. An unauthored placement falls back to
-    // the iid and behaves exactly as before.
-    //
-    // ⚠ The id is deliberately NOT derived from the level identifier: a
-    // durable save key that tracks a level name changes when the level is
-    // renamed, which is the property an authored id exists to avoid.
+    // Do not derive the id from the level identifier: a save key would then
+    // change when the level is renamed.
     let id = crate::fields::boss_placement_id(entity);
     let mut emission = RoomEmission::boss_spawn(ambition_platformer2d_world::rooms::Authored::new(
         id.clone(),
@@ -828,12 +786,12 @@ pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission
         aabb,
         brain,
     ));
-    // ADR 0020 (G4): a BOSS authored as a mount RIDER (GNU-ton the scholar aboard
-    // his `giant_gnu` mount) carries a `mounted_on` EntityRef exactly like a rider
-    // `EnemySpawn` does — mirror of `convert_enemy_spawn` above. `spawn_boss`
-    // attaches the boss's `CanPilot` (fork#2); the planned `ambition.mount` relation
-    // installs the `RidingOn`/`MountSlot` link from this authored `(rider, mount)`
-    // pair, matching the mount's `FeatureId` (== its `iid`).
+    // ADR 0020 (G4): a boss authored as a mount rider (GNU-ton on his
+    // `giant_gnu`) carries a `mounted_on` EntityRef, as a rider `EnemySpawn` does
+    // (see `convert_enemy_spawn`). `spawn_boss` attaches the boss's `CanPilot`.
+    // The planned `ambition.mount` relation installs the `RidingOn`/`MountSlot`
+    // link from this `(rider, mount)` pair, matching the mount's `FeatureId`
+    // (== its `iid`).
     if let Some(mount_id) = field_entity_ref(entity, "mounted_on") {
         emission.mount_links.push((id, mount_id));
     }
@@ -858,10 +816,8 @@ pub(super) fn convert_debug_label(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
 
 pub(super) fn convert_water_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
-    // Entity-authored water: source-agnostic, lands in the same
-    // `World::water_regions` list IntGrid Water cells populate.
-    // Reserved for irregular pools the per-cell IntGrid layer can't
-    // shape.
+    // Entity water goes into the same `World::water_regions` list as IntGrid
+    // Water cells. Use it for irregular pools that the per-cell layer cannot shape.
     let mut spec = ae::WaterVolumeSpec::default();
     if let Some(value) = field_f32(entity, "gravity_scale") {
         spec.gravity_scale = value;
@@ -875,9 +831,8 @@ pub(super) fn convert_water_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     if let Some(value) = field_f32(entity, "swim_up_impulse") {
         spec.swim_up_impulse = value;
     }
-    // Entity water defaults to Clear. The IntGrid Water layer is the
-    // canonical authoring path for distinct kinds; if a future entity
-    // field needs Murky, add a `kind` field via
+    // Entity water defaults to Clear. The IntGrid Water layer is the canonical
+    // path for other kinds. To add Murky here, add a `kind` field with
     // `register_ldtk_entity_def.py` and route it here.
     Ok(RoomEmission::water_region(ae::WaterRegion::new(
         object_aabb(min, size),
@@ -888,22 +843,17 @@ pub(super) fn convert_water_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 
 pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    // LDtk entity bounds define platform size and, for the legacy sweep
-    // mode, starting AABB. When `path_id` is authored, the platform
-    // follows the referenced active-area-local `KinematicPathSpec`
-    // instead and uses its first point as the runtime center.
+    // LDtk entity bounds give the platform size and, for sweep mode, the start
+    // AABB. When `path_id` is authored, the platform follows that
+    // active-area-local `KinematicPathSpec` and starts at its first point.
     let start_pos = min + size * 0.5;
-    // Hand the engine what the author actually wrote — `None` where a field was
-    // left alone — and let it say which motion that is. The adapter no longer
-    // owns platform defaults or the rule for reading two motions at once.
+    // Give the engine only what the author wrote (`None` for an unset field). The
+    // engine selects the motion and owns the defaults.
     //
-    // `sweep_dx` and `loop_dy` are DELTAS, so they take no level offset.
-    // `loop_min_y` is a POSITION, so it does. `LdtkEntityCtx::offset`
-    // says it outright — "apply it to any ADDITIONAL points a converter parses
-    // out of entity fields; `min` has it applied already" — and an anchor
-    // compared against an already-offset `start_pos` is a shaft in a different
-    // place than the author drew, by exactly the level's offset. Silent in a
-    // level at the origin, which is the worst way for it to be wrong.
+    // `sweep_dx` and `loop_dy` are deltas, so they take no level offset.
+    // `loop_min_y` is a position, so it takes the offset (see
+    // `LdtkEntityCtx::offset`). Without it the anchor is wrong by the level's
+    // offset, which is not visible in a level at the origin.
     let motion = ambition_platformer2d_world::platforms::AuthoredPlatformMotion {
         sweep_dx: field_f32(entity, "sweep_dx"),
         speed: field_f32(entity, "speed"),
@@ -914,15 +864,10 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
     .classify()?;
     Ok(RoomEmission::moving_platform(
         ambition_platformer2d_world::platforms::MovingPlatformSpec::new(
-            // an author could not name a platform, and every other converter
-            // lets them. `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
-            // and the rest all read `field_string(entity, "id")` and fall back to
-            // the iid; this one went straight to the iid, so a moving platform
-            // had no stable name a room could address it by. Mary-O's underground
-            // ferry is found by NAME today for exactly that reason, and a name is
-            // presentation — `FeatureName`'s own doc calls it "human-facing … for
-            // debug overlays / inspectors", which is not a thing to key gameplay
-            // on. This repo has already paid for that twice with the snake.
+            // Read the authored `id` first and fall back to the iid, as `LoadingZone`,
+            // `CameraZone`, `Portal`, and `ShrineSpawn` do. A room needs a stable id to
+            // address a platform; the name is presentation only (`FeatureName`) and must
+            // not key gameplay.
             field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
             name,
             start_pos,
@@ -957,12 +902,9 @@ pub(super) fn convert_camera_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     }))
 }
 
-/// Convert an LDtk `Switch` entity into a room-owned interaction spec
-/// carrying the wire-format custom payload.
-///
-/// The `SwitchFeature` spawn path re-parses the payload into a typed
-/// the sim-side switch activation parser once, so downstream gameplay
-/// systems never touch the string form.
+/// Convert an LDtk `Switch` entity into a room-owned interaction spec with the
+/// wire-format custom payload. The `SwitchFeature` spawn path parses the
+/// payload once, so gameplay systems do not see the string form.
 pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
     let id = field_string(entity, "id").unwrap_or_else(|| entity.iid.clone());
@@ -975,13 +917,11 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
             "switch:{id}:{action}:{target_encounter}"
         )),
     );
-    // Use the LDtk field `id` (carried on activation) for the
-    // authored entity id so the SwitchRuntime id matches the
-    // SwitchActivation id. The entity.iid would default to something
-    // like "Switch-4072"; that mismatch silently no-op'd switch state
-    // updates and left the switch sprite stuck red.
-    // The authored switch id, kept before `id` moves into the record — it is the
-    // key `SwitchActivation` joins on, and what a command line is addressed to.
+    // Use the LDtk field `id` as the authored entity id, so the SwitchRuntime id
+    // matches the SwitchActivation id. The iid (for example "Switch-4072") would
+    // not match, and switch state updates would do nothing. Keep it before `id`
+    // moves into the record: `SwitchActivation` joins on it, and command lines
+    // address it.
     let id_for_command = id.clone();
     let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
         id,
@@ -989,9 +929,8 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
         aabb,
     );
     record.name = name;
-    // NOT folded into `InteractableSpec`: that type is a variant of the closed Tier-0
-    // `PlacementSchema`, so widening it would put a schema event behind a load-time string that one
-    // consumer reads.
+    // Not part of `InteractableSpec`: that type is a variant of the closed Tier-0
+    // `PlacementSchema`, and only one consumer reads this string.
     let switch_commands = field_string(entity, "on_activate")
         .map(|line| line.trim().to_string())
         .filter(|line| !line.is_empty())
@@ -1009,15 +948,11 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     })
 }
 
-/// The winding oracle for `SurfaceRamp` (Q27).
+/// The winding oracle for `SurfaceRamp`.
 ///
-/// `docs/architecture/spatial-model.md`: *"Do NOT hand-derive the winding sign
-/// per orientation … let the WINDING ORACLE decide correctness — a 4-case
-/// parameterized headless test in which a momentum body enters each ramp along
-/// the floor at speed and must EXIT moving up the wall … A sign error flips a case
-/// from 'climbs the wall' to 'launches off/clips' — the test catches what
-/// inspection doesn't."*
-///
-/// So it is not inspected. It is ridden.
+/// `docs/architecture/spatial-model.md` says not to hand-derive the winding per
+/// orientation. Instead, a momentum body enters each of the four ramps along
+/// the floor at speed and must exit moving up the wall. A sign error makes it
+/// launch off or clip.
 #[cfg(test)]
 mod surface_ramp_winding_oracle;

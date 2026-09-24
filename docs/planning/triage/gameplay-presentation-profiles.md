@@ -8,9 +8,8 @@
 > are still spelled (`shared_tangle/src/gameplay_presentation/mod.rs`,
 > `ambition_render/src/gameplay_surround.rs`) and the host still resolves
 > surround regions, so the remaining bullets below are the same remaining
-> bullets. The original design/review history is
-> archived at
-> `../../archive/planning-superseded/2026-08-13/triage/gameplay-presentation-profiles.md` (docs/archive/planning-superseded/2026-08-13/triage/gameplay-presentation-profiles.md — removed from the checkout 2026-09-05; still in git history).
+> bullets. Git history has the original design and review
+> history.
 
 ## Remaining
 

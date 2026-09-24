@@ -1,11 +1,11 @@
-//! Boss reward-chest sync — the ECS mirror of "this boss placement is cleared,
+//! Boss reward-chest sync: the ECS mirror of "this boss placement is cleared,
 //! so its authored `DropChest` reward exists in the room".
 //!
-//! Lives with the boss domain that owns the contract: the only caller is
+//! It lives with the boss domain: the only caller is
 //! `boss_encounter::systems::update_boss_encounters`, and the reward shape it
-//! reads (`BossRewardProfile::DropChest`) is boss vocabulary. The mob-encounter
-//! sibling (`sync_encounter_reward_chests_ecs`) stays in `features::ecs`, whose
-//! `EncounterMob` wave vocabulary it shares.
+//! reads (`BossRewardProfile::DropChest`) is boss vocabulary. The
+//! mob-encounter sibling (`sync_encounter_reward_chests_ecs`) stays in
+//! `features::ecs` with the `EncounterMob` wave vocabulary.
 
 use super::{BossEncounterRegistry, BossRewardProfile};
 use ambition_combat::falling_chest::settled_chest_center;
@@ -18,18 +18,18 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use bevy::prelude::{Commands, Entity, Name, Query, With};
 
-/// Idempotently ensure cleared boss encounters have ECS reward chests.
-/// Boss actors are ECS entities now; this helper receives their spawn anchors
-/// from the boss encounter system and owns the reward chest entity/state natively.
+/// Idempotently ensure cleared boss encounters have ECS reward chests. This
+/// helper receives boss spawn anchors from the boss encounter system and owns
+/// the reward chest entity and state.
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
     registry: &BossEncounterRegistry,
     world: &ae::World,
-    // (placement_id, archetype_id, spawn) for each boss in the room. R4 keys the
-    // chest + looted flag by PLACEMENT (so a cleared placement drops its own
-    // chest) and resolves the DropChest reward via the archetype profile.
+    // (placement_id, archetype_id, spawn) for each boss in the room. The chest
+    // and looted flag are keyed by placement (so a cleared placement drops its
+    // own chest); the DropChest reward comes from the archetype profile.
     boss_placements: &[(String, String, ae::Vec2)],
     chests: &Query<
         (

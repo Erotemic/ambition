@@ -18,7 +18,7 @@ pub struct MarkBodyParams {
     pub damage: i32,
     /// Half-extent of the blast, in world px, centred on the marked body.
     pub blast_radius: f32,
-    /// Knockback FEEL MULTIPLIER, not a launch speed — values such as 1.0 or 1.6.
+    /// Knockback feel multiplier, not a launch speed: values such as 1.0 or 1.6.
     /// The mine's own comment records the units error this field invites.
     pub knockback: f32,
 }

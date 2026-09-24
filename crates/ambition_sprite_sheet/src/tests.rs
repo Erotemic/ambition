@@ -1,10 +1,9 @@
 use super::*;
 
 /// A split (multi-page) sheet round-trips: the generator emits an
-/// `images: [...]` list and a `page:` per row, with each page's rects in
-/// that page's own pixel space. Regressing the `#[serde(default)]` on
-/// either field would silently collapse every row onto page 0 and address
-/// the wrong texture.
+/// `images: [...]` list and a `page:` per row, and each page's rects use that
+/// page's pixel space. Without `#[serde(default)]` on either field, every row
+/// would fall onto page 0 and use the wrong texture.
 #[test]
 fn multi_page_sheet_round_trips() {
     let ron_text = r#"
@@ -102,11 +101,9 @@ fn single_page_sheet_defaults_to_one_page() {
     assert_eq!(record.rows[0].page, 0);
 }
 
-/// The Python renderer emits `body_metrics.animations` as a
-/// map keyed by animation name. This test pins that the
-/// Rust deserializer reads it back — regressing this would
-/// silently fall back to the legacy `body_pixel_bbox`
-/// (cyan box stays at idle-pose size during attacks).
+/// The Python renderer emits `body_metrics.animations` as a map keyed by
+/// animation name, and the Rust deserializer must read it back. Otherwise it
+/// falls back to the legacy `body_pixel_bbox` (idle-size box during attacks).
 #[test]
 fn body_metrics_animations_round_trip_from_renderer_emit() {
     // Matches the shape emitted by `_ron_anim_metrics_map` in the
@@ -164,17 +161,15 @@ fn body_metrics_animations_round_trip_from_renderer_emit() {
     assert_eq!(sweep_hit.parts[1].name, "right");
 }
 
-/// Verify the actual on-disk boss sheet RON parses. If the
-/// Python renderer + Rust schema ever drift this test catches
-/// it on the spot rather than at runtime via a silent
-/// "animations: empty" fallback.
+/// The on-disk boss sheet RON parses. This catches drift between the Python
+/// renderer and the Rust schema, which would otherwise show as empty
+/// animations at runtime.
 #[test]
 fn live_boss_spritesheet_ron_round_trips() {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("assets/sprites/boss_spritesheet.ron");
     if !path.exists() {
-        // Sprites are gitignored; if a clean checkout hasn't
-        // regenerated yet, skip rather than fail.
+        // Sprites are gitignored. Skip if a clean checkout has not generated them.
         return;
     }
     let text =
@@ -192,9 +187,7 @@ fn live_boss_spritesheet_ron_round_trips() {
          check that the Python renderer emitted `animations:` and that \
          this test is reading the regenerated file"
     );
-    // Spot-check the floor_slam hitbox (adapter-declared) so a
-    // future renderer change that drops author-declared hitboxes
-    // trips this guard.
+    // Spot-check the adapter-declared floor_slam hitbox.
     let floor_slam = metrics
         .animations
         .get("floor_slam")
@@ -216,8 +209,8 @@ fn live_boss_spritesheet_ron_round_trips() {
         part_names.contains(&"head") && part_names.contains(&"body"),
         "rest hurtbox parts must include 'head' and 'body'; got {part_names:?}"
     );
-    // SideSweep should also have head + body hurtbox parts (not
-    // a single bbox that would include the extended arms).
+    // SideSweep also has head + body hurtbox parts, not one bbox that includes
+    // the extended arms.
     let sweep = metrics
         .animations
         .get("side_sweep")
@@ -230,16 +223,11 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
 }
 
-/// ⭐⭐ **TWO SHEETS DECLARING ONE RIG TARGET EACH KEEP THEIR OWN PAGE.**
+/// Two sheets that declare the same rig target each keep their own page.
 ///
-/// ⛔⛔ this test used to assert the OPPOSITE, and it AGREED WITH THE BUG: it was
-/// called `two_manifests_claiming_one_target_with_different_geometry_still_resolve`
-/// and its body checked that last-wins picked the second file, calling that
-/// *"preserved"*. Under target keying one of the two sheets was simply
-/// unreachable — in the shipped table `robot` lost its own 256x256 page to
-/// `tech_bro_disruptor`. Keyed by FILE ROOT (§19) neither wins, because they were
-/// never competing: a rig target is which adapter DREW a sheet, and 48 sheets
-/// share five of them.
+/// Sheets are keyed by file root (§19), not by rig target. A rig target is the
+/// adapter that drew the sheet, and many sheets share one, so target keying
+/// makes one sheet unreachable.
 #[test]
 fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
     let bess = r#"[(target: "pirate_heavy", image: "bess.png", label_width: 100,
@@ -270,17 +258,15 @@ fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
         .expect("the second sheet resolves by its own file root");
     assert_eq!((second.frame_width, second.frame_height), (319, 250));
 
-    // The rig target is not a key at all — that is the whole ruling.
+    // The rig target is not a key.
     assert!(
         registry.get("pirate_heavy").is_none(),
         "a renderer target string must not be a durable engine identity",
     );
-    // Nothing shadowed anything: they never shared a key.
+    // No sheet shadows another: they never share a key.
     assert!(registry.shadowed_targets().is_empty());
-    // ⭐ AND THE TWO IDENTITIES BOTH SURVIVE, which is the point of keeping them
-    // in separate fields: the KEY is how you ask for this sheet, the TARGET is
-    // still the rig that drew it. Assigning the key used to overwrite the rig
-    // target, so the shared authoring fact was destroyed to produce the lookup.
+    // Both identities survive in separate fields: the key is how you ask for
+    // the sheet, and the target is the rig that drew it.
     assert_eq!(first.key, "pirate_heavy_bess");
     assert_eq!(first.target, "pirate_heavy");
     assert_eq!(second.key, "pirate_heavy_broadside");
@@ -289,19 +275,14 @@ fn two_manifests_declaring_one_rig_target_each_keep_their_own_page() {
 
 /// A quality-variant RON (`sprites_potato/…`, baked as `<root>.potato` by
 /// `build.rs::baked_key_for_path`) must not answer a request for the full-res
-/// base: a consumer that cropped the full-res PNG with 8px potato rects drew a
-/// mis-cropped dark strip.
+/// base. Otherwise a consumer crops the full-res PNG with potato rects.
 ///
-/// ⭐ **under file-root keying this holds BY CONSTRUCTION**, and that is the
-/// point of the row: `slash` and `slash.potato` are different keys, so the
-/// variant no longer has to be SKIPPED to keep it away from the base. The old
-/// build dropped every variant record on the floor because every tier of
-/// `robot_slash` carries the identical `target: "robot_slash"` — a hazard that
-/// belonged to target keying and left with it.
+/// File-root keying guarantees this: `slash` and `slash.potato` are different
+/// keys, so the variant need not be skipped.
 ///
-/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries
-/// variant rows when the gitignored `sprites_*x/` folders exist locally, so a
-/// registry-level assertion would silently pass in CI).
+/// The table is hand-built. The real `BAKED_SHEET_RONS` carries variant rows
+/// only when the gitignored `sprites_*x/` folders exist, so a registry-level
+/// check would pass without testing anything in CI.
 #[test]
 fn a_quality_variant_answers_only_its_own_key() {
     let base = r#"[(target: "slash", image: "slash_spritesheet.png", label_width: 100,
@@ -322,8 +303,7 @@ fn a_quality_variant_answers_only_its_own_key() {
     );
     assert_eq!(record.frame_height, 118);
 
-    // ⭐ the variant is REACHABLE now rather than dropped — the resolution-pair
-    // loader asks for exactly this key.
+    // The variant is reachable; the resolution-pair loader asks for this key.
     let variant = registry
         .get("slash.potato")
         .expect("the variant keeps its own key");
@@ -352,9 +332,9 @@ fn packed_target_uses_only_the_pages_its_frames_reference() {
     let records: Vec<SheetRecord> =
         ron::from_str(ron_text).expect("packed SheetRecord should deserialize");
     let record = &records[0];
-    // The count is still the high-water mark — that contract is unchanged.
+    // The count is still the high-water mark.
     assert_eq!(record.page_count(), 54);
-    // The LOAD SET is what shrank.
+    // The load set is smaller.
     let used: Vec<u32> = record.used_pages().into_iter().collect();
     assert_eq!(
         used,
@@ -392,9 +372,9 @@ fn dedicated_sheet_uses_every_page_it_counts() {
     assert_eq!(used.len() as u32, record.page_count());
 }
 
-/// An unpacked multi-page row carries its page on the ROW, with no per-rect
-/// page. Falling back to `row.page` only when rects are absent is what keeps
-/// that layout loading its pages at all.
+/// An unpacked multi-page row carries its page on the row, with no per-rect
+/// page. The loader falls back to `row.page` when rects have no page, so that
+/// layout loads its pages.
 #[test]
 fn unpacked_rows_fall_back_to_the_row_page() {
     let ron_text = r#"
@@ -475,9 +455,8 @@ fn two_providers_cannot_silently_claim_one_sheet_target() {
     );
 }
 
-/// A multi-record sheet whose LAST record collides must not leave its earlier
-/// records installed under an error return — a provider told "rejected" and
-/// handed a half-populated registry is worse off than one told nothing.
+/// A multi-record sheet whose last record collides must not leave its earlier
+/// records installed when it returns an error.
 #[test]
 fn a_refused_multi_record_sheet_indexes_none_of_its_records() {
     use crate::character::sheets::AuthoredSheets;
@@ -519,13 +498,10 @@ fn a_refused_multi_record_sheet_indexes_none_of_its_records() {
     );
 }
 
-/// `BodyMetrics` carrying only a static body rectangle, for the extent tests
-/// below. `animations` is empty on purpose: these fixtures are about the
-/// measured path, which is what a sheet publishing no per-pose hurtbox falls
-/// back to.
-///
-/// They came here with the join: they name no catalog and no character, only
-/// [`BodyMetrics::body_pixel_extent`], and it had no tests of its own in the crate that defines it.
+/// `BodyMetrics` with only a static body rectangle, for the extent tests
+/// below. `animations` is empty so the tests use the measured path, which a
+/// sheet with no per-pose hurtbox falls back to. These tests cover
+/// [`BodyMetrics::body_pixel_extent`].
 fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
     BodyMetrics {
         body_pixel_bbox: bbox,
@@ -604,12 +580,11 @@ fn body_extent_rejects_degenerate_box() {
     assert_eq!(m.body_pixel_extent(character::CharacterAnim::Idle), None);
 }
 
-/// A file root that names several records does not resolve to the first one —
-/// each record keeps its own target key instead.
+/// A file root that names several records does not resolve to the first one.
+/// Each record keeps its own target key.
 ///
-/// ⭐ the pair of assertions is the whole rule: the ROOT is refused (it names all
-/// eight props and therefore none) while the RECORDS stay reachable, which is
-/// why `creator_lab_props`' eight props survived the move to file-root keying.
+/// The root is refused (it names all eight props, so it names none), and the
+/// records stay reachable. This keeps the eight `creator_lab_props` props.
 #[test]
 fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
     let rec = |t: &str, img: &str| {
@@ -628,7 +603,7 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
     );
     let reg = SheetRegistry::from_baked_table(&[("solo", one.as_str()), ("props", two.as_str())]);
 
-    // The single-record root still resolves — the refusal is narrow.
+    // The single-record root still resolves; the refusal is narrow.
     assert!(
         reg.get("solo").is_some(),
         "a single-record file root must still be indexed by its file root"
@@ -650,8 +625,8 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
          tell a packed prop atlas from a character it needs to resolve"
     );
 
-    // ⭐ and the records themselves are still there. A packed atlas is the ONE
-    // case where `record.target` is the key, because the file root cannot be.
+    // The records are still reachable. A packed atlas is the one case where
+    // `record.target` is the key, because the file root cannot be.
     assert!(
         reg.get("first_prop").is_some() && reg.get("second_prop").is_some(),
         "refusing the ambiguous ROOT must not drop the records it names — that \
@@ -659,20 +634,12 @@ fn a_multi_record_file_root_is_refused_while_its_records_keep_their_targets() {
     );
 }
 
-/// ⭐⭐ **THE THREE SHEETS THAT USED TO LOSE THEIR OWN PAGE KEEP IT.**
+/// `robot`, `goblin`, and `sandbag` each keep their own page. Under target
+/// keying, each lost its page to another sheet that shares its rig target.
 ///
-/// Measured on the real baked table 2026-08-19, target-keyed: `robot` lost its
-/// own 256x256 page to `tech_bro_disruptor` (215x256), `goblin` lost 239x253 to
-/// `ranged_skirmisher` (235x229), `sandbag` lost 128x128 to
-/// `sandbag_full_review` (256x256). All three are file roots of their own, so
-/// under §19's keying each answers with its own geometry and the usurper answers
-/// with its.
-///
-/// ⚠ **the skip is falsifiable, deliberately.** These sheets are generated art
-/// and gitignored, so a checkout that never ran regen bakes an empty table —
-/// which is why a bare `if let Some(..)` here would be a check that cannot fail.
-/// If no pair is present the test instead asserts the table really is art-less,
-/// so "nothing to check" has to be TRUE rather than merely convenient.
+/// These sheets are generated and gitignored, so a checkout without regen has
+/// an empty table. If no pair is present, the test asserts that the table has
+/// no art, so the skip cannot hide a failure.
 #[test]
 fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
     let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
@@ -718,19 +685,16 @@ fn a_shared_rig_target_no_longer_costs_a_sheet_its_own_page() {
     }
 }
 
-/// The refusal reaches the real baked table without taking the one key this
-/// index exists to answer.
+/// The refusal reaches the real baked table without taking the key this index
+/// exists to answer.
 ///
-///  it deliberately does NOT assert that no CHARACTER was refused, though
-/// an earlier draft's name claimed to: this crate has no catalog, so it cannot
-/// tell a packed prop atlas from a character's sheet — the same gap
-/// `shadowed_targets` documents. That assertion lives in `ambition_app`, which
-/// owns the catalog. A test whose name promises a check its body does not make
-/// is worse than no test.
+/// This does not assert that no character was refused. This crate has no
+/// catalog, so it cannot tell a packed prop atlas from a character sheet (see
+/// `shadowed_targets`). `ambition_app` owns that assertion.
 #[test]
 fn the_real_baked_table_still_resolves_the_players_variant() {
     let reg = SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS);
-    // The player's variant is the reason this index exists at all.
+    // The player's variant is the reason this index exists.
     assert!(
         reg.get("player_robot_v3").is_some(),
         "`player_robot_v3` must stay resolvable by file root — the target-keyed \
@@ -744,22 +708,13 @@ fn the_real_baked_table_still_resolves_the_players_variant() {
     }
 }
 
-/// ⭐⭐ **EVERY SHIPPED SHEET IS REACHABLE, AND NONE OF THEM SHADOWS ANOTHER.**
+/// Every shipped sheet is reachable, and none shadows another.
 ///
-/// The keying ruling (file root; a packed atlas keys each member by its own
-/// name) exists to make this true, and before it the shipped table had THIRTY
-/// NINE shadowed targets, three of them real: `robot`'s own 256×256 page lost to
-/// `robot_archivist`, `goblin`'s to `goblin_brute_hammer`, `sandbag`'s to
-/// `sandbag_armored_review` — a 128px sheet cropped on a 256px grid. All 848
-/// keys are now claimed once.
-///
-/// ⛔ THIS CAN STILL GO RED, which is why it is worth asserting rather than
-/// assuming: the two spellings share ONE namespace. A packed atlas whose member
-/// is named for an existing file root — a second props sheet with a `robot`
-/// member, say — collides, and the survivor crops the loser's image with the
-/// wrong grid. That is the day to give the key its `product::member` spelling;
-/// until then there is exactly one packed product in the tree and building the
-/// spelling for it would be machinery.
+/// File-root keying (a packed atlas keys each member by its own name) makes
+/// this true. It can still fail: both spellings share one namespace. A packed
+/// atlas member named for an existing file root (for example a `robot` member)
+/// collides, and the survivor crops the other image with the wrong grid. If
+/// that happens, give the key a `product::member` spelling.
 #[test]
 fn no_shipped_sheet_key_is_claimed_twice() {
     let registry = crate::baked_sheet_registry();

@@ -48,7 +48,7 @@ pub struct ValidatorBands {
     pub recovery_ticks: ThreatTicks,
     /// Rule 2's second half: the verbs a fight must demand between them.
     pub core_verbs: Vec<MovementVerb>,
-    /// A deviation at or under this fraction of the floor is a WARNING; beyond it,
+    /// A deviation at or under this fraction of the floor is a warning; beyond it,
     /// an ERROR (§3: *"band deviations ≤ 20% = WARNINGS … > 20% = ERROR"*).
     pub warn_deviation_frac: f32,
 }
@@ -90,8 +90,8 @@ pub struct FightFinding {
 
 /// One authored occurrence of an attack: what a player actually experiences.
 ///
-/// `recovery_s` is the `Rest` that FOLLOWS the strike — zero when the next beat is
-/// another telegraph, which is exactly the un-punishable chain §3 rule 3 forbids.
+/// `recovery_s` is the `Rest` that follows the strike: zero when the next beat
+/// is another telegraph, which is the unpunishable chain §3 rule 3 forbids.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Beat {
     pub move_key: String,
@@ -172,10 +172,10 @@ fn beats_in(steps: &[BossPatternStep], phase: BossEncounterPhase, out: &mut Vec<
         }
     }
 
-    // A phase's timeline LOOPS. So a strike that ends the list is followed by
-    // whatever begins it — and if that is a `Rest`, the player got a punish window
-    // after all. Without this, every phase whose last beat is a strike reads as
-    // unpunishable, which is a fact about the walker, not about the fight.
+    // A phase's timeline loops, so a strike that ends the list is followed by
+    // whatever begins it. If that is a `Rest`, the player has a punish window.
+    // Without this, every phase whose last beat is a strike would read as
+    // unpunishable.
     if let Some(i) = awaiting_recovery {
         for step in steps {
             match step {
@@ -188,9 +188,9 @@ fn beats_in(steps: &[BossPatternStep], phase: BossEncounterPhase, out: &mut Vec<
 
 /// Every beat a fight can play, across every phase, plus every stance body.
 ///
-/// A `Cycle` boss has no per-step timings: it rotates `attacks` on the profile's
-/// flat windup/active/cooldown, and its cooldown IS its punish window. Both shapes
-/// produce beats, because both shapes hit the player.
+/// A `Cycle` boss has no per-step timings: it rotates `attacks` on the
+/// profile's flat windup/active/cooldown, and its cooldown is its punish
+/// window. Both shapes produce beats.
 pub fn fight_beats(
     pattern: &BossAttackPattern,
     cycle_attacks: &[BossAttackProfile],
@@ -310,13 +310,12 @@ pub fn validate_fight(
         }
     }
 
-    // Rule 5 — the readability floor. *"Distinct attacks must differ in telegraph
-    // (pose row OR cue)."* Only expressible since BD3 gave a telegraph an IDENTITY:
-    // a DURATION cannot distinguish two attacks, and a fight in which everything
-    // looks the same is unreadable however generous its timings.
+    // Rule 5, the readability floor: "Distinct attacks must differ in
+    // telegraph (pose row OR cue)." A duration cannot distinguish two attacks,
+    // so this uses the telegraph's identity.
     //
-    // Scanned over a `Vec`, sorted — never a hash map (ADR 0023): a validator's
-    // error list must not depend on hash seed.
+    // Scanned over a sorted `Vec`, never a hash map (ADR 0023): the error list
+    // must not depend on hash seed.
     let mut identities: Vec<(String, String)> = Vec::new();
     let mut unidentified: Vec<String> = Vec::new();
     for beat in beats {
@@ -364,10 +363,10 @@ pub fn validate_fight(
         });
     }
 
-    // Rule 2, second half: forced-movement variety. A fight that never demands a
-    // verb never teaches it. A warning, not an error: which verbs a GAME considers
-    // core is a design statement, and the shipped roster demonstrably never asks
-    // for a parry.
+    // Rule 2, second half: forced-movement variety. A fight that never demands
+    // a verb never teaches it. A warning, not an error: which verbs a game
+    // treats as core is a design choice, and the shipped roster never asks for
+    // a parry.
     let missing: Vec<MovementVerb> = bands
         .core_verbs
         .iter()
@@ -398,7 +397,7 @@ pub fn validate_fight(
 }
 
 /// A deviation ≤ `warn_deviation_frac` below the floor is a warning; beyond it, an
-/// error. The detail carries both numbers in TICKS, because that is the unit the
+/// error. The detail carries both numbers in ticks, because that is the unit the
 /// designer authored against.
 fn band_finding(
     rule: Rule,

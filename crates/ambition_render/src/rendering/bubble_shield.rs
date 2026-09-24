@@ -2,18 +2,16 @@
 // Bubble shield (procedural)
 // ---------------------------------------------------------------------------
 //
-// The guard is a soft filled FIELD around the body: a translucent interior the
-// fighter reads through, gathering into a bright rim at its edge. It is drawn
-// in FRONT of the body, because a bubble a platform fighter recognises is one
-// the character is visibly inside — a field drawn behind the sprite is a
-// halo, and a hollow ring in front is a hoop.
+// The guard is a soft filled field around the body: a translucent interior
+// the fighter shows through, with a bright rim at its edge. It is drawn in
+// front of the body, so the character is visibly inside it. Behind the
+// sprite it would read as a halo; a hollow ring in front reads as a hoop.
 //
 // The texture is one white field generated at startup and tinted by
-// `Sprite.color` each frame, so the parry / held / near-break reads cost no
-// image upload. Everything the tint and the size are derived from is a
-// resolved simulation fact on `ShieldRingsView` — integrity, parry state and
-// shieldstun. This layer owns no shield policy: it does not know what spends
-// the guard, what breaks it, or how long the dizzy lasts.
+// `Sprite.color` each frame, so parry, held, and near-break states need no
+// image upload. The tint and size come from resolved sim facts on
+// `ShieldRingsView` (integrity, parry state, shieldstun). This layer owns no
+// shield policy.
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -156,16 +154,16 @@ pub fn spawn_bubble_shield_visual(
 }
 
 /// How long a blocked hit stays visible on the guard, in seconds. A
-/// presentation constant: the SIM publishes the shieldstun timer, and how long
-/// a flare should last is not the shield rules' business.
+/// presentation constant: the sim publishes the shieldstun timer, and the
+/// flare length is not a shield rule.
 const HIT_PULSE_SECONDS: f32 = 0.12;
 /// How far the field swells, and how much brighter it gets, at the pulse's peak.
 const HIT_PULSE_SWELL: f32 = 0.13;
 const HIT_PULSE_FLARE: f32 = 0.45;
 
-/// Below this integrity the guard is in DANGER and says so by flickering. A
-/// colour ramp alone is a slow read in a busy match: the fighter needs to know
-/// to drop the shield before the break, not after it.
+/// Below this integrity the guard flickers to show danger. A colour ramp
+/// alone reads slowly in a busy match; the fighter must drop the shield
+/// before it breaks.
 const DANGER_INTEGRITY: f32 = 0.34;
 /// The danger flicker's period in sim ticks and its depth at zero integrity.
 /// Sim-derived, like the intangibility blink, so the flicker is one rate at
@@ -176,9 +174,8 @@ const DANGER_FLICKER_DEPTH: f32 = 0.45;
 /// How hard the guard is flickering right now: `0.0` while it is healthy,
 /// rising as it approaches the break and oscillating on the sim clock.
 ///
-/// Separate from the colour ramp rather than folded into it, because the two
-/// answer different questions — the ramp says how spent the guard is, this says
-/// how urgent that has become.
+/// Separate from the colour ramp: the ramp says how spent the guard is, this
+/// says how urgent that is.
 fn shield_danger_flicker(integrity: f32, tick: u64) -> f32 {
     let urgency =
         ((DANGER_INTEGRITY - integrity.clamp(0.0, 1.0)) / DANGER_INTEGRITY).clamp(0.0, 1.0);
@@ -194,10 +191,10 @@ fn shield_danger_flicker(integrity: f32, tick: u64) -> f32 {
 /// Parry window: gold glow. Held but expired: cyan that reddens as the guard is
 /// spent, so "this shield is about to break" is readable without a meter.
 ///
-/// `pulse` flares the whole field on the beat a hit is absorbed — the read that
-/// separates "my guard took that" from "that missed me". `flicker` is the
-/// near-break danger read, and it dims rather than brightens: a guard about to
-/// shatter should look like it is failing.
+/// `pulse` flares the whole field on the beat a hit is absorbed, to separate
+/// "my guard took that" from "that missed me". `flicker` is the near-break
+/// read, and it dims instead of brightening, so a failing guard looks like
+/// it is failing.
 ///
 /// A parry ignores the flicker. It lasts a handful of frames and is the one
 /// beat that must never be mistaken for anything else.
@@ -217,27 +214,26 @@ fn shield_bubble_color(parrying: bool, integrity: f32, pulse: f32, flicker: f32)
 }
 
 /// How much of the body the guard still covers. A spent shield shrinks
-/// toward the body, which is the read a platform fighter expects and the shape a
-/// later poke rule measures against.
+/// toward the body, as a platform fighter player expects.
 fn shield_bubble_coverage(integrity: f32) -> f32 {
     0.55 + 0.45 * integrity.clamp(0.0, 1.0)
 }
 
-/// The hit pulse's strength, `1.0` on the frame a hit lands and `0.0` once the
-/// flare is spent. Reads the published shieldstun timer and normalizes it
-/// against a presentation constant — the same split
-/// `hit_flash_secs` / `normalize_hit_flash` uses for the body.
+/// The hit pulse strength: `1.0` on the frame a hit lands, `0.0` once the
+/// flare is spent. It normalizes the published shieldstun timer against a
+/// presentation constant, like `hit_flash_secs` / `normalize_hit_flash` for
+/// the body.
 ///
-/// Shieldstun outlasts the flare on a heavy hit, which is why this saturates
-/// rather than scaling: the guard flashes once per hit, not proportionally to
-/// how stunned it is.
+/// Shieldstun outlasts the flare on a heavy hit, so this saturates: the guard
+/// flashes once per hit, not in proportion to the stun.
 fn shield_hit_pulse(stun_secs: f32) -> f32 {
     (stun_secs / HIT_PULSE_SECONDS).clamp(0.0, 1.0)
 }
 
-/// Show / hide + tint a bubble around EVERY body whose shield is up — the player AND any
-/// brain-controlled actor (the duel fighters). One pooled bubble per active shielder; unused
-/// sprites hide, and the pool grows on demand. Scale tracks each body's size.
+/// Show, hide, and tint a bubble around every body whose shield is up (the
+/// player and any brain-controlled actor). One pooled bubble per active
+/// shielder; unused sprites hide, and the pool grows on demand. Scale follows
+/// each body's size.
 pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
@@ -245,8 +241,7 @@ pub fn sync_bubble_shield_visual(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    // Every raised shield, resolved sim-side into the pooled read-model
-    // (E4): render positions bubbles, it no longer queries the live clusters.
+    // Every raised shield, resolved sim-side into the pooled read model.
     active: Res<ambition_sim_view::ShieldRingsView>,
     // The danger flicker's phase. Sim-derived: see `DANGER_PERIOD_TICKS`.
     tick: Res<ambition_time::SimTick>,
@@ -259,18 +254,16 @@ pub fn sync_bubble_shield_visual(
         if let Some(guard) = active.get(assigned).copied() {
             transform.translation =
                 ambition_platformer2d_core::config::world_to_bevy(&world.0, guard.pos, BUBBLE_Z);
-            // The field is an ELLIPSE and the ellipse belongs to the body, so
-            // it rotates with the body's own frame. Without this a wall-walker's
-            // guard lies on its side — the same screen-axis assumption the
-            // sprite pass already refuses through this exact helper.
+            // The field is an ellipse that belongs to the body, so it rotates with
+            // the body's frame. Otherwise a wall-walker's guard lies on its side.
             transform.rotation = Quat::from_rotation_z(
                 ambition_platformer2d_shared_tangle::gravity::gravity_upright_angle(
                     guard.gravity_dir,
                 ),
             );
             let pulse = shield_hit_pulse(guard.stun_secs);
-            // Generous overlap: the body is INSIDE this, so the field has to
-            // clear the silhouette rather than trace it.
+            // Generous overlap: the body is inside this, so the field must clear
+            // the silhouette.
             let extent = shield_bubble_coverage(guard.integrity) * (1.0 + HIT_PULSE_SWELL * pulse);
             sprite.custom_size = Some(bevy::math::Vec2::new(
                 guard.size.x * 1.70 * extent,
@@ -289,9 +282,8 @@ pub fn sync_bubble_shield_visual(
         }
     }
 
-    // More bodies shielding than sprites in the pool → grow it (the new ones get
-    // positioned next frame). Spawn-on-demand keeps the common 0-1 shielder case at
-    // a single sprite.
+    // More shielders than pool sprites: grow the pool (new ones are placed
+    // next frame). The common 0-1 shielder case stays at one sprite.
     if active.len() > pool_size {
         if let Some(sprite) = sprite {
             if sprite.handle != Handle::default() {
@@ -327,9 +319,7 @@ mod tests {
         assert_eq!(img.height(), SHIELD_TEXTURE_SIZE);
     }
 
-    /// THE SLICE: the guard is a filled field, not a hoop. The centre used to
-    /// be a hole — a fighter behind it was standing in a doorway rather than
-    /// inside a bubble.
+    /// The guard is a filled field, not a hoop: the fighter is inside a bubble.
     #[test]
     fn the_field_is_filled_and_the_body_reads_through_it() {
         let img = build_bubble_shield_image();
@@ -361,7 +351,7 @@ mod tests {
     }
 
     /// A spent guard covers less of the body. Monotone, because "smaller means
-    /// weaker" is the read, and a non-monotone curve would lie halfway.
+    /// weaker" is the read.
     #[test]
     fn coverage_shrinks_monotonically_as_the_guard_is_spent() {
         let whole = shield_bubble_coverage(1.0);
@@ -389,8 +379,8 @@ mod tests {
         );
     }
 
-    /// A blocked hit flares the guard once and the flare is over quickly —
-    /// it must not simply mirror however long the shieldstun runs.
+    /// A blocked hit flares the guard once, and the flare ends quickly. It must
+    /// not last as long as the shieldstun.
     #[test]
     fn a_blocked_hit_flares_the_guard_and_the_flare_is_spent_before_the_stun() {
         assert_eq!(shield_hit_pulse(0.0), 0.0, "an unhit guard does not flare");
@@ -410,9 +400,8 @@ mod tests {
         }
     }
 
-    /// A healthy guard never flickers; one about to break does, and the
-    /// flicker dims rather than brightens so a failing shield looks like it is
-    /// failing.
+    /// A healthy guard never flickers; one about to break does, and the flicker
+    /// dims so a failing shield looks like it is failing.
     #[test]
     fn a_guard_near_breaking_flickers_and_a_healthy_one_never_does() {
         for tick in 0..DANGER_PERIOD_TICKS * 3 {
@@ -446,7 +435,7 @@ mod tests {
         assert!(flickering.alpha > 0.0, "a guard still up is still drawn");
     }
 
-    /// The field is oriented to the BODY, not the screen. Ordinary gravity
+    /// The field is oriented to the body, not the screen. Ordinary gravity
     /// leaves it upright; a wall-walker's guard turns with it.
     #[test]
     fn the_field_turns_with_the_body_not_the_screen() {

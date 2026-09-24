@@ -1,13 +1,12 @@
 //! The lib's generic boss-encounter base.
 //!
-//! The actor crate (`ambition_characters::boss_encounter`) owns the spec schema +
-//! the phase state machine. Ambition's *named* boss encounter specs are
+//! The actor crate (`ambition_characters::boss_encounter`) owns the spec
+//! schema and the phase state machine. Named boss encounter specs are
 //! content: they live in `ambition_content/assets/data/boss_encounters/*.ron`
 //! and are contributed through `ambition_content::bosses::register` into the
-//! App-local `BossCatalog`. This module keeps only
-//! `gradient_sentinel` — the in-lib generic fallback that `BossProfile::generic`
-//! clones for an unknown boss id. It has no RON of its own (it IS the default),
-//! so it is not a content duplicate.
+//! App-local `BossCatalog`. This module keeps only `gradient_sentinel`, the
+//! in-lib generic fallback that `BossProfile::generic` clones for an unknown
+//! boss id. It has no RON of its own (it is the default).
 
 use super::BossEncounterSpec;
 

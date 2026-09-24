@@ -13,43 +13,23 @@ use crate::character::{CharacterSpriteAsset, CharacterSpriteAssets};
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_world::rooms::RoomMetadata;
 
-/// Pick a sensible default [`AssetProfile`] for the current build target.
-///
-/// - wasm32 → [`AssetProfile::WebStatic`] (today's first-pass browser
-///   build embeds the LDtk bootstrap; optional sprite/parallax PNGs
-///   aren't packaged yet, so the catalog skips them and the rendering
-///   layer paints colored rectangles).
-/// - Android → [`AssetProfile::AndroidBundle`] (Bevy's Android
-///   AssetReader pulls from the APK).
-/// - everything else → [`AssetProfile::DesktopDevLoose`] (assumes a
-///   workspace-relative `assets/` directory; supports hot reload via
-///   the loose-filesystem source).
-///
-/// `cargo run --bin sandbox -- --no-assets` overrides to [`AssetProfile::NoAssets`]
-/// via [`GameAssetConfig::from_arg_slice`].
-/// Load one sheet/layer image through the ONE knob that decides whether the
-/// decoded pixels stay in the main world.
+/// Load one sheet or layer image. This is the one place that decides whether
+/// the decoded pixels stay in the main world.
 ///
 /// Bevy's default `RenderAssetUsages::MAIN_WORLD | RENDER_WORLD` keeps a CPU
-/// copy of every image and CLONES it into the render world on extract; the
-/// hall at Full tier measured 2.2 GB resident and a 542 ms frame at that clone.
-/// These images load `RENDER_WORLD` only: the extract is a move and the CPU
-/// copy is freed once extracted: Bevy 0.19 `take_gpu_data`s the pixels and
-/// leaves the `Image` in `Assets<Image>` with `data == None` and its size
-/// intact. Every readiness check uses the asset server's load state, not the
-/// pixels (`texture_is_ready`, the room manifest); the image census derives
-/// the byte count from the descriptor when the data is gone; no production
-/// reader indexes a sheet's pixels. Measured 2026-09-02 (hall, Quarter,
-/// llvmpipe `capture_scene`): the
-/// capture is byte-identical either way and peak RSS drops 1533 → 1392 MB.
-/// `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` restores the CPU copy for a
-/// comparison; read once, recorded by the visual-quality census so a capture
-/// says which way it was loaded.
+/// copy of each image and clones it into the render world on extract. These
+/// images load `RENDER_WORLD` only, so extract is a move and the CPU copy is
+/// freed: Bevy 0.19 takes the pixels and leaves the `Image` in `Assets<Image>`
+/// with `data == None` and its size intact. This is safe because readiness
+/// checks use the asset server's load state (`texture_is_ready`, the room
+/// manifest), the image census gets the byte count from the descriptor, and no
+/// production reader indexes a sheet's pixels.
+/// `AMBITION_IMAGES_RENDER_WORLD_ONLY=0` keeps the CPU copy for comparison. The
+/// value is read once, and the visual-quality census records it.
 ///
-/// `source` names the road that demanded it (`"character-sheet"`, `"parallax"`,
-/// `"fx-sheet"`, `"boss-sheet"`) for the [`image_stages`] ledger, which stamps
-/// the demand instant here so a late image can report how long after it was
-/// asked for it arrived, and at which stage.
+/// `source` names the caller road (`"character-sheet"`, `"parallax"`,
+/// `"fx-sheet"`, `"boss-sheet"`) for the [`image_stages`] ledger. The ledger
+/// stamps the demand time here, so a late image can report its delay and stage.
 pub fn load_sheet_image(
     asset_server: &AssetServer,
     source: &'static str,
@@ -84,6 +64,18 @@ pub fn images_render_world_only() -> bool {
     })
 }
 
+/// Select the default [`AssetProfile`] for the build target.
+///
+/// - wasm32: [`AssetProfile::WebStatic`], or `WebServedAssets` with the
+///   `web_served` feature. The static build embeds the LDtk bootstrap only;
+///   optional PNGs are skipped and the renderer paints colored rectangles.
+/// - Android: [`AssetProfile::AndroidBundle`] (the Android AssetReader reads
+///   from the APK).
+/// - Other targets: [`AssetProfile::DesktopDevLoose`] (a workspace-relative
+///   `assets/` directory, with hot reload).
+///
+/// `--no-assets` changes this to [`AssetProfile::NoAssets`] through
+/// [`GameAssetConfig::from_arg_slice`].
 pub fn default_asset_profile() -> AssetProfile {
     if cfg!(target_arch = "wasm32") {
         if cfg!(feature = "web_served") {
@@ -374,25 +366,17 @@ impl ParallaxLayerSet {
     /// Drop every layer handle whose theme `keep` rejects; returns how many
     /// handles were dropped.
     ///
-    /// ⛔⛔ THIS IS THE ONLY EVICTION API, AND IT DELIBERATELY OWNS NO POLICY.
-    /// Until 2026-09-02 this type had none at all: `handles` is private and its
-    /// only mutator was [`Self::ensure_theme_loaded`], which inserts. Combined
-    /// with `GameAssets` being built once in `Startup`, that made a visited
-    /// theme's four layers resident for the life of the process — nine themes ×
-    /// four layers is the ceiling a walk can reach, and nothing could release
-    /// one. That was a guarantee of the type, not an oversight of a caller,
-    /// which is why the fix had to start here.
+    /// This is the only eviction API, and it has no policy. `GameAssets` is built
+    /// once at startup, so without eviction each visited theme stays resident for
+    /// the life of the process.
     ///
-    /// ⛔ WHICH THEMES SURVIVE IS THE CALLER'S BUSINESS. A residency rule needs
-    /// to know the active room, its neighbours and when a transition commits;
-    /// this crate knows none of those and must not learn them. Pass a predicate.
+    /// The caller decides which themes to keep. That rule needs the active room,
+    /// its neighbours, and transition timing, which this crate must not know.
     ///
-    /// ⚠ DROPPING A HANDLE IS NECESSARY, NOT SUFFICIENT. Bevy frees the pixels
-    /// when the last `Handle<Image>` for an asset drops, so a caller that keeps
-    /// its own clone — a spawned `ParallaxLayerVisual`, say — keeps the image
-    /// alive no matter what this returns. Retiring visuals is the caller's job
-    /// too, and the app-side guard asserts the image actually leaves
-    /// `Assets<Image>` rather than trusting this count.
+    /// Dropping a handle is not sufficient. Bevy frees the pixels when the last
+    /// `Handle<Image>` drops, so a clone held elsewhere (for example a spawned
+    /// `ParallaxLayerVisual`) keeps the image alive. The caller must retire those
+    /// visuals. The app-side guard checks that the image leaves `Assets<Image>`.
     pub fn retain_themes(&mut self, keep: impl Fn(ParallaxTheme) -> bool) -> usize {
         let before = self.handles.len();
         self.handles.retain(|(theme, _), _| keep(*theme));
@@ -429,13 +413,13 @@ impl ParallaxLayerSet {
 pub struct GameAssets {
     pub characters: CharacterSpriteAssets,
     pub entities: EntitySpriteSet,
-    /// The effect sheets the ENGINE draws from, keyed by sheet manifest
-    /// target (`generic_exotic_fx`).
+    /// The effect sheets the engine draws from, keyed by sheet manifest target
+    /// (`generic_exotic_fx`).
     ///
-    /// its own slot, and that is the point. Ambition's intro did; Smash, Sanic and Mary-O did not,
-    /// so `spawn_effect` took its no-asset particle branch in all three, always. An FX sheet is
-    /// neither a character nor an LDtk prop, and the engine's own `load_game_assets` fills this
-    /// from [`crate::fx::FX_SHEETS`] with no content involved.
+    /// An FX sheet is neither a character nor an LDtk prop, so it has its own
+    /// slot. Without it, `spawn_effect` falls back to its no-asset particle
+    /// branch. The engine's `load_game_assets` fills this from
+    /// [`crate::fx::FX_SHEETS`] with no content involved.
     pub fx: FxSheetAssets,
     /// Generic boss spritesheet — the fallback the renderer uses for any boss
     /// without a dedicated sheet in `boss_sprites`. Separate from `characters`
@@ -528,11 +512,8 @@ pub fn load_entity_sprites(
     quality: Option<&VisualQualityBudget>,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
-    // a TALLY, not a warning per key. `character_sprites` already reports
-    // this way — *"5/5 catalog entries declared, 0 decoded at startup"* — and it
-    // is the right shape: a headless fixture with no asset root misses every
-    // sprite, and forty separate warnings would train everyone to filter the
-    // channel that is supposed to carry this.
+    // Report one tally, not one warning per key. A headless fixture with no
+    // asset root misses every sprite, and many warnings would hide the signal.
     let mut missing: Vec<String> = Vec::new();
     for &key in EntitySprite::ALL {
         let id = entity_sprite_asset_id(key);
@@ -549,21 +530,14 @@ pub fn load_entity_sprites(
             missing.push(id.to_string());
             continue;
         };
-        // ⛔⛔ ITS OWN ROAD, AND IT WAS `"fx-sheet"` UNTIL 2026-09-02. A door
-        // zone, a solid tile and an NPC terminal are not effects, and stamping
-        // them as such put them in the FX set's residency bucket — so
-        // `resident by road: fx-sheet N×M MP` was two populations, and a
-        // measurement of "how big is the effect vocabulary" counted the world's
-        // entity icons. Found by the fourth stage: `[image-drawn]
-        // sprites/entities/door_zone.png … via fx-sheet` is the line that says
-        // it out loud. Same class as the thirteen vfx sheets that were stamped
-        // `character-sheet` until the ownership rule landed.
+        // Use the `"entity-sprite"` road, not `"fx-sheet"`. Door zones, tiles,
+        // and terminals are not effects, and residency by road must count
+        // each population separately.
         handles.insert(key, load_sheet_image(asset_server, "entity-sprite", path));
     }
-    // ⚠ WHAT THIS CATCHES IS NARROW, AND SAYING SO IS THE POINT.
-    // `try_path_for_load` returns `None` when the CATALOG refuses an id (no manifest entry, or
-    // a quality profile that excludes it). Two different failures, and this is the one that had
-    // no voice at all.
+    // This catches only one failure: `try_path_for_load` returns `None` when
+    // the catalog refuses an id (no manifest entry, or a quality profile that
+    // excludes it).
     if !missing.is_empty() {
         bevy::log::warn!(
             target: "crate::entity_sprites",
@@ -651,14 +625,8 @@ mod parallax_residency_tests {
         app
     }
 
-    /// ⛔ THE ACCUMULATION THIS TYPE USED TO GUARANTEE, and the eviction that
-    /// answers it.
-    ///
-    /// Before `retain_themes` existed, `handles` was private with `ensure_theme_loaded`
-    /// as its only mutator — so a theme, once visited, was resident for the life
-    /// of the process. Nine themes of four layers is the ceiling a walk reaches.
-    /// This pins both halves: that visiting accumulates, and that eviction is
-    /// now possible and exact.
+    /// Visiting themes accumulates layers, and `retain_themes` evicts exactly
+    /// the rejected themes.
     #[test]
     fn three_visited_themes_accumulate_and_retain_evicts_all_but_one() {
         let app = asset_app();

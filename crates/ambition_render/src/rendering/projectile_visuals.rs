@@ -1,17 +1,16 @@
-//! Persistent Bevy sprites for every in-flight projectile — player AND enemy —
+//! Persistent Bevy sprites for every in-flight projectile (player and enemy),
 //! plus the per-player charge indicator.
 //!
-//! There is ONE art-selection path: each projectile entity carries an open
-//! [`ProjectileVisualId`] component (set at spawn), and the renderer resolves it
-//! through the content-owned [`ProjectileVisualCatalog`] to a data
-//! [`ProjectileArt`] descriptor. The renderer matches only on the descriptor's
-//! generic `source` / `size` / `rotation` — never on a named identity, and never
-//! on `owner_id`. A new projectile look that reuses existing render capabilities
-//! needs no edit here (the engine-for-other-games test).
+//! There is one art-selection path. Each projectile entity carries an open
+//! [`ProjectileVisualId`] (set at spawn), and the renderer resolves it through
+//! the content-owned [`ProjectileVisualCatalog`] to a [`ProjectileArt`]
+//! descriptor. The renderer matches only the descriptor's generic `source`,
+//! `size`, and `rotation`, never a named identity or `owner_id`. So a new look
+//! that reuses existing render capabilities needs no edit here.
 //!
-//! Animated sheet kinds (e.g. the PCA's glider) cycle their frames from the
-//! sheet manifest's row metadata via a per-projectile [`ProjectileFrameAnim`]
-//! timer — the frame rects come from the [`SheetRegistry`], not hardcoded.
+//! Animated sheet kinds (for example the PCA's glider) cycle frames from the
+//! sheet manifest's row metadata with a per-projectile [`ProjectileFrameAnim`]
+//! timer. Frame rects come from the [`SheetRegistry`].
 
 use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
@@ -291,7 +290,7 @@ pub fn sync_projectile_visuals(
         .as_deref()
         .and_then(|a| a.entities.get(EntitySprite::ProjectileEnergy));
 
-    // Spawn one persistent visual per NEW projectile entity.
+    // Spawn one persistent visual per new projectile entity.
     for (proj_entity, view) in &new_projectiles {
         let art = visual_catalog.resolve(&view.visual_id);
         let built = build_visual(view, &art, &asset_server, &sheets, energy);
@@ -366,8 +365,8 @@ pub fn sync_projectile_charge_visuals(
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
-    // Sim-built pose read-model (E4): charge tier + body geometry facts, no
-    // live cluster / projectile-state reads.
+    // Sim-built pose read model: charge tier and body geometry, with no live
+    // cluster or projectile-state reads.
     player_q: Query<
         (
             &ambition_sim_view::BodyPoseView,

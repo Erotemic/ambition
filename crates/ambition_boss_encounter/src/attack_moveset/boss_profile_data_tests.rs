@@ -2,10 +2,9 @@ use super::*;
 use crate::behavior::BossBehaviorProfileExt;
 use ambition_characters::brain::boss_pattern::BossAttackPattern;
 
-/// `assets/data/boss_profiles.ron` must carry a row for every
-/// boss the codebase has a constructor for. Without this, the
-/// `from_data` lookup would panic at the first spawn of a
-/// missing boss.
+/// `assets/data/boss_profiles.ron` must have a row for every boss the
+/// codebase has a constructor for; otherwise the `from_data` lookup panics at
+/// that boss's first spawn.
 #[test]
 fn ron_carries_every_known_boss() {
     for id in [
@@ -20,10 +19,8 @@ fn ron_carries_every_known_boss() {
     }
 }
 
-/// Spot-check the legacy pre-data values for a divergent
-/// archetype: the Clockwork Warden's macro tuning and attack
-/// damage. Catches accidental tuning drift on the row the
-/// player notices first.
+/// Spot-check the Clockwork Warden's macro tuning and attack damage, to catch
+/// tuning drift on the row the player notices first.
 #[test]
 fn legacy_baseline_pins() {
     let warden = BossBehaviorProfile::clockwork_warden();
@@ -40,10 +37,10 @@ fn legacy_baseline_pins() {
     assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
 }
 
-/// The authored profile is a CONTACT chase: `engage_distance = 0`, no standoff ring,
-/// `suppress_attacks_while_moving`. Its Approach was ended by a centre-to-centre test against a 4px
-/// epsilon, which a 208px-wide body cannot satisfy, so it approached forever and stayed silent
-/// forever.
+/// The authored profile is a contact chase: `engage_distance = 0`, no
+/// standoff ring, `suppress_attacks_while_moving`. A center-to-center contact
+/// test cannot be met by a 208px-wide body, so it would approach and stay
+/// silent forever.
 #[test]
 fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     use ambition_characters::brain::{
@@ -68,9 +65,9 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     cfg.movement = behavior.movement.clone();
     cfg.combat_size = combat_size;
     cfg.macro_tuning = behavior.macro_tuning;
-    // The encounter id seeds the boss's one deterministic random stream, and
-    // this profile's idle beat is probabilistic — so it has to be the real one
-    // or the draw under test is not the draw that ships.
+    // The encounter id seeds the boss's deterministic random stream, and this
+    // profile's idle beat is probabilistic, so it must be the real id for the
+    // draw under test to be the shipped draw.
     cfg.encounter_id = behavior.id.clone();
     cfg.spawn = ae::Vec2::new(640.0, 400.0);
 
@@ -88,9 +85,9 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
     let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
     let mut fired_after_s: Option<f32> = None;
     let dt = 1.0 / 60.0;
-    // Ten seconds. What it is NOT is the pre-fix behaviour: a boss whose contact chase never
-    // closes gets one attacking tick per `approach_duration_s` (8s), which stretched this
-    // three-beat script to minutes of wall clock.
+    // Ten seconds. A boss whose contact chase never closes gets one attacking
+    // tick per `approach_duration_s` (8s), so this three-beat script would take
+    // minutes.
     for tick in 0..600 {
         let ctx = BossPatternContext {
             encounter_phase: crate::BossEncounterPhase::Phase1,

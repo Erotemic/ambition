@@ -1,9 +1,6 @@
-//! ⛔⛔ EVERY ARM HERE EXISTS BECAUSE THE TRAPDOOR'S DID NOT. Its visual was
-//! declared done twice while the move was visibly broken in play, and both times
-//! the instrument agreed with the bug: the tests all spawned a `PlayerVisual`,
-//! which is inserted in exactly ONE place in the engine and is not what a match
-//! fighter carries. So the ACTOR-road arms below are the load-bearing half, and
-//! the player-road ones are the cheap company they keep.
+//! The actor-road tests matter most. `PlayerVisual` is on only the one
+//! exploration player, not on match fighters, so tests that spawn only a
+//! `PlayerVisual` cannot catch a rope missing from a versus match.
 
 use super::*;
 
@@ -80,9 +77,8 @@ fn wires(app: &mut App) -> Vec<(Entity, Entity, Transform, Option<bevy::math::Ve
         .collect()
 }
 
-/// ⛔⛔ THE ARM THE TRAPDOOR DID NOT HAVE. A match fighter carries no
-/// `PlayerVisual`, so a visual gated on that marker draws in an Ambition room
-/// and never once in a versus match — which is the road the up-B is played on.
+/// A match fighter has no `PlayerVisual`, so a visual gated on that marker
+/// never draws in a versus match, where the up-B is played.
 #[test]
 fn a_match_fighter_on_a_wire_gets_one_though_it_carries_no_player_visual() {
     let mut app = wire_app();
@@ -98,8 +94,8 @@ fn a_match_fighter_on_a_wire_gets_one_though_it_carries_no_player_visual() {
     assert_eq!(found[0].1, body, "the wire names the fighter it holds up");
 }
 
-/// ⛔ AND IT IS RETIRED. The arm whose absence leaves a rope hanging over an
-/// empty stage for the rest of the match — the trapdoor's twin failure.
+/// The rope is removed when the wire lets go, so none hangs over an empty
+/// stage.
 #[test]
 fn the_wire_goes_when_the_rope_lets_go() {
     let mut app = wire_app();
@@ -118,8 +114,8 @@ fn the_wire_goes_when_the_rope_lets_go() {
     );
 }
 
-/// ⛔ AND A FIGHTER WHO IS NOT ON A WIRE NEVER GETS ONE. Without this arm, "a
-/// wire appears" is satisfied by a system that draws one for everybody.
+/// A fighter not on a wire gets no rope. Without this test, "a wire appears"
+/// passes on a system that draws one for everybody.
 #[test]
 fn a_fighter_on_no_wire_gets_no_rope() {
     let mut app = wire_app();
@@ -128,10 +124,8 @@ fn a_fighter_on_no_wire_gets_no_rope() {
     assert!(wires(&mut app).is_empty());
 }
 
-/// ⛔⛔ THE ROPE REACHES FROM THE ANCHOR TO HER, and its LENGTH is the assertion
-/// that means something: a sprite placed correctly but left at its authored size
-/// is a 32px stub hanging in the sky, which is what "the wire is drawn" would
-/// otherwise be satisfied by.
+/// The rope reaches from the anchor to the body. The length check matters: a
+/// sprite placed correctly but left at its authored size is a 32px stub.
 #[test]
 fn the_rope_spans_the_whole_distance_from_the_sky_to_the_body() {
     let mut app = wire_app();
@@ -147,9 +141,8 @@ fn the_rope_spans_the_whole_distance_from_the_sky_to_the_body() {
     assert!(size.x < 8.0, "a {}px-wide rope is a pillar", size.x);
 }
 
-/// ⛔⛔ AND IT FOLLOWS THE SWING. A rope drawn straight down while the body hangs
-/// out to one side is the tell that presentation is reading a length and not a
-/// pair of points — the shape that would survive every arm above.
+/// The rope follows the swing. A rope drawn straight down while the body
+/// hangs to one side means presentation reads a length, not a pair of points.
 #[test]
 fn the_rope_leans_with_the_body_it_is_holding() {
     let mut app = wire_app();
@@ -173,8 +166,8 @@ fn the_rope_leans_with_the_body_it_is_holding() {
     );
 }
 
-/// The player road still works — the cheap half, kept so a session with an
-/// exploration player is not the composition that breaks.
+/// The player road still works, so a session with an exploration player does
+/// not break.
 #[test]
 fn the_exploration_player_gets_a_rope_too() {
     let mut app = wire_app();

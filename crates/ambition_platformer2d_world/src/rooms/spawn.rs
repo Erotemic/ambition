@@ -30,23 +30,17 @@ pub(super) const SPAWN_MARGIN: f32 = 3.0;
 
 pub(super) fn arrival_from_target_zone(world: &ae::World, zone: &LoadingZone) -> ae::Vec2 {
     match zone.activation {
-        // `Walk` uses the same arrival rule as `Door` — the target
-        // zone defines where the player lands, not an edge inset —
-        // since `Walk` zones are placed anywhere in the room (not
-        // bound to edges).
+        // `Walk` zones can be anywhere in the room, so they use the `Door`
+        // rule: the target zone defines the landing point.
         LoadingZoneActivation::Door | LoadingZoneActivation::Walk => door_arrival(zone.aabb),
         LoadingZoneActivation::EdgeExit => edge_arrival(world, zone.aabb),
     }
 }
 
 fn edge_arrival(world: &ae::World, zone: ae::Aabb) -> ae::Vec2 {
-    // Classify by shape: a tall narrow zone is a side seam
-    // (left/right edge); a wide short zone is a top/bottom seam.
-    // This is how a top-edge zone (player jumps UP through the
-    // ceiling and pops into the bottom of the room above) and a
-    // bottom-edge zone are distinguished from the historical
-    // side-scroll left/right exits without requiring the author to
-    // declare the edge explicitly.
+    // Classify by shape: a tall narrow zone is a side seam (left/right edge);
+    // a wide short zone is a top/bottom seam. The author does not need to
+    // declare the edge.
     let zone_w = zone.right() - zone.left();
     let zone_h = zone.bottom() - zone.top();
     if zone_w >= zone_h {

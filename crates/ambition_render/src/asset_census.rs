@@ -1,15 +1,10 @@
 //! Text census of texture decoding, in the style of the `[startup]` and
 //! `[schedule-census]` loggers in `ambition_dev_tools::profiling`.
 //!
-//! Launch profiles kept showing the same shape: the first seconds dominated by
-//! `fdeflate::Decompressor::read` and `png::filter::paeth::unfilter` across the
-//! IO task pools, while the startup logger reported ~100ms and looked innocent.
-//! Native symbols name the DECODER but never the ASSET, so a profile could
-//! prove "we are decoding PNGs" and never answer the question that matters:
-//! WHICH sheets, HOW MANY megapixels, and WHEN.
-//!
-//! This answers exactly that, on stderr, so `scripts/profile_desktop.sh` stamps
-//! it into the timeline chunk the decode happened in.
+//! Native profile symbols name the PNG decoder but not the asset. This census
+//! prints which sheets were decoded, how many megapixels, and when. It writes
+//! to stderr, so `scripts/profile_desktop.sh` puts each line in the timeline
+//! chunk where the decode happened.
 
 use ambition_sprite_sheet::game_assets::image_stages;
 use bevy::asset::AssetEvent;
@@ -28,22 +23,17 @@ pub struct ImageCensus {
     window_started_at: Instant,
     total_images: u64,
     total_megapixels: f64,
-    // accumulated on every platform, REPORTED only where there is a periodic
-    // census to print — the report is `not(wasm32)`, because a browser build has
-    // no terminal to print a rolling window to. Keeping the fields identical
-    // across platforms keeps the accounting identical; only the readout differs.
+    // Accumulated on every platform. Only native builds report it, because a
+    // browser build has no terminal for the rolling window.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     total_bytes: u64,
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     window_images: u64,
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     window_megapixels: f64,
-    /// How many images' bytes were DERIVED from the texture descriptor rather
-    /// than measured, because their CPU copy had been dropped.
-    ///
-    /// ⭐ Reported so the total says how much of itself it actually saw. A byte
-    /// count that silently switches from measured to derived is the same class of
-    /// lie as a count of zero from an instrument that never reports the category.
+    /// How many images' bytes were derived from the texture descriptor rather
+    /// than measured, because their CPU copy had been dropped. Reported so the
+    /// total says how much of itself was measured.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     derived_byte_images: u64,
 }
@@ -84,88 +74,69 @@ impl ImageCensus {
         self.total_images
     }
 
-    /// How many of the counted images had their bytes DERIVED rather than
+    /// How many of the counted images had their bytes derived rather than
     /// measured. `0` means every byte in `total_bytes` was seen directly.
     pub fn derived_byte_images(&self) -> u64 {
         self.derived_byte_images
     }
 
     /// Bytes of decoded image data seen so far. Cumulative, never decremented:
-    /// this counts DECODE WORK, so a rise with a flat `total_images` means the
-    /// same asset was decoded again, which is the churn the number is for.
+    /// this counts decode work, so a rise with a flat `total_images` means the
+    /// same asset was decoded again.
     ///
-    /// ⚠ DECODE, NOT GPU-READY. This counts `AssetEvent::Added`, which fires when
-    /// the image reaches `Assets<Image>` — the main world is done with it and the
-    /// render world has not touched it yet. The frame cost measured on hardware is
-    /// the EXTRACT that follows (`extract_render_asset<GpuImage>`, 454.9ms max
-    /// against a 0.1ms mean), so "decoded" here is upstream of "ready to draw".
+    /// This counts `AssetEvent::Added`, which fires before the render world
+    /// extracts the image. "Decoded" here is upstream of "ready to draw"; the
+    /// extract (`extract_render_asset<GpuImage>`) is a separate cost.
     pub fn total_bytes(&self) -> u64 {
         self.total_bytes
     }
 }
 
-/// Log every notable texture as it lands, plus a periodic rollup.
+/// How long a demand-to-first-draw wait must be before `[image-drawn]` reports it.
 ///
-/// `AssetEvent::Added` fires when the asset reaches `Assets<Image>` — after the
-/// IO pool decoded it — so these timestamps mark decode COMPLETION, which is
-/// what lines up with a frame spike and a sprite re-bind.
-// ⛔ A `#[cfg]` GATES THE NEXT ITEM ONLY. The constant below was inserted
-// between this function's gate and the function, which silently moved the gate
-// onto the constant and made the NATIVE census unconditional: 16 wasm errors
-// ("defined multiple times", `Instant`) that only the web job — which the
-// default gate plan does not run — could see.
-/// How long a demand→first-draw wait has to be before `[image-drawn]` says so.
+/// A tenth of a second (six frames at 60Hz) is where a late sprite becomes a
+/// visible pop. Shorter waits are the ordinary cost of streaming.
 ///
-/// A tenth of a second: six frames at 60Hz, which is the point a sprite arriving
-/// stops being a load and starts being a POP the player can see. Shorter waits
-/// are the ordinary cost of streaming and would bury the ones that are not.
-///
-/// ⛔ Native-only, matching its ONLY consumer `stamp_first_drawn_images`. That
-/// system stayed `not(wasm32)` when the GPU stamp beside it stopped being — the
-/// distinction the web-reveal fix turns on: first-draw is pure telemetry
-/// measured in `Instant`s, so it may be gated; the readiness fact may not.
+/// Native-only, like its only consumer `stamp_first_drawn_images`. First-draw
+/// is telemetry measured in `Instant`s, so it may be gated; the GPU readiness
+/// stamp may not.
 #[cfg(not(target_arch = "wasm32"))]
 const NOTABLE_DRAW_WAIT: std::time::Duration = std::time::Duration::from_millis(100);
 
 /// How many unrouted images the census names before it says `+N more`.
-///
-/// Eight, because the bucket is meant to be small: a census that has to print a
-/// hundred of these is reporting a different problem, and the count says so.
+/// The bucket is meant to be small; a long list is a different problem.
 #[cfg(not(target_arch = "wasm32"))]
 const UNROUTED_NAMED: usize = 8;
 
+/// Log every notable texture as it lands, plus a periodic rollup.
+///
+/// `AssetEvent::Added` fires when the asset reaches `Assets<Image>`, after the
+/// IO pool decoded it. So these timestamps mark decode completion, which lines
+/// up with a frame spike and a sprite re-bind.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn report_image_census(
     mut events: MessageReader<AssetEvent<Image>>,
     images: Res<Assets<Image>>,
     asset_server: Res<AssetServer>,
     mut census: ResMut<ImageCensus>,
-    // ⭐ OPTIONAL AND PER-APP. Absent means this App never installed a render
-    // world, which is the honest reading for a headless probe sharing the
-    // process with a rendering sibling — the process-global bool this replaced
-    // could not tell the two apart.
+    // Optional and per-App. Absent means this App has no render world (for
+    // example a headless probe beside a rendering sibling).
     render_world: Option<Res<image_stages::RenderWorldPresent>>,
-    // ⭐ OPTIONAL, because a composition may have no game mode at all (a capture
-    // tool, a headless probe). Absent means "cannot tell", which must read as
-    // "do not accuse", not as "not during gameplay".
+    // Optional, because a composition may have no game mode (a capture tool,
+    // a headless probe). Absent means "cannot tell", so do not report a hitch.
     mode: Option<
         Res<bevy::state::state::State<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
     >,
-    // The census flushes on the way OUT as well as on the window boundary: a
-    // capture that finishes inside one window — which every hall entry does
-    // now — otherwise ends with no `[image-census]` line at all, and the run's
-    // resident-by-road answer dies with the process.
+    // Flush on exit as well as on the window boundary. Otherwise a capture that
+    // ends inside one window prints no `[image-census]` line.
     mut exits: MessageReader<bevy::app::AppExit>,
-    // "Live" means a PLAYER is in a world: the game mode allows gameplay AND
-    // a session root exists. The shell host boots in `Playing` with nothing
-    // but the launcher on screen, so mode alone stamped every boot decode
-    // `live=1 — DECODED DURING GAMEPLAY, so it cost a frame`, which read as a
-    // gameplay hitch for art the launcher loads under its own cover.
+    // "Live" means a player is in a world: the mode allows gameplay and a
+    // session root exists. The shell host boots in `Playing` with only the
+    // launcher, so mode alone would mark launcher art as a gameplay hitch.
     sessions: Query<(), With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>>,
-    // ⭐ THIS APP'S READINESS AUTHORITY. The arrival recorded below is the
-    // CANDIDATE half of it; the render world supplies the prepared half. Both
-    // must be App-local, or an id shared with a sibling App is decided by
-    // whichever world looks first — see `AppReadiness`.
+    // This App's readiness authority. The arrival recorded below is the
+    // candidate half; the render world supplies the prepared half. Both must be
+    // App-local; see `AppReadiness`.
     prepared_here: Option<Res<image_stages::AppGpuPreparedImages>>,
 ) {
     let live_known = mode
@@ -178,28 +149,24 @@ pub fn report_image_census(
     for event in events.read() {
         let id = match event {
             AssetEvent::Added { id } => {
-                // The readiness candidate, through the SAME definition the web
-                // path uses. Recorded before any notability filter: the reveal
-                // owes every image it waits on, not only the big ones.
+                // The readiness candidate, through the same definition the web
+                // path uses. Record it before the notability filter: the reveal
+                // waits on every image, not only big ones.
                 note_image_arrival(prepared_here.as_deref(), *id);
                 *id
             }
             AssetEvent::Modified { id } => {
-                // ⛔ READINESS ONLY, NOT A CENSUS ROW. The bytes changed in
-                // place, so the GPU copy must be re-proven — but this is not a
-                // new decode and counting it as one would corrupt the
-                // re-decode census, whose whole job is to attribute repeated
-                // DECODES of a path.
+                // Readiness only, not a census row. The bytes changed in place,
+                // so the GPU copy must be re-proven. It is not a new decode, and
+                // counting it would corrupt the re-decode census.
                 note_image_arrival(prepared_here.as_deref(), *id);
                 continue;
             }
             AssetEvent::Removed { id } | AssetEvent::Unused { id } => {
-                // ⚠ READINESS RETIRES ON `Unused` ALONE. In Bevy's render-asset
-                // pipeline `Unused` is what removes the render representation;
-                // a plain `Removed` is the main-world handle going away and
-                // deliberately does not mean the same thing. The telemetry row
-                // below is dropped for both, because both end this id's life in
-                // `Assets<Image>`.
+                // Readiness retires on `Unused` only: in Bevy's render-asset
+                // pipeline `Unused` removes the render representation, and
+                // `Removed` only drops the main-world handle. The telemetry row
+                // is dropped for both.
                 if matches!(event, AssetEvent::Unused { .. }) {
                     note_image_retired(prepared_here.as_deref(), *id);
                 }
@@ -226,13 +193,11 @@ pub fn report_image_census(
         };
         let (width, height) = (image.width(), image.height());
         let megapixels = f64::from(width) * f64::from(height) / 1.0e6;
-        // ⭐ MEASURE THE CPU COPY WHEN IT EXISTS, DERIVE IT WHEN IT DOES NOT.
-        // `image.data` is `None` for an image whose main-world copy was dropped
-        // (`RenderAssetUsages::RENDER_WORLD`), and reporting 0 for those would make
-        // "decoded bytes" FALL every time somebody moved an asset to render-world
-        // only — a spectacular fake win, and the readout could not tell it from a
-        // real one. The decode still happened; the pixels still exist on the GPU.
-        // ⇒ fall back to the texture's own descriptor: width x height x bytes-per-block.
+        // Measure the CPU copy when it exists; derive it when it does not.
+        // `image.data` is `None` when the main-world copy was dropped
+        // (`RenderAssetUsages::RENDER_WORLD`). Reporting 0 would make decoded
+        // bytes fall without a real saving, so use the texture descriptor:
+        // width x height x bytes-per-block.
         let bytes = match image.data.as_ref() {
             Some(data) => data.len() as u64,
             None => {
@@ -266,51 +231,34 @@ pub fn report_image_census(
 
         if megapixels >= ImageCensus::NOTABLE_MEGAPIXELS {
             let at = census.started_at.elapsed().as_secs_f64();
-            // The asset PATH is the whole point: it is the one thing a perf
-            // symbol can never tell you, and the only handle you can act on.
+            // The asset path is the one fact a perf symbol cannot give.
             let path = asset_server
                 .get_path(id)
                 .map(|path| path.to_string())
                 .unwrap_or_else(|| "<runtime-generated>".to_string());
-            // Which STAGE was late is the question the hall hitch left open:
-            // a decode that finished 600ms after its demand and an upload
-            // that stalled a frame look identical in a frame-time trace.
+            // Say which stage was late: a late decode and a stalled upload look
+            // the same in a frame-time trace.
             let mut demand = stages.demand_phrase();
             if stages.insertions_of_path > 1 {
-                // The same file decoded again: dropped and demanded back, or
-                // loaded under a second id. Either way the pixels were paid
-                // for twice (asset open work 5).
+                // The same file decoded again (dropped and demanded back, or
+                // loaded under a second id). The pixels were paid for twice.
                 demand.push_str(&format!(" RE-DECODE #{}", stages.insertions_of_path));
             }
-            // ⭐⭐ `live=` IS EMITTED ON BOTH BRANCHES, DELIBERATELY. A reader
-            // that sees no marker at all is reading a log from before this
-            // existed, and must say "unknown" rather than "none" — an absent
-            // marker is not evidence of a clean run. That is the same trap as a
-            // count of zero from an instrument that never reports the category.
+            // Emit `live=` on both branches. A log with no marker predates it
+            // and must read as "unknown", not "none".
             //
-            // ⛔ `live=1` is a CONTRACT VIOLATION: a big image decoded while
-            // gameplay is running is a frame the player felt. The 2026-08-29
-            // hardware run tied every one of five frame-spike clusters to a
-            // decode burst, monotone in megapixels, up to a 516ms frame for
-            // +307MP of 4096x4096 character sheets.
-            //
-            // ⚠ A warning, not an error: a legitimately late asset exists (an
-            // unpredictable summon, a dev spawn). What is never legitimate is
-            // not KNOWING.
+            // `live=1` is a contract violation: a big image decoded during
+            // gameplay costs a frame the player can feel. It is a warning, not
+            // an error, because some late assets are legitimate (an
+            // unpredictable summon, a dev spawn).
             let live = u8::from(during_gameplay);
-            // The same frame stamp as `[world-event]`, so "before or after
-            // `room-loaded`" is a comparison of two integers rather than of two
-            // wall clocks: the census runs in `Last`, after a long activation
-            // frame's work, so its time can read AFTER a `room-loaded` that the
-            // insertion in `PreUpdate` of the same frame actually preceded.
+            // The same frame stamp as `[world-event]`, so ordering against
+            // `room-loaded` compares integers. The census runs in `Last`, so its
+            // wall time can read after a `room-loaded` it actually preceded.
             let frame = ambition_platformer2d_shared_tangle::world_log::frame();
-            // ⛔ A RUNTIME-GENERATED IMAGE IS NOT A CONTENT DECODE, AND TELLING
-            // SOMEBODY TO "DEMAND IT AT MATCH PREPARATION" IS ADVICE THEY CANNOT
-            // TAKE. Caught within an hour of shipping this warning: a headless
-            // match flagged two 2048x2048 `<runtime-generated>` images — an atlas
-            // allocated the first time text draws, with no path and no
-            // preparation step to move it to. It is still worth REPORTING (it is
-            // 16MB a match) but under its own sentence.
+            // A runtime-generated image (an atlas or render target, no path)
+            // is not a content decode, and cannot be demanded at match
+            // preparation. Still report it, in its own sentence.
             let generated = path == "<runtime-generated>";
             if during_gameplay && generated {
                 eprintln!(
@@ -340,9 +288,8 @@ pub fn report_image_census(
     {
         return;
     }
-    // Stay silent through quiet windows: a steady stream of "+0 images" lines
-    // would drown the windows that actually decoded something. The exit flush
-    // is the exception: it prints whatever the last partial window holds.
+    // Stay silent through quiet windows, so the windows that decoded something
+    // stay visible. The exit flush prints the last partial window.
     let (
         gpu_count,
         gpu_megapixels,
@@ -359,16 +306,11 @@ pub fn report_image_census(
     ) = {
         let mut ledger = image_stages::ledger();
         let (count, megapixels, p50, max) = ledger.take_gpu_window();
-        // Who owns what is resident, in the ledger's own words: the road that
-        // demanded each image. Printed only on windows that changed something,
-        // beside the totals, so a transition's growth reads per owner.
-        // ⛔ NAME THE UNROUTED ROWS. `resident_by_road` keys a row whose `source`
-        // is `None` as `"?"`, which reads as "some road I did not catch" and is
-        // not what it means: those images never passed a stamped demand at all —
-        // they were inserted directly rather than decoded from a file. On
-        // 2026-09-02 a Hall census reported `? 22×4.5MP` and it was read as a
-        // small population of art. It was NO art: every routed count was zero,
-        // and a measurement was published on the strength of the misreading.
+        // Resident images by the road that demanded them, so a transition's
+        // growth reads per owner.
+        // Rename the unrouted rows. `resident_by_road` keys a row with no
+        // `source` as `"?"`, which reads like an unknown road. Those images
+        // passed no stamped demand; they were inserted directly.
         let by_road: Vec<String> = ledger
             .resident_by_road()
             .into_iter()
@@ -381,15 +323,11 @@ pub fn report_image_census(
                 format!("{road} {count}×{mp:.1}MP")
             })
             .collect();
-        // ⭐ AND NAME THEM. A count of FILES nobody claims to have asked for is
-        // the one row whose next question is always WHICH — the Hall's single
-        // unrouted image took a bespoke ledger probe to identify on 2026-09-02,
-        // and a host run should not have to repeat that. Capped, because the
-        // point is the expensive ones and a census line is not a manifest.
+        // Name the unrouted files too, because the next question is always
+        // "which?". Capped, because a census line is not a manifest.
         //
-        // ⛔ FILE-BACKED ONLY. Procedural inserts have no load to stamp and can
-        // never leave this bucket; listing them would print 24 non-findings and
-        // push the real one past the cap.
+        // File-backed only. Procedural inserts have no load to stamp and never
+        // leave this bucket; listing them would push real findings past the cap.
         let unrouted: Vec<String> = ledger
             .unrouted_resident()
             .into_iter()
@@ -397,10 +335,8 @@ pub fn report_image_census(
             .map(|(mp, path)| format!("{mp:.1}MP {path}"))
             .collect();
         let unrouted_total = ledger.unrouted_resident().len();
-        // ⛔⛔ ONLY WHERE A DRAW IS POSSIBLE. Without a render world nothing is
-        // ever extracted, so EVERY resident image is "never drawn" and the row
-        // would accuse a headless run of waste it cannot commit. The ledger's
-        // own doc says the two readings need separating; this is the separation.
+        // Only where a draw is possible. Without a render world nothing is
+        // extracted, so every resident image would read as "never drawn".
         let render_world_present =
             image_stages::RenderWorldPresent::from_option(render_world.as_deref());
         let never_drawn: Option<(usize, f64, Vec<String>)> =
@@ -411,9 +347,7 @@ pub fn report_image_census(
                     .fold((0usize, 0f64), |(n, mp), (c, road_mp)| {
                         (n + c, mp + road_mp)
                     });
-                // ⭐ BY OWNER, because "23.2 MP was never drawn" invites `whose?`
-                // and the roads are the answer. An eviction conversation starts
-                // from an owner, not from a total.
+                // By owner, because an eviction decision starts from an owner.
                 let rows = by_road
                     .into_iter()
                     .map(|(road, (c, mp))| {
@@ -450,11 +384,10 @@ pub fn report_image_census(
                 format!("{:.0}ms", d.as_secs_f64() * 1e3)
             })
         };
-        // The GPU half on the same line as the decode half, so a window that
-        // decoded 40MP and uploaded 12MP reads as the backlog it is. `awaiting`
-        // is inserted-but-not-yet-prepared: nonzero at the end of a quiet
-        // window means the upload pacer (or a missing render world) is holding
-        // pixels the main world already paid for.
+        // The GPU half on the same line as the decode half, so a backlog is
+        // visible. `awaiting` is inserted-but-not-yet-prepared: nonzero at the
+        // end of a quiet window means the upload pacer (or a missing render
+        // world) is holding pixels the main world already paid for.
         eprintln!(
             "[image-census] {at:8.3}s +{} images (+{:.1}MP) | total {} images, {:.1}MP, {:.1}MB resident \
              | gpu +{gpu_count} (+{gpu_megapixels:.1}MP) insert→gpu p50 {} max {} | awaiting gpu {awaiting} \
@@ -467,16 +400,15 @@ pub fn report_image_census(
             census.total_bytes as f64 / 1.0e6,
             ms(gpu_p50),
             ms(gpu_max),
-            // `-` where a draw is not observable at all, which is a different
-            // fact from "nothing has been drawn yet".
+            // `-` where a draw is not observable, which differs from "nothing
+            // drawn yet".
             never_drawn.map_or("-".to_string(), |(n, mp, rows)| {
                 format!("{n} ({mp:.1}MP: {})", rows.join(", "))
             }),
             by_road.join(", "),
         );
-        // ⛔ ONE LINE, AND ONLY WHEN THERE IS SOMETHING TO SAY. An unrouted image
-        // is either eager loading nobody asked for or a demand road that stamps
-        // nothing; both are findings, and neither is readable from a count.
+        // One line, only when there is something to say. An unrouted image is
+        // eager loading nobody asked for or a demand road that stamps nothing.
         if unrouted_total > 0 {
             let more = unrouted_total.saturating_sub(unrouted.len());
             let tail = if more > 0 {
@@ -495,21 +427,10 @@ pub fn report_image_census(
     census.window_started_at = now;
 }
 
-/// Wasm has no `Instant`, so the REPORT is a no-op there (use browser devtools)
-/// — but the ARRIVAL RECORD is not, and that distinction is the whole bug this
-/// signature once carried.
-///
-/// ⛔⛔ THIS FUNCTION USED TO BE `events.clear()` AND NOTHING ELSE. That threw
-/// away the only signal that tells the render world which images to look for,
-/// so on the web nothing was ever a candidate, nothing was ever stamped
-/// prepared, and `is_awaiting_gpu` answered "still owed" for every image
-/// forever: the room cover could not lift. It is the mirror of the older bug
-/// where the cover lifted too early, and it arrived by fixing that one — the
-/// readiness ANSWER was moved per-App while the WORK QUEUE feeding it stayed
-/// native-only.
-///
-/// ⇒ Both targets now call the same [`note_image_arrivals`]. The census
-/// arithmetic needs a clock and stays native; recording an arrival does not.
+/// Wasm has no `Instant`, so the report is a no-op there (use browser
+/// devtools). The arrival record still runs: without it the render world has
+/// no candidates, nothing is stamped prepared, and the room cover never lifts.
+/// Both targets call the same [`note_image_arrivals`].
 #[cfg(target_arch = "wasm32")]
 pub fn report_image_census(
     mut events: MessageReader<AssetEvent<Image>>,
@@ -521,21 +442,18 @@ pub fn report_image_census(
     note_image_arrivals(&mut events, prepared_here.as_deref());
 }
 
-/// Record every arriving image as a GPU-readiness CANDIDATE for this App.
+/// Record every arriving image as a GPU-readiness candidate for this App.
 ///
-/// ⭐ Shared by both targets on purpose. The defect this replaces existed
-/// because the two `report_image_census` bodies diverged and only one of them
-/// fed the readiness pipeline; a reader comparing them saw two plausible
-/// functions. One helper means the web path cannot silently do less than the
-/// native one, and it is directly testable without a render world.
+/// Shared by both targets, so the web path cannot do less than the native
+/// one. It is testable without a render world.
 pub fn note_image_arrivals(
     events: &mut MessageReader<AssetEvent<Image>>,
     prepared_here: Option<&image_stages::AppGpuPreparedImages>,
 ) {
     for event in events.read() {
         match event {
-            // Both, and for one reason: each names the CURRENT contents of that
-            // id needing to reach the GPU. See `mark_awaiting`.
+            // Both name the current contents of that id needing to reach the
+            // GPU. See `mark_awaiting`.
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                 note_image_arrival(prepared_here, *id);
             }
@@ -545,13 +463,12 @@ pub fn note_image_arrivals(
     }
 }
 
-/// What "an image arrived" MEANS for readiness, defined exactly once.
+/// What "an image arrived" means for readiness, defined once.
 ///
-/// ⛔ Both `report_image_census` bodies call this. The native one cannot call
-/// [`note_image_arrivals`] instead, because it must also see `Removed`/`Unused`
-/// in the same drain and a `MessageReader` yields each event once — so the
-/// shared thing is the RECORD, not the loop. Two loops are unavoidable; two
-/// definitions of the record are what produced the never-lifting cover.
+/// Both `report_image_census` bodies call this. The native one cannot call
+/// [`note_image_arrivals`], because it must also see `Removed`/`Unused` in the
+/// same drain and a `MessageReader` yields each event once. So the shared item
+/// is the record, not the loop.
 pub fn note_image_arrival(
     prepared_here: Option<&image_stages::AppGpuPreparedImages>,
     id: AssetId<Image>,
@@ -561,8 +478,8 @@ pub fn note_image_arrival(
     }
 }
 
-/// What "an image is gone" MEANS for readiness, defined exactly once beside
-/// [`note_image_arrival`] and for the same reason.
+/// What "an image is gone" means for readiness, defined once beside
+/// [`note_image_arrival`].
 pub fn note_image_retired(
     prepared_here: Option<&image_stages::AppGpuPreparedImages>,
     id: AssetId<Image>,
@@ -593,24 +510,15 @@ mod tests {
         assert_eq!(census.total_megapixels(), 0.0);
     }
 
-    /// ⛔⛔ THE PLUGIN MUST INSTALL THE PER-APP SET, and until this test existed
-    /// nothing said so. `AppGpuPreparedImages` had three good tests and all of
-    /// them built it with `::default()` — so all three passed with
-    /// `app.insert_resource(prepared_here)` deleted, while
-    /// `stamp_gpu_prepared_images`, which takes it as `Option<Res<_>>`, compiled
-    /// and ran and silently skipped the authoritative write. Neither a compile
-    /// error nor a behavioural failure.
+    /// The plugin must install the per-App set. `stamp_gpu_prepared_images`
+    /// takes it as `Option<Res<_>>`, so without it the system runs and silently
+    /// skips the authoritative write. Tests that construct the set cannot see
+    /// its absence, so this one goes through the composition.
     ///
-    /// ⇒ A test that CONSTRUCTS its subject cannot witness the subject's
-    /// absence. This one goes through the composition instead, which is the
-    /// claim that was unguarded.
-    ///
-    /// ⚠ WHAT THIS DOES NOT COVER, stated so nobody reads it as more: that the
-    /// render sub-app got THIS set rather than a fresh one. That needs a sub-app
-    /// and there is none headless — the very early return the insert was hoisted
-    /// above. `a_clone_is_the_same_set_because_one_app_shares_it_across_worlds`
-    /// pins the `Arc` semantics at type level; what stays uncovered is only the
-    /// hand-off itself.
+    /// Not covered: that the render sub-app got this set rather than a fresh
+    /// one (no sub-app exists headless).
+    /// `a_clone_is_the_same_set_because_one_app_shares_it_across_worlds` pins
+    /// the `Arc` semantics.
     #[test]
     fn the_plugin_installs_the_per_app_prepared_set_even_without_a_render_world() {
         let mut app = App::new();
@@ -625,21 +533,12 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE ARRIVAL RECORD IS THE READINESS PIPELINE'S INPUT, AND THE WEB
-    /// PATH USED TO DISCARD IT.
+    /// The arrival record is the readiness pipeline's input. If it is
+    /// discarded, no image becomes a candidate and the cover never lifts. A
+    /// `--target wasm32` check cannot see that, so this pins the behaviour.
     ///
-    /// `report_image_census` on wasm was `events.clear()` and nothing else, so
-    /// no image ever became a candidate, the render stamper's queue was always
-    /// empty, `AppGpuPreparedImages` was never written, and
-    /// `is_awaiting_gpu` answered "still owed" for every image forever — the
-    /// cover could not lift. A `--target wasm32` CHECK cannot see it: every
-    /// branch type-checks. This pins the behaviour instead.
-    ///
-    /// ⚠ It tests `note_image_arrival`, which is the whole content of the wasm
-    /// body and the record the native body makes too — one definition, so the
-    /// two roads cannot silently disagree again. What it does NOT prove is that
-    /// each `report_image_census` still calls it; that is a one-line claim a
-    /// reader can check, and the reason the definition was collapsed to one.
+    /// It tests `note_image_arrival`, which both `report_image_census` bodies
+    /// call. It does not prove each body still calls it.
     #[test]
     fn an_arriving_image_becomes_a_candidate_for_this_app() {
         let prepared_here = image_stages::AppGpuPreparedImages::default();
@@ -666,9 +565,8 @@ mod tests {
         );
     }
 
-    /// An App with no readiness authority must not panic — a headless probe
-    /// installs no render world and gets no resource. Absent means "nothing
-    /// waits on me", not "record nowhere and pretend".
+    /// An App with no readiness authority must not panic: a headless probe has
+    /// no render world and gets no resource.
     #[test]
     fn an_arrival_without_an_authority_is_a_no_op_rather_than_a_panic() {
         note_image_arrival(None, AssetId::<Image>::invalid());
@@ -677,37 +575,25 @@ mod tests {
 
 /// Stage 3 of the image ledger: the GPU copy exists.
 ///
-/// Runs in the RENDER world after Bevy's `prepare_assets::<GpuImage>`, and asks
-/// only about the ids the main world inserted and nobody has yet seen prepared
-/// — a handful at a time, not a walk over every texture. The pacer
-/// (`RenderAssetBytesPerFrame`) defers uploads across frames, and this is the
-/// instrument that shows the deferral: `insert→gpu` grows while `awaiting gpu`
-/// on the census line stays nonzero.
+/// Runs in the render world after Bevy's `prepare_assets::<GpuImage>`, and
+/// checks only the ids the main world inserted that are not yet prepared. The
+/// pacer (`RenderAssetBytesPerFrame`) defers uploads across frames; this shows
+/// the deferral as `insert→gpu` growing while `awaiting gpu` stays nonzero.
 ///
-/// ⛔⛔ THIS RUNS ON EVERY TARGET, AND USED TO BE NATIVE-ONLY. Stamping is the
-/// READINESS FACT the web reveal barrier depends on; only the `[image-gpu]`
-/// REPORT below needs a clock. Gating the whole system on `not(wasm32)` left
-/// the browser with nothing ever prepared, hence never anything awaited, hence
-/// a cover that lifted before the GPU had the pixels.
+/// Runs on every target. The stamp is the readiness fact the web reveal
+/// barrier depends on; only the `[image-gpu]` report needs a clock.
 pub fn stamp_gpu_prepared_images(
     gpu_images: Res<bevy::render::render_asset::RenderAssets<bevy::render::texture::GpuImage>>,
-    // ⛔ THIS APP'S SET, not the process ledger. Asset ids are App-local and this
-    // repository has measured them colliding, so a global "id 7 is prepared"
-    // let one App's upload lift another App's cover. The `Arc` inside is the
-    // same one this App's main world reads; a sibling App holds a different one.
+    // This App's set, not the process ledger. Asset ids are App-local and can
+    // collide, so a global set would let one App's upload lift another App's
+    // cover. The `Arc` inside is shared with this App's main world.
     prepared_here: Option<Res<image_stages::AppGpuPreparedImages>>,
-    // ⛔ THE CLOCK IS NATIVE-ONLY AND THE FACT ABOVE IS NOT. Gating this whole
-    // system on the clock's target is what left the browser with nothing ever
-    // prepared, hence nothing awaited, hence a cover that lifted early.
+    // The clock is native-only; the readiness fact above is not.
     #[cfg(not(target_arch = "wasm32"))] started_at: Res<ImageStageClock>,
 ) {
-    // ⛔⛔ CANDIDATES COME FROM THIS APP, NOT THE PROCESS LEDGER. The ledger's
-    // `awaiting_gpu` is one list keyed by bare `UntypedAssetId` for the whole
-    // process, and `gpu_prepared()` CONSUMES the entry — so with two rendering
-    // Apps sharing an id, whichever looked first took the candidate and the
-    // other could never discover its own preparation. On wasm the list was
-    // never populated at all. Both are the same error: the readiness ANSWER was
-    // made App-local while the WORK QUEUE that establishes it stayed global.
+    // Candidates come from this App, not the process ledger. The ledger's
+    // `awaiting_gpu` is one process-wide list, and `gpu_prepared()` consumes
+    // the entry, so two Apps sharing an id would steal each other's candidate.
     let Some(prepared_here) = prepared_here.as_deref() else {
         return;
     };
@@ -726,22 +612,16 @@ pub fn stamp_gpu_prepared_images(
         return;
     }
     let mut ledger = image_stages::ledger();
-    // ⭐ THE AUTHORITATIVE WRITE, and it happens BEFORE the ledger mirror below
-    // and independently of it. The ledger's `gpu_prepared` consumes a row and
-    // returns `None` when there is nothing to report — a census concern. Reveal
-    // readiness must not inherit that early-exit, so it is stamped here for
-    // every id the GPU actually has.
-    //
-    // ⛔ UNCONDITIONAL ON PURPOSE. This is the readiness FACT the web reveal
-    // barrier reads; the clock below is the only native-only part.
+    // The authoritative write. It happens before, and independently of, the
+    // ledger mirror below: `gpu_prepared` returns `None` when there is nothing
+    // to report, and readiness must not inherit that early exit. Unconditional:
+    // the web reveal barrier reads it.
     for id in &prepared {
         prepared_here.mark_prepared(*id);
     }
 
-    // ⛔ ONE `#[cfg]` BOUNDARY, NOT EIGHT. An earlier draft gated eight separate
-    // statements, which is the shape that put a `#[cfg]` on the wrong item and
-    // broke the whole web build once already. The FACT above is unconditional;
-    // everything that needs a clock lives behind this one boundary.
+    // One `#[cfg]` boundary for everything that needs a clock. Many small
+    // gates make it easy to put a `#[cfg]` on the wrong item.
     #[cfg(not(target_arch = "wasm32"))]
     let clock = (Instant::now(), ledger.gameplay_live());
 
@@ -760,10 +640,8 @@ pub fn stamp_gpu_prepared_images(
     }
 }
 
-/// The `[image-gpu]` line. Native-only because every field it prints is a
-/// duration, and the web has no `Instant` to measure one against — which is
-/// exactly the distinction that had to be drawn: the REPORT needs a clock, the
-/// readiness FACT above does not.
+/// The `[image-gpu]` line. Native-only because every field is a duration and
+/// the web has no `Instant`.
 #[cfg(not(target_arch = "wasm32"))]
 fn report_gpu_prepared(
     stages: &image_stages::ImageStages,
@@ -793,25 +671,19 @@ fn report_gpu_prepared(
     );
 }
 
-/// Stamp the FOURTH stage: this image was extracted, so this frame would draw it.
+/// Stamp the fourth stage: this image was extracted, so this frame would draw it.
 ///
-/// ⭐⭐ THE FIRST STAGE THAT IS ABOUT USE. Demand, insert and GPU all say the
-/// asset ARRIVED; none says anybody wanted it on screen. `ExtractedSprites` is
-/// filled AFTER visibility culling, so an id appearing there means "this frame
-/// would draw it", which is the honest meaning of resident use and closer than
-/// anything the three earlier stages can say.
+/// The earlier stages say the asset arrived; this one says it is used.
+/// `ExtractedSprites` is filled after visibility culling, so an id there means
+/// "this frame would draw it".
 ///
-/// ⛔ `SpriteBatch` IS ONE STEP LATER AND STRICTLY STRONGER — it survived
-/// batching — at the cost of running after `RenderSystems::Queue`. Extraction is
-/// preferred until a measurement shows it over-reports, which is the trade the
-/// scoping note asked for.
+/// `SpriteBatch` is one step later and stronger (it survived batching), but runs
+/// after `RenderSystems::Queue`. Use extraction until a measurement shows it
+/// over-reports.
 ///
-/// ⛔⛔ AND IT WRITES AT MOST ONCE PER IMAGE. Extraction runs every frame for
-/// every visible sprite; `ImageStageLedger::first_drawn` returns `None` after
-/// the first stamp, so the hot path here is a lock and a walk over the extracted
-/// list, and the ledger does not grow a per-frame write on the whole visible
-/// set. Without that rule this instrument's own cost would be part of what it
-/// measures.
+/// Writes at most once per image: `ImageStageLedger::first_drawn` returns
+/// `None` after the first stamp. So the per-frame cost is a lock and a walk
+/// over the extracted list, and the ledger does not grow each frame.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn stamp_first_drawn_images(
     sprites: Res<bevy::sprite_render::ExtractedSprites>,
@@ -830,36 +702,19 @@ pub fn stamp_first_drawn_images(
         let Some(stages) = ledger.get(sprite.image_handle_id.untyped()) else {
             continue;
         };
-        // ⛔⛔ GATED ON THE WAIT, NOT THE SIZE, and the other stages' threshold
-        // would have made this line unprintable in exactly the rooms it is for.
-        // `NOTABLE_MEGAPIXELS` is 1.0 and its rationale — "below this a texture
-        // is a UI glyph or an icon" — was written for FULL-tier art. Under the
-        // room sprite-tier cap a whole character sheet is about 0.3 MP, so in
-        // the capped gallery (the one room with a measured hitch) nothing would
-        // ever have reached the bar: measured, zero `[image-drawn]` lines across
-        // five captures.
-        //
-        // ⭐ AND SIZE IS THE WRONG QUESTION HERE ANYWAY. The three earlier
-        // stages report DECODE cost, where big means expensive. This one reports
-        // FIRST USE, where the interesting fact is how long the thing waited to
-        // be seen — a small sheet that took a second to reach the screen is a
-        // visible pop, and a large one drawn immediately is not a problem.
+        // Gate on the wait, not the size. `NOTABLE_MEGAPIXELS` suits full-tier
+        // art; under the room sprite-tier cap a whole character sheet is about
+        // 0.3 MP and would never report. Also, this stage reports first use, and
+        // the fact that matters is how long the image waited to be seen.
         if waited < NOTABLE_DRAW_WAIT {
             continue;
         }
         let at = now.duration_since(started_at.0).as_secs_f64();
-        // ⭐⭐ `POP` IS THE WHOLE POINT OF THIS LINE. A cover exists so a room's
-        // art arrives before anyone can see the room; an image whose FIRST DRAW
-        // lands while gameplay is live is one the cover did not cover, and it
-        // appeared in front of the player. Named rather than left as `live=1`,
-        // because the reader of a hitch log should not have to know which way
-        // the flag points.
-        // ⛔⛔ AND "POP" ONLY MEANS SOMETHING WHERE A COVER EXISTED. `capture_scene`
-        // boots straight into `playing` on every road it has, so there every
-        // first draw is trivially during gameplay — eighteen "findings" in a
-        // hall shot, all of them the harness. `saw_covered_frame` is the fact
-        // that separates "the cover did not cover this" from "nothing here has
-        // a cover", and without it this line reports the instrument.
+        // `POP` names an image whose first draw came during live gameplay: the
+        // cover did not cover it.
+        // "POP" only applies where a cover existed. `capture_scene` boots
+        // straight into `playing`, so every first draw there is during
+        // gameplay. `saw_covered_frame` separates the two cases.
         let pop = match stages.live_at_first_draw {
             Some(true) if covered => " POP (drawn during gameplay, after the cover)",
             Some(true) => " live=1 (this composition never covered anything)",
@@ -892,28 +747,17 @@ impl Plugin for ImageStagePlugin {
     fn build(&self, app: &mut App) {
         use bevy::render::{Render, RenderApp, RenderSystems};
 
-        // ⛔⛔ THE READINESS HALF IS NOT `not(wasm32)`, AND IT USED TO BE. The
-        // whole of this body was native-only because `ImageStageClock` holds an
-        // `Instant`. That gated the FACT along with the TELEMETRY: on the web,
-        // `RenderWorldPresent` was never inserted and `is_gpu_prepared` was a
-        // stub returning `false`, so `is_awaiting_gpu` was always false and the
-        // browser lifted its cover the moment pixels reached `Assets<Image>` —
-        // skipping exactly the GPU upload the barrier exists to move under the
-        // cover. Every branch type-checks, so the wasm CHECK could not see it.
-        // The clock stays native; the stamp does not.
+        // The readiness half is not native-only. Only `ImageStageClock` (it
+        // holds an `Instant`) is. If the readiness stamp were gated too, the
+        // browser would lift its cover before the GPU upload.
 
-        // ⭐ ABOVE THE EARLY RETURN ON PURPOSE, and the reason is testability
-        // rather than behaviour. `stamp_gpu_prepared_images` takes this as an
-        // `Option<Res<_>>`, so an App that never got it COMPILES, RUNS, and
-        // silently skips the authoritative write — falling back to the
-        // process-global answer this type exists to replace. Below the return,
-        // a headless App has no such resource, so nothing could assert the
-        // plugin installs it and the line was unguardable by construction.
+        // Insert above the early return so a test can check it:
+        // `stamp_gpu_prepared_images` takes it as `Option<Res<_>>` and silently
+        // skips the write when it is absent.
         //
-        // ⚠ Inert on an App with no render world: the set is empty and
-        // `is_awaiting_gpu(id, RenderWorldPresent(false))` is false regardless
-        // of its contents — pinned by `a_headless_app_is_never_awaiting`. So
-        // nothing starts awaiting that was not awaiting before.
+        // Inert on an App with no render world:
+        // `is_awaiting_gpu(id, RenderWorldPresent(false))` is false whatever
+        // the set holds (pinned by `a_headless_app_is_never_awaiting`).
         let prepared_here = image_stages::AppGpuPreparedImages::default();
         app.insert_resource(prepared_here.clone());
 
@@ -921,9 +765,8 @@ impl Plugin for ImageStagePlugin {
             return;
         }
         // From here on a reveal may wait for stage 3; see
-        // `ImageStageLedger::is_awaiting_gpu`. ⛔ ON THIS APP'S MAIN WORLD, not
-        // on the process ledger: a sibling App in the same process has its own
-        // answer. Inserted BEFORE the sub-app is borrowed.
+        // `ImageStageLedger::is_awaiting_gpu`. Insert on this App's main world,
+        // not the process ledger, and before the sub-app is borrowed.
         app.insert_resource(image_stages::RenderWorldPresent(true));
 
         // One clock for both halves: whichever side initialises the census
@@ -940,17 +783,14 @@ impl Plugin for ImageStagePlugin {
         render_app.insert_resource(prepared_here);
         #[cfg(not(target_arch = "wasm32"))]
         render_app.insert_resource(clock);
-        // THE READINESS STAMP, on every target — the reveal barrier reads it.
+        // The readiness stamp, on every target: the reveal barrier reads it.
         render_app.add_systems(
             Render,
             stamp_gpu_prepared_images.after(RenderSystems::PrepareAssets),
         );
-        // ⛔ AFTER EXTRACTION, which is where `ExtractedSprites` is filled — a
-        // SIBLING of the hook above rather than new machinery: same sub-app,
-        // same ledger. Native-only, and unlike the stamp above that is correct:
-        // first-draw is pure TELEMETRY measured in `Instant`s, and no readiness
-        // decision reads it. Gating the GPU stamp the same way is what put the
-        // hole in the web reveal.
+        // After extraction, where `ExtractedSprites` is filled. Native-only is
+        // correct here: first-draw is telemetry, and no readiness decision
+        // reads it.
         #[cfg(not(target_arch = "wasm32"))]
         render_app.add_systems(
             Render,

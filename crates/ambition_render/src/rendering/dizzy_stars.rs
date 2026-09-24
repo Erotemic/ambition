@@ -1,21 +1,17 @@
 //! Dizzy stars orbiting a body whose guard has shattered.
 //!
-//! A shield break is the single most punishing thing that happens to a
-//! defender, and until the stars it looked like an ordinary stumble: the
-//! `dizzy` pose plays, which is right, but nothing said *why* the fighter had
-//! stopped answering. The stars are the genre's answer and they read from
-//! across the stage.
+//! A shield break is the most punishing thing that happens to a defender. The
+//! `dizzy` pose alone looks like a stumble; the stars show why the fighter
+//! stopped responding, and they read from across the stage.
 //!
-//! The stars orbit the body's OWN up, taken from the resolved frame published
-//! on [`GuardBreakFact`]. Screen `-Y` would be wrong for the same reason it is
-//! wrong everywhere else in this engine: a wall-walker's stars would orbit its
+//! The stars orbit the body's own up, from the resolved frame published on
+//! [`GuardBreakFact`]. Screen `-Y` would put a wall-walker's stars at its
 //! shoulder.
 //!
-//! Emission is keyed to the SIM TICK, exactly as the launch trail is, so the
-//! ring turns at one rate whatever the display does, a capture shows what the
-//! screen showed, and there is no per-body presentation state for a rollback
-//! resimulation to multiply. The `dizzy` pose stays the base animation —
-//! nothing here touches what the body is drawn as.
+//! Emission is keyed to the sim tick, like the launch trail. So the ring turns
+//! at one rate on any display, a capture matches the screen, and there is no
+//! per-body state for a rollback resimulation to multiply. The `dizzy` pose
+//! stays the base animation.
 
 use bevy::prelude::*;
 
@@ -24,8 +20,8 @@ use ambition_sim_view::{GuardBreakFact, GuardBreaksView};
 use ambition_time::SimTick;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-/// Stars in the ring. Three is the genre's count and it is also the smallest
-/// number that reads as a circle rather than as a wobble.
+/// Stars in the ring. Three is the genre's count and the smallest number that
+/// reads as a circle.
 const STAR_COUNT: u32 = 3;
 
 /// Sim ticks between emissions. The stars are short-lived particles refreshed
@@ -113,16 +109,15 @@ fn star_message(body: &GuardBreakFact, index: u32, tick: u64, alpha: f32) -> Vfx
     let up = -body.gravity_dir;
     VfxMessage::Burst {
         pos: body.pos + star_offset(index, tick, up, body.size),
-        // ONE particle per star: the ring's shape is the emission POSITIONS,
-        // not a spray. A burst of several would blur the three points into a
-        // cloud and lose the orbit.
+        // One particle per star: the positions make the ring. More would blur
+        // the three points into a cloud.
         count: 1,
         // Nearly stationary, so each star sits where it was placed and the
         // ring is legible as a ring.
         speed: 6.0,
         color: [STAR_RGB[0], STAR_RGB[1], STAR_RGB[2], alpha],
-        // Spark: bright, short-lived, and it SHRINKS as it ages, so a star
-        // winks out instead of swelling into a puff the way Dust would.
+        // Spark: bright, short-lived, and it shrinks as it ages, so a star
+        // winks out instead of swelling like Dust.
         kind: ParticleKind::Spark,
     }
 }
@@ -140,9 +135,8 @@ mod tests {
         }
     }
 
-    /// THE RELATIVITY RULE: the ring is built in the body's frame. Under
-    /// flipped gravity the stars must be on the other side of the body, not
-    /// stubbornly at the top of the screen.
+    /// The ring is built in the body's frame. Under flipped gravity the stars
+    /// are on the other side of the body, not at the top of the screen.
     #[test]
     fn the_ring_orbits_the_bodys_own_up_not_the_screens() {
         let size = Vec2::new(30.0, 48.0);
@@ -156,7 +150,7 @@ mod tests {
                 let ordinary = star_offset(index, tick, ordinary_up, size);
                 let flipped = star_offset(index, tick, flipped_up, size);
                 let sideways = star_offset(index, tick, sideways_up, size);
-                // Ordinary gravity puts the ring ABOVE the body (negative y).
+                // Ordinary gravity puts the ring above the body (negative y).
                 assert!(ordinary.y < 0.0, "tick {tick} star {index}: {ordinary:?}");
                 // Flipped gravity puts it below, and by a mirrored amount.
                 assert!(flipped.y > 0.0, "tick {tick} star {index}: {flipped:?}");
@@ -167,7 +161,7 @@ mod tests {
         }
     }
 
-    /// The stars are a RING: they are spread around it, and it turns.
+    /// The stars are a ring: they are spread around it, and it turns.
     #[test]
     fn the_stars_are_spread_around_a_ring_that_turns() {
         let size = Vec2::new(30.0, 48.0);

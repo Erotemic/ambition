@@ -28,13 +28,12 @@ pub struct ParallaxLayerVisual {
     /// 0.0 is screen locked; 1.0 tracks gameplay/world motion.
     pub factor: Vec2,
     pub z: f32,
-    /// Panel extent as a multiple of the LONGER side of the drawing view's
-    /// viewport. We avoid tile repetition by keeping each layer as a single
-    /// large panel and shifting it within the budget the overhang buys.
+    /// Panel extent as a multiple of the longer side of the drawing view's
+    /// viewport. Each layer is one large panel that shifts inside its overhang,
+    /// so no tiles repeat.
     pub panel_scale: f32,
-    /// Screen-space room-relative travel budget, derived — see the type doc.
-    /// Zero until the first sync, which is also what a panel nobody can draw
-    /// keeps.
+    /// Screen-space room-relative travel budget, derived each frame. Zero until
+    /// the first sync, and zero for a panel that no view draws.
     pub travel: Vec2,
     pub world_size: Vec2,
 }
@@ -108,13 +107,11 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
 
 /// The layers every main camera renders the room's backdrop on.
 ///
-/// it is declared as this panel's RESTING mask, not only set. The per-view
-/// isolation pass is the single writer of `RenderLayers` on anything keyed by
-/// `PresentedForView`, and while isolating it replaces the mask outright — so the
-/// layer a panel returns to when a session collapses back to one view cannot be
-/// derived from what is left on the entity. Stating it here is what keeps a
-/// collapsed session's backdrop off layer 0, where the portal capture cameras
-/// would draw it from the wrong eye.
+/// This is the panel's resting mask. The per-view isolation pass replaces
+/// `RenderLayers` on everything keyed by `PresentedForView`, so the layer to
+/// return to after a collapse to one view cannot be read back from the entity.
+/// This keeps a collapsed session's backdrop off layer 0, where the portal
+/// capture cameras would draw it from the wrong eye.
 fn parallax_resting_layers() -> RenderLayers {
     RenderLayers::layer(
         ambition_platformer2d_shared_tangle::camera_layers::PARALLAX_BACKGROUND_LAYER,
@@ -144,11 +141,8 @@ pub fn spawn_parallax_layers(
         let Some(image) = assets.parallax_layers.get(theme, spec.asset) else {
             continue;
         };
-        // no size here, and that is the point. The panel's extent is a
-        // function of the viewport it is drawn into, and this call site has no
-        // view in scope — the room spawns visuals, it does not know who is
-        // watching. `sync_parallax_layers` sizes it against the owning view's
-        // own rectangle on the first frame it can resolve one.
+        // No size here: the extent depends on the drawing viewport, and no view is in
+        // scope. `sync_parallax_layers` sizes it against the owning view.
         let mut sprite = Sprite::from_image(image.clone());
         sprite.custom_size = None;
         commands.spawn_session_scoped(
@@ -181,21 +175,14 @@ pub fn spawn_parallax_layers(
     }
 }
 
-/// The two session-world reads are OPTIONAL, and that is a fact about who
-/// runs this now. While it was registered by `game/ambition_app` alone, its
-/// `Single` params were always satisfied — that host's session root carries both.
-/// Installing it engine-side (S12) ran it in compositions whose root carries
-/// neither, and a `Single` that matches nothing is a system-param VALIDATION
-/// PANIC, not a skip: eight tests across `ambition_platformer2d_host` and both consumer
-/// fixtures died on *"Resource does not exist"* with the system name compiled
-/// out. A world with no room geometry has no parallax to refresh, which is an
-/// ordinary state and not an error.
+/// The two session-world reads are optional. Some compositions have no room
+/// geometry on the root, and a `Single` that matches nothing panics at param
+/// validation. A world with no room geometry has no parallax to refresh.
 ///
-/// the despawn sweep takes ROOTS AND COPIES alike — every entity carrying
-/// [`ParallaxLayerVisual`] that is not a portal capture copy — because the whole
-/// backdrop is being rebuilt and a copy of a despawned root belongs to nobody.
-/// [`mirror_parallax_layers_per_view`] rebuilds the per-view set from the fresh
-/// roots.
+/// The despawn sweep takes roots and copies alike (every [`ParallaxLayerVisual`]
+/// that is not a portal capture copy): the backdrop is rebuilt, and a copy of a
+/// despawned root has no owner. [`mirror_parallax_layers_per_view`] rebuilds the
+/// per-view set from the new roots.
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
@@ -250,28 +237,17 @@ pub fn refresh_parallax_layers_on_quality_change(
 /// Loading mutates [`GameAssets`], which causes skipped layers to be rebuilt by
 /// [`refresh_parallax_layers_on_quality_change`]. `attempted` prevents missing
 /// themes from being retried every frame and repeatedly invalidating layers.
-/// What this session's theme loads have already been tried, and which of them
-/// produced NO ART AT ALL.
+/// The theme loads this session has tried, and which of them produced no art.
 ///
-/// ⛔⛔ IT IS A RESOURCE BECAUSE PRESENTATION HAS TO READ IT. This was a
-/// `Local<Vec<ParallaxTheme>>` inside the loader, so "the loader has stopped
-/// trying" was a fact only the loader could see. `sync_session_room_visuals`
-/// therefore had no way to tell "the theme has not arrived YET" from "the theme
-/// resolved to nothing and never will", and its no-art branch — which its own
-/// comment describes as settled — was unreachable, so it re-asked a dead
-/// question every frame for the life of the session.
-///
-/// ⚠ REACHABLE IN SHIPPED PROFILES, not hypothetical. `WebStatic` /
-/// `BundledStatic` attempt an optional image only when it has an authored
-/// embedded candidate, and the generated parallax manifest authors logical
-/// entries without one — so on those profiles the load yields zero handles and
-/// there is nothing more to wait for.
+/// This is a resource so that presentation can read it:
+/// `sync_session_room_visuals` must tell "not arrived yet" from "resolved to
+/// nothing". This occurs in shipped profiles: `WebStatic` / `BundledStatic`
+/// load an optional image only with an embedded candidate, and the generated
+/// parallax manifest has none, so the load yields zero handles.
 #[derive(bevy::prelude::Resource, Default, Debug)]
 pub struct ParallaxThemeAttempts {
-    // ⚠ `pub(crate)` for the CONSUMER'S TESTS, not for its systems.
-    // `platformer_presentation` has to be able to stage "the loader tried and
-    // found nothing" without standing up an asset server and a catalog to
-    // produce it for real. Reading stays behind `attempted_without_art`.
+    // `pub(crate)` so `platformer_presentation` tests can stage "tried and found
+    // nothing" without an asset server. Read it through `attempted_without_art`.
     pub(crate) attempted: Vec<ParallaxTheme>,
     /// Attempted, and the asset profile produced no layer at all.
     pub(crate) without_art: Vec<ParallaxTheme>,
@@ -280,8 +256,8 @@ pub struct ParallaxThemeAttempts {
 impl ParallaxThemeAttempts {
     /// Has this theme been tried and come back with nothing?
     ///
-    /// ⚠ NOT "is it missing". A theme nobody has attempted yet is also missing,
-    /// and that one is worth waiting for.
+    /// Not "is it missing": a theme not yet attempted is also missing, and is
+    /// worth waiting for.
     pub fn attempted_without_art(&self, theme: ParallaxTheme) -> bool {
         self.without_art.contains(&theme)
     }
@@ -304,9 +280,8 @@ pub fn ensure_active_room_parallax_theme(
     else {
         return;
     };
-    // A rebuilt `GameAssets` (a fresh bind) starts with no themes at all, so the
-    // memo has to start again with it — otherwise a theme this system already
-    // "attempted" would never be loaded into the new set.
+    // A rebuilt `GameAssets` has no themes, so the memo restarts with it.
+    // Otherwise a theme already "attempted" would never load into the new set.
     if assets.is_added() {
         attempts.attempted.clear();
         attempts.without_art.clear();
@@ -317,11 +292,8 @@ pub fn ensure_active_room_parallax_theme(
         return;
     }
     attempts.attempted.push(theme);
-    // Already present — the startup bind loads the first room's theme, and the
-    // Ambition host's own transition path may have loaded others. Returning
-    // without touching `GameAssets` matters: a mutable deref alone marks it
-    // changed, and the refresh system would despawn and respawn every layer in
-    // the world to arrive at the same picture.
+    // Already present. Return without touching `GameAssets`: a mutable deref
+    // marks it changed, and the refresh system would respawn every layer.
     if ParallaxLayerAsset::ALL
         .iter()
         .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
@@ -335,11 +307,9 @@ pub fn ensure_active_room_parallax_theme(
         &metadata,
         quality.as_deref().map(|q| &q.budget),
     );
-    // ⭐ THE OUTCOME, NOT THE ATTEMPT. Asked AFTER the load, because "we tried"
-    // and "nothing came" are different facts and only the second one lets
-    // presentation stop waiting. A profile that refuses every candidate leaves
-    // zero handles here, and no later frame will add one — the memo above has
-    // already closed this theme.
+    // Record the outcome, not the attempt. Only "nothing came" lets presentation
+    // stop waiting. A profile that refuses every candidate leaves zero handles,
+    // and no later frame adds one.
     if !ParallaxLayerAsset::ALL
         .iter()
         .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
@@ -391,28 +361,22 @@ pub fn mirror_parallax_layers_per_view(
         views.iter().map(|(view, id)| (*id, view)).collect();
     ordered.sort_by_key(|(id, _)| *id);
     let Some((_, root_view)) = ordered.first().copied() else {
-        // No observation seam in this composition, so nothing presents and there
-        // is nothing to mirror. `ambition_sim_view::ViewsOnHand` calls the
-        // no-views case quiet for exactly this reason.
+        // No observation seam, so nothing presents (see
+        // `ambition_sim_view::ViewsOnHand`).
         return;
     };
 
-    // Retract BEFORE spawning, so a view that went away takes its whole set with
-    // it rather than being counted as still-mirrored below.
+    // Retract before spawning, so a removed view takes its whole set with it.
     let live: std::collections::HashSet<Entity> = ordered.iter().map(|(_, view)| *view).collect();
     let mut mirrored: std::collections::HashSet<(Entity, Entity)> =
         std::collections::HashSet::new();
     for (entity, copy, key) in &copies {
         let root_is_gone = roots.get(copy.root).is_err();
-        // `key.0 == root_view` is the re-key case: the view this copy served has
-        // become the root's own view, so the root already draws it and the copy
-        // is a duplicate.
+        // `key.0 == root_view` is the re-key case: the root now draws this view, so
+        // the copy is a duplicate.
         if root_is_gone || !live.contains(&key.0) || key.0 == root_view {
-            // A room/content teardown can retire this presentation copy in the
-            // same frame after this query observed it. Retraction is already
-            // the desired outcome, so a vanished target is success rather than
-            // an error worth escalating through Bevy's deferred-command
-            // handler.
+            // A teardown can retire this copy in the same frame. Retraction is the
+            // wanted outcome, so a missing target is success.
             commands.entity(entity).try_despawn();
             continue;
         }
@@ -421,12 +385,9 @@ pub fn mirror_parallax_layers_per_view(
 
     for (root, sprite, layer, bound, key) in &roots {
         if key.map(|key| key.0) != Some(root_view) {
-            // Room replacement (including the developer LDtk hot-reload
-            // transaction) can queue destruction of this root after the query
-            // has yielded it but before Commands flush. This tag is pure
-            // presentation ownership: if the root no longer exists there is
-            // nothing left to present, so decline the stale write instead of
-            // panicking the host.
+            // Room replacement (including LDtk hot-reload) can queue this root's
+            // destruction before Commands flush. The tag is presentation-only, so skip
+            // the stale write instead of panicking.
             commands
                 .entity(root)
                 .try_insert(ambition_sim_view::PresentedForView(root_view));
@@ -445,10 +406,8 @@ pub fn mirror_parallax_layers_per_view(
                 (
                     copied_sprite,
                     Transform::from_translation(Vec3::new(0.0, 0.0, layer.z)),
-                    // Hidden until it is placed. A panel is the size of a screen,
-                    // so one frame of it sitting at the world origin is not a
-                    // subtle artefact — and it is exactly the picture this whole
-                    // change exists to stop drawing.
+                    // Hidden until placed, so a screen-sized panel never draws at the world
+                    // origin for one frame.
                     Visibility::Hidden,
                     copied_layer,
                     MirroredParallaxLayer { root },
@@ -456,10 +415,8 @@ pub fn mirror_parallax_layers_per_view(
                     parallax_resting_layers(),
                     ProjectionRestingLayers(parallax_resting_layers()),
                     RoomVisual,
-                    // no `Name`. `entity.name` is registered for rollback
-                    // and the coverage contract sweeps any entity carrying a type
-                    // the rollback knows about, so labelling these would enlist a
-                    // whole view's presentation set in the sim sweep.
+                    // No `Name`: `entity.name` is registered for rollback, and the coverage
+                    // contract would then sweep the whole per-view presentation set.
                 ),
             );
             if let Some(bound) = bound {
@@ -472,36 +429,26 @@ pub fn mirror_parallax_layers_per_view(
 /// Each panel follows the camera that draws it, inside that camera's own
 /// viewport.
 ///
-/// That is the silent-wrong fallback `awaiting-maintainer-decision.md` §11 names, one family over
-/// from the two it names explicitly: not a focus invented at `Vec2::ZERO`, but a POSITION left at
-/// it.
+/// Each camera resolves its view through `PresentsView` (the
+/// `ambition_sim_view::ViewsOnHand` rule that the follow camera, viewport
+/// applier and draw lookup share). Each panel resolves its view through
+/// `PresentedForView`.
 ///
-/// each camera resolves its own view through `PresentsView`, by the same
-/// `ambition_sim_view::ViewsOnHand` rule the follow camera, the physical viewport
-/// applier and the draw-side lookup share — and each panel resolves its view
-/// through `PresentedForView`, the other end of that seam.
+/// A panel whose view or camera cannot be resolved is hidden, and its
+/// transform is not changed. It does not use another camera or fall back to
+/// the origin: a missing backdrop is an obvious defect, a backdrop at the
+/// origin looks like an authoring mistake.
 ///
-/// a panel whose view or camera cannot be resolved DECLINES TO DRAW. It is
-/// hidden and its transform is left exactly where it was, rather than being
-/// synced against somebody else's camera or abandoned at the origin: a backdrop
-/// that is absent is an obvious defect, and a backdrop plastered over the world
-/// origin looks like a level-authoring mistake in a far corner of the map.
-///
-/// and the viewport is the view's, not `WINDOW_W`/`WINDOW_H`. Panel extent
-/// and travel budget are re-derived here from
-/// [`ambition_sim_view::camera_snapshot::CameraViewport`] every frame, so a
-/// letterboxed gameplay rectangle and a split-screen half are described by the
-/// same arithmetic the full window was.
+/// Extent and travel come from the view's
+/// [`ambition_sim_view::camera_snapshot::CameraViewport`] each frame, not from
+/// `WINDOW_W`/`WINDOW_H`, so letterboxed and split-screen rectangles use the
+/// same arithmetic.
 #[allow(clippy::type_complexity)]
 pub fn sync_parallax_layers(
-    // the viewport is OPTIONAL here, and that is load-bearing. Requiring
-    // `&CameraViewport` would make a view that lacks one invisible to this query
-    // — and `ViewsOnHand::survey` would then count ONE view where the session has
-    // two, so an unkeyed panel would be handed the complete view instead of being
-    // refused. A survey that cannot see every view cannot refuse for the right
-    // reason. (`CameraObservationPlugin` spawns the component with the view, and
-    // `the_plugin_spawns_one_complete_view_at_build_time` pins that; this is the
-    // belt for the frame where somebody composes a view by hand.)
+    // The viewport is optional. If it were required, a view without one would be
+    // invisible to this query, `ViewsOnHand::survey` would count too few views,
+    // and an unkeyed panel would get a view instead of a refusal.
+    // (`the_plugin_spawns_one_complete_view_at_build_time` pins the normal case.)
     views: Query<
         (
             Entity,
@@ -509,10 +456,9 @@ pub fn sync_parallax_layers(
         ),
         With<ambition_sim_view::LocalView>,
     >,
-    // `With<MainCamera>`: ignore the #31 cube overlay Camera3d AND the portal
-    // view-cone capture `Camera2d`s — a capture rig is a lens inside the
-    // simulation, not an observer of it, and it gets its own parallax copies
-    // through `sync_portal_capture_parallax_layers`.
+    // `With<MainCamera>` excludes the #31 cube overlay and the portal capture
+    // cameras. Capture rigs get copies through
+    // `sync_portal_capture_parallax_layers`.
     cameras: Query<
         (&Transform, Option<&ambition_sim_view::PresentsView>),
         (
@@ -535,10 +481,8 @@ pub fn sync_parallax_layers(
 
     // Where each view's camera stands, and how big that view's rectangle is.
     //
-    // two cameras naming ONE view is not ambiguous: `camera_follow` hands both
-    // of them the same view's framing, so `or_insert` records the same position
-    // whichever the archetype yields first. Two cameras naming two views is the
-    // split case and produces two rows.
+    // Two cameras on one view get the same framing from `camera_follow`, so
+    // `or_insert` is order-independent. Two views give two rows.
     let mut drawn_by: std::collections::HashMap<Entity, (Vec2, Vec2)> =
         std::collections::HashMap::new();
     for (camera_transform, link) in &cameras {
@@ -567,8 +511,8 @@ pub fn sync_parallax_layers(
             .drawn_for(key.copied())
             .and_then(|view| drawn_by.get(&view).copied());
         let Some((camera_xy, viewport_px)) = resolved else {
-            // Nobody draws this panel — no view claims it, or the view that does
-            // has no camera. Declining is the honest answer; see the system doc.
+            // No view claims this panel, or its view has no camera. Decline (see the
+            // system doc).
             if *visibility != Visibility::Hidden {
                 *visibility = Visibility::Hidden;
             }
@@ -578,9 +522,8 @@ pub fn sync_parallax_layers(
             *visibility = Visibility::Inherited;
         }
 
-        // Compare before writing: `Sprite` and `ParallaxLayerVisual` are only
-        // touched when the view's rectangle actually changed, so a settled panel
-        // reports no change tick per frame.
+        // Write only when the viewport changed, so a settled panel makes no change
+        // ticks.
         let panel_size = layer.panel_size(viewport_px);
         if sprite.custom_size != Some(panel_size) {
             sprite.custom_size = Some(panel_size);
@@ -597,12 +540,10 @@ pub fn sync_parallax_layers(
 pub fn sync_portal_capture_parallax_layers(
     mut commands: Commands,
     active_session: Option<Res<ActiveSessionScope>>,
-    // the ROOT set only (`Without<MirroredParallaxLayer>`). Every live view
-    // now owns a panel per layer, and a rig that copied all of them would stack N
-    // identical skies in one capture. Portal camera continuity is still one
-    // process-global host view (`PortalCameraContinuityState`/`HostView`), so the
-    // root set is the honest source for it — and giving each rig the view its
-    // portal is actually seen through is that seam's own job, not this one.
+    // Copy the root set only (`Without<MirroredParallaxLayer>`); copying every
+    // view's panels would stack N skies in one capture. Portal camera continuity
+    // is one global host view (`PortalCameraContinuityState`/`HostView`), so the
+    // root set is its source.
     sources: Query<
         (Entity, &Sprite, &ParallaxLayerVisual),
         (
@@ -640,10 +581,8 @@ pub fn sync_portal_capture_parallax_layers(
         live.insert((copy.rig, copy.source));
         *sprite = source_sprite.clone();
         *render_layers = RenderLayers::none().with(rig.parallax_layer());
-        // Anchor parallax at the MAPPED HOST CAMERA viewpoint (the position a
-        // viewer looking through the window sees from), not the capture
-        // camera's own framing center — a tight cone-rect frame would
-        // otherwise evaluate the background at the wrong viewpoint.
+        // Anchor at the mapped host camera viewpoint, not the capture camera's frame
+        // center. A tight cone-rect frame would give the wrong viewpoint.
         sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
     }
 
@@ -682,14 +621,9 @@ fn sync_parallax_transform_to_camera(
     layer: &ParallaxLayerVisual,
     camera_xy: Vec2,
 ) {
-    // Dividing one by the other therefore gave −0.5 ..= +0.5, and the clamp turned the entire
-    // negative half into a flat 0 — so across the whole LEFT half of every room the backdrop
-    // sat pinned at maximum travel and did not move, and only the right half parallaxed, over
-    // half the intended range.
-    //
-    // a unit error the clamp HID. Nothing ever read out of range or crashed; the wrong half
-    // simply stopped animating, which reads as "this background is far away" rather than as a
-    // defect.
+    // `camera_xy` is centred (−size/2 ..= +size/2), so add 0.5 after dividing by
+    // the full `world_size`. Without it the clamp flattens the left half of the
+    // room to 0 and the backdrop stops moving there.
     let tx = if layer.world_size.x > 1.0 {
         (camera_xy.x / layer.world_size.x + 0.5).clamp(0.0, 1.0)
     } else {
@@ -743,10 +677,8 @@ mod theme_load_tests {
     use ambition_asset_manager::profile::AssetProfile;
     use ambition_platformer2d_shared_tangle::lifecycle::{SessionRoot, SessionScopeId};
 
-    /// Trusts packaging rather than the filesystem — `AndroidBundle` is the
-    /// profile whose `should_attempt_resolved_load` is unconditionally true, so
-    /// this test asks "does the engine REQUEST the theme's art" without also
-    /// asking whether a generated PNG happens to exist next to the test binary.
+    /// `AndroidBundle` always attempts a resolved load, so this test checks that
+    /// the engine requests the art, not that a PNG exists on disk.
     fn packaged_catalog() -> Platformer2dAssetCatalog {
         let manifest = ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites");
         Platformer2dAssetCatalog::new(
@@ -755,7 +687,7 @@ mod theme_load_tests {
         )
     }
 
-    /// One room, in a biome that is deliberately NOT the engine's default.
+    /// One room, in a biome that is not the engine's default.
     fn room_set_in(theme_key: &str) -> ambition_platformer2d_world::rooms::RoomSet {
         let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
             "second_biome",
@@ -774,14 +706,9 @@ mod theme_load_tests {
         )
     }
 
-    /// The theme the ACTIVE room asks for is loaded by whoever presents it.
-    ///
-    /// This lived in `game/ambition_app`'s room-transition machinery, so the
-    /// shipped host had a backdrop in every biome and every other composition —
-    /// the demos, the external consumer, anything built through `PlatformerApp`
-    /// — drew the startup room's theme and nothing else. Silently:
-    /// [`spawn_parallax_layers`] skips a layer whose handle is absent, so the
-    /// second biome simply had no sky.
+    /// The active room's theme is loaded by whoever presents it, in every
+    /// composition. [`spawn_parallax_layers`] skips a layer with no handle, so a
+    /// missing load gives a biome no sky, silently.
     #[test]
     fn a_room_in_a_second_biome_loads_its_own_parallax_theme() {
         let mut app = App::new();
@@ -792,11 +719,10 @@ mod theme_load_tests {
         app.insert_resource(packaged_catalog());
         app.world_mut()
             .spawn((SessionRoot(SessionScopeId(1)), room_set_in("cave")));
-        // A test that adds the system by hand cannot go red on the thing that was wrong.
+        // Use the real plugin: a test that adds the system by hand cannot catch a missing registration.
         app.add_plugins(crate::platformer_presentation::SessionRoomVisualsPlugin);
 
-        // Non-vacuity: nothing has this theme before the frame runs, so the
-        // assertion below is about the system and not about a default.
+        // Non-vacuity: nothing has this theme before the frame runs.
         assert!(app
             .world()
             .resource::<GameAssets>()
@@ -818,21 +744,13 @@ mod theme_load_tests {
         );
     }
 
-    /// The layers MOVE with the camera, in every composition.
+    /// The layers move with the camera, in every composition. Otherwise a panel
+    /// stays at the world origin and slides out of frame as the camera moves.
     ///
-    /// `sync_parallax_layers` was app-local too — the same class one step
-    /// further along. A composition that got its backdrop spawned still left it
-    /// at the world origin forever, so it slid out of frame as the camera walked
-    /// away and the one thing a parallax layer is for never happened. Nothing
-    /// about that reads as a missing system: the art is correct, in the wrong
-    /// place, and only when you walk.
-    ///
-    /// the fixture now spawns a LOCAL VIEW as well as a camera, because
-    /// the sync resolves a camera through the view it presents. That is the same
-    /// requirement `layout_world_labels` and `sync_actor_nameplates` already
-    /// impose — a per-view draw system needs an observation seam to draw for —
-    /// and every composed host has one: `CameraObservationPlugin` spawns the view
-    /// at plugin BUILD time.
+    /// The fixture spawns a local view as well as a camera, because the sync
+    /// resolves a camera through its view (as `layout_world_labels` and
+    /// `sync_actor_nameplates` do). `CameraObservationPlugin` spawns that view at
+    /// plugin build time.
     #[test]
     fn the_backdrop_follows_the_camera_in_a_composition_that_is_not_the_app() {
         use ambition_platformer2d_shared_tangle::camera_layers::MainCamera;
@@ -910,7 +828,7 @@ mod theme_load_tests {
     }
 }
 
-/// TWO VIEWS, TWO BACKDROPS — each from its own camera and its own viewport.
+/// Two views, two backdrops: each from its own camera and viewport.
 #[cfg(test)]
 mod parallax_travel_tests {
     use super::*;
@@ -928,20 +846,16 @@ mod parallax_travel_tests {
     fn offset_at(camera_x: f32, world_w: f32) -> f32 {
         let mut t = Transform::default();
         sync_parallax_transform_to_camera(&mut t, &layer(world_w), Vec2::new(camera_x, 0.0));
-        // The panel is placed AT the camera plus a parallax offset, so the
-        // offset alone is what this pass decides.
+        // The panel is at the camera plus a parallax offset, so only the offset is tested.
         t.translation.x - camera_x
     }
 
-    /// The backdrop must travel across the WHOLE room, not the right half.
+    /// The backdrop must travel across the whole room, not the right half.
     ///
-    /// `camera_xy` is the camera's centred Bevy transform (`camera.rs` builds it as
-    /// `center_world.x - size.x * 0.5`), so it runs −size/2 ..= +size/2 while `world_size` is
-    /// the full span.
-    ///
-    /// the assertion is on the SPAN and the MIDPOINT together. Either alone
-    /// passes for a broken mapping: a half-range still has two distinct ends, and
-    /// a centred midpoint says nothing about how far it reaches.
+    /// `camera_xy` is the centred camera transform (`camera.rs`:
+    /// `center_world.x - size.x * 0.5`), so it runs −size/2 ..= +size/2 while
+    /// `world_size` is the full span. Assert span and midpoint together: either
+    /// alone passes for a broken mapping.
     #[test]
     fn the_backdrop_travels_the_full_width_of_the_room() {
         let w = 2000.0;
@@ -964,8 +878,7 @@ mod parallax_travel_tests {
         );
     }
 
-    /// The poison, stated as its own claim: a camera in the room's left half must MOVE the
-    /// backdrop.
+    /// A camera in the room's left half must move the backdrop.
     #[test]
     fn a_camera_in_the_left_half_still_moves_the_backdrop() {
         let w = 2000.0;
@@ -992,19 +905,13 @@ mod two_views_one_backdrop_tests {
     use ambition_sim_view::{LocalView, LocalViewId, PresentedForView, PresentsView};
     use bevy::ecs::system::RunSystemOnce as _;
 
-    /// A 2000-wide room, so the horizontal fraction the offset is derived from is
-    /// arithmetic anyone can check by hand rather than a number copied from a run.
+    /// A 2000-wide room, so the fraction is easy to check by hand.
     const WORLD_SIZE: Vec2 = Vec2::new(2000.0, 480.0);
 
-    /// Bevy-space camera x, and Bevy space is CENTRED: `camera.rs` builds the
-    /// transform as `center_world.x - size.x * 0.5`, so a 2000-wide room runs
+    /// Bevy-space camera x. Bevy space is centred, so a 2000-wide room runs
     /// −1000 ..= +1000. `tx = −500/2000 + 0.5 = 0.25`, so `centered.x = −0.5` and
-    /// the panel is pushed RIGHT by half its travel budget — a fraction strictly
-    /// inside the clamp at both ends, so no expectation below is secretly an
-    /// assertion about the clamp.
-    ///
-    /// Fixing the mapping is what exposed it — the constants and the code agreed with each
-    /// other and with nothing else.
+    /// the panel moves right by half its travel budget. The value is inside the
+    /// clamp at both ends, so no expectation tests the clamp.
     const CAMERA_X: f32 = -500.0;
 
     /// The far camera: `tx = 500/2000 + 0.5 = 0.75`, `centered.x = +0.5`, so its
@@ -1030,9 +937,8 @@ mod two_views_one_backdrop_tests {
         ));
     }
 
-    /// `panel_scale = 2.0` and `factor = 1.0` make every number below exact: the
-    /// panel is twice the LONGER side of its viewport, and the whole travel budget
-    /// is spent (nothing is scaled down by a fractional factor on the way out).
+    /// `panel_scale = 2.0` and `factor = 1.0` make the numbers exact: the panel is
+    /// twice the longer viewport side, and the whole travel budget is used.
     fn spawn_panel(world: &mut World, view: Option<Entity>) -> Entity {
         let mut panel = world.spawn((
             Sprite::default(),
@@ -1061,13 +967,11 @@ mod two_views_one_backdrop_tests {
             .x
     }
 
-    /// A PANEL IS SIZED AND OFFSET BY ITS OWN VIEW'S VIEWPORT, NOT BY A
-    /// WINDOW GLOBAL.
+    /// A panel is sized and offset by its own view's viewport, not a window global.
     ///
-    /// the two views are given DIFFERENT viewports and the SAME camera
-    /// position, so the only thing that can produce two different answers is the
-    /// viewport itself. Neither viewport is 1600x900, so a build that still read
-    /// the window constants would agree with neither.
+    /// The views have different viewports and the same camera position, so only
+    /// the viewport can make the results differ. Neither is 1600x900, so a build
+    /// that reads the window constants fails both.
     ///
     /// - view A: 800x400 → panel `2*800 = 1600`, `travel.x = (1600-800)/2 = 400`
     /// - view B: 400x400 → panel `2*400 = 800`,  `travel.x = (800-400)/2 = 200`
@@ -1079,8 +983,7 @@ mod two_views_one_backdrop_tests {
         let mut world = World::new();
         let wide = spawn_view(&mut world, 0, viewport(800.0, 400.0));
         let narrow = spawn_view(&mut world, 1, viewport(400.0, 400.0));
-        // The SAME camera position for both: any difference in the result can
-        // only have come from the viewport.
+        // Same camera position for both, so any difference comes from the viewport.
         spawn_camera(&mut world, wide, CAMERA_X);
         spawn_camera(&mut world, narrow, CAMERA_X);
         let wide_panel = spawn_panel(&mut world, Some(wide));
@@ -1126,20 +1029,15 @@ mod two_views_one_backdrop_tests {
         );
     }
 
-    /// EACH PANEL FOLLOWS THE CAMERA THAT DRAWS IT.
+    /// Each panel follows the camera that draws it.
     ///
-    /// Both views are given the SAME viewport here, so the only thing that can
-    /// separate the two answers is which camera each panel's view is presented by.
-    /// The near camera pushes its panel right (`500 + 400/2 = 700`); the far one
-    /// pulls its panel left (`1500 - 400/2 = 1300`).
+    /// Both views have the same viewport, so only the presenting camera separates
+    /// the results. The near camera pushes its panel right (`500 + 400/2 = 700`);
+    /// the far one pulls it left (`1500 - 400/2 = 1300`).
     ///
-    /// the falsifier is inside the test. The second run swaps only which
-    /// view each camera presents — same spawn order, same entities, same
-    /// viewports, same panels — and the two backdrops must swap with them. An
-    /// implementation that takes the first camera the archetype yields (which is
-    /// what `.single()` degraded into the moment a second camera existed, when it
-    /// did not simply refuse and leave every panel at the origin) passes the first
-    /// run and fails this one.
+    /// The second run swaps only which view each camera presents, and the two
+    /// backdrops must swap too. A "first camera the archetype yields" build passes
+    /// the first run and fails the second.
     #[test]
     fn each_panel_follows_the_camera_of_the_view_it_belongs_to() {
         for first_presents_lower in [true, false] {
@@ -1174,11 +1072,9 @@ mod two_views_one_backdrop_tests {
         }
     }
 
-    /// AN UNRESOLVABLE PANEL DRAWS NOTHING — IT DOES NOT DRAW AT THE WORLD
-    /// ORIGIN.
+    /// An unresolvable panel draws nothing. It does not draw at the world origin.
     ///
-    /// Two things make a panel unresolvable, and under an adaptive split layout
-    /// both are ordinary rather than exotic:
+    /// A panel is unresolvable in two ordinary cases (under an adaptive split layout):
     ///
     /// - it names no view while several exist, so `ViewsOnHand` refuses to guess;
     /// - it names a view that no camera presents this frame.
@@ -1191,8 +1087,8 @@ mod two_views_one_backdrop_tests {
 
         let unkeyed = spawn_panel(&mut world, None);
         let orphan = spawn_panel(&mut world, Some(upper));
-        // Non-vacuity: a panel that CAN be resolved is placed in the same run, so
-        // "the system hid everything" cannot pass this test.
+        // Non-vacuity: a resolvable panel is placed in the same run, so "hide
+        // everything" fails.
         let drawn = spawn_panel(&mut world, Some(lower));
 
         world
@@ -1243,12 +1139,11 @@ mod two_views_one_backdrop_tests {
         );
     }
 
-    /// A SECOND VIEW GETS ITS OWN PANEL SET, AND THE FIRST ONE'S IS THE
-    /// ENTITY THE ROOM ALREADY SPAWNED.
+    /// A second view gets its own panel set; the first view keeps the entity the
+    /// room spawned.
     ///
-    /// The single-view case must stay exactly one entity per layer: a mirror that
-    /// demoted the room's panel to an un-drawn template would make every shipped
-    /// one-view game allocate two sprites per layer to draw one.
+    /// One view must stay one entity per layer, so a one-view game does not
+    /// allocate two sprites per layer.
     #[test]
     fn the_mirror_claims_the_root_and_copies_it_once_per_extra_view() {
         let mut world = World::new();

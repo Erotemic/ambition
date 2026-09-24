@@ -1,20 +1,16 @@
-//! THE TETHER LINE — a grab you can see coming.
+//! The tether line: a grab you can see coming.
 //!
-//! ⭐⭐ A 150px GRAB THAT DRAWS NOTHING IS THE MECHANIC WITHOUT THE READ. A grab
-//! whose reach is the length of an arm needs no line; one that crosses a third
-//! of the stage is unreadable without one, and in a 1v1 neither player can
-//! respect a threat they cannot see.
+//! A grab with arm's-length reach needs no line. One that crosses a third of
+//! the stage is unreadable without one, and neither player can respect a
+//! threat they cannot see.
 //!
-//! ⛔⛔ BOTH ROADS, AND THAT IS THE WHOLE REASON THIS FILE IS SHAPED LIKE
-//! `flyline.rs`. `PlayerVisual` is inserted in exactly one place in the engine —
-//! the session's single exploration player — so a visual gated on it alone
-//! appears in an Ambition room and never once in a versus match. That is what
-//! happened to the trapdoor, and it is what the charge indicator still does.
-//! Every match fighter is a `FeatureVisual` reading `FeatureViewIndex`.
+//! Both body roads are required, like `flyline.rs`. `PlayerVisual` is only on
+//! the session's single exploration player, so a visual gated on it never
+//! appears in a versus match. Every match fighter is a `FeatureVisual` that
+//! reads `FeatureViewIndex`.
 //!
-//! ⭐ IT DRAWS THE ROPE THE FLYLINE ALREADY BUILT. Same procedural sprite, same
-//! placement helper — a tether and a flying wire are one shape at two lengths,
-//! and a second rope texture would be a second thing to keep in step.
+//! It draws the flyline's rope: same procedural sprite and placement helper.
+//! A tether and a flying wire are one shape at two lengths.
 
 use bevy::prelude::*;
 
@@ -25,8 +21,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 /// The tether a body is currently reaching with.
 #[derive(Component)]
 pub struct TetherVisual {
-    /// The body doing the reaching. ⛔ One per body, never a singleton: a match
-    /// has four fighters and any of them may be the one with the long grab.
+    /// The body doing the reaching. One per body, never a singleton: a match
+    /// has four fighters and any of them may have the long grab.
     pub body: Entity,
 }
 
@@ -47,25 +43,22 @@ pub fn sync_tether_visuals(
         With<PlayerVisual>,
     >,
     actors: Query<(Entity, &super::FeatureVisual), Without<PlayerVisual>>,
-    // ⛔ `Option`, and not defensively: a plain `Res` is a hard stop for any
-    // composition that does not build the index, with an undebuggable
-    // "Resource does not exist". The flyline states the same reason.
+    // `Option`: a plain `Res` fails any composition that does not build the
+    // index ("Resource does not exist"). Same reason as the flyline.
     feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
     mut lines: Query<(Entity, &TetherVisual, &mut Transform, &mut Sprite)>,
 ) {
-    // Both roads reduced to the two facts a line needs: where the body is, and
-    // where it is reaching. Nothing below has to learn there are two kinds of
-    // body visual.
+    // Both roads reduced to two facts: where the body is and where it
+    // reaches. The code below reads only this.
     let mut reaching: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
     for (body, pose, presented) in &bodies {
-        // ⭐ EITHER FACT DRAWS THE SAME LINE. A live grab reaches TO a point; a
-        // ledge tether is reeled TOWARD one it latched. Both are "this body is
-        // lined to somewhere", which is all this file ever needed to know — so a
-        // third mechanic that publishes `line_anchor` draws itself.
+        // Either fact draws the same line. A live grab reaches to a point; a
+        // ledge tether reels toward a point it latched. A new mechanic that
+        // publishes `line_anchor` draws itself.
         //
-        // ⛔ THE GRAB WINS A TIE, because a capture window is the shorter-lived
-        // and more urgent read: a fighter reeling to a ledge who also has a live
-        // grab box is threatening with the grab.
+        // The grab wins a tie: a capture window is shorter-lived and more
+        // urgent, so a fighter reeling to a ledge with a live grab box is
+        // threatening with the grab.
         if let Some(reach) = pose.grab_reach.or(pose.line_anchor) {
             reaching.push((
                 body,
@@ -120,10 +113,8 @@ pub fn sync_tether_visuals(
                 art,
                 transform,
                 TetherVisual { body },
-                // ⭐ THE SAME FACT THIS DRAWABLE ALREADY KNOWS, said in the ONE
-                // spelling every consumer can ask for. The field above stays --
-                // this visual needs the body to place itself -- but a consumer that
-                // knows nothing about it can now find out whose body it draws.
+                // Which body this drawable draws, in the shared spelling that any
+                // consumer can query. `TetherVisual` above keeps it for placement.
                 ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
                 Name::new("Tether line"),
             ),

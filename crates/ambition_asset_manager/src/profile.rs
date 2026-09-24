@@ -49,15 +49,11 @@ pub enum AssetProfile {
     /// (LDtk bootstrap, default font) and optional assets fetched over
     /// HTTP. Today's wasm first-pass build sits here.
     WebStatic,
-    /// Browser build that serves the regular `assets/` tree alongside
-    /// the wasm/JS via the page origin. Bevy's wasm default asset
-    /// reader is an `HttpAssetReader` that fetches `/assets/<path>`
-    /// over HTTP — the resolver synthesizes plain `BevyPath` defaults
-    /// from each entry's `logical_path` and Bevy handles the rest.
-    /// Same authored `EmbeddedBinary` candidates still take priority
-    /// (so LDtk JSON loads from `embedded://` while sprites/fonts/
-    /// music load from `/assets/...`). This is the "same game in the
-    /// browser" mode — no per-asset packaging of optional art.
+    /// Browser build that serves the regular `assets/` tree from the page
+    /// origin. Bevy's wasm reader fetches `/assets/<path>` over HTTP, and the
+    /// resolver synthesizes a plain `BevyPath` from each `logical_path`.
+    /// Authored `EmbeddedBinary` candidates still take priority (LDtk JSON
+    /// loads from `embedded://`). No per-asset packaging of optional art.
     WebServedAssets,
     /// Single-binary bundle (cross-platform). Every authored asset is
     /// embedded; no filesystem reads. Useful for itch.io demo binaries.
@@ -112,19 +108,11 @@ impl AssetProfile {
             Self::IosBundle => &[IosBundle, EmbeddedBinary],
             Self::WebHttp => &[HttpRemote, EmbeddedBinary],
             Self::WebStatic => &[EmbeddedBinary, HttpRemote],
-            // WebServedAssets prefers `InstalledFilesystem` so the
-            // resolver's pass-2 synthesizer emits a plain `BevyPath`
-            // (Bevy's wasm default asset reader fetches it from
-            // `/assets/<path>` over HTTP). `EmbeddedBinary` is the
-            // pass-1 escape valve: an entry that authors an
-            // explicit `Embedded` candidate (e.g. the LDtk world
-            // under `static_map`) still loads from
-            // `EmbeddedAssetRegistry`, because pass 1 walks every
-            // preferred source for an authored candidate before
-            // pass 2's synthesizer runs. The relative order between
-            // these two sources matters only when an entry has no
-            // authored candidate — and in that case we want the
-            // BevyPath synthesis.
+            // `InstalledFilesystem` first, so pass 2 synthesizes a plain
+            // `BevyPath` that Bevy's wasm reader fetches from `/assets/<path>`.
+            // Pass 1 still prefers an authored `Embedded` candidate (for
+            // example the LDtk world under `static_map`), so the order matters
+            // only for entries with no authored candidate.
             Self::WebServedAssets => &[InstalledFilesystem, EmbeddedBinary],
             Self::BundledStatic => &[EmbeddedBinary],
             Self::NoAssets | Self::Headless => &[],

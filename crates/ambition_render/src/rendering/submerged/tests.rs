@@ -23,23 +23,23 @@ fn a_submerged_body_is_hidden() {
     assert_eq!(run(true, Visibility::Inherited), Visibility::Hidden);
 }
 
-/// ⛔ THE PAIRED ARM: a body that is NOT submerged is handed back, or she never
+/// Paired arm: a body that is not submerged is shown again, or she never
 /// comes out of the trapdoor.
 #[test]
 fn a_body_that_surfaced_is_handed_back() {
     assert_eq!(run(false, Visibility::Hidden), Visibility::Inherited);
 }
 
-/// ⛔⛔ AND IT IS HANDED BACK AS `Inherited`, NOT `Visible`. A death overlay and
-/// a room fade both hide bodies through the parent; a hard `Visible` would make
-/// a fighter who surfaced mid-fade the one thing still on screen.
+/// It is restored as `Inherited`, not `Visible`. A death overlay and a room
+/// fade hide bodies through the parent; `Visible` would leave a surfacing
+/// fighter as the only thing on screen.
 #[test]
 fn the_restore_never_forces_a_body_visible_over_its_parent() {
     assert_ne!(run(false, Visibility::Hidden), Visibility::Visible);
 }
 
-/// ⛔ AND A BODY NOBODY IS HIDING IS LEFT ALONE, so this system cannot be the
-/// reason something else's `Visible` became `Inherited`.
+/// A body nobody hides is left alone, so this system never turns another
+/// system's `Visible` into `Inherited`.
 #[test]
 fn a_visible_body_is_not_touched() {
     assert_eq!(run(false, Visibility::Visible), Visibility::Visible);
@@ -84,14 +84,12 @@ fn doors(app: &mut App) -> Vec<(Entity, Entity, Vec3)> {
         .collect()
 }
 
-/// ⭐⭐ THE OTHER HALF OF HIDING HER. Jon, 2026-08-28: *"There should be a
-/// trapdoor sprite she is replaced with on the ground."* Hiding the body left
-/// nothing at all on stage, which makes a move whose cost is being readable
-/// free.
+/// A submerged body is replaced by a trapdoor on the ground, so the stage
+/// shows where she is.
 ///
-/// ⛔ THE DOOR IS AT HER FEET. She never moves along gravity while submerged, so
-/// the feet line is the surface she is under; drawing at her centre floats it
-/// half a body above the boards.
+/// The door is at her feet. She does not move along gravity while submerged,
+/// so the feet line is the surface; the centre would float the door half a
+/// body up.
 #[test]
 fn a_submerged_body_is_given_a_door_on_the_floor_it_went_through() {
     let mut app = door_app();
@@ -119,8 +117,8 @@ fn a_submerged_body_is_given_a_door_on_the_floor_it_went_through() {
     );
 }
 
-/// ⛔ THE PAIRED ARM, and it is the one whose absence leaves a door on the stage
-/// forever: coming up takes the boards with her.
+/// Paired arm: surfacing removes the door. Without it a door stays on stage
+/// forever.
 #[test]
 fn the_door_goes_when_she_surfaces() {
     let mut app = door_app();
@@ -138,9 +136,8 @@ fn the_door_goes_when_she_surfaces() {
     assert!(doors(&mut app).is_empty(), "she surfaced and the door stayed");
 }
 
-/// ⛔⛔ ONE DOOR PER BODY. `morph_ball.rs` next door is a singleton and its own
-/// comments record what that cost — a versus match has four fighters, and any of
-/// them may be holding this move.
+/// One door per body: a versus match has four fighters, and any of them may
+/// use this move.
 #[test]
 fn two_submerged_fighters_get_two_doors() {
     let mut app = door_app();
@@ -156,27 +153,20 @@ fn two_submerged_fighters_get_two_doors() {
 }
 
 // ---------------------------------------------------------------------------
-// The ACTOR road
+// The actor road
 // ---------------------------------------------------------------------------
 
-/// ⛔⛔ EVERY TEST ABOVE THIS LINE SPAWNS A `PlayerVisual`, AND THAT IS WHY THE
-/// DEFECT SURVIVED THEM ALL. `PlayerVisual` is inserted in exactly ONE place in
-/// the engine — `session/setup.rs`, the session's single exploration player — so
-/// a suite that only ever spawns one is a suite that only ever exercises the
-/// road which already worked. A Smash match fighter is an ACTOR: a
-/// `FeatureVisual` whose facts come from `FeatureViewIndex`.
-///
-/// Jon, from a build, on the Performer's down-B: *"she can move around while in
-/// the submerged state, but her sprite still draws on the stage and with
-/// blinking invincibility."* The sim was right; the door was gated on a marker
-/// she does not carry, and so was the hide.
+/// The tests above spawn a `PlayerVisual`, which only the session's single
+/// exploration player has (`session/setup.rs`). A Smash match fighter is an
+/// actor: a `FeatureVisual` whose facts come from `FeatureViewIndex`. These
+/// tests cover that road, for both the hide and the door.
 fn actor_view(submerged: bool) -> ambition_sim_view::FeatureView {
     ambition_sim_view::FeatureView {
         pos: ambition_platformer2d_core::Vec2::new(300.0, 500.0),
         size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
         kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
-        // ⛔ THE TWO ARE NOT ONE FACT. A dead hostile is invisible too, and a
-        // trapdoor must not open over a corpse.
+        // Not one fact: a dead hostile is invisible too, and a trapdoor must
+        // not open over a corpse.
         visible: !submerged,
         submerged,
         wire_anchor: None,
@@ -228,8 +218,8 @@ fn a_submerged_match_fighter_gets_a_door_though_it_carries_no_player_visual() {
     assert_eq!(found[0].1, body, "the door names the fighter it belongs to");
 }
 
-/// ⛔ AND IT COMES BACK UP. The arm whose absence leaves a door standing over an
-/// empty stage for the rest of the match.
+/// It comes back up: otherwise a door stays over an empty stage for the rest
+/// of the match.
 #[test]
 fn the_match_fighters_door_goes_when_she_surfaces() {
     let mut app = door_app();

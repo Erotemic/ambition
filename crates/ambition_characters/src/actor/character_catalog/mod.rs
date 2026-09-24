@@ -682,7 +682,6 @@ mod tests {
             reaction_delay_s: 0.12,
             commit_probability: 0.85,
             accuracy: 0.9,
-            mash_speed_hz: 6.0,
         };
         let brain = brain_from_preset(&preset, 0.0);
         match brain {

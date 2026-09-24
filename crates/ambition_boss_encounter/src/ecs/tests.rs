@@ -5,12 +5,12 @@ use super::*;
 use crate::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_core as ae;
 
-/// It pins a non-obvious structural fact discovered while extracting it: GNU-ton's combat
-/// geometry comes entirely from its per-animation hurtboxes (the `animations` map), not
-/// from static `body_pixel_parts`/`bbox` — so the derivation finds no body bbox, leaves
-/// `combat_offset` at zero, and derives no combat size. A subtly-broken wiring (no move, wrong
-/// faction, no geometry) would deal no strike damage and escape the contact-only
-/// `boss_contact_iframes` test; this guards it.
+/// GNU-ton's combat geometry comes entirely from its per-animation hurtboxes
+/// (the `animations` map), not from static `body_pixel_parts`/`bbox`, so the
+/// derivation finds no body bbox, leaves `combat_offset` at zero, and derives
+/// no combat size. Broken wiring (no move, wrong faction, no geometry) would
+/// deal no strike damage and pass the contact-only `boss_contact_iframes`
+/// test; this guards it.
 #[test]
 fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     use ambition_characters::brain::{BossAttackIntent, BossAttackProfile, BossCapability};
@@ -46,7 +46,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         )
             .chain(),
     );
-    // §A1 split: the driver's fire INTENT names FloorSlam → the trigger starts the move.
+    // §A1 split: the driver's fire intent names FloorSlam → the trigger starts the move.
     let intent = BossAttackIntent {
         active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
         ..Default::default()
@@ -89,10 +89,9 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
 
 #[test]
 fn boss_spawn_hurtboxes_resolves_without_panicking() {
-    // The headless renderer helper builds a transient boss + baked
-    // registry and returns its rest-pose hurtboxes. Smoke-guard that
-    // it resolves a non-empty volume (real metrics or the combat-size
-    // fallback) and never panics.
+    // The headless renderer helper builds a transient boss and baked registry
+    // and returns its rest-pose hurtboxes. Check that it returns a non-empty
+    // volume (real metrics or the combat-size fallback) and never panics.
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
     let hbs = boss_spawn_hurtboxes(
         crate::test_boss_catalog(),
@@ -104,13 +103,14 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
     assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
 }
 
-/// A sheet whose body geometry is authored PER ANIMATION (a head hurtbox that
-/// bobs with the idle, dives with the head-descent) resolves through
-/// `boss_sprite_metrics_from_registry` as an animation map with no static parts
-/// — the opposite of the mockingbird's single alpha-bbox below.
+/// A sheet whose body geometry is authored per animation (a head hurtbox that
+/// bobs with the idle and dives with the head-descent) resolves through
+/// `boss_sprite_metrics_from_registry` as an animation map with no static
+/// parts, the opposite of the mockingbird's single alpha-bbox below.
 ///
-/// The scholar's own trimmed `gnu_ton_rider` sheet authors no body metrics at all, which the second
-/// half pins: a boss can be a rider whose hurtboxes live on the body it rides.
+/// The scholar's own trimmed `gnu_ton_rider` sheet authors no body metrics,
+/// which the second half checks: a rider's hurtboxes can live on the body it
+/// rides.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     use crate::pattern::profile::BossBehaviorProfile;
@@ -181,9 +181,8 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
 
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let behavior = BossBehaviorProfile::mockingbird();
-    // The behavior must map to the sheet target the RON declares (its authored
-    // `sprite_target`), otherwise the registry lookup misses (the masked half of
-    // the bug).
+    // The behavior must map to the sheet target the RON declares (its
+    // authored `sprite_target`), or the registry lookup misses.
     assert_eq!(
         sprite_target_for_boss(&behavior),
         "mockingbird_boss",
@@ -245,9 +244,9 @@ fn front_wall_clearance_ignores_small_floor_skin_overlap() {
         ae::Vec2::ZERO,
         vec![ae::Block::solid(
             "floor_skin",
-            // Top is 2 px above the body bottom.  Integration/contact
-            // tolerance can create this tiny overlap, but it should not
-            // block horizontal approach.
+            // Top is 2 px above the body bottom. Integration/contact tolerance
+            // can create this small overlap, but it must not block horizontal
+            // approach.
             ae::Vec2::new(100.0, 202.0),
             ae::Vec2::new(260.0, 24.0),
         )],

@@ -1,22 +1,17 @@
-//! The boss-pattern capability's authored-content SCHEMA registrations.
+//! The boss-pattern capability's authored-content schema registrations.
 //!
-//! Three families, all owned here because the types they parse into are owned
-//! here: the boss ROSTER (`boss_profiles.ron`), the SEED LIBRARY
-//! (`boss_seeds.ron`) and the fairness CALIBRATION (`boss_validator_bands.ron`).
+//! Three families, owned here because their types are owned here: the boss
+//! roster (`boss_profiles.ron`), the seed library (`boss_seeds.ron`) and the
+//! fairness calibration (`boss_validator_bands.ron`).
 //!
-//! ## The roster only became ownable when its type moved
+//! A schema must be registered by the crate that owns its type, and the
+//! validator links that crate. The profile type lives in [`super::profile`]
+//! so the validator does not link the runtime monolith. The actor crate
+//! re-exports it, and the `BossCatalog` lookups are `BossBehaviorProfileExt`
+//! there (the orphan rule forbids an inherent `impl` across crates).
 //!
-//! A schema must be registered by the crate owning its type, and the validator has to link that
-//! crate — so a boss-profile schema meant the CLI linking the monolith: 708 crates against its
-//! 239, and a renderer, destroying the property that justifies the compiler at all.
-//!
-//! It now lives in [`super::profile`], the actor crate re-exports it, and the `BossCatalog`
-//! lookups became `BossBehaviorProfileExt` there because the orphan rule does not let an
-//! inherent `impl` follow a type across a crate boundary.
-//!
-//! `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change —
-//! `BossRewardProfile` names it and `ambition_interaction` depends on THIS
-//! crate, so it was a cycle.
+//! `PickupKind` lives in `ambition_entity_catalog`: `BossRewardProfile` names
+//! it, and `ambition_interaction` depends on this crate.
 
 use std::sync::Arc;
 
@@ -50,22 +45,21 @@ pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// The canonical form an entry contributes to the pack fingerprint.
 ///
-/// `Debug`, not `ron::ser`, because these types are `Deserialize`-only — they
-/// are read from authored RON and never written back. Debug is derived on all of
-/// them and moves when a value moves.
+/// `Debug`, not `ron::ser`, because these types are `Deserialize`-only (read
+/// from authored RON, never written back). Debug is derived on all of them and
+/// changes when a value changes.
 ///
-/// ⛔ **Debug gives stable FIELD order and follows ITERATION order, so every
-/// container reaching this must be ordered.** A `HashMap` here randomises per
-/// instance (measured: six constructions of one four-key map, six different
-/// orders, same process), so two identical rosters fingerprint differently the
-/// moment a boss authors a second strike override. `BTreeMap` everywhere;
-/// `the_canonical_form_does_not_depend_on_map_construction_order` is the guard.
+/// Debug keeps field order but follows iteration order, so every container
+/// here must be ordered. A `HashMap` iterates in a different order per
+/// instance, so identical rosters would fingerprint differently. Use
+/// `BTreeMap`; guarded by
+/// `the_canonical_form_does_not_depend_on_map_construction_order`.
 fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
 
 fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
-    // Match the ron VARIANT, not the message text.
+    // Match the ron variant, not the message text.
     match error.code {
         ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
         _ => DiagnosticCode::MalformedSource,
@@ -74,13 +68,13 @@ fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
 
 // ── one boss encounter ───────────────────────────────────────────────────────
 
-/// One encounter file, of nine — the family the aggregation contract was built
-/// for.
+/// One encounter file; there are several, and this family is what the
+/// aggregation contract was built for.
 ///
-/// the schema now says how they combine ([`Self::aggregate`]): each file
-/// lowers one [`BossEncounterSpec`], and the merge is the
-/// `BTreeMap<String, BossEncounterSpec>` the boss catalog already holds. The
-/// compiler's copy IS the runtime's copy.
+/// The schema says how they combine ([`Self::aggregate`]): each file lowers
+/// one [`BossEncounterSpec`], and the merge is the
+/// `BTreeMap<String, BossEncounterSpec>` the boss catalog holds. The
+/// compiler's copy is the runtime's copy.
 struct BossEncounterSchema;
 
 /// What the nine encounter files lower to, together: the catalog's own map.
@@ -109,7 +103,7 @@ impl ContentSchemaHandler for BossEncounterSchema {
             "id",
         ));
 
-        // AND ITS MUSIC, because both sides are in the pack now. These four fields name
+        // and its music, because both sides are in the pack now. These four fields name
         // `music_registry` tracks. Empty means "no swap for this phase" and is not a reference.
         for (field, track) in [
             ("music_intro", &spec.music_intro),
@@ -117,15 +111,11 @@ impl ContentSchemaHandler for BossEncounterSchema {
             ("music_phase2", &spec.music_phase2),
             ("music_enrage", &spec.music_enrage),
         ] {
-            // EXACTLY empty, not `trim().is_empty()`. `phase_music`
-            // gates on `!track.is_empty()`, so `"   "` is a REAL music request
-            // at runtime — one that matches no track and silently falls through
-            // to another candidate. Skipping it here (and in the startup
-            // validator) meant both validators accepted a value the runtime
-            // acts on, which is the same compiler-vs-runtime rule mismatch as
-            // the padded case one line below, in its emptiness predicate.
-            // Whitespace-only now becomes an unresolved exact reference and is
-            // refused.
+            // Exactly empty, not `trim().is_empty()`. `phase_music` gates on
+            // `!track.is_empty()`, so `"   "` is a real music request at
+            // runtime that matches no track. Whitespace-only becomes an
+            // unresolved exact reference and is refused, so the compiler and
+            // the runtime apply the same rule.
             if track.is_empty() {
                 continue;
             }
@@ -139,7 +129,7 @@ impl ContentSchemaHandler for BossEncounterSchema {
             ));
         }
 
-        // The fragment: ONE encounter, which `aggregate` keys into the book.
+        // The fragment: one encounter, which `aggregate` keys into the book.
         out.lower(spec);
     }
 
@@ -155,13 +145,11 @@ impl ContentSchemaHandler for BossEncounterSchema {
             let Some(spec) = fragment.get::<BossEncounterSpec>() else {
                 continue;
             };
-            // checked here even though `define` already makes two encounter
-            // files with one id a `DuplicateIdentity`. The merge must not
-            // depend on another stage having caught it: a silent `insert` that
-            // returns `Some` is exactly the last-wins the compiler refuses, and
-            // it would be one refactor of `check` away from being the only
-            // reader of that fact. `BossCatalogFragment` makes the same check
-            // for the same reason.
+            // Checked here even though `define` already reports two encounter
+            // files with one id as `DuplicateIdentity`. The merge must not rely
+            // on another stage: a silent `insert` that returns `Some` is the
+            // last-wins the compiler refuses. `BossCatalogFragment` makes the
+            // same check.
             if let Some(first) = source_of.get(&spec.id) {
                 out.report(
                     AggregateOutcome::refusal(
@@ -228,10 +216,9 @@ impl ContentSchemaHandler for BossSeedLibrarySchema {
             ));
         }
 
-        // An attack key claimed by two seeds means the roster's classification is
-        // ambiguous — `every_shipped_boss_attack_key_belongs_to_exactly_one_seed`
-        // is the oracle for that, and this is the half of it that needs only ONE
-        // source to see.
+        // An attack key claimed by two seeds makes the roster's classification
+        // ambiguous. `every_shipped_boss_attack_key_belongs_to_exactly_one_seed`
+        // is the full oracle; this is the half that needs only one source.
         let mut claimed: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
 
         for (seed_id, seed) in library.iter() {
@@ -268,7 +255,7 @@ impl ContentSchemaHandler for BossSeedLibrarySchema {
                 );
             }
 
-            // A band whose min exceeds its max matches NOTHING, so every
+            // A band whose min exceeds its max matches nothing, so every
             // instance silently falls outside it.
             for (field, band) in [("telegraph", &seed.telegraph), ("active", &seed.active)] {
                 if band.min_s > band.max_s {
@@ -334,9 +321,9 @@ impl ContentSchemaHandler for BossValidatorBandsSchema {
         let id = facet.content_id_in(BOSS_VALIDATOR_BANDS_SCHEMA, "calibration");
         out.define(id.clone(), canonical(&bands));
 
-        // The bands are expressed in TICKS and the authored fight data in
-        // seconds, so `tick_hz` is the conversion. Zero or negative makes every
-        // converted duration zero or inverted — and it converts silently.
+        // The bands are in ticks and the fight data in seconds, so `tick_hz`
+        // converts. Zero or negative makes every converted duration zero or
+        // inverted, silently.
         if bands.tick_hz <= 0.0 {
             out.report(
                 facet
@@ -425,8 +412,9 @@ impl ContentSchemaHandler for BossProfilesSchema {
             out.define(id.clone(), canonical(profile));
 
             // The other half of the correspondence the runtime enforces: a
-            // profile with no encounter is `MissingEncounter` at startup, behind
-            // an `.expect`. Resolved here, across sources, before the game runs.
+            // profile with no encounter is `MissingEncounter` at startup,
+            // behind an `.expect`. Resolved here, across sources, before the
+            // game runs.
             out.refer(PendingRef::new(
                 SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
                 key,
@@ -435,12 +423,11 @@ impl ContentSchemaHandler for BossProfilesSchema {
                 "id",
             ));
 
-            // the key IS the lookup, and the row states its own id. Every
-            // runtime path resolves a boss by MAP KEY (`catalog.behavior(key)`)
-            // and then reads `profile.id` for its sheet target, its music, its
-            // bark pool. When the two disagree the boss is looked up under one
-            // name and draws, sounds and speaks as another — with no error
-            // anywhere, because each half is individually valid.
+            // The key is the lookup, and the row states its own id; they must
+            // match. Runtime paths resolve a boss by map key
+            // (`catalog.behavior(key)`) and then read `profile.id` for its
+            // sheet target, music and bark pool. A mismatch would make the
+            // boss draw, sound and speak as another, with no error.
             if profile.id != *key {
                 out.report(
                     facet

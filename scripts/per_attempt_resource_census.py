@@ -92,6 +92,7 @@ NOT_PER_ATTEMPT = {
     "GamepadProbes": "dev probe",
     "PresentationProbeState": "dev probe",
     "RollbackProofState": "dev probe",
+    "SceneCaptureConfig": "capture-tool CLI config, read once at startup",
     # ⚠ `AttemptsSeen` and `Forced` were listed here on the first pass and the
     # stale check above removed them the same hour: both are `(u32)` tuple
     # structs that only ever appeared in the population through the 40-line

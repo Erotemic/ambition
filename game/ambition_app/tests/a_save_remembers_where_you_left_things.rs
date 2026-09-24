@@ -242,7 +242,7 @@ fn boot_with(room: &str, file: &AmbitionGameSaveData) -> Platformer2dSimHarness 
 /// On a fresh boot nobody is possessing it, so its authored room must recreate exactly one body.
 #[test]
 fn a_save_taken_mid_possession_does_not_delete_the_enemy_in_a_fresh_process() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("vertical_shaft");

@@ -9,7 +9,7 @@
 use bevy::prelude::*;
 
 use ambition_demo_sanic_app::build_demo_app;
-use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+use ambition_platformer2d::actors::control::possession::PossessionState;
 use ambition_platformer2d::encounter::EncounterRegistry;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition_platformer2d::platformer::lifecycle::{

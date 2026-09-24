@@ -657,7 +657,7 @@ reader to infer them from unrelated components.
   ⇒ **Possession moves the DRIVER, not the goods.** `OwnedItems` never belonged
   to a body, so possessing one cannot transfer it; the held item stays on the
   body it is attached to, because that is where it is. Neither
-  `abilities/traversal/possession.rs` nor `control/authority.rs` names
+  `control/possession.rs` nor `control/authority.rs` names
   `OwnedItems` at all — checked, not assumed.
 
   ⭐ **And this is [Q45](../awaiting-maintainer-decision.md)'s split

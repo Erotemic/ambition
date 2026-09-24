@@ -34,7 +34,7 @@ variant per mechanism:
 
 ```text
 Autonomous                      the body runs its own brain
-Player   { controller: SimId }  claimed by abilities::traversal::possession
+Player   { controller: SimId }  claimed by control::possession
 Mounted  { mount: SimId }       claimed by ambition_mount
 ```
 
@@ -181,7 +181,7 @@ arm asked whether the other claim was live. Both halves have landed:
 
 * **Neither crate assigns `TemporaryControl` any more.** `ambition_mount` files
   and drops `ControlClaimant::Mount` (`file_claim` / `drop_claim`), and
-  `abilities/traversal/possession.rs` files and drops
+  `control/possession.rs` files and drops
   `ControlClaimant::Possession`. The effective authority is a PROJECTION over the
   claims, which is exactly the "control-custody CLAIM, not a new component"
   design stated at the top of this section.
@@ -218,7 +218,7 @@ error `measure_kernel_module_graph.py` shipped with.
 | authority | crate / module | writers 2026-09-06 | writers 2026-09-17 |
 |---|---|---|---|
 | `DrivingParticipant` | `ambition_characters::control` | **1** — `actor_monolith::control::authority` | **1**, unchanged — the sole-writer claim still holds |
-| `PossessionState` | `actor_monolith::abilities::traversal::possession` | 2 — `possession.rs`, `control/authority.rs` | **3** — plus `session/teardown.rs`, which defaults it at session end |
+| `PossessionState` | `actor_monolith::control::possession` | 2 — `possession.rs`, `control/authority.rs` | **3** — plus `session/teardown.rs`, which defaults it at session end |
 | `TemporaryControl` | `shared_tangle::temporary_control` | 2 — `ambition_mount`, `possession.rs` | **0** outside its own module — the claim arbiter is the only writer |
 | `ControlledSubject` | `shared_tangle::markers` | 2 — `possession.rs`, ~~`ambition_abilities::test_support`~~ (gated, below) | 2 — `possession.rs`, `session/teardown.rs` |
 
@@ -235,7 +235,7 @@ reading each surviving site; `vortex.rs` and `sentry.rs` insert
 
 ### The answers
 
-* **Who owns `PossessionState`?** `actor_monolith::abilities::traversal::possession`
+* **Who owns `PossessionState`?** `actor_monolith::control::possession`
   — ⛔ filed as a **traversal ability**, not as control authority. It is the same
   shape as the `assets -> session` edge: a thing filed beside its first consumer.
 * **Who decides which body a participant controls?** `control/authority.rs`, and

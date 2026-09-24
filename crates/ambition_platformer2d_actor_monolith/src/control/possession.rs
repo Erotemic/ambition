@@ -1,6 +1,6 @@
 //! Possession redirects the primary participant's seat to a nearby actor.
 //!
-//! The target then uses the ordinary `DrivingParticipant` → [`SlotControls`] →
+//! The target then uses the ordinary `DrivingParticipant` → [`SlotControls`](ambition_characters::control::SlotControls) →
 //! `ActorControl`/`ActionSet` path; the home avatar is inert until release returns
 //! the seat. Downstream presentation follows [`ControlledSubject`]. Bosses are
 //! valid targets and consume the same driven-seat input through their boss path.
@@ -17,6 +17,18 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_combat::components::CenteredAabb;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+
+/// Registers possession's seat bookkeeping and the identities it publishes.
+pub struct PossessionPlugin;
+
+impl Plugin for PossessionPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PossessionState>();
+        app.init_resource::<ControlledSubject>();
+        // Its sibling: what to frame when nothing is driving a body.
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
+    }
+}
 
 /// Internal seat bookkeeping for possession.
 ///

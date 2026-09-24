@@ -119,7 +119,7 @@ mod tests {
     fn app_with(policy: Option<DormancyPolicy>, actor_x: f32, observers: &[f32]) -> (App, Entity) {
         let mut app = App::new();
         // the derive runs AHEAD of its reader — see the note above `body_at`.
-        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
             Update,
             (crate::control::project_driving_participant, assess_dormancy).chain(),
@@ -164,7 +164,7 @@ mod tests {
     fn the_driven_body_is_the_observer_not_the_parked_one() {
         let mut app = App::new();
         // the derive runs AHEAD of its reader — see the note above `body_at`.
-        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
             Update,
             (crate::control::project_driving_participant, assess_dormancy).chain(),
@@ -265,7 +265,7 @@ mod tests {
 
         let mut app = App::new();
         // the derive runs AHEAD of its reader — see the note above `body_at`.
-        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
             Update,
             (crate::control::project_driving_participant, assess_dormancy).chain(),
@@ -317,7 +317,7 @@ mod tests {
 
         let mut app = App::new();
         // the derive runs AHEAD of its reader — see the note above `body_at`.
-        app.init_resource::<crate::abilities::traversal::possession::PossessionState>();
+        app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
             Update,
             (crate::control::project_driving_participant, assess_dormancy).chain(),

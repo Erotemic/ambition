@@ -450,7 +450,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.
-            .add(ambition_platformer2d_actor_monolith::abilities::AmbitionAbilitiesPlugin)
+            .add(ambition_platformer2d_actor_monolith::control::possession::PossessionPlugin)
             // The emitted player trail substrate.
             .add(ambition_platformer2d_actor_monolith::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.

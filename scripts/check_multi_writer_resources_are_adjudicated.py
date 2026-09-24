@@ -598,7 +598,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_shared_tangle/src/lifecycle/continuity.rs",
     ),
     "PossessionState": (
-        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_actor_monolith/src/control/authority.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
@@ -665,7 +665,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_rollback_ggrs/src/session.rs",
     ),
     "ControlledSubject": (
-        "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs",
+        "crates/ambition_platformer2d_actor_monolith/src/control/possession.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
     ),
     "CutsceneSkipHold": (
@@ -2046,7 +2046,7 @@ ADJUDICATED: dict[str, str] = {
     ),
     "ControlledSubject": (
         "CORRECT — ONE IN-SESSION OWNER PLUS THE SESSION BOUNDARY, and the second "
-        "\"writer\" is not an authority. `resolve_controlled_subject` (`abilities/traversal/possession.rs`) is the "
+        "\"writer\" is not an authority. `resolve_controlled_subject` (`control/possession.rs`) is the "
         "only production system that writes it inside a session; the other file is "
         "`SESSION_SCOPE_RESET`, where `SessionScopedResources::reset` returns it to "
         "its default at the session edge. MEASURED 2026-09-18 per SYSTEM rather than "

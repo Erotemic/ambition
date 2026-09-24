@@ -8,7 +8,7 @@
 //! player's stick stops reaching a body, on every road that asks. Measured
 //! 2026-09-10 by `git grep`, before this file existed: **no test anywhere named
 //! `body_driving_seat`**, while four production readers depended on it —
-//! `abilities::traversal::possession`, `control::input_systems`,
+//! `control::possession`, `control::input_systems`,
 //! `control::queries` and `ambition_sim_view::local_view`.
 //!
 //! ⭐ **AND IT IS COMPOSED, NOT ASSEMBLED.** A fixture that hand-adds the systems

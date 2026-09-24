@@ -10,7 +10,7 @@ use bevy::prelude::*;
 
 use ambition_characters::control::PlayerSlot;
 
-use crate::abilities::traversal::possession::PossessionState;
+use crate::control::possession::PossessionState;
 
 
 /// Redirect the primary seat from the home body to a possessed body and back.
@@ -81,7 +81,7 @@ pub fn project_driving_participant(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::abilities::traversal::possession::PossessionState;
+    use crate::control::possession::PossessionState;
     use ambition_characters::brain::Brain;
 
     /// Run the reconcile once over a world and read back who drives what.

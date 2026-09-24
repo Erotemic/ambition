@@ -235,7 +235,7 @@ impl PlayerSimulationBundle {
         }
     }
 
-    /// Like [`from_scratch`](Self::from_scratch), but the player spawns *as* the
+    /// Like the test fixture `from_scratch`, but the player spawns *as* the
     /// catalog character `character_id`: its display name becomes the entity
     /// [`Name`], and its authored ActionSet IS the kit — wearing is a full
     /// re-parametrisation of the one control box (possession semantics: a

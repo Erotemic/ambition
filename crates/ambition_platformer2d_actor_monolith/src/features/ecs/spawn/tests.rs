@@ -859,6 +859,76 @@ mod authored_enemy_reads_its_character {
         );
     }
 
+    /// The NPC road is a character road too: a placement naming a PREPARED
+    /// character is stamped current in its construction batch, like the enemy
+    /// road above. It inserted `WornCharacter` alone, so the persona derive
+    /// found no baseline and completed the body (name, kit, physical baseline)
+    /// on its first tick. Same fixture: no derive runs here.
+    #[test]
+    fn a_prepared_npc_is_stamped_current_by_construction() {
+        use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
+            "NpcSpawn-beaver",
+            "NpcSpawn",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            InteractableSpec::new(
+                "Talk",
+                InteractionKindSpec::Npc {
+                    character_id: Some("npc_busy_beaver".to_string()),
+                    dialogue_id: None,
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: Some("stand_still".to_string()),
+                },
+            ),
+        );
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(prepared_complete());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  prepared: bevy::prelude::Res<
+                ambition_characters::prepared::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
+                    &catalog,
+                    &Default::default(),
+                    &prepared,
+                    &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                    &authored.name,
+                    &[],
+                    &ambition_characters::brain::AuthoredBrainOverride::default(),
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_characters::actor::WornCharacter,
+            Option<&ambition_body_seed::PersonaBaseline>,
+        )>();
+        let (worn, baseline) = q.iter(world).next().expect("the NPC was built");
+        assert_eq!(worn.id(), "npc_busy_beaver");
+        assert_eq!(
+            baseline.map(|b| b.id.as_str()),
+            Some("npc_busy_beaver"),
+            "a worn NPC with no applied-template stamp is completed by the persona \
+             derive on its first tick, not by its construction"
+        );
+    }
+
     /// Initial orientation is carried by the authored occurrence and lands on the authoritative
     /// body before its first controller tick.
     #[test]

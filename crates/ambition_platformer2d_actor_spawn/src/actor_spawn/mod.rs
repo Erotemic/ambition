@@ -772,18 +772,12 @@ impl NpcActorSpawnPlan {
         ));
     }
 
-    #[allow(dead_code)]
-    pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
-        let root = commands.spawn_empty().id();
-        self.spawn_into(&mut RootScope::new(commands, session_scope, root));
-        root
-    }
-
     /// Populate onto a root someone else allocated — the construction
     /// executor's shape, mirroring `EnemyActorSpawnPlan::spawn_into`.
     pub(super) fn spawn_into(
         self,
         scope: &mut RootScope,
+        prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     ) -> Entity {
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
         // component so it survives a hostile flip (otherwise the body-sized
@@ -831,6 +825,17 @@ impl NpcActorSpawnPlan {
         ));
         let worn = npc_character_id(&interaction.interactable).map(str::to_string);
         scope.insert(interaction);
+        // The explicit brain binding + authored context travel with the actor so
+        // runtime brain switches (`BrainCommand`), authored-home rebuilds
+        // (`RestoreDefault`), and snapshot/restore all read the same authoritative
+        // state. Anonymous NPCs (no catalog identity) carry neither.
+        if let Some((binding, authored_context)) = self.brain_binding {
+            scope.insert((binding, authored_context));
+        }
+        {
+            let moveset = npc_moveset.unwrap_or_default();
+            scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
+        }
         //  A CATALOG-BACKED NPC WEARS ITS CHARACTER.
         //
         //  it did not, and that is what made provocation read the SPRITE id
@@ -845,19 +850,28 @@ impl NpcActorSpawnPlan {
         // made-up worn id would be inventing an identity to satisfy a lookup.
         // Absence stays the honest answer, and the legacy name-matcher still
         // covers it.
+        //
+        // A character that builds its own body (`new_character_in` above) is
+        // WORN in this batch, like every other character road, so the persona
+        // derive finds it current rather than completing it on its first tick.
+        // LAST, so its kit replaces the seed's rather than being replaced by it.
+        //
+        // ⚠ NOT a prepared character without a body blueprint: the peaceful seed
+        // built it with default vitals, and its physical baseline still arrives
+        // from the derive, which a stamp here would switch off. Nor an id nobody
+        // prepared (reported above), which takes the derive's unknown-id answer.
         if let Some(character) = worn {
-            scope.insert(ambition_characters::actor::WornCharacter::new(character));
-        }
-        // The explicit brain binding + authored context travel with the actor so
-        // runtime brain switches (`BrainCommand`), authored-home rebuilds
-        // (`RestoreDefault`), and snapshot/restore all read the same authoritative
-        // state. Anonymous NPCs (no catalog identity) carry neither.
-        if let Some((binding, authored_context)) = self.brain_binding {
-            scope.insert((binding, authored_context));
-        }
-        {
-            let moveset = npc_moveset.unwrap_or_default();
-            scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
+            match prepared
+                .get(&character)
+                .filter(|definition| definition.body_blueprint().is_ok())
+            {
+                Some(definition) => {
+                    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation())
+                }
+                None => {
+                    scope.insert(ambition_characters::actor::WornCharacter::new(character));
+                }
+            }
         }
         if let Some(size) = render_size {
             scope.insert(ambition_combat::components::ActorRenderSize(size));
@@ -1976,7 +1990,7 @@ pub fn spawn_interactable_into(
             RecordedFate::Provoked => plan.provoke(prepared),
             RecordedFate::AsAuthored => {}
         }
-        plan.spawn_into(&mut scope.reborrow());
+        plan.spawn_into(&mut scope.reborrow(), prepared);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = ambition_encounter::SwitchActivation::parse_custom(payload) {
             scope.insert_session_scoped((

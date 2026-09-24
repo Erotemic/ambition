@@ -535,7 +535,7 @@ same as the class being watched.
 `host_code_kit_refreshes_when_body_abilities_change` asserted a row type that <!-- cite-ok: names a symbol DELETED since the baseline; this section is the census OF those deletions, so a resolvable citation here would mean the deletion did not happen -->
 cannot exist; the body wears `"player"`, which no catalog row defines, so it was
 covering the UNKNOWN-ID branch throughout. Renamed to
-`an_unknown_ids_kit_refreshes_when_body_abilities_change`, and the load-bearing
+`an_unknown_ids_kit_refreshes_when_body_abilities_change` (deleted in `e8ec95fab` with the host kit it covered), and the load-bearing <!-- cite-ok: records a rename at the time; the test left with its branch -->
 fixture property — that the id is absent from the SHIPPED catalog
 `install_test_catalog` installs — is now stated, because nothing else in the
 file shows it. Poisoned by wearing `"goblin"` instead: the arm fails on

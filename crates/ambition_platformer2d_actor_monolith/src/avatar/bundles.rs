@@ -117,11 +117,6 @@ pub struct PlayerSimulationBundle {
     /// correct baseline from the body's very first tick.
     pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
     pub actor_control: ActorControl,
-    /// Capability marker: this body uses the chargeable-projectile (Fireball)
-    /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
-    /// than "is a participant driving it", so possession of this body keeps the
-    /// charge mechanic. Pay-for-use: actors without it never enter the charge stream.
-    pub charges_projectiles: ambition_characters::brain::ChargesProjectiles,
     // The authoritative movement-cluster components. `kinematics` is the
     // shared kinematic truth (its own component); the other 18 ancillary
     // clusters spawn through the shared `AncillaryMovementBundle` — the SAME
@@ -141,7 +136,18 @@ pub struct PlayerSimulationBundle {
     pub pogo_policy: PogoPolicy,
     pub pogo_target_volumes: PogoTargetVolumes,
     pub movement: AncillaryMovementBundle,
-    pub projectile: ambition_projectiles::PlayerProjectileState,
+}
+
+/// The repertoire a home body is built wearing, resolved before the bundle
+/// exists so the bundle never carries a kit it is about to be told is wrong.
+/// How the body fires (`ChargesProjectiles`) is not here: a bundle cannot omit
+/// a component conditionally, so the caller installs it from the returned
+/// `RangedExecution`.
+struct HomeBodyKit {
+    name: Name,
+    action_set: ActionSet,
+    moveset: ambition_combat::moveset::ActorMoveset,
+    identity_kit: ambition_characters::brain::action_set::IdentityKit,
 }
 
 impl PlayerSimulationBundle {
@@ -155,14 +161,17 @@ impl PlayerSimulationBundle {
     /// with the simulation components manually rather than calling
     /// this helper, since the second player should not inherit
     /// `PrimaryPlayer` and may not be `LocalPlayer`.
+    ///
+    /// ⚠ A TEST FIXTURE: it wears the host code kit derived from the scratch's
+    /// abilities, which no shipped body is built with. Production builds through
+    /// [`from_scratch_as_character`](Self::from_scratch_as_character).
+    #[cfg(test)]
     pub fn from_scratch(
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
     ) -> Self {
         let action_set =
             ambition_combat::worn_kit::default_player_action_set(scratch.abilities.abilities);
-        // Build host-kit moves through the same persona derivation path so move
-        // construction has one authority.
         let moveset = ambition_combat::moveset::ActorMoveset(
             ambition_combat::worn_kit::derive_persona_moveset(
                 &action_set,
@@ -170,20 +179,34 @@ impl PlayerSimulationBundle {
                 None,
             ),
         );
+        let identity_kit = ambition_characters::brain::action_set::IdentityKit::of(
+            action_set.clone(),
+            moveset.0.clone(),
+        );
+        Self::from_kit(
+            scratch,
+            health,
+            HomeBodyKit {
+                name: Name::new("Player"),
+                action_set,
+                moveset,
+                identity_kit,
+            },
+        )
+    }
+
+    fn from_kit(
+        scratch: ae::BodyClusterScratch,
+        health: ambition_characters::actor::Health,
+        kit: HomeBodyKit,
+    ) -> Self {
         let initial_safe_pos = scratch.kinematics.pos;
         // `BodyKinematics` is the shared kinematic truth (its own component);
         // copy it out before the rest folds into the shared movement bundle.
         let kinematics = scratch.kinematics;
         let hurtbox = CenteredAabb::from_center_size(kinematics.pos, kinematics.size);
         Self {
-            // Seeded from the same derivation, so a body spawned WITHOUT a catalog
-            // overlay still has an honest un-granted baseline rather than an empty
-            // one (an empty baseline would silently revoke the body's own kit the
-            // first time it picked anything up).
-            identity_kit: ambition_characters::brain::action_set::IdentityKit::of(
-                action_set.clone(),
-                moveset.0.clone(),
-            ),
+            identity_kit: kit.identity_kit,
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
             primary_body: ambition_platformer2d_shared_tangle::body::PrimaryBody,
@@ -196,20 +219,12 @@ impl PlayerSimulationBundle {
             ranged_refire: ambition_combat::RangedRefire::default(),
             safety: PlayerSafetyState::new(initial_safe_pos),
             faction: ActorFaction::Player,
-            name: Name::new("Player"),
+            name: kit.name,
             driver: DrivingParticipant(PlayerSlot::PRIMARY),
             brain: Brain::stand_still(),
-            // Player ActionSet derived from the player's AbilitySet.
-            // Today nothing reads it for combat effects —
-            // update_player still spawns hitboxes via the existing
-            // pipeline. The set lights up when the ActionSet
-            // effect-resolver flip lands (daytime). Possession of a
-            // non-player body keeps that body's ActionSet — this
-            // default fires only for actual player entities.
-            action_set,
-            moveset,
+            action_set: kit.action_set,
+            moveset: kit.moveset,
             actor_control: ActorControl::default(),
-            charges_projectiles: ambition_characters::brain::ChargesProjectiles,
             kinematics,
             motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
             hurtbox,
@@ -217,7 +232,6 @@ impl PlayerSimulationBundle {
             pogo_policy: PogoPolicy::FromDamageable,
             pogo_target_volumes: PogoTargetVolumes::default(),
             movement: AncillaryMovementBundle::from_scratch(scratch),
-            projectile: ambition_projectiles::PlayerProjectileState::default(),
         }
     }
 
@@ -260,32 +274,35 @@ impl PlayerSimulationBundle {
         // HOW THIS BODY FIRES, handed back to the caller.
         ranged: &mut ambition_characters::brain::RangedExecution,
     ) -> Self {
-        let mut bundle = Self::from_scratch(scratch, health);
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
+        // It writes every field of `kit`; the empty values are never read.
+        let mut kit = HomeBodyKit {
+            name: Name::new(character_id.to_string()),
+            action_set: ActionSet::peaceful(),
+            moveset: ambition_combat::moveset::ActorMoveset(Default::default()),
+            identity_kit: Default::default(),
+        };
         *ranged = crate::avatar::apply_worn_character_overlay(
             catalog,
             prepared,
-            &mut bundle.name,
-            &mut bundle.action_set,
-            &mut bundle.moveset,
-            &mut bundle.identity_kit,
+            &mut kit.name,
+            &mut kit.action_set,
+            &mut kit.moveset,
+            &mut kit.identity_kit,
             character_id,
             // A from-scratch bundle predates the match as well as the world: if
             // this body is later seated, the per-frame derivation reaches it
             // with the roster's kit on its first tick.
             None,
         );
+        let mut bundle = Self::from_kit(scratch, health, kit);
         bundle
             .motion_model
             .apply_spec(crate::avatar::motion_model_spec_for_character_id(
                 catalog,
                 character_id,
             ));
-        // The returned capability is synchronized on the spawned entity by
-        // `apply_worn_character_gameplay` from its Added<WornCharacter> edge.
-        // A Bundle cannot conditionally omit a component, so the canonical
-        // derive system owns marker insertion/removal before player effects run.
         bundle
     }
 }

@@ -363,11 +363,10 @@ pub fn simulation_world(
         )
         .id();
 
-    // Two pieces were outstanding and both are answered here. The projectile
-    // MARKERS a `Bundle` cannot conditionally omit — the overlay resolved how
-    // this body fires and the bundle discarded that answer, so it is kept now.
-    // And the applied-template stamp, with an EMPTY displacement: nothing was
-    // taken from a body that was BUILT as this character.
+    // How this body fires, which a `Bundle` cannot conditionally carry: the
+    // overlay resolved it and the bundle holds no answer of its own. And the
+    // applied-template stamp, with an EMPTY displacement: nothing was taken
+    // from a body that was BUILT as this character.
     crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
     // What the body holds, from the same prepared bank a reset returns it to
     // the start of. Absent is the answer for an experience that declared none.

@@ -85,15 +85,10 @@ impl EditableAbilitySet {
 }
 
 impl From<ae::AbilitySet> for EditableAbilitySet {
-    /// ⭐ THE DESTRUCTURE IS THE GUARD. This mirror exists so the live inspector can
-    /// edit `AbilitySet` through `Reflect`, and nothing else forces the two to agree:
-    /// reading `value.field` one field at a time still COMPILES when `AbilitySet` grows
-    /// a 30th ability, so the new ability would simply be missing from the inspector
-    /// and no test would notice -- the mirror is a hand-kept copy of somebody else's
-    /// struct.
-    ///
-    /// ⇒ Binding every field by name with no `..` makes that an E0027 here instead.
-    /// Both structs carry the same fields, so this is prevention, not a repair.
+    /// The destructure is the guard. Nothing else keeps this mirror in step with
+    /// `AbilitySet`: reading `value.field` one by one still compiles when
+    /// `AbilitySet` gets a new field. Binding every field by name with no `..`
+    /// makes a missing field an E0027 here.
     fn from(value: ae::AbilitySet) -> Self {
         let ae::AbilitySet {
             move_horizontal,
@@ -249,21 +244,15 @@ pub struct EditableMovementTuning {
     /// See [`ae::MovementTuning::spot_dodge_time`] — 0.0 means the grounded
     /// evade is always the roll.
     pub spot_dodge_time: f32,
-    /// CARRIED, NOT EDITED — see the `parry_timing` line in the round trip
-    /// below. A parry-timing swap is a rules DECLARATION about which game a
-    /// stage reproduces, and rebuilding it from `default()` on an unrelated
-    /// edit silently replaced whatever the stage had declared.
-    ///
-    /// ⭐ `reflect(ignore)` IS THE POINT, not a workaround: this struct is
-    /// reflected to BUILD THE SLIDERS, so a field the inspector must not offer
-    /// is a field reflection must not see. Carried and invisible is exactly the
-    /// contract the comment above asks for.
+    /// Carried, not edited (see the `parry_timing` line in `as_engine`). A
+    /// parry-timing swap is a rules declaration about which game a stage
+    /// reproduces, not a slider. `reflect(ignore)` hides it from the inspector,
+    /// which builds its sliders from reflection.
     #[reflect(ignore)]
     pub parry_timing: ae::ParryTiming,
-    /// The MATCH's evade-staling and tech rules, carried for the same reason
-    /// and hidden for the same reason. A fighter's authored tuning sets these
-    /// in one preset beside `parry_timing`; the editor must return them
-    /// unchanged rather than zero.
+    /// The match's evade-staling and tech rules. Carried and hidden for the same
+    /// reason. A fighter's tuning sets them beside `parry_timing`; the editor must
+    /// return them unchanged, not zeroed.
     #[reflect(ignore)]
     pub dodge_stale_step: f32,
     #[reflect(ignore)]
@@ -274,9 +263,8 @@ pub struct EditableMovementTuning {
     pub untechable_launch_speed: f32,
     #[reflect(ignore)]
     pub evade_cancel_tail: f32,
-    /// The ground-movement PHASES and the crouch cost — a rules declaration
-    /// like the six above, carried for the same reason and hidden for the same
-    /// reason.
+    /// The ground-movement phases and the crouch cost: rules, carried and hidden
+    /// like the fields above.
     #[reflect(ignore)]
     pub crouch_speed_frac: f32,
     #[reflect(ignore)]
@@ -304,15 +292,10 @@ pub struct EditableMovementTuning {
     /// Shield-drop lag: what letting a guard down costs, in seconds. A feel
     /// slider like the rates above it.
     pub shield_drop_lag: f32,
-    /// The OUT-OF-SHIELD rule, carried through an edit rather than edited.
-    ///
-    /// Which actions a raised guard permits is a rules DECLARATION about which
-    /// game a stage reproduces — the same class of fact as `parry_timing` above
-    /// — so it is not a slider. ⭐ but it is CARRIED, not defaulted: rebuilding
-    /// the tuning from sliders alone would silently delete the stage's rule the
-    /// first time anybody dragged an unrelated one.
-    /// ⛔ `reflect(ignore)` so the editor cannot draw it as a draggable value:
-    /// the foundation crate carries no reflection and a rule is not a slider.
+    /// The out-of-shield rule: carried, not edited. Like `parry_timing`, it is a
+    /// rules declaration, not a slider. Rebuilding tuning from sliders alone would
+    /// delete the stage's rule on the first unrelated edit. `reflect(ignore)`
+    /// hides it; the foundation crate has no reflection.
     #[reflect(ignore)]
     pub shield_out_of_shield: Option<ae::OutOfShield>,
     /// Carried, not edited — see the note at the construction site.
@@ -345,15 +328,10 @@ impl EditableMovementTuning {
     pub fn as_engine(self) -> ae::MovementTuning {
         ae::MovementTuning {
             gravity: self.gravity,
-            // The current inspector edits the historical responsive profile.
-            // Authored character profiles may select the newer composable laws
-            // without being flattened through this legacy control surface.
+            // The inspector edits the responsive profile. Authored character profiles
+            // can select other laws without passing through this control surface.
             horizontal_law: ae::AxisHorizontalLaw::Responsive,
             jump_law: ae::AxisJumpLaw::VelocityCut,
-            // Runtime-overridden each frame from the world GravityField; default
-            // upright here.
-            // Default; the live control preference is applied per-frame alongside
-            // `gravity_dir` (see player_tick / sim_systems `apply_gravity_dir`).
             run_accel: self.run_accel,
             air_accel: self.air_accel,
             ground_friction: self.ground_friction,
@@ -363,18 +341,12 @@ impl EditableMovementTuning {
             max_run_speed: self.max_run_speed,
             max_air_speed: self.max_air_speed,
             run_commit_frac: self.run_commit_frac,
-            // ⛔ NOT AN F3 SLIDER — and carried rather than defaulted, for the
-            // reason the dash phases below are. What a crouch costs is a MATCH
-            // rule the stage declares (`MatchBody::crouch_speed_frac`); the
-            // ruleset composing its own over the default only works when there
-            // IS a default to compose over, and it is not this projection's job
-            // to decide there was none.
+            // Not an F3 slider, but carried, not defaulted. What a crouch costs is a
+            // match rule (`MatchBody::crouch_speed_frac`) that composes over this value.
             crouch_speed_frac: self.crouch_speed_frac,
-            // ⛔⛔ CARRIED MEANS CARRIED. Reading `DEFAULT_TUNING` here REPLACES
-            // whatever the stage declared with the engine's answer, so a game
-            // with its own dash phases loses them to an unrelated slider. The
-            // ONLY thing "not edited" adds is that no inspector row offers it,
-            // which `reflect(ignore)` is for.
+            // Carried: reading `DEFAULT_TUNING` here would replace the stage's dash
+            // phases on any unrelated edit. "Not edited" only means no inspector row,
+            // which `reflect(ignore)` does.
             initial_dash_time: self.initial_dash_time,
             initial_dash_speed: self.initial_dash_speed,
             turnaround_time: self.turnaround_time,
@@ -406,8 +378,8 @@ impl EditableMovementTuning {
             flight_terminal_speed: self.flight_terminal_speed,
             flight_hover_speed: self.flight_hover_speed,
             flight_hover_hz: self.flight_hover_hz,
-            // The editable dev tuning drives the PLAYER body (smoothed flight);
-            // direct-velocity is a per-body opt-in the boss sets in its own tuning.
+            // The dev tuning drives the player body (smoothed flight). Direct velocity is
+            // a per-body opt-in that the boss sets in its own tuning.
             flight_direct_velocity: false,
             flight_invariant_speed: None,
             coyote_time: self.coyote_time,
@@ -420,15 +392,9 @@ impl EditableMovementTuning {
             dodge_roll_speed: self.dodge_roll_speed,
             dodge_roll_cooldown: self.dodge_roll_cooldown,
             dodge_roll_endlag: self.dodge_roll_endlag,
-            // ⛔⛔ THE SAME HOLE `parry_timing` HAD, five fields wide, and the
-            // audit this row asked for. These are MATCH rules rather than
-            // per-body dev knobs — the editor tunes one body, and staling is
-            // about the option — but a fighter's tuning genuinely CARRIES them
-            // (`abilities.rs` authors `dodge_stale_step: 0.25`,
-            // `untechable_launch_speed: 1400.0` and the rest beside
-            // `parry_timing: OnRaise`, in one preset). Zeroing them on the way
-            // back out deleted the match's rules because somebody dragged an
-            // unrelated slider.
+            // Match rules, carried like `parry_timing`. A fighter's tuning sets them in one
+            // preset (see `abilities.rs`), so zeroing them here would delete the match's
+            // rules on an unrelated edit.
             dodge_stale_step: self.dodge_stale_step,
             dodge_stale_floor: self.dodge_stale_floor,
             dodge_stale_recovery: self.dodge_stale_recovery,
@@ -443,18 +409,8 @@ impl EditableMovementTuning {
             jab_lock_speed: self.jab_lock_speed,
             jab_lock_limit: self.jab_lock_limit,
             spot_dodge_time: self.spot_dodge_time,
-            // ⛔⛔ NOT EDITABLE IS NOT THE SAME AS NOT CARRIED, and this line
-            // used to do the second while claiming the first. A parry-timing
-            // swap is a rules DECLARATION about which game a stage reproduces —
-            // so it is not a slider, and rebuilding it from `default()` on ANY
-            // edit DELETED the declaration: touch an unrelated knob and the
-            // stage's ruleset was gone, silently.
-            //
-            // ⭐ `air_guard` two dozen lines down carries the same rule and got
-            // it right — *"NOT editable, for the same reason `parry_timing` is
-            // not"* — while doing the opposite thing. Two fields, one stated
-            // rule, opposite behaviour; this is now the one `air_guard` says it
-            // is.
+            // Not editable, but carried. A parry-timing swap is a rules declaration, not
+            // a slider; rebuilding it from `default()` on any edit would delete it.
             parry_timing: self.parry_timing,
             parry_window_time: self.parry_window_time,
             shield: ae::ShieldTuning {
@@ -469,9 +425,8 @@ impl EditableMovementTuning {
                 tilt_range: self.shield_tilt_range,
                 drop_lag: self.shield_drop_lag,
                 out_of_shield: self.shield_out_of_shield,
-                // NOT editable, for the same reason `parry_timing` is not:
-                // whether a guard exists in the air is a rules DECLARATION about
-                // which game a stage reproduces, not a slider.
+                // Carried, not editable, like `parry_timing`: whether a guard exists in the
+                // air is a rules declaration.
                 air_guard: self.shield_air_guard,
                 platform_drop: self.shield_platform_drop,
             },
@@ -601,43 +556,33 @@ impl Default for EditableMovementTuning {
     }
 }
 
-/// Keep the live player's body collider aligned with the selected development
-/// profile after resets / room loads rebuild the player from engine defaults.
-/// This domain's key in [`ae::PendingMechanicalEdits`].
-/// The marker type that OWNS this domain.
+/// Marker type that owns the developer body-profile domain in
+/// [`ae::PendingMechanicalEdits`].
 pub struct DeveloperBodyProfileDomain;
 
 pub fn body_profile_domain() -> ae::MechanicalDomain {
     ae::MechanicalDomain::of::<DeveloperBodyProfileDomain>("developer_body_profile")
 }
 
-/// Raise a changed developer body profile as a PROPOSAL.
+/// Raise a changed developer body profile as a proposal.
 ///
-/// ⛔⛤ **THE `Local` MOVED OUT OF THE ROLLBACK WINDOW WITH THE SYSTEM, AND THAT
-/// IS HALF THE FIX — `Q120`, 2026-09-13.** This selection test used to live
-/// inside `sync_developer_body_profile`, which was registered into
-/// `app.sim_schedule()` — under the rollback host, `GgrsSchedule`. A `Local` there
-/// runs once per ADVANCE, resimulations included, so after a rewind it still
-/// remembered that the new profile had been applied and made its decision from
-/// PRESENT-FRAME HOST HISTORY rather than from the frame being simulated.
-///
-/// ⇒ In `PreUpdate` it runs once per rendered frame, which is the lifetime a
-/// "last applied" memory actually has. The proposal it raises is what carries
-/// across a refusal.
+/// This runs in `PreUpdate`, once per rendered frame, not in the sim schedule.
+/// In the sim schedule (`GgrsSchedule` under the rollback host) a `Local` runs
+/// once per advance, including resimulations, so after a rewind it would
+/// decide from present-frame history. The proposal carries the edit across a
+/// refusal.
 pub fn propose_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut last_proposed: Local<Option<PlayerBodyProfile>>,
 ) {
-    // Propose only when the developer CHANGES the selected profile. Re-proposing
-    // every frame would make the dev tool authoritative over legitimate
-    // gameplay-driven body-size changes — and would stop the rollback baseline
-    // every frame for an edit nobody made.
+    // Propose only when the developer changes the selected profile. Proposing
+    // every frame would override gameplay-driven size changes and stop the
+    // rollback baseline every frame.
     //
-    // Before the first proposal the baseline is the UNCHOSEN profile, not
-    // nothing: a developer who never touched the selector has admitted no size,
-    // and treating the default as an edit stamped the engine's default box over
-    // every prepared character body on its first tick.
+    // Before the first proposal the baseline is the default (unchosen) profile.
+    // Treating the default as an edit would stamp the default box over every
+    // prepared character body on the first tick.
     let unchosen = PlayerBodyProfile::default();
     if last_proposed.unwrap_or(unchosen) == developer.player_body_profile {
         return;
@@ -646,13 +591,11 @@ pub fn propose_developer_body_profile(
     pending.propose(body_profile_domain());
 }
 
-/// The body profile this session has ADMITTED, independent of whether a body
+/// The body profile this session has admitted, independent of whether a body
 /// exists to wear it.
 ///
-/// ⛔⛤ **ADMITTING A VALUE AND PROJECTING IT ONTO A TARGET ARE DIFFERENT JOBS,
-/// AND COLLAPSING THEM LOST EDITS — REVIEW, 2026-09-13, ABOUT CODE SHIPPED THE
-/// SAME DAY.** The first version of the migration drained the proposal and THEN
-/// looked for a player:
+/// Admitting a value and projecting it onto a target are separate jobs. If the
+/// proposal is drained only when a player exists, this happens:
 ///
 /// ```text
 /// profile edited -> proposal admitted -> no player exists
@@ -660,44 +603,26 @@ pub fn propose_developer_body_profile(
 ///   -> the proposer's `Local` has already advanced, so it never proposes again
 /// ```
 ///
-/// ⇒ The edit was gone with nothing to say so. And the same collapse contradicted
-/// the system's own stated purpose: it exists to keep the player's body aligned
-/// after a reset or a room load rebuilds it from engine defaults, and a
-/// reconstructed player does not cause the EDITOR to change — so after the
-/// migration there was no persistent authority a reconstruction could project.
+/// A reset or room load also rebuilds the player without an editor change, so
+/// it needs a persistent admitted value to project.
 ///
-/// ⭐⭐ **SO EACH MECHANICAL-EDITOR DOMAIN HAS THREE STAGES, NOT TWO:** editable
-/// desired value → pending proposal → **admitted domain authority** → projection
-/// onto whatever entities exist. Movement tuning and portal tuning already had
-/// the third stage (`ActiveMovementTuning`, `PortalTuning`); this domain did not,
-/// which is why it was the one that broke.
+/// So each mechanical-editor domain has three stages: editable desired value,
+/// pending proposal, admitted domain authority, then projection onto the
+/// entities that exist. Movement and portal tuning use `ActiveMovementTuning`
+/// and `PortalTuning` for the third stage.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 
-/// The ADMITTED developer ability mask — the third stage for the ability domain.
+/// The admitted developer ability mask — the third stage for the ability domain.
 ///
-/// ⛔⛤ **THE ABILITY DOMAIN WAS THE LAST ONE USING ITS EDITOR RESOURCE AS THE
-/// ADMITTED AUTHORITY**, and the review of 2026-09-14 named it. The rule
-/// `ActivePlayerBodyProfile` above states applies here word for word: editable
-/// desired value → pending proposal → **admitted domain authority** → projection
-/// onto whatever entities exist.
+/// Same three stages as [`ActivePlayerBodyProfile`]. Without this resource,
+/// both admission and projection depend on a primary player existing, so a
+/// pending proposal re-enters the admission decision every frame while the
+/// player is absent. With it, a body built later projects the admitted mask,
+/// not whatever the editor holds at that time.
 ///
-/// ⚠ **WHAT THE COLLAPSE COST IS SUBTLER HERE THAN IT WAS FOR THE BODY PROFILE,
-/// WHICH IS WHY IT SURVIVED.** The mask's projection read
-/// `EditableAbilitySet` directly and treated it as the last admitted value
-/// *"whenever nothing is pending"* — sound, but it means ADMISSION and
-/// PROJECTION are both gated on a primary player EXISTING. With a live locally
-/// maintained timeline and a momentarily absent player, a still-pending proposal
-/// re-enters the admission/rebase decision on every frame until a body appears.
-///
-/// ⭐ Splitting them makes a temporary absence of a player irrelevant to whether
-/// the edit was admitted, and makes reset/reconstruction semantics explicit: a
-/// body built later projects the admitted mask rather than whatever the editor
-/// happens to hold then.
-///
-/// ⚠ `None` means no admission has happened YET — the first publish seeds it from
-/// the editable, so the primary player carries the mask's ceiling contribution
-/// from the first tick.
+/// `None` means nothing is admitted yet. The first publish seeds it from the
+/// editable, so the primary player has the mask from the first tick.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActiveEditableAbilityMask(pub Option<ae::AbilitySet>);
 
@@ -707,8 +632,8 @@ pub fn sync_developer_body_profile(
     mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut active: ResMut<ActivePlayerBodyProfile>,
 ) {
-    // ⛔ ONLY THIS DOMAIN'S PROPOSAL, and only when something with a view of the
-    // rollback timeline has admitted it. See `PendingMechanicalEdits`.
+    // Only this domain's proposal, and only when admitted. See
+    // `PendingMechanicalEdits`.
     if !pending.is_pending(body_profile_domain()) {
         return;
     }
@@ -718,24 +643,20 @@ pub fn sync_developer_body_profile(
     ) {
         return;
     }
-    // ⛔ THE AUTHORITY MOVES WHETHER OR NOT A BODY EXISTS TO WEAR IT. That is the
-    // whole repair: draining the proposal is now safe because the admitted value
-    // is kept, and a player constructed later reads it from here.
+    // Store the admitted value whether or not a body exists. A player built later
+    // reads it from here, so draining the proposal is safe.
     active.0 = Some(developer.player_body_profile);
     pending.take(body_profile_domain());
 }
 
-/// Project the ADMITTED body profile onto whatever primary player exists.
+/// Project the admitted body profile onto whatever primary player exists.
 ///
-/// ⛔ **A PROJECTION, NOT A PUBLICATION.** It re-applies on its own whenever the
-/// live body disagrees with the admitted value, so a reset or a room load that
-/// rebuilds the player from engine defaults gets the developer's profile back —
-/// which is what this domain always claimed to do and stopped doing for the few
-/// hours between the migration and this repair.
+/// This is a projection, not a publication. It re-applies whenever the live
+/// body differs from the admitted value, so a reset or room load that rebuilds
+/// the player from engine defaults gets the developer's profile back.
 ///
-/// ⚠ It writes nothing until something has been ADMITTED: `None` means the
-/// developer has not chosen, and stamping a default over an authored body would
-/// make the dev tool authoritative over content that never asked.
+/// It writes nothing until a value is admitted. `None` means the developer has
+/// not chosen, and a default must not overwrite an authored body.
 pub fn project_developer_body_profile(
     active: Res<ActivePlayerBodyProfile>,
     mut player_q: Query<
@@ -814,7 +735,7 @@ pub fn apply_movement_profile(
 /// Reflected, debug-editable player gameplay stats. Surfaced through the
 /// `F3` resource inspector so testers can:
 ///
-/// - read live HP / max HP / mana / max mana (fields synced FROM runtime
+/// - read live HP / max HP / mana / max mana (fields synced from runtime
 ///   each frame),
 /// - rewrite them in-place (clicking the field commits a "set" each
 ///   frame the value differs from the runtime),
@@ -852,67 +773,53 @@ impl Default for EditablePlayerStats {
     }
 }
 
-/// Last-synced stats snapshot, used to tell USER EDITS apart from runtime drift.
+/// Last-synced stats snapshot, used to tell user edits apart from runtime drift.
 ///
 /// Without it, any frame where gameplay damaged HP would see
 /// `stats.health != live_hp` and push the stale inspector value back into the
 /// runtime, undoing the damage.
 ///
-/// ⛔⛤ **A RESOURCE, NOT A `Local`, SINCE `Q120` SPLIT THIS DOMAIN — 2026-09-13.**
-/// Three systems share it now (the proposer, the publisher and the body→inspector
-/// mirror) and a `Local` belongs to exactly one. ⚠ **AND IT WAS A `Local` INSIDE
-/// THE SIM SCHEDULE, WHICH IS THE DEEPER HALF:** under the rollback host that is
-/// `GgrsSchedule`, so it advanced once per ADVANCE — resimulations included — and
-/// after a rewind still remembered a value from a frame that had been undone.
-/// It is host-side now and moves once per rendered frame.
+/// A resource, not a `Local`: three systems share it (the proposer, the
+/// publisher and the body-to-inspector mirror). They run host-side, once per
+/// rendered frame, not once per rollback advance.
 #[derive(bevy::prelude::Resource, Default)]
 pub struct PlayerStatsSyncSnapshot {
     initialized: bool,
     health: i32,
     max_health: i32,
-    // ⛔⛤ **THE MANA FIELDS ARE NEW, AND THEIR ABSENCE WAS A DEFECT
-    // NOBODY HAD NAMED.** The combined system wrote the Mana meter and
-    // `BodyOffense.damage_multiplier` from the inspector **UNCONDITIONALLY**, on
-    // every run, with no change test at all — so inside `GgrsSchedule` that was a
-    // per-ADVANCE write of canonical state from a live developer resource,
-    // strictly worse than the health half. Snapshotting them is what lets the
-    // publisher ask the same question about them that it always asked about HP.
-    // (The offense field left with `BodyOffense` itself, 2026-09-24: nothing in
-    // the game read the multiplier the inspector edited.)
+    // Snapshot mana too, so the publisher writes mana only when the developer
+    // changed it, as it does for health.
     mana: i32,
     max_mana: i32,
 }
 
-/// This domain's key in [`ae::PendingMechanicalEdits`].
-/// The marker type that OWNS this domain.
+/// Marker type that owns the player-stats domain in
+/// [`ae::PendingMechanicalEdits`].
 pub struct EditablePlayerStatsDomain;
 
 pub fn player_stats_domain() -> ae::MechanicalDomain {
     ae::MechanicalDomain::of::<EditablePlayerStatsDomain>("editable_player_stats")
 }
 
-/// Raise a developer stat edit as a PROPOSAL.
+/// Raise a developer stat edit as a proposal.
 ///
-/// ⛔⛤ **`stats.is_changed()` IS THE WRONG TEST HERE AND THAT IS WHY THIS DOMAIN
-/// TOOK LONGER THAN THE OTHER THREE.** The body→inspector MIRROR writes
-/// `EditablePlayerStats` every time gameplay moves the player's HP, so change
-/// detection would raise a proposal — and therefore stop the rollback baseline —
-/// on every point of damage the player takes. The snapshot is what separates
-/// *"the developer typed a number"* from *"the game changed one"*, and it is the
-/// same discrimination the combined system always made; it is just asked here now.
+/// `stats.is_changed()` is the wrong test here. The body-to-inspector mirror
+/// writes `EditablePlayerStats` whenever gameplay changes HP, so change
+/// detection would raise a proposal (and stop the rollback baseline) on every
+/// hit. The snapshot separates "the developer typed a number" from "the game
+/// changed one".
 pub fn propose_player_stats_edits(
     stats: Res<EditablePlayerStats>,
     snapshot: Res<PlayerStatsSyncSnapshot>,
     mut pending: ResMut<ae::PendingMechanicalEdits>,
 ) {
     if !snapshot.initialized {
-        // The first frame establishes the baseline; the publisher does that, and
-        // proposing before one exists would treat the defaults as an edit.
+        // The publisher sets the baseline on the first frame. Proposing before that
+        // would treat the defaults as an edit.
         return;
     }
-    // ⚠ `refill_now` IS AN EDIT even though it changes no value yet: it is a
-    // one-shot button whose whole effect is a write, and a refill staged behind
-    // a refusal must fire when the refusal lifts rather than being forgotten.
+    // `refill_now` is an edit even though no value changed yet. A refill staged
+    // behind a refusal must fire when the refusal lifts.
     if stats.refill_now
         || stats.health != snapshot.health
         || stats.max_health != snapshot.max_health
@@ -923,26 +830,16 @@ pub fn propose_player_stats_edits(
     }
 }
 
-/// Publish an ADMITTED developer stat edit onto the live player.
+/// Publish an admitted developer stat edit onto the live player.
 ///
-/// ⛔⛤ **THIS USED TO BE ONE BIDIRECTIONAL SYSTEM IN THE SIM SCHEDULE — `Q120`,
-/// 2026-09-13.** `sync_player_stats_with_inspector` did three jobs at once:
-/// inspector→body (health/max_health when the user moved them), body→inspector
-/// (the `else` branch, *"so the F3 panel shows truth"*), and an UNCONDITIONAL
-/// inspector→body write of the Mana level and `BodyOffense.damage_multiplier`.
-/// Registered into `app.sim_schedule()` — `GgrsSchedule` under the rollback host
-/// — every one of those writes landed inside the rollback window, and the last
-/// one landed on every single ADVANCE.
+/// The stats sync is three systems: this one writes to the body, and only after
+/// admission; [`mirror_player_stats_into_the_inspector`] reads the body back
+/// into the panel; [`propose_player_stats_edits`] detects that the developer,
+/// not gameplay, changed a value. None of them writes inside the rollback
+/// window.
 ///
-/// ⭐ **THE THREE JOBS ARE THREE SYSTEMS NOW.** This one WRITES, and only when
-/// the timeline's owner has admitted the edit;
-/// [`mirror_player_stats_into_the_inspector`] reads the body back into the panel
-/// and stays where it was; [`propose_player_stats_edits`] decides that the
-/// developer — rather than gameplay — moved something.
-///
-/// ⚠ **`refill_now` IS CONSUMED HERE, NOT AT THE PROPOSAL.** A refill staged
-/// behind a foreign rollback timeline must still fire when the refusal lifts;
-/// clearing the flag when it was merely noticed would drop the button press.
+/// `refill_now` is consumed here, not at the proposal, so a refill staged
+/// behind a refusal still fires when the refusal lifts.
 pub fn publish_player_stats_edits(
     mut stats: ResMut<EditablePlayerStats>,
     admission: Option<Res<ae::MechanicalEditAdmission>>,
@@ -957,8 +854,8 @@ pub fn publish_player_stats_edits(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
-    // ⛔ THE BASELINE IS ESTABLISHED HERE AND NOWHERE ELSE, so the proposer has
-    // exactly one definition of "what the developer last saw" to compare against.
+    // The baseline is set only here, so the proposer has one definition of "what
+    // the developer last saw".
     if !snapshot.initialized {
         snapshot.health = stats.health;
         snapshot.max_health = stats.max_health;
@@ -997,11 +894,8 @@ pub fn publish_player_stats_edits(
     // at this boundary. A body that holds no Mana is not given any by an edit —
     // the pool is the experience's declaration, not the inspector's.
     //
-    // ⛔⛤ **FIELD-CONDITIONAL, AND IT WAS UNCONDITIONAL UNTIL 2026-09-14.** These
-    // three writes fired on EVERY admitted proposal of this domain, whatever the
-    // developer had actually moved. `mirror_player_stats_into_the_inspector`
-    // refreshes only health and max_health from the live body, so the panel's
-    // mana goes stale the moment gameplay spends any:
+    // Write mana only if the developer changed a mana field. Otherwise a health
+    // edit would write a stale panel mana back to the body:
     //
     // ```text
     //   gameplay spends mana      live 40, inspector still 100
@@ -1011,14 +905,6 @@ pub fn publish_player_stats_edits(
     //     → AND mana is written back to the stale 100
     //   ⇒ a HEALTH edit refilled mana.
     // ```
-    //
-    // The same shape applied to `damage_multiplier` against anything else that
-    // legitimately moves it. Found by the GPT architecture review 2026-09-14.
-    //
-    // ⭐ THE SNAPSHOT ALREADY MEANS "what the developer last saw", which is what
-    // the health branch above has always compared against — so the repair is to
-    // give the other two fields the same test rather than to invent a per-field
-    // dirty structure. A field that did not move is not an edit.
     let user_changed_mana = stats.mana != snapshot.mana || stats.max_mana != snapshot.max_mana;
     let max_mana = stats.max_mana.max(0);
     if let Ok(mut resources) = player_q.single_mut() {
@@ -1042,14 +928,13 @@ pub fn publish_player_stats_edits(
 /// Mirror the live player's health back into the inspector, so the F3 panel
 /// shows truth.
 ///
-/// ⭐ **THIS HALF IS PRESENTATION AND STAYS WHERE IT WAS.** It reads the body and
-/// writes the developer resource; it changes nothing the simulation reads, so it
-/// is not a mechanical edit and does not belong behind an admission boundary.
+/// This half is presentation. It reads the body and writes the developer
+/// resource, and changes nothing the simulation reads, so it is not behind the
+/// admission boundary.
 ///
-/// ⛔ **IT DOES NOT RUN WHILE THIS DOMAIN HAS A PROPOSAL PENDING.** A staged edit
-/// the developer typed must not be overwritten by the body's current value while
-/// it waits for a refusal to lift — that would make a refusal indistinguishable
-/// from a silent discard, which is the failure staging exists to prevent.
+/// It does not run while this domain has a pending proposal. Otherwise the
+/// body's value would overwrite a staged edit, and a refusal would look like a
+/// discard.
 pub fn mirror_player_stats_into_the_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut snapshot: ResMut<PlayerStatsSyncSnapshot>,
@@ -1073,13 +958,9 @@ pub fn mirror_player_stats_into_the_inspector(
     stats.max_health = health.health.max;
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;
-    // ⭐⭐ **AND MANA, BECAUSE A HALF-MIRROR IS THE DANGEROUS STATE.**
-    // Mirroring only health left the panel showing a mana the body had long since
-    // spent, and that stale number was what the publisher wrote back on the next
-    // unrelated edit. Mirroring the live values keeps "what the developer last
-    // saw" true for every field this domain publishes — and updating `stats` and
-    // `snapshot` TOGETHER is what stops ordinary gameplay mana consumption from
-    // looking like a proposal.
+    // Mirror mana too. With health only, the panel kept a stale mana that the
+    // publisher could write back. Update `stats` and `snapshot` together so that
+    // gameplay mana use does not look like a proposal.
     if let Ok(resources) = live_q.single() {
         // A body without Mana reads 0/0 — the panel's i32 fields have no absent.
         let mana = resources.and_then(|bank| bank.level_of(&ambition_entity_catalog::mana::MANA));
@@ -1093,48 +974,32 @@ pub fn mirror_player_stats_into_the_inspector(
 /// The editor adapter: push the inspector's live movement edits into the
 /// simulation's neutral authority.
 ///
-/// This is the ONLY direction tuning flows in a developer build.
-/// [`EditableMovementTuning`] is a reflected mirror that exists so
-/// bevy-inspector-egui can edit tuning without `MovementTuning` deriving
-/// `Reflect` on a hot path; it is not, and must not become, what the simulation
-/// reads. Sim systems read `ae::ActiveMovementTuning`, so a build without
-/// developer tools simply never installs this system and keeps whatever content
-/// authored.
+/// [`EditableMovementTuning`] is a reflected mirror, so bevy-inspector-egui
+/// can edit tuning without `MovementTuning` deriving `Reflect`. The simulation
+/// must not read it. Sim systems read `ae::ActiveMovementTuning`, so a build
+/// without developer tools does not install this system and keeps the
+/// authored tuning.
 ///
-/// Change-guarded, so an untouched inspector never trips Bevy change detection
-/// on a resource the whole simulation reads.
+/// This is the publish half; see [`propose_editable_movement_tuning`] for the
+/// proposal. It writes only when admitted.
 ///
-/// `is_added` is excluded deliberately: Bevy counts INSERTION as a change, and
-/// the mirror is installed with its own defaults before content finishes
-/// seeding. Propagating that first "change" would let the inspector's defaults
-/// overwrite authored tuning on frame one — which is the exact ownership
-/// inversion this slice exists to remove.
-/// ⛔⛤ **SPLIT IN TWO ON 2026-09-13, BECAUSE ONE HALF OF IT IS A DECISION THE
-/// ROLLBACK TIMELINE OWNS.** See [`propose_editable_movement_tuning`] for the
-/// first half. This one only WRITES, and only when something with a view of the
-/// timeline has said it may.
-///
-/// ⚠ It is deliberately NOT change-guarded any more. The guard now lives on the
-/// PROPOSAL: an untouched inspector raises nothing, so this never runs its
-/// write. Re-adding `is_changed` here would drop every edit that had to be
-/// staged for a frame — which is the entire point of staging it.
+/// It is not change-guarded; the proposal is. An untouched inspector raises no
+/// proposal, so this does not write. Adding `is_changed` here would drop every
+/// edit that was staged for a frame.
 pub fn publish_editable_movement_tuning(
     editable: Res<EditableMovementTuning>,
     admission: Option<Res<ae::MechanicalEditAdmission>>,
     mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut active: ResMut<ae::ActiveMovementTuning>,
 ) {
-    // ⛔⛤ **ASKED ABOUT THIS DOMAIN, NOT ABOUT THE BATCH.** The first version
-    // read a single global `bool`: with two domains proposing in one frame, the
-    // first publisher cleared the bit and the second silently dropped its edit.
-    // See `PendingMechanicalEdits`.
+    // Ask about this domain, not the batch: a single global flag let one
+    // publisher clear another domain's edit. See `PendingMechanicalEdits`.
     if !pending.is_pending(movement_tuning_domain()) {
         return;
     }
-    // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
-    // with no rollback host has no history an edit could contradict, and a
-    // missing answer that read as `Refuse` would silently kill live editing in
-    // every non-rollback build. The host that CAN refuse always installs it.
+    // Absent means publish, as the resource's default does. A composition with no
+    // rollback host has no history to contradict. The host that can refuse always
+    // installs the resource.
     if matches!(
         admission.as_deref(),
         Some(ae::MechanicalEditAdmission::Refuse)
@@ -1142,32 +1007,26 @@ pub fn publish_editable_movement_tuning(
         return;
     }
     active.0 = editable.as_engine();
-    // ⛔ DRAIN ONLY OURS. There is no method on `PendingMechanicalEdits` that
-    // can drain another domain's proposal, which is the point of the type.
+    // Drain only this domain. `PendingMechanicalEdits` cannot drain another
+    // domain's proposal.
     pending.take(movement_tuning_domain());
 }
 
-/// Raise the developer's movement-tuning edit as a PROPOSAL.
+/// Raise the developer's movement-tuning edit as a proposal.
 ///
-/// ⛔⛤ **THE EDIT DOES NOT REACH THE SIMULATION HERE, AND THAT IS THE FIX.**
-/// This used to be one system, `apply_editable_movement_tuning`, registered into
-/// the SIM schedule — which under the rollback host is `GgrsSchedule`. So the
-/// authoritative value moved inside the rollback window, where a resimulation of
-/// already-confirmed frames would read it: `Q120` measured that desyncing the
-/// GGRS sync-test canary. The first attempt at a fix added a WATCHER in `Update`
-/// to stop the baseline afterwards; `Update` runs after `RunGgrsSystems`, so the
-/// old timeline consumed the edit first and the watcher's doc comment claimed an
-/// ordering the schedule never established.
+/// The edit does not reach the simulation here. In the sim schedule
+/// (`GgrsSchedule` under the rollback host) the value would change inside the
+/// rollback window, where a resimulation of confirmed frames reads it and
+/// desyncs. A watcher in `Update` cannot fix this, because `Update` runs after
+/// `RunGgrsSystems`.
 ///
-/// ⇒ Now: propose in [`MechanicalEditSet::Propose`], the timeline's owner
+/// The chain: propose in [`MechanicalEditSet::Propose`], the timeline owner
 /// answers in `Admit`, and [`publish_editable_movement_tuning`] writes in
-/// `Publish` — the whole chain in `PreUpdate`, before the advance.
+/// `Publish`. All of it is in `PreUpdate`, before the advance.
 ///
-/// ⚠ **`is_added` IS EXCLUDED** deliberately: Bevy counts INSERTION as a change,
-/// and the mirror is installed with its own defaults before content finishes
-/// seeding. Proposing that first "change" would let the inspector's defaults
-/// overwrite authored tuning on frame one — and would stop the session the
-/// composition had just started, every time.
+/// `is_added` is excluded: Bevy counts insertion as a change, and the mirror is
+/// inserted with defaults before content seeds tuning. Proposing that would
+/// overwrite authored tuning on frame one and stop the new session.
 pub fn propose_editable_movement_tuning(
     editable: Res<EditableMovementTuning>,
     mut pending: ResMut<ae::PendingMechanicalEdits>,
@@ -1180,11 +1039,8 @@ pub fn propose_editable_movement_tuning(
 
 /// This domain's key in [`ae::PendingMechanicalEdits`].
 ///
-/// ⭐ **DECLARED BESIDE THE VALUE IT OWNS, not in a central enum.** `Q120` names
-/// five more mutable mechanical values owned by five different crates; a central
-/// enum would make `ambition_platformer2d_core` name every one of them, which is
-/// the dependency edge this protocol exists to avoid.
-/// The marker type that OWNS this domain.
+/// Declared beside the value it owns, not in a central enum. A central enum
+/// would make `ambition_platformer2d_core` name every owning crate.
 pub struct MovementTuningDomain;
 
 pub fn movement_tuning_domain() -> ae::MechanicalDomain {
@@ -1212,19 +1068,10 @@ mod adapter_tests {
         app
     }
 
-    /// ⛔⛤ **A REFUSED EDIT DOES NOT MOVE THE VALUE THE SIMULATION READS, AND IS
-    /// NOT THROWN AWAY.**
-    ///
-    /// This is `Q120`'s model 1 as its row states it — *"refuse mechanical live
-    /// edits while a rollback timeline is active"* — and the first version of
-    /// this fix implemented the opposite: the edit landed and a watcher tried to
-    /// clean up after it. An external or caller-owned timeline cannot be stopped
-    /// by this host, so the only coherent answer is to hold the proposal.
-    ///
-    /// ⭐ THE SECOND HALF IS THE ONE WORTH GUARDING. A refusal that dropped the
-    /// edit would leave the inspector showing a value that will never be
-    /// published — the developer drags a slider, nothing happens, and nothing
-    /// ever will.
+    /// A refused edit does not move the value the simulation reads, and it is not
+    /// discarded. This host cannot stop an external or caller-owned timeline, so
+    /// it holds the proposal. A dropped edit would leave the inspector showing a
+    /// value that never publishes.
     #[test]
     fn a_refused_edit_is_staged_and_publishes_when_the_refusal_lifts() {
         let mut app = app_with_adapter();
@@ -1252,8 +1099,8 @@ mod adapter_tests {
             "the refused edit was discarded instead of staged"
         );
 
-        // ⚠ SEVERAL FRAMES while refused: the proposal is sticky, and
-        // `is_changed` has long since gone quiet.
+        // Several frames while refused: the proposal persists after `is_changed`
+        // goes quiet.
         for _ in 0..3 {
             app.update();
         }
@@ -1276,7 +1123,7 @@ mod adapter_tests {
         );
     }
 
-    /// Live editing still works: the F3 panel's edit reaches the value the simulation actually
+    /// Live editing still works: an F3 panel edit reaches the value the simulation
     /// reads.
     #[test]
     fn an_inspector_edit_reaches_the_simulation_authority() {
@@ -1321,24 +1168,15 @@ mod adapter_tests {
         );
     }
 
-    /// ⛔⛔ AN EDIT MUST NOT DELETE THE RULES IT WAS NOT ABOUT (D186).
-    ///
-    /// The round trip rebuilt six fields from constants: `parry_timing` from
-    /// `default()` and the five evade-staling / tech rules from zero. A fighter
-    /// carries all six in one authored preset — `abilities.rs` sets
-    /// `dodge_stale_step: 0.25` and `untechable_launch_speed: 1400.0` beside
-    /// `parry_timing: OnRaise` — so dragging ANY unrelated slider silently
-    /// replaced the stage's ruleset with the engine's defaults and said nothing.
-    ///
-    /// ⭐ THE ARM IS AN EDIT TO SOMETHING ELSE. Asserting the fields survive a
-    /// round trip with no edit would agree with the bug: the wipe happens on the
-    /// way BACK OUT, so the test has to touch one knob and read the others.
+    /// An edit must not delete the rules it was not about (D186). A fighter
+    /// carries `parry_timing` and the five evade-staling / tech rules in one
+    /// authored preset. The loss happens on the way back out, so the test edits
+    /// one unrelated knob and reads the others.
     #[test]
     fn editing_one_knob_does_not_wipe_the_rules_it_was_not_about() {
         let declared = ae::MovementTuning {
-            // ⛔ `OnRelease`, NOT `OnRaise`. `OnRaise` IS the default, so a test
-            // that declared it agreed with the wipe — measured: poisoning the
-            // projection back to `default()` left this arm green.
+            // `OnRelease`, not `OnRaise`: `OnRaise` is the default, so it would not
+            // detect a reset to `default()`.
             parry_timing: ae::ParryTiming::OnRelease,
             dodge_stale_step: 0.25,
             dodge_stale_floor: 0.34,
@@ -1366,12 +1204,8 @@ mod adapter_tests {
         assert_eq!(out.evade_cancel_tail, 4.0 / 60.0);
     }
 
-    /// ⛔⛔ AND FIVE MORE FIELDS SAID "CARRIED" WHILE NOT CARRYING. The
-    /// projection read `DEFAULT_TUNING` for the crouch cost and the four
-    /// ground-movement phase timings under a comment reading *"Carried, not
-    /// edited: which ground-movement PHASES a game has is a rules
-    /// declaration"* — which is the right rule and the opposite behaviour. A
-    /// game with its own dash phases lost them to an unrelated slider.
+    /// The crouch cost and the four ground-movement phase timings are carried too.
+    /// A game with its own dash phases must keep them after an unrelated edit.
     #[test]
     fn a_games_own_movement_phases_survive_an_unrelated_edit() {
         let declared = ae::MovementTuning {
@@ -1403,22 +1237,18 @@ mod player_stats_domain_tests {
     /// The three systems in the order the composition runs them: propose, then
     /// publish, then the body→inspector mirror.
     ///
-    /// ⚠ The MIRROR is registered last on purpose — in the shipped app it is in
-    /// the sim schedule, which is after `PreUpdate` — so a fixture that ran it
-    /// first would be testing an order the game does not have.
+    /// The mirror is last on purpose: in the shipped app it is in the sim
+    /// schedule, which runs after `PreUpdate`.
     fn app_with_the_stats_domain() -> App {
         let mut app = App::new();
         app.init_resource::<EditablePlayerStats>();
         app.init_resource::<PlayerStatsSyncSnapshot>();
         app.init_resource::<ae::PendingMechanicalEdits>();
         app.init_resource::<ae::MechanicalEditAdmission>();
-        // ⛔⛤ **AN OBSERVER BETWEEN PROPOSE AND PUBLISH, AND ITS ABSENCE MADE THE
-        // DAMAGE ARM UNFALSIFIABLE.** MEASURED: poisoning the proposer to propose
-        // UNCONDITIONALLY left that arm GREEN, because the publisher runs in the
-        // same frame and DRAINS the proposal — so "not pending after the update"
-        // is satisfied by a propose-then-publish cycle and cannot see
-        // over-proposing at all. Over-proposing is the whole hazard: it would
-        // stop and rebase the rollback baseline on every point of damage.
+        // An observer between propose and publish. The publisher drains the proposal
+        // in the same frame, so "not pending after the update" cannot detect
+        // over-proposing. Over-proposing would stop and rebase the rollback baseline
+        // on every hit.
         app.init_resource::<ProposalsSeen>();
         app.add_systems(
             Update,
@@ -1451,8 +1281,7 @@ mod player_stats_domain_tests {
         app
     }
 
-    /// How many frames the domain was PENDING when the publisher was about to
-    /// run. The quantity the damage arm is really about.
+    /// How many frames the domain was pending just before the publisher ran.
     #[derive(Resource, Default)]
     struct ProposalsSeen(u32);
 
@@ -1476,14 +1305,9 @@ mod player_stats_domain_tests {
         bank.level_of(&ambition_entity_catalog::mana::MANA).expect("the fixture holds Mana").current
     }
 
-    /// ⛔⛤ **EDITING ONE FIELD MUST NOT REPUBLISH THE OTHERS — FOUND BY THE GPT
-    /// ARCHITECTURE REVIEW, 2026-09-14.**
-    ///
-    /// The publisher applied HP conditionally and then wrote mana and
-    /// `damage_multiplier` on EVERY admitted proposal of this domain, whatever the
-    /// developer had moved. The mirror refreshed only health, so the panel's mana
-    /// went stale as soon as gameplay spent any — and that stale number is what
-    /// the next unrelated edit wrote back:
+    /// Editing one field must not republish the others. If the publisher writes
+    /// every field and the mirror reads back only health, the panel's mana goes
+    /// stale, and the next unrelated edit writes it back:
     ///
     /// ```text
     ///   gameplay spends mana       live 31, inspector still says 100
@@ -1493,14 +1317,13 @@ mod player_stats_domain_tests {
     ///   ⇒ a HEALTH edit refilled mana.
     /// ```
     ///
-    /// ⭐ The premise is asserted first: the live mana must actually differ from
-    /// the inspector's when the edit is made, or the arm passes by agreeing with
-    /// itself and says nothing about field granularity.
+    /// The premise is asserted first: live mana must differ from the inspector's
+    /// default, or the test cannot detect the defect.
     #[test]
     fn editing_one_stat_leaves_the_others_where_gameplay_put_them() {
         let mut app = app_with_the_stats_domain();
 
-        // GAMEPLAY spends mana — not a developer edit.
+        // Gameplay spends mana; this is not a developer edit.
         {
             let world = app.world_mut();
             let mut query = world.query_filtered::<
@@ -1514,8 +1337,7 @@ mod player_stats_domain_tests {
             mana.max = 100.0;
             mana.current = 31.0;
         }
-        // Let the mirror carry that into the panel, so the inspector is telling
-        // the truth before the edit rather than after it.
+        // Let the mirror copy that into the panel before the edit.
         app.update();
         let mana_before = live_mana(&mut app);
         assert_eq!(
@@ -1524,11 +1346,8 @@ mod player_stats_domain_tests {
              not exercising the case at all",
         );
 
-        // ⛔ THE PREMISE, AND IT IS WHAT MAKES THE ARM DISCRIMINATING. Under the
-        // half-mirror the panel never learned these values, so it still held the
-        // editor's DEFAULTS — different numbers from the body's. If the defaults
-        // happened to equal what gameplay wrote, a stale write-back would be
-        // invisible and this arm would pass on the defect.
+        // Premise: the panel's default mana must differ from what gameplay wrote, or
+        // a stale write-back would be invisible.
         let defaults = EditablePlayerStats::default();
         assert!(
             defaults.mana as f32 != mana_before,
@@ -1538,7 +1357,7 @@ mod player_stats_domain_tests {
             defaults.mana,
         );
 
-        // Edit ONLY max health. Nothing touches the panel's mana.
+        // Edit only max health.
         let seen_before = app.world().resource::<ProposalsSeen>().0;
         app.world_mut()
             .resource_mut::<EditablePlayerStats>()
@@ -1561,19 +1380,14 @@ mod player_stats_domain_tests {
         );
     }
 
-    /// ⛔⛤ **AND THIS IS THE ARM THAT ISOLATES THE PUBLISHER'S HALF — THE OTHER
-    /// ONE CANNOT.** MEASURED 2026-09-14: poisoning the field-conditional publish
-    /// ALONE leaves `editing_one_stat_leaves_the_others_where_gameplay_put_them`
-    /// GREEN, and so does poisoning the half-mirror alone; only both together
-    /// fire it. The two repairs are redundant with respect to that arm, so it
-    /// guards the PAIR and nothing guards either one.
+    /// This test isolates the publisher's half. The test above fails only when
+    /// both the field-conditional publish and the full mirror are removed, so it
+    /// guards the pair, not each one.
     ///
-    /// ⭐ **THE CASE THAT SEPARATES THEM IS THE ONE THIS PROTOCOL EXISTS FOR: AN
-    /// EDIT STAGED BEHIND A REFUSAL.** The mirror deliberately does not run while
-    /// the domain is pending — a staged edit must not be overwritten by the body
-    /// — so while a refusal holds, the panel legitimately goes stale against a
-    /// body gameplay keeps moving. When the refusal lifts, an unconditional
-    /// publisher writes that stale mana back over the live value.
+    /// The case that separates them is an edit staged behind a refusal. The mirror
+    /// does not run while the domain is pending, so the panel goes stale while
+    /// gameplay moves the body. When the refusal lifts, an unconditional publisher
+    /// writes the stale mana back.
     ///
     /// ```text
     ///   developer edits max_health      domain pending
@@ -1611,8 +1425,8 @@ mod player_stats_domain_tests {
             mana.current = 31.0;
         }
 
-        // ⛔ THE PREMISE: the edit really is still staged, and the panel really
-        // does disagree with the body about mana.
+        // Premise: the edit is still staged, and the panel disagrees with the body
+        // about mana.
         assert!(
             app.world()
                 .resource::<ae::PendingMechanicalEdits>()
@@ -1646,8 +1460,8 @@ mod player_stats_domain_tests {
         );
     }
 
-    /// AND THE FIELD THE DEVELOPER DOES MOVE STILL LANDS. The falsifier for a
-    /// repair that simply stopped publishing mana at all.
+    /// The field the developer does change still lands. This fails if the fix
+    /// simply stopped publishing mana.
     #[test]
     fn editing_mana_alone_still_publishes_it() {
         let mut app = app_with_the_stats_domain();
@@ -1661,14 +1475,9 @@ mod player_stats_domain_tests {
         assert_eq!(mana, 55.0, "an explicit mana edit did not reach the body");
     }
 
-    /// ⛔⛤ **GAMEPLAY DAMAGE MUST NOT LOOK LIKE A DEVELOPER EDIT — `Q120`,
-    /// 2026-09-13, AND IT IS WHY THIS DOMAIN COULD NOT USE `is_changed()`.**
-    ///
-    /// The body→inspector mirror writes `EditablePlayerStats` every time gameplay
-    /// moves the player's HP. A proposer built on change detection would raise a
-    /// proposal — and therefore STOP THE ROLLBACK BASELINE — on every point of
-    /// damage the player takes. The snapshot is what separates *"the developer
-    /// typed a number"* from *"the game changed one"*.
+    /// Gameplay damage must not look like a developer edit. The mirror writes
+    /// `EditablePlayerStats` whenever gameplay changes HP, so a proposer based on
+    /// `is_changed()` would stop the rollback baseline on every hit.
     #[test]
     fn taking_damage_does_not_propose_a_mechanical_edit() {
         let mut app = app_with_the_stats_domain();
@@ -1702,8 +1511,8 @@ mod player_stats_domain_tests {
         assert_eq!(live_health(&mut app).0, 2, "the damage was undone");
     }
 
-    /// ⛔ **A DEVELOPER EDIT REACHES THE BODY**, which is the control: without it
-    /// the arm above is satisfied by a domain that proposes nothing, ever.
+    /// Control for the test above: a developer edit proposes and reaches the body.
+    /// Without it, a domain that never proposes would pass.
     #[test]
     fn a_developer_edit_proposes_and_reaches_the_body() {
         let mut app = app_with_the_stats_domain();
@@ -1730,13 +1539,8 @@ mod player_stats_domain_tests {
         );
     }
 
-    /// ⛔⛤ **A REFUSED EDIT IS STAGED, AND THE MIRROR MUST NOT OVERWRITE IT.**
-    ///
-    /// This is the arm the split exists for. While an edit waits for a foreign
-    /// rollback timeline to end, the body→inspector mirror would happily copy the
-    /// body's CURRENT value over the number the developer typed — making a
-    /// refusal indistinguishable from a silent discard, which is the failure
-    /// staging exists to prevent.
+    /// A refused edit is staged, and the mirror must not overwrite it with the
+    /// body's current value. Otherwise a refusal looks like a discard.
     #[test]
     fn a_refused_stat_edit_survives_the_inspector_mirror_and_publishes_later() {
         let mut app = app_with_the_stats_domain();
@@ -1819,27 +1623,23 @@ mod body_profile_domain_tests {
     /// difference rather than two defaults agreeing.
     fn a_distinct_profile() -> PlayerBodyProfile {
         let default_size = PlayerBodyProfile::default().size();
-        // ⭐ DERIVED FROM THE TYPE'S OWN LIST, so a new profile cannot leave this
-        // fixture silently picking the default and asserting nothing.
+        // Derived from the type's own list, so a new profile cannot make this pick
+        // the default.
         PlayerBodyProfile::ALL
             .into_iter()
         .find(|profile| (profile.size() - default_size).length_squared() > 0.01)
         .expect("some shipped profile differs from the default")
     }
 
-    /// ⛔⛤ **AN EDIT MADE WHILE NO PLAYER EXISTS REACHES THE PLAYER THAT APPEARS
-    /// LATER — AND THE FIRST VERSION OF THIS MIGRATION LOST IT.**
-    ///
-    /// That version drained the proposal and THEN looked for a body: with no
-    /// player the proposal was consumed, nothing received the profile, and the
-    /// proposer's `Local` had already advanced so it never proposed again. The
-    /// edit was gone with nothing to say so.
+    /// An edit made while no player exists reaches the player that appears later.
+    /// If the proposal were drained without storing the admitted value, the edit
+    /// would be lost, and the proposer's `Local` would not propose it again.
     #[test]
     fn a_profile_admitted_with_no_player_reaches_the_player_that_appears_later() {
         let mut app = app_with_the_body_profile_domain();
         let profile = a_distinct_profile();
 
-        // ⚠ THE PREMISE: there really is no player, or the arm is the easy case.
+        // Premise: no player exists yet.
         assert_eq!(
             app.world_mut()
                 .query_filtered::<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>()
@@ -1874,10 +1674,9 @@ mod body_profile_domain_tests {
         );
     }
 
-    /// ⛔ **AND A REBUILT BODY GETS IT BACK**, which is the purpose the migration
-    /// broke: a reset or a room load reconstructs the player from engine
-    /// defaults, and the developer's selection did not change — so nothing
-    /// proposes, and only a PROJECTION can restore it.
+    /// A rebuilt body gets the profile back. A reset or room load rebuilds the
+    /// player from engine defaults without an editor change, so nothing proposes;
+    /// only the projection can restore it.
     #[test]
     fn a_player_rebuilt_from_defaults_is_restored_to_the_admitted_profile() {
         let mut app = app_with_the_body_profile_domain();
@@ -1906,9 +1705,8 @@ mod body_profile_domain_tests {
         );
     }
 
-    /// ⛔ **A REFUSED EDIT DOES NOT MOVE THE ADMITTED AUTHORITY.** Model 1 means
-    /// the authoritative value does not change, and here the authority is the
-    /// admitted profile rather than the body.
+    /// A refused edit does not move the admitted authority. Here the authority is
+    /// the admitted profile, not the body.
     #[test]
     fn a_refused_profile_edit_leaves_the_admitted_authority_alone_and_stays_staged() {
         let mut app = app_with_the_body_profile_domain();

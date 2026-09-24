@@ -40,23 +40,9 @@ use bevy::prelude::*;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use dev_tools::EditableAbilitySet;
 
-/// Push live dev-tools ability/tuning edits onto the authoritative player.
-///
-/// Registered by the host to run even while gameplay is suspended so the F3
-/// inspector stays responsive; the logic is body-state mutation and lives here
-/// beside the dev STATE it reads.
-///
-/// The editable ability set is a session MASK, not a wholesale replacement:
-/// the effective set is the body's intrinsic [`AbilityBase`] intersected with
-/// the editable set. A mask can only ever gate a verb OFF, never conjure one the
-/// character was not authored to have — so a restricted character (a demo
-/// protagonist authored with a run-and-jump kit) keeps its identity instead of
-/// being clobbered up to the inspector's `sandbox_all` default every frame. For
-/// the sandbox protagonist (base `sandbox_all`) the intersection equals the
-/// editable set, so the F3 experiment workflow is unchanged.
-/// This domain's key in `PendingMechanicalEdits`.
-/// The marker type that OWNS this domain. Identity is the type, not the label —
-/// see `MechanicalDomain`.
+/// Marker type that owns the editable ability-set domain in
+/// `PendingMechanicalEdits`. Identity is the type, not the label; see
+/// `MechanicalDomain`.
 pub struct EditableAbilitySetDomain;
 
 pub fn ability_set_domain() -> ambition_platformer2d_core::MechanicalDomain {
@@ -65,42 +51,30 @@ pub fn ability_set_domain() -> ambition_platformer2d_core::MechanicalDomain {
     )
 }
 
-/// Raise a changed developer ability selection as a PROPOSAL.
+/// Raise a changed developer ability selection as a proposal.
 ///
-/// ⛔⛤ **`Q120`, 2026-09-13.** `project_editable_abilities` read the live
-/// `EditableAbilitySet` from inside `app.sim_schedule()` — under the rollback
-/// host, `GgrsSchedule` — and wrote `BodyAbilities`, `BodyFlightState`,
-/// `MotionModel`, `BodyDashState` and `BodyJumpState` from it. ⇒ A rewind
-/// restored frame N's authoritative body state and this immediately applied
-/// whatever the inspector held NOW. Same class as the movement-tuning defect,
-/// one surface over.
+/// Runs in `PreUpdate`, not the sim schedule. Reading the live
+/// `EditableAbilitySet` inside `GgrsSchedule` would apply the current inspector
+/// value to body state that a rewind had just restored.
 pub fn propose_editable_abilities(
     editable: Res<EditableAbilitySet>,
     mut pending: ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
 ) {
-    // ⚠ `is_added` EXCLUDED for the reason every proposer excludes it: Bevy
-    // counts INSERTION as a change, and the mirror is installed before content
-    // finishes seeding. Proposing that would stop the session the composition
-    // had just started, on frame one, every time.
+    // Exclude `is_added`: Bevy counts insertion as a change, and the mirror is
+    // inserted before content seeds. Proposing that would stop the new session on
+    // frame one.
     if !editable.is_changed() || editable.is_added() {
         return;
     }
     pending.propose(ability_set_domain());
 }
 
-/// ADMIT a developer ability selection. It touches no body.
+/// Admit a developer ability selection. It touches no body.
 ///
-/// ⛔⛤ **SPLIT FROM THE PROJECTION 2026-09-14, THE WAY BODY PROFILE ALREADY
-/// WAS.** This system used to do both, in `PreUpdate/MechanicalEditSet::Publish`
-/// — so a body RECONSTRUCTED during the simulation (a reset, a room load, a
-/// rebuild) waited a whole render frame for its admitted abilities, because the
-/// only thing that projects them had already run. `ActivePlayerBodyProfile`'s
-/// split is documented with the same reason: *"a body can be rebuilt by
-/// mechanical lifecycle code, so projection must follow body existence rather
-/// than editor publication."*
-///
-/// ⇒ Admission belongs to the host frame and the rollback mutation boundary;
-/// PROJECTION belongs wherever bodies come into existence. See
+/// Admission and projection are separate, as for `ActivePlayerBodyProfile`.
+/// Admission belongs to the host frame and the rollback mutation boundary.
+/// Projection must follow body existence, so a body rebuilt during the
+/// simulation (reset, room load) gets its abilities on the same tick. See
 /// [`contribute_editable_ability_mask`].
 pub fn admit_editable_abilities(
     editable_abilities: Res<EditableAbilitySet>,
@@ -121,11 +95,8 @@ pub fn admit_editable_abilities(
         active_mask.0 = Some(editable_abilities.as_engine());
         pending.take(ability_set_domain());
     } else if active_mask.0.is_none() {
-        // ⚠ THE BASELINE, for the same reason the stats domain has one: the
-        // continuous `base ∩ mask` reconciliation is NOT a mechanical edit and
-        // must keep working from frame one, before anybody has proposed
-        // anything. Seeding from the editable is what today's behaviour already
-        // was when nothing was pending.
+        // Seed the baseline when nothing is pending. The continuous `base ∩ mask`
+        // reconciliation is not a mechanical edit and must work from frame one.
         active_mask.0 = Some(editable_abilities.as_engine());
     }
 }
@@ -135,15 +106,16 @@ pub fn admit_editable_abilities(
 /// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
 pub const EDITABLE_ABILITY_MASK: &str = "dev.editable_ability_mask";
 
-/// Contribute the ADMITTED mask to whatever primary player exists, as a ceiling
+/// Contribute the admitted mask to the primary player, if any, as a ceiling
 /// over its verbs. `project_body_abilities` turns it into the effective set.
+/// A mask can only turn a verb off, never add one the character was not
+/// authored with.
 ///
-/// It runs in the simulation, where bodies are built, so a body constructed
-/// during the simulation wears its admitted abilities on the same tick. It reads
-/// the MASK, never the editor resource — see
-/// [`dev_tools::ActiveEditableAbilityMask`]. While an ability edit awaits
-/// admission the previous contribution stands, so a refused edit reaches no
-/// body.
+/// It runs in the simulation, where bodies are built, so a new body gets its
+/// admitted abilities on the same tick. It reads the mask, not the editor
+/// resource (see [`dev_tools::ActiveEditableAbilityMask`]). While an edit
+/// awaits admission the previous contribution stays, so a refused edit reaches
+/// no body.
 pub fn contribute_editable_ability_mask(
     active_mask: Res<dev_tools::ActiveEditableAbilityMask>,
     pending: Res<ambition_platformer2d_core::PendingMechanicalEdits>,
@@ -171,36 +143,19 @@ pub struct DeveloperRuntimeState {
     pub debug: bool,
     pub slowmo: bool,
     /// How far slow-motion slows the sim clock when [`Self::slowmo`] is on.
-    ///
-    /// ⛔ THIS LIVED IN `Platformer2dFeelTuningMonolith` until 2026-08-31, whose
-    /// own module doc says those values *"are gameplay parameters rather than
-    /// developer-tool state"*. Nothing but the developer rung ever read it. A
-    /// comment stating a rule is a rule to check.
     pub slowmo_scale: f32,
     pub preset_flash: f32,
 }
 
 /// Ask the clock to slow while developer slow-motion is on.
 ///
-/// ⭐⭐ THE DEV CRATE ASKS; THE KERNEL NO LONGER LOOKS. This was rung 4 of the
-/// actor kernel's five-rung time-scale ladder — twice, counting the
-/// no-primary-player path — and it was the last thing making a SIMULATION
-/// package read developer state. The seam to invert it was already built:
-/// `ClockRequester::DevTool` exists, `RegimePolicy` already grants it in `Solo`
-/// and denies it in `RLDeterministic` and `Cinematic`, and
-/// `apply_clock_scale_requests` reduces by `min` so nothing depends on schedule
-/// or query order.
+/// The dev crate sends a `ClockRequester::DevTool` request; the kernel does
+/// not read developer state. `RegimePolicy` grants it in `Solo` and denies it
+/// in `RLDeterministic` and `Cinematic`. `apply_clock_scale_requests` takes
+/// the `min`, so the strongest slowdown wins and order does not matter.
 ///
-/// ⚠ `min` IS NOT THE LADDER, and the difference is real: under the ladder
-/// bullet-time's 0.5 outranked slow-motion's 0.25 because blink sat at rung 2;
-/// now the STRONGEST SLOWDOWN wins and slow-motion does. That is the right
-/// reading for a debugging override — a developer who asked the world to crawl
-/// and got half speed because the player was aiming a blink has been told
-/// "no" by a priority table they cannot see.
-///
-/// ⛔ EVERY FRAME, not on the toggle's edge. Every other rung writes a request
-/// every frame and the reduction is per-frame, so a one-shot write would be
-/// overwritten by the kernel's own `default` rung on the next tick.
+/// Write every frame, not on the toggle edge: requests are reduced per frame,
+/// so a one-shot write is replaced by the default on the next tick.
 pub fn request_developer_slow_motion(
     dev_state: bevy::prelude::Res<DeveloperRuntimeState>,
     mut writer: bevy::prelude::MessageWriter<ambition_time::time_control::ClockScaleRequest>,
@@ -218,17 +173,12 @@ pub fn request_developer_slow_motion(
 
 /// Wind down the HUD's preset flash.
 ///
-/// ⭐⭐ THE CRATE THAT OWNS THE TIMER OWNS ITS DECAY. This one line lived in the
-/// actor kernel's `cleanup_timers_system`, and it was the ONLY reason that
-/// system — and through it the simulation kernel — held a
-/// `ResMut<DeveloperRuntimeState>` at all: a simulation package winding down a
-/// developer HUD's flash. The value is written by a room commit and read by the
-/// app's HUD; nothing in the sim reads it.
+/// The value is written by a room commit and read by the app's HUD; nothing in
+/// the sim reads it.
 ///
-/// ⛔ `Update`, NOT THE SIM SCHEDULE, on the render frame's own clock. It is
-/// presentation state no sim system reads and is not rollback-registered, so
-/// inside the rewinding schedule every resimulated tick decayed it again; the
-/// render frame runs once per frame whether gameplay is suspended or not.
+/// Runs in `Update` on the render clock, not in the sim schedule. It is not
+/// rollback state, so in a rewinding schedule each resimulated tick would
+/// decay it again.
 pub fn decay_developer_presentation_flash(
     time: ambition_time::PresentationTime,
     mut dev_state: bevy::prelude::ResMut<DeveloperRuntimeState>,
@@ -256,10 +206,9 @@ impl DeveloperRuntimeState {
 
 /// Which layers of the combat overlay to draw.
 ///
-/// ⭐⭐ THE LAYERS ARE INDEPENDENT BECAUSE THE QUESTIONS ARE. "Is this volume
-/// inside the sprite?" needs the art; "where exactly does this reach?" is easier
-/// with the art off; "why did this miss?" wants the hurtboxes without the
-/// strikes on top of them. A single on/off switch answers one of the three.
+/// The layers are independent because the questions are. "Is this volume
+/// inside the sprite?" needs the art; "where does this reach?" is easier
+/// without it; "why did this miss?" wants hurtboxes without strikes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CombatOverlayLayers {
     /// The rendered character art. Off draws the world grid instead, which is
@@ -282,14 +231,12 @@ impl Default for CombatOverlayLayers {
     }
 }
 
-/// Turn the COMBAT overlay on, everywhere it is gated.
+/// Turn the combat overlay on, everywhere it is gated.
 ///
-/// ⛔⛔ THE GIZMO PASS IS GATED ON THREE SEPARATE THINGS — the debug flag, the
-/// gizmo toggle, and the per-view fields — and all three are off in a plain
-/// build. Missing any one of them produces a photograph of a swing with no
-/// volume on it, which reads as "the move has no hitbox" rather than "the
-/// overlay is off". Every tool that wants combat geometry in a picture asks for
-/// it here, so the count of gates lives in one place.
+/// The gizmo pass has three gates: the debug flag, the gizmo toggle, and the
+/// per-view fields. All are off in a plain build, and missing any one gives a
+/// picture with no hit volumes. Tools that want combat geometry call this, so
+/// the gates are listed in one place.
 ///
 /// Idempotent: safe to call every frame, which is what a capture tool must do —
 /// settings load and the developer-tools default both write this state, so a
@@ -308,9 +255,8 @@ pub fn force_combat_overlay(
     if tools.debug_view_mode != dev_tools::DebugViewMode::Combat {
         tools.apply_debug_view_mode(dev_tools::DebugViewMode::Combat, false);
     }
-    // ⛔ THE PRESET TURNS ON THE *COMBINED* GATE, and that one draws both halves
-    // whatever the per-layer fields say — so asking for hurtboxes alone requires
-    // clearing it. `draw_combat_geometry_view` reads
+    // The preset turns on the combined gate, which draws both halves whatever
+    // the per-layer fields say, so clear it. `draw_combat_geometry_view` reads
     // `show_player_hitbox || show_feature_hitboxes` for the hurt half and
     // `show_combat_preview || show_feature_hitboxes` for the strikes.
     tools.show_feature_hitboxes = false;
@@ -323,18 +269,10 @@ pub fn force_combat_overlay(
 mod ability_admission_tests {
     use super::*;
 
-    /// ⛔⛤ **ADMISSION MUST NOT DEPEND ON THERE BEING A BODY TO WEAR THE RESULT.**
-    ///
-    /// `project_editable_abilities` used to decide admission BELOW its
-    /// `player_q.single_mut()` guard, so an ability edit proposed while the
-    /// primary player was momentarily absent stayed pending — re-entering the
-    /// admission/rebase decision every frame until a body appeared. The edit was
-    /// never lost, which is exactly why it survived: what it cost is that *"was
-    /// this admitted?"* depended on *"is there something to apply it to?"*.
-    ///
-    /// ⭐ The fixture has NO PLAYER AT ALL, which is the point — the projection
-    /// half is covered by `avatar::starting_character::tests::live_refresh`, and
-    /// an arm that spawned a body could not witness this at all.
+    /// Admission must not depend on a body existing. Otherwise an edit proposed
+    /// while the primary player is absent stays pending and re-enters the
+    /// admission decision every frame. The fixture has no player on purpose. The
+    /// projection half is covered by `avatar::starting_character::tests::live_refresh`.
     #[test]
     fn an_ability_edit_is_admitted_with_no_player_to_project_onto() {
         let mut app = App::new();
@@ -382,8 +320,8 @@ mod ability_admission_tests {
         );
     }
 
-    /// AND A REFUSED EDIT IS NOT ADMITTED. The falsifier for a repair that simply
-    /// drained the domain unconditionally once it stopped asking for a body.
+    /// A refused edit is not admitted. This fails if admission drained the domain
+    /// unconditionally.
     #[test]
     fn a_refused_ability_edit_stays_pending_and_admits_nothing() {
         let mut app = App::new();
@@ -424,25 +362,16 @@ mod developer_runtime_state_tests {
         assert!(!DeveloperRuntimeState::default().debug);
     }
 
-    /// The HUD flash winds down, and it does so through a system THIS CRATE
-    /// registers.
+    /// The HUD flash winds down.
     ///
-    /// ⛔⛔ TWO CLAIMS, AND THE REGISTRATION IS THE ONE THAT CAN GO WRONG. The
-    /// decay is one subtraction and would pass as a direct call whether or not
-    /// anything ran it; the line MOVED out of the actor kernel's
-    /// `cleanup_timers_system`, and a timer nobody decays is a HUD flash that
-    /// never clears — visible, and caught by nothing else in the tree.
-    ///
-    /// ⚠ The plugin's other systems need resources from crates this one does not
-    /// depend on, so the registration is read off the SCHEDULE GRAPH rather than
-    /// by running it. That is weaker than a behavioural check and it is the
-    /// strongest thing available from inside this crate.
+    /// The decay itself is tested here. Other `DevToolsSimPlugin` systems need
+    /// resources from crates this one does not depend on, so the registration is
+    /// checked in the shipped app (see below).
     #[test]
     fn the_developer_flash_decays_through_a_system_this_crate_registers() {
         use bevy::prelude::*;
 
-        // 1. THE DECAY, and its floor. A HUD comparing `> 0.0` depends on the
-        //    clamp, so a decay that ran negative would read as "still flashing".
+        // 1. The decay, and its floor. A HUD that tests `> 0.0` needs the clamp.
         let mut world = World::new();
         world.insert_resource(DeveloperRuntimeState {
             preset_flash: 0.05,
@@ -466,13 +395,9 @@ mod developer_runtime_state_tests {
             "the flash ran past zero, so a HUD asking `> 0.0` never stops drawing it"
         );
 
-        // 2. AND SOMETHING RUNS IT — asserted in the SHIPPED APP rather than
-        //    here. `DevToolsSimPlugin`'s other systems need resources from
-        //    crates this one does not depend on, so a bare `App::new()` cannot
-        //    run its schedule, and the schedule graph reports every system as
-        //    `<Enable the debug feature to see the name>` without a bevy feature
-        //    this crate will not turn on for a test. The registration guard is
-        //    `the_developer_hud_flash_still_winds_down` in
-        //    `game/ambition_app/tests/`, which boots a real app.
+        // 2. The registration guard is `the_developer_hud_flash_still_winds_down`
+        //    in `game/ambition_app/tests/`, which boots a real app. A bare
+        //    `App::new()` cannot run this plugin's schedule, and without a Bevy debug
+        //    feature the graph does not report system names.
     }
 }

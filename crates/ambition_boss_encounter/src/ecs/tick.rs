@@ -334,7 +334,6 @@ pub fn drive_boss_animators(
         &ambition_combat::components::FeatureId,
         crate::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
         &BossAttackState,
         &Brain,
     )>,

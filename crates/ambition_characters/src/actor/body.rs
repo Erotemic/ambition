@@ -222,13 +222,27 @@ impl BodyHealth {
     }
 }
 
+/// How long a body counts as recently struck after a registered strike.
+///
+/// One policy for every gameplay reader (bark dedup, chatter suppression), so
+/// none of them depends on how long any flash is drawn.
+pub const RECENT_STRIKE_SECS: f32 = 0.2;
+
 /// Shared combat-reaction and presentation status for every body.
 /// Reaction timers use one decay and reset path across all controller/body kinds.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyCombat {
     /// Presentation flash (damage hit-blink) — the one field for every body,
     /// decayed for every body by [`Self::decay_reaction_timers`].
+    ///
+    /// ⛔ Presentation only. Its length is a visual choice made at each writer;
+    /// gameplay that asks "was this body just hit" reads
+    /// [`Self::recently_struck`], whose window is one stated policy.
     pub hit_flash: f32,
+    /// Seconds left in this body's recent-strike window. Set to
+    /// [`RECENT_STRIKE_SECS`] by [`Self::note_struck`] on every registered
+    /// strike; bark dedup and chatter suppression read it.
+    pub struck_recently: f32,
     // ── Player reaction / control-lock timers ──
     /// Hitstop: freezes `time_scale` to 0 while positive.
     pub hitstop_timer: f32,
@@ -443,11 +457,22 @@ impl BodyCombat {
         self.damage_invuln_timer <= 0.0
     }
 
+    /// A strike registered on this body: open its recent-strike window.
+    pub fn note_struck(&mut self) {
+        self.struck_recently = RECENT_STRIKE_SECS;
+    }
+
+    /// Was this body struck within [`RECENT_STRIKE_SECS`]?
+    pub fn recently_struck(&self) -> bool {
+        self.struck_recently > 0.0
+    }
+
     /// Decay every body reaction timer by caller-supplied `dt`, clamping at zero.
     /// The caller owns the clock domain used for `dt`.
     pub fn decay_reaction_timers(&mut self, dt: f32) {
         self.damage_invuln_timer = (self.damage_invuln_timer - dt).max(0.0);
         self.hit_flash = (self.hit_flash - dt).max(0.0);
+        self.struck_recently = (self.struck_recently - dt).max(0.0);
         self.hitstun_timer = (self.hitstun_timer - dt).max(0.0);
         self.recoil_lock_timer = (self.recoil_lock_timer - dt).max(0.0);
         self.sleep_timer = (self.sleep_timer - dt).max(0.0);
@@ -462,6 +487,7 @@ impl BodyCombat {
     /// would read as a rule this function does not own.
     pub fn reset(&mut self) {
         self.hit_flash = 0.0;
+        self.struck_recently = 0.0;
         self.hitstop_timer = 0.0;
         self.asdi_owed = false;
         self.damage_invuln_timer = 0.0;
@@ -608,6 +634,7 @@ mod hard_lock_tests {
             // Decayed by `decay_reaction_timers`.
             damage_invuln_timer: _,
             hit_flash: _,
+            struck_recently: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             // Ticked with the rest: a sleep runs down on the same clock as
@@ -636,6 +663,7 @@ mod hard_lock_tests {
         let BodyCombat {
             // Cleared by `reset()`.
             hit_flash: _,
+            struck_recently: _,
             hitstop_timer: _,
             damage_invuln_timer: _,
             hitstun_timer: _,
@@ -723,5 +751,31 @@ mod hard_lock_tests {
             "hitstun became a HARD lock; it is supposed to leave reduced movement \
              authority, which is the distinction the input gate keeps"
         );
+    }
+}
+
+#[cfg(test)]
+mod recent_strike_tests {
+    use super::*;
+
+    /// "Recently struck" is its own fact with its own window: a flash without
+    /// a strike is not a strike, and a strike's window does not follow the
+    /// flash's length.
+    #[test]
+    fn recently_struck_follows_the_strike_not_the_flash() {
+        let mut combat = BodyCombat {
+            hit_flash: 1.0,
+            ..Default::default()
+        };
+        assert!(!combat.recently_struck(), "a flash alone is not a strike");
+
+        combat.hit_flash = 0.0;
+        combat.note_struck();
+        assert!(combat.recently_struck(), "a strike with no flash drawn still counts");
+
+        combat.decay_reaction_timers(RECENT_STRIKE_SECS * 0.5);
+        assert!(combat.recently_struck());
+        combat.decay_reaction_timers(RECENT_STRIKE_SECS);
+        assert!(!combat.recently_struck(), "the window closes on its own policy");
     }
 }

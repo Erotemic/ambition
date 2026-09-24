@@ -696,12 +696,17 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 211 -> 212: `feature.switch_on` LEFT.
 /// `SwitchOn` mirrored the save's switch map every tick and was spawned `false`
 /// until the first mirror; readers take the save by the activation id.
-/// ⛔⛤ 212 -> 214 (213 is CalculexAmbition's AP5): three dead rows LEFT.
+/// ⛔⛤ 212 -> 213: `BodyCombat` encodes `struck_recently`, the gameplay
+/// recent-strike window bark dedup and chatter suppression read instead of the
+/// presentation flash; and `BossAnimFrame` lost its `Hit` drive phase (the sim
+/// cursor never enters the hit row, so boss geometry does not follow a flash),
+/// which renumbers the `Death` phase byte.
+/// ⛔⛤ 213 -> 214: three dead rows LEFT.
 /// `player.local_marker` (`LocalPlayer`, a per-peer fact nothing read),
 /// `actor.player_slot` (the `PlayerSlot` component, read only by a function
 /// nobody called; slot identity is the `SimId`), and the encounter registry's
 /// `id -> Entity` index (written, never read), so `resource.encounter_registry`
-/// is a plain clone of the populate latch and its entity map is gone.
+/// is a checksummed clone of the populate latch and its entity map is gone.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 214;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and

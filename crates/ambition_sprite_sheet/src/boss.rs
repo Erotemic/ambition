@@ -367,6 +367,26 @@ impl BossSheetSpec {
         }
     }
 
+    /// The `Hit` row cell to draw for a hit reaction with `remaining_secs` of
+    /// flash left, or `None` when this sheet ships no `Hit` row.
+    ///
+    /// Presentation only: the sim cursor never selects `Hit`, so the frame the
+    /// boss GEOMETRY samples does not depend on how long a flash is drawn. The
+    /// row plays forward and ends on its last frame as the flash runs out.
+    pub fn hit_reaction_frame(&self, remaining_secs: f32) -> Option<(BossAnim, usize)> {
+        let (_, row) = self.rows.iter().find(|(anim, _)| *anim == BossAnim::Hit)?;
+        if row.frame_count == 0 || remaining_secs <= 0.0 {
+            return None;
+        }
+        let frames_left = if row.duration_secs > 0.0 {
+            (remaining_secs / row.duration_secs).ceil() as usize
+        } else {
+            1
+        };
+        let frame = row.frame_count.saturating_sub(frames_left.max(1));
+        Some((BossAnim::Hit, frame))
+    }
+
     pub(crate) fn row(&self, anim: BossAnim) -> AnimRow {
         let resolved = self.resolve_anim(anim);
         let idx = self
@@ -1090,7 +1110,6 @@ pub enum BossAnimDrivePhase {
     Rest,
     Windup,
     Active,
-    Hit,
     Death,
 }
 
@@ -1168,7 +1187,6 @@ pub struct BossAnimState {
     pub alive: bool,
     pub attack_active: bool,
     pub attack_windup: bool,
-    pub hit_flash: bool,
     /// Profile-resolved animation to play during windup, when the
     /// gameplay layer can map the boss's active profile onto this
     /// sheet's row vocabulary. `None` keeps the generic fallback.
@@ -1186,9 +1204,6 @@ impl BossAnimState {
         if !self.alive {
             return BossAnimDrivePhase::Death;
         }
-        if self.hit_flash {
-            return BossAnimDrivePhase::Hit;
-        }
         if self.attack_windup {
             return BossAnimDrivePhase::Windup;
         }
@@ -1202,9 +1217,6 @@ impl BossAnimState {
 pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
     if !state.alive {
         return BossAnim::Death;
-    }
-    if state.hit_flash {
-        return BossAnim::Hit;
     }
     if state.attack_windup {
         return state.windup_anim.unwrap_or(BossAnim::SpikeHalo);
@@ -1227,3 +1239,28 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
 
 // Adding sprite_sheet-local boss coverage is a separate opportunity
 // (dev/journals/code_smells.md).
+
+#[cfg(test)]
+mod hit_reaction_tests {
+    use super::*;
+
+    /// The hit reaction is drawn from the flash alone: the row plays forward
+    /// as the flash runs out, and a sheet without a `Hit` row keeps the cursor.
+    #[test]
+    fn the_hit_row_plays_forward_as_the_flash_runs_out() {
+        let sheet = &*BOSS_SHEET;
+        let row = sheet.row(BossAnim::Hit);
+        let full = row.duration_secs * row.frame_count as f32;
+        assert_eq!(sheet.hit_reaction_frame(full), Some((BossAnim::Hit, 0)));
+        assert_eq!(
+            sheet.hit_reaction_frame(row.duration_secs * 0.5),
+            Some((BossAnim::Hit, row.frame_count - 1)),
+            "the last slice of the flash shows the last frame"
+        );
+        assert_eq!(sheet.hit_reaction_frame(0.0), None, "no flash, no overlay");
+
+        let mut bare = sheet.clone();
+        bare.rows.retain(|(anim, _)| *anim != BossAnim::Hit);
+        assert_eq!(bare.hit_reaction_frame(full), None);
+    }
+}

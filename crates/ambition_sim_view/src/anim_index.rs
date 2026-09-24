@@ -385,6 +385,10 @@ pub struct BossFrameView {
     /// in the sim tick; this captures its current value.
     pub cursor_anim: ambition_boss_encounter::sprites::BossAnim,
     pub cursor_frame: usize,
+    /// Seconds of damage flash left on a live boss (`0.0` when dead). The
+    /// renderer draws the `Hit` row over the cursor while it runs; the sim
+    /// cursor itself never enters `Hit`.
+    pub hit_flash_secs: f32,
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
     pub hazard_lane: Option<HazardLaneFact>,
@@ -448,7 +452,7 @@ pub fn rebuild_boss_frame_index(
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
         let boss = feature.as_boss_ref();
-        let anim = boss_anim_state_for(boss, health.alive(), combat.hit_flash, attack_state, brain);
+        let anim = boss_anim_state_for(boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
             .map(|f| (f.current, f.frame))
             .unwrap_or((BossAnim::Rest, 0));
@@ -486,6 +490,7 @@ pub fn rebuild_boss_frame_index(
                 anim,
                 cursor_anim,
                 cursor_frame,
+                hit_flash_secs: if health.alive() { combat.hit_flash } else { 0.0 },
                 aabb: boss.aabb(),
                 hazard_lane,
             },

@@ -1,37 +1,29 @@
-//! Draw a far-side body as the part of it the pane does NOT cover.
+//! Draw a far-side body as the part of it the pane does not cover.
 //!
-//! ⛔⛔ THE BUG THIS EXISTS FOR. A pane draws at [`crate::PORTAL_WINDOW_Z`]
-//! (`9.5`) and an actor at `WORLD_Z_DUMMY + 1.0` or `WORLD_Z_PLAYER`, so every
-//! actor wins the depth test against every pane and a body standing BEHIND an
-//! aperture punches through the captured image that should hide it.
+//! A pane draws at [`crate::PORTAL_WINDOW_Z`] (`9.5`) and an actor at
+//! `WORLD_Z_DUMMY + 1.0` or `WORLD_Z_PLAYER`. Every actor therefore wins the
+//! depth test against every pane, and a body behind an aperture shows through
+//! the captured image that should hide it.
 //!
-//! ⭐ THE REPAIR IS STRUCTURAL, NOT AN ORDERING. The covered region is never
-//! handed to the renderer: [`crate::uncovered_remainder`] returns the part the
-//! pane does not hide, and only those pieces are drawn. There is no z to get
-//! wrong because the pixels that could be wrong are in no piece. Both cheap
-//! fixes were ruled out for reasons that outlive them — raising the window z
-//! above the player inverts the bug onto near-side bodies, and an actor's single
-//! z cannot serve two panes that disagree about it in the same frame.
+//! The fix is structural, not a z ordering. [`crate::uncovered_remainder`]
+//! returns the part the pane does not hide, and only those pieces are drawn.
+//! A higher window z inverts the bug onto near-side bodies. One actor z cannot
+//! serve two panes that disagree in the same frame.
 //!
-//! ⚠ ONE EYE, BY CONSTRUCTION. [`PortalViewer`] is a RESOURCE, so there is
-//! exactly one viewpoint and no arbitration to do. ⇒ A split-screen session
-//! would need per-view pieces on per-view render layers, because one body is
-//! near for one player and far for the other -- structurally the two-pane
-//! problem again -- but that is not a case this seam can even express today.
+//! [`PortalViewer`] is a resource, so there is exactly one viewpoint.
+//! Split-screen would need per-view pieces on per-view render layers.
 //!
-//! ⚠ The pieces carry no `RenderLayers` because actor sprites do not: the
-//! per-view isolation pass writes layers onto things keyed by `PresentedForView`
-//! -- labels, backdrop panels, plates -- and a body sprite is none of those. The
-//! transit pieces make the same assumption, so this matches the shipped road
-//! rather than adding one.
+//! The pieces carry no `RenderLayers` because actor sprites do not. The
+//! per-view isolation pass writes layers only onto `PresentedForView` things
+//! (labels, backdrop panels, plates). The transit pieces make the same
+//! assumption.
 //!
-//! ⚠ ONE COVERING PANE. Subtracting two apertures from one body would exceed the
-//! three clip half-planes [`PortalClipMaterial`] carries. MEASURED 2026-09-05
-//! (`scripts/portal_pane_separation.py`): the closest two panes a body could be
-//! far of BOTH are 163.2px apart against a body about 32px wide, so the shipped
-//! worlds cannot reach that case. When more than one pane covers a body the
-//! FIRST by [`ambition_portal2d::stable_portal_order`] is subtracted — chosen so
-//! the result is deterministic rather than query-order dependent.
+//! Only one covering pane is subtracted. Two apertures would need more than
+//! the three clip half-planes that [`PortalClipMaterial`] carries. In the
+//! shipped worlds two panes are never close enough to both cover one body
+//! (see `scripts/portal_pane_separation.py`). When more than one pane covers a
+//! body, the first by [`ambition_portal2d::stable_portal_order`] is used, so the
+//! result does not depend on query order.
 
 use ambition_platformer2d_core::Vec2;
 use ambition_portal2d::PlacedPortal;
@@ -49,18 +41,12 @@ use ambition_sprite_fx::DeclaredFrame;
 #[derive(Component)]
 pub struct PortalFarSidePiece;
 
-/// This body's whole-sprite draw was withdrawn BY THIS SYSTEM, and this system
-/// is what will give it back.
+/// This system withdrew this body's whole-sprite draw and will give it back.
 ///
-/// ⛔⛔ VISIBILITY IS NOT THIS SYSTEM'S FACT TO OWN. A body can be hidden for
-/// reasons that have nothing to do with portals -- death, culling, a cutscene,
-/// an editor toggle -- and a compositor that wrote `Inherited` onto every
-/// candidate each frame would silently overrule all of them. That is the same
-/// defect this module exists to fix, one layer up: two authorities writing one
-/// fact, with the last writer winning by accident of ordering.
-///
-/// ⇒ The marker records what THIS system did, so it can reverse exactly that and
-/// nothing else. A body it never hid is never touched.
+/// Visibility is not this system's fact to own. A body can be hidden for other
+/// reasons (death, culling, a cutscene, an editor toggle). The marker records
+/// what this system did, so it reverses only that. A body it never hid is
+/// never touched.
 #[derive(Component)]
 pub struct PortalFarSideHidden;
 
@@ -84,20 +70,15 @@ pub fn composite_far_side_bodies(
     mut candidates: Query<(
         Entity,
         &PortalCompositingCandidate,
-        // ⭐ EITHER DESCRIPTION OF WHAT THE DRAWABLE PAINTS. A `Sprite` is read
-        // for its frame; a non-sprite drawable DECLARES its frame. Both reach
-        // the same piece builder, which is what makes a `Mesh2d` overlay
-        // composite like a sprite instead of hiding wholesale.
+        // A `Sprite` is read for its frame; a non-sprite drawable declares its
+        // frame. Both reach the same piece builder, so a `Mesh2d` overlay
+        // composites like a sprite.
         Option<&Sprite>,
         Option<&DeclaredFrame>,
         Option<&Anchor>,
-        // ⛔⛔ THE LOCAL `Transform`, MATCHING THE PUBLISHER. This read used
-        // `GlobalTransform`, which transform propagation only updates in
-        // `PostUpdate` -- so classification ran on THIS frame's pose (the
-        // candidate, published from the local transform) while the replacement
-        // pieces were placed from LAST frame's. A moving far-side body was
-        // hidden at x and redrawn at its previous x, lagging and leaving gaps.
-        // One operation, two pose authorities. Found by a GPT review 2026-09-05.
+        // The local `Transform`, like the candidate publisher. `GlobalTransform`
+        // updates only in `PostUpdate`, so pieces would use last frame's pose
+        // and lag behind a moving body.
         &Transform,
         Option<&ambition_portal2d::PortalTransit>,
     )>,
@@ -106,15 +87,8 @@ pub fn composite_far_side_bodies(
         commands.entity(entity).despawn();
     }
 
-    // ⛔ Near and far are relative to a viewpoint. Without one there is no
-    // honest classification, so every body draws exactly as it did before.
-    //
-    // ⭐ `Res`, because that is what the eye IS: the host writes it through
-    // `ResMut<PortalViewer>` and every shipped reader takes `Res<PortalViewer>`.
-    // The first version queried it as a component, which HAPPENS to work --
-    // resources live on a singleton entity, so the query finds it -- and that is
-    // exactly why it was worth changing: one fact read two ways, where the
-    // second way is an accident of storage rather than a statement of intent.
+    // Near and far are relative to a viewpoint. Without one, every body
+    // draws as it did before.
     let Some(viewer) = viewer.filter(|v| v.present) else {
         restore_hidden(&mut commands, &hidden, &mut candidates);
         return;
@@ -139,20 +113,12 @@ pub fn composite_far_side_bodies(
         let min = candidate.drawn_centre - candidate.drawn_half;
         let max = candidate.drawn_centre + candidate.drawn_half;
 
-        // The first covering pane in the stable order; see the module note on
-        // why one is enough for the shipped worlds and why it is not arbitrary.
-        // ⛔⛔ THE TRANSIT FLAG IS NOT A FORMALITY, AND HARDCODING IT `false`
-        // WAS A REAL DEFECT. A straddling body is already drawn as two clipped
-        // slices by `sync_portal_body_pieces`, which states the transit REASON
-        // for hiding the source. Classifying it `FarCovered` gives it a THIRD
-        // copy of the body -- the duplication `PaneRelation::Transiting` exists
-        // to prevent.
-        // ⚠ Since 2026-09-05 neither system writes `Visibility` itself;
-        // `source_visibility::resolve_portal_source_visibility` is the one
-        // writer, and each states a reason. This comment used to say the piece
-        // builder "owns its `Visibility`", which was true when written and is
-        // not now. `PaneRelation::Transiting` is the vocabulary for
-        // "another presentation owns this body"; it only works if it is asked.
+        // The first covering pane in the stable order (see the module note).
+        // Pass the transit flag: a straddling body is already drawn as two
+        // slices by `sync_portal_body_pieces`. `PaneRelation::Transiting` keeps
+        // this system from adding a third copy. Neither system writes
+        // `Visibility`; `source_visibility::resolve_portal_source_visibility`
+        // is the one writer.
         let cover = panes.iter().find(|pane| {
             matches!(
                 crate::pane_relation(pane, viewer.eye, min, max, transit.is_some()),
@@ -173,12 +139,9 @@ pub fn composite_far_side_bodies(
         let (cover_min, cover_max) = crate::pane_cover_rect(pane);
         let pieces = crate::uncovered_remainder(min, max, cover_min, cover_max);
 
-        // The pieces ARE this body now. When the pane covers it completely the
-        // remainder is empty and nothing is spawned, which is the correct
-        // picture rather than a special case.
-        // ⭐ A REASON, NOT A WRITE. `resolve_portal_source_visibility` owns the
-        // `Visibility` of a portal-presented body; see that module for the
-        // two-writer defect this replaced.
+        // The pieces are this body now. A fully covered body has an empty
+        // remainder, so nothing is spawned. This states a reason;
+        // `resolve_portal_source_visibility` owns `Visibility`.
         commands.entity(entity).insert(PortalFarSideHidden);
 
         let control = Vec4::new(
@@ -237,9 +200,8 @@ struct PieceLook {
 
 /// The look of a candidate, from whichever description it carries.
 ///
-/// ⭐ A DECLARATION WINS OVER A SPRITE, because a drawable that took the trouble
-/// to declare is saying "what I paint is not what my `Sprite` says" -- and a
-/// plain sprite declares nothing, so the ordinary road is untouched.
+/// A declaration wins over a sprite: a drawable that declares says its
+/// `Sprite` does not describe what it paints.
 fn piece_look(
     sprite: Option<&Sprite>,
     declared: Option<&DeclaredFrame>,
@@ -272,9 +234,8 @@ fn piece_look(
     })
 }
 
-/// Give back only the bodies THIS system hid, on the roads where no
-/// classification is possible -- so "we cannot tell" never means "the body
-/// disappears", and never means "somebody else's hidden body reappears".
+/// Give back only the bodies this system hid, on the roads where no
+/// classification is possible.
 fn restore_hidden(
     commands: &mut Commands,
     hidden: &Query<Entity, With<PortalFarSideHidden>>,
@@ -284,13 +245,7 @@ fn restore_hidden(
         Option<&Sprite>,
         Option<&DeclaredFrame>,
         Option<&Anchor>,
-        // ⛔⛔ THE LOCAL `Transform`, MATCHING THE PUBLISHER. This read used
-        // `GlobalTransform`, which transform propagation only updates in
-        // `PostUpdate` -- so classification ran on THIS frame's pose (the
-        // candidate, published from the local transform) while the replacement
-        // pieces were placed from LAST frame's. A moving far-side body was
-        // hidden at x and redrawn at its previous x, lagging and leaving gaps.
-        // One operation, two pose authorities. Found by a GPT review 2026-09-05.
+        // Same query as `composite_far_side_bodies`.
         &Transform,
         Option<&ambition_portal2d::PortalTransit>,
     )>,
@@ -307,10 +262,8 @@ fn give_back(
     hidden: &Query<Entity, With<PortalFarSideHidden>>,
 ) {
     if hidden.get(entity).is_ok() {
-        // ⛔ WITHDRAW THE REASON ONLY. Restoring `Inherited` here is what let a
-        // far-covered body that entered `PortalTransit` reappear whole on top of
-        // its own transit slices: this system concluded the hide was no longer
-        // its business while the transit splitter still needed it hidden.
+        // Withdraw the reason only. The transit splitter may still need the
+        // body hidden.
         commands.entity(entity).remove::<PortalFarSideHidden>();
     }
 }
@@ -338,11 +291,9 @@ mod tests {
         app.insert_resource(Assets::<TextureAtlasLayout>::default());
         app.insert_resource(Assets::<Mesh>::default());
         app.insert_resource(Assets::<PortalClipMaterial>::default());
-        // ⭐ THE RESOLVER IS PART OF THE UNIT UNDER TEST. This system states a
-        // REASON; `resolve_portal_source_visibility` is the only writer of
-        // `Visibility`, so a harness without it would assert against a fact
-        // nothing produces. `.chain()` supplies the `ApplyDeferred` that makes
-        // the reason inserted through `Commands` visible in the same frame.
+        // The resolver is part of the unit under test: it is the only writer
+        // of `Visibility`. `.chain()` supplies the `ApplyDeferred` that makes
+        // the reason visible in the same frame.
         app.add_systems(
             Update,
             (
@@ -364,25 +315,14 @@ mod tests {
         sprite
     }
 
-    /// ⛔⛔ THE HANDOFF FRAME: far-covered on N, TRANSITING on N+1, with BOTH
-    /// production systems in one schedule.
-    ///
-    /// Until 2026-09-05 the two systems each wrote the source body's
-    /// `Visibility` with no order between them. On this exact sequence the
-    /// transit splitter hid the source (its clipped pieces ARE the body now)
-    /// while `composite_far_side_bodies` saw a transiting body, concluded the
-    /// far-side hide was no longer its responsibility, and gave the WHOLE sprite
-    /// back — drawing the unsplit body on top of its own slices. Which picture
-    /// you got depended on which system ran last.
-    ///
-    /// ⭐ The body MOVES between the frames, because that is the production
-    /// sequence rather than a contrived one: far-covered means behind the pane,
-    /// transiting means straddling it, and it is the same actor walking through.
+    /// The handoff frame: far-covered on frame N, transiting on N+1, with both
+    /// production systems in one schedule. The whole sprite must not come back on
+    /// top of its own transit slices. The body moves between frames, as an actor
+    /// walking through the pane does.
     #[test]
     fn a_far_covered_body_that_enters_transit_stays_hidden() {
         let mut app = test_app();
-        // The transit splitter joins the far-side compositor: BOTH reason-staters
-        // ahead of the one writer.
+        // Both reason-staters run ahead of the one writer.
         app.add_systems(
             bevy::prelude::Update,
             crate::visuals::sync_portal_body_pieces
@@ -398,16 +338,14 @@ mod tests {
         ));
         spawn_viewer(&mut app, Vec2::new(400.0, 300.0));
 
-        // FRAME N: at the aperture on the far side, not yet transiting — the
-        // same geometry `a_far_side_body_is_redrawn_as_the_uncovered_part_only`
-        // establishes as far-covered.
+        // Frame N: far-covered at the aperture, not yet transiting.
         let at_pane = Vec2::new(505.0, 300.0);
         let body = spawn_candidate(&mut app, at_pane, Vec2::new(24.0, 24.0));
         app.world_mut().entity_mut(body).insert((
             crate::PortalSceneBody,
             crate::PortalBodyView {
-                // What the TRANSIT splitter reads: centred in the aperture, so
-                // its decomposition is the real two-chart one.
+                // The transit splitter reads this: centred in the aperture, so the
+                // decomposition has two charts.
                 pos: Vec2::new(498.0, 300.0),
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
@@ -424,9 +362,8 @@ mod tests {
             "and the far-side compositor owns that hide"
         );
 
-        // FRAME N+1: the crossing begins. Nothing else about the body changes —
-        // the arrival of `PortalTransit` IS the handoff, and it flips the
-        // far-side classification from `FarCovered` to `Transiting`.
+        // Frame N+1: `PortalTransit` arrives. That is the handoff; it changes
+        // the far-side classification from `FarCovered` to `Transiting`.
         app.world_mut()
             .entity_mut(body)
             .insert(ambition_portal2d::PortalTransit {
@@ -444,12 +381,8 @@ mod tests {
         );
     }
 
-    /// `eye` sits well in FRONT of the pane (low x), so a body at high x is far.
-    ///
-    /// ⭐ INSERTED AS A RESOURCE, WHICH IS HOW THE HOST PUBLISHES IT. The first
-    /// version SPAWNED it as a component; that passes -- resources live on a
-    /// singleton entity, so a component query finds them -- and it meant every
-    /// test built its subject a way the game never does.
+    /// `eye` is in front of the pane (low x), so a body at high x is far.
+    /// Inserted as a resource, as the host publishes it.
     fn spawn_viewer(app: &mut App, eye: Vec2) {
         app.insert_resource(PortalViewer {
             present: true,
@@ -463,21 +396,9 @@ mod tests {
         spawn_candidate_at_z(app, centre, half, 11.0)
     }
 
-    /// ⛔⛔ THE PIECES MUST FOLLOW THIS FRAME'S POSE, and the fixture makes the
-    /// two poses DISAGREE on purpose.
-    ///
-    /// In production they always disagree at this moment: transform propagation
-    /// runs in `PostUpdate`, so during `Update` a `GlobalTransform` still holds
-    /// the previous frame's pose while `sync_visuals` has already written the
-    /// current one locally. The publisher was fixed to read the local
-    /// `Transform`; `composite_far_side_bodies` was still rebuilding the piece's
-    /// base from `GlobalTransform` ⇒ one operation with TWO pose authorities,
-    /// classifying at x and drawing at the previous x. A moving far-side body
-    /// lags, leaves gaps, or reveals pane-overlapping pixels.
-    ///
-    /// ⚠ Every earlier fixture here seeded the two IDENTICALLY and never moved
-    /// the body, which removed exactly this failure. Found by a GPT review
-    /// 2026-09-05.
+    /// The pieces must follow this frame's pose. The fixture makes the local
+    /// `Transform` and the `GlobalTransform` disagree, as they do during
+    /// `Update` in production (propagation runs in `PostUpdate`).
     #[test]
     fn a_moving_body_is_recomposed_from_the_pose_it_has_now() {
         let mut app = test_app();
@@ -499,18 +420,15 @@ mod tests {
             entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre = moved;
             *entity.get_mut::<Transform>().unwrap() =
                 Transform::from_translation(frame.to_render(moved, 11.0));
-            // GlobalTransform deliberately LEFT at the old pose, as `PostUpdate`
-            // would have left it.
+            // `GlobalTransform` stays at the old pose, as `PostUpdate` would leave it.
         }
         app.update();
 
         let after = piece_translations(&mut app);
         assert!(!after.is_empty(), "the body still composites after moving");
-        // ⭐ AGAINST THE BODY'S CURRENT POSE, not merely "different from before".
-        // The first version asserted only that the pieces MOVED, which a constant
-        // offset satisfies -- poisoning the base by a fixed -40y left it green.
-        // A piece is a slice OF the body, so it must sit within the body's own
-        // drawn extent this frame.
+        // Check against the body's current pose, not only "pieces moved": a
+        // constant offset would pass that. A piece is a slice of the body, so
+        // it must sit within the body's drawn extent this frame.
         let now = app
             .world()
             .get::<Transform>(body)
@@ -567,9 +485,9 @@ mod tests {
         *app.world().get::<Visibility>(entity).expect("visibility")
     }
 
-    /// ⭐⭐ JON'S CASE. A body BEHIND the aperture is redrawn as the part the
-    /// pane leaves visible, and its whole-sprite draw is withdrawn — so the
-    /// covered pixels are not submitted at all and no z can bring them back.
+    /// A body behind the aperture is redrawn as the part the pane leaves
+    /// visible, and its whole-sprite draw is withdrawn. The covered pixels are
+    /// not submitted, so no z can bring them back.
     #[test]
     fn a_far_side_body_is_redrawn_as_the_uncovered_part_only() {
         let mut app = test_app();
@@ -589,9 +507,8 @@ mod tests {
         );
     }
 
-    /// The near side is the half a single z already gets right, and the repair
-    /// must not touch it -- that is the inverse bug Jon named when he ruled out
-    /// raising `PORTAL_WINDOW_Z`.
+    /// The near side is already correct with a single z. The repair must not
+    /// change it (raising `PORTAL_WINDOW_Z` would).
     #[test]
     fn a_near_side_body_is_left_exactly_as_it_was() {
         let mut app = test_app();
@@ -614,9 +531,8 @@ mod tests {
         assert_eq!(pieces(&mut app), 0);
     }
 
-    /// ⛔⛔ "WE CANNOT TELL" MUST NOT MEAN "THE BODY DISAPPEARS". Near and far
-    /// are relative to a viewpoint; with no viewer the old picture is kept,
-    /// because a hidden sprite with no pieces is a body that vanished.
+    /// With no viewer, the old picture is kept. A hidden sprite with no pieces
+    /// would be a body that vanished.
     #[test]
     fn with_no_viewer_every_body_still_draws_whole() {
         let mut app = test_app();
@@ -627,8 +543,7 @@ mod tests {
         assert_eq!(pieces(&mut app), 0);
     }
 
-    /// The pieces are rebuilt wholesale each frame, so they must not accumulate
-    /// -- a leak here is invisible on frame one and a slideshow by frame 600.
+    /// The pieces are rebuilt each frame, so they must not accumulate.
     #[test]
     fn the_pieces_do_not_accumulate_across_frames() {
         let mut app = test_app();
@@ -643,16 +558,9 @@ mod tests {
         assert_eq!(first, pieces(&mut app), "pieces accumulated across frames");
     }
 
-    /// ⭐⭐ THE PLAYER BAND AND THE ACTOR BAND GET THE SAME ANSWER, WHICH IS THE
-    /// WHOLE POINT. `WORLD_Z_PLAYER` is 20 and a generic actor sits at 11; both
-    /// are above `PORTAL_WINDOW_Z` (9.5), which is why a single z could not
-    /// serve them and why Jon asked for the pair twice.
-    ///
-    /// ⇒ This repair never READS z. It subtracts the pane's rect from the
-    /// drawable's, so the answer is geometry and the band is irrelevant --
-    /// asserted by giving the same body two very different z values and
-    /// demanding identical output. A version that reached for z to decide
-    /// anything would fail here.
+    /// The player band (`WORLD_Z_PLAYER`, 20) and the actor band (11) are both
+    /// above `PORTAL_WINDOW_Z` (9.5). The repair never reads z; it subtracts
+    /// rects. The same body at two z values must give identical output.
     #[test]
     fn the_player_band_and_the_actor_band_composite_identically() {
         let mut counts = Vec::new();
@@ -684,10 +592,8 @@ mod tests {
         assert!(counts[0] > 0, "no pieces drawn at either band");
     }
 
-    /// ⛔ `present: false` MEANS THERE IS NO EYE THIS FRAME, and the `eye` field
-    /// is then meaningless. Compositing on it would classify near and far from a
-    /// stale or default position -- a body hidden against a viewpoint nobody
-    /// has. The flag exists to be asked.
+    /// `present: false` means there is no eye this frame, and `eye` is
+    /// meaningless. Nothing is composited.
     #[test]
     fn an_absent_eye_composites_nothing() {
         let mut app = test_app();
@@ -703,17 +609,9 @@ mod tests {
         assert_eq!(pieces(&mut app), 0);
     }
 
-    /// ⛔⛔ A TRANSITING BODY IS ANOTHER PRESENTATION'S. `sync_portal_body_pieces`
-    /// already draws it as two clipped slices and states the transit REASON for
-    /// hiding the source; compositing it too would give it a THIRD copy of the
-    /// body. Jon named this case explicitly.
-    /// ⚠ The `Visibility` write itself belongs to neither system since
-    /// 2026-09-05 — see [`crate::source_visibility`].
-    ///
-    /// ⚠ The first version hardcoded `transiting: false` into the
-    /// classification, so this body was `FarCovered` and got the third copy.
-    /// `PaneRelation::Transiting` existed the whole time -- a vocabulary is only
-    /// worth having if it is asked.
+    /// A transiting body belongs to `sync_portal_body_pieces`, which draws it
+    /// as two clipped slices. Compositing it too would add a third copy. The
+    /// `Visibility` write belongs to [`crate::source_visibility`].
     #[test]
     fn a_transiting_body_is_left_to_the_split_presentation() {
         let mut app = test_app();
@@ -740,12 +638,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ VISIBILITY BELONGS TO WHOEVER SET IT. A body hidden for reasons that
-    /// are nothing to do with portals -- death, culling, a cutscene -- must stay
-    /// hidden. An earlier draft wrote `Inherited` onto every candidate each
-    /// frame and would have silently resurrected all of them, which is this
-    /// module's own bug one layer up: two authorities writing one fact, last
-    /// writer wins by accident of ordering.
+    /// A body hidden for reasons unrelated to portals (death, culling, a
+    /// cutscene) must stay hidden.
     #[test]
     fn a_body_hidden_by_someone_else_is_not_given_back() {
         let mut app = test_app();
@@ -771,9 +665,7 @@ mod tests {
         }
     }
 
-    /// ⭐ A body that walks from far to near gets its whole sprite BACK. Without
-    /// this the repair trades a punch-through for a permanently invisible actor,
-    /// which is the louder bug.
+    /// A body that walks from far to near gets its whole sprite back.
     #[test]
     fn a_body_that_moves_to_the_near_side_is_restored() {
         let mut app = test_app();
@@ -788,12 +680,10 @@ mod tests {
             .get_mut::<PortalCompositingCandidate>(body)
             .expect("candidate");
         candidate.drawn_centre = Vec2::new(495.0, 300.0);
-        // ⭐ THE BODY'S OWN VISIBILITY OWNER, which production always has and
-        // this fixture did not. `sync_visuals` writes every `FeatureVisual`'s
-        // visibility every frame, and morph-ball sync writes the ball's; the
-        // portal resolver runs after them. Releasing the portal's claim now
-        // means "the portal has no opinion", so the owner's value stands --
-        // which is only observable if an owner exists.
+        // Production always has a visibility owner for the body (`sync_visuals`
+        // or morph-ball sync), and the portal resolver runs after it. Releasing
+        // the portal claim means "no opinion", so the owner's value stands.
+        // This fixture plays that owner.
         app.world_mut().entity_mut(body).insert(Visibility::Inherited);
         app.update();
         assert_eq!(
@@ -804,21 +694,15 @@ mod tests {
         assert_eq!(pieces(&mut app), 0);
     }
 
-    /// ⛔⛔ A FAR-SIDE BODY'S OTHER DRAWABLES MUST FOLLOW ITS HIDE.
+    /// A far-side body's other drawables must follow its hide.
     ///
-    /// The hit-flash silhouette is a separate root mesh that MIRRORS the base
-    /// sprite. `overlay_look` already blanks it when its source is `Hidden` --
-    /// but `sync_hit_flash_overlays` runs BEFORE portal presentation, so on the
-    /// frame the portal hides a far-side body the overlay was computed from a
-    /// VISIBLE source and drew the whole silhouette over the pane while the base
-    /// art was correctly clipped. A GPT review reported it 2026-09-06.
-    ///
-    /// ⚠ ORDERING CANNOT FIX IT: the portal publisher runs `.after(
-    /// animate_feature_sprites)`, which is itself after the hit-flash mirror in
-    /// the render chain, so moving the mirror later is a cycle.
-    /// ⭐ So the resolver settles the dependants in the same pass, using the
-    /// `PresentationOf` seam: the drawable says whose body it draws, and the
-    /// body's hide reaches it without either side learning about the other.
+    /// The hit-flash silhouette is a separate root mesh that mirrors the base
+    /// sprite. `sync_hit_flash_overlays` runs before portal presentation, so it
+    /// sees a visible source on the frame the portal hides the body. Ordering
+    /// cannot fix this: the portal publisher runs after
+    /// `animate_feature_sprites`, which is after the hit-flash mirror, so a later
+    /// mirror is a cycle. The resolver hides the dependants in the same pass,
+    /// through `PresentationOf`.
     #[test]
     fn a_drawable_that_names_a_hidden_body_is_hidden_with_it() {
         use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
@@ -848,20 +732,10 @@ mod tests {
              whole, so a far-side character shows its outline over the pane"
         );
 
-        // ⛔⛔ AND THE DEPARTURE, WITH NOTHING WRITING THE SILHOUETTE. This half
-        // used to stamp `Visibility::Visible` onto the silhouette before stepping
-        // again, on the stated premise that "the drawable's own writer sets its
-        // value every frame". THAT PREMISE IS FALSE for the population this seam
-        // exists to serve: the hit-flash overlay is spawned `Visible` and its
-        // update path says visibility "stays `Visible` permanently", writing only
-        // transform and material. So the test repaired the very thing it was
-        // checking, and the release half could not fail. Found by a GPT review
-        // 2026-09-06.
-        //
-        // ⇒ Nothing touches the silhouette here now. If the resolver does not
-        // restore what it took, this asserts `Hidden` and fails — which is the
-        // shipped bug: one far-side crossing and that character never flashes,
-        // parries or blinks visibly again for the rest of the session.
+        // The departure, with nothing writing the silhouette. The hit-flash
+        // overlay is spawned `Visible` and its update path never writes
+        // visibility again. If the resolver does not restore what it took, the
+        // silhouette stays hidden for the rest of the session.
         {
             let mut entity = app.world_mut().entity_mut(body);
             entity.get_mut::<PortalCompositingCandidate>().unwrap().drawn_centre =
@@ -876,18 +750,13 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ A DEPENDANT THE COMPOSITOR CAN SEE ANSWERS FOR ITSELF — body ownership
+    /// A dependant the compositor can see answers for itself. Body ownership
     /// is not compositing geometry authority.
     ///
-    /// A tether line, flyline or any other unparented sprite that names a body is
-    /// exactly the population `publish_portal_compositing_candidates` evaluates,
-    /// so its OWN bounds decide whether the pane hides it. Copying the owner's
-    /// scalar answer onto it hides a line that is nowhere near the pane merely
-    /// because the body it names overlaps one. Raised by a GPT review 2026-09-06.
-    ///
-    /// ⚠ The silhouette in the test above is deliberately NOT a sprite: that is
-    /// the case where a scalar hide is the only tool available, and it must still
-    /// be claimed and released. Two populations, two answers, one seam.
+    /// An unparented sprite that names a body (a tether line, a flyline) is a
+    /// compositing candidate, so its own bounds decide whether the pane hides
+    /// it. The silhouette in the test above is not a sprite; there the scalar
+    /// hide is the only tool, and it must still be claimed and released.
     #[test]
     fn a_sprite_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner() {
         use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
@@ -960,12 +829,9 @@ mod tests {
             .id()
     }
 
-    /// ⭐⭐ THE NON-SPRITE ROAD. A `Mesh2d` overlay that DECLARES what it paints
-    /// is composited exactly like a sprite: hidden whole, redrawn as the
-    /// uncovered pieces, and the pieces carry its silhouette look rather than
-    /// the sprite's sampled colour. Before this the compositor's candidate
-    /// query took `&Sprite`, so a declared drawable was never a candidate at
-    /// all and fell to the scalar fallback. Named by two GPT reviews.
+    /// A `Mesh2d` overlay that declares what it paints composites like a
+    /// sprite: hidden whole, redrawn as the uncovered pieces, and the pieces
+    /// keep its silhouette look, not the sprite's sampled colour.
     #[test]
     fn a_declared_non_sprite_drawable_is_redrawn_as_silhouette_pieces() {
         let mut app = test_app();
@@ -986,9 +852,8 @@ mod tests {
         );
         let n = pieces(&mut app);
         assert!((1..=4).contains(&n), "expected uncovered pieces, got {n}");
-        // ⛔ AND THEY LOOK LIKE THE OVERLAY, NOT LIKE A SPRITE OF IT. A piece
-        // that sampled the texture's colour would paint the character's art in
-        // the place of its flash.
+        // The pieces look like the overlay. A piece that sampled the texture
+        // colour would paint the character's art in place of its flash.
         let looks: Vec<(f32, f32)> = {
             let world = app.world_mut();
             let mut q = world
@@ -1012,11 +877,9 @@ mod tests {
         );
     }
 
-    /// ⭐ A DECLARED DEPENDANT ANSWERS FOR ITSELF, exactly as a sprite dependant
-    /// does: its OWN geometry decides, so a silhouette drawn nowhere near the
-    /// pane is not hidden because the body it names is behind one. This is the
-    /// reported defect -- a flashing far-side fighter whose lower half met the
-    /// pane lost its entire silhouette.
+    /// A declared dependant answers for itself, as a sprite dependant does. A
+    /// silhouette far from the pane is not hidden because its body is behind
+    /// one.
     #[test]
     fn a_declared_dependant_disjoint_from_the_pane_is_not_hidden_by_its_owner() {
         use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
@@ -1052,16 +915,13 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ RELEASING THE PORTAL'S CLAIM MUST NOT RESURRECT A BODY SOMEBODY ELSE
-    /// IS HIDING. The exact handoff a GPT review asked for, 2026-09-06.
+    /// Releasing the portal's claim must not show a body that another owner
+    /// still hides.
     ///
-    /// Frame N: the body is far-side, so the portal hides it and records that
-    /// the hide is its own. Frame N+1: it crosses to the NEAR side while an
-    /// independent owner -- morph-ball presentation hiding the base
-    /// `PlayerVisual`, or submerged presentation -- still requires it hidden.
-    /// The portal reason is gone, and the release branch used to write
-    /// `Visibility::Inherited` on the strength of its own bookkeeping marker
-    /// alone ⇒ the portal subsystem un-hid a body it did not own.
+    /// Frame N: the body is far-side, so the portal hides it and records the
+    /// claim. Frame N+1: it crosses to the near side while another owner
+    /// (morph-ball or submerged presentation) still hides it. The release must
+    /// not write `Visibility::Inherited`.
     #[test]
     fn releasing_the_portal_hide_leaves_another_owners_hide_alone() {
         let mut app = test_app();
@@ -1092,20 +952,13 @@ mod tests {
              stopped being far-side"
         );
 
-        // ⛔⛔ AND THE RELEASE ITSELF, WHICH THIS TEST DID NOT ASSERT. Deleting
-        // `commands.entity(entity).remove::<PortalSourceHidden>()` left all 87
-        // tests of this crate GREEN: the visibility assertion above is satisfied
-        // by the OTHER owner's hide whether the claim is dropped or not. A pair
-        // of arms for arrival is not a pair for departure -- the fighter lane's
-        // formulation, found the same way, by a poison that walked out unharmed.
+        // The claim itself must also be released; the visibility check above
+        // passes either way because of the other owner's hide.
         //
-        // ⚠ A STALE CLAIM IS NOT COSMETIC. `PortalSourceHidden` is what tells the
-        // render publisher that a `Hidden` body is hidden BY THE PORTAL and may
-        // still be composited (`portal_hid_it.is_none()`), and what makes this
-        // resolver hide the body's `PresentationOf` dependants. Left behind, a
-        // body hidden by a morph or a submerge keeps publishing compositing
-        // candidates and keeps its silhouette suppressed, for as long as it
-        // lives.
+        // A stale `PortalSourceHidden` tells the render publisher that the body
+        // is portal-hidden and may still be composited
+        // (`portal_hid_it.is_none()`). It also makes this resolver hide the
+        // body's `PresentationOf` dependants.
         assert!(
             app.world().get::<crate::source_visibility::PortalSourceHidden>(body).is_none(),
             "the portal's reason ended, so its CLAIM must end too -- a stale claim \

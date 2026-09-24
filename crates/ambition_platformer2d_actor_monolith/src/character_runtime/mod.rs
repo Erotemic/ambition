@@ -624,15 +624,10 @@ pub fn declare_registered_characters(
 
 /// An ACTOR that resolved a character identity needs that art too.
 ///
-/// That system watches `WornCharacter` — the identity a body PUTS ON. An `EnemySpawn` wears
-/// nothing: it carries its character on `ActorConfig::sprite_character_id` instead. A spawn that
-/// NAMES a character has that id stated onto the config by `ActorClusterSeed::new_character_in`;
-/// only the archetype road, which names none, still reaches for the display-name join
-/// (`catalog.id_for_display_name`).
-/// So a room full of authored enemies declared their characters, resolved them correctly, and
-/// never asked for the art.
-///
-/// Four of them stand in `intro_escape_shaft`, in the sequence a stranger plays first .
+/// That system watches `WornCharacter` — the identity a body PUTS ON. A runtime minion
+/// (`spawn_runtime_minion_into`) wears nothing: its character is stated only onto
+/// `ActorConfig::sprite_character_id` by `ActorClusterSeed::new_character_in`, so without this
+/// system it would resolve its character and never ask for the art.
 ///
 /// `Added` rather than `Changed`. The actor cluster view borrows `ActorConfig`
 /// mutably every tick, which marks it changed whether or not anything moved, so

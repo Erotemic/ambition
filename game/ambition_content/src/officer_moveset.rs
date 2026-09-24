@@ -1,23 +1,19 @@
-//! The Officer — the brawler archetype's table, under his own name, plus the
-//! one move that is his.
+//! The Officer: the brawler archetype's table under his own name, plus his
+//! own specials.
 //!
-//! Unarmed for every normal, on the Pugnacious Polygon's skeleton and its clip
-//! vocabulary. He throws the archetype's punches at the archetype's timings
-//! because they are literally the archetype's punches; what differs is who is
-//! throwing them and what the air does about it, which is the sprite sheet's
-//! business and not this table's.
+//! Unarmed for every normal, on the Pugnacious Polygon's skeleton and clip
+//! vocabulary. He uses the archetype's punches and timings; the difference is
+//! in the sprite sheet, not this table.
 //!
 //! See [`crate::archetype_moveset`] for why the ids are renamed rather than
 //! shared or copied.
 
 use ambition_entity_catalog::{MoveEvent, MoveEventKind, MoveSpec, MovesetContract};
 
-/// ⭐⭐ THESE FOUR NUMBERS ARE READ OFF THE ART, NOT CHOSEN. `shoot.clip.json`
-/// runs 12 frames at 58ms; it raises `sidearm_vis` on frame 2, marks its
-/// `hitbox.active` and draws its muzzle flare on frame 6, and drops the gun back
-/// to `hand_vis` on frame 11. A table that fired on any other frame would put
-/// the round somewhere the flash is not, which is the one disagreement between
-/// an animation and a moveset that a player sees immediately and cannot name.
+/// These four numbers come from the art. `shoot.clip.json` runs 12 frames at
+/// 58ms: it raises `sidearm_vis` on frame 2, marks `hitbox.active` and draws
+/// the muzzle flare on frame 6, and returns to `hand_vis` on frame 11. Firing
+/// on any other frame would put the round away from the flash.
 const DRAW_AT_S: f32 = 0.116;
 const FIRE_AT_S: f32 = 0.348;
 const HOLSTER_AT_S: f32 = 0.638;
@@ -39,27 +35,20 @@ pub fn officer_moveset() -> MovesetContract {
 
 /// Neutral special: he shoves the room back, and it does not hurt anybody.
 ///
-/// ⭐⭐ THE FIRST AUTHORED WINDBOX ON THE ROSTER. `VolumeReaction::Windbox` has
-/// been shipped for a long time — down to a validation error for a windbox that
-/// carries damage, and `hit_reaction`'s `flinchless: hitbox.windbox().is_some()`
-/// saying *"this is a push, not a hit"* — and NOTHING used it. Measured
-/// 2026-09-05: zero authored windboxes anywhere. ⇒ This move costs authoring
-/// only; see `ambition_entity_catalog::authoring::gust`.
+/// A windbox (`VolumeReaction::Windbox`; see
+/// `ambition_entity_catalog::authoring::gust`). `hit_reaction` treats it as a
+/// push, not a hit (`flinchless: hitbox.windbox().is_some()`).
 ///
-/// ⭐ IT MAKES HIS KIT ONE IDEA. He already draws a sidearm and plants a riot
-/// shield; a crowd-control officer's third tool is *get back*, not a haymaker.
+/// It fits his kit: a sidearm, a riot shield, and "get back".
 ///
-/// ⛔⛔ IT DISPLACES A KO MOVE AND THAT IS THE REAL COST, stated rather than
-/// buried: the brawler's `haymaker` is `damage: 13, knockback: 142` and this
-/// does no damage at all. He keeps every smash, every tilt and `the_draw`, so
-/// he is not short of ways to finish — but a player who picks him is trading a
-/// button that kills for a button that CREATES SPACE, and that is a real
-/// character decision rather than a free addition. ⚠ Unlike the mine and Sing,
-/// there was no empty slot to take: the archetype fills all four specials.
+/// The cost: it replaces the brawler's `haymaker` (`damage: 13,
+/// knockback: 142`) and does no damage. He keeps every smash, tilt and
+/// `the_draw`, so he still has finishers, but he trades a kill button for a
+/// space-making button.
 ///
-/// ⚠ SUSTAINED, SO IT PUSHES EVERY FRAME YOU STAND IN IT. That is what makes it
-/// a wall rather than a shove, and it is the whole reason `repeating` is an
-/// authored bool: a one-shot version of this move would be a worse haymaker.
+/// Sustained, so it pushes every frame you stand in it: a wall, not a shove.
+/// That is why `repeating` is authored; a one-shot version would be a worse
+/// haymaker.
 fn the_order_to_disperse() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::authoring::gust(
         ambition_entity_catalog::authoring::Gust {
@@ -68,22 +57,18 @@ fn the_order_to_disperse() -> ambition_entity_catalog::MoveSpec {
             // Slower to open than the haymaker it replaces: holding ground is
             // not a read, and he should not win the exchange by pressing first.
             startup_s: 0.20,
-            // ⭐ LONG. The haymaker's danger lasted 0.08s; this lasts more than
-            // four times that, because a gust is an area you cannot walk through
-            // rather than a moment you can be caught by.
+            // Long: the haymaker's danger lasted 0.08s; this lasts over four times as
+            // long, because a gust is an area you cannot walk through.
             active_s: 0.34,
             recover_s: 0.30,
-            // Out in front and slightly low — he is pushing at chest height with
-            // a shield, not swinging at a head.
+            // In front and slightly low: he pushes at chest height with a shield.
             offset: (30.0, 2.0),
             half_extents: (30.0, 22.0),
-            // Firm enough to break a rush and take somebody off a ledge, well
-            // short of a launch: this must never be a kill button, or the trade
-            // above stops being a trade.
+            // Firm enough to break a rush and take someone off a ledge, well short of a
+            // launch. It must never be a kill button.
             push: 96.0,
-            // Away and a little up, so a shoved fighter is briefly airborne and
-            // has to land before they can re-approach. ⛔ Authored rather than
-            // derived: wind blows ONE WAY, whichever side you walked in from.
+            // Away and slightly up, so a shoved fighter is briefly airborne. Authored,
+            // not derived: wind blows one way, whichever side you came from.
             push_dir: (1.0, -0.22),
             sustained: true,
         },
@@ -92,37 +77,29 @@ fn the_order_to_disperse() -> ambition_entity_catalog::MoveSpec {
 
 /// Down special: he plants a riot shield and EATS what is thrown at him.
 ///
-/// ⭐⭐ A COUNTER STANCE WHOSE ANSWER IS TO SWALLOW. The engine already gives a
-/// counter a reflector for free — the projectile road gates on the same
-/// `parrying()` window a stance opens — so this move exists to prove the other
-/// response: `absorbs_projectiles` makes the caught shot go AWAY instead of
-/// back, through the one `intercept_projectile` operation the parry already
-/// uses.
+/// A counter stance whose response is to absorb. A stance already gets a
+/// reflector (the projectile road gates on the same `parrying()` window);
+/// `absorbs_projectiles` makes the caught shot disappear instead, through the
+/// same `intercept_projectile` operation the parry uses.
 ///
-/// ⛔ AND IT IS THE RIGHT FIGHTER FOR IT. Reflecting is loud and rewards a read;
-/// absorbing is quiet and rewards STANDING THERE, which is what a man with a
-/// riot shield does. The Officer's other authored move is a gun — a fighter who
-/// answers ranged pressure at both ends is a coherent one.
+/// It suits him: absorbing rewards standing your ground with a riot shield,
+/// and his other authored move is a gun, so he answers ranged pressure at
+/// both ends.
 ///
-/// ⚠ HIS SPECIALS WERE THE BRAWLER ARCHETYPE'S until now, which is the case Jon
-/// named: *"we have a lot of characters with boring specials."* This replaces a
-/// borrowed generic with something only he does.
-///
-/// ⚠ The response is the standing grab: absorbing a shot leaves him next to
-/// whoever threw it, and a stance that ate the projectile and did nothing else
-/// would be a wall rather than a decision.
+/// Absorbing a shot leaves him near the thrower, so the standing grab is the
+/// follow-up.
 fn the_riot_shield() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::smash_counter::counter_move(
         "officer_riot_shield",
         "special",
-        // Slower to plant than a sword counter: this is a commitment to a
-        // POSITION, not a read on one attack.
+        // Slower to plant than a sword counter: a commitment to a position, not a
+        // read on one attack.
         0.12,
         0.20,
         0.38,
         ambition_entity_catalog::smash_counter::CounterParams {
-            // A heartbeat, not a duration — `parry_window_timer` decays, and the
-            // stance re-arms it every frame it is live.
+            // A heartbeat, not a duration: `parry_window_timer` decays, and the stance
+            // re-arms it every live frame.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
@@ -135,7 +112,7 @@ fn the_riot_shield() -> ambition_entity_catalog::MoveSpec {
                 },
             )
             .expect("the riot shield's capture params serialize"),
-            // ⭐ THE WHOLE POINT OF THIS MOVE.
+            // The point of this move.
             absorbs_projectiles: true,
         },
     )
@@ -143,30 +120,21 @@ fn the_riot_shield() -> ambition_entity_catalog::MoveSpec {
 
 /// Side special: he draws the sidearm and fires one round.
 ///
-/// ⭐⭐ JON'S DESIGN, 2026-08-26: *"we should also polish the officer and give
-/// him a side b that pulls out and shoots a gun."*
+/// Jon: *"give him a side b that pulls out and shoots a gun."*
 ///
-/// ⛔⛔ NO `equips`, AND THAT IS THE ONE PLACE THIS DIVERGES FROM THE ADMIRAL'S
-/// `run_out_the_guns`, WHICH IS OTHERWISE THE TEMPLATE. His gun-sword is a
-/// PROP — a separate sprite a move puts in an empty hand — so his move draws it
-/// with `MoveSpec::equips`. The Officer's sidearm is part of HIS OWN SHEET: the
-/// rig carries `holster` and `sidearm` parts on an opacity channel, and the
-/// `shoot` clip raises them. Equipping a held item on top would register a
-/// second gun and draw it beside the one his hand is already holding.
+/// No `equips`, unlike the admiral's `run_out_the_guns` (otherwise the
+/// template). The admiral's gun-sword is a separate prop sprite. The
+/// Officer's sidearm is part of his own sheet (`holster` and `sidearm` parts
+/// on an opacity channel, raised by the `shoot` clip); equipping a held item
+/// would draw a second gun.
 ///
-/// ⭐ SO THE CAPABILITY IS THE BODY'S. `MoveEventKind::Ranged` fires the owner's
-/// ranged action, and with nothing brandished that is the action set his
-/// character states — see `crate::authored::officer`, which is where a character
-/// says what it DOES.
+/// So the capability is the body's: `MoveEventKind::Ranged` fires the owner's
+/// ranged action, which his character states in `crate::authored::officer`.
 ///
-/// ⛔ NO MELEE VOLUME. This replaces `officer_shoulderrush`, a body-to-body
-/// charge whose damage was a hitbox, and a move that both fired a round and
-/// carried a strike would be two moves wearing one button. The round IS the
-/// damage, as it is for every ranged move in the tree.
+/// No melee volume: the round is the damage.
 ///
-/// ⛔ AND NO FORWARD IMPULSE, WHICH THE SHOULDER RUSH HAD. A draw is a move you
-/// plant your feet for; carrying the rush's momentum into it would make the
-/// shot longest out of a run, and this move's whole read is that he stopped.
+/// No forward impulse: he plants his feet to draw, so the shot does not go
+/// further out of a run.
 fn the_draw() -> MoveSpec {
     let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "officer_the_draw",
@@ -180,10 +148,8 @@ fn the_draw() -> MoveSpec {
         kind: MoveEventKind::Ranged,
     });
     let spec = ambition_entity_catalog::authoring::sfx(spec, DRAW_AT_S, "player.attack.charge");
-    // ⭐ THE SHOT'S OWN SOUND IS NOT AUTHORED HERE. A `Ranged` event routes both
-    // the report and the projectile off the weapon that fired it, so a pistol
-    // sounds like a pistol without this table naming a cue it would then have to
-    // keep in step with the weapon.
+    // The shot's sound is not authored here. A `Ranged` event takes the report
+    // and the projectile from the weapon that fired.
     let spec = ambition_entity_catalog::authoring::vfx(spec, FIRE_AT_S, "muzzle_flash");
     ambition_entity_catalog::authoring::committed_tail(spec, HOLSTER_AT_S, 0.35)
 }
@@ -192,12 +158,10 @@ fn the_draw() -> MoveSpec {
 mod tests {
     use super::*;
 
-    /// ⛔⛔ THE VERB IS `special_forward`, NOT `special_side`. `SmashRepertoire`
-    /// binds the four specials as `special`, `special_forward`, `special_up` and
-    /// `special_down` (+ `special_air_down`), and a `replace_special` aimed at a
-    /// name nothing answers to inserts a move, binds a verb no press produces,
-    /// and leaves the archetype's own side special still bound — a fighter with
-    /// a new move nobody can reach and an old one that still comes out.
+    /// The verb is `special_forward`, not `special_side`. `SmashRepertoire`
+    /// binds `special`, `special_forward`, `special_up` and `special_down`
+    /// (+ `special_air_down`). A `replace_special` aimed at an unused name would
+    /// add an unreachable move and leave the archetype's side special bound.
     #[test]
     fn the_draw_answers_the_side_special_and_the_shoulder_rush_is_gone() {
         let set = officer_moveset();
@@ -212,9 +176,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE SHOT FIRES WHERE THE ART FLASHES. `shoot.spec.json` marks frame 6
-    /// active and draws the muzzle there; frame 6 at 58ms is 0.348s. This is the
-    /// arm that goes red if either side moves without the other.
+    /// The shot fires where the art flashes: `shoot.spec.json` marks frame 6
+    /// active, and frame 6 at 58ms is 0.348s. This fails if either side moves
+    /// alone.
     #[test]
     fn the_round_leaves_on_the_frame_the_muzzle_flares() {
         let set = officer_moveset();
@@ -241,9 +205,7 @@ mod tests {
         );
     }
 
-    /// ⛔ AND IT CARRIES NO STRIKE. The round is the damage; a hitbox as well
-    /// would be two moves on one button, and it is the shape the shoulder rush
-    /// this replaced actually had.
+    /// It carries no strike: the round is the damage.
     #[test]
     fn the_draw_hits_nobody_with_his_body() {
         let set = officer_moveset();
@@ -258,13 +220,10 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ ALL THREE WINDBOX INVARIANTS, because each one is SILENT when broken.
-    /// Damage above zero makes the catalog reject the move; growth above zero
-    /// shoves a damaged fighter further than a fresh one, which is a hit's rule
-    /// and not wind's; and a missing `repeating` turns a wall you cannot walk
-    /// through into a single shove that is strictly worse than the haymaker it
-    /// replaced. ⇒ A test that only found a `Windbox` reaction would pass
-    /// against all three.
+    /// All three windbox invariants, because each is silent when broken:
+    /// damage above zero makes the catalog reject the move; growth above zero
+    /// shoves a damaged fighter further (a hit's rule, not wind's); and without
+    /// `repeating` the wall becomes a single shove.
     #[test]
     fn his_neutral_is_a_wall_of_air_that_hurts_nobody() {
         let set = officer_moveset();
@@ -307,8 +266,8 @@ mod tests {
             );
         }
 
-        // ⛔ AND THE ARCHETYPE'S HAYMAKER IS GONE rather than left unreachable,
-        // where every census that walks `moves` reports it as part of his kit.
+        // The archetype's haymaker is removed, not left unreachable, where every
+        // census over `moves` would count it.
         assert!(
             !set.moves.iter().any(|m| m.id == "officer_haymaker"),
             "the displaced haymaker is still in the table"
@@ -316,16 +275,12 @@ mod tests {
     }
 }
 
-/// Does the CPU actually PRESS his gust, or does it merely appear in a list?
+/// Does the CPU actually press his gust?
 ///
-/// ⛔⛤ THE OPTION-LIST TEST NEXT DOOR (`options/tests.rs`) SAID YES AND WAS
-/// MEASURING A FIXTURE. It scored a synthetic gust against a synthetic 40px
-/// jab, so "the shove wins at the ledge" was a fact about a two-move kit.
-/// Against the ELEVEN candidates `attack_kit_of` builds from this table, the
-/// rival beside the blast line is `officer_tilt_forward` — 7 damage, faster,
-/// and reaching 48px — and at the shipped weight the gust placed fourth. ⇒ A
-/// feature is not delivered when its unit test passes; it is delivered when
-/// the character uses it.
+/// The option-list test in `options/tests.rs` uses a synthetic two-move kit.
+/// This uses the real candidates `attack_kit_of` builds from this table,
+/// where `officer_tilt_forward` (7 damage, faster, 48px reach) is the rival
+/// at the blast line.
 #[cfg(test)]
 mod he_uses_the_gust {
     use super::officer_moveset;
@@ -345,12 +300,9 @@ mod he_uses_the_gust {
     /// The launch conditions a CONTENT claim is about: a fresh reference body
     /// under the undeclared ruleset.
     ///
-    /// ⚠ **NAMED RATHER THAN IMPLIED.** `LaunchEnvelope::at` used to take a
-    /// bare damage number and silently assume weight `1.0`, no percent scale,
-    /// the identity growth curve and no rage — which is how the fighter brain
-    /// came to rank its finishers under a law the hit resolver does not use.
-    /// An authoring claim IS about that world; a scorer is not, and now both
-    /// have to say which.
+    /// Named, not implied: `LaunchEnvelope::at` takes explicit conditions. An
+    /// authoring claim is about this reference world; a scorer must state its
+    /// own.
     fn fresh(victim_damage: i32) -> ambition_entity_catalog::launch::LaunchConditions {
         ambition_entity_catalog::launch::LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
             .at_damage(victim_damage)
@@ -359,16 +311,15 @@ mod he_uses_the_gust {
     /// The stage the readings below are in. `Aabb2d::new` takes a CENTRE and a
     /// HALF-SIZE, so this is `x ∈ 0..800`, `y ∈ 0..600`.
     ///
-    /// ⚠ `StageView::distance_to_edge` takes the nearest of all FOUR sides, so
-    /// a body standing at `y = 300` is never more than 300 from an edge and
-    /// `foe_edge_proximity` never falls below `1 - 300/400 = 0.25` anywhere on
-    /// this floor. The centre-stage readings below are that floor, not zero.
+    /// `StageView::distance_to_edge` takes the nearest of all four sides, so at
+    /// `y = 300` a body is never more than 300 from an edge, and
+    /// `foe_edge_proximity` never falls below `1 - 300/400 = 0.25` on this floor.
+    /// The centre-stage readings are that floor, not zero.
     const HALF_STAGE: f32 = 400.0;
 
-    /// ⚠ THE PRESS ROAD, NOT A HAND-PICKED LIST. Mirrors `attack_kit_of` in the
-    /// actor tick — the same `move_for_attack` resolution over the same three
-    /// verbs and five directions — so a move this test scores is a move a
-    /// button reaches.
+    /// The press road, not a hand-picked list. Mirrors `attack_kit_of` in the
+    /// actor tick (the same `move_for_attack` over the same three verbs and five
+    /// directions), so every scored move is reachable by a button.
     fn kit() -> Vec<AttackCandidate> {
         let set = officer_moveset();
         let mut kit: Vec<AttackCandidate> = Vec::new();
@@ -395,8 +346,7 @@ mod he_uses_the_gust {
                     frames: spec.frame_data(),
                     binding: AttackBinding { verb, direction },
                     legality: ActionLegality::Now,
-                    // A fixture kit built here, not by the production join:
-                    // nothing in it has landed anything.
+                    // A fixture kit: nothing in it has landed anything.
                     wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
                 });
             }
@@ -408,10 +358,8 @@ mod he_uses_the_gust {
         WorldView {
             self_view: SelfView {
                 pos: ae::Vec2::new(me_x, 300.0),
-                // He faces the foe. Body-local `+x` is FACING, so a body left
-                // at 1.0 would read a foe on its left as behind every forward
-                // volume and the left blast line would answer differently from
-                // the right one for no reason in the game.
+                // He faces the foe. Body-local `+x` is facing, so a fixed 1.0 would make
+                // the left blast line answer differently from the right.
                 facing: if foe_x >= me_x { 1.0 } else { -1.0 },
                 gravity_down: ae::Vec2::new(0.0, 1.0),
                 alive: true,
@@ -459,17 +407,15 @@ mod he_uses_the_gust {
     fn he_shoves_at_the_ledge_and_punches_at_centre() {
         let kit = kit();
 
-        // ── BESIDE THE BLAST LINE, BOTH OF THEM ─────────────────────────────
-        // Right: the foe stands 40px from `x = 800`. Left: the mirror, which
-        // is here because the body-local frame is the one place a spacing
-        // move could come out handed.
+        // ── Beside the blast line, both sides ───────────────────────────────
+        // Right: the foe is 40px from `x = 800`. Left: the mirror, because the
+        // body-local frame could make a spacing move handed.
         assert_eq!(best_at(&kit, 700.0, 760.0), GUST, "right ledge");
         assert_eq!(best_at(&kit, 740.0, 790.0), GUST, "right ledge, closer in");
         assert_eq!(best_at(&kit, 100.0, 40.0), GUST, "left ledge");
 
-        // ── AND NOT AT CENTRE STAGE, which is the other half of "intentional".
-        // A CPU that opened every exchange with a damageless shove would be a
-        // worse fighter, not a smarter one.
+        // ── Not at centre stage: a CPU that opened every exchange with a
+        // damageless shove would be a worse fighter.
         for (me, foe) in [(345.0, 400.0), (400.0, 440.0), (400.0, 360.0)] {
             assert_ne!(
                 best_at(&kit, me, foe),
@@ -479,10 +425,9 @@ mod he_uses_the_gust {
         }
     }
 
-    /// ⛔ THE ANTI-VACUITY HALF. `assert_ne!` above passes just as well if the
-    /// gust is not an option at all — which is what the range filter does to a
-    /// pure shove thrown from outside its own push box. This pins that the
-    /// centre-stage readings are a RANKING and not an absence.
+    /// Anti-vacuity: `assert_ne!` above also passes if the gust is not an option
+    /// at all (the range filter removes a shove thrown from outside its box).
+    /// This checks the centre-stage result is a ranking, not an absence.
     #[test]
     fn the_gust_is_on_the_table_at_centre_stage_and_simply_loses() {
         let kit = kit();
@@ -499,11 +444,8 @@ mod he_uses_the_gust {
             .iter()
             .find(|a| a.move_id == GUST)
             .expect("the gust is offered at centre stage — it just does not win");
-        // ⚠ A RANKING, NOT A SIGN TEST. An earlier draft asserted the gust
-        // scored above zero, which is a claim about `displacement_value`'s
-        // magnitude and therefore moves with the very weight under test — it
-        // reddened at 1.0 for a reason that had nothing to do with vacuity.
-        // What this arm owes is that the centre-stage answer is a COMPARISON.
+        // A ranking, not a sign test: "the gust scored above zero" depends on the
+        // weight under test.
         assert_ne!(winner.move_id, GUST, "the winner is not the gust");
         assert!(
             gust.score < winner.score,
@@ -514,9 +456,9 @@ mod he_uses_the_gust {
         );
     }
 
-    /// ⚠ THE POPULATION THE WEIGHT MOVES, kept beside the reading that set it.
+    /// The population the weight affects, kept beside the reading that set it.
     /// If a third push move lands, `displacement_value`'s band was measured
-    /// without it and this test says so before a balance pass wonders why.
+    /// without it, and this test says so.
     #[test]
     fn exactly_two_moves_in_the_roster_author_a_push_region() {
         let mut pushers: Vec<String> = Vec::new();
@@ -536,30 +478,18 @@ mod he_uses_the_gust {
         );
     }
 
-    /// **AT 150% HE STOPS POKING AND SWINGS FOR THE KILL.**
+    /// At 150% he stops poking and swings for the kill.
     ///
-    /// ⛔⛤ HE DID NOT, AND THE WEIGHT THAT SHOULD HAVE MADE HIM WAS DEAD.
-    /// `kill_potential` was `foe.damage_frac()` — a fact about the opponent,
-    /// identical for every candidate — and an attack's score is only ever
-    /// compared with another attack's. Every rung of the authored ladder tunes
-    /// that weight from 0.0 to 0.4 and none of it could move a decision:
-    /// measured at 150%, he opened with `officer_jab` at the same gap where he
-    /// opens with it at 0%.
+    /// `kill_potential` must depend on the move, not only on the foe's percent
+    /// (which is the same for every candidate). It combines the foe's percent
+    /// with this move's launch, compared against the kit's best launch at that
+    /// percent.
     ///
-    /// ⇒ A kill is the foe's percent AND the launch this move carries, so the
-    /// feature is now shared against the kit's best launch AT THAT PERCENT.
+    /// The finisher is the up smash: under the real launch law his down smash is
+    /// `(142, 2.82)` and his up smash `(158, 5.83)`, 565 against 1032 at 150%.
     ///
-    /// ⛔⛤ **AND THE MOVE HE SWINGS IS THE UP SMASH, NOT THE DOWN SMASH — the
-    /// arm said `officer_smash_down` while the launch summary was
-    /// `max(base knockback)`.** Under the real law his down smash is `(142,
-    /// 2.82)` and his up smash is `(158, 5.83)`: 565 against 1032 at 150%. The
-    /// biggest base belongs to the FORWARD smash and the biggest launch, at any
-    /// percent worth finishing at, to the up smash. The old expectation was a
-    /// reading of the defect.
-    ///
-    /// ⚠ AND THE 80% ROW IS HERE BECAUSE THE SWITCH HAS TO HAPPEN SOMEWHERE
-    /// MEASURABLE — a test that only reads 0% and 150% passes for a weight that
-    /// switches at 1% as happily as for one that switches at 149%.
+    /// The 80% row checks that the switch happens at a measurable point; 0% and
+    /// 150% alone would pass a switch at 1% or at 149%.
     #[test]
     fn a_fresh_opponent_gets_a_poke_and_a_damaged_one_gets_a_smash() {
         let kit = kit();
@@ -598,12 +528,10 @@ mod he_uses_the_gust {
         );
     }
 
-    /// ⛔⛤ **AND HIS BIGGEST KNOCKBACK NUMBER IS NOT A FINISHER**, which is
-    /// the trap this feature had to avoid. `officer_disperse` authors
-    /// `knockback: 96` — more than his jab, his tilts and his uppercut — and
-    /// `knockback_growth: Some(0.0)`, so it shoves exactly as far at 200% as at
-    /// 0%. A kill question fed `max_knockback` would have made the gust his
-    /// best answer to a damaged opponent, which is the opposite of true.
+    /// His biggest knockback number is not a finisher. `officer_disperse` has
+    /// `knockback: 96` but `knockback_growth: Some(0.0)`, so it shoves the same at
+    /// 200% as at 0%. Using `max_knockback` would make the gust his answer to a
+    /// damaged opponent.
     #[test]
     fn the_gust_earns_no_kill_credit_however_hurt_the_opponent_is() {
         let gust = officer_moveset()
@@ -625,9 +553,8 @@ mod he_uses_the_gust {
         );
         assert!(!gust.launch.grows_under(fresh(0)));
 
-        // ⭐ THE CONTROL IS AN ORDINARY MOVE OF HIS, not another set one: the
-        // two fields agree everywhere the launch grows, and a derivation that
-        // returned zero for everything would satisfy the arm above forever.
+        // Control: an ordinary move of his. A derivation that returned zero for
+        // everything would pass the arm above.
         let jab = officer_moveset()
             .moves
             .iter()
@@ -638,28 +565,20 @@ mod he_uses_the_gust {
         assert!(jab.max_knockback > 0.0, "the jab launches at all");
     }
 
-    /// **AND THE SAME SHOVE FROM THE OTHER SIDE IS A RESCUE, SO IT IS NOT
-    /// WORTH LEDGE VALUE.**
+    /// The same shove from the other side is a rescue, so it has no ledge value.
     ///
-    /// ⛔⛤ THE FIRST VERSION OF `displacement_value` PAID FOR BOTH. It was
-    /// `coverage_fit(push) × how near the foe is to a blast line` — coverage
-    /// says the push REACHES them and proximity says they are near going off,
-    /// and neither says the push sends them THAT WAY. Wind blows one way: the
-    /// gust's `push_dir` is authored precisely so it does not flip to suit the
-    /// geometry. So an Officer who has crossed to the OUTBOARD side of a
-    /// cornered opponent shoves them back toward centre stage — same coverage,
-    /// same proximity, opposite worth — and scored it as ledge control.
+    /// Coverage says the push reaches the foe and proximity says they are near a
+    /// blast line; neither says the push sends them that way. The gust's
+    /// `push_dir` is fixed, so an Officer on the outboard side of a cornered foe
+    /// shoves them back toward centre.
     ///
-    /// ⚠ THE ARMS ABOVE COULD NOT SEE THIS. They test the right ledge and its
-    /// mirror, which are the same orientation twice: attacker inboard, foe
-    /// cornered. A mirror is not a control for handedness of INTENT.
+    /// The ledge arms above test one orientation twice (attacker inboard); a
+    /// mirror is not a control for direction of intent.
     #[test]
     fn a_shove_that_pushes_the_cornered_foe_back_inboard_is_not_ledge_control() {
         let kit = kit();
-        // The foe is cornered at 760, 40px from the right blast line — the
-        // SAME foe position as the winning arm above. The Officer has crossed
-        // to 790, outboard of them, so he faces left and his forward gust
-        // blows toward centre.
+        // The foe is cornered at 760, as in the winning arm above. The Officer is
+        // at 790, outboard, so he faces left and his gust blows toward centre.
         let best = best_at(&kit, 790.0, 760.0);
         assert_ne!(
             best, GUST,
@@ -667,9 +586,8 @@ mod he_uses_the_gust {
              sends a cornered opponent back to safety"
         );
 
-        // ⭐ THE CONTROL IS THE SAME FOE AT THE SAME EDGE PROXIMITY, attacked
-        // from inboard. Without it this arm is satisfied by a gust that never
-        // wins anywhere, which is what the weight was doing before 1.8.
+        // Control: the same foe at the same edge, attacked from inboard. Without
+        // it, a gust that never wins would pass.
         assert_eq!(
             best_at(&kit, 700.0, 760.0),
             GUST,

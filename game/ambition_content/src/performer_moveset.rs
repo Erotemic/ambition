@@ -9,8 +9,7 @@ use ambition_entity_catalog::smash_flyline::{author_flyline, FlylineParams};
 use ambition_entity_catalog::smash_trapdoor::{author_trapdoor, TrapdoorParams};
 use ambition_entity_catalog::{MoveSpec, MovesetContract};
 
-/// THE TRAP, AS JON SPECIFIED IT — the whole lifecycle, in his words,
-/// 2026-08-28:
+/// The trap. Jon:
 ///
 /// > *"When down-b is resolved to the trapdoor move, a trapdoor opens and the
 /// > character descends underground. In this subterranean state they can move
@@ -20,113 +19,86 @@ use ambition_entity_catalog::{MoveSpec, MovesetContract};
 /// > the move happens, where the trapdoor opens and then they leap out with an
 /// > explosion and hurtbox in the area."*
 ///
-/// FIVE STAGES, and each one is a constant below:
+/// Five stages, one constant each:
 ///
-/// 1. `DOOR_OPENS_S` — the boards give. She is still in the world.
-/// 2. `SINK_AT_S` — she descends. `BodyMode::Submerged`: not drawn, not
+/// 1. `DOOR_OPENS_S`: the boards give. She is still in the world.
+/// 2. `SINK_AT_S`: she descends. `BodyMode::Submerged`: not drawn, not
 ///    hittable, no gravity, no geometry, and the door closes over her.
-/// 3. `HOLD_UNDER_AT_S`..`MAX_UNDER_S` — the SUBTERRANEAN state. She steers,
-///    surface-locked to the boards she went through, and what the stage shows is
-///    an UNOPENED trapdoor sliding along the floor. This is the beat the move
-///    exists for, and it is the one the clock freezes on.
-/// 4. `EXIT_DOOR_OPENS_S` — the ask ends the freeze (or the ceiling does) and
-///    the exit trapdoor bangs open. She is still under it.
-/// 5. `SURFACE_AT_S` — she LEAPS OUT: the surfacing beat's own launch, the
-///    firework, and a hitbox over the door. The launch is the SAME write as the
-///    placement (`TrapdoorParams::leap_speed`) rather than a second event, which
-///    is what it was while it silently did nothing.
+/// 3. `HOLD_UNDER_AT_S`..`MAX_UNDER_S`: the subterranean state. She steers,
+///    surface-locked to the boards she went through, shown as an unopened
+///    trapdoor sliding along the floor. The clock freezes on this beat.
+/// 4. `EXIT_DOOR_OPENS_S`: a press ends the freeze (or the time limit does)
+///    and the exit trapdoor opens. She is still under it.
+/// 5. `SURFACE_AT_S`: she leaps out: the surfacing launch, the firework, and
+///    a hitbox over the door. The launch is part of the placement
+///    (`TrapdoorParams::leap_speed`), not a separate event.
 ///
-/// ⭐⭐ THE SUBTERRANEAN BEAT IS A DURATION, NOT A HOLD. Jon caught the other
-/// reading in a day: *"The latest main the actor doesn't spend any time under
-/// the stage… It looks like the pop up happens immediately."* Nobody holds B
-/// while steering. She gets the whole three seconds for free and an ACTION
-/// press takes them back — see [`ChargeSustain::UntilPressedAgain`].
+/// The subterranean beat is a duration, not a hold: she gets the full three
+/// seconds without holding B, and an action press ends it early. See
+/// [`ChargeSustain::UntilPressedAgain`].
 ///
 /// `blink_out` runs at 52ms a frame. The boards give on frame 2 and she is
-/// through them by frame 3, which is when she stops being in the world.
+/// through them by frame 3, when she leaves the world.
 const DOOR_OPENS_S: f32 = 0.10;
 const SINK_AT_S: f32 = 0.16;
-/// Where the timeline FREEZES — a hair after she is under.
+/// Where the timeline freezes, just after she is under.
 ///
-/// ⛔ AFTER `SINK_AT_S`, AND THAT ORDER IS THE MECHANIC. The submerge beat is a
-/// timed event on this timeline; freezing the clock ON it or before it would
-/// hold her at the mouth of the hole forever, above ground and hittable.
+/// This must be after `SINK_AT_S`. The submerge is a timed event on this
+/// timeline; freezing on it or before it holds her at the mouth of the hole,
+/// above ground and hittable.
 const HOLD_UNDER_AT_S: f32 = 0.17;
-/// THE TIME LIMIT OF THE MOVE. Jon, 2026-08-28: *"they can move for up to the
+/// The move's time limit under the stage. Jon: *"they can move for up to the
 /// timelimit of the move (3 seconds)."*
 ///
-/// ⭐ IT WAS ONE SECOND THE DAY BEFORE (*"Give them 1 second under the stage at
-/// 1.2x run speed. I'm biasing towards making moves too powerful to start"*) and
-/// is three now. At 1.2× her 204 run speed three seconds is roughly 735 world px
-/// — several stage widths — which is exactly the bias he named, and this is the
-/// first knob to turn when it turns out to be too good.
+/// At 1.2× her 204 run speed this is about 735 world px, several stage widths.
+/// The design biases toward strong moves; this is the first knob to turn if it
+/// is too good.
 const MAX_UNDER_S: f32 = 3.0;
-/// The exit trapdoor bangs open. She is still under it for `SURFACE_AT_S -
-/// EXIT_DOOR_OPENS_S` — the door opens, THEN she comes out, which is the order
-/// Jon's sentence puts them in.
+/// The exit trapdoor opens. She stays under it for `SURFACE_AT_S -
+/// EXIT_DOOR_OPENS_S`: the door opens, then she comes out.
 const EXIT_DOOR_OPENS_S: f32 = 0.18;
 const SURFACE_AT_S: f32 = 0.30;
 /// How long the emergence hits for.
 const FIREWORK_S: f32 = 0.12;
 const TRAP_ENDS_S: f32 = 0.54;
-/// How hard she LEAPS out of the boards, against gravity.
+/// How hard she leaps out of the boards, against gravity.
 ///
-/// ⛔ A LEAP, NOT A STEP UP. She is coming out of a hole in the stage under her
-/// own power and the move's payoff is the space it buys; a body that surfaced
-/// standing still would be handing the position straight back.
+/// A leap, not a step up: the payoff is the space it buys.
 ///
-/// ⛔⛔ AND IT REACHES THE BODY THROUGH `TrapdoorParams::leap_speed`, not through
-/// an authored impulse. As an impulse it was overwritten by the surfacing beat
-/// on the very frame it fired, every time, for as long as it existed.
+/// It reaches the body through `TrapdoorParams::leap_speed`. An authored
+/// impulse would be overwritten by the surfacing beat on the same frame.
 const LEAP_OUT_SPEED: f32 = 430.0;
 
 /// How far above her the engine looks for a floor to come up through.
 ///
-/// ⛔ GENEROUS, BECAUSE SHE CANNOT SEE THE BOARDS. She has been steering blind
-/// under the stage; a tight radius would drop her into open air for being a few
-/// pixels below a platform she was plainly under. Past this there genuinely is
-/// no floor above her — she wandered off the end of the stage — and coming up
-/// into open air and falling is the honest outcome.
+/// Generous, because she steers blind under the stage and a tight radius
+/// would drop her into open air a few pixels below a platform. Past this
+/// there is no floor above her (she left the stage), and she comes up into
+/// open air and falls.
 const SURFACE_REACH: f32 = 140.0;
 
-/// The door itself. ⛔ NOT `four_point_glint`, which is the Director's blink
-/// and the whole complaint: a trapdoor is wood and hinges, not a star flash.
+/// The door itself. Not `four_point_glint`, which is the Director's blink: a
+/// trapdoor is wood and hinges.
 const TRAPDOOR_VFX: &str = "trapdoor_boards";
 
-/// THE PUFF OF SMOKE THE WHOLE TRICK HIDES BEHIND.
+/// The puff of smoke that hides the trick, like a stage trap door.
 ///
-/// ⭐⭐ JON, 2026-08-29: *"I would like the start of her down-b to cause a puff
-/// of smoke (like a real play would use to disguise going through a trap
-/// door)."* That is the stagecraft the move has been missing: a real
-/// disappearance is not the audience watching you leave, it is the audience
-/// losing sight of you for a moment and finding you gone.
+/// It fires on both forms and on the first frame, before anyone knows if the
+/// boards will give. It is the misdirection: an effect that appeared only on
+/// success would tell the opponent which form they are watching.
 ///
-/// ⛔ IT FIRES ON BOTH FORMS AND ON THE FIRST FRAME, before anything is known
-/// about whether the boards will give. The smoke is the MISDIRECTION, so it
-/// cannot wait to find out whether the trick worked — an effect that only
-/// appears when the move succeeds tells an opponent which one they are watching.
-/// ⛔⛔ `smoke_puff`, AND IT WAS `smoke_burst`, WHICH IS AN EXPLOSION. Jon,
-/// 2026-08-29: *"you used an explosion effect, not a poof of smoke effect, which
-/// I think we have."* He is exactly right and the sheet says so: `smoke_burst`
-/// is a row of **`generic_explosions`**, while `smoke_puff` is a row of
-/// `generic_exotic_fx` whose frames GROW (58→64→…px), which is what a cloud of
-/// smoke does and what a detonation does not.
-///
-/// ⭐ THE NAME WAS THE TRAP. "smoke_burst" reads as smoke and is filed under
-/// explosions; nothing in the authoring layer would have said so, because an
-/// effect id is a string and every string is spelled correctly.
+/// `smoke_puff` (a `generic_exotic_fx` row whose frames grow), not
+/// `smoke_burst`, which is a row of `generic_explosions` despite its name.
 const SMOKE_VFX: &str = "smoke_puff";
 
-/// How long the airborne form lasts — smoke, and a beat to be caught in.
+/// How long the airborne form lasts: smoke, and a beat to be caught in.
 ///
-/// ⭐⭐ SHORT ON PURPOSE. Jon: *"it doesn't do much in the air, just a poof of
-/// smoke, but that's better than no effect in the air."* It is a FEINT: it
-/// costs a little endlag, it looks exactly like the real thing for the first
-/// few frames, and it buys nothing. A move that did nothing at all would be a
-/// dead button; a move that did something useful would not be the trick failing.
+/// Short on purpose. Jon: *"it doesn't do much in the air, just a poof of
+/// smoke."* It is a feint: a little endlag, the same first frames as
+/// the real move, and no benefit.
 const AIR_PUFF_ENDS_S: f32 = 0.30;
 
-/// The emergence. ⛔ NOT the boards: those are the door opening, and this is
+/// The emergence. Not the boards: those are the door opening, and this is
 /// what comes out of it.
 const FIREWORK_VFX: &str = "starstuff_burst";
 
@@ -135,50 +107,41 @@ const FIREWORK_VFX: &str = "starstuff_burst";
 const WIRE_AT_S: f32 = 0.12;
 /// When the winch stops and the rope lets go.
 ///
-/// ⛔⛔ THE MOVE MUST OUTLAST THE LIFT, and this constant is the join. The kernel
-/// owns the wire's own clock (`WireState::lift_remaining_s`), so a timeline that
-/// ended first would leave her being flown by a maneuver nothing is animating.
-/// `the_lift_fits_inside_the_move_that_authors_it` is the guard.
+/// The move must outlast the lift. The kernel owns the wire's clock
+/// (`WireState::lift_remaining_s`), so a timeline that ended first would leave
+/// a maneuver with no animation. Guarded by
+/// `the_lift_fits_inside_the_move_that_authors_it`.
 const WIRE_RELEASES_S: f32 = WIRE_AT_S + LIFT_S;
 const WIRE_ENDS_S: f32 = WIRE_RELEASES_S + 0.10;
 
 /// How far the wire lifts her, in world px.
 ///
-/// ⭐⭐ JON ASKED FOR *"a fairly large vertical distance"*, and the only honest
-/// form of that is a number measured against the stage it is played on. The
-/// smash platform's surface sits **420px above the fall blast line** — so this
-/// is exactly the depth a fighter can be knocked to and still be brought back
-/// to the boards, and it is very nearly double the 215px the teleport it
-/// replaces covered.
+/// "A fairly large vertical distance", measured against the stage. The smash
+/// platform's surface is 420px above the fall blast line, so a fighter
+/// knocked to that depth can still return. This is nearly double the 215px of
+/// the teleport it replaced.
 ///
-/// ⛔ THE FIRST KNOB TO TURN when it proves too good, the way `MAX_UNDER_S` is
-/// the trapdoor's. Jon on the trap, and it applies here: *"I'm biasing towards
-/// making moves too powerful to start."*
+/// The first knob to turn if it is too strong, like `MAX_UNDER_S`.
 const RISE_PX: f32 = 420.0;
 
 /// How long the lift takes.
 ///
-/// ⛔ LONG ENOUGH TO SEE, WHICH IS CLAUSE ONE. At 60Hz this is 33 ticks and the
-/// largest single one moves her about 13px; the teleport it replaces covered
-/// 215px in a single frame. *"She doesn't teleport up, she gets lifted up by the
-/// wire."*
+/// Long enough to see: at 60Hz this is 33 ticks, and the largest single tick
+/// moves her about 13px. She is lifted, not teleported.
 const LIFT_S: f32 = 0.55;
 
 /// How far above her the wire's anchor is when it catches.
 ///
-/// ⭐⭐ THIS IS THE SWING RADIUS, and it is deliberately much longer than the
-/// rise. A long rope swings slowly through a wide arc; a short one snaps back
-/// hard. It must exceed [`RISE_PX`] or the winch would reel past its own pulley
-/// — with 300px left at the release, the pendulum is still meaningful at the
-/// moment it matters most.
+/// This is the swing radius, much longer than the rise: a long rope swings
+/// slowly through a wide arc. It must exceed [`RISE_PX`] or the winch reels
+/// past its pulley. With 300px left at release, the pendulum still matters.
 const ROPE_PX: f32 = 720.0;
 
 /// How far the swing may reach from straight down.
 ///
-/// ⛔ *"A BIT"* OF HORIZONTAL RECOVERY, AND THIS IS WHAT BOUNDS IT. Measured: a
-/// held stick carries her 99px sideways off a 480px platform. An uncapped
-/// pendulum on a SHORTENING rope gains angle every tick — the skater pulling her
-/// arms in — and would end the lift halfway across the stage.
+/// This bounds the "bit" of horizontal recovery. A held stick carries her 99px
+/// sideways off a 480px platform. An uncapped pendulum on a shortening rope
+/// gains angle every tick and would carry her halfway across the stage.
 const MAX_SWING_DEG: f32 = 18.0;
 
 /// What a held stick contributes to the swing, in rad/s².
@@ -186,28 +149,15 @@ const SWING_ACCEL: f32 = 3.4;
 
 /// How fast she is still rising when the wire lets go.
 ///
-/// ⭐⭐ IT IS ALSO THE WINCH'S FINAL RATE, which is the whole reason the number
-/// is small. The winch decelerates INTO the release, so the rope's last tick and
-/// her first free tick are the same speed; a flat winch with a small carry rose
-/// her at 764 px/s and cut her to 90, an eightfold stop at the apex that reads
-/// as the teleport's own feel arriving through a different mechanic.
+/// This is also the winch's final rate, so it is small. The winch slows into
+/// the release, so the rope's last tick and her first free tick match. A flat
+/// winch (764 px/s cut to 90) stopped her abruptly at the apex.
 const RELEASE_RISE: f32 = 90.0;
 
-/// ⛔⛔ THE WIRE DRAWS NO BURST AT ALL, AND IT USED TO DRAW A TRAPDOOR. Jon,
-/// 2026-08-29: *"her up-b uses the trap door, and I don't think it should."*
-/// `trapdoor_boards` is real art and it is the DOWN special's furniture — so
-/// her recovery was opening a hatch in mid-air, on screen, and saying the two
-/// specials were the same trick.
-///
-/// ⭐⭐ AND THE HONEST REPLACEMENT IS NOTHING. The rope is a PERSISTENT visual,
-/// drawn from the read model for the whole lift (`rendering::flyline`) — so this
-/// move already has the one picture it needs, and Jon's own clause allows the
-/// wire to simply appear: *"it can instantly appear as if it went from visible
-/// to invisible."* A one-shot on top of it would be decoration chosen to fill a
-/// field, which is how the trapdoor got here.
-///
-/// ⛔ AND NOT `four_point_glint` EITHER, which is the Director's blink and the
-/// whole complaint this move was rewritten for.
+/// The wire draws no burst. `trapdoor_boards` belongs to the down special,
+/// and `four_point_glint` is the Director's blink. The rope is a persistent
+/// visual drawn for the whole lift (`rendering::flyline`), and the design
+/// allows the wire to appear instantly.
 const WIRE_VFX: Option<&str> = None;
 
 /// Complete sword-fundamentals repertoire, attributed to the Performer, with her
@@ -290,31 +240,20 @@ fn author_normals(set: &mut MovesetContract) {
             });
             mv.autocancel_after_s = Some(active_end + 0.04);
         }
-        // ⛔⛤ A CONFIRMED TILT FLOWS; A SMASH COMMITS. This is the sequencing
-        // half of the genre and she had none of it: MEASURED 2026-09-11, the
-        // whole shipped roster authors FIVE cancel windows and her normals
-        // authored zero, so every one of them played to completion whatever it
-        // did. A tilt that connects and then stands her still through 160 ms of
-        // recovery cannot start anything, which is why her offence reads as a
-        // series of single pokes rather than a game.
+        // A confirmed tilt can cancel; a smash commits.
         //
-        // ⭐ `OnHit`, NOT `Always`. The roster guard already says why: *"a
-        // roster that only ever cancels on `Always` swings its second punch into
-        // a raised shield, which hands the defender a free punish and takes the
-        // read out of the exchange."* A whiffed tilt owes its recovery.
+        // `OnHit`, not `Always`: an `Always` cancel lets a second attack swing into a
+        // raised shield and gives the defender a free punish. A whiffed tilt keeps
+        // its recovery.
         //
-        // ⭐⭐ AND `jump` IS THE ONE THAT MAKES IT THE GENRE. A confirmed hit
-        // that can be jump-cancelled is how a ground poke becomes an aerial
-        // follow-up. `trigger_moveset_moves`'s locomotion arm has honoured the
-        // `jump` escape since CM4 and its own comment records that NO CONTENT
-        // HAS EVER SPELLED IT. This is the first.
+        // `jump` makes a ground poke lead into an aerial follow-up.
+        // `trigger_moveset_moves`'s locomotion arm honours the `jump` escape.
         //
-        // ⚠ THE WINDOW IS THE RECOVERY, not the active frames. Cancelling out of
-        // the strike itself would let her erase her own hitbox mid-swing.
+        // The window is the recovery, not the active frames, so she cannot erase her
+        // own hitbox mid-swing.
         //
-        // ⭐ OBSERVABLE WITH `moveset_takes --chain attack_up --spacing 40`,
-        // which cuts this tilt short. A chain probe staged out of reach cannot
-        // open an `OnHit` window and records a fresh press instead.
+        // Check with `moveset_takes --chain attack_up --spacing 40`. A chain probe
+        // out of reach cannot open an `OnHit` window and records a fresh press.
         if matches!(
             mv.clip.clip.as_str(),
             "attack_side" | "attack_up" | "attack_down"
@@ -338,35 +277,21 @@ fn author_normals(set: &mut MovesetContract) {
     }
 }
 
-/// Neutral special: she plants, opens both arms and DELIVERS.
+/// Neutral special: she plants, opens both arms and delivers.
 ///
-/// ⭐⭐ *"It holds her still for as long as it holds everyone else"* — the
-/// caption `special.spec.json` has carried since her library was forked, and the
-/// two halves of it are authored separately because the engine says them
-/// separately. She is held by `hitless_special`'s rooting, which every special
-/// gets; everyone ELSE is held by FIXED KNOCKBACK.
+/// "It holds her still for as long as it holds everyone else"
+/// (`special.spec.json`). The two halves are authored separately. She is held
+/// by rooting; everyone else is held by fixed knockback.
 ///
-/// ⛔⛔ `knockback_growth: Some(0.0)` IS THE MOVE, and it is not the same as
-/// leaving the field alone. Unauthored means *the stage decides*, and the
-/// stage's rule scales a launch with the victim's percent — so the monologue
-/// would land differently on the fighter it was aimed at depending on how the
-/// match had gone, which is the one thing a speech that holds EVERYONE must not
-/// do. `Some(0.0)` is a hit that does exactly this at 0% and at 200%.
+/// `knockback_growth: Some(0.0)` is the move. Unauthored means the stage
+/// decides, and the stage scales launch with the victim's percent. `Some(0.0)`
+/// gives the same hit at 0% and at 200%.
 ///
-/// ⛔ AND THE LAUNCH IS SHALLOW ON PURPOSE. Hitstun scales off knockback
-/// magnitude, so a hold is bought with enough launch to buy the frames and a
-/// direction that spends them going nowhere in particular.
+/// The launch is shallow on purpose. Hitstun scales with knockback magnitude,
+/// so a small launch buys the frames without moving the victim far.
 ///
-/// ⚠ ~~the genre has no separate stun channel and inventing one for a neutral-B
-/// would be a mechanic bolted to a single move~~ — TRUE WHEN WRITTEN AND FALSE
-/// SIXTY LINES BELOW, where this same function now authors `smash_sleep`. The
-/// channel exists (`BodyCombat::sleep_timer`, a named cause inside
-/// `hard_lock_timer`'s `max`) and it is NOT bolted to one move: the Shadow Oni's
-/// seal is its second customer. ⇒ The launch is still shallow for the reason
-/// above, which is why this sentence is corrected rather than deleted — but a
-/// reader taking the struck half at face value would conclude no status channel
-/// exists, and that is exactly the wrong conclusion somebody nearly designed a
-/// duplicate authority on top of.
+/// The sleep status channel exists (`BodyCombat::sleep_timer`, a cause in
+/// `hard_lock_timer`'s `max`); this function also authors `smash_sleep` below.
 fn the_monologue() -> MoveSpec {
     let mut spec = strike(Strike {
         id: "performer_monologue",
@@ -381,56 +306,41 @@ fn the_monologue() -> MoveSpec {
         half_extents: (58.0, 34.0),
         damage: 6,
         knockback: 74.0,
-        // ⛔ THE BUILDER CANNOT SAY WHAT THIS MOVE IS. Its `f32` reads zero as
-        // "this stage decides", so the fixed knockback goes on the VOLUME —
-        // `fixed_knockback` below, which is the builder's own instruction.
+        // The builder's `f32` reads zero as "the stage decides", so the fixed
+        // knockback goes on the volume via `fixed_knockback` below.
         knockback_growth: 0.0,
         launch_dir: Some((0.35, -0.5)),
         on_hit: None,
     });
     spec.display_name = Some("Monologue".to_string());
-    // ⛔⛔ SHE IS HELD TOO, and `strike` does not do it: it authors
-    // `motion_scale: 1.0` on all three of its windows, so without this she walks
-    // through her own speech while everyone she hit is pinned by the fixed
-    // knockback — the inverse of the one asymmetry this move is about.
+    // Root her too. `strike` authors `motion_scale: 1.0` on its three windows,
+    // so without this she walks during her speech while her targets are pinned.
     //
-    // ⇒ rooted on the strike's OWN windows rather than by pushing a blanket one
-    // over the top: `motion_scale_at` folds with `min` so either works, but a
-    // blanket window would have to carry a tag, and every tag says something to
-    // the scorer that is not true of a whole move.
+    // Root the strike's own windows, not a blanket window: `motion_scale_at`
+    // folds with `min` so both work, but a blanket window needs a tag, and a tag
+    // tells the scorer something false about the whole move.
     for window in &mut spec.windows {
         window.motion_scale = 0.0;
     }
     let spec = fixed_knockback(spec);
-    // ⭐⭐ AND THE ROOM GOES UNDER — Jon, 2026-09-05: *"performer gets sing."*
+    // Sing (Jon: *"performer gets sing."*): sleep added to the monologue, not a
+    // replacement for it.
     //
-    // ⛔⛔ ADDED TO THE MONOLOGUE, NOT SUBSTITUTED FOR IT, and the reach is what
-    // makes that honest. The strike above is 58×34 offset out in front of her:
-    // that is her ADDRESSING the room, and it is unchanged, every number intact.
-    // The sleep is 26×26 and centred on HER — a strictly smaller area, wholly
-    // inside the one she was already hitting, which a guard checks corner by
-    // corner rather than by comparing the two half-extents (they have different
-    // centres, so the smaller box is not automatically the contained one — at
-    // 26×30 it was not, and reached 2px past her strike's lower edge). ⇒ Everyone in the room still gets the
-    // speech; only whoever stood next to her while she gave it goes to sleep.
+    // The strike (58×34, in front of her) is unchanged: she addresses the room.
+    // The sleep is 26×26 and centred on her, fully inside the strike area. A
+    // guard checks containment corner by corner, because the boxes have
+    // different centres and a smaller box is not always contained.
     //
-    // ⭐ THAT IS THE COST, AND SLEEP HAS TO HAVE ONE. Stapling a hard lock onto
-    // an existing hit is otherwise pure gain, and the version of this move that
-    // simply REPLACED the strike would have been a rebalance of a shipped
-    // fighter rather than a technique finding its customer. Here the price is
-    // paid in position: she is rooted (`motion_scale = 0.0` above) for the whole
-    // 0.6s, and to sleep you she has to let you stand next to her for it.
+    // That is the cost of sleep: she is rooted for the whole 0.6s, and only a
+    // target who stays next to her is put to sleep.
     //
-    // ⚠ FIRING AT THE END OF THE ACTIVE WINDOW rather than the start, for the
-    // same reason. Sleeping on frame one would catch whoever happened to be
-    // adjacent when she began; at 0.45s they had every frame of her wind-up and
-    // her swing to leave, and stayed.
+    // It fires at the end of the active window, so targets had the wind-up and
+    // swing to leave.
     let spec = ambition_entity_catalog::smash_sleep::author_sleep(
         spec,
         0.45,
         ambition_entity_catalog::smash_sleep::SleepParams {
-            // Long enough that landing it is worth a charged smash, which is the
-            // whole payoff the genre's version trades its reach for.
+            // Long enough that landing it is worth a charged smash.
             duration_s: 1.4,
             half_extents: (26.0, 26.0),
         },
@@ -442,17 +352,12 @@ fn the_monologue() -> MoveSpec {
 
 /// Side special: she throws one, overhand, and it carries.
 ///
-/// ⭐⭐ *"Nothing leaves her hand that anyone can see leaving it."* The line is
-/// a DISJOINTED HITBOX and not a projectile, and that is the whole reading of
-/// the move: the danger is out past her arm where nothing is drawn, so an
-/// opponent who reads the animation reads it wrong. `shoot.spec.json` extends
-/// the strike axis to 2.9 for the same reason — the art and the table agree
-/// about where the reach ends.
+/// The line is a disjointed hitbox, not a projectile: the danger is past her
+/// arm where nothing is drawn. `shoot.spec.json` extends the strike axis to
+/// 2.9 so the art and the table agree about the reach.
 ///
-/// ⛔ NOT `MoveEventKind::Ranged`, WHICH IS WHAT THE WORD "THROWS" SUGGESTS. A
-/// ranged event fires the owner's ranged action, and she has none — she would
-/// need a weapon to state one, and the point of the move is that there is
-/// nothing in her hand.
+/// Not `MoveEventKind::Ranged`. A ranged event fires the owner's ranged
+/// action, and she has none.
 fn the_line() -> MoveSpec {
     let mut spec = strike(Strike {
         id: "performer_the_line",
@@ -461,15 +366,14 @@ fn the_line() -> MoveSpec {
         startup_s: 0.18,
         active_s: 0.12,
         recover_s: 0.18,
-        // Far out and thin — the reach IS the move, and a fat volume would give
-        // away in silhouette what the animation deliberately does not.
+        // Far out and thin: the reach is the move, and a fat volume would show in
+        // silhouette what the animation hides.
         offset: (62.0, -10.0),
         half_extents: (30.0, 9.0),
         damage: 9,
         knockback: 128.0,
-        // ⭐ THIS ONE GROWS. It is an ordinary spacing tool and scales with its
-        // victim's damage like every other normal; the monologue is the
-        // exception, not the pattern.
+        // This one scales with the victim's damage like other normals; the
+        // monologue is the exception.
         knockback_growth: 1.9,
         launch_dir: Some((1.0, -0.34)),
         on_hit: None,
@@ -479,41 +383,30 @@ fn the_line() -> MoveSpec {
     on_contact(spec, "player.hit")
 }
 
-/// ⛔ TWO IDS FOR ONE SLOT, because the archetype's down special is a
-/// `DownSpecial::ByPosture` pair and a slot left half-replaced is a press that
-/// falls through to the neutral special — the player pressed down-B and got the
-/// monologue.
+/// Two ids for one slot: the archetype's down special is a
+/// `DownSpecial::ByPosture` pair, and a half-replaced slot falls through to
+/// the neutral special.
 ///
-/// ⛔⛔ AND THE TWO FORMS ARE NO LONGER THE SAME AUTHORING. They were, on the
-/// reasoning that *"the boards are wherever she is"* — which is false, and Jon
-/// said so: *"if she isn't on the ground the trap door can't open and she can't
-/// go subterranian, so the move cancels."* There is no floor to cut a hatch in
-/// mid-air. The grounded form is the move; the airborne one is the trick
-/// failing, which is [`the_puff`].
+/// The two forms differ. In the air there is no floor to open, so the move
+/// cancels. The grounded form is the move; the airborne one is
+/// [`the_puff`].
 fn the_trap() -> MoveSpec {
     trapdoor("performer_trapdoor", "blink_out")
 }
 
 /// The airborne form: the smoke goes off and nothing comes of it.
 ///
-/// ⭐⭐ JON'S DESIGN, 2026-08-29, and the whole of it: *"So if you are in the
-/// air, the smoke effect still happens, but if she isn't on the ground the trap
-/// door can't open and she can't go subterranian, so the move cancels. So it
-/// doesn't do much in the air, just a poof of smoke, but that's better than no
-/// effect in the air."*
+/// Jon: *"if she isn't on the ground the trap door can't open and she can't
+/// go subterranian, so the move cancels."* The smoke still happens.
 ///
-/// ⛔ IT AUTHORS NO TRAPDOOR BEAT AT ALL, rather than authoring one and relying
-/// on the engine to refuse it. A refused beat would leave the rest of this
-/// timeline running — including the three-second `smash_charge` freeze, which
-/// does not know or care whether she went under — and she would hang motionless
-/// in mid-air for three seconds with nothing on screen explaining why. The
-/// engine's refusal (`apply_authored_trapdoors`) is the SAFETY NET for a
-/// grounded press that leaves the boards before the sink; it is not the design.
+/// It authors no trapdoor beat, instead of relying on the engine to refuse
+/// one. A refused beat would leave the rest of the timeline running,
+/// including the three-second `smash_charge` freeze, and she would hang in
+/// mid-air. The engine's refusal (`apply_authored_trapdoors`) is only a safety
+/// net for a grounded press that leaves the boards before the sink.
 ///
-/// ⛔ AND IT SPENDS NO RECOVERY AND GRANTS NO I-FRAMES. The failing trick is
-/// not a free escape option: the whole cost of pressing it in the air is the
-/// endlag, and the whole benefit is that an opponent has to read which one it
-/// was.
+/// No recovery cost and no i-frames: the cost is the endlag, and the benefit
+/// is that the opponent must read which form it was.
 fn the_trap_airborne() -> MoveSpec {
     let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "performer_trapdoor_air",
@@ -522,9 +415,8 @@ fn the_trap_airborne() -> MoveSpec {
         AIR_PUFF_ENDS_S,
     );
     spec.display_name = Some("The Trap".to_string());
-    // The SAME first frames as the real thing — the same clip, the same smoke,
-    // the same wooden report of a door that is about to open. What differs is
-    // that no door does.
+    // The same first frames as the real move: same clip, same smoke. No door
+    // opens.
     let spec = ambition_entity_catalog::authoring::vfx(spec, 0.0, SMOKE_VFX);
     ambition_entity_catalog::authoring::sfx(spec, DOOR_OPENS_S, "world.door.open")
 }
@@ -532,60 +424,39 @@ fn the_trap_airborne() -> MoveSpec {
 /// Down special: the boards give, she drops through, and she comes up somewhere
 /// else entirely.
 ///
-/// ⭐⭐ JON, 2026-08-27, ON WHAT THIS IS NOT: *"the trapdoor move doesn't
-/// actually look like a trap door. It looks like a blink… It's not a blink.
-/// It's a different kind of mobility move."* The first version was
-/// `smash.teleport` with a glint on each end — one instantaneous beat, she never
-/// left the stage, and the effect belonged to the Director. This is four beats and
-/// a body mode.
+/// This is not a blink. She leaves the stage and moves under it.
 ///
-/// ⛔⛔ AND THE MIDDLE BEAT IS THE MOVE. Between `SINK_AT_S` and
-/// `SURFACE_AT_S` she is in `BodyMode::Submerged`: not drawn, not hittable, no
-/// gravity, no geometry — and still steering. That is why this is a technique
-/// and a kernel mode rather than a longer animation on a teleport; a computed
-/// destination would have taken the decision away from the player, which is the
-/// thing Jon asked for last.
+/// The middle beat is the move. Between `SINK_AT_S` and `SURFACE_AT_S` she is
+/// in `BodyMode::Submerged`: not drawn, not hittable, no gravity, no geometry,
+/// and still steering. So it is a technique and a kernel mode, not an
+/// animation on a teleport: the player picks the destination.
 ///
-/// ⛔ THE `Invuln` WINDOW IS AUTHORED ANYWAY, over the same span the mode
-/// covers. It is not redundant belt-and-braces: the window is what the CANCEL
-/// and scoring layers read off the timeline without looking at a live body, and
-/// a move whose timeline claimed she was vulnerable under the stage would be
-/// scored as a punishable commitment it is not.
+/// The `Invuln` window is authored over the same span. The cancel and scoring
+/// layers read it from the timeline without a live body; without it they
+/// would score her as punishable under the stage.
 fn trapdoor(id: &str, clip: &str) -> MoveSpec {
     let mut spec =
         ambition_entity_catalog::authoring::hitless_special(id, clip, SINK_AT_S, TRAP_ENDS_S);
     spec.display_name = Some("The Trap".to_string());
-    // ⛔⛔ THE RECOVERY BEGINS WHEN SHE SURFACES, and the gap between the two
-    // beats is load-bearing. `hitless_special` roots the body across its whole
-    // duration and `MoveSpec::motion_scale_at` folds overlapping windows with
-    // `min`, so a Recovery window starting at `SINK_AT_S` multiplies her
-    // steering by zero for the entire submerged beat — the beat this move exists
-    // for. With no window covering `SINK_AT_S..SURFACE_AT_S` the fold returns
-    // its identity and she steers at full authority; the `Invuln` window
-    // authored below still covers that span for the cancel and scoring layers,
-    // so leaving the gap costs them nothing.
+    // Recovery begins when she surfaces. `hitless_special` roots the whole
+    // duration and `MoveSpec::motion_scale_at` folds windows with `min`, so a
+    // Recovery window from `SINK_AT_S` would zero her steering while submerged.
+    // With no window over `SINK_AT_S..SURFACE_AT_S` she steers at full authority.
+    // The `Invuln` window below still covers that span.
     for window in &mut spec.windows {
         if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
             window.start_s = SURFACE_AT_S + FIREWORK_S;
         }
     }
-    // ⭐⭐ THE EMERGENCE IS A STRIKE, and Jon asked for it in those words: *"she
-    // should be able to pop up at any time from it in a big firework display
-    // that damages whoever is on top or above the trap door when she emerges."*
-    // Standing on a door somebody is under has to be a mistake, or the move is
-    // free.
+    // The emergence is a strike: it damages whoever is on or above the door, so
+    // standing on the door is a mistake.
     //
-    // ⛔ THE COLUMN IS CENTRED AND UNFACED. `offset.x` mirrors with facing and
-    // this one is zero, because the door is UNDER her — a firework that came out
-    // at an angle would let a camper stand on the hinge side. It reaches from
-    // just below her feet to well over her head, which is what *"on top or
-    // above"* names.
+    // The column is centred and unfaced (`offset.x` = 0), because the door is
+    // under her. It reaches from just below her feet to well over her head.
     //
-    // ⛔ AND IT IS AUTHORED ON THE TIMELINE, NOT EMITTED BY THE TECHNIQUE. The
-    // clock FREEZES at `HOLD_UNDER_AT_S` and resumes on release, so this window
-    // arrives whenever she comes up without knowing anything about when that
-    // was — the same property that lets `author_trapdoor`'s surfacing beat stay
-    // a plain timed event.
+    // It is on the timeline, not emitted by the technique. The clock freezes at
+    // `HOLD_UNDER_AT_S` and resumes on release, so this window arrives when she
+    // comes up, like `author_trapdoor`'s surfacing beat.
     spec.windows.push(ambition_entity_catalog::MoveWindow {
         start_s: SURFACE_AT_S,
         end_s: SURFACE_AT_S + FIREWORK_S,
@@ -597,19 +468,14 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
             },
             damage: 12,
             knockback: 150.0,
-            // Unauthored: the stage's rule scales this launch with the victim's
-            // percent, which is what a kill move wants and what the monologue
-            // deliberately refuses.
+            // Unauthored: the stage scales this launch with the victim's percent, as a
+            // kill move wants.
             knockback_growth: None,
-            // Straight up, out of the floor. +y is DOWN.
+            // Straight up, out of the floor. +y is down.
             launch_dir: Some((0.0, -1.0)),
             on_hit: None,
-            // ⛔ NOT A SLASH. `HitVolume::vfx` is the ARC a blade draws, and
-            // naming an effect there asks the slash machinery to swing a
-            // firework out of her hand. The show is authored as an event on the
-            // timeline below, where it lands at the DOOR; what this volume
-            // draws is the engine's default attack sweep, which is what every
-            // strike of hers draws.
+            // Not a slash. `HitVolume::vfx` is the arc a blade draws; the firework is
+            // an event on the timeline below, at the door.
             vfx: None,
             hit_sfx: None,
             reaction: None,
@@ -618,49 +484,36 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
         motion_scale: 0.0,
         sustain_effect: None,
     });
-    // ⭐⭐ STAGE THREE: THE SUBTERRANEAN BEAT, and it is the shipped timeline
-    // hold rather than a new mechanic. `MoveCharge` freezes a timeline at an
-    // authored point, accrues the freeze in the owner's proper time, and resumes
-    // when something asks or at the maximum — which is Jon's *"they can move for
-    // up to the timelimit of the move (3 seconds)… or the character ends the
-    // move by pressing a non-move action"* exactly.
+    // Stage three: the subterranean beat, using the timeline hold. `MoveCharge`
+    // freezes a timeline at an authored point, accrues the freeze in the owner's
+    // time, and resumes on a press or at the maximum.
     //
-    // ⚠ AND THE PRIMITIVE IS MISNAMED FOR THIS USE. It is spelled
-    // `smash_charge` / `SmashChargeSpec` because a smash was its first customer,
-    // and this move charges nothing — what it holds is a beat. The mechanic is
-    // right and the noun is not; renaming it to a timeline HOLD, with charging
-    // as one policy on it, is the elegant version and is a separate change.
+    // The primitive is named `smash_charge` / `SmashChargeSpec` after its first
+    // user; here it holds a beat and charges nothing. Renaming it is a separate
+    // change.
     //
-    // ⛔ AND IT MUST NOT ROOT HER. A smash's freeze roots because a windup is a
-    // commitment; this one holds TRAVEL. `SmashChargeSpec::roots` is where the
-    // two uses of one mechanic say which they are.
+    // It must not root her: this hold is for travel. `SmashChargeSpec::roots`
+    // states which use it is.
     let spec = ambition_entity_catalog::authoring::charge(
         spec,
         ambition_entity_catalog::authoring::Charge {
             hold_at_s: HOLD_UNDER_AT_S,
             max_hold_s: MAX_UNDER_S,
-            // Nothing is banked: what she was holding was a position, and she is
-            // out of the hole either way.
+            // Nothing is banked: she held a position, not a charge.
             stores: false,
             roots: false,
-            // ⛔⛔ AND NOBODY HAS TO HOLD ANYTHING. Jon, 2026-08-28, on the first
-            // version of this: *"The latest main the actor doesn't spend any
-            // time under the stage… It looks like the pop up happens
-            // immediately."* He was not holding B, and nobody would while
-            // steering — the three seconds under the stage are a DURATION he
-            // asked for outright, and ending them early is a thing he asked to
-            // be able to DO, not a thing he has to stop doing.
+            // Nobody has to hold anything. On a hold-to-stay version, Jon: *"It
+            // looks like the pop up happens immediately."* The time under the
+            // stage is a duration, and a press ends it early.
             sustain: ambition_entity_catalog::ChargeSustain::UntilPressedAgain,
-            // The press that STARTED this move holds it — down-Special.
+            // The press that started this move (down-Special) holds it.
             gesture: ambition_entity_catalog::ChargeGesture::Special,
-            // ⚠ 1.0 ON PURPOSE. Her hold buys TIME under the stage, not a bigger
-            // hit — the payoff is the duration and the reposition, so scaling the
-            // move would be scaling the wrong thing. See `Charge::multiplier`.
+            // 1.0: the hold buys time under the stage, not a bigger hit. See
+            // `Charge::multiplier`.
             multiplier: 1.0,
         },
     );
-    // ⛔⛔ SHE GOES UNDER, AND SHE COMES BACK. Two beats of one technique, and
-    // the second one is the half whose absence is a fighter gone for the match.
+    // She goes under, and she comes back: two beats of one technique.
     let spec = author_trapdoor(
         spec,
         SINK_AT_S,
@@ -673,53 +526,33 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
             sfx: "world.door.heavy_open".to_string(),
         },
     );
-    // ⭐⭐ STAGE FOUR: THE EXIT TRAPDOOR OPENS, AND SHE IS STILL UNDER IT. Jon's
-    // order, in his words: *"the trapdoor opens and then they leap out."* The
-    // boards are a `trapdoor_boards` effect on their own beat rather than part of
-    // the surfacing, so the twelve hundredths between them are frames of an open
-    // hole with nobody out of it yet — which is the tell that something is
-    // coming.
+    // Stage four: the exit trapdoor opens while she is still under it. The
+    // boards are their own `trapdoor_boards` beat, so a few frames show an open
+    // hole before she appears.
     let spec = ambition_entity_catalog::authoring::vfx(spec, EXIT_DOOR_OPENS_S, TRAPDOOR_VFX);
     let spec =
         ambition_entity_catalog::authoring::sfx(spec, EXIT_DOOR_OPENS_S, "world.door.heavy_open");
-    // ⭐⭐ STAGE FIVE: SHE LEAPS OUT, and the leap is now part of the SURFACING
-    // rather than a second event racing it.
-    //
-    // ⛔⛔ THIS USED TO BE A `MoveEventKind::Impulse` ON THIS TIMELINE, authored
-    // at `SURFACE_AT_S` on the reasoning that landing it on the same instant as
-    // the surfacing meant *"the placement and the launch cannot disagree about
-    // where she left from."* They never disagreed: an impulse is applied inline
-    // in `advance_move_playback` and the trapdoor beat is a MESSAGE handled by a
-    // later system, whose `TransitVelocity::Zero` overwrote it on every single
-    // surfacing. `LEAP_OUT_SPEED` was dead content for as long as it existed and
-    // no reading of either file alone could show it — the probe's velocity
-    // column is what did: `(0,0)` on every tick from t197 to t212 with `y` never
-    // leaving the floor.
-    //
-    // ⇒ `TrapdoorParams::leap_speed`. One writer of exit velocity.
+    // Stage five: she leaps out. The leap is part of the surfacing
+    // (`TrapdoorParams::leap_speed`), so there is one writer of exit velocity.
+    // An `Impulse` event here would be overwritten by the trapdoor message's
+    // `TransitVelocity::Zero`.
     let spec = author_trapdoor(
         spec,
         SURFACE_AT_S,
         TrapdoorParams {
             submerge: false,
             surface_reach: SURFACE_REACH,
-            // ⛔ A LEAP, NOT A STEP UP. She is coming out of a hole under her own
-            // power and the move's payoff is the space it buys; a body that
-            // surfaced standing still would hand the position straight back.
+            // A leap, not a step up.
             leap_speed: LEAP_OUT_SPEED,
-            // ⛔ THE BOARDS ALREADY OPENED, one beat ago and on their own event.
-            // Asking for them again here would draw a second set over the first
-            // on the frame she comes through.
+            // The boards already opened on their own event; asking again would draw a
+            // second set.
             vfx: FIREWORK_VFX.to_string(),
             sfx: "world.door.heavy_open".to_string(),
         },
     );
-    // ⛔ NOT A BLINK CUE ANYWHERE ON IT. The trap is carpentry: the boards give,
-    // they bang shut behind her, and they give again somewhere else.
-    // ⭐⭐ THE SMOKE FIRST, BEFORE THE BOARDS. It is the misdirection the trick
-    // is performed behind, so it goes off on frame ONE — ahead of the door's own
-    // report at `DOOR_OPENS_S` and well ahead of her going through it. See
-    // [`SMOKE_VFX`].
+    // No blink cue: the trap is carpentry.
+    // The smoke goes off on frame one, before the door opens at `DOOR_OPENS_S`.
+    // See [`SMOKE_VFX`].
     let spec = ambition_entity_catalog::authoring::vfx(spec, 0.0, SMOKE_VFX);
     let spec = ambition_entity_catalog::authoring::sfx(spec, DOOR_OPENS_S, "world.door.open");
     let spec = ambition_entity_catalog::authoring::sfx(spec, SINK_AT_S + 0.06, "world.door.close");
@@ -731,24 +564,18 @@ fn trapdoor(id: &str, clip: &str) -> MoveSpec {
 /// Up special: a wire comes down out of the flies, takes her at the waist, and a
 /// winch walks her up while she swings.
 ///
-/// ⭐⭐ JON, 2026-08-29, ON WHAT THIS IS NOT: *"It is not a teleport and should
-/// not get the teleport sound. It needs to be a rope or wire that reaches down
-/// from the sky… but she doesn't teleport up, she gets lifted up by the wire, a
-/// fairly large vertical distance, and while she is being lifted by the wire her
-/// motion controls should let her swing like a pendulum so she has a bit of
-/// horizontal recovery with it too."*
+/// Design: not a teleport and no teleport sound. A wire reaches down from
+/// above and lifts her a large distance, and her motion controls swing her
+/// like a pendulum for a bit of horizontal recovery.
 ///
-/// ⛔⛔ AND IT WAS LITERALLY THE DIRECTOR'S TELEPORT WITH A DIFFERENT COMMENT —
-/// one beat, one placement, 215px of `smash.teleport`. The blink cue Jon heard
-/// came from `apply_authored_teleports`, which emits it at EVERY transit, so no
-/// edit to this timeline could ever have silenced it. A move that runs the
-/// teleport executor IS a teleport. The fix is a different technique.
+/// It uses a different technique from the teleport:
+/// `apply_authored_teleports` emits the blink cue at every transit, so any
+/// move that runs the teleport executor sounds like a teleport.
 ///
-/// ⛔⛔ AND THE MIDDLE BEAT IS THE MOVE, exactly as it is for the Trap. Between
-/// `WIRE_AT_S` and `WIRE_RELEASES_S` her position is `(anchor, rope, angle)`:
-/// gravity is off, her velocity is not integrated, and the stick buys ANGULAR
-/// acceleration. She is still drawn, still solid and still hittable — which is
-/// why the wire is a maneuver in the movement kernel and not a body mode.
+/// Between `WIRE_AT_S` and `WIRE_RELEASES_S` her position is
+/// `(anchor, rope, angle)`: gravity is off, velocity is not integrated, and
+/// the stick gives angular acceleration. She is still drawn, solid and
+/// hittable, so the wire is a movement-kernel maneuver, not a body mode.
 fn the_flyline() -> MoveSpec {
     let mut spec = ambition_entity_catalog::authoring::hitless_special(
         "performer_curtain_call",
@@ -757,18 +584,10 @@ fn the_flyline() -> MoveSpec {
         WIRE_ENDS_S,
     );
     spec.display_name = Some("Curtain Call".to_string());
-    // ⛔⛔ THE ROOT IS LIFTED OFF THE LIFT, AND THAT GAP IS LOAD-BEARING. This is
-    // the same correction the Trap needed and for the same reason:
-    // `hitless_special` roots the body across its whole duration, the kernel's
-    // wire reads the DAMPED stick (`InputState::local_axis`, the one every other
-    // mode reads), and `MoveSpec::motion_scale_at` folds overlapping windows with
-    // `min` — so a Recovery window starting at `WIRE_AT_S` multiplies her swing
-    // by zero for the entire beat the move exists for, and clause six is deleted
-    // while every spec test stays green.
-    //
-    // ⇒ the Recovery begins where the rope lets go. With no window covering the
-    // lift the fold returns its identity and she steers the pendulum at full
-    // authority.
+    // Recovery starts where the rope lets go, as for the Trap. The wire reads
+    // the damped stick (`InputState::local_axis`), and `motion_scale_at` folds
+    // with `min`, so a Recovery window from `WIRE_AT_S` would zero her swing.
+    // Spec tests would not catch that.
     for window in &mut spec.windows {
         if matches!(window.tag, ambition_entity_catalog::WindowTag::Recovery) {
             window.start_s = WIRE_RELEASES_S;
@@ -785,29 +604,20 @@ fn the_flyline() -> MoveSpec {
             swing_accel: SWING_ACCEL,
             release_rise: RELEASE_RISE,
             vfx: WIRE_VFX.map(str::to_string),
-            // Rope and pulley — the same bank the Trap's carpentry came out of.
-            // ⛔ NOT `player.blink`, and nothing on this move may reach it.
+            // Rope and pulley, from the same bank as the Trap's carpentry.
+            // Not `player.blink`.
             sfx: "world.door.heavy_open".to_string(),
         },
     );
-    // ⭐ THE SAME I-FRAMES THE OTHER RECOVERIES GET, over the span she is on the
-    // rope. The teleport bought them with `TeleportParams::intangible_s` for
-    // being NOWHERE mid-blink; hers are for being off the stage on a wire, which
-    // is a longer and more visible commitment.
-    //
-    // ⛔ AUTHORED ON THE TIMELINE rather than granted by the technique, for the
-    // reason the Trap's are: the window is what the CANCEL and scoring layers
-    // read without looking at a live body.
+    // I-frames over the span she is on the rope, like other recoveries. They
+    // are on the timeline so the cancel and scoring layers can read them.
     let spec = ambition_entity_catalog::authoring::invuln(spec, WIRE_AT_S, WIRE_RELEASES_S);
     let spec = ambition_entity_catalog::authoring::sfx(spec, 0.0, "player.attack.charge");
-    // ⛔⛔ NO `player.blink` ANYWHERE ON IT, and now nothing downstream asks for
-    // one either. `apply_authored_flylines` writes no position, picks no
-    // destination and records no Class-B remap — there is nothing for a teleport
-    // cue to be attached to.
-    // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. Inserted after
-    // `SmashRepertoire::into_contract` has lowered the table it joins, nothing
-    // else will stamp `gates.recovery` on it — and an up-B that spends nothing
-    // is flight. The swing is *"a bit"* of recovery, not a free traversal.
+    // No `player.blink`: `apply_authored_flylines` writes no position and
+    // records no Class-B remap, so nothing attaches a teleport cue.
+    // Wrap through the slot so `gates.recovery` is stamped: this is inserted
+    // after `SmashRepertoire::into_contract`, and an up-B that costs nothing is
+    // flight.
     ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
@@ -875,23 +685,15 @@ mod tests {
         }
     }
 
-    /// ⛔⛤ A CONFIRMED TILT FLOWS AND A SMASH COMMITS.
+    /// A confirmed tilt can cancel and a smash commits. Both halves are asserted,
+    /// so giving the smashes the same window fails.
     ///
-    /// ⛔⛔ MEASURED 2026-09-11: the whole shipped roster authored FIVE cancel
-    /// windows and her normals authored ZERO, so every one of them played to
-    /// completion whatever it did.
+    /// This is a claim about the authored data only.
     ///
-    /// ⭐ THE ASYMMETRY IS THE POINT, so this asserts BOTH halves. A test that
-    /// only checked the tilts would pass a change that gave the smashes the same
-    /// window — and a cancellable forward smash is not this genre.
-    ///
-    /// ⚠ THIS IS A CLAIM ABOUT THE AUTHORED DATA, and it is the only claim made.
-    ///
-    /// ⚠ A CHAIN PROBE MUST PUT THE TARGET IN REACH AND CHAIN INTO A DIFFERENT
-    /// MOVE. The window is `OnHit`, so a tilt thrown short of the target refuses
-    /// correctly and the recording shows a fresh press after the move ended; and
-    /// a tilt cancelled into another tilt reads as one uninterrupted run of that
-    /// name unless the take is read by `move_starts`, not by move id.
+    /// A chain probe must put the target in reach and chain into a different
+    /// move. The window is `OnHit`, so a short tilt refuses correctly. A tilt
+    /// cancelled into the same tilt reads as one run unless the take is read by
+    /// `move_starts`, not by move id.
     #[test]
     fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
@@ -940,32 +742,20 @@ mod tests {
 
     use super::*;
 
-    /// ⛔⛔ SHE STEERS UNDER THE STAGE, AND THE ROOTING IS WHAT TAKES IT AWAY.
-    /// `hitless_special` roots the body across its whole duration and
-    /// `motion_scale_at` folds with `min`, so the submerged beat has to be left
-    /// UNCOVERED by any window — see `trapdoor`, which moves Recovery's start.
+    /// She steers under the stage. The submerged beat must have no window over it,
+    /// because rooting folds with `min` (see `trapdoor`).
     ///
-    /// ⛔⛔ THE SUBTERRANEAN BEAT IS THE SHIPPED TIMELINE HOLD rather than a
-    /// second mechanic. Jon, 2026-08-28: *"they can move for up to the timelimit
-    /// of the move (3 seconds)… or the character ends the move by pressing a
-    /// non-move action."*
-    ///
-    /// Three facts, and each of them is a way the move breaks if it is missing.
-    /// The gesture must be `Special`, because `charged_by_gesture` enters charge
-    /// mode only where the press that started the use and the move's own
-    /// `charge_gesture` AGREE — a `Smash` policy here would freeze on a button
-    /// this move is never reached by, which is to say never. The hold point must
-    /// sit AFTER the submerge event, or the clock stops at the mouth of the hole
-    /// with her above ground and hittable. And it must not ROOT: `motion_scale`
-    /// is not the only thing that can take her steering away, and the other one
-    /// is the freeze itself.
+    /// The subterranean beat uses the timeline hold. Jon: *"or the character ends
+    /// the move by pressing a non-move action."* Each check guards a failure:
+    /// the gesture must be `Special`, because `charged_by_gesture` enters charge
+    /// mode only when the starting press and the move's `charge_gesture` agree.
+    /// The hold point must be after the submerge event, or she freezes above
+    /// ground. And the hold must not root her.
     #[test]
     fn the_subterranean_beat_is_a_duration_an_action_press_can_cut_short() {
         let set = performer_moveset();
-        // ⛔ THE GROUNDED FORM ONLY. The airborne one authors no hold at all —
-        // it is a puff of smoke and an endlag, see `the_puff_in_the_air_...`
-        // below — and a loop that still expected a three-second freeze from it
-        // was asserting the design this move used to have.
+        // Grounded form only. The airborne form authors no hold; see
+        // `the_puff_in_the_air_...` below.
         for id in ["performer_trapdoor"] {
             let trap = set
                 .moves
@@ -1010,14 +800,11 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE EMERGENCE HITS, and the column is what Jon named: *"a big
-    /// firework display that damages whoever is on top or above the trap
-    /// door."*
+    /// The emergence hits whoever is on or above the door.
     ///
-    /// ⛔ THE ARMS STRADDLE THE DOOR, because a volume test that only samples
-    /// the middle cannot tell a column from a puddle. A body standing ON the
-    /// boards and a body a body-height above them are both inside it; a body
-    /// standing a stage-width away is not, or the move would be a screen wipe.
+    /// The arms straddle the door so a column is told apart from a puddle: a body
+    /// on the boards and one a body-height above are inside; a body a stage-width
+    /// away is not.
     #[test]
     fn coming_up_through_the_boards_is_a_strike_over_the_door() {
         let set = performer_moveset();
@@ -1069,10 +856,8 @@ mod tests {
         }
     }
 
-    /// ⛔ THE ARMS STRADDLE BOTH EDGES, because a rule about an interval that is
-    /// only sampled inside it cannot tell "the gap is open" from "every window
-    /// is 1.0". Dropping through the boards and climbing back out are still
-    /// committed, and that is half of what makes the middle a decision.
+    /// The arms straddle both edges, so "the gap is open" is told apart from
+    /// "every window is 1.0". Dropping through and climbing out stay committed.
     #[test]
     fn the_trap_roots_her_at_both_ends_and_lets_her_steer_between_them() {
         let set = performer_moveset();
@@ -1095,11 +880,8 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE CONTAINMENT IS THE DESIGN AND SO IT IS THE GUARD. Sing is stapled
-    /// onto a shipped strike, and the only thing keeping that from being a pure
-    /// buff is that the sleep reaches LESS FAR than the hit it rides on. A test
-    /// that merely found a `smash.sleep` event would pass against a version that
-    /// put the whole room to sleep.
+    /// Containment is the design, so it is the guard. The sleep must reach less
+    /// far than the strike it rides on; otherwise it is a pure buff.
     #[test]
     fn her_monologue_sleeps_only_whoever_stood_closer_than_it_hits() {
         let set = performer_moveset();
@@ -1138,9 +920,8 @@ mod tests {
             .expect("she still addresses the room");
         assert_eq!(volume.damage, 6, "the speech itself is unchanged");
 
-        // ⭐ CORNER BY CORNER, from each box's own centre. The sleep is centred
-        // on her; the strike is offset out in front. Comparing half-extents
-        // would have called a box that pokes out of the bottom "smaller".
+        // Corner by corner, from each box's own centre: the sleep is centred on
+        // her, the strike is offset in front.
         let (sx, sy) = sleep.half_extents;
         let ambition_entity_catalog::VolumeShape::Rect {
             offset,
@@ -1157,8 +938,7 @@ mod tests {
              ({hx}×{hy} at {ox},{oy}), so she would sleep somebody she does not hit"
         );
 
-        // ⚠ AND IT FIRES LATE, so standing next to her is a choice they had time
-        // to unmake. A pulse at the start of the move is a different move.
+        // It fires late, so targets had time to step away.
         let active = speech
             .windows
             .iter()
@@ -1171,13 +951,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE SPEECH HOLDS HER TOO, and for a while it held only the audience.
-    ///
-    /// The doc on [`the_monologue`] says *"She is held by `hitless_special`'s
-    /// rooting, which every special gets"* — and the function is built from
-    /// `strike`, which authors `motion_scale: 1.0` on every window it makes. So
-    /// the one asymmetry the move is about ran backwards: everyone she hit was
-    /// pinned by the fixed knockback and she could walk away mid-sentence.
+    /// The speech roots her too. [`the_monologue`] builds on `strike`, which
+    /// authors `motion_scale: 1.0` on every window, so without the root she could
+    /// walk away while her targets are pinned.
     #[test]
     fn the_monologue_holds_the_speaker_as_well_as_the_room() {
         let set = performer_moveset();
@@ -1195,21 +971,14 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ IT IS NOT A TELEPORT, WHICH IS THE WHOLE COMPLAINT THIS MOVE WAS
-    /// REWRITTEN FOR. Jon, 2026-08-29: *"It is not a teleport and should not get
-    /// the teleport sound."*
+    /// The flyline is not a teleport. Jon: *"It is not a teleport and should not
+    /// get the teleport sound."*
     ///
-    /// ⛔⛔ AND THE ONLY ASSERTION THAT MEANS ANYTHING IS ON THE TECHNIQUE, NOT
-    /// ON THE CUE. `apply_authored_teleports` emits `PLAYER_BLINK` at every
-    /// transit, so a move authored through `author_teleport` makes the teleport's
-    /// sound no matter what its timeline says — this move carried no `player.blink`
-    /// of its own for months and Jon heard one anyway. A timeline that is merely
-    /// SILENT about the cue is the shape of the bug, not the fix. What has to be
-    /// true is that the move never reaches that executor.
-    ///
-    /// ⛔ THE EXEMPTION IN `director_teleport_blink.rs` NAMED THIS MOVE as one that
-    /// *"never runs the teleport executor"* while it plainly did. That sentence
-    /// is true now, and this arm is what keeps it true.
+    /// Assert on the technique, not on the cue. `apply_authored_teleports` emits
+    /// `PLAYER_BLINK` at every transit, so any move authored through
+    /// `author_teleport` makes the sound whatever its timeline says. The move
+    /// must never reach that executor. The exemption in
+    /// `director_teleport_blink.rs` relies on this.
     #[test]
     fn the_wire_is_a_flyline_and_never_reaches_the_teleport_executor() {
         use ambition_entity_catalog::smash_flyline::FLYLINE;
@@ -1248,15 +1017,10 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE MOVE MUST OUTLAST THE LIFT IT AUTHORS. The wire's clock is the
-    /// KERNEL's (`WireState::lift_remaining_s`), and `author_flyline` can no more
-    /// see the rest of the timeline than `author_trapdoor` can — so a beat that
-    /// started a 0.55s lift on a 0.46s move would leave her being flown by a
-    /// maneuver nothing was animating, with her Recovery window already over.
-    ///
-    /// ⭐ THE SAME SHAPE AS THE TRAP'S "she goes under AND she comes back" guard,
-    /// and it exists for the same reason: the half that is missing is the half a
-    /// spec test cannot feel.
+    /// The move must outlast the lift it authors. The wire's clock belongs to the
+    /// kernel (`WireState::lift_remaining_s`), and `author_flyline` cannot see the
+    /// rest of the timeline. A 0.55s lift on a 0.46s move would leave her flown
+    /// with no animation and her Recovery already over.
     #[test]
     fn the_lift_fits_inside_the_move_that_authors_it() {
         use ambition_entity_catalog::smash_flyline::{FlylineParams, FLYLINE};
@@ -1289,17 +1053,17 @@ mod tests {
             params.lift_s,
             wire.duration_s
         );
-        // ⛔ AND THE ROPE MUST OUTLAST THE RISE, or the winch reels past its own
-        // pulley and the lift stops short at the kernel's minimum length.
+        // The rope must outlast the rise, or the winch reels past its pulley and
+        // stops at the kernel's minimum length.
         assert!(
             params.rope_length > params.rise,
             "a {}px rope cannot deliver a {}px lift",
             params.rope_length,
             params.rise
         );
-        // ⛔ AND THE CARRY MUST BE SLOWER THAN THE AVERAGE CLIMB, or the winch
-        // would have to ACCELERATE into the release to still travel the authored
-        // rise — see `apply_authored_flylines`, which clamps rather than obeying.
+        // The carry must be slower than the average climb, or the winch would have
+        // to accelerate into the release. `apply_authored_flylines` clamps in that
+        // case.
         assert!(
             params.release_rise < 2.0 * params.rise / params.lift_s,
             "release_rise {} is faster than the climb it is supposed to end",
@@ -1307,18 +1071,13 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ SHE STEERS ON THE WIRE, AND THE ROOT IS WHAT WOULD DELETE IT.
+    /// She steers on the wire. `hitless_special` authors `motion_scale: 0.0` on
+    /// Startup and Recovery, the wire reads the damped stick, and
+    /// `motion_scale_at` folds with `min`, so a Recovery window from the catch
+    /// would zero the swing. Other tests would not notice.
     ///
-    /// This is the Trap's bug in a second move. `hitless_special` authors
-    /// `motion_scale: 0.0` on Startup AND Recovery, the kernel's wire reads the
-    /// DAMPED stick like every other mode, and `motion_scale_at` folds with
-    /// `min` — so a Recovery window starting at the catch multiplies the swing by
-    /// zero for the whole lift. Clause six of the ask dies, the move still rises,
-    /// and every other test in this file stays green.
-    ///
-    /// ⛔ THE STRADDLE IS THE POINT: the beat BEFORE the catch must still be
-    /// rooted. A rule that simply removed the rooting would pass a "she can
-    /// steer" arm and hand her a special she can walk out of.
+    /// The arm straddles the catch: the beat before it must still be rooted, or
+    /// she could walk out of the special.
     #[test]
     fn she_steers_the_swing_and_is_rooted_either_side_of_it() {
         let set = performer_moveset();
@@ -1350,19 +1109,11 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ IN THE AIR IT IS A PUFF OF SMOKE AND NOTHING ELSE.
+    /// In the air the down special is only a puff of smoke.
     ///
-    /// ⭐⭐ JON, 2026-08-29, the whole design: *"if you are in the air, the smoke
-    /// effect still happens, but if she isn't on the ground the trap door can't
-    /// open and she can't go subterranian, so the move cancels. So it doesn't do
-    /// much in the air, just a poof of smoke, but that's better than no effect in
-    /// the air."*
-    ///
-    /// ⛔ THE ABSENCES ARE THE ASSERTIONS. A trapdoor beat here would be refused
-    /// by the engine and leave the REST of this timeline running — the
-    /// three-second freeze most of all — with a fighter hanging motionless in
-    /// mid-air and nothing on screen to explain it. Authoring none is what makes
-    /// the cancel unnecessary rather than merely handled.
+    /// The assertions check what is absent. A trapdoor beat here would be refused
+    /// by the engine and leave the rest of the timeline running (including the
+    /// three-second freeze), so she would hang in mid-air.
     #[test]
     fn the_airborne_form_is_a_puff_of_smoke_and_no_trapdoor_at_all() {
         use ambition_entity_catalog::smash_trapdoor::TRAPDOOR;
@@ -1404,18 +1155,11 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AND THE SMOKE IS ON BOTH FORMS, ON THE FIRST FRAME.
+    /// The smoke is on both forms, on the first frame. It is the misdirection:
+    /// smoke only on the grounded form would tell the opponent which form it is.
     ///
-    /// ⭐⭐ IT IS THE MISDIRECTION, WHICH IS WHY IT CANNOT WAIT TO SEE WHETHER
-    /// THE TRICK WORKED. Jon asked for it *"like a real play would use to
-    /// disguise going through a trap door"* — so an effect that only appeared on
-    /// the grounded form would tell an opponent, in the first two frames, which
-    /// of the two they were watching, and delete the feint the airborne form
-    /// exists to be.
-    ///
-    /// ⛔ AHEAD OF THE BOARDS, TOO. The door's own report is at `DOOR_OPENS_S`;
-    /// smoke that arrived with it or after it would be smoke revealing a hole
-    /// rather than hiding one.
+    /// It comes before the boards (`DOOR_OPENS_S`), so it hides the hole instead
+    /// of revealing it.
     #[test]
     fn the_smoke_goes_off_on_the_first_frame_of_both_forms() {
         use ambition_entity_catalog::MoveEventKind;
@@ -1448,55 +1192,33 @@ mod tests {
         }
     }
 
-    /// ⛔⛤ EVERY EFFECT SHE NAMES IS A ROW THAT SHIPS.
+    /// Every effect she names is a shipped row. `is_authored_effect` reads the
+    /// rows from the baked manifests, so this asks what the renderer asks.
     ///
-    /// ⛔⛔ SHE DID NOT HAVE THIS CHECK AND FOUR OTHER FIGHTERS DID — Emmy, the
-    /// Oiler, George Booul and the Pirate Admiral all run
-    /// `presentation_problems(is_authored_effect)` over their tables. A
-    /// capability four of five adopt is not a capability, it is a habit, and the
-    /// fifth is where a defect gets to live.
-    ///
-    /// ⚠ AND IT WOULD NOT HAVE CAUGHT EITHER OF THE TWO BUGS JON JUST REPORTED,
-    /// which is worth saying rather than letting the green tick imply otherwise.
-    /// `smoke_burst` and `trapdoor_boards` are both REAL rows that ship; one was
-    /// simply an explosion and the other belonged to a different move. This arm
-    /// answers *"does the art exist"*, and the question that failed was *"is it
-    /// the right art"* — which no oracle over the sheets can answer, and which
-    /// [`the_wire_names_nothing_belonging_to_the_trapdoor`] answers for exactly
-    /// one case because that is as far as a test can honestly reach.
-    ///
-    /// ⭐ THE ORACLE IS THE ART. `is_authored_effect` reads the rows out of the
-    /// baked manifests, so this asks exactly what the renderer will ask.
+    /// This only checks that the art exists, not that it is the right art. A real
+    /// explosion row used as smoke would pass. See
+    /// [`the_wire_names_nothing_belonging_to_the_trapdoor`] for one such case.
     #[test]
     fn every_effect_she_names_is_a_row_that_ships() {
         let set = performer_moveset();
-        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
-        // per-move form this replaced was MEASURED to buy nothing.
-        // `presentation_problems` returns a `Vec` because it accumulates, and a
-        // `panic!` inside a loop over it reported the FIRST problem only. But
-        // asserting per move is no better here: with the oracle rejecting every
-        // effect, all four of these tests still reported exactly ONE problem,
-        // because the first offending move names exactly one effect. The report
-        // an author actually needs — every move that references a renamed effect,
-        // in one run — exists only if the list outlives the loop.
+        // Collect problems across every move, then assert once, so one run reports
+        // every move that references a renamed effect.
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
                 ambition_platformer2d::sprite_sheet::fx::is_authored_effect,
             ));
         }
-        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
-        // too, with a message about breadth rather than the rename.
+        // Before the palette checks below: a renamed effect fails those too, with a
+        // less helpful message.
         assert!(problems.is_empty(), "{problems:?}");
     }
 
-    /// ⛔⛔ AND HER UP-B NAMES NO PART OF HER DOWN-B. Jon, 2026-08-29: *"her up-b
-    /// uses the trap door, and I don't think it should."*
+    /// Her up-B names no part of her down-B. Jon: *"her up-b uses the trap
+    /// door, and I don't think it should."*
     ///
-    /// ⭐ THE SHAPE OF THE MISTAKE IS WORTH THE ARM: `FlylineParams::vfx` was a
-    /// REQUIRED `String`, so authoring the wire meant putting SOMETHING there,
-    /// and the nearest thing to hand was the other special's furniture. A field
-    /// that cannot say "nothing" gets filled with something wrong.
+    /// `FlylineParams::vfx` was a required `String`, so the wire got the other
+    /// special's furniture. It is now optional.
     #[test]
     fn the_wire_names_nothing_belonging_to_the_trapdoor() {
         use ambition_entity_catalog::MoveEventKind;
@@ -1517,11 +1239,10 @@ mod tests {
         }
     }
 
-    /// ⛔ THE DOWN SLOT IS A PAIR, and half a swap is a press that falls through.
-    /// The archetype's down special is a `DownSpecial::ByPosture`, so
-    /// `special_air_down` sits AHEAD of `special_down` in the verb chain: replace
-    /// only the grounded form and an airborne press reaches the archetype's
-    /// falling edge instead of the trap.
+    /// The down slot is a pair. The archetype's down special is a
+    /// `DownSpecial::ByPosture`, so `special_air_down` comes before
+    /// `special_down` in the verb chain. Replacing only the grounded form sends
+    /// an airborne press to the archetype's move.
     #[test]
     fn both_postures_of_her_down_special_are_the_trap() {
         let set = performer_moveset();
@@ -1539,18 +1260,13 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ ONE WRITER OF EXIT VELOCITY, AND FOR MONTHS THERE WERE TWO.
+    /// One writer of exit velocity.
     ///
-    /// The trap authored `LEAP_OUT_SPEED` as a `MoveEventKind::Impulse` at
-    /// `SURFACE_AT_S` AND a `smash.trapdoor` surfacing beat on the same instant.
-    /// The impulse is applied inline in `advance_move_playback`; the beat is a
-    /// message handled by a later system whose `TransitVelocity::Zero` won every
-    /// time. Stage five of a five-stage move never happened, and the authoring
-    /// test was green throughout because both halves were correctly on the spec.
-    ///
-    /// ⇒ so the guard is not "is there an impulse" or "is there a leap" — it is
-    /// that the timeline does not carry BOTH. `TrapdoorParams::leap_speed` is
-    /// the authority; an `Impulse` re-added beside it would be the same bug.
+    /// An `Impulse` event at `SURFACE_AT_S` is applied inline in
+    /// `advance_move_playback`, and the `smash.trapdoor` surfacing beat is a
+    /// message handled later whose `TransitVelocity::Zero` overwrites it. So the
+    /// timeline must not carry both. `TrapdoorParams::leap_speed` is the
+    /// authority.
     #[test]
     fn the_leap_has_one_authority_and_it_is_the_surfacing_beat() {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
@@ -1598,8 +1314,8 @@ mod tests {
         );
     }
 
-    /// ⛔ AND THE ARCHETYPE'S DOWN SPECIAL IS GONE rather than left unreachable,
-    /// where every census that walks `moves` reports it as part of her kit.
+    /// The archetype's down special is removed, not left unreachable, where every
+    /// census over `moves` would count it.
     #[test]
     fn the_archetypes_down_special_does_not_linger() {
         let set = performer_moveset();
@@ -1612,19 +1328,17 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ SHE GOES UNDER AND SHE COMES BACK. Two beats of `smash.trapdoor`,
-    /// and the second is the half whose absence is a fighter in
-    /// `BodyMode::Submerged` for the rest of the match — invisible, intangible,
-    /// and unable to be hit out of it. `author_trapdoor` cannot see the rest of
-    /// the timeline, so this is where that guard lives.
+    /// She goes under and comes back: two beats of `smash.trapdoor`. Without the
+    /// second she stays in `BodyMode::Submerged` for the rest of the match.
+    /// `author_trapdoor` cannot see the rest of the timeline, so the guard is
+    /// here.
     #[test]
     fn the_trap_puts_her_under_the_stage_and_brings_her_back() {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_entity_catalog::MoveEventKind;
 
         let set = performer_moveset();
-        // ⛔ THE GROUNDED FORM ONLY, for the reason above: the airborne one goes
-        // nowhere, so it has no return trip to owe.
+        // Grounded form only: the airborne one goes nowhere.
         for id in ["performer_trapdoor"] {
             let mv = set
                 .moves
@@ -1663,11 +1377,8 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ IT IS NOT A BLINK, WHICH IS THE WHOLE COMPLAINT THIS MOVE WAS
-    /// REWRITTEN FOR. Jon, 2026-08-27: *"It looks like a blink… It's not a
-    /// blink."* The old version was `smash.teleport` with the Director's
-    /// `four_point_glint` on each end, and the thing that would quietly bring it
-    /// back is a copy-paste from his table.
+    /// The trap is not a blink. Jon: *"It looks like a blink… It's not a
+    /// blink."* So no `smash.teleport` and no Director's `four_point_glint`.
     #[test]
     fn the_trap_carries_no_teleport_and_no_blink_dressing() {
         use ambition_entity_catalog::smash_teleport::TELEPORT;
@@ -1696,11 +1407,9 @@ mod tests {
         }
     }
 
-    /// ⛔ AND SHE CANNOT BE HIT UNDER THE STAGE, stated on the TIMELINE as well
-    /// as by the mode. The mode is what actually protects her; the window is
-    /// what the cancel and scoring layers read without looking at a live body,
-    /// and a timeline claiming she is vulnerable down there would score the move
-    /// as a punishable commitment it is not.
+    /// She cannot be hit under the stage, stated on the timeline as well as by
+    /// the mode. The mode protects her; the window is what the cancel and scoring
+    /// layers read.
     #[test]
     fn the_timeline_says_she_is_untouchable_for_the_whole_trip() {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
@@ -1734,9 +1443,9 @@ mod tests {
         );
     }
 
-    /// ⛔ AND THE RECOVERY STILL COSTS AN AIRTIME.    /// ⛔ AND THE RECOVERY STILL COSTS AN AIRTIME. `UpSpecial::Standard` stamps
+    /// The recovery still costs an airtime. `UpSpecial::Standard` stamps
     /// `gates.recovery` on the move it lowers; a replacement inserted after that
-    /// lowering carries the cost itself or she gets unlimited flight.
+    /// must carry the cost, or she gets unlimited flight.
     #[test]
     fn the_flyline_spends_the_airtimes_recovery() {
         let set = performer_moveset();

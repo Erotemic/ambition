@@ -1,12 +1,11 @@
-//! The Director — the sword archetype's table, wielded with a pen.
+//! The Director: the sword archetype's table, wielded with a pen.
 //!
-//! His rig is the Pointed Polygon's, retargeted: the pen occupies the arming
-//! sword's exact axis and length, which is why every one of the archetype's
-//! 136 clips reads correctly on him without a pose being re-authored. The
-//! spacing that follows from that reach is the spacing he fights at, so his
-//! frame data IS the archetype's rather than a copy of it that will drift.
+//! His rig is the Pointed Polygon's, retargeted: the pen has the arming
+//! sword's axis and length, so all 136 archetype clips read correctly on him.
+//! His spacing follows from that reach, so his frame data is the archetype's,
+//! not a copy that would drift.
 //!
-//! What is his own is the NAME on it — and, since 2026-08-27, his RECOVERY.
+//! His own parts are the name and several specials (including the recovery).
 //! See [`director_moveset`].
 
 use ambition_entity_catalog::MovesetContract;
@@ -14,13 +13,12 @@ use ambition_entity_catalog::MovesetContract;
 /// When the thought leaves him.
 const BOLT_AT_S: f32 = 0.20;
 
-/// When the move releases him. ⚠ LONGER THAN THE BOLT'S OWN LIFETIME IS WRONG —
-/// he must be free before the thought fades, or a whiff pins him through his own
-/// punish window with nothing on screen to explain it.
+/// When the move releases him. It must end before the bolt's lifetime does,
+/// or a whiff pins him through his own punish window.
 const BOLT_ENDS_S: f32 = 0.46;
 
-/// When he vanishes. Slower than the robot's blink, because his is a written
-/// edit rather than a machine's phase-out.
+/// When he vanishes. Slower than the robot's blink: his is a written edit, not
+/// a machine's phase-out.
 const TELEPORT_AT_S: f32 = 0.18;
 
 /// When the move ends. The tail is him being drawn back in.
@@ -28,27 +26,20 @@ const TELEPORT_ENDS_S: f32 = 0.48;
 
 /// Complete sword-fundamentals repertoire, attributed to the Director.
 ///
-/// ⭐⭐ HIS UP-B IS HIS OWN, and it is the one place he departs from the
-/// archetype. Jon, 2026-08-27: *"Mewtwo / Palutena / Zelda style teleports…
-/// the animation for the author teleport up b is different, instead of a
-/// phase-out effect, it is more of a affine transform to a point, with a store
-/// of star flash for the blink out, and the opposite of that for the blink in
-/// at the destination spot."*
+/// His up-B is his own. Jon: *"Mewtwo / Palutena / Zelda style teleports"*, a
+/// teleport that looks like an affine transform to a point, with a star
+/// flash out and the reverse at the destination.
 ///
-/// ⭐ THE MECHANIC IS THE ROBOT'S; THE LOOK IS NOT. Both fighters author the
-/// same `smash.teleport` technique, with the same ledge assist, and differ only
-/// in the two effect ids they name — which is exactly what Jon described and is
-/// why the look travels in the params instead of being built into the engine.
+/// The mechanic is the robot's; the look is not. Both author the same
+/// `smash.teleport` technique and ledge assist, and differ only in the two
+/// effect ids, so the look lives in the params, not in the engine.
 ///
-/// ⛔ IT REPLACES THE ARCHETYPE'S `rising_edge`, a spinning rise. That move is
-/// the Pointed Polygon's identity and stays hers; a fighter who borrows a table
-/// may still own a slot in it.
+/// It replaces the archetype's `rising_edge`, which stays the Pointed
+/// Polygon's.
 ///
-/// ⚠ THE ART IS ONE ROW USED TWICE. `four_point_glint` is the star flash Jon
-/// named; the *"opposite of that"* — the same glint converging rather than
-/// bursting — is a sheet row that does not exist. Drawing it is an art job, and
-/// pointing both ends at the row that DOES exist is honest in the meantime;
-/// pointing the arrival at some unrelated effect would not be.
+/// One art row is used twice. `four_point_glint` is the star flash; the
+/// converging reverse is not drawn yet, so both ends use the existing row
+/// until it is.
 pub fn director_moveset() -> MovesetContract {
     let mut set = crate::archetype_moveset::under_own_name(
         crate::pointed_polygon_moveset::pointed_polygon_moveset(),
@@ -59,27 +50,20 @@ pub fn director_moveset() -> MovesetContract {
     crate::special_slots::replace_special(&mut set, "special_down", the_second_draft());
     crate::special_slots::replace_special(&mut set, "special_forward", a_train_of_thought());
 
-    // ⭐⭐ HIS LOW POKE LEAVES A NOTE — the campaign's `Shadow-Flare delayed mark`
-    // row, and the fiction is exact for this fighter: a writer does not finish
-    // the argument on the spot, the revision lands later.
+    // His low poke leaves a delayed mark: the revision lands later.
     //
-    // ⛔ ON THE WEAKEST THING HE HAS, DELIBERATELY. `director_tilt_down` does 4.
-    // Stamping the mark on his forward smash would make a move that already wins
-    // exchanges win them harder; stamping it here turns a NEUTRAL-GAME TOOL into
-    // a threat, which changes what the match is about rather than how much it
-    // hurts. ⇒ In a 1v1 the question stops being "did you press attack" and
-    // becomes "what do you do for the next second and a half", and the answer is
-    // never "the same thing".
+    // It is on his weakest move (`director_tilt_down`, 4 damage) on purpose.
+    // On the forward smash it would only make a strong move stronger; here it
+    // turns a neutral-game tool into a threat, so the opponent must decide what
+    // to do for the next second and a half.
     //
-    // ⚠ 1.4s IS A DECISION, not a hit arriving late. Under roughly half a second
-    // the victim cannot act on it at all. This is long enough to run, to shield,
-    // or to try to stand next to him and trade the blast back — the detonation is
-    // `Environment`, so it does not care who planted it.
+    // 1.4s is a decision, not a late hit: long enough to run, shield, or stand
+    // next to him and trade the blast (the detonation is `Environment`, so it
+    // hits anyone).
     //
-    // ⇒ AND IT NEEDED NO NEW ENGINE AUTHORITY. `OnHitEffectMessage` already
-    // carries the victim, `HitVolume::on_hit` already carries an authored
-    // payload, `DamageBoxEffect` already owns a blast, and the clock is a
-    // ruleset component with `PlacedMine`'s exact precedent.
+    // No new engine authority: `OnHitEffectMessage` carries the victim,
+    // `HitVolume::on_hit` the payload, `DamageBoxEffect` the blast, and the clock
+    // is a ruleset component like `PlacedMine`.
     ambition_entity_catalog::smash_mark::mark_move_in(
         &mut set,
         "director_tilt_down",
@@ -95,31 +79,20 @@ pub fn director_moveset() -> MovesetContract {
 
 /// Side special: he sends a thought out and flies it with the stick.
 ///
-/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"I want the author to have side-b be the
-/// pk-thunder style 'mind' attack."* This is that move, and it belongs to him
-/// twice over — the archetype's `vector_lunge` was a borrowed poke, and a writer
-/// steering a thought around the stage is the one fighter on the roster for whom
-/// the fiction is literal.
+/// A PK-Thunder-style "mind" attack. It replaces the archetype's
+/// `vector_lunge`; a writer steering a thought fits him.
 ///
-/// ⭐⭐ AND IT NEEDED NO INPUT LEASE, which the campaign plan had as the rung
-/// before it. `ActorControlFrame::steer_axis()` already publishes what the
-/// PLAYER is holding as distinct from what the BODY may move by — it exists
-/// because a rooted move reads `locomotion` as zero — so he keeps his own seat
-/// and the bolt reads his live stick. Steering is not possession; only the first
-/// was ever wanted here.
+/// No input lease is needed. `ActorControlFrame::steer_axis()` publishes the
+/// player's stick separately from what the body may move by (a rooted move
+/// reads `locomotion` as zero), so he keeps his seat and the bolt reads his
+/// live stick. Steering is not possession.
 ///
-/// ⛔ FLYING IT INTO HIS OWN BACK IS THE POINT. `self_launch` is what makes this
-/// a recovery as well as an attack.
+/// Flying it into his own back is a recovery: see `self_launch`.
 ///
-/// ⛔⛔ AND HE IS NOT HELPLESS WHILE IT IS OUT — an earlier version of this doc
-/// said he was, and the code never agreed. The move roots him to 0.46s; the
-/// thought lives 2.2s, and the guard below REQUIRES that gap so a whiff does not
-/// pin him through his own punish window. ⇒ For most of the flight he is free.
-///
-/// ⭐ WHICH MAKES THE COST BETTER THAN THE ONE I THOUGHT I HAD WRITTEN: he is not
-/// helpless, he is DIVIDED. One stick walks him and turns the thought, so every
-/// step he takes to reposition is a turn he did not choose — and flying it home
-/// means walking where the bolt needs him to walk.
+/// He is not helpless while it is out. The move roots him to 0.46s; the
+/// thought lives 2.2s, and a test requires that gap. The cost is that one
+/// stick walks him and turns the thought, so every step he takes also turns
+/// the bolt.
 fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
     let spec = ambition_entity_catalog::authoring::hitless_special(
         "director_train_of_thought",
@@ -133,32 +106,25 @@ fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
         ambition_entity_catalog::smash_bolt::SteeredBoltParams {
             // Slow enough to steer and fast enough to cross a gap.
             speed: 300.0,
-            // ⭐ THE NUMBER THAT IS THE MOVE. At 220°/s a full reversal takes
-            // most of a second, so a turn genuinely costs distance — too low and
-            // it is a straight shot, too high and it is a missile he cannot miss
-            // with.
+            // The key number: at 220°/s a full reversal takes most of a second, so a
+            // turn costs distance. Too low is a straight shot; too high is a missile
+            // that cannot miss.
             turn_rate_deg: 220.0,
-            // Long enough to go out and come back, and short enough that a
-            // whiffed thought is a real punish window.
+            // Long enough to go out and come back; short enough that a whiff is a
+            // real punish window.
             lifetime_s: 2.2,
             damage: 8,
             radius: 11.0,
-            // ⛔ A FEEL MULTIPLIER (see `SteeredBoltParams::knockback`), and
-            // this was 92.0 — a units error, not a balance number. In band with
-            // the boss blast's 1.6; a bolt the caster steers by hand should land
-            // about as hard as a hazard nobody aimed.
+            // A feel multiplier (see `SteeredBoltParams::knockback`), not raw
+            // knockback. In band with the boss blast's 1.6.
             knockback: 1.6,
-            // ⚠ THE RECOVERY'S WHOLE RANGE lives in this one number. Well above
-            // the bolt's own speed, because a self-launch that merely matched it
-            // would be a slower way to travel than walking.
+            // The recovery's whole range. Well above the bolt's speed, or the
+            // self-launch would be slower than walking.
             self_launch: 700.0,
-            // Out at arm's length and a little above, so it leaves visibly
-            // rather than budding out of his chest.
+            // At arm's length and slightly above, so it visibly leaves.
             offset: (24.0, -12.0),
-            // ⛔ THE BOLT MUST BE VISIBLE — it is the only move in the game whose
-            // mechanic IS steering it, and nothing rendered it until this field
-            // existed. His own star flash, marked often enough that the path
-            // reads as a line rather than as dots.
+            // The bolt must be visible: steering it is the mechanic. His own star
+            // flash, marked often enough that the path reads as a line.
             trail_vfx: "four_point_glint".to_string(),
             trail_every_s: 0.05,
         },
@@ -170,41 +136,31 @@ fn a_train_of_thought() -> ambition_entity_catalog::MoveSpec {
 
 /// The Director's counter: you land the blow, and it is revised out of the scene.
 ///
-/// ⭐⭐ JON'S ASSIGNMENT, 2026-09-05: *"Swordies will get a counter."* The Director
-/// IS the sword archetype — this module's own first line says so — and until now
-/// the counter's only authored customers were demo stand-ins. This puts it on a
-/// fighter somebody picks.
+/// Swordies get a counter, and the Director is the sword archetype.
 ///
-/// ⭐⭐ AND THE RESPONSE IS HIS TELEPORT, WHICH MAKES THE MOVE HIS RATHER THAN A
-/// SECOND COPY OF GEORGE'S. `riposte` answers a parry with a GRAB; this answers
-/// with `smash.teleport` in its **ambush** mode — `behind_nearest_foe`, which
-/// arrives on the far side of the foe. ⇒ You commit to a swing, and he is behind
-/// you. That is a sentence being rewritten while you are still in it, and it is
-/// the same technique as his up-B with one flag flipped.
+/// The response is his teleport in ambush mode (`behind_nearest_foe`), which
+/// arrives on the far side of the foe: you swing, and he is behind you. It is
+/// his up-B's technique with one flag changed, and it differs from George's
+/// `riposte` (which grabs).
 ///
-/// ⛔⛔ `behind_nearest_foe: true` HAD NO AUTHORED CUSTOMER ANYWHERE IN THE TREE.
-/// The ambush arrival, its foe selection and its facing rule were all built and
-/// nothing used them — the same state Sing's engine was in this morning. ⇒ A
-/// capability with no customer is one nobody can tell is broken, so this is
-/// worth more than the move it adds.
+/// This is the first authored user of `behind_nearest_foe: true`, so it also
+/// exercises the ambush arrival, foe selection and facing rule.
 ///
-/// ⚠ HE ABSORBS SHOTS RATHER THAN RETURNING THEM, and that is the deliberate
-/// difference from `riposte`, whose note argues reflection is "a reward the crowd
-/// can see". An author does not throw your sentence back at you; he deletes it.
-/// It also keeps the move from being strictly better than George's: reposition
-/// OR reflection, not both.
+/// He absorbs shots instead of returning them, unlike `riposte`: an author
+/// deletes your sentence. This also keeps the move from being strictly better
+/// than George's: reposition or reflection, not both.
 fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
     ambition_entity_catalog::smash_counter::counter_move(
         "director_second_draft",
         "special",
-        // Faster to open than the riposte and shorter-lived: he is not blocking,
-        // he is noticing.
+        // Faster to open than the riposte and shorter: he is noticing, not
+        // blocking.
         0.05,
         0.14,
         0.42,
         ambition_entity_catalog::smash_counter::CounterParams {
-            // A HEARTBEAT, not a duration — `parry_window_timer` decays and the
-            // stance re-arms it every live frame. Three ticks of slack at 60Hz.
+            // A heartbeat, not a duration: `parry_window_timer` decays, and the stance
+            // re-arms it every live frame. Three ticks of slack at 60Hz.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
@@ -212,19 +168,15 @@ fn the_second_draft() -> ambition_entity_catalog::MoveSpec {
             response_params: ambition_entity_catalog::ParamValue::from_typed(
                 &ambition_entity_catalog::smash_teleport::TeleportParams {
                     behind_nearest_foe: true,
-                    // From the foe's EDGE, so he arrives the same distance behind
-                    // a small body and a large one.
+                    // From the foe's edge, so he lands the same distance behind a small body
+                    // and a large one.
                     behind_gap: 26.0,
-                    // ⛔ A RANGE, NOT A LEASH — the field's own doc: a foe beyond
-                    // this is not a target and the teleport REFUSES rather than
-                    // carrying him partway and landing him in front. Whoever just
-                    // got parried is by definition within a melee reach of him,
-                    // so this only has to cover that.
+                    // A range, not a leash: a foe beyond this is not a target, and the
+                    // teleport refuses instead of landing him in front. A parried attacker is
+                    // within melee reach.
                     distance: 180.0,
-                    // ⛔ ZERO, which the field's doc names as what a teleport that
-                    // is not a recovery wants. He is arriving behind somebody, not
-                    // climbing back on stage, and a ledge grabbing that arrival
-                    // would take the punish away.
+                    // Zero: this is not a recovery. A ledge catching the arrival would take the
+                    // punish away.
                     ledge_assist: 0.0,
                     // Through the swing he just answered, and no longer.
                     intangible_s: 0.14,
@@ -253,49 +205,31 @@ fn directors_teleport() -> ambition_entity_catalog::MoveSpec {
         spec,
         TELEPORT_AT_S,
         ambition_entity_catalog::smash_teleport::TeleportParams {
-            // Aimed, like every recovery: any direction given between the
-            // press and the transit at `TELEPORT_AT_S`, and straight up from a
-            // player who gave none. That startup IS the aim window, which is
-            // why the number above is the knob and there is not a second one.
-            // See `TeleportParams::behind_nearest_foe`.
+            // Aimed, like every recovery: any direction given between the press and
+            // the transit at `TELEPORT_AT_S`, straight up if none. The startup is the
+            // aim window. See `TeleportParams::behind_nearest_foe`.
             behind_nearest_foe: false,
             behind_gap: 0.0,
-            // Further than the robot's, and slower to come out: he pays for the
-            // distance in the frames before it.
+            // Further than the robot's, and slower to come out.
             distance: 250.0,
-            // ⭐⭐ THE LEDGE ASSIST, the same radius the robot gets. It is a
-            // property of recovering onto a stage rather than of either fighter,
-            // so two fighters wanting it should get the same number until one of
-            // them has a reason not to.
+            // Same ledge assist radius as the robot: it belongs to recovering onto a
+            // stage, not to either fighter.
             ledge_assist: 44.0,
-            // ⭐ THE SAME WINDOW THE ROBOT GETS, and the same reasoning as the
-            // ledge assist beside it: intangibility through a vanish is a
-            // property of teleporting, not of either fighter, so two fighters
-            // wanting it get the same number until one has a reason not to.
+            // Same intangible window as the robot, for the same reason.
             intangible_s: 0.12,
             depart_vfx: "four_point_glint".to_string(),
             arrive_vfx: "four_point_glint".to_string(),
         },
     );
     let spec = ambition_entity_catalog::authoring::sfx(spec, 0.0, "player.attack.charge");
-    // ⛔⛔ NO AUTHORED BLINK CUE HERE. `apply_authored_teleports` emits
-    // `PLAYER_BLINK` itself at the transit, for EVERY authored teleport — so a
-    // move-timeline event at `TELEPORT_AT_S` asked the same frame for the same
-    // cue down a second road, and Director's Revision requested it twice
-    //. The executor is the one authority, which is what it already
-    // is for every other teleport in the game.
-    //
-    // ⚠ THE OTHER `player.blink` AUTHORSHIPS ARE NOT THIS, and the test is
-    // whether the move RUNS THE EXECUTOR — not whose move it is. The Performer's
-    // trap (`author_trapdoor`) and Alice's side-B (an `impulse`) never do, so
-    // their cue is chosen rather than duplicated. ⛔ any move authored through
-    // `author_teleport` is on the other side of that line and must not carry
-    // one.
-    // ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. This move is
-    // inserted AFTER `SmashRepertoire::into_contract` has lowered the table it
-    // joins, so nothing else will stamp `gates.recovery` on it — and an up-B
-    // that spends nothing is flight. Restating the rule here instead would put a
-    // second copy of it beside the one place that decides it.
+    // No authored blink cue. `apply_authored_teleports` emits `PLAYER_BLINK`
+    // at the transit for every authored teleport, so an event here would play
+    // it twice. The rule is whether the move runs the teleport executor: moves
+    // that do not (the Performer's trap, Alice's side-B impulse) choose their
+    // own cue; any move authored through `author_teleport` must not carry one.
+    // Wrap through the slot so `gates.recovery` is stamped: this is inserted
+    // after `SmashRepertoire::into_contract`, and an up-B that costs nothing is
+    // flight.
     ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).into_spec()
 }
 
@@ -303,9 +237,8 @@ fn directors_teleport() -> ambition_entity_catalog::MoveSpec {
 mod tests {
     use super::*;
 
-    /// ⛔ THE SWAP IS COMPLETE, and each half is asserted: the verb points at the
-    /// new move, the new move is IN the table, and the archetype's rise is gone
-    /// rather than left unreachable.
+    /// The swap is complete: the verb points at the new move, the move is in the
+    /// table, and the archetype's rise is removed, not left unreachable.
     #[test]
     fn the_director_recovers_by_teleporting_and_the_archetypes_rise_is_gone() {
         let set = director_moveset();
@@ -326,12 +259,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ HE MUST BE FREE BEFORE THE THOUGHT FADES. The move's whole risk is
-    /// the commitment while the bolt is out — but if the commitment OUTLASTS the
-    /// bolt, a whiff pins him through his own punish window with nothing on
-    /// screen explaining why he cannot move. ⇒ A relationship between two
-    /// authored numbers, so the guard states the relationship rather than either
-    /// number.
+    /// He must be free before the thought fades, or a whiff pins him through his
+    /// own punish window. The guard states the relationship between the two
+    /// numbers, not either number.
     #[test]
     fn his_thought_outlives_the_move_that_threw_it() {
         let set = director_moveset();
@@ -366,10 +296,8 @@ mod tests {
             move_spec.duration_s,
         );
 
-        // ⭐ AND IT CARRIES HIM. `self_launch` is what makes this a recovery
-        // rather than a slow projectile, and it must beat the bolt's own speed —
-        // a self-launch that merely matched it would be a worse way to travel
-        // than walking.
+        // It carries him: `self_launch` must beat the bolt's speed, or it would be
+        // slower than walking.
         assert!(
             bolt.self_launch > bolt.speed,
             "the thunder jacket ({}) is slower than the bolt ({})",
@@ -377,17 +305,16 @@ mod tests {
             bolt.speed,
         );
 
-        // ⛔ AND THE ARCHETYPE'S LUNGE IS GONE rather than left unreachable.
+        // The archetype's lunge is removed, not left unreachable.
         assert!(
             !set.moves.iter().any(|m| m.id == "director_vector_lunge"),
             "the displaced lunge is still in the table"
         );
     }
 
-    /// ⛔⛔ THE COUNTER IS HIS, AND THE AMBUSH IS THE PART WORTH GUARDING. A test
-    /// that only found a `smash.counter` on his down-B would pass against a
-    /// second copy of George's riposte — the whole reason this move is the
-    /// Director's is that its response is a teleport that arrives BEHIND you.
+    /// The counter is his: the response must be a teleport that arrives behind
+    /// the attacker. A check for `smash.counter` alone would pass a copy of
+    /// George's riposte.
     #[test]
     fn the_directors_counter_answers_by_arriving_behind_whoever_swung() {
         let set = director_moveset();
@@ -426,9 +353,8 @@ mod tests {
             "the response is an AIMED teleport, so he answers a parry by leaving \
              rather than by arriving behind the swing"
         );
-        // ⛔ NOT A RECOVERY. `ledge_assist` above zero would let a ledge catch the
-        // ambush arrival and take the punish away — and would quietly hand him a
-        // second recovery on his down-B.
+        // Not a recovery: a positive `ledge_assist` would let a ledge catch the
+        // ambush arrival, and would give him a second recovery.
         assert_eq!(teleport.ledge_assist, 0.0);
         assert!(
             params.absorbs_projectiles,
@@ -437,19 +363,14 @@ mod tests {
         );
     }
 
-    /// ⛔ THE DOWN SWAP TOOK THE GROUNDED HALF AND LEFT THE AERIAL ONE. His
-    /// borrowed down-special is `DownSpecial::ByPosture`, so it is TWO moves on
-    /// two verbs; replacing `special_down` must not take his air-down with it.
+    /// The down swap took the grounded half and left the aerial one. His
+    /// borrowed down-special is `DownSpecial::ByPosture` (two moves on two
+    /// verbs), so replacing `special_down` must keep his air-down.
     #[test]
     fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
         let set = director_moveset();
-        // ⛔⛔ THE INHERITED ID, NOT A HISTORICAL ONE, AND THIS ASSERTION WENT
-        // VACUOUS ONCE ALREADY. It named `director_low_arc`, which is what the
-        // Pointed Polygon's grounded down-B was called until that fighter's
-        // slot became a counter (`polygon_riposte`, 2026-09-06). The renamed id
-        // could no longer exist, so the check passed without asking anything —
-        // a test that borrows a table has to name what that table CURRENTLY
-        // hands it, or the rename it is protecting against silences it.
+        // Name the id the borrowed table currently provides, not a historical one;
+        // a renamed id would make this check pass without testing anything.
         assert!(
             !set.moves.iter().any(|m| m.id == "director_riposte"),
             "the displaced grounded down-B is still in the table, where every \
@@ -461,10 +382,9 @@ mod tests {
         );
     }
 
-    /// ⛔ AND IT IS STILL A RECOVERY. `UpSpecial::Standard` set
-    /// `gates.recovery` on the move it lowered; a replacement inserted after
-    /// that lowering has to carry the cost itself, or the Director gets an
-    /// unlimited teleport.
+    /// It is still a recovery. `UpSpecial::Standard` sets `gates.recovery` on
+    /// the move it lowers; a replacement inserted after that must carry the cost,
+    /// or he gets an unlimited teleport.
     #[test]
     fn the_replacement_still_spends_the_airtimes_recovery() {
         let set = director_moveset();

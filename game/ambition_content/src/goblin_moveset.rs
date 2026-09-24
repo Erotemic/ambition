@@ -77,10 +77,8 @@ pub fn goblin_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // committed and NOT safe. The goblin's kill move costs it 0.30s of
-    // recovery against a body that only has 5 HP to trade with — throwing this
-    // and missing is how a goblin dies, which is what makes landing it exciting
-    // rather than routine.
+    // Committed and not safe: 0.30s of recovery on a 5 HP body. Missing it is
+    // how a goblin dies, which makes landing it exciting.
     let mut f_smash = strike(Strike {
         id: "smash_forward",
         clip: "smash_forward",
@@ -162,8 +160,7 @@ pub fn goblin_moveset() -> MovesetContract {
         on_hit: None,
     });
 
-    // the goblin's best kill option, and it faces the wrong way — the classic
-    // trade. Committing to a back-air means committing to not looking at them.
+    // The goblin's best kill option, facing the wrong way: the classic trade.
     let b_air = strike(Strike {
         id: "air_back",
         clip: "air_back",
@@ -194,10 +191,8 @@ pub fn goblin_moveset() -> MovesetContract {
         on_hit: None,
     });
 
-    // Straight down and hard. no `on_hit` rebound: the robot's down-air says it
-    // is capable of bouncing its attacker and this one does not, because a goblin
-    // that could pogo off a body would out-recover a character built around
-    // recovery being its problem.
+    // Straight down and hard. No `on_hit` rebound: a goblin that could pogo
+    // off a body would out-recover a character whose problem is recovery.
     let d_air = strike(Strike {
         id: "air_down",
         clip: "air_down",
@@ -213,9 +208,8 @@ pub fn goblin_moveset() -> MovesetContract {
         on_hit: None,
     });
 
-    // a forward tilt, because without one the commonest press in the genre
-    // falls down the directional chain to the jab. A goblin's is a scrappy
-    // shove — shorter and faster than anybody else's, like the rest of its kit.
+    // A forward tilt, so the most common press does not fall down the chain to
+    // the jab. A scrappy shove, shorter and faster than anyone else's.
     let f_tilt = strike(Strike {
         id: "tilt_forward",
         clip: "attack_side",
@@ -234,9 +228,8 @@ pub fn goblin_moveset() -> MovesetContract {
     let f_tilt = sfx(f_tilt, 0.06, "enemy.goblin.attack");
     let f_tilt = on_contact(f_tilt, "enemy.goblin.hit");
 
-    // NEUTRAL — `scrap_flail`. No technique at all: it turns its whole body
-    // into the swing and hopes. Wide, slow for a goblin, and the only move in
-    // its kit that covers both sides of it.
+    // Neutral: `scrap_flail`. No technique: it swings its whole body and hopes.
+    // Wide, slow for a goblin, and the only move that covers both sides.
     let n_b = strike(Strike {
         id: "scrap_flail",
         clip: "attack",
@@ -256,11 +249,9 @@ pub fn goblin_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.10, "enemy.goblin.attack");
     let n_b = on_contact(n_b, "enemy.goblin.hit");
 
-    // SIDE — `headlong_charge`. It runs at you. `ImpulseMode::Set`, so a
-    // goblin already falling gets the same charge as a standing one — the
-    // difference between a committed move and a suggestion — and the tail damps
-    // steering to 0.1 rather than 0.0, because a scrappy fighter that could not
-    // adjust at all would be a heavyweight.
+    // Side: `headlong_charge`. It runs at you. `ImpulseMode::Set`, so a falling
+    // goblin gets the same charge as a standing one. The tail damps steering to
+    // 0.1, not 0.0, so a scrappy fighter can still adjust.
     let side_b = strike(Strike {
         id: "headlong_charge",
         clip: "attack_side",
@@ -280,37 +271,25 @@ pub fn goblin_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.14, "dash_streak", (0.0, 0.0), 1.0);
     let side_b = sfx(side_b, 0.14, "enemy.goblin.attack");
     let side_b = on_contact(side_b, "enemy.goblin.hit");
-    // ⭐⭐ AND IF IT CONNECTS, IT DOES NOT LET GO — the second authored flow, and
-    // deliberately the OPPOSITE SHAPE to the first.
+    // If it connects, it does not let go: the opposite shape to the oni's flow.
+    // The oni branches on a failure (`Blocked`) to escape; this waits for a
+    // success (`Connected`) to commit. It needs no new node, signal or engine
+    // change: the same `Wait`/`Emit` pair used the other way. The emitted grab
+    // is the goblin's own, authored below.
     //
-    // ⛔ THE ONI'S FLOW BRANCHES ON A FAILURE (`Blocked`) TO ESCAPE; THIS ONE
-    // WAITS FOR A SUCCESS (`Connected`) TO COMMIT. If the four nodes only ever
-    // expressed "get out of trouble" the vocabulary would be a defensive gadget
-    // rather than a general one, so the point of authoring this second is that
-    // it needed no new node, no new signal and no engine change — the same
-    // `Wait`/`Emit` pair read the other way round.
+    // Wait on the connect, not the overlap. `Overlapped` is also true of a
+    // blocked charge, so waiting on it would give a grab for running into a
+    // shield.
     //
-    // ⭐ IT IS ALSO THE MOVE THIS COMMENT ALREADY DESCRIBED. *"It runs at you"* —
-    // and then, before a flow existed, it bounced off and stood there. A tackle
-    // that ends with the goblin holding you is what a scrappy body-first fighter
-    // does, and every piece of it is already in its own kit: the grab it authors
-    // three functions down is the technique this emits.
-    //
-    // ⛔ ON THE CONNECT, NOT ON THE OVERLAP. `Overlapped` is true of a BLOCKED
-    // charge too, so waiting on it would hand the goblin a grab for running into
-    // a shield — the single most punishable thing in the genre becoming its best
-    // option. A guard stops the tackle, which is what a guard is for.
-    //
-    // ⚠ ROSTER DECISION #18, Jon's to overrule: a landed charge grabs. The
-    // captive's answer is the one the rules already give them —
-    // `grab_mash_seconds`, 14.4 frames per press — so this shortens the road to a
-    // throw rather than removing anybody's out.
+    // Roster decision #18, Jon's to overrule: a landed charge grabs. The captive
+    // still has `grab_mash_seconds` (14.4 frames per press), so this shortens the
+    // road to a throw without removing anyone's escape.
     let side_b = ambition_entity_catalog::MoveSpec {
         flow: Some(ambition_entity_catalog::TechniqueFlow {
             nodes: vec![
-                // ⛔ THE TIMEOUT SITS PAST THE ACTIVE WINDOW (0.14 + 0.10) AND
-                // SHORT OF THE TAIL. A charge that connected with nothing is a
-                // whiff, and a whiff is supposed to be the punish window.
+                // The timeout is past the active window (0.14 + 0.10) and short of the
+                // tail: a charge that connected with nothing is a whiff, and whiffs are the
+                // punish window.
                 ambition_entity_catalog::FlowNode::Wait {
                     on: ambition_entity_catalog::FlowSignal::Connected,
                     timeout_s: 0.30,
@@ -323,8 +302,7 @@ pub fn goblin_moveset() -> MovesetContract {
                             .to_string(),
                         params: ambition_entity_catalog::ParamValue::from_typed(
                             &CaptureAttemptParams {
-                                // Closer than its standing grab: it is already
-                                // inside you, which is how the charge landed.
+                                // Closer than its standing grab: it is already inside you.
                                 offset: (10.0, 1.0),
                                 half_extents: (17.0, 14.0),
                                 hold_offset: (13.0, 3.0),
@@ -340,10 +318,8 @@ pub fn goblin_moveset() -> MovesetContract {
         ..side_b
     };
 
-    // UP — `scramble_leap`. THE RECOVERY, and the reason this batch is not
-    // cosmetic: with no special at all, a goblin knocked off the stage had a
-    // double jump and nothing else. It claws upward — weaker than a heavyweight's
-    // lift and cheaper to land, which is the small fighter's bargain.
+    // Up: `scramble_leap`, its recovery. It claws upward: weaker than a
+    // heavyweight's lift and cheaper to land.
     let mut up_b = strike(Strike {
         id: "scramble_leap",
         clip: "attack_up",
@@ -381,26 +357,21 @@ pub fn goblin_moveset() -> MovesetContract {
         launch_dir: Some((0.70, -0.60)),
         on_hit: None,
     });
-    // ⭐⭐ THE DIRT IS IN THE NAME AND WAS NOT IN THE MOVE. "It kicks the ground
-    // at you" was authored as one hitbox and nothing else — one of the roster's
-    // specials carrying no mechanic at all. What it was missing is the half the
-    // name is about: the kick connects, and what the kick MISSES gets a face full
-    // of dirt.
+    // The dirt: the kick connects, and a target just out of range gets a face
+    // full of dirt (a windbox).
     //
-    // ⛔ THE WAKE IS APPENDED, so the hit wins wherever both reach. Standing in
-    // both means you were kicked; being shoved instead is the consolation for
-    // being out of range — which is what makes this a spacing tool for a fighter
-    // whose whole problem is that everything else it has is short.
+    // The wake is appended, so the hit wins wherever both reach. Standing in
+    // both means you were kicked; being shoved is for being out of range. This
+    // gives a short-ranged fighter a spacing tool.
     //
-    // ⚠ ONE-SHOT, NOT SUSTAINED. A repeating windbox is a wall you cannot walk
-    // through, and a goblin scuffing the floor for 0.08s is a shove.
+    // One-shot, not sustained: a repeating windbox is a wall; this is a shove.
     let down_b = wake(
         down_b,
         Wake {
             offset: (58.0, 14.0),
             half_extents: (24.0, 8.0),
-            // Firm enough to break an approach and take somebody off a ledge they
-            // were about to grab, well short of a launch that kills.
+            // Firm enough to break an approach or push someone off a ledge, well short
+            // of a killing launch.
             push: 62.0,
             // Along the floor and barely up: dirt travels, it does not lift.
             push_dir: (1.0, -0.15),
@@ -412,20 +383,15 @@ pub fn goblin_moveset() -> MovesetContract {
     let down_b = sfx(down_b, 0.12, "enemy.goblin.attack");
     let down_b = on_contact(down_b, "enemy.goblin.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR — `dive_stomp`. It cannot kick the ground from up
-    // there, so it becomes the ground: knees up, straight down, and whoever is
-    // under it is the floor.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: `dive_stomp`. It cannot kick the ground from up there,
+    // so it becomes the ground: knees up, straight down.
     let mut air_down_b = strike(Strike {
         id: "dive_stomp",
         clip: "air_down",
@@ -444,42 +410,25 @@ pub fn goblin_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.08, (0.0, 1150.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.08, "sand_burst", (0.0, 20.0), 0.9);
     let air_down_b = sfx(air_down_b, 0.08, "enemy.goblin.attack");
-    // ⭐⭐ AND IT IS THE GOBLIN'S LIMIT — Jon, 2026-09-05: *"Give the limit ability
-    // to the goblin maybe? […] And give whoever gets the limit meter some move
-    // they can use when it fills."*
+    // This is the goblin's Limit. Jon: *"give whoever gets the limit meter some
+    // move they can use when it fills."*
     //
-    // ⭐ THE PRICE IS THE WHOLE METER, WHICH IS WHY IT NEEDS NO NEW GATE. A move
-    // costing exactly the cap is available exactly when the meter is full, and
-    // `afford_meter` already refuses it otherwise. "Usable when it fills" is a
-    // number, not a mechanism.
+    // The price is the whole meter, so no new gate is needed: a move costing
+    // exactly the cap is available exactly when the meter is full, and
+    // `afford_meter` refuses it otherwise.
     //
-    // ✔ AND AN UNCHARGED PRESS GETS THE ORDINARY DIVE — the genre's shape, where
-    // a Limit REPLACES a special rather than taking the button away.
+    // An uncharged press gets the ordinary dive through `MoveGates::when_refused`
+    // (the meter check is at acceptance, not in `MoveGates::permits`, because a
+    // data crate must not read body state). The fallback is this move's ordinary
+    // form, so a player who never fills the meter has the same goblin.
     //
-    // ⛔ IT USED TO BE A DEAD BUTTON, and that was stated here rather than
-    // discovered: the meter check lives at ACCEPTANCE, not in
-    // `MoveGates::permits` (a DATA crate must not read body state), so a refused
-    // metered move fell through nothing at all and pressing down in the air on an
-    // empty meter was inert. ⇒ `MoveGates::when_refused` is that rung, and this
-    // is its first authored customer.
+    // It is the air-down, not the neutral: the other specials stay free, and
+    // `SmashRepertoire` binds no air-neutral verb.
     //
-    // ⭐ THE VARIANT IS THIS MOVE'S OWN EARLIER SELF, which is why the authoring
-    // costs one line: the Limit dive is built by taking the ordinary dive and
-    // making its numbers enormous, so the thing to fall back to already existed
-    // and only needed an id. A player who never fills the meter has exactly the
-    // goblin they always had.
-    //
-    // ⚠ IT IS THE AIR-DOWN AND NOT THE NEUTRAL, deliberately: the goblin's four
-    // other specials stay unconditional, so charging changes what one button does
-    // rather than taking its kit away. `SmashRepertoire` binds no air-NEUTRAL
-    // verb, so there was no free slot to put this in.
-    //
-    // ⚠ ROSTER DECISION #21, Jon's to overrule. 60 is the whole of his baseline
-    // cap, and the payoff is scaled to it: a dive that ends a stock rather than a
-    // dive that pokes.
-    // ⛔ TAKEN BEFORE THE PRICE AND BEFORE THE BUFF, and the order is the whole
-    // of it: cloned after the windows below are rewritten, the "cheap" fallback
-    // would be the 26-damage version and the meter would buy nothing.
+    // Roster decision #21, Jon's to overrule. 60 is his whole baseline cap, and
+    // the payoff matches: a dive that ends a stock.
+    // Clone before the price and the buff are applied; otherwise the fallback
+    // would be the 26-damage version.
     let uncharged_dive = {
         let mut spec = air_down_b.clone();
         spec.id = format!("{}_uncharged", spec.id);
@@ -488,16 +437,14 @@ pub fn goblin_moveset() -> MovesetContract {
     let uncharged_dive = on_contact(uncharged_dive, "enemy.goblin.hit");
     let air_down_b = ambition_entity_catalog::MoveSpec {
         gates: ambition_entity_catalog::MoveGates {
-            // THE LIMIT, BY NAME. A goblin that holds no Limit — every goblin
-            // outside a Limit match — cannot pay, and its press gets the
-            // uncharged dive instead.
+            // The Limit, by name. A goblin with no Limit (outside a Limit match) cannot
+            // pay and gets the uncharged dive.
             costs: vec![ambition_resource_spec::ResourceCost::new(
                 ambition_entity_catalog::smash_limit::LIMIT,
                 60.0,
             )],
-            // ⚠ BOUND TO NO VERB. `move_by_id` searches every move the contract
-            // carries, not only the verb-bound ones, so the fallback needs an id
-            // and a place in `moves` — not a press of its own.
+            // Bound to no verb. `move_by_id` searches every move in the contract, so
+            // the fallback only needs an id and a place in `moves`.
             when_refused: Some(uncharged_dive.id.clone()),
             ..air_down_b.gates.clone()
         },
@@ -505,9 +452,8 @@ pub fn goblin_moveset() -> MovesetContract {
     };
     let air_down_b = {
         let mut spec = air_down_b;
-        // The Limit's payoff, and it is the same strike made enormous rather than
-        // a second move: everything a player already read about this dive stays
-        // true, and the number they cannot miss is what changed.
+        // The Limit's payoff is the same strike made enormous, so everything a
+        // player knows about this dive stays true.
         for window in &mut spec.windows {
             for volume in &mut window.volumes {
                 volume.damage = 26;
@@ -518,12 +464,10 @@ pub fn goblin_moveset() -> MovesetContract {
     };
     let air_down_b = on_contact(air_down_b, "enemy.goblin.hit");
 
-    // GOBLIN'S CAPTURE KIT. Short reach, fast everything, weak throw: it wins the
-    // grab and cannot finish with it. The flattest launch on the roster.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Goblin's capture kit: short reach, fast everything, weak throw. The
+    // flattest launch on the roster.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's clip guard refuses unpublished rows.
     let grab = author_standing_grab(
         grab_shell("goblin_grab", "attack", 0.06, 0.04, 0.22),
         CaptureAttemptParams {
@@ -570,32 +514,24 @@ pub fn goblin_moveset() -> MovesetContract {
         },
     );
 
-    // ⭐⭐ THE CARGO CARRY — proof move 5, and the goblin gets it because hauling
-    // somebody off is what a goblin DOES. Down + Attack inside a grab no longer
-    // throws: it hoists the captive onto its back and lets the goblin WALK.
+    // The cargo carry: Down + Attack inside a grab hoists the captive onto its
+    // back and lets the goblin walk.
     //
-    // ⛔⛔ IT DISPLACES THE WEAKEST THING IN THE KIT AND THAT IS DELIBERATE. The
-    // move it replaces was `damage: 4, knockback: 74` on the fallback `"attack"`
-    // clip — the lowest-damage throw on the roster, generic in every field. ⇒ I
-    // looked for an EMPTY slot first, the way the mine and Sing found one, and
-    // there is none: every fighter authors all four throws. So the next-best
-    // rule is to spend the least, and this was the least.
+    // It replaces the weakest throw (`damage: 4, knockback: 74`, generic
+    // fields); every fighter authors all four throws, so there was no empty
+    // slot.
     //
-    // ⭐ AND THE OTHER THREE THROWS ARE THE EXIT. Nothing new had to be wired to
-    // put the captive down: while carrying, forward/back/up + Attack still throw,
-    // because a carry is an ordinary hold with two terms changed. Down enters,
-    // any direction leaves — which is the genre's own grammar, arrived at by not
-    // inventing one.
+    // The other three throws are the exit: while carrying, forward/back/up +
+    // Attack still throw, because a carry is a hold with two terms changed.
     //
-    // ⚠ NO DAMAGE ON THE CARRY. Taking the weight is not a hit, and a carry that
-    // also chipped would make entering it strictly better than the throw it
-    // replaced instead of a different choice.
+    // No damage on the carry: a carry that also chipped would be strictly
+    // better than the throw it replaced.
     let down_throw = ambition_entity_catalog::smash_capture::author_carry(
         capture_beat("goblin_dthrow", "attack", 0.26),
         0.13,
         ambition_entity_catalog::smash_capture::CaptureCarryParams {
-            // Up and over the shoulder. `+y` is gravity-DOWN, so the negative
-            // lifts them; slightly forward so the goblin is not wearing them.
+            // Over the shoulder. `+y` is down, so negative lifts; slightly forward so
+            // the goblin is not wearing them.
             hold_offset: (6.0, -18.0),
         },
     );
@@ -622,12 +558,7 @@ pub fn goblin_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -653,17 +584,12 @@ pub fn goblin_moveset() -> MovesetContract {
 mod dirt_tests {
     use super::*;
 
-    /// ⭐⭐ THE KICK WINS WHERE BOTH REACH, AND THAT ORDER IS THE MOVE.
+    /// The kick wins where both reach, and that order is the move.
     ///
-    /// `dirt_kick` is a hit that trails a shove. The damaging volume is ranked
-    /// FIRST because the strike seam takes the first-authored volume that reaches
-    /// and no other — so standing in both means you were kicked, and being shoved
-    /// instead is what happens when you were out of range.
-    ///
-    /// ⛔ A WAKE RANKED FIRST WOULD SHOVE THE PEOPLE THE MOVE WAS ABOUT TO HIT,
-    /// turning the goblin's only spacing tool into a worse gust that does no
-    /// damage at all. A test that only found a windbox passes against exactly
-    /// that, which is why this asserts the ORDER and the damage on each side.
+    /// The strike seam takes the first authored volume that reaches, so the
+    /// damaging volume is first: standing in both means you were kicked. A wake
+    /// ranked first would shove the people the move was about to hit. This
+    /// asserts the order and each side's damage.
     #[test]
     fn the_dirt_kick_hits_what_it_reaches_and_shoves_what_it_misses() {
         use ambition_entity_catalog::{VolumeReaction, WindowTag};
@@ -693,27 +619,20 @@ mod dirt_tests {
         );
     }
 
-    /// ⭐⭐ AND THE BRAIN IS TOLD WHERE THE BOOT IS, NOT WHERE THE DUST IS.
+    /// The brain is told where the boot is, not where the dust is.
     ///
-    /// `MoveFrameData::reach`/`coverage` are the only thing a fighter brain
-    /// knows about where a move can land, and they used to be the union of
-    /// EVERY Active volume. [`wake`] asserts the dust reaches further than the
-    /// hit, so that union reported this move as a poke reaching to the dust —
-    /// and a goblin mirror at rung 5 then held a 93px gap for a whole bout,
-    /// pressing `dirt_kick` at a range where only the shove landed and the
-    /// shove kept the range.
-    ///
-    /// ⇒ The two numbers below are the two questions, and this is the move
-    /// that proves they differ: the boot ends at 48, the dust ends at 82.
+    /// `MoveFrameData::reach`/`coverage` are all a fighter brain knows about where
+    /// a move lands. As the union of every Active volume, they would report this
+    /// move reaching to the dust, and a goblin would press `dirt_kick` where only
+    /// the shove lands. Here the boot ends at 48 and the dust at 82.
     #[test]
     fn the_brains_reach_for_the_dirt_kick_is_the_boot_and_not_the_dust() {
         let frames = goblin_moveset()
             .move_by_id("dirt_kick")
             .expect("dirt_kick exists")
             .frame_data();
-        // ⚠ NO `expect` ABOVE THE CLAIM. A missing region would panic one line
-        // before the assertion that names it, and a poison that fails through
-        // the wrong line has not tested the arm it was aimed at.
+        // No `expect` above the claim, so a missing region fails at the assertion
+        // that names it.
         let hit = frames.coverage.map(|c| c.max.0);
         let push = frames.push_coverage.map(|c| c.max.0);
         assert_eq!(frames.reach, 48.0, "offset 18 + half-extent 30 — the boot");
@@ -725,19 +644,12 @@ mod dirt_tests {
 
 #[cfg(test)]
 mod tests {
-    /// ⭐⭐ THE GOBLIN'S LIMIT COSTS THE WHOLE METER, which is what makes it
-    /// "usable when it fills" without a new gate.
+    /// The Limit costs the whole meter, so it is usable exactly when full with no
+    /// new gate.
     ///
-    /// Jon, 2026-09-05: *"give whoever gets the limit meter some move they can
-    /// use when it fills."* ⇒ A move priced at exactly the cap is available
-    /// exactly at full, and `afford_meter` already refuses it otherwise — the
-    /// availability is a NUMBER rather than a mechanism.
-    ///
-    /// ⛔ THE EQUALITY IS THE ASSERTION. Priced BELOW the cap it is a move you
-    /// can use twice at 50%, which is a resource move and not a Limit; priced
-    /// ABOVE it is a move nobody can ever use, because the meter stops filling at
-    /// the cap. Both are silent — the first plays, the second simply never
-    /// happens — so the guard checks the relationship rather than the number.
+    /// The equality is the assertion. Below the cap it could be used twice at
+    /// 50% (a resource move, not a Limit); above it, never, because the meter
+    /// stops at the cap. Both would fail silently.
     #[test]
     fn the_goblins_limit_dive_costs_exactly_the_matchs_full_meter() {
         use ambition_entity_catalog::smash_limit::LimitMeterFill;
@@ -760,8 +672,7 @@ mod tests {
              either way",
         );
 
-        // ⛔ AND IT MUST HIT HARDER THAN THE MOVE IT REPLACES. A Limit that costs
-        // the whole meter and does what the ordinary dive did is a worse dive.
+        // It must hit harder than the move it replaces.
         let hardest = dive
             .windows
             .iter()
@@ -775,8 +686,7 @@ mod tests {
              bought a poke"
         );
 
-        // ⛔ POISON GUARD. Every other special must stay FREE, or charging the
-        // meter has taken the goblin's kit away instead of adding to it.
+        // Every other special must stay free.
         let priced: Vec<&str> = set
             .moves
             .iter()
@@ -791,20 +701,13 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ THE SECOND AUTHORED FLOW IS THE OPPOSITE SHAPE TO THE FIRST, and that
-    /// is the claim under test rather than "the goblin has a flow".
+    /// The goblin's flow has the opposite shape to the oni's: it waits for a
+    /// success (`Connected`) to commit, where the oni branches on a failure
+    /// (`Blocked`) to escape. The same `Wait`/`Emit` pair needed no new node,
+    /// signal or engine change.
     ///
-    /// The Shadow Oni branches on a FAILURE (`Blocked`) to escape; this waits for
-    /// a SUCCESS (`Connected`) to commit. ⇒ If the four nodes only ever expressed
-    /// "get out of trouble" the vocabulary would be a defensive gadget rather
-    /// than a general one — so what this asserts is that the same `Wait`/`Emit`
-    /// pair, read the other way round, needed no new node, no new signal and no
-    /// engine change.
-    ///
-    /// ⛔ AND IT MUST WAIT ON `Connected`, NOT `Overlapped`. An overlap is true of
-    /// a BLOCKED charge too, so waiting on it would hand the goblin a grab for
-    /// running into a shield — the most punishable act in the genre becoming its
-    /// best option.
+    /// It must wait on `Connected`, not `Overlapped`: an overlap is also true of a
+    /// blocked charge.
     #[test]
     fn the_goblins_charge_grabs_on_a_connect_and_not_on_a_mere_overlap() {
         use ambition_entity_catalog::{FlowNode, FlowSignal};
@@ -836,9 +739,7 @@ mod tests {
              shield"
         );
 
-        // ⛔ THE FOLLOW-UP IS ITS OWN GRAB, not a bespoke technique. A flow that
-        // needed a new key to be useful would not have proven anything about the
-        // vocabulary reaching what the game already publishes.
+        // The follow-up is its own grab, not a new technique.
         let emitted = flow.nodes.iter().find_map(|n| match n {
             FlowNode::Emit { effect, .. } => Some(effect.key.clone()),
             _ => None,
@@ -850,7 +751,7 @@ mod tests {
              goblin already authors"
         );
 
-        // ⛔ AND THE WHIFF STAYS PUNISHABLE: the wait must give up inside the move.
+        // The whiff stays punishable: the wait gives up inside the move.
         let timeout = flow.nodes.iter().find_map(|n| match n {
             FlowNode::Wait { timeout_s, .. } => Some(*timeout_s),
             _ => None,
@@ -866,21 +767,16 @@ mod tests {
 
     use super::*;
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// The goblin is not the robot with different numbers.
     ///
-    /// the point of a per-character table is that the characters differ, and a
-    /// table copied wholesale would pass every other test in this file. This pins
-    /// the identity the module doc claims: shorter reach, faster jab, weaker kill.
+    /// A copied table would pass every other test here. This pins the module
+    /// doc's identity: shorter reach, faster jab, weaker kill.
     #[test]
     fn the_goblin_is_shorter_faster_and_weaker_than_the_robot() {
         let goblin = goblin_moveset();
@@ -944,10 +840,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A CARRY, NOT A THROW, AND NOT BOTH. The failure this guards against is
-    /// the quiet one: leaving `author_throw` beside `author_carry` so the down
-    /// press hoists the captive AND launches it, which reads in play as a carry
-    /// that randomly does not work.
+    /// A carry, not a throw, and not both. Leaving `author_throw` beside
+    /// `author_carry` would make down both hoist and launch, which plays as a
+    /// carry that randomly fails.
     #[test]
     fn the_goblins_down_throw_hauls_instead_of_launching() {
         let moves = goblin_moveset();

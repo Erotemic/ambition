@@ -1,38 +1,27 @@
-//! `ui`-gated acceptance: the two NAMED Yarn functions that survived the
+//! `ui`-gated acceptance: the two named Yarn functions kept after the
 //! condition-authority migration still branch correctly, through a real
 //! interpreter.
 //!
-//! ⛔⛔ THE MIGRATION'S PROMISE WAS COMPATIBILITY, AND NOTHING TESTED IT.
-//! `boss.cleared` moved to the boss domain and `quest.active` to the quest
-//! domain, and `YarnStateMirrorData`'s `bosses_cleared` / `quests_active`
-//! slices were deleted. The authored names `boss_cleared(id)` and
-//! `quest_active(id)` were KEPT so shipped `.yarn` — `cove.yarn`,
-//! `kernel.yarn` — would not have to be rewritten. That is a promise about a
-//! surface authors use, and the only tests covering it called the Rust
-//! evaluators directly.
+//! `boss.cleared` lives in the boss domain and `quest.active` in the quest
+//! domain. The authored names `boss_cleared(id)` and `quest_active(id)` stay,
+//! so shipped `.yarn` (`cove.yarn`, `kernel.yarn`) need not change. That is a
+//! promise about a surface authors use.
 //!
-//! ⭐ A DIRECT CALL PROVES THE EVALUATOR AND PROVES NOTHING ABOUT THE PROMISE.
-//! Between an authored `<<if boss_cleared("…")>>` and
-//! `ask_boss_cleared` sit the registration NAME, the interpreter's dispatch,
-//! its arity rules, its string→`String` conversion, and its branch selection.
-//! `ambition_conversation`'s `yarn_harness` exists in that crate for exactly
-//! this reason, in its own words: *"the interpreter's dispatch, its arity rules
-//! and its value handling are exactly the parts that were believed impossible
-//! and were not."*
+//! A direct call proves the evaluator, not the promise. Between an authored
+//! `<<if boss_cleared("…")>>` and `ask_boss_cleared` sit the registration
+//! name, the interpreter's dispatch, its arity rules, its string→`String`
+//! conversion and its branch selection. `ambition_conversation`'s
+//! `yarn_harness` exists for the same reason.
 //!
-//! ⚠ WHY THIS DOES NOT IMPORT THAT HARNESS, since the duplication is visible
-//! and deliberate. `yarn_harness` is `#[cfg(test)] mod` — private to
-//! `ambition_conversation`'s own test build. Reaching it from here would mean
-//! promoting it behind a feature that pulls `ambition_conversation/ui` into
-//! this crate's graph, and because a dev-dependency's features unify with the
-//! normal one, `ambition_content`'s library would then be COMPILED DIFFERENTLY
-//! under test than it ships. ⇒ Paying that to share thirty lines of app setup
-//! would trade a real hazard for a cosmetic one. What is reproduced here is the
-//! harness's PROPERTY — drive the real interpreter through the production
-//! installer seam — not its code: the vocabulary arrives through
-//! `install_game_bindings`, the same function `AmbitionContentPlugin` pushes
-//! into `YarnContentBindings`, so a change that breaks real installation breaks
-//! these tests too.
+//! This does not import that harness. `yarn_harness` is a `#[cfg(test)] mod`,
+//! private to `ambition_conversation`'s test build. Exposing it behind a
+//! feature would pull `ambition_conversation/ui` into this crate's graph, and
+//! because dev-dependency features unify with normal ones, `ambition_content`
+//! would compile differently under test than it ships. So this file copies the
+//! harness's property, not its code: it drives the real interpreter through
+//! `install_game_bindings`, the function `AmbitionContentPlugin` pushes into
+//! `YarnContentBindings`. A change that breaks real installation breaks these
+//! tests.
 #![cfg(feature = "ui")]
 
 use ambition_boss_encounter::conditions::BossConditionsPlugin;
@@ -55,8 +44,8 @@ fn record_line(event: On<PresentLine>, mut lines: ResMut<PresentedLines>) {
 /// An app running `source` with Ambition's real Yarn vocabulary installed.
 ///
 /// `publish` decides which condition providers this composition carries, so a
-/// test can ask what an authored line does when the domain is ABSENT — which is
-/// a different question from "the fact is false" and has its own arm below.
+/// test can ask what an authored line does when the domain is absent, which
+/// differs from "the fact is false".
 fn app_running(source: &str, publish: impl FnOnce(&mut App)) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -70,10 +59,10 @@ fn app_running(source: &str, publish: impl FnOnce(&mut App)) -> App {
     app.init_resource::<PresentedLines>();
     app.init_resource::<ambition_dialog::YarnStateMirror>();
     app.init_resource::<ambition_dialog::YarnContentBindings>();
-    // ⭐ THE PRODUCTION INSTALLER, by function pointer through the seam the
-    // content plugin uses. Not `register_functions` directly: the product
-    // installs the whole vocabulary at once, and a test that installed half of
-    // it could pass while the real install order broke.
+    // The production installer, through the seam the content plugin uses. Not
+    // `register_functions` directly: the product installs the whole vocabulary
+    // at once, and a test that installed half could pass while the real install
+    // order broke.
     app.world_mut()
         .resource_mut::<ambition_dialog::YarnContentBindings>()
         .installers
@@ -127,8 +116,8 @@ fn play(app: &mut App, node: &str) -> Vec<String> {
     app.world().resource::<PresentedLines>().0.clone()
 }
 
-/// ⭐ ONE DEFINITION, and it lives in an UNGATED module so its guard survives
-/// this file's `#![cfg(feature = "ui")]` — see `dialogue_lint::SYNTHETIC_BOSS`.
+/// It lives in an ungated module so its guard survives this file's
+/// `#![cfg(feature = "ui")]`; see `dialogue_lint::SYNTHETIC_BOSS`.
 use crate::dialogue_lint::SYNTHETIC_BOSS;
 
 /// A save carrying one boss in the given state, under [`SYNTHETIC_BOSS`].
@@ -171,14 +160,12 @@ const QUEST_SOURCE: &str = "title: quest_gate\n---\n\
     <<endif>>\n\
     ===\n";
 
-/// ⭐⭐ AN AUTHORED `boss_cleared(...)` LINE BRANCHES ON THE LIVE SAVE, through
-/// the interpreter — the compatibility promise, asked the way content asks it.
+/// An authored `boss_cleared(...)` line branches on the live save, through
+/// the interpreter.
 ///
-/// ⛔ THE CLOSED ARM IS ASSERTED FROM A BOSS THE SAVE KNOWS ABOUT, and
-/// `Failed` rather than `Untouched` on purpose: "never fought" and "fought and
-/// lost" are different facts and both must leave the door shut. A test that
-/// used an unrecorded boss for its false arm would pass equally if the function
-/// were wired to nothing at all.
+/// The closed arm uses a boss the save knows, as `Failed`, not `Untouched`:
+/// "fought and lost" must also leave the door shut. A false arm from an
+/// unrecorded boss would pass even if the function were wired to nothing.
 #[test]
 fn an_authored_boss_cleared_line_branches_on_the_live_save() {
     let mut app = app_running(BOSS_SOURCE, |app| {
@@ -202,14 +189,12 @@ fn an_authored_boss_cleared_line_branches_on_the_live_save() {
     );
 }
 
-/// ⭐⭐ `quest_active(...)` IS TRUE FOR `InProgress` AND FOR NOTHING ELSE.
+/// `quest_active(...)` is true for `InProgress` and nothing else.
 ///
-/// ⛔ `Completed` IS THE ARM THAT MATTERS and it is why this test names three
-/// states rather than two. *"Is this quest under way"* and *"did you finish
-/// it"* are different questions; a `quest_active` that answered "yes" for a
-/// finished quest would leave every "are you still looking for it?" line
-/// running forever, and a two-state test (`NotStarted` vs `InProgress`) would
-/// not notice.
+/// `Completed` is the arm that matters, so the test names three states. A
+/// `quest_active` that said yes for a finished quest would keep every "are you
+/// still looking for it?" line running, and a two-state test would not
+/// notice.
 #[test]
 fn an_authored_quest_active_line_is_true_only_while_the_quest_is_in_progress() {
     for (state, expected) in [
@@ -229,19 +214,17 @@ fn an_authored_quest_active_line_is_true_only_while_the_quest_is_in_progress() {
     }
 }
 
-/// ⛔⛔ A COMPOSITION THAT NEVER PUBLISHED THE QUESTION LEAVES THE BRANCH SHUT,
-/// and this is the rule the alias functions document rather than an accident.
+/// A composition that never published the question leaves the branch shut.
 ///
-/// Yarn's `<<if>>` needs a bool, so *unanswerable* has to collapse one way. It
-/// collapses to FALSE: the other direction would open a door in exactly the
-/// world that understands the question least. ⚠ This arm is what makes the two
-/// above meaningful — without it, a `boss_cleared` hard-wired to `false` would
-/// satisfy every closed assertion in this file.
+/// Yarn's `<<if>>` needs a bool, so unanswerable collapses to false: the other
+/// direction would open a door in the world that understands the question
+/// least. Without this arm, a `boss_cleared` hard-wired to `false` would pass
+/// every closed assertion in this file.
 #[test]
 fn an_alias_whose_domain_is_absent_leaves_the_authored_branch_shut() {
     let mut app = app_running(BOSS_SOURCE, |app| {
-        // The save is present and says the boss WAS beaten; only the domain
-        // that publishes `boss.cleared` is missing.
+        // The save says the boss was beaten; only the domain that publishes
+        // `boss.cleared` is missing.
         app.insert_resource(save_with_boss(PersistedEncounterState::Cleared));
     });
     assert_eq!(
@@ -252,19 +235,11 @@ fn an_alias_whose_domain_is_absent_leaves_the_authored_branch_shut() {
     );
 }
 
-/// ⭐⭐ THE SHOP MENU'S TEN `can_afford` LINES BRANCH OFF THE LIVE WALLET.
+/// The shop menu's `can_afford` lines branch off the live wallet.
 ///
-/// This alias had the most authored callers of any fact question in the game
-/// and no interpreter-level test at all, because the mirror migration was ruled
-/// finished by enumerating the mirror's struct FIELDS — `wallet_balance` is a
-/// number, so the field was exempt — while the fork lived in the FUNCTIONS
-/// bound over that field.
-///
-/// ⛔ THE BOUNDARY IS ASSERTED, not just rich-and-poor. A player holding
-/// exactly the asking price must be able to buy: the shop's own `buy` spends
-/// `balance -= price` and refuses only when short, so `>` here would grey out a
-/// line the purchase itself would allow — visible only to a player holding
-/// exactly 25g, which is nobody's test playthrough.
+/// The boundary is asserted. A player holding exactly the price must be able
+/// to buy: `buy` spends `balance -= price` and refuses only when short, so `>`
+/// here would grey out a purchase that `buy` allows.
 #[test]
 fn an_authored_can_afford_line_branches_on_the_live_wallet() {
     for (balance, expected) in [(24, "TOO DEAR"), (25, "AFFORDABLE"), (99, "AFFORDABLE")] {
@@ -283,10 +258,10 @@ fn an_authored_can_afford_line_branches_on_the_live_wallet() {
     }
 }
 
-/// ⛔ AND THE WALLET DOMAIN OBEYS THE SAME COLLAPSE RULE AS THE OTHER TWO: a
-/// composition that never published the question leaves the purchase shut, even
-/// with a full purse. Without this arm a `can_afford` wired to nothing would
-/// satisfy the `TOO DEAR` assertion above.
+/// The wallet domain follows the same collapse rule: a composition that never
+/// published the question leaves the purchase shut, even with a full purse.
+/// Without this arm a `can_afford` wired to nothing would pass the `TOO DEAR`
+/// assertion above.
 #[test]
 fn a_shop_line_is_shut_when_no_wallet_domain_is_composed() {
     let mut app = app_running(SHOP_SOURCE, |app| {

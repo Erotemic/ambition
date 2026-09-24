@@ -1,22 +1,22 @@
-//! Cut-rope boss arena: the cut-rope-SPECIFIC bits — rope-cut detection (the one
-//! bespoke trigger), the heavy-object (anvil/piano) prop visuals + cycle, and the
-//! death flavor (sparks / explosion / fireworks).
+//! Cut-rope boss arena: the cut-rope-specific parts. Rope-cut detection (the
+//! one bespoke trigger), the heavy-object (anvil/piano) prop visuals and cycle,
+//! and the death flavor (sparks, explosion, fireworks).
 //!
-//! The actual FIGHT is the generic encounter machinery (R5): cutting the rope
-//! fires `Gate("rope_cut")`, the cut-rope `EncounterScript` lures the behemoth
-//! (`CommandMoveTo` → generic `CommandedMove`) + drops the anvil (`DropHazard` →
-//! generic `FallingHazard`), the hazard fires `Gate("cut_rope_impact")` on
-//! contact, and the script `ForceKill`s the behemoth. This file no longer
-//! contains any anvil physics or boss steering — those are reusable mechanics.
+//! The fight itself is generic encounter machinery: cutting the rope fires
+//! `Gate("rope_cut")`, the cut-rope `EncounterScript` lures the behemoth
+//! (`CommandMoveTo` → generic `CommandedMove`) and drops the anvil
+//! (`DropHazard` → generic `FallingHazard`), the hazard fires
+//! `Gate("cut_rope_impact")` on contact, and the script `ForceKill`s the
+//! behemoth. No anvil physics or boss steering lives here.
 
 use super::*;
 
 use ambition_boss_encounter::{EncounterGate, FallingHazard};
 use ambition_sfx::SfxWriter;
 
-/// Cut-rope VISUAL/FLAVOR state. The anvil's PHYSICS lives on the generic
-/// `FallingHazard` entity now; `anvil_center` / `awaiting_alignment` are mirrored
-/// from it each frame so the existing prop-visual + spark code is unchanged.
+/// Cut-rope visual and flavor state. The anvil's physics lives on the generic
+/// `FallingHazard` entity; `anvil_center` / `awaiting_alignment` are mirrored
+/// from it each frame for the prop-visual and spark code.
 #[derive(Resource, Default)]
 pub struct CutRopeBossArenaState {
     active_room: String,
@@ -32,11 +32,10 @@ pub struct CutRopeBossArenaState {
     death_fireworks_sent: bool,
 }
 
-/// Detect the player slashing the authored rope prop → fire `Gate("rope_cut")`
-/// (the cut-rope `EncounterScript` turns that into the lure + anvil drop). The
-/// rope-cut is the ONLY cut-rope-specific trigger; everything after it is the
-/// generic encounter script + falling-hazard mechanic. Also owns the cut-rope
-/// state reset on room enter/exit + room-feature reset.
+/// Detect the player slashing the authored rope prop and fire
+/// `Gate("rope_cut")` (the cut-rope `EncounterScript` turns that into the lure
+/// and anvil drop). The rope cut is the only cut-rope-specific trigger. Also
+/// owns the cut-rope state reset on room enter/exit and room-feature reset.
 pub fn detect_cut_rope_rope_cut(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     mut state: ResMut<CutRopeBossArenaState>,
@@ -59,16 +58,13 @@ pub fn detect_cut_rope_rope_cut(
     if state.active_room != room.id {
         reset_cut_rope_arena_state_for_room(&mut state, &room.id);
     }
-    // ⛔⛔ DRAINED, NOT ACTED ON — and it used to be both.
-    // `reset_cut_rope_boss_arena_on_room_reset` is the system NAMED for this job
-    // and registered in `ContentRoomResetSet`; it clears the arena on exactly this
-    // message. This system cleared it too, so ONE fact had TWO retractors on ONE
-    // trigger, and each hid the other's absence: deleting either alone left the
-    // end-to-end replay test green, and only deleting BOTH turned it red.
+    // Drained, not acted on. `reset_cut_rope_boss_arena_on_room_reset`
+    // (registered in `ContentRoomResetSet`) clears the arena on this message.
+    // A second retractor here would hide the other's absence: deleting either
+    // would leave the end-to-end replay test green.
     //
-    // ⚠ THE READ STAYS. The cursor rule is not optional -- a `MessageReader` that
-    // skips a frame carries the backlog into the next one, and this system's early
-    // return already drains for that reason.
+    // The read stays: a `MessageReader` that skips a frame carries the backlog
+    // into the next one, and this system's early return drains for that reason.
     for _ in reset_events.read() {}
 
     let Some(rope) = authored_prop(room_set.active_props(), ROPE_KIND) else {
@@ -106,10 +102,10 @@ pub fn detect_cut_rope_rope_cut(
     }
 }
 
-/// Cut-rope FLAVOR: mirror the generic falling hazard onto the visual state,
+/// Cut-rope flavor: mirror the generic falling hazard onto the visual state,
 /// pulse the waiting rope sparks, and react to the `cut_rope_impact` gate with
-/// the explosion / fireworks / banner. The KILL itself is the EncounterScript's
-/// `ForceKill`; the anvil PHYSICS is the generic `FallingHazard`.
+/// the explosion, fireworks and banner. The kill is the EncounterScript's
+/// `ForceKill`; the anvil physics is the generic `FallingHazard`.
 pub fn tick_cut_rope_flavor(
     world_time: Res<ambition_time::WorldTime>,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
@@ -196,9 +192,9 @@ pub fn tick_cut_rope_flavor(
     }
 }
 
-/// Keep the authored rope/heavy-object prop visuals in sync with the cut-rope
-/// arena state. This is intentionally separate from the gameplay systems so the
-/// rendering query doesn't bloat their parameter arity.
+/// Keep the authored rope and heavy-object prop visuals in sync with the arena
+/// state. Separate from the gameplay systems so the rendering query does not
+/// grow their parameter count.
 pub fn sync_cut_rope_boss_arena_prop_visuals(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     state: Res<CutRopeBossArenaState>,
@@ -258,32 +254,24 @@ fn pulse_waiting_rope_explosions(
     );
 }
 
-/// Is this visual the trap's heavy object — the thing that hangs, drops and
+/// Is this visual the trap's heavy object: the thing that hangs, drops and
 /// squashes the boss?
 ///
-/// ⛔⛔ BY THE AUTHORED IID, NEVER BY `kind`.
-/// `apply_cut_rope_heavy_object_sprite` WRITES `PropVisual.kind` when the trap
-/// cycles anvil → piano, so `kind` answers "what is it drawn as right now" — true
-/// to its own doc, and useless as an identity. Asking it who the prop IS needed
-/// two compensations, both now gone: an `|| prop.name ==` caption alias (the
-/// re-skin leaves the caption alone) and a `key_matches(ANVIL) ||
-/// key_matches(PIANO)` disjunction naming every skin it might wear.
-///
-/// ⇒ A THIRD heavy object needs no new arm here. That is the part a disjunction
-/// could never promise, and the reason this is a named rule rather than a
-/// condition spelled at the point of use.
+/// By the authored iid, never by `kind`. `apply_cut_rope_heavy_object_sprite`
+/// writes `PropVisual.kind` when the trap cycles anvil → piano, so `kind`
+/// answers "what is it drawn as now", not "which prop is it". The caption
+/// (`prop.name`) is not an identity either. A third heavy object needs no new
+/// arm here.
 pub(super) fn is_heavy_object(prop: &PropVisual, anvil: &PropSpec) -> bool {
     prop.id == anvil.id
 }
 
 /// The authored prop of a given kind.
 ///
-/// ⭐ `PropSpec.kind` IS THE IDENTITY HERE and `PropSpec.name` is not. This also
-/// matched `prop.name`, which `PropSpec`'s own doc calls the "LDtk display name —
-/// authors edit this; the renderer uses it only for entity naming / debug
-/// overlay". Measured against the authored world: the two cut-rope props both
-/// carry `kind == name`, so the caption half never added a match — it only made a
-/// caption able to name a prop the fight depends on.
+/// `PropSpec.kind` is the identity; `PropSpec.name` is not. `PropSpec`'s doc
+/// calls `name` the "LDtk display name — authors edit this; the renderer uses
+/// it only for entity naming / debug overlay", so matching it would let a
+/// caption name a prop the fight depends on.
 pub(super) fn authored_prop<'a>(props: &'a [PropSpec], kind: &str) -> Option<&'a PropSpec> {
     props.iter().find(|prop| prop.kind == kind)
 }
@@ -310,23 +298,15 @@ fn sync_cut_rope_prop_visuals(
     for (mut prop, mut transform, mut sprite, animator, anchor, visibility) in
         prop_visuals.iter_mut()
     {
-        // ⛔⛔ THE HEAVY OBJECT IS MATCHED BY ITS AUTHORED ID, NOT BY `kind`.
-        // `apply_cut_rope_heavy_object_sprite` WRITES `prop.kind` when the trap
-        // cycles anvil -> piano, so `kind` answers "what is it drawn as right
-        // now", which is honest for its stated job and useless as an identity.
-        // Matching on it needed two compensations that are now both gone: an
-        // `|| prop.name ==` alias (the caption, which the re-skin leaves alone)
-        // and a `key_matches(ANVIL) || key_matches(PIANO)` disjunction covering
-        // whichever skin it happened to be wearing.
+        // The heavy object is matched by its authored id, not by `kind`:
+        // `apply_cut_rope_heavy_object_sprite` writes `prop.kind` when the trap
+        // cycles anvil -> piano, so `kind` is what it is drawn as now, not an
+        // identity.
         //
-        // ⭐ `PropVisual.id` is the LDtk iid the renderer copies straight off the
-        // authored `PropSpec`. It is the one field here that is BOTH stable and
-        // unique, which is why it is the identity and why the two disjunctions
-        // could exist without anyone noticing they were patching over a mutation.
+        // `PropVisual.id` is the LDtk iid the renderer copies from the authored
+        // `PropSpec`. It is the one field here that is both stable and unique.
         //
-        // The rope keeps a `kind` test: nothing ever re-skins the rope, so it
-        // needs no compensation and inventing an id lookup for it would suggest
-        // otherwise.
+        // The rope keeps a `kind` test: nothing re-skins the rope.
         if prop.kind == ROPE_KIND {
             if let Some(mut visibility) = visibility {
                 *visibility = if state.rope_cut {
@@ -404,8 +384,8 @@ fn reset_cut_rope_arena_state_for_room(state: &mut CutRopeBossArenaState, room_i
 
 /// Reset cut-rope-specific prop state immediately when a same-room reset is requested.
 ///
-/// The main flavor tick is gameplay-gated. Dialogue commands can request a room
-/// replay while gameplay is suspended, so this reset bridge runs in the ungated
+/// The main flavor tick is gameplay-gated. Dialogue commands can request a
+/// room replay while gameplay is suspended, so this runs in the ungated
 /// room-reset chain and restores rope/anvil visuals on the reset frame.
 pub fn reset_cut_rope_boss_arena_on_room_reset(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,

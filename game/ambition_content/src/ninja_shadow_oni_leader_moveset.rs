@@ -25,9 +25,8 @@ use ambition_entity_catalog::ImpulseMode;
 pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //
-    // the fastest jab in the game, and the shortest. It answers a goblin's
-    // jab and beats it — and if the goblin was not there, the oni is standing
-    // still for a fifth of a second holding an empty hand.
+    // The fastest and shortest jab in the game. It beats a goblin's jab; on a
+    // whiff he stands still for a fifth of a second.
     let jab = strike(Strike {
         id: "jab",
         clip: "jab",
@@ -75,10 +74,9 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
     // ── smashes ──────────────────────────────────────────────────────────────
     //
-    // the FASTEST smashes on the grid and the most punishing to miss, which
-    // is the whole character in one pair of numbers. Everybody else's kill move
-    // is slow to start; his is slow to *end*. A goblin that eats it was caught
-    // reacting; a goblin that saw it coming gets 0.44s to answer.
+    // The fastest smashes on the grid and the most punishing to miss. Other
+    // kill moves are slow to start; his are slow to end. A goblin that sees it
+    // coming gets 0.44s to answer.
     let mut f_smash = strike(Strike {
         id: "smash_forward",
         clip: "smash_forward",
@@ -203,16 +201,14 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         on_hit: None,
     });
 
-    // special we want for oni and goblin … I think oni has a bunch of sfx and
-    // vfx ready for it."* He does: fourteen authored rows on his own FX sheet,
-    // and this table had never named ONE of them. Every effect below is his.
+    // Specials. Every effect below comes from his own FX sheet.
     //
-    // the axis holds through all five. Fastest to start, shortest active
-    // window, recovery of more than three times it — a special that opened
-    // slowly or lingered would be a different character wearing the mask.
+    // The axis holds for all five: fastest to start, shortest active window,
+    // recovery more than three times the active window.
 
-    // the forward tilt, which fell down the chain to the jab. `missed_
-    // answer_cut` is the row for it: the answer that goes through where you were.
+    // The forward tilt, so the press does not fall down the chain to the jab.
+    // `missed_answer_cut` is its row: the answer that goes through where you
+    // were.
     let f_tilt = strike(Strike {
         id: "tilt_forward",
         clip: "attack_side",
@@ -245,34 +241,25 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.50)),
         on_hit: None,
     });
-    // ⭐⭐ THE ANSWER CONFIRMS INTO THE DRAW. `shadow_answer` is the fastest button
-    // on this fighter — 0.06s — and it was a bare poke with 0.34s of recovery,
-    // one of the roster's specials carrying no mechanic. What "answer" was
-    // missing is the second half of the conversation: land it, and he may cancel
-    // into `iaijutsu`, the committed draw whose flow already branches on being
-    // blocked.
+    // The answer confirms into the draw. `shadow_answer` is his fastest button
+    // (0.06s startup, 0.34s recovery). If it lands, he may cancel into
+    // `iaijutsu`, whose flow already branches on being blocked.
     //
-    // ⛔ `OnHit`, NOT `OnBlock`, AND THE DIFFERENCE IS THE WHOLE BALANCE. A
-    // block-cancel would let him escape the recovery he is supposed to eat for
-    // throwing the fastest thing in the game, and the draw's own flow already
-    // teleports him out when a guard eats THAT — two escapes stacked, and
-    // pressing this becomes free. A hit-confirm rewards the read and leaves the
-    // whiff and the block priced exactly as they were.
+    // `OnHit`, not `OnBlock`. A block-cancel would let him skip the recovery,
+    // and `iaijutsu` already teleports him out when blocked; two escapes would
+    // make pressing it free. A hit-confirm rewards the read and leaves whiffs
+    // and blocks priced as before.
     //
-    // ⚠ THE WINDOW OPENS AFTER THE ACTIVE FRAMES CLOSE (0.10s), so the cancel is
-    // a decision made once the verdict is in, not a buffer held from the press.
+    // The window opens after the active frames close (0.10s), so the cancel is
+    // chosen after the result is known.
     let n_b = ambition_entity_catalog::authoring::cancelable(
         n_b,
         0.10,
         0.30,
-        // ⛔⛤ `special` AND NOT `special_forward`, AND THE LONGER NAME WAS A DEAD
-        // STRING. MEASURED 2026-09-11 when the shipped tables first went through
-        // the content-pack validator: `trigger_moveset_moves` asks
+        // `special`, not `special_forward`: `trigger_moveset_moves` asks
         // `cancel_names_for(base_verb_of(verb), ..)`, which reduces
-        // `special_forward` to `special` BEFORE the window is consulted — so
-        // nothing this engine produces ever offers the directional spelling and
-        // this confirm never fired. It reads exactly like a move whose author
-        // wrote no follow-up, which is the same failure the medic's `jab` was.
+        // `special_forward` to `special` before the window is checked. The
+        // directional spelling never matches.
         &["special"],
         ambition_entity_catalog::CancelCondition::OnHit,
     );
@@ -283,9 +270,8 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let n_b = sfx(n_b, 0.06, "enemy.shadow_oni.slash");
     let n_b = on_contact(n_b, "player.hit");
 
-    // SIDE — `iaijutsu`. The draw and the cut are one motion, so the impulse
-    // and the active window are the same instant. He crosses the distance
-    // already having swung.
+    // Side: `iaijutsu`. The draw and the cut are one motion, so the impulse and
+    // the active window are the same instant.
     let side_b = strike(Strike {
         id: "iaijutsu",
         clip: "attack_side",
@@ -306,49 +292,39 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.05, "iaijutsu_glint", (34.0, 0.0), 1.0);
     let side_b = sfx(side_b, 0.05, "enemy.shadow_oni.slash");
     let side_b = on_contact(side_b, "player.hit");
-    // ⭐⭐ AND IF YOU BLOCK IT, HE IS ALREADY GONE — the first authored
-    // `TechniqueFlow` in the game.
+    // If you block it, he is already gone: a `TechniqueFlow`.
     //
-    // ⛔⛔ THIS IS THE THING A TIMELINE CANNOT SAY. Windows and events state
-    // WHEN; every move in this file is a fixed clock and could not ask what
-    // HAPPENED. A shielded iaijutsu leaves him standing in front of a guard with
-    // 0.30s of recovery — the most punishable place in the genre — and the only
-    // fix available before a flow was to make the move safe for everybody, which
-    // is a worse move.
+    // A timeline states when, not what happened. A shielded iaijutsu would leave
+    // him in front of a guard with 0.30s of recovery. The flow lets him escape
+    // only when blocked.
     //
-    // ⭐ THE READ IS THE POINT, and it runs both ways. Block it and he escapes,
-    // so shielding the dash is no longer free; DON'T block it and you eat 11 and
-    // a launch. That is a 1v1 exchange with two live answers instead of one
-    // dominant one, which is what this campaign means by depth.
+    // It is a read both ways: block it and he escapes, so shielding the dash is
+    // not free; do not block it and you take 11 and a launch.
     //
-    // ⇒ Four nodes, and every one of them is vocabulary that already shipped:
-    // wait for the swing to touch ANYTHING (`Overlapped` is true of a blocked
-    // strike too, which is exactly why the wait uses it and the branch does
-    // not), then ask whether a guard ate it, and if so spend his own teleport.
-    // The flow owns its cursor and nothing else — the teleport is the same
-    // technique his own counter answers with.
+    // Four nodes, all existing vocabulary: wait until the swing touches anything
+    // (`Overlapped` is also true of a blocked strike, which is why the wait uses
+    // it and the branch does not), branch on a guard, and if blocked, spend his
+    // teleport (the same technique his counter answers with).
     let side_b = ambition_entity_catalog::MoveSpec {
         flow: Some(ambition_entity_catalog::TechniqueFlow {
             nodes: vec![
-                // 0 — hold until the swing touches something. ⛔ THE TIMEOUT IS
-                // PAST THE ACTIVE WINDOW (0.05 + 0.05) and short of the tail: a
-                // swing that touched nothing by then whiffed, and a whiff is
-                // supposed to be punishable.
+                // 0: wait until the swing touches something. The timeout is past the active
+                // window (0.05 + 0.05) and short of the tail: a swing that touched nothing
+                // whiffed, and a whiff must be punishable.
                 ambition_entity_catalog::FlowNode::Wait {
                     on: ambition_entity_catalog::FlowSignal::Overlapped,
                     timeout_s: 0.16,
                     then: 1,
                     on_timeout: 3,
                 },
-                // 1 — a guard, or a body? ⛔ A BRANCH RATHER THAN A SECOND WAIT:
-                // by here the contact is resolved and the answer cannot change,
-                // which is the distinction `FlowNode::Branch`'s doc draws.
+                // 1: a guard, or a body? A branch, not a second wait: the contact is
+                // resolved and cannot change (see `FlowNode::Branch`).
                 ambition_entity_catalog::FlowNode::Branch {
                     on: ambition_entity_catalog::FlowSignal::Blocked,
                     then: 2,
                     otherwise: 3,
                 },
-                // 2 — behind them, through the guard he just fed.
+                // 2: behind them, through the guard he just fed.
                 ambition_entity_catalog::FlowNode::Emit {
                     effect: ambition_entity_catalog::EffectRef {
                         key: ambition_entity_catalog::smash_teleport::TELEPORT
@@ -357,14 +333,12 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
                             &ambition_entity_catalog::smash_teleport::TeleportParams {
                                 behind_nearest_foe: true,
                                 behind_gap: 26.0,
-                                // Whoever just blocked him is within his own
-                                // reach by construction.
+                                // Whoever just blocked him is within his reach.
                                 distance: 180.0,
-                                // Not a recovery: a ledge grabbing this arrival
-                                // would turn an escape into a stall.
+                                // Not a recovery: a ledge grabbing this arrival would turn an escape into
+                                // a stall.
                                 ledge_assist: 0.0,
-                                // Through the shieldstun he is leaving, and no
-                                // longer.
+                                // Through the shieldstun he is leaving, and no longer.
                                 intangible_s: 0.12,
                                 depart_vfx: "smoke_fold".to_string(),
                                 arrive_vfx: "silent_step".to_string(),
@@ -380,10 +354,8 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         ..side_b
     };
 
-    // UP — `smoke_fold`. THE RECOVERY, and the reason this batch is not
-    // cosmetic: with no special at all he had a double jump and nothing else.
-    // He does not climb — he leaves, and arrives. the hit is on the ARRIVAL,
-    // not the departure, so covering the spot he left is not a punish.
+    // Up: `smoke_fold`, his recovery. He does not climb; he leaves and arrives.
+    // The hit is on the arrival, so covering the spot he left is not a punish.
     let mut up_b = strike(Strike {
         id: "smoke_fold",
         clip: "attack_up",
@@ -408,44 +380,32 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let up_b = vfx_at(up_b, 0.10, "blink_arrive", (0.0, -8.0), 1.0);
     let up_b = on_contact(up_b, "player.hit");
 
-    // DOWN — `command_seal`. *"A leader's hardest order is the one obeyed
-    // instantly."* He plants a seal and the ring closes on it: no displacement,
-    // no reach, and the longest tail he owns. The order is given; standing there
-    // while it is obeyed is the cost.
-    // ⭐⭐ AND IT IS NOW ACTUALLY A COUNTER, which is not a redesign — it is the
-    // move finally being what its own presentation has always said it is. Every
-    // cue below was authored for a counter and kept beneath a plain strike: a
-    // `counter_ring` at 0.06s and `faction.ninja.parry_flash` on the same frame.
-    // ⇒ The art and the audio announced a parry and the mechanics were a
-    // damage-10 poke. Same class as prose describing code that is not there,
-    // except the reader is the PLAYER, who was being told the wrong thing about
-    // a move every time it came out.
+    // Down: `command_seal`. "A leader's hardest order is the one obeyed
+    // instantly." He plants a seal: no displacement, no reach, and his longest
+    // tail.
     //
-    // ⭐ THE ANSWER IS SMOKE. `smash.sleep` is the Performer's engine and this
-    // is its second customer with a completely unrelated fiction: she holds the
-    // room with her voice, he drops a smoke seal and you wake up on the floor.
-    // ⇒ Distinct from both counters already on the roster — George's answers
-    // with a GRAB, the Director's with an ambush TELEPORT — which is the point of
-    // the response being an arbitrary technique rather than a fixed reaction.
+    // It is a counter, as its cues always said (`counter_ring` at 0.06s and
+    // `faction.ninja.parry_flash` on the same frame).
     //
-    // ⛔ SHORT SLEEP, AND THE REASON IS THE GUARANTEE. The Performer earns 1.4s
-    // by standing next to somebody while rooted for 0.6s; this is handed over by
-    // a successful parry, which is already a full punish. Half her duration is
+    // The answer is smoke: `smash.sleep`, the Performer's engine with a different
+    // fiction. It differs from the roster's other counters (George's grabs, the
+    // Director's teleports).
+    //
+    // A short sleep, because a successful parry is already a full punish. The
+    // Performer earns 1.4s by standing rooted next to someone; half of that is
     // still a free smash and does not read as a stun-lock.
     let down_b = ambition_entity_catalog::smash_counter::counter_move(
         "command_seal",
         "attack_down",
-        // His original 0.06s tell, kept: *"a leader's hardest order is the one
-        // obeyed instantly."*
+        // His original 0.06s tell, kept.
         0.06,
-        // ⭐ THE STANCE IS THE OLD ACTIVE WINDOW, DOUBLED. A 0.05s hitbox is a
-        // poke; a 0.05s parry window is unusable — it is three frames at 60Hz
-        // and the reads it would demand are not reads, they are guesses.
+        // The stance is the old active window, doubled. A 0.05s parry window is
+        // three frames at 60Hz: guessing, not reading.
         0.10,
         0.36,
         ambition_entity_catalog::smash_counter::CounterParams {
-            // A heartbeat, not a duration: `parry_window_timer` decays and the
-            // stance re-arms it every live frame.
+            // A heartbeat, not a duration: `parry_window_timer` decays, and the stance
+            // re-arms it every live frame.
             window_s: 0.05,
             // Its own answer, as every counter but the clerk's is.
             answers_the_attacker: false,
@@ -453,17 +413,14 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
             response_params: ambition_entity_catalog::ParamValue::from_typed(
                 &ambition_entity_catalog::smash_sleep::SleepParams {
                     duration_s: 0.7,
-                    // Tight and centred on the seal: the smoke catches whoever
-                    // was close enough to swing at him, which by construction is
-                    // whoever he just parried.
+                    // Tight and centred on the seal: the smoke catches whoever was close
+                    // enough to swing at him, which is whoever he parried.
                     half_extents: (34.0, 26.0),
                 },
             )
             .expect("the seal's sleep params serialize"),
-            // ⛔ HE SWALLOWS SHOTS. A ninja who returned them would be reflecting
-            // with a smoke bomb, and the roster's reflector is already George's
-            // riposte — stated here rather than defaulted so the choice is
-            // visible at both ends.
+            // He absorbs shots. The roster's reflector is George's riposte; stated
+            // here so the choice is visible.
             absorbs_projectiles: true,
         },
     );
@@ -474,20 +431,15 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     let down_b = sfx(down_b, 0.06, "faction.ninja.parry_flash");
     let down_b = on_contact(down_b, "player.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR — `falling_seal`. The order is given on the way
-    // down. Same seal, no floor to plant it on, so it closes around him as he
-    // drops — and he arrives with it.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: `falling_seal`. The seal closes around him as he drops,
+    // and he arrives with it.
     let mut air_down_b = strike(Strike {
         id: "falling_seal",
         clip: "air_down",
@@ -505,31 +457,19 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     air_down_b.landing_lag_s = Some(0.28);
     let air_down_b = impulse(air_down_b, 0.05, (0.0, 1250.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.0, "command_seal", (0.0, 0.0), 0.9);
-    // ⛔⛔ ITS PARRY CUES ARE GONE, AND REMOVING THEM IS MY DEBT RATHER THAN A
-    // SEPARATE DESIGN CALL. This dive wore `counter_ring` and
-    // `faction.ninja.parry_flash` while the GROUNDED seal beside it was also a
-    // plain strike — two moves telling the same small lie, which at least told
-    // it consistently. ⇒ The moment the grounded one became a real counter, a
-    // player learns "ring plus flash means he is parrying" and this move
-    // punishes that read: it is a fast-fall SPIKE (`impulse (0, 1250)`,
-    // `launch_dir (0, 1)`) with no defensive frame anywhere in it.
-    //
-    // ⭐ `smoke_fold` AND `smoke_poof` ARE WHAT IT ACTUALLY DOES, and both are
-    // already his: the seal closes around him as he drops — which is this move's
-    // own comment, three lines up — and he arrives in it. The `command_seal`
-    // above is untouched, so the seal imagery the comment claims is still there;
-    // what has gone is the claim to be answering an attack.
+    // No parry cues on the dive. It is a fast-fall spike (`impulse (0, 1250)`,
+    // `launch_dir (0, 1)`) with no defensive frame, so `counter_ring` and the
+    // parry flash would teach a read that it then punishes. It uses
+    // `smoke_fold` and `smoke_poof`: the seal closes around him and he arrives
+    // in it.
     let air_down_b = vfx_at(air_down_b, 0.05, "smoke_fold", (0.0, 18.0), 1.0);
     let air_down_b = sfx(air_down_b, 0.05, "faction.ninja.smoke_poof");
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // ONI'S CAPTURE KIT. The FASTEST grab in the game and the longest recovery
-    // behind it — a read, not a poke. Whiffing this is the punish window his whole kit
-    // is balanced around.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Oni's capture kit: the fastest grab in the game with the longest recovery
+    // behind it. A whiff is the punish window his kit is balanced around.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's clip guard refuses unpublished rows.
     let grab = author_standing_grab(
         grab_shell("oni_grab", "attack", 0.05, 0.04, 0.26),
         CaptureAttemptParams {
@@ -588,9 +528,8 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
     );
     SmashRepertoire {
         taunt: ambition_entity_catalog::authoring::taunt("ninja_shadow_oni_leader_taunt", 0.9),
-        // 0.30 recovery, not the genre's 0.26 — nothing he swings recovers
-        // in under 3x its active window, which is what stops any of it being
-        // thrown casually. 0.09 active buys 0.27, and his law wants MORE.
+        // 0.30 recovery, not the usual 0.26: nothing he swings recovers in under 3x
+        // its active window. 0.09 active needs more than 0.27.
         dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "ninja_shadow_oni_leader_dash_attack",
             ambition_entity_catalog::authoring::DashAttackShape {
@@ -615,12 +554,7 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -642,14 +576,9 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 mod answer_tests {
     use super::*;
 
-    /// ⭐⭐ THE ANSWER CONFIRMS ON A HIT AND NOT ON A BLOCK.
-    ///
-    /// ⛔⛔ `OnHit` IS THE ASSERTION, NOT THE CANCEL. A block-cancel would let him
-    /// leave the recovery he is supposed to eat for throwing the fastest button
-    /// in the game — and `iaijutsu`, the move he cancels INTO, already teleports
-    /// him out when a guard eats that. Two escapes stacked and the press becomes
-    /// free. A guard that only found a `Cancelable` window passes against the
-    /// version that changes the whole matchup.
+    /// The answer confirms on a hit and not on a block. A block-cancel would let
+    /// him skip the recovery, and `iaijutsu` already escapes when blocked. A check
+    /// that only found a `Cancelable` window would pass either version.
     #[test]
     fn the_shadow_answer_confirms_on_a_hit_and_not_on_a_block() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
@@ -675,11 +604,8 @@ mod answer_tests {
             &CancelCondition::OnHit,
             "a block-cancel stacks two escapes and makes the fastest button free"
         );
-        // ⛔⛤ THIS ASSERTED `special_forward` AND THAT NAME NEVER RESOLVED.
-        // A test that pins a dead string defends the gap instead of the rule:
-        // it passed for five days while the confirm did nothing, because it
-        // compared the authored list against ITSELF rather than against what a
-        // press offers. ⇒ It asks the RUNTIME's question now.
+        // Ask the runtime's question: what the press offers after
+        // `base_verb_of`, not the authored list compared with itself.
         let base = ambition_entity_catalog::base_verb_of("special_forward");
         let offered = ambition_entity_catalog::cancel_names_for(base, false);
         assert!(
@@ -700,15 +626,12 @@ mod answer_tests {
 
 #[cfg(test)]
 mod tests {
-    /// ⭐⭐ THE FIRST AUTHORED FLOW IN THE GAME VALIDATES, and this asserts the
-    /// SHAPE rather than the node count.
+    /// The oni's flow validates, and this checks the shape, not the node count.
     ///
-    /// ⛔ `TechniqueFlow::problems()` exists because every one of its failures is
-    /// SILENT at runtime — a transition past the end of the list, a flow with no
-    /// reachable `Finish`, a `Wait` that can never time out. Each produces a move
-    /// that plays and does nothing, or a fighter stuck in a special, and neither
-    /// reads as a data error to whoever is holding the controller. ⇒ A flow that
-    /// nothing validates is worse than no flow.
+    /// `TechniqueFlow::problems()` exists because each failure is silent at
+    /// runtime (a transition past the end, no reachable `Finish`, a `Wait` that
+    /// never times out): a move that does nothing, or a fighter stuck in a
+    /// special.
     #[test]
     fn the_onis_iaijutsu_authors_a_flow_that_validates_and_escapes_only_on_block() {
         use ambition_entity_catalog::{FlowNode, FlowSignal};
@@ -728,11 +651,9 @@ mod tests {
             flow.problems()
         );
 
-        // ⛔ THE BRANCH IS ON `Blocked`, NOT ON `Overlapped`. The WAIT uses
-        // `Overlapped` deliberately — it is true of a blocked strike too, which
-        // is what lets the wait end at all — so a branch that reused it would
-        // escape on every connect as well, and the move would be safe on
-        // everything rather than safe on shield.
+        // Branch on `Blocked`, not `Overlapped`. The wait uses `Overlapped` because
+        // it is also true of a blocked strike; a branch on it would escape on every
+        // connect, making the move safe on everything, not just on shield.
         let branch_signal = flow.nodes.iter().find_map(|n| match n {
             FlowNode::Branch { on, .. } => Some(*on),
             _ => None,
@@ -744,9 +665,8 @@ mod tests {
              or the dash becomes safe on hit as well"
         );
 
-        // ⛔ AND THE WAIT MUST TIME OUT SHORT OF THE MOVE. A whiffed dash is
-        // supposed to be punishable; a timeout past the tail would let a swing
-        // that touched nothing still reach the branch.
+        // The wait must time out before the move ends: a whiffed dash must be
+        // punishable.
         let timeout = flow.nodes.iter().find_map(|n| match n {
             FlowNode::Wait { timeout_s, .. } => Some(*timeout_s),
             _ => None,
@@ -772,10 +692,8 @@ mod tests {
             .clone()
     }
 
-    /// only a STRIKE has one. A pummel and a throw are timelines with no
-    /// Active window at all, so the swing tests below iterate `strikes()` rather
-    /// than every move the contract carries — asking a throw for its startup is
-    /// asking about a window it never has.
+    /// Only a strike has one. Pummels and throws have no Active window, so the
+    /// swing tests iterate `strikes()`, not every move.
     fn active(m: &MoveSpec) -> &MoveWindow {
         m.windows
             .iter()
@@ -804,22 +722,17 @@ mod tests {
         m.duration_s - active(m).end_s
     }
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// THE SHADOW ANSWERS: he is quicker to start than the quickest body that
-    /// already had a table, and quicker to finish answering than any of them.
+    /// He starts faster than the fastest existing body and finishes answering
+    /// sooner.
     ///
-    /// Comparative against the GOBLIN, which is the fast one — measuring against
-    /// the admiral or the clerk would make "fast" mean "not a heavyweight" and
-    /// prove nothing.
+    /// Compared against the goblin, the fast one; comparing with the admiral or
+    /// the clerk would only show he is not a heavyweight.
     #[test]
     fn he_answers_faster_and_for_less_time_than_the_goblin() {
         let oni = ninja_shadow_oni_leader_moveset();
@@ -845,23 +758,16 @@ mod tests {
         );
     }
 
-    /// THE ORDER OBEYED INSTANTLY CANNOT BE RECALLED: every move recovers for
-    /// more than three times its own active window.
+    /// Every move recovers for more than three times its active window.
     ///
-    /// this is the axis, and it is what stops the table being the goblin's
-    /// with smaller numbers. A fighter can be given fast startups by typing
-    /// smaller floats; a fighter whose every swing costs more than triple what it
-    /// buys has a different relationship to committing.
-    ///
-    /// the poison is that the GOBLIN must fail this, or the ratio is a
-    /// property of `strike`'s shape rather than a property of him.
+    /// This is his axis, and what separates him from a goblin with smaller
+    /// numbers. The goblin must fail this, or the ratio is a property of
+    /// `strike`'s shape, not of him.
     #[test]
     fn every_swing_costs_more_than_three_times_the_moment_it_buys() {
         let oni = ninja_shadow_oni_leader_moveset();
-        // SWINGS only. The claim is about what a swing costs, and a pummel or
-        // a throw is not a swing — it holds no window to be three times longer
-        // than. the count is the zero floor: a filter that removed everything
-        // would satisfy this loop by iterating nothing.
+        // Swings only: a pummel or throw holds no window. The count is the zero
+        // floor: a filter that removed everything would pass trivially.
         let swings = strikes(&oni);
         assert!(
             swings.len() >= 16,
@@ -891,9 +797,8 @@ mod tests {
         );
     }
 
-    /// And he is not simply BETTER. The fast answer is paid for: his kill
-    /// move commits longer after the fact than the admiral's does, and the
-    /// admiral is the slow one.
+    /// He is not simply better: his kill move commits longer than the admiral's,
+    /// and the admiral is the slow one.
     #[test]
     fn his_kill_move_commits_longer_than_the_admirals() {
         let oni = ninja_shadow_oni_leader_moveset();
@@ -914,12 +819,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE SEAL IS A COUNTER, AND ITS OWN ART SAID SO FIRST. `counter_ring`
-    /// and `faction.ninja.parry_flash` were authored on this move while it was a
-    /// damage-10 poke — the presentation announced a parry the mechanics did not
-    /// have, which is the player being told the wrong thing every time it came
-    /// out. ⇒ This test holds BOTH halves together: it is a counter now, and it
-    /// still wears the cues that always claimed it was one.
+    /// The seal is a counter, and it still wears the cues (`counter_ring`,
+    /// `faction.ninja.parry_flash`) that always said so.
     #[test]
     fn the_command_seal_parries_and_keeps_the_cues_that_always_said_so() {
         let set = ninja_shadow_oni_leader_moveset();
@@ -937,8 +838,8 @@ mod tests {
             .hydrate()
             .expect("counter params hydrate");
 
-        // ⛔ AND IT NO LONGER POKES. A counter that also swung would put its own
-        // strike into the set of things its parry can catch.
+        // It no longer strikes: a counter that also swung would put its own strike
+        // among the things its parry catches.
         assert!(
             !seal
                 .windows
@@ -949,9 +850,8 @@ mod tests {
              a parry ring"
         );
 
-        // ⭐ THE ANSWER IS SMOKE, not a grab (George's) and not a teleport
-        // (the Director's). The response being an arbitrary technique is the whole
-        // reason three counters on one roster are three different moves.
+        // The answer is smoke, not a grab (George's) or a teleport (the
+        // Director's): the response is an arbitrary technique.
         assert_eq!(
             params.response,
             ambition_entity_catalog::smash_sleep::SLEEP,
@@ -960,10 +860,8 @@ mod tests {
         let sleep: ambition_entity_catalog::smash_sleep::SleepParams =
             params.response_params.hydrate().expect("sleep params hydrate");
 
-        // ⛔ SHORTER THAN THE PERFORMER'S, and the comparison is the point rather
-        // than the number: she EARNS 1.4s by standing next to somebody while
-        // rooted, and this is handed over by a successful parry, which is already
-        // a full punish. A guaranteed sleep must not also be the longest one.
+        // Shorter than the Performer's: she earns 1.4s by standing rooted next to
+        // someone, while this comes from a parry, which is already a full punish.
         let monologue = crate::performer_moveset::performer_moveset();
         let hers: ambition_entity_catalog::smash_sleep::SleepParams = monologue
             .moves
@@ -989,9 +887,8 @@ mod tests {
             hers.duration_s,
         );
 
-        // ⭐ AND THE CUES SURVIVED. If the conversion had dropped them, the move
-        // would have become a counter that no longer looks like one — trading one
-        // half of the mismatch for the other.
+        // The cues survived: without them the counter would no longer look like
+        // one.
         let cues: Vec<&str> = seal
             .events
             .iter()
@@ -1008,12 +905,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ AND THE DIVE MUST NOT WEAR THE PARRY'S CLOTHES. `falling_seal` is a
-    /// fast-fall spike with no defensive frame, and it carried `counter_ring`
-    /// and `faction.ninja.parry_flash` — harmless while the grounded seal was
-    /// also a plain strike, and a trap the moment it became a real counter: the
-    /// player learns the cue on one move and is punished for reading it on the
-    /// other. ⇒ The cost of fixing a lie is checking who else was telling it.
+    /// The dive must not wear the parry's cues. `falling_seal` is a fast-fall
+    /// spike with no defensive frame; parry cues on it would punish a player for
+    /// reading them.
     #[test]
     fn his_falling_seal_does_not_wear_the_counters_cues() {
         let set = ninja_shadow_oni_leader_moveset();
@@ -1037,8 +931,7 @@ mod tests {
                 "the dive still announces `{lie}`, which only the counter does: {cues:?}"
             );
         }
-        // ⭐ AND IT IS STILL A DIVE, so this is a cue swap and not a quiet
-        // declawing of the move.
+        // It is still a dive: a cue swap, not a nerf.
         assert!(
             dive.windows
                 .iter()

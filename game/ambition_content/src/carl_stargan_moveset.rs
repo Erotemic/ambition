@@ -33,11 +33,11 @@ pub const FURTHEST_REACH: f32 = 96.0;
 /// The near end — the jab, which barely leaves his sleeve.
 pub const NEAREST_REACH: f32 = 22.0;
 
-/// The rise `starstuff` commands. Authored as a SPEED and applied with
-/// [`ImpulseMode::Set`], for the reason every recovery here is.
+/// The rise `starstuff` commands. Authored as a speed and applied with
+/// [`ImpulseMode::Set`], like every recovery here.
 pub const STARSTUFF_SPEED: f32 = 900.0;
-/// When it takes hold, and when it lets go. the tail outlasts the arc, which
-/// is what keeps a recovery from being flight.
+/// When it takes hold, and when it lets go. The tail outlasts the arc, so the
+/// recovery is not flight.
 pub const STARSTUFF_AT_S: f32 = 0.20;
 pub const STARSTUFF_ENDS_S: f32 = 1.14;
 
@@ -56,11 +56,11 @@ pub fn reach_of(spec: &MoveSpec) -> f32 {
         .fold(0.0_f32, f32::max)
 }
 
-/// Does this move reach FORWARD? A volume centred ahead of him, rather than
-/// above or below.
+/// Does this move reach forward (a volume centred ahead of him, not above or
+/// below)?
 ///
-/// the distinction is what makes [`reach_of`] comparable between moves: an
-/// up-smash has a small x-extent because it points up, not because it is short.
+/// This makes [`reach_of`] comparable: an up-smash has a small x-extent
+/// because it points up, not because it is short.
 pub fn points_forward(spec: &MoveSpec) -> bool {
     spec.windows
         .iter()
@@ -347,34 +347,28 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.8, -0.60)),
         on_hit: None,
     });
-    // ⭐⭐ A CHARGE, BECAUSE THE MOVE IS ABOUT COMPRESSED TIME AND HAD NO TIME IN
-    // IT. Fourteen billion years on one page, authored as a slow sweep that is
-    // the same sweep however long you look at it — one of the roster's specials
-    // carrying no mechanic at all. Holding it now buys the reach's worth of
+    // A charge, because the move is about compressed time. Holding it buys
     // damage.
     //
-    // ⛔ IT DOES NOT STORE. A stored charge is a threat you carry into the next
-    // exchange, which is the brawler's haymaker and a different character; his
-    // is a thing you commit to on the page you are on.
+    // It does not store. A stored charge is a threat carried into the next
+    // exchange (the brawler's haymaker); his is committed on the spot.
     let n_b = ambition_entity_catalog::authoring::charge(
         n_b,
         ambition_entity_catalog::authoring::Charge {
-            // Just after the sweep's own cue at 0.04s, so the wind-up reads
-            // before the freeze rather than a statue appearing.
+            // Just after the sweep's cue at 0.04s, so the wind-up shows before the
+            // freeze.
             hold_at_s: 0.08,
-            // Long, and shorter than the brawler's 1.2s: Carl is not a threat
-            // you have to respect from across the stage, he is a slow swing you
-            // can choose to make slower.
+            // Long, but shorter than the brawler's 1.2s: a slow swing he can make
+            // slower, not a threat from across the stage.
             max_hold_s: 0.9,
             stores: false,
-            // ⭐ ROOTED, the rule every charge in the game follows: a wind-up
-            // you could walk around with is a threat with no commitment.
+            // Rooted, as every charge is: a wind-up you could walk with has no
+            // commitment.
             roots: true,
             sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
             gesture: ambition_entity_catalog::ChargeGesture::Special,
-            // 1.45x at a full hold: 11 damage becomes 15, and the knockback with
-            // it. Below the haymaker's 1.6 because this already covers the whole
-            // page.
+            // 1.45x at a full hold: 11 damage becomes 15, knockback too. Below the
+            // haymaker's 1.6 because this already covers the whole page.
             multiplier: 1.45,
         },
     );
@@ -382,9 +376,9 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let n_b = vfx_at(n_b, 0.30, "perspective_shift", (36.0, -4.0), SWING_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // SIDE — `planetary_orbit`. A slingshot: he commits to a pass and comes
-    // out of it moving. the impulse fires on the ACTIVE frame, not the press,
-    // so the swing carries him THROUGH rather than launching him at nothing.
+    // Side: `planetary_orbit`. A slingshot: he commits to a pass and comes out
+    // moving. The dash starts on the active frame, not the press, so the swing
+    // carries him through.
     let side_b = strike(Strike {
         id: "planetary_orbit",
         clip: "planetary_orbit",
@@ -399,39 +393,26 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.40)),
         on_hit: None,
     });
-    // ⭐⭐ THE SLINGSHOT NOW CURVES, AND ITS OWN ART ASKED FOR THAT. The move
-    // draws `orbit_lock` at 0.36s — a LOCK — while its only motion was
-    // `impulse(700, 0)`, a straight horizontal push that locks onto nothing. ⇒
-    // Same class as the ninja's `counter_ring` over a plain poke: the
-    // presentation named a mechanic the move did not have, and the player was
-    // told the wrong thing every time it came out.
+    // The slingshot curves toward a target, matching its `orbit_lock` art: a
+    // gravitational assist bends around a mass.
     //
-    // ⭐ AND A GRAVITATIONAL ASSIST IS EXACTLY THIS. The comment above already
-    // calls it a slingshot — a pass that BENDS around a mass — so the homing is
-    // the fiction, not a new idea bolted onto it.
+    // With no foe in the cone, `assisted_fire_direction` returns the commanded
+    // direction, so an unaimed pass is the same straight 700px/s dash.
     //
-    // ⛔ IT REPLACES THE IMPULSE AND CHANGES NOTHING WHEN NOBODY IS THERE.
-    // `assisted_fire_direction` returns the COMMANDED direction when no foe is
-    // in the cone, so an unaimed pass is the same straight 700px/s dash it
-    // always was. The curve is what he gets for pointing at somebody.
-    //
-    // ⚠ THE HOMING ENDS AT 0.40s AND THE MOVE AT 0.62s, deliberately: he is
-    // carried through the pass and then he is not, so a whiffed slingshot leaves
-    // him in the air with a fifth of a second of nothing — which is the punish
-    // window the straight version also had and must not lose.
+    // Homing ends at 0.40s and the move at 0.62s, so a whiff leaves him about a
+    // fifth of a second to be punished.
     let side_b = ambition_entity_catalog::smash_homing::author_homing_dash(
         side_b,
         0.18,
         ambition_entity_catalog::smash_homing::HomingDashParams {
-            // The impulse's own speed, kept.
+            // The old impulse's speed, kept.
             speed: 700.0,
             duration_s: 0.22,
-            // ⭐ 60°, NOT the 90° half-plane. He is passing something, not
-            // seeking it: a target has to be roughly ahead, and the narrower cone
-            // is what keeps this a read rather than a homing missile.
+            // 60°, not the 90° half-plane: a target must be roughly ahead, so this
+            // stays a read, not a homing missile.
             cone_degrees: 60.0,
-            // About a third of the stage — far enough to cross a gap at somebody,
-            // short enough that it is a commitment rather than a scan.
+            // About a third of the stage: far enough to cross a gap, short enough to
+            // be a commitment.
             max_range: 320.0,
         },
     );
@@ -440,7 +421,7 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     let side_b = vfx_at(side_b, 0.36, "orbit_lock", (0.0, 0.0), SWING_FX);
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `starstuff`. THE RECOVERY. We are made of it, and it goes up.
+    // Up: `starstuff`, the recovery. We are made of it, and it goes up.
     let mut up_b = strike(Strike {
         id: "starstuff",
         clip: "starstuff",
@@ -475,32 +456,21 @@ pub fn carl_stargan_moveset() -> MovesetContract {
 
     // DOWN — `pale_blue_dot`. A pixel, at distance.
     //
-    // ⭐⭐ THE NAME IS THE MECHANIC AND THE MOVE DID NOT CARRY IT. Voyager turned
-    // round past Neptune and Earth was one pixel; the whole point of the
-    // photograph is the DISTANCE, not the dot. This was authored as a single 7×7
-    // box at 62px — the smallest box in the table on the second-longest reach —
-    // which reads the idea in the numbers and says nothing in play, because one
-    // volume cannot be strong somewhere and weak somewhere else. It was one of
-    // the roster's 13 specials carrying no mechanic at all.
+    // A tipper, so distance is the read (the photograph's point is the
+    // distance, not the dot). Up close he sweeps the ground for a weak poke; at
+    // the end of the reach the pixel kills.
     //
-    // ⇒ A TIPPER, so the distance is the read. Up close he sweeps the ground and
-    // it is a poke; at the very end of the reach the pixel is a kill. Same
-    // button, and where you are standing decides which move it was.
-    //
-    // ⛔ THE NEAR HALF IS NEW AND IT IS A COST, not a free addition: the old
-    // version whiffed entirely inside 55px, and a player who mistimed their
-    // spacing got nothing rather than a weak hit. Now they get 7 and no launch,
-    // which is worse for them than a whiff at neutral — a landed sourspot ends
-    // the exchange without the reward, and Carl is left in his 0.32s recovery
-    // having earned almost nothing.
+    // The near half is a cost: the old move whiffed inside 55px. Now a mistimed
+    // spacing lands 7 damage and no launch, and he still owes his 0.32s
+    // recovery.
     let down_b = strike(Strike {
         id: "pale_blue_dot",
         clip: "pale_blue_dot",
         startup_s: 0.24,
         active_s: 0.07,
         recover_s: 0.32,
-        // The base: the ground he is actually standing on, which is the part of
-        // the photograph nobody frames.
+        // The base: the ground he stands on, the part of the photograph nobody
+        // frames.
         offset: (44.0, -2.0),
         half_extents: (20.0, 10.0),
         damage: 7,
@@ -509,9 +479,9 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         launch_dir: Some((0.6, -0.80)),
         on_hit: None,
     });
-    // ⭐ THE PIXEL, ranked first so it wins wherever both reach. `tipper` inserts
-    // at index 0 and the strike seam takes the first-authored volume that
-    // reaches — see its doc for why appending would silently invert the move.
+    // The pixel is ranked first so it wins where both reach. `tipper` inserts
+    // at index 0, and the strike seam takes the first authored volume that
+    // reaches.
     let down_b = tipper(
         down_b,
         Tip {
@@ -524,24 +494,18 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         },
     );
     let down_b = strike_tag(down_b, SLASH_POKE_VFX);
-    // The ping is the dot, so it draws where the dot is rather than where the
-    // sweep is.
+    // The ping draws at the dot, not at the sweep.
     let down_b = vfx_at(down_b, 0.24, "pale_blue_dot_ping", (66.0, -2.0), POKE_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR. The grounded form works the floor; with none under
-    // him he takes it down with him instead.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: with no floor under him, he takes it down with him.
     let mut air_down_b = strike(Strike {
         id: "falling_horizon",
         clip: "air_down",
@@ -558,21 +522,17 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     });
     air_down_b.landing_lag_s = Some(0.30);
     let air_down_b = impulse(air_down_b, 0.11, (0.0, 1220.0), ImpulseMode::Set);
-    // this table's own rule: every move throws an effect and every effect is
-    // heard. The dot he points at is under him now.
+    // Every move in this table throws an effect. The dot is under him now.
     let air_down_b = vfx_at(air_down_b, 0.11, "pale_blue_dot_ping", (0.0, 22.0), POKE_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // CARL'S CAPTURE KIT. Deliberately unremarkable in its numbers — the
-    // roster needs a baseline to read the others against, and Carl is it.
+    // Carl's capture kit: unremarkable numbers on purpose, as the baseline the
+    // others are read against.
     //
-    // but his capture moves carry ART, because his table requires it of
-    // every move. `none_of_his_bursts_sit_on_his_navel` asserts that each move
-    // throws an effect at all, and it was written over a population with no
-    // capture in it. Honouring it is right rather than scoping it away: a silent
-    // grab would be the one mute beat in a kit whose whole idea is that every
-    // gesture is cosmic-scale. `orbit_lock` for the catch, `evidence_ping` for
-    // the pummel, `planetary_slingshot` for the throw.
-    // his sheet ships the whole grab family — `grab`, `grab_hold`, `grab_release` — so the capture kit draws the rows it was drawn for.
+    // His capture moves still carry art, because
+    // `none_of_his_bursts_sit_on_his_navel` requires an effect on every move:
+    // `orbit_lock` for the catch, `evidence_ping` for the pummel,
+    // `planetary_slingshot` for the throw. His sheet has the whole grab family
+    // (`grab`, `grab_hold`, `grab_release`).
     let grab = vfx_at(
         author_standing_grab(
             grab_shell("carl_grab", "grab", 0.07, 0.05, 0.20),
@@ -667,10 +627,9 @@ pub fn carl_stargan_moveset() -> MovesetContract {
     );
 
     SmashRepertoire {
-        // his taunt throws a burst like everything else he does, which is
-        // both his character and what `none_of_his_bursts_sit_on_his_navel`
-        // asks of every move in this table. A cosmic sweep over the head: he is
-        // not threatening you, he is showing you the scale of the thing.
+        // His taunt throws a burst like every move (see
+        // `none_of_his_bursts_sit_on_his_navel`): a cosmic sweep overhead, showing
+        // the scale.
         taunt: vfx_at(
             ambition_entity_catalog::authoring::taunt("carl_stargan_taunt", 0.9),
             0.20,
@@ -678,19 +637,16 @@ pub fn carl_stargan_moveset() -> MovesetContract {
             (0.0, -26.0),
             SWING_FX,
         ),
-        // CARL'S DASH ATTACK IS A SHOULDER CHECK, and his own law decided
-        // that. `reach_is_monotonic_in_startup` says a longer reach must never
-        // be quicker, and a dash attack is his QUICKEST move — so it has to be
-        // his SHORTEST. The genre's 40px lunge reaches 70 at 0.05s and would
-        // undercut `pale_blue_dot`, which reaches 69 and takes 0.24s. the law
-        // is not in the way of the move; it is what the move is.
+        // His dash attack is a shoulder check, because of his own law:
+        // `reach_is_monotonic_in_startup` says a longer reach is never quicker, and
+        // a dash attack is his quickest move, so it must be his shortest. The
+        // genre's 40px lunge (70 at 0.05s) would undercut `pale_blue_dot` (69 at
+        // 0.24s).
         dash_attack: vfx_at(
             ambition_entity_catalog::authoring::dash_attack(
                 "carl_stargan_dash_attack",
                 ambition_entity_catalog::authoring::DashAttackShape {
-                    // EXACTLY his jab's reach, which his module doc pins as
-                    // `NEAREST_REACH`: the shoulder check is his shortest move
-                    // and his fastest, and both halves of that are his law.
+                    // His jab's reach (`NEAREST_REACH`): shortest and fastest.
                     reach_px: NEAREST_REACH,
                     ..ambition_entity_catalog::authoring::DashAttackShape::GENRE
                 },
@@ -717,15 +673,10 @@ pub fn carl_stargan_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
-            // his own three: the ping he reaches with, the shift he lands, and the slingshot he throws you into — his kit guards that every effect comes off his
-            // own sheet, and a shared `classic_burst` would violate it.
+            // His own ping, shift and slingshot; his kit guard requires every effect to
+            // come from his own sheet.
             cues: CaptureCues {
                 reach: "evidence_ping",
                 impact: "perspective_shift",
@@ -759,13 +710,8 @@ mod tests {
             .clone()
     }
 
-    /// ⭐⭐ TIME IS THE MOVE, SO IT HOLDS AND DOES NOT KEEP.
-    ///
-    /// ⛔ `stores` IS THE ASSERTION THAT MATTERS. A stored charge is a threat
-    /// carried into the NEXT exchange — that is the brawler's haymaker and a
-    /// different character. Carl's is a thing you commit to on the page you are
-    /// on, and a guard that only found a `smash_charge` passes against the
-    /// version that changes who he is.
+    /// The charge holds and does not store. `stores` is the assertion: a stored
+    /// charge would make him a different character (the brawler's haymaker).
     #[test]
     fn the_cosmic_calendar_is_held_on_the_page_it_is_thrown_on() {
         let calendar = find(&carl_stargan_moveset(), "cosmic_calendar");
@@ -788,20 +734,13 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ THE PIXEL IS THE KILL, AND ITS RANK IS THE MECHANIC.
+    /// The pixel is the kill, and its rank is the mechanic.
     ///
-    /// `pale_blue_dot` is a tipper: one Active window carrying two volumes, with
-    /// the far one written FIRST. `StrikeRank` is the move's own reading order
-    /// and the strike seam takes *"the FIRST-AUTHORED volume that reaches it and
-    /// no other"* — so a body standing where both boxes reach is hit by whichever
-    /// appears first in the source.
+    /// `pale_blue_dot` is a tipper: one Active window with two volumes, the far
+    /// one first. The strike seam takes the first authored volume that reaches.
     ///
-    /// ⛔⛔ THIS ASSERTS THE ORDER, NOT THE PRESENCE, and the distinction is the
-    /// whole test. Appending the tip instead of inserting it leaves a move that
-    /// reads correctly in this file and plays backwards: the near sourspot would
-    /// outrank the pixel and win every exchange where both reach, so spacing —
-    /// the entire point of the move — would be punished instead of rewarded. A
-    /// test that only counted two volumes passes against exactly that.
+    /// This asserts the order, not the presence. With the tip appended, the near
+    /// sourspot would win wherever both reach and spacing would be punished.
     #[test]
     fn the_pale_blue_dot_kills_at_the_pixel_and_pokes_up_close() {
         let dot = find(&carl_stargan_moveset(), "pale_blue_dot");
@@ -834,29 +773,16 @@ mod tests {
         );
     }
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// REACH IS BOUGHT WITH TIME, AS AN ASSERTION.
+    /// Reach is bought with time: sort his forward line by reach, and startup
+    /// never goes down.
     ///
-    /// Sort his FORWARD line by reach and the startup must never go down.
-    ///
-    /// forward, not every move, and the distinction is real rather than a
-    /// convenience: an up-smash's x-reach is small because it points UP, so
-    /// including it would be comparing a vertical move's horizontal extent
-    /// against a horizontal move's. The claim is about the line a player spaces
-    /// with.
-    ///
-    /// the poison is Oiler, whose table is authored from a different idea
-    /// entirely — if his satisfied this too, it would be a fact about fighters
-    /// rather than about Carl.
+    /// Forward moves only: an up-smash's x-reach is small because it points up.
     #[test]
     fn reach_is_monotonic_in_startup() {
         let set = carl_stargan_moveset();
@@ -887,12 +813,8 @@ mod tests {
             );
         }
 
-        // NO POISON HERE, and that is a finding rather than an omission.
-        // The obvious one — "Oiler's table must violate this, or the rule is
-        // about fighters rather than about Carl" — does not hold: his forward
-        // line is monotonic too. ⇒ monotonicity is a discipline the authored
-        // tables SHARE, not Carl's distinguishing trait. What IS his is the
-        // SPREAD, and that claim carries its own comparison in the test below.
+        // No control fighter: Oiler's forward line is monotonic too, so this is a
+        // shared discipline. Carl's own trait is the spread, tested below.
     }
 
     /// The spread is the widest on the grid — the very small and the very
@@ -951,14 +873,11 @@ mod tests {
             .all(|w| !matches!(w.tag, WindowTag::Cancelable { .. })));
     }
 
-    /// NONE OF HIS BURSTS SIT ON HIS NAVEL.
+    /// None of his bursts sit on his navel: bursts are placed on their box, not
+    /// on his chest.
     ///
-    /// what guards the sound instead — and catches the double-play the paired form could not —
-    /// is `a_paired_burst_is_heard_exactly_once` in `src/moveset_sound.rs`, which drives this
-    /// table through the real dispatcher and the real fan-out.
-    ///
-    /// The PLACEMENT half is his own and stays: the rule was bursts blooming out of a fighter's
-    /// chest, and Carl's kit is the widest table on the grid.
+    /// Sound is covered by `a_paired_burst_is_heard_exactly_once` in
+    /// `src/moveset_sound.rs`.
     #[test]
     fn none_of_his_bursts_sit_on_his_navel() {
         let set = carl_stargan_moveset();
@@ -975,25 +894,17 @@ mod tests {
             }
             assert!(bursts > 0, "`{}` throws no effect at all", m.id);
         }
-        // the non-vacuity: most bursts must actually carry an offset, or this
-        // is a test about a table that never used the field.
+        // Non-vacuity: most bursts must carry an offset.
         assert!(placed >= 12, "only {placed} bursts are placed on their box");
     }
 
-    /// THE ART IS HIS, AND IT ALL SHIPS.
+    /// His art is his own, and it all ships.
     #[test]
     fn the_kit_looks_like_carl_and_the_art_all_ships() {
         let set = carl_stargan_moveset();
         let mut effects = std::collections::BTreeSet::new();
-        // ⛔⛤ ACCUMULATED ACROSS EVERY MOVE, THEN ASSERTED ONCE — and the
-        // per-move form this replaced was MEASURED to buy nothing.
-        // `presentation_problems` returns a `Vec` because it accumulates, and a
-        // `panic!` inside a loop over it reported the FIRST problem only. But
-        // asserting per move is no better here: with the oracle rejecting every
-        // effect, all four of these tests still reported exactly ONE problem,
-        // because the first offending move names exactly one effect. The report
-        // an author actually needs — every move that references a renamed effect,
-        // in one run — exists only if the list outlives the loop.
+        // Collect problems across every move, then assert once, so one run reports
+        // every move that references a renamed effect.
         let mut problems: Vec<String> = Vec::new();
         for m in &set.moves {
             problems.extend(m.presentation_problems(
@@ -1005,8 +916,8 @@ mod tests {
                 }
             }
         }
-        // ⛔ BEFORE the palette checks below: a renamed effect makes those fail
-        // too, with a message about breadth rather than the rename.
+        // Before the palette checks below: a renamed effect fails those too, with a
+        // less helpful message.
         assert!(problems.is_empty(), "{problems:?}");
         assert!(effects.len() >= 10, "a thin palette: {effects:?}");
         for effect in &effects {
@@ -1040,11 +951,8 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ THE `orbit_lock` EFFECT NAMED A MECHANIC THE MOVE DID NOT HAVE. It
-    /// drew a LOCK at 0.36s over a straight `impulse(700, 0)` that locked onto
-    /// nothing — the same class as a counter ring over a plain poke, and the
-    /// reader being misled is the PLAYER. This holds both halves: the pass homes
-    /// now, and it still ends before the move does.
+    /// The pass homes, matching its `orbit_lock` art, and it still ends before
+    /// the move does.
     #[test]
     fn his_slingshot_bends_toward_what_it_passes_and_lets_go_first() {
         let set = carl_stargan_moveset();
@@ -1063,9 +971,7 @@ mod tests {
             })
             .expect("his slingshot homes");
 
-        // ⛔ IT LETS GO BEFORE THE MOVE ENDS. A dash carried through the recovery
-        // is a pass with no punish window, which is what the straight version
-        // had and must not lose.
+        // It lets go before the move ends, so a whiff is still punishable.
         let homing_ends = 0.18 + homing.duration_s;
         assert!(
             homing_ends < pass.duration_s,
@@ -1074,15 +980,14 @@ mod tests {
             pass.duration_s
         );
 
-        // ⭐ A READ, NOT A MISSILE. Past the half-plane the cone reaches behind
-        // him and the move stops needing to be aimed.
+        // A read, not a missile: past the half-plane the cone reaches behind him.
         assert!(
             homing.cone_degrees <= 90.0 && homing.cone_degrees > 0.0,
             "the cone is {}°",
             homing.cone_degrees
         );
 
-        // ⛔ AND THE SWING IS UNTOUCHED — this replaced the IMPULSE, not the move.
+        // The swing is unchanged; only the impulse was replaced.
         assert!(
             pass.windows
                 .iter()

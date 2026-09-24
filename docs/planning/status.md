@@ -7,7 +7,8 @@ This page is a short orientation snapshot. Live execution is in
 architecture belongs in the focused owner documents.
 
 Do not copy detailed packet history into this file. Git history is the receipt for
-completed work.
+completed work. Do not copy counts from a live queue row into this page: a copy
+does not receive the corrections that the owner row gets.
 
 ## Current architecture posture
 
@@ -24,105 +25,42 @@ for implementation details.
 
 ### Candidate world / last-good-world
 
-**A10 is CLOSED (2026-09-15).** Room and session state are candidate-owned:
-validation precedes one publication switch at both scopes, and outgoing state
-retires only afterward. A verified publication also freezes the effects it owes
-the world OUTSIDE its own population, so a room published inside a pending
-candidate session announces nothing to the live one until that session is
-admitted.
+A10 is closed. Room and session state are candidate-owned: validation precedes one
+publication switch at both scopes, and outgoing state retires only afterward. A
+verified publication also freezes the effects it owes the world outside its own
+population, so a room published inside a pending candidate session announces
+nothing to the live one until that session is admitted. There is no active A10
+lane. The row is
+[A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication---done-demolition-closed-2026-09-16).
 
-**And post-A10 demolition is CLOSED too (2026-09-16), on both axes.** Its result
-was almost entirely negative: every A10 symbol has live production callers, and
-exactly one `pub` item across `transaction.rs` and `stage.rs` had no caller
-outside those two files. One dead mechanism was deleted, one accessor narrowed.
-⇒ **There is no active A10 lane.** Peer-stable identity (ID-PEER) runs as a
-separate campaign with a separate agent — see below.
+Consolidation gates that followed from A10:
 
-⭐ **AND WHAT THAT UNBLOCKED, as of 2026-09-16: every gate on C03 and C05 is
-discharged.** The two that stood that morning are gone: the shell/content
-A-supersedes-B race is witnessed in the shipped composition on both halves, and
-the peer-identity checkpoint was discharged by its owner.
+- C03 and C06 are startable. C03 is a migration of ownership, not of fields:
+  under the `Q132` ruling there is exactly one canonical live `SessionRoot`, and
+  session-dependent mutable state must carry explicit scope rather than anonymous
+  App-global identity.
+- C05 is decided: do not start. Its authority collapse has already happened; the
+  remainder is one value's storage kind with no defect behind it.
 
-⛔⛤ **THIS SAID "C03 AND C05 ARE STARTABLE" UNTIL 2026-09-19, AND C05 IS NOW
-DECIDED: DO NOT START.** A discharged gate is not a reason to start — C05's
-authority collapse has already happened, and its remainder is one value's
-STORAGE KIND with no defect behind it. Re-measured that day and identical to
-the 2026-09-16 reading: 34 production lines, four readers all
-`Option<Res<SessionMechanics>>`, one installer, one remover. Moving it to the
-session root replaces four optional reads with four root lookups in crates that
-take it optionally precisely so they need not find the root. ⇒ **C03 and C06
-are startable.** ⛔⛤ **AND C06 WAS MISSED ON THE FIRST WALK, 2026-09-19** — its
-only remaining gate was C05, so the DO-NOT-START ruling read as a permanent
-block when it is the opposite: the publication authority C06 waits on is
-already single, which is why C05 has nothing left to do. A ruling's inbound
-links include the ones in a TABLE, not only the ones in prose. The ruling and its evidence live once, in
-[`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md)'s
-C05 section; this line points at it rather than restating it, for the reason
-the paragraph below already gives. ⚠ The
-statement and its evidence live ONCE each — the witness in
-[`consolidation/README.md`](consolidation/README.md), the checkpoint in ID-PEER's
-queue row — and `consolidation-plan.md` points at them rather than restating
-them, because this file has been the second copy that rots before. ⛔ One re-arm
-condition is named there and not repeated here.
-
-⚠ **STARTABLE IS NOT UNBLOCKED-ALL-THE-WAY, and the distinction is one measured
-day old.** C03's three advertised cheap wins were measured on 2026-09-16 and two
-are EMPTY — no session-scoped resource is reset-only, and the two reset lists are
-a disjoint partition rather than two copies. The third turned into a maintainer
-ruling, and it is now ANSWERED: `Q132` asked whether a handoff frame holding two
-session roots should make 185 `SessionWorldRef`/`SessionWorldMut` sites run or
-skip. ⭐ **DECIDED 2026-09-19 — there is exactly one canonical live
-`SessionRoot`, so the question does not arise: a two-root frame is INVALID.** A
-replacement may be prepared while the current session is live, but the candidate
-carries a distinct prepared identity and is not a canonical root. ⇒ **C03's
-storage hold is discharged**, and the ruling replaces it with a stronger target:
-session-dependent mutable state must carry explicit scope rather than anonymous
-App-global identity, so C03 is a migration of OWNERSHIP rather than of fields.
-See [`maintainer-decisions.md`](maintainer-decisions.md).
-
-The row is [A10 in the queue](queue.md#a10--candidate-world--last-good-world-publication---done-demolition-closed-2026-09-16).
+The rulings and their evidence live once, in
+[`consolidation/consolidation-plan.md`](consolidation/consolidation-plan.md) and
+[`maintainer-decisions.md`](maintainer-decisions.md).
 
 ### Deterministic identity
 
-⛔ **ID-PEER'S THREE OPEN ROADS ARE BLOCKED OUTSIDE THE CAMPAIGN — two on
-maintainer rulings, one on a P2P session this workspace never constructs — AND
-THAT SENTENCE HAS BEEN WRONG TWICE, SO IT IS NOT AN INVITATION TO TRUST IT.** On
-2026-09-17 the review found a P0 the value census structurally could not see: the
-GGRS component checksum hashes `RollbackOrdered.order(..)`, an App-lifetime
-rollback insertion index nothing rebased at a session boundary, so two hosts with
-different shell histories disagreed on **59 of 146 checksum parts while every
-canonical identity and value agreed**. It is closed the same day by rebasing the
-carrier order where a session declares frame zero — 59 → 2, both survivors
-already owned by `Q128` and `Q129` — and held by
-`two_local_histories_compute_the_same_ggrs_component_checksums`. ⛔ **WHAT FOUND
-IT IS THE POINT:** reading what the pinned dependency actually hashes, and, the
-same day, deleting a FALLBACK to see who was using it. A clean census is not
-evidence. ⛔⛤ **AND THE REPAIR WAS REVIEWED THE SAME DAY AND HAD A HOLE ITS OWN
-ARMS COULD NOT FAIL ON** — the rebase enumerates carriers with an ordinary query
-and `InactiveCandidate` is a disabling component, so it could not see a hidden
-construction candidate; it refuses now rather than rebasing a partial
-population. The reading, the arm and its poison are in the queue row; what
-belongs here is that a road closed the same day it was found is a road nobody
-has reviewed yet. ⚠ **One more road that needs no ruling, and its cheap half is now spent:** the
-unchecksummed float rows' STATE half. The witness compares S7's twelve sharp rows
-across two local histories in five rooms, and **eleven of the twelve carry state
-and agree** as of 2026-09-17 — six until a start room was pinned, because two of
-the silent rows were a fact about the ROOM rather than about the route, a ninth
-once one walk started pressing buttons through the shipped input road, a tenth
-once the arm stopped sampling on a four-rung ladder, and an eleventh once a room
-that merely SPAWNS a boss was walked. ⛔ **The two that were filed as needing
-expensive fixtures did not need them, and the mistake was the same both times: a
-sentence describing the EVENT a field is named for instead of the code that
-inserts it.** `portal.emission` was said to want an aimed script and wanted a
-room already walked plus a denser sample — the component lives 11 ticks and the
-ladder's widest gap was 90. `boss.death_animation` was said to want a boss dead
-and wanted a `BossSpawn`: `BossDeathAnimation::default()` is inserted at spawn.
-⚠ Its carrier is constant `(1, 0)`, so what is compared there is PRESENCE, not a
-varying float; a real boss death is still the stronger observation. One row is
-left and no route can place it (`Q137`) — ✔ asked the same way as the two that
-had just been overturned, *where is the component CONSTRUCTED*, that claim HELD:
-one construction site in the workspace, inside a `#[cfg(test)]` module. The owner
-row prints the per-room split.
+Peer-stable identity (ID-PEER) is a separate campaign. Its open roads are blocked
+outside the campaign, on maintainer rulings or on a P2P session this workspace
+does not construct:
+
+| open road | blocked on |
+| --- | --- |
+| the snapshot schema fingerprint hashing English prose | not blocked — [ruled](maintainer-decisions.md) (`Q122`): mechanical identity fingerprints mechanical facts, not explanatory prose. The naive fix is refuted in the row |
+| the unchecksummed float rows | netcode **N2** for the whole class. They carry no host-local id and are never compared. The state half is measured by two-host differing-history arms; the count is in the owner row |
+| the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the timeline |
+
+The per-road table, the arm that holds each closed road, and every measurement are
+in [ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).
+This section deliberately carries no road count.
 
 Local lifetime/correlation identity and peer-stable mechanical identity remain a
 separate seam. `SessionScopeId`, shell activation ids, content epochs and
@@ -130,50 +68,14 @@ monotonic counters stay valid for cleanup and stale-message rejection; none of
 them may determine authoritative RNG, deterministic construction provenance,
 rollback identity, contact/projectile identity, or a peer checksum.
 
-**The per-road table, the arm that holds each closed road, and every measurement
-behind them are in
-[ID-PEER](queue.md#id-peer--remove-host-local-lineage-from-peer-stable-mechanical-identity).**
-⛔ This section deliberately carries no road count and no per-road narrative. It
-held both, and the corrections kept arriving here as separate hand edits AFTER
-the owner row was already right: `dada0a4c5` and `28e087f43` each re-derived its
-counts, and `86e8f9622` is titled *"the warning that a summary rots did not stop
-me rotting the line under it"*. The last copy to go was worse than stale — it
-said `SeatControlFrameModes` is *"read by sim systems"* while the owner had
-recorded it closed and production holds exactly one `ResMut` writer and no
-readers. A summary of a live table is a copy that corrections do not reach.
-
-**What a reader picking this up needs: all three open roads are blocked outside
-the campaign.** A fourth was opened and closed on 2026-09-17; its measurements
-live in the owner row, because a summary of them here would rot.
-
-| open road | blocked on |
-| --- | --- |
-| the snapshot schema fingerprint hashing English prose | not blocked — [RULED](maintainer-decisions.md) 2026-09-19 (`Q122`): mechanical identity fingerprints MECHANICAL FACTS, not explanatory prose. The naive fix is still refuted in the row |
-| the 25 unchecksummed float rows | netcode **N2** for the whole class — they carry no host-local id and are simply never compared, which no projection fixes. ⭐ The STATE half is not blocked: two-host differing-history arms measure it, and **the count is in the owner row, not here** — this cell said "one of them" while the row said twelve |
-| the canonical timeline itself (absolute `SimTick`) | [Q128](awaiting-maintainer-decision.md#q128--should-the-simulation-tick-be-rebased-when-peers-agree-to-start-or-stay-an-absolute-per-app-count) — a projection excluding the tick would exclude the TIMELINE |
-
-⚠ **NO SESSION IN THIS REPOSITORY CAN OBSERVE ANY OF IT** — `SyncTestSession` is
-the only one constructed, one machine rewinding itself, zero distance, so a desync
-canary compares a machine against its own past. ⭐ **A TEST CAN, THOUGH, AND THAT
-IS NEW.** `the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
-builds two hosts with different route histories, asks the registry which of its
-registrations feed the peer checksum — a MINORITY of the baseline's rows — and
-compares exactly those. It found three
-defects on its first run — after a JOIN that narrowed the probe census to those
-rows, because the probe collection does not know which rows peers compare and
-over-reported without it. ⛔ **THIS SENTENCE CARRIED `145 of 488` AND BOTH
-NUMBERS WERE STALE**: `Q142` added three baseline rows the same day (v197 →
-v198), so it is 146 of 491 as of 2026-09-17 — and this page is the one that says
-a summary of a live table is a copy corrections do not reach. ⇒ The pair lives in
-the arm's own doc comment beside the command that re-derives each, and this
-sentence deliberately states neither. ⭐ **The third cost two causes and one refutation.** Fixing the
-accumulating gameplay clock MOVED `PerceptionMemory`'s value without equalising
-it; the remaining cause was a perceived-actor id falling back to
-`format!("e{}", entity.index())`, which is the KEY of a `BTreeMap` inside a
-checksummed component — and whose iteration order also decides which of two
-equally-confident hostiles an NPC chases. A mechanism that explains the number is
-not evidence for it. That is the standing reason this seam gets review attention out of
-proportion to what any test can currently fail on.
+No session in this repository observes a real peer: `SyncTestSession` is the only
+one constructed. A test can compare two hosts, though:
+`the_peer_visible_surface_does_not_record_which_route_the_host_visited_first`
+builds two hosts with different route histories and compares only the
+registrations that feed the peer checksum. Defects in this seam have been found by
+reading what the pinned dependency actually hashes and by deleting fallbacks, not
+by a clean census. That is why this seam gets more review than any current test
+can justify.
 
 ### Rollback-safe mechanical editing
 
@@ -184,83 +86,31 @@ editable domain appears; it should not create a second editor-specific rollback
 road.
 
 Mutable user preferences are distinct from admitted mechanical policy. Direct
-`UserSettings` reads have been removed from the simulation schedule. The
-remaining damage-policy lifetime was `Q127` and is
-[RULED](maintainer-decisions.md), 2026-09-19: no generic engine difficulty
-architecture; difficulty is game policy as presets, handicaps and CPU brain
-levels are separate concepts, and the whole topic is deprioritised until the
-default game plays exceptionally well.
+`UserSettings` reads have been removed from the simulation schedule. Difficulty is
+[ruled](maintainer-decisions.md) (`Q127`): no generic engine difficulty
+architecture; difficulty is game policy as presets, handicaps and CPU brain levels
+are separate concepts, and the topic is deprioritised until the default game plays
+exceptionally well.
 
 ### Persistence and the peer contract
 
-✅ **REPAIRED 2026-09-16 (P0). THE SAVE MIRRORS NOW CROSS THE ROLLBACK
-BOUNDARY.** `persist_inventory_to_save`, `persist_occurrence_horizon_to_save` and
-`persist_minted_item_horizon_to_save` register through `app.sim_schedule()`, so a
-rewind replays them. No disk I/O moved — they derive the save RESOURCE from live
-simulation state, and autosave and the file write stay outside the simulation.
-
-⛔ **WHAT WAS WRONG:** `AmbitionGameSave` is `rollback_resource_clone_checksum`,
-so its whole value is compared per TICK, while the mirrors wrote it from `Update`
-— per FRAME — and a rewind re-simulates ticks without re-running `Update`. A bag
-that changed every tick desynced a GGRS sync test within six ticks; of 364 probed
-rollback entries exactly one diverged, and it was the save.
-
-⭐⭐ **AND THE ACCEPTANCE WAS NOT THE REPRO.** The merged-state review refused
-*"startup repro now passes"* on its own, because a checksum that stops responding
-to the state it covers turns every equality arm green in the direction that looks
-like success. ⇒ Measured both ways: the divergence set went to EMPTY, **and** the
-save's hashed projection went from **1 distinct census across 236 compared frames
-to 236** (neighbours: 238). It is no longer PINNED, so the empty set is a
-comparison that could have failed. The second measurement is guarded at a floor
-of 50 so it cannot silently return to the pinned regime.
-
-✅ **AND THE FOURTH WRITER IS CLOSED TOO — this page said it was "STILL OPEN AND
-NOW THE ONLY HASHED-SAVE WRITER OUTSIDE THE REWIND WINDOW".**
-`dispatch_pending_dialog_requests` incremented a dialog visit count from
-`Update`, and the mirrors' answer did not transfer: an increment does not
-converge under replay. It got its own — the count is now
-`count_the_dialogue_visit_when_a_conversation_opens`, in the sim schedule, keyed
-on `ActiveConversation`'s opening tick, where the RESTORE is what makes an
-increment idempotent. ⇒ Re-measured 2026-09-18: zero hashed-save writers remain
-outside the rewind window. The measurement and the repair live ONCE, in
-[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update).
-⚠ **WHAT MAKES IT REPRODUCE IS THE FIRST THREE TICKS, NOT THE CADENCE** —
-corrected 2026-09-16 by its owner after a sweep: an every-tick grant STARTING
-at tick 4 runs 120 steps clean, starting at tick 1 or 2 it desyncs at frames
-`[2, 3, 4]`, and N consecutive grants from tick 20 are clean at every N. This
-page said *"a single change does not reproduce it"*, which was the second of
-three framings. ⇒ The measurement and the correction live ONCE, in
-[ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open);
-do not re-derive them here.
-
-⚠ This is not only a persistence question: **18 of the 19** systems that write
-`AmbitionGameSave` are registered in the SIM schedule — this page said 13 until
-2026-09-18 — so the save is simulation state in practice whatever it is in
-principle, and the single outsider is `load_save_at_startup` in `Startup`. ⇒ The
-census and its method are owned by
-[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
-do not re-derive the pair here. ⛔ That is what
-made "take it out of the checksum" the LARGE option rather than the small one,
-and the review refused it outright — unhashing would have bought a green repro by
-discarding comparison coverage for substantial simulation state. ⇒ **WHICH state,
-and how much of it, is `queue.md`'s** — it carries the census (19 systems take
-`ResMut<AmbitionGameSave>`, 18 inside rewinding schedules) and the argument. This
-page restated the coverage list until 2026-09-18, two paragraphs after telling
-the reader *"do not re-derive the pair here"* about the neighbouring fact.
-
-⇒ **Q129 IS NARROWER FOR THE REPAIR AND STILL OPEN.** The desync is no longer
-the reason to answer it, and its pinned-projection half is ANSWERED for the save
-— it was pinned BECAUSE the mirrors wrote from `Update`. What remains is the
-ownership question on its own merits: should a save FILE be part of what two
-peers agree on. The ruling is
-[Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on);
-the measurement and the reproduction are in
+The save mirrors and the dialogue visit count now run in the simulation schedule,
+so a rewind replays them; no hashed-save writer remains outside the rewind window.
+Disk I/O stays outside the simulation. The measurement and the repair live in
+[DURABLE-HORIZON-CHECKSUM](queue.md#durable-horizon-checksum--the-save-mirrors-write-hashed-state-from-update)
+and
 [ROLLBACK-BAG-DESYNC](queue.md#rollback-bag-desync--ambitiongamesave-disagrees-with-its-own-rollback-replay---repaired-2026-09-16-acceptance-met-the-authorityrepresentation-split-is-deferred-and-q129-is-open).
 
-⇒ Found beside it, and [RULED](maintainer-decisions.md) 2026-09-19 (`Q138`):
-an invalidated harness must REFUSE or FAIL rather than silently produce frozen
-observations. Today an invalidated GGRS session keeps accepting `sim.step()` and stops advancing
-`SimTick` in silence. `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`
+Almost every system that writes `AmbitionGameSave` is in a rewinding schedule, so
+the save is simulation state in practice. Removing it from the checksum is
+therefore the large option, and it was refused: it would discard comparison
+coverage for real simulation state. The census is owned by `queue.md`.
+
+Open: [Q129](awaiting-maintainer-decision.md#q129--must-the-save-file-be-part-of-what-two-peers-agree-on)
+asks whether a save file should be part of what two peers agree on.
+
+Ruled (`Q138`): an invalidated harness must refuse or fail rather than silently
+produce frozen observations. `scripts/a_rollback_arm_must_refuse_a_frozen_world.py`
 runs in `--maintenance`: each sync-test arm reads a health API or states what a
 frozen world breaks in it.
 
@@ -271,9 +121,9 @@ explicit unchanged/stale/refused/activated outcomes rather than unconditional
 generation churn. Remaining design work is to finish one prepare/admit/publish
 contract across reloadable registries and settle the permanent moveset authoring
 source. See [I2/I3](queue.md#i2i3--finish-independent-content-authoring-and-safe-reload).
-⭐ Both rulings landed 2026-09-19 ([`maintainer-decisions.md`](maintainer-decisions.md)):
-content-authored movesets are the long-term authority and duplicate Rust tables
-are migration scaffolding (`Q104`), and mechanical registry changes use explicit
+Rulings ([`maintainer-decisions.md`](maintainer-decisions.md)): content-authored
+movesets are the long-term authority and duplicate Rust tables are migration
+scaffolding (`Q104`); mechanical registry changes use explicit
 lifecycle/replacement semantics rather than a universal silent overwrite (`Q110`).
 
 ### Composition and public profiles
@@ -282,74 +132,32 @@ A9 remains the owner for truthful minimum engine profiles. The target is a named
 capability contract, not a crate-count budget. Current product/architecture choices
 that shape the profile are Q97, Q100, Q106 and Q108 in the decision ledger.
 
-⛔ **AND A PROFILE WITNESS MUST STEP, WHICH UNTIL 2026-09-16 NONE OF THEM DID.**
-The three composition probes passed in under half a second having run ZERO fixed
-steps, because `MinimalPlugins` leaves `TimeUpdateStrategy::Automatic` and a fast
-run never crosses 1/60 s. They certified that the engine BUILDS. A profile
-contract tested by an arm whose green is compatible with the engine being broken
-is not a contract. ⇒ Pin the step, then ASSERT the step happened — the pin alone
-fails silently.
+A profile witness must step. `MinimalPlugins` leaves
+`TimeUpdateStrategy::Automatic`, and a fast run never crosses 1/60 s, so an
+unpinned probe runs zero fixed steps and only proves that the engine builds. Pin
+the step, then assert that the step happened.
 
 ## Current execution
 
-⭐ **IF THE QUESTION IS "WHAT IS ACTUALLY BLOCKED", THE ANSWER IS NOT ON THIS
-PAGE.** [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
-opens with *What actually blocks architecture work today*, derived 2026-09-19
-from `queue.md`'s `**Blocked by:**` fields AND its prose gates AND every `DO NOT
-START BEFORE` in the consolidation plan, with what each question blocks and what
-happens if it stays open. ⇒ That section is the owner; this one is a
-shape-of-the-queue orientation and deliberately **does not restate the set or
-its size** — an earlier version of this paragraph said "six questions" and was
-stale within the hour when the derivation was corrected. `queue.md`'s gates and
-that section are held in agreement by
-`scripts/check_blocking_set_names_every_gate.py` in `--maintenance`.
+For what is blocked, read the section *What actually blocks architecture work
+today* in [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+It is derived from `queue.md`'s `**Blocked by:**` fields, its prose gates and
+every `DO NOT START BEFORE` in the consolidation plan.
+`scripts/check_blocking_set_names_every_gate.py` keeps the two in agreement.
+This page does not restate that set or its size.
 
-⭐ **AND THE DERIVATION WAS WRONG TWICE BEFORE IT WAS RIGHT**, which is the
-lesson the bullets below are about, arriving in the instrument rather than in a
-copy: first a fixed 60-line window from each row heading missed two blockers
-stated further down, then a full-extent PROSE scan missed eight more that
-`queue.md` states in a structured field.
+The queue is intentionally compact. Its groups are listed below. This list is a
+summary; read the rows in `queue.md` before you pick up work.
 
-The queue is intentionally compact. Its current groups are:
-
-- **P0:** A10 publication (CLOSED), peer-stable identity (**no road count here —
-  the owner row re-derives it, and this copy read "eleven of fourteen" after the
-  owner had moved to fourteen of seventeen.** The three open roads are `Q128`,
-  `Q122` and the unchecksummed float rows — the last a different kind, with no
-  host-local id, never compared between peers, blocked on netcode's N2. All three
-  want a maintainer or a P2P session, so none is pickable here), settings/rollback
-  policy, throw modifier
-  consistency, A2 projectile identity (CLOSED — the construction-identity hole
-  only; A2a/A2b/A2c geometry and contact contracts are a different subject and
-  still open), A12 move-contact attribution and A4 control/body execution.
-
-⚠ That list is a SUMMARY OF `queue.md`, which means it is a copy corrections do
-not reach. Read the rows, not this line, before picking work up: a group closing
-here is a two-edit change and only one of the edits is anybody's job.
-⛔⛤ **AND THAT WARNING FAILED TO PROTECT THE LINE IT SITS UNDER TWICE, BOTH
-TIMES ON 2026-09-16.** First it was corrected above to *nine closed, three open*
-while this line still said *"the two open are `Q128` and `Q122`"* — written by
-someone reading this exact warning. Then both copies drifted again: the section
-above counted a fourteenth road and thirteen live while `queue.md` had fifteen
-filed and fourteen live, and this line still said nine closed and four open after
-the input payload closed for its ratchet. ⇒ A warning that a copy will rot does
-not stop it rotting, and neither does the habit it recommends. The only reading
-that survives is the one that RE-DERIVES: `queue.md`'s ID-PEER row prints its own
-arithmetic (nine in the table plus two in prose beneath it) precisely so a reader
-does not have to trust a sentence anywhere — including that one.
+- **P0:** peer-stable identity (ID-PEER; its open roads want a maintainer or a
+  P2P session), settings/rollback policy, throw modifier consistency, A2a/A2b/A2c
+  projectile geometry and contact contracts, A12 move-contact attribution and A4
+  control/body execution.
 - **P1:** content reload, A9 composition, item occurrence ownership, fighter-brain
   selection, low-tier sprite policy, Smash parity, character authoring and
-  scenario identity. ⚠ Test-lane reliability is no longer a standing P1 theme:
-  the long-running `app_it` failure was a sim-schedule cycle, not a flake, and
-  the lane runs. What remains in TEST-LANES is the fails-in-company class, whose
-  instances, measured cause and open remainder are in
-  [its triage page](triage/a-composition-acceptance-that-only-fails-in-company.md)
-  — ⚠ this bullet carried a WRONG summary of that cause for a day (it named a
-  page census keyed on a colliding asset id; the measured channel was the test
-  file's own input cadence in a `static AtomicUsize`), which is what a restated
-  cause does. ⇒ Read the rows: `queue.md`'s OPEN 1 states which candidates are
-  refuted (CPU contention; a settle loop going quiet over a growing set) so
-  nobody re-measures them.
+  scenario identity. TEST-LANES holds the fails-in-company class; its instances,
+  cause and remainder are on
+  [its triage page](triage/a-composition-acceptance-that-only-fails-in-company.md).
 - **P2:** product/authoring work that has an executable owner after a maintainer
   rule.
 - **P3:** measurements that require a particular machine, device or interactive

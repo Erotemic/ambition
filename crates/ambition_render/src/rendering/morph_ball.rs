@@ -18,16 +18,15 @@ use bevy::image::Image;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-/// Procedural sphere texture. Built once at startup, shown on a sibling
-/// of the player while `Player::body_mode == MorphBall`.
+/// Procedural sphere texture. Built once at startup; every morphed body's ball
+/// draws it.
 #[derive(Resource, Clone, Default)]
 pub struct MorphBallSprite {
     pub handle: Handle<Image>,
 }
 
-/// Marker on the morph-ball sibling sprite. The sprite is hidden by
-/// default and mirrored to the player's position by
-/// `sync_morph_ball_visual` when active.
+/// Marker on a morph-ball sprite. Each one draws exactly one body, named by
+/// its `PresentationOf`, and follows that body's own pose.
 #[derive(Component)]
 pub struct MorphBallVisual;
 
@@ -88,27 +87,31 @@ pub fn build_morph_ball_image() -> Image {
 }
 
 /// Startup system: build the procedural morph ball image and stash its
-/// handle. The sibling visual is spawned by
-/// `spawn_morph_ball_visual` once the sprite handle is ready.
+/// handle.
 pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let handle = images.add(build_morph_ball_image());
     commands.insert_resource(MorphBallSprite { handle });
 }
 
-/// Spawn the morph-ball sibling sprite tied to the primary player body.
-/// Runs each frame but inserts only when the `MorphBallVisual` query is
-/// empty — equivalent to a one-shot "after the ball visual exists"
-/// guard that handles the visible-binary boot order without needing a
-/// dedicated state.
+/// Give every morphed drawn body its own ball, the first frame it is morphed.
+///
+/// The ball names its body at spawn (`PresentationOf`), so what draws a morphed
+/// body is answerable from the ball alone — portal composition asks exactly
+/// that. Chained before [`sync_morph_ball_visual`], so a body is never hidden on
+/// a frame its ball does not yet exist.
 pub fn spawn_morph_ball_visual(
     mut commands: Commands,
     sprite: Option<Res<MorphBallSprite>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    existing: Query<(), With<MorphBallVisual>>,
+    bodies: Query<
+        (Entity, &ambition_sim_view::BodyPoseView),
+        With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
+    >,
+    balls: Query<
+        &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
+        With<MorphBallVisual>,
+    >,
 ) {
-    if !existing.is_empty() {
-        return;
-    }
     let Some(sprite) = sprite else {
         return;
     };
@@ -120,145 +123,104 @@ pub fn spawn_morph_ball_visual(
     else {
         return;
     };
-    commands.spawn_session_scoped(
-        session_scope,
-        (
-            Sprite {
-                image: sprite.handle.clone(),
-                custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
-                ..default()
-            },
-            Transform::from_xyz(
-                0.0,
-                0.0,
-                ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
+    for (body, pose) in &bodies {
+        if !pose.morph_ball || balls.iter().any(|owner| owner.0 == body) {
+            continue;
+        }
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite {
+                    image: sprite.handle.clone(),
+                    custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    0.0,
+                    0.0,
+                    ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
+                ),
+                Visibility::Hidden,
+                MorphBallVisual,
+                ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
+                Name::new("Morph Ball Visual"),
             ),
-            Visibility::Hidden,
-            MorphBallVisual,
-            Name::new("Morph Ball Visual"),
-        ),
-    );
+        );
+    }
 }
 
-/// Toggle the morph-ball visual on / off based on `Player::body_mode`,
-/// mirror its position to the player, and scale it to the morph-ball
-/// AABB. Hides the regular player sprite while the ball is active so
-/// the standing-rig animation doesn't show through.
+/// Draw each ball where its own body is presented while that body is morphed,
+/// and hide each morphed body's standing sprite so the rig does not show
+/// through. A ball whose body is gone is despawned.
+///
+/// ⛔ Every drawn body answers from its OWN `BodyPoseView`, never "the primary
+/// player": a match or a possession has bodies that are not the session's home
+/// avatar, and a hide keyed on one singleton skipped them in silence.
 pub fn sync_morph_ball_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    // Sim-built pose read-model (E4): body-mode + geometry facts, no live
-    // cluster reads.
-    player_q: Query<
+    mut bodies: Query<
         (
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
+            &mut Visibility,
         ),
-        ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
-    >,
-    // ⛔⛔ EVERY DRAWN BODY, ASKED ITS OWN POSE — not "the primary player",
-    // and not `single_mut()`. This took
-    // `Query<&mut Visibility, (With<PlayerVisual>, With<PrimaryPlayer>, …)>` and
-    // `single_mut()`d it inside an `if let Ok(…)`, so the hide was skipped in
-    // SILENCE whenever that resolved to anything other than exactly one entity —
-    // and the ball, whose own query is a plain `MorphBallVisual` singleton, kept
-    // drawing. The result is the ball painted on top of a robot that never went
-    // away, which is what it has been doing.
-    //
-    // ⛔ THE SAME QUERY HAS ALREADY BURNED THIS REPOSITORY ONCE.
-    // `rebuild_hostile_wielded_items_view` records it in as many words: a
-    // `PrimaryPlayerOnly` query `single()`d and returned from *"so in a match,
-    // where no session home avatar exists"* the fact vanished entirely. A body's
-    // own `BodyPoseView` is the fact; who the primary player is was never part
-    // of the question.
-    mut player_query: Query<
-        (Entity, &ambition_sim_view::BodyPoseView, &mut Visibility),
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
             Without<MorphBallVisual>,
         ),
     >,
-    mut ball_query: Query<
+    mut balls: Query<
         (
             Entity,
+            &ambition_platformer2d_shared_tangle::lifecycle::PresentationOf,
             &mut Transform,
             &mut Sprite,
             &mut Visibility,
-            Option<&ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
         ),
         With<MorphBallVisual>,
     >,
 ) {
-    let Ok((ball, mut transform, mut sprite, mut ball_visibility, owned_by)) =
-        ball_query.single_mut()
-    else {
-        return;
-    };
-    let Ok((pose, presented)) = player_q.single() else {
-        return;
-    };
-    let in_morph = pose.morph_ball;
-    if in_morph {
-        transform.translation = ambition_platformer2d_core::config::world_to_bevy(
-            &world.0,
-            // The sphere IS the body while morphed, so it draws where the body
-            // is presented — not where its last tick left it.
-            ambition_sim_view::presented_pose::draw_pos(pose, presented),
-            ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
-        );
-        // Slightly larger than the AABB so the soft anti-aliased rim
-        // reads as the ball's outline rather than as background.
-        let render = bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10);
-        sprite.custom_size = Some(render);
-        *ball_visibility = Visibility::Visible;
-    } else {
-        *ball_visibility = Visibility::Hidden;
-    }
-    // ⭐ AND THE HIDE IS PER BODY, decided by that body's OWN `morph_ball` fact
-    // rather than by the one the ball happens to be following. It runs on both
-    // arms so a body that stops being morphed is handed back even on the frame
-    // the ball is still showing for somebody else.
-    for (body, pose, mut player_vis) in &mut player_query {
+    for (ball, owner, mut transform, mut sprite, mut ball_visibility) in &mut balls {
+        let Ok((pose, presented, _)) = bodies.get(owner.0) else {
+            commands.entity(ball).despawn();
+            continue;
+        };
         if pose.morph_ball {
-            if *player_vis != Visibility::Hidden {
-                *player_vis = Visibility::Hidden;
+            transform.translation = ambition_platformer2d_core::config::world_to_bevy(
+                &world.0,
+                // The sphere IS the body while morphed, so it draws where the
+                // body is presented — not where its last tick left it.
+                ambition_sim_view::presented_pose::draw_pos(pose, presented),
+                ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
+            );
+            // Slightly larger than the AABB so the soft anti-aliased rim
+            // reads as the ball's outline rather than as background.
+            sprite.custom_size = Some(bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10));
+            *ball_visibility = Visibility::Visible;
+        } else {
+            *ball_visibility = Visibility::Hidden;
+        }
+    }
+    for (pose, _, mut body_visibility) in &mut bodies {
+        if pose.morph_ball {
+            if *body_visibility != Visibility::Hidden {
+                *body_visibility = Visibility::Hidden;
             }
-            // ⭐ WHOSE BODY THE BALL IS DRAWING, recorded while it is drawing it.
-            // The ball is a per-session singleton and named no owner at all, so
-            // nothing could ask what draws a morphed player -- and while morphed
-            // the ball IS the player's representation, at
-            // `WORLD_Z_PLAYER + 0.05`, above the portal band. Stamped here rather
-            // than at spawn because the ball is built before any body exists, and
-            // idempotently because this runs every frame.
-            if owned_by.map(|owner| owner.0) != Some(body) {
-                commands.entity(ball).insert(
-                    ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
-                );
-            }
-        } else if matches!(*player_vis, Visibility::Hidden) {
-            // Inherited visibility lets the parent / overlay control
-            // hiding (death overlay, room transition fade); we only
-            // override to Visible when leaving morph ball, then drop
-            // back to Inherited so we don't fight other systems.
-            *player_vis = Visibility::Inherited;
+        } else if matches!(*body_visibility, Visibility::Hidden) {
+            // Back to `Inherited`, never a hard `Visible`, so the death overlay
+            // and the room-transition fade keep their authority over the body.
+            *body_visibility = Visibility::Inherited;
         }
     }
 }
 
-/// What these tests prove, and what they do not.
-///
-/// These three tests run `sync_morph_ball_visual` against the rig it actually sees — a
-/// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`, one
-/// `MorphBallVisual` sibling — and the system is correct: it shows the ball, hides the
-/// body, and restores `Inherited` (never a hard `Visible`) on exit.
-///
-/// That is what "generalize modal body morphs" means, and it deletes this whole file.
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
+    use ambition_platformer2d_shared_tangle::lifecycle::{PlayerVisual, PresentationOf};
     use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
     use ambition_sim_view::BodyPoseView;
 
@@ -270,38 +232,12 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ WHILE MORPHED, THE BALL IS THE PLAYER'S REPRESENTATION — and until
-    /// 2026-09-06 it recorded no owner at all, so nothing could ask what draws a
-    /// morphed player.
-    ///
-    /// It is a per-session singleton spawned before any body exists, which is why
-    /// it names nobody at spawn; the consequence was that PORTAL COMPOSITION saw
-    /// only the base `PlayerVisual` — hidden while morphed — and the ball, at
-    /// `WORLD_Z_PLAYER + 0.05` = 20.05, drew straight over a pane pinned at or
-    /// below `WORLD_Z_DUMMY` = 10. A morphed player bypassed the compositor
-    /// entirely. Raised by a GPT review; the fix is one shared component rather
-    /// than a portal-specific special case for the ball.
-    #[test]
-    fn a_morphed_ball_records_whose_body_it_draws() {
-        use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
-
-        let (mut app, player, ball) = rig(true);
-        app.update();
-
-        assert_eq!(
-            app.world().get::<PresentationOf>(ball).map(|owner| owner.0),
-            Some(player),
-            "the ball is drawing this player while morphed and does not say so, \
-             so no consumer -- portal composition included -- can find out that \
-             the body's visible pixels are over here"
-        );
-    }
-
-    /// The rig `sync_morph_ball_visual` actually runs against: a player body that
-    /// carries `PlayerVisual` + `PrimaryPlayer` + a `BodyPoseView`, one
-    /// `MorphBallVisual` sibling.
-    fn rig(morph: bool) -> (App, Entity, Entity) {
+    /// Drawn bodies as a match spawns them — the first is the session's own
+    /// avatar, the rest are fighters with no `PrimaryPlayer` — run through the
+    /// shipped spawn → sync chain.
+    fn rig(bodies: &[bool]) -> (App, Vec<Entity>) {
         let mut app = App::new();
+        app.init_resource::<Assets<Image>>();
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
             ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
@@ -311,53 +247,6 @@ mod tests {
                 Vec::new(),
             )),
         );
-        let player = app
-            .world_mut()
-            .spawn((
-                PlayerVisual,
-                PlayerEntity,
-                PrimaryPlayer,
-                pose(morph),
-                Visibility::Inherited,
-                Transform::default(),
-            ))
-            .id();
-        let ball = app
-            .world_mut()
-            .spawn((
-                MorphBallVisual,
-                Sprite::default(),
-                Transform::default(),
-                Visibility::Hidden,
-            ))
-            .id();
-        app.add_systems(Update, sync_morph_ball_visual);
-        (app, player, ball)
-    }
-
-    fn vis(app: &App, e: Entity) -> Visibility {
-        *app.world().get::<Visibility>(e).unwrap()
-    }
-
-    /// A drawn body WITHOUT the `PrimaryPlayer` marker: a fighter in a match.
-    ///
-    /// ⛔⛔ THE RIG ABOVE COULD NOT SEE THE BUG. It spawns exactly one body and
-    /// gives it `PrimaryPlayer`, which is the one shape the old
-    /// `single_mut()` hide worked for — so all three arms above passed against
-    /// code that never hid anything in an actual match.
-    fn match_rig(bodies: &[bool]) -> (App, Vec<Entity>, Entity) {
-        let mut app = App::new();
-        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-            app.world_mut(),
-            ambition_platformer2d_core::RoomGeometry(ambition_platformer2d_core::World::new(
-                "t",
-                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
-                ambition_platformer2d_core::Vec2::ZERO,
-                Vec::new(),
-            )),
-        );
-        // One of them is the session's own avatar so the BALL still has a pose
-        // to follow; the others are fighters, exactly as a match spawns them.
         let mut ids = Vec::new();
         for (i, morph) in bodies.iter().enumerate() {
             let mut body = app.world_mut().spawn((
@@ -372,108 +261,101 @@ mod tests {
             }
             ids.push(body.id());
         }
-        let ball = app
+        app.add_systems(Startup, build_morph_ball_sprite);
+        app.add_systems(Update, (spawn_morph_ball_visual, sync_morph_ball_visual).chain());
+        (app, ids)
+    }
+
+    fn vis(app: &App, e: Entity) -> Visibility {
+        *app.world().get::<Visibility>(e).unwrap()
+    }
+
+    /// The ball drawing `body`, if it has one.
+    fn ball_of(app: &mut App, body: Entity) -> Option<Entity> {
+        let mut q = app
             .world_mut()
-            .spawn((
-                MorphBallVisual,
-                Sprite::default(),
-                Transform::default(),
-                Visibility::Hidden,
-            ))
-            .id();
-        app.add_systems(Update, sync_morph_ball_visual);
-        (app, ids, ball)
+            .query_filtered::<(Entity, &PresentationOf), With<MorphBallVisual>>();
+        q.iter(app.world())
+            .find(|(_, owner)| owner.0 == body)
+            .map(|(ball, _)| ball)
     }
 
-    /// ⛔⛔ THE REPORTED BUG, AT THE SHAPE IT ACTUALLY HAPPENS. Jon, 2026-08-27:
-    /// *"the morph ball has had a long time bug where the sprite behind it never
-    /// disappears, so you see the morph ball on top of the robot."* A second
-    /// drawn body is all it takes: the old hide asked for exactly one
-    /// `PrimaryPlayer` body and skipped in silence when it did not get one,
-    /// while the ball's own singleton query carried on drawing.
+    fn set_morph(app: &mut App, body: Entity, morph: bool) {
+        app.world_mut().get_mut::<BodyPoseView>(body).unwrap().morph_ball = morph;
+    }
+
+    /// In morph the ball shows and the body's sprite is hidden, on the same
+    /// frame — otherwise the standing rig draws through the ball, or the body
+    /// is invisible for a frame.
     #[test]
-    fn a_morphed_body_is_hidden_even_with_other_bodies_on_screen() {
-        let (mut app, bodies, ball) = match_rig(&[true, false]);
+    fn entering_morph_hides_the_body_sprite_and_shows_its_ball() {
+        let (mut app, bodies) = rig(&[true]);
         app.update();
+        let ball = ball_of(&mut app, bodies[0]).expect("the morphed body has a ball");
         assert_eq!(vis(&app, ball), Visibility::Visible, "the ball draws");
-        assert_eq!(
-            vis(&app, bodies[0]),
-            Visibility::Hidden,
-            "the morphed body must not draw through the ball just because a \
-             second body exists"
-        );
+        assert_eq!(vis(&app, bodies[0]), Visibility::Hidden, "the rig does not draw through it");
     }
 
-    /// ⛔ AND ONLY THE MORPHED ONE. A hide keyed on "somebody is morphed" rather
-    /// than on each body's own fact would take the other fighter off the screen.
+    /// ⛔⛔ A MORPHED FIGHTER THAT IS NOT THE PRIMARY PLAYER GETS ITS OWN BALL.
+    /// The ball was one session singleton that followed the primary player while
+    /// the hide was per body, so any other morphed body was hidden and drawn by
+    /// nothing at all.
     #[test]
-    fn a_body_that_is_not_morphed_keeps_drawing_while_another_is() {
-        let (mut app, bodies, _ball) = match_rig(&[true, false]);
+    fn a_morphed_body_that_is_not_the_primary_player_is_drawn_by_its_own_ball() {
+        let (mut app, bodies) = rig(&[false, true]);
         app.update();
-        assert_eq!(
-            vis(&app, bodies[1]),
-            Visibility::Inherited,
-            "the fighter who is not balled up is still on the stage"
-        );
+        assert_eq!(vis(&app, bodies[1]), Visibility::Hidden);
+        let ball = ball_of(&mut app, bodies[1])
+            .expect("the morphed fighter is hidden and nothing draws it");
+        assert_eq!(vis(&app, ball), Visibility::Visible);
+        assert!(ball_of(&mut app, bodies[0]).is_none(), "a body that never morphed gets no ball");
+        assert_eq!(vis(&app, bodies[0]), Visibility::Inherited, "and keeps drawing");
     }
 
-    /// ⛔ A BODY WITH NO `PrimaryPlayer` AT ALL still hides, which is the
-    /// zero-match half of the same failure — `rebuild_hostile_wielded_items_view`
-    /// records that a `PrimaryPlayerOnly` query matches NOTHING in a match,
-    /// *"where no session home avatar exists"*.
+    /// Two morphed bodies are two balls, each naming its own body — which is
+    /// what portal composition asks (`PresentationOf`).
     #[test]
-    fn a_morphed_fighter_that_is_not_the_primary_player_still_hides() {
-        let (mut app, bodies, _ball) = match_rig(&[false, true]);
+    fn two_morphed_bodies_are_two_balls() {
+        let (mut app, bodies) = rig(&[true, true]);
         app.update();
-        assert_eq!(
-            vis(&app, bodies[1]),
-            Visibility::Hidden,
-            "the hide must not depend on which body the session calls its own"
-        );
-    }
-
-    /// The reported bug: "morph ball still draws the robot". In morph the ball
-    /// shows and the body's sprite must be hidden — otherwise the standing rig
-    /// draws through the ball.
-    #[test]
-    fn entering_morph_hides_the_body_sprite_and_shows_the_ball() {
-        let (mut app, player, ball) = rig(true);
+        let a = ball_of(&mut app, bodies[0]).expect("first ball");
+        let b = ball_of(&mut app, bodies[1]).expect("second ball");
+        assert_ne!(a, b);
         app.update();
-        assert_eq!(vis(&app, ball), Visibility::Visible, "the ball draws");
-        assert_eq!(
-            vis(&app, player),
-            Visibility::Hidden,
-            "the standing rig must not draw through the ball"
-        );
+        let mut q = app.world_mut().query_filtered::<(), With<MorphBallVisual>>();
+        assert_eq!(q.iter(app.world()).count(), 2, "a ball is spawned once per body, not per frame");
     }
 
     /// Leaving morph restores the body to `Inherited` — never a hard `Visible`,
     /// so the death overlay and the room-transition fade keep their authority.
     #[test]
     fn leaving_morph_returns_the_body_to_inherited_not_visible() {
-        let (mut app, player, ball) = rig(true);
+        let (mut app, bodies) = rig(&[true]);
         app.update();
-        assert_eq!(vis(&app, player), Visibility::Hidden);
-
-        app.world_mut()
-            .get_mut::<BodyPoseView>(player)
-            .unwrap()
-            .morph_ball = false;
+        let ball = ball_of(&mut app, bodies[0]).unwrap();
+        set_morph(&mut app, bodies[0], false);
         app.update();
         assert_eq!(vis(&app, ball), Visibility::Hidden);
-        assert_eq!(
-            vis(&app, player),
-            Visibility::Inherited,
-            "not `Visible`: the overlay/fade systems must still be able to hide it"
-        );
+        assert_eq!(vis(&app, bodies[0]), Visibility::Inherited);
     }
 
-    /// A body that never morphs is never touched.
+    /// A ball whose body is gone goes with it.
+    #[test]
+    fn a_ball_leaves_with_its_body() {
+        let (mut app, bodies) = rig(&[true]);
+        app.update();
+        let ball = ball_of(&mut app, bodies[0]).unwrap();
+        app.world_mut().despawn(bodies[0]);
+        app.update();
+        assert!(app.world().get_entity(ball).is_err(), "an orphaned ball kept drawing");
+    }
+
+    /// A body that never morphs is never touched and gets no ball.
     #[test]
     fn a_body_that_is_not_in_morph_is_left_alone() {
-        let (mut app, player, ball) = rig(false);
+        let (mut app, bodies) = rig(&[false]);
         app.update();
-        assert_eq!(vis(&app, ball), Visibility::Hidden);
-        assert_eq!(vis(&app, player), Visibility::Inherited);
+        assert!(ball_of(&mut app, bodies[0]).is_none());
+        assert_eq!(vis(&app, bodies[0]), Visibility::Inherited);
     }
 }

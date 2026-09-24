@@ -781,7 +781,7 @@ mod tests {
             .is_some());
         assert!(
             app.world()
-                .resource::<crate::features::LastConstructionVerification>()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
                 .published,
             "all typed construction lanes must verify before RoomLoaded",
         );
@@ -1521,7 +1521,7 @@ mod tests {
             );
             let published = app
                 .world()
-                .resource::<crate::features::LastConstructionVerification>()
+                .resource::<crate::world::rooms::LastConstructionVerification>()
                 .published;
             (published, app.world().get_entity(predecessor).is_ok())
         }
@@ -1606,7 +1606,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             verification.published,
@@ -1689,7 +1689,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1769,7 +1769,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1835,7 +1835,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1886,7 +1886,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1940,7 +1940,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -1981,7 +1981,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(
             !verification.published,
@@ -2018,7 +2018,7 @@ mod tests {
 
         let verification = app
             .world()
-            .resource::<crate::features::LastConstructionVerification>()
+            .resource::<crate::world::rooms::LastConstructionVerification>()
             .clone();
         assert!(verification.published, "{verification:?}");
         assert_eq!(

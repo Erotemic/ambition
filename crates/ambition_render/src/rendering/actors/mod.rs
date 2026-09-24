@@ -871,6 +871,16 @@ pub fn upgrade_actor_sprites(
         let Some(actor) = actor_render.get(&visual.id) else {
             continue;
         };
+        // ⛔ NOT FROM A BODY THAT IS NOT WHOLE YET — the player binder's rule
+        // (`bind_worn_character_presentation`), asked of an actor. A body whose
+        // worn identity's prepared body has not been granted carries the box and
+        // quad it was seeded with: measured in the Hall of Characters, `mary_o`
+        // is 32x48 on its first tick and 21.3x32 on its second. The binding
+        // below builds its render basis ONCE from that geometry, so it keeps
+        // what it has until the geometry is the identity's.
+        if !actor.geometry.is_settled() {
+            continue;
+        }
         // Resolution order, shared by every actor: the actor's ART IDENTITY,
         // then its display name.
         //

@@ -748,7 +748,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         // the DECISION above comes from this publication's own verdict. If that
         // record is about some other room, the message says only what is certain.
         let reasons = world
-            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
             .filter(|verification| verification.room_id == status_room)
             .map(|verification| {
                 let mut reasons: Vec<String> = Vec::new();

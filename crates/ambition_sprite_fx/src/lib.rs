@@ -1,19 +1,14 @@
-//! ONE SPRITE, ONE SIMPLE VISUAL MANIPULATION.
+//! One sprite, one simple visual manipulation.
 //!
-//! The engine had four unrelated ways to alter a sprite's pixels and no name
-//! for the idea: `Sprite.color` (the built-in multiply), the projectile
-//! catalog's `EnergyTinted` art source, the hit-flash silhouette overlay, and
-//! the portal-clip material's `tint` uniform. Each one is correct in its place;
-//! none of them is reusable, and a fifth caller wanting "this sprite, but a
-//! different colour" had to pick one and copy it. [`SpriteEffect`] is that
-//! missing concept.
+//! [`SpriteEffect`] names one reusable way to alter a sprite's pixels. Other
+//! special-purpose ways exist: `Sprite.color` (the built-in multiply), the
+//! projectile catalog's `EnergyTinted` art source, the hit-flash silhouette
+//! overlay, and the portal-clip material's `tint` uniform.
 //!
-//! ⭐ **THE OPERATION MATTERS MORE THAN THE COLOUR, and it is the reason this
-//! is not just a component wrapping `Sprite.color`.** A multiply cannot
-//! recolour art that already has a colour: an orange sprite multiplied by green
-//! is dark mud, not a green sprite. Only [`SpriteEffect::HueShift`] turns a blue
-//! gun into a red one while keeping its shading, highlights and antialiased
-//! edges. Callers reach for "tint" and mean one of four different things:
+//! The operation matters more than the colour. A multiply cannot recolour art
+//! that already has a colour: orange times green is dark mud. Only
+//! [`SpriteEffect::HueShift`] turns a blue gun red and keeps its shading,
+//! highlights and antialiased edges.
 //!
 //! | effect | what it can do | cost |
 //! |---|---|---|
@@ -21,11 +16,9 @@
 //! | [`HueShift`](SpriteEffect::HueShift) | recolour COLOURED art, keeping shading | one material |
 //! | [`Saturate`](SpriteEffect::Saturate) | greyscale ... punchier | one material |
 //! | [`Silhouette`](SpriteEffect::Silhouette) | shape only, flat colour | one material |
-//!
-//! ⛔ **`Tint` deliberately does NOT go through the material.** It is the one
-//! operation the built-in sprite pipeline already performs per instance, and
-//! routing it through a mesh would cost a pipeline switch to compute something
-//! the hardware was already doing for free. An effect that CAN be free is free;
+//! `Tint` does not use the material. The built-in sprite pipeline already
+//! applies it per instance, so a mesh would only add a pipeline switch.
+//! [`SpriteEffect::needs_material`] decides this split.
 //! [`SpriteEffect::needs_material`] is where that split is decided, once.
 
 use bevy::asset::embedded_asset;
@@ -88,13 +81,10 @@ impl SpriteEffect {
 /// The sprite colour a [`SpriteEffect::Tint`] overwrote, so the tint can be
 /// taken back off.
 ///
-/// ⛔ THE FREE PATH IS A MUTATION, NOT A DRAW, so it owes the same reversibility
-/// the mesh path's [`SpriteFxDrawn`] provides. Writing `Sprite.color` with no
-/// record of the previous value makes a tint PERMANENT: removing the effect
-/// leaves the sprite the colour the effect chose, and a second tint on top of
-/// the first would record that as the original. This is the free path's half of
-/// "an effect is a component you add and remove", and without it half the
-/// crate's contract only holds one way.
+/// The free path mutates `Sprite.color`, so it records the previous value to
+/// stay reversible, as [`SpriteFxDrawn`] does for the mesh path. Without it,
+/// removing the effect would leave the tint, and a second tint would record
+/// the first as the original.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct SpriteFxTinted {
     /// `Sprite.color` as it was before the tint.
@@ -107,10 +97,10 @@ pub struct SpriteFxTinted {
 /// left to the caller that draws the quad, so this system never silently
 /// half-applies a hue shift by writing its (white) colour argument.
 ///
-/// ⭐ IT ALSO TAKES THE TINT BACK OFF when the effect stops being a tint —
-/// including when it becomes a hue shift, which must reach [`draw_sprite_effects`]
-/// with the UNTINTED sprite or the tint is baked into the stored original and
-/// survives every later restore. That is why this runs first in `PostUpdate`.
+/// It also removes the tint when the effect stops being a tint. A hue shift
+/// must reach [`draw_sprite_effects`] with the untinted sprite, or the tint is
+/// stored as the original and survives every restore. So this runs first in
+/// `PostUpdate`.
 pub fn apply_free_sprite_effects(
     mut commands: Commands,
     mut sprites: Query<(Entity, &SpriteEffect, &mut Sprite, Option<&SpriteFxTinted>)>,
@@ -191,13 +181,10 @@ pub struct SpriteFxDrawn {
     pub original: Sprite,
     /// `Transform.scale` as it was before the quad's size was written into it.
     ///
-    /// ⛔⛔ THE QUAD'S SCALE IS NOT THE ENTITY'S SCALE. The mesh is a unit
-    /// `Rectangle`, so drawing at the sprite's pixel size means writing
-    /// `basis.size * scale` into the transform — and if that is not taken back,
-    /// the entity is handed back MAGNIFIED by its own frame size. Worse, it
-    /// COMPOUNDS: a 32×16 frame restored at scale 32 and re-drawn scales to
-    /// 1024×256, and again on the next cycle. An effect that can be added and
-    /// removed must leave nothing behind.
+    /// The quad's scale is not the entity's scale. The mesh is a unit
+    /// `Rectangle`, so the draw writes `basis.size * scale` into the transform.
+    /// Without a restore, the entity keeps that magnified scale, and it
+    /// compounds on each redraw.
     pub original_scale: Vec3,
     /// The effect the current mesh draw was built for, so a CHANGED effect
     /// rebuilds and an unchanged one costs nothing.
@@ -206,19 +193,13 @@ pub struct SpriteFxDrawn {
 
 /// Draw sprites carrying a shader [`SpriteEffect`] as a textured quad.
 ///
-/// ⭐ **THIS IS WHAT MAKES THE EFFECT A COMPONENT RATHER THAN A DRAW PROTOCOL.**
-/// A caller adds [`SpriteEffect`] beside its `Sprite` and is done; it does not
-/// need to know that three of the four effects cannot be expressed by the
-/// sprite pipeline, build a mesh, resolve an atlas frame, or own a material
-/// handle. Without this system every caller wanting a hue shift would reimplement
-/// the portal-clip crate's mesh path, which is the duplication this crate exists
-/// to end.
+/// This makes the effect a component, not a draw protocol. A caller adds
+/// [`SpriteEffect`] beside its `Sprite`; it does not build a mesh, resolve an
+/// atlas frame, or own a material handle.
 ///
-/// ⚠ **An unloaded texture leaves the sprite alone rather than blanking it.**
-/// `sprite_frame_basis` answers `None` until the image or atlas layout arrives,
-/// and a quad sampling a texture that is not there draws nothing at all — so the
-/// untouched sprite is the correct output for those frames, and the effect
-/// applies on a later one.
+/// An unloaded texture leaves the sprite alone. `sprite_frame_basis` returns
+/// `None` until the image or atlas layout arrives, and the effect applies on a
+/// later frame.
 pub fn draw_sprite_effects(
     mut commands: Commands,
     mut materials: ResMut<Assets<SpriteFxMaterial>>,
@@ -392,28 +373,15 @@ impl Plugin for SpriteFxPlugin {
             PostUpdate,
             (
                 restore_sprites_without_effects,
-                // ⛔⛔ THE MESH PATH IS GUARDED PER RESOURCE, and the
-                // `EmbeddedAssetRegistry` check above is NOT a substitute for it.
-                // That check answers "is there an AssetPlugin"; these answer "is
-                // there a render stack". A demo composition has the first and not
-                // the second, and in Bevy 0.19 a missing system parameter is a
-                // HARD FAILURE that takes the whole App down — measured on the
-                // workspace feature union 2026-09-04: 40 failures across four
-                // demo binaries, 39 of them this system, every one reading
-                // *"Parameter `ResMut<Assets<Mesh>>` failed validation: Resource
-                // does not exist"*.
+                // Guard the mesh path per resource. The `EmbeddedAssetRegistry` check above
+                // asks "is there an AssetPlugin"; these ask "is there a render stack". A demo
+                // composition can have the first without the second, and in Bevy 0.19 a
+                // missing system parameter fails the whole App.
                 //
-                // ⭐ `Assets<SpriteFxMaterial>` is deliberately NOT in this list:
-                // `Material2dPlugin` above initialises it, so guarding on it would
-                // be a condition this plugin makes true itself. The three below
-                // come from the render stack and nothing here provides them.
-                //
-                // This is `sync_portal_view_cones`' pattern verbatim
-                // (`ambition_portal2d_presentation/src/plugin.rs:151`), which is
-                // the same defect one crate over — and the comment there records
-                // the trap: three missing resources hid in succession, "each
-                // looking identical to the last", so guarding one at a time just
-                // moves the failure. Chained `run_if`s are ANDed.
+                // `Assets<SpriteFxMaterial>` is not in this list: `Material2dPlugin` above
+                // initialises it. The three below come from the render stack. Guard all
+                // three at once (chained `run_if`s are ANDed); this is the same pattern as
+                // `sync_portal_view_cones` (`ambition_portal2d_presentation/src/plugin.rs`).
                 draw_sprite_effects
                     .run_if(resource_exists::<Assets<Mesh>>)
                     .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
@@ -479,21 +447,16 @@ pub fn sprite_frame_basis(
 /// What a body-owned drawable that is NOT a `Sprite` would paint this frame,
 /// declared so a compositor can rebuild clipped pieces of it.
 ///
-/// ⭐⭐ THE GENERAL ROAD FOR NON-SPRITE PRESENTATION. The portal compositor
-/// classifies a drawable from its own geometry and redraws the uncovered part
-/// as clipped quads -- for a `Sprite`, because it can read the sprite's frame.
-/// A `Mesh2d` overlay (the hit-flash silhouette) had no such description, so
-/// it fell through to a SCALAR fallback: hidden wholesale whenever its body was
-/// portal-hidden, even for pixels nowhere near the pane. A GPT review named it
-/// twice (2026-09-06, 2026-09-07). This component is the missing description:
-/// a drawable that carries it is composited exactly like a sprite, and the next
-/// overlay type needs no portal workaround of its own.
+/// This is the general road for non-sprite presentation. The portal
+/// compositor redraws the uncovered part of a `Sprite` as clipped quads,
+/// because it can read the sprite's frame. A drawable that carries this
+/// component (for example, the hit-flash `Mesh2d` overlay) is composited the
+/// same way instead of being hidden whole while its body is portal-hidden.
 ///
-/// ⚠ THE DRAWABLE KEEPS IT CURRENT. It is a declaration, not a mirror: whoever
-/// updates the drawable's material updates this beside it, in the same system.
-/// Lives at the render floor for the same reason [`SpriteFrameBasis`] does --
-/// both `ambition_render` and the portal presentation crate need it, and the
-/// dependency runs render -> portal.
+/// The drawable keeps it current: the system that updates the drawable's
+/// material updates this in the same place. It lives at the render floor, like
+/// [`SpriteFrameBasis`], because `ambition_render` and the portal presentation
+/// crate both need it.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct DeclaredFrame {
     /// The texture the drawable samples.

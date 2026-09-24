@@ -13,21 +13,16 @@
 
 /// Every EXECUTABLE region of a `.yarn` file, as `(1-based line, body)`.
 ///
-/// ⭐⭐ THE ONE RUST DEFINITION OF "WHAT THE INTERPRETER EVALUATES", so a guard
-/// over authored dialogue asks about the same text the game runs. A `.yarn`
-/// file is mostly SPOKEN LINES; only `<<…>>` is evaluated. Everything else is a
-/// character talking, and a character may say anything — including the exact
-/// spelling of a call.
+/// The one Rust definition of what the interpreter evaluates, so a guard over
+/// authored dialogue checks the same text the game runs. A `.yarn` file is
+/// mostly spoken lines; only `<<…>>` is evaluated. A character may say
+/// anything, including the exact spelling of a call.
 ///
-/// ⛔⛔ THIS IS NOT A CONVENIENCE, IT IS THE FIX FOR A REAL CLASS OF DEFECT.
-/// `kernel.yarn` has the Kernel Guide EXPLAIN a call in prose:
-/// `boss_cleared("mockingbird") returned TRUE.` Three separate instruments
-/// scanned whole files and each grew its own private prose heuristic instead —
-/// measured 2026-09-05, they over-reported authored demand by 25% (`boss_cleared`
-/// 5 raw / 3 executable, `quest_active` 3 / 1, generic `condition(` 10 / 8), and
-/// a misspelling IN DIALOGUE could redden CI over text nothing evaluates: a
-/// guard reporting a defect in the WRITING. ⇒ Region first, calls second. A
-/// consumer that filters prose by recognising it has the rule backwards.
+/// For example, `kernel.yarn` has the Kernel Guide explain a call in prose:
+/// `boss_cleared("mockingbird") returned TRUE.` A scanner that reads whole
+/// files over-reports authored demand, and a misspelling in dialogue could fail
+/// CI over text nothing evaluates. Find regions first, then calls. A consumer
+/// that filters prose by recognising it has the rule backwards.
 ///
 /// Regions do not span lines, so a stray `<<` in prose cannot swallow the lines
 /// beneath it, and every hit carries a line an author can be pointed at.
@@ -171,9 +166,9 @@ mod executable_region_tests {
         );
     }
 
-    /// ⛔ A REGION MUST NOT SWALLOW THE LINES BENEATH IT. An unmatched `<<` in
-    /// prose is a typo an author can make; if it ran to the next `>>` two lines
-    /// down, this filter would hand a guard MORE prose than a whole-file scan.
+    /// A region must not swallow the lines beneath it. An unmatched `<<` in prose
+    /// is a possible typo; if it ran to the next `>>` two lines down, this filter
+    /// would give a guard more prose than a whole-file scan.
     #[test]
     fn an_unclosed_marker_in_prose_does_not_swallow_the_lines_below() {
         let text = "Guide: I said <<loudly, and then\nhe left.\n<<if quest_active(\"a\")>>";

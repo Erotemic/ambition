@@ -1,12 +1,10 @@
 use super::*;
 
-/// THE FREE PATH IS FREE, AND ONLY THE FREE PATH IS.
+/// The free path is free, and only the free path is.
 ///
-/// The split this crate exists to make: an effect the built-in sprite pipeline
-/// can express must not cost a material, and one it cannot must not be quietly
-/// approximated by writing a colour that means something else. A `HueShift`
-/// treated as free would write its WHITE colour argument into `Sprite.color`
-/// and render the sprite unchanged — a silent no-op, the worst outcome.
+/// An effect the sprite pipeline can express must not cost a material. One it
+/// cannot express must not be approximated: a `HueShift` treated as free would
+/// write its white colour argument into `Sprite.color` and change nothing.
 #[test]
 fn only_the_multiply_is_free() {
     assert!(!SpriteEffect::Tint(Color::WHITE).needs_material());
@@ -115,13 +113,10 @@ fn a_whole_image_sprites_basis_is_the_whole_texture() {
     assert!(sprite_frame_basis(&missing, &layouts, &images).is_none());
 }
 
-/// A SHADER EFFECT TAKES THE DRAW OVER, AND GIVES IT BACK.
+/// A shader effect takes the draw over, and gives it back.
 ///
-/// ⛔ The giving-back half is the one worth a test. A one-way takeover looks
-/// completely correct in every screenshot and makes the effect impossible to
-/// CANCEL — the sprite would stay a mesh after the effect was removed, which is
-/// a worse failure than the effect never applying, and it is invisible until
-/// something removes an effect.
+/// A one-way takeover looks correct in screenshots but makes the effect
+/// impossible to cancel: the sprite would stay a mesh after removal.
 #[test]
 fn a_shader_effect_replaces_the_sprite_draw_and_restores_it() {
     let mut app = App::new();
@@ -212,25 +207,16 @@ fn a_tint_never_becomes_a_mesh() {
     );
 }
 
-/// ⛔⛔ THE PLUGIN MUST SURVIVE A COMPOSITION THAT HAS AN ASSET PLUGIN AND NO
-/// RENDER STACK, because that is what every demo test binary is.
+/// The plugin must survive a composition that has an asset plugin and no
+/// render stack, as every demo test binary does.
 ///
-/// The plugin already skips its mesh path when there is no
-/// `EmbeddedAssetRegistry`. That check answers *"is there an AssetPlugin"*, and
-/// the demos HAVE one — what they do not have is `Assets<Mesh>`. In Bevy 0.19 a
-/// missing system parameter is a HARD FAILURE that takes the whole `App` down,
-/// so `draw_sprite_effects` did not skip: it panicked, and with it every test in
-/// the binary.
+/// The `EmbeddedAssetRegistry` check finds an AssetPlugin, but there is no
+/// `Assets<Mesh>`. In Bevy 0.19 a missing system parameter fails the whole
+/// `App`, so `draw_sprite_effects` must stand down on its own guard.
 ///
-/// ⭐ Measured on the workspace feature union 2026-09-04, before the guard:
-/// **7,072 passed, 40 failed, and 39 of the 40 were this one system**, every one
-/// reading *"Parameter `ResMut<Assets<Mesh>>` failed validation: Resource does
-/// not exist"*. The 40th named it too.
-///
-/// ⚠ THE OTHER TWO SYSTEMS MUST STILL RUN, which is the half a bare "does not
-/// panic" test would miss. Guarding by disabling the whole plugin would also
-/// pass, and would delete the free tint path from every demo — so this asserts
-/// the tint was applied on the same frame the mesh path stood down.
+/// The other two systems must still run. Disabling the whole plugin would
+/// also avoid the panic but remove the free tint path, so this asserts the
+/// tint was applied on the same frame the mesh path stood down.
 #[test]
 fn the_plugin_steps_in_a_composition_with_no_render_stack_and_still_tints() {
     let mut app = App::new();
@@ -302,17 +288,14 @@ fn a_32x16_sprite(app: &mut App) -> Sprite {
     }
 }
 
-/// ⛔⛔ THE ENTITY'S OWN SCALE SURVIVES THE EFFECT.
+/// The entity's own scale survives the effect.
 ///
-/// The mesh is a unit quad, so drawing at the sprite's pixel size means writing
-/// `frame_size * scale` into `Transform`. Restoring only the `Sprite` hands the
-/// entity back MAGNIFIED by its own frame size — a 32x16 sprite at scale 1
-/// returns at scale 32x16 — and every consumer of that transform (parenting,
-/// physics debug draw, anything reading world size) is then wrong about a sprite
-/// that looks right only because nothing re-derived its size.
+/// The mesh is a unit quad, so the draw writes `frame_size * scale` into
+/// `Transform`. Restoring only the `Sprite` would leave the entity magnified by
+/// its frame size, and everything that reads the transform would be wrong.
 ///
-/// ⚠ A NON-UNIT INITIAL SCALE is what makes this a test rather than a tautology:
-/// with `Transform::default()` the "restore" and "leave it alone" readings agree.
+/// The initial scale is not unit, so "restore" and "leave it alone" give
+/// different results.
 #[test]
 fn cancelling_a_shader_effect_gives_back_the_entitys_own_scale() {
     let mut app = fx_app();
@@ -342,12 +325,10 @@ fn cancelling_a_shader_effect_gives_back_the_entitys_own_scale() {
     );
 }
 
-/// ⛔⛔ AND IT DOES NOT COMPOUND.
+/// The scale does not compound.
 ///
-/// The failure the test above describes is bad once and catastrophic on a cycle:
-/// an effect that goes on, comes off and goes on again multiplies the frame size
-/// in every round — 32 -> 1024 -> 32768 — so a sprite that flickers an effect
-/// (a hit flash, a portal gun charge) walks off the screen in a second.
+/// Without a restore, each on/off cycle multiplies the frame size again
+/// (32 -> 1024 -> 32768), so a flickering effect sends the sprite off screen.
 #[test]
 fn re_applying_a_shader_effect_does_not_compound_the_scale() {
     let mut app = fx_app();
@@ -375,7 +356,7 @@ fn re_applying_a_shader_effect_does_not_compound_the_scale() {
     );
 }
 
-/// A CHANGED SHADER EFFECT REBUILDS FROM THE ORIGINAL, NOT FROM THE LAST DRAW.
+/// A changed shader effect rebuilds from the original, not from the last draw.
 ///
 /// The restore-then-redraw path inside `draw_sprite_effects` is the one that
 /// runs while the entity keeps its effect, so it is the compounding case that
@@ -405,13 +386,10 @@ fn changing_one_shader_effect_for_another_does_not_compound_the_scale() {
     );
 }
 
-/// ⛔ A TINT COMES BACK OFF.
+/// A tint comes back off.
 ///
-/// The free path writes `Sprite.color` in place, which is a MUTATION of the
-/// caller's data and not a draw this crate owns — so without a record of the
-/// previous colour, removing the effect leaves the sprite whatever colour the
-/// effect chose. That is the same un-cancellable-effect failure the mesh path
-/// has a restore system for, in the half that has no marker component to notice.
+/// The free path writes `Sprite.color` in place. Without a record of the
+/// previous colour, removing the effect would leave the sprite tinted.
 #[test]
 fn cancelling_a_tint_gives_back_the_sprites_own_colour() {
     let mut app = fx_app();
@@ -447,14 +425,12 @@ fn cancelling_a_tint_gives_back_the_sprites_own_colour() {
     );
 }
 
-/// ⛔⛔ CROSSING FROM THE FREE PATH TO THE MESH PATH MUST NOT BAKE THE TINT IN.
+/// Crossing from the free path to the mesh path must not bake the tint in.
 ///
-/// `draw_sprite_effects` stores `original: sprite.clone()` — and if the tint is
-/// still written into that sprite when it is cloned, the tint becomes the
-/// entity's permanent colour: every later restore, including removing the effect
-/// entirely, gives back the tinted sprite. That is why the free path takes its
-/// colour back on the same frame the effect stops being a tint, BEFORE the mesh
-/// path runs.
+/// `draw_sprite_effects` stores `original: sprite.clone()`. If the tint is
+/// still on the sprite then, every later restore gives back the tinted
+/// sprite. So the free path removes its colour on the frame the effect stops
+/// being a tint, before the mesh path runs.
 #[test]
 fn a_tint_replaced_by_a_shader_effect_is_not_baked_into_the_stored_original() {
     let mut app = fx_app();
@@ -493,23 +469,15 @@ fn a_tint_replaced_by_a_shader_effect_is_not_baked_into_the_stored_original() {
     );
 }
 
-/// ⭐⭐ THE OTHER CROSSING — shader → tint — which is the one where the sprite the
-/// tint path needs has already been taken away.
+/// The other crossing: shader to tint.
 ///
-/// ⛔ The tint path queries `&mut Sprite`. The mesh path REMOVES `Sprite` while it
-/// owns the entity. ⇒ So on the frame a `HueShift` becomes a `Tint`, the free path
-/// cannot see the entity at all, and the only thing that can give the sprite back
-/// is `draw_sprite_effects`' own changed-effect arm — the same arm that would be
-/// skipped if somebody made the mesh path ignore effects it does not draw.
+/// The tint path queries `&mut Sprite`, and the mesh path removes `Sprite`
+/// while it owns the entity. So on the frame a `HueShift` becomes a `Tint`,
+/// only `draw_sprite_effects`' changed-effect arm can give the sprite back.
 ///
-/// ⚠ `restore_sprites_without_effects` CANNOT save this case: it requires
-/// `Without<SpriteEffect>`, and here the component is present, just a different
-/// variant. A sprite stranded this way is invisible with no system that will ever
-/// look at it again.
-///
-/// ⭐ Written because the crate's round-trip tests all covered
-/// effect → *removed* and tint → shader, and this is the crossing none of them
-/// exercised. The apply paths were guarded; one un-apply path was not.
+/// `restore_sprites_without_effects` cannot help: it requires
+/// `Without<SpriteEffect>`, and here the component is present with a different
+/// variant. A sprite stranded this way stays invisible.
 #[test]
 fn a_shader_effect_replaced_by_a_tint_gives_the_sprite_back() {
     let mut app = fx_app();

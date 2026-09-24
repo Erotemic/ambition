@@ -73,6 +73,9 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
+/// How tall a badnik stands, in world units (what the catalog join gave it).
+const BADNIK_STANDING_HEIGHT: f32 = 48.0;
+
 /// Register the badnik as a character.
 ///
 /// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
@@ -93,6 +96,10 @@ pub fn register_badnik_character(app: &mut App) {
     // It wears the published `ai_slop` sheet under its own name — the catalog
     // row says so, and a character states the target rather than the file.
     .with_sheet("ai_slop")
+    // Its body is its art at one scale, so the quad sits on its feet (the
+    // catalog join sized the box right but published no offset, and the art
+    // floated ~3.6 units).
+    .with_sprite_authored_body(crate::world_per_pixel_for_height("ai_slop", BADNIK_STANDING_HEIGHT))
     .with_locomotion(CharacterLocomotion {
         run_speed: 60.0,
         move_style: MoveStyleSpec::Walk,

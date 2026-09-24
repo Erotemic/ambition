@@ -9,8 +9,8 @@
 | [`combat_volume`](src/combat_volume.rs) | `CombatVolume` — a hit/hurt shape that can be an axis-aligned box, a rotated box (OBB), or a general convex polygon. |
 | [`geometry`](src/geometry.rs) | Bevy-native geometry helpers. |
 | [`reference_frame`](src/reference_frame.rs) | The gravity-relative reference frame and the transforms between Ambition's three frames. |
-| [`swing_shape`](src/swing_shape.rs) | `SwingShape` — the ORIENTED shape of a swing, as presentation needs it. |
-| [`volume_shape`](src/volume_shape.rs) | `VolumeShape` — an authored hit/hurt shape in LOCAL space. |
+| [`swing_shape`](src/swing_shape.rs) | `SwingShape`: the oriented shape of a swing, as presentation needs it. |
+| [`volume_shape`](src/volume_shape.rs) | `VolumeShape`: an authored hit/hurt shape in local space. |
 
 _5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

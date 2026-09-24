@@ -45,25 +45,16 @@ pub struct ProjectileCollisionWorld<'w, 's> {
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
-    /// The room world with gate solids (lock walls) AND live objects' contributed
-    /// surfaces added, and ONLY the portal apertures carved out — preserving the
-    /// projectile's historical raw-world collision (it passes through moving
-    /// platforms) while letting a shot sink into a portal opening and transit.
-    /// Borrowed (no clone) in the common no-gate, no-object, no-carve case.
+    /// The room world with gate solids (lock walls) and live objects' contributed
+    /// surfaces added, and only the portal apertures carved out. Projectiles still
+    /// pass through moving platforms, and a shot can sink into a portal opening
+    /// and transit. Borrowed (no clone) when there is no gate, object or carve.
     ///
-    /// ⛔⛤ **CONTRIBUTED OBJECT SURFACES WERE EXCLUDED, AND Q96 RULED THAT WRONG.**
-    /// This doc used to say a projectile *"passes through breakable/ECS overlay
-    /// solids"*, and the exclusion was defended on the grounds that admitting them
-    /// would make a solid crate invulnerable behind its own wall. The ruling
-    /// (2026-09-10) rejects that answer by name: a published surface PARTICIPATES
-    /// in projectile collision, and a contributor supplying both a surface and a
-    /// damageable volume at one moment of impact yields ONE contact that damages
-    /// once AND applies the physical response.
-    ///
-    /// ⇒ The surfaces are admitted here; the COALESCING that keeps the crate
-    /// damageable lives at the contact ordering, where the target is known
-    /// (`wall_is_the_targets_own_surface`). Admitting them without that rule is
-    /// precisely the immunity the ruling forbids, so the two land together.
+    /// Contributed object surfaces take part in projectile collision (ruling Q96).
+    /// When a contributor supplies both a surface and a damageable volume, the
+    /// impact is one contact that damages once and applies the physical response.
+    /// That merge happens at contact ordering (`wall_is_the_targets_own_surface`);
+    /// without it, a solid crate would be immune behind its own wall.
     pub fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
         ambition_platformer2d_world::collision::world_with_contributed_solids_and_carves(
             &self.world.0,

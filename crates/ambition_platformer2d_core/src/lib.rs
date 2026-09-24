@@ -49,7 +49,7 @@ pub use body_clusters::{
     BodyClustersMut, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifeStats, BodyRestartLatch,
     BodyLineAnchor,
-    BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
+    BodyModeState, BodyRestarted, BodyShieldState, BodyWallState,
     RecoveryRefresh, ResetFacing, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };
 pub use rollback_registration::register_rollback_state;

@@ -36,7 +36,6 @@ fn editable_player_stats_default_matches_constants() {
     assert_eq!(s.max_health, EditablePlayerStats::DEFAULT_MAX_HEALTH);
     assert_eq!(s.mana, EditablePlayerStats::DEFAULT_MAX_MANA);
     assert_eq!(s.max_mana, EditablePlayerStats::DEFAULT_MAX_MANA);
-    assert_eq!(s.slash_damage, EditablePlayerStats::DEFAULT_SLASH_DAMAGE);
     assert!(!s.invincible);
     assert!(!s.refill_now);
 }

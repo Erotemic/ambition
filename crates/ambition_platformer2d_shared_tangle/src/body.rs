@@ -283,7 +283,6 @@ pub struct AncillaryMovementBundle {
     pub shield: BodyShieldState,
     pub body_mode: BodyModeState,
     pub env_contact: BodyEnvironmentContact,
-    pub offense: BodyOffense,
     pub action_buffer: BodyActionBuffer,
     pub restart: BodyRestartLatch,
     /// Diagnostics only; not a cluster member and not rollback state.
@@ -335,7 +334,6 @@ impl AncillaryMovementBundle {
             body_mode,
             env_contact,
             resources,
-            offense,
             action_buffer,
             restart,
         } = scratch;
@@ -360,7 +358,6 @@ impl AncillaryMovementBundle {
             shield,
             body_mode,
             env_contact,
-            offense,
             action_buffer,
             restart,
             life_stats: Default::default(),

@@ -705,7 +705,6 @@ pub fn apply_hitbox_damage(
     victims: Query<
         StrikeVictim,
         (
-            With<ambition_platformer2d_core::BodyOffense>,
             With<ambition_platformer2d_core::BodyMotionFacts>,
             With<ambition_platformer2d_core::BodyShieldState>,
             With<ambition_characters::actor::BodyCombat>,

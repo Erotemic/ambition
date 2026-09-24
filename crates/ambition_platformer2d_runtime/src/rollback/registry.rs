@@ -729,7 +729,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// encodes `damage_kind`, `can_pogo` or `damage_override`. All three were
 /// written and snapshotted and read by nothing; the damage a swing deals is the
 /// moveset's.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 220;
+/// ⛔⛤ 220 -> 222: `body.offense` LEFT. `BodyOffense::damage_multiplier` had no
+/// gameplay reader; its one writer was the F3 inspector's "slash damage" knob,
+/// which therefore changed nothing. (221 is AP11's `resource.gravity_field`,
+/// numbered in parallel.)
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 222;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -28,7 +28,7 @@ use crate::EffectRef;
 /// **What an UNJOINED reader gets for a move that pulls the owner's own
 /// ranged trigger.**
 ///
-/// ⚠ **THE BODY OWNS THE NUMBER, NOT THE MOVE.** [`MoveEventKind::Ranged`]
+/// ⚠ **THE BODY OWNS THE NUMBER, NOT THE MOVE.** [`MoveEventKind::Ranged`](crate::MoveEventKind::Ranged)
 /// fires whatever `RangedActionSpec` the BODY carries — its speed, its flight,
 /// its lifetime — and a catalog derivation has no body to ask. So this states
 /// the only thing true of every one of them: a shot crosses ground the swinger
@@ -254,7 +254,7 @@ pub enum MoveHazard {
         /// **WHAT IT TAKES OFF THEM WHEN IT ARRIVES.**
         ///
         /// ⛔⛤ **A HAZARD MOVE WAS PRICED AT ZERO POWER UNTIL 2026-09-21.**
-        /// [`MoveFrameData::max_damage`] folds ACTIVE VOLUMES and a shot is
+        /// [`MoveFrameData::max_damage`](crate::MoveFrameData::max_damage) folds ACTIVE VOLUMES and a shot is
         /// not one, so the one class of move whose whole job is to deal
         /// damage from across the stage reported dealing none. Measured on
         /// Projectile Polygon: her ponytail boomerang deals `7` and her
@@ -270,7 +270,7 @@ pub enum MoveHazard {
         damage: i32,
     },
     /// The move pulls the owner's OWN ranged trigger
-    /// ([`MoveEventKind::Ranged`]), whose speed, flight and lifetime are the
+    /// ([`MoveEventKind::Ranged`](crate::MoveEventKind::Ranged)), whose speed, flight and lifetime are the
     /// BODY's `RangedActionSpec` and not the move's.
     ///
     /// ⚠ **A REQUEST, NOT AN ANSWER.** [`Self::reach`] answers it with the
@@ -364,7 +364,7 @@ impl MoveHazard {
     /// ⚠ **`0` HERE IS A REFUSAL AND NOT A MEASUREMENT**, the same way
     /// [`Self::travel_to`]'s `None` is: a reader that can see the body is
     /// expected to replace the variant outright. See
-    /// [`MoveFrameData::strongest_hit`], which is where the two roads meet.
+    /// [`MoveFrameData::strongest_hit`](crate::MoveFrameData::strongest_hit), which is where the two roads meet.
     pub fn damage(self) -> i32 {
         match self {
             Self::Spawned { damage, .. } => damage,
@@ -400,7 +400,7 @@ impl MoveHazard {
 /// symptom.
 ///
 /// ⛔ AND THE BIGGEST PROJECTILE ROAD IS NOT A KEY AT ALL. Every ordinary
-/// ranged move pulls the owner's own trigger through [`MoveEventKind::Ranged`]
+/// ranged move pulls the owner's own trigger through [`MoveEventKind::Ranged`](crate::MoveEventKind::Ranged)
 /// — `polygon_ponytail_boomerang` and `polygon_projectile_charge_shot` are
 /// both that shape, and both author no Active volume, so a table of effect
 /// keys alone would have taken the reference projectile fighter's whole game

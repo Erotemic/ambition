@@ -263,10 +263,46 @@ fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_poli
     );
 }
 
-/// A brain command during a MOUNT does not disturb the live (mounted) brain, but
-/// it updates the autonomous SOURCE that resumes on dismount — not lost.
+/// A brain command to a body under MOUNT CONTROL does not disturb the live
+/// (mount's) brain, but it updates the autonomous SOURCE — not lost.
+///
+/// Mount control is the mount's CLAIM, filed only when a ride swapped a brain
+/// in; the `Mounted` marker alone is a carried rider (see the next test).
 #[test]
-fn a_mounted_body_updates_its_source_not_its_control() {
+fn a_mount_controlled_body_updates_its_source_not_its_control() {
+    use ambition_platformer2d_shared_tangle::temporary_control::{ControlClaimant, ControlClaims};
+    let mut app = app();
+    let e = spawn_npc(&mut app, "rider", "npc_puppy_slug", 100.0);
+    let mut claims = ControlClaims::default();
+    claims.claim(ControlClaimant::Mount, SimId::placement("shark"));
+    app.world_mut()
+        .entity_mut(e)
+        .insert((ambition_mount::Mounted, claims));
+
+    send(
+        &mut app,
+        BrainCommand::use_preset(SimId::placement("rider"), "stand_still"),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "wanderer",
+        "a mount-controlled body's live brain is the mount's; it is not switched"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
+        "the command updates the recorded source — never lost"
+    );
+}
+
+/// A CARRIED rider switches live: the ride masked nothing, so its live brain IS
+/// its autonomous selection. Keyed on `Mounted`, the command moved only the
+/// binding and left the body running the old mind — two answers to one question
+/// that no dismount ever reconciled.
+#[test]
+fn a_carried_rider_switches_live_because_the_ride_masks_nothing() {
     let mut app = app();
     let e = spawn_npc(&mut app, "rider", "npc_puppy_slug", 100.0);
     app.world_mut()
@@ -281,13 +317,12 @@ fn a_mounted_body_updates_its_source_not_its_control() {
 
     assert_eq!(
         app.world().get::<Brain>(e).unwrap().label(),
-        "wanderer",
-        "a mounted body's live brain is not switched while it rides"
+        "stand_still",
+        "a carried rider drives itself; the switch must reach its live brain"
     );
     assert_eq!(
         app.world().get::<BrainBinding>(e).unwrap().source,
         AutonomousSource::CatalogPreset(BrainPresetId::new("stand_still")),
-        "the command updates the source that resumes on dismount — never lost"
     );
 }
 

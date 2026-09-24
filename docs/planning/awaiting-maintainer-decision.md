@@ -479,6 +479,11 @@ fix; if forbidden, encode the exclusivity as an invariant/test.
 capability if future authored composite riders are intended; otherwise simplify
 rather than maintaining an unused semantic branch.
 
+It is also the only body `apply_brain_commands`' source-only arm now serves
+(2026-09-23: the arm keys on the mount's control claim, which only a cached
+rider files), and nothing resumes the source that arm records when such a ride
+ends. A "yes" owes that resume; a "no" deletes the arm with the cache.
+
 ## Q77 — which target-reclaim rule wins: the sanctioned cleanup-script exception or the repository's “never delete target” rule?
 
 Resolve the contradictory operational guidance before another cleanup tool acts

@@ -2,9 +2,10 @@
 //!
 //! [`BrainCommand`] routes by stable [`SimId`] and applies through one reducer,
 //! which rebuilds the live [`Brain`] and updates [`BrainBinding`] atomically.
-//! Rebuilds use authored home context. Mounted bodies are skipped because their
-//! live brain is displaced by mount control; possession redirects a seat without
-//! displacing brain policy. Provocation remains a separate disposition authority.
+//! Rebuilds use authored home context. A body under mount CONTROL (the mount's
+//! claim, not merely a ride) records the source only, because its live brain is
+//! the mount's; a carried rider and a possessed body keep their own policy and
+//! switch live. Provocation remains a separate disposition authority.
 
 use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
@@ -250,7 +251,8 @@ pub fn apply_brain_commands(
         Option<&mut ActorConfig>,
         Option<&ambition_combat::components::ActorIdentity>,
         &ActorPose,
-        Has<ambition_mount::Mounted>,
+        // Who is MASKING this body's own policy, if anyone — see the arm below.
+        Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
         // The body's own verbs, for a default that is the character's
         // authored policy — the lowering asks what this body can actually do.
         Option<&ambition_platformer2d_core::BodyAbilities>,
@@ -278,7 +280,7 @@ pub fn apply_brain_commands(
         config,
         identity,
         pose,
-        mounted,
+        claims,
         body_abilities,
         worn,
     ) in &mut actors
@@ -301,18 +303,31 @@ pub fn apply_brain_commands(
             crate::features::ecs::character_policy::character_autonomous_profile(registry, worn)
         });
 
-        // Under MOUNT control the live `Brain` is the controller's, not the
-        // autonomous selection — so a switch updates only the SOURCE that resumes
-        // when control ends, and is NEVER silently lost. We do NOT touch any
-        // mount cache (that is the MOUNTED mode, not the autonomous resume mode)
-        // — the suspended-autonomous-runtime pass owns resumption.
+        // Under MOUNT CONTROL the live `Brain` is the mount's swapped-in one, not
+        // the autonomous selection — so a switch updates only the SOURCE, and is
+        // never silently lost.
+        //
+        // ⛔ MOUNT CONTROL IS THE MOUNT'S CLAIM, NOT THE `Mounted` MARKER. The
+        // mount files its claim only when it swapped a brain in (a
+        // `MountedBrainCache`); a CARRIED rider keeps driving itself from the
+        // saddle, so its live brain IS its autonomous selection. Keyed on
+        // `Mounted`, a command to a carried rider moved the binding and left the
+        // live mind and `brain_profile` on the old policy — two answers to "what
+        // does this body do" — and a dismount never reconciles them.
+        // ⚠ Nothing resumes the recorded source when a mount-controlled ride
+        // ends (a mount death rebuilds a solo brain from config); no production
+        // road constructs a `MountedBrainCache` yet (Q76), so the arm is kept
+        // for that composition rather than resumed through a pass that does not
+        // exist.
         //
         // A possessed body keeps its own brain now: the switch applies LIVE below, the human's
         // input still drives the body through its seat, and the release resumes the switched policy
         // because it was never displaced. The `restore_brain` re-derivation that made a provoke →
         // possess → release-provocation → release sequence resume the PROVOKED mind cannot exist,
         // because there is no cached mind.
-        if mounted {
+        if claims.is_some_and(|claims| {
+            claims.holds(ambition_platformer2d_shared_tangle::temporary_control::ControlClaimant::Mount)
+        }) {
             let mut changed = false;
             for kind in kinds {
                 changed |= update_source_only(&catalog, sim_id, &mut binding, kind);

@@ -560,12 +560,10 @@ impl SnapshotCursor for crate::brain::Brain {
 /// (preset-id strings only — no `Entity`, no runtime brain), so it is a plain
 /// `register_component` and restores its own presence.
 ///
-/// This is the authoritative snapshot state for "which brain is selected". The
-/// live [`Brain`](crate::brain::Brain) cursor is a no-op for the
-/// peaceful/patrol NPC brains, so after a rewind PAST a runtime brain switch the
-/// live brain kind could disagree with the restored selection —
-/// [`reconcile_brain_bindings`] rebuilds the brain from this binding to make them
-/// agree before the next re-simulated tick.
+/// This is the snapshot state for "which brain is selected". The live
+/// [`Brain`](crate::brain::Brain) is restored whole beside it (its cursor is only
+/// the checksum projection), so a rewind restores the pair exactly as saved and
+/// nothing rebuilds one from the other.
 impl SnapshotState for crate::actor::character_catalog::BrainBinding {
     fn encode(&self, out: &mut Vec<u8>) {
         use crate::actor::character_catalog::AutonomousDefault;
@@ -648,9 +646,9 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
 
 /// The authored brain-build context (spawn anchor + patrol radius) a catalog NPC
 /// rebuilds its default/override brain from. A self-contained POD component, so a
-/// plain `register_component`. Snapshot-safe so a restored `RestoreDefault` /
-/// [`reconcile_brain_bindings`] recenters a patrol brain on its AUTHORED home, not
-/// wherever the actor wandered before the rewind.
+/// plain `register_component`. Snapshot-safe so a `RestoreDefault` resimulated
+/// after a rewind recenters a patrol brain on its AUTHORED home, not wherever the
+/// actor wandered before the rewind.
 impl SnapshotState for crate::actor::character_catalog::AuthoredBrainContext {
     fn encode(&self, out: &mut Vec<u8>) {
         put_f32(out, self.spawn_anchor_x);

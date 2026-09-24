@@ -3,10 +3,8 @@
 //! GGRS machinery, with nothing called by hand.
 //!
 //! Every test of that function calls it directly, which proves the function works and says
-//! nothing about whether it runs. The only system in `AmbitionLoadWorldSet:Reconcile` is
-//! `reconcile_brain_bindings`, and it filters on `binding.active_preset?` — `None` for
-//! `ProvokedDefault`, `ProvokedProfile` and `CharacterProfile`. So every provoked and every
-//! character-first body is SKIPPED by the only reconciler that runs.
+//! nothing about whether it runs. No system repairs state after a load: the snapshot alone
+//! restores a provoked body, and these tests are where that is witnessed.
 //!
 //! (The helper it used, `fresh_health_pool`, is itself gone as of: the LIVE provoke flip was
 //! its last caller, and provocation no longer writes health either.)
@@ -24,7 +22,7 @@ use ambition_app::rl_sim::{
 };
 use ambition_platformer2d::characters::actor::character_catalog::{AutonomousSource, BrainBinding};
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_platformer2d::characters::brain::Brain;
+use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg, WandererCfg};
 use bevy::prelude::{Entity, World};
 
 fn hall_sim() -> Platformer2dSimHarness {
@@ -160,9 +158,8 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
         world.get::<Brain>(body).map(|brain| brain.label()),
         Some("stand_still"),
         "the provoked MIND did not survive. GGRS stores the whole `Brain` (its \
-         cursor codec is only the checksum projection), and \
-         `reconcile_brain_bindings` deliberately skips a source with no active \
-         preset, so the snapshot is the only thing that puts it back"
+         cursor codec is only the checksum projection), and no post-load \
+         system rebuilds it, so the snapshot is the only thing that puts it back"
     );
     assert_eq!(
         world
@@ -280,5 +277,71 @@ fn possession_survives_the_real_rollback_window() {
             .get::<ambition_platformer2d::characters::control::DrivingParticipant>(target)
             .is_some(),
         "the possessed body stopped holding the primary seat across the window"
+    );
+}
+
+/// A LOAD RESTORES THE MIND THE SIMULATION CHOSE, AND RE-DERIVES NOTHING.
+///
+/// A catalog NPC's `Brain` and its `BrainBinding` are both rollback state, and
+/// GGRS restores each whole. A post-load pass once rebuilt the brain from the
+/// binding wherever the two disagreed — a correction that runs only when a
+/// rollback happens, so a resimulated frame and the frame it replays could
+/// disagree about what the body is thinking.
+///
+/// The staged body is bound to a catalog PRESET and running a different mind,
+/// the shape a live brain writer that does not re-bind leaves behind (a
+/// dismounted rider's rebuild is one). The window must leave that mind alone.
+#[test]
+fn a_load_restores_the_simulated_mind_and_rederives_nothing() {
+    let mut sim = hall_sim();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let (body, chosen) = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &BrainBinding, &Brain)>();
+        let mut found: Vec<(Entity, &'static str)> = q
+            .iter(world)
+            .filter(|(_, binding, _)| binding.active_preset().is_some())
+            .map(|(entity, _, brain)| (entity, brain.label()))
+            .collect();
+        found.sort();
+        let (body, label) = *found
+            .first()
+            .expect("the Hall stages catalog NPCs bound to a preset");
+        // Any mind other than the one its preset builds.
+        let chosen = if label == "stand_still" {
+            Brain::StateMachine(StateMachineCfg::Wanderer {
+                cfg: WandererCfg {
+                    speed: 36.0,
+                    aggressiveness: 0.0,
+                },
+            })
+        } else {
+            Brain::stand_still()
+        };
+        let chosen_label = chosen.label();
+        *world.get_mut::<Brain>(body).expect("the body has a brain") = chosen;
+        (body, chosen_label)
+    };
+    sim.rebase_rollback_history()
+        .expect("the disagreeing pair becomes the rollback baseline");
+    let loads_before = load_runs(&mut sim);
+
+    for _ in 0..180 {
+        sim.step(AgentAction::default());
+    }
+    assert_rolled_back(&mut sim, loads_before, "the preset-bound window");
+
+    assert_eq!(
+        ambition_platformer2d::rollback::session_health(sim.world()),
+        Ok(()),
+        "a resimulated frame disagreed with the frame it replayed"
+    );
+    assert_eq!(
+        sim.world().get::<Brain>(body).map(|brain| brain.label()),
+        Some(chosen),
+        "a load re-derived the body's mind from its binding instead of restoring \
+         the one the simulation had"
     );
 }

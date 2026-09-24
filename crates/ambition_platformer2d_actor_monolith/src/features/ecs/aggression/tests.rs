@@ -777,3 +777,140 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
          rebuilds as a grudge against the PLAYER"
     );
 }
+
+/// A cast whose one character AUTHORS its provoked policy — a template the
+/// engine default (`Smash`) is not, so the two are told apart by label.
+fn provoked_profile_cast() -> (
+    ambition_characters::prepared::PreparedCharacterRegistry,
+    ambition_characters::brain::BrainProfile,
+    ambition_entity_catalog::BrainProfileId,
+) {
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        "npc_test_parrot",
+        "Test Parrot",
+        "test",
+    );
+    let mut finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        definition,
+        &ambition_characters::prepared::CharacterBindings::default(),
+    );
+    let profile = ambition_characters::brain::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Skirmisher,
+        aggro_radius: 220.0,
+        attack_range: 36.0,
+        ..Default::default()
+    };
+    let id = ambition_entity_catalog::BrainProfileId::new("test::angry_parrot");
+    finalized.prepared.provoked_profile = Some(profile);
+    finalized.prepared.provoked_profile_id = Some(id.clone());
+    registry.insert_prepared(finalized.prepared);
+    (registry, profile, id)
+}
+
+fn authored_provocation_app() -> (
+    App,
+    bevy::prelude::Entity,
+    ambition_characters::brain::BrainProfile,
+    ambition_entity_catalog::BrainProfileId,
+) {
+    let (cast, profile, id) = provoked_profile_cast();
+    let mut app = App::new();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_systems(Update, apply_actor_stimuli);
+    let npc = spawn_character_npc(&mut app, &cast);
+    app.insert_resource(cast);
+    app.world_mut().entity_mut(npc).insert((
+        ambition_characters::actor::WornCharacter::new("npc_test_parrot"),
+        ambition_characters::actor::character_catalog::BrainBinding::from_character_profile(),
+    ));
+    (app, npc, profile, id)
+}
+
+/// A CHARACTER'S OWN PROVOKED POLICY IS INSTALLED WHOLE, the way the engine
+/// default is: policy, read-model, mind and the binding that records it.
+#[test]
+fn an_authored_provocation_installs_the_characters_policy_and_records_it() {
+    use ambition_characters::actor::character_catalog::{AutonomousSource, BrainBinding};
+    use ambition_characters::brain::Brain;
+    let (mut app, npc, profile, id) = authored_provocation_app();
+
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+
+    let world = app.world();
+    let config = world.get::<ambition_combat::actor_tuning::ActorConfig>(npc).unwrap();
+    let brain = world.get::<Brain>(npc).unwrap();
+    assert_eq!(config.brain_profile, profile, "the character's policy is the live one");
+    assert_ne!(
+        brain.label(),
+        "smash",
+        "the engine default was installed over the character's own answer"
+    );
+    assert_eq!(
+        config.brain,
+        ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain),
+        "the read-model disagrees with the mind it describes"
+    );
+    assert_eq!(
+        world.get::<BrainBinding>(npc).unwrap().source,
+        AutonomousSource::ProvokedProfile { profile: id },
+    );
+}
+
+/// AN ALREADY-HOSTILE BODY IS NOT RE-DERIVED, on the authored road as on the
+/// default one: a repeat stimulus rebuilt its brain (zeroing its cadence) and
+/// re-recorded a policy.
+#[test]
+fn a_repeat_stimulus_leaves_an_authored_provocation_alone() {
+    use ambition_characters::brain::Brain;
+    let (mut app, npc, _, _) = authored_provocation_app();
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+    // A mind no provocation builds, so any rebuild shows.
+    *app.world_mut().get_mut::<Brain>(npc).unwrap() = Brain::stand_still();
+
+    app.world_mut().write_message(ActorStimulus::DamagedBy {
+        actor: npc,
+        source: None,
+        damage: 1,
+    });
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(npc).unwrap().label(),
+        "stand_still",
+        "a repeat stimulus rebuilt an already-hostile body's brain"
+    );
+}
+
+/// A BODY THAT WAS NEVER PEACEFUL IS NOT RECORDED AS PROVOKED INTO A POLICY
+/// IT DOES NOT RUN. The authored road wrote `ProvokedProfile` for any stimulus
+/// while installing that policy only on a peaceful flip.
+#[test]
+fn an_already_hostile_body_records_no_policy_it_was_not_given() {
+    use ambition_characters::actor::character_catalog::{AutonomousSource, BrainBinding};
+    let (mut app, npc, profile, _) = authored_provocation_app();
+    *app.world_mut().get_mut::<ActorDisposition>(npc).unwrap() = ActorDisposition::Hostile;
+
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+
+    let world = app.world();
+    assert_ne!(world.get::<ambition_combat::actor_tuning::ActorConfig>(npc).unwrap().brain_profile, profile);
+    assert_eq!(
+        world.get::<BrainBinding>(npc).unwrap().source,
+        AutonomousSource::CharacterProfile,
+        "the binding claims a provoked policy the body is not running"
+    );
+}

@@ -786,55 +786,31 @@ impl NpcActorSpawnPlan {
 
     /// Build this person as the save remembers them: provoked.
     ///
-    /// The mind a live provocation installs (`provoke_actor_in_place`): the
-    /// character's own provoked policy when it authors one, else the engine's
-    /// default through the same projection, recorded in the brain binding so a
-    /// rewind resolves the same policy. The body is untouched, as it is live.
+    /// The mind a live provocation installs: [`brain_builders::provoked_mind`],
+    /// the one answer `provoke_actor_in_place` also applies, recorded in the
+    /// brain binding. The body is untouched, as it is live.
+    ///
+    /// [`brain_builders::provoked_mind`]: self::brain_builders::provoked_mind
     ///
     /// The grudge names a FACTION rather than the body that struck the blow:
     /// that body is gone, and a room can be built before any player body
     /// exists.
     pub(super) fn provoke(&mut self, prepared: &ambition_characters::prepared::PreparedCharacterRegistry) {
-        let authored = npc_character_id(&self.interactable)
-            .and_then(|character| prepared.get(character))
-            .and_then(|character| {
-                Some((
-                    character.provoked_profile?,
-                    character.provoked_profile_id.clone()?,
-                ))
-            });
-        let abilities = self.seed.body.0.abilities.abilities;
-        match authored {
-            Some((profile, profile_id)) => {
-                self.seed.config.brain_profile = profile;
-                self.brain = self::brain_builders::aggressive_brain_for_enemy(
-                    &self.seed.config,
-                    &self.seed.identity,
-                    Some(&self.action_set),
-                    abilities,
-                );
-                if let Some((binding, _)) = self.brain_binding.as_mut() {
-                    binding.source =
-                        ambition_characters::actor::character_catalog::AutonomousSource::ProvokedProfile {
-                            profile: profile_id,
-                        };
-                }
-            }
-            None => {
-                let projection = self::brain_builders::provoked_projection(
-                    self::brain_builders::default_provoked_policy(),
-                    &self.seed.config,
-                    &self.seed.identity,
-                    Some(&self.action_set),
-                    abilities,
-                );
-                self.seed.config.brain_profile = projection.brain_profile;
-                self.seed.config.brain = projection.config_brain;
-                self.brain = projection.brain;
-                if let Some((binding, _)) = self.brain_binding.as_mut() {
-                    binding.provoke();
-                }
-            }
+        let authored = npc_character_id(&self.interactable).and_then(|character| {
+            self::brain_builders::authored_provoked_policy(prepared, character)
+        });
+        let mind = self::brain_builders::provoked_mind(
+            authored,
+            &self.seed.config,
+            &self.seed.identity,
+            Some(&self.action_set),
+            self.seed.body.0.abilities.abilities,
+        );
+        self.seed.config.brain_profile = mind.projection.brain_profile;
+        self.seed.config.brain = mind.projection.config_brain;
+        self.brain = mind.projection.brain;
+        if let Some((binding, _)) = self.brain_binding.as_mut() {
+            binding.source = mind.source;
         }
         self.disposition = ambition_combat::components::ActorDisposition::Hostile;
         self.aggression.mode = ambition_combat::components::AggressionMode::Hostile;

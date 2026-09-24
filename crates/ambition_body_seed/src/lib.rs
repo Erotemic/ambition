@@ -152,7 +152,7 @@ pub struct ActorClusterSeed {
     /// FOR A CHARACTER THAT AUTHORS NO `BodySource` — 2026-09-21.**
     ///
     /// [`Self::kin`]`.size` is the collision third of one
-    /// [`PosedBodyGeometry`]; the render quad and the quad offset are the other
+    /// [`PosedBodyGeometry`](ambition_sprite_sheet::character::sheets::PosedBodyGeometry); the render quad and the quad offset are the other
     /// two, and they are not this crate's to insert — a seed is plain data and
     /// the spawn sites own which components a body gets. Carrying them means
     /// the spawn site can seed a body's geometry from the SAME resolution that

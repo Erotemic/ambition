@@ -1,10 +1,8 @@
 //! What a PROVOCATION produces, projected once and applied by the live flip.
 //!
 //! Its entry point `reconcile_autonomous_actors` had two re-exports, four doc comments and a test
-//! module that called it directly — and zero production call sites. The only system in
-//! `AmbitionLoadWorldSet::Reconcile` is `codecs::reconcile_brain_bindings`, which filters on
-//! `binding.active_preset()?` — `None` for every provoked and character-first source. Nothing was
-//! ever going to invoke the reconstruction.
+//! module that called it directly — and zero production call sites. GGRS restores `Brain`,
+//! `BrainBinding` and the rest whole, so no post-load reconstruction runs at all.
 //!
 //! It asserts against `RollbackExecutionStats::lifetime_load_runs` now — the counter
 //! `count_load_run` increments inside the very reconciliation set — because at the SHIPPED

@@ -728,7 +728,6 @@ dependencies = [
  "ambition_characters",
  "ambition_input",
  "ambition_load",
- "ambition_mount",
  "ambition_platformer2d_actor_monolith",
  "ambition_platformer2d_actor_spawn",
  "ambition_platformer2d_core",

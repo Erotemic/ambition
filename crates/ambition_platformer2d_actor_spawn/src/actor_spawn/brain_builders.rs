@@ -640,9 +640,9 @@ pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile 
 /// speed. A provoked villager chases at a villager's top speed, which is the
 /// same sentence as the paragraph above with the consequence attached.
 ///
-/// Both the live provoke flip (`provoke_actor_in_place`) and the post-restore
-/// reconstruction apply this exact projection, so a provoked actor is identical
-/// whether it was just challenged or rebuilt after a GGRS load.
+/// Reached through [`provoked_mind`], which the live provoke flip and
+/// construction from a save's provocation fact both apply, so a provoked actor
+/// is identical whether it was just challenged or rebuilt by a room replay.
 pub struct ProvokedArchetype {
     pub brain_profile: BrainProfile,
     /// The `ActorConfig.brain` read-model marker for a provoked actor.
@@ -650,9 +650,57 @@ pub struct ProvokedArchetype {
     pub brain: Brain,
 }
 
+/// What a provocation makes of a body: the mind it projects, and the source a
+/// [`BrainBinding`] records so a rewind or a release knows which policy is live.
+///
+/// ⛔ ONE ANSWER FOR EVERY ROAD THAT PROVOKES. The live flip and construction
+/// from a save's provocation fact each asked it twice — once for a character
+/// that authors its own provoked policy, once for the engine default — and the
+/// two authored arms had drifted from the default ones: they skipped the
+/// `config.brain` read-model, and the live one rebound and rebuilt an
+/// ALREADY-hostile body, recording a policy it never installed.
+///
+/// [`BrainBinding`]: ambition_characters::actor::character_catalog::BrainBinding
+pub struct ProvokedMind {
+    pub projection: ProvokedArchetype,
+    pub source: ambition_characters::actor::character_catalog::AutonomousSource,
+}
+
+/// The provoked policy a character AUTHORS, with the id a binding records, or
+/// `None` when it states none and the engine default applies.
+pub fn authored_provoked_policy(
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
+    character: &str,
+) -> Option<(BrainProfile, ambition_entity_catalog::BrainProfileId)> {
+    let character = prepared.get(character)?;
+    Some((
+        character.provoked_profile?,
+        character.provoked_profile_id.clone()?,
+    ))
+}
+
+/// See [`ProvokedMind`].
+pub fn provoked_mind(
+    authored: Option<(BrainProfile, ambition_entity_catalog::BrainProfileId)>,
+    current_config: &ActorConfig,
+    identity: &ActorIdentity,
+    repertoire: Option<&ambition_characters::brain::ActionSet>,
+    body: ambition_platformer2d_core::AbilitySet,
+) -> ProvokedMind {
+    use ambition_characters::actor::character_catalog::AutonomousSource;
+    let (policy, source) = match authored {
+        Some((policy, id)) => (policy, AutonomousSource::ProvokedProfile { profile: id }),
+        None => (default_provoked_policy(), AutonomousSource::ProvokedDefault),
+    };
+    ProvokedMind {
+        projection: provoked_projection(policy, current_config, identity, repertoire, body),
+        source,
+    }
+}
+
 /// The `ActorConfig.brain` read-model derived from a live autonomous brain, shared
-/// by the spawn plan, the runtime switch, and the post-restore reconcile so the
-/// classification can never disagree with the actual brain.
+/// by the spawn plan, the runtime switch and provocation so the classification
+/// can never disagree with the actual brain.
 pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::CharacterBrain {
     use ambition_characters::brain::StateMachineCfg;
     if matches!(brain, Brain::StateMachine(StateMachineCfg::Patrol { .. })) {

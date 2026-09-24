@@ -35,7 +35,6 @@ mod host_invariant_tests;
 pub mod lifecycle_commit;
 pub mod local_session;
 mod probes;
-mod reconcile;
 mod registrar;
 mod registration;
 pub mod session;
@@ -148,13 +147,15 @@ impl Plugin for GgrsBackendPlugin {
             });
         });
 
+        // ⛔ NO SYSTEM REPAIRS STATE AFTER A LOAD. GGRS restores each component
+        // whole (a cursor codec is only the checksum projection), so a load
+        // yields exactly the saved world; anything that rewrote it here would
+        // be a correction applied only on rollback — a resimulated run
+        // diverging from the uninterrupted one. The set exists so
+        // `count_load_run` can count loads.
         app.configure_sets(
             LoadWorld,
             AmbitionLoadWorldSet::Reconcile.after(LoadWorldSystems::Mapping),
-        )
-        .add_systems(
-            LoadWorld,
-            reconcile::reconcile_brain_bindings.in_set(AmbitionLoadWorldSet::Reconcile),
         )
         .add_systems(SaveWorld, probes::record_saved_census)
         // ⛔⛤ THE PAIR THAT MEASURES S8'S PREDICATE, and both ends matter.

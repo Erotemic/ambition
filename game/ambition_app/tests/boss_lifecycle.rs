@@ -301,8 +301,8 @@ fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
 }
 
 fn has_encounter_for(world: &mut World, placement_id: &str) -> bool {
-    let mut q = world.query::<&EncounterDef>();
-    q.iter(world).any(|d| d.placement_id == placement_id)
+    let mut q = world.query_filtered::<&ambition_platformer2d::encounter::Encounter, bevy::prelude::With<EncounterDef>>();
+    q.iter(world).any(|e| e.id == placement_id)
 }
 
 fn boss_reward_chest_count(world: &mut World) -> usize {
@@ -624,10 +624,13 @@ fn encounter_script_gate_force_kills_through_the_real_schedule() {
     // Attach a gate→ForceKill script to the boss's encounter entity.
     {
         let world = sim.world_mut();
-        let mut q = world.query::<(bevy::prelude::Entity, &EncounterDef)>();
+        let mut q = world.query_filtered::<
+            (bevy::prelude::Entity, &ambition_platformer2d::encounter::Encounter),
+            bevy::prelude::With<EncounterDef>,
+        >();
         let enc = q
             .iter(world)
-            .find(|(_, def)| def.placement_id == "scripted")
+            .find(|(_, encounter)| encounter.id == "scripted")
             .map(|(e, _)| e)
             .expect("the woken boss has an encounter entity");
         world

@@ -41,15 +41,20 @@ fn active_boss_gets_a_single_boss_encounter_entity() {
 
     let mut q = app
         .world_mut()
-        .query::<(&EncounterDef, &EncounterParticipants, &EncounterLifecycle)>();
+        .query::<(
+        &ambition_encounter::Encounter,
+        &EncounterDef,
+        &EncounterParticipants,
+        &EncounterLifecycle,
+    )>();
     let defs: Vec<_> = q.iter(app.world()).collect();
     assert_eq!(defs.len(), 1, "one active boss ⇒ one encounter entity");
-    let (def, parts, _lifecycle) = defs[0];
+    let (encounter, def, parts, _lifecycle) = defs[0];
     assert_eq!(parts.members.len(), 1);
     assert_eq!(parts.members[0].entity, Some(boss));
     assert_eq!(parts.members[0].role, EncounterRole::PrimaryTarget);
     assert!(def.hud);
-    assert_eq!(def.placement_id, "mockingbird_runtime");
+    assert_eq!(encounter.id, "mockingbird_runtime");
     // E8: the wrap starts its generic lifecycle through the command ingress.
     let started: Vec<_> = app
         .world()

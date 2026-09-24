@@ -193,11 +193,15 @@ pub fn ensure_projectile_portal_bodies(
 ///
 /// The transfer ROTATES momentum; it must not reclassify it. A fall's gravity-earned speed is
 /// world-imparted, so a genuine fling (fall in, wall out) still floors at full strength.
+///
+/// The run axis is the BODY's own resolved frame, not the primary body's `GravityField`: a
+/// body under a different gravity zone runs along a different axis, and splitting its exit
+/// velocity on someone else's would reclassify its fall as run (or its run as fall).
 pub fn apply_portal_carried_momentum(
-    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         &BodyKinematics,
+        &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ambition_platformer2d_core::BodyFlightState,
     )>,
     // The session's portal map convention, from the resource that owns it.
@@ -206,13 +210,11 @@ pub fn apply_portal_carried_momentum(
     use ambition_portal2d::pieces::portal_map_vec;
     let convention = tuning.convention.map_convention();
 
-    let gravity_dir =
-        ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
-    let side = ambition_platformer2d_core::AccelerationFrame::new(gravity_dir).side;
     for ev in transited.read() {
-        let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
+        let Ok((kin, frame, mut flight)) = bodies.get_mut(ev.body) else {
             continue;
         };
+        let side = frame.basis().side;
         // `kin.vel` is the mapped exit velocity; the map is an isometry, so
         // the swapped-normal map is its inverse (pinned at 45° in pieces).
         let pre_vel = portal_map_vec(kin.vel, ev.exit_normal, ev.enter_normal, convention);
@@ -364,3 +366,5 @@ pub fn portal_player_input_adapter(
 
 #[cfg(test)]
 mod projectile_transit_tests;
+#[cfg(test)]
+mod carried_momentum_tests;

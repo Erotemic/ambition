@@ -144,7 +144,7 @@ section refines the affected boundary. The queue is still the only priority list
 | [README.md](../README.md) | Revised | Separate source facts from normative decisions; route current review and one queue. |
 | [authoring-loop-program-2026-07-31.md](../authoring-loop-program-2026-07-31.md) | Revised | Use live flow customer and actual installed validation in the external authoring witness. |
 | [awaiting-maintainer-decision.md](../awaiting-maintainer-decision.md) | Revised | Clarify technical evidence and unresolved product choices; record no new maintainer ruling. |
-| [bevy-0.19-leverage-campaign.md](../bevy-0.19-leverage-campaign.md) | Retained | Closed campaign receipt; no new Bevy migration or historical replay justified. |
+| `bevy-0.19-leverage-campaign.md` (deleted 2026-09-24) | Retained | Closed campaign receipt; no new Bevy migration or historical replay justified. |
 | [decision-principles.md](../decision-principles.md) | Revised | Correct the unwired-validator example without changing the decision principles. |
 | [demos/README.md](../demos/README.md) | Retained | Serious secondary customers remain acceptance drivers; flagship priority unchanged. |
 | [demos/campaigns/expressive-moves-2026-09-05.md](../demos/campaigns/expressive-moves-2026-09-05.md) | Retained | Retired receipt; current vocabulary decisions remain with inventory/engine owners. |

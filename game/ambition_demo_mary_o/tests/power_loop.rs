@@ -962,8 +962,18 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         health.health.max
     );
     assert!(
-        e.get::<BodyCombat>().unwrap().recoil_lock_timer > 0.0,
-        "the shelled snake is frozen in place (movement input hard-zeroed)"
+        e.get::<ambition_platformer2d::characters::control::ControlHolds>()
+            .is_some_and(|holds| holds.holds(
+                ambition_platformer2d::characters::control::ControlHold::Sequence
+            )),
+        "the shelled snake is frozen in place: its shell cycle holds its control"
+    );
+    // The freeze is a hold, not a hit reaction: the recoil lock is the engine's
+    // answer to "was this body struck", and a shell stamping it read as hitstun.
+    assert_eq!(
+        e.get::<BodyCombat>().unwrap().recoil_lock_timer,
+        0.0,
+        "the shell wrote the hit reaction's recoil lock"
     );
     assert!(
         e.get::<ContactThreatWithdrawn>().unwrap().0,

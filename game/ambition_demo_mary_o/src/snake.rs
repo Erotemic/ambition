@@ -9,7 +9,9 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::characters::actor::BodyCombat;
+use ambition_platformer2d::characters::control::{
+    claim_control_hold, release_control_hold, ControlHold, ControlHolds,
+};
 use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWithdrawn};
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
@@ -62,12 +64,6 @@ const BOXED_S: f32 = 4.0;
 const PEEK_S: f32 = 0.5;
 /// Seconds spent climbing back out (the `emerge` row) before it walks again.
 const EMERGE_S: f32 = 0.45;
-
-/// The freeze-lock duration re-stamped onto a withdrawn snake each tick (the
-/// engine's `recoil_lock_timer`, which hard-zeros movement input). Any value
-/// comfortably above one frame works: it is refreshed every shelled tick and
-/// cleared the instant the snake emerges, so it only has to outlast a tick's decay.
-const SHELL_FREEZE_LOCK: f32 = 1.0;
 
 /// A Solid Snake's shell lifecycle. `Walking` is the ordinary patroller; the rest
 /// are the withdraw cycle, driven by [`step_snake_shell`]. Each timed stage's `f32`
@@ -614,7 +610,7 @@ pub fn run_snake_shells(
             &FeatureId,
             &ambition_platformer2d::characters::actor::BodyHealth,
             &mut ae::BodyKinematics,
-            &mut BodyCombat,
+            Option<&mut ControlHolds>,
             &mut ContactThreatWithdrawn,
             &mut SnakeShell,
         ),
@@ -634,7 +630,7 @@ pub fn run_snake_shells(
     // side-hitting the player) so the shared-pipeline hits below retain causal
     // attribution after the mutable query borrow ends.
     let mut sliding: Vec<(Entity, ae::Aabb, String, bool)> = Vec::new();
-    for (entity, feature_id, health, mut kin, mut combat, mut withdrawn, mut shell) in &mut snakes {
+    for (entity, feature_id, health, mut kin, mut holds, mut withdrawn, mut shell) in &mut snakes {
         if !health.alive() {
             // A corpse is out of the mechanic: it stops sliding, advances no phase,
             // and deals no hits. Its shell state is left as-is so a respawned body
@@ -702,11 +698,18 @@ pub fn run_snake_shells(
         // The threat is a read of the shell phase, so it is written every tick
         // and the authored tuning is never touched.
         withdrawn.0 = !fx.alive;
-        if fx.alive {
-            combat.recoil_lock_timer = 0.0;
-        } else {
-            // Frozen in place (movement input hard-zeroed) and harmless to touch.
-            combat.recoil_lock_timer = SHELL_FREEZE_LOCK;
+        // Frozen in place while shelled: the shell cycle is a scripted beat that
+        // drives this body, so it HOLDS control (`ControlHold::Sequence`) from
+        // the withdraw to the emerge, as a transition, rather than re-stamping
+        // the hit reaction's recoil lock every tick. That lock is the engine's
+        // answer to "was this body struck", and writing it here both made a
+        // shell read as hitstun and zeroed a real hit's lock on every walking
+        // tick.
+        let was_walking = matches!(*shell, SnakeShell::Walking);
+        if was_walking && !fx.alive {
+            claim_control_hold(&mut commands, entity, ControlHold::Sequence);
+        } else if !was_walking && fx.alive {
+            release_control_hold(&mut commands, entity, holds.as_deref_mut(), ControlHold::Sequence);
         }
 
         // Command horizontal velocity for the shell stages; leave a walker's own

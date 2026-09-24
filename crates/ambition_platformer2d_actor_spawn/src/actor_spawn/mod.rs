@@ -1485,14 +1485,14 @@ pub fn placement_respawn(
     spec.respawn.unwrap_or(UNDESCRIBED_BODY_RESPAWN)
 }
 
-/// Populate an ordinary enemy onto a preallocated construction root. Giant
-/// limbs are explicit construction rows and use the giant host/limb paths.
-#[allow(clippy::too_many_arguments)]
 /// Default for placements that do not author a respawn policy. Named actors use
 /// their explicit policy; ordinary unspecified room bodies respawn on reentry.
 pub const UNDESCRIBED_BODY_RESPAWN: ambition_entity_catalog::placements::RespawnPolicy =
     ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
 
+/// Populate an ordinary enemy onto a preallocated construction root. Giant
+/// limbs are explicit construction rows and use the giant host/limb paths.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_enemy_with_faction_into(
     scope: &mut RootScope,
     catalog: &CharacterCatalog,

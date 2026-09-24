@@ -539,6 +539,13 @@ pub fn ground_item_physics(
         // formula that reports the strike also decides a bomb's detonation.
         // `aabb_path_contacts` is the repo's own answer to this and takes the
         // end centre plus the delta it arrived by.
+        //
+        // ⛔ THE PATH IT TRAVELS, NOT THE ONE IT WANTED. A blocked or parked
+        // item stays where it is this tick, so it swept nothing; sweeping the
+        // unblocked projection reached through the wall that stopped it.
+        let parks = blocked || outside_world;
+        let end = if parks { item.pos } else { next };
+        let travelled = end - item.pos;
         let entered_now = |at: ae::Aabb, entity: Entity| {
             bodies
                 .get(entity)
@@ -553,9 +560,9 @@ pub fn ground_item_physics(
                 })
                 .any(|(victim, aabb, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
-                        next,
+                        end,
                         item.half_extent,
-                        item.vel * dt,
+                        travelled,
                         aabb.aabb(),
                     ) && !entered_now(here, victim)
                 })
@@ -579,7 +586,7 @@ pub fn ground_item_physics(
                 commands.entity(entity).remove::<ItemStruckBody>();
             }
         }
-        if blocked || outside_world {
+        if parks {
             // Settle in place (simple — no slide), and SAY SO: the marker is
             // what stops this item being stepped again, replacing the
             // `vel == ZERO` reading that could not tell rest from release.

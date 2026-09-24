@@ -836,10 +836,7 @@ fn move_events_capture_character_provider_presentation_sources() {
     );
     app.world_mut()
         .entity_mut(actor)
-        .insert(crate::components::CombatTuning {
-            sprite_character_id: Some("mary_o".to_string()),
-            ..Default::default()
-        });
+        .insert(ambition_characters::actor::WornCharacter::new("mary_o"));
 
     app.update();
 
@@ -857,24 +854,14 @@ fn move_events_capture_character_provider_presentation_sources() {
 
 /// ⛔⛤ THE DAMAGE BOX IS SHAPED BY THE CHARACTER THE BODY IS **WEARING**.
 ///
-/// `CombatTuning::sprite_character_id`'s own doc states the rule and names the
-/// consequence of breaking it: *"`WornCharacter` OUTRANKS it (AC7.1) ... every
-/// seam that resolves a character asks `WornCharacter` first and falls back to a
-/// sprite id only for a body that wears nothing ... That precedence is what lets
-/// a body SWAP its character at runtime (Sanic's transformation) and take its new
-/// repertoire and volumes with it while this field stays put."*
-///
-/// ⛔⛔ MEASURED 2026-09-11: FIVE seams resolve this pair, and FOUR asked
-/// worn-first. The fifth was `trigger_moveset_moves`' manifest lookup — the one
-/// that decides the SHAPE OF THE DAMAGE BOX — which asked the tuning first, in
-/// the same function body, 490 lines below a `character_id` that already held the
-/// right answer. A transformed body swung the hit polygon of the character it used
-/// to be.
+/// `trigger_moveset_moves`' manifest lookup decides the SHAPE OF THE DAMAGE BOX,
+/// and it once asked a sprite id copied onto `CombatTuning` before the worn
+/// character, so a transformed body swung the hit polygon of the character it
+/// used to be. The copy is gone; this pins that the seam asks the worn id.
 ///
 /// ⭐ THIS ASKS THE SEAM'S OWN QUESTION rather than comparing two polygons. The
 /// resolver is an injected closure, so recording WHICH ID IT IS ASKED FOR needs no
-/// sheet, no catalog and no art — and a test that compared shapes would pass for
-/// the wrong reason the day the two characters' blades happened to agree.
+/// sheet, no catalog and no art.
 #[test]
 fn the_strike_poly_comes_from_the_character_the_body_wears() {
     use std::sync::{Arc, Mutex};
@@ -899,16 +886,9 @@ fn the_strike_poly_comes_from_the_character_the_body_wears() {
         ae::Vec2::new(30.0, 48.0),
         simple_melee(&SimpleMeleeParams::default()),
     );
-    // ⛔ BOTH, AND THEY DISAGREE. A body carrying only one of the two cannot tell
-    // the two precedences apart — which is why the inversion survived: every
-    // shipped fighter answers both questions with the same word.
-    app.world_mut().entity_mut(attacker).insert((
-        ambition_characters::actor::WornCharacter::new("sanic"),
-        crate::components::CombatTuning {
-            sprite_character_id: Some("mary_o".to_string()),
-            ..Default::default()
-        },
-    ));
+    app.world_mut()
+        .entity_mut(attacker)
+        .insert(ambition_characters::actor::WornCharacter::new("sanic"));
 
     // Cross the windup into the active window, where the volume resolves.
     run_seconds(&mut app, 0.14);
@@ -921,9 +901,9 @@ fn the_strike_poly_comes_from_the_character_the_body_wears() {
     );
     assert!(
         asked.iter().all(|id| id.as_deref() == Some("sanic")),
-        "the strike volume resolved against the TUNING's sprite id instead of the \
-         character the body wears. A body that transformed keeps the old \
-         character's hit polygon: {asked:?}"
+        "the strike volume resolved against something other than the character \
+         the body wears. A body that transformed keeps the old character's hit \
+         polygon: {asked:?}"
     );
 }
 

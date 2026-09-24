@@ -385,80 +385,6 @@ fn a_second_room_in_one_session_adds_to_the_cast_rather_than_replacing_it() {
     assert!(is_authorized(&app, "mary_o_demo") && is_authorized(&app, "sanic_demo"));
 }
 
-/// C3: registering a character reaches a body that never wore anything.
-///
-/// A spawned actor carries no `WornCharacter` — production inserts that only for the
-/// player. Its identity is the sprite character its `CombatTuning` names, which is
-/// the same chain [`publish_body_presentation_sources`] reads, and the projection
-/// has to use it or C3 covers the player and nothing else in the room.
-#[test]
-fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
-    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
-
-    let mut app = session_app();
-
-    // The smallest move that is still a move: the projection cares about the verb
-    // table, not about what the swing does.
-    let swat = MoveSpec {
-        display_name: None,
-        landing_lag_s: None,
-        autocancel_after_s: None,
-        sprite_spin_hz: None,
-        equips: None,
-        id: "swat".to_string(),
-        clip: ClipBinding {
-            clip: "swat".to_string(),
-            fallbacks: vec![],
-        },
-        duration_s: 0.2,
-        events: vec![],
-        windows: vec![],
-        gates: MoveGates::default(),
-        start_impulse: None,
-        smash_charge_mult: 1.0,
-        smash_charge: None,
-        charge_gesture: ambition_entity_catalog::ChargeGesture::default(),
-        repeat: None,
-        flow: None,
-    };
-    let moveset = MovesetContract {
-        verbs: std::collections::BTreeMap::from([(
-            ambition_combat::moveset::ATTACK_VERB.to_string(),
-            "swat".to_string(),
-        )]),
-        moves: vec![swat],
-    };
-    app.register_character(
-        CharacterDefinition::new("badnik", "Badnik", "sanic_demo").with_moveset(moveset),
-    );
-
-    let actor = app
-        .world_mut()
-        .spawn(ambition_combat::CombatTuning {
-            sprite_character_id: Some("badnik".to_string()),
-            ..Default::default()
-        })
-        .id();
-    settle(&mut app);
-
-    assert!(
-        app.world()
-            .get::<ambition_combat::moveset::ActorMoveset>(actor)
-            .is_some(),
-        "a spawned actor is identified by its combat tuning's sprite character, so \
-         the registry's authored moveset must reach it too — otherwise C3 covers \
-         the player and nothing else in the room"
-    );
-    assert!(
-        ambition_combat::moveset::routes_melee(
-            app.world()
-                .get::<ambition_combat::moveset::ActorMoveset>(actor)
-                .unwrap()
-        ),
-        "and the `attack` verb routes its melee through the move timeline"
-    );
-}
-
 /// A body whose character is NOT registered keeps whatever built it.
 ///
 /// The projection fills in from the registry; it does not clear. A catalog-built
@@ -469,10 +395,9 @@ fn an_unregistered_character_leaves_the_body_as_its_spawn_built_it() {
     let mut app = session_app();
     let actor = app
         .world_mut()
-        .spawn(ambition_combat::CombatTuning {
-            sprite_character_id: Some("somebody_elses_fighter".to_string()),
-            ..Default::default()
-        })
+        .spawn(ambition_characters::actor::WornCharacter::new(
+            "somebody_elses_fighter",
+        ))
         .id();
     finalize_and_update(&mut app);
 

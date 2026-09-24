@@ -205,13 +205,14 @@ pub(crate) struct RoomTransitionAssetContext<'w, 's> {
         )>,
     >,
     /// The match roster names its fighters before any body wears them; a live
-    /// actor's config names the sprite it swapped to. Both are residency
+    /// actor wears the character whose sprite it shows. Both are residency
     /// owners a room commit must keep (`RoomResidencyOwners`).
     pub(crate) roster: Option<Res<'w, ambition_platformer2d::actor::MatchParticipantRoster>>,
-    pub(crate) actor_configs: bevy::prelude::Query<
+    pub(crate) actor_worn: bevy::prelude::Query<
         'w,
         's,
-        &'static ambition_platformer2d::combat::actor_tuning::ActorConfig,
+        &'static ambition_platformer2d::characters::actor::WornCharacter,
+        bevy::prelude::With<ambition_platformer2d::combat::actor_tuning::ActorConfig>,
     >,
     pub(crate) authored_sheets:
         Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
@@ -562,11 +563,11 @@ impl RoomResidencyOwners {
 }
 
 /// The residency claims that are neither a room's placements nor a worn
-/// identity: the match roster's fighters and every live actor's swapped sprite.
+/// identity: the match roster's fighters and every live actor's worn character.
 pub(crate) fn residency_claims<'a>(
     roster: Option<&ambition_platformer2d::actor::MatchParticipantRoster>,
-    actor_configs: impl IntoIterator<
-        Item = &'a ambition_platformer2d::combat::actor_tuning::ActorConfig,
+    actor_worn: impl IntoIterator<
+        Item = &'a ambition_platformer2d::characters::actor::WornCharacter,
     >,
 ) -> Vec<String> {
     let mut claims: Vec<String> = roster
@@ -574,11 +575,7 @@ pub(crate) fn residency_claims<'a>(
         .flat_map(|roster| roster.participants.iter())
         .map(|participant| participant.character.as_str().to_string())
         .collect();
-    claims.extend(
-        actor_configs
-            .into_iter()
-            .filter_map(|config| config.sprite_character_id.clone()),
-    );
+    claims.extend(actor_worn.into_iter().map(|worn| worn.id().to_string()));
     claims
 }
 
@@ -1044,7 +1041,7 @@ pub(crate) fn contribute_room_transition_assets_system(
     // `bevy::platform::time::Instant` is sub-frame on wasm and native alike.
     let manifest_started = bevy::platform::time::Instant::now();
     let claimed: Vec<String> =
-        residency_claims(context.roster.as_deref(), context.actor_configs.iter());
+        residency_claims(context.roster.as_deref(), context.actor_worn.iter());
     let owners = RoomResidencyOwners::for_room(
         &room_set,
         active.target_room,

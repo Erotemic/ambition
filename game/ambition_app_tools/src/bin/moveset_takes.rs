@@ -315,13 +315,6 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
         // to reconstructing a frame cursor in JavaScript. Every granted character
         // body carries `PosedBody` now and the gate is `Or` of the two.
         Option<&ambition_platformer2d::sim_view::BodyPoseView>,
-        // ⛔⛔ A SUMMON WEARS NO CATALOG CHARACTER, and the summon is the one
-        // everybody opens this view to watch — Jon asked to *"see things like the
-        // pirate flying around on the shark"*. The shark has no `WornCharacter`,
-        // so joining the sheet on that alone drew the rider in full art and his
-        // mount as an empty box. `ActorConfig::sprite_character_id` is what the
-        // renderer itself falls back to for exactly these bodies.
-        Option<&ambition_platformer2d::combat::actor_tuning::ActorConfig>,
         // ⛔⛔ A RAW ENTITY ID IS NOT AN IDENTITY. The label fell back to
         // `format!("{entity}")`, and an entity index depends on every spawn and
         // despawn the whole app made first — so two runs of this binary labelled
@@ -334,7 +327,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
     let rows: Vec<_> = bodies
         .iter(world)
         .map(
-            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, config, sim_id)| {
+            |(e, kin, seat, worn, play, riding, slot, ground, gesture, pose, sim_id)| {
                 (
                     e,
                     (kin.pos.x, kin.pos.y),
@@ -356,8 +349,7 @@ fn sample(world: &mut World, scenario: &ScenarioRoles) -> Frame {
                     // is every frame anybody opens this view to look at.
                     drawn_row_of(
                         &sheet_keys,
-                        worn.map(|w| w.id())
-                            .or_else(|| config.and_then(|c| c.sprite_character_id.as_deref())),
+                        worn.map(|w| w.id()),
                         play.map(|p| &*p.spec),
                         ground.map(|g| g.on_ground),
                     ),

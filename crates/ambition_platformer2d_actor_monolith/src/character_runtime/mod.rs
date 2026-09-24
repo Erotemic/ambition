@@ -622,34 +622,6 @@ pub fn declare_registered_characters(
     }
 }
 
-/// An ACTOR that resolved a character identity needs that art too.
-///
-/// That system watches `WornCharacter` — the identity a body PUTS ON. This one reads the
-/// config's `sprite_character_id`, which every character road also writes; a body with a
-/// sprite id and no worn character (an anonymous NPC resolved by name) still needs its art.
-///
-/// `Added` rather than `Changed`. The actor cluster view borrows `ActorConfig`
-/// mutably every tick, which marks it changed whether or not anything moved, so
-/// `Changed` here would re-request the whole room's cast every frame. The identity is decided at construction and does not drift, so asking
-/// once when the component appears is both sufficient and the only affordable
-/// option.
-pub fn demand_actor_character_sheets(
-    actors: Query<
-        &ambition_combat::actor_tuning::ActorConfig,
-        Added<ambition_combat::actor_tuning::ActorConfig>,
-    >,
-    demand: Option<ResMut<CharacterLoadDemand>>,
-) {
-    let Some(mut demand) = demand else {
-        return;
-    };
-    for config in &actors {
-        if let Some(character_id) = config.sprite_character_id.as_deref() {
-            demand.request(character_id);
-        }
-    }
-}
-
 /// A body that put on an identity needs that identity's art.
 ///
 /// Every worn body, not just the primary player. The host's version of this
@@ -663,8 +635,8 @@ pub fn demand_actor_character_sheets(
 /// Ask for the whole cast the moment a ROSTER names it, not when its bodies spawn.
 ///
 /// ⛔⛔ THIS IS THE UPSTREAM HALF, AND ITS ABSENCE IS A MEASURED HITCH.
-/// `demand_actor_character_sheets` below keys on `Added<ActorConfig>` — the
-/// instant a BODY exists — which is the opening bell. The first hardware profile
+/// `demand_worn_character_sheets` keys on the worn identity — the instant a
+/// BODY exists — which is the opening bell. The first hardware profile
 /// (2026-08-29) caught the consequence: **+307 megapixels of 4096x4096 sheets
 /// decoded inside a 2.5s window whose worst frame was 516ms**, because one
 /// character is ~7 sheets and ~470MB of RGBA and none of it was asked for until
@@ -675,7 +647,7 @@ pub fn demand_actor_character_sheets(
 /// body is seated. Moving the consumer upstream widens what it sees — the select
 /// screen knows who is playing, and a spawn only knows who just arrived.
 ///
-/// ⚠ ADDITIVE, NOT A REPLACEMENT. `demand_actor_character_sheets` stays: a body
+/// ⚠ ADDITIVE, NOT A REPLACEMENT. `demand_worn_character_sheets` stays: a body
 /// can appear that no roster named (a summon, a possession, a dev spawn), and
 /// demand is a SET, so asking twice for the same character is free. This system
 /// makes the roster case EARLY, it does not make the spawn case wrong.
@@ -748,11 +720,9 @@ pub fn converge_character_residency_to_active_quality(
     demand: Option<ResMut<CharacterLoadDemand>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     resolved: Option<Res<ambition_persistence::settings::ResolvedVisualQuality>>,
-    // WHO STILL USES A RETIRED SHEET: a body wearing the character, or a live
-    // actor whose config names it. Only those are re-demanded; the rest stay
-    // retired until something asks for them again.
+    // WHO STILL USES A RETIRED SHEET: a body wearing the character. Only those
+    // are re-demanded; the rest stay retired until something asks for them again.
     worn: Query<&ambition_characters::actor::WornCharacter>,
-    configs: Query<&ambition_combat::actor_tuning::ActorConfig>,
 ) {
     let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
         return;
@@ -775,15 +745,8 @@ pub fn converge_character_residency_to_active_quality(
     if stale.is_empty() {
         return;
     }
-    let in_use: std::collections::BTreeSet<&str> = worn
-        .iter()
-        .map(|worn| worn.0.as_str())
-        .chain(
-            configs
-                .iter()
-                .filter_map(|config| config.sprite_character_id.as_deref()),
-        )
-        .collect();
+    let in_use: std::collections::BTreeSet<&str> =
+        worn.iter().map(|worn| worn.0.as_str()).collect();
     let (wearing, unworn): (Vec<(String, String)>, Vec<(String, String)>) = stale
         .into_iter()
         .partition(|(_, id)| in_use.contains(id.as_str()));
@@ -1118,7 +1081,6 @@ impl Plugin for CharacterRuntimePlugin {
                     // during preparation instead of at the opening bell.
                     demand_rostered_character_sheets,
                     demand_worn_character_sheets,
-                    demand_actor_character_sheets,
                     // Before the drain: the audit reads OUTSTANDING demand, and the
                     // materializer empties it.
                     audit::report_character_capability_gaps,

@@ -1363,8 +1363,8 @@ mod live_quality_apply {
 
 /// ⭐⭐ A ROSTER MUST RAISE DEMAND BEFORE ANY BODY EXISTS.
 ///
-/// The measured hitch: `demand_actor_character_sheets` keys on
-/// `Added<ActorConfig>`, so nothing asked for a fighter's ~7 4096x4096 sheets
+/// The measured hitch: body-keyed demand (`demand_worn_character_sheets`) fires
+/// when a body appears, so nothing asked for a fighter's ~7 4096x4096 sheets
 /// (~470MB of RGBA) until the body stood on the stage — and the first hardware
 /// profile caught +307 megapixels decoding inside a 2.5s window whose worst frame
 /// was 516ms.

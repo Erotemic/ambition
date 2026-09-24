@@ -916,7 +916,6 @@ mod tests {
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "burning_flying_shark".into(),
             ),
-            sprite_character_id: Some("npc_burning_flying_shark".into()),
             preserves_mirror_symmetry: false,
         };
         app.world_mut().spawn((

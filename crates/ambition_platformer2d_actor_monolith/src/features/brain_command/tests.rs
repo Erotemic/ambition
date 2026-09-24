@@ -399,7 +399,6 @@ fn release_provocation_pacifies_and_restores_default() {
         tuning: built_tuning.clone(),
         brain_profile: ambition_characters::brain::BrainProfile::default(),
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        sprite_character_id: Some("npc_puppy_slug".into()),
         preserves_mirror_symmetry: false,
     });
     // Simulate a provoked actor: hostile disposition, a live grudge + target, and
@@ -527,7 +526,6 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
         },
         brain_profile,
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        sprite_character_id: Some("npc_villager".into()),
         // A fixture body, not a seated CPU twin.
         preserves_mirror_symmetry: false,
     }

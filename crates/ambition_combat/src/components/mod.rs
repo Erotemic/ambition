@@ -190,11 +190,6 @@ pub struct CombatTuning {
     /// Knockback weight (CM1): heavier bodies launch less under the same growth
     /// term. `1.0` is the reference body.
     pub weight: f32,
-    /// Sprite-catalog id whose AUTHORED per-animation attack polygons the
-    /// strike paths resolve. Controllable bodies use `WornCharacter`; `None`
-    /// remains only for content-free fixtures. Combat forwards the stable id to
-    /// the App-local authored-volume resolver.
-    pub sprite_character_id: Option<String>,
     /// Victim-owned hurt sound and spray/debris response.
     pub hurt_feedback: ambition_vfx::HurtFeedback,
 }
@@ -203,7 +198,6 @@ impl Default for CombatTuning {
     fn default() -> Self {
         Self {
             weight: 1.0,
-            sprite_character_id: None,
             hurt_feedback: ambition_vfx::HurtFeedback::ENEMY,
         }
     }

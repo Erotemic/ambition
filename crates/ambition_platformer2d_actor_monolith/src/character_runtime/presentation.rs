@@ -123,7 +123,6 @@ pub fn publish_body_presentation_sources(
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
-            Option<&ambition_combat::CombatTuning>,
             Option<&ambition_sfx::BodyPresentationSource>,
         ),
         // Filtered, because this runs on the SIM clock and an all-`Option` tuple
@@ -143,10 +142,8 @@ pub fn publish_body_presentation_sources(
         )>,
     >,
 ) {
-    for (entity, worn, tuning, current) in &bodies {
-        let character_id = worn
-            .map(ambition_characters::actor::WornCharacter::id)
-            .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
+    for (entity, worn, current) in &bodies {
+        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
         let provider = character_id
             .and_then(|id| provider_of_character(registry.as_deref(), owners.as_deref(), id));
         match provider {
@@ -215,7 +212,7 @@ pub fn inherit_projectile_presentation_sources(
 
 /// Project prepared character-authored combat/presentation facts onto bodies.
 ///
-/// Identity follows worn character first, then combat tuning. Prepared registry
+/// Identity is the worn character. Prepared registry
 /// values override older catalog-derived facts where authored. Change detection
 /// makes the projection replay safely after rollback recreation and character
 /// replacement. Live vitals are intentionally not projected here.
@@ -226,7 +223,6 @@ pub fn project_prepared_character_definitions(
         (
             Entity,
             Option<&ambition_characters::actor::WornCharacter>,
-            Option<&ambition_combat::CombatTuning>,
             Option<&ProjectedCharacterKit>,
         ),
         Or<(
@@ -266,7 +262,6 @@ pub fn project_prepared_character_definitions(
     all_bodies: Query<(
         Entity,
         Option<&ambition_characters::actor::WornCharacter>,
-        Option<&ambition_combat::CombatTuning>,
         Option<&ProjectedCharacterKit>,
     )>,
     // The hand a re-granted kit is folded with.
@@ -286,10 +281,8 @@ pub fn project_prepared_character_definitions(
     } else {
         changed_bodies.iter().collect()
     };
-    for (entity, worn, tuning, projected) in candidates {
-        let character_id = worn
-            .map(ambition_characters::actor::WornCharacter::id)
-            .or_else(|| tuning.and_then(|t| t.sprite_character_id.as_deref()));
+    for (entity, worn, projected) in candidates {
+        let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
         let resolved = character_id.filter(|id| registry.get(id).is_some());
         let unchanged = projected.is_some_and(|projected| {
             Some(projected.id.as_str()) == resolved && projected.generation == registry.generation()

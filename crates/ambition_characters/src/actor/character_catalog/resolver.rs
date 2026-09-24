@@ -187,7 +187,6 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
             reaction_delay_s,
             commit_probability,
             accuracy,
-            mash_speed_hz,
         } => StateMachineCfg::Smash {
             cfg: crate::brain::smash::SmashCfg {
                 aggro_radius: *aggro_radius,
@@ -202,7 +201,6 @@ pub fn brain_from_preset(preset: &BrainPreset, spawn_world_x: f32) -> Brain {
                     reaction_delay_s: *reaction_delay_s,
                     commit_probability: *commit_probability,
                     accuracy: *accuracy,
-                    mash_speed_hz: *mash_speed_hz,
                 },
                 // Neutral-game knobs aren't part of the catalog preset schema
                 // yet; inherit the striker defaults (footsies off) until a

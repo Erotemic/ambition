@@ -1,4 +1,4 @@
-//! Draw a RUNNING match.
+//! Draw a running match.
 //!
 //! `cargo run -p ambition_demo_smash_app --bin smash_tool -- match-diagram -- [OUT.png]`
 //!
@@ -6,10 +6,9 @@
 //! in, route to the stage, step the sim — and then draws whatever is standing
 //! there, with each fighter's damage percent and remaining stocks.
 //!
-//! It exists because every claim about seating so far is a count. Tests assert
-//! that two bodies exist and that they wear seats; none of them has asked WHERE
-//! they are, and "two fighters exist" is true of a match with both of them
-//! stacked at the origin, standing off the platform, or inside each other.
+//! Tests count seated bodies but do not ask where they are. "Two fighters
+//! exist" is also true when both are stacked at the origin, off the platform,
+//! or inside each other.
 
 use ambition_platformer2d::engine_core::AabbExt;
 use clap::Args;
@@ -34,10 +33,9 @@ pub fn run(args: MatchDiagramArgs) {
     for _ in 0..30 {
         app.update();
     }
-    // CPU seats, not the select screen's. `SmashSelect::roster` makes every
-    // locked seat a HUMAN — which is right for a couch game and is why a diagram
-    // driven through it shows two fighters that never move: nobody is pressing
-    // anything. To watch the fighter BRAIN, the roster has to ask for it.
+    // CPU seats, not the select screen's: `SmashSelect::roster` makes every
+    // locked seat human, and nobody presses anything here. To watch the
+    // fighter brain, the roster must ask for it.
     app.world_mut()
         .insert_resource(ambition_demo_smash::smash_roster([
             ambition_demo_smash::SMASH_CHARACTER_ID,
@@ -70,8 +68,8 @@ pub fn run(args: MatchDiagramArgs) {
         app.update();
     }
 
-    // Did anybody MOVE? A fighter brain that thinks and emits nothing looks
-    // exactly like a fighter brain that was never installed.
+    // Did anybody move? A brain that emits nothing looks the same as one
+    // that was never installed.
     let opening = collect_fighters(&mut app)
         .iter()
         .map(|f| f.aabb.center().x)
@@ -86,10 +84,9 @@ pub fn run(args: MatchDiagramArgs) {
         .map(|(now, then)| (now - then).abs())
         .collect::<Vec<_>>();
     println!("[match_diagram] travel over 180 ticks: {moved:?}");
-    // Does a real fight ever produce a KO? Run it long and report the peak
-    // percent and any stock spent. If damage climbs and nothing is ever launched
-    // off, the knockback curve does not reach this stage's blast line — which is
-    // a tuning fact no unit test can hold an opinion about.
+    // Does a real fight produce a KO? Report the peak percent and any stock
+    // spent. Damage that climbs with no launch means the knockback curve does
+    // not reach this stage's blast line.
     {
         use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
         use ambition_platformer2d::characters::actor::BodyHealth;
@@ -181,7 +178,7 @@ fn collect_fighters(
             )
         })
         .collect();
-    // By SEAT, so the left fighter is always drawn in the left colour. Query
+    // Sort by seat, so the left fighter always gets the left colour. Query
     // order is not an order.
     rows.sort_by_key(|(seat, _)| *seat);
     rows.into_iter().map(|(_, fighter)| fighter).collect()

@@ -1,17 +1,14 @@
 //! The homing dash: the fighter is carried at whoever they were pointing at.
 //!
-//! ⭐⭐ THIS MODULE OWNS NO TARGETING. Every tick it asks
-//! `ambition_combat::targeting::assisted_fire_direction` — the same call the
-//! pirate's gun-sword uses — and steers on the answer. ⇒ That keeps the one
-//! property a homing move must not get wrong: the tie-break is the stable
-//! `SimId`, never the `Entity`, because bevy_ggrs recreates rollback entities
-//! and a tie decided by a raw id picks a DIFFERENT target mid-resimulation than
-//! the confirmed timeline did.
+//! This module owns no targeting. Every tick it asks
+//! `ambition_combat::targeting::assisted_fire_direction` (as the pirate's
+//! gun-sword does) and steers on the answer. That keeps ties broken by the
+//! stable `SimId`, never `Entity`: bevy_ggrs recreates entities, so an `Entity`
+//! tie-break could pick a different target mid-resimulation.
 //!
-//! ⛔ IT ASKS EVERY TICK RATHER THAN LATCHING A TARGET, and that is the design:
-//! a latched target is a homing missile, and re-asking makes the dash follow the
-//! cone rather than a person. A foe who leaves the cone stops attracting it, so
-//! the move can still be dodged by moving — which is what makes it a read.
+//! It asks every tick instead of latching a target: the dash follows the cone,
+//! not a person. A foe who leaves the cone stops attracting it, so the move can
+//! be dodged.
 
 use bevy::prelude::*;
 
@@ -22,9 +19,7 @@ use ambition_platformer2d::engine_core as ae;
 
 /// A fighter currently being carried at a target.
 ///
-/// ⛔ ROLLBACK STATE. The clock outlives the tick that made it and it decides
-/// where a fighter IS, so a rewind that restored the dash without its clock
-/// leaves the two peers' fighters in different places.
+/// Rollback state: the clock decides where a fighter is.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct HomingDash {
     /// Seconds of homing left.
@@ -37,15 +32,13 @@ pub struct HomingDash {
     pub max_range: f32,
     /// The direction the fighter committed to when the dash began.
     ///
-    /// ⭐ REMEMBERED, NOT RE-READ. The cone is measured from what the player
-    /// COMMANDED at the press — re-reading the stick each tick would let them
-    /// sweep the cone across the stage and turn a read into a search.
+    /// Remembered, not re-read: the cone is measured from the press. Re-reading
+    /// the stick each tick would let the player sweep the cone across the stage.
     pub commanded: ae::Vec2,
 }
 
-/// Checksum probe: the clock and the committed direction — the two facts a peer
-/// can disagree about. ⛔ Speed, cone and range are constants copied off the
-/// move and cannot diverge.
+/// Checksum probe: the clock and the committed direction. Speed, cone and range
+/// are constants copied from the move and cannot diverge.
 pub fn homing_dash_probe(dash: &HomingDash) -> u64 {
     (dash.remaining_s.to_bits() as u64).rotate_left(19)
         ^ (dash.commanded.x.to_bits() as u64)
@@ -76,10 +69,8 @@ pub fn begin_authored_homing_dashes(
         let Ok(kin) = bodies.get(message.actor) else {
             continue;
         };
-        // ⭐ THE FACING IS THE COMMAND. A special is authored with a direction
-        // the fighter is already committed to — the same reading every
-        // body-local `offset` in this repository uses — so the cone opens the
-        // way they are pointing rather than the way the stick happens to be.
+        // The facing is the command, as for every body-local `offset`: the cone
+        // opens the way they point, not the way the stick happens to be.
         let commanded = ae::Vec2::new(kin.facing.signum(), 0.0);
         info!(
             target: "ambition::moves",
@@ -100,51 +91,38 @@ pub fn begin_authored_homing_dashes(
 pub fn carry_homing_dashes(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
-    // ⛔⛔ ONE QUERY OVER ALL BODIES, NOT A DASHER QUERY BESIDE A CANDIDATE ONE.
-    // The dasher IS a body, so two queries both touching `BodyKinematics` — one
-    // `&mut`, one `&` — are a `B0001` access conflict. ⇒ Merging is the right
-    // fix rather than `Without<HomingDash>`, which would quietly make one
-    // homing fighter unable to target another.
+    // One query over all bodies: a dasher query beside a candidate query would
+    // both touch `BodyKinematics` (`B0001`). `Without<HomingDash>` would stop
+    // one homing fighter from targeting another.
     mut bodies: Query<(
         Entity,
         &mut ae::BodyKinematics,
         Option<&mut HomingDash>,
         Option<&ambition_platformer2d::platformer::sim_id::SimId>,
-        // ⛔⛔ ELIGIBILITY, BECAUSE "NOT ME" IS NOT "A FOE". This filtered only
-        // `other != entity` and handed the raw body population to
-        // `assisted_fire_direction` — which is deliberately GEOMETRIC and
-        // assumes its caller supplied foes. ⇒ Carl's slingshot could bend toward
-        // a KO'd fighter (`OutOfPlay`, health reset full on respawn) or, in team
-        // versus, toward a teammate. Neither is a target and both look like the
-        // move working.
+        // Eligibility: "not me" is not "a foe". `assisted_fire_direction` is
+        // geometric and assumes the caller supplies foes, so KO'd (`OutOfPlay`)
+        // bodies and teammates must be filtered here.
         Option<&ambition_platformer2d::characters::actor::BodyHealth>,
         bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
         Option<&ambition_platformer2d::combat::components::ActorFaction>,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>,
-    // ⛔ THE FACTION MATRIX, WHICH IS THE TARGETING SIDE'S INPUT AND NOT THE
-    // DAMAGE SIDE'S. `combat_relation`'s own doc says `None` "is what the DAMAGE
-    // side passes", because damage is physical and lands on a stranger whether or
-    // not the two are declared enemies. Targeting is relational and wants the
-    // matrix's opinion, so a ruleset that declares two factions hostile gets a
-    // dash that bends between them.
+    // The faction matrix: targeting is relational and wants it. The damage
+    // side passes `None` to `combat_relation` because damage is physical.
     relations: Option<Res<ambition_platformer2d::combat::targeting::FactionRelations>>,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;
     }
-    // ⭐ GATHER FIRST, APPLY SECOND. The candidate set is read from the same
-    // query, immutably, before anything moves — so every dash this tick steers
-    // against the SAME world rather than against the partially-updated one its
-    // predecessors left.
+    // Gather first, apply second: every dash this tick steers against the same
+    // world, not one its predecessors partly updated.
     #[allow(clippy::type_complexity)]
     let candidates: Vec<(
         Entity,
         Option<ambition_platformer2d::platformer::sim_id::SimId>,
         ae::Vec2,
-        // Everything the eligibility question needs, captured with the position
-        // so the answer is asked against the SAME tick the geometry is.
+        // The eligibility inputs, captured with the position on the same tick.
         bool,
         Option<ambition_platformer2d::combat::components::ActorFaction>,
         Option<ambition_platformer2d::combat::targeting::MatchTeam>,
@@ -173,32 +151,17 @@ pub fn carry_homing_dashes(
             continue;
         }
         let from = kin.pos;
-        // ⛔⛤ A FOE, NOT MERELY SOMEBODY ELSE — AND "FOE" IS THE TARGETING
-        // QUESTION, NOT THE DAMAGE ONE. `assisted_fire_direction` is deliberately
-        // geometric and assumes its caller supplied targets. This first filtered
-        // only `other != entity`; it then asked `damage_lands_between`, which was
-        // closer but still the WRONG AUTHORITY.
+        // A foe, and "foe" is the targeting question, not the damage one.
+        // `CombatRelation::damage_lands` is true for `Foe` and `Neutral`;
+        // `is_target` is true for `Foe` only. A neutral bystander is damageable
+        // but not a target, so it must not win the cone over the opponent.
         //
-        // ⛔⛔ THE TWO QUESTIONS DISAGREE ON EXACTLY ONE RELATION, AND IT IS A
-        // RELATION THIS GAME CAN PRODUCE. `CombatRelation::damage_lands` answers
-        // `true` for `Foe` AND `Neutral` — "physical: anything not an ally can be
-        // hit". `is_target` answers `true` for `Foe` alone — "relational: only a
-        // declared foe. A neutral bystander is left alone." ⇒ A different-faction
-        // body with no team and no matrix hostility is DAMAGEABLE and NOT A
-        // TARGET, and the dash would bend at it: a nearer bystander could win the
-        // cone over the actual opponent standing further away.
+        // Seated fighters are unaffected: each seat has its own `MatchTeam`
+        // (`prepared::team_for`), and team relation outranks faction, so
+        // opponents are `Foe` and teammates are `Ally`.
         //
-        // ⭐ THE SEATED CASE IS UNAFFECTED, WHICH IS WHY THIS IS SAFE. A match
-        // gives every seat its OWN `MatchTeam` (`prepared::team_for`: "each seat
-        // gets its own team, producing free-for-all relationships"), and team
-        // relation outranks faction — so two humans are `Foe` and `is_target`
-        // holds. The teammate case is unaffected too: a shared team is `Ally`,
-        // which neither question targets.
-        //
-        // ⚠ FRIENDLY FIRE NO LONGER PARTICIPATES, deliberately. It decides
-        // whether a swing HURTS an ally, not whether a dash should HUNT one; a
-        // teams ruleset that enables it wants allies damageable by accident, not
-        // auto-aimed at on purpose.
+        // Friendly fire does not participate: it decides whether a swing hurts
+        // an ally, not whether a dash hunts one.
         let self_faction = self_faction.copied().unwrap_or_default();
         let others: Vec<_> = candidates
             .iter()
@@ -229,9 +192,9 @@ pub fn carry_homing_dashes(
             },
             others,
         );
-        // ⛔ SET, NOT ADD — the dash IS the fighter's motion for its duration,
-        // and adding would make a running start into a faster homing move. See
-        // `motion::command_body_velocity` for the ownership claim.
+        // Set, not add: the dash is the fighter's motion while it lasts, so a
+        // running start does not make it faster. See
+        // `motion::command_body_velocity`.
         crate::motion::command_body_velocity(
             &mut kin,
             heading.normalize_or_zero() * dash.speed,

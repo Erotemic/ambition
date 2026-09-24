@@ -14,103 +14,82 @@ use ambition_entity_catalog::{
     RecoveryUse, VolumeShape, WindowTag,
 };
 
-/// Where the rapid jab's loop jumps back TO, and the instant it jumps back
-/// FROM. Named because four places have to agree — the two pulse windows live
-/// inside the stretch, the finisher starts at its end, and the guard reads both.
+/// Where the rapid jab's loop jumps back to, and the instant it jumps back
+/// from. Named because the pulse windows, the finisher start and the guard
+/// must all agree.
 pub(crate) const FLURRY_FROM_S: f32 = 0.06;
 pub(crate) const FLURRY_TO_S: f32 = 0.20;
 
-/// Ground moves are grounded-only so an airborne body falls THROUGH them to its
-/// aerials rather than throwing a tilt in mid-air.
+/// Ground moves are grounded-only, so an airborne body falls through to its
+/// aerials instead of a tilt.
 pub(crate) fn grounded_only() -> MoveGates {
     MoveGates {
-        // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
-        // move's own statement, exactly as `recovery` is — see
-        // `MoveGates::meter_cost`.
+        // A posture does not know about meters: cost is the move's own
+        // statement (see `MoveGates::meter_cost`).
         costs: Vec::new(),
         grounded: Some(true),
-        // A GROUNDED ATTACK ROOTS ITS OWNER — the same statement
-        // `SmashRepertoire`'s own `GROUNDED` makes, because these two constants
-        // describe one posture and a fighter authored through this file must
-        // not feel different from one authored through the repertoire.
+        // A grounded attack roots its owner, matching `SmashRepertoire`'s
+        // `GROUNDED`, so both authoring roads feel the same.
         roots_steering: true,
         recovery_route: None,
-        // Not a recovery: these helpers describe a POSTURE, and a posture
-        // cannot know whether a move is somebody's up-B.
+        // Not a recovery: a posture cannot know whether a move is an up-B.
         recovery: RecoveryUse::None,
-        // A posture says nothing about being HELD. Whether a move refuses to
-        // start from a saddle is that move's own statement -- `call_the_shark`
-        // makes it -- and a stance default answering for every move would be
-        // this file deciding a question it cannot see.
+        // A posture says nothing about being held. A move that refuses to
+        // start from a saddle says so itself (`call_the_shark` does).
         forbidden_while_held: false,
-        // A posture names no fallback: which move answers a refused press is
-        // the move's own statement, like the price it answers for.
+        // A posture names no fallback; that is the move's own statement.
         when_refused: None,
     }
 }
 
-// The two helpers that remain have callers in this file and only in this file.
-
-/// Aerials are airborne-only for the mirror reason: a grounded press must not
-/// reach a move whose whole design is that landing costs you.
+/// Aerials are airborne-only, so a grounded press never reaches a move whose
+/// design is that landing costs you.
 pub(crate) fn airborne_only() -> MoveGates {
     MoveGates {
-        // ⛔ A POSTURE KNOWS NOTHING ABOUT A METER. What a move costs is the
-        // move's own statement, exactly as `recovery` is — see
-        // `MoveGates::meter_cost`.
+        // A posture does not know about meters: cost is the move's own
+        // statement (see `MoveGates::meter_cost`).
         costs: Vec::new(),
         grounded: Some(false),
         // An aerial keeps its drift: air control is the trade for the ground
         // control above.
         roots_steering: false,
         recovery_route: None,
-        // Not a recovery: these helpers describe a POSTURE, and a posture
-        // cannot know whether a move is somebody's up-B.
+        // Not a recovery: a posture cannot know whether a move is an up-B.
         recovery: RecoveryUse::None,
-        // A posture says nothing about being HELD. Whether a move refuses to
-        // start from a saddle is that move's own statement -- `call_the_shark`
-        // makes it -- and a stance default answering for every move would be
-        // this file deciding a question it cannot see.
+        // A posture says nothing about being held. A move that refuses to
+        // start from a saddle says so itself (`call_the_shark` does).
         forbidden_while_held: false,
-        // A posture names no fallback: which move answers a refused press is
-        // the move's own statement, like the price it answers for.
+        // A posture names no fallback; that is the move's own statement.
         when_refused: None,
     }
 }
 
 // ---------------------------------------------------------------------------
-// What is left here is the PLATFORM-FIGHTER half. The move-building
-// combinators — `strike`, `impulse`, `cancelable`, `committed_tail`, `on_hit`,
-// `active_start` — live in `ambition_entity_catalog::authoring`, where every other character's
-// table already reaches for them. `Feel` is the half that does not travel: it
-// is this game's opinion about how a swing is heard and seen.
+// The platform-fighter half. The move-building combinators (`strike`,
+// `impulse`, `cancelable`, `committed_tail`, `on_hit`, `active_start`) live in
+// `ambition_entity_catalog::authoring`. `Feel` is this game's opinion about how
+// a swing is heard and seen.
 // ---------------------------------------------------------------------------
 
-/// WHAT A MOVE FEELS LIKE, as six named classes rather than per-move art.
+/// What a move feels like, as six named roles instead of per-move art.
 ///
-/// the brief this answers is *"differentiate feedback for normal strike,
-/// heavy strike, launcher, special, recovery activation, impactful hit"* — six
-/// kinds, not one asset per move. So the vocabulary is the ROLE, and every move
-/// in every table picks one; a jab and a forward smash are heard and seen apart
-/// because they claim different roles, and adding a move costs no new asset.
-///
-/// An SFX cue the bank never rendered is silence: safe, but silent. The list below is short because
-/// six ROLES is the vocabulary, not because the art is.
+/// Every move picks a role, so a jab and a forward smash look and sound
+/// different, and a new move needs no new asset. An SFX cue the bank never
+/// rendered is silence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Feel {
-    /// The fast, cheap one. A swing sound and nothing else — a jab that flashed
-    /// would make the smash below it look like nothing.
+    /// The fast, cheap one: a swing sound only, so a smash still stands out.
     Poke,
     Heavy,
-    /// Sends them upward. A round burst and a light contact — the juggle starts
-    /// here, so it must read as a beginning rather than an ending.
+    /// Sends them upward: a round burst and a light contact, because a juggle
+    /// starts here.
     Launcher,
     /// A signature special: charged, starburst, a solid contact.
     Special,
-    /// A RECOVERY ACTIVATING. Its own sound and its own burst, because
-    /// seeing one is how you know a fighter is not dead yet.
+    /// A recovery activating: its own sound and burst, so players can see the
+    /// fighter is not dead yet.
     Recovery,
-    /// A committed plunge — the smoke of something arriving fast.
+    /// A committed plunge: the smoke of something arriving fast.
     Dive,
 }
 
@@ -130,10 +109,8 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
             "player.slash",
             Some("burst_round"),
         ),
-        // `sonic_boom` lives on `generic_exotic_fx`, one of the eleven sheets
-        // no app could reach until the engine started shipping its own effect
-        // art. A signature special is exactly the move that should get a look
-        // the shared explosion sheet does not have.
+        // `sonic_boom` lives on `generic_exotic_fx`, so a signature special
+        // gets a look the shared explosion sheet does not have.
         Feel::Special => (
             Some("player.attack.charge"),
             Some("world.rock.hit"),
@@ -167,20 +144,13 @@ pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
     m
 }
 
-/// The fighter repertoire, as one authored contract.
+/// The rest of the jab string: jab 2 and the rapid jab that finishes it.
 ///
-/// THE REST OF THE JAB STRING — jab 2 and the rapid jab that finishes it.
-///
-/// ⛔⛔ AUTHORED ONCE AND PUSHED INTO EVERY TABLE THAT WANTS THE STRING. The
-/// chain shipped 2026-08-23 onto the shared table alone, and the demo's headline
-/// fighter carries his OWN moveset — so George had no `jab2` and no `jab3` at
-/// all, and a census of a George mirror could only ever have counted zero. That
-/// is the same trap a sweetspot example fell into a day earlier; the answer is
-/// one authoring site rather than a second copy to keep in step.
+/// Authored once and pushed into every table that wants the string, including
+/// George's own moveset, so there is one authoring site.
 pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
-    // JAB 2 — the same beat again, a little harder, and the door to the
-    // finisher. Authored as its own move because it IS one: the chain is a
-    // cancel table over ordinary moves, not a mode some move enters.
+    // Jab 2: the same beat again, a little harder, and the door to the
+    // finisher. Its own move: the chain is a cancel table over ordinary moves.
     let mut jab2 = strike(Strike {
         id: "jab2",
         clip: "attack",
@@ -191,7 +161,7 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
         half_extents: (18.0, 14.0),
         damage: 3,
         knockback: 60.0,
-        // The stage's own declaration in the stage's units: 0.02 of base.
+        // The stage's declaration in the stage's units: 0.02 of base.
         knockback_growth: 60.0 * crate::SMASH_KNOCKBACK_GROWTH,
         launch_dir: None,
         on_hit: None,
@@ -199,26 +169,14 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
     jab2.gates = grounded_only();
     let jab2 = cancelable(jab2, 0.10, 0.26, &["jab3"], CancelCondition::Always);
 
-    // JAB 3 — THE RAPID JAB, and the finisher it exits into, on ONE timeline.
+    // Jab 3: the rapid jab and its finisher, on one timeline. Holding Attack
+    // through the loop keeps the flurry going; letting go (or reaching the
+    // maximum) exits into the launcher. `MoveLoop` supports this shape: what
+    // the move authors after `to_s` is the finisher.
     //
-    // Holding Attack through the loop stretch keeps the flurry going; letting go
-    // (or reaching the authored maximum) drops the body into the launcher that
-    // ends the route. That is the genre's third jab, and `MoveLoop`'s own doc
-    // describes exactly this shape — "what the move authors after `to_s` is the
-    // finisher the loop exits into" — so it is one move rather than a bespoke
-    // chain of two.
-    //
-    // ⭐ THE PULSES ARE FIXED KNOCKBACK, and that is the mechanic the flurry is
-    // built on rather than a taste call: a repeating hit whose launch GREW with
-    // the victim's percent would carry them further on every lap and throw them
-    // clear of the flurry exactly when the flurry matters, so the string would
-    // dissolve at the damage where a player is counting on it. `Some(0.0)` says
-    // the same small push at 0% and at 200%. It could not be authored before
-    // 2026-08-23 — a bare `0.0` meant "the stage decides".
-    //
-    // ⚠ the numbers below are a KNOB, not a measurement: one damage and a
-    // 46 px/s hold per pulse, over a 0.14s lap, bounded at 1.2s of looped time
-    // so a held button is a commitment and not a stall.
+    // The pulses use fixed knockback (`Some(0.0)`). Growing knockback would
+    // carry the victim out of the flurry at high percent. Tuning values: one
+    // damage and a 46 px/s hold per pulse, a 0.14s lap, at most 1.2s of loop.
     let mut jab3 = strike(Strike {
         id: "jab3",
         clip: "attack",
@@ -230,17 +188,15 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
         damage: 5,
         knockback: 105.0,
         knockback_growth: 105.0 * crate::SMASH_KNOCKBACK_GROWTH,
-        // Away and slightly up: the jab route ends in SPACE, which is what the
-        // three-hit commitment buys — not a kill.
+        // Away and slightly up: the jab route ends in space, not a kill.
         launch_dir: Some((1.0, -0.35)),
         on_hit: None,
     });
     jab3.gates = grounded_only();
     {
-        // The finisher volume the builder just made, lifted off its window so
-        // the loop can be authored in front of it. ⛔ derived, never retyped:
-        // the pulse inherits the finisher's presentation tag, so the flurry and
-        // the launcher can never draw from two different arcs.
+        // The finisher volume, lifted off its window so the loop can be
+        // authored in front of it. Derived, not retyped: the pulse inherits
+        // the finisher's presentation tag.
         let finisher = jab3.windows[1]
             .volumes
             .pop()
@@ -295,34 +251,26 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
     vec![jab2, jab3]
 }
 
-/// Where a smash freezes: FOUR FRAMES into its windup, and the same four frames
-/// whatever the move's own startup is.
+/// Where a smash freezes: four frames into its windup, for every move.
 ///
-/// ⭐⭐ AUTHORED, not derived. `CHARGE_POSE_FRACTION` is the engine's fallback
-/// for a move that says nothing, and it makes the pose a FRACTION of the
-/// windup — so a slow smash would hold later in real time than a fast one, for
-/// no reason a player could see. A charge pose is an ANIMATION fact: the swing
-/// starts, and a few frames in it stops. Jon, 2026-08-23: *"it needs to hold on
-/// the first frames of the smash animation, before letting the rest of the
-/// animation, which actually has the hitboxes, play."*
+/// Authored, not derived. The engine fallback `CHARGE_POSE_FRACTION` makes the
+/// pose a fraction of the windup, so a slow smash would hold later than a fast
+/// one. The hold must be on the first frames of the animation, before the
+/// frames with hitboxes.
 ///
-/// ⛔ INSIDE THE LEADING STARTUP AND STRICTLY BEFORE THE FIRST ACTIVE WINDOW —
-/// every windup in this roster is at least 0.22s, so four frames clears it with
-/// room. `CatalogError::ChargeHoldOutsideWindup` refuses an authored pose that
-/// does not, which is the check this authoring exists to satisfy rather than
-/// to lean on.
+/// It must be inside the leading startup and before the first active window.
+/// Every windup here is at least 0.22s. `CatalogError::ChargeHoldOutsideWindup`
+/// refuses a pose that is not.
 const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
 
-/// Shared by this demo's three fighters today. That is a content decision, not
-/// an architectural one: the moveset rides the CHARACTER, so giving George a
-/// heavier one is editing his definition and nothing else.
+/// Shared by this demo's fighters. The moveset rides the character, so
+/// giving George a different one only edits his definition.
 pub fn fighter_moveset() -> MovesetContract {
     let mut moves = Vec::new();
 
     // ── grounded ─────────────────────────────────────────────────────────────
     //
-    // The jab is the fast, safe, boring one — it exists to be thrown at nothing
-    // and get away with it, which is what makes the smash below a decision.
+    // The jab is fast and safe; that is what makes the smash a decision.
     let mut jab = strike(Strike {
         id: "jab",
         clip: "attack",
@@ -338,19 +286,11 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     jab.gates = grounded_only();
-    // ⭐ THE CHAIN. A second press inside the window takes the successor the
-    // window NAMES; without one, a re-press restarted jab 1 and the fastest
-    // move in the kit was a full commitment every time you threw it.
+    // The chain: a second press inside the window takes the named successor.
     //
-    // ⭐ A JAB STRING CONTINUES ON A WHIFF, which is the genre's rule and was
-    // measured to be the difference between a live mechanic and a dead one. The
-    // window was authored `OnHit` on the argument that a chain is a REWARD —
-    // true of a smash's combo-confirm and false of a jab, which every game in
-    // this genre lets you throw three times at empty air. Measured 2026-08-23
-    // over a 90-second George mirror: the CPUs started the jab once and it did
-    // not connect, so `OnHit` refused the only chance the chain ever had.
-    // ⛔ this is the STRING's rule and not the cancel table's: every other
-    // `OnHit` window in this file is a genuine combo confirm and stays one.
+    // A jab string continues on a whiff (`Always`), as in the genre. With
+    // `OnHit`, CPUs that whiffed the first jab never chained. Other `OnHit`
+    // windows in this file are real combo confirms and stay `OnHit`.
     let jab = cancelable(jab, 0.11, 0.25, &["jab2"], CancelCondition::Always);
     moves.push(jab);
 
@@ -367,9 +307,8 @@ pub fn fighter_moveset() -> MovesetContract {
             damage: 5,
             knockback: 70.0,
             knockback_growth: 1.40,
-            // Straight up: an anti-air that starts a juggle rather than sending the
+            // Straight up: an anti-air that starts a juggle.
             launch_dir:
-        // opponent away.
         Some((0.15, -1.0)),
             on_hit: None,
         });
@@ -396,11 +335,9 @@ pub fn fighter_moveset() -> MovesetContract {
 
     // ── the smashes ──────────────────────────────────────────────────────────
     //
-    // the move the demo did not have. A forward smash is eighteen frames
-    // of startup you cannot take back, and the reason anybody accepts that is
-    // the launch at the end of it: three times the jab's, growing with the
-    // victim's percent, so at 120% it is the thing that ends the stock. The
-    // charge multiplier is what a HELD press pays for.
+    // A forward smash has eighteen frames of startup you cannot take back.
+    // It pays with a launch three times the jab's that grows with percent,
+    // so at 120% it ends the stock. The charge multiplier rewards holding.
     let mut f_smash = strike(Strike {
             id: "smash_forward",
             clip: "attack",
@@ -412,21 +349,16 @@ pub fn fighter_moveset() -> MovesetContract {
             damage: 15,
             knockback: 150.0,
             knockback_growth: 3.00,
-            // Slightly upward and away: the classic kill angle. A contact-derived
+            // Slightly upward and away: the classic kill angle.
             launch_dir:
-        // direction would send a crouching opponent along the floor instead.
         Some((1.0, -0.42)),
             on_hit: None,
         });
     f_smash.gates = grounded_only();
-    // A fully-held charge lands 1.7× as hard. `smash_charge_mult` scales damage
-    // AND knockback by how far the owner's clock got through the leading
-    // Startup window before release, so the commitment and the payoff are the
-    // same authored number.
-    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
-    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
-    // an author who set the spec alone got a charge that buys nothing. The verb
-    // refuses that.
+    // A fully held charge lands 1.7x as hard: `smash_charge_mult` scales damage
+    // and knockback by how far the owner got through the leading Startup
+    // window. `charge` sets the multiplier and the spec in one call, because
+    // the spec alone buys nothing.
     let mut f_smash = ambition_entity_catalog::authoring::charge(
         f_smash,
         ambition_entity_catalog::authoring::Charge {
@@ -439,15 +371,10 @@ pub fn fighter_moveset() -> MovesetContract {
             multiplier: 1.7,
         },
     );
-    // ⭐ THE TIP AND THE BASE. The volume above is the TIP — authored first, so
-    // it is the one a body reached by both takes. This is the base: the same
-    // swing landed at the wrong distance, which hurts and does not kill.
-    //
-    // Spacing becomes a skill on this move without the move becoming two: get
-    // the range right and the smash is what the smash is worth, stand too close
-    // and it is a tilt with a long recovery. ⛔ the order in this list IS the
-    // priority — writing the base first would make every forward smash a base
-    // hit, and nothing would warn you.
+    // Tip and base. The volume above is the tip, authored first, so a body
+    // reached by both takes the tip. This is the base: the same swing at the
+    // wrong distance, which hurts but does not kill. The list order is the
+    // priority.
     for window in f_smash
         .windows
         .iter_mut()
@@ -456,15 +383,15 @@ pub fn fighter_moveset() -> MovesetContract {
         let tip = window.volumes[0].clone();
         window.volumes.push(HitVolume {
             shape: VolumeShape::Rect {
-                // Inboard of the tip and overlapping it, so a body between the
-                // two is genuinely reached by both and the rule has to choose.
+                // Inboard of the tip and overlapping it, so a body between
+                // the two is reached by both.
                 offset: (14.0, -4.0),
                 half_extents: (16.0, 20.0),
             },
             damage: 8,
             knockback: 70.0,
             knockback_growth: Some(70.0 * crate::SMASH_KNOCKBACK_GROWTH),
-            // Flatter and weaker: a base hit puts them next to you, not away.
+            // Flatter and weaker: a base hit leaves them next to you.
             launch_dir: Some((1.0, -0.15)),
             ..tip
         });
@@ -486,10 +413,7 @@ pub fn fighter_moveset() -> MovesetContract {
         on_hit: None,
     });
     up_smash.gates = grounded_only();
-    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
-    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
-    // an author who set the spec alone got a charge that buys nothing. The verb
-    // refuses that.
+    // `charge` sets the multiplier and the spec in one call.
     let up_smash = ambition_entity_catalog::authoring::charge(
         up_smash,
         ambition_entity_catalog::authoring::Charge {
@@ -515,15 +439,12 @@ pub fn fighter_moveset() -> MovesetContract {
         damage: 12,
         knockback: 130.0,
         knockback_growth: 2.60,
-        // Low and outward — the edge-guarding smash, not a launcher.
+        // Low and outward: the edge-guarding smash, not a launcher.
         launch_dir: Some((1.0, -0.25)),
         on_hit: None,
     });
     down_smash.gates = grounded_only();
-    // ⭐ ONE CALL. The multiplier used to sit on its own line above the spec:
-    // `smash_charge_mult` lives on the MOVE rather than in `SmashChargeSpec`, so
-    // an author who set the spec alone got a charge that buys nothing. The verb
-    // refuses that.
+    // `charge` sets the multiplier and the spec in one call.
     let down_smash = ambition_entity_catalog::authoring::charge(
         down_smash,
         ambition_entity_catalog::authoring::Charge {
@@ -540,9 +461,8 @@ pub fn fighter_moveset() -> MovesetContract {
 
     // ── aerials ──────────────────────────────────────────────────────────────
     //
-    // landing lag and auto-cancel are what make an aerial a DECISION, and
-    // both were engine features with no adopter. The pair reads: throw this one
-    // early in a jump and land clean; throw it late and pay for it.
+    // Landing lag and auto-cancel make an aerial a decision: throw it early
+    // in a jump and land clean; throw it late and pay.
     let mut n_air = strike(Strike {
         id: "air_neutral",
         clip: "attack",
@@ -593,7 +513,7 @@ pub fn fighter_moveset() -> MovesetContract {
         knockback: 125.0,
         knockback_growth: 2.50,
         // Backwards and slightly up: the strongest aerial, and the one you
-        // have to turn around for.
+        // turn around for.
         launch_dir: Some((-1.0, -0.38)),
         on_hit: None,
     });
@@ -632,26 +552,20 @@ pub fn fighter_moveset() -> MovesetContract {
             damage: 10,
             knockback: 110.0,
             knockback_growth: 2.20,
-            // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
+            // Straight down: a spike. Offstage it takes a stock.
             launch_dir:
-        // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
             on_hit: None,
         });
     d_air.gates = airborne_only();
-    // The heaviest lag in the set: a missed spike over the stage should hurt.
+    // The heaviest lag in the set: a missed spike over the stage costs.
     d_air.landing_lag_s = Some(0.28);
     d_air.autocancel_after_s = Some(0.40);
     moves.push(d_air);
 
-    // A GRAB, BECAUSE EVERY FIGHTER IN THE GENRE HAS ONE.
-    //
-    // Only George authored one, and the default seats are the STAND-INS. A rock-paper- scissors
-    // triangle with one leg on one character is not the game.
-    //
-    // a middleweight's numbers, deliberately between the two fighters that
-    // already author one: slower than the admiral's `0.07` snatch, faster than
-    // George's `0.16` commitment, and its throw sits below both a smash and his.
+    // A grab, as every fighter in the genre has one. Middleweight numbers:
+    // slower than the admiral's `0.07` snatch, faster than George's `0.16`,
+    // and its throw sits below a smash and below his.
     let capture = ambition_entity_catalog::smash_capture::SmashCaptureRepertoire {
         cues: ambition_entity_catalog::smash_capture::CaptureCues::GENERIC,
         grab: ambition_entity_catalog::smash_capture::author_standing_grab(
@@ -732,32 +646,19 @@ pub fn fighter_moveset() -> MovesetContract {
             ),
         ),
     };
-    // A COMMAND GRAB ON SIDE-SPECIAL — the parity inventory's P11 road that
-    // needed authoring and nothing else.
-    //
-    // ⭐ **THE WHOLE POINT IS THAT NO ENGINE WORK WAS REQUIRED.** A capture is a
+    // Side special: a command grab, built from authoring alone. A capture is a
     // move whose `Active` window sustains `smash.capture_attempt`;
-    // `author_standing_grab` attaches that to any `MoveSpec` and never asks
-    // which verb the move is bound to, and the captor branch of
-    // `resolve_combat_action` keys off the capture STATE — "am I holding
-    // somebody" — not off the move that caught them. ⇒ So a grab reached by the
-    // special button pummels and throws through exactly the same four verbs the
-    // standing grab does, with no new road, no new key and no schema change.
+    // `author_standing_grab` attaches that to any `MoveSpec`, and the captor
+    // branch of `resolve_combat_action` keys off the capture state, not the
+    // move. So it pummels and throws through the same four verbs.
     //
-    // ⚠ **AND IT CLOSES A DEAD BUTTON, measured rather than assumed.** This
-    // contract bound 18 verbs to George's 26: no `special`, no `special_forward`,
-    // `special_up` or `special_down`, no `attack_forward`, no `attack_dash`, no
-    // `taunt`. George is the one authored fighter and the stand-ins had NOTHING
-    // on the special button — a press that resolved to no move at all. ⛔ This
-    // fixes ONE of those eight. The other seven are still dead and that is not
-    // this move's job to hide.
+    // Before this the stand-ins had nothing on the special button. Some
+    // special presses are still unanswered; see
+    // `the_only_presses_this_fighter_cannot_answer_are_specials`.
     //
-    // The design follows the same middleweight logic as the grab above: it is
-    // the standing grab's slower, longer-reaching, COMMITTED cousin. Startup
-    // 0.26 against the standing grab's 0.12 — you cannot mash it as a panic
-    // option — a reach that extends well past the standing grab's `20.0`, and a
-    // recovery long enough that a whiff is punished. It travels, because a
-    // command grab that closes no distance is a worse standing grab.
+    // It is the standing grab's committed cousin: startup 0.26 against 0.12
+    // (not a panic option), more reach than the standing grab's `20.0`, a
+    // long recovery, and it travels.
     let mut command_grab =
         ambition_entity_catalog::smash_capture::author_standing_grab(
             ambition_entity_catalog::smash_capture::grab_shell(
@@ -769,48 +670,31 @@ pub fn fighter_moveset() -> MovesetContract {
             ),
             ambition_entity_catalog::smash_capture::CaptureAttemptParams {
                 // Reaches forward from a lunging body, so the box sits further
-                // out and is a little taller than the standing grab's — it has
-                // to catch somebody the lunge is arriving at.
+                // out and a little taller than the standing grab's.
                 offset: (34.0, 0.0),
                 half_extents: (28.0, 18.0),
-                // The SAME hold as the standing grab, deliberately. A captive
-                // held somewhere else would make the follow-up throws read
-                // differently depending on which grab caught them, and the
-                // throws are shared.
+                // The same hold as the standing grab: the follow-up throws are
+                // shared.
                 hold_offset: (18.0, -2.0),
             },
         );
-    // ⛔ ADDITIVE, not `Set`. George's side-B erases the momentum behind it
-    // because being unsteerable is that move's whole identity; this one is a
-    // grab, and a grab that deleted your run would make dashing into it worse
-    // than walking. A dash-cancelled command grab covering more ground is the
-    // correct behaviour and it is what `start_impulse` already means.
+    // Additive, not `Set`: a grab that deleted your run would make dashing
+    // into it worse than walking. (George's side-B erases momentum because
+    // that is its identity.)
     command_grab.start_impulse = Some((330.0, 0.0));
     moves.push(command_grab);
 
-    // DOWN SPECIAL — `riposte`. The second of George's eight dead specials this
-    // contract fills, and the first move in the demo that answers a DEFENCE.
+    // Down special: `riposte`. It adds no defensive mechanic: the perfect
+    // shield already denies a qualifying attack and names the attacker; this
+    // move holds that window open and says what to do about it.
     //
-    // ⭐⭐ IT ADDS NO DEFENSIVE MECHANIC. The perfect shield already denies a
-    // qualifying attack and now names who threw it; this move holds that window
-    // open on purpose and names what to do about it. The counter is composition,
-    // which is why there is no counter system anywhere in this demo.
+    // Its answer is the capture attempt `lunge_grab` uses, landing in
+    // `CapturedBy`. The response is a key, so another technique can answer
+    // by changing one string.
     //
-    // ⭐ AND ITS ANSWER IS THE GRAB ABOVE. A parry into a command grab is a real
-    // fighting-game exchange, and it costs nothing new: `smash.capture_attempt`
-    // is already shipped, already authored by `lunge_grab`, and already lands in
-    // the generic `CapturedBy` authority. ⇒ The response is a KEY, so the day a
-    // resource technique or a slow exists, the same stance answers with those
-    // instead by changing one string.
-    //
-    // ⛔ THE RECOVERY IS THE PRICE AND IT IS DELIBERATELY LONG. 0.44s against a
-    // 0.16s stance: a counter you can throw out on reaction to nothing is a
-    // defensive option with no downside, which flattens the exchange it exists
-    // to deepen. Whiffing this should lose you the neutral.
-    //
-    // ⚠ THE HOLD MATCHES THE OTHER TWO GRABS, for the reason `lunge_grab` gives
-    // in place: the follow-up throws are shared, so a captive held somewhere
-    // else would make them read differently depending on which grab caught them.
+    // The long recovery (0.44s against a 0.16s stance) is the price, so a
+    // whiffed counter loses neutral. The hold matches the other grabs, because
+    // the follow-up throws are shared.
     let riposte = ambition_entity_catalog::smash_counter::counter_move(
         "riposte",
         "special",
@@ -818,62 +702,42 @@ pub fn fighter_moveset() -> MovesetContract {
         0.16,
         0.44,
         ambition_entity_catalog::smash_counter::CounterParams {
-            // ⛔ A HEARTBEAT, NOT A DURATION — `parry_window_timer` decays, and
-            // the stance re-arms it every frame it is live. Three ticks of slack
-            // at 60Hz, so a frame the sustain misses does not close the window.
+            // A heartbeat, not a duration: `parry_window_timer` decays and the
+            // stance re-arms it every live frame. Three ticks of slack at 60Hz.
             window_s: 0.05,
-            // Its own answer, as every counter but the clerk's is.
+            // Its own answer, as for every counter except the clerk's.
             answers_the_attacker: false,
             response: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
                 .to_string(),
             response_params: ambition_entity_catalog::ParamValue::from_typed(
                 &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                    // Closer than the lunge: the attacker is already inside your
-                    // guard, which is how they got parried.
+                    // Closer than the lunge: the attacker is already inside
+                    // your guard.
                     offset: (24.0, 0.0),
                     half_extents: (24.0, 22.0),
                     hold_offset: (18.0, -2.0),
                 },
             )
             .expect("the riposte's capture params serialize"),
-            // ⛔ THIS ONE RETURNS SHOTS, and that is the interesting default
-            // for a counter: reflecting a projectile is a reward the crowd can
-            // see, where absorbing one is quiet. An absorber is a DIFFERENT
-            // fighter's stance, and the field is stated here rather than
-            // defaulted so the choice is visible at both.
+            // This counter reflects projectiles; absorbing is a different
+            // fighter's stance. Stated, not defaulted, so the choice is visible.
             absorbs_projectiles: false,
         },
     );
     moves.push(riposte);
 
-    // NEUTRAL SPECIAL — `read_and_seize`. THE FIRST AUTHORED FLOW, and the
-    // third of George's eight dead specials this contract fills.
+    // Neutral special: `read_and_seize`, a hit confirm. A `MoveSpec` timeline
+    // says when; this move needs "swing, and if that connected, grab;
+    // otherwise recover". That is a `TechniqueFlow` emitting
+    // `smash.capture_attempt`, as `lunge_grab` and `riposte` do.
     //
-    // ⭐⭐ A HIT CONFIRM, which is a thing a MoveSpec timeline cannot express.
-    // Windows say WHEN; this move has to say "swing, and IF that connected, go
-    // for the grab — otherwise eat the recovery". That is a sequence, and the
-    // sequence is the whole move. ⇒ `TechniqueFlow`, four nodes, no new engine
-    // anything: the answer it emits is `smash.capture_attempt`, the same
-    // technique `lunge_grab` and `riposte` already use.
+    // It waits on `Connected`, not `Overlapped`: a shielded poke sets
+    // `overlapped` (the staling fact), so it would grab through a guard.
     //
-    // ⛔ IT WAITS ON `Connected`, NOT `Overlapped`. A shielded poke sets
-    // `overlapped` — it is the staling fact — so a confirm written against it
-    // would grab through a guard, which is the single most abusable thing a
-    // fighting game can ship. `Connected` is the damage road's verdict.
-    //
-    // ⚠ THE TIMEOUT IS A BOUND ON THE SEQUENCE, NOT THE SOURCE OF THE PUNISH —
-    // corrected 2026-09-05, because the first version of this comment said "0.22s
-    // of waiting AFTER the active window" and the arithmetic does not say that.
-    // The flow's wait starts when the MOVE does, so 0.22s expires 0.08s after the
-    // active window closes (0.09 → 0.14), not 0.22s after it. ⇒ What makes a
-    // whiff punishable is the 0.40s RECOVERY, which is paid either way; the
-    // timeout only stops the flow waiting past the point a connect could still
-    // arrive.
-    //
-    // ⛔ SO THE INVARIANT IS THAT THE WAIT OUTLASTS THE WINDOW IT CONFIRMS. A
-    // timeout shorter than `startup + active` makes the confirm impossible to
-    // land — the flow gives up before the strike can report — and the move would
-    // read as a grab that simply never comes out. Guarded below.
+    // The wait starts with the move, so the 0.22s timeout ends 0.08s after the
+    // active window (0.09 → 0.14). The whiff punish is the 0.40s recovery; the
+    // timeout only bounds the wait. The wait must outlast `startup + active`,
+    // or the grab can never come out (guarded below).
     let mut confirm = strike(Strike {
         id: "read_and_seize",
         clip: "special",
@@ -882,8 +746,7 @@ pub fn fighter_moveset() -> MovesetContract {
         recover_s: 0.40,
         offset: (24.0, -2.0),
         half_extents: (18.0, 20.0),
-        // Deliberately weak. The payoff is the GRAB, not this hit — a confirm
-        // that also hurt would be a better jab with a bonus.
+        // Deliberately weak: the payoff is the grab.
         damage: 2,
         knockback: 40.0,
         knockback_growth: 0.80,
@@ -893,14 +756,14 @@ pub fn fighter_moveset() -> MovesetContract {
     confirm.gates = grounded_only();
     confirm.flow = Some(ambition_entity_catalog::TechniqueFlow {
         nodes: vec![
-            // 0 — hold for the verdict on this swing.
+            // 0: wait for the verdict on this swing.
             ambition_entity_catalog::FlowNode::Wait {
                 on: ambition_entity_catalog::FlowSignal::Connected,
                 timeout_s: 0.22,
                 then: 1,
                 on_timeout: 2,
             },
-            // 1 — it landed: go for the grab, at the reach the standing grab uses.
+            // 1: it landed. Grab, at the standing grab's reach.
             ambition_entity_catalog::FlowNode::Emit {
                 effect: ambition_entity_catalog::EffectRef {
                     key: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
@@ -916,13 +779,12 @@ pub fn fighter_moveset() -> MovesetContract {
                 },
                 then: 2,
             },
-            // 2 — done either way; the move plays out its own recovery.
+            // 2: done either way; the move plays out its recovery.
             ambition_entity_catalog::FlowNode::Finish,
         ],
     });
-    // ⛔ VALIDATED WHERE IT IS AUTHORED. Every failure `problems()` names is
-    // silent at runtime — a dangling transition is a move that stops mid-
-    // sequence, and an unreachable `Finish` is a fighter stuck in a special.
+    // Validated where it is authored: a dangling transition or unreachable
+    // `Finish` is silent at runtime.
     assert_eq!(
         confirm
             .flow
@@ -935,25 +797,12 @@ pub fn fighter_moveset() -> MovesetContract {
     );
     moves.push(confirm);
 
-    // UP SPECIAL — `slip_upward`. THE RECOVERY, and until now these fighters
-    // did not have one.
+    // Up special: `slip_upward`, the recovery. Before it, `special_up_air`
+    // fell through to nothing, because the other specials are `grounded_only`.
     //
-    // ⛔⛔ PRESSING UP-B IN THE AIR DID NOTHING. All three specials authored
-    // above are `grounded_only`, so `special_up_air` fell through the whole
-    // directional chain to silence — a platform fighter knocked off the stage
-    // had jumps and a ledge grab and no special at all. That is not a missing
-    // flourish; it is the button the genre is built around.
-    //
-    // ⭐ THE TELEPORT, NOT AN ARC, because the technique already IS a recovery:
-    // its own doc says the aim assist "is the whole reason this is a technique
-    // rather than an authored impulse — a recovery that vanishes and reappears
-    // is trivial to write and unusable if it drops you a pixel under the
-    // stage." Ledge assist, wall clamping and destination resolution all come
-    // with it. ⇒ Authoring, not engine.
-    //
-    // ⚠ AIRBORNE ONLY, deliberately. On the ground these fighters answer up-B
-    // with the neutral special through the fallback chain, which is a real move;
-    // a grounded blink would replace that with a worse one.
+    // A teleport, not an arc: the technique brings ledge assist, wall clamping
+    // and destination resolution. Airborne only: on the ground, up-B falls
+    // back to the neutral special.
     let recovery = ambition_entity_catalog::smash_teleport::author_teleport(
         {
             let mut shell = ambition_entity_catalog::authoring::hitless_special(
@@ -963,27 +812,25 @@ pub fn fighter_moveset() -> MovesetContract {
                 0.46,
             );
             shell.gates = airborne_only();
-            // The genre's rule, and the reason a recovery is a decision: one use
-            // per airtime, helpless after. Stated by the repertoire slot below.
+            // One use per airtime, helpless after (stated by the repertoire
+            // slot below).
             shell.landing_lag_s = Some(0.16);
             shell
         },
         0.10,
         ambition_entity_catalog::smash_teleport::TeleportParams {
-            // ⛔ AIMED, NOT AN AMBUSH. `behind_nearest_foe` is the other thing
-            // this technique does, and a recovery that teleports you next to
-            // whoever is edgeguarding you is the opposite of an escape.
+            // Aimed, not an ambush: `behind_nearest_foe` would put a
+            // recovering fighter next to the edgeguarder.
             behind_nearest_foe: false,
             behind_gap: 0.0,
-            // ⚠ TUNING against the engine's jump arc: far enough that it is
-            // worth having, short enough that it is not a free return from
-            // anywhere. A knob.
+            // Tuned against the engine's jump arc: worth having, but not a
+            // free return from anywhere.
             distance: 250.0,
-            // The whole reason this is a technique. Without it a recovery that
-            // lands a pixel under the lip is a death that reads as a bug.
+            // Without ledge assist a recovery that lands a pixel under the lip
+            // is a death.
             ledge_assist: 26.0,
-            // Brief, and it is the counterplay: you cannot be hit out of the
-            // blink itself, so an edgeguard has to cover where you ARRIVE.
+            // Brief, and it is the counterplay: the blink cannot be hit, so an
+            // edgeguard covers where you arrive.
             intangible_s: 0.18,
             depart_vfx: "rune_circle".to_string(),
             arrive_vfx: "rune_circle".to_string(),
@@ -1013,9 +860,8 @@ pub fn fighter_moveset() -> MovesetContract {
         ("attack_air_back", "air_back"),
         ("attack_air_up", "air_up"),
         ("attack_air_down", "air_down"),
-        // ⭐ The two specials this contract binds. See `lunge_grab` and
-        // `riposte` above for what each is and why the rest of George's verbs
-        // stay dead.
+        // The two specials this contract binds; see `lunge_grab` and
+        // `riposte` above.
         ("special_forward", "lunge_grab"),
         ("special_down", "riposte"),
         ("special", "read_and_seize"),
@@ -1034,19 +880,11 @@ mod tests {
     use super::*;
     use ambition_entity_catalog::AttackDir;
 
-    /// ⭐⭐ WHAT A PRESS ANSWERS, not what a verb list binds — the two are
-    /// different and the difference is eight presses.
+    /// What a press answers, not what a verb list binds.
     ///
-    /// ⛔ **A VERB COUNT IS A COUNT OF BINDINGS. A PLAYER PRESSES A CHAIN.**
-    /// `directional_verb_chain` always falls back to the base verb, so this
-    /// contract's missing `attack_forward` is NOT silence — a forward tilt
-    /// answers with the `jab`. ⇒ Counting bindings therefore understates what
-    /// this fighter answers, and only the press enumeration below is safe to
-    /// draw a claim from.
-    ///
-    /// ⭐ What IS true is narrower and entirely about the special family. This
-    /// pins it by enumerating every press rather than by inspecting keys, so the
-    /// claim and the guard are the same act.
+    /// `directional_verb_chain` falls back to the base verb, so a missing
+    /// `attack_forward` still answers with the `jab`. This test enumerates
+    /// every press instead of inspecting keys.
     #[test]
     fn the_only_presses_this_fighter_cannot_answer_are_specials() {
         use ambition_entity_catalog::AttackDir;
@@ -1070,9 +908,8 @@ mod tests {
             }
         }
 
-        // ⛔ EVERY silent press is a `smash` or a `special`, and the `attack`
-        // family answers ALL TEN — which is the assertion the withdrawn claim
-        // would have failed.
+        // Every silent press is a `smash` or a `special`; the `attack` family
+        // answers all ten.
         assert!(
             silent.iter().all(|p| !p.starts_with("attack_")),
             "an `attack` press went unanswered: {silent:?} — the base-verb \
@@ -1080,15 +917,11 @@ mod tests {
              stopped, every planning claim about this fighter's reach is stale"
         );
 
-        // ⭐ The special family is the gap, and it is TWO of the ten special
-        // presses — `special_neutral_air` and `special_back_air`. `special_forward` answers with
-        // `lunge_grab` and `special_down` with `riposte` in both stances, and
-        // binding the NEUTRAL special to `read_and_seize` answered every
-        // remaining GROUND press through `directional_verb_chain`'s fallback:
-        // a grounded up-B or back-B now resolves to the neutral special rather
-        // than to silence. ⇒ What is left is the aerial column, because that
-        // move is `grounded_only`. (Ten presses; the comment said seven before
-        // anyone counted, then eight, then six.)
+        // Two of the ten special presses are silent: `special_neutral_air`
+        // and `special_back_air`. `special_forward` and `special_down` answer
+        // in both stances, and the neutral special answers the remaining ground
+        // presses through the fallback. The aerial column is left because the
+        // neutral special is `grounded_only`.
         let specials: Vec<&String> = silent.iter().filter(|p| p.starts_with("special_")).collect();
         assert_eq!(
             specials.len(),
@@ -1105,8 +938,7 @@ mod tests {
     }
 
     /// Every `(base, direction, stance)` press, and which of them a contract
-    /// answers with nothing. Shared by the relation test below so the two
-    /// fighters are measured by one instrument rather than two copies of one.
+    /// answers with nothing. Shared so both fighters use one instrument.
     fn silent_presses(
         set: &ambition_entity_catalog::MovesetContract,
     ) -> Vec<String> {
@@ -1130,31 +962,18 @@ mod tests {
         silent
     }
 
-    /// ⭐⭐ **THE TWO FIGHTERS' SILENCES ARE NOT TWO NUMBERS, THEY ARE A SUBSET
-    /// AND A DIFFERENCE — which is the skeleton finding in one assertion.**
+    /// The two fighters' silent presses are a subset and a difference.
     ///
-    /// Its siblings each pin one fighter against the press space: the test above
-    /// for the stand-in (**15** silent), and
-    /// `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks` for
-    /// George (**7**). ⛔ **Held apart, those two numbers invite a subtraction
-    /// they do not license.** 15 and 7 yield "a gap of 8" only if the smaller set
-    /// sits inside the larger one, and nothing in either test says it does — two
-    /// sets of those sizes can overlap by any amount, and the difference would
-    /// still be reported as 8 in every case.
+    /// Siblings pin each fighter's count (the stand-in above, **15**, and
+    /// `the_presses_george_leaves_unanswered_are_the_ones_the_genre_lacks`,
+    /// **7**). Two counts do not say one set is inside the other, so this
+    /// asserts the relation: George's silent set is a strict subset of the
+    /// stand-in's, and the rest is exactly eight `special` presses. The
+    /// stand-in is George's genre shape without the special button.
     ///
-    /// ⇒ So assert the RELATION. George's silent set is a strict SUBSET of the
-    /// stand-in's, and what is left over is exactly eight `special` presses. ⭐
-    /// The stand-in is therefore not a different fighter missing different
-    /// things — **it is George's genre shape with the special button removed**,
-    /// which is what makes *"give the Robots a special"* a well-posed question
-    /// with a bounded answer instead of an open authoring job.
-    ///
-    /// ⚠ **A ratchet, and the two ways it can redden mean opposite things.**
-    /// Authoring a special on the stand-in shrinks the difference and fails the
-    /// second assertion — the good failure, fixed by lowering the number here in
-    /// the same commit. Losing one of George's specials breaks the SUBSET
-    /// instead, and that is a regression. Which assertion fires tells you which
-    /// happened, so the failure text does not have to guess.
+    /// A ratchet. Authoring a stand-in special fails the second assertion (lower
+    /// the number in the same commit). Losing a George special breaks the subset,
+    /// which is a regression.
     #[test]
     fn the_stand_in_is_george_s_genre_shape_with_the_special_button_removed() {
         let stand_in = silent_presses(&fighter_moveset());
@@ -1180,58 +999,25 @@ mod tests {
         );
     }
 
-    /// THE SIDE-SPECIAL IS A REAL CAPTURE, not a strike wearing the name.
+    /// No grab this demo authors reaches further than 96px.
     ///
-    /// ⭐ The inverted half is the one that matters. Asserting "`special_forward`
-    /// resolves" would pass if somebody rebound it to the jab, and asserting
-    /// "some move carries a capture attempt" would pass on the standing grab
-    /// alone. This asserts the SPECIAL's own move captures, and that it is a
-    /// different move from the standing grab — the two claims that together mean
-    /// the button does the new thing rather than an old one.
+    /// Nothing else bounds an authored grab's reach (not the params schema,
+    /// `acquire_captures`, or the content pass), so a typo in `half_extents`
+    /// could catch across the stage. A ceiling, not an engine clamp: a clamp
+    /// would silently truncate a deliberate long reach.
     ///
-    /// ⚠ **THIS GUARD WAS DEAD FROM `45e0ceada` TO `7bb880ff3` and its `#[test]`
-    /// was restored without being run** — the box that restored it could not
-    /// build. ⇒ If it is RED the first time it executes, that is not necessarily
-    /// a regression introduced by whoever ran it: check the two commits that
-    /// touched this file while it was dead (both add tests only and neither
-    /// touches `lunge_grab`, so green is expected) before hunting a live cause.
-    /// ⛔⛔ NOTHING BOUNDS AN AUTHORED GRAB'S REACH — not the params schema, not
-    /// `acquire_captures`, not the content pass. A typo in `half_extents` is a
-    /// grab that catches across the stage, and no other test would say so.
+    /// It covers only this crate's two movesets. `ambition_content`'s fighters
+    /// (including tethers) are checked by the guard of the same name in
+    /// `ambition_content::authored_movesets`, which holds the tether allowlist.
     ///
-    /// ⭐ THE REASON THIS IS WORTH A GUARD NOW rather than when it breaks: every
-    /// authored grab today is small enough that the missing bound never shows.
-    /// The parity inventory's TETHER is the first move that would make a large
-    /// number look correct, and the moment somebody authors one is the moment a
-    /// stage-crossing typo stops being obviously wrong.
-    ///
-    /// ⚠ A CEILING, NOT A CLAMP, and deliberately: clamping in the engine would
-    /// silently truncate a deliberate long reach, which is worse than refusing
-    /// it.
-    ///
-    /// ⛔⛔ AND ITS NAME USED TO OVERCLAIM — it was
-    /// `no_authored_grab_reaches_further_than_the_stage_allows`, which reads as
-    /// a statement about the game and is a statement about TWO MOVESETS. This
-    /// crate does not depend on `ambition_content`, where eleven of the
-    /// selectable fighters' tables live, so a reader asking "are tethers
-    /// covered?" would have read the old name and stopped. Renamed 2026-09-05,
-    /// when Projectile Polygon's grab became a 150px tether and this guard —
-    /// the one whose doc invited exactly that change — could not see it.
-    /// ⇒ The sibling that CAN is
-    /// `ambition_content::authored_movesets`'s guard of the same name, which
-    /// walks `tables()` and holds the tether allowlist. A deliberate long reach
-    /// on a content fighter is declared there, not by raising this number.
-    ///
-    /// The bound is stated against the stage rather than the body: the smash
-    /// platform is 480px wide, so 96 is a fifth of the ground a fighter stands
-    /// on, and the longest thing authored today reaches 62.
+    /// The platform is 480px wide, so 96 is a fifth of it.
     #[test]
     fn no_grab_this_demo_authors_reaches_further_than_the_stage_allows() {
         use ambition_entity_catalog::smash_capture::{
             CaptureAttemptParams, CAPTURE_ATTEMPT,
         };
 
-        /// A fifth of the shipped platform's width. See the note above.
+        /// A fifth of the shipped platform's width.
         const MAX_REACH_PX: f32 = 96.0;
 
         let mut seen = 0usize;
@@ -1272,9 +1058,8 @@ mod tests {
             }
         }
 
-        // ⛔ A POPULATION FLOOR. This check's healthy answer is "no offender",
-        // and a census that walked nothing answers the same way — which is
-        // exactly how it would rot if `sustain_effect` or the key ever moved.
+        // Population floor: a census that walked nothing also finds no
+        // offender.
         assert!(
             seen >= 3,
             "found only {seen} authored capture attempt(s); the demo has at least three (two \
@@ -1283,6 +1068,10 @@ mod tests {
         );
     }
 
+    /// The side special is a real capture, not a strike with the name.
+    ///
+    /// It asserts the special's own move captures and is a different move from
+    /// the standing grab. Either claim alone passes on a wrong binding.
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_entity_catalog::WindowTag;
@@ -1300,9 +1089,8 @@ mod tests {
              button is an alias and the command grab does not exist"
         );
 
-        // ⛔ Live during `Active` and nowhere else. A capture attempt sustained
-        // through startup would catch bodies before the lunge commits, which is
-        // the difference between a command grab and an aura.
+        // Live during `Active` only. Sustained through startup, it would catch
+        // bodies before the lunge commits.
         let live: Vec<&WindowTag> = special
             .windows
             .iter()
@@ -1328,8 +1116,8 @@ mod tests {
              a capture at all"
         );
 
-        // ⭐ It travels. A command grab that closes no distance is strictly
-        // worse than the standing grab it costs more to throw.
+        // It travels: a command grab that closes no distance is worse than
+        // the standing grab.
         let (dx, _) = special
             .start_impulse
             .expect("a command grab that does not lunge is a slower standing grab");
@@ -1339,9 +1127,8 @@ mod tests {
              stands still"
         );
 
-        // ⚠ The design claim in one assertion: this is the COMMITTED grab.
-        // Equal startup would make it a strictly better standing grab with a
-        // longer reach, and nothing would ever press the other one.
+        // The committed grab: with equal startup it would be a strictly better
+        // standing grab.
         assert!(
             special.windows.iter().any(|w| w.tag == WindowTag::Active)
                 && standing.windows.iter().any(|w| w.tag == WindowTag::Active),
@@ -1377,9 +1164,8 @@ mod tests {
         }
     }
 
-    /// A forward smash is a different move from a jab, by every measure that
-    /// makes it one: it commits longer, hurts more, throws harder, and scales
-    /// with the victim's damage.
+    /// A forward smash is not a renamed jab: it commits longer, hurts more,
+    /// throws harder, and scales with the victim's damage.
     #[test]
     fn the_forward_smash_is_a_real_smash_and_not_the_jab_renamed() {
         let set = fighter_moveset();
@@ -1392,11 +1178,10 @@ mod tests {
             mv.windows
                 .iter()
                 .flat_map(|w| w.volumes.iter())
-                // A move that authors NO growth defers to the stage, which is
-                // the stage's own fraction of its base — the comparable number.
-                // ⛔ NOT `Option`'s ordering: `None < Some(_)` would have made
-                // "the jab states nothing" read as "the jab grows least", which
-                // is true here only by accident.
+                // No authored growth defers to the stage (its fraction of the
+                // base), the comparable number. Do not rely on `Option`
+                // ordering: `None < Some(_)` would read "states nothing" as
+                // "grows least".
                 .map(|v| {
                     (
                         v.damage,
@@ -1429,16 +1214,10 @@ mod tests {
             smash.smash_charge_mult > 1.0,
             "holding the smash pays nothing, so there is no reason to charge it"
         );
-        // ... and the payoff is REACHABLE. This roster authors no charge policy,
-        // so every smash of every shipped fighter relies on the one derived
-        // from its own leading Startup window; a smash that resolves no policy
-        // fires the instant it is pressed and the multiplier above is unpayable.
-        // ⛔ AUTHORED, NOT DERIVED. `CHARGE_POSE_FRACTION` is the engine's
-        // fallback for a move that says nothing about its pose, and it makes
-        // the freeze a FRACTION of the windup — a slow smash would hold later
-        // in real time than a fast one. This roster says where each swing
-        // stops, and this is what keeps the fallback from quietly becoming the
-        // authoring contract.
+        // The payoff is reachable. This roster authors each smash's charge
+        // pose (see `CHARGE_POSE_AT_S`); a smash with no policy fires at once
+        // and the multiplier is unpayable. This keeps the engine fallback
+        // (`CHARGE_POSE_FRACTION`) from becoming the contract.
         assert!(
             smash.smash_charge.is_some(),
             "this smash derives its charge pose from the engine fallback \
@@ -1452,11 +1231,9 @@ mod tests {
             "the hold sits at the very first instant of the move, so there is \
              no windup to commit to before the charge"
         );
-        // ⛔⛔ AND IT IS STRICTLY BEFORE THE FIRST STRIKE. Active membership is
-        // `start_s <= t < end_s`, so a hold ON that instant is already inside a
-        // live volume — a fighter charging with the hitbox out. The derived
-        // policy clamps for this, and every smash in this roster relies on the
-        // derivation, so this is the roster asking whether the clamp reached it.
+        // Strictly before the first strike: Active membership is
+        // `start_s <= t < end_s`, so a hold on that instant would charge with
+        // the hitbox out.
         let first_active = smash
             .windows
             .iter()
@@ -1478,22 +1255,18 @@ mod tests {
     /// Every authored growth equals the stage's own declaration, in the
     /// stage's units.
     ///
-    /// the guard for a UNIT MISMATCH that green tests cannot see. A volume's
-    /// `knockback_growth` is absolute px/s per point; the ruleset's `knockback_growth` is a
-    /// fraction of the move's base. Both are plain `f32`, both are "growth", and an authored
-    /// move outranks the ruleset — so the first pass's fraction-shaped numbers made every move
-    /// in this table grow ~40× slower than the stage declared, and nothing anywhere failed.
-    ///
-    /// A move MAY deliberately differ — that is what authoring is for — but it
-    /// has to differ by a factor a reader can see, not by a unit.
+    /// Guards a unit mismatch. A volume's `knockback_growth` is absolute px/s per
+    /// point; the ruleset's is a fraction of base. Both are `f32` "growth", and
+    /// an authored move outranks the ruleset, so a fraction-shaped number would
+    /// grow about 40x slower with nothing failing. A move may differ on purpose,
+    /// but by a visible factor, not a unit.
     #[test]
     fn an_authored_growth_is_the_stage_declaration_in_the_stage_units() {
         for mv in &fighter_moveset().moves {
             for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
-                // A volume that authors NO growth defers to the stage by
-                // construction, and FIXED knockback (`Some(0.0)`) is a
-                // deliberate choice no unit slip can produce from a non-zero
-                // base. Only a stated, non-zero growth can carry the slip.
+                // No growth defers to the stage, and fixed knockback
+                // (`Some(0.0)`) is deliberate. Only a stated non-zero growth
+                // can carry the slip.
                 let Some(authored) = volume.knockback_growth.filter(|g| *g > 0.0) else {
                     continue;
                 };
@@ -1515,9 +1288,8 @@ mod tests {
 
     /// The aerials commit, and the auto-cancel window is real.
     ///
-    /// the trap this pins: `autocancel_after_s` is IGNORED unless
-    /// `landing_lag_s` is authored, so an aerial with a window and no lag reads
-    /// as tuned and is inert.
+    /// `autocancel_after_s` is ignored unless `landing_lag_s` is authored, so
+    /// an aerial with a window and no lag is inert.
     #[test]
     fn every_aerial_authors_both_halves_of_the_landing_rule() {
         let set = fighter_moveset();
@@ -1546,8 +1318,8 @@ mod tests {
         assert_eq!(checked, 5, "the loop did not reach every aerial");
     }
 
-    /// A grounded press cannot reach an aerial, and vice versa — the gates
-    /// are what make one button eleven moves.
+    /// A grounded press cannot reach an aerial, and the reverse. The gates make
+    /// one button eleven moves.
     #[test]
     fn the_directional_chain_lands_on_the_right_move_for_the_posture() {
         let set = fighter_moveset();
@@ -1580,14 +1352,11 @@ mod tests {
 mod hit_confirm_tests {
     use ambition_entity_catalog::{FlowNode, FlowSignal};
 
-    /// The neutral special CONFIRMS: it waits on a connect, and answers with a
+    /// The neutral special confirms: it waits on a connect and answers with a
     /// grab.
     ///
-    /// ⛔⛔ THE SIGNAL IS THE ASSERTION. `Overlapped` is the staling fact and a
-    /// SHIELDED poke sets it, so a confirm written against it would grab through
-    /// a guard — the single most abusable thing a fighting game can ship, and
-    /// invisible in any test that only checks "it grabs after it hits". This
-    /// pins the signal by name.
+    /// The signal is the assertion. `Overlapped` is set by a shielded poke,
+    /// so a confirm on it would grab through a guard.
     #[test]
     fn the_neutral_special_confirms_on_a_connect_and_not_on_a_shield() {
         let set = super::fighter_moveset();
@@ -1626,9 +1395,8 @@ mod hit_confirm_tests {
              strike, so a confirm on it grabs through a shield"
         );
 
-        // ⛔ AND IT MUST ANSWER WITH SOMETHING. A flow that waits correctly and
-        // emits nothing is a move that commits to a read and cashes it for
-        // nothing, which no assertion about the signal would notice.
+        // It must also emit something; otherwise it commits to a read and
+        // gets nothing.
         let emitted: Vec<&str> = flow
             .nodes
             .iter()
@@ -1644,19 +1412,11 @@ mod hit_confirm_tests {
         );
     }
 
-    /// The confirm's wait OUTLASTS the window it is confirming.
+    /// The confirm's wait outlasts the window it confirms.
     ///
-    /// ⛔⛔ A TIMEOUT SHORTER THAN `startup + active` MAKES THE MOVE IMPOSSIBLE
-    /// TO LAND, and nothing else would say so. The flow gives up before the
-    /// strike can report a connect, so the grab never comes out however cleanly
-    /// the hit landed — which reads in play as a move that is simply broken, and
-    /// in code as four perfectly reasonable numbers.
-    ///
-    /// ⚠ THIS GUARD EXISTS BECAUSE I GOT THE ARITHMETIC WRONG IN PROSE FIRST.
-    /// The comment on the move claimed the timeout gave "0.22s of waiting after
-    /// the active window"; the wait starts at move START, so it expires 0.08s
-    /// after that window, and the whiff punish is really the recovery. A number
-    /// that survives review in a comment is worth pinning as an assertion.
+    /// A timeout shorter than `startup + active` means the flow gives up before
+    /// the strike can report a connect, so the grab never comes out. The wait
+    /// starts at move start.
     #[test]
     fn the_confirms_wait_outlasts_the_window_it_confirms() {
         let set = super::fighter_moveset();
@@ -1672,7 +1432,7 @@ mod hit_confirm_tests {
                 _ => None,
             })
             .expect("the confirm waits");
-        // The last moment a strike can still report a connect: the end of the
+        // The last moment a strike can report a connect: the end of the
         // authored Active window.
         let active_ends = spec
             .windows
@@ -1694,9 +1454,8 @@ mod hit_confirm_tests {
 
     /// Every authored flow in this contract is valid.
     ///
-    /// ⭐ A POPULATION CHECK, not one move: the next flow anybody authors here
-    /// is covered without remembering to add a test, and a flow with a dangling
-    /// transition is silent at runtime.
+    /// A population check, so the next flow authored here is covered. A flow
+    /// with a dangling transition is silent at runtime.
     #[test]
     fn every_authored_flow_in_this_contract_is_valid() {
         let set = super::fighter_moveset();
@@ -1725,19 +1484,11 @@ mod recovery_tests {
     use ambition_entity_catalog::smash_teleport::{TeleportParams, TELEPORT};
     use ambition_entity_catalog::MoveEventKind;
 
-    /// These fighters can recover, and the recovery is AIMED.
+    /// These fighters can recover, and the recovery is aimed.
     ///
-    /// ⛔⛔ THE GAP THIS CLOSED WAS TOTAL SILENCE. Every special this contract
-    /// authored before was `grounded_only`, so `special_up_air` fell through the
-    /// whole directional chain — a fighter knocked offstage had jumps, a ledge
-    /// grab, and no special at all. A platform fighter without an up-B is not a
-    /// fighter with a small kit; it is one that dies to any edgeguard.
-    ///
-    /// ⛔ AND `behind_nearest_foe` MUST BE FALSE. The teleport technique does two
-    /// things, and the other one puts you on the far side of the nearest
-    /// opponent — which, for a fighter recovering from offstage, teleports them
-    /// next to whoever is edgeguarding. That is the opposite of an escape, and
-    /// nothing about the move's name or its timing would reveal it.
+    /// Before it, `special_up_air` fell through to nothing, because every
+    /// special was `grounded_only`. `behind_nearest_foe` must be false: it
+    /// would teleport a recovering fighter next to the edgeguarder.
     #[test]
     fn the_up_special_is_an_aimed_airborne_recovery() {
         let set = super::fighter_moveset();

@@ -5,16 +5,9 @@
 //! this demo supplies stage-specific respawn placement and match completion. It
 //! also serves as an external-style consumer of the umbrella platformer API.
 
-// no `ambition_platformer2d::prelude::*`. Declaring a match needs the ACTOR
-// vocabulary, not the room-authoring one, and reaching for the prelude here
-// would import nothing this file uses. That the prelude does not cover a match
-// is a fact about what a prelude is for, not a gap.
-// ⭐ THE SUPPORTED INSTALL SEAM. A technique handler and the declaration of the
-// key it answers are written in ONE statement, so "which techniques does this
-// build install" is a fact about the composition rather than a list somebody
-// keeps in step by hand. Before this, Smash's technique handlers were bare
-// `add_systems` calls declaring nothing — which is why a misspelled authored
-// key reached the runtime and surfaced as a `warn!` mid-fight.
+// No prelude: a match needs the actor vocabulary, not the room-authoring one.
+// `install_technique(s)` registers a technique handler and declares its key in
+// one statement, so the installed technique set is a fact of the composition.
 use ambition_platformer2d::actor::{ControllerBinding, MatchParticipant, MatchParticipantRoster};
 use ambition_platformer2d::combat::technique::{
     check_hydrates, NestedReferences, TechniqueDelivery, TechniqueOffer, TechniqueParams,
@@ -50,49 +43,32 @@ pub mod tether;
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
 
-/// Stocks each fighter starts with.
+/// The match clock, in ticks: eight minutes at 60Hz.
 ///
-/// Three, because it is the smallest number that makes the middle of a match
-/// feel different from its start and its end: at three you can lose one and
-/// still be playing the same match, which is the thing rounds cannot express.
-/// The match clock, in ticks — eight minutes at 60Hz.
-///
-/// ⭐ **PUBLIC because a measurement tool that invents its own match length is
-/// measuring a different game.** `ladder_rig` defaulted to sixty seconds for
-/// months, which is **12.5% of a match**: no bout ever reached a conclusion, so
-/// every ladder verdict fell through to the damage tiebreak and every "rung N is
-/// weaker" result silently meant "deals less damage in the first eighth of a
-/// match". ⇒ Exporting the number is what lets the rig read it instead of
-/// choosing one.
+/// Public so that measurement tools (for example `ladder_rig`) use the real
+/// match length. A shorter length ends every bout on the damage tiebreak.
 pub const SMASH_TIME_LIMIT_TICKS: u32 = 8 * 60 * 60;
 
+/// Stocks each fighter starts with. Three is the smallest count where the
+/// middle of a match differs from its start and its end.
 pub const STARTING_STOCKS: u32 = 3;
 
-/// What 100% means.
+/// What 100% means: the denominator of `damage_percent()`.
 ///
-/// The denominator of `damage_percent()`. Under `DeathPolicy::Unbounded` the
-/// pool never kills, so this is purely the scale a percent is read against —
-/// which is exactly why it has to be declared: an undeclared pool is whatever
-/// the CHARACTER authored, and a meter divided by one reports 14000%.
-///
-/// THE MATCH declares it, not the characters. See `apply_smash_match_rules`.
+/// Under `DeathPolicy::Unbounded` the pool never kills, so this is only the
+/// scale for percent. The match declares it, not the characters: an undeclared
+/// pool is whatever the character authored. See `apply_smash_match_rules`.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
-/// The published controller policy a CPU seat asks for — `smash::duelist`
-/// (cite-ok: an authored provider::name key, not a Rust path),
-/// resolved in this stage's own provider.
-///
-/// They are deleted; the six are `autonomous_profiles` in the catalog above.
-///
-/// Two vocabularies sharing one word cost the same day twice.
+/// The published controller policy a CPU seat asks for: `smash::duelist`
+/// (cite-ok: an authored provider::name key, not a Rust path), resolved in
+/// this stage's own provider.
 pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 
 /// Where a respawning fighter comes back, above the stage centre.
 ///
-/// above, not at the spawn point. A fighter that reappears on the floor
-/// reappears inside whatever is standing there — and in a fight, what is
-/// standing there is the opponent who just knocked it off. Respawn height is the
-/// oldest rule in the genre and it is a rule about SAFETY, not about drama.
+/// Above, not at the spawn point: a fighter that reappears on the floor can
+/// reappear inside the opponent that knocked it off.
 pub const RESPAWN_HEIGHT_PX: f32 = 160.0;
 
 /// The one fighter on this grid whose up-B summons a mount.
@@ -100,12 +76,8 @@ pub const SMASH_SHARK_RIDER: &str = "npc_pirate_admiral";
 
 /// Build the roster for a stocks match between `characters`.
 ///
-/// `fighter_stocks` declares BOTH halves at once — the count AND
-/// `DeathPolicy::Unbounded` — because neither is meaningful alone: stocks over a
-/// meter that kills at max are never consulted, and an unbounded meter with no
-/// stocks is a fighter that cannot lose. That pairing is the engine's, not this
-/// crate's, which is exactly the kind of thing a demo should not be able to get
-/// wrong.
+/// `fighter_stocks` declares the count and `DeathPolicy::Unbounded` together,
+/// because neither is meaningful alone. The engine owns that pairing.
 pub fn smash_roster<I, S>(characters: I) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
@@ -117,9 +89,7 @@ where
         .enumerate()
         .map(|(index, character)| {
             let character: ambition_platformer2d::entity_catalog::CharacterId = character.into();
-            // ⛔ THE MOUNT LICENCE IS NOT GRANTED HERE ANY MORE. It is a rule
-            // of the MATCH, so `apply_smash_match_rules` states it for every
-            // road that builds one — see the comment there.
+            // The mount licence is a match rule; see `apply_smash_match_rules`.
             MatchParticipant::new(character)
                 .driven_by(if index == 0 {
                     ControllerBinding::Human {
@@ -127,26 +97,18 @@ where
                     }
                 } else {
                     ControllerBinding::Cpu {
-                        // The FB4b rig, by the catalog preset name. `medium_striker`
-                        // was Ambition's generic swipe brain and this demo does not
-                        // ship it — a CPU seat asking for a preset the composition
-                        // has never heard of resolves to nothing and stands still.
+                        // The catalog preset name. A CPU seat that asks for a
+                        // preset the composition does not ship stands still.
                         brain_profile: Some(SMASH_DUELIST_BRAIN.to_string()),
                     }
                 })
-                // Every seat its own side. A stocks match with teams is a legal
-                // and ordinary thing, but the demo's job is the SIMPLEST shape
-                // that exercises the loop, and free-for-all is it.
+                // Every seat is its own team: free-for-all is the simplest
+                // shape that exercises the loop.
                 .on_team(format!("seat {}", index + 1))
         })
-        // ⭐⭐ THE FIGHTER'S OWN BODY, where its character package authored one.
-        //
-        // A seat that says nothing here composes the stage's six numbers over
-        // the WANDERING-ENEMY baseline, because that is what an unauthored actor
-        // config carries — measured, and it is an eighth of the player's ground
-        // acceleration. A character states its fighter body in its own
-        // `smash_fighter` facet, because a catalog row would state it for the
-        // same character standing in a hub as well.
+        // Use the fighter body from the character's `smash_fighter` facet, if
+        // it authors one. Without it, the seat composes the stage numbers over
+        // the wandering-enemy baseline of an unauthored actor config.
         .map(
             |participant| match crate::smash_pack::fighter_body(participant.character.as_str()) {
                 Some(body) => participant.with_body(body),
@@ -158,90 +120,46 @@ where
     roster.published_by(SMASH_EXPERIENCE)
 }
 
-/// WHAT KIND OF MATCH THIS IS — the Smash ruleset, in one place.
+/// The Smash ruleset, in one place.
 pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster, stocks: u32) {
-    // ⛔⛔ THIS MATCH GRANTS NO PILOT LICENCE, AND THE HISTORY IS WORTH KEEPING.
-    // It briefly did, in two places and then in one: `smash_roster` granted the
-    // shark class per seat, `SmashSelect::roster_seeded` — the road a player
-    // actually travels from the character-select grid — assembled its
-    // participants from scratch and never did, and the admiral reached the match
-    // unable to board the shark its own up-B summons. Jon found it by playing.
-    //
-    // ⭐ THE REAL FIX WAS UPSTREAM OF BOTH ROADS. An admiral can ride a shark
-    // because it is an admiral — Jon: *"Yes the admiral could fly on a shark in
-    // ambition"* — so `npc_pirate_admiral` authors `pilotable_classes` like
-    // `npc_pirate_raider` already did, and `prepared_match` unions it into
-    // `CanPilot` on every road that builds a body. A match that manufactures a
-    // capability its cast already owns has two answers to one question.
-    //
-    // ⚠ AND WHICH SHARK is a different question, answered on the MOUNT: see
-    // `ambition_mount::MountReservedFor`, which is what stops the second admiral
-    // in a mirror match from boarding the first one's summon.
+    // This match grants no pilot licence. The admiral authors
+    // `pilotable_classes`, and `prepared_match` unions it into `CanPilot` on
+    // every road that builds a body. Which shark a body may board is answered
+    // on the mount: see `ambition_mount::MountReservedFor`.
     roster.rules.opens_suspended = true;
-    // THE OPENING CEREMONY: 3 — 2 — 1 — GO.
+    // Opening countdown: 3, 2, 1, go. Ticks, not seconds, because the release
+    // compares against the sim clock (`MatchRules::opening_countdown_ticks`).
     //
-    // Three beats at 60Hz. The hold was already here and had nothing to wait
-    // for, so it came off on the tick the cast was built and the round began
-    // with two fighters already moving before a player had looked at the stage.
-    //
-    // ticks rather than seconds, because the release is a comparison against
-    // the sim clock — see `MatchRules::opening_countdown_ticks`.
-    //
-    // ⚠⚠ TEMPORARY DEV MODE, Jon 2026-08-26: *"make the 3, 2, 1, countdown go
-    // 10x as fast."* The ceremony is here to be WATCHED, and watching it once per
-    // playtest iteration is three seconds a fighter is not being tuned. Revert by
-    // setting `COUNTDOWN_SPEEDUP` back to 1 — the divisor is named rather than
-    // folded into the number so that reverting is a one-token edit and so that
-    // nobody later reads `18` as a considered ceremony length.
-    //
-    // ⛔ NOT A SETTING and not a feature flag: a knob would outlive the reason
-    // for it and would need a menu row, a default and somewhere to persist. This
-    // is a constant with a date and a sentence, which is what temporary means.
+    // Temporary dev speed-up: set `COUNTDOWN_SPEEDUP` back to 1 to restore the
+    // full three seconds. It is a named divisor so the revert is one token.
     roster.rules.opening_countdown_ticks = 3 * 60 / COUNTDOWN_SPEEDUP;
-    // THE MATCH CLOCK. Ultimate's default stock match runs eight minutes,
-    // and the clock exists so a match between two fighters who will not approach
-    // each other still ends — the stock economy alone has no answer to that.
-    // derived from `ActiveMatch::activated_on`, so it costs no rollback state;
-    // see `MatchRules::time_remaining`.
+    // Match clock (eight minutes, as in Ultimate's default stock match), so a
+    // match between two passive fighters still ends. Derived from
+    // `ActiveMatch::activated_on`, so it costs no rollback state; see
+    // `MatchRules::time_remaining`.
     roster.rules.time_limit_ticks = SMASH_TIME_LIMIT_TICKS;
-    // ⛔⛔ A PARAMETER, NOT A CONSTANT, AND NOT A RESOURCE READ IN HERE — because
-    // this function has TWO ROADS and this file already records what that costs.
-    // `smash_roster` granted a pilot licence per seat while
-    // `SmashSelect::roster_seeded` — the road a player actually travels —
-    // assembled its participants from scratch and never did, so the admiral
-    // reached the match unable to board its own summon. Jon found it by playing.
-    // ⇒ Taking the count as an argument makes both roads STATE it; a default
-    // read inside would let the select road keep three while the player asked
-    // for one, and nothing would have been red.
+    // A parameter, not a constant or a resource read here: both roads
+    // (`smash_roster` and `SmashSelect::roster_seeded`) must state the count.
     roster.rules.stocks = Some(stocks);
     // The match supplies one health pool for percent calculation so crossover
     // characters are measured against this ruleset rather than their home games.
     roster.rules.health_pool = Some(SMASH_PERCENT_REFERENCE);
     // The Limit is the match's resource: every seat is built holding it, empty.
     roster.rules.resources = vec![crate::limit::SMASH_LIMIT.declaration()];
-    // Every fighter gets the ruleset's FLOOR, keeps whatever of its own kit the
-    // CEILING permits, and brings nothing else from its home game. The gap
-    // between the two constants is exactly one verb, and it is the one Jon named:
-    // Robot v3 keeps its pogo because Robot v3 authored it.
+    // Every fighter gets the ruleset floor, keeps what of its own kit the
+    // ceiling permits, and brings nothing else. The gap between the two
+    // constants is one verb: Robot v3 keeps its pogo.
     roster.rules.abilities = Some(ambition_platformer2d::engine_core::MatchAbilities {
         granted: SMASH_FIGHTER_KIT,
         permitted: SMASH_FIGHTER_CEILING,
     });
     // Apply the ruleset's body baseline alongside its ability policy.
     roster.rules.body = Some(SMASH_FIGHTER_BODY);
-    // ⛔ NO ITEMS, and that is Jon's call rather than a gap. 2026-08-24: *"we
-    // don't need items in smash right now. We eventually will, but not right
-    // now."* The MACHINERY is built and tested — `MatchItemSpawns`, the
-    // deterministic spawner, the weighted table — and turning it on is this one
-    // declaration. What is deliberately absent is the DECLARATION, not the
-    // capability.
-    //
-    // ⭐ THE TABLE THAT WAS HERE, so the day it comes back nobody re-derives it:
-    // a drop every 8s over three points above the platform, weighted
-    // bomb 4 / gravity_grenade 2 / gun_sword 1 — items whose `Attack` does
-    // something on its own. ⛔ not the `UseSystem` items (meteor gauntlet,
-    // mark/recall): those are abilities a body wields, which is a different
-    // mechanic from an item fight.
+    // No items for now (Jon's call). The machinery (`MatchItemSpawns`, the
+    // spawner, the weighted table) is built and tested; only this declaration
+    // is absent. The previous table: a drop every 8s at three points above the
+    // platform, weighted bomb 4 / gravity_grenade 2 / gun_sword 1. Do not add
+    // `UseSystem` items (meteor gauntlet, mark/recall); those are abilities.
     roster.rules.item_spawns = None;
 }
 
@@ -258,143 +176,75 @@ pub const SMASH_FIGHTER_BODY: ambition_platformer2d::engine_core::MatchBody =
         air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
         air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
         air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
-        // ⭐⭐ THE ROLL OWES A BEAT. Jon, 2026-08-24: *"shield rolls have too
-        // much motion to them... they probably should stop at the end of the
-        // roll and leave the character punishable for a frame or two."*
-        //
-        // ⛔ THE DISTANCE IS NOT WHAT WAS WRONG, and it is deliberately
-        // unchanged: 530px/s over a 0.22s window is ~117px, which is a step and
-        // a half. What made a roll read as "flying across the stage" is that
-        // NOTHING took the velocity back when the window closed, so the body
-        // kept travelling at roll speed until friction or a wall caught it. The
-        // roll comes to rest now; changing the speed on top of that would be
-        // nerfing the same thing twice.
+        // The roll ends at rest and leaves the fighter punishable. The distance
+        // (530px/s over 0.22s, about 117px) is unchanged on purpose.
         dodge_roll_endlag: ambition_platformer2d::engine_core::DODGE_ROLL_ENDLAG,
-        // ⭐⭐ DODGE STALING — the genre's answer to rolling being the answer to
-        // everything, and the other half of the roll question Jon raised. A
-        // quarter of the invulnerable window comes off per recent evade, floored
-        // at a third, forgiven one at a time every 1.2s.
-        //
-        // ⛔ IT WEARS THE I-FRAMES, NOT THE DISTANCE. A stale roll still travels
-        // and still recovers — it is simply no longer safe, which is a read a
-        // player can see without a HUD. Shortening the roll instead would make
-        // the fighter feel broken rather than punished.
+        // Dodge staling: each recent evade removes a quarter of the
+        // invulnerable window, floored at a third, forgiven one per 1.2s.
+        // It reduces the i-frames, not the distance.
         dodge_stale_step: 0.25,
         dodge_stale_floor: 0.34,
         dodge_stale_recovery: 1.2,
-        // ⭐⭐ A KILL-POWER HIT COMMITS. Above 1400px/s the tumble cannot be
-        // teched, so the hit that should end a stock is not survivable by a
-        // well-timed press against the wall behind you.
-        //
-        // ⛔ WELL ABOVE THE TUMBLE THRESHOLD (500px/s), so ordinary launches
-        // keep their escape and only the hard ones lose it — a threshold near
-        // the tumble line would delete the tech instead of reserving it.
+        // A kill-power hit cannot be teched. Keep this well above the tumble
+        // threshold (500px/s) so ordinary launches keep their tech.
         untechable_launch_speed: 1400.0,
-        // ⭐⭐ AN EVADE IS A COMMITMENT UNTIL ITS LAST FOUR FRAMES. Without this
-        // a spot dodge is invulnerable AND cancellable into an attack on frame
-        // one, which is strictly better than the genre's — the dodge answers
-        // everything and costs nothing.
-        //
-        // ⛔ THE TAIL IS THE OPTION, not a nerf: spot-dodge-into-attack is a
-        // real genre technique, and what it should cost is the frames before it.
+        // An evade can cancel into an attack only in its last four frames.
+        // Spot-dodge-into-attack stays a real option; it costs the frames
+        // before the tail.
         evade_cancel_tail: 4.0 / 60.0,
-        // SPOT DODGE, 0.16s. The grounded evade had one shape, so the
-        // option a cornered fighter takes — nowhere to roll TO, waiting out a
-        // committed swing — did not exist. Shorter than the roll's window
-        // because it covers no distance; a spot dodge that lasted as long would
-        // be strictly better than the roll and the roll would stop being a
-        // choice. The engine default is `0.0`: an exploration body keeps the
-        // roll that press already means.
+        // Spot dodge, 0.16s: shorter than the roll because it covers no
+        // distance. The engine default is `0.0`, so an exploration body keeps
+        // the roll.
         spot_dodge_time: ambition_platformer2d::engine_core::SPOT_DODGE_TIME,
-        // WHICH GAME'S PERFECT SHIELD. Smash 4 opens the window on the
-        // press and Ultimate on the release, and the stage declares which — the
-        // engine has no opinion. This stage plays the press-timed one for now
-        // because it is what shipped; flipping it to `OnRelease` is a one-word
-        // edit and the other setting is fully live (`resolve_shield`'s
-        // `OnRelease` arm, guarded by
+        // Smash 4 opens the parry window on the press, Ultimate on the
+        // release. The stage chooses; `OnRelease` is fully live (guarded by
         // `the_parry_window_opens_where_the_ruleset_says_it_does`).
         parry_timing: ambition_platformer2d::engine_core::ParryTiming::OnRaise,
         tumble_speed: 500.0,
-        // SDI, 3px a hitlag tick. DI already lets a launched fighter bend
-        // where it is thrown; this is the other half — shifting out of the NEXT
-        // hit's way while the current one is still frozen, which is what makes a
-        // combo answerable rather than a sentence. The engine default is `0.0`:
-        // a wandering enemy has no combo to escape.
+        // SDI, 3px per hitlag tick: shift out of the next hit while frozen.
+        // The engine default is `0.0`.
         sdi_step: 3.0,
-        // ⭐ ONE NUDGE PER HIT, twice a single SDI tick, paid when the freeze
-        // lifts. It is what a defender gets out of a MULTIHIT, whose one-tick
-        // freezes are worth almost nothing to `sdi_step`.
+        // ASDI: one nudge per hit, paid when the freeze lifts. It gives a
+        // defender something against multihits, where `sdi_step` gives little.
         asdi_step: 6.0,
-        // ⭐ A JAB IS WORTH A FEW HUNDRED px/s and a smash is worth thousands,
-        // so this threshold separates "poke a downed opponent" from "commit to
-        // a launch" without naming a single move.
+        // A jab is a few hundred px/s and a smash is thousands, so this
+        // separates a poke on a downed opponent from a launch.
         jab_lock_speed: 320.0,
-        // Three pins and the floor game resets — a real combo route, short of
-        // an infinite.
+        // Three pins, then the floor game resets: a combo route, not an
+        // infinite.
         jab_lock_limit: 3,
         shield: ambition_platformer2d::engine_core::ShieldTuning::PLATFORM_FIGHTER,
         footstool: ambition_platformer2d::engine_core::FootstoolTuning::PLATFORM_FIGHTER,
-        // A CROUCH PLANTS YOU. The genre's answer, and research rather than a
-        // feel call: in every Smash, crouching stops you outright unless the
-        // character has a crawl. What pays for the smaller hurtbox and the
-        // shortened launch (`crouch_cancel_scale: 0.85` above) is your mobility,
-        // and before this a crouching fighter kept both for free at full run
-        // speed. ⛔ `0.0` rather than a shuffle because no fighter here authors a
-        // crawl; the day one does, it declares its own.
+        // Crouching stops the fighter, as in every Smash for characters
+        // without a crawl. Mobility pays for the smaller hurtbox and the
+        // `crouch_cancel_scale`. A fighter with a crawl declares its own.
         crouch_speed_frac: 0.0,
-        // ⭐⭐ THE INITIAL DASH — the first 14 frames of a ground move, in
-        // which a direction change is still free. It is what makes the ground
-        // game a conversation: dash in, read the opponent, dash back out. The
-        // same window is the foxtrot's re-tap and the dash-dance's reversal.
-        // ⚠ a starting point taken from the genre, not a measurement of this
-        // game: play it and move it.
+        // Initial dash: the first 14 frames of a ground move, where a
+        // direction change is free (dash-dance, foxtrot re-tap). A genre
+        // starting point, not a measured value.
         initial_dash_time: 14.0 / 60.0,
-        // Inherit the run speed. The phase is about WHEN you may turn around,
-        // not about being faster than a run.
+        // Inherit the run speed; the phase controls when you may turn.
         initial_dash_speed: 0.0,
-        // ⭐⭐ AND REVERSING OUT OF A RUN COSTS YOU — the half that makes the
-        // dash's free reversal above worth having, and what a pivot grab and a
-        // reverse aerial rush are both thrown out of.
-        //
-        // ⚠ 3 FRAMES IS WHAT THE PROVING GROUND TOLERATES, not a measurement of
-        // what feels right. At 7 frames `smash_it` lost two premise guards:
-        // seat 0 (george_booul) stopped ever being knocked off the stage in a
-        // 3600-tick match while seat 1 went off 57 times, so a CPU matchup that
-        // used to trade became one-sided. The launch itself is fine — a body
-        // launched mid-turnaround keeps its knockback, measured — so this is a
-        // balance effect and not the velocity corruption the initial dash had.
-        // ⇒ the number is a feel call and it is Jon's; 7 is where it visibly
-        // tips this matchup.
+        // Reversing out of a run costs frames. 3 frames is what the proving
+        // ground tolerates: at 7, `smash_it` lost two premise guards because
+        // the CPU matchup became one-sided. The value is a feel call for Jon.
         turnaround_time: 3.0 / 60.0,
-        // ⭐ A QUARTER OF THE FOOTPRINT is the leading foot: step that far past
-        // a ledge and the fighter is on the brink. Published only —
-        // `BodyMotionFacts::teetering` is what animation and control read, and
-        // nothing about collision changes.
+        // A quarter of the footprint past a ledge puts the fighter on the
+        // brink. Published only: `BodyMotionFacts::teetering` is read by
+        // animation and control; collision does not change.
         teeter_margin: 0.25,
     };
 
-/// THE BASIC SMASH ABILITIES — the verbs every fighter on this stage has.
+/// The basic Smash abilities: the verbs every fighter on this stage has.
 ///
-/// granted the basic smash abilities"*) and it is one constant so that the
-/// stage, the tests and any future reader read the same one.
+/// `fly` and `blink` are absent: they are the exploration traversal kit, not a
+/// platform fighter's ground game. `interact` and `reset` are absent because a
+/// fighter has no talk button and no teleport home. `dash` is absent: it is a
+/// charge-gated burst that replaces velocity (`apply_dash`), not running.
+/// Running is `move_horizontal` against the body's top speed. Without `dash`,
+/// the burst button means only the dodge here.
 ///
-/// `fly` and `blink` are absent deliberately: this is a platform fighter's
-/// ground game, not the exploration protagonist's traversal kit, and the July
-/// measurement of two seats disagreeing was exactly a duelist meeting a body
-/// that could fly. `interact` and `reset` are absent for the same reason a
-/// fighter has no talk button and no teleport home.
-///
-/// `shield`, `dodge` and `ledge_grab` are what make this a platform fighter
-/// rather than two bodies running at each other. All three already existed in
-/// the engine with nothing switched on.
-///
-/// Dash should be an ability for ambition, it doesn't map into a smash vocabulary."*).
-/// `AbilitySet::dash` is not running — running is `move_horizontal` against the body's own top
-/// speed, and it consults no ability bit beyond that one. `dash` is a DISCRETE charge-gated burst
-/// that REPLACES the velocity vector for a window (`apply_dash`), which is a traversal verb from
-/// Ambition's exploration kit and not one of a platform fighter's sixteen presses. Dropping it
-/// leaves the burst BUTTON meaning exactly one thing here — the dodge — which is what it means in
-/// the genre.
+/// `shield`, `dodge` and `ledge_grab` make this a platform fighter.
 ///
 /// See `apply_intent` in `movement/abilities.rs`.
 pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
@@ -407,35 +257,22 @@ pub const SMASH_FIGHTER_KIT: ambition_platformer2d::engine_core::AbilitySet =
         attack: true,
         directional_primary: true,
         shield: true,
-        // The capture verb. Granting it here does NOT invent a grab: the
-        // action scheme wants `abilities.grab` AND an authored `"grab"` move, so
-        // a fighter joins the mechanic on the day its table does and the other
-        // thirteen are unchanged until theirs do.
+        // Granting `grab` does not invent a grab: the action scheme also needs
+        // an authored `"grab"` move, so only fighters with one use it.
         grab: true,
         dodge: true,
         ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE
     };
 
-/// THE CEILING — the floor above, PLUS the verbs a fighter may bring from home.
+/// The ceiling: the floor above, plus the verbs a fighter may bring from home.
 ///
-/// ⭐⭐ THE DIFFERENCE BETWEEN THESE TWO CONSTANTS IS CHARACTER IDENTITY. Jon,
-/// W8 playtest: *"`robot_v3` should have Pogo available in Smash. **Do not make
-/// Pogo a universal Smash action.** Robot v3 has Pogo because Robot v3 owns that
-/// capability. Another fighter without Pogo should not acquire one merely by
-/// entering Smash."*
+/// The difference between the two constants is character identity. Robot v3
+/// has pogo because it authors pogo; a fighter without pogo does not get one
+/// by entering Smash. Do not move pogo into the floor.
 ///
-/// ⛔⛔ AND POGO USED TO SIT IN THE FLOOR, so every one of the fourteen bodies
-/// on this grid got a rebounding down-air by walking onto the stage. It read as
-/// working — the fighter Jon tested is the one that authors it — and the defect
-/// was in the thirteen it also reached.
-///
-/// ⭐ `MatchAbilities::levelled` is a floor and a ceiling at once, and its own
-/// doc named this day: *"the day a stage wants a fighter's own flavour to
-/// survive, it widens `permitted` past `granted` rather than reaching for a
-/// third operator."* This is that widening, and one verb wide is the honest size
-/// of it — `fly`, `blink` and `dash` stay out of BOTH, because those are the
-/// exploration kit and the reason a ceiling exists at all.
+/// `MatchAbilities::levelled` treats these as floor and ceiling. `fly`, `blink`
+/// and `dash` stay out of both: they are the exploration kit.
 pub const SMASH_FIGHTER_CEILING: ambition_platformer2d::engine_core::AbilitySet =
     ambition_platformer2d::engine_core::AbilitySet {
         pogo: true,
@@ -444,11 +281,9 @@ pub const SMASH_FIGHTER_CEILING: ambition_platformer2d::engine_core::AbilitySet 
 
 /// The same roster, at a named ladder level.
 ///
-/// Exists for the ladder probe: the archetype authors one level, and measuring
-/// whether L3 buys anything needs the SAME match at two of them. The brain
-/// profile is a per-seat fact, so this is a per-seat override rather than a
-/// second archetype — a second archetype would also vary its speed, reach and
-/// health, and then the measurement would be about the archetype.
+/// For the ladder probe: it measures the same match at two levels. The brain
+/// profile is a per-seat override, not a second archetype, because a second
+/// archetype would also vary speed, reach and health.
 pub fn smash_roster_at_level<I, S>(characters: I, level: u8) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
@@ -463,39 +298,27 @@ where
     roster
 }
 
-/// The brain preset that DOES NOTHING, by name.
+/// The brain preset that does nothing, by name.
 ///
-/// A stand-still seat is not a broken seat: the body is staged, damageable and
-/// physical like any other, and its policy is to make no decisions. Naming the
-/// preset here is what lets an inspection scenario ask for one without inventing
-/// a way to freeze a fighter.
+/// The body is staged, damageable and physical like any other; its policy
+/// makes no decisions. Inspection scenarios use it to get a still fighter.
 pub const SMASH_IDLE_BRAIN: &str = "stand_still";
 
 /// The training dummy an inspection scenario faces by default.
 ///
-/// ⭐ THE DUMMY, NOT A MIRROR. A subject staged against a copy of itself is a
-/// second authored fighter in the picture: its body size, its hurtbox
-/// publication and its stocks all belong to that character, so the same move
-/// measured on two subjects was measured against two different targets. The
-/// immortal dummy is the one target every subject shares, and `never_dies`
-/// means a long grid run cannot end a take by killing it.
+/// A dummy, not a mirror: every subject is measured against the same target.
+/// A copy of the subject would bring its own body size, hurtbox and stocks.
+/// `never_dies` means a long grid run cannot end a take by killing it.
 pub const INSPECTION_TARGET: &str = "sandbag_infinite";
 
-/// The same roster, with every seat after the first STANDING STILL.
+/// The same roster, with every seat after the first standing still.
 ///
-/// ⭐⭐ THE TRAINING-MODE TARGET, BUILT FROM MATCH POLICY. Inspecting a move
-/// against a live CPU means measuring two decisions at once: the opponent walks
-/// into a strike, or away from it, and the recording of the move changes because
-/// of something the move did not do. A passive target removes that variable
-/// without removing the target — contact rules, hurtboxes, hitstun and launch
-/// all still run, because this is an ordinary seated fighter whose brain
-/// declines to act.
+/// A training-mode target: a live CPU would move into or away from the strike
+/// and change the recording. Contact, hurtboxes, hitstun and launch still run.
 ///
-/// ⛔ IT IS A SEAT WITH A DRIVER, NOT A SEAT WITHOUT ONE. `ControllerBinding::Cpu
-/// { brain_profile: None }` is refused at preparation on purpose — "a seat with
-/// no driver stands still, which is indistinguishable from a brain that failed
-/// to install". This asks for the policy that stands still BY NAME, so the
-/// distinction survives into the artifact.
+/// The seat has a driver that stands still by name. `ControllerBinding::Cpu {
+/// brain_profile: None }` is refused at preparation, because a seat with no
+/// driver looks the same as a brain that failed to install.
 pub fn smash_roster_with_passive_targets<I, S>(characters: I) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
@@ -510,23 +333,14 @@ where
     roster
 }
 
-/// Where a knocked-out fighter comes back.
+/// Two CPU fighters at different levels: the ladder's own roster.
 ///
-/// The engine spends the stock and clears the meter; it refuses to place the
-/// body, because placing it needs a stage. This is that answer.
-/// Two CPU fighters at DIFFERENT levels — the ladder's own roster.
+/// [`smash_roster_at_level`] puts every CPU seat on one rung, and
+/// [`smash_roster`] makes seat 0 human. A ladder needs "does level N beat
+/// level N-1", so every seat here is a CPU.
 ///
-/// [`smash_roster_at_level`] puts every CPU seat on one rung, which is what a
-/// probe wants (*"how does level N behave"*) and not what a LADDER wants
-/// (*"does level N beat level N−1"*). And [`smash_roster`] makes seat 0 HUMAN,
-/// so the only opponent a probe could offer was a controller-less body that
-/// never acts — every stock lost was a self-KO, which made the number clean and
-/// made it impossible to measure a fight.
-///
-/// `opens_suspended` and the stock count are inherited deliberately. A rig
-/// that quietly ran a different ruleset from the shipped stage would measure a
-/// game nobody plays; the ONLY difference from a real match is who is holding
-/// the controllers.
+/// `opens_suspended` and the stock count are inherited, so the rig measures
+/// the shipped ruleset. Only the controllers differ from a real match.
 pub fn smash_roster_at_levels<I, S>(characters: I, levels: &[u8]) -> MatchParticipantRoster
 where
     I: IntoIterator<Item = S>,
@@ -534,48 +348,36 @@ where
 {
     let mut roster = smash_roster(characters);
     for (index, participant) in roster.participants.iter_mut().enumerate() {
-        // Every seat is a CPU here, including seat 0 — which `smash_roster` made
-        // human, because a human seat is what a player expects to occupy.
+        // Every seat is a CPU here, including seat 0.
         let level = levels.get(index).copied().unwrap_or(1);
         participant.controller = ControllerBinding::Cpu {
             brain_profile: Some(format!("{SMASH_DUELIST_BRAIN}_l{level}")),
         };
     }
-    // AND IT SAYS WHOSE ROSTER IT IS. `smash_roster` above ends with the
-    // same call and this one silently did not — which cost nothing while a CPU
-    // seat's `brain_profile` could still be an ARCHETYPE key, because an
-    // archetype table is global. It costs everything now that a published POLICY
-    // is the only thing a seat can name (P2.18):
-    // `seat_brain_profile` resolves a provider-relative name in the MATCH's
-    // provider, an unpublished roster has none, and every levelled seat this
-    // helper builds was refused with *"`duelist_l1` … Known keys: [combatant]"*.
+    // Publish the roster so `seat_brain_profile` can resolve the
+    // provider-relative policy name (`duelist_l1`) in the match's provider.
     roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// Horizontal spread between adjacent respawn points, in stage pixels.
 ///
-/// Two 32px tiles — wider than a standing body, so two fighters returning on the
-/// same frame land clear of each other rather than inside one another. derived
-/// against [`PLATFORM_WIDTH`]: seat `n` sits at most `(n/2 + 0.5)` spacings from
-/// the centre, so even eight seats stay within ±224px of a 480px platform.
+/// Two 32px tiles: wider than a standing body, so two fighters that return on
+/// the same frame do not overlap. Seat `n` sits at most `(n/2 + 0.5)` spacings
+/// from the centre, so eight seats stay within ±224px on a 480px platform.
 const RESPAWN_SEAT_SPACING_PX: f32 = 64.0;
 
-/// Where a fighter comes back, and it is not where its opponent comes back.
+/// Where a fighter comes back; each seat has its own point.
 ///
-/// seats alternate outward from the centre — 0 left, 1 right, 2 further
-/// left, 3 further right — so the arrangement is symmetric at any roster size
-/// and no seat is privileged. An offset that simply grew with the index would
-/// push seat 3 twice as far out as seat 1 for no reason a player could read.
+/// Seats alternate outward from the centre (0 left, 1 right, 2 further left,
+/// 3 further right), so the layout is symmetric at any roster size.
 pub fn respawn_placement(stage_centre: Vec2, seat: usize) -> Vec2 {
     // 0,1 → half a spacing out; 2,3 → one and a half; and so on.
     let rank = (seat / 2) as f32 + 0.5;
     let side = if seat % 2 == 0 { -1.0 } else { 1.0 };
     Vec2::new(
         stage_centre.x + side * rank * RESPAWN_SEAT_SPACING_PX,
-        // Toward the sky. The stage's own down is the gravity the room authored;
-        // this demo is screen-down like every other platform fighter, and a
-        // gravity-flipped stocks stage is a thing the ENGINE would have to
-        // answer rather than this crate.
+        // Toward the sky: this demo is screen-down. A gravity-flipped stocks
+        // stage is a question for the engine.
         stage_centre.y - RESPAWN_HEIGHT_PX,
     )
 }
@@ -593,10 +395,9 @@ const PLATFORM_TOP: f32 = 300.0;
 
 /// Fifteen 32px tiles, or ten standing-body heights.
 ///
-/// Final Destination's main platform is roughly ten Mario-height units wide.
-/// Ambition's default standing body is 48px tall, so 480px gives the demo the
-/// same useful fighter-to-stage scale while staying exactly on the 32px floor
-/// texture grid.
+/// Final Destination's main platform is about ten Mario heights wide. The
+/// default standing body is 48px tall, so 480px gives the same scale and stays
+/// on the 32px floor texture grid.
 const PLATFORM_WIDTH: f32 = 480.0;
 
 /// Blast margins chosen so the PLATFORM, not the room rectangle, has Final
@@ -606,77 +407,52 @@ const PLATFORM_WIDTH: f32 = 480.0;
 /// * platform surface -> ceiling blast line = 1.125 platform widths;
 /// * platform surface -> fall blast line = 0.875 platform widths.
 ///
-/// With a 480px platform centered in a 640px room there are 80px from either
-/// ledge to the room edge, leaving 400px beyond the room edge for the side blast
-/// margin. The platform surface is y=300 in a 480px room, so a 240px vertical
-/// margin puts the ceiling 540px above the platform and the fall line 420px
-/// below it. The complete blast envelope is therefore 1440x960: exactly 3x2
-/// platform widths, matching Final Destination's normalized envelope.
+/// A 480px platform centered in a 640px room leaves 80px from each ledge to the
+/// room edge, so the side margin is 400px. The surface is at y=300 in a 480px
+/// room, so a 240px vertical margin puts the ceiling 540px above and the fall
+/// line 420px below. The envelope is 1440x960: 3x2 platform widths.
 const FALL_BLAST_MARGIN_PX: f32 = 240.0;
 const SIDE_BLAST_MARGIN_PX: f32 = 400.0;
-/// ⚠ PUBLIC because an authored move has to stay inside it: Alice's up-B opens
-/// an exit portal a fixed rise above her, and a rise past this margin puts that
-/// exit outside the playable box. `an_authored_portal_rise_stays_inside_the_stage`
-/// is the guard, and it can only ask the question if it can read this number.
+/// Public because authored moves must stay inside it: Alice's up-B exit portal
+/// rises a fixed height above her. Guarded by
+/// `an_authored_portal_rise_stays_inside_the_stage`.
 pub const CEILING_BLAST_MARGIN_PX: f32 = 240.0;
 
-/// Everything that makes a room a SMASH stage, stated once.
+/// Everything that makes a room a Smash stage, stated once.
 ///
-/// ⛔⛔ THREE STAGE BUILDERS EACH RESTATED THIS, and the drift it invites is not
-/// hypothetical: `test_the_stage_choice_decides_which_stage_the_match_prepares`
-/// exists partly to assert the three share a blast envelope, which is a guard
-/// compensating for one fact having three authors. A stage that quietly moved
-/// its side margin would be incomparable with every number this project has
-/// recorded, and nothing but that test would have said so.
-///
-/// ⇒ A stage now states only what makes it DIFFERENT — its name, its room id and
-/// its geometry. Size, spawn, blast envelope, mode and nameplate policy are here.
+/// Each stage states only its name, room id and geometry. Size, spawn, blast
+/// envelope, mode and nameplate policy live here, so all stages share one blast
+/// envelope (see `test_the_stage_choice_decides_which_stage_the_match_prepares`).
 fn smash_stage_room(name: &str, id: &str, blocks: Vec<ae::Block>) -> RoomSpec {
     let mut world = ae::World::new(
         name,
         STAGE_SIZE,
-        // Spawn above the platform, like a respawn: the fighters are placed by
-        // seating, and this is only where a lone visitor lands.
+        // Spawn above the platform. Seating places the fighters; this is only
+        // where a lone visitor lands.
         Vec2::new(STAGE_SIZE.x / 2.0, PLATFORM_TOP - 96.0),
         blocks,
     );
     world.edges.fall = FALL_BLAST_MARGIN_PX;
-    // The SIDES are the interesting ones and they are not the default. A body
-    // launched horizontally leaves through them, and without an explicit value
-    // they inherit a margin sized for "fell through the floor" — generous enough
-    // that a fighter knocked off the edge would drift for a second and a half
-    // before anything noticed.
+    // Set the sides explicitly. The default margin is sized for falling
+    // through the floor and is much too generous for a side launch.
     world.edges.side = Some(SIDE_BLAST_MARGIN_PX);
     world.edges.rise = Some(CEILING_BLAST_MARGIN_PX);
 
     let mut room = RoomSpec::new(id, world);
     room.metadata.mode = Some(SMASH_MODE.to_string());
-    // ⭐⭐ EVERY FIGHTER IS LABELLED THE SAME WAY. The presentation default hides
-    // the plate over a body somebody is driving, which is the right EXPLORATION
-    // rule — a plate names a body you are not inhabiting — and reads as
-    // "everyone is labelled except the human" on a stage with a cast. Jon,
-    // 2026-08-24: *"This is player 1 centric behavior, and we should have none
-    // of it."*
-    //
-    // ⛔ THE STAGE DECIDES, NOT THE RENDERER. A four-way match wants to know who
-    // is who; `Some(false)` is the other uniform answer if plates ever get in
-    // the way of reading the fight.
+    // Label every fighter the same way. The presentation default hides the
+    // plate on a driven body, which is right for exploration but singles out
+    // the human here. The stage decides; `Some(false)` is the other uniform
+    // choice.
     room.metadata.nameplate_policy.label_driven_bodies = Some(true);
     room
 }
 
 /// The stage: a platform surrounded by nothing.
 ///
-/// That shape is the whole difference from every other room the engine has
-/// loaded. A platformer room is a box you cannot leave; a fighter stage is a
-/// thing you can be knocked OFF, and the emptiness around it is the mechanic
-/// rather than the absence of one.
-///
-/// Authored in Rust rather than LDtk deliberately, and the repo's own rule says
-/// which way that goes: LDtk is preferred for content, Rust rooms are for DEMOS.
-/// A stage this shape is four numbers, and putting it in a level file would make
-/// the ONE interesting fact about it — the blast margin — a field in an editor
-/// nobody opens.
+/// A fighter stage is a place you can be knocked off; the empty space is the
+/// mechanic. Authored in Rust, not LDtk: demo rooms may be Rust, and this
+/// stage is four numbers whose key fact is the blast margin.
 pub fn smash_stage() -> RoomSpec {
     smash_stage_room(
         "Smash Stage",
@@ -699,13 +475,10 @@ pub const SMASH_NARROW_STAGE_ROOM_ID: &str = "smash_narrow_stage";
 /// texture grid.
 const NARROW_PLATFORM_WIDTH: f32 = 320.0;
 
-/// The same flat block, two thirds as wide — and the blast envelope UNCHANGED.
+/// The same flat block, two thirds as wide, with the blast envelope unchanged.
 ///
-/// ⚠ **THE UNCHANGED ENVELOPE IS THE DESIGN, not an omission.** The margins on
-/// [`smash_stage`] were chosen so the PLATFORM has Final Destination's
-/// normalized proportions, and scaling them down with the width would produce
-/// the same stage smaller — which changes the pixels and none of the decisions.
-/// Holding them fixed is what makes this a different stage to fight on:
+/// The unchanged envelope is the design. Scaling the margins with the width
+/// would give the same stage at a smaller size.
 ///
 /// | measured in platform widths | [`smash_stage`] | here |
 /// |---|---|---|
@@ -713,22 +486,10 @@ const NARROW_PLATFORM_WIDTH: f32 = 320.0;
 /// | surface → ceiling blast line | 1.125 | **1.688** |
 /// | surface → fall blast line | 0.875 | **1.313** |
 ///
-/// ⇒ **Less ground, same envelope**: the ledges are closer to the centre, every
-/// blast line is further away measured against the stage, and a launched body
-/// spends longer offstage relative to the platform it is trying to return to.
-/// That is an edgeguard-and-recovery stage rather than a neutral one.
-///
-/// ⛔ **NOT tuned, and nobody should read it as balanced.** It is authored to
-/// CHANGE the spacing and recovery decisions the ladder rig measures, which is
-/// what the Super Smash Siblings stage-breadth checkpoint asks for — a third
-/// stage exists so a measurement can be compared across geometries, and the
-/// comparison is the point rather than this layout's own numbers.
-///
-/// ⭐ A THIRD STAGE, not an edit to either existing one, for exactly the reason
-/// [`smash_platform_stage`] gives: every recorded spacing, recovery and
-/// edgeguard number was taken on [`smash_stage`], and the flat-versus-platforms
-/// comparison on this page was taken on that geometry. Adding beside them costs
-/// no recorded number its meaning.
+/// Less ground, same envelope: an edgeguard-and-recovery stage. It is not
+/// tuned. It exists so the ladder rig can compare across geometries. It is a
+/// separate stage so that numbers recorded on [`smash_stage`] keep their
+/// meaning.
 pub fn smash_narrow_stage() -> RoomSpec {
     smash_stage_room(
         "Smash Stage — Narrow",
@@ -743,27 +504,18 @@ pub fn smash_narrow_stage() -> RoomSpec {
 
 /// Height of each soft platform above the main stage surface, in world pixels.
 ///
-/// ⭐ **SIZED FROM THE FIGHTER'S MEASURED JUMP ARC, and the first numbers I
-/// wrote were scenery.** Apex is `v²/(2·gravity)` — the engine's own formula,
-/// stated on `FighterBodyAuthoring::jump_speed`. With the shipped defaults
-/// (`GRAVITY` 2250, `JUMP_SPEED` 630, `DOUBLE_JUMP_SPEED` 520):
+/// Sized from the fighter's jump arc. Apex is `v²/(2·gravity)` (see
+/// `FighterBodyAuthoring::jump_speed`). With the shipped defaults (`GRAVITY`
+/// 2250, `JUMP_SPEED` 630, `DOUBLE_JUMP_SPEED` 520):
 ///
 /// | arc | rise |
 /// |---|---:|
 /// | single jump | **88.2px** |
 /// | + air jump taken AT the apex (the best case) | **148.3px** |
 ///
-/// ⛔ I first chose 132 and 250 by eye. **250 is unreachable** — above the
-/// 148.3px ceiling, so the top tier would have been decoration a fighter could
-/// never stand on — and 132 was inside the double-jump arc by 16px, i.e. only
-/// on a frame-perfect air jump. Neither would have failed anything: the stage
-/// would simply have had a platform nobody could use.
-///
-/// ⇒ So: the low tier is a comfortable SINGLE jump (24px of headroom), and the
-/// top tier needs the air jump and still leaves 28px. `the_tiers_sit_inside_the
-/// _fighters_measured_jump_arc` recomputes both from the engine constants, so
-/// retuning gravity or jump speed reddens this rather than silently stranding a
-/// platform.
+/// The low tier is a comfortable single jump (24px headroom). The top tier
+/// needs the air jump and leaves 28px. `the_tiers_sit_inside_the
+/// _fighters_measured_jump_arc` recomputes both from the engine constants.
 const SOFT_PLATFORM_LOW_RISE: f32 = 64.0;
 const SOFT_PLATFORM_HIGH_RISE: f32 = 120.0;
 /// Width and thickness of a soft platform.
@@ -771,44 +523,24 @@ const SOFT_PLATFORM_SIZE: Vec2 = Vec2::new(168.0, 16.0);
 /// How far the two low platforms sit either side of centre.
 const SOFT_PLATFORM_SPREAD: f32 = 148.0;
 
-/// A platform-fighter stage WITH PLATFORMS: the main surface plus three
+/// A platform-fighter stage with platforms: the main surface plus three
 /// drop-through tiers.
 ///
-/// ⛔ **THE GENRE'S DEFINING STAGE FEATURE HAD NO CUSTOMER HERE.** The engine
-/// ships one-way platforms in full — `BlockKind::OneWay`, `resolve_one_way_hit`,
-/// a `drop_through_timer`, and BOTH authored gestures: down+jump
-/// (`wants_drop_through`) and the platform-fighter's own guard+down
-/// (`wants_platform_drop`, whose doc says *"on a surface that can be left
-/// downward"*). Measured 2026-09-04, the smash demo used **none of it**: zero
-/// occurrences of `one_way` or `drop_through` in the whole crate, and
-/// [`smash_stage`] is a single solid block. A platform fighter with no
-/// platforms.
+/// It uses the engine's one-way platforms (`BlockKind::OneWay`,
+/// `resolve_one_way_hit`, `drop_through_timer`) and both drop gestures:
+/// down+jump (`wants_drop_through`) and guard+down (`wants_platform_drop`).
 ///
-/// ⚠ **THIS IS A SECOND STAGE, NOT AN EDIT TO THE FIRST, and that is deliberate
-/// twice over.** Changing the stage everyone plays is a game-design decision
-/// that belongs to Jon rather than to a measurement pass; and every spacing,
-/// recovery and edgeguard number this project has recorded — the whole ladder
-/// rig — was taken on [`smash_stage`]'s flat block, so silently moving the
-/// ground would invalidate that corpus instead of giving it something to be
-/// compared against.
+/// It is a second stage, not an edit to the first. Changing the main stage is
+/// Jon's design call, and the ladder rig's recorded numbers were taken on
+/// [`smash_stage`]'s flat block. Reachable through [`SmashStageChoice`] and the
+/// select screen's stage button.
 ///
-/// ⇒ Reachable in play through [`SmashStageChoice`] and the select screen's
-/// stage button.
-///
-/// ⚠ **THE TOP TIER SITS 10px UNDER THE RESPAWN PLATFORMS, and that was not
-/// designed — it was arithmetic nobody did.** `respawn_placement` puts a
-/// returning body at `stage_centre.y - RESPAWN_HEIGHT_PX` = y 140, its platform
-/// 30px below at y ≈ 170, spanning x 240–336 and 304–400 for the first two
-/// seats. This stage's top tier occupies y 180–196 across x 236–404. So a
-/// fighter whose respawn platform expires falls **ten pixels** onto the tier
-/// instead of returning to the stage.
-///
-/// ⇒ A platform under the respawn point is genre-normal (Battlefield has one),
-/// but ten pixels is not a gap, and any measurement taken on this layout is
-/// partly measuring that. ⛔ Deliberately NOT adjusted yet: the flat-versus-
-/// platforms comparison in `fighter-brain.md` was run on THIS geometry, and
-/// moving a tier now would leave a recorded number describing a stage that no
-/// longer exists. Change the geometry and the measurement together, or neither.
+/// Known issue: the top tier (y 180–196, x 236–404) is 10px under the respawn
+/// platforms (`respawn_placement` puts a body at y 140 with its platform near
+/// y 170). A fighter whose respawn platform expires lands on the tier, not the
+/// stage. It is not adjusted yet because the flat-versus-platforms comparison
+/// in `fighter-brain.md` used this geometry. Change the geometry and the
+/// measurement together.
 pub fn smash_platform_stage() -> RoomSpec {
     let centre_x = STAGE_SIZE.x / 2.0;
     let main = ae::Block::solid(
@@ -816,9 +548,7 @@ pub fn smash_platform_stage() -> RoomSpec {
         Vec2::new((STAGE_SIZE.x - PLATFORM_WIDTH) / 2.0, PLATFORM_TOP),
         Vec2::new(PLATFORM_WIDTH, 32.0),
     );
-    // y grows DOWNWARD, so a platform ABOVE the stage is at a SMALLER y. Getting
-    // this backwards buries the tiers inside the stage, where they are invisible
-    // and still solid to a body walking over them.
+    // y grows downward, so a platform above the stage has a smaller y.
     let soft = |name: &str, x: f32, rise: f32| {
         ae::Block::one_way(
             name.to_string(),
@@ -852,24 +582,20 @@ pub fn stage_centre() -> Vec2 {
 
 /// What the match announces when it ends.
 ///
-/// It read `seat 2 wins` before — which is what he was looking at when he asked — and the SIDE is
-/// not a name. `announce_the_winner` resolves the winning side into the fighter's own name before
-/// it gets here; this owns the wording alone, so the card and any test of it read one function.
+/// `announce_the_winner` resolves the winning side into the fighter's name
+/// before the call; this function owns only the wording.
 pub fn victory_banner(
     outcome: &ambition_platformer2d::actor::MatchVerdict,
     winner_name: Option<&str>,
 ) -> String {
     use ambition_platformer2d::actor::MatchVerdict;
     match outcome {
-        // The NAME, resolved by the caller — a side label is not a name, which
-        // is what Jon was looking at when he asked about `seat 2 wins`.
+        // The name from the caller; a side label is not a name.
         MatchVerdict::Winner(side) => format!("WINNER: {}", winner_name.unwrap_or(side)),
         // A draw is reachable and cheaply: two fighters on their last stock,
         // knocked off together.
         MatchVerdict::Draw => "Draw — everybody fell".to_string(),
-        // ⭐ AND IT SAYS SO. The card is the only place a player learns which of
-        // the three happened, and an abandoned match wearing "Draw" would tell
-        // them the fighters settled something.
+        // Say so: "Draw" would tell players the fighters settled something.
         MatchVerdict::NoContest => "NO CONTEST".to_string(),
     }
 }
@@ -877,10 +603,9 @@ pub fn victory_banner(
 /// The two answers the engine refuses to guess, wired to the messages it
 /// writes.
 ///
-/// `ambition_platformer2d::combat::stocks` spends the stock, clears the meter and marks the
-/// elimination — then stops, because placing a body needs a stage and announcing
-/// a winner needs a scoreboard. This plugin is the other side of that seam, and
-/// it is the whole reason the split is a design rather than an omission.
+/// `ambition_platformer2d::combat::stocks` spends the stock, clears the meter
+/// and marks the elimination. Placing a body needs a stage and announcing a
+/// winner needs a scoreboard, so this plugin supplies both.
 pub struct SmashRulesPlugin {
     hosted: bool,
 }
@@ -908,59 +633,22 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         app.add_message::<ambition_platformer2d::actor::FighterStockSpent>();
         app.add_message::<ambition_platformer2d::actor::FighterRespawnDue>();
         app.add_message::<ambition_platformer2d::actor::StocksMatchDecided>();
-        // D192 — THIS STAGE AUTHORS THE BEAT. The engine defaults to zero, which
-        // is the same-tick placement every other ruleset already had; the beat is
-        // a smash-stage decision, so it is declared here and nowhere else.
+        // D192: this stage authors the respawn beat. The engine default is
+        // zero (same-tick placement).
         app.insert_resource(ambition_platformer2d::actor::RespawnInterval {
             seconds: RESPAWN_INTERVAL_SECONDS,
         });
-        // The stop-this-match channel, owned here for the same reason the two
-        // above are: a rules-only harness may not have the engine plugins.
-        // The capture request channels. The ADAPTER below writes them and the
-        // body runtime reads them, so this plugin owns them the same way it owns
-        // the two above.
 
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-        // THE CAPTURE LOOP, in the order the facts become available.
+        // Sing, in `ContentSpecials`: its effect must exist before the effect
+        // executors run. Authored sleeps today: the performer's `speech` pulse
+        // (`performer_moveset`) and the Shadow Oni leader's seal. The bridge
+        // from `MoveEventKind::Effect` is the keyed-technique dispatch in
+        // `crates/ambition_combat/src/moveset/mod.rs`.
         //
-        // `dispatch_move_events` turns a live grab window into an authored
-        // `Effect` during `CombatSet::Playback`; the adapter recognises the key
-        // and writes a typed request; acquisition turns that into a relationship.
-        // Chained so a grab that goes active this tick catches this tick — the
-        // alternative is a frame of latency on every grab, which in a fighting
-        // game is a mechanic change rather than a rounding error.
-        //
-        // `Materialize`, beside the projectile spawns, because that set's
-        // own doc says what it is for: *"a thing must EXIST before it can hit
-        // anything"*. A capture relationship is exactly such a thing — the
-        // pummel and throw that target it are moves that come later.
-        // THE COUNTER STANCE, held open before anything resolves.
-        //
-        // ⛔⛔ `Materialize` AND NOT `Playback`, because the window has to be
-        // open when the strike is judged and `apply_hitbox_damage` judges it in
-        // `Resolve`. The sustained effect that arms this is emitted while the
-        // move advances in `Playback`, so this sits between the two — the one
-        // phase where the message exists and the verdict has not been reached.
-        //
-        // ⚠ AND IT MUST RUN EVERY FRAME OF THE STANCE. `parry_window_timer`
-        // decays, so this is a heartbeat rather than a grant; see the
-        // technique's own note.
-        // SING. ⭐ `ContentSpecials` beside the portal below, for the same
-        // reason: a content technique whose effect must exist before the effect
-        // executors run.
-        //
-        // ⚠ ~~REGISTERED WITH NO AUTHORED CUSTOMER YET~~ — STALE SINCE THE
-        // PERFORMER GOT THE SONG. Two moves author a sleep today: her
-        // `speech`'s pulse (`performer_moveset`, a strictly smaller area than
-        // the swing it rides on) and the Shadow Oni leader's seal, whose
-        // guaranteed sleep is deliberately shorter than hers. The road from an
-        // authored `MoveEventKind::Effect` to this system is the keyed-technique
-        // bridge at `crates/ambition_combat/src/moveset/mod.rs:4080`.
-        //
-        // ⛔ THE MASH RUNS FIRST, so a press cannot be spent on a sleep that did
+        // The mash runs first, so a press cannot be spent on a sleep that did
         // not exist when it was made. `apply_authored_sleep` takes a `max`, so
-        // the landing tick is unchanged either way; the order is the honest
-        // reading rather than a fix.
+        // the landing tick is the same either way.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_sleep::SLEEP,
@@ -979,14 +667,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE PORTAL RECOVERY. ⭐ `ContentSpecials`, the seam the runtime
-        // provides for a CONTENT TECHNIQUE that must produce its effects before
-        // the effect executors run — the same reasoning the shark's summon uses.
-        //
-        // ⛔ THE CLOSE IS CHAINED AFTER THE OPEN, so an aperture's authored
-        // lifetime is spent from the frame it appears. That costs the pair one
-        // tick and is the honest reading: a portal that existed for less than a
-        // frame was never a route.
+        // Portal recovery, in `ContentSpecials`. The close is chained after the
+        // open, so an aperture's lifetime is spent from the frame it appears.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_portal::PORTAL_PAIR,
@@ -1007,21 +689,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE STEERED BOLT. ⭐ `ContentSpecials` like every other content
-        // technique, and the FIRE IS CHAINED BEFORE THE FLIGHT so a bolt begins
-        // moving on the tick it appears rather than hanging at the caster's
-        // shoulder for a frame — which is also the frame it is inside him, and
-        // the one place the clearance latch must not be resolved wrongly.
+        // Steered bolt. Fire is chained before flight, so a bolt moves on the
+        // tick it appears and does not sit inside the caster for a frame.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_bolt::STEERED_BOLT,
             TechniqueOffer {
                 owner: "ambition_demo_smash::bolt",
                 params: TechniqueParams::Checked(
-                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it":
-                    // an invisible bolt, a trail redrawn never, and a bolt nobody
-                    // can steer were all rules the Rust authoring helper asserted
-                    // and this road admitted.
+                    // The domain rule, not only "serde can build it": rejects
+                    // an invisible bolt, a trail never redrawn, an unsteerable bolt.
                     ambition_platformer2d::entity_catalog::smash_bolt::check_steered_bolt_params,
                 ),
                 references: NestedReferences::None,
@@ -1034,9 +711,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE HOMING DASH. ⭐ `ContentSpecials`, and the BEGIN is chained before
-        // the CARRY so a dash steers on the tick it starts rather than standing
-        // still for one frame — which on a 0.28s move is 6% of it.
+        // Homing dash. Begin is chained before carry, so a dash steers on the
+        // tick it starts.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_homing::HOMING_DASH,
@@ -1057,17 +733,15 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE ANSWERING CUT. ⭐ `ContentSpecials` like every other technique.
-        // ⛔ It reads the SAME `ActorActionMessage` the counter writes, so it
-        // needs no counter-specific wiring: a parry's response is an ordinary
-        // special request, and any move that names the key gets a cut.
+        // Riposte. It reads the same `ActorActionMessage` the counter writes,
+        // so it needs no counter-specific wiring.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_riposte::RIPOSTE_STRIKE,
             TechniqueOffer {
                 owner: "ambition_demo_smash::riposte",
                 params: TechniqueParams::Checked(
-                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
+                    // The domain rule, not only "serde can build it".
                     ambition_platformer2d::entity_catalog::smash_riposte::check_riposte_strike_params,
                 ),
                 references: NestedReferences::None,
@@ -1076,12 +750,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::riposte::cut_where_a_riposte_answers
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE TETHER REEL. ⭐ `ContentSpecials` beside the homing dash, and the
-        // THROW is chained before the REEL for the same reason: a line that bit
-        // a ledge should start pulling on the tick it bit, not the frame after.
-        // ⛔ The reel does NOT catch the ledge — the movement kernel's own ledge
-        // authority does, one phase later, from her real position. See
-        // `crate::tether` for why that separation is the point of the row.
+        // Tether reel. Throw is chained before reel, so a line that bit a ledge
+        // pulls on that tick. The reel does not catch the ledge; the movement
+        // kernel's ledge authority does, one phase later. See `crate::tether`.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_tether::TETHER_PULL,
@@ -1102,11 +773,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE PLACED SPRING. ⭐ `ContentSpecials` like every other content
-        // technique, and the DROP IS CHAINED BEFORE THE FIRE so a plate begins
-        // its arming clock on the tick it lands rather than a frame later —
-        // which matters because the frame it lands is the frame its dropper is
-        // standing inside it.
+        // Placed spring. Drop is chained before fire, so a plate starts its
+        // arming clock on the tick it lands (while its dropper stands in it).
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_spring::PLACE_SPRING,
@@ -1127,57 +795,28 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE LIMIT METER. ⭐⭐ Jon's baseline, and the whole point of the shape
-        // is that it is a set of independent SOURCES rather than a rule: *"make
-        // sure the meter doesn't push future uses of it into a box."* A mechanic
-        // that wants a pure clock, or damage only, or a move that charges it,
-        // authors that one and gets nothing else.
-        // ⛔⛤ NOT INSERTED HERE ANY MORE — see
-        // `the_stage_declares_smashs_presentation_and_gives_it_back`. A rule
-        // inserted at plugin build reaches every body in the COMPOSING app, and
-        // `ambition_app` installs this plugin: Ambition's own player had its mana
-        // re-capped and emptied by the smash Limit rule while playing Ambition.
-        // The stage declares it and gives it back, like the portal cone beside
-        // it.
-        // ⛔⛔ THE TWO HALVES OF THE LIMIT SIT IN DIFFERENT PHASES, AND THE SPLIT
-        // IS THE WHOLE CORRECTNESS ARGUMENT — this was one chained pair in
-        // `ContentSpecials` and it broke rollback determinism outright.
+        // Limit meter: a set of independent sources, not one rule, so a
+        // mechanic can author only the source it wants.
         //
-        // `ContentSpecials` sits INSIDE `Materialize`, which runs BEFORE
-        // `Resolve`. A damage reader there consumes `ResolvedBodyHit` from the
-        // PREVIOUS frame, because Bevy's message buffers are double-buffered and
-        // a message emitted at frame N is still readable at N+1.
+        // The rule is not inserted here: a rule inserted at plugin build reaches
+        // every body in the composing app, including Ambition's player. The stage
+        // declares it and gives it back; see
+        // `the_stage_declares_smashs_presentation_and_gives_it_back`.
         //
-        // ⭐ THAT CROSS-FRAME READ IS FATAL UNDER GGRS, and registering
-        // `clear_message_on_rollback` does NOT save it: the clear wipes the
-        // buffer at load, so the leftover the original run consumed at frame N+1
-        // is simply GONE from the resimulation, and the meter fills on one pass
-        // and not the other. `rollback_exit_oracle`'s per-component diagnostic
-        // named `BodyMana` as the divergence, and the two-arm experiment
-        // (fill-from-hits disabled ⇒ green, enabled ⇒ red) pinned it to this read.
+        // The two halves run in different phases. `ContentSpecials` is inside
+        // `Materialize`, before `Resolve`, so a damage reader there reads the
+        // previous frame's `ResolvedBodyHit`. Under GGRS that cross-frame read
+        // diverges (`clear_message_on_rollback` drops the leftover at load), and
+        // `BodyMana` desyncs. So the damage half runs in `ContentFlavor`
+        // (between `Resolve` and `Settle`), and reads each hit on the frame it
+        // is emitted.
         //
-        // ⇒ THE DAMAGE HALF BELONGS IN `ContentFlavor`, whose own doc says it
-        // sits between `Resolve` and `Settle` so it "observes this frame's"
-        // outcome "before the bookkeeping runs". Read there, every hit is
-        // consumed on the frame it was emitted, so a rollback re-emits and
-        // re-reads it identically.
-        //
-        // ⚠ A LATCHING reader survives the earlier phase — `mark_move_playback_resolved_hits`
-        // reads a frame late on purpose and only sets booleans, and setting a
-        // bool twice is setting it once. An ACCUMULATOR cannot: `+=` is the
-        // operation a doubled or dropped read corrupts. That is the rule, and it
-        // is about the reader's arithmetic, not the message.
-        // ⛔⛔ WHAT THE LAST MATCH LEFT BEHIND, SWEPT BEFORE ANYTHING ACTS ON IT.
-        // `CombatSet::Trigger` is the earliest combat phase — before
-        // `Materialize`, where these objects are created — so a mine belonging to
-        // a finished match is gone before a fighter can trip it, rather than
-        // being removed at some point during the tick that already used it.
-        //
-        // ⭐ THE MATCH OWNS THIS, NOT THE FIVE MOVES. Jon, 2026-09-05: *"Ending a
-        // match should be cleaning everything up, don't hack in a solution to
-        // this."* The hack is a despawn in each spawning system; this is one
-        // sweep over one marker, and the sixth technique somebody authors gets
-        // cleanup by stamping rather than by remembering.
+        // A latching reader (sets booleans, like
+        // `mark_move_playback_resolved_hits`) can read a frame late. An
+        // accumulator (`+=`) cannot.
+        // Sweep objects from ended matches in `CombatSet::Trigger`, the
+        // earliest combat phase, so no fighter can trip a leftover mine. The
+        // match owns cleanup: techniques stamp a marker; they do not despawn.
         app.add_systems(
             sim,
             crate::match_scope::sweep_objects_from_ended_matches
@@ -1188,8 +827,8 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::limit::fill_limit_meters
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentFlavor),
         );
-        // The authored half stays where a dispatched special belongs: a move that
-        // charges its own owner reaches its technique on the frame it is pressed.
+        // The authored half runs where a dispatched special belongs, on the
+        // frame it is pressed.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_limit::FILL_METER,
@@ -1204,40 +843,21 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             crate::limit::apply_authored_meter_fills
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE TIME DILATION. `ContentSpecials` like every other content technique,
-        // and CHAINED — but EXPIRE FIRST, which is the reverse of what this
-        // comment used to say and used to do.
+        // Time dilation, chained expire then apply. `PlayerSimulation` runs
+        // before `Combat`, so a scale written here is first observed on the
+        // next tick. If apply ran before expire, the same tick would spend one
+        // tick of the dilation, and N authored ticks would give N-1 slowed ones.
+        // Guarded by `a_one_tick_dilation_is_still_in_force_next_tick`.
         //
-        // ⛔⛔ THE OLD ORDER SPENT THE FIRST TICK ON THE TICK IT WAS APPLIED.
-        // `apply` inserted `remaining_s`, and the chained `expire` subtracted
-        // `sim_dt` from it before the frame ended — so a dilation authored for
-        // exactly one tick was already gone when anything could run at the new
-        // scale. The old comment claimed the chain PREVENTED that; chaining
-        // apply→expire is what GUARANTEED it.
-        //
-        // ⭐ AND THE PHASE MAKES IT ONE TICK WORSE, WHICH IS WHY THE OFF-BY-ONE
-        // IS TOTAL RATHER THAN COSMETIC: `PlayerSimulation` runs BEFORE `Combat`,
-        // and `ContentSpecials` is inside `Combat`. A scale written here is
-        // therefore first OBSERVED by the player's own simulation on the NEXT
-        // tick. Spending a tick here costs the only tick that had not yet been
-        // spent: N authored ticks bought N−1 slowed ones, and a one-tick slow
-        // bought ZERO.
-        //
-        // ⇒ EXPIRE, THEN APPLY. A dilation applied this tick is not touched by
-        // this tick's sweep, so the countdown begins on the first tick that can
-        // actually observe the new scale. `a_one_tick_dilation_is_still_in_force_next_tick`
-        // is the guard, and it fails on the old order.
-        //
-        // ⚠ Reversing is safe against re-application: `apply` keeps the ORIGINAL
-        // `prior` when a dilation is already live, so a slow refreshed while
-        // running still restores the clock the body started on.
+        // Re-application is safe: `apply` keeps the original `prior` while a
+        // dilation is live.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_time_dilation::TIME_DILATION,
             TechniqueOffer {
                 owner: "ambition_demo_smash::dilation",
                 params: TechniqueParams::Checked(
-                    // ⭐ THE DOMAIN'S OWN RULE, not merely "serde could build it".
+                    // The domain rule, not only "serde can build it".
                     ambition_platformer2d::entity_catalog::smash_time_dilation::check_time_dilation_params,
                 ),
                 references: NestedReferences::None,
@@ -1250,12 +870,9 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
-        // THE REMOTE MINE. ⭐ `ContentSpecials` like every other content
-        // technique, and the ARM IS CHAINED BEFORE THE PRESS so a mine that
-        // becomes live on this tick answers this tick's press. The other order
-        // would make the arming delay one frame longer than the number the
-        // moveset authored, which is the kind of drift nobody can see and
-        // everybody feels.
+        // Remote mine. Arm is chained before press, so a mine that becomes
+        // live this tick answers this tick's press. The other order adds a frame
+        // to the authored arming delay.
         install_techniques(
             app,
             &[
@@ -1291,47 +908,37 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             (
                 crate::mine::arm_placed_mines,
                 crate::mine::place_or_detonate_authored_mines,
-                // ⭐ THE MARK'S TWO HALVES, TICK THEN APPLY. This read
-                // apply-then-tick with a comment claiming it gave the victim the
-                // authored fuse; it did the opposite — the tick that applied a
-                // mark also spent one `sim_dt` of it, so a one-tick fuse went
-                // off on the tick it was attached. Ticking first makes the tick
-                // of application tick ZERO of the fuse. A GPT review found the
-                // comment and the code disagreeing, 2026-09-07.
+                // Mark: tick, then apply. The tick that applies a mark spends
+                // none of its fuse, so the victim gets the full authored fuse.
                 crate::mark::detonate_body_marks,
                 crate::mark::apply_authored_body_marks,
             )
                 .chain()
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials),
         );
+        // Counter stance, in `Materialize`: `apply_hitbox_damage` judges in
+        // `Resolve`, and the arming effect is emitted in `Playback`. This runs
+        // between them. It runs every frame of the stance, because
+        // `parry_window_timer` decays.
         app.add_systems(
             sim,
             crate::counter::hold_counter_parry_windows
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Materialize),
         );
-        // THE MARK'S READ. The generic body-clock view is cleared by its owner
-        // in the sim tail; this contributes the marks after the clear.
+        // Mark clocks. The body-clock view owner clears it in the sim tail;
+        // this contributes the marks after the clear.
         app.add_systems(
             sim,
             crate::mark::publish_mark_clocks
                 .in_set(ambition_platformer2d::sim_view::BodyClockViewSet::Contribute),
         );
-        // …and the ANSWER, once the verdict is in.
+        // Counter answer, once the verdict is in. `Settle` needs no explicit
+        // edge: `ParriedBodyHit` is written in the earlier `Resolve` phase. An
+        // explicit edge is needed only for a message written in the reader's
+        // own set.
         //
-        // ⭐ `Settle` NEEDS NO EXPLICIT EDGE HERE, and that is worth stating
-        // because the finishing zoom next door needs one. `ParriedBodyHit` is
-        // written by `apply_hitbox_damage` in `CombatSet::Resolve` — an EARLIER
-        // phase — so the phase chain already orders this reader after its
-        // writer. The rule that separates the two cases is not "reads a
-        // message" but "reads a message written in its OWN set", which is the
-        // one relationship a phase cannot express.
-        //
-        // ⚠ THE RESPONSE LANDS ON THE NEXT TICK, DELIBERATELY. Its
-        // `ActorActionMessage` is read by the technique adapters in
-        // `Materialize`, which this tick has already passed. A counter that
-        // answered inside the same frame it caught would have no visible catch
-        // at all — the parry and its answer would be one instant — and message
-        // buffers survive the frame boundary, so nothing is lost by the wait.
+        // The response lands on the next tick: its `ActorActionMessage` is read
+        // in `Materialize`, which has passed. The wait makes the catch visible.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_counter::COUNTER,
@@ -1347,27 +954,17 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
 
-        // THE PIRATE'S SHARK. ⭐ `ContentSpecials`, which is the seam the runtime
-        // already provides for exactly this: a CONTENT TECHNIQUE that must
-        // produce its effects before the effect executors run
-        // (`ContentSpecials.before(EffectExecutionSet)`, and `apply_effects` is
-        // chained before `apply_summon_effects`).
-        //
-        // ⛔ NOT `Materialize` WITH A LEAF-TO-LEAF EDGE. The first version put
-        // this beside the capture adapter and ordered nothing, so the writer of
-        // an `EffectRequest` and its executor were unordered peers in one set —
-        // a scheduler tie deciding whether a summon lands this tick or next,
-        // which is the shape this repo has already been bitten by. Naming the
-        // set says WHAT this system is instead of who it must beat.
-        // Jostle is a fact the movement kernel reads, so it is established in the
-        // simulation — see the system's own note. `WorldPrep` because it must be
-        // true before anything integrates a body.
+        // Jostle is a fact the movement kernel reads, so it is set in the
+        // simulation in `WorldPrep`, before anything integrates a body.
         app.add_systems(
             sim,
             smash_fighters_are_solid_to_each_other.in_set(
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
             ),
         );
+        // Shark summon, in `ContentSpecials`: it must produce its effects
+        // before the effect executors run (`ContentSpecials.before(
+        // EffectExecutionSet)`). Name the set; do not add a leaf-to-leaf edge.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_ride::SUMMON_RIDE,
@@ -1383,24 +980,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             },
             crate::shark_ride::translate_shark_summons
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::ContentSpecials), // ⛔⛔ ~~AND THE EXPLICIT EDGE, WHICH THE SET DOES NOT IMPLY~~ —
-                                                                                                  // THE SET IMPLIES IT NOW, AND THE FIX WAS IN THE ENGINE RATHER
-                                                                                                  // THAN HERE. `apply_summon_effects` was CHAINED after
-                                                                                                  // `apply_effects` without being IN `EffectExecutionSet`, so the
-                                                                                                  // summon executor inherited no order from the phase and this
-                                                                                                  // ruleset had to name an engine system by hand to get one. The
-                                                                                                  // runtime installs it into the set now, so
-                                                                                                  // `ContentSpecials.before(EffectExecutionSet)` covers it and the
-                                                                                                  // membership above is the whole ordering.
-                                                                                                  //
-                                                                                                  // ⚠ THE ORIGINAL MEASUREMENT STILL STANDS AND IS WHY THIS IS NOT
-                                                                                                  // A TIDY-UP: with the set alone the executor ran every tick and
-                                                                                                  // read zero requests, and the shark never appeared. What changed
-                                                                                                  // is that the phase now MEANS what that measurement assumed.
+                                                                                                  // the runtime puts `apply_summon_effects` in
+                                                                                                  // `EffectExecutionSet`, so set membership is the whole
+                                                                                                  // ordering. Without it the shark never appears.
         );
-        // THE BOMB. Recognised where the shark's summon is, for the same reason
-        // — both are authored techniques dispatched as `ActorActionMessage` —
-        // and burnt in `Settle`, after the item physics has had its say about
-        // whether the object hit anything this tick.
+        // Bomb. Recognised like the shark summon (an `ActorActionMessage`
+        // technique); the fuse burns in `Settle`, after item physics.
         install_technique(
             app,
             ambition_platformer2d::entity_catalog::smash_bomb::DROP_BOMB,
@@ -1423,16 +1008,10 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .after(ambition_platformer2d::platformer::schedule::ItemPickupSet::CoreHeldItems)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // WHAT ENDS A RIDE, and what the shark does afterwards.
-        //
-        // ⛔ `Settle` and CHAINED, because all three are opinions about a state
-        // the tick has already produced: whether the rider is tumbling, whether
-        // it pressed jump, and whether its saddle emptied. The two that ASK run
-        // before `DismountRequestsApplied` — the PHASE, not the function. This
-        // ruleset used to name `apply_dismount_requests` itself, which is a
-        // ruleset asserting order over a domain it does not own; `ambition_mount`
-        // publishes the set now and the runtime installs the system into it, so
-        // what is written here is a membership rather than a reference.
+        // What ends a ride, and what the shark does afterwards. `Settle`,
+        // chained: each reads state the tick already produced. The two that
+        // request a dismount run before `DismountRequestsApplied` (the set
+        // `ambition_mount` publishes).
         app.add_systems(
             sim,
             (
@@ -1455,27 +1034,16 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 .after(ambition_platformer2d::mount::DismountRequestsApplied)
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // ⛔⛔ THE DEPARTURE'S INTENT IS WRITTEN WHERE INTEGRATION WILL READ IT.
-        // It used to run in `CombatSet::Settle`, at the end of the tick, and a
-        // departing shark has no rider — so on the NEXT tick its own brain
-        // republished `ActorControl` before the movement pass, overwriting the
-        // heading this system had set. The shark was told to leave once per tick
-        // and talked out of it once per tick.
-        //
-        // ⭐ `BeforeIntegrate` IS THE PHASE THAT MEANS "the intent integration
-        // is about to consume". Writing a velocity target anywhere the brain
-        // still speaks after you is writing it into a value somebody else owns.
+        // Departure writes intent in `BeforeIntegrate`. In `Settle`, the
+        // riderless shark's brain would overwrite `ActorControl` on the next
+        // tick before movement.
         app.add_systems(
             sim,
             crate::shark_ride::tick_departures
                 .in_set(ambition_platformer2d::platformer::schedule::WorldPrepSet::BeforeIntegrate),
         );
-        // THE FOOTSTOOL CLAIMS THE PRESS BEFORE THE KERNEL SPENDS IT, so
-        // it runs in `PlayerInput` and NOT in `Settle`. It shipped in `Settle`
-        // on the argument that a later velocity write wins; that is true of the
-        // velocity and false of the air jump, which the kernel had already spent
-        // by then. A body with a charge paid one and a body without paid nothing
-        // for the identical footstool. The claim now reaches
+        // The footstool claims the press in `PlayerInput`, before the kernel
+        // spends the air jump. The claim sets
         // `BodyJumpState::footstool_claimed` ahead of the jump chain.
         app.add_systems(
             sim,
@@ -1483,33 +1051,22 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
                 ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput,
             ),
         );
-        // THE LEDGE TRUMP RESOLVES AFTER THE KERNEL, so it sees the grabs
-        // this tick made. Two bodies can catch one edge on the same frame, and
-        // arbitrating before `PlayerSimulation` would judge LAST tick's
-        // occupancy and leave both hanging for a frame — which is the frame an
-        // edge-guard reads. `CombatSet::Settle` is not a claim that a trump is
-        // combat; it is the established post-kernel bookkeeping slot, beside the
-        // capture release and the stale-move recorder.
+        // Ledge trump resolves after the kernel, so it sees this tick's grabs.
+        // Before `PlayerSimulation` it would judge last tick's occupancy and
+        // leave both bodies hanging for a frame. `Settle` is the post-kernel
+        // bookkeeping slot.
         app.add_systems(
             sim,
             ambition_platformer2d::combat::ledge_trump::resolve_ledge_trumps
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle),
         );
-        // ⛔ THE INTERRUPTION RELEASE MOVED TO THE ENGINE COMPOSITION 2026-09-12,
-        // AND THIS DEMO WAS THE ONLY PLACE IT HAD EVER BEEN INSTALLED. Its
-        // reasoning — `Settle`, because `Resolve` writes the hitstun a release
-        // must read — travelled with it into `CombatSchedulePlugin`. Smash was
-        // never the right owner of "a hit breaks a grab": 17 shipped movesets
-        // outside this demo author `smash.capture_attempt`, and in every one of
-        // their hosts the hold was unbreakable by damage for as long as this
-        // line lived here. ⇒ Re-adding it here would run the release twice.
-        // AFTER the engine's own `CombatSet::Settle` work: the stock is spent
-        // there, and placing a body before it has been spent would put the
-        // fighter back on the stage for a knockout that had not been counted.
-        // The HUD publisher is PRESENTATION, not a rule: it reads seats and
-        // publishes readouts and decides nothing. It runs in the same gated set
-        // so a hosted build stops drawing a fighter HUD the moment the stage is
-        // not the active mode.
+        // The capture interruption release is in `CombatSchedulePlugin`. Do
+        // not add it here; it would run twice.
+        //
+        // These rules run after the engine's `Settle` work: the stock must be
+        // spent before a body is placed. The HUD publisher only presents; it
+        // shares the gated set so a hosted build stops drawing it outside the
+        // stage.
         let rules = (
             publish_smash_hud,
             announce_the_opening_countdown,
@@ -1523,58 +1080,32 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::FighterStocksSpent)
-            // ⛔ AND after the RETURN is decided. Ordering only against the spend
-            // was enough while placement happened on the knockout tick; with an
-            // interval the two are different ticks, and a placement racing the
-            // tick-down reads an empty queue on the tick a fighter was due.
+            // Also after the return is decided: with a respawn interval, a
+            // placement racing the tick-down would miss a due fighter.
             .after(ambition_platformer2d::combat::stocks::FighterRespawnsDue);
-        // ⛔⛔ SUDDEN DEATH'S STAGE HALF IS A SIMULATION RULE, and it ran in
-        // literal `Update` until a review caught it. It writes rollback-canonical
-        // `BodyHealth` — putting every survivor on the authored damage — and a
-        // rewind can execute several simulation steps without ordinary `Update`
-        // replaying between them, so the resimulated match would reach sudden
-        // death and never place its fighters.
-        //
-        // ⭐ ORDERED AFTER THE DECISION rather than merely after the stock spend:
-        // the message it reads is written by `decide_stocks_match`, and the
-        // `rules` chain above only promises to follow `FighterStocksSpent`.
+        // Sudden death's stage half writes rollback-canonical `BodyHealth`, so
+        // it runs in the simulation, not `Update`. It reads the message from
+        // `decide_stocks_match`, so it runs after `MatchOutcomeDecided`.
         app.add_systems(
             sim,
             open_the_sudden_death_round
                 .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
                 .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided),
         );
-        // THE ONE RULE THAT CANNOT RUN ALONGSIDE THE DECISION, pulled out
-        // of the chain above and ordered behind it.
-        //
-        // Reported from the couch: *"there seems like several cases
-        // where everyone but one player dying will not cause a match to end
-        // correctly."* This system DESPAWNS an eliminated body, and
-        // `decide_stocks_match` reads the sides off the bodies that still exist —
-        // so despawning the last loser deletes its side from the question, and
-        // `last_side_standing` sees ONE side, and one side is not a match. It
-        // answers `None`, forever, and the match never ends.
-        //
-        // Both systems sat in `CombatSet::Settle` with nothing ordering them, and
-        // the chain above inserts an `ApplyDeferred` between its members, so the
-        // despawn lands part-way through the set. Whether a match ended depended
-        // on how the scheduler broke a tie — which is why it was *"several
-        // cases"* rather than always.
-        //
-        // only this one waits. The HUD, the countdown and the respawn
-        // placement are still meant to run beside the engine's answer rather than
-        // behind it — see `FighterStocksSpent`'s own note — and putting the whole
-        // chain behind the decision would take that away to fix one member.
+        // This rule runs after the decision, outside the chain above. It
+        // despawns eliminated bodies, and `decide_stocks_match` reads sides from
+        // the bodies that exist. If it despawned the last loser first,
+        // `last_side_standing` would see one side and the match would never end.
+        // Only this system waits: the HUD, countdown and placement run beside
+        // the decision (see `FighterStocksSpent`).
         let remove_the_eliminated = take_eliminated_fighters_out_of_play
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
             .after(ambition_platformer2d::combat::stocks::MatchOutcomeDecided);
         if self.hosted {
             let gate = ambition_platformer2d::runtime::in_mode(SMASH_MODE);
-            // ⭐ THE RETRACTION IS AN OBSERVER, and it is UNGATED on purpose: it
-            // fires when `RespawnGrace` leaves for ANY reason — its own clock, a
-            // swing, a body being rebuilt, a mode teardown — and a reason bit
-            // left set by a component that is gone is a fighter invulnerable for
-            // the rest of the session.
+            // The retraction observer is ungated: `RespawnGrace` can leave for
+            // any reason (its clock, a swing, a rebuild, a mode teardown), and a
+            // stale reason bit would keep a fighter invulnerable.
             app.add_observer(ambition_platformer2d::actor::retract_respawn_grace_on_removal);
             app.add_systems(sim, rules.run_if(gate.clone()));
             app.add_systems(sim, remove_the_eliminated.run_if(gate));
@@ -1587,37 +1118,29 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
 
 /// The stage's own readouts: one per fighter, plus the match card.
 ///
-/// the data was already shaped for these readouts and nothing consumed it:
-/// `BodyHealth::damage_percent()` is deliberately UNCLAMPED with a test named
-/// `damage_percent_is_unclamped_so_a_hud_can_print_188`, and `FighterStocks`
-/// keeps `started_with` with the comment *"so a HUD can draw '2 of 3' rather
-/// than inferring a maximum it was never told"*. Two APIs built for a consumer
-/// that did not exist.
+/// `BodyHealth::damage_percent()` is unclamped (see
+/// `damage_percent_is_unclamped_so_a_hud_can_print_188`), and `FighterStocks`
+/// keeps `started_with` so the HUD can draw "2 of 3".
 pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
     "smash_fighter_0",
     "smash_fighter_1",
     "smash_fighter_2",
     "smash_fighter_3",
 ];
-/// The winner card. One slot, because the stage says one thing at a time.
-/// ⚠⚠ TEMPORARY: how much faster than authored the opening ceremony runs.
+/// Temporary: how much faster than authored the opening countdown runs. Set to
+/// `1` to restore the authored three seconds.
 ///
-/// Jon, 2026-08-26, asking for a dev mode: *"make the 3, 2, 1, countdown go 10x
-/// as fast."* `1` restores the authored three seconds, and that is the whole of
-/// the revert.
-///
-/// ⛔ IT DIVIDES THE TICKS, NOT THE BEATS. `MatchRules::beats()` still counts
-/// three numbers — the ceremony says the same thing, it just says it quicker —
-/// and every test that waits out the countdown reads the roster's value rather
-/// than a literal, so they follow this without knowing about it.
+/// It divides the ticks, not the beats: `MatchRules::beats()` still counts
+/// three. Tests read the roster's value, not a literal.
 const COUNTDOWN_SPEEDUP: u32 = 10;
 
+/// The winner card. One slot, because the stage says one thing at a time.
 pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
 /// What one remaining stock is drawn as, under the sprites asset root.
 ///
-/// generated, not committed — `scripts/regen/sprites.sh` names it in its publish roster, which is what
-/// lets a fresh clone produce it.
+/// Generated, not committed: `scripts/regen/sprites.sh` lists it in its publish
+/// roster, so a fresh clone can produce it.
 pub const STOCK_ICON_ASSET: &str = "sprites/hud_stock_icon.png";
 
 /// What plays on the stage.
@@ -1629,16 +1152,12 @@ pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
 /// The scores written for this demo, rendered from
 /// `tools/ambition_music_renderer/scores/active/super_smash_siblings_*.music.yaml`.
 ///
-/// all three are registered, not only the one that plays. A track in this
-/// fragment is a track this experience is ALLOWED to play — the radio, a future
-/// stage select, and the winner card all pick from it — so registering only the
-/// default would make the other two unreachable from inside a smash session
-/// even though they were written for it. The default is what plays with nobody
-/// asking.
+/// All three are registered, not only the one that plays: a track in this
+/// fragment is one the experience may play (radio, stage select, winner card).
+/// The default plays when nobody asks.
 ///
-/// the asset path is derived (`audio/music/generated/<id>/full.ogg`) rather
-/// than written out, because that layout is the renderer's own contract and
-/// three hand-typed copies of it is three chances to typo one.
+/// The asset path is derived (`audio/music/generated/<id>/full.ogg`), because
+/// that layout is the renderer's contract.
 pub const SMASH_TRACKS: &[(&str, &str)] = &[
     (SMASH_STAGE_TRACK, "Super Smash Siblings"),
     (SMASH_SELECT_TRACK, "Choose Your Fighter"),
@@ -1648,219 +1167,119 @@ pub const SMASH_TRACKS: &[(&str, &str)] = &[
     ),
 ];
 
-/// THE COMBAT RULES THIS STAGE DECLARES, in one place so the publisher and
-/// its guard cannot hold different copies.
+/// The combat rules this stage declares, in one place so the publisher and its
+/// guard use the same copy.
 ///
-/// Every kit-less fighter reached the stage unable to hit anybody. and the guard could not catch
-/// it, because it passed the swipe in BY HAND: *"a fixture that manufactures the value under test
-/// cannot fail on its absence."* Both now call this.
-///
-/// reading the resource would be wrong even when it exists: on a second
-/// visit it holds the PREVIOUS match's declaration. A function has no such tense.
+/// A function, not a resource read: on a second visit the resource holds the
+/// previous match's declaration.
 pub fn smash_declared_combat_rules() -> ambition_platformer2d::combat::rules::DeclaredCombatRules {
     ambition_platformer2d::combat::rules::DeclaredCombatRules {
-        // BY OWNER. The versus route declares combat rules too, and a
-        // giveback that removed this by TYPE would delete ITS live rules the
-        // moment smash left — the lesson the roster and the prepared match each
-        // taught once already.
+        // By owner. The versus route also declares combat rules, and a
+        // giveback by type would delete its live rules when smash left.
         declared_by: SMASH_EXPERIENCE.to_string(),
         di_max_angle: SMASH_DI_MAX_ANGLE,
         knockback_growth: SMASH_KNOCKBACK_GROWTH,
-        // The robot's down-air is ONE authored swing that says it can rebound its attacker;
-        // Ambition takes it up on that, and a platform fighter must not — a d-air that bounced you
-        // back to safety offstage would be the opposite of a kill. Same move, two games, and the
-        // difference is declared rather than authored twice.
+        // The robot's down-air can rebound its attacker. Ambition uses that;
+        // a platform fighter must not, because offstage it would save the
+        // attacker instead of killing the victim.
         downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
-        // and the spike is a SENTENCE, not just a shove. ~18 frames in
-        // which a body knocked down out of the air cannot recover — long enough
-        // that a spike offstage is a kill and short enough that one over the
-        // stage is survivable. The window ENDING is what the genre calls the
-        // meteor cancel; there is no second verb.
+        // Meteor lock: about 18 frames in which a spiked body cannot recover.
+        // Long enough to kill offstage, short enough to survive over the stage.
+        // The end of the window is the meteor cancel.
         meteor_lock_time: 0.30,
-        // RAGE, capped at 1.4x. The percent mechanic already makes a hurt
-        // fighter easier to launch; without this it is punished twice, and the
-        // last stock stops being a fight. The cap is what keeps a comeback a
-        // chance rather than a coin flip.
+        // Rage, capped at 1.4x. Percent already makes a hurt fighter easier
+        // to launch; the cap keeps a comeback a chance, not a coin flip.
         rage_per_damage: 0.004,
         rage_max_scale: 1.4,
-        // STALING, floored at 0.55. One reliable kill move should not be
-        // the only answer a fighter needs; nine landings of it and it is worth
-        // barely half. Vary and the old one recovers — the ring forgets.
+        // Staling, floored at 0.55: nine landings of one move and it is worth
+        // about half. Varying moves lets it recover.
         stale_step: 0.05,
         stale_floor: 0.55,
-        // ⛔⛔ STALING WEARS THE DAMAGE DOWN IN FULL AND THE LAUNCH DOWN A
-        // LITTLE, because it is ONE number with TWO jobs and it used to be
-        // spent as though it had one.
-        //
-        // The floor above is a DAMAGE statement: nine landings of a move and it
-        // is worth barely half, which is the anti-spam rule working as
-        // designed. But the same 0.55 was multiplying the whole LAUNCH, and at
-        // high percent the launch is substantially the percent term — so a
-        // fighter's best kill move became the one least able to kill precisely
-        // when killing was the only thing left to do. That is a double
-        // punishment in a mechanic where launch, not damage, ends a stock.
-        //
-        // ⭐ At 0.30 a fully stale move keeps `1 - 0.30 * (1 - 0.55)` = 86.5%
-        // of its reach while still dealing 55% of its damage. Staling remains
-        // a real cost — vary or lose tempo — without being the reason a match
-        // cannot end.
+        // Staling reduces damage in full but launch only a little. At high
+        // percent the launch is mostly the percent term, so full staling would
+        // stop a fighter's best kill move from killing. At 0.30 a fully stale
+        // move keeps `1 - 0.30 * (1 - 0.55)` = 86.5% of its reach and deals 55%
+        // of its damage.
         stale_knockback_influence: Some(0.30),
-        // ⭐⭐ THE PERCENT CURVE'S STEEPNESS, and the one number this whole
-        // repair turns on. See `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
+        // The percent curve's steepness; see
+        // `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`.
         victim_percent_knockback_scale: Some(SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE),
-        // ⭐⭐ WHICH MOVES ARE KILL MOVES — AUTHORED EXPLICITLY, NOT INFERRED.
-        //
-        // This was `GrowthBaseCurve { pivot: 48, exponent: 0.25, ceiling: 1.40 }`:
-        // a law that read a move's BASE knockback as a proxy for its ROLE and
-        // scaled growth by it. The problem it addressed was real and is measured —
-        // the roster authored `growth/base` at 0.019-0.021 across all 22 bound
-        // roles, so a forward smash was arithmetically a jab times a constant.
-        //
-        // ⛔ BUT BASE KNOCKBACK IS NOT ROLE, and the curve is the wrong abstraction:
-        //   * explicit authored `knockback_growth` stopped meaning what it says —
-        //     the number in the moveset was not the number that applied;
-        //   * a deliberate high-BKB/low-KBG move (a heavy shove that must NOT
-        //     kill) is distorted by it, having asked for exactly the opposite;
-        //   * it never reached throws at all (`capture/systems.rs` does not read
-        //     it), so half the kill options silently opted out of the law;
-        //   * the outcome evidence behind its constants came from THREE attackers
-        //     against two victims — not, as claimed at the time, the roster.
-        //
-        // ⇒ The fix for homogeneous authoring is to AUTHOR the differentiation.
-        // The first explicit KBG pass does that from measured stage thresholds
-        // (`G_new = G_old * p0/p1` for strikes, `* (p0+d)/(p1+d)` for throws):
-        // pirate f-smash now sits at `growth/base` 0.0256 and up-smash at 0.0413
-        // against a jab's 0.020 — the separation the curve was synthesising.
+        // Kill moves are authored explicitly, not inferred. Base knockback is
+        // not role: a growth curve on base knockback overrode authored
+        // `knockback_growth`, distorted deliberate high-BKB/low-KBG shoves, and
+        // did not reach throws. Movesets author the separation instead (pirate
+        // f-smash `growth/base` 0.0256, up-smash 0.0413, jab 0.020), derived
+        // from measured stage thresholds (`G_new = G_old * p0/p1` for strikes,
+        // `* (p0+d)/(p1+d)` for throws).
         growth_base: None,
-        // CROUCH CANCEL, 0.85x. Ducking is a defensive read, not just a
-        // shorter hurtbox — and the 15% is what makes it one at low percent
-        // without saving anybody from a kill move.
+        // Crouch cancel, 0.85x: a defensive read at low percent that does not
+        // save anyone from a kill move.
         crouch_cancel_scale: 0.85,
-        // NO BLANKET MERCY WINDOW. This is the genre's answer, not a
-        // preference: Smash has no post-hit invulnerability, and repeat
-        // protection is a move's own business — one hitbox may not hit the same
-        // body twice, and SEPARATED authored Active windows are meant to, which
-        // is what a multi-hit move IS.
-        //
-        // ⛔ the engine's blanket window is 0.2s on the actor road, and George
-        // Booul's `bivalence` authors its weak pop at 0.30s and its launcher at
-        // 0.42s. A 0.2s window outlives that 0.12s gap, so the launcher could
-        // never land on the body the pop had hit: the move's whole design — "an
-        // early weak pop and a late strong throw" — was unreachable, and with
-        // both fighters George Booul a thirty-second match produced 135% of
-        // damage and not one launch.
+        // No blanket mercy window, as in Smash. Repeat protection belongs to
+        // the move: one hitbox cannot hit a body twice, and separate Active
+        // windows can. A 0.2s window would also stop George Booul's `bivalence`
+        // launcher (0.42s) from landing after its pop (0.30s).
         hit_repeat_window_scale: 0.0,
-        // TWO ATTACKS MEETING TRADE. Before this, two fighters swinging into
-        // each other both connected — both took damage, both were launched —
-        // which is an interaction no game in this genre has. Nine damage is the
-        // genre's neighbourhood: Melee, Brawl, Smash 4 and Ultimate all compare
-        // the two attacks' damage and all four use a threshold about here.
-        // Closer than this and both are refused; further and the stronger one
-        // continues untouched, which is what makes a heavy swing beat a jab
-        // instead of trading with it.
-        // ⛔⛔ CLANKING IS DECLARED OFF, and the mechanism is finished and tested
-        // — this is a TUNING decision, not a gap. Turned on at 9 damage it
-        // reshaped the whole ground game: two CPU fighters traded so constantly
-        // that `every_live_fighter_stays_inside_the_frame` measured ZERO
-        // body-frames outside the stage in a full match (nobody was ever
-        // launched) and `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match`
-        // stopped finding its beat. Restricting it to the ground game — the
-        // genre's own rule, aerials do not clank — did not settle it either.
-        //
-        // ⇒ a mechanic that becomes real re-tunes everything built on its
-        // absence, and what this needs is a play session rather than another
-        // guessed threshold. `9.0` is the genre's number and the one to try
-        // first.
-        // ⭐ RECOVERY ENDS AT THE LIP. Landing an aerial on the edge of a
-        // platform and sliding off cancels its lag — the genre's reward for
-        // spacing a landing on purpose rather than just landing.
+        // Edge cancel: an aerial landed on a platform edge that slides off
+        // cancels its landing lag.
         edge_cancel_recovery: Some(true),
-        // ⭐ B-REVERSE: a special pressed BACKWARD turns the fighter around, so
-        // a recovery or a projectile can come out the way you came from.
+        // B-reverse: a special pressed backward turns the fighter around.
         special_turn: Some(true),
-        // ⭐ AND THE WAVEBOUNCE with it: the turn takes your drift too. The two
-        // are one rule with two settings, which is what stops either becoming a
-        // per-fighter velocity hack. ⚠ both are feel calls: play them.
+        // Wavebounce: the turn also reverses drift. One rule with two
+        // settings, so neither becomes a per-fighter hack. Both are feel calls.
         special_turn_reverses_drift: Some(true),
+        // Clanking is off: a tuning decision, the mechanism is tested. At 9
+        // damage (the genre's threshold) CPUs traded so often that nobody was
+        // launched (`every_live_fighter_stays_inside_the_frame`) and
+        // `the_cpu_charges_a_smash_and_techs_a_landing_in_some_match` failed,
+        // even ground-only. Try `9.0` first after a play session.
         clank_damage_window: 0.0,
-        // …and the trade throws both fighters back. Well under a launch — this
-        // is a reset of the exchange, not a punish — but far enough that the two
-        // are no longer inside each other's next swing, which is what makes
-        // trading a decision rather than a stutter.
+        // A clank pushes both fighters back: less than a launch, but out of
+        // each other's next swing.
         clank_rebound_speed: 190.0,
-        // SUDDEN DEATH at 150%. A timed match that ends genuinely level does not
-        // end: both sides go to the edge of a launch and the next clean hit
-        // decides it. The number is what makes "short" short — at 150 almost any
-        // connect is a kill, which is the genre's whole point.
+        // Sudden death at 150%: a timed match that ends level goes to a
+        // point where almost any clean hit kills.
         sudden_death_damage: Some(150),
-        // ⭐⭐ LOSING THE LEDGE COSTS SOMETHING. Jon, 2026-08-24: *"A character
-        // can just stay on the ledge, and there is no way to knock them off."*
-        // Stealing the edge now throws the previous holder off it rather than
-        // dropping them on the spot, so a trump is a real edge-guard option and
-        // not just a swap.
-        //
-        // ⛔ 260px/s is a SHOVE, not a kill: enough that the loser has to
-        // recover, short of sending them to the blast zone from a neutral trump.
-        // ⚠ a starting point — play it and move it.
+        // Losing the ledge to a trump pushes the previous holder off, so a
+        // trump is a real edge-guard option. 260px/s is a shove, not a kill.
+        // A starting value; tune by play.
         ledge_trump_pop: Some(260.0),
-        // ⭐ ULTIMATE'S RULE: a recovering fighter can steal the edge back, so
-        // covering a ledge is a read rather than a denial. `Hog` is the other
-        // generation's answer and it is one word away.
+        // Ultimate's rule: a recovering fighter can steal the edge back.
+        // `Hog` is the other generation's rule.
         ledge_occupancy: Some(ambition_platformer2d::combat::rules::LedgeOccupancy::Trump),
-        // ⭐ THE DOUBLE-JUMP CANCEL: an aerial thrown out of an air jump kills
-        // the rest of that jump's rise, so a double jump is an approach rather
-        // than a commitment. ⚠ a feel call: play it.
+        // Double-jump cancel: an aerial from an air jump ends the jump's rise.
+        // A feel call.
         double_jump_cancel: Some(true),
-        // ⭐⭐ ONE HIT IN SIX SPEAKS. Jon, 2026-08-24: *"not have barks happen
-        // every time a character is hit. Make it a more rare event. Not never,
-        // but I'd like it to happen less often."*
-        //
-        // ⛔ A RATE, NOT A COOLDOWN, and the difference is audible: a cooldown
-        // makes the first hit of every exchange bark and the rest silent, which
-        // a player learns as a rhythm. A rate stays unpredictable, which is what
-        // "rare" sounds like. ⚠ a starting point, not a measured one — it is one
-        // number, and the thing to do with it is play the match and move it.
+        // One hit in six barks. A rate, not a cooldown: a cooldown makes the
+        // first hit of every exchange bark, which players hear as a rhythm.
+        // A starting value; tune by play.
         bark_chance: Some(1.0 / 6.0),
-        // A GRAB HOLDS THE HURT FIGHTER LONGER, which is Ultimate's
-        // 90 + 1.7p frames: 1.5s at 0%, ~4.3s at 100%. It makes the grab a
-        // percent mechanic like the launch is, so the body that is losing is
-        // the body a grab is worth spending your commitment on.
-        //
-        // the percent is read AT THE GRAB, so pummelling does not extend the
-        // hold it earns you — a pummel is a decision, not a free extension.
+        // Grab hold grows with percent (Ultimate's 90 + 1.7p frames: 1.5s at
+        // 0%, about 4.3s at 100%). Percent is read at the grab, so pummels do
+        // not extend the hold.
         grab_hold_base_seconds: 90.0 / 60.0,
         grab_hold_per_damage: 1.7 / 60.0,
-        // The captor's answer to the same question: however hurt the captive
-        // is, a hold nobody ends still ends.
+        // Every hold ends, however hurt the captive is.
         grab_hold_max_seconds: 6.0,
-        // 14.4 frames per press, Ultimate's rate, so mashing is the captive's
-        // real option rather than a gesture at one.
+        // 14.4 frames per press (Ultimate's rate), so mashing is a real
+        // option.
         grab_mash_seconds: 14.4 / 60.0,
-        // teams already decide who may hit whom. Switching global friendly
-        // fire on to let two humans trade would make TEAMMATES hittable too.
+        // Teams decide who may hit whom. Global friendly fire would also make
+        // teammates hittable.
         friendly_fire: false,
     }
 }
 
-/// THE KIT THIS EXPERIENCE HANDS A FIGHTER THAT AUTHORS NONE.
+/// The kit this experience gives a fighter that authors none.
 ///
-/// ⛔⛔ IT IS A ROSTER-PREPARATION POLICY, NOT A COMBAT RULE, and it lived on
-/// `DeclaredCombatRules` for a while — which gave the engine's rules type a
-/// second answer to *"what moves does this fighter have?"* beside the
-/// character's own `MovesetContract`. Rules own DI, knockback growth, friendly
-/// fire, grab timing, meteor lock and hitstop; they do not own a kit.
+/// A roster-preparation policy, not a combat rule: `DeclaredCombatRules` does
+/// not own a kit. Many of Ambition's cast author `default_action_set:
+/// "peaceful"`; seating one in an arena adapts it into a fighter.
+/// `roster_seeded` folds this into the seat's `ActionSet` at seating time, so
+/// the body has one move authority and nothing reads a fallback.
 ///
-/// ⭐ THE ADAPTATION IS LEGITIMATE AND IT IS THIS LAYER'S. Most of Ambition's
-/// cast authors `default_action_set: "peaceful"` on purpose — standing in a room
-/// and talking is what they are for — and seating one in an arena means adapting
-/// it into a platform fighter. `roster_seeded` folds this into the seat's
-/// `ActionSet` at seating time, so by simulation time the body has ONE move
-/// authority and nothing downstream consults a fallback.
-///
-/// The numbers are the exploration provoke's VERBATIM: 0.22 / 0.08 / 0.26, 4
-/// damage, 34 reach. A stage's floor arguably wants to be faster, harder and
-/// longer than a provoke's — moving the declaration is not the place to decide
-/// that.
+/// The numbers copy the exploration provoke: 0.22 / 0.08 / 0.26, 4 damage,
+/// 34 reach.
 pub fn smash_seating_melee() -> ambition_platformer2d::character::MeleeActionSpec {
     ambition_platformer2d::character::MeleeActionSpec::Swipe(
         ambition_platformer2d::character::SwipeSpec {
@@ -1883,9 +1302,8 @@ struct HudFace {
 
 /// Resolve a worn character's HUD face through the engine's portrait road.
 ///
-/// A STILL, explicitly: this panel never ticks a frame. Asking for one is also
-/// what keeps the page from being drawn whole — a portrait sheet holds every
-/// clip the character can wear, and 56 pixels of eight-frame strip is nothing.
+/// A still: this panel never ticks a frame. It also crops the portrait sheet,
+/// which holds every clip the character can wear.
 fn hud_face(
     catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     portraits: Option<&ambition_platformer2d::character::PortraitSheetRegistry>,
@@ -1914,45 +1332,31 @@ fn hud_face(
 
 /// Publish percent and stocks for every seated fighter.
 ///
-/// percent is NOT health and the gauge fill says so: it fills as damage
-/// ACCUMULATES, and the number keeps counting past 100% because a platform
-/// fighter's does. Clamping the fill is a rendering decision; clamping the
-/// number would be a lie about the game.
-///
-/// ⚠ This sat 270 lines up, blank-line-separated above
-/// `smash_declared_combat_rules`, so that function's rustdoc summary was
-/// "Publish percent and stocks for every seated fighter" and this one had no
-/// doc at all.
+/// Percent is not health: the gauge fills as damage accumulates and the number
+/// counts past 100%. The fill may clamp for rendering; the number does not.
 pub fn publish_smash_hud(
     fighters: bevy::prelude::Query<(
         &ambition_platformer2d::versus_match::MatchSeat,
         &ambition_platformer2d::characters::actor::BodyHealth,
         Option<&ambition_platformer2d::actor::FighterStocks>,
-        // ⭐ THE PUNCH READS THE FREEZE. `hitstop_timer` is non-zero exactly
-        // when a hit has just landed and is already scaled by the damage
-        // (`hitlag_duration`), so a HUD driven off it reads the SAME fact the
-        // player felt and cannot disagree with it. ⛔ NOT a percent delta
-        // tracked in presentation: that is a second answer to a question the sim
-        // answers, and the two part company the frame a hit is blocked, absorbed
-        // by armor, or lands for zero.
+        // The HUD punch reads `hitstop_timer`, which is non-zero just after a
+        // hit and already scaled by damage (`hitlag_duration`). Do not track a
+        // percent delta in presentation: it disagrees with the sim on blocked,
+        // armored or zero-damage hits.
         Option<&ambition_platformer2d::characters::actor::BodyCombat>,
         &bevy::prelude::Name,
-        // WHO this body is, which is what a PORTRAIT needs. The `Name` above
-        // is a display string; a portrait is resolved from the character id.
+        // The character id, for the portrait. `Name` is only a display string.
         Option<&ambition_platformer2d::characters::actor::WornCharacter>,
     )>,
-    // the GAME resolves the portrait, not the renderer. `HudFigure`'s
-    // variants are presentation primitives and "which character" is content —
-    // see the note on `HudStanding::portrait`. This is the side that knows.
+    // The game resolves the portrait, not the renderer: "which character" is
+    // content (see `HudStanding::portrait`).
     catalog: Option<
         bevy::prelude::Res<
             ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
         >,
     >,
-    // A panel wants ONE FACE, so this asks the portrait manifests for a STILL.
-    // Both are optional for the same reason the select screen's are: a
-    // composition that installs neither still draws a portrait, just an
-    // uncropped one.
+    // Ask the portrait manifests for a still. Both are optional: without
+    // them the panel draws an uncropped portrait.
     portraits: Option<bevy::prelude::Res<ambition_platformer2d::character::PortraitSheetRegistry>>,
     declared: Option<
         bevy::prelude::Res<ambition_platformer2d::character::PreparedCharacterRegistry>,
@@ -1976,17 +1380,16 @@ pub fn publish_smash_hud(
                 health.damage_percent(),
                 stocks.map(|s| (s.remaining, s.started_with)),
                 face,
-                // Normalised against the longest freeze this feel tuning can
-                // produce, so the strongest hit in the game is a full punch and
-                // everything else is a share of it.
+                // Normalised against the longest possible freeze, so the
+                // strongest hit is a full punch.
                 combat.map_or(0.0, |combat| {
                     (combat.hitstop_timer / HUD_PUNCH_REFERENCE_HITLAG).clamp(0.0, 1.0)
                 }),
             )
         })
         .collect();
-    // Sorted by SEAT. Query order is not an order, and a scoreboard whose sides
-    // swap mid-match is worse than none — the same reason the versus stage sorts.
+    // Sort by seat: query order is not stable, and a scoreboard must not
+    // swap sides mid-match.
     rows.sort_by_key(|(seat, ..)| *seat);
 
     let mut written = [false; FIGHTER_HUD_SLOTS.len()];
@@ -1995,19 +1398,14 @@ pub fn publish_smash_hud(
             continue;
         };
         written[*seat] = true;
-        // Stocks are ICONS now and a fraction printed beside them would be the same fact said
-        // twice.
+        // Stocks are icons, so no fraction text.
         let value = format!("{:.0}%", percent * 100.0);
         let (remaining, started) = stocks.unwrap_or((0, 0));
         readouts.set(
             *slot,
             ambition_platformer2d::presentation::HudReadout::standing(
-                // NO LABEL, and the first capture is why. `text()` joins
-                // the label and the value, so passing the fighter's name here
-                // drew "George Booul 0%" across a 132px panel — two panels'
-                // worth of text colliding in the middle of the screen. The
-                // PORTRAIT says who this is; the text says the one thing a
-                // player reads mid-match.
+                // No label: `text()` joins label and value, and a name would
+                // overflow the 132px panel. The portrait identifies the fighter.
                 String::new(),
                 value,
                 ambition_platformer2d::presentation::HudStanding {
@@ -2021,8 +1419,8 @@ pub fn publish_smash_hud(
             ),
         );
     }
-    // A 1v1 declares four slots and fills two. An unwritten slot must be
-    // CLEARED, not left holding the previous match's fourth fighter.
+    // A 1v1 declares four slots and fills two. Clear unwritten slots, so they
+    // do not keep the previous match's fighters.
     for (index, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
         if !written[index] {
             readouts.clear_slot(*slot);
@@ -2030,29 +1428,16 @@ pub fn publish_smash_hud(
     }
 }
 
-/// 3 — 2 — 1 — GO.
+/// 3, 2, 1, go.
 ///
 /// The roster opens `opens_suspended`, which stamps `ControlHolds` on every
-/// fighter in the same flush that creates them, and declares
-/// `opening_countdown_ticks`. The ENGINE takes the hold off when the ceremony
-/// ends (`release_the_opening_hold`), atomically, for every seat on one tick.
-/// This system is the part a stage owns: saying the numbers out loud.
+/// fighter when it is created, and declares `opening_countdown_ticks`. The
+/// engine removes the hold for every seat on one tick
+/// (`release_the_opening_hold`). This system only shows the numbers.
 ///
-/// The tell was a diagram printing `travel: [0.0, 0.0]`.
-///
-/// DERIVED from the clock, so it cannot drift from the release. The
-/// number on screen and the tick the bodies are freed are two readings of one
-/// pure function of `now - activated_on`; a separate timer for the card would
-/// be a second authority on when the round starts, and the two would disagree
-/// on the frame anybody looked closely.
-///
-/// Same road as the fighter percents beside it, which are visibly drawn.
-///
-/// and the `Local` is gone with the banner. A readout is idempotent (a map
-/// insert), so writing the same word every tick is free, while a banner message
-/// re-requested every tick would never let the next card through — which is what
-/// the state existed to prevent. The system is now a pure function of the clock
-/// in fact as well as in prose.
+/// The card is derived from `now - activated_on`, the same function that drives
+/// the release, so the two cannot drift. It holds no state: a readout write is
+/// idempotent, so writing the same word every tick is free.
 fn announce_the_opening_countdown(
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
     prepared: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::PreparedMatch>>,
@@ -2075,43 +1460,22 @@ fn announce_the_opening_countdown(
     if !rules.opens_suspended || rules.opening_countdown_ticks == 0 {
         return;
     }
-    // THE CEREMONY STOPS TALKING THE MOMENT THE MATCH IS DECIDED.
-    //
-    // The card has exactly one owner at a time and the ORDER is the whole rule: the opening owns it
-    // until there is an outcome, and then the outcome does, for as long as the results stand.
+    // The opening owns the card until the match is decided; then the outcome
+    // owns it.
     if settled.is_some_and(|settled| settled.settled(&active)) {
         return;
     }
-    // ⛔⛔ AND SUDDEN DEATH TAKES THE SLOT TOO, which the sentence above misses
-    // because it names the wrong handover. "Until there is an outcome" reads
-    // `StocksMatchSettled` — and sudden death deliberately leaves the match
-    // UNSETTLED, because it is the match CONTINUING rather than a result. So
-    // this system went on owning the card, cleared it on the very next tick, and
-    // "SUDDEN DEATH" lasted about one simulation tick: unreadable.
+    // Sudden death also takes the card. It leaves the match unsettled (the
+    // match continues), so the check above does not catch it.
     //
-    // ⭐ THE LATCH IS THE AUTHORITY, NOT THE MESSAGE. `SuddenDeathBegan` fires
-    // ONCE, so a card written from it cannot outlive a competing writer;
-    // `SuddenDeathEntered` is the canonical, rollback-registered fact that the
-    // round is on. The card then holds for the round, which is right — it is a
-    // STATE the players are in, not a beat that passes.
+    // Read the rollback-registered `SuddenDeathEntered` latch every frame, not
+    // the one-shot `SuddenDeathBegan` message. The sim must not write this
+    // slot: `HudReadouts` is not rollback state, so a rewind that undid the
+    // timeout would leave the banner standing. Deriving it from the latch
+    // makes it appear and disappear with the round.
     //
-    // ⚠ REVIEWED, NOT PROVEN, and saying so is the point. The regression wants a
-    // real match played to its time limit: `PreparedMatch` has private fields
-    // and no constructor, so a unit fixture here can only build a system that
-    // early-returns — a check that cannot fail. The follow-up is an integration
-    // harness that runs a timed match to expiry.
-    // ⛔⛔ AND THE BANNER IS DERIVED FROM THE LATCH, NOT WRITTEN BY THE SIM.
-    // `open_the_sudden_death_round` used to set this slot itself, from inside the
-    // rollback simulation — and `HudReadouts` is presentation, so it is not
-    // rollback state and nothing retracts it. A rewind that unmade the timeout
-    // took back the damage, the stocks and the message, and left "SUDDEN DEATH"
-    // standing over a match that was no longer in it: a speculative simulation
-    // result surviving as a fact on screen.
-    //
-    // ⭐ REPUBLISHED EVERY FRAME FROM ROLLBACK-REGISTERED STATE, which is the
-    // shape presentation is supposed to have. `SuddenDeathEntered` IS rewound,
-    // so the banner appears and disappears with the round it names and no
-    // retraction has to be remembered anywhere.
+    // Not covered by a test: `PreparedMatch` has no public constructor, so it
+    // needs an integration harness that runs a timed match to expiry.
     if sudden_death.is_some_and(|entered| entered.entered(&active)) {
         readouts.set(
             SMASH_ANNOUNCE_HUD_SLOT,
@@ -2120,15 +1484,12 @@ fn announce_the_opening_countdown(
         return;
     }
     let total = u64::from(rules.opening_countdown_ticks);
-    // One beat, from the ruleset's own arithmetic rather than a second constant:
-    // `opening_phase` divides the countdown by `opening_beats()` exactly this
-    // way, so "GO!" holds for as long as each number did.
+    // One beat, computed as `opening_phase` computes it, so "GO!" holds as
+    // long as each number did.
     let per_beat = total.div_ceil(u64::from(rules.opening_beats().max(1)));
     let word = match rules.opening_phase(elapsed) {
         OpeningPhase::Counting { beats_remaining } => Some(beats_remaining.to_string()),
-        // GO holds one beat past the release and then the card comes down. The
-        // fighters are already moving; a "GO!" that stayed up would be sitting
-        // on the match it announced.
+        // GO holds one beat past the release, then the card comes down.
         OpeningPhase::Live if elapsed < total + per_beat => Some("GO!".to_string()),
         OpeningPhase::Live => None,
     };
@@ -2137,48 +1498,35 @@ fn announce_the_opening_countdown(
             SMASH_ANNOUNCE_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(word),
         ),
-        // Unconditional now, and it can be: the arm above this one already
-        // handed the slot over for the rest of the match.
+        // Unconditional: the arms above already handed the slot over.
         None => readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT),
     }
 }
 
 /// Put a respawning fighter back over the platform.
 ///
-/// through `reset_body_clusters`, not `transit_body`, and the difference is a
-/// leak. Both re-resolve a body's pose against the world (ADR 0024 — a body
-/// appearing somewhere has to ARRIVE there, not be teleported into whatever is
-/// standing at the coordinates), but `transit_body` documents that "axis
-/// maneuver state (coyote, buffers, dash timers) is deliberately KEPT — those
-/// are time facts, not place facts". That is right for a blink and wrong for
-/// losing a stock: a fighter came back holding the dash timer and buffered jump
-/// it died with.
-///
-/// `reset_body_clusters` is the verb that means "this body starts again" — the same one the
-/// sandbox reset and the versus round boundary use — and it raises
-/// `BodyRestartLatch`, so `announce_body_restarts` triggers `ae::BodyRestarted`
-/// and every PROVIDER hears about the respawn too.
+/// Uses `reset_body_clusters`, not `transit_body`. Both re-resolve the pose
+/// against the world (ADR 0024), but `transit_body` keeps maneuver state
+/// (coyote, buffers, dash timers). A fighter that lost a stock must not keep
+/// them. `reset_body_clusters` is the "this body starts again" verb (also used
+/// by the sandbox reset and versus rounds). It raises `BodyRestartLatch`, so
+/// `announce_body_restarts` triggers `ae::BodyRestarted` for providers.
 fn place_respawning_fighters(
     mut commands: bevy::prelude::Commands,
     mut due: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterRespawnDue>,
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
         &mut ambition_platformer2d::actor::MotionModel,
-        // the SEAT, so two fighters returning on one frame do not land inside
-        // each other. `Option` because a body without one is not a seated
-        // fighter, and this system must not stop placing it.
+        // The seat, so two fighters returning on one frame do not overlap.
+        // Optional: an unseated body must still be placed.
         Option<&ambition_platformer2d::actor::MatchSeat>,
-        // The swing this fighter was mid-way through when it lost the stock.
-        // Needed by VALUE, not just as a component to strip: cancelling a move
-        // means despawning the strike boxes it derived, and only the playback
-        // knows which entities those are.
+        // The swing in progress at the knockout. Needed by value: only the
+        // playback knows which strike boxes to despawn.
         Option<&mut ambition_platformer2d::combat::moveset::MovePlayback>,
     )>,
 ) {
-    // ⭐ D192: the cue is the INTERVAL ELAPSING, not the stock being spent. An
-    // eliminated fighter never opens a pending-respawn episode, so there is no
-    // `eliminated` arm to skip here any more — the engine decides who is coming
-    // back, and this decides where they land.
+    // D192: the cue is the interval elapsing. Eliminated fighters never get a
+    // pending respawn, so the engine decides who returns; this decides where.
     for event in due.read() {
         let Ok((clusters, mut model, seat, playback)) = bodies.get_mut(event.body) else {
             continue;
@@ -2186,84 +1534,44 @@ fn place_respawning_fighters(
         let seat = seat.map_or(0, |seat| seat.0);
         let mut item = clusters;
         let mut clusters = item.as_clusters_mut();
-        // Velocity is zeroed by the reset itself, which is what a fighter that
-        // keeps the velocity that threw it off the stage needs: otherwise it
-        // respawns already travelling toward the blast zone it just left.
+        // The reset zeroes velocity, so the fighter does not keep flying
+        // toward the blast zone it just left.
         let placement = respawn_placement(stage_centre(), seat);
         ambition_platformer2d::engine_core::reset_body_clusters(
             &mut model,
             &mut clusters,
             placement,
-            // ⛔⛤ **FACING INWARD, BECAUSE THE RESET USED TO FACE EVERYBODY
-            // RIGHT — MEASURED 2026-09-21.** `respawn_placement` alternates
-            // seats either side of centre, so a hardcoded `+1` sent the
-            // odd-seat fighter back looking AWAY from the platform it just
-            // returned to. In a mirror bout (`--rungs 6,6 --seeds 1`,
-            // identical characters, no noise) that made the two seats'
-            // decisions stop mirroring the moment they respawned: at paired
-            // decision #418 both printed `facing=+1` with bodies 64px apart at
-            // x=288 and x=352, and the right-hand fighter's first aerial came
-            // out `air_back` where its mirror image got `air_forward` — a
-            // different move, on the first swing after every death, chosen by
-            // the seat index.
-            //
-            // ⚠ Toward CENTRE, not toward the opponent: this system places one
-            // body and knows nothing about the other, and in a 4-seat match
-            // "the opponent" is not a single direction. Centre is where the
-            // stage is, which is what a returning fighter needs to be looking
-            // at, and it is mirror-exact by construction.
+            // Face the stage centre. `respawn_placement` alternates seats
+            // either side of centre, so a fixed facing sends odd seats back
+            // looking away, and mirror bouts stop mirroring after a respawn.
+            // Centre, not the opponent: this system places one body, and with
+            // four seats "the opponent" has no single direction.
             ambition_platformer2d::engine_core::ResetFacing::Toward(
                 stage_centre().x - placement.x,
             ),
-            // This demo's fighters run the engine's default air game; a stage
-            // that tuned it would pass its own number here, which is the point
-            // of the parameter.
+            // The engine's default air game. A stage that tunes it passes its
+            // own number here.
             ambition_platformer2d::engine_core::DEFAULT_TUNING.air_jumps,
         );
-        // RESPAWN PROTECTION.
-        //
-        // A fighter materialising over the stage was hittable on its first
-        // frame, at the exact moment it has no information and no options — the
-        // opponent that just took the stock is standing there. Every platform
-        // fighter answers this the same way, and so does the engine already:
-        // `Empowered` is the generic timed-untouchable grant a star pickup uses,
-        // it is rollback-registered, and it expires on its own.
-        //
-        // the RULESET grants it, not the character. The same fighter in
-        // Ambition has no stocks to lose and gets none of this; a mode that
-        // wants none simply does not insert it. That is why this is here rather
-        // than on a `CharacterDefinition`.
-        // A fighter KO'd mid-swing still carries that swing. Its move did not
-        // survive the stock it cost, and leaving it on would mean the returning
-        // body is "acting" on the frame it materialises — which spends the
-        // protection below before its owner has touched the controller.
-        //  through the ONE teardown path, which despawns the strike boxes
-        // the swing derived rather than leaving them for the next tick's
-        // orphan sweep. Stripping the component alone is a second meaning of
-        // "cancel this move", and the boxes outlive the move that owns them.
+        // Cancel the swing the fighter carried into the knockout, through the
+        // one teardown path that also despawns its strike boxes. Otherwise the
+        // returning body is "acting" when it appears and spends the protection
+        // below at once.
         if let Some(mut playback) = playback {
             ambition_platformer2d::combat::moveset::cancel_move_playback(
                 &mut commands,
                 event.body,
                 &mut playback,
-                // ⭐ THE BODY LEFT PLAY — this is the respawn after a stock. A
-                // storing charge does NOT bank across it: see `MoveEnd`.
+                // The body left play; a storing charge does not bank across a
+                // stock (see `MoveEnd`).
                 ambition_platformer2d::combat::moveset::MoveEnd::LeftPlay,
             );
         }
-        // ⛔⛔ ITS OWN GRANT, NOT A BORROWED `Empowered`. The first version
-        // inserted an `Empowered(UNTOUCHABLE)` beside a marker and claimed the
-        // marker made the removal safe. It did not: `Empowered` is ONE
-        // component, so granting respawn protection OVERWROTE whatever power-up
-        // the body was already carrying, and ending the beat removed the whole
-        // component and every semantic in it. A marker cannot turn a single-slot
-        // component into two independently owned grants.
-        //
-        // ⇒ `RespawnGrace` carries its own clock and publishes
-        // `Invulnerability::RESPAWN`, a reason bit — the type whose entire
-        // purpose is "take or release ONE reason, leaving every other reason
-        // alone". A fighter that picked something up on the way down keeps it
-        // through the respawn and past the end of it.
+        // Respawn protection: the ruleset grants it, not the character. The
+        // opponent that took the stock is standing there. `RespawnGrace` has
+        // its own clock and publishes the `Invulnerability::RESPAWN` reason
+        // bit. Do not borrow `Empowered`: it is one component, so it would
+        // overwrite a power-up the body already carries.
         commands
             .entity(event.body)
             .try_insert(ambition_platformer2d::actor::RespawnGrace {
@@ -2272,31 +1580,18 @@ fn place_respawning_fighters(
     }
 }
 
-/// ⭐ THE PLATFORM IS THE PROTECTION, MADE VISIBLE — it exists for exactly as
-/// long as `RespawnGrace` does.
+/// The respawn platform exists exactly as long as `RespawnGrace` does, so the
+/// protection is visible.
 ///
-/// A returning fighter used to appear in free air with nothing but an invisible
-/// timer saying it was safe. The genre materialises you on a platform because
-/// that is how the protection is READ: you can see whose beat it is and when it
-/// ends.
-///
-/// ⛔ ONE AUTHORITY, NOT TWO CLOCKS. The platform does not run its own timer —
-/// it is present iff the seat's fighter carries the grace, so the release rule
-/// (a swing spends it, or the grant expires) already decides the platform and
-/// the two cannot disagree. A platform with its own duration is how a fighter
-/// ends up standing on a beat it has already spent.
-///
-/// ⚠ it is ORDINARY collision, and that is the genre's answer too: anybody may
-/// stand on a respawn platform, and anybody standing on one when it goes falls.
+/// The platform has no timer of its own; it is present while the seat's
+/// fighter has the grace, so the two cannot disagree. It is ordinary
+/// collision: anyone may stand on it, and anyone on it falls when it goes.
 fn hold_the_respawn_platforms(
     mut platforms: bevy::prelude::ResMut<
         ambition_platformer2d::world::collision::MovingPlatformSet,
     >,
-    // ⭐ ONE QUESTION, because `RespawnGrace` owns its own clock: a grant that
-    // runs out REMOVES itself, so the platform's presence is simply the
-    // component's presence. The first version borrowed an `Empowered` and had to
-    // ask a second question — "is that still there?" — and retract the marker by
-    // hand, which is a latch waiting for a second removal site.
+    // `RespawnGrace` removes itself when it runs out, so the platform's
+    // presence is the component's presence.
     protected: bevy::prelude::Query<
         (
             &ambition_platformer2d::actor::MatchSeat,
@@ -2312,31 +1607,20 @@ fn hold_the_respawn_platforms(
             Vec2::new(kin.pos.x, kin.pos.y + RESPAWN_PLATFORM_DROP_PX),
         ));
     }
-    // Sorted by id, so the set's order is a function of WHICH seats are
-    // protected and never of query order — the visuals reconcile by index and
-    // the resource is rollback-canonical, so both want a deterministic Vec.
+    // Sort by id so the order depends only on which seats are protected. The
+    // visuals reconcile by index and the resource is rollback-canonical.
     wanted.sort_by(|a, b| a.0.cmp(&b.0));
 
-    // ⛔⛔ PLACED ONCE, NOT REBUILT. This cleared every respawn platform and
-    // re-pushed it from `kin.pos` on every tick, so a platform whose sweep is
-    // genuinely zero still TRACKED THE BODY EXACTLY — walk 200px and it walked
-    // with you. Its own comment below has always called it stationary.
-    //
-    // ⭐ THE COST IS NOT COSMETIC. A brain reads the floor it stands on to
-    // answer every ledge question, and a floor defined as *"wherever I am"*
-    // makes those questions CIRCULAR: the perceived distance to the edge is a
-    // constant 48px however far the body walks. Measured — with the block
-    // visible to perception, the fighter rollout judged every verb to walk off
-    // it and vetoed all of them, every tick (`D-BRAIN-PLATFORM-FLOOR`).
-    //
-    // ⭐ AND IT IS THE GENRE'S ANSWER TOO: a respawn platform is somewhere you
-    // LEAVE, and one that follows cannot be left.
+    // Place each platform once; do not rebuild it from `kin.pos` every tick.
+    // A platform that tracks the body makes a brain's ledge distance constant,
+    // so it vetoes every verb (`D-BRAIN-PLATFORM-FLOOR`). A respawn platform
+    // is somewhere you leave.
     platforms.0.retain(|platform| {
         !is_respawn_platform_id(&platform.id)
             || wanted.iter().any(|(id, _)| *id == platform.id)
     });
     for (id, centre) in wanted {
-        // Already standing where it was placed — leave it exactly there.
+        // Already placed: leave it where it is.
         if platforms.0.iter().any(|platform| platform.id == id) {
             continue;
         }
@@ -2346,10 +1630,7 @@ fn hold_the_respawn_platforms(
                 "Respawn platform",
                 centre,
                 RESPAWN_PLATFORM_SIZE,
-                // Stationary: a sweep of zero width at zero speed. The
-                // vocabulary has no "still" variant because nothing wanted one
-                // until now, and a zero sweep is exactly that rather than a
-                // special case.
+                // Stationary: a zero-width sweep at zero speed.
                 0.0,
                 0.0,
             ),
@@ -2357,24 +1638,12 @@ fn hold_the_respawn_platforms(
     }
 }
 
-/// ⭐ SWINGING GIVES THE PROTECTION UP, which is the genre's anti-camping rule
-/// and the half this demo was missing.
+/// Attacking gives up the respawn protection (the genre's anti-camping rule).
 ///
-/// Respawn protection was a flat timer that nothing could end, so a returning
-/// fighter had two full seconds in which it could attack and could not be
-/// answered — a free hit every stock, taken from the opponent that had just
-/// earned the knockout. Smash's platform releases you on your first action for
-/// exactly this reason.
-///
-/// ⛔ ONLY THE GRANT THIS RULESET GAVE. `RespawnGrace` is the marker, not the
-/// `UNTOUCHABLE` trait: a fighter that picked something up on the way down keeps
-/// what the pickup gave it.
-///
-/// ⚠ AND ONLY A MOVE THE OWNER STARTED. The trigger is a move's PLAYBACK
-/// appearing, which is a body committing to something — not a held button and
-/// not a movement axis. A fighter still gets to fall in, drift, and choose a
-/// landing under protection, which is what the window is for; it loses it the
-/// moment it uses the window to attack from.
+/// Only the grant this ruleset gave: `RespawnGrace` is removed, so any other
+/// invulnerability the body has stays. The trigger is a move's playback
+/// appearing, not a held button or movement axis. Leaving the platform also
+/// ends it; see `leaving_the_platform_spends_the_respawn_protection`.
 fn a_swing_spends_the_respawn_protection(
     mut commands: bevy::prelude::Commands,
     swinging: bevy::prelude::Query<
@@ -2386,37 +1655,20 @@ fn a_swing_spends_the_respawn_protection(
     >,
 ) {
     for body in &swinging {
-        // ⭐ ONE REMOVAL, and the reason retracts with it: nothing else writes
-        // `Invulnerability::RESPAWN`, and the removal hook clears it. Whatever
-        // else is holding this body untouchable is untouched.
+        // The removal hook clears `Invulnerability::RESPAWN`; other reasons
+        // stay.
         commands
             .entity(body)
             .remove::<ambition_platformer2d::actor::RespawnGrace>();
     }
 }
 
-/// ⭐⭐ **LEAVING THE PLATFORM SPENDS THE PROTECTION TOO — Jon, 2026-09-03:
-/// *"in smash, if you move the platform disappears; right now the platform moves
-/// with you."***
+/// Leaving the platform also spends the protection, as in Smash.
 ///
-/// ⚠ **The first half of that report was already fixed and is guarded**
-/// (`the_respawn_platform_stays_where_it_was_placed`): the block is placed once
-/// and does not track the body. What he was seeing is this half — a platform
-/// that outlives the moment you step off it stays in play for the whole grace
-/// window, which from the player's side is indistinguishable from one that
-/// follows.
-///
-/// ⛔ **AND THE CODE'S OWN RATIONALE FOR NOT DOING THIS WAS WRONG ABOUT THE
-/// GENRE.** `a_swing_spends_the_respawn_protection` says the trigger is
-/// "not a held button and not a movement axis", so a fighter can "fall in,
-/// drift, and choose a landing under protection". Smash releases you when you
-/// LEAVE, and Jon is the authority on what this demo should feel like.
-///
-/// ⇒ The rule is *leaving*, not *inputting*: a body still gets its whole fall
-/// and its landing, and loses the platform the moment it walks off the
-/// footprint it was given. That is also the file's own sentence one screen up —
-/// *"a respawn platform is somewhere you LEAVE"* — finally enforced rather than
-/// only asserted.
+/// The platform is placed once and does not track the body
+/// (`the_respawn_platform_stays_where_it_was_placed`). The rule is leaving,
+/// not input: a body keeps its fall and landing, and loses the platform when
+/// it moves off the footprint.
 fn leaving_the_platform_spends_the_respawn_protection(
     mut commands: bevy::prelude::Commands,
     platforms: bevy::prelude::Res<ambition_platformer2d::world::collision::MovingPlatformSet>,
@@ -2432,12 +1684,11 @@ fn leaving_the_platform_spends_the_respawn_protection(
     for (body, seat, kin) in &standing {
         let id = respawn_platform_id(seat.0);
         let Some(platform) = platforms.0.iter().find(|platform| platform.id == id) else {
-            // No platform placed for this seat yet — this tick is the grant's
-            // first, and a body cannot have left something it was never given.
+            // No platform for this seat yet: this is the grant's first tick.
             continue;
         };
-        // Horizontal only. A fighter falling toward its platform is above it and
-        // has not left it; one that walks off the end has, whatever its height.
+        // Horizontal only: a body falling toward its platform has not left
+        // it; one that walks off the end has.
         let half_width = platform.size.x * 0.5;
         if (kin.pos.x - platform.pos.x).abs() > half_width {
             commands
@@ -2449,34 +1700,22 @@ fn leaving_the_platform_spends_the_respawn_protection(
 
 /// The id one seat's respawn platform is keyed by.
 ///
-/// Keyed by SEAT rather than by entity: a returning fighter is a body that may
-/// be rebuilt, and the platform is a property of where that seat comes back.
+/// Keyed by seat, not entity: the body may be rebuilt, and the platform belongs
+/// to where that seat comes back.
 fn respawn_platform_id(seat: usize) -> String {
     format!("{RESPAWN_PLATFORM_PREFIX}{seat}")
 }
 
-/// The one place this id family is SPELLED.
+/// The one place this id family is spelled.
 ///
-/// ⛔⛔ **A PRODUCER AND A CONSUMER BUILDING THE SAME SEMANTIC ID FROM SEPARATE
-/// FORMAT STRINGS IS WHAT D-ID-CONVENTION-DRIFT IS ABOUT.** The builder below
-/// had `format!("respawn_platform_{seat}")` and the retain above had
-/// `starts_with("respawn_platform_")` — one convention, two literals, and a
-/// rename of either is a silent behaviour change: every held platform stops
-/// matching, so `hold_the_respawn_platforms` retains none of them and every
-/// returning fighter's block is rebuilt from scratch each tick.
-///
-/// ⚠ **MEASURED, NOT ASSUMED, AND THE FIRST VERSION OF THIS COMMENT WAS WRONG.**
-/// It said "no test would have said so". Restoring the two-literal form with the
-/// BUILDER renamed and the reader's copy left behind: **one of the five respawn
-/// arms fails** (`the_respawn_platform_lives_exactly_as_long_as_the_grant`) and
-/// four pass. So the suite is not blind here — but four fifths of it is, and the
-/// arm that catches it does so as a side effect of the platform set it reads,
-/// not because anything asserts the two spellings agree.
-/// `scripts/measure_id_prefixes_spelled_twice.py` is what names the drift.
+/// The builder and the reader must share it (D-ID-CONVENTION-DRIFT). If they
+/// drift, `hold_the_respawn_platforms` keeps no platform and rebuilds every
+/// block each tick. Only `the_respawn_platform_lives_exactly_as_long_as_the_grant`
+/// catches that, indirectly. `scripts/measure_id_prefixes_spelled_twice.py`
+/// reports the drift.
 const RESPAWN_PLATFORM_PREFIX: &str = "respawn_platform_";
 
-/// Is this the id of somebody's respawn platform? The PARSE half of the pair,
-/// so a reader asks the convention's owner instead of re-deriving it.
+/// Is this the id of a respawn platform? The parse half of the pair.
 fn is_respawn_platform_id(id: &str) -> bool {
     id.starts_with(RESPAWN_PLATFORM_PREFIX)
 }
@@ -2485,52 +1724,36 @@ fn is_respawn_platform_id(id: &str) -> bool {
 /// and thin, so it reads as a ledge to step off rather than as stage.
 const RESPAWN_PLATFORM_SIZE: Vec2 = Vec2::new(96.0, 12.0);
 
-/// How far below the fighter's centre the platform's own centre sits — half a
-/// standing body plus half the platform, so its TOP is under the feet.
+/// How far below the fighter's centre the platform's centre sits: half a
+/// standing body plus half the platform, so its top is under the feet.
 const RESPAWN_PLATFORM_DROP_PX: f32 = 24.0 + RESPAWN_PLATFORM_SIZE.y * 0.5;
 
 /// The freeze a FULL punch is measured against, in seconds.
 ///
-/// ⭐ MEASURED, not chosen: `hitlag_duration` scales with damage, and this is
-/// the length a heavy connect produces under this stage's feel. A reference
-/// below it would saturate on ordinary jabs and the HUD would punch identically
-/// for everything.
+/// Measured: `hitlag_duration` scales with damage, and this is what a heavy
+/// connect produces under this stage's feel. A lower value saturates on jabs.
 const HUD_PUNCH_REFERENCE_HITLAG: f32 = 0.12;
 
 /// How long a returning fighter cannot be hit, in seconds.
 ///
 /// Long enough to fall in, read the stage and choose a landing; short enough
-/// that camping the spawn point is not free. Smash Ultimate's respawn platform
-/// holds for about three seconds and releases on the first action; this is the
-/// no-platform version of the same idea.
+/// that spawn camping is not free. Attacking or leaving the platform ends it
+/// early.
 const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
 
-/// D192 — how long the stage waits before putting a knocked-out fighter back.
+/// D192: how long the stage waits before putting a knocked-out fighter back.
 ///
-/// ⭐ THE BEAT THE KO HAD NOWHERE TO HAPPEN IN. At zero the body was placed on
-/// the same tick the stock was spent, so the KO cue played over a fighter who was
-/// already back and the camera had to frame a live body that appeared ~500 units
-/// away with no travel — measured as the three largest single-tick camera steps
-/// in a 5,400-tick match, against a p99 of 13.1.
+/// With zero, the KO cue played over a fighter already back, and the camera
+/// jumped to a body that appeared far away. One second is the genre's pause.
 ///
-/// One second is the genre's pause between the knockout and the reappearance.
-///
-/// D201: SECONDS, because the beat is now the engine's `DeathInterlude` — the
-/// same window a Mary-O death opens, counted on `WorldTime` and rewound with
-/// everything else. The tick spelling D192 chose was a second clock for one
-/// beat, argued from a determinism premise the component beside it disproves.
+/// D201: seconds, because the beat is the engine's `DeathInterlude`, counted
+/// on `WorldTime` and rewound with everything else.
 const RESPAWN_INTERVAL_SECONDS: f32 = 1.0;
 
-/// Take an eliminated fighter OUT OF PLAY.
+/// Take an eliminated fighter out of play.
 ///
-/// The stock was spent exactly once — the engine's `Without<FighterEliminated>` filter held —
-/// the match was decided, and the body simply never stopped being a body. That is the
-/// difference between "the count is correct" and "the match is over", and it is the ruleset's
-/// half.
-///
-/// Despawn rather than park: a fighter that is out has no state anybody reads,
-/// and leaving it somewhere off-screen is how a match ends with an invisible
-/// participant still generating hit events.
+/// The engine spends the last stock and decides the match; the ruleset removes
+/// the body. Despawn, not park: a parked body could still generate hit events.
 fn take_eliminated_fighters_out_of_play(
     mut commands: bevy::prelude::Commands,
     eliminated: bevy::prelude::Query<
@@ -2548,14 +1771,12 @@ fn take_eliminated_fighters_out_of_play(
 
 /// How long the winner card stands before the demo goes back to choosing.
 ///
-/// The banner itself asks for 3.0s; this waits a beat longer so the card is
-/// READ rather than glimpsed on the way out.
+/// The banner asks for 3.0s; this waits a little longer so players read it.
 const RETURN_TO_SELECT_AFTER: f32 = 4.5;
 
 /// Ensure the Smash gameplay route carries Smash-owned combat rules. The lobby
-/// normally publishes them when a battle starts; this is a route-level safety
-/// net for direct or stale entry and does not rewrite an already-correct
-/// declaration.
+/// normally publishes them when a battle starts; this is a safety net for
+/// direct or stale entry and does not rewrite a correct declaration.
 fn the_stage_always_plays_by_smash_rules(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -2574,64 +1795,35 @@ fn the_stage_always_plays_by_smash_rules(
     commands.insert_resource(smash_declared_combat_rules());
 }
 
-/// Smash's Limit fill rule and presentation are Smash's WHILE SMASH IS ON THE
-/// STAGE, and the engine's otherwise.
+/// What Smash's presentation override replaced, so leaving can put it back.
 ///
-/// ⛔⛔ A BUILD-TIME `insert_resource` HERE WAS A CROSS-EXPERIENCE REGRESSION.
-/// `ambition_app` installs `SmashExperiencePlugin` alongside Ambition, Sanic and
-/// Mary-O, so a global declared at plugin build applies to every experience in
-/// the process merely because Smash was LINKED. ⇒ Route scope, the same
-/// lifetime `the_stage_always_plays_by_smash_rules` above uses for the combat
-/// rules it declares.
-/// ⛔⛔ AND THE PORTAL PRESENTATION RIDES THE SAME LIFETIME, for the same reason
-/// found the same way. `PortalViewConeConfig` is a GLOBAL resource too, and
-/// Ambition is the portal game — declaring `Static` at plugin build would have
-/// changed how Ambition draws its portals merely because Smash was linked into
-/// the same binary. ⇒ One system, three resources, one lifetime: what Smash
-/// declares, Smash gives back.
-/// What Smash's presentation override REPLACED, so leaving can put it back.
+/// Restore, do not remove: `PortalPresentationPlugin` inits
+/// `PortalCameraContinuitySelection` and `PortalViewConeConfig`, and
+/// `sync_portal_view_cones` requires the config. A developer- or
+/// Ambition-owned configuration must come back unchanged.
 ///
-/// ⛔⛔ THIS EXISTS BECAUSE THE FIRST VERSION REMOVED RESOURCES SMASH DID NOT
-/// OWN. `PortalPresentationPlugin` calls `init_resource` for both
-/// `PortalCameraContinuitySelection` (`plugin.rs:96`) and `PortalViewConeConfig`
-/// (`:157`), and `sync_portal_view_cones` takes `config: Res<PortalViewConeConfig>`
-/// — REQUIRED, not `Option`. In the aggregate app the portal plugin is installed
-/// globally, so leaving Smash deleted a resource a live system needs.
-///
-/// ⚠ AND "REMOVE" IS NOT "RESTORE" even where nothing fails: a developer-selected
-/// or Ambition-owned portal configuration was destroyed rather than put back, so
-/// entering and leaving Smash silently reset someone else's settings.
-///
-/// ⭐ `Option` PER FIELD, because ABSENCE IS A REAL PRIOR. A composition with no
-/// portal plugin has no cone config. Restoring `None`
-/// by REMOVING is how a body of state gets put back exactly as it was found,
-/// rather than replaced with a default that merely looks like it.
+/// Each field is an `Option` because absence is a real prior: restoring `None`
+/// removes the resource.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 struct SmashPresentationPrior {
     transit: Option<ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
     cone: Option<ambition_platformer2d::portal_presentation::PortalViewConeConfig>,
-    /// ⛔ THE LIMIT RULE IS STAGE STATE TOO: a fill rule declared for the whole
-    /// process would run in every experience composed beside Smash.
+    /// The Limit rule is stage state too: a process-wide fill rule would run in
+    /// every experience composed beside Smash.
     limit: Option<crate::limit::SmashLimitFill>,
 }
 
 /// Smash's presentation and meter policy, for as long as Smash is on the stage.
 ///
-/// ⛔ THE RULESET OWNS THESE ANSWERS, NOT THE BINARY. The portal cone was once
-/// selected in `ambition_demo_smash_app`, so the standalone demo drew the static
-/// cone and the versus route a player actually reaches drew the engine default.
-/// Stated here, both compositions get it.
+/// The ruleset owns these, not the binary, so the standalone demo and the
+/// versus route draw the same portal cone.
 ///
-/// ⛔⛔ AND THE LIFETIME IS THE ACTIVE ROUTE, NOT PLUGIN INSTALL. `ambition_app`
-/// installs this plugin beside Ambition, Sanic and Mary-O, so a build-time
-/// `insert_resource` set the mana rate to zero for the whole process — a player
-/// in ordinary Ambition lost every charge attack because Smash was LINKED.
+/// The lifetime is the active route, not plugin install: `ambition_app`
+/// installs this plugin beside Ambition, Sanic and Mary-O, and a build-time
+/// insert would change their mana and portal presentation.
 ///
-/// ⚠ THE PRESENCE OF THE SAVED PRIOR IS WHAT "ALREADY DECLARED" MEANS. Inferring
-/// it from one of the three policies was wrong: a single resource's presence
-/// decided whether three unrelated things were installed or removed, so anything
-/// else touching that one resource would have made the inference wrong for the
-/// other two.
+/// The saved prior's presence means "already declared". Do not infer it from
+/// one of the three resources.
 fn the_stage_declares_smashs_presentation_and_gives_it_back(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -2661,7 +1853,7 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
             limit: limit.map(|r| *r),
         });
         commands.insert_resource(crate::limit::SmashLimitFill(crate::limit::SMASH_LIMIT));
-        // A viewer-dependent cone is undefined with no primary player, and a
+        // A viewer-dependent cone is undefined with no primary player, and
         // seamless camera transit is a single-camera effect.
         commands.insert_resource(portal_view::PortalCameraContinuitySelection {
             mode: portal_view::PortalCameraTransitMode::Pop,
@@ -2688,31 +1880,18 @@ fn the_stage_declares_smashs_presentation_and_gives_it_back(
     }
 }
 
-/// SMASH'S FIGHTERS ARE SOLID TO EACH OTHER — this is jostle.
+/// Smash's fighters are solid to each other (jostle).
 ///
-/// ⛔⛔ IT RUNS IN THE SIMULATION, NOT `Update`. `BodyContact` is a fact the
-/// movement kernel reads, so granting it from an ordinary `Update` system meant
-/// a schedule that does NOT replay under rollback was establishing simulation
-/// state — a resimulated frame could integrate a cast that had not been made
-/// solid yet. Two more grants copied this shape before a review caught all
-/// three; the other two are gone (the mount role is a seat fact now, and a
-/// summoned mount's departure rides its own registered state).
+/// Runs in the simulation, not `Update`: `BodyContact` is read by the
+/// movement kernel, and `Update` does not replay under rollback.
 ///
-/// ⚠ THE HONEST ENDPOINT IS `MatchBody`, which is already where a match states
-/// what it believes about its fighters' bodies — jump squat, air dodge, dodge
-/// staling. Jostle belongs beside them, applied in the same flush that builds
-/// the bodies. That is a wire change to a snapshotted type and is deliberately
-/// not folded into this repair.
+/// The engine owns the constraint (one body's motion reduced by the bodies it
+/// touches, `ambition_platformer2d::engine_core::movement::body_contact`); this
+/// ruleset grants it to its cast (bodies with `FighterStocks`). Projectiles and
+/// props do not get it.
 ///
-/// The engine therefore owns an unnamed constraint — one body's proposed motion reduced by the
-/// bodies it is touching (`ambition_platformer2d::engine_core::movement::body_contact`) — and this ruleset
-/// grants it to its cast. Nothing in the kernel knows the word jostle.
-///
-/// A test that supplies its own precondition cannot prove the mechanism reaches production.
-///
-/// granted to `MatchBody`-seated fighters, which is the cast. A projectile
-/// or a stage prop that happens to be a body is not a fighter and does not get
-/// it; the grant follows the thing the ruleset seated.
+/// A better home is `MatchBody`, applied in the flush that builds the bodies.
+/// That is a wire change to a snapshotted type, so it is not done here.
 fn smash_fighters_are_solid_to_each_other(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -2731,9 +1910,8 @@ fn smash_fighters_are_solid_to_each_other(
     if !on_stage {
         return;
     }
-    // `Without<BodyContact>` in the filter IS the idempotence: a body that
-    // already has it is not in the query, so nothing is written on the frames
-    // where nothing changed, and no change tick moves.
+    // `Without<BodyContact>` makes this idempotent: nothing is written once
+    // the component is present.
     for fighter in &fighters {
         commands
             .entity(fighter)
@@ -2741,42 +1919,27 @@ fn smash_fighters_are_solid_to_each_other(
     }
 }
 
-/// Return to character select after a decided match has left its winner card
-/// visible for [`RETURN_TO_SELECT_AFTER`] — or IMMEDIATELY, when the verdict is
-/// a `NoContest` and there is no card to leave visible.
+/// Return to character select after a decided match has shown its winner card
+/// for [`RETURN_TO_SELECT_AFTER`], or at once for a `NoContest`.
 ///
-/// ⛔⛔ AND IT ARMS ONLY ON A CONFIRMED FRAME, because leaving the stage is not
-/// retractable. It used to arm on `StocksMatchDecided`, which a SPECULATIVE
-/// frame can write: the countdown is a `Local` that GGRS never rewinds, so a
-/// decision that was later rolled back still sent the player back to the lobby
-/// out of a match that was still being fought. There is no retraction to write —
-/// the fix is not to commit in the first place.
-///
-/// ⭐ TWO CHANGES, AND THE SECOND IS WHAT MAKES THE FIRST SAFE.
-///
-/// It reads `StocksMatchSettled` — rollback STATE, stamped with the match it is
-/// about — instead of the message, so a rewound decision simply un-settles and
-/// there is nothing left claiming the match ended. And it waits for
-/// `ConfirmedFrameBoundary::fully_confirmed`, so by the time the countdown arms
-/// the settlement can never be simulated again.
-///
-/// ⛔ THE STAMP ALSO REPLACES THE `decided.clear()` this used to do on leaving
-/// the stage: a verdict for the PREVIOUS match cannot arm the next one, because
-/// the instance differs. Same rule as the abandon latch.
+/// Leaving the stage cannot be retracted, so this arms only on a confirmed
+/// frame. It reads `StocksMatchSettled` (rollback state, stamped with its
+/// match) instead of the message, and waits for
+/// `ConfirmedFrameBoundary::fully_confirmed`. The stamp also stops the previous
+/// match's verdict from arming the next one.
 fn return_to_the_select_screen_when_the_match_ends(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
     mut readouts: bevy::prelude::ResMut<ambition_platformer2d::presentation::HudReadouts>,
-    // WHETHER THIS MATCH IS OVER, from the authority that rewinds.
+    // Whether this match is over, from the authority that rewinds.
     settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
-    // ⛔ `Option`: absent means there is no rollback host, and the module's own
-    // doc says that case confirms everything.
+    // Absent means no rollback host, which confirms everything.
     boundary: Option<
         bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
     >,
-    // WHICH SESSION OWNS THE WORLD RIGHT NOW. See the leftover-match note below.
+    // Which session owns the world now; see the leftover-match note below.
     scope: Option<bevy::prelude::Res<ambition_platformer2d::actor::ActiveSessionScope>>,
     mut countdown: bevy::prelude::Local<Option<f32>>,
 ) {
@@ -2785,31 +1948,19 @@ fn return_to_the_select_screen_when_the_match_ends(
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
     if !on_stage {
-        // Left by some other road — the pause menu, a host quitting home. The
-        // countdown belongs to THIS visit to the stage.
+        // Left by another road (pause menu, host quit). The countdown belongs
+        // to this visit.
         *countdown = None;
         readouts.clear_slot(SMASH_ANNOUNCE_HUD_SLOT);
         return;
     }
-    // ⛔⛔ A RETIRED SESSION'S `ActiveMatch` OUTLIVES IT BY AT LEAST A FRAME, and
-    // reading one applies the previous match's verdict to the match that
-    // replaced it. Jon, 2026-08-27: picking a cast for a SECOND match and
-    // pressing start bounced straight back to the select screen — the log shows
-    // `session-start scope=1`, `room-loaded smash_stage`, `session-end scope=1`
-    // one frame apart, three times running.
-    //
-    // ⭐ THE VERDICT'S OWN SCOPING COULD NOT CATCH IT. `StocksMatchSettled` names
-    // the match it decided and `verdict()` compares instances — but BOTH sides
-    // of that comparison were the retired match, so it agreed. The stale half is
-    // the `ActiveMatch` resource, not the latch, and only the SESSION knows which
-    // of those two is current.
-    //
-    // ⚠ THE OLD ROAD HID IT: the countdown below waits 4.5s and a confirmed
-    // frame, which the new match's activation always beat. The immediate exit
-    // Jon asked for on `NoContest` runs on the first frame the router says
-    // "on stage", which is exactly the frame the leftover is still there.
+    // A retired session's `ActiveMatch` outlives it by at least a frame.
+    // Reading it would apply the previous verdict to the new match (a second
+    // match bounced back to select at once). `StocksMatchSettled::verdict`
+    // cannot catch this, because both sides are the retired match. Only the
+    // session scope knows which `ActiveMatch` is current.
     let live = active.as_deref().filter(|active| match scope.as_deref() {
-        // A composition with no session lifecycle has nothing to be stale about.
+        // No session lifecycle: nothing can be stale.
         None => true,
         Some(scope) => active.session() == scope.current(),
     });
@@ -2817,19 +1968,12 @@ fn return_to_the_select_screen_when_the_match_ends(
         (Some(settled), Some(active)) => settled.settled(active),
         _ => false,
     };
-    // ⭐⭐ AN ABANDONED MATCH GOES HOME ON THE PRESS. Jon, 2026-08-26: *"skip
-    // the no contest presentation for now and just exit to the character select
-    // menu immediately."* A knockout earns its card and its beat; a match
-    // somebody asked to stop has no result to show, and three seconds of a card
-    // reading NO CONTEST is the only thing between the press and the lobby.
+    // An abandoned match goes straight to select, with no card (Jon's call).
     //
-    // ⛔ AND IT DOES NOT WAIT FOR CONFIRMATION, which is safe for exactly this
-    // verdict and no other. The other two are reached by the SIMULATION, so a
-    // rewind can retract them and leaving the stage cannot be taken back.
-    // `NoContest` is reached only by `MatchAbandonRequest` — a latch made
-    // OUTSIDE the simulation that does not rewind — so the resim reaches the
-    // same verdict and there is nothing to retract. That is the same argument
-    // that gave the request its shape; see `MatchAbandonRequest`.
+    // It does not wait for confirmation. That is safe only for `NoContest`:
+    // it comes from `MatchAbandonRequest`, a latch outside the simulation that
+    // does not rewind, so a resim reaches the same verdict. See
+    // `MatchAbandonRequest`.
     let abandoned = settled
         .as_deref()
         .zip(live)
@@ -2871,28 +2015,20 @@ fn return_to_the_select_screen_when_the_match_ends(
 /// The readout remains until the stage is left, so its lifetime follows the
 /// results route rather than a separate timer.
 fn announce_the_winner(
-    // ⛔⛔ THE LATCH, NOT THE MESSAGE, and the card is why the latch grew a
-    // verdict. `StocksMatchDecided` can be written on a SPECULATIVE frame, and a
-    // HUD readout is not retractable — a rolled-back verdict left NO CONTEST on
-    // screen over a match that was still being fought. Its sibling (the return
-    // countdown) was fixed by reading `StocksMatchSettled`, which rewinds; this
-    // one could not follow while the latch said only WHETHER.
-    //
-    // ⛔ AND DECLINING TO READ UNTIL CONFIRMED IS NOT THE SAME FIX. A reader that
-    // keeps its cursor is still bounded by a two-frame channel, so a confirmation
-    // arriving later loses the announcement rather than delaying it. State has no
-    // cursor.
+    // Read the latch, not `StocksMatchDecided`: the message can come from a
+    // speculative frame, and a HUD readout cannot be retracted. Waiting for
+    // confirmation before reading the message is not enough, because the
+    // two-frame channel can drop it. State has no cursor.
     settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
-    // ⛔ `Option`: absent means there is no rollback host, and that module's own
-    // doc says the absent case confirms everything.
+    // Absent means no rollback host, which confirms everything.
     boundary: Option<
         bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
     >,
-    // Whether a side is a person or a team is a fact about the match that was prepared, and the
-    // plan is the only thing that still knows it once fighters start being removed.
+    // Whether a side is a person or a team comes from the prepared match; it
+    // is the only record left once fighters are removed.
     prepared: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::PreparedMatch>>,
-    // WHICH MATCH has already had its card written — see the rising-edge note.
+    // Which match already has its card; see the rising-edge note.
     mut announced: bevy::prelude::Local<Option<ambition_platformer2d::versus_match::MatchInstance>>,
     // Use surviving fighters only to resolve display names for the winning side.
     fighters: bevy::prelude::Query<(
@@ -2911,22 +2047,15 @@ fn announce_the_winner(
     {
         return;
     }
-    // ⛔ THE RISING EDGE, not every tick the latch is true. The message this
-    // replaced fired ONCE; a state read writes the readout for the rest of the
-    // match, which is churn on a HUD slot and a second announcement in any log
-    // that records what changed.
+    // Write on the rising edge only, not every tick the latch is true.
     let this_match = active.instance();
     if announced.as_ref() == Some(&this_match) {
         return;
     }
     if let Some(verdict) = settled.verdict(active) {
         *announced = Some(this_match);
-        // ⛔ A NO CONTEST GETS NO CARD. Jon, 2026-08-26: *"skip the no contest
-        // presentation for now."* The card exists to tell a player which of the
-        // three endings happened; somebody who just picked `Exit Match` already
-        // knows, and the announcement only delays the lobby they asked for. The
-        // rising edge is consumed above regardless, so this does not re-ask the
-        // question every tick.
+        // A no contest gets no card (Jon's call): the player who picked
+        // `Exit Match` already knows. The rising edge is consumed above anyway.
         if matches!(
             verdict,
             ambition_platformer2d::actor::MatchVerdict::NoContest
@@ -2938,8 +2067,8 @@ fn announce_the_winner(
         // simultaneous ring-outs may leave no resident winner body, so the side name
         // remains the fallback.
         let named = verdict.winner().map(|side| {
-            // A composition with no prepared plan cannot say how big a side is,
-            // and the honest answer for an unknown size is the side's own name.
+            // Without a prepared plan the side size is unknown; use the side
+            // name.
             let solo = prepared
                 .as_deref()
                 .is_some_and(|prepared| prepared.seats_on_side(side) == 1);
@@ -2953,9 +2082,7 @@ fn announce_the_winner(
                         .map(|(_, _, name)| name.as_str().to_string())
                 })
                 .flatten();
-            // A real team won together — naming one of its members would put a
-            // player's name on somebody else's victory — or nobody is left
-            // standing to ask. Either way the side is the honest answer.
+            // A team won together, or nobody is left to name: use the side.
             name.unwrap_or_else(|| side.to_string())
         });
         readouts.set(
@@ -2975,31 +2102,24 @@ fn announce_the_winner(
 /// match is decided it publishes the roster and asks the shell to go to the
 /// stage.
 ///
-/// the roster is inserted BEFORE the route changes, and the order is the
-/// whole correctness argument. Seating runs on the sim schedule and reads
-/// `MatchParticipantRoster`; if the route changed first, the stage would come up
-/// with no roster, seating would find nothing to do, and the match would open
-/// with an empty cast that nothing retries into existence — the roster arrives
-/// once, and it has to arrive before the thing that reads it.
+/// The roster is inserted before the route changes. Seating runs on the sim
+/// schedule and reads `MatchParticipantRoster` once; if the route changed
+/// first, the match would open with an empty cast and nothing would retry.
 pub struct SmashSelectPlugin;
 
 /// When the select screen reads its input, as something another system can
 /// be ordered against.
 ///
-/// Exists because "before the screen" is a real question with no other answer: a
-/// windowed host REBUILDS `SeatMenuFrames` from its participants every frame
-/// (clearing first), so anything that wants to put a press into that port —
-/// a test, a replay, a remote seat — has to land between the producer and this.
-/// Without a named set, a system that tried ran wherever Bevy put it and the
-/// press was silently dropped about half the time.
+/// A windowed host rebuilds `SeatMenuFrames` from its participants every frame
+/// (clearing first). Anything that injects a press (a test, a replay, a remote
+/// seat) must run between that producer and this set, or the press can drop.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SmashSelectSet;
 
 impl bevy::prelude::Plugin for SmashSelectPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        // The screen is a ROUTE, so it says so. `get_resource_or_insert_with`
-        // rather than `resource_mut` because the rules-and-screen plugins are
-        // also composed in harnesses that never installed the shell.
+        // The screen is a route. `get_resource_or_insert_with`, because
+        // harnesses compose these plugins without the shell.
         app.world_mut()
             .get_resource_or_insert_with(
                 ambition_platformer2d::game_shell::ShellRouteCatalog::default,
@@ -3008,12 +2128,8 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 SMASH_SELECT_ROUTE,
                 SMASH_SELECT_EXPERIENCE,
             ));
-        // AND IT SOUNDS LIKE ITSELF. The select screen has a score written
-        // for it, and this is the declaration that carries it into any host —
-        // the standalone demo, Ambition, or a composition that does not exist
-        // yet. Declared HERE, beside the route, because the two are one fact
-        // about one screen; a host naming smash's music would be a host knowing
-        // a provider's content.
+        // The select screen's music, declared beside the route so any host
+        // carries it without naming Smash's content.
         {
             use ambition_platformer2d::audio::selection::FrontendAudioAppExt;
             app.declare_route_frontend_audio(
@@ -3029,14 +2145,10 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ]),
             );
         }
-        // THE RULESET'S OWN ROLLBACK STATE.
-        //
-        // ⛔⛔ THROUGH `AmbitionRollbackApp`, NOT a `SchemaRollbackRegistrar`.
-        // The schema registrar RECORDS a registration and installs no probe, so
-        // a component registered that way appears in the baseline and is still
-        // invisible to the localizer — `rollback_exit_oracle` fails by name,
-        // which is how this was caught. Same road `ambition_demo_sanic` takes
-        // for its own content state.
+        // The ruleset's own rollback state. Register through
+        // `AmbitionRollbackApp`, not a `SchemaRollbackRegistrar`: the schema
+        // registrar installs no probe, so `rollback_exit_oracle` cannot
+        // localize the component.
         {
             use ambition_platformer2d::rollback::AmbitionRollbackApp;
             app.rollback_component_clone_probed::<crate::shark_ride::Departing>(
@@ -3044,197 +2156,139 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 "smash.departing_mount",
                 crate::shark_ride::departing_probe,
             );
-            // The bomb's fuse and its remembered speed. Both outlive the tick
-            // that made them, so a rewind that put the bomb back without putting
-            // its fuse back would give the resimulated timeline a different
-            // explosion from the confirmed one.
+            // The bomb's fuse and remembered speed outlive the tick that made
+            // them; a restore without them gives a different explosion.
             app.rollback_component_clone_probed::<crate::bomb::LiveBomb>(
                 "ambition_demo_smash",
                 "smash.live_bomb",
                 crate::bomb::live_bomb_probe,
             );
-            // The apertures a MOVE opened, and their clock. Same reasoning as
-            // the fuse above: the countdown outlives the tick that made it, so a
-            // rewind that put the portal back without putting its clock back
-            // gives the resimulated timeline a recovery route that closes at a
-            // different moment — or exists on one peer and not the other.
+            // Move-opened apertures and their clock: a restore without the
+            // clock closes the recovery route at a different moment.
             app.rollback_component_clone_probed::<crate::portal::MovePlacedPortal>(
                 "ambition_demo_smash",
                 "smash.move_placed_portal",
                 crate::portal::move_placed_portal_probe,
             );
-            // ⛔⛔ WHICH MATCH EACH SPAWNED OBJECT BELONGS TO. Registered for the
-            // same reason its subject is: a rewind that restored a mine without
-            // its match identity would hand the sweep an object it could not
-            // place, and the sweep's answer for "no identity" has to be a
-            // decision rather than an accident.
-            //
-            // ⚠ CLONE-SNAPSHOTTED like the four objects it marks, not canonical:
-            // it is a stable identity copied at spawn, so there is nothing for a
-            // codec to normalise and nothing for the checksum to disagree about.
+            // Which match each spawned object belongs to, so the sweep never
+            // sees a restored object without an identity. Clone-snapshotted:
+            // it is a stable identity copied at spawn.
             app.rollback_component_clone_probed::<ambition_platformer2d::versus_match::MatchScoped>(
                 "ambition_demo_smash",
                 "smash.match_scoped",
                 crate::match_scope::match_scoped_probe,
             );
-            // The mine's arming clock. Same reasoning as the fuse and the
-            // aperture above: it outlives the tick that made it, so a rewind
-            // that restored the mine without its clock would let the
-            // resimulated timeline answer a press the confirmed one ignored.
+            // The mine's arming clock: a restore without it could answer a
+            // press the confirmed timeline ignored.
             app.rollback_component_clone_probed::<crate::mine::PlacedMine>(
                 "ambition_demo_smash",
                 "smash.placed_mine",
                 crate::mine::placed_mine_probe,
             );
 
-            // ⛔ THE MARK ON A BODY, and the same argument the mine's clock
-            // carries: it outlives the tick that made it, so a rewind restoring
-            // the mark WITHOUT its clock would detonate on a different frame on
-            // the two peers. The probe is the clock for exactly that reason — a
-            // presence-only probe cannot see the disagreement that matters.
+            // The mark and its clock: without the clock the mark detonates on
+            // different frames on two peers. The probe is the clock, because a
+            // presence-only probe cannot see that.
             app.rollback_component_clone_probed::<crate::mark::BodyMark>(
                 "ambition_demo_smash",
                 "smash.body_mark",
                 crate::mark::body_mark_probe,
             );
-            // Delayed combat attribution can outlive the fighter body that authored
-            // it, and the stand-in must never count as a participant — which is
-            // carried by the ABSENCE of `MatchSeat`, not by a positive label. The
-            // label was `SeatCredit` and it left the layout at v178; see
-            // `SeatCreditStandIn`.
+            // Delayed combat attribution can outlive the fighter body. The
+            // stand-in never counts as a participant because it has no
+            // `MatchSeat`. See `SeatCreditStandIn`.
             app.rollback_component_clone_probed::<crate::mark::SeatCreditStandIn>(
                 "ambition_demo_smash",
                 "smash.seat_credit_stand_in",
                 crate::mark::seat_credit_stand_in_probe,
             );
 
-            // The bolt in flight: where it is, where it is going, how long it has
-            // left, and whether it has cleared its caster. ⛔ MORE THAN THE
-            // MINE'S CLOCK, because a bolt is STEERED — two peers can agree on
-            // its lifetime and disagree about its heading, and the heading is
-            // what decides whether it comes home and throws a fighter across the
-            // stage.
+            // The bolt in flight: position, heading, lifetime, and whether it
+            // cleared its caster. The heading matters: peers can agree on the
+            // lifetime and disagree on where the bolt goes.
             app.rollback_component_clone_probed::<crate::bolt::SteeredBolt>(
                 "ambition_demo_smash",
                 "smash.steered_bolt",
                 crate::bolt::steered_bolt_probe,
             );
 
-            // The plate's three clocks and its remaining uses. ⛔ A rewind that
-            // restored the plate without them would give the resimulated
-            // timeline a launch the confirmed one had already spent — and a
-            // launch is a fighter standing somewhere else.
+            // The plate's three clocks and remaining uses: a restore without
+            // them could replay a launch the confirmed timeline already spent.
             app.rollback_component_clone_probed::<crate::spring::PlacedSpring>(
                 "ambition_demo_smash",
                 "smash.placed_spring",
                 crate::spring::placed_spring_probe,
             );
 
-            // The homing dash's clock and the direction it committed to. ⛔ Both
-            // decide where a FIGHTER is, so a restore that lost either leaves the
-            // two peers' fighters in different places — the same reasoning the
-            // bolt's row carries, one step more directly.
-            // ⛔⛔ A DILATION'S CLOCK IS WHERE A FIGHTER WILL BE. The scale
-            // itself is already canonical as `actor.proper_time_scale`, but the
-            // REMAINING SECONDS are this crate's — and they decide how much
-            // longer the victim's own moves, hurtboxes and animation run slow.
-            // ⇒ Two peers disagreeing about the remainder do not disagree about a
-            // flag; they resimulate different swings from that tick on. The
-            // `prior` travels with it because a restore that lost it would put
-            // the body back on the wrong clock forever.
+            // A dilation's remaining seconds (the scale itself is canonical as
+            // `actor.proper_time_scale`). Peers that disagree on it resimulate
+            // different swings. `prior` travels with it so a restore puts the
+            // body back on the right clock.
             app.rollback_component_clone_probed::<crate::dilation::TimeDilated>(
                 "ambition_demo_smash",
                 "smash.time_dilated",
                 crate::dilation::time_dilated_probe,
             );
 
+            // The homing dash's clock and committed direction: both decide
+            // where a fighter is.
             app.rollback_component_clone_probed::<crate::homing::HomingDash>(
                 "ambition_demo_smash",
                 "smash.homing_dash",
                 crate::homing::homing_dash_probe,
             );
 
-            // The tether reel's clock and the anchor it latched. ⛔ Same
-            // reasoning as the dash above and one step stronger: the anchor is
-            // not merely where she is going, it is a POINT ON THE STAGE she
-            // committed to on one frame. A peer that restored the reel without
-            // it would re-run the probe against its own view of the solids and
-            // could latch a DIFFERENT ledge, which is a divergence that grows
-            // rather than one that corrects.
+            // The tether reel's clock and latched anchor. A peer that lost the
+            // anchor would re-probe its own solids and could latch a different
+            // ledge.
             app.rollback_component_clone_probed::<crate::tether::TetherReel>(
                 "ambition_demo_smash",
                 "smash.tether_reel",
                 crate::tether::tether_reel_probe,
             );
         }
-        // ⛔ BEFORE the preparation source can ask for it. `Res<SmashStageChoice>`
-        // in a system that is not given the resource is a runtime panic at the
-        // moment a match prepares — the least testable place for one — and the
-        // default is the stage every recorded measurement was taken on, so a
-        // host that never touches it plays exactly what it played before.
+        // Init before the preparation source reads it: a missing
+        // `Res<SmashStageChoice>` panics when a match prepares. The default is
+        // the stage all recorded measurements used.
         app.init_resource::<SmashStageChoice>();
         app.init_resource::<SmashStockChoice>();
         app.init_resource::<select::SmashSelect>();
-        // The pointer, and the one thing it can ask for that the value does not
-        // hold. Both live outside `SmashSelect` on purpose: where a cursor is
-        // pointing is not part of what the screen DECIDED, and a decision value
-        // that carried a screen position would change every time somebody moved
-        // the mouse.
+        // The pointer state lives outside `SmashSelect`: where a cursor points
+        // is not part of what the screen decided.
         app.init_resource::<select_screen::cursor::SelectCursors>();
         app.init_resource::<select_screen::SelectPage>();
         app.init_resource::<select_screen::SelectInteractionPolicy>();
         app.init_resource::<select_screen::StartRequested>();
         app.init_resource::<select_screen::LeaveRequested>();
-        // THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.
-        //
-        // By `Startup` every provider in the composition has declared itself.
+        // The roster is a composition fact, resolved at `Startup`, once every
+        // provider has declared itself.
         app.init_resource::<select::SmashRoster>();
         app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
-        // THE PORTRAIT SHEETS' OWN MANIFESTS, so a face is one FRAME.
+        // Portrait sheet manifests, so a face is one frame. Without them,
+        // multi-frame sheets (`alice`, `oiler`) draw as a strip.
         //
-        // without this the grid drew each portrait PNG whole, which is right
-        // for the single-frame sheets that are most of them and visibly wrong
-        // for `alice` and `oiler` — 2048x320 each, eight frames of a
-        // default/speaking/focused clip set, drawn as a strip of eight tiny
-        // Alices. Found by looking at a capture.
-        //
-        // guarded, because Ambition's dialogue box installs the same plugin
-        // and Bevy panics on a duplicate. This demo is composed both standalone
-        // and inside that host; whichever gets there first wins and the registry
-        // is the same baked table either way.
+        // Guarded: Ambition's dialogue box installs the same plugin, and Bevy
+        // panics on a duplicate. The registry is the same either way.
         if !app
             .is_plugin_added::<ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin>()
         {
             app.add_plugins(ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin);
         }
-        // THE SCREEN DECLARES ITS OWN INPUT PORT. The host fills
-        // `SeatMenuFrames` when a windowed host is installed; `init_resource`
-        // will not clobber one that already exists. Declaring it here means the
-        // screen is drivable in a headless app too — which is what lets a TEST
-        // press a button instead of reaching into `SmashSelect` and setting the
-        // answer, and reaching into the answer is how this screen came to be
-        // fully unit-tested and completely inert.
+        // The screen declares its own input port. The windowed host fills
+        // `SeatMenuFrames`; `init_resource` does not replace an existing one.
+        // Headless apps and tests can then press buttons instead of setting
+        // `SmashSelect` directly.
         app.init_resource::<ambition_platformer2d::input::SeatMenuFrames>();
-        // AND THE SEATS IT OFFERS. A host seats input participants from the
-        // match roster, and this screen is what PRODUCES the roster — so until
-        // it declares them, only player one exists and the other panels are
-        // chairs no controller can reach. See `LocalSeatOffer`, which carries
-        // the couch POLICY with the count because the two are one statement:
-        // seats without a policy are seats the default hands straight back to
-        // player one.
+        // The seats it offers. A host seats input participants from the match
+        // roster, which this screen produces, so the screen must declare its
+        // seats. `LocalSeatOffer` carries the couch policy with the count.
         app.init_resource::<ambition_platformer2d::input::LocalSeatOffer>();
-        // ONE CHAIN, IN `InputSet::Consume`. Two things were ambiguous and
-        // both are the same mistake — a reader with no stated order.
-        //
-        // 1. Against the PRODUCER. A windowed host rebuilds `SeatMenuFrames`
-        //    from the participants every frame (`frames.clear()` first), so
-        //    unordered, whether this screen saw a press at all depended on where
-        //    Bevy happened to put it. In the demo's own app the producer is not
-        //    installed and it always worked; in the multi-game host it is.
-        // 2. Against ITSELF. Arriving at the screen resets the previous match's
-        //    decision, and the transition out reads that decision — running in
-        //    the other order, re-entering the screen leaves for the stage again
-        //    on the frame it arrives.
+        // One chain, in `InputSet::Consume`, ordered against:
+        // 1. The producer: a windowed host rebuilds `SeatMenuFrames` every
+        //    frame, so an unordered reader can miss presses.
+        // 2. Itself: arrival resets the previous match's decision before the
+        //    transition out reads it. The other order re-enters the stage on
+        //    arrival.
         app.configure_sets(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
@@ -3242,12 +2296,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ambition_platformer2d::input::InputSet::Consume,
             ),
         );
-        // THE SCREEN CLAIMS ITS SEATS' INPUT while it is up.
-        //
-        // Declared in `ResolveContext`, ahead of every router — so a HIGHER
-        // capturing claim (the universal pause menu, at `context_priority::PAUSE`)
-        // simply outranks it and this screen stops driving, with neither side
-        // naming the other. See `drive_the_select_screen`.
+        // The screen claims its seats' input in `ResolveContext`, ahead of
+        // every router. A higher claim (the pause menu at
+        // `context_priority::PAUSE`) outranks it. See `drive_the_select_screen`.
         app.add_systems(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
@@ -3255,21 +2306,13 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ambition_platformer2d::input::InputSet::ResolveContext,
             ),
         );
-        // AND IT SAYS WHAT ITS CONFIRM CONTROL DOES.
+        // The screen's confirm cue: what confirming means here. It is also
+        // the prompt's only evidence without a context resolver; with no cue,
+        // `publish_frontend_context_prompt` answers `Empty` and the touch
+        // overlay hides its controls.
         //
-        // A claim says who the presses are FOR; a cue says what confirming MEANS, in this screen's
-        // own words.
-        //
-        // the cue is also the only evidence a prompt has when no context
-        // resolver is installed. `publish_frontend_context_prompt` reads the
-        // resolved owner, but a composition without the host's resolver has none
-        // and falls through to the no-subject exit, which now asks for a cue and
-        // answers `Empty` without one — and `Empty` is how the touch overlay
-        // decides to hide the move stick and the confirm buttons.
-        //
-        // `init_resource` will not clobber one the host already owns
-        // (`ambition_platformer2d_host` initialises it), and cues are keyed by
-        // context, so this screen owns its KEY rather than the map.
+        // `init_resource` does not replace the host's map. Cues are keyed by
+        // context, so this screen owns only its key.
         app.init_resource::<ambition_platformer2d::input::ActiveUiCues>();
         app.add_systems(
             bevy::prelude::Update,
@@ -3290,27 +2333,23 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                         the_select_screen_owns_its_input,
                     ),
                     select_screen::place_the_screen,
-                    // Four small projections instead of one screen-wide mutable
-                    // query bundle. Their internal order is not semantic; keeping
-                    // them inside this drive-before-draw fence preserves the
-                    // existing frame contract without a B0001 exclusion matrix.
+                    // Four small projections instead of one wide mutable query.
+                    // Their order does not matter; the fence keeps
+                    // drive-before-draw without a B0001 exclusion matrix.
                     select_screen::sync_select_grid,
                     select_screen::sync_select_cards,
                     select_screen::sync_select_chrome,
                     select_screen::sync_select_tokens_and_cursors,
                     start_the_battle_when_asked,
-                    // the safety net for every entry that skips the lobby —
-                    // the dev bins and the stage tests. See its doc.
+                    // Safety net for entries that skip the lobby (dev bins,
+                    // stage tests).
                     the_stage_always_plays_by_smash_rules,
                     the_stage_declares_smashs_presentation_and_gives_it_back,
-                    // AFTER the driver that sets the flag, and in the same
-                    // chain, so a press and the route change it asks for are
-                    // one frame apart at most. The screen would otherwise keep
-                    // drawing a lobby somebody has already left.
+                    // After the driver that sets the flag, in the same chain,
+                    // so a press and its route change are at most a frame apart.
                     leave_the_select_screen_when_asked,
                     return_to_the_select_screen_when_the_match_ends,
-                    // The pause menu's contributed row: what it says, and what
-                    // picking it means.
+                    // The pause menu row: its label, and what picking it does.
                     offer_to_exit_the_match,
                     abandon_the_match_when_the_shell_asks,
                 )),
@@ -3320,26 +2359,20 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
     }
 }
 
-/// OFFER `Exit Match` WHILE A MATCH IS RUNNING, and withdraw it when one is not.
+/// Offer `Exit Match` while a match is running, and withdraw it otherwise. The
+/// match ends as No Contest.
 ///
-/// Jon, W8 playtest: *"During an active Smash match, the system/pause menu needs
-/// an explicit `Exit Match`, which ends the match as No Contest."*
+/// The shell draws the row but does not know what a match is. This states the
+/// words; [`abandon_the_match_when_the_shell_asks`] states the meaning.
 ///
-/// ⭐ THE SHELL DRAWS THE ROW AND DOES NOT KNOW WHAT IT MEANS. The universal
-/// pause menu has no idea what a match is — it cannot, without every hosted
-/// experience adding an arm to it — so this states the WORDS and
-/// [`abandon_the_match_when_the_shell_asks`] states the MEANING.
-///
-/// ⛔ AND THE OFFER IS RETRACTED, not merely set. A stale offer left behind by a
-/// finished match puts an `Exit Match` row on the character select screen's own
-/// pause menu, pointing at nothing.
+/// Retract the offer, do not only set it: a stale offer puts `Exit Match` on
+/// the select screen's pause menu.
 fn offer_to_exit_the_match(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
-    // The SETTLEMENT, and it is what the comment below is about. Optional
-    // because a composition may reach this route before the stocks feature has
-    // installed anything, and there the honest answer is "not settled".
+    // Optional: a composition may reach this route before the stocks feature
+    // installs anything; then the match is not settled.
     settled: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::StocksMatchSettled>>,
     offered: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellAbandonOffer>>,
 ) {
@@ -3347,15 +2380,10 @@ fn offer_to_exit_the_match(
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
-    // ⭐⭐ A MATCH THAT HAS BEEN DECIDED IS STILL ACTIVE — the winner card is up
-    // and the return countdown is running — so `ActiveMatch` alone cannot answer
-    // this, and offering to abandon then is offering to stop something already
-    // stopped. The press would reach the abandon latch, which the once-only
-    // settle discards because the match already ended: a row that does nothing.
-    //
-    // ⛔ THE CONDITION, NOT A PROXY. Not the winner card's presence, not a menu
-    // state, not a countdown — `StocksMatchSettled::settled` is the authority
-    // that decided the match, and it is the same one the abandon road reads.
+    // A decided match is still active (winner card up, countdown running), so
+    // `ActiveMatch` alone is not enough; the abandon latch would ignore the
+    // press. Use `StocksMatchSettled::settled`, the same authority the abandon
+    // road reads, not a proxy such as the card or a menu state.
     let running = active.as_deref().is_some_and(|active| {
         settled
             .as_deref()
@@ -3378,30 +2406,21 @@ fn offer_to_exit_the_match(
 
 /// Translate the shell's abandon request into the engine's match-level verb.
 ///
-/// ⭐ TWO LINES, AND THAT IS THE POINT. Jon: *"Reuse the existing match outcome
-/// / route transition machinery. Do not introduce a one-off scene teardown
-/// path."* Everything after this already exists: `decide_stocks_match` settles
-/// the match as a [`MatchVerdict::NoContest`] and
-/// [`return_to_the_select_screen_when_the_match_ends`] brings the player back to
-/// the lobby — the same systems an ordinary knockout goes through.
+/// Everything after this exists already: `decide_stocks_match` settles the
+/// match as a [`MatchVerdict::NoContest`], and
+/// [`return_to_the_select_screen_when_the_match_ends`] returns to the lobby, as
+/// for a knockout. Do not add a separate teardown path. For `NoContest`,
+/// [`announce_the_winner`] writes no card and the return has no countdown.
 ///
-/// ⛔ WITH ONE STEP SKIPPED, and it is skipped by those systems rather than by a
-/// road of its own: [`announce_the_winner`] writes no card for a `NoContest` and
-/// the return takes no countdown. Jon, 2026-08-26: *"skip the no contest
-/// presentation for now and just exit to the character select menu
-/// immediately."*
-///
-/// ⛔ NOT GATED ON A SEAT. It is a match-level command, so it works the same in
-/// CPU-vs-CPU as in a human match; the person who opened the menu is not
-/// necessarily playing.
+/// Not gated on a seat: it is a match-level command, so it works in
+/// CPU-vs-CPU too.
 fn abandon_the_match_when_the_shell_asks(
     mut commands: bevy::prelude::Commands,
     mut asked: bevy::prelude::MessageReader<
         ambition_platformer2d::game_shell::ShellAbandonRequested,
     >,
-    // WHICH MATCH is being stopped. The ask is made outside the simulation, so
-    // it cannot be re-made by a resimulation and cannot ride a channel that
-    // rewinds — it names its match instead. See `MatchAbandonRequest`.
+    // Which match to stop. The ask is made outside the simulation, so it names
+    // its match instead of riding a rewinding channel. See `MatchAbandonRequest`.
     active: Option<bevy::prelude::Res<ambition_platformer2d::versus_match::ActiveMatch>>,
 ) {
     let asked_to_stop = asked.read().count() > 0;
@@ -3417,28 +2436,15 @@ fn abandon_the_match_when_the_shell_asks(
     );
 }
 
-/// SUDDEN DEATH'S STAGE HALF: put the survivors on the edge of death.
+/// Sudden death's stage half: put the survivors on the edge of death.
 ///
-/// ⭐ THE ENGINE REFUSED TO DECIDE and said so; what that MEANS to a body is
-/// this stage's business. The count knows stocks and the clock; it does not know
-/// that this ruleset measures a fighter in percent, and a rule that reached into
-/// health from `decide_stocks_match` would be a stocks loop with an opinion
-/// about a damage mechanic.
+/// The engine's stocks loop knows stocks and the clock, not percent, so the
+/// stage applies the damage.
 ///
-/// ⛔ ELIMINATED FIGHTERS ARE NOT REVIVED. A level timeout means the sides are
-/// level on what the tiebreak measures, not that everybody is still alive —
-/// putting a body that already lost its last stock back on the stage would
-/// invent a fighter the match had finished with.
-///
-/// ⭐⭐ AND ONLY THE TIED SIDES FIGHT IT. With three or more sides alive at the
-/// timeout, a side the clock had already put behind is not part of the tie the
-/// round exists to break; carrying it in would hand a losing side an even
-/// restart, and leaving it on the stage at its own low damage would hand it a
-/// BETTER one. A non-contender is out on the clock, said with the same
-/// `FighterEliminated` an exhausted fighter is out with — so
-/// [`take_eliminated_fighters_out_of_play`] clears its body and
-/// `last_side_standing` decides the round among the contenders, with no second
-/// notion of "out of the match" to keep in step with the first.
+/// Eliminated fighters are not revived. Only the tied sides fight: a side the
+/// clock already put behind gets `FighterEliminated`, like an exhausted
+/// fighter. [`take_eliminated_fighters_out_of_play`] then removes it, and
+/// `last_side_standing` decides among the contenders.
 fn open_the_sudden_death_round(
     mut commands: bevy::prelude::Commands,
     mut began: bevy::prelude::MessageReader<
@@ -3450,7 +2456,7 @@ fn open_the_sudden_death_round(
             &ambition_platformer2d::versus_match::MatchSeat,
             Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
             &mut ambition_platformer2d::characters::actor::BodyHealth,
-            // ⛔⛔ THE STOCKS, WHICH THIS ROUND IS DEFINED BY AND NEVER TOUCHED.
+            // The stocks: this round sets them to one.
             &mut ambition_platformer2d::combat::components::FighterStocks,
         ),
         bevy::prelude::Without<ambition_platformer2d::combat::stocks::FighterEliminated>,
@@ -3458,33 +2464,23 @@ fn open_the_sudden_death_round(
 ) {
     for round in began.read() {
         for (body, seat, team, mut health, mut stocks) in &mut fighters {
-            // The SIDE, not the seat: a team's members stand or fall together,
-            // which is the same fold the tiebreak used to name the contenders.
+            // The side, not the seat: team members stand or fall together, as
+            // in the tiebreak.
             let side = ambition_platformer2d::combat::stocks::side_label(seat.0, team);
             if round.contenders.iter().any(|contender| *contender == side) {
                 health.set_damage_taken(round.starting_damage);
-                // ⛔⛔ ONE STOCK, WHICH IS THE WHOLE ROUND. A genuine tie can
-                // happen with several stocks each — the existing arms tie at TWO
-                // — and this only set the damage. So the first KO spent a stock,
-                // the loser was NOT eliminated, the ordinary respawn reset the
-                // damage this round had just staged, and sudden death simply
-                // went on. "Both at 300%, one stock, first hit decides" was the
-                // stated rule and the transition implemented a third of it.
-                //
-                // ⭐ `remaining`, NOT `started_with`: the latter is what the
-                // MATCH began with and the HUD reads it to draw the stock icons.
+                // One stock: the first KO decides. A tie can happen with
+                // several stocks each; without this the loser would respawn and
+                // the round would continue. Set `remaining`, not
+                // `started_with`: the HUD reads the latter for the icons.
                 stocks.remaining = 1;
             } else {
                 commands
                     .entity(body)
                     .try_insert(ambition_platformer2d::combat::stocks::FighterEliminated);
-                // ⛔⛔ AND THE OTHER HALF OF LEAVING THE MATCH. `spend_fighter_stocks`
-                // does BOTH — insert the marker and remove `ActiveCombatant` —
-                // and says why: the body stays standing until a ruleset removes
-                // it, so a marker alone leaves a corpse holding attack state and
-                // a place on the anti-clump board. Doing half of it here made a
-                // second, weaker definition of "out of the match", and command
-                // deferral means cleanup cannot be relied on to cover the gap.
+                // Also remove `ActiveCombatant`, as `spend_fighter_stocks`
+                // does. A marker alone leaves a body with attack state and a
+                // place on the anti-clump board.
                 commands
                     .entity(body)
                     .remove::<ambition_platformer2d::combat::components::ActiveCombatant>();
@@ -3493,16 +2489,11 @@ fn open_the_sudden_death_round(
     }
 }
 
-/// Who can be picked, in THIS composition.
-///
-/// `select::SMASH_ROSTER` filtered to the ids this host can SEAT — so a
-/// multi-game host offers the whole crossover cast and the standalone demo
-/// offers the fighters it declares itself, from one list.
+/// Who can be picked in this composition: `select::SMASH_ROSTER` filtered to
+/// the ids this host can seat.
 fn assemble_the_smash_roster(
-    // the SEATABLE authority, not the catalog — see `SmashRoster::assemble`.
-    // Optional because a composition may reach this route before any character
-    // is registered; an empty grid then says so honestly rather than offering
-    // portraits nothing can build.
+    // The seatable authority, not the catalog; see `SmashRoster::assemble`.
+    // Optional: with no characters registered, the grid is empty.
     registry: Option<
         bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
@@ -3555,23 +2546,13 @@ fn maintain_smash_local_seat_offer(
 
 /// Reset frontend-only select state exactly once when this route is entered.
 ///
-/// `SmashSelect` is the lobby decision, while cursor/page/request state is interaction state. A
-/// rematch must start with neither the previous decision nor the previous hand positions.
+/// `SmashSelect` is the lobby decision; cursor, page and request state are
+/// interaction state. A rematch starts with neither.
 ///
-/// ⛔⛔ "EXACTLY ONCE PER ARRIVAL" IS THE ACTIVATION, NOT AN ENTITY COUNT. This
-/// used to gate on the select UI root not existing yet, as a stand-in for "the
-/// reset has not run this visit" — and the stand-in is false on the SECOND
-/// visit, because the first visit's root outlives the route change. Measured
-/// 2026-08-27 on the second match: arriving back at the lobby with
-/// `ui_roots=1`, so the body below never ran and `MatchParticipantRoster`,
-/// `StartRequested` and the previous decision all stood. `start_the_battle_when_asked`
-/// refuses while a roster stands (`!on_select || roster.is_some()`), so pressing
-/// start did nothing at all — Jon: *"in the second match I select characters
-/// press start, but it just brings me back to the character screen"*.
-///
-/// ⭐ THE ROUTER ALREADY NAMES THE ARRIVAL. `ShellActivationId` is minted per
-/// activation and is the same id the world-event log prints, so remembering the
-/// one this ran for says what the entity count was only guessing at.
+/// "Once per arrival" is keyed on `ShellActivationId`, minted per activation.
+/// Do not key it on the UI root's absence: the first visit's root outlives the
+/// route change, so the reset would not run on the second visit, and start
+/// would do nothing.
 fn reset_select_frontend_on_arrival(
     mut commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -3580,7 +2561,7 @@ fn reset_select_frontend_on_arrival(
     mut cursors: bevy::prelude::ResMut<select_screen::cursor::SelectCursors>,
     mut page: bevy::prelude::ResMut<select_screen::SelectPage>,
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
-    // WHICH ARRIVAL THIS ALREADY RAN FOR.
+    // Which arrival this already ran for.
     mut done_for: bevy::prelude::Local<
         Option<ambition_platformer2d::game_shell::ShellActivationId>,
     >,
@@ -3608,9 +2589,9 @@ fn reset_select_frontend_on_arrival(
     ));
 }
 
-/// Spawn/despawn the select UI from route state. This system owns presentation
-/// lifetime only; seat policy and frontend-state initialization live in the two
-/// systems above.
+/// Spawn/despawn the select UI from route state. This owns presentation
+/// lifetime only; seat policy and frontend-state reset live in the two systems
+/// above.
 fn present_select_screen_ui(
     commands: bevy::prelude::Commands,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -3638,14 +2619,10 @@ fn present_select_screen_ui(
 
 /// Claim input for the seats this screen drives, while it is up.
 ///
-/// without this the screen was a surface nothing arbitrated. With the
-/// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
-/// and the CPU count — because the two read different channels
-/// (`MenuControlFrame` and `SeatMenuFrames`) and neither could consume the
-/// other's edge.
-///
-/// It names an input CONTEXT — vocabulary the facade already exposes — and the pause menu's
-/// higher-priority capturing claim does the rest. Neither side knows the other exists.
+/// Without this, the pause menu over the screen and the screen both read the
+/// arrows (through `MenuControlFrame` and `SeatMenuFrames`). The screen names
+/// an input context; the pause menu's higher-priority capturing claim wins.
+/// Neither knows the other.
 fn declare_the_select_input_context(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut participants: bevy::prelude::Query<
@@ -3655,7 +2632,7 @@ fn declare_the_select_input_context(
 ) {
     let on_select = on_the_select_route(&router);
     for mut contexts in &mut participants {
-        // Touch the component only when the claim actually moves.
+        // Touch the component only when the claim changes.
         if contexts.is_declared(ambition_platformer2d::input::SELECT_CONTEXT) != on_select {
             contexts.sync(
                 ambition_platformer2d::input::participant::ContextClaim::capturing(
@@ -3670,7 +2647,7 @@ fn declare_the_select_input_context(
 
 /// Is the select screen the active route?
 ///
-/// One answer, three askers — the context claim, the cue, and the "may I drive" gate.
+/// Used by the context claim, the cue, and the drive gate.
 fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) -> bool {
     router
         .active
@@ -3680,9 +2657,8 @@ fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) 
 
 /// Publish this screen's submit verb while it is up.
 ///
-/// `sync` rather than a declare/retract pair, so LEAVING retracts. A cue left
-/// behind outlives its surface, and the next screen inherits a prompt telling
-/// the player to choose a fighter.
+/// `sync`, not declare/retract, so leaving retracts. A stale cue would tell the
+/// next screen's player to choose a fighter.
 fn publish_the_select_ui_cue(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     mut cues: bevy::prelude::ResMut<ambition_platformer2d::input::ActiveUiCues>,
@@ -3691,8 +2667,8 @@ fn publish_the_select_ui_cue(
         ambition_platformer2d::input::UiCue {
             context: ambition_platformer2d::input::SELECT_CONTEXT,
             priority: ambition_platformer2d::input::participant::context_priority::SELECT,
-            // What the cursor does wherever it is parked: take a role, take a
-            // fighter, press START. "Choose" is the one verb true of all three.
+            // The cursor takes a role, takes a fighter, or presses START.
+            // "Choose" fits all three.
             submit_label: "Choose".to_owned(),
         },
         on_the_select_route(&router),
@@ -3701,17 +2677,12 @@ fn publish_the_select_ui_cue(
 
 /// Is this screen the one the presses belong to?
 ///
-/// without this the screen was a surface nothing arbitrated. With the
-/// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
-/// and the lobby — because the two read different channels (`MenuControlFrame`
-/// and `SeatMenuFrames`) and neither could consume the other's edge.
+/// The pause menu can outrank this screen; see
+/// `declare_the_select_input_context`.
 ///
-/// it asks whether ANY seat still owns `SELECT_CONTEXT`, not whether seat 0
-/// does. There is one cursor and four people may drive it, so the screen
-/// stops when the whole screen is outranked and not when player one's claim
-/// happens to be the one that lost. `None` (no resolver installed, as in a bare
-/// unit fixture) reads as owned: a test that wires no contexts is testing the
-/// screen, not the arbitration.
+/// It asks whether any seat still owns `SELECT_CONTEXT`, not only seat 0: one
+/// cursor may be driven by four people. `None` (no resolver, as in a bare unit
+/// fixture) counts as owned.
 fn the_select_screen_owns_its_input(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     contexts: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatInputContexts>>,
@@ -3731,14 +2702,10 @@ fn the_select_screen_owns_its_input(
 /// Publish the decided roster and leave the select screen.
 ///
 /// Runs on `Update`, not the sim schedule: choosing a fighter is shell
-/// lifecycle, and the sim is not even running yet — the stage has no session
-/// until the route this system requests actually resolves.
+/// lifecycle, and the stage has no session until the route resolves.
 ///
-/// it waits for START to be CLICKED, where the previous version left the
-/// instant `ready()` became true. Two reasons, and the second is the one that
-/// mattered: the real thing has a ready button, and a screen that launches on
-/// the frame its last token lands is a screen nobody can photograph. Every
-/// attempt to capture a decided lobby photographed the match instead.
+/// It waits for START to be clicked, not for `ready()`: the genre has a ready
+/// button, and a lobby that launches at once cannot be captured.
 fn start_the_battle_when_asked(
     mut commands: bevy::prelude::Commands,
     select: bevy::prelude::Res<select::SmashSelect>,
@@ -3746,33 +2713,24 @@ fn start_the_battle_when_asked(
     fighters: bevy::prelude::Res<select::SmashRoster>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
-    // WHAT THIS SCREEN'S SOURCE NUMBERS MEAN. A slot's occupant is an index
-    // into the sources the screen offered, and whether index zero is the
-    // keyboard or the first pad is the policy's answer — the same one
-    // `source_name_under` labels the slot with. Reading it here is what stops
-    // the roster and the label disagreeing about who is holding what.
+    // The seat policy decides whether source index zero is the keyboard or a
+    // pad (as in `source_name_under`), so the roster and the slot label agree.
     assignment: bevy::prelude::Res<ambition_platformer2d::input::LocalSeatOffer>,
-    // WHO ALREADY HAS A REPERTOIRE, so a seat whose character authors its own
-    // moves is not handed this stage's generic kit.
-    // `Option`, like every other reader of the cast.
+    // Characters that author their own moves do not get this stage's generic
+    // kit. `Option`, like every other reader of the cast.
     prepared: Option<
         bevy::prelude::Res<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>,
     >,
-    // THE STAGE'S OWN DECLARATION, read rather than re-stated. `Option` because this system
-    // runs before the resource exists on the very first frame of a boot, and a screen with no rules
-    // yet has no floor to hand out either.
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
-    // WHAT THE LOBBY'S STOCKS BUTTON DECIDED. Read here, on the road a player
-    // travels, and handed to `roster_seeded` as a value — see that parameter's
-    // note for why the count is stated by each caller rather than read inside.
+    // The lobby's stocks choice, passed to `roster_seeded` as a value (see
+    // that parameter's note).
     stocks: bevy::prelude::Res<SmashStockChoice>,
 ) {
     if !asked.0 {
         return;
     }
-    // Only from the select screen. Without this the system would re-fire during
-    // the match — `ready()` stays true while the roster stands — and ask the
-    // shell to re-enter the stage on every frame of the fight.
+    // Only from the select screen. `ready()` stays true during the match, so
+    // without this the shell would re-enter the stage every frame.
     let on_select = router
         .active
         .as_ref()
@@ -3780,34 +2738,14 @@ fn start_the_battle_when_asked(
     if !on_select || roster.is_some() {
         return;
     }
-    // THE SEED FOR THIS MATCH'S RANDOM SQUARES — THE AGREED MATCH CONFIGURATION.
+    // The seed for this match's random squares (ADR 0023: no ambient RNG).
+    // It is a digest of what both peers agree on: the seats, their occupants,
+    // and each pick. Do not use the wall clock, a thread RNG, or
+    // `ShellActivationId` (a host-local counter that differs between peers).
     //
-    // ADR 0023: no ambient RNG. Not the wall clock and not a thread RNG, for
-    // the reason this site has always given: a match is decided in `Update`,
-    // everything it produces is read inside the rollback window, and "where did
-    // this fighter come from" must have an answer that survives a replay.
-    //
-    // ⛔⛤ **AND NOT THE SHELL ACTIVATION ID EITHER, WHICH IS WHAT THIS USED TO
-    // BE (ID-PEER).** `ShellActivationId` is a private monotonic counter
-    // incremented once per route entry ON THIS HOST. It satisfies "survives a
-    // replay" — it is stable across a rewind here — and it is NOT stable across
-    // PEERS: App A that opened three menus first and App B that started
-    // immediately carry different counts, so the same agreed match seated a
-    // DIFFERENT fighter on each. Avoiding ambient nondeterminism and achieving
-    // peer agreement are two requirements, and the counter met only the first.
-    //
-    // ⇒ The seed is now a digest of what the two peers AGREE on: the seats,
-    // who occupies them, and what each one picked. Every input is a select
-    // screen result both sides hold.
-    //
-    // ⚠ WHAT THIS DELIBERATELY GIVES UP: two IDENTICAL setups replayed now draw
-    // the SAME fighter. That variation used to come from the activation count
-    // and nothing pins it — `select::tests` says so in its own words, *"a
-    // different seed is ALLOWED to differ. Asserting it MUST differ would be
-    // asserting a hash collision never happens on a grid this small."* Restoring
-    // per-rematch variation requires a nonce the peers AGREE on at match setup,
-    // which needs a handshake this project does not have yet; inventing a second
-    // host-local token here is the defect, not the fix.
+    // Cost: two identical setups now draw the same fighter. Per-rematch
+    // variation needs a nonce the peers agree on at setup, which needs a
+    // handshake the project does not have yet.
     let seed = agreed_match_seed(&select);
     let declared_rules = smash_declared_combat_rules();
 
@@ -3815,8 +2753,8 @@ fn start_the_battle_when_asked(
         &fighters,
         seed,
         assignment.policy(),
-        // The ids whose CHARACTER states its own move timelines. Computed here
-        // because only this side can see the prepared cast.
+        // Ids whose character authors its own move timelines. Only this side
+        // can see the prepared cast.
         &prepared
             .as_deref()
             .map_or_else(Default::default, |registry| {
@@ -3826,64 +2764,38 @@ fn start_the_battle_when_asked(
                     .map(|(id, _)| id.to_string())
                     .collect()
             }),
-        // ⛔ THE VALUE, NOT A RESOURCE READ. This was once read off
-        // `DeclaredCombatRules` and the swipe never arrived: the same system
-        // inserts that resource fifty lines below and `Commands::insert_resource`
-        // is DEFERRED, so on the frame that decides the match it did not exist
-        // yet and `None` was published.
+        // The value, not a `DeclaredCombatRules` read: this system inserts
+        // that resource below, and `insert_resource` is deferred.
         Some(smash_seating_melee()),
         // What the lobby's stocks button decided.
         stocks.count(),
     ) else {
         return;
     };
-    // THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
-    // under this experience's name. Devices are not participants — a keyboard
-    // seat has no controller entity, a spare pad may not be playing, a CPU seat
-    // has none at all — so a session sized from what is plugged in is sized
-    // wrong for every lobby that seats a CPU. Both land in the same flush that
-    // asks for the route, so the session, which is built at least a frame later,
-    // has never seen a smash gameplay world without them.
+    // The seat plan this match decided, published under this experience's
+    // name. Devices are not participants (a CPU seat has no device), so the
+    // session must not be sized from what is plugged in. It lands in the same
+    // flush as the route request, so the session always sees it.
     commands.insert_resource(ambition_platformer2d::input::SessionSeatingSource::decided(
         SMASH_EXPERIENCE,
-        // A CPU is a participant and occupies no channel; a lobby of two CPUs needs none at
-        // all, which is the case that makes the difference impossible to ignore.
-        //
-        // and the whole PLAN, not the count of it. A count sizes the
-        // session and leaves every consumer to guess which controller feeds
-        // each handle — which they did, from the lobby's SPARSE source
-        // numbers, so seating the CPU first put the human's fighter on a
-        // channel the session never opened.
+        // The whole channel plan, not a count: a CPU needs no channel, and
+        // consumers must not guess which controller feeds each handle from the
+        // lobby's sparse source numbers.
         decided.local_channel_plan(),
     ));
     commands.insert_resource(decided);
     commands.insert_resource(declared_rules);
-    // so this is emphatically NOT a change to `insert_gamepad_bindings`.
-    // A=Jump stays right for Ambition; a fighting game says otherwise for the
-    // duration of its own experience, and gives the pad back on the way out.
-    // Same declare-don't-borrow shape as the rules above, owner and all —
-    // the versus route is another provider in the same binary that could
-    // eventually declare its own.
-    //
-    // this is also the ONLY thing that gives gamepad-Special a button.
-    // The default pad is fully assigned (`presets.rs` refuses to double-bind),
-    // so Special was keyboard- and touch-only; a layout PERMUTES an assigned
-    // pad, which is exactly the freedom an addition does not have.
+    // The Smash pad layout, declared for this experience and released on the
+    // way out; `insert_gamepad_bindings` is unchanged (A=Jump stays right for
+    // Ambition). The layout permutes the fully assigned default pad, which is
+    // the only way gamepad Special gets a button.
     commands.insert_resource(ambition_platformer2d::input::DeclaredBindingLayout::new(
         SMASH_EXPERIENCE,
         ambition_platformer2d::input::BindingLayout::Smash,
     ));
-    // the default reads well for a platformer and badly for a fighter, and
-    // that is the whole reason this is a knob. Mary-O has a handful of
-    // signature techniques, so naming her button "Spin Dash" tells the player
-    // something true and stable. A smash fighter's Attack slot hosts a dozen
-    // moves selected by stick direction and posture, so the same rule names
-    // whichever one happens to be resolvable where the body is standing — a
-    // label that changes as you walk and never answers the question the prompt
-    // exists for, which is WHICH BUTTON.
-    //
-    // "at least not yet" — the move-naming road stays live and default
-    // everywhere else; this only declines it here.
+    // Name prompts by button. A Smash Attack slot hosts a dozen moves chosen
+    // by direction and posture, so naming the move would change as the body
+    // moves. Move naming stays the default elsewhere.
     commands.insert_resource(ambition_platformer2d::sim_view::PromptNaming::ByButton);
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
@@ -3892,45 +2804,33 @@ fn start_the_battle_when_asked(
 
 /// Leave the lobby through the character-select screen's own Back affordance.
 ///
-/// to title, you can only do this if you start a match."* There are TWO useful
-/// roads now, and they should stay distinct: Esc/Start opens the universal
-/// system menu, whose `Quit to Title` row is available on frontend subroutes as
-/// well as live sessions; this handler is the CSS-native Back / held-B route.
-/// Both emit the same host-relative `QuitToHome` command.
+/// Esc/Start opens the universal system menu, whose `Quit to Title` row works
+/// on frontend subroutes too. This handler is the select screen's Back / held-B
+/// road. Both emit the host-relative `QuitToHome`; do not `GoTo` a title route
+/// this demo does not own.
 ///
-/// Spelling a `GoTo(some_title_route)` here would be this demo naming a route it does not own,
-/// and it would be wrong in the next composition.
-///
-/// nothing to unwind by hand, and that is a claim worth stating. What this
-/// route CLAIMED on arrival is released by the systems that claimed it, because
-/// each is keyed on the route rather than on a shutdown hook:
-/// `maintain_smash_local_seat_offer` releases its seat claim and
-/// `present_select_screen_ui` despawns the UI the moment the route is no
-/// longer active; `declare_the_select_input_context` retracts `SELECT_CONTEXT`;
-/// `publish_the_select_ui_cue` retracts the cue; and the experience scope
-/// declared in [`SmashExperiencePlugin`] resets `SmashSelect`,
-/// `StartRequested`, [`select_screen::LeaveRequested`] and the cursor, and
-/// releases this experience's `SessionSeatingSource` hold. A lobby that was only
-/// half joined publishes NO `MatchParticipantRoster` — that is written by
-/// `start_the_battle_when_asked` and by nothing else — so there is no match
-/// state to strand.
+/// Nothing needs unwinding by hand. Each claim is keyed on the route:
+/// `maintain_smash_local_seat_offer` releases its seat claim,
+/// `present_select_screen_ui` despawns the UI,
+/// `declare_the_select_input_context` retracts `SELECT_CONTEXT`,
+/// `publish_the_select_ui_cue` retracts the cue, and the experience scope in
+/// [`SmashExperiencePlugin`] resets `SmashSelect`, `StartRequested`,
+/// [`select_screen::LeaveRequested`] and the cursor, and releases the
+/// `SessionSeatingSource` hold. Only `start_the_battle_when_asked` writes a
+/// `MatchParticipantRoster`, so a half-joined lobby leaves no match state.
 fn leave_the_select_screen_when_asked(
     mut asked: bevy::prelude::ResMut<select_screen::LeaveRequested>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    // Optional for the same reason every other shell reader here is: a bare unit
-    // fixture composes no host, and `exit_leads_somewhere` reads that as "no way
-    // out" rather than inventing one.
+    // Optional: a bare unit fixture has no host, and `exit_leads_somewhere`
+    // reads that as "no way out".
     host: Option<bevy::prelude::Res<ambition_platformer2d::game_shell::ShellHostConfiguration>>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
         return;
     }
-    // spend the request WHATEVER happens next. A latch that says "leave"
-    // and survives its own frame is the shape `StartRequested` is reset on
-    // arrival to avoid — one left standing re-fires on the next route this
-    // system happens to run under. Cleared before the refusals below, never
-    // after them.
+    // Spend the request before the refusals below, so a stale "leave" cannot
+    // fire on a later route.
     asked.0 = false;
     if !on_the_select_route(&router) {
         return;
@@ -3943,18 +2843,14 @@ fn leave_the_select_screen_when_asked(
 
 /// The experience: what a launcher lists and a player can enter.
 ///
-/// Until this existed the demo was three correct pieces nobody could reach — a
-/// roster, a stage and a ruleset, all unit-true and unassembled. A slice that
-/// stops one step short of bootable is the shape this repo keeps catching:
-/// everything passes and nothing runs.
+/// It assembles the roster, stage and ruleset into something bootable.
 pub struct SmashExperiencePlugin;
 
 impl bevy::prelude::Plugin for SmashExperiencePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         install_smash_content(app);
-        // BEFORE the authoring below, which advertises the select screen as this
-        // experience's entry and refuses a route nobody has registered. The
-        // ordering is load-bearing and the refusal says so by name.
+        // Before the authoring below: it advertises the select screen as the
+        // entry and refuses an unregistered route.
         app.add_plugins(SmashSelectPlugin);
         ambition_platformer2d::provider::PlatformerExperienceAuthoring::new(
             SMASH_EXPERIENCE,
@@ -3962,26 +2858,19 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             "Smash",
             "Stocks, a platform, and nothing underneath it",
             "Prepare Smash",
-            // No `.with_procedural_sfx()`: this stage declares SILENCE and the
-            // fighters bring their own cues. Claiming procedural sfx it never
-            // registers would be the same shape as the empty function above —
-            // a declaration with nothing behind it.
+            // No `.with_procedural_sfx()`: the stage is silent and the
+            // fighters bring their own cues.
             ambition_platformer2d::provider::AuthoredCatalogFragments::new(
                 SMASH_CHARACTER_ID,
                 SMASH_EXPERIENCE,
             ),
         )
-        // A LAUNCHER ROW LEADS TO THE QUESTION, NOT TO THE STAGE. Without
-        // this the only way into the select screen was to make it a whole app's
-        // home route — which is what the demo's own shell does and no
-        // multi-game host can, because its home lists games. Selecting "Smash"
-        // in the Ambition title screen would have dropped a lone duelist onto
-        // the platform with nobody to fight.
-        // THE STAGE'S OWN READOUTS. Without this the route inherited
-        // Ambition's adventure HUD and drew a health bar, a mana bar and a money
-        // counter over a platform fighter. Four slots
-        // because the stage seats four; a 1v1 fills two and the publisher clears
-        // the rest, the same rule the versus stage states.
+        // The launcher row enters the select screen, not the stage (see
+        // `.entered_at`).
+        //
+        // The stage's own HUD, so it does not inherit Ambition's health, mana
+        // and money readouts. Four slots because the stage seats four; the
+        // publisher clears unused ones.
         .with_hud({
             let mut hud = ambition_platformer2d::presentation::HudDeclaration::new();
             for (seat, slot) in FIGHTER_HUD_SLOTS.iter().enumerate() {
@@ -3990,8 +2879,7 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                         .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
                         .with_font_size(22.0)
                         .with_min_px(ambition_platformer2d::engine_core::Vec2::new(220.0, 30.0))
-                        // Coloured by seat parity, so a partner's meter reads as
-                        // a partner's at a glance.
+                        // Coloured by seat parity, so partners read as partners.
                         .with_color(if seat % 2 == 0 {
                             [0.55, 0.85, 1.0, 1.0]
                         } else {
@@ -4016,69 +2904,52 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
 
-        // WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.
+        // What this experience owns, and what leaves with it.
         //
-        // `covering` the select screen is load-bearing. The lobby and the
-        // match are two shell experiences of one provider, and the lobby
-        // publishes the roster FOR the match — a scope that named only the
-        // gameplay id would delete it on the way in.
+        // `covering` the select screen: the lobby publishes the roster for the
+        // match, so a scope naming only the gameplay id would delete it.
         {
             use ambition_platformer2d::game_shell::ShellExperienceScopeAppExt;
             app.experience_owns(SMASH_EXPERIENCE)
                 .covering(SMASH_SELECT_EXPERIENCE)
-                // By OWNER: another game stages its own cast into this same
-                // resource, and removing it by type would delete their match.
+                // By owner: another game may stage its own cast into this
+                // resource.
                 .releasing_owned::<MatchParticipantRoster>(|roster, owner| {
                     roster.is_published_by(owner.as_str())
                 })
-                // A match that ended with the route it ran on. Left standing, it
-                // is the next game's seating refusing to run because a match is
-                // already "live".
-                //
-                // two different questions, and both are needed. The
-                // session id ( so a finished match cannot be
-                // rebuilt by its own activation) says WHICH ACTIVATION of one
-                // game; the witness here says WHICH GAME, which is the only one
-                // that matters when two providers share a host.
+                // A match that ended with its route. Left standing, it blocks
+                // the next game's seating. The session id identifies which
+                // activation; this witness identifies which game.
                 .releasing_witnessed::<
                     ambition_platformer2d::versus_match::ActiveMatch,
                     ambition_platformer2d::versus_match::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
-                // declared AFTER the activation above, which reads it as its
-                // witness: releases run in declaration order.
+                // After the activation above, which reads it as its witness:
+                // releases run in declaration order.
                 .releasing_owned::<
                     ambition_platformer2d::versus_match::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
-                // AND THE RULES LEAVE WITH THE MATCH. Removing the
-                // declaration IS the exit (AE6) — the projection folds it over
-                // the world's baseline every tick and writes nothing back, so
-                // there is no restore to skip. Left standing, this stage's DI
-                // budget would follow the player into Ambition's PvE, which
-                // answers `0.0` on purpose.
-                //
-                // `releasing_owned`, not `resetting`: every reader takes it
-                // as `Option<Res<_>>`, so absence is the meaningful "no
-                // declaration" answer — and the OWNED form is what keeps two
-                // stages that both declare rules from deleting each other's.
+                // The rules leave with the match. Removing the declaration is
+                // the exit (AE6): the projection folds it over the baseline each
+                // tick, so there is nothing to restore. Otherwise this DI budget
+                // would follow the player into Ambition's PvE. Owned, not
+                // `resetting`: readers take `Option<Res<_>>`, and ownership stops
+                // two stages deleting each other's rules.
                 .releasing_owned::<
                     ambition_platformer2d::combat::rules::DeclaredCombatRules,
                 >(|rules, owner| rules.is_declared_by(owner.as_str()))
-                // AND THE PAD GOES BACK TO NORMAL. Removing the declaration
-                // IS the exit, exactly like the rules above: the layout is a
-                // layer inside `BindingRecipe::build`, so the next rebuild
-                // returns every seat to the base preset with nothing to restore.
-                //
-                // this release is the whole difference between "a profile" and "we changed the
-                // defaults".
+                // The pad layout goes back too: it is a layer inside
+                // `BindingRecipe::build`, so the next rebuild returns every seat
+                // to the base preset.
                 .releasing_owned::<
                     ambition_platformer2d::input::DeclaredBindingLayout,
                 >(|layout, owner| layout.is_declared_by(owner.as_str()))
-                // Restart resources in place: systems require them as `ResMut`, but
-                // they must not retain the previous match's state.
+                // Reset in place: systems take them as `ResMut`, but they must
+                // not keep the previous match's state.
                 .resetting::<select::SmashSelect>()
                 .resetting::<select_screen::StartRequested>()
-                // The same rule one latch over: a "leave" that outlived the
-                // lobby would ask the NEXT experience's first frame to quit.
+                // A "leave" that outlived the lobby would make the next
+                // experience quit on its first frame.
                 .resetting::<select_screen::LeaveRequested>()
                 .resetting::<select_screen::cursor::SelectCursors>()
                 .resetting::<select_screen::SelectPage>()
@@ -4101,22 +2972,15 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// Public so roster-wide validation can check every authored fighter moveset.
 pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 
-/// How steep the victim-percent curve is, as a dimensionless multiplier on the
-/// percent term alone. `1.0` is the law as first written.
+/// How steep the victim-percent curve is, as a multiplier on the percent term
+/// alone. `1.0` is the original law.
 ///
-/// ⛔⛔ THE ALTERNATIVE TO THIS CONSTANT IS EDITING EVERY FIGHTER, and that is
-/// why it exists. Measured over this demo: 40 authored knockback volumes, 38
-/// of them stating their own `knockback_growth` at a median ratio of exactly
-/// 0.0200 of base — i.e. the roster already AGREES with
-/// [`SMASH_KNOCKBACK_GROWTH`] to four decimal places. A roster that agrees with
-/// itself is not mistuned, so a roster-wide retune would have been 38 edits
-/// re-deriving one global decision, with 38 chances to disagree. The percent
-/// curve is one decision and belongs in one number.
+/// One global number instead of editing every fighter: 38 of 40 authored
+/// knockback volumes already state `knockback_growth` at a median of 0.0200 of
+/// base, matching [`SMASH_KNOCKBACK_GROWTH`].
 ///
-/// ⭐⭐ `1.25` IS THE SMALLEST SWEPT VALUE THAT ENDS THE STOCK. Re-measured
-/// 2026-09-12 after the first calibration was found unsound on three counts —
-/// each is now a guard in `smash_in_the_host::ring_out`, so none can return
-/// silently:
+/// `1.25` is the smallest swept value that ends the stock. Guards in
+/// `smash_in_the_host::ring_out`:
 ///
 /// | scale | 700% stale jab | lateral | 0% fresh |
 /// |-------|----------------|---------|----------|
@@ -4125,98 +2989,60 @@ pub const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 /// | 1.50  | KO             | 627.7px | poke     |
 /// | 1.75+ | KO             | 722px+  | poke     |
 ///
-/// ⛔⛔ **`1.50` IS A CEILING, AND THE TABLE ABOVE CANNOT SEE IT.** Every value
-/// from `1.25` up ends the stock, so read alone this says "higher is safe". It
-/// is not: TWO CPU floors, in two crates, are RED at `1.50` and PASS at `1.25` —
+/// `1.50` is a ceiling the table cannot show: two CPU floors fail at `1.50`
+/// and pass at `1.25`:
 /// `smash_cpus_damage_each_other::two_cpus_in_the_shipped_composition_damage_each_other`
-/// (duel density) and `the_repertoire_gets_used::every_authored_route_gets_pressed`
-/// (a held recovery route never pressed). Measured by ToothbrushAmbition as a
-/// controlled flip at `bb90f1370`, on a tree where the constant is the only
-/// non-test change. A steeper curve separates the CPUs further, so they exchange
-/// less and land where their recovery is never asked for.
-/// ⇒ **`1.25` is the only value BOTH instruments accept**, and this sweep is
-/// only one of them. Raising this number means re-running those two floors, not
-/// just this table — see the CLOSED section in `docs/planning/queue.md`.
-/// ⚠ Those floors were GREEN at `1.00`. They bound this number's MAGNITUDE and
-/// were never evidence against the repair itself; `1.00` leaves a 700% victim
-/// alive, which is the defect this constant exists to fix.
+/// and `the_repertoire_gets_used::every_authored_route_gets_pressed`. A steeper
+/// curve separates the CPUs, so they exchange less. Re-run both floors before
+/// raising this (see `docs/planning/queue.md`).
 ///
-/// ⛔ WHAT THE FIRST SWEEP GOT WRONG, since the same traps are still there:
-/// 1. **It demanded a SIDE exit.** This jab authors `launch_dir: None`, so the
-///    default launch vector is ~36° UPWARD and its natural knockout is through
-///    the ceiling. Rejecting real kills for leaving by the wrong boundary is
-///    what pushed this constant to 1.5.
-/// 2. **Its "launch speeds" were trajectory maxima.** A max of `vel.length()`
-///    over a window with gravity in it: at 0% the engine resolves exactly the
-///    authored 50px/s and that metric read 446.4.
-/// 3. **Rage was NOT 1.0**, though the comment here claimed it. The fixture
-///    never pinned the attacker's meter and the attacker is a seated CPU that
-///    had accumulated 62% — multiplying every cell by `1 + 0.004 × 62 = 1.248`.
-///    ⇒ THIS IS WHAT HID THE ANSWER. Under that borrowed rage, scale 1.00
-///    produced a knockout; with rage pinned it leaves the victim ALIVE at
-///    246px. The claim that the staleness split alone repairs the regression is
-///    false, and only controlling rage could tell the two apart.
+/// Measurement traps: this jab has `launch_dir: None`, so it kills through the
+/// ceiling, not a side; measure the resolved launch, not the trajectory
+/// maximum; pin the attacker's rage (an unpinned CPU at 62% multiplies every
+/// cell by 1.248). A launch past the tumble threshold is not a ring-out, so
+/// calibrate on the stage's knockout verdict.
 ///
-/// ⚠ A LAUNCH PAST THE TUMBLE THRESHOLD IS NOT A RING-OUT. At scale 1.00 the
-/// resolved launch clears 500px/s and the stock still does not end — which is
-/// why this is calibrated on the stage's own knockout verdict rather than on a
-/// speed that looks sufficient.
-///
-/// ⇒ the companion half of this repair is
-/// `DeclaredCombatRules::stale_knockback_influence`, and the two are not
-/// interchangeable: the staleness split is what makes a WORN move still
-/// convert, and this is what makes percent itself convert.
+/// The companion is `DeclaredCombatRules::stale_knockback_influence`: that
+/// makes a worn move still convert; this makes percent itself convert.
 pub const SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE: f32 = 1.25;
 
 /// The base knockback at which the kill curve is exactly `1.0` — a JAB.
 ///
-/// ⭐ MEASURED, NOT CHOSEN. The launcher-pulse census over the seatable cast
-/// reports `attack` (jab) base knockback n=21, min 40, MEDIAN 48, max 60. So a
-/// pivot of 48 is the roster's own jab, and every poke at or below it keeps its
-/// percent curve to the byte.
+/// Measured: jab base knockback over the seatable cast is n=21, min 40, median
+/// 48, max 60. Pokes at or below the pivot keep their percent curve.
 pub const SMASH_GROWTH_BASE_PIVOT: f32 = 48.0;
 
 /// How sharply the kill curve climbs above a jab.
 ///
-/// ⭐ CALIBRATED AGAINST A MEASURED KO THRESHOLD, not taste. At `0.25` a
-/// base-160 forward smash takes `(160/48)^0.25` = 1.351x its authored growth —
-/// which is the 1.35x the baseline table independently arrived at from the
-/// other direction, by asking what growth brings a 145% centre knockout into
-/// the 80-120% band.
+/// Calibrated against a measured KO threshold: at `0.25` a base-160 forward
+/// smash gets `(160/48)^0.25` = 1.351x its authored growth, which brings a 145%
+/// centre knockout into the 80-120% band.
 pub const SMASH_GROWTH_BASE_EXPONENT: f32 = 0.25;
 
 /// The most the kill curve may steepen anything.
 ///
-/// ⭐ `1.40` IS THE FACTOR AT THE LARGEST SMASH BASE (185). Past that a move is
-/// already a finisher and gains nothing — which is what keeps the roster's
-/// three huge-base outliers, `bivalence` (367.2) chief among them, from
-/// collecting the biggest multiplier on the roster despite being the volumes
-/// that most deliberately opted OUT of percent scaling. See
-/// `GrowthBaseCurve::ceiling`.
+/// `1.40` is the factor at the largest smash base (185). Past that a move is a
+/// finisher, so huge-base outliers such as `bivalence` (367.2) do not get the
+/// biggest multiplier. See `GrowthBaseCurve::ceiling`.
 pub const SMASH_GROWTH_BASE_CEILING: f32 = 1.40;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
 pub const SMASH_GAMEPLAY_ROUTE: &str = "smash_gameplay";
-/// Where the demo STARTS.
+/// Where the demo starts: the select screen, not the stage, because up to four
+/// players choose who they are.
 ///
-/// Not the stage. A platform fighter that opens on the stage has already decided
-/// who you are, and the whole point of up-to-four-players is that it has not.
-///
-/// It is the demo app's HOME route (leaving a match returns to the screen that
-/// chose it) AND the ENTRY route this experience advertises to any launcher, so
-/// a multi-game host's "Smash" row opens the same question rather than dropping
-/// a lone duelist onto the platform.
+/// It is the demo app's home route (a match returns to it) and the entry route
+/// this experience advertises to launchers.
 pub const SMASH_SELECT_ROUTE: &str = "smash_select";
-/// The select screen is its OWN shell experience, and it has to be.
+/// The select screen is its own shell experience.
 ///
-/// Not `smash`: an activation carrying the gameplay experience id starts a gameplay SESSION, and
-/// this screen has no prepared world to activate — the shell would panic with *"requires an exact
-/// prepared-session publication"* before a single panel drew. A screen a provider draws itself is a
-/// frontend experience of its own.
+/// Not `smash`: an activation with the gameplay experience id starts a gameplay
+/// session, and this screen has no prepared world, so the shell would panic
+/// ("requires an exact prepared-session publication").
 pub const SMASH_SELECT_EXPERIENCE: &str = "smash.select";
-/// The fighter a lone visitor wears. The MATCH seats its own cast from the
-/// roster; this is who is standing there before one starts.
+/// The fighter a lone visitor wears. A match seats its own cast from the
+/// roster.
 pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
 /// The opponent.
 pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
@@ -4224,19 +3050,11 @@ pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 /// The logician.
 pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 
-// THE ONE FIGHTER THIS DEMO ADDS TO THE CROSSOVER.
-//
-// he wears a sheet that ALREADY SHIPS and that no other catalog claims, which
-// is the only kind of fighter this demo may declare: the rest of the grid is
-// Ambition's own cast and the other demos' protagonists, named by ID in
-// `select::SMASH_ROSTER` rather than copied here. The two robot rows below are
-// STAND-INS for the lineage the content catalog owns; see `select::STAND_INS`.
-//
-// every fighter shares one kit. See `SmashSelect::roster` — one ability
-// set, one brain, one action set. Different LOOKS and one game. Per-character
-// movement, reach and weight is the obvious next question and is deliberately
-// not this one; a roster where the choice already changed the match would have
-// made the select screen impossible to judge on its own terms.
+// The one fighter this demo adds to the crossover. It wears a shipped sheet
+// that no other catalog claims. The rest of the grid is Ambition's cast and the
+// other demos' protagonists, named by id in `select::SMASH_ROSTER`. The two
+// robot rows below are stand-ins for the lineage the content catalog owns; see
+// `select::STAND_INS`.
 
 /// This demo authors its own fighters so it depends only on the public facade.
 /// Cross-game roster composition belongs in the host, where both catalogs exist.
@@ -4369,18 +3187,10 @@ const SMASH_CATALOG_RON: &str = r#"(
 
 /// Register this demo's content.
 ///
-/// thin, but not empty — and the difference is a refusal that fired. The
-/// fighters are Ambition's own robot lineage, which is the point of a crossover
-/// stage: a demo that authored its own duelists would prove the stocks loop
-/// against content nobody else has, and the interesting claim is that it works
-/// on the cast the game already ships. So there is no character to register.
-///
-/// There is still AUDIO to declare. Preparation refuses an experience whose
-/// provider registered no audio fragment, and this function being empty is
-/// exactly what that refusal is for — the shell panicked with *"frontend audio
-/// provider 'smash' registered no audio fragment"* on its first boot. Declaring
-/// SILENCE is a registration, not the absence of one: the fighters bring their
-/// own cues, which is what a crossover stage means.
+/// The crossover cast is mostly Ambition's own, so the stocks loop is proven on
+/// shipped content. This also declares the audio fragment: preparation refuses
+/// an experience whose provider registered none. The stage declares music and
+/// no SFX; the fighters bring their own cues.
 fn install_smash_content(app: &mut bevy::prelude::App) {
     use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
     use ambition_platformer2d::characters::actor::character_catalog::{
@@ -4395,28 +3205,19 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         )
         .expect("the smash character catalog is valid"),
     );
-    // REGISTER the characters, not only their catalog rows. A catalog
-    // fragment declares what a character IS; registration is what makes the art
-    // pipeline know it exists — `declare_registered_characters` reads the
-    // PREPARED REGISTRY, so a catalog-only character draws the marked
-    // placeholder. Pocket shipped that way and nobody noticed until somebody
-    // looked at the screen.
+    // Register the characters, not only their catalog rows:
+    // `declare_registered_characters` reads the prepared registry, so a
+    // catalog-only character draws the placeholder.
     {
         use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
         use ambition_platformer2d::character::CharacterDefinition;
-        // EVERY id this demo can SEAT, not just the two it opens with.
-        // A catalog row declares what a character IS; registration is what makes
-        // it spawnable, and the comment above says what a catalog-only character
-        // draws. `smash_george_booul` was added to the grid and left off this
-        // list for one commit, and the tell was a stocks fighter that never
-        // seated — not a missing sprite.
+        // Every id this demo can seat. A missing id gives a fighter that never
+        // seats.
         //
-        // ⭐ THE FOURTH COLUMN IS A WEIGHT, and it is only here for the two
-        // STAND-INS. Weight is a SPREAD around the reference body: v3 is the
-        // middleweight the stage is tuned against, v2 is the lighter older
-        // build. Stating a value where you CONSTRUCT a character is authoring;
-        // `None` means the character states its own, and George does — see
-        // `smash_pack::fighter_knockback_weight`.
+        // The fourth column is a weight, used only by the two stand-ins: v3 is
+        // the middleweight the stage is tuned against, v2 the lighter build.
+        // `None` means the character states its own (George; see
+        // `smash_pack::fighter_knockback_weight`).
         for (id, name, sheet, stand_in_weight) in [
             (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3", Some(1.0)),
             (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2", Some(0.85)),
@@ -4424,76 +3225,23 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         ] {
             let mut definition =
                 CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
-            // ⛔ THE CHARACTER'S OWN FACET OUTRANKS THE COLUMN ABOVE, and the
-            // order matters: a fighter this repository authors describes itself,
-            // and a demo-owned stand-in is described where it is built. There is
-            // no longer a `match definition.id` anywhere in this crate reading an
-            // ordinary character fact back out of an id.
+            // The character's own facet outranks the stand-in column.
             definition.vitals.knockback_weight =
                 crate::smash_pack::fighter_knockback_weight(id).or(stand_in_weight);
-            // THE PERCENT REFERENCE IS NOT WRITTEN HERE ANY MORE
-            // .
+            // Percent reference and fighter body are match rules, declared by
+            // `apply_smash_match_rules` and applied at seating (see
+            // `MatchParticipantRoster::rules`). These characters author only
+            // what they are.
             //
-            // A character that authors no vitals gets a ONE-HIT pool, and `damage_percent()` is
-            // `accumulated / max`, so a 140-damage hit read as 14000%.
-            //
-            // what 100% means is a rule of the MATCH, so
-            // `apply_smash_match_rules` declares it and seating applies it to
-            // every seat — see `MatchParticipantRoster::rules`, which carries
-            // `health_pool` (it was a loose `fighter_health_pool` field until
-            // the eight of them collapsed into `MatchRules`).
-            // These three now author what they ARE and nothing about how a
-            // stocks match reads them.
-            //
-            // that move implies NO direction. Whether per-character
-            // per-game properties belong to the character or to the game is
-            // deliberately still open; the seam exists so the answer is one edit
-            // either way.
-            // Six numbers stood on this line — `slash_recoil: 0.0`, a
-            // three-frame jump squat, the air-dodge window and a 500 px/s tumble
-            // floor. Every one was right and none of them could reach the other
-            // eleven fighters, and two of the three ids this loop registers are
-            // STAND-INS that the composed host drops — so on the shipped host
-            // they reached exactly ONE fighter (George), and `player_robot_v3`
-            // fought with the exploration protagonist's melee recoil and no air
-            // dodge at all. What a fighter's body is on THIS STAGE is a rule of
-            // the MATCH, so `apply_smash_match_rules` declares
-            // [`SMASH_FIGHTER_BODY`] once and seating composes it onto every
-            // seat — see `MatchParticipantRoster::fighter_body`.
-            //
-            // Deleting the line outright made George floaty and sluggish, and the smash app's
-            // own repertoire probes caught it in one run (three distinct moves out of sixteen,
-            // and no recovery thrown in 1800 ticks).
-            //
-            // so it is stated deliberately now, as the one thing it means.
-            // and it is a FINDING, not a resolution: eleven of the fourteen
-            // fighters on the grid still play on the ACTOR baseline — a
-            // levelled stage where thirteen bodies are floatier than the
-            // fourteenth is half a decision, and which base a platform fighter
-            // uses is a product call rather than a side effect of this commit.
-            // Filed for a later slice.
+            // `DEFAULT_TUNING` is stated on purpose: without it George plays
+            // floaty and sluggish (the repertoire probes catch it). Most of the
+            // grid still plays on the actor baseline; which base a platform
+            // fighter uses is an open product call.
             definition.movement_tuning = Some(ambition_platformer2d::engine_core::DEFAULT_TUNING);
-            // WHAT THIS FIGHTER'S BODY CAN DO — authored on the CHARACTER,
-            // which is why the shield, the dodge and the ledge exist in this
-            // demo at all.
-            //
-            // the machinery was all already there and unreachable. The engine
-            // has a bubble shield with a parry window, a grounded dodge roll
-            // with i-frames, and a full ledge system (grab / hang / climb /
-            // roll / getup attack / jump / drop / regrab cooldown) — and none of
-            // the fighters ran any of it, because a capability had exactly one
-            // authoring surface, the enemy ARCHETYPE, and these three seat
-            // through `combatant`. The match then stamped one flat set over
-            // every body, so what a fighter could do was a property of the
-            // MATCH. Three verbs were simply missing from that set and nothing
-            // could add them per character.
-            //
-            // `fly`/`blink` deliberately absent: this is a platform fighter's
-            // ground game, not the exploration protagonist's traversal kit, and
-            // the July measurement of two seats disagreeing was exactly a
-            // duelist meeting a body that could fly. `dash` left for the same
-            // reason — see [`SMASH_FIGHTER_KIT`], which this must
-            // keep agreeing with or the stage's ceiling silently trims it.
+            // What this fighter's body can do, authored on the character. The
+            // engine's shield, dodge roll and ledge system need these bits.
+            // `fly`, `blink` and `dash` are absent; keep this in step with
+            // [`SMASH_FIGHTER_KIT`], or the stage's ceiling trims it.
             definition =
                 definition.with_abilities(ambition_platformer2d::engine_core::AbilitySet {
                     move_horizontal: true,
@@ -4504,18 +3252,15 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     attack: true,
                     pogo: true,
                     directional_primary: true,
-                    // The three the flat match set could never grant.
+                    // The platform-fighter verbs.
                     shield: true,
                     dodge: true,
                     ledge_grab: true,
                     ..ambition_platformer2d::engine_core::AbilitySet::NONE
                 });
-            // THE REPERTOIRE, ON THE CHARACTER.
-            //
-            // this is what stops the seat needing a generic floor: a definition that authors
-            // its own moveset says something more specific than anything derivable from an
-            // action-set preset, and preparation uses it verbatim. George is the one fighter this
-            // demo owns, and he is the one who gets authored.
+            // The repertoire, on the character: preparation uses an authored
+            // moveset as-is, so the seat needs no generic floor. George is the
+            // fighter this demo owns and authors.
             definition = definition.with_moveset(if id == SMASH_GEORGE_BOOUL {
                 crate::george_booul_moveset::george_booul_moveset()
             } else {
@@ -4541,9 +3286,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     )
                     .collect(),
             }),
-            // Still no SFX registry: the stage declares silence and the
-            // FIGHTERS bring their own cues. Claiming procedural sfx it never
-            // registers would be a declaration with nothing behind it.
+            // No SFX registry: the fighters bring their own cues.
             None,
         )
         .expect("the smash audio fragment is valid"),
@@ -4552,18 +3295,14 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
 
 /// Which stage the next match is played on.
 ///
-/// ⭐ **A RESOURCE BECAUSE THE PREPARATION SEAM ASKS FOR ONE.**
-/// `PlatformerExperienceAuthoring::install` takes `S: IntoSystem<(),
-/// PreparedPlatformerSource, _>` and its doc says the source *"may read the
-/// provider's own resources"* — so choosing a stage needs no engine change and
-/// no second install path, only a `Res` parameter on the system below.
+/// A resource because the preparation source (`PlatformerExperienceAuthoring::
+/// install`) may read the provider's own resources; no engine change needed.
 ///
-/// Defaults to the flat [`smash_stage`], so a host that never touches it plays
-/// exactly the match it played before this existed.
+/// Defaults to the flat [`smash_stage`].
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SmashStageChoice {
-    /// The original single-surface stage. Every spacing, recovery and edgeguard
-    /// number recorded before 2026-09-04 was measured here.
+    /// The original single-surface stage. Older recorded spacing, recovery and
+    /// edgeguard numbers were measured here.
     #[default]
     Flat,
     /// [`smash_platform_stage`] — the same floor with three drop-through tiers.
@@ -4572,26 +3311,18 @@ pub enum SmashStageChoice {
     Narrow,
 }
 
-/// HOW MANY STOCKS THIS MATCH GIVES EACH FIGHTER, as a match decision.
+/// How many stocks this match gives each fighter.
 ///
-/// ⭐ The stock count was already a shipped primitive — `MatchRules::stocks`,
-/// which the engine pairs with `DeathPolicy::Unbounded` because neither half is
-/// meaningful alone. What was missing was a customer: the demo stated
-/// [`STARTING_STOCKS`] and no player could say otherwise, so *"rule selection"*
-/// stood open on the Super Smash Siblings checkpoint while the rule itself was
-/// finished.
-///
-/// Defaults to [`STARTING_STOCKS`], so a host that never touches it plays
-/// exactly the match it played before this existed.
+/// Feeds `MatchRules::stocks`, which the engine pairs with
+/// `DeathPolicy::Unbounded`. Defaults to [`STARTING_STOCKS`].
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SmashStockChoice {
-    /// One stock. The genre's tournament-tense variant: no room to learn the
-    /// matchup inside the match.
+    /// One stock: no room to learn the matchup inside the match.
     One,
-    /// [`STARTING_STOCKS`] — the count every ladder number was measured at.
+    /// [`STARTING_STOCKS`]: the count every ladder number was measured at.
     #[default]
     Three,
-    /// Five. Long enough that an early mistake is recoverable.
+    /// Five: an early mistake is recoverable.
     Five,
 }
 
@@ -4605,31 +3336,18 @@ impl SmashStockChoice {
         }
     }
 
-    /// What the stocks button shows — **the count itself**, not a second
-    /// spelling of it.
-    ///
-    /// ⛔⛔ THIS WAS A `match` RETURNING `"1"` / `"3"` / `"5"` BESIDE A `count()`
-    /// RETURNING `1` / `STARTING_STOCKS` / `5`, which is one fact with two
-    /// authors and a latent lie: `STARTING_STOCKS` is 3 today, and the day it
-    /// becomes 4 the button reads **"3" while handing the match 4**. That is
-    /// precisely the *"a control that lies about what it sets"* defect the
-    /// select screen's own tests were written against, sitting inside the
-    /// control they were written for.
-    ///
-    /// ⇒ Deriving it means the button cannot disagree with the rules it sets,
-    /// rather than being tested for agreeing.
+    /// What the stocks button shows: derived from [`Self::count`], so the
+    /// button cannot disagree with the count it sets.
     pub fn label(self) -> String {
         self.count().to_string()
     }
 
-    /// Every count, in cycle order — the one authority for both.
+    /// Every count, in cycle order.
     pub const ALL: [Self; 3] = [Self::One, Self::Three, Self::Five];
 
     /// The next count in the cycle, for a single button that walks them.
     ///
-    /// ⭐ DERIVED FROM [`Self::ALL`], for the reason [`SmashStageChoice::next`]
-    /// gives: a hand-written cycle makes the ORDER a second authority, and a
-    /// count added to one and not the other is authored and unreachable.
+    /// Derived from [`Self::ALL`], so the cycle order has one authority.
     pub fn next(self) -> Self {
         let here = Self::ALL
             .iter()
@@ -4642,12 +3360,8 @@ impl SmashStockChoice {
 impl SmashStageChoice {
     /// Every stage, in cycle order.
     ///
-    /// ⭐ EXISTS SO NOTHING HAS TO ENUMERATE THEM BY HAND. `ladder_rig`'s
-    /// `--stage` used to `match` two string literals, so the third stage was
-    /// authored, reachable from the select screen, and **invisible to the one
-    /// instrument that measures stages** — a stage nobody could take a number on
-    /// is a stage that cannot do the job it was added for. Resolving through
-    /// this list means adding a variant moves every consumer with it.
+    /// Consumers (the select button, `ladder_rig --stage`) resolve through this
+    /// list, so a new variant reaches all of them.
     pub const ALL: [Self; 3] = [Self::Flat, Self::Platforms, Self::Narrow];
 
     /// The room this choice starts in.
@@ -4670,11 +3384,7 @@ impl SmashStageChoice {
 
     /// The next stage in the cycle, for a single button that walks them.
     ///
-    /// ⭐ DERIVED FROM [`Self::ALL`] RATHER THAN RESTATED. It was a hand-written
-    /// three-arm `match`, which made the stage ORDER a fact with two authors:
-    /// adding a stage to `ALL` and forgetting the cycle left it authored,
-    /// selectable by `--stage`, and unreachable from the button. A test caught
-    /// that; deriving means there is nothing left to catch.
+    /// Derived from [`Self::ALL`], so the cycle order has one authority.
     pub fn next(self) -> Self {
         let here = Self::ALL
             .iter()
@@ -4686,12 +3396,10 @@ impl SmashStageChoice {
 
 /// The stage, as the shared preparation lifecycle wants it.
 ///
-/// ⚠ **BOTH STAGES ARE IN THE SET; the choice picks the STARTING one.** Building
-/// only the chosen room would make the other unreachable to anything that later
-/// wants to move between them, and `RoomSet::from_parts_or_panic` takes a `Vec<RoomSpec>`
-/// precisely so a set can hold rooms it does not start in. The geometry and
-/// metadata handed alongside are the STARTING room's, which is what the
-/// lifecycle activates.
+/// All stages are in the set; the choice picks the starting one.
+/// `RoomSet::from_parts_or_panic` takes a `Vec<RoomSpec>` so a set can hold
+/// rooms it does not start in. The geometry passed along is the starting
+/// room's.
 fn smash_prepared_session_world(
     choice: bevy::prelude::Res<SmashStageChoice>,
 ) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
@@ -4704,8 +3412,8 @@ fn smash_prepared_session_world(
         .find(|room| room.id == choice.room_id())
         .expect("every stage room is in the set the line above built");
     let geometry = ae::RoomGeometry(started.world.clone());
-    // The match realizes its own cast; the id below is only this experience's catalog DEFAULT,
-    // which its worn fighters still fall back to.
+    // The match realizes its own cast; this id is only the catalog default
+    // that worn fighters fall back to.
     ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
         RoomSet::from_parts_or_panic(choice.room_id(), rooms.clone(), Vec::new()),
@@ -4719,35 +3427,19 @@ mod pause_arbitration_tests;
 #[cfg(test)]
 mod tests;
 
-/// ⭐⭐ **THE PEER-AGREED MATCH SEED — ID-PEER's TERM, AND ITS SIGNATURE IS THE
-/// GUARANTEE.**
+/// The peer-agreed match seed (ID-PEER).
 ///
-/// A digest of what two peers AGREE a match IS: the seats, who occupies them,
-/// and what each one picked. Every input is a select-screen result both sides
-/// hold.
+/// A digest of what two peers agree a match is: the seats, their occupants,
+/// and each pick. Every mixed field must be peer-agreed on its own;
+/// `SmashSelect` also carries host-local facts, such as the local device index.
 ///
-/// ⛔⛤ **NARROWING THE SIGNATURE DOES NOT MAKE THE INPUTS CANONICAL.** The seed
-/// used to be `ShellActivationId`, a per-route-entry counter on this host. Taking
-/// only `&SmashSelect` removes the router but not the problem: `SmashSelect`
-/// itself carries host-local facts, and the first version of this digest hashed
-/// `SlotOccupant::Controller { device }` — the LOCAL input source index. Every
-/// field mixed below has to be justified as peer-agreed on its own; the
-/// parameter list is not the argument.
+/// FNV-1a over explicit tags, not `Hash`, so the value does not depend on the
+/// standard library's hasher.
 ///
-/// ⚠ FNV-1a over EXPLICIT TAGS rather than `Hash`: the value is a stated
-/// function of the agreed configuration rather than of whatever the standard
-/// library's hasher does this release.
-///
-/// ⚠ AND WHAT THIS GIVES UP: two IDENTICAL setups replayed draw the SAME
-/// fighter. Nothing pins the old variation — `select::tests` says in its own
-/// words that *"a different seed is ALLOWED to differ"* — and restoring it needs
-/// a nonce the peers agree on at match setup, which needs a handshake this
-/// project does not have. Inventing a second host-local token here would be the
-/// defect, not the fix.
+/// Cost: two identical setups draw the same fighter. Per-rematch variation
+/// needs a nonce agreed at setup, which needs a handshake. Do not add a
+/// host-local token.
 pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
-    // FNV-1a over explicit tags rather than `Hash`, so the value is a
-    // stated function of the agreed configuration rather than of whatever
-    // the standard library's hasher does this release.
     let mut digest: u64 = 0xcbf2_9ce4_8422_2325;
     let mut mix = |n: u64| {
         digest ^= n;
@@ -4759,9 +3451,8 @@ pub fn agreed_match_seed(select: &select::SmashSelect) -> u64 {
         mix(match card.occupant {
             select::SlotOccupant::Absent => 1,
             select::SlotOccupant::Cpu => 2,
-            // The CATEGORY, not the device index. `device` indexes the LOCAL
-            // input source order, so the same human on pad 0 here and pad 2
-            // there would otherwise seed two peers differently.
+            // The category, not the device index: `device` is local, so the
+            // same human could be pad 0 here and pad 2 on the other peer.
             select::SlotOccupant::Controller { device: _ } => 3,
         });
         mix(match card.pick {

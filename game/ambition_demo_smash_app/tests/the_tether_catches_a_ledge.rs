@@ -1,23 +1,16 @@
-//! ⭐⭐ THE ONE CLAIM THE TETHER'S UNIT TESTS REFUSE TO MAKE: that she ends up
-//! HANGING.
+//! After the tether line bites, the fighter ends up hanging on the ledge.
 //!
-//! `ambition_demo_smash::tether`'s own tests say so in their header. They prove
-//! the reel arrives, that it releases at a point the ledge authority's probe
-//! accepts, and that it hands her over falling rather than rising — but the
-//! catching itself happens inside the movement kernel, which a headless
-//! two-system fixture does not run. ⇒ This test runs a REAL MATCH on a REAL
-//! STAGE and asks the only question that matters to a player: after the line
-//! bites, is she on the ledge?
+//! The unit tests in `ambition_demo_smash::tether` prove the reel arrives,
+//! releases at a point the ledge authority's probe accepts, and hands her
+//! over falling. The catch happens inside the movement kernel, which their
+//! fixture does not run. This test runs a real match on a real stage.
 //!
-//! ⛔ IT INJECTS THE TECHNIQUE RATHER THAN PRESSING UP-B, and that is deliberate
-//! rather than a shortcut. The demo app's roster is three stand-ins who do not
-//! author a tether; the fighter who does is content-side. A counter's response
-//! and a move's event both arrive as an ordinary `ActorActionMessage`, so
-//! injecting one is the same road the authored move takes — and it keeps this
-//! test about the ENGINE composition rather than about one fighter's numbers.
+//! It injects the technique instead of pressing up-B: the demo roster's
+//! stand-ins do not author a tether. A move's event arrives as an ordinary
+//! `ActorActionMessage`, so injection takes the same road as the authored
+//! move, and the test stays about the engine composition.
 //!
-//! ⚠ THE GEOMETRY IS READ FROM THE LIVE STAGE, never hardcoded. A stage whose
-//! layout changed would otherwise turn this into a test of two stale constants.
+//! The geometry is read from the live stage, never hardcoded.
 
 use bevy::prelude::*;
 
@@ -53,8 +46,8 @@ fn a_live_stage() -> App {
     app
 }
 
-/// The top-left corner of the widest solid on the live stage — the main
-/// platform's left lip, whatever the stage is.
+/// The top-left corner of the widest solid on the live stage: the main
+/// platform's left lip.
 fn the_main_platforms_left_lip(app: &mut App) -> ae::Vec2 {
     let mut rooms = app.world_mut().query::<&ae::RoomGeometry>();
     let world = rooms
@@ -71,18 +64,13 @@ fn the_main_platforms_left_lip(app: &mut App) -> ae::Vec2 {
                 .expect("stage geometry is finite")
         })
         .expect("a stage has at least one solid");
-    // +Y is down in this engine, so `min` IS the top-left corner.
+    // +Y is down in this engine, so `min` is the top-left corner.
     ae::Vec2::new(widest.aabb.min.x, widest.aabb.min.y)
 }
 
-/// Seat 0, and the seat number matters.
-///
-/// ⛔⛔ THE FIRST VERSION TOOK WHATEVER THE QUERY YIELDED FIRST and got a
-/// CPU-DRIVEN fighter: she was being walked left at 270px/s with her facing
-/// flipped by her own brain, so the line was thrown away from the stage and bit
-/// nothing. `reel=None` on every tick is what gave it away. ⇒ Seat 0 is the
-/// HUMAN seat with no controller attached — it acts only when this test tells it
-/// to, which is the only way to attribute anything that happens to the tether.
+/// Seat 0, which is the human seat with no controller. It acts only when
+/// this test tells it to, so everything that happens can be attributed to
+/// the tether. A CPU-driven seat would walk and turn on its own.
 fn a_seated_fighter(app: &mut App) -> Entity {
     let mut query = app
         .world_mut()
@@ -105,15 +93,15 @@ fn hanging(app: &mut App, who: Entity) -> bool {
     }
 }
 
-/// ⭐⭐ SHE THROWS A LINE FROM OFF THE SIDE AND ENDS UP ON THE LEDGE.
+/// She throws a line from off the side and ends up on the ledge.
 #[test]
 fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
     let mut app = a_live_stage();
     let lip = the_main_platforms_left_lip(&mut app);
     let her = a_seated_fighter(&mut app);
 
-    // Off the left edge and a little below the lip, facing the stage: the
-    // position a recovering player is actually in when they reach for a ledge.
+    // Off the left edge, a little below the lip, facing the stage: where a
+    // recovering player reaches for a ledge.
     let start = ae::Vec2::new(lip.x - 70.0, lip.y + 24.0);
     {
         let world = app.world_mut();
@@ -143,16 +131,10 @@ fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
     app.world_mut()
         .write_message(ActorActionMessage { actor: her, request, move_instance: None });
 
-    // ⛔⛔ PROMPTLY, AND THE DEADLINE IS THE ASSERTION. A 40-tick window cannot
-    // tell this row's work from the absence of it: measured on this stage, a
-    // reel that chases the anchor instead of asking the authority pins against
-    // the wall, rides out its whole 0.35s timeout, releases on the clock, and
-    // she is caught at tick 22 anyway. Asking the authority catches her at tick
-    // 6. ⇒ A generous window is green either way, which is exactly what the
-    // poison found: the test passed with the fix reverted.
-    //
-    // ⚠ 12 is chosen between the two measurements with room on both sides, not
-    // fitted to the good one.
+    // Promptly: the deadline is the assertion. A reel that chases the anchor
+    // instead of asking the authority pins against the wall, times out, and
+    // is still caught at about tick 22. Asking the authority catches her at
+    // about tick 6. 12 sits between the two with room on both sides.
     for _ in 0..12 {
         app.update();
         if hanging(&mut app, her) {
@@ -169,12 +151,10 @@ fn a_tether_thrown_at_a_ledge_ends_in_a_hang() {
     );
 }
 
-/// ⛔⛔ THE PAIRED MISS, and without it the test above proves nothing about the
-/// TETHER. A fighter dropped beside a ledge in a live match has a ledge
-/// authority running every frame that will happily catch them on its own — the
-/// Smash-style auto-snap needs only that they fall past the lip. So the same
-/// position, the same 40 ticks, and a line thrown the OTHER WAY must NOT end in
-/// a hang, or "she hung" was never evidence of anything this row built.
+/// The paired miss. The ledge authority auto-snaps a fighter who falls past
+/// the lip, without any tether. So the same position and window, with the
+/// line thrown the other way, must not end in a hang; otherwise "she hung"
+/// is no evidence about the tether.
 #[test]
 fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
     let mut app = a_live_stage();
@@ -186,7 +166,7 @@ fn a_line_thrown_away_from_the_stage_does_not_end_in_a_hang() {
         let mut kin = world.get_mut::<ae::BodyKinematics>(her).unwrap();
         kin.pos = ae::Vec2::new(lip.x - 70.0, lip.y + 24.0);
         kin.vel = ae::Vec2::ZERO;
-        // Facing AWAY from the stage: the line goes left, over open air.
+        // Facing away from the stage: the line goes left, over open air.
         kin.facing = -1.0;
     }
     app.update();

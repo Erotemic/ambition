@@ -23,9 +23,9 @@ pub const PULSE_PERIOD_SECONDS: f64 = 2.4;
 
 /// How long after emission a pane still draws the moving front.
 ///
-/// shorter than the period on purpose. At `INVARIANT_SPEED` a front
-/// leaves the drawn pane after about this long, and a dot pinned to the pane
-/// edge would read as a pulse that stopped.
+/// Shorter than the period on purpose. At `INVARIANT_SPEED` a front leaves
+/// the drawn pane after about this long, and a dot pinned to the pane edge
+/// would read as a pulse that stopped.
 pub const PULSE_VISIBLE_SECONDS: f64 = 1.7;
 
 /// The flare's rest frequency, in the "THz" the panes label their colour with.
@@ -40,10 +40,8 @@ pub const ABERRATION_EPSILON_DEGREES: f32 = 0.5;
 
 /// One ray of the flare, named by where it goes in the laboratory.
 ///
-/// named for the laboratory, not for the traveler. "Chased" and
-/// "head-on" are facts about an observer, and the traveler may fly either way
-/// along the axis; naming the ray by its own frame-independent laboratory
-/// direction keeps the pane honest when the traveler turns around.
+/// Named for the laboratory, not the traveler. "Chased" and "head-on" depend
+/// on the observer, and the traveler may fly either way along the axis.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PulseRay {
     /// Straight down the beacon axis toward Alpha (`-x`).
@@ -98,9 +96,9 @@ pub fn latest_pulse_index(coordinate_time: f64) -> Option<u64> {
 
 /// Laboratory position of one ray's front.
 ///
-/// this is the whole definition of the projectile. There is no stored
-/// position and no integrator: the front is wherever the emission event plus
-/// `c` times the elapsed coordinate time puts it. `None` before emission.
+/// This is the whole definition of the projectile: no stored position and no
+/// integrator. The front is where the emission event plus `c` times the
+/// elapsed coordinate time puts it. `None` before emission.
 pub fn pulse_front_position(
     index: u64,
     ray: PulseRay,
@@ -168,7 +166,7 @@ pub struct PulseObserverReport {
 }
 
 impl PulseObserverReport {
-    /// an exhaustive match, not a search. `rays` is filled in
+    /// An exhaustive match, not a search. `rays` is filled in
     /// [`PulseRay::ALL`]'s order; a new variant breaks this match at compile
     /// time, and `every_ray_lands_in_its_own_slot` pins the two orders together.
     pub fn ray(&self, ray: PulseRay) -> &PulseRayMeasurement {
@@ -188,9 +186,9 @@ impl PulseObserverReport {
 
 /// The light-pulse read model: what each of the two panes is showing.
 ///
-/// not rollback state and deliberately not registered, for the same
-/// reason as `TwinTrackDualObserverView`: every field is a pure function of
-/// coordinate time and canonical kinematics.
+/// Not rollback state and not registered, like `TwinTrackDualObserverView`:
+/// every field is a pure function of coordinate time and canonical
+/// kinematics.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct TwinTrackLightPulseView {
     pub coordinate_time: f64,
@@ -260,9 +258,9 @@ impl TwinTrackLightPulseView {
 /// separation's size cancels, so this is genuinely `dx'/dt'` and not a
 /// normalization dressed up as one.
 ///
-/// the naive answer is `c - v` and it is wrong. For an observer flying at
-/// `0.9c` alongside the toward-Omega ray the boost returns `dt' = 0.229 s` and
-/// `dx' = 0.229 c*s`, not `dt' = 1 s` and `dx' = 0.1 c*s`. The observer's own
+/// The naive answer, `c - v`, is wrong. For an observer at `0.9c` alongside
+/// the toward-Omega ray the boost gives `dt' = 0.229 s` and
+/// `dx' = 0.229 c*s`, not `dt' = 1 s` and `dx' = 0.1 c*s`. The observer's
 /// clock and ruler shrink by exactly the amount that keeps the ratio at `c`.
 pub fn measure_pulse_ray(
     ray: PulseRay,
@@ -310,11 +308,9 @@ pub fn measure_pulse_ray(
         return None;
     }
 
-    // the Doppler factor comes from the engine's photon law rather than from
-    // this boost, so the pane's angle and its colour are two independent routes
-    // to the same aberration. The test below asserts they agree; if they ever
-    // stop agreeing, one of the two is wrong and the exhibit says so instead of
-    // hiding it behind a shared helper.
+    // The Doppler factor comes from the engine's photon law, not from this
+    // boost, so the angle and the colour are two independent routes to the
+    // same aberration. The test asserts they agree.
     let observation = observe_photon_direction(
         [f64::from(lab_direction.x), f64::from(lab_direction.y), 0.0],
         frame_velocity,
@@ -382,12 +378,11 @@ pub struct PulseFrameSample {
 
 /// Where an observer says a ray's front is at one instant of its own time.
 ///
-/// this is not `observer_frame_offset`. That function length-contracts a
-/// rod at rest in the laboratory. A pulse front is not at rest, so contracting
-/// its laboratory-now position would answer a different question and be wrong by
-/// exactly the term that carries the lesson. What happens here instead: solve
-/// for the event on the *pulse's* null worldline whose boosted time equals the
-/// observer's now, then boost that event.
+/// This is not `observer_frame_offset`, which length-contracts a rod at rest
+/// in the laboratory. A pulse front is not at rest, so contracting its
+/// laboratory-now position would be wrong. Instead, solve for the event on the
+/// pulse's null worldline whose boosted time equals the observer's now, then
+/// boost that event.
 pub fn pulse_frame_sample(
     index: u64,
     ray: PulseRay,
@@ -556,8 +551,8 @@ mod tests {
         let index = latest_pulse_index(SETTLED).unwrap();
         let emitted = pulse_emission_time(index);
         let age = SETTLED - emitted;
-        // a zero floor: an age of zero would make every distance assertion
-        // below pass by saying nothing.
+        // A zero floor: an age of zero would make every distance assertion
+        // below pass trivially.
         assert!(
             age > 0.25,
             "the sampled flare should be in flight, age {age}"
@@ -577,9 +572,8 @@ mod tests {
     #[test]
     fn every_ray_lands_in_its_own_slot() {
         // `rays` is built by zipping `PulseRay::ALL` and read back by an
-        // exhaustive match on the variant. If those two orders ever drift, the
-        // panes would silently label the head-on ray with the chased ray's
-        // numbers, and every other test here would still pass.
+        // exhaustive match. If the orders drift, the panes would label one ray
+        // with another's numbers and every other test would still pass.
         let report =
             observe_light_pulse("traveler", SETTLED, beacon_midpoint(), nine_tenths(), c())
                 .unwrap();
@@ -615,8 +609,8 @@ mod tests {
             }
         }
 
-        // the falsifier. A fast projectile would give the traveler `c - v`
-        // for the ray it chases; this asserts the exhibit is NOT that.
+        // The falsifier: a fast projectile would give the traveler `c - v` for
+        // the ray it chases; the exhibit must not.
         let galilean = c().get() - f64::from(nine_tenths().x);
         let chased = traveler.ray(PulseRay::TowardOmega).measured_speed;
         assert!(
@@ -655,8 +649,8 @@ mod tests {
             180.0 - expected,
         );
 
-        // ...and the AXIAL rays do not aberrate at all, so this is a direction
-        // effect rather than a global rotation of the traveler's pane.
+        // ...and the axial rays do not aberrate, so this is a direction effect,
+        // not a rotation of the whole pane.
         for ray in [PulseRay::TowardAlpha, PulseRay::TowardOmega] {
             assert!(
                 traveler.ray(ray).aberration_degrees < 1.0e-3,
@@ -787,7 +781,7 @@ mod tests {
     #[test]
     fn the_view_reports_invariance_and_disagreement_only_when_both_panes_exist() {
         let empty = TwinTrackLightPulseView::default();
-        // a view with no observers must not report a green postulate.
+        // A view with no observers must not report a green postulate.
         assert!(!empty.speed_is_invariant_for_both());
         assert!(!empty.directions_disagree());
         assert!(!empty.doppler_factors_disagree());

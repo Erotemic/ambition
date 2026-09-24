@@ -72,14 +72,12 @@ fn level(
         .current
 }
 
-/// ⛔⛔ THE SHIPPED BASELINE MUST NOT MAKE GUARDING THE GREEDY PLAY.
+/// The shipped baseline must not make guarding the greedy play.
 ///
-/// ⭐ THE ONE RELATIONSHIP BETWEEN TWO SOURCES THAT IS A RULE RATHER THAN A
-/// NUMBER. Every other field on `LimitMeterFill` is independent by construction
-/// and that independence IS Jon's ruling — but if a block ever paid more than
-/// eating the hit, the maximising play would be to guard and taking damage would
-/// stop being a cost. ⇒ Asserted against the SHIPPED constant, because the way
-/// this breaks is somebody tuning `on_block` up and nothing noticing.
+/// Fill sources are independent by design, with one rule between them: a
+/// block must not pay more than eating the hit, or taking damage stops being
+/// a cost. Asserted against the shipped constant, so raising `on_block`
+/// breaks it.
 #[test]
 fn jons_baseline_keeps_guarding_the_safe_option_and_not_the_greedy_one() {
     let fill = LimitMeterFill::JONS_BASELINE;
@@ -102,17 +100,10 @@ fn jons_baseline_keeps_guarding_the_safe_option_and_not_the_greedy_one() {
     );
 }
 
-/// ⛔⛔ A BLOCKED STRIKE IS NOT A DAMAGE INSTANCE, WHICH IS WHY THE GAP LASTED.
+/// A blocked strike is not a damage instance.
 ///
-/// The campaign's B1 row measured it: `BlockedBodyHit` was read in exactly ONE
-/// place, to arm an `OnBlock` cancel on the ATTACKER. Nothing paid the fighter
-/// whose guard ate the hit — so the hard defensive read had four vocabularies
-/// and the soft one had none.
-///
-/// ⭐ THIS IS THE ARM THAT PROVES IT WAS A GAP AND NOT AN OVERSIGHT IN THE
-/// FIXTURE: the same exchange under the FULL baseline, where every damage source
-/// is non-zero, still moves nothing without `on_block`. A blocked strike writes
-/// no `ResolvedBodyHit`, so `taken()` and `dealt()` are never consulted.
+/// A blocked strike writes no `ResolvedBodyHit`, so even the full baseline,
+/// with every damage source non-zero, moves nothing without `on_block`.
 #[test]
 fn a_block_moves_nothing_at_all_unless_the_block_source_is_authored() {
     let mut silent = app(LimitMeterFill {
@@ -136,11 +127,9 @@ fn a_block_moves_nothing_at_all_unless_the_block_source_is_authored() {
     );
 }
 
-/// ⭐ THE STRIKER MAY BE UNKNOWN AND THE GUARD STILL ATE IT.
-///
-/// `BlockedBodyHit::attacker` is an `Option` because a hazard has no striker.
-/// A fighter who blocks a stage spike blocked something, and the defender is the
-/// half this road always knows — so the fill must not be gated on the other one.
+/// The striker may be unknown and the guard still ate it.
+/// `BlockedBodyHit::attacker` is an `Option` because a hazard has no striker;
+/// the fill must not depend on it.
 #[test]
 fn a_block_with_no_known_striker_still_pays_the_guard() {
     let mut app = app(LimitMeterFill {
@@ -162,17 +151,15 @@ fn a_block_with_no_known_striker_still_pays_the_guard() {
     );
 }
 
-/// ⭐⭐ ALL FIVE SOURCES EXPRESS, WHICH IS THE RULING RATHER THAN THE NUMBERS.
+/// Every fill source works alone.
 ///
-/// Jon, 2026-09-05: *"make sure the meter doesn't push future uses of it into a
-/// box"* — so the claim under test is not that his baseline is right, it is that
-/// a mechanic wanting ONLY ONE source can author only that one and get nothing
-/// else. ⇒ Four rules, four fighters, four different reasons the meter moved.
+/// Jon's ruling is that the meter must not box in future mechanics, so a
+/// mechanic can author only one source and get nothing else.
 #[test]
 fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     let only = |f: LimitMeterFill| f;
 
-    // 1. A PURE CLOCK. Nothing happens; the meter still fills.
+    // 1. A pure clock: nothing happens, and the meter still fills.
     let mut clock = app(only(LimitMeterFill {
         cap: 60.0,
         per_second: 0.5,
@@ -188,7 +175,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         "two seconds of a 0.5/s clock gave {ticked}, not one tick"
     );
 
-    // 2. DAMAGE DEALT ONLY.
+    // 2. Damage dealt only.
     let mut dealt = app(only(LimitMeterFill {
         cap: 60.0,
         on_damage_dealt: 1.0,
@@ -217,7 +204,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         "a dealt-only rule paid the VICTIM, so the sources are not independent"
     );
 
-    // 3. DAMAGE TAKEN ONLY.
+    // 3. Damage taken only.
     let mut taken = app(only(LimitMeterFill {
         cap: 60.0,
         on_damage_taken: 2.0,
@@ -246,9 +233,8 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         "a taken-only rule paid the ATTACKER"
     );
 
-    // 4. A SUCCESSFUL BLOCK ONLY — the soft defensive read, and the source that
-    //    every other one reads zero for: a blocked strike deals no damage, so it
-    //    writes no `ResolvedBodyHit` at all.
+    // 4. A successful block only: a blocked strike deals no damage, so it
+    //    writes no `ResolvedBodyHit`.
     let mut blocked = app(only(LimitMeterFill {
         cap: 60.0,
         on_block: 1.5,
@@ -274,7 +260,7 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
          a shield charges your own meter, which is backwards",
     );
 
-    // 5. A MOVE FILLS IT — the "cloud like meter", with every other source zero.
+    // 5. A move fills it, with every other source zero.
     let mut cloud = app(only(LimitMeterFill {
         cap: 60.0,
         ..Default::default()
@@ -299,9 +285,8 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
          not fill"
     );
 
-    // 5. DECAY ONLY — the fifth source, and the only one that SUBTRACTS. A Limit
-    // that must be spent rather than banked is the other obvious shape, and a
-    // meter with no rising source at all is the cleanest way to watch it work.
+    // 6. Decay only: the one source that subtracts. A meter with no rising
+    // source shows it most clearly.
     let mut fading = app(only(LimitMeterFill {
         cap: 60.0,
         decay_per_second: 5.0,
@@ -324,10 +309,8 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
         "two seconds of a 5/s decay should leave 20 of 30, got {left}"
     );
 
-    // ⛔ AND IT FLOORS AT ZERO RATHER THAN GOING NEGATIVE. A meter in debt would
-    // have to be refilled PAST zero before a priced move became reachable again,
-    // which is a rule nobody authored and which looks exactly like the move
-    // being broken.
+    // It floors at zero: a meter in debt would need refilling past zero
+    // before a priced move became reachable, which looks like a broken move.
     for _ in 0..600 {
         fading.update();
     }
@@ -338,16 +321,11 @@ fn each_fill_source_works_alone_so_no_mechanic_is_boxed_out() {
     );
 }
 
-/// ⛔⛔ A DECAY THAT OUTRUNS EVERY SOURCE IS A METER NOBODY CAN FILL, AND IT
-/// FAILS SILENTLY: the fighter charges, the number falls back, and the priced
-/// move simply never becomes available. Nothing errors, nothing logs, and the
-/// special looks broken rather than unaffordable.
+/// A decay that outruns every source makes a meter nobody can fill, and the
+/// priced move just never becomes available, silently.
 ///
-/// ⚠ ONLY THE UNARGUABLE CASE. Against the damage sources the question is
-/// undecidable — how much a fighter will be hit is a match, not a number — so
-/// this refuses the clock-only rule whose own arithmetic cannot reach the cap
-/// and stays quiet otherwise. A validator that guessed at the rest would refuse
-/// legitimate designs.
+/// Only the decidable case: against damage sources the answer depends on the
+/// match, so this refuses only the clock-only rule that cannot reach the cap.
 #[test]
 fn a_decay_that_outruns_the_only_source_is_named_as_a_problem() {
     let unreachable = LimitMeterFill {
@@ -365,9 +343,8 @@ fn a_decay_that_outruns_the_only_source_is_named_as_a_problem() {
         unreachable.problems()
     );
 
-    // ⛔ THE CONTROL, and without it the assertion above is satisfied by a
-    // validator that refuses every decay. A decay SLOWER than the clock is a
-    // perfectly ordinary Limit that simply fills more slowly.
+    // The control: a decay slower than the clock is an ordinary, slower Limit.
+    // Without it, a validator that refuses every decay would pass.
     let slow = LimitMeterFill {
         decay_per_second: 0.2,
         ..unreachable
@@ -378,9 +355,8 @@ fn a_decay_that_outruns_the_only_source_is_named_as_a_problem() {
         slow.problems()
     );
 
-    // ⛔ AND A DECAY BESIDE A DAMAGE SOURCE IS NOT DECIDABLE HERE. This is the
-    // case the validator must stay quiet about: the meter is reachable in any
-    // match where somebody gets hit.
+    // A decay beside a damage source is not decidable here: the meter is
+    // reachable in any match where somebody gets hit.
     let with_damage = LimitMeterFill {
         on_damage_taken: 2.0,
         ..unreachable
@@ -392,7 +368,7 @@ fn a_decay_that_outruns_the_only_source_is_named_as_a_problem() {
     );
 }
 
-/// ⛔ NO FILL DECLARED, NO METER MOVEMENT — what every match did before this.
+/// No fill declared, no meter movement.
 #[test]
 fn a_match_that_declares_no_limit_fills_nothing() {
     let mut app = app(LimitMeterFill::default());
@@ -404,8 +380,8 @@ fn a_match_that_declares_no_limit_fills_nothing() {
     for _ in 0..120 {
         app.update();
     }
-    // ⛔ UNCHANGED, NOT ZERO: asserting zero would be asserting that this
-    // system reached in and emptied a resource it was told nothing about.
+    // Unchanged, not zero: this system must not touch a resource it was told
+    // nothing about.
     assert_eq!(
         level(&app, who, &OTHER),
         100.0,
@@ -413,11 +389,9 @@ fn a_match_that_declares_no_limit_fills_nothing() {
     );
 }
 
-/// ⛔⛔ THE LIMIT IS REACHED BY NAME, NEVER AS "THE BODY'S METER". Before the
-/// Limit named itself, every source here filled whatever single meter a body
-/// carried — so a Limit technique cast outside a Limit match topped up an
-/// exploration Mana pool. A body that holds no Limit gains nothing, from any
-/// source, and its other resources do not move.
+/// The Limit is reached by name, never as "the body's meter". A body holding
+/// no Limit gains nothing from any source, and its other resources (such as an
+/// exploration Mana pool) do not move.
 #[test]
 fn a_body_that_holds_no_limit_gains_nothing_from_any_limit_source() {
     let mut app = app(LimitMeterFill::JONS_BASELINE);
@@ -457,21 +431,13 @@ fn a_body_that_holds_no_limit_gains_nothing_from_any_limit_source() {
     );
 }
 
-/// ⭐⭐ THE MECHANISM MUST PERMIT WHAT THIS RULESET REFUSES, and that separation
-/// is the whole point of the split.
+/// The mechanism permits what this ruleset refuses.
 ///
-/// ⛔ `on_block >= on_damage_taken` WAS BRIEFLY A VALIDITY RULE inside
-/// `LimitMeterFill::problems()` — the generic vocabulary of independent meter
-/// sources. A review caught it: a coherent future meter may deliberately reward
-/// defensive play (parry 10, damage taken 0), and the mechanism would have
-/// refused to let it exist. **The generic type validates that a fill is WELL
-/// FORMED; whether one source should outrank another is a balance doctrine and
-/// belongs to whoever owns the balance.**
-///
-/// ⇒ So this asserts BOTH halves at once: the mechanism accepts the
-/// defence-rewarding fill, and this ruleset's predicate still calls it greedy.
-/// Either half alone would pass against a version that had simply deleted the
-/// rule instead of relocating it.
+/// `LimitMeterFill::problems()` validates that a fill is well formed. Whether
+/// one source should outrank another is balance, owned by the ruleset: a
+/// future meter may reward defence (parry 10, damage taken 0). So this asserts
+/// both halves: the mechanism accepts that fill, and this ruleset's predicate
+/// calls it greedy.
 #[test]
 fn the_generic_meter_permits_a_fill_this_ruleset_calls_greedy() {
     let fill = LimitMeterFill {
@@ -493,18 +459,12 @@ fn the_generic_meter_permits_a_fill_this_ruleset_calls_greedy() {
     );
 }
 
-/// ⛔⛔ A NEGATIVE BLOCK REWARD IS MECHANICALLY INVALID, NOT A BALANCE CHOICE.
+/// A negative block reward is invalid, not a balance choice.
 ///
-/// `fill_limit_meters` runs `mana.meter.refill(fill.blocked())` and
-/// `ResourceMeter::refill` adds whatever it is handed and clamps. So `on_block =
-/// -10` was accepted as WELL FORMED and a successful block DRAINED TEN METER.
-///
-/// ⚠ THE FIELD WAS ADDED TO THE MECHANISM AND NOT TO THE CHECK THAT VALIDATES
-/// THE MECHANISM. Every other fill source is in that loop; `on_block` joined the
-/// struct as a fourth source and the loop is DATA, so no compiler asked for it.
-/// ⇒ Adding a field to an enumerated list means visiting every list that
-/// enumerates its siblings — and the way to find them is to grep the field NEXT
-/// to it, not the feature's name.
+/// `fill_limit_meters` passes `fill.blocked()` to `ResourceMeter::refill`,
+/// which adds whatever it gets, so `on_block = -10` would drain the meter on a
+/// block. When adding a fill source, update every list that enumerates the
+/// other sources.
 #[test]
 fn a_negative_block_reward_is_rejected() {
     let mut fill = LimitMeterFill::JONS_BASELINE;
@@ -515,8 +475,7 @@ fn a_negative_block_reward_is_rejected() {
         "a block that DRAINS the meter must be reported as malformed; got {problems:?}"
     );
 
-    // ⭐ AND THE POSITIVE HALF: the baseline's own positive reward stays legal, so
-    // this is not a check that simply refuses the field.
+    // The positive half: the baseline's positive reward stays legal.
     let baseline = LimitMeterFill::JONS_BASELINE;
     assert!(
         baseline.on_block > 0.0 && !baseline.problems().iter().any(|p| p.contains("on_block")),
@@ -524,16 +483,9 @@ fn a_negative_block_reward_is_rejected() {
     );
 }
 
-/// ⛔⛔ A METER FILLED ONLY BY BLOCKING IS REACHABLE, AND VALIDATION SAID IT WAS NOT.
+/// A meter filled only by blocking is reachable.
 ///
-/// The decay/reachability check asked whether decay cancels the passive clock and
-/// no DAMAGE source remains — a sentence written when there were three sources.
-/// A defensive scheme whose only reward is blocking was reported as impossible to
-/// fill, and repeated blocks plainly fill it.
-///
-/// ⚠ THE ERROR MESSAGE WAS THE TELL: "no damage source fills this meter", in a
-/// struct that had grown a block source. ⇒ When a message enumerates the world,
-/// it is a specification, and it goes stale exactly like the code beside it.
+/// The reachability check must count every rising source, not only damage.
 #[test]
 fn blocking_alone_can_fill_a_meter_the_clock_cannot() {
     let fill = LimitMeterFill {
@@ -553,7 +505,7 @@ fn blocking_alone_can_fill_a_meter_the_clock_cannot() {
         fill.problems()
     );
 
-    // ⭐ THE CASE THE CHECK IS FOR MUST STILL FAIL: same meter, no block reward.
+    // The case the check exists for still fails: same meter, no block reward.
     let unfillable = LimitMeterFill {
         on_block: 0.0,
         ..fill

@@ -101,11 +101,10 @@ impl SplitObserverPane {
 
     /// Which half of the window this pane draws into.
     ///
-    /// participant order, not exhibit order. The traveler is seat zero and
-    /// takes the left pane, because that is the pane its gameplay camera is
-    /// already drawing into (`participants::compose_the_panes`) — an
-    /// instrument that reported the traveler's numbers over the laboratory
-    /// twin's picture would be worse than no instrument.
+    /// Participant order, not exhibit order. The traveler is seat zero and
+    /// takes the left pane, which its gameplay camera already draws into
+    /// (`participants::compose_the_panes`). Otherwise a pane would show the
+    /// traveler's numbers over the twin's picture.
     fn column(self) -> u32 {
         match self {
             Self::Traveler => 0,
@@ -210,11 +209,10 @@ impl OrderingRow {
 
 /// What one drawn thing in a pane is.
 ///
-/// one enum instead of a dozen marker components, deliberately. Every
-/// element below is repositioned from the same read model in the same frame, so
-/// a marker per element would need a hand-kept `Without<..>` matrix on each of a
-/// dozen `&mut Transform` queries — a list that goes stale by ADDING an element
-/// and fails at runtime rather than at compile time.
+/// One enum instead of a dozen marker components. Every element is
+/// repositioned from the same read model in the same frame, so per-element
+/// markers would need a hand-kept `Without<..>` matrix on a dozen
+/// `&mut Transform` queries, which breaks at runtime when an element is added.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 enum PaneElement {
     Title,
@@ -226,7 +224,7 @@ enum PaneElement {
     ObserverLabel,
     StripTick(OrderingRow, TwinTrackBeacon),
     StripVerdict(OrderingRow),
-    /// One arm of the aberration compass: the direction THIS observer measures
+    /// One arm of the aberration compass: the direction this observer measures
     /// the named ray travelling in, tinted with the colour it measures.
     CompassArm(PulseRay),
     /// The speed / angle / Doppler table for the current pulse.
@@ -239,9 +237,8 @@ enum PaneElement {
 }
 
 pub(crate) fn install(app: &mut App) {
-    // ⭐ The third instance of the same shape in this crate — and the fact that
-    // `twintrack_is_active` is HAND-COPIED into three files is the tell that the
-    // gate was always wanted and never written.
+    // `twintrack_is_active` is copied by hand into three files; a shared gate
+    // would replace them.
     app.add_systems(
         Update,
         (
@@ -252,9 +249,9 @@ pub(crate) fn install(app: &mut App) {
             .run_if(twintrack_display_is_live),
     );
 
-    // ⛔ Ungated on purpose: `cleanup_split_observer_panes_when_inactive` opens
-    // with `if twintrack_is_active { return; }` and tears the panes down when the
-    // experience ENDS. Gating it with the rest leaves them on screen forever.
+    // Not gated: `cleanup_split_observer_panes_when_inactive` returns early
+    // while TwinTrack is active and removes the panes when it ends. Gating it
+    // would leave them on screen forever.
     app.add_systems(Update, cleanup_split_observer_panes_when_inactive);
 }
 
@@ -515,9 +512,8 @@ fn spawn_split_observer_panes(
                 font_size: FontSize::Px(13.0),
                 ..default()
             },
-            // left-justified on purpose: the readout is a THREE-COLUMN table
-            // whose whole job is letting a viewer compare the same column
-            // across two panes, and a centred block breaks the columns.
+            // Left-justified: the readout is a three-column table for comparing
+            // the same column across two panes, and centring breaks columns.
             bevy::text::TextLayout::justify(bevy::text::Justify::Left),
             TextColor(NEUTRAL_TEXT),
             Transform::from_translation(PULSE_READOUT_CENTER.extend(7.0)),
@@ -566,10 +562,9 @@ fn pane_viewport(pane: SplitObserverPane, target: UVec2) -> Option<Viewport> {
     })
 }
 
-/// each pane splits ITS OWN render target, never the primary window.
-/// TwinTrack's offscreen capture has no window at all, and a rectangle measured
-/// from a window that does not exist would leave the panes stacked on top of
-/// each other while still reporting two active cameras.
+/// Each pane splits its own render target, never the primary window.
+/// TwinTrack's offscreen capture has no window, so a window-based rectangle
+/// would stack the panes while still reporting two active cameras.
 fn sync_split_observer_cameras(
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut cameras: Query<(&SplitObserverCamera, &mut Camera)>,
@@ -615,7 +610,7 @@ fn clamp_to_pane(point: Vec2) -> Vec2 {
 
 /// Where one of a pair of times sits on its ordering axis.
 ///
-/// The axis is centred on the PAIR's midpoint rather than on an absolute time,
+/// The axis is centred on the pair's midpoint rather than on an absolute time,
 /// so what a viewer reads off it is the split and its sign — which is the only
 /// thing an ordering claim is about.
 fn tick_x(row: OrderingRow, time: f64, other: f64) -> f32 {
@@ -635,13 +630,11 @@ fn verdict_text(row: OrderingRow, report: &ObserverOrderingReport) -> String {
     }
 }
 
-/// A rough visible-spectrum ramp, so a Doppler factor becomes a COLOUR rather
-/// than one more number to read.
+/// A rough visible-spectrum ramp, so a Doppler factor becomes a colour.
 ///
-/// the ends are deliberately not clamped to red and violet. At 0.9c the
-/// chased ray falls to about 124 THz and the head-on ray climbs past 2 300 THz,
-/// both far outside anything an eye responds to; a ramp that clamped would show
-/// them as ordinary red and violet and quietly understate the effect.
+/// The ends are not clamped to red and violet. At 0.9c the chased ray falls
+/// to about 124 THz and the head-on ray climbs past 2 300 THz; clamping would
+/// understate the effect.
 fn spectral_color(frequency_thz: f64) -> Color {
     // `(frequency, red, green, blue)`, ascending.
     const STOPS: [(f64, f32, f32, f32); 6] = [
@@ -677,12 +670,10 @@ fn spectral_color(frequency_thz: f64) -> Color {
 /// Where this pane draws a pulse front, or `None` when the front has aged out
 /// or left the drawn map.
 ///
-/// anchored on the observer marker, not on the pane origin. The exact
-/// boost gives the front's offset FROM THE OBSERVER in the observer's frame,
-/// and the marker is where a viewer's eye already puts that observer. The
-/// anchor is re-derived from the pulse report rather than borrowed from the
-/// ordering report, so a pane can draw a pulse before the first flash pair has
-/// reached its observer.
+/// Anchored on the observer marker, not the pane origin: the exact boost gives
+/// the front's offset from the observer in the observer's frame. The anchor
+/// comes from the pulse report, not the ordering report, so a pane can draw a
+/// pulse before the first flash pair reaches its observer.
 fn front_pane_point(pulse: &PulseObserverReport, ray: PulseRay) -> Option<Vec2> {
     if !pulse.front_is_visible() {
         return None;

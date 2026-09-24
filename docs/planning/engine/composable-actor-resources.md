@@ -1,6 +1,8 @@
 # Composable actor resources and prepared bindings
 
-**State:** DESIGN TARGET; implementation starts with a measured vertical slice.
+**State:** partly built. Named resources live in a per-actor bank; Smash Limit
+and Ambition Mana use it. Prepared handles, plan identity and the main-game
+economy slice are open.
 
 This page owns actor resources such as fuel, Mana, Limit, stamina, shield energy,
 and oxygen. It also owns the binding from authored resource identity to the
@@ -50,8 +52,7 @@ needs. A simulation system must not hash a resource name on each tick. The
 preparation step resolves names and roles once. The runtime uses a prepared
 handle and direct indexed access.
 
-⭐ **AND THERE ARE THREE IDENTITIES IN THAT FLOW, NOT ONE**, which is the
-distinction a 2026-09-17 review found this page collapsing:
+There are several identities in that flow, and they are different facts:
 
 ```text
 stable authored resource identity  portable, durable, in save data    (R4)
@@ -74,31 +75,24 @@ compose several resources and can give different abilities different costs.
 The general mechanism is the **prepare-and-bind model**. Do not infer that all
 numeric character facts must use one `Attributes` component.
 
-## Why this work is now justified
+## Current implementation
 
-The old resource guidance said to keep the first meter character-local and to
-wait for more customers before generalizing. That threshold is now met.
+Built (see Phase 3 below for detail):
 
-Current source already has several pressures on one implicit meter:
+- `ResourceId`, `ResourceCost` and `ResourceDeclaration` live in the leaf crate
+  `ambition_resource_spec`. The identity is a digest of the authored name.
+- `ActorResources` is the per-actor bank: one `Arc<ResourceLayout>` plus a
+  `Vec<ResourceLevel>`, registered as `body.resources`.
+- Move prices are `MoveGates::costs: Vec<ResourceCost>`. Affordability and
+  payment use `ActorResources::can_pay`/`pay`, atomic over every term. A term
+  that names a resource the body does not hold is unaffordable.
+- Smash declares the Limit in `MatchRules::resources`; the Ambition provider
+  declares Mana on the home body only. Reset restores the same declarations
+  (`reset_to_start`).
 
-- `ResourceMeter` in `ambition_platformer2d_core::player_state` stores the
-  numeric pool and regeneration/decay policy in one value;
-- `BodyMana` in `ambition_platformer2d_core::body_clusters` gives the body one
-  generic spendable meter and defaults it to a full 100-point pool;
-- `MoveGates::meter_cost` in `ambition_entity_catalog` has no resource identity; <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
-  combat therefore reads `BodyMana` directly;
-- `afford_meter` in `ambition_combat::moveset` currently treats a missing
-  `BodyMana` as affordable for a positive cost;
-- Smash Limit in `game/ambition_demo_smash::limit` reuses `BodyMana`, corrects
-  its capacity, and corrects the Mana full-start lifecycle into an empty Limit
-  lifecycle;
-- `PreparedCharacterDefinition` is already the resolved character boundary;
-- the content-generation design already requires ordinary content edits to
-  reach the host without a Cargo/link step.
-
-These are not reasons to create a universal stat bag. They are evidence that
-resource identity, resource storage, resource policy, and capability binding
-need separate owners.
+Not yet built: cached prepared slot handles (access is a binary search over the
+layout), `PreparedActorResourcePlanId` and the plan arena (R10, R13, R14),
+layout migration during play, and the main-game multi-resource slice (Phase 4).
 
 ## Required distinctions
 
@@ -218,10 +212,10 @@ a local runtime address.
 
 Do not put slot numbers in authoring or durable save data.
 
-⚠ **AND A LAYOUT OR PLAN IDENTITY IS NEITHER OF THOSE TWO THINGS.** It is not a
-runtime address — it is content-derived and peer-stable, so it may cross to a
-peer and into a snapshot. It is not an authored identity either, so it must not
-appear in durable save data, which outlives the generation that gave it meaning.
+A layout or plan identity is neither of those two things. It is not a runtime
+address: it is content-derived and peer-stable, so it may cross to a peer and into
+a snapshot. It is not an authored identity either, so it must not appear in
+durable save data, which outlives the generation that gave it meaning.
 [R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)
 owns how each is derived; [R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache)
 owns how long what it names survives.
@@ -259,37 +253,26 @@ set creates a new layout.
 A transition to a new layout is an explicit state migration. It maps stable
 resource identities, not old slot numbers.
 
-### R10. Rollback restores the values AND the plan they are read through
+### R10. Rollback restores the values and the plan they are read through
 
-Rollback state is: current resource values, any per-instance capacities, **and
-the identity of the actor's ACTIVE PREPARED PLAN.**
+Rollback state is: current resource values, any per-instance capacities, and the
+identity of the actor's active prepared plan.
 
-Everything else the plan holds — the layout metadata, the capability-role
-handles, the prepared move costs — is immutable generation data, looked up BY
-that identity. Do not copy it into a snapshot, and do not leave the pointer to it
-out of one.
+Everything else the plan holds (layout metadata, capability-role handles,
+prepared move costs) is immutable generation data, looked up by that identity. Do
+not copy it into a snapshot, and do not leave the pointer to it out of one.
 
-⛔⛤ **THIS RULE SAID "LAYOUT IDENTITY IS ROLLBACK STATE WHEN AN ACTOR CAN CHANGE
-LAYOUTS DURING A SESSION", AND A 2026-09-17 REVIEW SHOWED THAT IS NOT ENOUGH.**
-The values were rollback state and the active binding set was classified as
-generation data, so a build change that switches plans mid-session is restorable
-in one half and not the other: the rewind puts layout A's bank back while the
-capability still presents layout B's handle, and R4's *"a stale handle must fail
-clearly"* cannot save it — both sides believe they agree. A handle check compares
-the LAYOUT, and two plans can share one layout.
+If only the values are restored, a build change that switches plans mid-session
+can rewind to layout A's bank while the capability still presents layout B's
+handle. A handle check compares the layout, and two plans can share one layout,
+so both sides believe they agree.
 
-⇒ **ONE POINTER, NOT TWO.** The active plan identity is the single restored
-pointer; the layout identity is a PROJECTION of it, because the plan determines
-the layout (many plans may share one layout, never the reverse). If the bank
-carries a layout id for its handle check, that copy is DERIVED and registers
-through the `declare_rollback_derived_*` road rather than being restored
-independently — two independently restored copies of one fact is how the two come
-to disagree.
-
-⚠ **AND THE CONDITIONAL IS DELETED ON PURPOSE.** *"…when an actor can change
-layouts"* asks an implementer to decide whether this session can do the thing the
-progression section of this same page describes. A pointer that is sometimes
-rollback state is a pointer whose absence nobody can witness.
+Use one pointer, not two. The active plan identity is the single restored
+pointer; the layout identity is a projection of it (many plans may share one
+layout, never the reverse). If the bank carries a layout id for its handle check,
+that copy is derived and registers through the `declare_rollback_derived_*` road
+rather than being restored independently. This rule is unconditional: it applies
+whether or not a given session changes plans.
 
 ### R11. Peer layout is deterministic
 
@@ -325,94 +308,57 @@ canonical bytes, or a dense ordinal assigned from the canonically sorted set an
 admitted generation declares. Neither may be the order in which a cache, an
 intern table or a preparation queue first saw the thing.
 
-⛔⛤ **THIS RULE SAID "A LAYOUT OR PLAN IDENTITY … IS A FUNCTION OF THE LAYOUT'S
-CANONICAL CONTENT", AND A 2026-09-17 REVIEW CAUGHT THE `OR`.** [R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
-makes the PLAN id the one restored pointer, precisely because many plans may
-share one layout. Deriving the plan id from the layout's content makes those
-plans INDISTINGUISHABLE — which is the defect R10 was written to close, arriving
-back through the identity rule:
+The plan id is derived from the plan's content, not the layout's. Two plans can
+share a layout and still differ:
 
 ```text
 plan A:  fuel -> slot 0, stamina -> slot 1    dash costs 3 fuel
 plan B:  fuel -> slot 0, stamina -> slot 1    dash costs 7 fuel
 ```
 
-Same layout, same `ResourceLayoutId`, and they MUST NOT share a
+They have the same `ResourceLayoutId` and must not share a
 `PreparedActorResourcePlanId`: a rewind that restores the id has to say which
-cost and binding set to read the values through. ⚠ Two plans that differ only in
-a capability-role binding are the same shape of failure and are harder to see,
-because nothing about the numbers looks wrong.
+cost and binding set to read the values through. Two plans that differ only in a
+capability-role binding are the same failure and are harder to see.
 
-⇒ So the plan id's content is the plan's, not the layout's. The layout id remains
-a PROJECTION of the plan id, exactly as R10 says — derived, not independently
-restored.
-
-⛔⛤ **R11 FORBIDS UNORDERED ITERATION IN CONSTRUCTION AND SAYS NOTHING ABOUT THE
-ID, WHICH IS A DIFFERENT FACT.** Two peers can derive byte-identical layouts and
-still disagree: peer 1 prepared this layout second and peer 2 prepared it first,
-so an intern-table ordinal gives them different ids, and the id is what the
-checksum sees. The layouts agree; the session desynchronises. ⚠ Nothing about the
-layout is wrong in that failure, which is why a layout-equality test cannot find
-it.
-
-⭐ **THIS REPOSITORY HAS ALREADY PAID FOR THIS EXACT CLASS, WHICH IS WHY IT IS A
-RULE AND NOT A NOTE.** `RollbackOrdered.order(rollback_id)` is an App-lifetime
-INSERTION INDEX that GGRS hashes beside each value, so a registration road that
-inserted its carriers in a different order produced a different checksum over
-identical state — see
-[simulation authority](simulation-authority-and-determinism.md) and `queue.md`'s
-ID-PEER row, whose whole subject is that host-local lineage must not reach
-peer-stable identity. An interned layout ordinal is host-local lineage with a
+R11 forbids unordered iteration in construction; this rule also covers the id.
+Two peers can derive byte-identical layouts and still disagree if the id is an
+intern-table ordinal: the id is what the checksum sees. The repository has
+already paid for this class once: `RollbackOrdered.order(rollback_id)` is an
+App-lifetime insertion index that GGRS hashes beside each value (see
+[simulation authority](simulation-authority-and-determinism.md) and the queue's
+ID-PEER row). An interned layout ordinal is host-local lineage with a
 mechanical-sounding name.
 
-⇒ The acceptance arm is NOT "two peers prepare the same layout". It is **two
-peers prepare the same PLAN after DIFFERENT IRRELEVANT HISTORIES** — a different
-set of other characters prepared first, in a different order — and agree on the
-identity. A test whose peers do the same things in the same order cannot
-distinguish a content digest from a counter.
-
-⛔⛔ **AND IT TAKES TWO ARMS POINTING OPPOSITE WAYS, BECAUSE ONE OF THEM PASSES
-FOR THE WRONG REASON ALONE.**
+The acceptance needs two arms that point opposite ways, because each alone passes
+for the wrong reason:
 
 1. **Agreement across irrelevant history.** Two peers reach the same full
    prepared plan by different preparation orders and agree on both ids. This arm
    alone is satisfied by returning a constant.
 2. **Separation within one layout.** Two plans that share a layout but differ in
    a prepared move cost, and two that differ only in a capability-role binding,
-   have the SAME `ResourceLayoutId` and DIFFERENT
+   have the same `ResourceLayoutId` and different
    `PreparedActorResourcePlanId`s. This arm alone is satisfied by a counter.
 
-⚠ A dense-ordinal scheme must satisfy both too: ordinals are assigned from a
-canonical ordering of the full plan, not of the layout and not of the encounter
-or cache order.
+A dense-ordinal scheme must satisfy both: ordinals are assigned from a canonical
+ordering of the full plan, not of the layout and not of the encounter or cache
+order.
 
-### R14. A prepared plan a snapshot can name is an ARENA, not a cache
+### R14. A prepared plan a snapshot can name is an arena, not a cache
 
-Prepared plans are immutable and APPEND-ONLY within a rollback generation. A plan
+Prepared plans are immutable and append-only within a rollback generation. A plan
 may not be replaced, mutated or evicted while any rollback snapshot, confirmed
-frame, or other GENERATION-BOUND admitted state can still name it. The
-reclamation boundary is a GENERATION OR TIMELINE RESET, which is the moment
+frame, or other generation-bound admitted state can still name it. The
+reclamation boundary is a generation or timeline reset, which is the moment
 nothing admitted can point backwards any more.
 
-⛔ **"GENERATION-BOUND" IS DOING WORK, AND THIS SENTENCE USED TO SAY "SAVE"
-INSTEAD.** [R4](#r4-stable-identity-and-runtime-address-are-different-facts) says
-a plan identity *"must not appear in durable save data, which outlives the
-generation that gave it meaning"* — so a rule keeping a plan alive for anything a
-save can name read exactly opposite to the rule forbidding a save to name one.
-The two are consistent only once the word is split: a DURABLE save never names a
-plan, so it never extends one's life, and an exact-generation transient — a
-rollback snapshot, an in-memory checkpoint — always does. Found by review
-2026-09-18.
+"Generation-bound" is exact. A durable save never names a plan (R4), so it never
+extends a plan's life; an exact-generation transient (a rollback snapshot, an
+in-memory checkpoint) always does.
 
-⛔⛤ **THIS FOLLOWS FROM [R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
-AND WAS NOWHERE ON THIS PAGE UNTIL A 2026-09-17 REVIEW ASKED FOR IT.** The moment
-the restored pointer is a plan ID rather than a copy of the plan, the store
-behind it acquires a lifetime contract — and this page had left that store's
-lifetime unstated while calling it a cache in three places: *"this plan can be
-CACHED as part of character preparation"*, *"finish and CACHE it at that later
-composition boundary"*, and, twice, *"the exact type name, fields, CACHE OWNER
-and crate placement are Phase 0 outputs"*. Naming the owner but not the lifetime
-is what grants permission to evict:
+This follows from R10: once the restored pointer is a plan id, the store behind
+it has a lifetime contract. A cache that may evict fails like this:
 
 ```text
 actor progresses A -> B, the cache replaces A
@@ -420,33 +366,18 @@ rewind restores PreparedActorResourcePlanId(A)
 A is gone
 ```
 
-The values come back correct and there is nothing to read them through. ⚠ A
-dangling plan id is strictly worse than the desync R10 closed, because the
-failure is not a disagreement between two peers — it is one peer unable to
-describe its own restored state, and it is reachable on a single machine.
+The values come back correct and there is nothing to read them through, on a
+single machine. So the store is an arena, and that is settled before Phase 0: a
+cache with an eviction policy and an arena with a generation boundary are
+different objects.
 
-⇒ **SO THE QUESTION IS SETTLED BEFORE PHASE 0, NOT DISCOVERED IN IT.** *Is the
-plan store a cache that may evict, or an authoritative immutable arena whose
-lifetime is tied to a session/generation?* It is the arena. That answer changes
-what Phase 0 builds, which is why it is a rule here rather than a note in the
-progression section: a cache with an eviction policy and an arena with a
-generation boundary are different objects, and retrofitting the second onto the
-first means finding every place that assumed a miss was recoverable.
+The witness is a rewind across a progression, and it must name the plan rather
+than the values: advance an actor from plan A to plan B, rewind past the change,
+and assert that the restored `PreparedActorResourcePlanId` resolves.
 
-⭐ **THE WITNESS IS A REWIND ACROSS A PROGRESSION, AND IT MUST NAME THE PLAN
-RATHER THAN THE VALUES.** Advance an actor from plan A to plan B, rewind past the
-change, and assert the restored `PreparedActorResourcePlanId` RESOLVES — not
-merely that the resource values are right. A visible consequence that is not
-itself the restored pointer cannot witness this: values restored under B's
-bindings can read plausibly, which is the same trap
-[R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)
-records.
-
-⚠ **WHAT THIS DOES NOT SAY** is that plans are never reclaimed. Append-only
-within a generation with a reset boundary is a bounded arena, not a leak; the
-population is the set of plans an admitted generation can declare, which
-[R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)
-already requires be canonically enumerable for its dense-ordinal option.
+Plans are still reclaimed. Append-only within a generation with a reset boundary
+is a bounded arena, not a leak; the population is the set of plans an admitted
+generation can declare, which R13 already requires to be canonically enumerable.
 
 ## Authoring model
 
@@ -513,16 +444,10 @@ resource identity. A requirement and a declaration are different facts.
 
 ### Game/provider composition owns
 
-⇒ **THE GENERAL LIST IS
-[character authoring](character-authoring-package.md)'s**, and that page already
-says this one *"applies this same ownership split to resources"*. This section
-restated three of its four bullets in different words until 2026-09-18 — same
-substance, drifted wording, which is the state a split fact is in just before it
-becomes two different facts. Ask that page what composition owns.
+The general list is in [character authoring](character-authoring-package.md),
+which applies the same ownership split to resources. Resource-specific rules:
 
-**What is resource-specific, and only here:**
-
-- a capability owns the MEANING of a resource role and its fill/spend policy;
+- a capability owns the meaning of a resource role and its fill/spend policy;
   composition binds that role to the character's resource, and neither may
   invent the other's half;
 - the final prepared composition carries the resolved layout and bindings, so
@@ -579,14 +504,12 @@ be prepared once as part of character preparation. If a ruleset or build supplie
 more inputs, finish it at that later composition boundary. Do not resolve a
 resource slot before all facts that can change the layout are known.
 
-⛔ **"CACHED" IS THE WRONG WORD FOR THIS STORE AND THIS PARAGRAPH USED IT TWICE.**
-A rollback snapshot names a plan by identity, so a plan is append-only within a
-generation and may not be evicted or replaced while anything admitted can still
-point at it — see [R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache).
-Prepare-once is the behaviour; a cache's freedom to miss is not.
+The plan store is an arena, not a cache: see
+[R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache).
+Prepare once; do not evict.
 
 The exact type name, fields, arena owner, and crate placement are Phase 0
-outputs. Its RETENTION is not: R14 fixes that.
+outputs. Retention is fixed by R14.
 
 ### Deterministic layout
 
@@ -611,8 +534,8 @@ correct. The layout identity prevents a handle for one layout from being used on
 another.
 
 Prepared move costs are also layout-specific. If one ruleset grants the same
-portable moveset to actors with different resource layouts, prepare or cache one
-bound move view per distinct layout. Do not keep one semantic id lookup in the
+portable moveset to actors with different resource layouts, prepare one bound
+move view per distinct layout. Do not keep one semantic id lookup in the
 move-start hot path to avoid this preparation step.
 
 ## Runtime storage hypothesis
@@ -704,8 +627,8 @@ This is a required performance property, not an optional optimization.
 
 ## Ability costs
 
-The current `MoveGates::meter_cost: f32` has one implicit resource. The target
-model needs explicit prepared resource costs.
+Move prices are `MoveGates::costs: Vec<ResourceCost>`, which name their resource.
+The target model adds prepared costs that resolve each term to a handle.
 
 The portable authoring form must support at least an atomic list of resource
 terms:
@@ -833,12 +756,11 @@ interpret them, **and the actor's active prepared-plan identity** — see
 plan's contents are generation data reached THROUGH that identity, so the
 snapshot carries one small pointer rather than a copy of the layout.
 
-⛔ **THE FAILURE THIS ORDERING PREVENTS IS NOT A LOST VALUE, IT IS A COHERENT-
-LOOKING PAIR.** Restore the bank without the pointer and the actor holds layout
-A's values while its capabilities hold layout B's handles; both sides pass their
-own checks and the reads are silently wrong. A test that asserts *"rewind
-restores exact resource values"* passes in that state, which is why the arm in
-[acceptance](#rollback-and-peer-determinism) reads a value THROUGH a capability
+Without the pointer, the actor holds layout A's values while its capabilities
+hold layout B's handles; both sides pass their own checks and the reads are
+silently wrong. A test that asserts "rewind restores exact resource values"
+passes in that state, so the arm in
+[acceptance](#rollback-and-peer-determinism) reads a value through a capability
 handle after a rewind across a plan change.
 
 Decode must validate bounded numeric invariants before it creates live state.
@@ -849,23 +771,20 @@ The admitted mechanical content identity covers resource declarations, resource
 bindings, prepared costs, and the rules that can change mechanics.
 
 Two peers that admit the same content must derive byte-equivalent canonical
-layouts, AND the same identity for them —
-[R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content).
-Two poisons, because they fail differently:
+layouts, and the same identity for them
+([R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)).
+Three poisons, because they fail differently:
 
-1. change unordered input iteration and prove the prepared LAYOUT does not
+1. change unordered input iteration and prove the prepared layout does not
    change;
-2. prepare the same PLAN on two peers after DIFFERENT irrelevant histories —
-   other characters prepared, in a different order — and prove BOTH identities
-   are unchanged. An intern-table ordinal passes (1) and fails (2), and (2) is
-   the one that reaches the checksum;
+2. prepare the same plan on two peers after different irrelevant histories and
+   prove both identities are unchanged. An intern-table ordinal passes (1) and
+   fails (2), and (2) is the one that reaches the checksum;
 3. prepare two plans that share a layout and differ in one prepared move cost,
    and two that differ only in a capability-role binding, and prove the
-   `ResourceLayoutId`s MATCH while the `PreparedActorResourcePlanId`s DIFFER. ⛔
+   `ResourceLayoutId`s match while the `PreparedActorResourcePlanId`s differ.
    Without this one, (1) and (2) are both satisfied by deriving the plan id from
-   the layout — which is what this page said to do until 2026-09-17, and which
-   makes a rewind unable to say which cost set to read the restored values
-   through.
+   the layout.
 
 ### Save data
 
@@ -1048,34 +967,25 @@ content-pack and runtime dependency direction.
 Build a small vertical prototype against real Ambition paths. Do not start with a
 large `BodyMana` migration.
 
-⛔⛔ **TWO CONTRACTS ARE DECIDED BEFORE 0A, NOT DISCOVERED DURING IT**, because
-both are cheap to state now and expensive to retrofit under a live save format
-and a live checksum:
+Three contracts are decided before 0A, because they are cheap to state now and
+expensive to retrofit under a live save format and a live checksum:
 
-1. **What the snapshot carries** — values, capacities and the ACTIVE PLAN
-   IDENTITY, with layout metadata, capability-role handles and prepared move
+1. **What the snapshot carries:** values, capacities and the active plan
+   identity, with layout metadata, capability-role handles and prepared move
    costs as generation data keyed by it
    ([R10](#r10-rollback-restores-the-values-and-the-plan-they-are-read-through)).
-   A prototype that snapshots only values will pass its own rewind arm and hide
-   the defect until an actor changes build mid-session.
-2. **How the identity is derived** — content digest, or a dense ordinal over a
+   A prototype that snapshots only values passes its own rewind arm and hides the
+   defect until an actor changes build mid-session.
+2. **How the identity is derived:** content digest, or a dense ordinal over a
    canonically sorted set inside the admitted generation; never the order a cache
    first saw the layout
    ([R13](#r13-there-are-two-identities-and-each-is-content-derived-over-its-own-content)).
-   This one is not a prototype detail: the id is what two peers exchange, and the
-   repository has already shipped one App-lifetime insertion index into a peer
-   checksum (`RollbackOrdered`).
-
-3. **How long a named plan survives** — append-only within a rollback
-   generation, never evicted or replaced while a snapshot, checkpoint or save can
-   still name it, with a generation/timeline reset as the reclamation boundary
+3. **How long a named plan survives:** append-only within a rollback generation,
+   with a generation/timeline reset as the reclamation boundary
    ([R14](#r14-a-prepared-plan-a-snapshot-can-name-is-an-arena-not-a-cache)).
-   ⛔ This decides whether the store is a cache or an arena, which is a different
-   OBJECT rather than a different policy — so a Phase 0 that builds the cache
-   first has to find every place that assumed a miss was recoverable.
 
-⇒ Phase 0 may choose the TYPE, the field names and the arena owner. It does not
-get to choose these three, and 0B/0C are where they are exercised.
+Phase 0 may choose the type, the field names and the arena owner. It does not
+choose these three; 0B/0C exercise them.
 
 ### 0A. Three character compositions
 
@@ -1193,124 +1103,40 @@ Acceptance:
 
 ## Phase 2 — replace the implicit move meter
 
-Replace `MoveGates::meter_cost` with explicit resource-cost authoring and prepared <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
-costs.
-
-During the migration:
-
-1. classify each positive current `meter_cost` by the resource it actually
-   means;
-2. give each affected character or facet a real resource declaration;
-3. prepare move costs against that character layout;
-4. make missing positive-cost resources fail preparation and fail closed at
-   runtime;
-5. make multi-resource payment atomic;
-6. pay before destructive move-start teardown;
-7. use the same affordability and payment rule on trigger and cancel paths;
-8. remove `meter_cost` and the implicit `BodyMana` lookup after all authors move.
-
-Do not leave a compatibility interpretation in which a missing resource means
-free.
+Landed. Prices are explicit `ResourceCost` terms; a missing positive-cost resource
+is refused, payment is atomic, and there is no compatibility reading in which a
+missing resource means free. Open: resolve cost terms to prepared handles at
+preparation (see 0D).
 
 ## Phase 3 — migrate Mana and Limit ownership
 
-### Step 1 landed 2026-09-23 — the Limit is a named resource in a per-actor bank
+Landed. `BodyMana`, `ResetMeter` and the implicit move meter are deleted.
 
-**Old authorities.** One `BodyMana` on every body served as BOTH the main
-game's Mana and a Smash seat's Limit. `MoveGates::meter_cost` priced moves in <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
-"the meter" without naming one, so the goblin's dive meant Limit in a match
-and a free once-per-life charge in exploration; `smash.fill_meter` filled
-whichever meter its caster carried; and Smash had to insert
-`PlayerManaRegen(0.0)` on its stage to keep the Mana refill out of the Limit.
+**Limit.** Smash declares the Limit in `MatchRules::resources`
+(`SMASH_LIMIT.declaration()`, capacity 60, starts empty). Seat preparation puts
+`ActorResources::declared(...)` on the seed, and the bank is inserted in the
+spawn flush. The Limit fill systems and the `smash.fill_meter` technique reach
+the Limit slot by name, so a body that holds no Limit gains nothing. An
+exploration goblin holds no Limit, so its dive always takes the uncharged
+variant.
 
-**New single authority.**
+**Mana.** `ambition_abilities::mana::{MANA, POOL, REGEN_PER_SEC}` is declared by
+the Ambition provider through
+`PreparedPlatformerSource::with_home_body_resources(HomeBodyResources::declared(&[POOL]))`.
+Only the Ambition home body holds Mana; a possessed body, an NPC, a demo avatar
+and a Smash seat hold none, so Mana abilities are refused on them. The Mana
+abilities, shrine, mana cell, dev panel and regen reach the level through
+`mana::spend`/`mana::level`. `PlayerManaRegen` has no default: a composition
+that states no rate refills nothing. Read models carry `Option`; the HUD prints
+`MP -` for a body with no Mana.
 
-```text
-ResourceId / ResourceCost / ResourceDeclaration   ambition_resource_spec (leaf)
-  |  (content-safe; identity = FNV-1a digest of the authored name)
-MatchRules::resources  (Smash: SMASH_LIMIT.declaration() — cap 60, EMPTY)
-  |  seat preparation: ActorResources::declared(...) onto the seed
-seat realization: the bank leaves the seed and is inserted in the spawn flush
-  |
-ActorResources { layout: Arc<ResourceLayout>, levels: Vec<ResourceLevel> }
-  rollback: component-canonical `body.resources`, layout carried in the codec
-  reset:    reset_body_clusters -> reset_to_start (the SAME declared baseline)
-```
+Tests: `a_body_that_holds_no_mana_cannot_fire_the_beam`,
+`no_stated_rate_refills_nothing_and_no_pool_gains_mana`,
+`hud_facts_track_the_controlled_body`, and the Smash A/B that asserts every
+seat's layout is exactly `{smash.limit}`.
 
-A price is `MoveGates::costs: Vec<ResourceCost>`; `afford_meter` and the
-payment at move start both go through `ActorResources::can_pay`/`pay`, atomic
-over every term, and a term naming a resource the body does not hold is
-unaffordable. Both positive prices name `smash_limit::LIMIT`. The Limit fill
-systems and `smash.fill_meter` reach the Limit slot by name, so a body that
-holds no Limit gains nothing from them.
-
-**Deleted.** `MoveGates::meter_cost`; `MatchRules::earned_meter_cap`; Smash's <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
-route-scoped `PlayerManaRegen(0.0)` and its prior/give-back arm (nothing of the
-Limit's is reachable by the Mana refill any more).
-
-**Behaviour change, deliberate.** An exploration goblin holds no Limit, so its
-dive is always refused to the uncharged variant — the old once-per-life charged
-dive was the ambiguous price paid out of an unrelated Mana pool.
-
-**Access decision (0D/0F, not yet measured).** A resource is found by a binary
-search over the body's own canonically ordered layout (`ResourceLayout::slot`),
-at move acceptance and in each capability's system — never a name hash, never
-a walk over other state. `ResourceSlot` handles carry their layout id, so a
-handle prepared against another layout reads nothing. Whether hot capability
-systems should cache slots per layout is the open 0D measurement.
-
-### Step 2 landed 2026-09-23 — Mana is a declared resource of the home body
-
-**Old authorities.** `BodyMana` sat on EVERY body — the movement bundle built
-it full at 100 — so a body held Mana merely by existing, and a possessed enemy
-or a Smash seat could spend it. `regen_player_mana` invented a 14/s rate when
-no composition stated one. Reset took a `ResetMeter::{Keep, Full, Empty}` the
-CALLER chose, a second answer to what the body resets to beside its declared
-start. The dev panel, HUD, `sim_view` and harness read the component directly
-and reported a body without a pool as an empty one.
-
-**New single authority.**
-
-```text
-ambition_abilities::mana::{MANA, POOL (100, Full), REGEN_PER_SEC}
-  |  the Ambition provider (AmbitionPreparedWorld::prepared_source)
-PreparedPlatformerSource::with_home_body_resources(HomeBodyResources::declared(&[POOL]))
-  |  validated once there; carried on the session root beside InitialBodyPolicy
-simulation_world: the player is spawned and the prepared bank inserted in the
-  same command flush (no frame without it)
-  |
-the body's ActorResources (`body.resources`) — the same bank the Limit lives in
-  reset: reset_body_clusters -> reset_to_start, the SAME declaration
-```
-
-The seven Mana abilities, the shrine, the mana cell, the dev panel and the
-regen reach the `MANA` level by name through `mana::spend`/`mana::level`; a
-body without it pays nothing and is refused. `PlayerManaRegen` has no default
-— Ambition's plugin states the rate, and a composition that states none
-refills nothing. Read models carry `Option`: the HUD prints `MP -` for a body
-that holds no Mana rather than `MP 0`.
-
-**Deleted.** `BodyMana` (component, default, snapshot codec, `body.mana`
-rollback row — schema 203 -> 204), `ResetMeter` and the reset's `meter`
-parameter, the monolith's `MANA_REGEN_PER_SEC` fallback, and the mana fields of
-the body clusters, the scratch and the movement bundle.
-
-**Behaviour change, deliberate.** Only the Ambition home body holds Mana. A
-possessed body, an NPC, a Sanic or Mary-O avatar and a Smash seat hold none, so
-the Mana abilities are refused on them and the HUD shows no pool. A mana cell
-used by a body without Mana is kept, not consumed.
-
-**Tests.** `a_body_that_holds_no_mana_cannot_fire_the_beam` (absence refused,
-the same body with its pool fires); `no_stated_rate_refills_nothing_and_no_pool_gains_mana`;
-`hud_facts_track_the_controlled_body` now asserts a possessed body without Mana
-publishes `None`; the Smash A/B asserts every seat's layout is exactly
-`{smash.limit}`, and its control GIVES each seat a drained pool beside the
-Limit in one bank, so the equality is measured with the two resources
-co-resident.
-
-**Still `ResourceMeter`.** `ambition_platformer2d_core::player_state::ResourceMeter`
-survives only as the value type of other non-body meters; the body no longer
-holds one.
+`ambition_platformer2d_core::player_state::ResourceMeter` survives only as the
+value type of non-body meters, which is a real owner.
 
 ### Verified 2026-09-24 — the Smash Limit slice holds (campaign item 3)
 
@@ -1341,64 +1167,6 @@ not a slot cached at preparation. Every shipped layout holds ONE resource
 comparison. The 0D measurement comes due when a shipped layout holds several.
 `ResourceMeter` survives only as the value type of non-body meters (projectile
 ammo), which is a real owner, so step 7's deletion does not apply.
-
-### Classification, measured 2026-09-23 (Phase 2 step 1 and Phase 3's first step)
-
-Taken by grepping production `crates/` and `game/` for `BodyMana`, `.mana`,
-`meter_cost`, excluding test modules. ⚠ A consumer list is a census, not a
-proof: re-derive it before migrating rather than trusting this table.
-
-**Positive `meter_cost` authors — which resource each price actually means:**
-
-| Move | Author | Where it plays | The resource it means |
-|---|---|---|---|
-| goblin `air_down_b` (charged dive), 60, `when_refused` → uncharged | `game/ambition_content/src/goblin_moveset.rs` | main-game enemy AND the Smash roster | ⛔ AMBIGUOUS — Limit in a match; in exploration, whatever `BodyMana` the seed handed it (full 100, no regen for a non-driven body), so it can dive charged once per life. The price names no resource, so the ruleset silently decides. |
-| George `bivalence`, 60 (= `LimitMeterFill::JONS_BASELINE.cap`), `when_refused` → `bivalence_unmetered` | `game/ambition_demo_smash/src/george_booul_moveset.rs` | Smash | Limit |
-
-**Production `BodyMana` consumers:**
-
-| Consumer | Site | Classification |
-|---|---|---|
-| `dive`, `meteor`, `beam`, `volley`, `shockwave`, `vortex`, `sentry` spend | `crates/ambition_abilities/src/{traversal/dive,ranged/*}.rs` | true Mana capability (main-game abilities); fixed per-ability constants |
-| `regen_player_mana` | `ambition_platformer2d_actor_monolith/src/avatar/systems.rs` | Mana regen policy — ⛔ refills EVERY driven body at `MANA_REGEN_PER_SEC` when `PlayerManaRegen` is absent, so a Limit seat is kept from Mana regen only by Smash inserting that resource (`ambition_demo_smash/src/lib.rs`). Absence of a policy invents one. |
-| shrine refill (`refill_full`) | `ambition_platformer2d_actor_monolith/src/shrine.rs` | Mana (main-game rest) |
-| mana-cell item | `game/ambition_app/src/menu/effects.rs` | Mana (main-game item) |
-| Limit fill/decay/hit/block | `game/ambition_demo_smash/src/limit.rs` (`fill_limit_meters`-family) | Limit capability |
-| authored `FILL_METER` technique | `game/ambition_demo_smash/src/limit.rs` (`apply_authored_meter_fills`) | ⛔ AMBIGUOUS — a technique that fills "the" meter, i.e. Limit on a seat and Mana anywhere else |
-| move-cost afford / pay | `ambition_combat/src/moveset/mod.rs` (`afford_meter`, the pay site) | authored ability cost (Phase 2) |
-| seat seed Limit shape | `ambition_match/src/prepared.rs` | Limit construction (dd7b16f) |
-| reset | `ambition_platformer2d_core` `reset_body_clusters` (`ResetMeter::{Keep,Full,Empty}`) | generic resource lifecycle — the caller names the value |
-| HUD line, `sim_view` facts (`mana_current`/`mana_fraction`), sim-harness observation | `game/ambition_app/src/app/hud.rs`, `ambition_sim_view/src/facts.rs`, `ambition_sim_harness/src/runtime.rs` | inspection (read models) |
-| dev stats panel (`EditablePlayerStats.mana/max_mana`) | `ambition_dev_tools/src/dev_tools/editable.rs` | developer edit authority over Mana |
-
-⇒ Two prices and one technique name no resource and are resolved by the
-ruleset in force; one regen policy is invented by absence. Those four are the
-concrete Phase 2/3 targets; everything else is already a Mana-or-Limit
-consumer with a single meaning.
-
-
-Classify every production `BodyMana` consumer before changing it.
-
-Each consumer must become one of:
-
-- a true Mana capability;
-- a Limit capability;
-- a generic resource role with an explicit binding;
-- an authored ability cost;
-- a test fixture that should install a real resource;
-- dead code to delete.
-
-Then:
-
-1. remove `BodyMana` from universal body construction and reset paths;
-2. install Mana only where the owning experience needs Mana;
-3. install Limit only on characters that have the Limit capability;
-4. move Mana regeneration to the Mana policy owner;
-5. keep Smash Limit fill/decay in the Smash/Limit policy owner;
-6. remove the Mana full-start repair from Limit;
-7. delete `BodyMana` and delete `ResourceMeter` if no real owner remains.
-
-Do not add a compatibility alias after the old authority is removed.
 
 ## Phase 4 — main-game resource economy vertical slice
 
@@ -1493,22 +1261,16 @@ Do not combine those families into one mutable map only to reuse lookup code.
   rollback registry;
 - two peers prepare the same slots from the same canonical content;
 - permuting unordered source insertion does not change prepared layout;
-- **two peers that prepare the same PLAN after different irrelevant preparation
-  histories agree on BOTH identities** (R13);
-- **two plans that share a layout and differ only in a prepared move cost — and
-  two that differ only in a capability-role binding — have the same
-  `ResourceLayoutId` and DIFFERENT `PreparedActorResourcePlanId`s** (R13). ⛔ The
-  arm above alone is satisfied by returning a constant, and this one alone by a
-  counter; deriving the plan id from the layout satisfies both and still makes a
-  rewind unable to say which cost set to read the restored values through;
-- **a rewind across a plan change restores the active plan identity with the
-  values**, witnessed by reading a resource THROUGH a capability-role handle
-  after the rewind rather than by comparing the bank — a bank comparison passes
-  while the handles belong to the other layout (R10);
-- **a rewind across a PROGRESSION resolves the restored plan identity** — advance
-  an actor from plan A to plan B, rewind past the change, and assert the restored
-  `PreparedActorResourcePlanId` still names a live plan (R14). ⚠ Its control is
-  a generation reset, after which reclaiming A is correct;
+- two peers that prepare the same plan after different irrelevant preparation
+  histories agree on both identities (R13);
+- two plans that share a layout and differ only in a prepared move cost, and two
+  that differ only in a capability-role binding, have the same
+  `ResourceLayoutId` and different `PreparedActorResourcePlanId`s (R13);
+- a rewind across a plan change restores the active plan identity with the
+  values, witnessed by reading a resource through a capability-role handle after
+  the rewind, not by comparing the bank (R10);
+- a rewind across a progression resolves the restored plan identity (R14). Its
+  control is a generation reset, after which reclaiming the old plan is correct;
 - invalid decode refuses instead of constructing an invalid pool.
 
 ### Content iteration
@@ -1542,15 +1304,13 @@ Add poisons that:
     the layout's content (R13);
 13. restore the bank's own layout-id copy independently instead of declaring it
     derived (R10) — two restored copies of one fact;
-14. derive the PLAN identity from the layout's content, then rewind an actor
+14. derive the plan identity from the layout's content, then rewind an actor
     whose two plans share a layout and differ in a prepared move cost (R13) —
     the values come back and are read through the wrong costs;
 15. evict or replace a prepared plan when the actor progresses past it, then
-    rewind to a frame whose snapshot names it (R14). ⚠ This poison must be run
-    with the plan store's own miss path INSTRUMENTED: a store that silently
-    re-prepares an equivalent plan on a miss hides it, and re-preparing is only
-    equivalent if the generation has not changed — which is exactly the case the
-    arm is not testing.
+    rewind to a frame whose snapshot names it (R14). Instrument the plan store's
+    miss path when you run this poison: a store that silently re-prepares an
+    equivalent plan on a miss hides the defect.
 
 Each poison must have a nonempty control that proves the witness exercised the
 subject.

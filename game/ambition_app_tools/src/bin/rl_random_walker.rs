@@ -45,13 +45,10 @@ fn run_random_walk(steps: u32, seed: u64) {
             std::process::exit(1);
         }
     };
-    // the unclaimed-velocity detector, in the composition the S51 ramp was
-    // actually observed in. That trace was taken on `Seat(0)` — the SANDBOX's
-    // own player — and the first detector was wired into the smash ladder, which
-    // has two seated duelists and no sandbox player. It could never have seen the
-    // ramp at any threshold. This binary is the right host: a long random walk is
-    // already the repo's fuzz harness for "movement / collision bugs that do not
-    // show up in scripted tests", which is exactly the population here.
+    // The unclaimed-velocity detector, in the composition where the S51 ramp
+    // was seen: the sandbox's own player (`Seat(0)`). The smash ladder has no
+    // sandbox player, so a detector there cannot see it. A long random walk
+    // is already the fuzz harness for movement and collision bugs.
     #[cfg(feature = "causal")]
     let mut unclaimed = {
         sim.app_mut()
@@ -170,14 +167,13 @@ fn main() {
     run_random_walk(steps, seed);
 }
 
-/// what a ZERO from this detector must be able to mean.
+/// What a zero from this detector means.
 ///
-/// A run that reports no unclaimed steps is indistinguishable from a run where
-/// the recorder published nothing at all — and this session has already produced
-/// three false absences from exactly that confusion. So the binary counts what it
-/// SAW, and says so at the end: ticks observed, facts read, subjects carrying a
-/// control frame. A zero beside `facts_seen: 0` is an instrument that was never
-/// live; a zero beside a large count is a finding.
+/// "No unclaimed steps" looks the same as "the recorder published nothing".
+/// So the binary counts what it saw and prints it at the end: ticks observed,
+/// facts read, subjects with a control frame. A zero beside `facts_seen: 0`
+/// means the instrument was never live; a zero beside a large count is a
+/// finding.
 #[cfg(feature = "causal")]
 #[derive(Default)]
 struct Vacuity {
@@ -212,11 +208,9 @@ fn report_vacuity() {
 /// Feed this tick's velocities to the detector and print anything no operation
 /// claimed.
 ///
-/// the bound is derived from the kernel's own constants, never written
-/// down as a number: a hardcoded threshold was wrong twice — once 5.8× too low
-/// from a grep that missed `pub const RUN_ACCEL`, once too HIGH from a safety
-/// margin for per-character tuning that does not exist in the tree, which put the
-/// bar above the very ramp this is here to find.
+/// The bound is derived from the kernel's own constants, never written as a
+/// number. A hardcoded threshold can be too low (missing `pub const
+/// RUN_ACCEL`) or too high (margins for tuning that does not exist).
 #[cfg(feature = "causal")]
 fn report_unclaimed_steps(
     sim: &mut Platformer2dSimHarness,

@@ -19,7 +19,7 @@ fn app_with_dt(dt: f32) -> App {
     }
     app.init_resource::<CapturedBlasts>();
     app.init_resource::<ambition_platformer2d::sim_view::BodyClocksView>();
-    // ⭐ THE SHIPPED ORDER: tick, then apply, then the observer. See
+    // The shipped order: tick, then apply, then the observer. See
     // `detonate_body_marks` for why the tick goes first.
     app.add_systems(
         Update,
@@ -39,8 +39,8 @@ fn app() -> App {
     app_with_dt(DT)
 }
 
-/// A seated fighter at `at`. ⛔ Seated: a mark names its attacker by seat, and
-/// an unseated striker leaves no mark at all (see the test that says so).
+/// A seated fighter at `at`. Seated: a mark names its attacker by seat, and an
+/// unseated striker leaves no mark (tested below).
 fn fighter(app: &mut App, seat: usize, at: ae::Vec2) -> Entity {
     let mut kin = ae::BodyKinematics::default();
     kin.pos = at;
@@ -75,22 +75,12 @@ fn land_a_marking_hit(app: &mut App, owner: Entity, victim: Entity, fuse_s: f32)
     });
 }
 
-/// ⛔⛔ ACCUMULATED AS THEY ARE WRITTEN, NOT READ AT THE END — and the first
-/// draft of this file did it the wrong way and reported ZERO blasts from tests
-/// whose marks plainly detonated. Bevy's messages are double-buffered: after a
-/// couple of `app.update()` calls the write is gone, so "no blast" and "a blast I
-/// can no longer see" are the same number.
+/// Accumulated as they are written, not read at the end: messages are
+/// double-buffered, so after a few updates a blast is no longer visible.
 ///
-/// ⇒ Second time in one day I have written that bug — the hostile-threshold
-/// poison did it too. A test that steps a clock cannot ask a message buffer what
-/// happened; it has to have been listening.
-///
-/// ⚠ A COUNT AND THE LAST ONE, NOT A `Vec` — and that is not style. A `Resource`
-/// holding a collection is what `per_attempt_resource_census` exists to find,
-/// because a collection in a resource is the shape that survives a match it
-/// should not; the census does not exempt test modules, and it is right not to
-/// (a fixture is where the shape gets normalised). Every assertion here needs
-/// "how many", "where was the last" and "who owned the last", so nothing is lost.
+/// A count and the last blast, not a `Vec`: `per_attempt_resource_census`
+/// flags any `Resource` holding a collection, test modules included. The
+/// assertions need only how many, where the last was, and who owned it.
 #[derive(Resource, Default)]
 struct CapturedBlasts {
     count: usize,
@@ -123,11 +113,8 @@ fn last_owner(app: &App) -> Option<Entity> {
     app.world().resource::<CapturedBlasts>().last_owner
 }
 
-/// ⛔ THE MARK RIDES THE BODY, WHICH IS THE ONLY REASON THIS IS NOT A MINE.
-/// The blast happens where the victim IS when the clock runs out, not where they
-/// were when they were hit — so running away does not help, and that is the whole
-/// mechanic. A mark that detonated at the contact point would be a slow mine with
-/// extra steps.
+/// The mark rides the body: the blast happens where the victim is when the
+/// clock runs out, not where they were hit. Running away does not help.
 #[test]
 fn the_blast_follows_the_body_rather_than_the_contact_point() {
     let mut app = app();
@@ -161,9 +148,8 @@ fn the_blast_follows_the_body_rather_than_the_contact_point() {
     );
 }
 
-/// ⛔⛔ A MARK THAT NEVER CLEARS IS A BLAST EVERY FRAME. The removal above is one
-/// line and its absence would be invisible to a test that only checks the FIRST
-/// detonation — so this one keeps running afterwards.
+/// A spent mark does not keep detonating: this keeps running after the first
+/// blast.
 #[test]
 fn a_spent_mark_does_not_keep_detonating() {
     let mut app = app();
@@ -180,9 +166,7 @@ fn a_spent_mark_does_not_keep_detonating() {
     );
 }
 
-/// ⚠ THE FUSE IS A DECISION AND THEREFORE MUST BE OBSERVABLE. A mark that went
-/// off on the tick it was applied would be a hit with extra steps, and the
-/// authored `fuse_s` would be documentation.
+/// The mark waits out its fuse; otherwise `fuse_s` would be documentation.
 #[test]
 fn the_mark_waits_out_its_fuse() {
     let mut app = app();
@@ -201,14 +185,11 @@ fn the_mark_waits_out_its_fuse() {
     assert_eq!(blast_count(&app), 1, "and it must go off eventually");
 }
 
-/// ⛔⛔ THE TICK OF APPLICATION IS TICK ZERO OF THE FUSE — exactly. The shipped
-/// order used to be apply-then-tick, so a fresh mark lost one `sim_dt` on the
-/// tick it was attached: a one-tick fuse went off THAT tick, and an N-tick fuse
-/// gave the victim N-1 ticks. The long-fuse test above cannot see one tick.
+/// The tick of application is tick zero of the fuse, so an N-tick fuse gives
+/// the victim exactly N ticks. The long-fuse test above cannot see one tick.
 ///
-/// ⭐ `dt = 1/64`, which is exactly representable, so "N ticks" is arithmetic
-/// rather than a rounding argument: the assertion is about interval ownership,
-/// not about floating point.
+/// `dt = 1/64` is exactly representable, so "N ticks" is arithmetic, not
+/// rounding.
 #[test]
 fn a_fuse_of_n_ticks_gives_the_victim_exactly_n_ticks() {
     let dt = 1.0 / 64.0;
@@ -243,9 +224,8 @@ fn a_fuse_of_n_ticks_gives_the_victim_exactly_n_ticks() {
     }
 }
 
-/// ⛔ AN UNRECOGNISED KEY MUST FALL THROUGH UNTOUCHED. Every on-hit effect in the
-/// game passes through this system; one that marked on any key would attach a
-/// detonation to every technique that authors an on-hit at all.
+/// An unrecognised key falls through untouched. Every on-hit effect passes
+/// through this system.
 #[test]
 fn a_hit_carrying_somebody_elses_effect_leaves_no_mark() {
     let mut app = app();
@@ -259,14 +239,9 @@ fn a_hit_carrying_somebody_elses_effect_leaves_no_mark() {
             radius: 1.0,
         },
         contact: ae::Vec2::ZERO,
-        // ⛔⛔ CARRYING MARK-SHAPED PARAMS, DELIBERATELY, and the first version of
-        // this test did not — it sent an EMPTY payload, which fails to hydrate
-        // whatever the key says. ⇒ Deleting the key check entirely still passed,
-        // because hydration was refusing the payload rather than the filter
-        // refusing the key, and the test could not tell the two apart.
-        //
-        // A real collision is another technique whose params happen to have this
-        // shape, so that is what this sends: only the KEY separates them.
+        // Mark-shaped params on purpose: an empty payload fails to hydrate
+        // whatever the key is, so the test could not tell the key check from
+        // hydration. Only the key separates this from a real mark.
         effect: ambition_platformer2d::entity_catalog::EffectRef {
             key: "smash.some_other_effect".to_string(),
             params: ambition_platformer2d::entity_catalog::ParamValue::from_typed(&params(0.1))
@@ -283,9 +258,8 @@ fn a_hit_carrying_somebody_elses_effect_leaves_no_mark() {
     assert_eq!(blast_count(&app), 0, "and it produced a blast");
 }
 
-/// ⭐ A SECOND MARK REFRESHES RATHER THAN STACKS, which the authored params say
-/// too. Stacking would turn one read ("how long have I got") into arithmetic
-/// nobody can do mid-match, and the read is what the move sells.
+/// A second mark refreshes and does not stack, so "how long have I got" stays
+/// readable.
 #[test]
 fn a_second_mark_refreshes_the_clock_and_does_not_add_a_second_blast() {
     let mut app = app();
@@ -306,18 +280,15 @@ fn a_second_mark_refreshes_the_clock_and_does_not_add_a_second_blast() {
     );
 }
 
-/// ⛔⛔ WHO IS CREDITED IS NOT WHO WAS HIT. The blast used to be owned by the
-/// marked body, so a third fighter KO'd by it was credited to the VICTIM of the
-/// mark — and the resolver keys kills, grudges, staleness and rage on that
-/// owner. The bystander is not needed to witness it: the request names its
-/// owner, and that owner must be the fighter who landed the marking strike.
+/// Who is credited is not who was hit. The request's owner must be the fighter
+/// who landed the marking strike; kills, grudges, staleness and rage key on it.
 #[test]
 fn the_blast_is_credited_to_the_fighter_who_landed_the_mark() {
     let mut app = app();
     let attacker = fighter(&mut app, 0, ae::Vec2::ZERO);
     let victim = fighter(&mut app, 1, ae::Vec2::new(50.0, 0.0));
-    // A bystander in the blast, to make the case the review named concrete:
-    // whoever this blast KOs is credited to the request's owner.
+    // A bystander in the blast: whoever it KOs is credited to the request's
+    // owner.
     let _bystander = fighter(&mut app, 2, ae::Vec2::new(60.0, 0.0));
     land_a_marking_hit(&mut app, attacker, victim, 0.05);
     for _ in 0..10 {
@@ -332,10 +303,8 @@ fn the_blast_is_credited_to_the_fighter_who_landed_the_mark() {
     );
 }
 
-/// ⭐ THE LAST STRIKER OWNS THE BLAST, stated rather than inherited. Two
-/// fighters mark one victim; the refresh replaces the mark, so the fighter who
-/// refreshed it is the one whose pressure the clock now represents, and the one
-/// credited when it goes off.
+/// The last striker owns the blast: the refresh replaces the mark, so the
+/// refresher is credited when it goes off.
 #[test]
 fn a_refresh_by_a_second_attacker_hands_them_the_credit() {
     let mut app = app();
@@ -363,8 +332,8 @@ fn a_refresh_by_a_second_attacker_hands_them_the_credit() {
     );
 }
 
-/// ⛔ NO SEAT, NO MARK — the mine's ruling, for the same reason. A mark whose
-/// attacker cannot be named would credit somebody else for its blast.
+/// No seat, no mark, as for the mine: a mark whose attacker cannot be named
+/// would credit somebody else.
 #[test]
 fn a_strike_from_an_unseated_body_leaves_no_mark() {
     let mut app = app();
@@ -383,16 +352,13 @@ fn a_strike_from_an_unseated_body_leaves_no_mark() {
     assert_eq!(blast_count(&app), 0);
 }
 
-/// ⛔⛔ A MARK LIVES EXACTLY AS LONG AS THE STOCK IT WAS PUT ON. With a 1.4s
-/// fuse and a 1.0s death interlude, a mark on a KO'd fighter kept ticking
-/// through the interlude and went off on their NEXT stock — or during the
-/// interlude, blasting from an `OutOfPlay` body. Retired on the tick after the
-/// body leaves play, on whichever road put it there.
+/// A mark lives as long as the stock it was put on. It is retired on the tick
+/// after the body leaves play, so it cannot go off from an `OutOfPlay` body or
+/// on the next stock.
 ///
-/// ⭐ AND THE REWIND, staged the way this repo stages rewinds: a restore puts the
-/// registered mark back and takes the registered `OutOfPlay` away, so this does
-/// both by hand and asks whether the rule re-derives from STATE. A retire keyed
-/// on a one-shot message would fire once and never again on resimulation.
+/// The rewind is staged by hand: a restore brings back the mark and removes
+/// `OutOfPlay`. The rule must re-derive from state; a one-shot message would
+/// not fire again on resimulation.
 #[test]
 fn a_mark_is_retired_when_its_body_leaves_play_and_comes_back_on_a_rewind() {
     let mut app = app();
@@ -423,7 +389,7 @@ fn a_mark_is_retired_when_its_body_leaves_play_and_comes_back_on_a_rewind() {
         "a mark detonated from a body that is out of play"
     );
 
-    // THE REWIND to before the KO. The mark is restored; the KO is unmade.
+    // The rewind to before the KO: the mark is restored; the KO is unmade.
     app.world_mut().entity_mut(victim).insert(live.clone());
     app.world_mut().entity_mut(victim).remove::<OutOfPlay>();
     app.update();
@@ -436,8 +402,7 @@ fn a_mark_is_retired_when_its_body_leaves_play_and_comes_back_on_a_rewind() {
         "the restored mark is not ticking"
     );
 
-    // RESIMULATE the KO: retired again, from state, not from a memory of the
-    // first time.
+    // Resimulate the KO: retired again, from state.
     app.world_mut().entity_mut(victim).insert(OutOfPlay);
     app.update();
     assert!(
@@ -448,8 +413,8 @@ fn a_mark_is_retired_when_its_body_leaves_play_and_comes_back_on_a_rewind() {
     assert_eq!(blast_count(&app), 0);
 }
 
-/// ⭐ THE READ. A live mark publishes a clock row for its body, with the
-/// fraction the telegraph draws, and a spent one publishes nothing.
+/// A live mark publishes a clock row for its body, with the fraction the
+/// telegraph draws; a spent one publishes nothing.
 #[test]
 fn a_live_mark_is_a_readable_clock_on_its_body() {
     use ambition_platformer2d::sim_view::BodyClocksView;
@@ -484,16 +449,10 @@ fn a_live_mark_is_a_readable_clock_on_its_body() {
     );
 }
 
-/// ⛔⛔ THE CREDIT OUTLIVES THE BODY. A fighter eliminated inside the fuse has
-/// no live `MatchSeat` when the mark goes off, and the first fix fell back to
-/// the marked VICTIM as the blast's owner -- the original defect one case over.
-/// A stand-in entity is the blast's owner for its lifetime and then leaves.
-/// Never the victim.
-///
-/// ⚠ This asserted a third thing — that the stand-in carried a `SeatCredit(0)`
-/// label — until v178 removed that component for having no reader. The two
-/// assertions left are the ones with a CONSEQUENCE behind them: the owner is not
-/// the victim, and the stand-in is not a participant.
+/// The credit outlives the body. A fighter eliminated during the fuse has no
+/// live `MatchSeat`; a stand-in entity owns the blast for its lifetime and
+/// then leaves. The owner is not the victim, and the stand-in is not a
+/// participant.
 #[test]
 fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_victim() {
     let mut app = app();
@@ -524,7 +483,7 @@ fn a_blast_whose_attacker_has_left_the_match_is_credited_to_their_seat_not_the_v
         "a credit stand-in must not be a PARTICIPANT, or the match counts a \
          fighter who is out"
     );
-    // And it leaves once the blast can no longer land.
+    // It leaves once the blast can no longer land.
     for _ in 0..20 {
         app.update();
     }

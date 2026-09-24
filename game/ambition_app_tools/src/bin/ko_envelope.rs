@@ -1,31 +1,12 @@
-//! `ko_envelope` — a LAUNCHER-PULSE CENSUS over the prepared moveset graph,
-//! and (next phase) a stage-outcome probe over the same launchers.
+//! `ko_envelope`: a launcher-pulse census over the prepared moveset graph,
+//! and a stage-outcome probe over the same launchers.
 //!
-//! ⭐⭐ **THE ARCHITECTURAL RULE THIS FILE EXISTS TO OBEY:** read authoring from
-//! the COMPILED RUNTIME CONTRACT, drive outcomes through the REAL SIMULATION,
-//! and reconstruct neither from source text.
-//!
-//! ⛔⛔ **AND IT IS WRITTEN AGAINST A MEASURED FAILURE.** 2026-09-13, the census
-//! this replaces was attempted four times with `grep`/`awk` over
-//! `game/ambition_content/src/*_moveset.rs`, and every attempt was wrong:
-//!
-//! * `paste - -` desynchronised on 300 `knockback:` lines against 295
-//!   `knockback_growth:` lines and reported a mean growth/base ratio of **13.7**.
-//! * `knockback_growth: TORQUE_GROWTH` (a named constant) and
-//!   `knockback_growth: Some(1.35)` were silently skipped by a numeric-only
-//!   pattern, desynchronising everything after them.
-//! * A search for the literal `forward_throw:` found 10 sites, all in schema and
-//!   test code, and concluded **no fighter authors throws**. Every fighter
-//!   authors five capture moves. The field's own doc says why the grep failed:
-//!   *"this replaces a grep. A goal check read the movesets looking for
-//!   `capture: Some`, which is the kind of guard that answers a question the
-//!   compiler can answer better."*
-//! * A `*_moveset.rs` glob reported 14 movesets where the directory holds 19.
-//!
-//! ⇒ Every one of those is unreachable from here. A throw is found by asking the
-//! contract for a VERB; its numbers are hydrated from the same typed
-//! `EffectRef` the engine itself reads. There is no spelling to miss, no
-//! shorthand to mis-parse, and no file list to keep current.
+//! Rule: read authoring from the compiled runtime contract, drive outcomes
+//! through the real simulation, and reconstruct neither from source text.
+//! Text searches over `*_moveset.rs` miss named constants, `Some(..)` forms,
+//! and files, so this tool does not use them. A throw is found by asking the
+//! contract for a verb. Its numbers are hydrated from the same typed
+//! `EffectRef` the engine reads.
 //!
 //! ```text
 //! PreparedCharacterRegistry → SmashRoster::assemble → registry.get(id)
@@ -38,17 +19,10 @@
 
 use std::collections::BTreeMap;
 
-// ⛔ A `#[path]` MODULE, NOT A LIB — this package declares in its own manifest
-// that it has no lib on purpose, because a lib relinks every binary in it
-// whenever any of them changes. `trap_probe` and `wire_probe` include this same
-// file the same way.
-//
-// ⭐ AND IT IS WORTH REUSING RATHER THAN REWRITING: its header records four
-// separate findings that each cost a run measuring nothing — `NoWindow` omits
-// the render app entirely, a hand-stepped `update()` does not wait for the wgpu
-// device `run()` waits for, the two hosts do not announce the round the same
-// way, and a seated fighter's `Brain` overwrites any control frame delivered
-// from outside.
+// A `#[path]` module, not a lib: this package has no lib on purpose, because a
+// lib relinks every binary when any of them changes. `trap_probe` and
+// `wire_probe` include this file the same way. Its header records the stage
+// fixture pitfalls it handles.
 #[path = "../probe_stage.rs"]
 mod probe_stage;
 
@@ -60,11 +34,9 @@ use ambition_entity_catalog::{
 
 /// The four canonical throw verbs, in report order.
 ///
-/// ⛔ THESE ARE THE CATALOG'S OWN CONSTANTS, not strings spelled here.
-/// `smash_capture::verbs` re-exports these very items — *"re-exports, not a
-/// second definition … Spelling them again here would be two places for a typo
-/// to become a press that does nothing"* — so a lookup through them cannot
-/// disagree with what `SmashCaptureRepertoire::bound` installed.
+/// These are the catalog's own constants (re-exported by
+/// `smash_capture::verbs`), so a lookup cannot disagree with what
+/// `SmashCaptureRepertoire::bound` installed.
 const THROW_VERBS: [(&str, &str); 4] = [
     ("forward_throw", CAPTURE_THROW_FORWARD_VERB),
     ("back_throw", CAPTURE_THROW_BACK_VERB),
@@ -72,20 +44,18 @@ const THROW_VERBS: [(&str, &str); 4] = [
     ("down_throw", CAPTURE_THROW_DOWN_VERB),
 ];
 
-/// ONE AUTHORED PULSE THAT CAN SEND A BODY, in the two forms this game authors.
+/// One authored pulse that can launch a body, in the two forms this game
+/// authors.
 ///
-/// ⛔ **NOT A NEW GAMEPLAY ABSTRACTION.** This is the balance instrument's
-/// projection of two existing authoring forms onto the one question it asks —
-/// "what does this pulse do to a victim at percent p". Nothing in the engine
-/// needs to know it exists, and nothing should be taught to.
+/// This is a projection for the balance instrument only, not a gameplay
+/// abstraction. The engine does not know about it.
 #[derive(Debug, Clone)]
 enum Launcher {
     /// One `HitVolume` of one `Active` window.
     ///
-    /// ⚠ ONE VOLUME IS A PULSE, NOT A MOVE. A tipper and a sourspot are
-    /// separate balance facts with different envelopes, and an earlier hit of a
-    /// multi-hit move adds damage before a later finisher lands — so a
-    /// threshold measured here is a PULSE threshold and is reported as one.
+    /// One volume is a pulse, not a move. A tipper and a sourspot have
+    /// different envelopes, and an earlier hit of a multi-hit move adds damage
+    /// before the finisher. A threshold measured here is a pulse threshold.
     Strike {
         fighter: String,
         move_id: String,
@@ -149,11 +119,9 @@ impl Launcher {
 
     /// Borrow this launcher as a deliverable pulse.
     ///
-    /// ⭐ THE ONLY PLACE THE VARIANT IS INSPECTED ON THE MEASURING PATH. Every
-    /// site downstream — the repeatability self-test, the row loop, `launch_at`,
-    /// `kills`, `ko_threshold` — takes a `Pulse` and never asks which kind it
-    /// holds, so a throw cannot quietly fall down a strike-shaped code path and
-    /// report a number about the fixture.
+    /// This is the only place the measuring path inspects the variant.
+    /// Downstream code takes a `Pulse`, so a throw cannot fall into a
+    /// strike-only path.
     fn pulse(&self) -> Pulse<'_> {
         match self {
             Launcher::Strike { hit, .. } => Pulse::Strike(hit),
@@ -175,8 +143,8 @@ impl Launcher {
         }
     }
 
-    /// What the AUTHOR wrote. `None` on a strike means "the volume did not
-    /// decide"; a throw always states one.
+    /// What the author wrote. `None` on a strike means "the volume did not
+    /// decide". A throw always states one.
     fn authored_growth(&self) -> Option<f32> {
         match self {
             Launcher::Strike { hit, .. } => hit.knockback_growth,
@@ -184,22 +152,18 @@ impl Launcher {
         }
     }
 
-    /// What the ENGINE will actually use.
+    /// What the engine will use.
     ///
-    /// ⛔ `None` IS NOT ZERO. `resolved_hitbox_knockback_magnitude` does
-    /// `growth.unwrap_or_else(|| base * ruleset_growth.max(0.0))`, so an
-    /// unauthored growth resolves to `base × the ruleset's own growth` — and
-    /// `Some(0.0)` is the documented FIXED-knockback case, which is a different
-    /// thing entirely. Reading a bare `0.0` as unspecified once made the
-    /// fixed-knockback case the one value nobody could author.
+    /// `None` is not zero. `resolved_hitbox_knockback_magnitude` resolves an
+    /// unauthored growth to `base × ruleset growth`. `Some(0.0)` is the
+    /// fixed-knockback case.
     fn effective_growth(&self, ruleset_growth: f32) -> f32 {
         self.authored_growth()
             .unwrap_or_else(|| self.base_knockback() * ruleset_growth.max(0.0))
     }
 
-    /// Fixed knockback: the launch ignores the victim's percent AND weight,
-    /// because the launch law short-circuits a zero growth and returns
-    /// `base` untouched.
+    /// Fixed knockback: the launch ignores victim percent and weight, because
+    /// the launch law returns `base` for a zero growth.
     fn is_fixed(&self) -> bool {
         self.authored_growth() == Some(0.0)
     }
@@ -211,7 +175,7 @@ impl Launcher {
         }
     }
 
-    /// The role this pulse answers to, from AUTHORED VERB BINDINGS.
+    /// The role this pulse answers to, from authored verb bindings.
     fn role(&self) -> String {
         match self {
             Launcher::Throw { slot, .. } => (*slot).to_string(),
@@ -235,9 +199,7 @@ impl Launcher {
 
 /// Why one fighter, verb or volume could not become a launcher.
 ///
-/// ⭐ MALFORMED ROWS ARE REPORTED, NOT DROPPED. A census that silently skips
-/// what it cannot read is the same instrument as a grep that finds nothing and
-/// calls it absence.
+/// Malformed rows are reported, not dropped, so a skip is not read as absence.
 #[derive(Debug)]
 struct Malformed {
     fighter: String,
@@ -245,13 +207,11 @@ struct Malformed {
     why: String,
 }
 
-/// A capture slot that resolves, is authored on purpose, and DOES NOT LAUNCH.
+/// A capture slot that resolves, is authored on purpose, and does not launch.
 ///
-/// ⭐ RECORDED RATHER THAN DROPPED, so its absence from the KO table reads as
-/// authored intent instead of a hole somebody should fill. The goblin's down
-/// press hoists its captive (`CAPTURE_CARRY`) — *"A CARRY, NOT A THROW, AND NOT
-/// BOTH"* — and a census that reported it as a missing down-throw would invite
-/// exactly the repair that guard exists to forbid.
+/// Recorded so its absence from the KO table reads as intent. Example: the
+/// goblin's down press carries its captive (`CAPTURE_CARRY`) instead of
+/// throwing it.
 #[derive(Debug)]
 struct NonLaunching {
     fighter: String,
@@ -274,7 +234,7 @@ fn launchers_of(
         verbs_of.entry(move_id.as_str()).or_default().push(verb.clone());
     }
 
-    // STRIKES — every volume of every Active window, never collapsed.
+    // Strikes: every volume of every Active window, never collapsed.
     for spec in &contract.moves {
         for (w, window) in spec.windows.iter().enumerate() {
             if !matches!(window.tag, WindowTag::Active) {
@@ -293,20 +253,12 @@ fn launchers_of(
         }
     }
 
-    // THROWS — asked for by VERB, hydrated from the engine's own effect.
+    // Throws: found by verb, hydrated from the engine's own effect.
     //
-    // ⛔⛔ A RESOLVED CAPTURE VERB IS NOT NECESSARILY A LAUNCHER, and assuming it
-    // was is a defect this instrument shipped with for exactly one run. A slot
-    // may carry `CAPTURE_CARRY` instead: the goblin's down press HOISTS its
-    // captive rather than launching it, authored on purpose and guarded by
-    // `the_goblins_down_throw_hauls_instead_of_launching`, whose own words are
-    // *"A CARRY, NOT A THROW, AND NOT BOTH"*. The first version of this loop
-    // called that malformed — which would have meant breaking a correct fighter
-    // to green an instrument.
-    //
-    // ⇒ THREE OUTCOMES, not two: a throw (launches, measured here), a carry (a
-    // capture slot that deliberately does not launch, recorded so its absence
-    // from the KO table reads as intent rather than a hole), and absent.
+    // A resolved capture verb is not always a launcher. A slot can carry
+    // `CAPTURE_CARRY` instead (the goblin's down press; guarded by
+    // `the_goblins_down_throw_hauls_instead_of_launching`). So there are three
+    // outcomes: a throw (measured), a carry (recorded as intent), or absent.
     for (slot, verb) in THROW_VERBS {
         let Some(spec) = contract.move_for_verb(verb) else {
             // Not a defect: an unauthored throw is the authored way to say
@@ -393,19 +345,15 @@ fn dist(mut xs: Vec<f32>) -> Dist {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PHASE 2: THE STAGE-OUTCOME PROBE
+// Phase 2: the stage-outcome probe
 //
-// ⛔⛔ **A KO IS NOT A RESET.** `measure_cell` in `smash_in_the_host.rs` re-seats
-// an entire match per cell, which is correct and unaffordable here: the matrix
-// is thousands of trials. Reusing one match is possible, but ONLY behind an
-// explicit reset contract, because a knockout spends a stock, opens
-// `DeathInterlude`, adds `PendingRespawn`/`OutOfPlay`, grants `RespawnGrace`
-// (which publishes `Invulnerability::RESPAWN`), teleports the body, and leaves
-// `BodyKnockedOut` messages in the buffer that a fresh cursor would re-read as
-// the NEXT trial's result.
-//
-// ⇒ Every clause below is an assertion, not a hope, and each is tied to a fact
-// read out of the engine rather than assumed.
+// A KO is not a reset. `measure_cell` in `smash_in_the_host.rs` re-seats a
+// match per cell, which is too slow for thousands of trials. This probe reuses
+// one match behind an explicit reset contract, because a KO spends a stock,
+// opens `DeathInterlude`, adds `PendingRespawn`/`OutOfPlay`, grants
+// `RespawnGrace` (which publishes `Invulnerability::RESPAWN`), teleports the
+// body, and leaves `BodyKnockedOut` messages that a fresh cursor would read as
+// the next trial's result. Each reset clause below is asserted.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// What one pulse did to one victim at one percent.
@@ -416,8 +364,8 @@ struct Trial {
     /// is a fixture failure rather than a measurement of zero.
     resolved_launch: Option<f32>,
     ko: bool,
-    /// Did the launch reach this body's own tumble threshold, read live off its
-    /// motion model rather than restated as `500.0`.
+    /// Did the launch reach this body's own tumble threshold (read live off
+    /// its motion model).
     tumbled: bool,
     ticks_to_ko: Option<usize>,
     /// Victim state at the moment the pulse was fired, for the determinism
@@ -426,18 +374,12 @@ struct Trial {
     /// The meter the victim actually entered the pulse carrying.
     entry_percent: i32,
     /// What the launch arithmetic saw. For a throw this is `entry + damage`,
-    /// because `apply_capture_throws` damages BEFORE reading the meter.
+    /// because `apply_capture_throws` damages before reading the meter.
     effective_percent: i32,
-    /// WAS THE VICTIM STILL NON-ACTIONABLE WHEN IT CROSSED THE BLAST LINE?
+    /// Was the victim still non-actionable when it crossed the blast line?
     ///
-    /// ⭐ TWO DIFFERENT EVENTS WEAR ONE NAME IN EVERY TABLE THIS TOOL HAS
-    /// PRINTED. A move that launches a body through the blast line while it is
-    /// still in hitstun or tumbling took the stock — the victim could not have
-    /// acted. A body that leaves the world after control returned merely FELL,
-    /// and scoring that as kill power credits the move with a stock the stage
-    /// took. Only the first is evidence about knockback.
-    ///
-    /// `None` when no KO occurred.
+    /// If yes, the move took the stock. If control had returned, the body fell,
+    /// and that is not evidence about knockback. `None` when no KO occurred.
     ko_forced: Option<bool>,
 }
 
@@ -448,25 +390,21 @@ enum Threshold {
     At(i32),
     /// Never killed anywhere in the tested range.
     Above(i32),
-    /// KO then survive as percent RISES. Samples preserved rather than
-    /// collapsed into a scalar that would be a fabrication.
+    /// KO then survive as percent rises. Samples are kept, not collapsed into
+    /// a scalar.
     NonMonotonic(Vec<(i32, bool)>),
     /// The pulse never connected — nothing measured.
     NoContact,
     /// The probe could not obtain a clean trial at this percent.
     ///
-    /// ⛔ THIS IS NOT A SURVIVAL, AND THE PREVIOUS FORM SAID IT WAS. A refused
-    /// reset pushed `(p, false)`, so a percent the INSTRUMENT failed to measure
-    /// was recorded as a percent the VICTIM lived through — and the threshold
-    /// walked straight past it. Run 2 refused 8 of 64 rows this way.
+    /// This is not a survival. Recording it as one would let the threshold
+    /// search walk past a percent that was never measured.
     Refused(i32),
-    /// CALIBRATION ONLY — trials at ONE percent disagreed with each other.
+    /// Calibration only: trials at one percent disagreed with each other.
     ///
-    /// ⛔ THIS IS THE CELL MAJORITY-OF-THREE USED TO HIDE. The coarse path
-    /// outvotes a 2:1 split and prints a crisp integer; that integer then feeds
-    /// `G_new = G_old * p0/p1` and becomes a SHIPPED growth. A threshold that
-    /// could not reproduce itself is not a number to author from, so calibration
-    /// refuses it by name instead of rounding it off.
+    /// The coarse path hides this with majority-of-three. Calibration refuses
+    /// the cell instead, because its result feeds `G_new = G_old * p0/p1` and
+    /// becomes a shipped growth.
     Unstable { percent: i32, yes: i32, no: i32 },
 }
 
@@ -485,31 +423,24 @@ impl Threshold {
     }
 }
 
-/// WHAT THREE TRIALS AT ONE PERCENT ACTUALLY SAID.
+/// What the trials at one percent said.
 ///
-/// ⛔ `bool` WAS THE WRONG RETURN AND IT DESTROYED THE FINDING AT THE SEAM.
-/// `kills` ran up to three trials and collapsed them with `yes > no`, so a cell
-/// that killed twice and survived once became indistinguishable from one that
-/// killed three times. The disagreement was printed to stderr and then thrown
-/// away, which means every caller — including the one that authors a shipped
-/// growth — saw a confidence the measurement did not have.
+/// Not a `bool`: collapsing trials with `yes > no` hides a 2:1 split, and
+/// calibration must see that split.
 #[derive(Clone, Copy)]
 enum Vote {
     Killed,
     Survived,
-    /// The same initial state produced BOTH outcomes. Counts kept, because
+    /// The same initial state produced both outcomes. Counts kept, because
     /// 2:1 and 1:2 are different evidence about where the edge sits.
     Mixed { yes: i32, no: i32 },
 }
 
 impl Vote {
-    /// The historical majority-of-three verdict.
+    /// The majority-of-three verdict.
     ///
-    /// ⚠ THE COARSE PATH STILL USES THIS, DELIBERATELY. Every table this tool
-    /// has ever recorded was measured under majority rule, and changing the
-    /// default would silently re-define what those runs mean — comparability
-    /// across them is the one thing a later reading cannot buy back. Calibration
-    /// opts out by refusing the cell instead; the survey keeps its semantics.
+    /// The coarse path still uses this, so new tables stay comparable with
+    /// earlier runs. Calibration refuses a mixed cell instead.
     fn majority(self) -> bool {
         match self {
             Vote::Killed => true,
@@ -519,14 +450,9 @@ impl Vote {
     }
 }
 
-/// ⛔ `true`/`false` ARE PRESERVED VERBATIM, AND THAT IS THE POINT.
-///
-/// The determinism probe prints six of these side by side and asks whether they
-/// agree. Every run recorded before `Vote` existed rendered a `bool`, so keeping
-/// the unanimous spellings byte-identical keeps those runs comparable with new
-/// ones. The ONLY new string is the case a `bool` could not express: a cell that
-/// disagreed with itself used to be majority-ized into a confident `true` before
-/// anyone could see it, which is the defect that arm was built to catch.
+/// Unanimous votes print as `true`/`false`, the same as the old `bool`
+/// output, so determinism-probe output stays comparable across runs. Only a
+/// mixed cell prints a new string.
 impl std::fmt::Display for Vote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -537,20 +463,13 @@ impl std::fmt::Display for Vote {
     }
 }
 
-/// THE ATTACKER'S OWN METER FOR EVERY TRIAL — `attacker_pct=<n>`, default 0.
+/// The attacker's own meter for every trial: `attacker_pct=<n>`, default 0.
 ///
-/// ⛔⛤ ZERO IS NOT A NEUTRAL CHOICE, IT IS A CONTROL. `rage_scale` reads the
-/// ATTACKER's damage and multiplies every resolved launch, so a sweep that lets
-/// it float is measuring the fixture's accumulated damage as much as the
-/// authored value — `lib.rs:4161` records a case where borrowed rage turned a
-/// survival into a knockout and "only controlling rage could tell the two apart".
-/// Pinning it to 0 is what makes rows comparable.
-///
-/// ⭐ AND IT IS EXACTLY WHY THE FLAG EXISTS. A kill percent measured at rage 1.0
-/// is the WEAKEST the move will ever be; the question "does this move still kill
-/// when the attacker is behind" cannot be asked of a rage-pinned table at all.
-/// Cached, because `reset_trial` runs once per trial and a step-1 scan is ~110 of
-/// them per cell.
+/// This is a control. `rage_scale` reads the attacker's damage and scales every
+/// launch, so a floating value would mix fixture damage into the result.
+/// A kill percent at rage 1.0 is the weakest the move gets; set this flag to
+/// ask about other rage values. Cached, because `reset_trial` calls it once per
+/// trial.
 fn attacker_meter() -> i32 {
     static V: std::sync::OnceLock<i32> = std::sync::OnceLock::new();
     *V.get_or_init(|| {
@@ -564,32 +483,23 @@ fn attacker_meter() -> i32 {
     })
 }
 
-/// WHAT DELIVERS ONE PULSE — and the ONLY thing the threshold machinery varies.
+/// What delivers one pulse. This is the only thing the threshold machinery
+/// varies.
 ///
-/// ⛔⛤ A SECOND SEARCH WOULD BE A SECOND SET OF SEMANTICS. `ko_threshold`'s
-/// rules — what a refusal is, what a non-monotonic curve is, when a threshold
-/// counts as verified, majority-of-three — are the expensive, hard-won part of
-/// this instrument. A parallel throw search would be a second chance to get
-/// each of them subtly wrong, so strikes and throws differ ONLY in how the
-/// pulse is delivered and share everything after it.
-///
-/// Two references, so this is `Copy` and costs a threshold search nothing.
+/// Strikes and throws share one search (`ko_threshold`) and differ only in
+/// delivery, so there is one set of rules for refusals, non-monotonic curves,
+/// verification, and majority votes. Two references, so this is `Copy`.
 #[derive(Clone, Copy)]
 enum Pulse<'a> {
     Strike(&'a HitVolume),
     Throw(&'a CaptureThrowParams),
 }
 
-/// THE STAGE'S BLAST ENVELOPE AS THE RUNNING GAME HOLDS IT.
+/// The stage's blast envelope, as the running game holds it.
 ///
-/// ⛔⛔ READ OFF THE LIVE `RoomGeometry`, NEVER RESTATED FROM THE DEMO'S
-/// CONSTANTS. `FALL_BLAST_MARGIN_PX` and friends are `game/ambition_demo_smash`'s
-/// own numbers, and a copy here would be a SECOND stage that silently stops
-/// matching the first — the identical mistake `KoProbe::new` already refuses to
-/// make for `centre`. It is also the mistake that cost this investigation a
-/// session: a gravity constant transcribed from `platformer_defaults.ron` (2250)
-/// described a body the engine was accelerating at 1450, and every conclusion
-/// built on it was wrong.
+/// Read off the live `RoomGeometry`, never copied from the demo's constants
+/// (`FALL_BLAST_MARGIN_PX` and others). A copy would be a second stage that can
+/// drift from the first. `KoProbe::new` follows the same rule for `centre`.
 #[derive(Clone, Copy)]
 struct Blast {
     size: ambition_platformer2d::engine_core::Vec2,
@@ -599,15 +509,12 @@ struct Blast {
 }
 
 impl Blast {
-    /// WHICH LINE THE BODY CROSSED — the question `HitSource::LeftTheWorld`
-    /// cannot answer.
+    /// Which line the body crossed. `HitSource::LeftTheWorld` does not say.
     ///
-    /// ⛔ THE KERNEL'S OWN ARITHMETIC, transcribed from `apply_world_hazard_gate`
-    /// rather than re-invented: clamp into the world box, project the excess onto
-    /// the frame's down/side axes, and compare against the per-axis margin. A
-    /// second formula here would be free to disagree with the one that actually
-    /// killed the body, which would make this a story about a KO rather than a
-    /// measurement of one. Gravity is screen-down on this stage, so `down` is +y.
+    /// Uses the same arithmetic as `apply_world_hazard_gate`: clamp into the
+    /// world box, project the excess onto the frame's down/side axes, and
+    /// compare with the per-axis margin. Gravity is screen-down on this stage,
+    /// so `down` is +y.
     fn classify(&self, pos: ambition_platformer2d::engine_core::Vec2) -> &'static str {
         let clamped_x = pos.x.clamp(0.0, self.size.x);
         let clamped_y = pos.y.clamp(0.0, self.size.y);
@@ -625,9 +532,8 @@ impl Blast {
         } else if self.rise.is_some_and(|m| -past_fall > m) {
             "rise"
         } else {
-            // ⛔ NOT "unknown" AS A SHRUG. The body was declared out by the engine
-            // and yet sits inside every margin this stage declares, which means
-            // the position sampled here is not the position the gate judged.
+            // The engine declared the body out, but the sample is inside every
+            // margin: the sampled position is not the one the gate judged.
             "INSIDE-ALL-MARGINS-sample-disagrees-with-gate"
         }
     }
@@ -640,15 +546,11 @@ struct KoProbe {
     centre: f32,
     tumble_speed: f32,
     victim_weight: f32,
-    /// The live blast envelope, or `None` when the running app publishes no
-    /// `RoomGeometry` at all — reported as absence rather than back-filled from
-    /// the demo's constants, because a probe that substitutes a plausible number
-    /// for a missing one cannot tell you it was missing.
+    /// The live blast envelope, or `None` when the app publishes no
+    /// `RoomGeometry`. Reported as absent, never filled from demo constants.
     blast: Option<Blast>,
-    /// How many trials had to prise the victim off a ledge before they could
-    /// start. ⭐ THE CONFIRMING MEASUREMENT FOR THE REGIME-2 DIAGNOSIS: the ledge
-    /// hang is a HYPOTHESIS until this counter moves, and a fix that silently
-    /// worked would leave me claiming a mechanism I never observed.
+    /// How many trials had to release the victim from a ledge before they
+    /// could start. This counter confirms the ledge-hang diagnosis.
     ledge_releases: usize,
 }
 
@@ -667,10 +569,9 @@ impl KoProbe {
             seat1,
         } = staged;
 
-        // ⛔ STOCKS FIRST, AND IT IS A CORRECTNESS PRECONDITION rather than a
-        // speed trick: `STARTING_STOCKS` is 3, and Smash's
-        // `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated body —
-        // so the fourth probe KO would query a destroyed entity.
+        // Stocks first, for correctness: `STARTING_STOCKS` is 3, and
+        // `take_eliminated_fighters_out_of_play` despawns an eliminated body,
+        // so the fourth KO would query a destroyed entity.
         for body in [seat0, seat1] {
             if let Some(mut stocks) = app
                 .world_mut()
@@ -679,32 +580,22 @@ impl KoProbe {
                 stocks.remaining = 9_999;
                 stocks.started_with = 9_999;
             }
-            // ⛔ BOTH brains, not just seat 0. A live CPU victim is what broke
-            // the first version of `ring_out`: it walked during the window and
-            // something reset its meter mid-reading.
+            // Both brains. A live CPU victim moves during the window and can
+            // reset its own meter mid-reading.
             app.world_mut().entity_mut(body).insert(Brain::stand_still());
         }
         app.update();
 
-        // ⭐⭐ OPTIONAL: RUN THE MATRIX WITH THE GROWTH CURVE OFF (`identity`).
+        // Optional: run with the growth curve off (`identity`).
         //
-        // The review's standing ruling is that `GrowthBaseCurve` is EVIDENCE and
-        // not something to ship, and that calibration needs a curve-free floor to
-        // work from. A flag rather than an edit-and-rebuild because curve-on and
-        // curve-off must come from ONE binary: rebuilding between them would put
-        // a tree difference inside the comparison, which is exactly the confound
-        // that made `envelope_AFTER_law` unusable.
+        // `GrowthBaseCurve` is evidence, not shipped tuning, and calibration
+        // needs a curve-free floor. A flag keeps curve-on and curve-off in one
+        // binary, so no tree difference enters the comparison.
         //
-        // ⛔ WRITE THE DECLARATION, NOT THE RESOLVED RESOURCE. `ResolvedCombatTuning`
-        // is re-derived from `DeclaredCombatRules` EVERY TICK, so a write to the
-        // resolved end is overwritten before the next hit and the run would report
-        // the demo's own curve wearing an IDENTITY label.
-        //
-        // ⛔ AND THE OVERRIDE IS NOT TRUSTED. It is read back THROUGH the fold and
-        // asserted. A lever that silently failed would produce a curve-off table
-        // identical to the curve-on one, which reads as "the curve does nothing" —
-        // the most expensive possible false negative, because the honest response
-        // to it would be to raise the exponent.
+        // Write the declaration, not `ResolvedCombatTuning`: the resolved
+        // resource is re-derived from `DeclaredCombatRules` every tick. The
+        // override is read back through the fold and asserted, because a silent
+        // failure would look like "the curve does nothing".
         if std::env::args().any(|a| a == "identity") {
             {
                 let mut declared = app
@@ -739,14 +630,12 @@ impl KoProbe {
             );
         }
 
-        // Read off the REAL stage, the way `ring_out::stage_centre_and_reach`
-        // does — never restated as a literal, because `STAGE_SIZE` and the blast
-        // margins are the demo's own constants and a copy here would be a second
-        // stage that silently stops matching the first.
+        // Read off the real stage, as `ring_out::stage_centre_and_reach` does,
+        // never restated from the demo's constants.
         let room = ambition_demo_smash::smash_stage();
         let centre = room.world.size.x / 2.0;
 
-        // The victim's OWN tumble threshold, off its live motion model.
+        // The victim's own tumble threshold, off its live motion model.
         let tumble_speed = app
             .world()
             .get::<ambition_platformer2d::actor::MotionModel>(seat1)
@@ -765,11 +654,9 @@ impl KoProbe {
             .map(|t| t.weight)
             .unwrap_or(1.0);
 
-        // ⭐⭐ THE BLAST ENVELOPE FROM THE LIVE WORLD, not from the demo's
-        // constants. `RoomGeometry` is the session-root component wrapping the
-        // active room's collision world — the same `World` whose `edges` the
-        // movement kernel destructures in `apply_world_hazard_gate` to decide
-        // `ResetCause::LeftTheWorld`. Asking it is asking the authority.
+        // The blast envelope from the live world. `RoomGeometry` wraps the
+        // active room's collision world, the same `World` whose `edges`
+        // `apply_world_hazard_gate` reads to decide `ResetCause::LeftTheWorld`.
         let blast = {
             let world = app.world_mut();
             let mut q = world.query::<&ambition_platformer2d::engine_core::RoomGeometry>();
@@ -792,16 +679,9 @@ impl KoProbe {
             ledge_releases: 0,
         };
 
-        // ⭐⭐ EVERY PARAMETER THE KNOCKBACK ARITHMETIC DEPENDS ON, READ OFF THE
-        // LIVE VICTIM AND THE LIVE STAGE — printed once per matchup, because these
-        // are PER-VICTIM facts and a single global header would quietly describe
-        // the wrong body for every matchup after the first.
-        //
-        // ⛔ NOT ONE OF THESE IS DERIVED FROM A SOURCE CONSTANT. That rule is not
-        // fastidiousness: this investigation spent a session on conclusions built
-        // from a gravity value transcribed out of a defaults file that did not
-        // apply to the body being measured. A number that agrees with the running
-        // game is evidence; a number that agrees with the repo is a restatement.
+        // Every parameter the knockback arithmetic depends on, read off the
+        // live victim and stage. Printed per matchup, because these are
+        // per-victim facts. None is taken from a source constant.
         println!(
             "# victim live facts: weight={:.3} tumble_speed={:.1} {}",
             probe.victim_weight,
@@ -821,8 +701,8 @@ impl KoProbe {
                     .map(|v| format!("{v:.0}"))
                     .unwrap_or_else(|| "NONE(rises forever)".into()),
             ),
-            // ⛔ LOUD ABSENCE. Without this the KO-boundary column would read
-            // "unknown" for every cell and look like a classification result.
+            // Report the absence, so the KO-boundary column does not read
+            // "unknown" as if it were a result.
             None => println!(
                 "# ⛔ stage live blast envelope: NO RoomGeometry IN THE RUNNING APP — \
                  KO boundaries CANNOT be classified this run, and no margin has been \
@@ -848,22 +728,14 @@ impl KoProbe {
         );
     }
 
-    /// THE GRAVITY THIS BODY IS ACTUALLY INTEGRATED AT — read, never named.
+    /// The gravity this body is integrated at, read, never named.
     ///
-    /// ⛔⛔ THE SINGLE MOST EXPENSIVE ERROR IN THIS INVESTIGATION WAS A GRAVITY
-    /// CONSTANT COPIED OUT OF A DEFAULTS FILE. `platformer_defaults.ron` says
-    /// 2250 and that is the PLAYER's number; `resolve_body_motion_frames` has two
-    /// arms, and a match seat takes the `Without<PlayerEntity>` one, which is
-    /// `config.tuning.movement.gravity * surface.gravity_scale` — 1450 here. Every
-    /// apex, threshold and "contradiction" derived from 2250 described a body that
-    /// does not exist, and one of them was written up as a missing engine
-    /// mechanic before the arithmetic was rechecked.
-    ///
-    /// ⭐ THREE ROADS, PRINTED SIDE BY SIDE, because agreement between them is
-    /// the measurement and any one alone is a claim: the resolved frame the
-    /// kernel integrates, the configured tuning, and the surface scale that
-    /// multiplies it. A capture or a mount sets `gravity_scale` to 0.0, so a body
-    /// can be configured at 1450 and accelerating at nothing.
+    /// `platformer_defaults.ron` gives 2250, but that is the player's value. A
+    /// match seat takes the `Without<PlayerEntity>` arm of
+    /// `resolve_body_motion_frames`: `config.tuning.movement.gravity *
+    /// surface.gravity_scale` (1450 here). This prints three values side by
+    /// side: the resolved frame, the configured tuning, and the surface scale.
+    /// A capture or mount sets `gravity_scale` to 0.0.
     fn victim_gravity(&self) -> String {
         let w = self.app.world();
         let resolved = w
@@ -893,7 +765,7 @@ impl KoProbe {
         )
     }
 
-    /// IS THE VICTIM HANGING ON A LEDGE? The regime-2 cause, made visible.
+    /// Is the victim hanging on a ledge?
     ///
     /// The hang is policy-private axis maneuver state (ADR 0024), so this reads
     /// it rather than owning it; `knock_off_ledge` is the only thing that clears
@@ -917,12 +789,11 @@ impl KoProbe {
             .unwrap_or_else(|| "none".into())
     }
 
-    /// Every victim fact a trial could INHERIT, in one tab-free field.
+    /// Every victim fact a trial could inherit, in one tab-free field.
     ///
-    /// ⛔ NOT A HEALTH CHECK. `reset_trial` already asserts the conditions it
-    /// knows to assert; this exists precisely for the fact it does NOT know
-    /// about, so it reports state rather than judging it. The differing column
-    /// between a pre-KO trial and a post-KO trial is the answer.
+    /// Not a health check. `reset_trial` asserts what it knows about. This
+    /// reports state for what it does not know about: compare a pre-KO and a
+    /// post-KO trial to find the differing column.
     fn snapshot(&self) -> String {
         use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
         let w = self.app.world();
@@ -981,32 +852,16 @@ impl KoProbe {
         )
     }
 
-    /// ⛔ THE CONTRACT. A trial may not begin until every one of these is true,
-    /// and each is CHECKED rather than waited-out by tick count.
+    /// The reset contract. A trial does not begin until each condition is
+    /// true. Each one is checked, not waited out by tick count.
     fn reset_trial(&mut self, entry_percent: i32, victim_x: f32) -> bool {
         use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability};
 
-        // ⛔⛔⛔ THE MATCH CAN END UNDERNEATH THE PROBE, AND EVERY ROW AFTER THAT
-        // IS FICTION. THIS IS THE WORST FAILURE THIS INSTRUMENT HAS HAD.
-        //
-        // MEASURED 2026-09-13: of 209 refusals in one matchup, 184 (88%) had
-        // `seats_now=0` — NOT ONE `MatchSeat` ENTITY LEFT. The round had ended
-        // and the whole cast was despawned, so `self.victim` was a DANGLING
-        // HANDLE: `pin_grounded_at_rest` silently early-returned because
-        // `get_mut` found no component, `pos()` answered `(0,0)` from
-        // `unwrap_or_default()`, the grounded premise failed, and every
-        // remaining trial refused forever. That is the snowball.
-        //
-        // ⛔ AND IT PRINTED A FULL TABLE ANYWAY. Twenty-four `REFUSED@0` throw
-        // cells were published as throw measurements when the cast they
-        // "measured" did not exist. A refused row is not a neutral blank: it
-        // reads as a fact about a MOVE. An instrument that answers about itself
-        // in the artifact's own table is worse than one that produces nothing.
-        //
-        // ⇒ ROWS PRINTED BEFORE THE TIMEOUT ARE REAL and are deliberately kept;
-        // everything after is refused. So this ABORTS LOUDLY rather than
-        // returning `false` — a `false` here is indistinguishable from an
-        // ordinary refusal and would go on filling the table with fiction.
+        // The match can end under the probe. Then the cast is despawned,
+        // `self.victim` is a dangling handle, `pos()` returns `(0,0)` from
+        // `unwrap_or_default()`, and every later trial refuses. Refused rows
+        // read as facts about moves, so this aborts loudly instead of returning
+        // `false`. Rows printed before the abort are real and are kept.
         let seats_now = {
             let w = self.app.world_mut();
             let mut q = w.query::<&ambition_platformer2d::actor::MatchSeat>();
@@ -1027,10 +882,10 @@ impl KoProbe {
             std::process::exit(2);
         }
 
-        // 1. Let the real respawn lifecycle finish. `respawn_when_the_interlude_
-        //    closes` gates on `!DeathInterlude.open()` and then hands back every
-        //    fact the spend took, so waiting on the MARKERS is waiting on the
-        //    engine's own answer.
+        // 1. Let the real respawn lifecycle finish.
+        //    `respawn_when_the_interlude_closes` gates on `!DeathInterlude.open()`
+        //    and then removes the markers, so waiting on the markers waits on
+        //    the engine.
         let mut settled = false;
         for _ in 0..600 {
             let w = self.app.world();
@@ -1041,11 +896,10 @@ impl KoProbe {
                     .is_some()
                 || w.get::<ambition_platformer2d::combat::death_rules::OutOfPlay>(self.victim)
                     .is_some();
-            // 2. BOTH grace witnesses. `stocks.rs` clears the bit when the clock
-            //    expires AND retracts it when the component is removed, so the
-            //    two agreeing is a measurement; either alone is a claim. A trial
-            //    begun under live grace hits an untouchable victim and reports a
-            //    FALSE SURVIVAL — the worst failure this probe can have.
+            // 2. Both grace witnesses. `stocks.rs` clears the bit when the clock
+            //    expires and when the component is removed, so both must agree.
+            //    A trial under live grace hits an untouchable victim and reports
+            //    a false survival.
             let protected = w
                 .get::<ambition_platformer2d::combat::stocks::RespawnGrace>(self.victim)
                 .is_some()
@@ -1064,13 +918,8 @@ impl KoProbe {
             self.app.update();
         }
         if !settled {
-            // ⭐ SAY WHICH CONDITION BLOCKED IT. A refusal that reports only
-            // "refused" sends the next reader guessing, and run 3 refused 16 of
-            // 60 cells — every one of them a LEDGE cell, clustered where
-            // thresholds are low and therefore where nearly every trial ends in
-            // a KO. That points at the respawn cycle rather than the position,
-            // but pointing is not knowing, so the probe names the marker still
-            // standing when its budget ran out.
+            // Name the marker that still blocks when the budget runs out, so
+            // a refusal says why.
             let w = self.app.world();
             let mut blocked = Vec::new();
             if w.get::<ambition_platformer2d::combat::death_rules::DeathInterlude>(self.victim)
@@ -1116,33 +965,16 @@ impl KoProbe {
 
         // 3. Place, still, and metered.
         //
-        // ⛔⛔⛔ LET GO OF THE LEDGE FIRST, OR THE PIN IS OVERWRITTEN EVERY TICK.
+        // Release the ledge first, or the ledge hang overwrites the pin every
+        // tick. A KO'd fighter can catch an edge on the way back, and a
+        // stand-still fixture never lets go, so the hang carries into every
+        // later trial. The hang shows as the body at x=574 or x=66 (the
+        // platform spans 80..560, the body is 30 wide) with zero velocity.
         //
-        // MEASURED 2026-09-13. 54 of 67 refusals in a full matchup reported the
-        // victim at x=574 or x=66 with `vel=(0,0)`, unmoved across 24+ ticks. The
-        // platform spans 80..560 and the body is 30 wide, so those are `560+14`
-        // and `80-14` — one pixel of overlap, which `spans_overlap_for_support`
-        // rejects at exactly `EDGE_OVERLAP_SLOP`. That is the precise coordinate
-        // where support ends: a LEDGE HANG, latched.
-        //
-        // The hang is a TETHER. It re-asserts its anchor after this fixture's
-        // pin, which is why a body pinned at stage centre (320,320) reported
-        // (574,320) one tick later — a 254px move that looked like a teleport and
-        // was blamed on depenetration for hours. It cannot have been:
-        // `is_contact_range_snap` caps any pushout at the body's own half-diagonal
-        // (~28px) and BOTH resolution paths filter through it.
-        //
-        // ⛔ AND IT SNOWBALLS, which is why refusals grew 25 -> 209 across a run
-        // and why whatever `launchers_of` pushes LAST (throws) appeared broken.
-        // Nothing in a stand-still fixture ever lets go, so once a KO'd fighter
-        // catches an edge on the way back, every later trial inherits it.
-        //
-        // ⭐ `knock_off_ledge` IS THE SANCTIONED RELEASE — the typed
-        // combat->movement op over the axis policy's private hang state, the same
-        // one a real hit uses. It also arms `LEDGE_KNOCK_OFF_COOLDOWN` (0.35s), so
-        // the body cannot immediately re-latch the edge it was just taken off.
-        // Reaching into `axis.state.ledge_grab` directly would be a second
-        // authority on what leaving a ledge means.
+        // `knock_off_ledge` is the sanctioned release: the typed
+        // combat->movement op that a real hit uses. It also arms
+        // `LEDGE_KNOCK_OFF_COOLDOWN` (0.35s), so the body cannot re-latch at
+        // once. Do not write `axis.state.ledge_grab` directly.
         let released = {
             let world = self.app.world_mut();
             let mut q = world.query::<(
@@ -1151,10 +983,8 @@ impl KoProbe {
             )>();
             match q.get_mut(world, self.victim) {
                 Ok((mut model, mut ledge)) => {
-                    // ⚠ `&mut *`, NOT `&mut`. `get_mut` hands back `Mut<T>` change
-                    // trackers; Rust auto-derefs a method RECEIVER but never a
-                    // function ARGUMENT, so `&mut model` is `&mut Mut<MotionModel>`
-                    // and does not satisfy `&mut MotionModel`.
+                    // `&mut *`, not `&mut`: `get_mut` returns `Mut<T>`, and Rust
+                    // does not auto-deref a function argument.
                     ambition_platformer2d::engine_core::movement::knock_off_ledge(
                         &mut *model,
                         &mut *ledge,
@@ -1165,15 +995,9 @@ impl KoProbe {
         };
         if released {
             self.ledge_releases += 1;
-            // ⭐⭐ THE CONFIRMING MEASUREMENT, AND IT MUST BE EMITTED.
-            //
-            // The ledge-hang diagnosis is a HYPOTHESIS until this line appears in
-            // a run. The danger is specific: if the release works, the refusals it
-            // was built to remove DISAPPEAR, and a silent counter would leave me
-            // reporting a mechanism nothing ever observed — a fix whose success is
-            // indistinguishable from the bug never having existed. `knock_off_ledge`
-            // returns true only when it actually took a hang away, so each of these
-            // lines is one trial that WAS latched and now is not.
+            // Print each release. `knock_off_ledge` returns true only when it
+            // removed a hang, so each line is one trial that was latched. This
+            // output confirms the ledge-hang diagnosis.
             let p = self.pos(self.victim);
             eprintln!(
                 "KO_LEDGE_RELEASE: n={} x={victim_x:.0} pct={entry_percent} \
@@ -1183,46 +1007,21 @@ impl KoProbe {
         }
         self.park(self.victim, victim_x);
         self.park(self.attacker, victim_x - 240.0);
-        // ⭐ DID THE LANDING LOOP EVER SUCCEED? `landed_y` below is read
-        // UNCONDITIONALLY, so a loop that ran out of budget hands the pin a
-        // MID-FALL height and the grounded premise then refuses a body the
-        // fixture itself put in the air. Recording the tick separates "landed
-        // and was moved afterwards" from "never landed at all" — two different
-        // defects that produce the same refusal.
+        // Record whether the landing loop succeeded. `landed_y` is read
+        // unconditionally, so a loop that runs out of budget gives a mid-fall
+        // height. The tick separates "never landed" from "landed and then
+        // moved".
         let mut landed_after: Option<usize> = None;
-        // ⭐ THE DESCENT ITSELF, RECORDED — because `landed_after=None` on 209/209
-        // refusals says the loop never saw a landing, and NOTHING says why.
+        // Record the descent, so a refusal with `landed_after=None` shows why.
         //
-        // ⛔⛔ THE COMMENT THAT STOOD HERE USED GRAVITY 2250 AND WAS WRONG, and it
-        // was wrong in the direction that hid the answer. 2250 is the PLAYER's
-        // gravity (`platformer_defaults.ron`); a match seat is an ACTOR body, and
-        // `resolve_body_motion_frames` gives the `Without<PlayerEntity>` arm
-        // `config.tuning.movement.gravity * surface.gravity_scale`, which is
-        // `BodyMovementTuning::BASELINE.gravity` = 1450 at `gravity_scale` 1.0.
+        // A match seat falls at 1450 (`BodyMovementTuning::BASELINE.gravity`
+        // via the `Without<PlayerEntity>` arm of `resolve_body_motion_frames`),
+        // not the player's 2250. One `app.update()` is one sim tick.
         //
-        // ⭐ MEASURED, not re-derived from a second constant. Seven refusals in
-        // this very probe caught the victim in free fall one tick after the pin:
-        //     dy = 0.4000px  => g = dy * 3600 = 1440
-        //     vel_y = 24.2   => g = vel * 60  = 1452
-        // Two independent channels (displacement and velocity), seven samples,
-        // both landing on 1450 through one-decimal printing, and both consistent
-        // only if one `app.update()` is exactly one sim tick — which it is.
-        //
-        // ⇒ THE TRAIL'S ORIGINAL QUESTION IS ANSWERED AND IT WAS NOT A DESCENT.
-        // The body does not fall through the platform: it does not fall AT ALL.
-        // 21 of 25 trails read one identical pose for every sample, and the pose
-        // is x=574 or x=66 — the platform spans 80..560 and the body is 30 wide,
-        // so those are `560+14` and `80-14`: one pixel of overlap left, which
-        // `spans_overlap_for_support` rejects at exactly `EDGE_OVERLAP_SLOP`.
-        // A body frozen at zero velocity on the precise pixel where support ends
-        // is a LEDGE HANG, and the tether re-asserts its anchor over this
-        // fixture's pin every tick. See the release below.
-        //
-        // ⛔ A TRAIL, NOT A GUESS. Six hypotheses in this investigation have died
-        // by measurement — including the depenetration story this trail was built
-        // to support, which `is_contact_range_snap` refuses outright: it caps any
-        // pushout at the body's own half-diagonal (~28px), and the observed move
-        // is 254px. No collision code in this engine can produce it.
+        // A body that sits at x=574 or x=66 with the same pose in every sample
+        // is in a ledge hang, not falling through the platform. See the
+        // release above. `is_contact_range_snap` caps any pushout at the body's
+        // half-diagonal (~28px), so depenetration cannot explain a large move.
         let mut trail: Vec<(f32, f32)> = Vec::new();
         for tick in 0..40 {
             self.park(self.attacker, victim_x - 240.0);
@@ -1242,103 +1041,51 @@ impl KoProbe {
                 break;
             }
         }
-        // ⛔⛔ DO NOT `park` AGAIN HERE — MEASURED 2026-09-13, AND THIS WAS THE
-        // DEFECT UNDER RUN 1'S WHOLE TABLE.
+        // Do not `park` again here. `park` sets y = 200.0, above the platform
+        // (PLATFORM_TOP is 300), so every trial would start airborne. An
+        // airborne body takes a different path when struck, which makes
+        // identical trials disagree.
         //
-        // `park` places a body at y = 200.0, which is ABOVE the platform surface
-        // (PLATFORM_TOP is 300). The loop above spends up to forty ticks waiting
-        // for the victim to LAND, and the previous form then lifted it straight
-        // back into the air and ran one update — so every trial began airborne,
-        // and `ground=` varied with where that single tick left it. A body
-        // struck in the air takes a different road than one struck standing,
-        // which is why four identical trials alternated survive/KO on an
-        // IDENTICAL resolved launch of 403.0, and why the oracle row's centre
-        // threshold moved 291 -> 283 when a coarser step reshuffled the order.
-        //
-        // Correct x WITHOUT restoring the height the landing just resolved.
-        //
-        // ⛔⛤ AND THROUGH THE PIN, DELIBERATELY NOT THROUGH `transit_body`: this
-        // body is being slid along a floor it is ALREADY STANDING ON, and the
-        // grounded premise asserted just below is the entire point of the
-        // reset. The transit authority would clear that contact by design. See
-        // `pin` for the measurement that settled it.
-        //
-        // The `y` is read back from the body the loop above landed, so only the
-        // `x` is the trial's to choose — the pin takes a full pose, and handing
-        // it anything else would restore the height this comment forbids.
+        // Correct x through the pin and keep the landed height. Do not use
+        // `transit_body`: this body slides along a floor it already stands on,
+        // and the transit authority clears that contact. See `pin`.
         let landed_y = self.pos(self.victim).y;
         probe_stage::pin_grounded_at_rest(
             &mut self.app,
             self.victim,
             ambition_platformer2d::engine_core::Vec2::new(victim_x, landed_y),
         );
-        // ⭐ THE POSE THE PIN ACTUALLY ACHIEVED, READ BEFORE ANY TICK RUNS.
-        //
-        // ⛔ THIS SEPARATES TWO COMPLETELY DIFFERENT DEFECTS that the refusal
-        // line could not tell apart. The pin is called with `(victim_x,
-        // landed_y)` and the refusal then reports `pos.x = 574` for a
-        // `victim_x` of 320 — so EITHER the write never reached the entity being
-        // read (a stale/duplicate victim), OR it landed and something overrode
-        // it during the update that follows. Sampling here, with no `update()`
-        // in between, is the only way to say which.
+        // The pose the pin achieved, read before any tick runs. This separates
+        // "the write never reached this entity" from "something overrode it
+        // during the next update".
         let pinned_at = self.pos(self.victim);
         self.app.update();
 
-        // ⭐ AND THE PREMISE IS NOW CHECKED RATHER THAN HOPED FOR. A trial that
-        // cannot start the victim standing still on the floor does not start.
+        // Check the premise: a trial starts only with the victim standing still
+        // on the floor.
         let grounded = self
             .app
             .world()
             .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
             .is_some_and(|g| g.on_ground);
         if !grounded {
-            // ⛔⛤ THIS IS THE REFUSAL THAT ACTUALLY FIRES, AND IT SAID NOTHING.
-            //
-            // MEASURED 2026-09-13: across the strike matrix AND the stage-3 run —
-            // between them well over a hundred refused cells — the settle stage
-            // above logged `KO_REFUSE` exactly ZERO times. Every refusal this
-            // instrument has ever printed came through HERE, and this arm was a
-            // bare `return false`, so the one explanation a reader needed was the
-            // only one never written down. The careful message upstream describes
-            // a path that has never been taken.
-            //
-            // ⛔ An empty `KO_REFUSE` grep therefore proved NOTHING about a
-            // refused cell, which is worse than no instrumentation at all: it
-            // reads as "the reset was fine" to anyone who checks.
+            // This is the refusal that fires in practice, so it must explain
+            // itself. An empty `KO_REFUSE` grep proves nothing without it.
             let p = self.pos(self.victim);
-            // ⭐ THE SUSPECT, MEASURED RATHER THAN ASSUMED: A STAGED LAUNCH THE
-            // PIN CANNOT SEE.
+            // Print the suspects, do not guess:
             //
-            // `constrain_body_pose` writes `pos` and `vel` and nothing else — by
-            // contract it "does not fabricate or clear contact facts" — so a
-            // launch STAGED by the previous trial survives the park untouched.
-            // `kernel.rs` says so in as many words: *"the launch stays staged.
-            // `PendingLaunch` survives until a tick on which nobody else owns the
-            // pose, and the kernel spends it then."* That tick is this reset's
-            // own `update()`, which would fling a victim the fixture had just set
-            // down at rest — and a refusal reporting `pos=(574,320)` off the
-            // platform's right edge (it spans 80..560) is what that looks like.
-            //
-            // ⛔ `pending_launch_state`, NOT `take_launch`. The read-only form
-            // exists for exactly this: draining it here would SPEND the launch
-            // and destroy the evidence, and the next trial would then quietly
-            // differ from the one that produced the number printed below.
-            // ⛔ DUMP THE STATE, DO NOT GUESS AT IT AGAIN. Three hypotheses have
-            // now been falsified by measurement — a missing component, a cleared
-            // message, and the staged launch this very line was added to test —
-            // and each cost a full run because the output could not tell the
-            // candidates apart. The remaining suspects are all cheap to PRINT:
-            //
-            //  * `carried_run`/`carried_hold` — same class as the staged launch
-            //    (BodyFlightState survives `constrain_body_pose`, which writes
-            //    only pos/vel), and the airborne law does
-            //    `approach(along, *carried_run, ..)`, which would ACCELERATE a
-            //    body the fixture just set to rest.
-            //  * `contact_initialized` — the pin "does not fabricate or clear
-            //    contact facts" by contract, so an invalidated baseline survives
-            //    it and `on_ground` reads false for a body genuinely resting on
-            //    the floor. That would refuse regardless of position.
-            //  * `landed_after == None` — the loop never saw a landing, so
+            //  * A staged launch. `constrain_body_pose` writes only `pos` and
+            //    `vel` and does not clear contact facts, so a launch staged by
+            //    the previous trial survives. The kernel spends `PendingLaunch`
+            //    on the next free tick, which is this reset's own `update()`.
+            //    Read it with `pending_launch_state`, not `take_launch`, which
+            //    would spend it.
+            //  * `carried_run`/`carried_hold`. `BodyFlightState` also survives
+            //    the pin, and the airborne law does `approach(along, *carried_run,
+            //    ..)`, which accelerates a body at rest.
+            //  * `contact_initialized`. An invalidated baseline survives the pin,
+            //    so `on_ground` reads false for a body resting on the floor.
+            //  * `landed_after == None`. The loop never saw a landing, so
             //    `landed_y` was sampled mid-fall.
             let (staged, carried_run, carried_hold) = self
                 .app
@@ -1364,12 +1111,9 @@ impl KoProbe {
                 .get::<ambition_platformer2d::engine_core::BodyGroundState>(self.victim)
                 .map(|g| (g.on_ground, g.contact_initialized))
                 .unwrap_or_default();
-            // ⭐ IS THE PROBE STILL HOLDING THE RIGHT BODY? A KO respawns a
-            // fighter, and if the ruleset respawns it as a NEW ENTITY then
-            // `self.victim` is a stale handle: its pose would be frozen wherever
-            // it died (off the ledge, at rest, never landing — exactly shapes A
-            // and B), and EVERY later trial in the run would refuse, which is
-            // the snowball actually observed. Reported, not assumed.
+            // Is the probe still holding the right body? If a KO respawned the
+            // fighter as a new entity, `self.victim` is stale and every later
+            // trial refuses. Reported, not assumed.
             let seat = self
                 .app
                 .world()
@@ -1397,17 +1141,14 @@ impl KoProbe {
                 vel.y,
                 staged.x,
                 staged.y,
-                // ⭐ THE TWO FACTS THAT WERE MISSING WHILE FIVE HYPOTHESES DIED.
-                // A frozen body is either held by something (ledge) or not being
-                // accelerated (gravity_scale) — and neither was ever printed, so
-                // every refusal looked equally mysterious.
+                // A frozen body is either held (ledge) or not accelerated
+                // (`gravity_scale`). Print both.
                 self.victim_ledge(),
                 self.victim_gravity(),
             );
-            // ⭐ AND THE DESCENT THAT FAILED, on its own line so the one above
-            // stays parseable. Parked at y=200; a resting body is y=276; the
-            // platform solid spans y 300..332. Where this trail crosses those
-            // numbers — or refuses to — is the whole question.
+            // The failed descent, on its own line so the one above stays
+            // parseable. Parked at y=200; a resting body is at y=276; the
+            // platform solid spans y 300..332.
             if landed_after.is_none() {
                 let path: Vec<String> = trail
                     .iter()
@@ -1423,9 +1164,8 @@ impl KoProbe {
         }
 
         for (body, meter) in [(self.victim, entry_percent), (self.attacker, attacker_meter())] {
-            // ⛔ THE ATTACKER IS PINNED TO ZERO because `rage_scale` reads its
-            // meter and multiplies EVERY resolved launch. The sweep that picked
-            // the shipped percent scale ran with an uncontrolled ~1.25x rage.
+            // Pin the attacker to zero: `rage_scale` reads its meter and
+            // scales every resolved launch.
             if let Some(mut health) = self.app.world_mut().get_mut::<BodyHealth>(body) {
                 health.set_damage_taken(meter);
             }
@@ -1444,25 +1184,14 @@ impl KoProbe {
         if !self.reset_trial(entry_percent, victim_x) {
             return None;
         }
-        // ⭐ THE STATE THE TRIAL ACTUALLY BEGINS IN, captured AFTER the reset.
-        // The first version of this diagnostic snapshotted before `reset_trial`
-        // and therefore reported the PREVIOUS trial's leftovers — informative
-        // about what carries over, and silent about the only thing that decides
-        // an outcome, which is the state at the moment of the strike.
-        // ⛔⛔ THE TRIAL'S PREMISE, ASSERTED RATHER THAN HOPED FOR.
+        // Assert the trial's premise after the reset.
         //
-        // `reset_trial` proves the victim is GROUNDED. It does not prove the
-        // victim is UNENCUMBERED, and those are different claims: a staged launch,
-        // carried run/hold momentum, or a latched ledge all survive
-        // `constrain_body_pose` (which writes pos and vel and nothing else) and
-        // all three would silently change what the next pulse measures.
-        //
-        // ⛔ AND IT ABORTS RATHER THAN REFUSING. A `return None` here is
-        // indistinguishable from an ordinary refusal and would go on filling the
-        // table — which is precisely how 24 `REFUSED@0` throw cells were once
-        // published as measurements of moves. The existing `seats_now == 0` guard
-        // takes the same road for the same reason. If this fires, the matrix is
-        // not salvageable and a truncated honest table beats a complete false one.
+        // `reset_trial` proves the victim is grounded, not that it is
+        // unencumbered. A staged launch, carried run/hold momentum, or a
+        // latched ledge all survive `constrain_body_pose`, and each changes what
+        // the pulse measures. This aborts instead of returning `None`, for the
+        // same reason as the `seats_now == 0` guard: a refusal would read as a
+        // measurement.
         {
             let (staged, carried_run, carried_hold) = self
                 .app
@@ -1477,10 +1206,8 @@ impl KoProbe {
                 })
                 .unwrap_or_default();
             let ledge = self.victim_ledge();
-            // Generous, because this is a CONTAMINATION test and not a precision
-            // one: anything this small cannot move a body meaningfully in the
-            // ticks before the pulse lands, and a tighter bound would fail on
-            // ordinary float residue.
+            // Loose, because this tests contamination, not precision. A tighter
+            // bound would fail on float residue.
             const NEGLIGIBLE: f32 = 1.0;
             let dirty = staged.length() > NEGLIGIBLE
                 || carried_run.abs() > NEGLIGIBLE
@@ -1507,19 +1234,13 @@ impl KoProbe {
         let struck_at = self.pos(self.victim);
         let attacker = self.attacker;
 
-        // ⛔⛔ CURSORS MADE **ONCE, HERE**, AND ADVANCED INSIDE THE LOOP.
+        // Make the cursors once, here, and advance them inside the loop.
         //
-        // This is the whole defence against a previous trial's knockout being
-        // credited to this one. A cursor created now is already positioned past
-        // everything the buffer holds, so the reads below see only what this
-        // pulse produces; a cursor created per tick would re-read from the
-        // buffer's START every tick and rediscover every earlier trial's KO.
-        //
-        // ⚠ There is no `get_cursor_from_end` in bevy_ecs 0.19.1 — `get_cursor`
-        // is the only constructor, and every call site in this repo uses it.
-        // "Made once, before the loop" IS the end-of-stream guarantee; it is a
-        // discipline rather than an API, which is exactly why it is written down
-        // here instead of assumed.
+        // A cursor made now starts past everything the buffer holds, so the
+        // reads see only this pulse's events. A cursor made per tick would
+        // re-read earlier trials' KOs. bevy_ecs 0.19.1 has no
+        // `get_cursor_from_end`; making the cursor before the loop is the
+        // end-of-stream guarantee.
         let mut hit_cursor = self
             .app
             .world()
@@ -1531,15 +1252,11 @@ impl KoProbe {
             .resource::<bevy::ecs::message::Messages<BodyKnockedOut>>()
             .get_cursor();
 
-        // ⭐⭐ DELIVERY IS THE ONLY THING THAT VARIES. The cursors above are
-        // already watching, and the settle loop below is already shared — see
-        // `Pulse`.
+        // Delivery is the only thing that varies (see `Pulse`).
         //
-        // ⛔ THE THROW DOES NOT SPEND ITS OWN TICK HERE. It installs the hold
-        // and WRITES the request; the loop's first `self.app.update()` is what
-        // executes it, so the launch's `HitEvent` lands in front of a cursor
-        // that already exists. An `update()` inside this arm would risk the
-        // event being published before the loop began watching for it.
+        // The throw does not spend its own tick here. It installs the hold and
+        // writes the request; the loop's first `update()` executes it, so the
+        // launch's `HitEvent` lands after the cursors exist.
         let spawned: Option<bevy::prelude::Entity> = match pulse {
             Pulse::Strike(hit) => Some(
                 self.app
@@ -1571,39 +1288,18 @@ impl KoProbe {
                     .id(),
             ),
             Pulse::Throw(params) => {
-                // ⛔⛔⛔ A THROW HAPPENS AT THE CAPTOR, NOT AT THE VICTIM'S PARKED x.
+                // A throw happens at the captor, not at the victim's parked x.
+                // The hold system moves the captive to `captor.pos +
+                // hold_offset` every tick, so the victim goes to the attacker
+                // before the throw resolves. Place the captor where the trial
+                // says the throw happens: `hold_offset_local.x` is 16, so park
+                // the attacker at `victim_x - 16`.
                 //
-                // MEASURED 2026-09-13, and it made a published column a lie.
-                // Installing `CapturedBy` does not close a distance: the hold
-                // system constrains the captive to `captor.pos + hold_offset`
-                // EVERY TICK, so the victim is teleported to the attacker before
-                // the throw resolves. `reset_trial` parks the attacker at
-                // `victim_x - 240`, so a "centre" throw (victim_x = 320) actually
-                // fired from x ~= 96 — which IS the left ledge — and a "ledge"
-                // throw (520) fired from mid-platform at ~296.
+                // Strike rows do not depend on this: a strike spawns its hitbox
+                // at the victim's own pose.
                 //
-                // ⇒ The centre/ledge columns for throws reported WHERE THE VICTIM
-                // WAS PARKED while the throw happened 240px away. back_throw read
-                // centre=11% and ledge=91%: a centre KO EASIER than a ledge one,
-                // which is backwards and is what exposed it. At 11% that throw
-                // launches 175 px/s — nowhere near enough to cross the stage — and
-                // the KO exits were landing at x = -405..-409, far off the LEFT
-                // side. Both facts are impossible from x=320 and inevitable from
-                // x~=96.
-                //
-                // ⭐ THE STRIKE ROWS WERE NEVER AFFECTED: a strike spawns its
-                // hitbox at `struck_at`, the victim's own pose, so the attacker's
-                // placement cannot reach them. And the throw LAUNCH column is
-                // unaffected too — it is a velocity observed at release, which no
-                // position changes.
-                //
-                // The fix is to put the captor where the trial says the throw
-                // happens. `hold_offset_local.x` is 16, so parking the attacker at
-                // `victim_x - 16` lands the hold anchor on `victim_x` itself.
-                //
-                // ⛔ NOT `park`, WHICH FORCES y = 200 — that is 76px above a
-                // resting body and would throw from mid-air. The attacker's
-                // settled height is read back and preserved, so only x moves.
+                // Do not use `park`, which forces y = 200 (76px above a resting
+                // body). Keep the attacker's settled height; move only x.
                 let anchor_x = victim_x - 16.0;
                 let attacker_y = self.pos(attacker).y;
                 probe_stage::pin_grounded_at_rest(
@@ -1611,11 +1307,9 @@ impl KoProbe {
                     attacker,
                     EVec2::new(anchor_x, attacker_y),
                 );
-                // ⚠ `lasting`, NOT `default()`. A default `SmashHoldState` has
-                // `escape_seconds == 0.0`, which `escaped()` correctly reads as
-                // a hold ALREADY OVER — its own doc warns that a fixture
-                // reaching for `default()` watches its capture end on tick one
-                // and calls that a timeout.
+                // `lasting`, not `default()`. A default `SmashHoldState` has
+                // `escape_seconds == 0.0`, which `escaped()` reads as a hold
+                // that is already over.
                 self.app.world_mut().entity_mut(self.victim).insert((
                     ambition_platformer2d::combat::capture::CapturedBy {
                         captor: attacker,
@@ -1646,39 +1340,26 @@ impl KoProbe {
         let mut ko = false;
         let mut ticks_to_ko = None;
         let mut ko_forced = None;
-        // ⭐ THE TRIAL ENDS WHEN IT IS DECIDED, NOT WHEN THE BUDGET RUNS OUT.
+        // The trial ends when it is decided, not when the budget runs out.
+        // A surviving body at rest otherwise costs the full 150 ticks.
         //
-        // Measured 2026-09-13: a SURVIVING trial spent all 150 ticks watching a
-        // body that had already come to rest, and at ~8.9ms/frame that budget —
-        // not the simulation — was the whole cost of this instrument (~170s per
-        // pulse row, ~5.7h for the matrix, against a 90m timeout).
-        //
-        // ⛔ THE ARMING CONDITIONS ARE THE CORRECTNESS ARGUMENT, and each one
-        // excludes a way a body can be still WITHOUT the trial being over:
-        //   * `resolved_launch.is_some()` — before contact the victim is parked
-        //     and motionless, which looks exactly like "come to rest".
-        //   * `!is_in_hitlag()` — impact hitstop FREEZES both bodies. A victim
-        //     mid-freeze is perfectly still and has not yet travelled anywhere.
-        //   * `hitstun_timer <= 0` — still being carried by the launch.
-        //   * grounded and slow, for `SETTLED_TICKS` CONSECUTIVE ticks, so a
-        //     single frame of ground contact mid-arc cannot end the trial.
-        // A body that satisfies all four has been launched, has finished its
-        // launch, and is standing on the floor: it cannot reach a blast line.
+        // Each arming condition excludes a way to be still without the trial
+        // being over:
+        //   * `resolved_launch.is_some()`: before contact the victim is parked
+        //     and still.
+        //   * `!is_in_hitlag()`: hitstop freezes both bodies.
+        //   * `hitstun_timer <= 0`: the launch still carries the body.
+        //   * grounded and slow for `SETTLED_TICKS` consecutive ticks, so one
+        //     frame of ground contact mid-arc cannot end the trial.
+        // A body that meets all four cannot reach a blast line.
         const SETTLED_TICKS: usize = 4;
         const SLOW_PX_S: f32 = 12.0;
         let mut settled_for = 0usize;
-        // ⛔⛤ A THROW PUBLISHES NO `HitEvent`, SO THE CURSOR ABOVE NEVER SEES IT.
-        //
-        // MEASURED 2026-09-13: `apply_capture_throws` calls
-        // `apply_body_hit_reaction` DIRECTLY — that function mutates velocity and
-        // publishes nothing, and the only `MessageWriter`s in `capture/systems.rs`
-        // emit capture REQUESTS. So for a throw `resolved_launch` stayed `None`
-        // forever, which is why every throw row printed `-` for `launch@100` and
-        // `tumble%`, and why `launch_at` returned `None` on every call.
-        //
-        // ⇒ Watch for the RELEASE instead. The captive is released BY the throw,
-        // so the first tick `CapturedBy` is gone is the tick the launch was
-        // applied, and the victim's velocity right then IS the launch.
+        // A throw publishes no `HitEvent`, so the cursor above never sees it.
+        // `apply_capture_throws` calls `apply_body_hit_reaction` directly, and
+        // that publishes nothing. Watch for the release instead: the throw
+        // releases the captive, so on the first tick without `CapturedBy` the
+        // victim's velocity is the launch.
         let mut awaiting_release = matches!(pulse, Pulse::Throw(_));
         for tick in 0..150 {
             self.app.update();
@@ -1696,30 +1377,14 @@ impl KoProbe {
                     }
                 }
             }
-            // ⭐ OBSERVE THE THROW'S LAUNCH, DO NOT RECOMPUTE IT.
+            // Observe the throw's launch; do not recompute it. Evaluating the
+            // launch law on `CaptureThrowParams` would print the formula's own
+            // prediction, whatever the engine did.
             //
-            // ⛔ The tempting alternative is to evaluate the launch law on the
-            // authored `CaptureThrowParams` and report that. It would be a
-            // FABRICATION dressed as a measurement: the probe would print the
-            // formula's own prediction and agree with itself no matter what the
-            // engine actually did, which is exactly the failure the whole
-            // instrument exists to avoid.
-            //
-            // ⚠ AND THE NUMBER IS ONE TICK LATE, stated rather than hidden. The
-            // same `update()` that released the captive also ran gravity, so this
-            // reads the launch minus one frame of it, and ONLY on the vertical
-            // component. It is NOT silently compensated: a correction would be a
-            // second model layered over a measurement, and the residual is small
-            // against launches of 500-1200.
-            //
-            // ⛔ THIS COMMENT SAID "about 37 px/s at GRAVITY 2250 / 60Hz" AND THAT
-            // WAS FALSE FOR EVERY BODY THIS PROBE HAS EVER MEASURED. 2250 is the
-            // PLAYER's gravity; a match seat is an actor body accelerated at
-            // `tuning.movement.gravity * gravity_scale` = 1450, so the lag is
-            // ~24 px/s, not ~37. The probe now READS the live resolved frame
-            // (`victim_gravity`) instead of naming any constant at all — a number
-            // transcribed from a defaults file is not a measurement of the body
-            // in front of you, and this one was wrong by 55%.
+            // The value is one tick late: the same `update()` also ran gravity,
+            // so the vertical component is short by one frame of gravity
+            // (~24 px/s at 1450). This is not compensated; it is small against
+            // launches of 500-1200. `victim_gravity` prints the live value.
             if awaiting_release
                 && self
                     .app
@@ -1736,23 +1401,15 @@ impl KoProbe {
                         .map(|k| k.vel.length());
                 }
             }
-            // ⭐ THE LAST POSE THE BODY HELD WHILE STILL IN PLAY, sampled BEFORE
-            // the knockout test. A KO'd fighter is taken out of play and
-            // respawned, so a pose read after the event describes where it came
-            // BACK, not where it left — which would classify every kill as
-            // whatever boundary the respawn point sits inside.
+            // The last pose while still in play, sampled before the KO test. A
+            // KO'd fighter respawns, so a later pose shows the respawn point.
             let live_pos = self.pos(self.victim);
-            // ⭐ SAMPLED BESIDE `live_pos`, AND FOR EXACTLY ITS REASON. A KO'd body
-            // is taken out of play and respawned, so hitstun and tumble read AFTER
-            // the knockout event describe the body that came BACK — which carries
-            // neither, and would score every kill as an un-forced fall.
+            // Sampled beside `live_pos` for the same reason: after the KO the
+            // respawned body has no hitstun or tumble.
             //
-            // ⛔ `tumble_until_landing` IS DELIBERATELY ABSENT FROM THIS PREDICATE.
-            // It outlives helplessness: control returns before the tumble does, so a
-            // victim still flagged by it may have been able to act. Including it
-            // would count recoverable falls as forced kills, which is the precise
-            // overstatement this field exists to end. `tumble_timer` is the
-            // helpless part, and it is the one asked here.
+            // `tumble_until_landing` is left out on purpose. Control returns
+            // before it clears, so including it would count recoverable falls
+            // as forced kills. `tumble_timer` is the helpless part.
             let live_forced = {
                 let w = self.app.world();
                 let stunned = w
@@ -1783,16 +1440,10 @@ impl KoProbe {
                     ko = true;
                     ticks_to_ko = Some(tick);
                     ko_forced = Some(live_forced);
-                    // ⭐⭐ WHICH LINE IT CROSSED. `HitSource::LeftTheWorld` says a
-                    // body is gone and NOTHING about the direction, so a vertical
-                    // kill and a horizontal one have been indistinguishable in
-                    // every table this probe has ever printed — while the whole
-                    // question under investigation is whether upward launches
-                    // reach the ceiling.
-                    //
-                    // ⛔ ON STDERR, NOT AS A COLUMN. Three gates diff this table
-                    // byte-for-byte against `envelope_AFTER_LAWONLY`; widening it
-                    // would destroy the only comparison road still standing.
+                    // Which line it crossed. `HitSource::LeftTheWorld` does not
+                    // give a direction. Printed on stderr, not as a column, so
+                    // the table stays byte-comparable with
+                    // `envelope_AFTER_LAWONLY`.
                     match self.blast {
                         Some(b) => eprintln!(
                             "KO_BOUNDARY: boundary={} x={victim_x:.0} pct={entry_percent} \
@@ -1841,36 +1492,27 @@ impl KoProbe {
             }
         }
 
-        // ⛔⛤ A THROW THAT NEVER EXECUTED IS A REFUSAL, NOT A SURVIVAL.
-        //
-        // `apply_capture_throws` silently `continue`s when its `find` matches
-        // nothing — a victim missing one of the eleven components its query
-        // demands, a hold already over, a captor that is itself captured. A
-        // cell scored "did not KO" on the strength of that would read as
-        // *throws are weak*, which is the exact complaint under investigation,
-        // and the instrument would be answering about itself.
-        //
-        // The captive is released BY the throw, so `CapturedBy` still being
-        // here means the system never ran.
+        // A throw that never executed is a refusal, not a survival.
+        // `apply_capture_throws` skips silently when its `find` matches
+        // nothing (a victim missing a queried component, a hold already over,
+        // a captor that is itself captured). The throw releases the captive,
+        // so `CapturedBy` still present means the system never ran.
         if let Pulse::Throw(_) = pulse {
             let executed = self
                 .app
                 .world()
                 .get::<ambition_platformer2d::combat::capture::CapturedBy>(self.victim)
                 .is_none();
-            // Whatever happened, this fixture's hold must not survive into the
-            // next trial — a leaked `CapturedBy` would make the NEXT pulse
-            // measure a captive.
+            // The fixture's hold must not leak into the next trial, or the next
+            // pulse measures a captive.
             self.app.world_mut().entity_mut(self.victim).remove::<(
                 ambition_platformer2d::combat::capture::CapturedBy,
                 ambition_platformer2d::characters::control::ControlHolds,
                 ambition_platformer2d::characters::smash_hold_state::SmashHoldState,
             )>();
             if !executed {
-                // ⛔ THE OTHER SILENT `None`, and it is the one that produced the
-                // stage-3 matrix's 24/24 `REFUSED@0`. Distinguishing it from the
-                // grounded refusal above is the whole question: both returned
-                // quietly, so the table could not say which had happened.
+                // The other silent `None`. Name it, so the table can separate
+                // it from the grounded refusal.
                 eprintln!(
                     "KO_REFUSE: stage=throw-never-executed x={victim_x:.0} \
                      pct={entry_percent} — CapturedBy survived the trial loop, so \
@@ -1886,9 +1528,8 @@ impl KoProbe {
             ko,
             ticks_to_ko,
             entry_percent,
-            // ⭐ AND THIS IS WHY THE FIELD EXISTS. `apply_capture_throws`
-            // damages BEFORE reading the meter, so a throw's launch arithmetic
-            // sees `entry + damage` where a strike's sees `entry`.
+            // `apply_capture_throws` damages before reading the meter, so a
+            // throw's launch sees `entry + damage` and a strike's sees `entry`.
             effective_percent: match pulse {
                 Pulse::Strike(_) => entry_percent,
                 Pulse::Throw(params) => entry_percent + params.damage,
@@ -1898,20 +1539,12 @@ impl KoProbe {
         })
     }
 
-    /// Fire a STRIKE pulse. `run_contact` and `run_determinism` are strike-only
-    /// diagnostics by design — they ask about contact and reproducibility of a
-    /// swing — so they keep a name that says so.
+    /// Fire a strike pulse. `run_contact` and `run_determinism` are
+    /// strike-only diagnostics, so they use this name.
     fn strike(&mut self, hit: &HitVolume, entry_percent: i32, victim_x: f32) -> Option<Trial> {
         self.fire(Pulse::Strike(hit), entry_percent, victim_x)
     }
 
-    /// Coarse sweep → bracket → binary search → VERIFY both sides.
-    ///
-    /// ⛔ NOT A BARE BINARY SEARCH. The raw launch formula is monotonic in
-    /// percent, but a TRAJECTORY is not obliged to be: platforms, ceilings,
-    /// downward launches and landings all intervene. A search that assumes
-    /// monotonicity would return a confident number for a curve that does not
-    /// have one.
     /// The resolved launch at one percent, retrying a refused reset.
     fn launch_at(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<f32> {
         for _ in 0..3 {
@@ -1922,25 +1555,14 @@ impl KoProbe {
         None
     }
 
-    /// Does this pulse KO at `percent`? DECIDED BY MAJORITY OF THREE.
+    /// Does this pulse KO at `percent`? Decided by majority of three.
     ///
-    /// ⛔ ONE TRIAL IS NOT AN ANSWER NEAR A BOUNDARY. Run 2 self-detected 15
-    /// disagreements across 100 cells and they were all one shape: the binary
-    /// search converged on a percent BECAUSE a trial there killed, and the
-    /// verification at that same percent then did not. Far from a threshold this
-    /// probe is exactly reproducible — 8 of 8 trials byte-identical at 200% on a
-    /// move whose threshold is above 300 — so the flakiness is not general. It
-    /// lives within a percent or two of the blast line, where the body crosses
-    /// or fails to cross on the strength of a single tick.
+    /// Far from a threshold, trials repeat exactly. Within a percent or two of
+    /// the blast line, one tick can decide the outcome, so one trial is not an
+    /// answer. Majority of three short-circuits when a side reaches two.
     ///
-    /// ⭐ THE RIGHT PRECISION IS THE ONE THE QUESTION NEEDS. Tuning how a game
-    /// FEELS does not turn on ±1%, so the answer is not a more exact search; it
-    /// is a cell that reports the same value twice. Majority of three, short-
-    /// circuiting as soon as either side reaches two.
-    ///
-    /// A refused reset is RETRIED rather than counted, and `None` — the probe
-    /// could not obtain a clean trial — is returned so the caller can say so
-    /// instead of silently scoring a survival.
+    /// A refused reset is retried, not counted. `None` means no clean trial
+    /// was possible, so the caller can report it instead of a survival.
     fn kills(&mut self, pulse: Pulse<'_>, percent: i32, victim_x: f32) -> Option<Vote> {
         let (mut yes, mut no) = (0, 0);
         while yes < 2 && no < 2 {
@@ -1957,25 +1579,10 @@ impl KoProbe {
                 None => return None,
             }
         }
-        // ⭐⭐ A MIXED VOTE IS A MEASUREMENT, NOT NOISE TO BE SWALLOWED.
-        //
-        // The loop short-circuits at two, so reaching here with BOTH counters
-        // non-zero means 2:1 — the same initial state produced different outcomes.
-        // Majority-of-three then reports a single number for a cell that could not
-        // reproduce itself, and `117%` reads as exact when it is a band.
-        //
-        // ⛔ AND THIS IS THE SIGNAL I SPENT THREE ATTEMPTS FAILING TO DERIVE.
-        // Measured this session: `special` moved 221 -> 160 and George's forward
-        // throw 175 -> 115 when only the sweep STEP changed, while `back_throw`
-        // (further below `tumble_speed` than either) did not move at all. I
-        // proposed three arithmetic screens for which cells straddle a KO regime —
-        // proximity to tumble_speed, the boundary label, launch-per-percent — and
-        // measurement falsified all three. Two cells at L_ko ~645 behaved
-        // oppositely.
-        //
-        // ⇒ Stop predicting which cells are unstable and let the trials say so.
-        // A cell whose three runs disagree is ON an edge, whatever the arithmetic
-        // thinks, and that is knowable from data the probe already computes.
+        // A mixed vote is a measurement. Reaching here with both counters
+        // non-zero means 2:1: the same start gave different outcomes, so the
+        // cell sits on an edge. Arithmetic screens did not predict which
+        // cells do this; the trials show it directly.
         if yes > 0 && no > 0 {
             eprintln!(
                 "KO_MIXED_VOTE: pct={percent} x={victim_x:.0} yes={yes} no={no} \
@@ -1988,57 +1595,33 @@ impl KoProbe {
         Some(if yes > no { Vote::Killed } else { Vote::Survived })
     }
 
+    /// Coarse sweep, bracket, binary search, then verify both sides.
+    ///
+    /// Not a bare binary search: the launch formula is monotonic in percent,
+    /// but a trajectory is not (platforms, ceilings, downward launches, and
+    /// landings intervene).
     fn ko_threshold(&mut self, pulse: Pulse<'_>, victim_x: f32, max_percent: i32) -> Threshold {
-        // ⚠ 50 RATHER THAN 25, AND IT IS A TRADE I AM MAKING ON PURPOSE.
-        // Widening the coarse step halves the sweep (13 samples -> 7) and costs
-        // the binary search one extra iteration, so the THRESHOLD it converges
-        // on is unchanged — but the sweep is also how `NonMonotonic` is spotted,
-        // and half as many samples is half as many chances to see a curve double
-        // back. The both-sides verification below still runs on every cell, so a
-        // non-monotonicity AT the threshold is still caught; one hiding strictly
-        // between two coarse samples is not. That is the exposure.
-        // ⛔⛔ AND THE EXPOSURE ABOVE HAS NOW BEEN PAID, ONCE, IN A CALIBRATION.
+        // Coarse step default 50. The threshold is the same as with 25, but
+        // the sweep also spots `NonMonotonic`, and fewer samples can miss a
+        // curve that doubles back between two samples. The both-sides check
+        // still catches one at the threshold.
         //
-        // MEASURED on George's forward throw: the step-50 sweep samples launch
-        // 401.6 at p=100 and 520.4 at p=150, and `tumble_speed = 500` sits BETWEEN
-        // them. The non-tumbling window (launch ~402-500) is stepped clean over —
-        // and that window is where the move kills by FALLING off the stage edge
-        // rather than by crossing the side blast line. The reported threshold was
-        // 175 (`boundary=side-right`, L=579.8); raising growth revealed a KO at 91
-        // (`boundary=fall`, L=436.3). A 25% DROP in the launch required to kill,
-        // which no authored value can cause — two KO mechanisms, and the sweep only
-        // ever saw one of them.
-        //
-        // ⇒ `step=<n>` is argv-driven so a suspect cell can be re-swept finely
-        // WITHOUT re-defining what every recorded run measured. 50 stays the
-        // default for exactly that reason.
-        //
-        // ⚠ A cell whose KO launch lands near `tumble_speed` is the one to distrust:
-        // that is where the mechanism changes, so that is where a coarse sample can
-        // straddle two regimes and report the wrong one as "the" threshold.
+        // A window narrower than the step can be skipped. Example: George's
+        // forward throw has a non-tumbling window (launch ~402-500, below
+        // `tumble_speed = 500`) where it kills by falling off the stage edge;
+        // step 50 misses it. Distrust a cell whose KO launch is near
+        // `tumble_speed`. Use `step=<n>` to re-sweep a suspect cell; the
+        // default stays 50 so recorded runs keep their meaning.
         let step: i32 = std::env::args()
             .find_map(|a| a.strip_prefix("step=").and_then(|n| n.parse::<i32>().ok()))
             .filter(|n| *n > 0)
             .unwrap_or(50);
-        // ⭐⭐ CALIBRATION MODE: EXACT, NOT BRACKETED — and the difference is a
-        // number this session MEASURED, not a preference.
+        // Calibration mode: exact, not bracketed.
         //
-        // George's forward throw reports a threshold of 175 at step=50 and 115 at
-        // step=10 from the SAME authored value, because a KO window narrower than
-        // the step is stepped clean over. Calibration inverts
-        // `G_new = G_old * p0/p1`, which takes whatever `p0` it is handed on
-        // faith — so a swept threshold does not merely mis-report, it BAKES the
-        // sweep's own artifact into a shipped growth. A survey may be coarse; a
-        // value you are about to author may not.
-        //
-        // ⭐ THE FIRST KILL IS THE ANSWER, with no bracket and no both-sides
-        // re-verification. Ascending by 1 means `p - 1` was DIRECTLY measured one
-        // iteration earlier and survived — which is precisely the fact the coarse
-        // path spends two extra trials reconstructing after its binary search.
-        //
-        // ⛔ AND A MIXED VOTE IS INVALID HERE RATHER THAN OUTVOTED. Majority-of-
-        // three turns "this cell could not reproduce itself" into a crisp integer,
-        // and that integer would become a shipped value.
+        // Calibration inverts `G_new = G_old * p0/p1` and trusts `p0`, so a
+        // swept threshold would put a sweep artifact into a shipped growth.
+        // Ascend by 1; the first kill is the answer, because `p - 1` was just
+        // measured and survived. A mixed vote is invalid here, not outvoted.
         if std::env::args().any(|a| a == "calib") {
             let mut p = 0;
             while p <= max_percent {
@@ -2071,7 +1654,7 @@ impl KoProbe {
             if ko && bracket.is_none() {
                 bracket = Some(((p - step).max(0), p));
             }
-            // A KO followed by a survival at a HIGHER percent is a real
+            // A KO followed by a survival at a higher percent is a real
             // finding, not noise to be smoothed.
             if bracket.is_some() && !ko {
                 return Threshold::NonMonotonic(samples);
@@ -2082,9 +1665,8 @@ impl KoProbe {
             p += step;
         }
         let Some((mut lo, mut hi)) = bracket else {
-            // ⭐ "NEVER KILLED" AND "NEVER CONNECTED" ARE DIFFERENT ANSWERS and
-            // only one of them is about the game. One probe at the top of the
-            // range separates them.
+            // "Never killed" and "never connected" are different answers. One
+            // probe at the top of the range separates them.
             let connected = self
                 .launch_at(pulse, max_percent, victim_x)
                 .is_some();
@@ -2105,26 +1687,14 @@ impl KoProbe {
                 lo = mid;
             }
         }
-        // ⛔ ZERO IS THE FLOOR, AND IT HAS NO BELOW — measured 2026-09-13.
-        //
-        // `hi == 0` means the pulse KOs at zero percent. The previous form still
-        // ran the both-sides check at `(hi - 1).max(0)`, which is 0 AGAIN, so
-        // `below` was necessarily the same measurement as `at` and the
-        // contradiction branch fired every time. It then recorded the sample as
-        // `hi - 1` = `-1`, a percent no trial ever ran. Every zero-percent ledge
-        // KO in run 1 was reported `NON_MONOTONIC[(0, true), (-1, true), ...]`
-        // on the strength of that. A KO at the floor is a finding, not a fault.
+        // Zero is the floor. `hi == 0` means the pulse KOs at zero percent;
+        // there is no lower percent to verify, so skip the both-sides check.
         if hi == 0 {
             return Threshold::At(0);
         }
-        // VERIFY BOTH SIDES rather than trusting the walk.
-        //
-        // ⛔ THROUGH `kills`, NOT `strike`. These two lines were the last place a
-        // single trial decided anything, and they are precisely where run 2's
-        // fifteen disagreements surfaced: the search converged on `hi` because a
-        // trial there killed, and then ONE trial at that same `hi` said it did
-        // not. `is_some_and` also folded a refused reset into "did not kill",
-        // which is the same silent survival the `Refused` variant exists to stop.
+        // Verify both sides; do not trust the walk. Use `kills`, not `strike`,
+        // so one trial does not decide and a refused reset is not read as a
+        // survival.
         let Some(below) = self.kills(pulse, hi - 1, victim_x).map(Vote::majority) else {
             return Threshold::Refused(hi - 1);
         };
@@ -2140,28 +1710,13 @@ impl KoProbe {
     }
 }
 
-/// PHASE 2 ENTRY: KO envelopes for reachable strike pulses, reference vs heavy.
+/// At which percents does the pulse fail to connect?
 ///
-/// ⛔ THE SELF-TEST RUNS FIRST AND GATES EVERYTHING. Reusing one staged match
-/// across trials is only sound if a repeated trial repeats; if it does not, a
-/// whole table would be contaminated by the previous stock and look like data.
-/// ⭐ AT WHICH PERCENTS DOES THE PULSE FAIL TO CONNECT AT ALL?
-///
-/// The determinism probe reported `launch=-` — no contact — for a 300% trial
-/// whose at-strike state was IDENTICAL to eight trials at 200% that connected
-/// cleanly, and it did so in both runs. That is reproducible and tracks the
-/// percent rather than the trial's position in the sequence.
-///
-/// ⛔ THIS IS NOT COSMETIC. `ko_threshold` records a no-contact trial as a
-/// SURVIVAL, so a percent band where contact silently fails reads as a band the
-/// victim survived, and the threshold walks straight past it.
-///
-/// Two hypotheses were rejected by reading the code rather than by running this:
-/// the emitted magnitude variant is decided by the `HitboxKnockback` this probe
-/// constructs (`LaunchSpeed`), so no variant is being dropped by the reader; and
-/// `set_damage_taken` is `accumulated = damage.max(0)`, so there is no cap and
-/// no state transition at a high meter. Having no hypothesis left is the reason
-/// to measure rather than to keep guessing.
+/// A no-contact band can read as a band the victim survived, so the threshold
+/// search would walk past it. The emitted magnitude variant comes from the
+/// `HitboxKnockback` this probe builds (`LaunchSpeed`), and `set_damage_taken`
+/// is `accumulated = damage.max(0)` with no cap, so neither explains it. This
+/// measures it.
 fn run_contact() {
     let mut probe = KoProbe::new("npc_pirate_admiral", "player_robot_v3");
     let launchers = {
@@ -2201,51 +1756,22 @@ fn run_contact() {
     }
 }
 
-/// ⭐ DOES A TRIAL INHERIT ANYTHING FROM THE TRIAL BEFORE IT?
+/// Does a trial inherit anything from the trial before it?
 ///
-/// Run 1 said yes and named the shape. Two cells reported a percent that the
-/// coarse sweep measured as a SURVIVAL and the verification measured as a KO,
-/// and in both the binary search had converged to `lo + 1` — every probe after
-/// the first knockout came back a knockout. The oracle row moved with it
-/// (centre 291 on the slow path, 283 on the fast one).
-///
-/// ⛔ THE SELF-TEST IN `run_probe` CANNOT SEE THIS. It fires one pulse at one
-/// percent twice with identical history, so it establishes that the probe is
-/// deterministic given the same past — which is not the property the threshold
-/// search needs. The search needs the answer at a percent to be independent of
-/// what ran before it, and that is what this measures.
-///
-/// This prints state rather than asserting, because the question is WHICH fact
-/// carries over, and a guess at that is worth nothing.
+/// The self-test in `run_probe` fires one pulse at one percent twice with the
+/// same history. That proves determinism given the same past. The threshold
+/// search needs the answer at a percent to be independent of what ran before,
+/// and this measures that. It prints state instead of asserting, because the
+/// question is which fact carries over.
 fn run_determinism() {
-    // ⛔⛔ NEAR A REAL BOUNDARY, AND THE FIRST VERSION OF THIS TEST WAS NOT.
+    // Stand near a real boundary: flakiness lives within a percent or two of
+    // the blast line, and a test at a comfortable percent cannot fail.
     //
-    // It probed 200% on a move whose centre threshold is above 300, so every
-    // trial was a comfortable survival and all eight agreed. That established
-    // the probe is reproducible where nothing is in doubt — a guard that cannot
-    // fail — and it is why run 2 still produced fifteen disagreeing cells after
-    // this test had passed. The flakiness lives within a percent or two of the
-    // blast line, so the test has to stand there.
-    //
-    // ⛔ AND THE SECOND ATTEMPT MISSED TOO, FOR A DIFFERENT REASON. It used 50%,
-    // taken from a `smash_forward` LEDGE contradiction, but then fired
-    // `tilt_forward` at CENTRE — a different move at a different position, where
-    // the threshold is above 300. Result: 6 of 6 `kills` and 8 of 8 single
-    // trials all agreeing on a comfortable survival. A guard that cannot fail,
-    // twice over.
-    //
-    // ⛔ THE THIRD ATTEMPT MISSED TOO, AND FOR THE MOST AVOIDABLE REASON YET: it
-    // took 145 from RUN 2, a table produced by the broken instrument. 8 of 8
-    // single trials came back a unanimous KILL at launch 721.9. A percent
-    // inherited from void data is not a threshold on this tree.
-    //
-    // ⭐ SO THE BOUNDARY IS MEASURED ON THIS TREE, NOT INHERITED. Sweeping
-    // `smash_forward` at centre with the current binary:
+    // Measured on this tree for `smash_forward` at centre:
     //     125% -> survive (launch 644.4)
     //     150% -> KO      (launch 741.2)
-    // and 145% was already a unanimous kill, so the flip sits below it. 130 is
-    // inside the bracket and is where a single trial should waver if it ever
-    // does — which the single-trial control below is there to report.
+    // and 145% already kills every time, so the flip sits below it. The
+    // single-trial control below shows whether 130 wavers.
     const NEAR: i32 = 130;
     const LETHAL: i32 = 300;
 
@@ -2261,8 +1787,7 @@ fn run_determinism() {
         let mut nl = Vec::new();
         launchers_of("npc_pirate_admiral", contract, &mut bad, &mut nl)
     };
-    // The pulse the run-1 latch actually appeared on: a forward tilt, whose
-    // centre cell was one of the two genuine disagreements.
+    // A forward tilt, whose centre cell showed a genuine disagreement.
     let Some(Launcher::Strike { hit, move_id, .. }) = launchers
         .iter()
         .find(|l| l.role() == "smash_forward" && matches!(l, Launcher::Strike { .. }))
@@ -2276,18 +1801,10 @@ fn run_determinism() {
 
     let x = probe.centre;
 
-    // ⭐⭐ THE ARM THAT TESTS THE ACTUAL CLAIM.
-    //
-    // The single-trial rows below may legitimately disagree with each other at
-    // this percent — that IS the defect, and reproducing it is half the point.
-    // The claim that needs testing is the REMEDY: that `kills`, deciding by
-    // majority of three, returns the same verdict every time at a percent where
-    // one trial does not. A test that only ever calls `strike` cannot say
-    // anything about that, and calling this file's determinism probe "passing"
-    // on the strength of single trials is how run 2 shipped fifteen bad cells.
-    //
-    // ⛔ If these six disagree, majority-of-three is NOT enough and no matrix
-    // should be run on it.
+    // This arm tests the remedy: that `kills` (majority of three) gives the
+    // same verdict every time at a percent where one trial does not. The
+    // single-trial rows may disagree; that is the defect being reproduced.
+    // If these six disagree, majority of three is not enough; run no matrix.
     let mut votes = Vec::new();
     for _ in 0..6 {
         votes.push(
@@ -2298,17 +1815,9 @@ fn run_determinism() {
         );
     }
     println!("# kills()@{NEAR}% x6 (majority-of-three each): {}", votes.join(" "));
-    // ⛔ THIS LINE MAY NOT CLAIM BOUNDARY-NESS IT HAS NOT ESTABLISHED.
-    //
-    // It previously printed "the remedy holds at a boundary percent" whenever
-    // the six votes agreed — including on percents that were nowhere near a
-    // boundary, which is what happened on all three attempts (200% and 50% were
-    // comfortable survivals; 145% a comfortable kill, 8 of 8 single trials
-    // agreeing at launch 721.9). Agreement at a percent where ONE trial is
-    // already unanimous says nothing whatever about majority-of-three.
-    //
-    // The single-trial arm is the control: only if IT disagrees is this percent
-    // a boundary, and only then does agreement among the votes mean anything.
+    // Do not claim a boundary that is not shown. Agreement among the votes
+    // means something only if the single-trial control disagrees at this
+    // percent.
     let votes_agree = votes.iter().all(|v| v == &votes[0]);
     println!(
         "# ⇒ kills() {}",
@@ -2350,15 +1859,8 @@ fn run_determinism() {
         .as_ref()
         .map(|t| t.at_strike.clone())
         .unwrap_or_else(|| "RESET_REFUSED".into());
-    // ⛔ THE LAUNCH COLUMN IS FORMATTED, NOT HARDCODED — and it was hardcoded.
-    //
-    // This row printed a literal `-` where every other row prints a measured
-    // launch, and I read my own placeholder as a measurement: it became a
-    // reported "no contact at 300%", a commit message recording a defect as
-    // KNOWN AND NOT YET EXPLAINED, and a contact sweep to chase it. The sweep
-    // came back 13 of 13 connected. The trial had been fine the whole time.
-    //
-    // ⇒ A column that can only ever print one value is not reporting anything.
+    // Print the measured launch; do not print a placeholder. A fixed `-`
+    // reads as "no contact".
     println!(
         "INDUCE_KO\t-\t{LETHAL}\t{}\t{}\t{}\t{pre}",
         t.as_ref().map(|t| t.ko.to_string()).unwrap_or_else(|| "-".into()),
@@ -2397,31 +1899,18 @@ fn run_determinism() {
     );
 }
 
-/// WHY IS EVERY THROW CELL `REFUSED@0`? — NAME the missing precondition instead
-/// of guessing at it.
+/// Why does a throw cell refuse at 0%? Name the missing precondition.
 ///
-/// ⛔⛔ THE STAGE-3 MATRIX REFUSED ALL 24 THROW CELLS — every role, every
-/// attacker, both victims, at entry percent 0. Read as data those rows say
-/// *"throws never launch very far"*, which is the ORIGINAL COMPLAINT apparently
-/// confirmed by 24 independent cells. `PREDICTION_THROWS.md` pre-registered this
-/// exact shape as an ACTUATOR failure precisely so it could not be read that way.
+/// A refused throw cell looks like a weak throw. `apply_capture_throws` takes
+/// an eleven-component query on the captive (eight required) and skips
+/// silently when `find` matches nothing. The fixture in `capture/systems.rs`
+/// (`throw_app`/`grounded_body`) builds a captive the system sees. This prints
+/// what a live match fighter has compared with that fixture. Note:
+/// `gravity/resolve.rs` says a player entity has no `ActorSurfaceState`, while
+/// `actor_spawn` and `body_seed` insert one.
 ///
-/// `apply_capture_throws` takes an ELEVEN-component query on the captive and
-/// `continue`s in SILENCE when its `find` matches nothing. EIGHT of those are
-/// REQUIRED (non-`Option`), so a seated fighter missing ANY ONE produces a
-/// uniform, quiet refusal that looks identical to a weak throw.
-///
-/// ⭐ AND THE KNOWN-GOOD RECIPE IS ALREADY IN THE TREE: `capture/systems.rs`'s
-/// own `throw_app`/`grounded_body` fixture builds a captive the system DOES see.
-/// The only open question is which column a LIVE match fighter lacks that the
-/// fixture spells out — `gravity/resolve.rs:51` says a PLAYER entity carries no
-/// `ActorSurfaceState` at all, while `actor_spawn` and `body_seed` both insert
-/// one. This prints the difference rather than reasoning about it.
-///
-/// ⛔ IT DELIBERATELY INSERTS NOTHING TO "FIX" THE BODY. Adding a default
-/// `ActorSurfaceState` to a victim that already has one would overwrite its real
-/// `gravity_scale` and corrupt every later trial — a repair applied before the
-/// diagnosis, which is how a fixture starts measuring itself.
+/// It inserts nothing to repair the body. A default `ActorSurfaceState` would
+/// overwrite the real `gravity_scale` and corrupt later trials.
 fn run_throw_diag() {
     use ambition_platformer2d::characters::actor as ca;
     use ambition_platformer2d::engine_core as ec;
@@ -2434,10 +1923,8 @@ fn run_throw_diag() {
 
     let mut probe = KoProbe::new(attacker_id, victim_id);
 
-    // ⛔ SEPARATE THE TWO WAYS `fire` RETURNS `None`. A refusal from the RESET is
-    // a statement about the fixture's ability to stand a body up, and has
-    // nothing to do with the throw road; only a reset that SUCCEEDED lets the
-    // rest of this diagnostic mean anything.
+    // Separate the two ways `fire` returns `None`. A reset refusal is about
+    // the fixture, not the throw path. Continue only if the reset succeeded.
     if !probe.reset_trial(0, probe.centre) {
         println!("⛔ reset_trial REFUSED — the refusal happens BEFORE any throw.");
         println!("   The REFUSED@0 cells are then NOT evidence about the throw road.");
@@ -2480,19 +1967,13 @@ fn run_throw_diag() {
         has!(a, ambition_platformer2d::combat::capture::CapturedBy)
     );
 
-    // ── REPRODUCE THE MATRIX'S ACTUAL FIRST CALL, not an approximation of it. ──
+    // ── Reproduce the matrix's first call. ──
     //
-    // ⛔⛔ THIS IS THE STEP THAT DECIDES IT. The hand-rolled actuation below
-    // proves the throw ROAD works; it does NOT prove `fire` works, and `fire` is
-    // what the matrix ran. `ko_threshold` opens with `kills(pulse, 0, ..)`, and
-    // `kills` returns `None` — which prints as `REFUSED@0` — only when THREE
-    // consecutive `fire` calls all refuse. So three calls here reproduce the
-    // exact condition, and the `KO_REFUSE` lines on stderr now name WHICH of the
-    // two silent refusal stages fired.
-    //
-    // ⛔ AND IT RUNS FIRST, BEFORE the manual actuation below, because that one
-    // leaves the victim launched and airborne — a `fire` measured after it would
-    // be measuring the wreckage of the previous experiment.
+    // The manual actuation below proves the throw path works, not that `fire`
+    // works. `ko_threshold` starts with `kills(pulse, 0, ..)`, which returns
+    // `None` (`REFUSED@0`) only when three `fire` calls refuse. Three calls here
+    // reproduce that, and the `KO_REFUSE` lines on stderr name the stage.
+    // This runs first, because the manual actuation leaves the victim airborne.
     let params = CaptureThrowParams {
         damage: 9,
         knockback: 104.0,
@@ -2503,11 +1984,8 @@ fn run_throw_diag() {
     let mut refusals = 0;
     for attempt in 0..3 {
         match probe.fire(Pulse::Throw(&params), 0, probe.centre) {
-            // ⚠ `tumbled`, `entry_percent` and `effective_percent` are printed
-            // here because they were CAPTURED and read by nothing — three fields
-            // whose doc comments state exactly why each was worth recording,
-            // written every trial and never surfaced. A measurement a binary
-            // takes and does not emit is not a measurement.
+            // Print `tumbled`, `entry_percent`, and `effective_percent`, which
+            // are recorded every trial and otherwise never shown.
             Some(t) => println!(
                 "   attempt {attempt}: Some — ko={} resolved_launch={:?} \
                  tumbled={} entry%={} effective%={}",
@@ -2555,10 +2033,9 @@ fn run_throw_diag() {
         },
     );
 
-    // ⭐ SEVERAL TICKS, NOT ONE. The captive is released BY the throw, so a
-    // surviving `CapturedBy` means the system never ran — but a message written
-    // from OUTSIDE the schedule might also simply be read a tick later than the
-    // fixture assumes, and "never" and "not yet" are different diagnoses.
+    // Several ticks, not one. A surviving `CapturedBy` means the system never
+    // ran, but a message written from outside the schedule can be read a tick
+    // late. "Never" and "not yet" are different diagnoses.
     let mut cleared_on = None;
     for tick in 0..6 {
         probe.app.update();
@@ -2598,42 +2075,19 @@ fn run_throw_diag() {
 fn run_probe() {
     const REFERENCE: &str = "player_robot_v3";
     const HEAVY: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
-    // ⛔⛔ THIS IS A THREE-FIGHTER SAMPLE. IT IS NOT THE ROSTER, AND ANY STATISTIC
-    // TAKEN OVER IT MUST NOT BE CALLED A ROSTER STATISTIC.
-    //
-    // The AUTHORED-VALUE census elsewhere in this tool genuinely walks every
-    // seatable fighter. The STAGE-OUTCOME matrix below does not: it walks these
-    // three attackers against two victims, and nothing in the output says so.
-    //
-    // That gap has already produced a false claim. A commit message reported
-    // "roster medians: smash_forward 183 -> 120, smash_down 208 -> 163, smash_up
-    // 275 -> 219" and "20 smash pulses" as evidence that a global nonlinear law fit
-    // THE ROSTER. Those numbers came from three fighters. The per-fighter
-    // measurements were sound; the population they were generalised to did not
-    // exist, and a law was justified on it.
-    //
-    // ⇒ Either seat every attacker here, or say "three-fighter calibration sample"
-    // every single time these cells are cited. The honest phrasing is the cheap
-    // half; widening the sample costs runtime this tool has not been given.
-    //
-    // (Kept deliberately: the original rationale — the question is whether ROLES
-    // separate, and every fighter authors the same role set — is still why three
-    // attackers is a reasonable SAMPLE. It is not why it would be a population.)
+    // This is a three-fighter sample, not the roster. The authored-value
+    // census walks every seatable fighter; this stage-outcome matrix does not.
+    // Cite these cells as a "three-fighter calibration sample", never as roster
+    // statistics. Three is enough to ask whether roles separate, because every
+    // fighter authors the same role set.
     let attackers = ["npc_pirate_admiral", "smash_george_booul", "npc_bob"];
-    // ⭐ THE CEILING IS ARGV-DRIVEN, AND 300 REMAINS THE DEFAULT so that every run
-    // recorded in PROVENANCE_RUNS.md replays to the same numbers. Raising it does
-    // not re-measure history; it measures what history could not see.
+    // The ceiling comes from argv; 300 stays the default so runs recorded in
+    // PROVENANCE_RUNS.md replay to the same numbers.
     //
-    // ⛔ A `>300` CELL IS NOT A MEASUREMENT OF A WEAK MOVE — IT IS THE ABSENCE OF
-    // ONE. Measured on the curve-free baseline: 12 of 19 centre cells read `>300`
-    // (every tilt, most aerials, attack_dash, special_down, up_throw, down_throw).
-    // Calibration inverts `growth' = growth * (p0/p1)`, which has NO p0 for a
-    // censored cell, so two thirds of the roster cannot be authored from a 300-cap
-    // table at all.
-    //
-    // ⚠ COST, STATED: `ko_threshold` sweeps in steps of 50 (see :1836), so the
-    // coarse pass grows linearly with this number and each cell runs a full trial
-    // per sample. `ceiling=600` roughly doubles the sweep.
+    // A `>300` cell is not a weak move; it is a missing measurement.
+    // Calibration inverts `growth' = growth * (p0/p1)` and has no `p0` for a
+    // censored cell. Cost: the coarse pass grows linearly with the ceiling, so
+    // `ceiling=600` about doubles the sweep.
     let max_percent: i32 = std::env::args()
         .find_map(|a| {
             a.strip_prefix("ceiling=")
@@ -2641,29 +2095,19 @@ fn run_probe() {
         })
         .unwrap_or(300);
 
-    // ⭐ ONE MATCHUP PER PROCESS. The six cells of the matrix share nothing —
-    // separate Apps, separate worlds — so running them as six processes is pure
-    // wall-clock division that cannot touch a single measured number. With no
-    // arguments the tool still walks the whole matrix in one process.
+    // One matchup per process. The matrix cells share nothing (separate Apps),
+    // so this only divides wall-clock time. With no arguments the tool walks
+    // the whole matrix in one process.
     let argv: Vec<String> = std::env::args().collect();
     let after: Vec<&str> = argv
         .iter()
         .skip_while(|a| a.as_str() != "probe")
         .skip(1)
         .map(|s| s.as_str())
-        // ⛔ `identity` IS A FLAG, NOT A FIGHTER. Without this filter
-        // `probe <attacker> identity` would read "identity" as the VICTIM id,
-        // fail the registry lookup, and print a table for a matchup nobody asked
-        // for — a silent wrong-population error, which is the failure this
-        // instrument exists to avoid.
-        //
-        // ⭐ `ceiling=<n>` JOINS THE FILTER FOR THE SAME REASON, and the reason is
-        // no longer hypothetical: measured this session, running this binary with
-        // no `probe` token produced 788 rows of a whole-roster MOVESET CENSUS —
-        // well-formed, plausibly headed, real fighter names, and about a different
-        // question entirely. An unfiltered flag lands in `after[0]` and silently
-        // BECOMES the attacker. Nothing downstream can tell that from a table
-        // somebody meant to ask for.
+        // Flags are not fighters. Without this filter, `probe <attacker>
+        // identity` reads "identity" as the victim id, and an unfiltered
+        // `ceiling=<n>` in `after[0]` becomes the attacker. Either gives a
+        // table for a matchup nobody asked for.
         .filter(|a| {
             *a != "identity"
                 && *a != "calib"
@@ -2686,44 +2130,25 @@ fn run_probe() {
     };
 
     println!("# ko_envelope PROBE — stage outcomes, 1.25 frozen, no authored value changed");
-    // ⭐ THE SWEEP CEILING IS A LIVE FACT OF THE RUN, not a constant a reader may
-    // look up in the source: `>N` means different things in two tables taken at
-    // different N, and the source only ever states the CURRENT default. A table
-    // that does not carry its own ceiling cannot be compared to one that does.
+    // Print the sweep ceiling: `>N` means different things at different N,
+    // and a table must carry its own ceiling to be comparable.
     println!(
         "# sweep ceiling: max_percent={max_percent} — a `>{max_percent}` cell is CENSORED \
          (no threshold found at or below it), NOT a measurement that the move is weak"
     );
-    // ⭐ THE COARSE STEP IS A LIVE FACT TOO, and for the same reason the ceiling is:
-    // two tables taken at different steps can report different thresholds for the
-    // SAME ruleset, because a KO regime narrower than the step can be stepped over
-    // (measured: George's forward throw, side-right at 175 vs fall at 91). A table
-    // that does not carry its step cannot be compared to one that does.
+    // Print the coarse step too: tables at different steps can report
+    // different thresholds for the same ruleset, because a narrow KO regime
+    // can be stepped over. The line also proves that `step=` reached the sweep.
     //
-    // ⛔ It is ALSO the poison-verification for `step=`: without this line the flag
-    // reaching the sweep could only be inferred from the very result it exists to
-    // test, which is circular.
-    // ⭐⭐ CALIBRATION MODE — OFF unless asked for, and the two flags below are
-    // designed together rather than shipped as separate conveniences.
-    //
-    // `calib` replaces coarse sweep + bracket + binary search with an exact
-    // ascending scan at step 1, and refuses a self-disagreeing cell instead of
-    // outvoting it. That is what AUTHORING a value needs and it is far too slow
-    // for a survey: a cell that kills near 110% costs ~110 trials instead of ~10.
-    // ⇒ `only=<substring>` matches `move_id`, because a whole-roster exact pass
-    // would run for hours and nobody would wait for it.
+    // Calibration mode is off unless asked for. `calib` replaces the coarse
+    // sweep, bracket, and binary search with an exact step-1 scan, and refuses
+    // a self-disagreeing cell. It is too slow for a survey (a cell that kills
+    // near 110% costs ~110 trials), so `only=<substring>` filters by `move_id`.
     let calib = std::env::args().any(|a| a == "calib");
     let only: Option<String> =
         std::env::args().find_map(|a| a.strip_prefix("only=").map(|s| s.to_string()));
-    // ⛔⛔ THE STEP LINE MUST NOT DESCRIBE A PASS THAT DID NOT RUN — MEASURED, in
-    // the first calibration run this flag ever served.
-    //
-    // The header printed `# sweep step: 50` while `calib` had replaced the coarse
-    // sweep outright and an exact step-1 scan produced the row. That is false
-    // provenance in the one place a later reader trusts without checking: this
-    // file's own rule is that two tables taken at different steps are not
-    // comparable, so a table claiming a step it never used is WORSE than one
-    // carrying no step at all — it invites exactly the comparison it breaks.
+    // The step line must describe the pass that ran. Under `calib` the step is
+    // 1, not the coarse step.
     if calib {
         println!(
             "# sweep step: NOT IN EFFECT — `calib` replaced the coarse sweep with an \
@@ -2739,9 +2164,7 @@ fn run_probe() {
                 .unwrap_or(50)
         );
     }
-    // ⛔ POISON-VERIFICATION FOR BOTH, for the reason the step line already gives:
-    // a flag whose arrival can only be inferred from the result it exists to
-    // change is a flag nobody can prove reached the sweep.
+    // Print both flags so their arrival can be checked directly.
     println!(
         "# calibration mode: {} | {}",
         if calib {
@@ -2754,29 +2177,18 @@ fn run_probe() {
             None => "no only= filter: every bound launcher measured".to_string(),
         }
     );
-    // ⛔⛔ EVERY KO PERCENT BELOW IS A NO-RECOVERY LOWER BOUND, and reading one
-    // as a kill percent overstates the game's lethality.
-    //
-    // Both bodies carry `Brain::stand_still()`. The victim therefore never DIs,
-    // never jumps, never air-dodges and never uses a recovery move — it is
-    // launched and it travels until something stops it. A real victim fights the
-    // launch, so its true threshold is HIGHER than the number in these columns,
-    // by an amount this instrument does not measure. What the columns ARE good
-    // for is comparison between cells measured the same way: role against role,
-    // centre against ledge, reference weight against heavy.
+    // Every KO percent below is a no-recovery lower bound. Both bodies have
+    // `Brain::stand_still()`, so the victim never DIs, jumps, air-dodges, or
+    // recovers. A real victim's threshold is higher by an unmeasured amount.
+    // Use the columns to compare cells measured the same way: role with role,
+    // centre with ledge, reference weight with heavy.
     println!(
         "# victim brain: stand_still — no DI, no jump, no recovery. KO% is a \
          NO-RECOVERY LOWER BOUND, not a kill percent."
     );
-    // ⛔⛔ THIS LINE MUST NOT CLAIM A PIN THAT DID NOT HAPPEN. The step header
-    // carried exactly this defect into the first calibration run it ever served —
-    // it announced `step: 50` while a step-1 scan produced the row. A header is
-    // the one thing a later reader trusts without re-deriving it.
-    //
-    // ⛔ AND IT DOES NOT RESTATE `rage_per_damage`/`rage_max_scale`. Those are
-    // authored in `ambition_demo_smash`, and a constant transcribed into a probe
-    // is the error that made this file's own gravity comment wrong by 55%. The
-    // meter is what this tool set; the multiplier is the ruleset's to state.
+    // Print the pin only when it happened. Do not restate
+    // `rage_per_damage`/`rage_max_scale`: `ambition_demo_smash` authors them.
+    // This tool states only the meter it set.
     if attacker_meter() == 0 {
         println!("# attacker meter pinned to 0 so rage_scale cannot multiply a resolved launch.");
     } else {
@@ -2787,27 +2199,12 @@ fn run_probe() {
             attacker_meter()
         );
     }
-    // ⛔⛔ AERIAL ROLES ARE MEASURED UNDER CONDITIONS THEY NEVER OCCUR IN, and
-    // their rows are NOT comparable with the grounded ones.
-    //
-    // Every trial parks the victim standing on the platform, so an `attack_air*`
-    // pulse is being fired at a grounded body from a grounded attacker. Run 2
-    // duly reported `centre_never = n/n` for attack_air, attack_air_up,
-    // attack_air_down and attack_dash. That is a statement about the FIXTURE,
-    // not about aerials: a real aerial connects with an airborne victim who has
-    // no floor to be driven into and no landing to absorb the launch.
-    //
-    // ⇒ Read the grounded roles (attack*, smash*, tilt*) as measurements and the
-    // aerial roles as not-yet-measured. Giving them an airborne victim is a
-    // separate fixture, not a tweak to this one.
-    // ⛔⛔ THIS CAVEAT USED TO EXPLAIN AWAY A DEFECT, IN THE HEADER A READER
-    // TRUSTS. It said the aerial cells "measure the fixture, not the move"
-    // because an aerial meets a grounded parked victim — true as a caveat, and
-    // NOT why those cells are empty. Measured 2026-09-13 with both refusal arms
-    // logging: a full matchup produced 209 `KO_REFUSE` lines and EVERY ONE was
-    // `stage=ground` — the reset's own grounded premise — covering the aerials,
-    // the dash attack, both specials and all four throws alike. A real
-    // instrument failure was wearing a design limitation's clothes.
+    // Aerial roles are measured under conditions they never occur in. Each
+    // trial parks the victim on the platform, so an `attack_air*` pulse hits a
+    // grounded body from a grounded attacker. Read the grounded roles (attack*,
+    // smash*, tilt*) as measurements and the aerial roles as not yet measured.
+    // An empty aerial cell can also be a reset refusal (`stage=ground` in
+    // `KO_REFUSE`), not this limitation; check stderr.
     println!(
         "# ⚠ AERIAL ROLES (attack_air*, attack_dash) fire at a GROUNDED, PARKED victim — \
          a fixture they never meet in play, so read their cells with that in mind."
@@ -2820,8 +2217,7 @@ fn run_probe() {
          Cause under investigation; four hypotheses falsified by measurement so far. \
          ⛔ Do NOT read a refused row as 'this move is weak'."
     );
-    // ⭐ THROW ROWS READ DIFFERENTLY FROM STRIKE ROWS IN THE SAME TABLE, and a
-    // reader with only the TSV cannot tell. Three differences, all load-bearing:
+    // Throw rows read differently from strike rows in the same table. Say how.
     println!(
         "# ⭐ THROW ROWS (*_throw) ARE MEASURED PULSES, NOT STRIKES. \
          (1) w/v is '-': window/volume address a strike's hit volume and a throw has no such address. \
@@ -2856,27 +2252,18 @@ fn run_probe() {
                 };
                 let mut bad = Vec::new();
                 let mut nl = Vec::new();
-                // ⭐ THROWS ADMIT UNCONDITIONALLY, AND THE ASYMMETRY IS REAL —
-                // this is not the strike rule with a hole punched in it.
-                //
-                // An unbound strike is a hit volume that NO verb reaches, so no
-                // player can produce it and a row for it would measure a volume
-                // the game never fires. A throw has no `verbs` list that could be
-                // empty: `launchers_of` builds each one through `move_for_verb`,
-                // so it exists only BECAUSE a verb resolved to it. Bound by
-                // construction, and requiring a `verbs` field it does not have
-                // would silently exclude every throw — which is precisely the
-                // state this commit is ending.
+                // Throws are admitted unconditionally. An unbound strike is a
+                // hit volume no verb reaches, so it is skipped. A throw has no
+                // `verbs` list: `launchers_of` builds each one through
+                // `move_for_verb`, so it is bound by construction.
                 launchers_of(attacker_id, contract, &mut bad, &mut nl)
                     .into_iter()
                     .filter(|l| match l {
                         Launcher::Strike { verbs, .. } => !verbs.is_empty(),
                         Launcher::Throw { .. } => true,
                     })
-                    // ⭐ `only=` NARROWS THE POPULATION, IT DOES NOT CHANGE A NUMBER.
-                    // Each launcher's threshold search is independent of every
-                    // other's — separate pulses, separate resets — so a filtered run
-                    // and a full run report identical cells for the moves they share.
+                    // `only=` narrows the population and does not change a
+                    // number: each launcher's search is independent.
                     .filter(|l| match &only {
                         Some(want) => l.move_id().contains(want.as_str()),
                         None => true,
@@ -2884,27 +2271,14 @@ fn run_probe() {
                     .collect::<Vec<_>>()
             };
 
-            // ⭐ THE SELF-TEST, AND RUN 1 PROVED THE OLD ONE INADEQUATE.
+            // The self-test. Compare the whole outcome, not only `ko`: two
+            // trials can agree on `ko` and start in different states, and
+            // `at_strike` catches that. Use three repetitions, because an
+            // alternating defect (survive/KO/survive) is invisible to a
+            // comparison of the first two.
             //
-            // It fired one pulse at one percent twice and compared only `ko`.
-            // That passed — and the table it admitted contained cells where a
-            // percent measured as a survival in the coarse sweep came back a KO
-            // in verification, because every trial was starting AIRBORNE and the
-            // outcome turned on where a single update left the body.
-            //
-            // ⛔ COMPARE THE WHOLE OUTCOME, NOT THE VERDICT. Two trials can
-            // agree on `ko` and still have begun in different states, which is
-            // the disagreement that matters; `at_strike` is what catches it.
-            // Three repetitions rather than two, because an alternating defect
-            // (survive/KO/survive/KO — exactly what run 1 showed) is invisible
-            // to any even-numbered comparison of the first two.
-            //
-            // ⛔ NOT `if let Some(Launcher::Strike { .. })`. Written that way, a
-            // fighter whose first launcher is a THROW skips the self-test
-            // entirely and has its whole table admitted with no independence
-            // check — the `if let` falls through in silence and the run looks
-            // exactly like one that passed. The guard must cover whatever pulse
-            // is actually first.
+            // Do not match only `Launcher::Strike`: a fighter whose first
+            // launcher is a throw would skip the self-test silently.
             if let Some(self_test) = launchers.first().map(Launcher::pulse) {
                 let mut seen = Vec::new();
                 for _ in 0..3 {
@@ -2937,22 +2311,12 @@ fn run_probe() {
             println!(
                 "role\tmove\tw/v\tbase\tgrowth\tlaunch@100\ttumble%\tcentre_KO%\tledge_KO%\tko_ticks"
             );
-            // ⛔⛔ DERIVED FROM THE PLATFORM, AND INBOARD OF ITS EDGE.
-            //
-            // `centre + 240.0` parked the victim at x=560, which is EXACTLY
-            // where the floor ends: `smash_stage` builds one solid at
-            // min=(80,300) size=(480,32), so the platform spans 80..560. A body
-            // standing on the last pixel decides `on_ground` sub-pixel, and it
-            // showed — 15 of run 2's 16 self-contradicting cells were LEDGE
-            // cells, and four ledge thresholds collapsed to 0-25%. That is the
-            // fixture tipping a body off a cliff it was already teetering on,
-            // not a measurement of knockback.
-            //
-            // Read the real edge off the stage and stand a margin inboard, so the
-            // cell measures a launch from NEAR the ledge instead of a coin flip
-            // about whether the victim was ever standing.
-            // ⭐ BOTH EDGES, because one of them is the wrong one for half the roster.
-            // See the per-move choice at the `ledge_ko` call below.
+            // Derive the ledge positions from the platform, inboard of its
+            // edge. `smash_stage` builds one solid at min=(80,300)
+            // size=(480,32), so the platform spans 80..560. A body on the last
+            // pixel decides `on_ground` sub-pixel, and the cell becomes a coin
+            // flip. Read the real edge and stand a margin inboard.
+            // Both edges: see the per-move choice at the `ledge_ko` call below.
             let (left_ledge_x, right_ledge_x) = {
                 let room = ambition_demo_smash::smash_stage();
                 let right = room
@@ -2981,25 +2345,13 @@ fn run_probe() {
             for l in &launchers {
                 let pulse = l.pulse();
                 let move_id = l.move_id();
-                // ⛔ THROUGH `launch_at` LIKE THE OTHER TWO. This value is both
-                // the printed column AND the midpoint the linearity check tests
-                // the fitted line against, so a single refused reset here does
-                // not merely blank a cell — it disarms the check that decides
-                // whether the tumble crossing may be solved at all.
+                // Through `launch_at` like the other two. This value is both
+                // the printed column and the midpoint for the linearity check.
                 let launch_at_100 = probe.launch_at(pulse, 100, probe.centre);
-                // ⭐ THE TUMBLE CROSSING IS SOLVED, NOT SWEPT — and the solve
-                // CHECKS ITS OWN PREMISE instead of assuming it.
-                //
-                // The launch law is linear in victim percent, so three
-                // samples answer what a 13-trial sweep answered: two fix the
-                // line, the third must land on it. Measured against the slow
-                // path's own jab row (base 55.0, growth 1.10): l(0)=55.0,
-                // l(200)=330.0, midpoint 192.5 — and the engine reported exactly
-                // 192.5 at 100%, which is what makes the line trustworthy here.
-                //
-                // ⛔ If the third point misses, this prints NONLINEAR and no
-                // crossing, because a fitted line through a curve that is not
-                // one is a fabricated number.
+                // Solve the tumble crossing; do not sweep it. The launch law is
+                // linear in victim percent, so two samples fix the line and a
+                // third must land on it. If the third misses, print NONLINEAR
+                // and no crossing.
                 let l0 = probe.launch_at(pulse, 0, probe.centre);
                 let l200 = probe.launch_at(pulse, 200, probe.centre);
                 let tumble_cell = match (l0, launch_at_100, l200) {
@@ -3028,62 +2380,39 @@ fn run_probe() {
                     _ => "-".to_string(),
                 };
                 let centre_ko = probe.ko_threshold(pulse, probe.centre, max_percent);
-                // ⛔⛔ THE OUTWARD LEDGE, CHOSEN PER MOVE — AND THE OLD COLUMN WAS
-                // ANSWERING A DIFFERENT QUESTION FOR HALF THE ROSTER.
-                //
-                // Every move used to be measured at the RIGHT ledge. For a
-                // negative-x launcher that aims the victim back ACROSS THE WHOLE
-                // STAGE, and the result was still labelled `ledge_KO%`. Measured
-                // before this fix, the two backward movers were exactly the two
-                // rows that looked "inverted" (ledge HARDER than centre):
-                // `back_throw` ledge 271 vs centre 135, `attack_air_back` 282 vs 200.
-                // That is not ledge kill potential; it is cross-stage kill potential.
-                //
-                // The fix is not to special-case throw names — it is to let the
-                // move's own authored launch direction pick which edge is OUTWARD.
-                // `facing` is pinned +1, so world launch follows the sign of
-                // `launch_dir.x`; a `None` dir derives from attacker-relative
-                // position and the fixture stands the attacker to the LEFT, so it
-                // launches rightward and keeps the right ledge.
+                // Pick the outward ledge per move. At the right ledge, a
+                // negative-x launcher sends the victim across the whole stage,
+                // which measures cross-stage kill power, not ledge kill power.
+                // The move's authored launch direction picks the edge. `facing`
+                // is pinned +1, so world launch follows the sign of
+                // `launch_dir.x`. A `None` dir derives from attacker-relative
+                // position; the attacker stands to the left, so it launches
+                // right and keeps the right ledge.
                 let ledge_x = match l.launch_dir() {
                     Some((x, _)) if x < -0.05 => left_ledge_x,
                     _ => right_ledge_x,
                 };
                 let ledge_ko = probe.ko_threshold(pulse, ledge_x, max_percent);
-                // ⛔ `w0v0` WOULD BE A LIE ON A THROW. These indices ADDRESS a
-                // strike's hit volume inside its move; a throw has no such
-                // address, and zeros would read as "window 0, volume 0" — a real
-                // location — rather than "does not apply".
+                // A throw has no window/volume address. Do not print `w0v0`,
+                // which reads as a real location.
                 let wv = match l {
                     Launcher::Strike { window, volume, .. } => format!("w{window}v{volume}"),
                     Launcher::Throw { .. } => "-".to_string(),
                 };
-                // ⭐ LAUNCH-MOTION TIMING, which is a named suspect in this
-                // investigation and was being recorded and thrown away — the
-                // compiler said so ("field `ticks_to_ko` is never read"). Ticks
-                // from contact to blast line at the cell's own threshold is how
-                // "the launch feels slow" stops being a matter of opinion.
-                // ⛔ BY REFERENCE: `Threshold::NonMonotonic` carries a `Vec`, so
-                // this enum is not `Copy` and matching it by value would move
-                // `centre_ko` out from under the `centre_ko.cell()` below.
+                // Ticks from contact to blast line at the cell's threshold:
+                // measures whether a launch feels slow.
+                // Match by reference: `Threshold::NonMonotonic` holds a `Vec`,
+                // so the enum is not `Copy`, and `centre_ko.cell()` is used
+                // below.
                 let ko_ticks = match &centre_ko {
                     Threshold::At(p) => match probe.fire(pulse, *p, probe.centre) {
                         Some(t) => {
-                            // ⭐⭐ WHETHER THIS CELL MEASURES KILL POWER AT ALL.
-                            //
-                            // A threshold is evidence about knockback only if the
-                            // victim crossed the blast line while it could not act.
-                            // If control had already returned, the move did not take
-                            // the stock — the body FELL, and the stage took it. Both
-                            // outcomes have been printing as one number in every
-                            // table this tool has produced, which flatters exactly
-                            // the weak-but-far moves a calibration would then
-                            // "correct" by raising growth.
-                            //
-                            // ⛔ ON STDERR, NOT AS A COLUMN. Three gates diff this
-                            // table byte-for-byte against `envelope_AFTER_LAWONLY`;
-                            // widening it would destroy the only comparison road
-                            // still standing.
+                            // Does this cell measure kill power? Only if the
+                            // victim crossed the blast line while unable to
+                            // act. Otherwise the body fell and the stage took
+                            // the stock. On stderr, not as a column, so the
+                            // table stays byte-comparable with
+                            // `envelope_AFTER_LAWONLY`.
                             eprintln!(
                                 "KO_FORCED: move={move_id} x=centre pct={p} forced={} \
                                  — `no` means the victim had CONTROL BACK when it left \
@@ -3123,8 +2452,8 @@ fn run_probe() {
 }
 
 fn main() {
-    // ⭐ BEFORE `probe`, because a table measured with a non-independent trial is
-    // worth less than no table: run 1 produced one and its oracle row had moved.
+    // Before `probe`: a table measured with non-independent trials is worse
+    // than no table.
     if std::env::args().any(|a| a == "contact") {
         run_contact();
         return;
@@ -3133,8 +2462,7 @@ fn main() {
         run_determinism();
         return;
     }
-    // ⭐ BEFORE `probe` for the same reason `contact` is: a matrix whose throw
-    // rows are all REFUSED is not a measurement of throws, and this says which.
+    // Before `probe`, like `contact`: this says why throw rows refuse.
     if std::env::args().any(|a| a == "throwdiag") {
         run_throw_diag();
         return;
@@ -3145,9 +2473,8 @@ fn main() {
     }
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    // ⛔ THE REGISTRY IS FILLED BY A `Startup` SYSTEM. A build that has never
-    // updated has a catalog and NO REGISTRY AT ALL, so every id would miss and
-    // the census would read as an empty roster.
+    // A `Startup` system fills the registry. Before the first update there is
+    // no registry, and the census would read as an empty roster.
     for _ in 0..4 {
         app.update();
     }
@@ -3156,20 +2483,12 @@ fn main() {
     let registry = world
         .get_resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
         .expect("the composed host has a prepared-character registry");
-    // ⛔⛤ **NOT THE LIVE RESOURCE — AND THE FIRST RUN OF THIS TOOL PROVED WHY.**
-    // `project_combat_rules` folds `DeclaredCombatRules` every tick, but the
-    // SMASH declaration only exists once the Smash experience is entered. A
-    // census that merely boots the app host and reads the resolved resource gets
-    // `Default`: measured 2026-09-13, this printed
-    // `victim_percent_knockback_scale=1 knockback_growth=0 rage_max_scale=1
-    // stale_floor=1 stale_knockback_influence=1` where Smash declares
-    // `1.25 / 0.02 / 1.4 / 0.55 / 0.30`. The `knockback_growth=0` then collapsed
-    // every unauthored-growth volume's effective growth to ZERO.
-    //
-    // ⇒ Ask the DECLARATION, which is the authority and is `pub`, and fold it
-    // the same way the engine does. The stage probe additionally asserts this
-    // against the live resource once a real Smash match exists — a declaration
-    // and a running world agreeing is a measurement; either alone is a claim.
+    // Not the live resource. `project_combat_rules` folds `DeclaredCombatRules`
+    // every tick, but the Smash declaration exists only after the Smash
+    // experience is entered. Before that the resolved resource is `Default`
+    // (for example `knockback_growth=0`, which zeroes every unauthored growth).
+    // Ask the declaration and fold it as the engine does. The stage probe also
+    // asserts it against the live resource inside a real match.
     let declared = ambition_demo_smash::smash_declared_combat_rules();
     let rules = ambition_platformer2d::combat::rules::ResolvedCombatTuning::resolve(
         Some(declared),
@@ -3183,8 +2502,8 @@ fn main() {
         rules.knockback_growth
     );
 
-    // ⭐ THE POPULATION IS THE SHIPPED HOST'S OWN ANSWER, printed so the census
-    // can never be read as covering a cast it did not cover.
+    // The population is the shipped host's own roster, printed so the census
+    // is not read as covering a cast it did not cover.
     let roster = ambition_demo_smash::select::SmashRoster::assemble(registry);
     let ids: Vec<String> = roster.ids().map(|s| s.to_string()).collect();
     println!("# ko_envelope — launcher-pulse census");
@@ -3264,19 +2583,13 @@ fn main() {
         );
     }
 
-    // ⭐⭐ BOUND ROLES ONLY, SIDE BY SIDE — the one table the whole instrument
-    // exists to put in front of a reader.
+    // Bound roles only, side by side.
     //
-    // ⛔ UNBOUND PULSES ARE EXCLUDED HERE AND COUNTED SEPARATELY. 115 of 532
-    // strike pulses answer to NO verb (`attack`, `attack_up`, `attack_air*` and
-    // friends, identical across 15 fighters): a press cannot reach them, so
-    // letting them into a role distribution drags every median toward a
-    // stand-in's numbers while looking like content.
-    //
-    // ⛔ AND NO SPREAD RATIO IS PRINTED. Some authored pulses have a genuinely
-    // zero growth/base — fixed knockback is a real authored role — so a
-    // max/min ratio over this set divides by a legitimate zero. Min, median and
-    // max say what a ratio would have, without being undefined.
+    // Unbound pulses (no verb reaches them) are excluded here and counted
+    // separately, because they would pull every median toward stand-in values.
+    // No spread ratio is printed: fixed knockback has a real zero
+    // growth/base, so a max/min ratio can divide by zero. Min, median, and max
+    // carry the same information.
     {
         let mut bound: BTreeMap<String, Vec<&Launcher>> = BTreeMap::new();
         let mut unbound = 0usize;
@@ -3314,7 +2627,7 @@ fn main() {
         }
     }
 
-    // ROLE SUMMARIES — the shape a gameplay question can actually be asked of.
+    // Role summaries.
     let mut by_role: BTreeMap<String, Vec<&Launcher>> = BTreeMap::new();
     for l in &all {
         by_role.entry(l.role()).or_default().push(l);
@@ -3389,8 +2702,8 @@ mod tests {
         app
     }
 
-    /// ⛔ THE CENSUS POPULATION IS A CLAIM. An empty roster would make every
-    /// downstream distribution vacuously "fine".
+    /// The census population is a claim: an empty roster would make every
+    /// distribution vacuously fine.
     #[test]
     fn the_composed_smash_roster_is_not_empty() {
         let app = composed();
@@ -3407,10 +2720,8 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ THIS TEST REPLACES EVERY GREP THIS FILE'S HEADER DESCRIBES.
-    ///
-    /// It asserts the thing four source parsers got wrong: the roster's fighters
-    /// really do author throws, reachable by VERB through the runtime contract.
+    /// The roster's fighters author throws, reachable by verb through the
+    /// runtime contract.
     #[test]
     fn every_resolved_throw_verb_carries_exactly_one_hydratable_throw_effect() {
         let app = composed();
@@ -3445,12 +2756,9 @@ mod tests {
                     .into_iter()
                     .filter(|(_, e)| e.key == CAPTURE_CARRY)
                     .count();
-                // ⛔ A CARRY IS NOT A DEFECT. The goblin's down press hoists
-                // instead of launching, on purpose, guarded by
-                // `the_goblins_down_throw_hauls_instead_of_launching`. The first
-                // version of this arm asserted `throws.len() == 1` outright and
-                // reddened on a CORRECT fighter — a repair from here would have
-                // broken the game to green the instrument.
+                // A carry is not a defect. The goblin's down press carries
+                // instead of launching, on purpose (guarded by
+                // `the_goblins_down_throw_hauls_instead_of_launching`).
                 if throws.is_empty() && carried > 0 {
                     carries += 1;
                     continue;
@@ -3479,11 +2787,9 @@ mod tests {
                 fighters_with_throws += 1;
             }
         }
-        // ⭐ THE FLOOR IS THE POINT. Without it this arm passes on a roster where
-        // every lookup silently returns `None` — which is precisely the
-        // conclusion four source-parsing attempts reached, and every one of them
-        // was wrong. A bare "no malformed rows" cannot tell an empty census from
-        // a healthy one.
+        // The floor matters: without it this passes on a roster where every
+        // lookup returns `None`. "No malformed rows" cannot tell an empty
+        // census from a healthy one.
         assert!(
             resolved >= 20,
             "only {resolved} throws resolved across the whole roster ({carries} carries). \
@@ -3493,9 +2799,8 @@ mod tests {
         println!("{resolved} throws + {carries} carries over {fighters_with_throws} fighters");
     }
 
-    /// `Some(0.0)` is FIXED knockback, and it must not be folded into "the
-    /// volume did not decide". Reading a bare `0.0` as unspecified once made the
-    /// documented fixed-knockback case the one value nobody could author.
+    /// `Some(0.0)` is fixed knockback. It must not fold into "the volume did
+    /// not decide".
     #[test]
     fn a_zero_growth_stays_fixed_and_an_absent_growth_takes_the_ruleset_fallback() {
         let fixed = Launcher::Throw {
@@ -3535,7 +2840,7 @@ mod tests {
         );
     }
 
-    /// A role must come from an AUTHORED BINDING, never from guessing at a name.
+    /// A role must come from an authored binding, never from a name guess.
     #[test]
     fn a_strikes_role_comes_from_its_authored_verb_not_its_id() {
         let l = Launcher::Strike {

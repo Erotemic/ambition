@@ -1,16 +1,15 @@
 //! Sanic's repertoire, for the stage he visits rather than the one he lives
 //! on.
 //!
-//! A move table is *what the attack IS*; the ability is *whether this body may attack at all*. At
-//! home the answer is no and these sixteen moves are unreachable; on a stage that GRANTS the verb
-//! (`MatchAbilities::levelled`) they are what he swings.
+//! A move table is what the attack is; the ability is whether this body may
+//! attack at all. At home the answer is no and these sixteen moves are
+//! unreachable. On a stage that grants the verb (`MatchAbilities::levelled`)
+//! they are what he swings.
 //!
-//! and it is not his spin dash. `declare_sanic_techniques` puts spin dash
-//! and the transform on his body as TECHNIQUES — named actions his own game
-//! resolves Attack and Utility onto — and they stay exactly where they are. The
-//! side special below is a different object that happens to look like one, which
-//! is the honest way to give a crossover stage a signature move without two
-//! authorities owning it.
+//! This is not his spin dash. `declare_sanic_techniques` puts spin dash and
+//! the transform on his body as techniques, and they stay there. The side
+//! special below is a separate move that looks like one, so a crossover stage
+//! gets a signature move without two authorities owning it.
 //!
 //! ## The character
 //!
@@ -113,7 +112,7 @@ pub fn sanic_moveset() -> MovesetContract {
     let d_tilt = on_contact(d_tilt, "player.hit");
 
     // FORWARD SMASH — `sonic_boom`. The one moment he stops being quick and
-    // becomes hard. still the second-weakest forward smash on the grid.
+    // becomes hard. Still the second-weakest forward smash on the grid.
     let f_smash = strike(Strike {
         id: "sonic_boom",
         clip: "smash_forward",
@@ -276,10 +275,9 @@ pub fn sanic_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.40)),
         on_hit: None,
     });
-    // either posture, and it has to be: gated to the ground, an airborne
-    // neutral-B walked the chain past it and found NOTHING — the last candidate
-    // for `special_air` is `special` itself. A spin charge in the air is a spin
-    // charge; there is nothing about it that needs a floor.
+    // Not gated to the ground: an airborne neutral-B falls back through the
+    // chain, and the last candidate for `special_air` is `special` itself. A
+    // spin charge does not need a floor.
     let n_b = committed_tail(n_b, 0.60, 0.05);
     let n_b = vfx_at(n_b, 0.04, "charge_pulse", (0.0, 8.0), RUSH_FX);
     let n_b = sfx(n_b, 0.04, "player.attack.charge");
@@ -354,11 +352,8 @@ pub fn sanic_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.07, "sonic_ripple", (0.0, 12.0), RUSH_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Grounded down-B: a hop in an arc, then the slam. In the air it is only
+    // the slam. Specials may differ by context.
     let ground_down_b = strike(Strike {
         id: "ball_hop",
         clip: "attack_down",
@@ -385,13 +380,11 @@ pub fn sanic_moveset() -> MovesetContract {
     let ground_down_b = vfx_at(ground_down_b, 0.18, "sonic_ripple", (0.0, 16.0), RUSH_FX);
     let ground_down_b = on_contact(ground_down_b, "player.hit");
 
-    // SANIC'S CAPTURE KIT. Fastest startup, shortest reach, weakest throw and the
-    // longest recovery. He gets there first and cannot do much with it, which is the
-    // joke and also the balance.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Sanic's capture kit. Fastest startup, shortest reach, weakest throw, and
+    // the longest recovery: he gets there first and cannot do much with it.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's `every_clip_names_a_row_..._sheet_carries` guard
+    // refuses a clip that names a missing row.
     let grab = author_standing_grab(
         grab_shell("sanic_grab", "attack", 0.05, 0.04, 0.24),
         CaptureAttemptParams {
@@ -473,9 +466,7 @@ pub fn sanic_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the point of proving it was to stop being the only two.
+        // Every fighter in the smash roster has a grab.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -498,19 +489,14 @@ mod tests {
     use super::*;
     use ambition_entity_catalog::WindowTag;
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // `SmashRepertoire` owns the verb strings and has no `Default` and no
+    // private fields, so a missing or renamed slot is a compile error here.
+    // Complete coverage of every press in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// SPEED IS THE WHOLE CHARACTER, and it is checkable. Every one of his
-    /// grounded normals starts in under seven frames at 60Hz. A retune that made
-    /// him ordinary would pass every other test in this file.
+    /// Speed is the whole character, and it is checkable: every grounded
+    /// normal starts in under seven frames at 60Hz.
     #[test]
     fn his_normals_come_out_faster_than_a_tenth_of_a_second() {
         let moveset = sanic_moveset();

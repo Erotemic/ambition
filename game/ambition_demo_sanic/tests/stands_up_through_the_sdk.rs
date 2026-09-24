@@ -1,18 +1,15 @@
-//! Consumer-matrix row 4, standalone half: a module that PREDATES the SDK
+//! Consumer-matrix row 4, standalone half: a module that predates the SDK
 //! stands up through it.
 //!
-//! Sanic was not.
-//!
-//! That distinction is the point. §4 authorises a decomposition on a SENTINEL
-//! CONSUMER's capability footprint, and a footprint measured only against games
-//! their own API author designed answers a much weaker question.
+//! Sanic was not designed against this SDK. §4 authorizes a decomposition on
+//! a sentinel consumer's capability footprint, and a footprint measured only
+//! against games the API author designed answers a weaker question.
 //!
 //! Sanic mounts as a `capability`, not through `playable()`. `playable` does
-//! not carry presentation profiles or a HUD declaration, and inventing those
-//! parameters to make this test prettier would be designing an API from one
-//! caller. The capability slot is the supported escape hatch for exactly this,
-//! and using it here is evidence about where `playable` stops rather than a
-//! workaround.
+//! not carry presentation profiles or a HUD declaration, and adding those
+//! parameters for one caller would design an API from one caller. The
+//! capability slot is the supported escape hatch, and using it shows where
+//! `playable` stops.
 
 use ambition_platformer2d::app::prelude::*;
 use ambition_demo_sanic::provider::{
@@ -37,11 +34,8 @@ impl GameModule for SanicModule {
     }
 }
 
-/// It boots, and it REACHES A RUNNING HOST.
-///
-/// Not "it composes". Slice B learned that lesson expensively: its first boot
-/// tests asserted `try_build` succeeded and never ran a tick, and the host they
-/// blessed had never started.
+/// It boots and reaches a running host. Asserting only that `try_build`
+/// succeeds proves nothing about a host that never ran a tick.
 #[test]
 fn sanic_stands_up_standalone_through_the_public_api() {
     let mut app = PlatformerApp::headless()
@@ -74,7 +68,7 @@ fn sanic_stands_up_standalone_through_the_public_api() {
     );
 }
 
-/// Sanic standalone and Sanic embedded produce the SAME identities.
+/// Sanic standalone and Sanic embedded produce the same identities.
 ///
 /// Two identities, because they can fail independently:
 ///
@@ -82,11 +76,9 @@ fn sanic_stands_up_standalone_through_the_public_api() {
 ///   declared;
 /// * the rollback schema fingerprint — what a session would snapshot.
 ///
-/// Compared for SANIC specifically, not for the whole composition. The
-/// embedded app legitimately contains more (the other module's content, its
-/// routes), so asserting whole-app equality would be asserting that embedding
-/// changes nothing, which is false and uninteresting. What must not change is
-/// Sanic's own identity — that is what "the same module" means.
+/// Compared for Sanic only, not the whole composition. The embedded app also
+/// holds the other module's content and routes; what must not change is
+/// Sanic's own identity.
 #[test]
 fn sanic_has_the_same_identities_standalone_and_embedded() {
     /// A second, unrelated module to embed Sanic alongside.
@@ -103,9 +95,8 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
                 .gameplay_route("neighbour/play")
                 .characters(ambition_platformer2d::app::MINIMAL_CHARACTER_ROSTER_RON)
                 .no_audio()
-                // It must be PLAYABLE, or nothing registers its route and rule
-                // 7 refuses the composition — which it did on the first
-                // attempt, correctly, from the widened per-experience check.
+                // It must be playable, or nothing registers its route and rule
+                // 7 refuses the composition.
                 .playable(
                     "Neighbour",
                     "an unrelated module for Sanic to be embedded beside",
@@ -123,9 +114,8 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
             "Neighbour Room",
             size,
             Vec2::new(64.0, 256.0),
-            // MIN corner, not a centre — see the note in
-            // `fixtures/minimal_game`, which had this wrong and whose own tests
-            // could not see it.
+            // Min corner, not a centre (see the note in
+            // `fixtures/minimal_game`).
             vec![Block::solid("floor", Vec2::new(0.0, 320.0), Vec2::new(size.x, 40.0))],
         );
         RoomSpec::new("neighbour_room", world)
@@ -137,8 +127,8 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
             .get_resource::<ambition_platformer2d::character::PlatformerAuthoredCatalogRegistry>()
             .expect("the authored catalog registry exists once a provider registered")
             .deterministic_dump();
-        // Only Sanic's rows. The embedded app also holds the neighbour's, and
-        // including those would compare the COMPOSITION rather than the module.
+        // Only Sanic's rows. Including the neighbour's would compare the
+        // composition, not the module.
         let sanic_rows: String = authored
             .lines()
             .filter(|line| line.contains(SANIC_EXPERIENCE))
@@ -165,8 +155,7 @@ fn sanic_has_the_same_identities_standalone_and_embedded() {
     let (standalone_content, standalone_schema) = sanic_identity(&standalone);
     let (embedded_content, embedded_schema) = sanic_identity(&embedded);
 
-    // Non-vacuity: two empty strings are trivially equal, and that failure would
-    // be green in the flattering direction.
+    // Non-vacuity: two empty strings are trivially equal.
     assert!(
         !standalone_content.is_empty(),
         "no Sanic rows in the authored registry — this is comparing nothing"

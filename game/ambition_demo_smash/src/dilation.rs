@@ -1,17 +1,14 @@
 //! The game half of `smash.time_dilation`: who is slow, and for how long.
 //!
-//! ⭐⭐ THE MOVE ASKS; THE ADAPTER OWNS THE CLOCK. That is this campaign's rule
-//! and it is the same shape the parasol's gravity modifier took: an authored
-//! move writes a scale and a duration, and something outside the move spends the
-//! seconds and puts the world back. Nothing here is a second authority on TIME —
-//! `ambition_time::ProperTimeScale` is the engine's, `WorldTime::entity_dt` is
-//! what reads it, and this decides only which body carries which number.
+//! The move asks; the adapter owns the clock. An authored move writes a scale
+//! and a duration, and this module spends the seconds and restores the body.
+//! `ambition_time::ProperTimeScale` is the engine's, `WorldTime::entity_dt`
+//! reads it, and this module only decides which body carries which value.
 //!
-//! ⛔ THE TIMER IS ITS OWN COMPONENT RATHER THAN A FIELD ON `ProperTimeScale`.
-//! That component is `ambition_time`'s and is rollback-canonical under a stable
-//! name; growing it a duration would make the time crate carry a smash rule and
-//! would move a wire format shared by everything. ⇒ A component beside it says
-//! the same thing and leaves the engine's vocabulary alone.
+//! The timer is its own component, not a field on `ProperTimeScale`. That
+//! component belongs to `ambition_time` and is rollback-canonical; adding a
+//! duration would put a smash rule in the time crate and change a shared wire
+//! format.
 
 use bevy::prelude::*;
 
@@ -21,22 +18,19 @@ use ambition_platformer2d::engine_core as ae;
 
 /// A body currently running on a slowed clock, and what to put back.
 ///
-/// ⛔ IT REMEMBERS THE PRIOR SCALE RATHER THAN ASSUMING `1.0`. A body could be
-/// dilated by something else the day another source exists, and restoring a
-/// constant would silently become that source's off switch. ⚠ Today the prior is
-/// always the default, which is exactly when this costs nothing and is exactly
-/// when it is cheapest to get right.
+/// It remembers the prior scale instead of assuming `1.0`, so that a future
+/// second source of dilation is not switched off by this restore.
 #[derive(Component, Debug, Clone, Copy, PartialEq)]
 pub struct TimeDilated {
-    /// World seconds left. ⛔ WORLD, NOT THE VICTIM'S OWN — a duration measured
-    /// on the slowed clock would stretch itself, so this ticks on `sim_dt`.
+    /// World seconds left. World time, not the victim's own: a duration on the
+    /// slowed clock would stretch itself, so this ticks on `sim_dt`.
     pub remaining_s: f32,
     /// The scale this body had before, restored when the clock runs out.
     pub prior: f32,
 }
 
-/// The rollback value projection: both fields decide how a body EXPERIENCES the
-/// next tick, so a restore that lost either resimulates a different fight.
+/// The rollback value projection. Both fields change how a body experiences
+/// the next tick, so a restore that lost either resimulates a different fight.
 pub fn time_dilated_probe(d: &TimeDilated) -> u64 {
     (d.remaining_s.to_bits() as u64).rotate_left(23) ^ (d.prior.to_bits() as u64)
 }
@@ -74,30 +68,23 @@ pub fn apply_authored_time_dilations(
             );
             continue;
         }
-        // ⛔⛔ `message.actor` IS WHOEVER THE DILATION LANDS ON, NOT WHOEVER CAST
-        // IT, and the two words disagree on purpose. `TimeDilationParams::scale`
-        // calls it "the VICTIM's clock" because that is what an author is
-        // choosing; the effect channel calls it the ACTOR because that is the
-        // field an `ActorActionMessage` carries.
+        // `message.actor` is the body the dilation lands on, not the caster.
+        // `TimeDilationParams::scale` calls it the victim's clock; the effect
+        // channel calls it the actor.
         //
-        // ⭐ THE DISPATCHER PICKS. The clerk's Witch-Time reaches the attacker
-        // because `smash.counter` sends its response with `actor: parry.attacker`
-        // when `answers_the_attacker` is set — the counter chose the target, and
-        // this technique slows whoever it is handed.
+        // The dispatcher picks the target. The clerk's Witch-Time reaches the
+        // attacker because `smash.counter` sends its response with
+        // `actor: parry.attacker` when `answers_the_attacker` is set.
         //
-        // ⚠ SO A TECHNIQUE THAT DILATES ITS OWN CASTER IS AUTHORED THE SAME WAY,
-        // by a dispatcher that names the caster. Reading `actor` as "the one who
-        // pressed the button" is the mistake to avoid: a move that emitted this
-        // from its own timeline WOULD slow itself, and that is correct rather
-        // than a bug.
+        // A move that emits this from its own timeline slows its own caster,
+        // and that is correct.
         let Ok((scale, already)) = bodies.get_mut(message.actor) else {
             continue;
         };
-        // ⛔ A SECOND DILATION DOES NOT NEST. Two overlapping slows would
-        // multiply into a body that is barely moving and would each try to
-        // restore a prior the other had already changed. The newest wins and
-        // keeps the ORIGINAL prior, so however many land, one restore returns
-        // the body to the clock it started on.
+        // A second dilation does not nest. Nested slows would multiply and
+        // would each restore a prior the other changed. The newest wins and
+        // keeps the original prior, so one restore returns the body to the
+        // clock it started on.
         let prior = already.map(|d| d.prior).unwrap_or_else(|| {
             scale
                 .as_ref()
@@ -120,9 +107,8 @@ pub fn apply_authored_time_dilations(
 
 /// Spend the dilation's clock and give the body its own time back.
 ///
-/// ⛔⛔ ONE SYSTEM, because expiring and restoring are one decision about one
-/// tick — the same reasoning the bomb and the plate give. A separate restorer
-/// racing a separate expirer is how a body ends a match on somebody else's clock.
+/// One system, because expiring and restoring are one decision about one tick.
+/// A separate restorer and expirer can leave a body on the wrong clock.
 pub fn expire_time_dilations(
     mut commands: Commands,
     time: Res<ambition_platformer2d::time::WorldTime>,
@@ -132,10 +118,9 @@ pub fn expire_time_dilations(
         &mut ambition_platformer2d::time::ProperTimeScale,
     )>,
 ) {
-    // ⛔ THE WORLD'S SECOND, NOT THE BODY'S. `sim_dt` rather than `entity_dt`:
-    // a slow that counted down on the clock it slowed would last `1/scale` times
-    // as long as its author wrote, and halving the scale would more than double
-    // the duration.
+    // The world's second, not the body's (`sim_dt`, not `entity_dt`). A slow
+    // that counted down on the clock it slowed would last `1/scale` times as
+    // long as authored.
     let dt = time.sim_dt();
     if dt <= 0.0 {
         return;

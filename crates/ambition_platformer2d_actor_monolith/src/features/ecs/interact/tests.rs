@@ -7,9 +7,9 @@ use bevy::prelude::{App, NextState, Update};
 
 /// The switch ids this tick's interactions activated.
 ///
-/// ⛔ NOT `SwitchOn`: that is the save's projection, written only by
-/// `sync_ecs_switches_from_save`. The interaction's own output is the
-/// `SwitchActivated` message; the toggle happens downstream when it is drained.
+/// Not the switch's state, which is the save's: the interaction's own output is
+/// the `SwitchActivated` message, and the toggle happens downstream when it is
+/// drained.
 fn activated(app: &App) -> Vec<String> {
     app.world()
         .resource::<bevy::ecs::message::Messages<SwitchActivated>>()

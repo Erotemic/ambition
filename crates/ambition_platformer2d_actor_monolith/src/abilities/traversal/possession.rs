@@ -177,7 +177,6 @@ pub fn possession_trigger_system(
     // gesture — while possessing, that is the possessed body's frame.
     let gravity_dir = crate::control::controlled_frame_down(
         controlled.as_deref(),
-        home_q.single().map(|(entity, _, _)| entity).ok(),
         &frames,
     );
     // Possession is currently primary-seat gameplay policy, so both the control

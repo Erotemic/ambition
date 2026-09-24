@@ -253,7 +253,7 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
     let end = ae::Vec2::new(200.0, 100.0);
     let start = ae::Vec2::new(40.0, 100.0);
     let vel = (end - start) / dt;
-    app.world_mut().spawn((
+    let body = app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
         // What `ensure_sim_id` gives a primary avatar on every host; see the
@@ -271,7 +271,8 @@ fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
             vel,
             half: ae::Vec2::new(12.0, 20.0),
         },
-    ));
+    )).id();
+    app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
 
     app.update();
 
@@ -403,6 +404,8 @@ fn a_body_stopped_at_the_boundary_still_crosses_the_zone_it_walked_into() {
         if let Some(sample) = sample {
             entity.insert(sample);
         }
+        let body = entity.id();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
         app.update();
         app.world().resource::<Captured>().0.clone()
     };
@@ -1591,17 +1594,21 @@ fn app_with_a_door(
         } else {
             ae::Vec2::new(1000.0, 1000.0)
         };
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-            BodyKinematics {
-                pos,
-                vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(24.0, 40.0),
-                facing: 1.0,
-            },
-        ));
+        let body = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
+                BodyKinematics {
+                    pos,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(body)));
         app
     }
 }
@@ -1653,5 +1660,24 @@ fn a_door_crossing_consumes_the_buffered_press_rather_than_letting_it_decay() {
         "the crossing was described and the press it spent is STILL BUFFERED. It \
          would go on being live for the rest of the buffer window, which is long \
          enough to describe a second crossing the player never asked for",
+    );
+}
+
+/// Nobody driving means nobody crosses. The home body stands in the door with a
+/// live press, but no body holds the primary seat, so there is no subject for a
+/// crossing; the engine does not appoint the home body in its place.
+#[test]
+fn an_undriven_home_body_in_a_door_is_not_crossed_for_anyone() {
+    // Control: the same door, driven, crosses.
+    let mut driven = app_with_a_door(true, None);
+    driven.update();
+    assert!(pending_intent(&driven).is_some(), "the driven body in the door did not cross");
+
+    let mut undriven = app_with_a_door(true, None);
+    undriven.insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(None));
+    undriven.update();
+    assert!(
+        pending_intent(&undriven).is_none(),
+        "a body nobody drives crossed a door: the transition picked its own subject",
     );
 }

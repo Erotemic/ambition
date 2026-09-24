@@ -3839,17 +3839,17 @@
       "id": "DUP-SWITCH-STATE",
       "category": "duplicate_truth_family",
       "name": "Whether a switch is on",
-      "owner": "the save is the one answer; `SwitchOn` only projects it (2026-09-23)",
+      "owner": "the save is the one answer (2026-09-23); nothing projects it since 2026-09-24",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ACCIDENTAL_COMPLEXITY",
-      "current_truth": "The save is the one answer and `SwitchOn` only projects it (2026-09-23). The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
+      "current_truth": "The save is the one answer (2026-09-23), and since 2026-09-24 nothing projects it: readers take the save by the activation id. The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
       "source_paths": [
         "game/ambition_content/src/falling_sand_sim.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "The save is the one answer and `SwitchOn` only projects it (2026-09-23). The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
+          "claim": "The save is the one answer (2026-09-23), and since 2026-09-24 nothing projects it: readers take the save by the activation id. The full account is the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
           "sources": [
             "game/ambition_content/src/falling_sand_sim.rs"
           ]
@@ -3857,7 +3857,7 @@
       ],
       "classification": "resolved 2026-09-23",
       "consolidation_hypothesis": "See the `DUP-SWITCH-STATE` row of `architecture-census.md`.",
-      "why_it_exists": "the save is the one answer; `SwitchOn` only projects it (2026-09-23)",
+      "why_it_exists": "the save is the one answer (2026-09-23); nothing projects it since 2026-09-24",
       "metric_tags": [],
       "duplicate_authority_state": "RESOLVED"
     },

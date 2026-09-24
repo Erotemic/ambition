@@ -19,7 +19,6 @@ use bevy::prelude::*;
 use ambition_characters::control::{DrivingParticipant, PlayerSlot, SlotControls};
 use ambition_platformer2d_core::{BodyKinematics, ControlFrame};
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
 };
@@ -72,7 +71,6 @@ pub fn portal_input_adapter_system(
         ),
         With<DrivingParticipant>,
     >,
-    primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     #[cfg(feature = "portal_render")] mut aim_hint: Option<ResMut<PortalAimHint>>,
     mut fire: MessageWriter<FirePortalGun>,
     mut toggle: MessageWriter<TogglePortalGun>,
@@ -83,8 +81,7 @@ pub fn portal_input_adapter_system(
     // body that made it — so a couch's second seat can fire, toggle, drop and
     // pick up its own gun. This resolved ONE `ControlledSubject`; the second
     // seat's presses reached nothing.
-    //
-    // ⚠ The fallback is the STARTUP frame and nothing else.
+
     let mut subjects: Vec<Entity> = Vec::new();
     // ⛔ HELD SEPARATELY, because ONE thing here is not per-body: the held-gun
     // presentation. See the `PortalAimHint` write below.
@@ -104,12 +101,8 @@ pub fn portal_input_adapter_system(
             subjects.push(entity);
         }
     }
-    if subjects.is_empty() {
-        subjects.extend(primary_fallback.single().ok());
-    }
-    // The body whose gun is DRAWN: the controlled subject, or — on the startup
-    // frame before one resolves — the single fallback body, which is the only
-    // one there is. Never "whichever seat the loop visited last".
+    // The body whose gun is DRAWN: the controlled subject, else the first seat in
+    // stable order. Never "whichever seat the loop visited last".
     // ⛔ GATED TO MATCH ITS ONLY CONSUMER. The reader below is
     // `#[cfg(feature = "portal_render")]`, so without that feature this binding
     // had no use and the crate's own default build warned — a warning the

@@ -120,7 +120,7 @@ pub fn detect_room_transition_system(
     // The transition subject is the CONTROLLED body: if the driven body (home
     // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
     // door restrictions gate on body properties (size/shape/locomotion), never on
-    // "is this the home avatar". Falls back to the primary player at startup.
+    // "is this the home avatar". Nobody driving means nobody crosses.
     controlled: Option<Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
     // Use the movement kernel's `SweepSample` for boundary crossings because collision may zero
@@ -137,7 +137,6 @@ pub fn detect_room_transition_system(
     // the confirmed commit transports the body that CROSSED the exit — not whatever is
     // controlled later, after a possession change.
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    primary_q: Query<Entity, ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>,
     // Track B: under a rollback host, defer the transition instead of engaging the
     // (not-rollback-registered) multi-tick load machine on a speculative frame.
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
@@ -148,7 +147,6 @@ pub fn detect_room_transition_system(
     }
     let Some(subject_entity) = controlled
         .and_then(|subject| subject.0)
-        .or_else(|| primary_q.single().ok())
     else {
         return;
     };

@@ -91,12 +91,10 @@ pub fn interact_ecs_actors_and_switches(
         ),
         With<FeatureSimEntity>,
     >,
-    // ⛔ NO `SwitchOn` HERE. Whether a switch is on is the SAVE's answer
-    // (`drain_switch_activations` performs the toggle) and `SwitchOn` is its
-    // projection (`sync_ecs_switches_from_save`, its one writer). This system
-    // latched it `true` on every press, which the projection overwrote a few
-    // sets later in the same chain — a dead write, and a wrong one for a
-    // toggle that had just turned the switch off.
+    // ⛔ NO SWITCH STATE HERE. Whether a switch is on is the SAVE's answer, and
+    // `drain_switch_activations` performs the toggle; this system only reports
+    // the press. Writing a state at press time is wrong for a toggle that has
+    // just turned the switch off.
     switches: Query<
         (&FeatureId, &FeatureName, &CenteredAabb, &SwitchFeature),
         With<FeatureSimEntity>,

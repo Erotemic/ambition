@@ -169,18 +169,15 @@ pub fn seat_frame_down(
 
 /// The CONTROLLED body's per-tick resolved "down" (ADR 0024): the frame every
 /// slot-0 gesture (fast-fall double-tap, possession Down+Interact, interact
-/// suppression) is interpreted in. Resolution order: the `ControlledSubject`
-/// (a possessed body reads ITS frame), else the primary player's body, else the
-/// engine default. This reads the frame-resolution artifact — it never
+/// suppression) is interpreted in: the `ControlledSubject`'s (a possessed body
+/// reads ITS frame), or the engine default when nobody is driving. This reads the frame-resolution artifact — it never
 /// reconstructs a frame from a gravity field.
 pub fn controlled_frame_down(
     controlled: Option<&ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
-    primary: Option<Entity>,
     frames: &Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
 ) -> ambition_platformer2d_core::Vec2 {
     controlled
         .and_then(|subject| subject.0)
-        .or(primary)
         .and_then(|entity| frames.get(entity).ok())
         .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| {
             frame.down()

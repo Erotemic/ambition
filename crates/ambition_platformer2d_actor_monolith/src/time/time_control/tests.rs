@@ -123,9 +123,11 @@ fn smoother_ramps_sim_state_time_scale_toward_target() {
         .insert_resource(ClockState::default())
         .insert_resource(Platformer2dFeelTuningMonolith::default())
         .insert_resource(Time::<()>::default())
+        .init_resource::<ambition_time::WorldTime>()
         .add_systems(
             Update,
             (
+                ambition_time::refresh_world_time,
                 apply_clock_scale_requests,
                 smooth_sim_clock_toward_target_system,
             )
@@ -193,13 +195,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "time/world_time.rs",
             "refresh_world_time itself converts Time -> WorldTime",
         ),
-        // The time-control pipeline runs on real wall-clock to
-        // smoothly ramp time_scale; ramping on its own output
-        // would be circular.
-        (
-            "time/time_control/mod.rs",
-            "smoother / clock-scale dispatch is the controller, not a consumer",
-        ),
         ("cutscene.rs", "cutscene beats are wall-clock by design"),
         // VFX particles are presentation; the design decision
         // is wall-clock so juice survives bullet-time. Revisit
@@ -264,35 +259,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
-        // THE OLD JUSTIFICATION WAS FALSE, AND CORRECTING IT NAIVELY COST
-        // SEVEN BOSS TESTS. It read *"the reaction timers still compute their
-        // own scaled dt manually"*, and the file contains no scaling — so the
-        // obvious repair was to move the decay onto `world_time.sim_dt()` like
-        // the actor and boss ticks. `boss_contact_iframes`, `boss_lifecycle`
-        // and `boss_motion_parity` went red at once, and they were right:
-        // hitstop is a `sim_clock` requester, so `hitstop_timer` would be
-        // slowed by the freeze it exists to end, and the i-frame and hitstun
-        // windows would stretch with it.
-        //
-        // That is the trap worth remembering: a false justification does not mean the decision
-        // under it is false, and "consolidating" a fork nobody explained is how a deliberate
-        // one gets undone.
-        //
-        // ⭐ what is on the raw clock here, and why: the presentation flash,
-        // which is meant to run while paused. Pinned by
-        // `the_reaction_timer_clock_forks_on_purpose`.
-        //
-        // ⚠ **NARROWED 2026-08-22.** This waiver also covered the reaction
-        // timers and the double-tap windows, which are gameplay and are
-        // rollback-canonical state. They still want the same NUMBER — unscaled
-        // seconds — but that number has a name, so they read
-        // `WorldTime::wall_dt()` and are no longer exceptions to anything. What
-        // is left here is genuinely presentation.
-        (
-            "control/input_systems.rs",
-            "the presentation flash is REAL-time by design and runs while paused; \
-             the gameplay timers in this file moved to WorldTime::wall_dt",
-        ),
         // Hot reload polls disk in wall-clock cadence.
         (
             "world/ldtk_world/hot_reload.rs",
@@ -304,10 +270,6 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "touch menu bridge is wall-clock UI",
         ),
         // Trace recorder timestamps each frame on the wall clock.
-        (
-            "dev/trace/systems.rs",
-            "trace timestamps are wall-clock by design",
-        ),
     ];
 
     fn walk(dir: &Path, out: &mut Vec<PathBuf>) {

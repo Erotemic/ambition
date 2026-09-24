@@ -168,8 +168,7 @@ pub fn record_frame_system(
     clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
     slots: Res<ambition_characters::control::SlotControls>,
-
-    time: Res<Time>,
+    world_time: Res<ambition_time::WorldTime>,
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
             ambition_platformer2d_world::rooms::RoomSet,
@@ -222,8 +221,10 @@ pub fn record_frame_system(
     // directly through `BodyClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
     let control_frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
-    let real_dt = time.delta_secs();
-    let sim_dt = real_dt * clock.time_scale;
+    // The tick's own clock: the scale it was stepped at, not the one this
+    // tick's smoothing has since moved to.
+    let real_dt = world_time.wall_dt();
+    let sim_dt = world_time.sim_dt();
     let active_area = rooms
         .as_ref()
         .map(|r| r.active_spec().id.clone())

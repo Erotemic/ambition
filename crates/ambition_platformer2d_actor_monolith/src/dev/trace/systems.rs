@@ -25,12 +25,10 @@ pub fn record_simulation_frame(
     combat: &ambition_characters::actor::BodyCombat,
     // Whether the body is mid-swing, from its live move (`melee_swing_of`).
     swinging: bool,
-    clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
-    real_dt: f32,
-    sim_dt: f32,
+    time: &ambition_time::WorldTime,
     game_mode: &str,
     active_area: &str,
     moving_platforms: &[ambition_platformer2d_world::platforms::MovingPlatformState],
@@ -52,12 +50,10 @@ pub fn record_simulation_frame(
         facts,
         combat,
         swinging,
-        clock,
         safety,
         world,
         controls,
-        real_dt,
-        sim_dt,
+        time,
         game_mode,
         active_area,
         buffer.sequence,
@@ -165,7 +161,6 @@ pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     boundary: Option<Res<ae::ConfirmedFrameBoundary>>,
     replay: Option<Res<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>>,
-    clock: Res<ambition_time::ClockState>,
     platform_set: Res<ambition_platformer2d_world::collision::MovingPlatformSet>,
     slots: Res<ambition_characters::control::SlotControls>,
     world_time: Res<ambition_time::WorldTime>,
@@ -222,9 +217,8 @@ pub fn record_frame_system(
     let clusters = cluster_item.as_clusters_mut();
     let control_frame = slots.get(ambition_characters::control::PlayerSlot::PRIMARY);
     // The tick's own clock: the scale it was stepped at, not the one this
-    // tick's smoothing has since moved to.
+    // tick's smoothing has since moved to. `ClockState` is not read here.
     let real_dt = world_time.wall_dt();
-    let sim_dt = world_time.sim_dt();
     let active_area = rooms
         .as_ref()
         .map(|r| r.active_spec().id.clone())
@@ -262,12 +256,10 @@ pub fn record_frame_system(
         facts,
         combat,
         melee.swing().is_some(),
-        &clock,
         safety,
         &augmented_world,
         control_frame,
-        real_dt,
-        sim_dt,
+        &world_time,
         &mode_label,
         &active_area,
         &platform_set.0,

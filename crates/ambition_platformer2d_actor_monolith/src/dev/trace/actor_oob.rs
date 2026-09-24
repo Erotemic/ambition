@@ -99,7 +99,7 @@ pub fn record_actor_oob_frame_system(
     // trace. `WorldTime` exposes both — no `Res<Time>` discipline exception.
     let real_dt = world_time.wall_dt();
     let sim_dt = world_time.sim_dt();
-    let time_scale = if real_dt > 0.0 { sim_dt / real_dt } else { 0.0 };
+    let time_scale = world_time.time_scale();
     let active_area = rooms
         .as_ref()
         .map(|r| r.active_spec().id.clone())

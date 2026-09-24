@@ -193,12 +193,12 @@ pub fn build_frame(
     combat: &ambition_characters::actor::BodyCombat,
     // Whether the body is mid-swing, from its live move (`melee_swing_of`).
     swinging: bool,
-    clock: &ambition_time::ClockState,
     safety: &ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
-    real_dt: f32,
-    sim_dt: f32,
+    // The tick-head snapshot. All three timing fields are read from it, so a
+    // row cannot pair one scale's dts with another's `time_scale`.
+    time: &ambition_time::WorldTime,
     game_mode: &str,
     active_area: &str,
     seq: u64,
@@ -214,9 +214,9 @@ pub fn build_frame(
         // host's frame counters.
         sim_session: None,
         sim_frame: None,
-        real_dt,
-        sim_dt,
-        time_scale: clock.time_scale,
+        real_dt: time.wall_dt(),
+        sim_dt: time.sim_dt(),
+        time_scale: time.time_scale(),
         game_mode: game_mode.into(),
         active_area: active_area.into(),
         world_size: world.size.into(),

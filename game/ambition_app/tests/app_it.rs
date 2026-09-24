@@ -150,6 +150,7 @@ mod rollback_room_transition;
 mod rollback_schema_baseline;
 mod the_developer_hud_flash_still_winds_down;
 mod the_dev_tool_publishes_the_brain_override;
+mod the_trace_records_one_clock_per_tick;
 mod rollback_seat_devices;
 mod room_boundary_unclaimed_views;
 mod room_replay_seam;

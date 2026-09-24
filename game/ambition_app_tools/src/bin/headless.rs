@@ -89,11 +89,11 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // Clone the resources record_simulation_frame needs as owned
         // values so the immutable borrow on `sim` ends before we take
         // the mutable cluster borrow below. ae::World + Vec<...> + the
-        // ClockState resource are all `Clone`, so this is cheap
+        // WorldTime resource are all `Clone`, so this is cheap
         // for a once-per-tick trace dump.
-        let (clock, control_frame, active_area, mode_label, moving_platforms, game_world) = {
+        let (world_time, control_frame, active_area, mode_label, moving_platforms, game_world) = {
             let world_ref = sim.world();
-            let clock = *world_ref.resource::<ambition_platformer2d::time::ClockState>();
+            let world_time = *world_ref.resource::<ambition_platformer2d::time::WorldTime>();
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
                 RoomSet,
@@ -108,7 +108,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());
             (
-                clock,
+                world_time,
                 control_frame,
                 active_area,
                 mode_label,
@@ -192,12 +192,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             &motion_facts,
             &combat,
             swinging,
-            &clock,
             &safety,
             &game_world,
             control_frame,
-            1.0 / 60.0,
-            1.0 / 60.0,
+            &world_time,
             &mode_label,
             &active_area,
             &moving_platforms,

@@ -218,6 +218,18 @@ impl WorldTime {
         self.raw_dt
     }
 
+    /// The scale this step was taken at: `sim_dt / wall_dt`, read from the same
+    /// snapshot as both, so a recorder that writes all three cannot disagree with
+    /// itself. `0.0` for a zero-length step, which advanced nothing at any scale.
+    #[inline]
+    pub fn time_scale(&self) -> f32 {
+        if self.raw_dt > 0.0 {
+            self.scaled_dt / self.raw_dt
+        } else {
+            0.0
+        }
+    }
+
     /// Dt for observer `slot`'s cognitive clock. In single-player this
     /// currently equals [`Self::sim_dt`].
     #[inline]

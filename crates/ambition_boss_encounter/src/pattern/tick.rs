@@ -32,22 +32,20 @@ pub fn tick_boss_pattern(
     state.movement_timer += ctx.dt;
     state.pattern_timer += ctx.dt;
 
-    // Phase change → reset the scripted cursor. Scripted patterns
-    // anchor on step 0 of the new phase rather than carrying the
-    // old phase's cursor in mid-step.
+    // Phase change: reset the scripted cursor to step 0 of the new phase.
     let phase_entered = if state.last_phase != Some(ctx.encounter_phase) {
         state.step_index = 0;
         state.step_elapsed = 0.0;
         state.cycle_rest_remaining = 0.0;
         state.last_phase = Some(ctx.encounter_phase);
-        // Reset to Engage on phase change so the macro timer
-        // doesn't carry stale duration across the music swap.
+        // Reset to Engage so the macro timer does not carry a stale duration
+        // across the music change.
         state.macro_state = BossMacroState::Engage;
         state.engage_timer = 0.0;
-        // BD1: a new phase is a new script. Drop the resolved timeline, unwind any
-        // stance the old phase was inside, and let this tick re-resolve. Interrupt
-        // bookkeeping goes with it — a rule that sat on cooldown through phase 1
-        // gets to fire on the phase-2 beat it was authored for.
+        // A new phase is a new script. Drop the resolved timeline, leave any
+        // stance of the old phase, and re-resolve this tick. Interrupt
+        // cooldowns reset too, so a rule can fire on the phase-2 beat it was
+        // authored for.
         state.timeline.clear();
         state.stance_stack.clear();
         state.stance = None;
@@ -58,31 +56,27 @@ pub fn tick_boss_pattern(
         None
     };
 
-    // Advance the chase/engage/retreat macro state machine BEFORE
-    // emitting desired_vel so the movement override (Approach
-    // chases the player, Retreat pulls away) is in lockstep with
-    // the current macro state.
+    // Advance the chase/engage/retreat macro state before emitting
+    // `desired_vel`, so the movement override (Approach chases, Retreat pulls
+    // away) matches the current macro state.
     if cfg.macro_tuning.is_enabled() && ctx.encounter_phase.is_attacking() {
         advance_macro_state(cfg, state, ctx);
     }
 
-    // Non-attacking phases (Dormant / Stagger / Death) emit no intent
-    // and clear the mirror so rendering doesn't keep drawing a stale
-    // telegraph through a stagger window.
+    // Non-attacking phases (Dormant / Stagger / Death) emit no intent and
+    // clear it, so rendering does not draw a stale telegraph during a stagger.
     if !ctx.encounter_phase.is_attacking() {
         attack_intent.clear();
-        // Still emit desired_vel from the movement profile so a
-        // boss in Dormant still keeps its sway phase (matches the
-        // legacy behavior).
+        // Still emit `desired_vel` from the movement profile, so a dormant boss
+        // keeps its sway phase.
         emit_desired_vel(cfg, state, ctx, out);
         return;
     }
 
-    // Bosses with a standoff macro should not begin telegraph/strike
-    // actions while closing distance or backing away. This keeps the
-    // Smirking Behemoth from intentionally walking into the player;
-    // it moves to its preferred ring, then spends that close-range
-    // window idling or firing eye beams.
+    // Bosses with a standoff macro do not start telegraph/strike actions
+    // while closing distance or backing away. So the Smirking Behemoth moves
+    // to its preferred ring, then idles or fires eye beams there, and does not
+    // walk into the player.
     if cfg.macro_tuning.suppress_attacks_while_moving
         && matches!(
             state.macro_state,
@@ -103,10 +97,9 @@ pub fn tick_boss_pattern(
         }
     }
 
-    // Aggressiveness gates the typed boss-action channel itself. The old
-    // control-frame edge gate became ineffective once the moveset trigger began
-    // reading BossAttackIntent directly; clear here so peaceful boss policies
-    // can still advance their cursor without starting attacks.
+    // Aggressiveness gates the typed boss-action channel, because the moveset
+    // trigger reads `BossAttackIntent` directly. Clear it here, so a peaceful
+    // boss can still advance its cursor without starting attacks.
     if cfg.aggressiveness <= 0.0 {
         attack_intent.clear();
     }
@@ -143,9 +136,9 @@ impl PatternRng {
     }
 }
 
-/// Guard against an authored cycle of zero-duration control flow (a stance that
-/// only enters itself). Far above any real script; it exists so a typo cannot
-/// hang the sim, not because 65 would be wrong.
+/// Guard against an authored cycle of zero-duration control flow (a stance
+/// that only enters itself). Far above any real script; it stops a typo from
+/// hanging the sim.
 const MAX_CURSOR_STEPS_PER_TICK: u32 = 64;
 
 /// Advance the resolved scripted-pattern timeline.
@@ -180,8 +173,8 @@ fn advance_scripted(
         return;
     }
 
-    // The brain remembers its own health, so `OnHitTaken` needs no damage channel:
-    // a drop since last tick IS a hit, and a heal is not one.
+    // The brain remembers its own health, so `OnHitTaken` needs no damage
+    // channel: a drop since last tick is a hit; a heal is not.
     let damage_taken = state
         .last_hp
         .map_or(0, |before| (before - ctx.hp_current).max(0));
@@ -191,9 +184,9 @@ fn advance_scripted(
         control_flow::tick_interrupts(&pattern.interrupts, state, ctx, phase_entered, damage_taken)
     {
         let enter = pattern.interrupts[rule].enter.clone();
-        // An interrupt resumes the step it left, elapsed and all: a boss yanked out
-        // of a telegraph comes back to that telegraph rather than restarting it, so
-        // the punish window the player was already reading stays where it was.
+        // An interrupt resumes the step it left, with its elapsed time: a boss
+        // pulled out of a telegraph returns to that telegraph, so the punish
+        // window the player was reading stays where it was.
         let resume = (state.step_index, state.step_elapsed);
         control_flow::enter_stance(&pattern, state, ctx, &enter, resume, &mut || rng.unit());
     }
@@ -211,8 +204,8 @@ fn advance_scripted(
                 if !control_flow::enter_stance(&pattern, state, ctx, &id, resume, &mut || {
                     rng.unit()
                 }) {
-                    // Unknown or empty stance: step over the marker. BD5 flags it
-                    // as a diagnostic finding; mid-fight it must not panic or stall.
+                    // Unknown or empty stance: step over the marker. The
+                    // validator flags it; mid-fight it must not panic or stall.
                     state.step_index += 1;
                 }
             }
@@ -281,17 +274,16 @@ fn scripted_step_ready_to_advance(
         return true;
     }
 
-    // The Rest duration is the minimum idle time. After that, an
-    // optional per-second chance gates whether the boss starts the next
-    // telegraph now or keeps waiting. This gives Smirking Behemoth an
-    // "idle, then maybe eye-beam" feel without making every scripted
-    // boss probabilistic.
+    // The Rest duration is the minimum idle time. After it, an optional
+    // per-second chance decides whether the boss starts the next telegraph
+    // now or keeps waiting ("idle, then maybe eye-beam" for the Smirking
+    // Behemoth), without making every scripted boss probabilistic.
     let chance_this_tick = (chance_per_second * ctx.dt.max(0.0)).clamp(0.0, 1.0);
     if chance_this_tick >= 1.0 || rng.unit() < chance_this_tick {
         true
     } else {
-        // Keep retrying the gate next tick without accumulating an
-        // arbitrarily huge elapsed value.
+        // Keep retrying the gate next tick without growing the elapsed value
+        // without bound.
         state.step_elapsed = duration;
         false
     }
@@ -376,18 +368,18 @@ fn front_wall_standoff_reached(tuning: &BossMacroTuning, ctx: &BossPatternContex
             .is_some_and(|clearance| clearance <= tuning.front_wall_standoff + 1.0)
 }
 
-/// How much daylight between two body surfaces still counts as touching. A
-/// contact predicate needs SOME slack — bodies separated by integration
-/// tolerance are in contact for every purpose the player can see — but it is a
-/// skin on a real separation, not a stand-in for the bodies' own size.
+/// How much space between two body surfaces still counts as touching. Bodies
+/// separated by integration tolerance are in contact for every visible
+/// purpose. This is a skin on a real separation, not a substitute for the
+/// bodies' size.
 const CONTACT_SKIN: f32 = 4.0;
 
-/// Lateral separation between the two BODY SURFACES, negative once the
-/// boxes overlap.
+/// Lateral separation between the two body surfaces, negative once the boxes
+/// overlap.
 ///
-/// this is what "body contact" always meant and never measured. The wider the body, the more
-/// permanently its contact chase stayed open, so the biggest bodies were the ones that never
-/// engaged and (under `suppress_attacks_while_moving`) never attacked.
+/// Measuring center distance instead would keep a wide body's contact chase
+/// open forever, so the largest bodies would never engage (and, under
+/// `suppress_attacks_while_moving`, never attack).
 ///
 /// Lateral, not planar: a contact chase is the horizontal run-in a grounded
 /// body performs, and the profiles that author it lock themselves to the arena
@@ -403,25 +395,23 @@ fn lateral_body_gap(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> f32 {
 ///   contact-chase mode whenever the player is not yet horizontally
 ///   overlapping the boss.
 /// - `Engage` → `Retreat` if distance < too_close_distance (anti-corner)
-///   OR engage_timer >= engage_max_duration_s (periodic "preparing"
-///   beat).
+///   or engage_timer >= engage_max_duration_s (a periodic "preparing" beat).
 /// - `Approach` → `Engage` if distance < engage_distance, if contact-chase
 ///   mode has horizontally closed, or if the timer expired.
 /// - `Retreat` → `Engage` if timer expired
 ///
-/// Retreat picks `retreat_pos` along the player→boss axis (so the
-/// boss visibly retreats *away* from the player rather than just
-/// drifting toward an arbitrary anchor).
+/// Retreat picks `retreat_pos` along the player→boss axis, so the boss
+/// visibly retreats away from the player.
 fn advance_macro_state(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
 ) {
     let movement = cfg.movement_for_phase(ctx.encounter_phase);
-    // World-arena-lateral bosses reason about standoff on the authored arena lane only.
-    // Otherwise a player jumping over/under the boss would look "far away"
-    // and make the boss slide into them, even though the desired behavior is
-    // YHTBTR-style left/right spacing with collision handling the walls.
+    // World-arena-lateral bosses measure standoff on the arena lane only.
+    // Otherwise a player jumping over or under the boss would look "far away"
+    // and the boss would slide into them. The intent is left/right spacing,
+    // with collision handling the walls.
     let distance = if movement.world_arena_lateral_only() {
         (ctx.target_pos.x - ctx.actor_pos.x).abs()
     } else {
@@ -487,8 +477,8 @@ fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Ve
     if movement.world_arena_lateral_only() {
         let dx = ctx.actor_pos.x - ctx.target_pos.x;
         let dir_x = if dx.abs() < 1e-3 { 1.0 } else { dx.signum() };
-        // `BossRuntime::integrate_body` still runs through `step_motion`, so solid walls and
-        // platforms are the authority that stops the body if this target lies beyond reachable
+        // `BossRuntime::integrate_body` still runs through `step_motion`, so
+        // walls and platforms stop the body if this target is beyond reachable
         // floor.
         let target_x = ctx.actor_pos.x + dir_x * cfg.macro_tuning.retreat_distance.max(60.0);
         return ae::Vec2::new(target_x * 0.6 + cfg.spawn.x * 0.4, ctx.actor_pos.y);
@@ -500,10 +490,8 @@ fn compute_retreat_pos(cfg: &BossPatternCfg, ctx: &BossPatternContext) -> ae::Ve
     } else {
         away.normalize()
     };
-    // Anchor near the boss spawn so retreat doesn't drift the boss
-    // toward arena edges over many encounters. Blend the away-dir
-    // with the spawn offset so the retreat curves back toward the
-    // spawn anchor rather than off into a wall.
+    // Anchor near the boss spawn, so retreat curves back toward the spawn and
+    // does not drift the boss into arena edges over many encounters.
     let target = ctx.actor_pos + dir * cfg.macro_tuning.retreat_distance.max(60.0);
     target * 0.6 + cfg.spawn * 0.4
 }
@@ -520,23 +508,20 @@ fn emit_desired_vel(
         return;
     }
 
-    // Phase-aware movement: Phase 2 / Enrage may override the
-    // default movement profile so a boss can escalate from a slow
-    // anchored sway to a wide AirSwoop without growing the profile
-    // enum.
+    // Phase-aware movement: Phase 2 / Enrage may override the default
+    // movement profile (for example a slow sway escalating to a wide
+    // AirSwoop).
     let movement = cfg.movement_for_phase(ctx.encounter_phase);
-    // Macro state overrides the movement target: Approach chases
-    // the player directly, Retreat heads toward the chosen retreat
-    // anchor. `Engage` falls through to the normal sway/swoop
-    // target. The speed scaling for Approach/Retreat is applied
-    // farther down via `macro_speed_scale`.
+    // Macro state overrides the movement target: Approach chases the player,
+    // Retreat heads to the retreat anchor, and Engage uses the normal
+    // sway/swoop target. Speed scaling for Approach/Retreat is applied below
+    // via `macro_speed_scale`.
     let mut target = match state.macro_state {
         BossMacroState::Approach { .. } => {
-            // Bosses that author a `too_close_distance` keep the older
-            // standoff-ring behavior. Contact-chase bosses disable the
-            // too-close ring and author `engage_distance = 0`, which makes
-            // the target the player's current x so collision/body contact
-            // is the thing that stops the run-in.
+            // Bosses that author a `too_close_distance` keep a standoff ring.
+            // Contact-chase bosses disable that ring and author
+            // `engage_distance = 0`, so the target is the player's x and body
+            // contact stops the run-in.
             let standoff = if cfg.macro_tuning.too_close_distance > 0.0 {
                 cfg.macro_tuning
                     .engage_distance
@@ -564,25 +549,21 @@ fn emit_desired_vel(
         BossMacroState::Engage => movement.target(cfg.spawn, state.movement_timer, ctx.target_pos),
     };
 
-    // While a strike is live, a self-dodging boss layers a horizontal dodge
-    // on top of the baseline sway so it reads as stepping aside to avoid its
-    // own experiment (GNU-ton weaving out of its apple rain).
+    // While a strike is live, a self-dodging boss adds a horizontal dodge to
+    // the sway, so it reads as stepping aside from its own attack (GNU-ton
+    // weaving out of its apple rain).
     let self_dodge_active = matches!(cfg.movement, BossMovementProfile::StationaryGiant { .. })
         && cfg.self_dodge_amp > 0.0
         && ctx.encounter_phase.is_attacking();
     if self_dodge_active {
-        // Cheap proxy for "is DebrisRain active right now?": we
-        // can't tell from inside this fn without reading the
-        // BossAttackState mirror; rely on the boss tick system to
-        // have already populated state.movement_timer + the
-        // tick_boss_pattern dispatch order so the sway oscillator
-        // runs every tick regardless.
+        // This function cannot tell whether DebrisRain is active without the
+        // `BossAttackState` mirror. It relies on the sway oscillator in
+        // `state.movement_timer` running every tick.
         let _ = state.movement_timer;
     }
 
-    // Soft world-bounds clamp matches the previous BossRuntime
-    // `build_control_frame` behavior so collision still owns the
-    // hard stop but the brain doesn't ask to walk into it.
+    // Soft world-bounds clamp: collision owns the hard stop, but the brain
+    // does not ask to walk into it.
     let half = cfg.combat_size * 0.5;
     let margin = 8.0;
     let max_x = (ctx.world_size.x - half.x - margin).max(half.x + margin);
@@ -592,8 +573,8 @@ fn emit_desired_vel(
         target.y.clamp(half.y + margin, max_y),
     );
     if movement.world_arena_lateral_only() {
-        // The profile declares no authored world-arena vertical travel, so do not let the macro
-        // standoff/retreat steering add one.
+        // The profile has no authored vertical arena travel, so the macro
+        // standoff/retreat steering must not add one.
         clamped_target.y = ctx.actor_pos.y;
     }
     target = clamped_target;
@@ -606,13 +587,12 @@ fn emit_desired_vel(
     }
 
     let delta = target - ctx.actor_pos;
-    // It is the move's authored motion lock — `MoveWindow::motion_scale` on the strike's Active
-    // window, enforced at body integration for ANY controller of the body (autonomous pattern
-    // or possessing player alike).
+    // A strike's motion lock is the move's `MoveWindow::motion_scale`,
+    // enforced at body integration for any controller; it is not applied
+    // here.
     //
-    // Macro-state speed scaling. Approach commits visually with
-    // `> 1.0` speed; Retreat backs off deliberately with `< 1.0`.
-    // Engage keeps the legacy speed (1.0).
+    // Macro-state speed scaling: Approach uses `> 1.0`, Retreat `< 1.0`,
+    // Engage 1.0.
     let macro_scale = match state.macro_state {
         BossMacroState::Approach { .. } => cfg.macro_tuning.approach_speed_scale.max(0.0),
         BossMacroState::Retreat { .. } => cfg.macro_tuning.retreat_speed_scale.max(0.0),
@@ -620,9 +600,8 @@ fn emit_desired_vel(
     };
     let speed = movement.speed() * macro_scale;
     let max_step = speed * ctx.dt;
-    // `delta` is a world-space position difference, so the command built from
-    // it is world-space — which is what `velocity_target` has always documented
-    // and now also states in its type.
+    // `delta` is a world-space position difference, so the command is
+    // world-space, as `velocity_target`'s type states.
     out.velocity_target = ae::WorldVec2(if delta.length() > max_step && max_step > 0.0 {
         delta.normalize_or_zero() * speed
     } else if ctx.dt > 0.0 {
@@ -632,22 +611,19 @@ fn emit_desired_vel(
     });
 }
 
-// ===== THE STATE-MACHINE-SHAPED ENTRY =====
+// ===== The state-machine-shaped entry =====
 //
-// ⛔⛔ IT FOLLOWED THE TICK, and it had to. This adapter lived in
-// `ambition_characters::brain::state_machine` and CALLS `tick_boss_pattern`; once
-// the tick moved up, a floor-crate function calling it would be an upward edge.
-// Its own name says what it is — the boss arm shaped like a state-machine arm —
-// so it belongs beside the thing it adapts.
+// This adapter calls `tick_boss_pattern`, so it lives beside it and not in
+// `ambition_characters` (which would be an upward dependency).
 
 // ===== BossPattern =====
 //
 // The boss tick fills the BossPattern fields the pattern needs
 // (`boss_encounter_phase` / `world_size` / `front_wall_clearance`) onto the shared
 // snapshot, so a `BossPattern` brain ticks through the universal `Brain::tick`
-// path like every other body — no bespoke call site. A snapshot WITHOUT those
-// fields (any non-boss caller that somehow holds a BossPattern brain) ticks under
-// a Dormant phase, which emits only the idle sway, never a strike.
+// path as every other body. A snapshot without those fields (a non-boss
+// caller that holds a BossPattern brain) ticks under a Dormant phase, which
+// emits only the idle sway, never a strike.
 pub fn tick_boss_pattern_via_state_machine(
     cfg: &ambition_characters::brain::boss_pattern::BossPatternCfg,
     state: &mut ambition_characters::brain::boss_pattern::BossPatternState,
@@ -658,17 +634,17 @@ pub fn tick_boss_pattern_via_state_machine(
         encounter_phase: snapshot.boss_encounter_phase.unwrap_or_default(),
         actor_pos: snapshot.actor_pos,
         target_pos: snapshot.target_pos,
-        // A point target: the shared snapshot carries no body box, and this path
-        // ticks Dormant (see above), so it never reaches the contact reasoning
-        // that would read one. The ECS boss tick passes the real body.
+        // A point target: the shared snapshot has no body box. This path
+        // ticks Dormant (see above), so it never reaches contact reasoning.
+        // The ECS boss tick passes the real body.
         target_body_size: ae::Vec2::ZERO,
         world_size: snapshot.world_size,
         front_wall_clearance: snapshot.front_wall_clearance,
         dt: snapshot.dt,
-        // BD1's situation buckets. The snapshot carries a health FRACTION, not a
-        // pool, so hp is expressed on a 0..100 scale here: `HpBelow` reads the
-        // ratio, and `OnHitTaken`'s min_damage is then in percent-of-max on this
-        // path. The ECS boss tick below passes the real pool.
+        // Situation buckets. The snapshot has a health fraction, not a pool,
+        // so hp is on a 0..100 scale here: `HpBelow` reads the ratio, and
+        // `OnHitTaken`'s min_damage is percent-of-max on this path. The ECS
+        // boss tick passes the real pool.
         actor_facing: snapshot.actor_facing,
         hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
         hp_max: 100,

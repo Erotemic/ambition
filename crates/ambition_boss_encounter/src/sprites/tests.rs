@@ -22,16 +22,15 @@ fn const_atlas_len(spec: &BossSheetSpec) -> usize {
 
 #[test]
 fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
-    // Archetype swap AS4b decision pin (fable AD3), turned into a standing
-    // characterization guard. The boss RENDER draws at `spec.render_size(kin.size)`
-    // where the loaded spec's frame dims are overwritten from the BAKED sheet record;
-    // gameplay's const `render_size` uses the CONST dims. `render_size` height is
-    // collision-scale-only, so only the WIDTH (frame aspect fw/fh) can diverge.
+    // The boss render draws at `spec.render_size(kin.size)`, where the loaded
+    // spec's frame dims come from the baked sheet record; gameplay's const
+    // `render_size` uses the const dims. `render_size` height is
+    // collision-scale-only, so only the width (frame aspect fw/fh) can differ.
     //
-    // This documents WHY AS4b stores the seed render-basis on the boss and lets the render keep
-    // its own `spec.render_size(seed)` (byte-identical), instead of routing render onto a
-    // const-derived size — the const and baked aspects do NOT match for real bosses, so a
-    // const-derived `ActorRenderSize` would resize the sprite.
+    // This is why the boss stores the seed render basis and the render keeps
+    // its own `spec.render_size(seed)`: the const and baked aspects differ for
+    // real bosses, so a const-derived `ActorRenderSize` would resize the
+    // sprite.
     let known_divergent = [
         ("boss", &BOSS_SHEET),
         ("mockingbird_boss", &MOCKINGBIRD_SHEET),
@@ -64,10 +63,9 @@ fn boss_sheet_has_seven_animation_rows() {
 
 #[test]
 fn fsm_and_trex_sheets_match_their_published_layouts() {
-    // FSM: 7 PNG rows, every BossAnim used once. The row mapping (not the exact
-    // pixel dims, which are now a fallback the published RON overrides) is what
-    // a drift here would corrupt — the boss would render frames from the wrong
-    // row.
+    // FSM: 7 PNG rows, every BossAnim used once. The row mapping (not the
+    // pixel dims, which the published RON overrides) is what drift would
+    // break: the boss would render frames from the wrong row.
     assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.rows.len(), 7);
     assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 393);
     assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 344);
@@ -177,7 +175,7 @@ fn boss_ron_target_strips_the_sheet_suffix() {
         Some("flying_spaghetti_monster_boss")
     );
     // The GNU-ton generator installs into a `gnu_ton_boss/` subdir; the target
-    // is the FILE stem, so a sheet in a subdir resolves to its own record.
+    // is the file stem, so a sheet in a subdir resolves to its own record.
     assert_eq!(
         boss_ron_target("sprites/gnu_ton_boss/giant_gnu_spritesheet.png"),
         Some("giant_gnu")
@@ -213,8 +211,8 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
 
 #[test]
 fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
-    // The data-driven path must lay cells out at the PUBLISHED rect stride. Use a deliberately
-    // DIFFERENT frame width (300) from the const so a grid-from-const would land cells
+    // The data-driven path must lay cells out at the published rect stride. Use a deliberately
+    // different frame width (300) from the const so a grid-from-const would land cells
     // elsewhere.
     let record = fsm_record(300, 280, 100);
     assert!(
@@ -226,7 +224,7 @@ fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
     assert_eq!(page.rects.len(), 6 + 8 + 7 + 7 + 7 + 4 + 8);
     // drift (row 1) frame 0 starts at label(100) + 0*300 = 100 on x and
     // 1*280 = 280 on y — proving the layout follows the record's 300/280 stride,
-    // NOT the const's 393/344 grid.
+    // not the const's 393/344 grid.
     let drift_frame0 = page.rects[6]; // first frame after idle's 6
     assert_eq!(
         drift_frame0.min.y,
@@ -284,10 +282,9 @@ fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
 
 #[test]
 fn mockingbird_anchor_keeps_body_inside_aabb() {
-    // Mockingbird is body_centered, so collision_anchor must return
-    // the spec's feet_anchor_y verbatim (no half_collision_y boost).
-    // Concrete repro: with the old collision_anchor the bird hung
-    // ~half its render height below the AABB.
+    // Mockingbird is body_centered, so collision_anchor must return the
+    // spec's feet_anchor_y as-is (no half_collision_y offset); otherwise the
+    // bird hangs about half its render height below the AABB.
     let aabb = Vec2::new(150.0, 185.0);
     let anchor = MOCKINGBIRD_SHEET.collision_anchor(aabb);
     assert!(MOCKINGBIRD_SHEET.body_centered);
@@ -299,11 +296,10 @@ fn mockingbird_anchor_keeps_body_inside_aabb() {
 
 #[test]
 fn boss_sheet_anchor_adds_feet_delta_when_not_body_centered() {
-    // The gradient sentinel keeps the feet-on-floor anchoring:
-    // collision_anchor adds half_collision_y / render_height to
-    // feet_anchor_y. Pin the additive behavior — if body_centered
-    // accidentally flips to true here, the sprite would slide
-    // half its render height down.
+    // The gradient sentinel keeps feet-on-floor anchoring: collision_anchor
+    // adds half_collision_y / render_height to feet_anchor_y. If
+    // body_centered became true here, the sprite would slide half its render
+    // height down.
     assert!(!BOSS_SHEET.body_centered);
     let aabb = Vec2::new(60.0, 80.0);
     let anchor = BOSS_SHEET.collision_anchor(aabb);
@@ -321,11 +317,10 @@ fn boss_sheet_anchor_adds_feet_delta_when_not_body_centered() {
 
 #[test]
 fn mockingbird_sheet_maps_six_rows_with_passthrough_for_missing() {
-    // The mockingbird sheet ships hover/thrust/bite/slash/hit/death,
-    // mapped onto the existing BossAnim vocabulary. SideSweep is
-    // intentionally absent — `resolve_anim` must fall back to Rest
-    // so a schedule that asks for SideSweep doesn't panic the
-    // indexer.
+    // The mockingbird sheet ships hover/thrust/bite/slash/hit/death, mapped
+    // onto the BossAnim vocabulary. SideSweep is absent on purpose:
+    // `resolve_anim` must fall back to Rest so a schedule that asks for
+    // SideSweep does not panic the indexer.
     assert_eq!(MOCKINGBIRD_SHEET.rows.len(), 6);
     assert_eq!(
         MOCKINGBIRD_SHEET.resolve_anim(BossAnim::SideSweep),
@@ -422,10 +417,9 @@ fn giant_gnu_side_sweep_resolves_to_itself() {
     );
 }
 
-/// C6 fixture-vs-const: the content-authored `boss_sheets.ron` deserializes to
-/// sheet specs BYTE-IDENTICAL to the engine's built-in demo-boss defaults. This
-/// is what makes the install safe — content owns the data, but the shipped
-/// bosses render unchanged until someone deliberately edits a row.
+/// The content-authored `boss_sheets.ron` deserializes to sheet specs
+/// identical to the engine's built-in demo-boss defaults, so the shipped
+/// bosses render unchanged until someone edits a row.
 #[test]
 fn boss_sheets_ron_matches_builtin_defaults() {
     let registry = BossSheetRegistry::from_ron(include_str!(
@@ -442,7 +436,7 @@ fn boss_sheets_ron_matches_builtin_defaults() {
     }
 }
 
-/// C6: a content-authored sheet REPLACES the built-in for that key — the whole
+/// C6: a content-authored sheet replaces the built-in for that key — the whole
 /// point of the override seam. Uses the registry directly (not the process-global
 /// install) so the test carries no global state.
 #[test]

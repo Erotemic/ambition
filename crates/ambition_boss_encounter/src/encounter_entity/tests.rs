@@ -93,12 +93,11 @@ fn progress_reflects_member_hp_and_phase() {
     assert!(!progress.complete, "a living boss ⇒ objective not met");
 }
 
-/// The wrap persists; the fight resets (netcode.md N3.2b /
-/// ). A room change removes the boss BODY, never the encounter
-/// authority: the wrap keeps its durable member id (relation, not live-list),
-/// resets its in-flight lifecycle through the one ingress, and re-arms with a
-/// fresh `Start` when the boss fights again — so an `encounter:` identity can
-/// never be absent at snapshot-restore time.
+/// The wrap persists; the fight resets (netcode.md N3.2b). A room change
+/// removes the boss body, never the encounter authority: the wrap keeps its
+/// durable member id, resets its in-flight lifecycle through the one ingress,
+/// and re-arms with a new `Start` when the boss fights again. So an
+/// `encounter:` identity always exists at snapshot-restore time.
 #[test]
 fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
     let mut app = App::new();
@@ -136,7 +135,7 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
         ambition_encounter::EncounterPhase::Active
     );
 
-    // The boss leaves the world (room change). The AUTHORITY stays — with its
+    // The boss leaves the world (room change). The authority stays — with its
     // durable member id and a nulled entity cache — and the fight resets.
     app.world_mut().entity_mut(boss).despawn();
     app.update();
@@ -153,7 +152,7 @@ fn the_wrap_persists_and_resets_when_its_member_leaves_the_world() {
         "an in-flight fight whose members all left resets through the ingress"
     );
 
-    // The boss returns (room re-entry respawns it). The SAME wrap heals its
+    // The boss returns (room re-entry respawns it). The same wrap heals its
     // member cache by id and re-arms — no duplicate authority, a fresh fight.
     let returned = app.world_mut().spawn(awake_boss("mockingbird", 40)).id();
     app.update();

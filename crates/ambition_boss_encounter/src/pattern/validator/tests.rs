@@ -77,9 +77,9 @@ fn beats(pattern: &BossAttackPattern) -> Vec<Beat> {
     fight_beats(pattern, &[], 0.0, 0.0, 0.0)
 }
 
-/// BD4's finding, made mechanical. There is no per-attack recovery; the
-/// punish window is the `Rest` that follows. A slam with a generous rest is
-/// fair; the SAME slam chained straight into the next telegraph is not.
+/// There is no per-attack recovery; the punish window is the `Rest` that
+/// follows. A slam with a generous rest is fair; the same slam chained
+/// straight into the next telegraph is not.
 #[test]
 fn the_punish_window_is_the_rest_that_follows_the_strike() {
     let mut steps = strike("floor_slam", 1.0, 0.4);
@@ -207,7 +207,7 @@ fn select_arms_are_walked_because_the_player_can_be_hit_by_them() {
 }
 
 /// Findings are sorted errors-first and are stable, so a CI diff of two runs
-/// reads as a change in the FIGHT, not a change in hash order.
+/// reads as a change in the fight, not a change in hash order.
 #[test]
 fn findings_are_errors_first_and_stably_ordered() {
     let mut steps = strike("floor_slam", 0.05, 0.4); // rule 1 error + rule 3 error
@@ -225,10 +225,9 @@ fn findings_are_errors_first_and_stably_ordered() {
     assert_eq!(again, again.clone(), "stable");
 }
 
-/// A phase's timeline loops, so a strike that ENDS the list is followed by
-/// whatever BEGINS it. A leading `Rest` is a real punish window; ignoring the
-/// wrap would report every such phase as unpunishable — a fact about the
-/// walker, not about the fight.
+/// A phase's timeline loops, so a strike that ends the list is followed by
+/// whatever begins it. A leading `Rest` is a real punish window; ignoring the
+/// wrap would report every such phase as unpunishable.
 #[test]
 fn a_strike_at_the_end_of_a_looping_phase_is_credited_the_leading_rest() {
     let mut steps = vec![BossPatternStep::Rest { duration: 0.6 }];
@@ -265,10 +264,9 @@ fn telegraphed(id: &str, pose: &str, cue: &str) -> Vec<BossPatternStep> {
     ]
 }
 
-/// The rule 5 that a duration cannot express. Two attacks wind up for the
-/// same 1.0s and look identical: nothing on screen tells them apart. A
-/// telegraph DURATION says how long the player has; a telegraph IDENTITY says
-/// what they are looking at.
+/// Rule 5, which a duration cannot express. Two attacks wind up for the same
+/// 1.0s and look identical. A telegraph's duration says how long the player
+/// has; its identity says what they are looking at.
 #[test]
 fn two_attacks_that_share_a_pose_and_a_cue_are_unreadable() {
     let mut steps = telegraphed("floor_slam", "rear_up", "boss_growl");
@@ -281,7 +279,7 @@ fn two_attacks_that_share_a_pose_and_a_cue_are_unreadable() {
     assert!(hit.subject.contains("eye_beam") && hit.subject.contains("floor_slam"));
 }
 
-/// Differing in EITHER half is enough — §3 says "pose row OR cue".
+/// Differing in either half is enough — §3 says "pose row OR cue".
 #[test]
 fn differing_in_the_pose_or_in_the_cue_is_enough() {
     for (pose_b, cue_b) in [("crouch", "boss_growl"), ("rear_up", "boss_hiss")] {
@@ -296,7 +294,7 @@ fn differing_in_the_pose_or_in_the_cue_is_enough() {
     }
 }
 
-/// The SAME attack telegraphing the same way in two phases is not two attacks.
+/// The same attack telegraphing the same way in two phases is not two attacks.
 /// A fight is allowed to repeat itself; it is not allowed to lie.
 #[test]
 fn one_attack_repeated_shares_its_own_identity_without_complaint() {
@@ -308,7 +306,7 @@ fn one_attack_repeated_shares_its_own_identity_without_complaint() {
         .all(|x| !(x.rule == Rule::ReadabilityFloor && x.severity == Severity::Error)));
 }
 
-/// An all-`None` spec is authored noise and reads as ABSENT — otherwise every
+/// An all-`None` spec is authored noise and reads as absent — otherwise every
 /// attack that "authored a telegraph" of nothing would collide with every other.
 #[test]
 fn an_empty_telegraph_spec_reads_as_no_telegraph_at_all() {
@@ -335,7 +333,7 @@ fn an_empty_telegraph_spec_reads_as_no_telegraph_at_all() {
     assert!(warn.detail.contains("floor_slam"));
 }
 
-/// An attack with no telegraph identity is a WARNING today, because the shipped
+/// An attack with no telegraph identity is a warning today, because the shipped
 /// roster authors none. Promotion to a hard error requires calibration and a
 /// separate maintainer decision; this test pins the warning behavior.
 #[test]

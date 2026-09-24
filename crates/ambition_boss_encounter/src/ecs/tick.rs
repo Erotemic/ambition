@@ -1,11 +1,7 @@
 //! The per-frame boss tick: encounter-phase sync + brain ticking + the main
 //! ECS boss update (`update_ecs_bosses`).
 
-// ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
-// whole `features/ecs` module — a channel a `crate::` grep cannot see, and
-// the reason a carve estimate needs more than an import count. Measured by
-// deleting it: everything it actually supplied was bevy's prelude and
-// `WorldTime`, and NO monolith vocabulary at all.
+// Named imports, not a glob, so the dependencies are visible to grep.
 use ambition_combat::components::{BossDeathAnimation, BossPhase};
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
@@ -17,25 +13,23 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{Commands, Entity};
 
-/// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
-/// fire intent — the controller→verb→move map.
+/// Resolve a possessing controller's attack input into the boss's fire
+/// intent: the controller→verb→move map.
 ///
 /// A melee press reduces the controller's body-local aim to a discrete
 /// [`AttackDir`](ambition_entity_catalog::AttackDir) (`attack_dir_from_axis`,
-/// the SAME reduction the actor moveset trigger uses) and walks the shared
+/// the same reduction the actor moveset trigger uses) and walks the shared
 /// [`directional_verb_chain`](ambition_entity_catalog::directional_verb_chain)
 /// (`attack_down` → `attack`; a boss is a free-mover, so there is no
-/// grounded/air split in its chain) over the profile's authored
-/// `possessed_verbs`; the special/projectile button resolves the `"special"`
-/// verb. The winning move key becomes the intent profile via
-/// [`BossAttackProfile::from_move_id`] — the same id `limb_routing` keys on, so
-/// aboard a limb-rigged mount the verb lands on the giant's hands with no extra
-/// plumbing.
+/// grounded/air split) over the profile's authored `possessed_verbs`. The
+/// special button resolves the `"special"` verb. The winning move key becomes
+/// the intent profile via [`BossAttackProfile::from_move_id`], the same id
+/// `limb_routing` keys on, so aboard a limb-rigged mount the verb reaches the
+/// giant's hands.
 ///
-/// A boss authoring NO verbs keeps the legacy deterministic mapping —
-/// melee → primary authored strike (`slot(0)`), special → signature content
-/// special (falling back to `slot(1)`) — byte-identical to the pre-G5 arm
-/// (pinned by `possession_verb_map_tests`).
+/// A boss with no verbs uses the fixed mapping: melee → primary authored
+/// strike (`slot(0)`), special → signature content special (else `slot(1)`).
+/// Guarded by `possession_verb_map_tests`.
 fn possessed_attack_choice(
     frame: &ambition_characters::actor::control::ActorControlFrame,
     behavior: &crate::pattern::profile::BossBehaviorProfile,
@@ -83,11 +77,10 @@ fn possessed_attack_choice(
 }
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
-/// [`ActorPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience
-/// field the brain (`BossPatternContext`) reads; the `BossEncounter.encounter`
-/// phase machine — ticked by `update_boss_encounters` — is the source of truth.
-/// Keyed per-entity by construction, so two of the same archetype sync
-/// independent phases.
+/// [`ActorPhaseState`] copy (`BossEncounter.encounter`). The brain
+/// (`BossPatternContext`) reads the mirror; the phase machine, ticked by
+/// `update_boss_encounters`, is the source of truth. Keyed per entity, so two
+/// bosses of the same archetype have independent phases.
 ///
 /// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
 pub fn sync_boss_encounter_phase(
@@ -99,11 +92,10 @@ pub fn sync_boss_encounter_phase(
     for mut feature in &mut bosses {
         let boss_id = feature.config.id.clone();
         let behavior_id = feature.config.behavior.id.clone();
-        // Phase comes from the entity-local copy, keyed per-entity by
-        // construction, so two of the same archetype sync independent phases.
+        // Phase comes from the entity-local copy (per entity).
         let new_phase = feature.status.encounter.as_ref().map(|p| p.phase);
-        // Log phase transitions per boss so we can see in the logs
-        // when (or if) Dormant → Intro → Phase1 actually fires.
+        // Log phase transitions per boss (for example Dormant → Intro →
+        // Phase1).
         let prev = last_logged.get(&boss_id).copied();
         if new_phase != prev {
             match new_phase {
@@ -148,11 +140,10 @@ pub fn sync_boss_encounter_phase(
 /// attacks use the possessor's effective faction.
 pub fn trigger_boss_attack_moves(
     mut commands: Commands,
-    // ⛔ A SEPARATE QUERY, NOT A COLUMN IN `bosses`, mirroring
-    // `trigger_moveset_moves`: `MoveOccurrence` appears in no other query here so
-    // a read-only lookup cannot alias, and `bosses` is already near the tuple
-    // width the engine accepts. It answers one question — what number has this
-    // body reached.
+    // A separate query, not a column in `bosses` (like
+    // `trigger_moveset_moves`): `MoveOccurrence` is in no other query here, so
+    // a read-only lookup cannot alias, and `bosses` is near the engine's tuple
+    // width limit.
     occurrences: Query<&ambition_combat::moveset::MoveOccurrence>,
     mut bosses: Query<
         (
@@ -160,10 +151,8 @@ pub fn trigger_boss_attack_moves(
             &BossAttackIntent,
             &ambition_combat::moveset::ActorMoveset,
             &ambition_platformer2d_core::BodyKinematics,
-            // MUTABLE so an interrupted windup can go through the one teardown
-            // path below. A windup carries no strike boxes yet, so nothing is
-            // leaking today -- but "cancel this move" having one meaning is what
-            // keeps the next interrupt from being the one that does.
+            // Mutable, so an interrupted windup goes through the one teardown
+            // path below and "cancel this move" has one meaning.
             Option<&mut ambition_combat::moveset::MovePlayback>,
         ),
         With<FeatureSimEntity>,
@@ -179,20 +168,18 @@ pub fn trigger_boss_attack_moves(
             .unwrap_or(0.0)
     };
     for (entity, attack_intent, moveset, kin, playback) in &mut bosses {
-        // The driver's per-tick INTENT this frame (§A1 split — written by the boss
-        // pattern OR possession before the combat phase): a Telegraph step wants the
-        // move played from its windup (`t0 = 0`), a Strike/possession step with no
-        // telegraph wants it started at the strike (`t0 = tel`, skipping the windup —
-        // preserving possession's instant hit).
+        // This frame's intent, written by the boss pattern or possession
+        // before the combat phase. A Telegraph step starts the move at its
+        // windup (`t0 = 0`). A Strike or possession step with no telegraph
+        // starts at the strike (`t0 = tel`), so possession hits instantly.
         let intent: Option<(&BossAttackProfile, bool)> = attack_intent
             .telegraph_profile
             .as_ref()
             .map(|p| (p, true))
             .or_else(|| attack_intent.active_profile.as_ref().map(|p| (p, false)));
 
-        // This is the telegraph-edge trigger's parity with the old strike-edge behavior: an
-        // interrupted windup must NOT strike. A move already in its Active window is committed
-        // (the Smash convention) and runs to completion.
+        // An interrupted windup must not strike. A move already in its Active
+        // window is committed and runs to completion.
         if let Some(mut pb) = playback {
             let move_profile = BossAttackProfile::from_move_id(&pb.spec.id);
             let in_windup = pb.t < active_start(&pb.spec);
@@ -211,33 +198,27 @@ pub fn trigger_boss_attack_moves(
         let Some((profile, from_telegraph)) = intent else {
             continue;
         };
-        // A possessed boss's GEOMETRY strike fires like any other (R1.4): possession
-        // grants the full kit (invariant I2), and its strike hitbox carries the
-        // possessor's EFFECTIVE faction (stamped in `advance_move_playback`), so it
-        // hits the boss's former allies, not the controlling player. (This retires
-        // the §A1-slice-1b suppression that kept parity with the deleted
-        // `sync_boss_strike_hitboxes`, which never struck for a controlled boss.)
+        // A possessed boss's geometry strike fires like any other: possession
+        // grants the full kit, and the hitbox carries the possessor's
+        // effective faction (stamped in `advance_move_playback`), so it hits
+        // the boss's former allies, not the controlling player.
         if let Some(spec) = moveset.0.move_by_id(&profile.move_id()) {
-            // Telegraph edge → `t0 = 0` plays the windup THROUGH the move (so the
-            // projected telegraph read-model + a future bound anim clip slave to the
-            // one move timeline). Strike/possession edge → `t0 = tel` starts at the
-            // strike, so the hitbox is live the same frame as the pre-Slice-D move.
+            // Telegraph edge: `t0 = 0` plays the windup through the move, so
+            // the projected telegraph read-model and a bound clip follow one
+            // timeline. Strike or possession edge: `t0 = tel` starts at the
+            // strike, so the hitbox is live the same frame.
             let t0 = if from_telegraph {
                 0.0
             } else {
                 active_start(spec)
             };
-            // ⛔⛔ THE BODY-OWNED MINT, AND THIS ROAD USED TO SKIP IT ENTIRELY.
-            // `MovePlayback::new_at` leaves `instance` at 0, so every boss move
-            // reused occurrence 0 and a boss could carry `instance == 0`
-            // alongside a `MoveOccurrence(N)` advanced by the other start road.
+            // Mint the occurrence from the body's counter.
+            // `MovePlayback::new_at` leaves `instance` at 0, so without this
+            // every boss move would reuse occurrence 0.
             //
-            // ⚠ IT DOES NOT ROUTE THROUGH `start_move`, deliberately. That
-            // function is the PLAYER acceptance authority — action buffer,
-            // affordability, gesture, recovery and meter semantics — and none of
-            // that is boss-encounter policy. What is shared is the body's
-            // COUNTER, not the acceptance rules, so this joins the mint and
-            // nothing else.
+            // This does not go through `start_move`, which is the player
+            // acceptance authority (action buffer, affordability, gesture,
+            // recovery and meter rules). Only the body's counter is shared.
             let occurrence =
                 ambition_combat::moveset::MoveOccurrence::next(occurrences.get(entity).ok());
             commands
@@ -251,24 +232,22 @@ pub fn trigger_boss_attack_moves(
     }
 }
 
-/// PROJECT [`BossAttackState`] from the live boss [`MovePlayback`] (E53, §A1 slice 1b).
-/// `BossAttackState` is the boss telegraph/strike READ-MODEL — `telegraph_profile` /
-/// `active_profile` + their remaining/elapsed — and this projection is now its SOLE
-/// writer: while a boss move plays, the read-model is DERIVED from the move (the shared
-/// move runtime is the authority, mirroring `project_moveset_melee_to_body_melee`); with
-/// NO move playing it is CLEARED. The boss brain no longer writes the component — it
-/// publishes a `BossAttackIntent` the trigger consumes, and the move the trigger starts
-/// is what this projects.
+/// Project [`BossAttackState`] from the live boss [`MovePlayback`].
+/// `BossAttackState` is the boss telegraph/strike read-model
+/// (`telegraph_profile` / `active_profile` and their remaining/elapsed), and
+/// this projection is its only writer. While a boss move plays, the
+/// read-model is derived from the move (the shared move runtime is the
+/// authority); with no move playing, it is cleared. The boss brain publishes
+/// a `BossAttackIntent`, the trigger starts a move from it, and this projects
+/// that move.
 ///
-/// The move IS the whole telegraph→strike timeline: its clock `t` in `[0, tel)` is the
-/// windup, `[tel, tel+strike)` the strike, so `telegraph_elapsed == t` and
-/// `active_elapsed == t` (the latter folds in the telegraph offset the same way the
-/// brain's mirror did). A resting boss (no `MovePlayback`), a boss with no `ActorMoveset`
-/// (test fixtures / no authored strikes), and a possessed boss whose GEOMETRY strike the
-/// trigger suppressed all have no move → cleared (the possessed-geometry pose loss is the
-/// §A1 slice 1b BLIND change). Runs AFTER `advance_move_playback` so `t` is current, and
-/// BEFORE the hurtbox/damage consumers (`apply_feature_hit_events`) so they read this
-/// frame's value.
+/// The move is the whole telegraph→strike timeline: clock `t` in `[0, tel)`
+/// is the windup and `[tel, tel+strike)` the strike, so
+/// `telegraph_elapsed == t` and `active_elapsed == t`. A resting boss (no
+/// `MovePlayback`) or a boss with no `ActorMoveset` has no move, so the state
+/// is cleared. Runs after `advance_move_playback` so `t` is current, and
+/// before the hurtbox/damage consumers (`apply_feature_hit_events`) so they
+/// read this frame's value.
 pub fn project_boss_attack_state_from_move(
     mut bosses: Query<
         (
@@ -297,7 +276,7 @@ pub fn project_boss_attack_state_from_move(
         };
         let profile = BossAttackProfile::from_move_id(&playback.spec.id);
         if t < active.start_s {
-            // WINDUP: the move is playing its telegraph (no hitbox yet).
+            // Windup: the move is playing its telegraph (no hitbox yet).
             attack_state.telegraph_profile = Some(profile);
             attack_state.telegraph_remaining = (active.start_s - t).max(0.0);
             attack_state.telegraph_elapsed = t;
@@ -305,7 +284,7 @@ pub fn project_boss_attack_state_from_move(
             attack_state.active_remaining = 0.0;
             attack_state.active_elapsed = 0.0;
         } else if t < active.end_s {
-            // STRIKE: the hitbox is live; active_elapsed folds in the telegraph.
+            // Strike: the hitbox is live; active_elapsed folds in the telegraph.
             attack_state.telegraph_profile = None;
             attack_state.telegraph_remaining = 0.0;
             attack_state.telegraph_elapsed = 0.0;
@@ -319,11 +298,11 @@ pub fn project_boss_attack_state_from_move(
     }
 }
 
-/// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish the per-frame
-/// [`crate::attack_geometry::BossAnimationFrameSample`] the boss GEOMETRY reads. This retires the
-/// render→sim WRITE-BACK: render no longer owns or writes the frame. Now the SIM owns the
-/// cursor: it picks the anim from the projected `BossAttackState`, advances the frame, and
-/// writes the sample; the renderer mirrors that cursor into its draw-only
+/// Drive each boss's animation frame and publish the per-frame
+/// [`crate::attack_geometry::BossAnimationFrameSample`] that boss geometry
+/// reads. The simulation owns the cursor: it picks the anim from the
+/// projected `BossAttackState`, advances the frame, and writes the sample. The
+/// renderer mirrors that cursor into its draw-only
 /// [`BossAnimator`](crate::sprites::BossAnimator).
 pub fn drive_boss_animators(
     mut commands: Commands,
@@ -346,11 +325,7 @@ pub fn drive_boss_animators(
 ) {
     for (entity, feature_id, mut frame, scale) in &mut frames {
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
-        // ⭐ NAMED WHERE IT LIVES. Both of these are
-        // `crate::anim`'s; reaching them through
-        // `crate::features` was two hops of the monolith's own facade
-        // republishing a peer domain, which is the shape that makes a module
-        // look coupled to the monolith when it is not.
+        // Both helpers belong to `crate::anim`; call them there.
         let Some((_, state)) =
             crate::anim::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
         else {
@@ -379,26 +354,22 @@ pub fn drive_boss_animators(
 }
 
 /// Tick every boss's `BossPattern` brain: advance the cursor, emit
-/// `ActorControlFrame` intent (movement + melee/special edges), and publish the
-/// per-frame attack INTENT (`BossAttackIntent`) the moveset trigger reads. Since §A1
-/// slice 1b this tick NO LONGER writes the `BossAttackState` component — that
-/// telegraph/strike read-model is projected SOLELY from the live `MovePlayback` by
-/// `project_boss_attack_state_from_move`, and the volume / damage / debug-overlay
-/// paths read that projected value.
+/// `ActorControlFrame` intent (movement and melee/special edges), and publish
+/// the per-frame attack intent (`BossAttackIntent`) the moveset trigger reads.
+/// This tick does not write `BossAttackState`; that read-model is projected
+/// only from the live `MovePlayback` by `project_boss_attack_state_from_move`.
 ///
-/// E6(c): the autonomous boss arm builds the `BossPatternContext` directly from
-/// its selected target instead of laundering that target through
-/// `BrainSnapshot::target_pos`; player-possessed bosses still use the generic
-/// player-brain snapshot because controller input is the point of that path.
+/// The autonomous arm builds `BossPatternContext` directly from its selected
+/// target. Player-possessed bosses use the generic player-brain snapshot,
+/// because controller input is the point of that path.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     // The composed collision read-API rather than its three ingredients.
     collision: ambition_platformer2d_world::collision::CollisionWorld,
     // A possessed boss carries `DrivingParticipant(slot)` and reads its
-    // controller frame from here, through the SAME universal-control path every
-    // driven body uses. Bosses are valid controllable bodies (architecturally); design
-    // gating of WHICH boss is possessable lives above, in the possession target
-    // filter — not as a "bosses can never be controlled" barrier in this tick.
+    // controller frame from here, through the same control path as every
+    // driven body. Which bosses are possessable is decided by the possession
+    // target filter, not in this tick.
     slot_controls: Res<ambition_characters::control::SlotControls>,
     mut bosses: Query<
         (
@@ -407,40 +378,32 @@ pub fn tick_boss_brains_system(
             // The boss's HP authority (§A1) — liveness is `health.alive()`.
             &ambition_characters::actor::BodyHealth,
             &mut Brain,
-            // Possession keys on driver authority; the boss brain remains attached
-            // and simply stops deciding while a participant drives the body.
+            // Possession keys on driver authority; the boss brain stays
+            // attached and stops deciding while a participant drives.
             Option<&ambition_characters::control::DrivingParticipant>,
             &mut ActorControl,
-            // The per-frame attack INTENT the trigger reads (§A1 intent/projection
-            // split): the driver (autonomous pattern OR possession) writes which
-            // profile it wants to fire here; `trigger_boss_attack_moves` reads it.
-            // The `BossAttackState` read-model is NOT written here (§A1 slice 1b) — the
-            // projection owns it — so this tick no longer borrows it.
+            // The per-frame attack intent: the driver (pattern or possession)
+            // writes the profile it wants to fire; `trigger_boss_attack_moves`
+            // reads it.
             &mut ambition_characters::brain::BossAttackIntent,
             &ambition_combat::components::ActorTarget,
-            // The boss's authored special repertoire (body CAPABILITY, persisted
-            // across a brain swap). Read only by the possession arm to map input
-            // onto the boss's own moves; `Option` for test fixtures that spawn a
-            // boss without it.
+            // The boss's authored special repertoire (body capability, kept
+            // across a brain swap). Read only by the possession arm. `Option`
+            // for test fixtures that spawn a boss without it.
             Option<&ambition_characters::brain::BossCapability>,
-            // The projected live-move read-model (LAST frame's — the projection
-            // runs after this tick). The autonomous pattern OBSERVES its own
+            // The projected live-move read-model (last frame's; the
+            // projection runs after this tick). The pattern observes its own
             // playing move through it: cycle mode sustains its request through
-            // the observed windup and rests once the move ends, instead of
-            // running a parallel windup/active clock. Read-only; the projection
-            // stays the sole writer.
+            // the windup and rests when the move ends. Read-only.
             Option<&BossAttackState>,
         ),
         With<FeatureSimEntity>,
     >,
-    // Any body a boss may be aiming at — its COLLISION extent, read-only. NOT
-    // `CenteredAabb`: that is the coarse footprint, and a boss publishes it from
-    // its `BodyEnvelope` render envelope (AJ5.1), so asking it about a boss
-    // target would answer with a render quad. `BodyKinematics::size` is the box
-    // the movement seam actually sweeps, for every body including a boss —
-    // `integrate_boss_bodies` heals `kin.size` onto the authored `combat_size`
-    // every tick, which is the same extent `BossPatternCfg::combat_size` gives
-    // the asking side.
+    // Any body a boss may aim at: its collision extent, read-only. Not
+    // `CenteredAabb`, which for a boss comes from its `BodyEnvelope` render
+    // envelope. `BodyKinematics::size` is the box the movement seam sweeps;
+    // `integrate_boss_bodies` sets `kin.size` to the authored `combat_size`
+    // every tick, the extent `BossPatternCfg::combat_size` gives the boss side.
     target_bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
 ) {
     let dt = world_time.sim_dt();
@@ -462,25 +425,21 @@ pub fn tick_boss_brains_system(
     {
         let boss = feature.as_boss_ref();
         if !health.alive() {
-            // Dead boss: zero out the control frame + fire intent so the trigger starts
-            // nothing this frame; the projection clears its `BossAttackState` read-model.
+            // Dead boss: clear the control frame and fire intent so the trigger
+            // starts nothing; the projection clears `BossAttackState`.
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             intent.clear();
             continue;
         }
 
-        // POSSESSED BOSS: driven from slot input through the player brain, the
-        // same universal path every controlled body uses. It steers by
-        // `velocity_target` (bosses float / SNAP-integrate in `update_ecs_bosses`)
-        // at the shared body run capability, AND commands its own authored specials
-        // through a deterministic input→special mapping over `BossCapability` — the
-        // boss body's full kit, nothing special-cased (unified-actors I2/I7).
+        // Possessed boss: driven from slot input through the player brain,
+        // like every controlled body. It steers by `velocity_target` at the
+        // shared body run capability and commands its own authored specials
+        // through an input→special mapping over `BossCapability`.
         //
-        // the scripted pattern is not stashed any more; it is simply not
-        // asked. Its `Brain` sits on the body untouched for the whole
-        // possession — the human is the policy choosing from the same repertoire
-        // the pattern would, and the moment the seat leaves, the pattern resumes
-        // from the state it was in.
+        // The scripted pattern is not asked. Its `Brain` stays on the body
+        // unchanged, and when the seat leaves, the pattern resumes from the
+        // same state.
         if let Some(slot) = driver.map(|driver| driver.0) {
             let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
             snapshot.actor_pos = boss.kin.pos;
@@ -494,24 +453,17 @@ pub fn tick_boss_brains_system(
             ambition_characters::brain::tick_player_brain(slot, &snapshot, &mut frame);
             control.0 = frame;
 
-            // Map controller input onto the boss's authored repertoire and publish it as
-            // this frame's fire INTENT (§A1 slice 1b). `trigger_boss_attack_moves` reads
-            // it and starts the matching move; the move's OWN duration is the fire-rate
-            // gate (a live `MovePlayback` blocks re-trigger, invariant I3), so the
-            // possession path needs no separate `active_remaining` bookkeeping. The
-            // `BossAttackState` read-model is written SOLELY by the projection from that
-            // live move — no direct write here. A possessed strike fires as a REAL
-            // strike (R1.4: possession grants the full kit; the hitbox carries the
-            // possessor's effective faction, stamped in `advance_move_playback`), and
-            // when this boss RIDES a limb-rigged mount, the projected `BossAttackState`
-            // drives `route_boss_strikes_to_limbs` exactly as the autonomous pattern
-            // does — press down+attack aboard the giant and both hands slam (G5).
+            // Map controller input onto the boss's repertoire and publish it
+            // as this frame's fire intent. `trigger_boss_attack_moves` starts
+            // the matching move; a live `MovePlayback` blocks re-trigger, so
+            // the move's duration is the fire-rate gate. A possessed strike is
+            // a real strike (the hitbox carries the possessor's effective
+            // faction). When this boss rides a limb-rigged mount, the
+            // projected `BossAttackState` drives `route_boss_strikes_to_limbs`
+            // as for the pattern: down+attack aboard the giant slams both
+            // hands.
             //
-            // The mapping is the G5 CONTROLLER→VERB MAP (`possessed_attack_choice`):
-            // the profile's authored `possessed_verbs` resolved through the same
-            // directional-verb chain an actor melee uses, falling back to the legacy
-            // deterministic mapping (primary strike / signature special) for a boss
-            // that authors no verbs. Verb bindings are BLIND.
+            // The mapping is `possessed_attack_choice`.
             intent.clear();
             if let Some(profile) =
                 possessed_attack_choice(&frame, &boss.config.behavior, capability, boss.kin.facing)
@@ -521,9 +473,8 @@ pub fn tick_boss_brains_system(
             continue;
         }
 
-        // Non-BossPattern brains on a boss (test fixtures) emit no fire intent — the
-        // same guard the bespoke `pattern_brain_mut` match used before the
-        // universal-tick fold. The projection clears their `BossAttackState`.
+        // Non-BossPattern brains on a boss (test fixtures) emit no fire
+        // intent. The projection clears their `BossAttackState`.
         if !matches!(
             &*brain,
             Brain::StateMachine(StateMachineCfg::BossPattern { .. })
@@ -533,22 +484,16 @@ pub fn tick_boss_brains_system(
             continue;
         }
 
-        // §A7 BOSS PERCEPTION = OMNISCIENT (the basic mode, `Perception::default()`).
-        // A boss is relentless: it KNOWS where its foe is anywhere in its arena — you
-        // cannot juke it — so it reads the global `ActorTarget` `select_actor_targets`
-        // maintains, the same omniscient datum every body carries. This is a documented
-        // POLICY, not a carve-out: omniscience is a first-class perception (see
-        // `Perception`), applied to the boss via the DEFAULT (it carries no `Perception`
-        // component, unlike sighted actors granted `Sighted` by `ensure_perception`).
-        // A boss that wanted bounded, juke-able senses would carry `Perception::Sighted`
-        // and branch here exactly as `tick_actor_brains` does; none do today.
+        // Boss perception is omniscient (`Perception::default()`): a boss
+        // knows where its foe is anywhere in its arena, so it reads the global
+        // `ActorTarget` that `select_actor_targets` maintains. This is a
+        // documented policy: a boss carries no `Perception` component. A boss
+        // with bounded senses would carry `Perception::Sighted` and branch
+        // here as `tick_actor_brains` does; none do today.
         let target_pos = target.pos;
-        // The target's own BODY, not just where it stands. A contact chase asks
-        // whether two bodies touch; answering that from positions alone made
-        // every wide body's contact unreachable (see `lateral_body_gap`). Every
-        // body carries `BodyKinematics`, player and actor and boss alike, so this
-        // asks one question of one component. A target we cannot find a body for
-        // reads as a point, which is exactly what the old arithmetic assumed.
+        // The target's body, not only its position: a contact chase asks
+        // whether two bodies touch (see `lateral_body_gap`). Every body has
+        // `BodyKinematics`. A target without a body reads as a point.
         let target_body_size = target
             .entity
             .and_then(|entity| target_bodies.get(entity).ok())
@@ -576,16 +521,16 @@ pub fn tick_boss_brains_system(
                     world_size: feature_world.size,
                     front_wall_clearance,
                     dt,
-                    // BD1's situation buckets + `OnHitTaken`. The brain remembers
-                    // its own last HP, so a hit is a DROP in this pool — no
-                    // per-tick damage channel exists and none is invented.
+                    // Situation buckets and `OnHitTaken`. The brain remembers
+                    // its own last HP, so a hit is a drop in this pool; there
+                    // is no per-tick damage channel.
                     actor_facing: boss.kin.facing,
                     hp_current: health.current(),
                     hp_max: health.max(),
                     // The brain's observation of its own live move, from the
-                    // projected read-model (one frame stale, deterministically):
-                    // a telegraphing move reads as `striking: false`, a striking
-                    // move as `striking: true`, no move as `None`.
+                    // projected read-model (one frame stale): telegraphing is
+                    // `striking: false`, striking is `striking: true`, no move
+                    // is `None`.
                     live_attack: attack_state.and_then(|s| {
                         if let Some(profile) = &s.active_profile {
                             Some(ambition_characters::brain::LiveBossAttack {
@@ -615,10 +560,9 @@ pub fn tick_boss_brains_system(
         // projected solely from the move that this request starts.
         intent.clone_from(attack_request);
 
-        // Geometry strikes and content-technique specials now share this path:
-        // the profile request starts one authored move, whose active windows own
-        // hit volumes or sustained `Effect{key}` emission. There is no direct
-        // boss-special dispatch beside the moveset runtime.
+        // Geometry strikes and content-technique specials share this path:
+        // the profile request starts one authored move, whose active windows
+        // own hit volumes or sustained `Effect{key}` emission.
     }
 }
 
@@ -698,16 +642,14 @@ pub(crate) fn horizontal_front_wall_clearance(
     best
 }
 
-/// Boss PRESENTATION — decay the boss's body-generic reaction timers and sync the
-/// sprite-animation facts (`BossPhase`, death anim).
+/// Boss presentation: decay the boss's body-generic reaction timers and sync
+/// the sprite-animation facts (`BossPhase`, death anim).
 ///
-/// Since fable AD2 this system moves no body and emits no damage: movement is
-/// [`integrate_boss_bodies`] (the shared flight-limb arm); STRIKE damage is the
-/// moveset's own hitboxes (`trigger_boss_attack_moves` → `advance_move_playback` →
-/// `apply_hitbox_damage`); BODY-CONTACT damage is the shared `apply_actor_contact_damage`.
-/// The old `boss_attack_damage` / `sync_boss_strike_hitboxes` polls are gone — a boss's
-/// offense and body flow through the
-/// SAME systems every actor uses.
+/// This system moves no body and deals no damage. Movement is
+/// [`integrate_boss_bodies`]; strike damage is the moveset's own hitboxes
+/// (`trigger_boss_attack_moves` → `advance_move_playback` →
+/// `apply_hitbox_damage`); body-contact damage is the shared
+/// `apply_actor_contact_damage`. A boss uses the same systems as every actor.
 pub fn update_ecs_bosses(
     world_time: Res<WorldTime>,
     mut bosses: Query<
@@ -717,8 +659,8 @@ pub fn update_ecs_bosses(
             &mut BossDeathAnimation,
             &mut BossPhase,
         ),
-        // The player carries the unified `BodyKinematics`; exclude it so this boss
-        // query is provably disjoint (boss / player are mutually exclusive archetypes).
+        // The player carries `BodyKinematics`; exclude it so this query is
+        // disjoint (boss and player are mutually exclusive archetypes).
         (
             With<FeatureSimEntity>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
@@ -729,10 +671,9 @@ pub fn update_ecs_bosses(
     let dt = world_time.sim_dt();
     for (health, mut boss_combat, mut death_anim, mut phase) in &mut bosses {
         let alive = health.alive();
-        // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger set)
-        // decay here for bosses through the SAME `BodyCombat` decay the actor tick
-        // runs — the boss is excluded from the actor tick, so it decays its own,
-        // but via the one shared method, not a hand-copy (§A1).
+        // Body-generic reaction timers (hit flash, i-frames, stagger) decay
+        // through the same `BodyCombat` method the actor tick uses. The boss
+        // is excluded from the actor tick, so it calls it here.
         boss_combat.decay_reaction_timers(dt);
         if alive {
             death_anim.clear();

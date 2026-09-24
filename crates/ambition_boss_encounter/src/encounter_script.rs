@@ -1,20 +1,20 @@
-//! Encounter-script EXECUTION + its actor-specific mechanics.
+//! Encounter-script execution and its actor-specific mechanics.
 //!
-//! The generic timeline vocabulary — [`EncounterGate`], [`EncounterTrigger`],
-//! [`EncounterEffect`], [`EncounterBeat`], [`EncounterScript`] — and the generic
-//! beat-advance (`EncounterScript::advance`) live in `ambition_encounter` (the
-//! one timeline authority). This module owns only what TOUCHES actor bodies: it
-//! reads each script's `advance`d effects and EXECUTES them (defeat a member,
-//! command a member's brain, drop a hazard, banner, music), plus the two generic
-//! mechanics an effect spawns — [`CommandedMove`] (a "walk the boss to a spot"
+//! The generic timeline vocabulary ([`EncounterGate`], [`EncounterTrigger`],
+//! [`EncounterEffect`], [`EncounterBeat`], [`EncounterScript`]) and the generic
+//! beat advance (`EncounterScript::advance`) live in `ambition_encounter`, the
+//! one timeline authority. This module owns what touches actor bodies: it
+//! executes each script's advanced effects (defeat a member, command a
+//! member's brain, drop a hazard, banner, music), plus the two generic
+//! mechanics an effect spawns: [`CommandedMove`] (a "walk the boss to a spot"
 //! brain override) and [`FallingHazard`] (a "hang, wait for alignment, fall,
-//! fire the impact gate" hazard). Member indices address the encounter's generic
-//! [`EncounterParticipants`].
+//! fire the impact gate" hazard). Member indices address the encounter's
+//! generic [`EncounterParticipants`].
 //!
-//! The cut-rope fight is expressed entirely as a script: `Gate("rope_cut")` →
+//! The cut-rope fight is a script: `Gate("rope_cut")` →
 //! [`EncounterEffect::CommandMoveTo`] (lure the behemoth under the drop) +
 //! [`EncounterEffect::DropHazard`] (a [`FallingHazard`]) → `ForceKill`. The
-//! swallowed-NPC release falls out of the generic
+//! swallowed-NPC release comes from the generic
 //! [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath).
 
 use bevy::prelude::*;
@@ -31,16 +31,17 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
 
-/// Advance every encounter script and EXECUTE the effects it yields this tick.
-/// The trigger evaluation + cursor logic is generic (`EncounterScript::advance`,
-/// reading fired gates + participant deadness); this system supplies the
-/// actor-touching execution. Runs in the Progression set after
-/// `update_encounter_progress` (which refreshes participant `alive`).
+/// Advance every encounter script and execute the effects it yields this
+/// tick. The trigger evaluation and cursor logic are generic
+/// (`EncounterScript::advance`, reading fired gates and participant deadness);
+/// this system supplies the actor-touching execution. Runs in the Progression
+/// set after `update_encounter_progress` (which refreshes participant
+/// `alive`).
 pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
-    // The encounter's own identity and counter: what it DROPS is minted under
+    // The encounter's own identity and counter: what it drops is minted under
     // it, so two hazards of one script are two identified objects.
     mut scripts: Query<(
         &EncounterParticipants,
@@ -61,50 +62,26 @@ pub fn tick_encounter_scripts(
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
 
-    // ⛔⛔ NO SCRIPT MEANS NO SCRIPT MUSIC. `SetMusic` is an EFFECT, fired once
-    // when a beat reaches it, so `release_priority` below is reachable ONLY when
-    // some live script emits `SetMusic(None)`. An encounter that ends without
-    // that beat — or simply despawns when the player leaves its room — takes its
-    // claim with it, and `EncounterMusicRequest::desired_track` puts the priority
-    // tier ABOVE room music, so the fight's track then wins everywhere.
+    // No script means no script music. `SetMusic` is an effect, fired once
+    // when a beat reaches it, so `release_priority` is reached only when a
+    // live script emits `SetMusic(None)`. An encounter that ends without that
+    // beat, or despawns when the player leaves its room, would keep its claim,
+    // and the priority tier outranks room music. So with no scripts alive,
+    // release the claim here (as the boss-music system does). It is scoped to
+    // this owner, so a conversation cue or the boss owner keep theirs.
     //
-    // ⭐ THIS IS THE GENERIC TWIN OF A BUG JON HIT ON 2026-09-06 ("the symmetry
-    // room… I get the grinning colossus music"). That one leaked through
-    // `CUT_ROPE_MUSIC_OWNER`; the Smirking Behemoth is ALSO an `EncounterScript`
-    // since R5, so the same track could leak again through this owner after that
-    // fix. A claim released only by the path that took it is released only while
-    // that path still runs.
+    // No shipped encounter authors `EncounterEffect::SetMusic` yet; this keeps
+    // the capability correct.
     //
-    // ⇒ The rule `ambition_boss_encounter`'s own boss-music system already
-    // states — "reaches the 'no boss is fighting' arm on every frame" — applied
-    // here: with no scripts alive there is nothing to hold the claim.
-    // ⚠ Owner-scoped, so a conversation cue or the generic boss owner keep theirs.
-    //
-    // ⛔⛔ TWO CORRECTIONS FROM REVIEW (2026-09-06), AND THE FIRST IS ABOUT WHAT
-    // THIS FIXED. There is NO production `EncounterEffect::SetMusic` — measured:
-    // every construction site is inside `#[cfg(test)]` (`timeline.rs:218`) and no
-    // authored `.ron` names it. ⇒ This is a CAPABILITY-OWNERSHIP repair, not a
-    // verified repair of a shipped encounter bug. The leak Jon actually hit came
-    // through `CUT_ROPE_MUSIC_OWNER`; the paragraph above is right that the same
-    // shape is available here, and wrong if read as "this was firing".
-    //
-    // ⛔⛔ AND THE RELEASE IS CORRECT ONLY WHILE AT MOST ONE SCRIPT IS LIVE.
-    // `SCRIPT_MUSIC_OWNER` is ONE `&'static str` for every `EncounterScript`
-    // instance, and `priority_owner` is `Option<&'static str>`, so the tier cannot
-    // tell two scripts apart:
-    //   · two live scripts silently overwrite each other's track, last writer wins;
-    //   · a script that ends while another still lives leaves its claim latched —
-    //     `scripts.is_empty()` is false, so this arm does not run.
-    // ⇒ Today no content ships a second concurrent script, which is why this is
-    // documented rather than built. THE FIRST CONTENT THAT DOES makes it a bug.
-    //
-    // ⭐ THE FIX HAS A SHAPE AND ONE FORBIDDEN INGREDIENT. `encounter_id` is
-    // already in this loop and is a durable authored id, so per-script ownership
-    // needs `priority_owner` widened from `&'static str` to something that can
-    // carry it — across all five owners — or one deterministic aggregator that
-    // picks a winner. ⛔ NOT an ECS `Entity`: it is a slot in an allocator that
-    // does not survive the thing it names. Whichever lands owes a TWO-SCRIPT
-    // poison, because no single-script test can fail on this.
+    // Limitation: this is correct only while at most one script is live.
+    // `SCRIPT_MUSIC_OWNER` is one `&'static str` for every `EncounterScript`,
+    // and `priority_owner` is `Option<&'static str>`, so two live scripts
+    // overwrite each other's track (last writer wins), and a script that ends
+    // while another lives leaves its claim in place. No content has two
+    // concurrent scripts today. The fix is per-script ownership keyed by the
+    // durable `encounter_id` (widening `priority_owner` for all owners) or one
+    // deterministic aggregator. Do not key it by ECS `Entity`, which does not
+    // survive a rewind. Add a two-script test with the fix.
     if scripts.is_empty() {
         music.release_priority(SCRIPT_MUSIC_OWNER);
     }
@@ -153,11 +130,10 @@ pub fn tick_encounter_scripts(
                     impact_gate,
                 } => {
                     if let Some(target) = member_entity(*target_member) {
-                        // ⛔ REFUSE RATHER THAN DROP AN UNNAMEABLE HAZARD — ADR
-                        // 0030, the same closure the sentry, vortex and grenade
-                        // roads took. A hazard the sim cannot name is state a
-                        // rewind cannot reconstruct, and this one DECIDES WHEN A
-                        // BOSS TAKES AN IMPACT.
+                        // Refuse, and do not drop a hazard without an identity
+                        // (ADR 0030). A hazard the sim cannot name cannot be
+                        // rebuilt by a rewind, and this one decides when a
+                        // boss takes an impact.
                         let (Some(encounter), Some(counter)) =
                             (encounter_id, counter.as_deref_mut())
                         else {
@@ -199,21 +175,21 @@ pub fn tick_encounter_scripts(
     }
 }
 
-/// Drop one hazard. THE seam a falling hazard comes into the world through.
+/// Drop one hazard. This is the only way a falling hazard enters the world.
 ///
-/// ⭐ ONE PLACE, because an archetype that exists only after an encounter beat
-/// fires is an archetype no census of a booted room can reach — which is exactly
-/// how this one shipped carrying a rollback codec and no rollback ANCHOR. A
-/// named seam is what lets a test bring the real entity into a booted world.
+/// One seam, so a test can bring the real entity into a booted world. An
+/// archetype that exists only after an encounter beat is not reachable by a
+/// census of a booted room.
 ///
-/// ⛔⛔ `vel_y`, `dropping` and the entity it is aimed at are the fall itself, and
-/// the hazard decides when a boss takes an impact. The declaration is in this
-/// crate's `register_rollback_state`, anchor and codec together.
+/// `vel_y`, `dropping` and the target entity are the fall, and the hazard
+/// decides when a boss takes an impact, so they are rollback state. The
+/// declaration (anchor and codec) is in this crate's
+/// `register_rollback_state`.
 ///
-/// `sim_id` is the hazard's identity — `SimId::spawned(encounter, counter)`
-/// minted under the encounter that dropped it. `None` only for a fixture with
-/// no spawner in hand; production always identifies what it drops, because a
-/// rollback-anchored entity with no identity rewinds anonymously (S4).
+/// `sim_id` is the hazard's identity: `SimId::spawned(encounter, counter)`
+/// minted under the encounter that dropped it. `None` only for a fixture
+/// without a spawner; production always identifies what it drops, because a
+/// rollback-anchored entity with no identity rewinds anonymously.
 pub fn drop_hazard(
     commands: &mut Commands,
     scope: SessionSpawnScope,
@@ -232,11 +208,11 @@ pub fn drop_hazard(
     spawned.id()
 }
 
-/// Generic "lured movement" override: while present on a boss, its brain control
-/// is overridden to steer toward `target.x` at `speed` (stopping within
-/// `arrive_tolerance`). Attached by [`EncounterEffect::CommandMoveTo`]; the
-/// encounter removes it (e.g. the member dies / the script ends). Reusable by
-/// any "walk the boss to a spot" beat.
+/// Generic "lured movement" override: while present on a boss, its brain
+/// control is replaced by steering toward `target.x` at `speed` (stopping
+/// within `arrive_tolerance`). Attached by [`EncounterEffect::CommandMoveTo`];
+/// the encounter removes it (for example when the member dies or the script
+/// ends). Reusable by any "walk the boss to a spot" beat.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct CommandedMove {
     pub target: ae::Vec2,
@@ -244,10 +220,10 @@ pub struct CommandedMove {
     pub arrive_tolerance: f32,
 }
 
-/// Steer every [`CommandedMove`] boss toward its target, overriding the brain's
-/// `ActorControl` and clearing its attack intent, so no new move starts and a
-/// windup in progress is interrupted; a committed strike runs out. Runs in the boss steer slot
-/// (between the brain tick and the body integrate).
+/// Steer every [`CommandedMove`] boss toward its target, overriding the
+/// brain's `ActorControl` and clearing its attack intent, so no new move
+/// starts and a windup in progress is interrupted; a committed strike runs
+/// out. Runs in the boss steer slot (between brain tick and body integrate).
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
@@ -280,10 +256,10 @@ pub fn tick_commanded_moves(
     }
 }
 
-/// A generic hazard that hangs at its spawn point until its `target` is aligned
-/// under it (within `align_tolerance` in x), then falls under `gravity` (capped
-/// at `terminal`) and fires `EncounterGate(impact_gate)` on contact with the
-/// target — then despawns. The cut-rope anvil/piano is one of these.
+/// A generic hazard that hangs at its spawn point until its `target` is
+/// aligned under it (within `align_tolerance` in x), then falls under
+/// `gravity` (capped at `terminal`), fires `EncounterGate(impact_gate)` on
+/// contact with the target, and despawns. The cut-rope anvil/piano is one.
 #[derive(Component, Clone, Debug)]
 pub struct FallingHazard {
     pub size: ae::Vec2,
@@ -296,18 +272,18 @@ pub struct FallingHazard {
     pub dropping: bool,
 }
 
-/// ⛔ THE `target` IS AN ENTITY, SO IT MUST BE REMAPPED ON RESTORE. A rewind
-/// rebuilds the world's entities; a raw id restored verbatim points at whoever
-/// landed in that slot, and this hazard drops on whatever it points at.
+/// The `target` is an entity, so it must be remapped on restore. A rewind
+/// rebuilds the world's entities; a raw id restored as-is points at whatever
+/// is in that slot now.
 impl bevy::ecs::entity::MapEntities for FallingHazard {
     fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
         self.target = mapper.get_mapped(self.target);
     }
 }
 
-/// Integrate every [`FallingHazard`]: wait for the target to align, then fall +
-/// clamp to the floor + fire the impact gate on contact. Despawns the hazard on
-/// impact (or if its target left the world).
+/// Integrate every [`FallingHazard`]: wait for the target to align, then fall,
+/// clamp to the floor, and fire the impact gate on contact. Despawns the
+/// hazard on impact (or if its target left the world).
 pub fn tick_falling_hazards(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,

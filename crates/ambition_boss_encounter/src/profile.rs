@@ -4,7 +4,7 @@
 //! encounter numbers (`BossEncounterSpec` from `boss_encounters/<id>.ron`) plus
 //! behavior + reward (`BossBehaviorProfile` from `boss_profiles.ron`).
 //! `BossProfile::from_id` / `for_encounter_id_or_name` resolve one by id (with
-//! the legacy `gradient_sentinel` -> `clockwork_warden` save alias);
+//! the `gradient_sentinel` -> `clockwork_warden` save alias);
 //! `default_boss_profiles` builds the full installed list. Consumed by
 //! `registry`/`systems` to register encounters.
 
@@ -15,13 +15,11 @@
 /// `BossProfile` owns the content-facing bundle: phase thresholds, movement,
 /// hitboxes, damage tuning, music, and rewards.
 ///
-/// `BossProfile` is authored as DATA, never via named Rust constructors:
-/// every named boss instance lives on disk. The encounter numbers come from
-/// `assets/data/boss_encounters/<id>.ron` and the behavior + reward
-/// come from `assets/data/boss_profiles.ron`; `BossProfile::from_id`
-/// stitches the two registries together. The general type + the
-/// encounter system stay in core (they're the reusable pattern); only
-/// the per-boss instance data lives on disk.
+/// `BossProfile` is authored as data, never via named Rust constructors:
+/// every boss instance lives on disk. The encounter numbers come from
+/// `assets/data/boss_encounters/<id>.ron` and the behavior and reward from
+/// `assets/data/boss_profiles.ron`; `BossProfile::from_id` joins the two. The
+/// general type and the encounter system stay in core.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BossProfile {
     pub id: String,
@@ -35,10 +33,9 @@ use super::behavior;
 use super::BossCatalog;
 use crate::behavior::BossBehaviorProfileExt;
 use crate::BossSpecRoster;
-/// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
-/// into `BossBehaviorProfile::reward`. Re-exported from its definition
-/// site (`content::features::bosses`) so existing
-/// `crate::BossRewardProfile` call sites keep compiling.
+/// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed into
+/// `BossBehaviorProfile::reward`. Re-exported so `crate::BossRewardProfile`
+/// resolves.
 pub use behavior::BossRewardProfile;
 
 impl BossProfile {
@@ -84,10 +81,8 @@ impl BossProfile {
     pub fn for_encounter_id_or_name(catalog: &BossCatalog, id_or_name: &str) -> Option<Self> {
         let id = super::encounter_id_from_name(id_or_name);
         Self::from_id(catalog, &id)
-            // A retired id in an old save resolves to what it became. The PAIR
-            // is `ids::renamed_encounter_id` and is not spelled here -- it used
-            // to be, in this file and in `behavior.rs`, with nothing making the
-            // two agree.
+            // A retired id in an old save resolves to what it became. The pair
+            // is defined only in `ids::renamed_encounter_id`.
             .or_else(|| {
                 super::renamed_encounter_id(&id)
                     .and_then(|current| Self::from_id(catalog, current))
@@ -110,10 +105,10 @@ fn default_boss_specs_by_id(
 }
 
 /// Every authored boss profile, derived from the App-local encounter
-/// specs (`boss_encounters/<id>.ron`). The engine hardcodes no boss list —
-/// adding a boss is purely content data (an encounter RON + a `boss_profiles.ron`
-/// row), with no lib edit. Iterates the assembled specs in deterministic id order so
-/// registration/spawn order stays stable (and replay-deterministic).
+/// specs (`boss_encounters/<id>.ron`). The engine hardcodes no boss list:
+/// adding a boss is content data only (an encounter RON and a
+/// `boss_profiles.ron` row). Iterates specs in id order, so registration and
+/// spawn order are deterministic.
 pub fn default_boss_profiles(catalog: &BossCatalog) -> Vec<BossProfile> {
     catalog
         .encounter_specs()

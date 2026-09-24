@@ -457,12 +457,10 @@ resource.sudden_death_entered	resource-canonical-custom-checksum	SuddenDeathEnte
 resource.switch_activation_queue	resource-clone-custom-checksum	SwitchActivationQueue	bevy_ggrs clone snapshot + queued switch activations, in order, by id/action/target
 resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone snapshot; not in the session checksum
 root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; not in the session checksum
 root.ldtk_runtime_index	component-clone-custom-checksum	LdtkRuntimeIndex	bevy_ggrs clone snapshot + active LDtk area checksum
 root.live_room_instance	component-canonical	LiveRoomInstance	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.room_music_request	component-clone	RoomMusicRequest	bevy_ggrs clone snapshot; not in the session checksum
 root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
 root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

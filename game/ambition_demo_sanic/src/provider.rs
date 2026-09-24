@@ -6,9 +6,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
-use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, RoomSet, StartingCharacter,
-};
+use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 
 use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_speedway};
 
@@ -20,19 +18,16 @@ pub const SANIC_LAUNCHER_ROUTE: &str = "sanic_launcher";
 pub struct SanicSessionWorld {
     pub geometry: ae::RoomGeometry,
     pub room_set: RoomSet,
-    pub metadata: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
 }
 
 pub fn sanic_session_world() -> SanicSessionWorld {
     let room = sanic_speedway();
     let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
     let room_set = RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room], Vec::new());
     SanicSessionWorld {
         geometry,
         room_set,
-        metadata,
         starting_character: StartingCharacter::new(SANIC_CHARACTER_ID),
     }
 }
@@ -96,7 +91,6 @@ fn sanic_prepared_session_world() -> PreparedPlatformerSource {
         SANIC_EXPERIENCE,
         source.room_set,
         source.geometry,
-        source.metadata,
         source.starting_character,
     )
 }

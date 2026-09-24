@@ -60,9 +60,7 @@ use ambition_platformer2d::relativity2d::{
     SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTracked2d,
 };
 use ambition_platformer2d::rollback::AmbitionRollbackApp;
-use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, RoomSet, StartingCharacter,
-};
+use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::{
     CameraClampMode, CameraScrollPolicy, CameraZoneSpec, RoomSpec,
@@ -813,7 +811,6 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
         TWINTRACK_EXPERIENCE,
         RoomSet::from_parts_or_panic(TWINTRACK_ROOM_ID, vec![room.clone()], Vec::new()),
         ae::RoomGeometry(room.world.clone()),
-        ActiveRoomMetadata(room.metadata),
         StartingCharacter::new(TWINTRACK_CHARACTER_ID),
     )
 }
@@ -822,7 +819,7 @@ fn install_twintrack_session(
     mut commands: Commands,
     mut spawns: MessageWriter<ambition_platformer2d::actor::SpawnActorRequest>,
     mut worldlines: ResMut<WorldlineHistoryView2d>,
-    roots: Query<(Entity, &SessionRoot, &ActiveRoomMetadata), Without<ActiveSpacetime2d>>,
+    roots: Query<(Entity, &SessionRoot, &RoomSet), Without<ActiveSpacetime2d>>,
     traveler: Query<
         Entity,
         (
@@ -831,12 +828,12 @@ fn install_twintrack_session(
         ),
     >,
 ) {
-    let (Ok((root_entity, root, metadata)), Ok(traveler_entity)) =
+    let (Ok((root_entity, root, rooms)), Ok(traveler_entity)) =
         (roots.single(), traveler.single())
     else {
         return;
     };
-    if metadata.0.mode.as_deref() != Some(TWINTRACK_EXPERIENCE) {
+    if rooms.active_metadata().mode.as_deref() != Some(TWINTRACK_EXPERIENCE) {
         return;
     }
 

@@ -32,8 +32,7 @@ pub use stage::{
     LastRoomConstructionCommit, RoomConstructionError, RoomConstructionPlan, RoomConstructionPlanId,
 };
 pub use systems::{
-    detect_room_transition_system, sync_active_room_metadata, sync_room_music_request,
-    tick_portal_phases_system, ActiveRoomMetadataSynced,
+    detect_room_transition_system, tick_portal_phases_system,
 };
 pub use transaction::{
     finalize_room_publication, outstanding_publications, publication_succeeded, settle_publication,

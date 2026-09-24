@@ -445,7 +445,6 @@ pub(super) fn reload_ldtk_world_from_disk(
         .with_world(
             transaction.next_room_set.clone(),
             RoomGeometry(transaction.next_spec.world.clone()),
-            world_rooms::ActiveRoomMetadata(transaction.next_spec.metadata.clone()),
         )
         // `with_world` carries the OLD index forward on purpose, so the road
         // that reloaded an LDtk project has to state its replacement. This is

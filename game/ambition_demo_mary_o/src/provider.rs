@@ -5,9 +5,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, RoomSet, StartingCharacter,
-};
+use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 
 use crate::{MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
@@ -67,7 +65,6 @@ pub const COIN_PICKUP_SFX: &str = "world.coin.pickup";
 pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
     pub room_set: RoomSet,
-    pub metadata: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
 }
 
@@ -99,7 +96,7 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
     mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
 }
 
-/// Build the session world with `entry` active, then derive geometry/metadata
+/// Build the session world with `entry` active, then derive geometry
 /// from the room the resulting `RoomSet` actually activated.
 ///
 /// ⚠ **AN UNKNOWN `entry` PANICS, AND USED TO OPEN 1-1 INSTEAD.** This said
@@ -122,11 +119,9 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     let room_set = RoomSet::from_parts_or_panic(entry, rooms, links);
     let active = room_set.active_spec();
     let geometry = ae::RoomGeometry(active.world.clone());
-    let metadata = ActiveRoomMetadata(active.metadata.clone());
     MaryOSessionWorld {
         geometry,
         room_set,
-        metadata,
         starting_character: StartingCharacter::new(MARY_O_CHARACTER_ID),
     }
 }
@@ -319,7 +314,6 @@ fn mary_o_prepared_session_world(
         MARY_O_EXPERIENCE,
         source.room_set,
         source.geometry,
-        source.metadata,
         source.starting_character,
     )
 }
@@ -604,8 +598,8 @@ mod tests {
     ///
     /// this went red on `mary_o_1_2`. The seam branched on the test course and built 1-1
     /// for everything else, while handing `entry` straight to the room-set constructor — so asking
-    /// for 1-2 produced a world whose active room WAS 1-2 and whose `geometry`/`metadata` were
-    /// 1-1's.
+    /// for 1-2 produced a world whose active room WAS 1-2 and whose `geometry` was 1-1's.
+    /// (Metadata has no copy to disagree: it is the room set's active entry.)
     ///
     /// The loop asks the same question of every room the demo has, and the distinctness guard
     /// above it means a future room that is a copy of another cannot make the comparison
@@ -646,10 +640,6 @@ mod tests {
                 shape_of(&session.geometry.0),
                 shape_of(&expected.world),
                 "a session entering `{id}` got another room's geometry"
-            );
-            assert_eq!(
-                session.metadata.0, expected.metadata,
-                "a session entering `{id}` got another room's metadata"
             );
 
             // and the entry room is in the set ONCE. The obvious fix for the

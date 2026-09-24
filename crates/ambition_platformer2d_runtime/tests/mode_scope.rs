@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{ModeScopedEntity, SpawnScopedExt as _};
 use ambition_platformer2d_runtime::{despawn_departed_mode_entities, in_base_mode, in_mode};
-use ambition_platformer2d_world::rooms::{ActiveRoomMetadata, RoomMetadata};
+use ambition_platformer2d_world::rooms::{RoomMetadata, RoomSet, RoomSpec};
 
 /// How many times each mode's gated rule has run.
 #[derive(Resource, Default, Debug, PartialEq, Eq)]
@@ -59,15 +59,56 @@ impl Plugin for DemoRulesPlugin {
     }
 }
 
-fn set_mode(app: &mut App, mode: Option<&str>) {
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
+/// One room per mode the tests visit, plus a second room in mode `a`, so a
+/// mode change is a real room change of the session's one `RoomSet`.
+fn session_rooms() -> RoomSet {
+    let room = |id: &str, mode: Option<&str>| {
+        let mut spec = RoomSpec::new(
+            id,
+            ambition_platformer2d_core::World::new(
+                id,
+                ambition_platformer2d_core::Vec2::splat(64.0),
+                ambition_platformer2d_core::Vec2::ZERO,
+                Vec::new(),
+            ),
+        );
+        spec.metadata = RoomMetadata {
+            mode: mode.map(str::to_string),
+            ..Default::default()
+        };
+        spec
+    };
+    RoomSet::from_parts_or_panic(
+        "base",
+        vec![
+            room("base", None),
+            room("a", Some("a")),
+            room("a_second_room", Some("a")),
+            room("b", Some("b")),
+            room("mary_o", Some("mary_o")),
+        ],
+        Vec::new(),
+    )
+}
+
+fn insert_session_rooms(app: &mut App) {
+    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        session_rooms(),
+    );
+}
+
+fn enter_room(app: &mut App, id: &str) {
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<RoomSet>(
         app.world_mut(),
     )
-    .expect("active session room metadata")
-    .0 = RoomMetadata {
-        mode: mode.map(str::to_string),
-        ..Default::default()
-    };
+    .expect("session room set")
+    .set_active_by_id(id)
+    .expect("the fixture set holds every room the tests visit");
+}
+
+fn set_mode(app: &mut App, mode: Option<&str>) {
+    enter_room(app, mode.unwrap_or("base"));
 }
 
 fn mode_scoped_entities(app: &mut App) -> Vec<String> {
@@ -84,14 +125,10 @@ fn mode_scoped_entities(app: &mut App) -> Vec<String> {
 /// plugin knows the other exists, and neither owns a global state.
 fn two_hosted_demos() -> App {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        ActiveRoomMetadata::default(),
-    );
+    insert_session_rooms(&mut app);
     app.init_resource::<RuleTicks>();
     // The sweep as the engine group schedules it, minus the sim-schedule
-    // plumbing this test does not need. `Platformer2dSimulationPhaseMonolith::Progression` membership is
-    // what orders it against `sync_active_room_metadata` in a real app.
+    // plumbing this test does not need.
     app.add_systems(Update, despawn_departed_mode_entities);
     app.add_plugins(DemoRulesPlugin::hosted("a"));
     app.add_plugins(DemoRulesPlugin::hosted("b"));
@@ -176,15 +213,7 @@ fn a_room_change_inside_the_same_mode_spares_the_modes_entities() {
     app.world_mut().commands().spawn_mode_scoped("a", ());
     app.world_mut().flush();
 
-    ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut::<ActiveRoomMetadata>(
-        app.world_mut(),
-    )
-    .expect("active session room metadata")
-    .0 = RoomMetadata {
-        mode: Some("a".into()),
-        biome: Some("a_second_room".into()),
-        ..Default::default()
-    };
+    enter_room(&mut app, "a_second_room");
     app.update();
     assert_eq!(mode_scoped_entities(&mut app), vec!["a"]);
 }
@@ -204,10 +233,7 @@ fn in_base_mode_wakes_only_in_ambitions_own_gameplay() {
 
     // A live session in the base game (no mode tag): Ambition's own chrome wakes.
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        ActiveRoomMetadata::default(),
-    );
+    insert_session_rooms(&mut app);
     app.init_resource::<ChromeTicks>();
     app.add_systems(Update, count_chrome.run_if(in_base_mode));
 
@@ -250,10 +276,7 @@ fn in_base_mode_wakes_only_in_ambitions_own_gameplay() {
 #[test]
 fn a_standalone_ruleset_runs_with_no_mode_at_all() {
     let mut app = App::new();
-    ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
-        app.world_mut(),
-        ActiveRoomMetadata::default(),
-    );
+    insert_session_rooms(&mut app);
     app.init_resource::<RuleTicks>();
     app.add_plugins(DemoRulesPlugin {
         mode: "a",

@@ -63,7 +63,6 @@ impl Plugin for FixtureContentPlugin {
             "fixture",
             RoomSet::from_parts_or_panic("fixture_room", vec![room], Vec::new()),
             RoomGeometry(world),
-            ambition_platformer2d_runtime::demo_fixture::ActiveRoomMetadata::default(),
             ambition_platformer2d_runtime::demo_fixture::StartingCharacter::default(),
         );
         ambition_platformer2d_provider::install_direct_session_root(

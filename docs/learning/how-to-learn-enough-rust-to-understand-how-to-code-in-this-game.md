@@ -1324,10 +1324,10 @@ Consider a Bevy system parameter:
 ```rust
 fn system(
     rooms: Res<RoomSet>,
-    mut active_room: ResMut<ActiveRoomMetadata>,
+    mut geometry: ResMut<RoomGeometry>,
 ) {
     // many systems may read rooms;
-    // this system has exclusive access to active_room for this schedule step.
+    // this system has exclusive access to geometry for this schedule step.
 }
 ```
 

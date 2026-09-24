@@ -162,17 +162,17 @@ pub(crate) fn install(app: &mut App) {
 /// The same question [`twintrack_is_active`] answers, in the shape a run
 /// condition needs. Kept beside it so the two cannot drift.
 fn twintrack_display_is_live(
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
 ) -> bool {
     twintrack_is_active(&roots)
 }
 
 fn twintrack_is_active(
-    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
 ) -> bool {
     roots
         .iter()
-        .any(|metadata| metadata.0.mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
+        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
 }
 
 fn track_color(label: &str) -> Color {
@@ -227,7 +227,7 @@ fn translucent_material(
 /// run without one.
 fn spawn_spacetime_3d(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     existing: Query<(), With<TwinTrackSpacetime3d>>,
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<StandardMaterial>>>,
@@ -1059,7 +1059,7 @@ fn update_legend(
 
 fn cleanup_spacetime_3d_when_inactive(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     visuals: Query<Entity, With<TwinTrackSpacetime3d>>,
     mut minimap: ResMut<SpacetimeMinimapState>,
 ) {

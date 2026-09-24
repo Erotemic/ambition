@@ -13,7 +13,7 @@ use ambition_combat::death_rules::{
 use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
+use ambition_platformer2d_world::rooms::RoomSet;
 
 use crate::session::reset::RoomReplayRequested;
 use ambition_combat::death_rules::ActorDiedMessage;
@@ -27,7 +27,7 @@ mod tests;
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct GoverningDeathRules<'w, 's> {
     declared: Option<Res<'w, DeclaredDeathRules>>,
-    active_room: Option<SessionWorldRef<'w, 's, ActiveRoomMetadata>>,
+    rooms: Option<SessionWorldRef<'w, 's, RoomSet>>,
 }
 
 impl GoverningDeathRules<'_, '_> {
@@ -37,9 +37,9 @@ impl GoverningDeathRules<'_, '_> {
             return DeathRules::default();
         };
         let mode = self
-            .active_room
+            .rooms
             .as_ref()
-            .and_then(|active| active.0.mode.as_deref());
+            .and_then(|rooms| rooms.active_metadata().mode.as_deref());
         declared.governing(mode)
     }
 }

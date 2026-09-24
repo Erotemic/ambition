@@ -838,7 +838,7 @@ fn add_world_fingerprint_sections(
     builder
         .add_section("world.active-geometry", active_geometry.into_bytes())
         .map_err(|error| ContentDiagnostic::new("world.active-geometry", error.to_string()))?;
-    let active_metadata = ron::ser::to_string(&source.active_room().0).map_err(|error| {
+    let active_metadata = ron::ser::to_string(source.active_room()).map_err(|error| {
         ContentDiagnostic::new(
             "world.active-metadata",
             format!("canonical active metadata serialization failed: {error}"),
@@ -2951,9 +2951,6 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
-                room_set.active_spec().metadata.clone(),
-            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3022,9 +3019,6 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
-                room_set.active_spec().metadata.clone(),
-            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3061,9 +3055,6 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
-                room_set.active_spec().metadata.clone(),
-            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }
@@ -3182,9 +3173,6 @@ mod tests {
                 "same-provider",
                 base.room_set().clone(),
                 ambition_platformer2d_core::RoomGeometry(base.room_set().active_world().clone()),
-                ambition_platformer2d_world::rooms::ActiveRoomMetadata(
-                    base.room_set().active_spec().metadata.clone(),
-                ),
                 ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
                     selected.to_string(),
                 ),
@@ -3655,7 +3643,6 @@ mod tests {
         let content = fixture_content(fixture_source(128.0), &characters, &staging);
         let before = content.identity();
         let mut live = content.source().instantiate_live();
-        live.requests.room_music.desired_track = Some("runtime-track".to_owned());
         live.requests
             .encounter_music
             .claim_priority("test", "runtime-boss");
@@ -3773,7 +3760,6 @@ mod mechanical_registries_reach_the_identity {
                 Vec::new(),
             ),
             ambition_platformer2d_core::RoomGeometry(world),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata::default(),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
         )
     }

@@ -4,9 +4,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, RoomSet, StartingCharacter,
-};
+use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
@@ -195,12 +193,10 @@ impl Plugin for PocketExperiencePlugin {
 fn pocket_prepared_session_world() -> PreparedPlatformerSource {
     let room = pocket_room();
     let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
     PreparedPlatformerSource::new(
         POCKET_EXPERIENCE,
         RoomSet::from_parts_or_panic(POCKET_ROOM_ID, vec![room], Vec::new()),
         geometry,
-        metadata,
         StartingCharacter::new(POCKET_CHARACTER_ID),
     )
 }

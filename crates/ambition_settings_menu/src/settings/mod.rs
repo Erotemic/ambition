@@ -151,17 +151,13 @@ pub enum SettingsOptionId {
 impl SettingsOptionId {
     /// Every option id that exists.
     ///
-    /// ⭐ WHY THIS EXISTS: `apply.rs` matches on this enum EXHAUSTIVELY, so a new
-    /// option cannot be added without deciding what changing it DOES. Nothing forces
-    /// the other half -- `build.rs` composes each screen by pushing rows explicitly,
-    /// so a new option can be fully wired and appear on NO SCREEN. That is the shape
-    /// of the report this menu exists to answer: *"video and audio settings seem not
-    /// there or not hooked up"*. `every_settings_option_id_reaches_a_screen` closes
-    /// it by walking this list.
+    /// `apply.rs` matches this enum exhaustively, so each option must say what it
+    /// does. `build.rs` pushes rows explicitly, so a wired option could appear on
+    /// no screen; `every_settings_option_id_reaches_a_screen` walks this list to
+    /// catch that.
     ///
-    /// ⚠ THIS ARRAY IS ITSELF A HAND-KEPT LIST, which is why the test that consumes
-    /// it also carries an exhaustive `match` with no `_` arm: a new variant is an
-    /// E0004 there, and the message at that site says to add it here too. The array
+    /// This array is hand-kept. `scripts/check_enum_all_constants_are_complete.py`
+    /// checks it against the enum.
     /// alone would go stale silently.
     pub const ALL: [Self; 59] = [
         Self::AimFrameMode,

@@ -773,7 +773,7 @@ pub fn compose_versus_experience(app: &mut App) {
                 // `MatchPhase::Starting` — whose arm calls `take_the_controls`
                 // on EVERY fighter, every tick, idempotently. So in any
                 // composition that installs this stage and is not on its route,
-                // every seated fighter carried `ScriptedControl` forever and
+                // every seated fighter carried `ControlHolds` forever and
                 // `blank_scripted_control_frames` zeroed its control frame each
                 // tick. The input arrived correctly the whole way — GGRS
                 // published it, the brain read it — and the body never moved.

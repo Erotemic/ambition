@@ -90,7 +90,7 @@ pub fn open_death_interlude(
         ));
 
         // A dead body does not answer input, and it says so by CLAIMING the
-        // sequence hold rather than by stamping the marker. `ScriptedControl`
+        // sequence hold. `ControlHolds`
         // is the engine's existing word for "normal input does not reach this
         // body", and its doc already names Mary-O's death as the case that
         // reinvented it badly — she blanked the control frame a full phase
@@ -104,7 +104,7 @@ pub fn open_death_interlude(
         // disagreeing, and the disagreement is resolved by whoever releases
         // NEXT: a captor letting go of a body that died in its grip found an
         // empty claim set, concluded nobody was holding it, and took
-        // `ScriptedControl` off a corpse mid-interlude. Claiming a bit makes
+        // `ControlHolds` off a corpse mid-interlude. Claiming a bit makes
         // that release arithmetic instead of a guess.
         //
         // `Sequence` and not a bit of its own: a death fall is the first

@@ -47,7 +47,7 @@ fn a_returning_shot_hits_each_victim_once_per_leg() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

@@ -82,7 +82,7 @@ fn team_permits(
 /// one press is one footstool, and one head is jumped off once.
 pub fn claim_footstools(
     mut bodies: ParamSet<(
-        Query<FootstoolBody, Without<ambition_characters::control::ScriptedControl>>,
+        Query<FootstoolBody, Without<ambition_characters::control::ControlHolds>>,
         Query<(
             &mut ae::BodyKinematics,
             &mut ae::BodyJumpState,

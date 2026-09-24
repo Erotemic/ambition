@@ -692,7 +692,7 @@ fn staging_census(app: &mut App) -> (usize, usize) {
     let staged = all.iter(world).count();
     let mut q = world.query_filtered::<
         &ambition_platformer2d::actor::MatchSeat,
-        With<ambition_platformer2d::characters::control::ScriptedControl>,
+        With<ambition_platformer2d::characters::control::ControlHolds>,
     >();
     (staged, q.iter(world).count())
 }
@@ -800,7 +800,7 @@ fn render_pair(
     for _ in 0..1200 {
         app.update();
         // ⛔⛔ THREE CONDITIONS. Seated is not running, and running is not
-        // ACTING: the opening ceremony holds the cast with `ScriptedControl`,
+        // ACTING: the opening ceremony holds the cast with `ControlHolds`,
         // and a press driven while it holds is discarded. The first version of
         // this driver waited only for a seat and a session, pressed into the
         // ceremony, and reported "no move ever became active" — which reads as a
@@ -811,7 +811,7 @@ fn render_pair(
             let staged = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &ambition_platformer2d::actor::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (staged, q.iter(world).count())
         };
@@ -861,7 +861,7 @@ fn render_pair(
         } else if held > 0 {
             format!(
                 "'{character}' is seated ({staged}) but the opening ceremony still holds \
-                 {held} of the cast under ScriptedControl after 1200 updates — a press \
+                 {held} of the cast under ControlHolds after 1200 updates — a press \
                  driven now would be discarded."
             )
         } else if !rollback_session {

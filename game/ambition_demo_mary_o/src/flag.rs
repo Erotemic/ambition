@@ -596,7 +596,7 @@ pub fn run_flag_sequence(
     let Ok((mut kin, mut sweep)) = bodies.get_mut(entity) else {
         return;
     };
-    // The pole owns the body from the grab to the tally. The engine's `ScriptedControl` blanks at
+    // The pole owns the body from the grab to the tally. The engine's `ControlHolds` blanks at
     // the one point where it is observable, and takes her out of the pickup pass while she is on
     // the pole.
     if matches!(sequence.phase, FlagPhase::Idle) {

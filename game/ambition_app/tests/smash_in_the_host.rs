@@ -694,7 +694,7 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
             &MatchSeat,
             &ambition_platformer2d::engine_core::BodyAbilities,
             Option<&ambition_platformer2d::actor::FighterStocks>,
-            Option<&ambition_platformer2d::characters::control::ScriptedControl>,
+            Option<&ambition_platformer2d::characters::control::ControlHolds>,
         )>();
         let mut rows: Vec<(usize, String, Option<u32>, bool)> = q
             .iter(world)
@@ -2244,7 +2244,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
     app.update();
 
     //  suspending the other seats isolates the grant from the fight, which is
-    // what a test of the grant should have done from the start. `ScriptedControl`
+    // what a test of the grant should have done from the start. `ControlHolds`
     // is the engine's own word for "a sequence drives this body" — the same
     // instrument the opening countdown uses.
     {
@@ -2261,7 +2261,6 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
             // marker is nobody's hold, and the next release would have nothing
             // to clear.
             world.entity_mut(other).insert((
-                ambition_platformer2d::characters::control::ScriptedControl,
                 ambition_platformer2d::characters::control::ControlHolds::only(
                     ambition_platformer2d::characters::control::ControlHold::Interlude,
                 ),
@@ -2354,7 +2353,7 @@ fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
 /// Run out the opening ceremony.
 ///
 /// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries
-/// `ScriptedControl` until the count ends, so a test that presses a button on
+/// `ControlHolds` until the count ends, so a test that presses a button on
 /// the tick the stage appears is pressing it at a held body and measuring the
 /// ceremony rather than the input. Waiting is what a player does too.
 fn wait_for_the_round_to_go_live(app: &mut App) {
@@ -2363,7 +2362,7 @@ fn wait_for_the_round_to_go_live(app: &mut App) {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
                 &ambition_platformer2d::versus_match::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             q.iter(world).count()
         };
@@ -2794,7 +2793,7 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
                 &ambition_platformer2d::versus_match::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             q.iter(world).count()
         };
@@ -2832,7 +2831,7 @@ fn the_match_clock_does_not_start_until_the_cast_is_released() {
             let world = app.world_mut();
             let mut q = world.query_filtered::<
                 &ambition_platformer2d::versus_match::MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             q.iter(world).count() > 0
         };
@@ -6353,7 +6352,7 @@ mod ring_out {
         click(app, layout.start_button());
         // ⛔⛔ THE BLIND COUNTDOWN WAIT IS DELIBERATE, AND `wait_for_the_round_to_go_live`
         // IS THE WRONG TOOL HERE. That helper returns as soon as no `MatchSeat`
-        // holds `ScriptedControl` — which is vacuously true when there are ZERO
+        // holds `ControlHolds` — which is vacuously true when there are ZERO
         // seats, i.e. before the match has been built at all. Measured
         // 2026-09-12: it returned instantly, this fixture queried a world with
         // no cast, and both arms died on the mirror assertion below in 3.1s
@@ -6440,7 +6439,7 @@ mod ring_out {
         //
         // ⛔ AND NOT A CONTROL HOLD, though one would also stop a body walking
         // (`blank_scripted_control_frames` blanks an `ActorControl` under
-        // `ScriptedControl`). Every `ControlHold` bit is owned by an authority
+        // `ControlHolds`). Every `ControlHold` bit is owned by an authority
         // that releases only its own — and `Interlude` belongs to the KO path
         // this test exists to provoke. A fixture claiming that bit impersonates
         // an authority and can have its hold released by the event under test.

@@ -1027,7 +1027,7 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 /// named.
 ///
 /// Asserted on the CPU fighter specifically, because that is the half that was
-/// hardest to fix: `ScriptedControl` was blanked only after the PLAYER brains,
+/// hardest to fix: `ControlHolds` was blanked only after the PLAYER brains,
 /// in `PlayerInput`, and actor brains write their frame a whole phase later in
 /// `WorldPrep`. A marker that suppresses humans and not opponents suspends
 /// nothing in a stage whose default mode is player-versus-CPU.
@@ -1036,7 +1036,7 @@ fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::control::ActorControl;
-    use ambition_platformer2d::characters::control::ScriptedControl;
+    use ambition_platformer2d::characters::control::ControlHolds;
     use ambition_platformer2d::versus_match::MatchSeat;
 
     let mut app = versus_app();
@@ -1081,7 +1081,7 @@ fn a_decided_round_takes_the_controls_away() {
          cannot tell a suspended fighter from an idle one"
     );
     assert!(
-        app.world().get::<ScriptedControl>(cpu).is_none(),
+        app.world().get::<ControlHolds>(cpu).is_none(),
         "the fighters were already suspended while the round was live"
     );
 
@@ -1101,7 +1101,7 @@ fn a_decided_round_takes_the_controls_away() {
         "the fixture never decided the round"
     );
     assert!(
-        app.world().get::<ScriptedControl>(cpu).is_some(),
+        app.world().get::<ControlHolds>(cpu).is_some(),
         "the round was decided and the surviving fighter still answers input"
     );
 
@@ -1133,7 +1133,7 @@ fn a_decided_round_takes_the_controls_away() {
         }
     }
     assert!(
-        app.world().get::<ScriptedControl>(cpu).is_none(),
+        app.world().get::<ControlHolds>(cpu).is_none(),
         "the next round started with the fighters still suspended"
     );
 }

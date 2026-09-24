@@ -1777,7 +1777,7 @@ fn a_team_victory_names_the_team_and_not_its_last_survivor() {
             seated = seats_now(&mut app).len();
         }
         // after the ceremony RELEASES the cast — a body held by
-        // `ScriptedControl` is placed by the respawn rule every tick, so a
+        // `ControlHolds` is placed by the respawn rule every tick, so a
         // velocity written during the count is simply overwritten.
         // as soon as the ceremony releases, for the reason the sibling
         // second-match test now records: every tick between the release and the

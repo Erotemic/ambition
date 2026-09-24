@@ -137,7 +137,7 @@ mod mount_pair_tests;
 // ⛔ THE MOUNT PAIR LEFT THIS CRATE (D33, 2026-08-26) and is NOT re-exported.
 // `ambition_mount` owns it; a `pub use` here would let every caller keep
 // spelling it `ambition_mount::MountSlot` and hide whose domain it is — the same rule
-// `Mass`, `MountDied` and `TemporaryControl` each moved under.
+// `Mass`, `MountDied` and `ControlClaims` each moved under.
 pub use attempt::SpawnedThisAttempt;
 pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,

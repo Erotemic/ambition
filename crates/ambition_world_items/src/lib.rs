@@ -20,7 +20,7 @@
 //! `actor_monolith::items::{world_item, item_motion}`, and the reason they could
 //! not leave was one type: the collect pass named
 //! `features::ecs::pickups::TouchCollectorFilter`, which is composed of nothing
-//! but `PlayerEntity` and `TemporaryControl` — both already in `shared_tangle`.
+//! but `PlayerEntity` and `ControlClaims` — both already in `shared_tangle`.
 //! Publishing that filter and its value twin `body_collects_on_touch` downward
 //! is what freed the rest, the same inversion `ActorDecisionSet` and
 //! `AudioInitSet` made before it.

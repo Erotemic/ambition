@@ -50,7 +50,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -62,7 +62,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -177,7 +177,7 @@ fn the_admirals_up_b_summons_a_shark_he_rides_until_he_jumps_off() {
     // while he is aboard, because after the dismount it is released either way
     // and the assertion cannot tell the two apart.
     //
-    // `board()`'s own doc states the rule: `TemporaryControl` records which
+    // `board()`'s own doc states the rule: a Mount claim records which
     // transient controller is MASKING the body's autonomous brain, and boarding
     // masks a brain only when there is a `MountedBrainCache` to swap in. The
     // Admiral has none — he keeps driving himself from the saddle — so the mount
@@ -358,7 +358,7 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -370,7 +370,7 @@ fn a_summoned_shark_refuses_the_other_admiral_in_a_mirror_match() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -592,7 +592,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
     // used them to kill the shark this test is about.
     //
     // ⭐ the condition is observable — a fighter still held by the ceremony
-    // carries `ScriptedControl` — so the press now happens right after GO
+    // carries `ControlHolds` — so the press now happens right after GO
     // however long GO takes.
     let mut live = false;
     for _ in 0..900 {
@@ -603,7 +603,7 @@ fn an_admiral_picked_off_the_grid_can_ride_the_shark_it_summons() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };
@@ -891,7 +891,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -903,7 +903,7 @@ fn a_flinch_leaves_the_admiral_aboard_and_a_launch_takes_him_off() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -1223,7 +1223,7 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -1235,7 +1235,7 @@ fn the_ride_ends_when_its_lease_runs_out_and_the_shark_leaves() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -1425,7 +1425,7 @@ fn the_summoned_shark_carries_no_contact_hazard() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -1437,7 +1437,7 @@ fn the_summoned_shark_carries_no_contact_hazard() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -1543,7 +1543,7 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -1555,7 +1555,7 @@ fn killing_the_shark_puts_the_admiral_down_and_frees_the_up_b() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -1743,7 +1743,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
     // ceremony's LENGTH — and D248's dev mode, which runs the ceremony 10x fast,
     // turned every one of these settles into a different starting world. The
     // condition is observable: a cast exists, and nothing in it is still held by
-    // `ScriptedControl`. BOTH halves, because a cast that does not exist yet is
+    // `ControlHolds`. BOTH halves, because a cast that does not exist yet is
     // not a cast whose hold has come off.
     {
         let mut live = false;
@@ -1755,7 +1755,7 @@ fn two_admirals_ride_their_own_sharks_at_the_same_time() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -2128,7 +2128,7 @@ fn the_admiral_flies_the_shark_around_the_stage_under_his_own_stick() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -2496,7 +2496,7 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };
@@ -2642,7 +2642,7 @@ fn probe_the_recovery_charge_across_the_shark_handoff() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };
@@ -2798,7 +2798,7 @@ fn one_strong_hit(mounted: bool) -> (ambition_platformer2d::engine_core::Vec2, i
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };
@@ -2988,7 +2988,7 @@ fn a_saddled_body_advances_its_clocks_and_none_of_its_displacement() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

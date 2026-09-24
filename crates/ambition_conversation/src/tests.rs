@@ -4,7 +4,6 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyCombat;
-use ambition_characters::control::ScriptedControl;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 
@@ -544,7 +543,7 @@ fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
 
 /// A conversation holds the body it is talking to, and lets go afterwards.
 ///
-/// the release is the half that bites: a stranded `ScriptedControl` is a
+/// the release is the half that bites: a stranded `ControlHolds` is a
 /// permanently frozen NPC, and a conversation can end in more ways than the
 /// break rule (the Yarn runner finishing, a room swap, a teardown). So the
 /// projection asks the authority rather than remembering what it inserted.
@@ -554,12 +553,12 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
 
     app.update();
     assert!(
-        app.world().get::<ScriptedControl>(npc).is_some(),
+        app.world().get::<ControlHolds>(npc).is_some(),
         "the NPC stops answering its brain while it is talking — otherwise it \
          wanders off mid-sentence now that the world keeps running"
     );
     assert!(
-        app.world().get::<ScriptedControl>(initiator).is_none(),
+        app.world().get::<ControlHolds>(initiator).is_none(),
         "the TALKER is not marked: `DIALOGUE_CONTEXT` already neutralised their \
          input, and a second mechanism on the same body would race the death beat"
     );
@@ -568,7 +567,7 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
     app.world_mut().resource_mut::<ActiveConversation>().close();
     app.update();
     assert!(
-        app.world().get::<ScriptedControl>(npc).is_none(),
+        app.world().get::<ControlHolds>(npc).is_none(),
         "and it gets its brain back; a stranded marker is a frozen NPC forever"
     );
     assert!(
@@ -597,7 +596,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
 
     app.update();
     assert!(
-        app.world().get::<ScriptedControl>(npc).is_some(),
+        app.world().get::<ControlHolds>(npc).is_some(),
         "precondition: the conversation took the hold in the first place"
     );
 
@@ -608,7 +607,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
     // future left it (so the marker stays).
     app.world_mut()
         .entity_mut(npc)
-        .remove::<(ScriptedControl, ControlHolds)>();
+        .remove::<ControlHolds>();
     assert!(
         app.world().get::<HeldByConversation>(npc).is_some(),
         "precondition: the unregistered marker is what survives the rewind"
@@ -618,7 +617,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
     app.update();
 
     assert!(
-        app.world().get::<ScriptedControl>(npc).is_some(),
+        app.world().get::<ControlHolds>(npc).is_some(),
         "after a rewind the NPC is still marked as held by the conversation, so \
          the hold has to still BE a hold — otherwise it is holding station on \
          the strength of a marker while its brain drives it away"
@@ -627,7 +626,7 @@ fn a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls() {
 
 /// The conversation's reconcile never strips another claimant's control.
 ///
-/// `ScriptedControl` has six owners now — the death beat, the flagpole, act
+/// `ControlHolds` has six owners now — the death beat, the flagpole, act
 /// clear, versus, seating, and this. The projection sweeps bodies it does not
 /// hold, so the question "could that sweep take somebody else's override" has to
 /// have an answer that is checked rather than reasoned about.
@@ -648,13 +647,13 @@ fn a_conversation_hold_never_strips_another_claimants_control() {
     let dying = body(&mut app, ae::Vec2::new(900.0, 900.0));
     app.world_mut()
         .entity_mut(dying)
-        .insert((ScriptedControl, ControlHolds::only(ControlHold::Sequence)));
+        .insert(ControlHolds::only(ControlHold::Sequence));
 
     app.update();
     assert!(
-        app.world().get::<ScriptedControl>(dying).is_some(),
+        app.world().get::<ControlHolds>(dying).is_some(),
         "the conversation swept a body it never claimed — every other owner of \
-         `ScriptedControl` marks the body a PLAYER is driving, and taking one \
+         `ControlHolds` marks the body a PLAYER is driving, and taking one \
          back mid-death-beat unfreezes a corpse"
     );
 
@@ -670,7 +669,7 @@ fn a_conversation_hold_never_strips_another_claimants_control() {
          a projection, so anything the authority does not name loses it"
     );
     assert!(
-        app.world().get::<ScriptedControl>(dying).is_some(),
+        app.world().get::<ControlHolds>(dying).is_some(),
         "clearing a STALE conversation marker took the death beat's hold with \
          it — the sweep released a bit it never claimed"
     );

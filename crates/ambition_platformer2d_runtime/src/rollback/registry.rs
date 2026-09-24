@@ -679,7 +679,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// body's box and facing, synced by two systems on different schedules and
 /// seeded from the placement rect before the first sync corrected it; its one
 /// reader (the brain action origin) reads `BodyKinematics::pos` now.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 207;
+/// ⛔⛤ 207 -> 208: `actor.scripted_control` LEFT. The marker was present
+/// exactly when `ControlHolds` was; presence of the hold set is the fact now.
+/// `actor.temporary_control` LEFT with it: `TemporaryControl` was a per-tick
+/// projection of `ControlClaims`, which readers now ask directly.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 208;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

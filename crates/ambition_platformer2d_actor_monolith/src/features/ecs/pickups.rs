@@ -13,7 +13,7 @@ use ambition_sfx::{SfxMessage, SfxWriter};
 ///
 /// ⭐ BOTH MOVED TO [`ambition_platformer2d_shared_tangle::markers`] and are
 /// re-exported here under the short names the three passes below read. They are
-/// composed of nothing but `PlayerEntity` and `TemporaryControl`, both of which
+/// composed of nothing but `PlayerEntity` and `ControlClaims`, both of which
 /// already live down there, and while they sat in this file they were the only
 /// reason a world-item collect pass could not leave this crate.
 /// ⛔ ONE DEFINITION, not a copy: the filter decides who a query RETURNS and
@@ -89,7 +89,7 @@ pub fn magnetize_pickups(
         (
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
             // ⭐ THE TIE-BREAK. Two collectors equidistant from a pickup is the
             // ordinary couch arrangement, and `min_by` on distance alone answered
             // it with whichever body the query happened to yield first — which is
@@ -159,7 +159,7 @@ pub fn collect_ecs_pickups(
             Entity,
             &ambition_platformer2d_core::BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
         ),
         TouchCollectorFilter,
     >,

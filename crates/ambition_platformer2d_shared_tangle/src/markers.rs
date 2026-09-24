@@ -39,7 +39,7 @@ pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 ///
 /// ⭐ IT LIVES HERE, NOT IN THE ACTOR KERNEL, so a consumer BELOW the kernel can
 /// name it. The filter is composed of nothing but [`PlayerEntity`] and
-/// [`TemporaryControl`](crate::temporary_control::TemporaryControl), both of
+/// [`ControlClaims`](crate::temporary_control::ControlClaims), both of
 /// which are already in this crate — while it sat in
 /// `actor_monolith::features::ecs::pickups` it was the only reason the
 /// world-item collect pass could not leave the kernel with it. Stating the rule
@@ -49,7 +49,7 @@ pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
 /// temporarily absent still collects.
 pub type TouchCollectorFilter = bevy::prelude::Or<(
     With<PlayerEntity>,
-    With<crate::temporary_control::TemporaryControl>,
+    With<crate::temporary_control::ControlClaims>,
 )>;
 
 /// The VALUE half of [`TouchCollectorFilter`], for a pass that has already
@@ -63,13 +63,12 @@ pub type TouchCollectorFilter = bevy::prelude::Or<(
 /// collects.
 pub fn body_collects_on_touch(
     in_player_population: bool,
-    control: Option<&crate::temporary_control::TemporaryControl>,
+    claims: Option<&crate::temporary_control::ControlClaims>,
 ) -> bool {
     in_player_population
-        || matches!(
-            control,
-            Some(crate::temporary_control::TemporaryControl::Player { .. })
-        )
+        || claims.is_some_and(|claims| {
+            claims.holds(crate::temporary_control::ControlClaimant::Possession)
+        })
 }
 
 // ⭐⭐ MOVED HERE 2026-09-06 FROM `actor_monolith::control::components`, and the

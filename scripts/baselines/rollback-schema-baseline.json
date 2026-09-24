@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v207",
+    "version": "ggrs-rollback-schema-v208",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -37,7 +37,6 @@
       "actor.strike_rank\tcomponent-canonical\tStrikeRank",
       "actor.surface_state\tcomponent-canonical\tActorSurfaceState",
       "actor.target\tcomponent-clone-cursor\tActorTarget",
-      "actor.temporary_control\tcomponent-canonical\tTemporaryControl",
       "actor.worn_character\tcomponent-canonical\tWornCharacter",
       "body.abilities\tcomponent-canonical\tBodyAbilities",
       "body.action_buffer\tcomponent-canonical\tBodyActionBuffer",
@@ -256,7 +255,6 @@
     "ambition_platformer2d_shared_tangle::sim_id::SimId",
     "ambition_platformer2d_shared_tangle::sim_id::SimIdCounter",
     "ambition_platformer2d_shared_tangle::temporary_control::ControlClaims",
-    "ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl",
     "ambition_platformer2d_shared_tangle::time::SimDt",
     "ambition_platformer2d_world::collision::MovingPlatformSet",
     "ambition_platformer2d_world::rooms::LiveRoomInstance",

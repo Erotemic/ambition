@@ -70,8 +70,8 @@ pub struct CaptorView {
 pub fn acquire_captures(
     mut commands: Commands,
     mut attempts: MessageReader<CaptureAttemptRequested>,
-    captors: Query<CaptorView, Without<ambition_characters::control::ScriptedControl>>,
-    victims: Query<StrikeVictim, Without<ambition_characters::control::ScriptedControl>>,
+    captors: Query<CaptorView, Without<ambition_characters::control::ControlHolds>>,
+    victims: Query<StrikeVictim, Without<ambition_characters::control::ControlHolds>>,
     captives: Query<(Entity, &CapturedBy)>,
     //  the ONE eligibility question, asked of the victim too. Not a
     // convenience join: a body the rest of the lifecycle could not operate on is
@@ -408,7 +408,7 @@ impl CaptureFacts {
 /// else does.
 ///
 ///  placed where the frame is still LIVE, and that placement IS the
-/// design. A captive carries `ScriptedControl`, and blanking is what makes
+/// design. A captive carries `ControlHolds`, and blanking is what makes
 /// that marker mean something — so a reader placed after the blanking samples
 /// zeros and would conclude that captives never struggle. This runs immediately
 /// before each blanking, which is why it is scheduled TWICE: human input is
@@ -1657,9 +1657,6 @@ mod tests {
                 hold_offset_local: ae::Vec2::new(16.0, 0.0),
                 prior_gravity_scale: 0.25,
             },
-            ambition_characters::control::ScriptedControl,
-            // The hold as a CLAIM: a bare marker is nobody's, and the release
-            // deliberately leaves what it did not claim.
             ambition_characters::control::ControlHolds::only(
                 ambition_characters::control::ControlHold::Relationship,
             ),
@@ -1683,7 +1680,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<ambition_characters::control::ScriptedControl>(victim)
+                .get::<ambition_characters::control::ControlHolds>(victim)
                 .is_none(),
             "the captive is free and still cannot move — the control projection \
              outlived the relationship it projects"
@@ -1804,7 +1801,6 @@ mod tests {
             let captor = grounded_body(&mut app, "captor", ae::Vec2::ZERO);
             let victim = grounded_body(&mut app, "victim", ae::Vec2::new(16.0, 0.0));
             app.world_mut().entity_mut(victim).insert((
-                ambition_characters::control::ScriptedControl,
                 ambition_characters::control::ControlHolds::only(
                     ambition_characters::control::ControlHold::Relationship,
                 ),
@@ -1847,7 +1843,7 @@ mod tests {
             }
             assert!(
                 app.world()
-                    .get::<ambition_characters::control::ScriptedControl>(victim)
+                    .get::<ambition_characters::control::ControlHolds>(victim)
                     .is_none(),
                 "freed and still unable to move: the release did not go through \
                  the one that gives the control claim back"
@@ -1878,7 +1874,7 @@ mod tests {
     /// The test covers both with and without an additional hold.
     #[test]
     fn a_release_ends_this_holds_claim_and_leaves_the_others() {
-        use ambition_characters::control::{ControlHold, ControlHolds, ScriptedControl};
+        use ambition_characters::control::{ControlHold, ControlHolds};
 
         for also_held_by_the_stage in [true, false] {
             let mut app = App::new();
@@ -1890,7 +1886,6 @@ mod tests {
                 holds.claim(ControlHold::Interlude);
             }
             app.world_mut().entity_mut(victim).insert((
-                ScriptedControl,
                 holds,
                 surface_state(0.0),
                 CapturedBy {
@@ -1914,7 +1909,7 @@ mod tests {
                 app.world().get::<CapturedBy>(victim).is_none(),
                 "the interrupted capture did not end"
             );
-            let still_held = app.world().get::<ScriptedControl>(victim).is_some();
+            let still_held = app.world().get::<ControlHolds>(victim).is_some();
             assert_eq!(
                 still_held, also_held_by_the_stage,
                 "released while the stage was holding it: {also_held_by_the_stage}. \
@@ -2053,9 +2048,6 @@ mod tests {
                 invulnerable: Default::default(),
             }),
             surface_state(0.0),
-            ambition_characters::control::ScriptedControl,
-            // The hold as a CLAIM: a bare marker is nobody's, and the release
-            // deliberately leaves what it did not claim.
             ambition_characters::control::ControlHolds::only(
                 ambition_characters::control::ControlHold::Relationship,
             ),
@@ -2099,7 +2091,7 @@ mod tests {
         );
         assert!(
             app.world()
-                .get::<ambition_characters::control::ScriptedControl>(victim)
+                .get::<ambition_characters::control::ControlHolds>(victim)
                 .is_none(),
             "thrown and still unable to move"
         );
@@ -2339,7 +2331,7 @@ mod tests {
 fn pose_captives(
     //  `Without<CapturedBy>` is a SEMANTIC claim, not a borrow trick — though
     // Bevy asking for it is what made the claim explicit. A captive can never be
-    // a captor: acquisition refuses a captor already under `ScriptedControl`, and
+    // a captor: acquisition refuses a captor already under `ControlHolds`, and
     // every captive carries it, so a chain A-holds-B-holds-C cannot form. The two
     // queries are disjoint because the relationship says they are, and if that
     // ever stops being true this line is where it should be re-argued rather than
@@ -2471,7 +2463,7 @@ pub fn finalize_new_capture_pose(
 /// special, or shoot — but it MUST still be able to feed an attack press and its
 /// direction, because that is how a pummel and a throw are chosen.
 ///
-///  deliberately not `ScriptedControl`. That marker means *"normal input
+///  deliberately not `ControlHolds`. A hold means *"normal input
 /// does not drive this body"*, and it is what the CAPTIVE gets. A captor still
 /// has meaningful agency; it is in a restricted action context, which is a
 /// different thing and stays a different thing.

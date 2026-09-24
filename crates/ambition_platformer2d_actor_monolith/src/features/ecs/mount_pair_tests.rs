@@ -247,7 +247,7 @@ fn dead_mount_dissolves_link_keeping_records() {
     );
     // ⭐⭐ BOTH HALVES OF THE RELATION, and this is the half that was missing.
     // The statement above hands the rider its gravity, its solo brain and
-    // `TemporaryControl::Autonomous`; leaving `PoseOwnedExternally` set makes
+    // a released Mount claim; leaving `PoseOwnedExternally` set makes
     // the movement kernel refuse to integrate the locomotion of the body that
     // statement just declared autonomous. See `ambition_mount::RideConstraints`.
     assert!(

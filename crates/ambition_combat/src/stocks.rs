@@ -1080,7 +1080,7 @@ mod tests {
         // The hold is checked as a CLAIM and not as the derived marker: the
         // marker means "`ControlHolds` is non-empty", so asserting it alone
         // would pass for a beat that claimed somebody else's bit.
-        use ambition_characters::control::{ControlHold, ControlHolds, ScriptedControl};
+        use ambition_characters::control::{ControlHold, ControlHolds};
         let mut app = respawn_app(1.0);
         let body = settled_fighter(&mut app, 3);
         knock_out(&mut app, body);
@@ -1092,10 +1092,6 @@ mod tests {
                 .is_some_and(|holds| holds.holds(ControlHold::Sequence)),
             "a fighter awaiting respawn must be holding `Sequence` — normal input \
              does not reach a body that is waiting to come back"
-        );
-        assert!(
-            app.world().get::<ScriptedControl>(body).is_some(),
-            "and the derived marker agrees with the claim"
         );
         assert!(
             app.world()

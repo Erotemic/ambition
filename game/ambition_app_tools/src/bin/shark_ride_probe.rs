@@ -54,7 +54,7 @@ fn main() {
     // than the 3-second opening ceremony, so it silently encoded the ceremony's
     // LENGTH — and D248's dev mode runs that ceremony 10x fast, which has now
     // broken four fixture families the same way. The condition is observable: a
-    // cast exists, and nothing in it is still held by `ScriptedControl`.
+    // cast exists, and nothing in it is still held by `ControlHolds`.
     {
         let mut live = false;
         for _ in 0..900 {
@@ -65,7 +65,7 @@ fn main() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &ambition_platformer2d::versus_match::MatchSeat,
-                    bevy::prelude::With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    bevy::prelude::With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };

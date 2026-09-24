@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v207
+ggrs-rollback-schema-v208
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -62,7 +62,6 @@ actor.recharacterize_request	component-clone	RecharacterizeBody	bevy_ggrs clone 
 actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; not in the session checksum
 actor.roll	component-canonical	ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ruleset_owns_death	component-canonical	RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.scripted_control	component-clone	ScriptedControl	bevy_ggrs clone snapshot; not in the session checksum
 actor.senses_undecided	component-clone	SensesUndecided	bevy_ggrs clone snapshot; not in the session checksum
 actor.spawn_baseline	component-clone	SpawnBaseline	bevy_ggrs clone snapshot; not in the session checksum
 actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; not in the session checksum
@@ -72,7 +71,6 @@ actor.stored_move_charge	component-clone	StoredMoveCharge	bevy_ggrs clone snapsh
 actor.strike_rank	component-canonical	StrikeRank	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.transform_beat	component-clone	TransformBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs clone snapshot; not in the session checksum
 actor.worn_character	component-canonical	WornCharacter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

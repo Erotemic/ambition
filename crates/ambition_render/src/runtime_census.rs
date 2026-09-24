@@ -1,26 +1,25 @@
 //! Profiling-only presentation census: the views, targets and draw population
 //! Ambition hands the renderer.
 //!
-//! `perf` can prove the renderer was hot and Tracy can name the pass; neither
-//! can say the frame carried three world-rendering cameras and two portal
+//! `perf` shows that the renderer was hot and Tracy names the pass; neither
+//! shows that the frame had three world-rendering cameras and two portal
 //! captures. These rows do, on the shared clock in
-//! [`ambition_dev_tools::runtime_census`], so a slow interval reads against the
-//! scene that produced it.
+//! [`ambition_dev_tools::runtime_census`], so a slow interval can be read
+//! against its scene.
 //!
 //! Rows written here (one line each, `[census] <kind> t=<seconds> k=v ...`):
 //!
 //! - `views` — the per-frame rollup: how many cameras, how many active, how
 //!   many draw the world, how many draw offscreen.
-//! - `camera` — ONE row per active camera: identity, semantic role, target,
+//! - `camera` — one row per active camera: identity, semantic role, target,
 //!   resolution, order, render layers, and the view it presents.
 //! - `draws` — sprite / text / mesh population and how much of it is visible.
 //! - `portal` — capture rigs, their budget, and the resolution they capture at.
 //! - `render_pass` — Bevy's own render diagnostics, when the backend supplies
 //!   them.
 //!
-//! Everything is behind the same gate: without `AMBITION_PROFILE_CENSUS` each
-//! system is one bool test per frame, and no per-entity iteration happens on a
-//! frame that is not a sample frame.
+//! Everything uses one gate: without `AMBITION_PROFILE_CENSUS` each system is
+//! one bool test per frame, with no per-entity iteration on non-sample frames.
 
 use bevy::camera::visibility::{RenderLayers, ViewVisibility};
 use bevy::camera::RenderTarget;
@@ -36,12 +35,10 @@ use ambition_platformer2d_shared_tangle::camera_layers::{
 };
 use ambition_sim_view::{LocalView, LocalViewId, PresentedForView, PresentsView};
 
-/// What a camera is FOR, as far as the composition can say.
+/// What a camera is for, as far as the composition says.
 ///
-/// Roles are read off the markers the spawner already sets, not guessed from
-/// geometry. A camera whose owner set no marker lands in [`Self::Other`] and
-/// still reports its `Name`, which is the honest answer — better than a
-/// confident inference from a component set that never meant to say this.
+/// Roles come from the markers the spawner sets, not from geometry. A camera
+/// with no marker is [`Self::Other`] and still reports its `Name`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CameraRole {
     /// A gameplay camera in a single-view composition.
@@ -73,9 +70,8 @@ impl CameraRole {
         }
     }
 
-    /// Whether this role draws the simulated world, as opposed to overlaying
-    /// it. The count of these is the number the "is the same world being
-    /// rendered repeatedly" question turns on.
+    /// Whether this role draws the simulated world, as opposed to overlaying it.
+    /// The count of these answers "is the same world rendered more than once".
     pub fn renders_world(self) -> bool {
         matches!(
             self,
@@ -113,8 +109,8 @@ pub fn classify_camera(
     }
 }
 
-/// `RenderTarget` is a component, not a camera field: a camera without one
-/// draws to the primary window, which is the common case and must not read as
+/// `RenderTarget` is a component, not a camera field. A camera without one
+/// draws to the primary window, the common case, which must not read as
 /// "unknown".
 fn target_kind(target: Option<&RenderTarget>) -> &'static str {
     match target {
@@ -143,34 +139,24 @@ fn layers_token(layers: Option<&RenderLayers>) -> String {
     }
 }
 
-/// The visual-quality tier in force, and the render budgets that follow from it.
+/// The visual-quality tier in force, and the render budgets that follow.
 ///
-/// ⛔⛔ **THE BIGGEST SINGLE DETERMINANT OF RENDER COST WAS IN NO RECORD AT ALL.**
-/// Measured 2026-09-01 in `water_room`: the SAME room draws 631,267 world-units²
-/// of sprite at `potato` and 14,564,876 at `high` — a **23x** difference decided
-/// by `AMBITION_QUALITY_PROFILE`, which no bundle metadata, no census row and no
-/// `comparable_fields` entry mentioned. Two captures of one room at two tiers
-/// were, to the frame-cost ledger, the same experiment.
+/// The tier is the largest single factor in render cost: one room draws 23x
+/// more sprite area at `high` than at `potato`. Without this row, two
+/// captures at different tiers look like the same experiment.
 ///
-/// ⭐ IT IS ONE ROW AT 1 Hz because the tier is a CONFIGURATION, not a
-/// population: it changes when a setting changes, and a reader comparing two
-/// bundles needs it present, not sampled.
+/// One row at 1 Hz, because the tier is configuration, not a population.
 pub fn report_visual_quality_census(
     census: Res<RuntimeCensus>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    // ⛔⛔ THE FRAME CAP DECIDES THE FRAME TIME AND NOTHING RECORDED IT.
-    // `FramePaceCap::Auto` is the DEFAULT — "caps to the display refresh
-    // (battery saver); `Off` renders unthrottled" — so a capture is paced unless
-    // somebody turned it off, and every frame number taken before 2026-09-01 was
-    // taken under a limiter without saying so. Two captures either side of that
-    // switch are not the same experiment, and with nothing on the row the ledger
-    // would group and compare them.
+    // The frame cap sets the frame time. `FramePaceCap::Auto` is the default
+    // (caps to display refresh), so captures are paced unless it is turned
+    // off. Recorded so paced and unpaced captures are not compared.
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    // ⛔⛔ AND THE PRESENT MODE DECIDES IT FIRST. Bevy's default is `Fifo`
-    // (v-sync): under it the frame rate can never exceed the display's refresh
-    // and a frame that misses one refresh costs a whole extra interval, so a
-    // 144 Hz capture reading "72 fps" may be an 8 ms frame. Recorded from the
-    // WINDOW, not the setting — the window is the state the frames were taken in.
+    // The present mode limits it first. Bevy's default `Fifo` (v-sync) caps
+    // the frame rate at the refresh rate, and a missed refresh costs a whole
+    // interval, so "72 fps" at 144 Hz can be an 8 ms frame. Read from the
+    // window, which is the state the frames were taken in.
     window: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
     let Some(at) = census.due() else {
@@ -180,8 +166,8 @@ pub fn report_visual_quality_census(
         .single()
         .map(|window| format!("{:?}", window.present_mode))
         .unwrap_or_else(|_| "none".to_string());
-    // The two asset-campaign experiment knobs. Read here as the process saw
-    // them, so a capture taken with one set is not grouped with one without.
+    // The two asset experiment knobs, as the process saw them, so captures
+    // with and without them are not grouped.
     let images_render_world_only = ambition_sprite_sheet::game_assets::images_render_world_only();
     let upload_mb_per_frame = std::env::var("AMBITION_RENDER_ASSET_MB_PER_FRAME")
         .ok()
@@ -192,9 +178,8 @@ pub fn report_visual_quality_census(
         .map(|settings| format!("{:?}", settings.video.frame_cap))
         .unwrap_or_else(|| "unrecorded".to_string());
     let Some(quality) = quality else {
-        // ⚠ SAID, NOT SKIPPED. A composition with no quality resource is a real
-        // state — a headless run with no renderer — and an absent row would read
-        // as "the tier did not matter here" rather than "nothing resolved one".
+        // Report, do not skip. No quality resource is a real state (headless, no
+        // renderer), and a missing row would look like "the tier did not matter".
         eprintln!(
             "[census] visual_quality t={at:.3} profile=none frame_cap={frame_cap} \
              present_mode={present_mode} images_render_world_only={images_render_world_only} \
@@ -216,16 +201,11 @@ pub fn report_visual_quality_census(
             .map(|n| n.to_string())
             .unwrap_or_else(|| "unbounded".to_string()),
         budget.parallax.resolution_scale,
-        // ⛔⛔ THE SANITIZED COUNT, NOT THE REQUESTED ONE. `sanitized_msaa_samples`
-        // rounds DOWN to a tier Bevy names (3 -> 2, 5 -> 4, 16 -> 8) and it is what
-        // `ambition_render::quality` actually configures, so logging the raw field
-        // would have this census NAME AN ARM THAT NEVER RAN — `AMBITION_MSAA=3`
-        // renders at 2 samples and used to be recorded as 3.
-        //
-        // ⚠ That matters most where it is hardest to notice: D-RASTER-3 splits a
-        // weak-GPU 2.54x between framebuffer scale and MSAA on real hardware, and
-        // this line is the record of which arm was which. A mislabelled arm is
-        // worse than a missing one, because it is still analysable.
+        // The sanitized count, not the requested one. `sanitized_msaa_samples`
+        // rounds down to a tier Bevy supports (3 -> 2, 5 -> 4, 16 -> 8) and is
+        // what `ambition_render::quality` configures. Logging the raw field would
+        // name an arm that never ran. D-RASTER-3 uses this line to tell MSAA arms
+        // apart.
         budget.raster.sanitized_msaa_samples(),
         budget
             .raster
@@ -239,32 +219,25 @@ pub fn report_visual_quality_census(
     );
 }
 
-/// Per-camera rows plus the rollup that summarizes them.
-///
-/// The population is cameras, not entities: a scene with a hundred thousand
-/// sprites still has under a dozen of these, so a per-row line at 1 Hz is
-/// cheaper than the rollup it feeds.
 #[allow(clippy::type_complexity)]
 /// How many cameras exist at all.
 pub const CAMERAS: DiagnosticPath = DiagnosticPath::const_new("ambition/render/cameras");
 
-/// How many ACTIVE cameras render the world.
+/// How many active cameras render the world.
 ///
-/// ⭐ THE NUMBER THAT ANSWERS "why is this frame expensive". A scene with four
-/// world-rendering cameras draws the world four times, and that is invisible in
-/// a frame time on its own.
+/// This answers "why is this frame expensive". Four world-rendering cameras
+/// draw the world four times, which a frame time alone does not show.
 pub const WORLD_DRAWS: DiagnosticPath = DiagnosticPath::const_new("ambition/render/world_draws");
 
-/// How many ACTIVE cameras draw into an offscreen image rather than the display.
+/// How many active cameras draw into an offscreen image rather than the display.
 pub const OFFSCREEN_TARGETS: DiagnosticPath =
     DiagnosticPath::const_new("ambition/render/offscreen_targets");
 
 /// Register the render-population diagnostics and keep them fed.
 ///
-/// ⛔ NOT GATED ON `AMBITION_PROFILE_CENSUS`, for the same reason the ECS
-/// publisher is not: that variable gates a stderr printer on a clock, and F1 is
-/// something a developer turns on without restarting the game. The cost is a
-/// walk of the camera list — a population of single digits — once per frame.
+/// Not gated on `AMBITION_PROFILE_CENSUS`, like the ECS publisher: that
+/// variable gates a stderr printer, and a developer turns on F1 without a
+/// restart. The cost is one walk of a single-digit camera list per frame.
 pub struct RenderDiagnosticsPublishPlugin;
 
 impl Plugin for RenderDiagnosticsPublishPlugin {
@@ -276,13 +249,9 @@ impl Plugin for RenderDiagnosticsPublishPlugin {
     }
 }
 
-/// ⭐ THE RULE IS SHARED, THE ITERATION IS NOT. This walks the cameras itself
-/// rather than reusing `report_view_census`'s loop, because that function's loop
-/// is inseparable from the per-camera row it prints. What matters is that both
-/// ask the SAME QUESTION through the same `classify_camera` — the classification
-/// is single-sourced, so the two populations cannot drift into disagreeing about
-/// what "renders the world" means. A second copy of the RULE would be the defect
-/// worth avoiding; a second `for` loop over four cameras is not.
+/// Walks the cameras itself instead of reusing `report_view_census`'s loop,
+/// which is tied to its per-camera row. Both use `classify_camera`, so the
+/// rule for "renders the world" has one source.
 fn publish_view_diagnostics(
     mut diagnostics: Diagnostics,
     cameras: Query<(
@@ -304,8 +273,8 @@ fn publish_view_diagnostics(
     for (entity, camera, target, presents, is_main, is_hud) in &cameras {
         total += 1;
         if !camera.is_active {
-            // An inactive camera still costs its extract; it does not cost a
-            // pass, and these two paths are about PASSES.
+            // An inactive camera still costs its extract but not a pass, and these
+            // paths count passes.
             continue;
         }
         let draws_offscreen = target_is_image(target);
@@ -335,6 +304,10 @@ fn publish_view_diagnostics(
     diagnostics.add_measurement(&OFFSCREEN_TARGETS, || offscreen as f64);
 }
 
+/// Per-camera rows plus the rollup that summarizes them.
+///
+/// The population is cameras, not entities: under a dozen even in a large
+/// scene, so a per-row line at 1 Hz is cheap.
 pub fn report_view_census(
     census: Res<RuntimeCensus>,
     cameras: Query<(
@@ -425,32 +398,20 @@ pub fn report_view_census(
         views.iter().count(),
     );
 
-    // ⛔⛔ THE PHASE SPLIT IS NOT TRUSTWORTHY WHILE ANYTHING RENDERS, and the
-    // warning is emitted HERE — beside the evidence, in the same log a reader is
-    // already scrolling — rather than left in a document nobody opens mid-run.
+    // Warn here, beside the evidence: the phase split is not trustworthy
+    // while anything renders.
     //
-    // `[census] phases` attributes WALL TIME between schedule markers. When the
-    // render path blocks the main thread (submission, readback, a software
-    // rasterizer), whichever phase happens to bracket that moment absorbs it.
-    // Measured 2026-08-29: raising the render target from 320x240 to 1280x960
-    // took `StateTransition` from 0.169ms to 1.822ms — a phase full of state
-    // machinery, scaling with PIXELS — and every other phase moved with it. A
-    // whole "StateTransition is 14% of a real room's frame" finding was built on
-    // that and had to be retracted.
+    // `[census] phases` attributes wall time between schedule markers. When
+    // the render path blocks the main thread (submission, readback, a
+    // software rasterizer), whichever phase brackets that moment absorbs the
+    // time. For example, a larger render target made `StateTransition` grow
+    // with pixel count. `fragment_shader_invocations = 0` does not make it
+    // safe: submission and upscaling still cost time.
     //
-    // ⚠ `fragment_shader_invocations = 0` DOES NOT MAKE IT SAFE: submission and
-    // upscaling cost real time even when the opaque pass shades nothing.
-    //
-    // ⭐⭐ AND THE CAMERA COUNT IS THE WRONG QUESTION ON ITS OWN. A camera that
-    // TARGETS the world is not the same as a render path that RUNS: the
-    // `NoWindow` mode sets `backends: None`, which omits the RenderApp entirely
-    // and draws nothing, yet still reports `world_rendering=1`. Warning on the
-    // camera count alone therefore condemned windowless runs whose phase splits
-    // are perfectly sound — measured 2026-08-29, when it talked its own author
-    // out of a valid attribution of a Smash match.
-    //
-    // `RenderDevice` reaches the MAIN world only when the renderer actually
-    // initialized, so it is the honest test for "is there a GPU behind this".
+    // The camera count alone is not the test. `NoWindow` mode sets
+    // `backends: None`, which omits the RenderApp and draws nothing, but still
+    // reports `world_rendering=1`. `RenderDevice` reaches the main world only
+    // when the renderer initialized, so it is the test for a GPU.
     let gpu = device.is_some();
     if gpu && (world_rendering > 0 || offscreen > 0) {
         eprintln!(
@@ -460,9 +421,8 @@ pub fn report_view_census(
              phase brackets it. Trust phase splits only from a run with no rendering."
         );
     } else if !gpu {
-        // ⭐ Say the POSITIVE case too. "No warning" is indistinguishable from
-        // "the check never ran", and a reader deciding whether to trust a phase
-        // split needs to see that the question was asked and answered.
+        // Report the positive case too. "No warning" looks the same as "the
+        // check never ran".
         eprintln!(
             "[census] phases_trust t={at:.3} trustworthy=no_render_backend \
              world_rendering={world_rendering} offscreen={offscreen} — no `RenderDevice` in \
@@ -472,33 +432,23 @@ pub fn report_view_census(
     }
 }
 
-/// The draw population: how much there IS, how much of it survived visibility,
-/// and how much SCREEN it covers. A large gap between the first two is work the
-/// scene created and the renderer then threw away; a large third number against
-/// a small second one is overdraw.
+/// The draw population: how much exists, how much is visible, and how much
+/// area it covers. A big gap between the first two is work the renderer
+/// discarded; a large area against a small visible count is overdraw.
 ///
-/// ⭐⭐ THE AREA COLUMNS EXIST BECAUSE POPULATION COULD NOT ANSWER THE QUESTION
-/// THE CENSUS WAS BEING ASKED. D-RASTER-2 measured ~5.3x overdraw — 41,482,624
-/// fragments against a 7,818,240-pixel framebuffer — and told the next reader to
-/// confirm from `draw_census.csv` WHICH entities produced them. It could not:
-/// the row was `sprites`, `sprites_visible`, `text2d`, `per_view_projections`,
-/// all COUNTS. Peak `sprites_visible` across every recorded bundle is 76, and 76
-/// sprites cannot make 41M fragments unless some of them cover the viewport.
-/// Counting them again at higher precision would never have said which.
+/// The area columns identify which entities produce overdraw; counts alone
+/// cannot (76 visible sprites make 41M fragments only if some cover the
+/// viewport).
 ///
-/// ⛔ WORLD UNITS, NOT PIXELS, AND THE NAME SAYS SO. Turning these into screen
-/// pixels needs each sprite's view and that view's projection, which is a
-/// per-view question this per-world pass has no business answering. The ratio
-/// between `sprite_area` and `sprite_area_max` is what identifies a few
-/// full-screen panels hiding among many small sprites, and a ratio does not care
-/// about the unit.
+/// Areas are in world units, not pixels. Pixels need each sprite's view and
+/// projection, a per-view question this per-world pass does not answer. The
+/// ratio of `sprite_area` to `sprite_area_max` finds a few full-screen panels
+/// among many small sprites, and a ratio does not depend on the unit.
 ///
-/// ⚠ `sprite_area_unsized` IS PART OF THE READING, NOT A FOOTNOTE. A `Sprite`
-/// with no `custom_size` takes its extent from its image, which this pass cannot
-/// resolve without the asset store — so those are counted and EXCLUDED rather
-/// than guessed at zero. A row whose `unsized` is large is a row whose area
-/// columns are a floor, and reading it as a total would understate exactly the
-/// entities most likely to be big.
+/// `sprite_area_unsized` is part of the reading. A `Sprite` with no
+/// `custom_size` takes its extent from its image, which this pass cannot
+/// resolve without the asset store. Those sprites are counted and excluded. A
+/// large `unsized` means the area columns are a floor.
 #[allow(clippy::type_complexity)]
 pub fn report_draw_census(
     census: Res<RuntimeCensus>,
@@ -519,20 +469,11 @@ pub fn report_draw_census(
     let mut area_total = 0.0f32;
     let mut area_max = 0.0f32;
     let mut unsized_visible = 0usize;
-    // ⭐ AREA SPLIT BY SEMANTIC LAYER, because the aggregate cannot say WHICH
-    // coverage to cut. The weak-GPU work measured ~5.3x transparent overdraw and
-    // the standing plan is to *"attribute transparent screen coverage by semantic
-    // layer before changing rendering architecture"* — this is that attribution.
-    //
-    // ⭐ AND IT IS A COUNT, WHICH IS WHY IT IS TRUSTWORTHY OFFSCREEN. `D-RASTER-3`
-    // forbids substituting a software rasteriser for the weak-GPU TIMING split,
-    // and rightly. Drawn area is not a timing: it is the same number on llvmpipe
-    // and on an Iris, so it can be gathered anywhere.
-    //
-    // ⛔ THESE ARE WORLD UNITS, LIKE `sprite_area` ITSELF — see this function's
-    // doc comment. A layer's share of the total is the reading; dividing any of
-    // them by a pixel count is not, and was published as "15.8x coverage" once
-    // before being withdrawn.
+    // Area split by semantic layer, so a reader can tell which coverage to
+    // cut. It is a count, not a timing, so it is the same on llvmpipe and a
+    // real GPU and can be gathered anywhere (unlike D-RASTER-3 timings).
+    // Values are world units, like `sprite_area`. Compare a layer's share of
+    // the total; do not divide by a pixel count.
     let mut area_world = 0.0f32;
     let mut area_hud = 0.0f32;
     let mut area_parallax = 0.0f32;
@@ -544,38 +485,27 @@ pub fn report_draw_census(
             continue;
         }
         sprite_visible += 1;
-        // ⛔⛔ AN UNSIZED SPRITE IS NOT AN IMAGE-SIZED SPRITE, AND SIZING IT FROM
-        // THE IMAGE WAS A REGRESSION THIS COMMENT EXISTS TO PREVENT REPEATING.
-        // The parallax backdrop is spawned with `custom_size: None`
-        // deliberately, and `rendering/parallax.rs` says why: *"the panel's
-        // extent is a function of the viewport it is drawn into, and this call
-        // site has no view in scope"*. `sync_parallax_layers` then sizes it
-        // against the owning view's rectangle on the first frame it can resolve
-        // one. So an unsized sprite here is a sprite ON ITS WAY to a size that
-        // is NOT its image's: a 512x512 image filling a 1280x720 viewport covers
-        // 921,600 pixels, not 262,144.
-        //
-        // ⇒ counting it at image size trades a visible zero for a plausible
-        // wrong number, which in an instrument is the worse of the two. It stays
-        // skipped, and `sprite_area_unsized` stays the flag that says the area
-        // columns are a floor this tick.
+        // Do not size an unsized sprite from its image. The parallax backdrop
+        // is spawned with `custom_size: None` on purpose (see
+        // `rendering/parallax.rs`), and `sync_parallax_layers` later sizes it to
+        // the owning view. Its final size is not its image's: a 512x512 image
+        // filling a 1280x720 viewport covers 921,600 pixels, not 262,144. So it
+        // stays skipped, and `sprite_area_unsized` flags the area as a floor.
         let Some(size) = sprite.custom_size else {
             unsized_visible += 1;
             continue;
         };
-        // The drawn quad is the authored size times whatever the transform does
-        // to it; `abs` because a mirrored sprite covers the same ground.
+        // The drawn quad is the size times the transform scale; `abs` because a
+        // mirrored sprite covers the same area.
         let scale = transform.scale();
         let area = (size.x * scale.x).abs() * (size.y * scale.y).abs();
         area_total += area;
         if area > area_max {
             area_max = area;
         }
-        // The LOWEST layer a sprite draws on names it. A sprite on several is
-        // drawn by several cameras and covers that ground more than once, which
-        // is what overdraw IS — so this is a floor for the multi-layer case, and
-        // `sprite_area` above stays the ungrouped truth to check the split
-        // against.
+        // The lowest layer a sprite draws on names it. A sprite on several
+        // layers is drawn by several cameras (overdraw), so this is a floor for
+        // that case; `sprite_area` stays the ungrouped total to check against.
         let lowest = layers
             .map(|l| l.iter().min().unwrap_or(usize::MAX))
             .unwrap_or(0);
@@ -598,25 +528,16 @@ pub fn report_draw_census(
     );
 }
 
-/// How much presentation state is REWRITTEN each frame versus how much exists.
+/// How much presentation state is rewritten each frame versus how much exists.
 ///
-/// ⭐⭐ THE PROJECTION QUESTION, MADE MEASURABLE. A campaign measurement put
-/// `ambition_render` at 99 systems in `Update` — the largest owner of the one
-/// phase that is both ours and unexplained — and the open charge against a
-/// simulation-to-presentation projection is that it rewrites state which did
-/// not semantically change. Bevy's own extraction then pays for that churn
-/// again downstream.
+/// This measures whether a sim-to-presentation projection rewrites state that
+/// did not change; Bevy's extraction then pays for that churn again.
 ///
-/// ⛔ IT COUNTS WHAT BEVY WILL BELIEVE, NOT WHAT ACTUALLY DIFFERS. `Changed<T>`
-/// is set by any `DerefMut`, so a projection that writes an identical value
-/// every frame reports as changed here — which is exactly the defect being
-/// looked for, and exactly why a low number is a real acquittal while a high
-/// number is only a suspicion. `changed == total` on a scene standing still is
-/// the tell.
-///
-/// ⚠ Two bodies do not make a case either way. The number to watch is the ratio
-/// on a scene with hundreds of sprites, which is the workload the whole campaign
-/// was opened about.
+/// It counts what Bevy sees as changed, not what differs. `Changed<T>` is set
+/// by any `DerefMut`, so identical writes count as changes. A low number
+/// clears the projection; a high number is only a suspicion. `changed ==
+/// total` on a still scene is the sign. Read it on a scene with hundreds of
+/// sprites, not two bodies.
 pub fn report_presentation_churn_census(
     census: Res<RuntimeCensus>,
     transforms: Query<(), With<Transform>>,
@@ -643,10 +564,9 @@ pub fn report_presentation_churn_census(
 
 /// Offscreen render targets and the memory they hold.
 ///
-/// Growth here across room transitions is the leak shape a frame-time graph
+/// Growth here across room transitions is a leak that a frame-time graph
 /// cannot show: capture textures that were replaced but never dropped keep
-/// their bytes and stop being drawn, so nothing gets visibly worse until VRAM
-/// runs out.
+/// their bytes until VRAM runs out.
 pub fn report_render_target_census(
     census: Res<RuntimeCensus>,
     cameras: Query<&RenderTarget, With<Camera>>,
@@ -679,7 +599,7 @@ pub fn report_render_target_census(
 /// budget that is supposed to bound them.
 ///
 /// The budget is on the row because a rig count alone cannot say whether the
-/// cost is expected: two rigs under a two-capture budget is the design, two
+/// cost is expected: two rigs under a two-capture budget is the design; two
 /// rigs refreshing every frame under a one-per-frame budget is a bug.
 #[cfg(feature = "portal_render")]
 pub fn report_portal_census(
@@ -720,12 +640,10 @@ pub fn report_portal_census(
 
 /// Bevy's own render diagnostics, one row per measured span.
 ///
-/// `RenderDiagnosticsPlugin` records `render/<pass>/elapsed_cpu` always, and
-/// `elapsed_gpu` plus pipeline statistics only where the adapter supports
-/// timestamp queries. A run that reports CPU rows and no GPU rows is a run
-/// whose backend could not measure the GPU — the absence is a MEASUREMENT, so
-/// the header row below states how many of each kind were found rather than
-/// leaving a reader to wonder whether the pass was free.
+/// `RenderDiagnosticsPlugin` always records `render/<pass>/elapsed_cpu`, and
+/// records `elapsed_gpu` and pipeline statistics only where the adapter
+/// supports timestamp queries. No GPU rows means the backend could not measure
+/// the GPU, so the header row states how many of each kind were found.
 pub fn report_render_pass_census(census: Res<RuntimeCensus>, store: Option<Res<DiagnosticsStore>>) {
     let Some(at) = census.due() else {
         return;
@@ -766,17 +684,15 @@ pub fn report_render_pass_census(census: Res<RuntimeCensus>, store: Option<Res<D
 
 /// Cumulative asset decode work, sampled on the census clock.
 ///
-/// The always-on `[image-census]` line reports a five-second delta; this row
-/// reports the RUNNING TOTAL on the shared clock, so "did entering that room
-/// decode another 200 MB" is a subtraction between two rows rather than a sum
-/// over a log.
+/// The `[image-census]` line reports a five-second delta; this row reports
+/// the running total on the shared clock, so a room's decode cost is a
+/// subtraction between two rows.
 pub fn report_asset_census(
     census: Res<RuntimeCensus>,
     images: Option<Res<crate::asset_census::ImageCensus>>,
     image_assets: Res<Assets<Image>>,
-    // The HUD's retained images. `loads` climbing while `hits` stays flat means a
-    // screen is being reopened and re-decoding what it already had — the defect
-    // the cache exists to prevent, reported rather than inferred from decodes.
+    // The HUD's retained images. `loads` rising while `hits` stays flat means
+    // a reopened screen is re-decoding what it had.
     hud_images: Option<Res<crate::hud::declared::RetainedHudImages>>,
 ) {
     let Some(at) = census.due() else {
@@ -790,17 +706,14 @@ pub fn report_asset_census(
             images.total_images(),
             images.total_megapixels(),
             images.total_bytes(),
-            // How much of `decoded_bytes` was DERIVED from the texture descriptor
-            // because the CPU copy was dropped. Non-zero does not invalidate the
-            // total; it says the total is no longer purely measured.
+            // How much of `decoded_bytes` was derived from the texture descriptor
+            // because the CPU copy was dropped. The total is then not purely
+            // measured.
             images.derived_byte_images(),
             image_assets.len(),
-            // ⛔ `unavailable`, NOT `0`, WHEN THE CACHE IS NOT INSTALLED. A
-            // composition without the declared HUD would otherwise print
-            // `hits=0 loads=0` — indistinguishable from a cache that is present
-            // and never used, which is the reading that matters. Caught by
-            // running it: a `capture_scene` of an ordinary room shows no HUD and
-            // reported 0/0, the instrument's silence wearing a number.
+            // `unavailable`, not `0`, when the cache is not installed. Otherwise a
+            // composition without the declared HUD prints `hits=0 loads=0`, which
+            // looks like a cache that is present and unused.
             hud_images.as_ref().map_or_else(
                 || "unavailable".to_string(),
                 |c| c.hits_and_loads().0.to_string()
@@ -820,17 +733,15 @@ pub fn report_asset_census(
 /// Install the presentation-side censuses.
 ///
 /// Adds `RenderDiagnosticsPlugin` when the render app exists and nothing has
-/// added it already — a `--features profile` build gets it from `bevy_render`
-/// itself, so this is the path that gives a non-Tracy profiling build the same
-/// per-pass rows.
+/// added it. A `--features profile` build gets it from `bevy_render`; this
+/// gives other profiling builds the same per-pass rows.
 pub struct PresentationCensusPlugin;
 
 impl Plugin for PresentationCensusPlugin {
     fn build(&self, app: &mut App) {
-        // ⛔ Registered only when asked — see the note in
-        // `ambition_dev_tools::runtime_census`. `due_at` is only set while the
-        // census is enabled, so these could never have reported when off; they
-        // simply had no business being in a shipped frame's schedule.
+        // Registered only when the census is enabled. See
+        // `ambition_dev_tools::runtime_census`. These systems have no place in a
+        // shipped frame's schedule.
         if RuntimeCensus::from_env().enabled() {
             app.add_systems(
                 Last,
@@ -848,13 +759,10 @@ impl Plugin for PresentationCensusPlugin {
             app.add_systems(Last, report_portal_census);
         }
 
-        // `bevy_render` installs this itself under `bevy/trace_tracy`, which is
-        // what `--features profile` turns on; adding it a second time panics.
-        // Without that feature it is absent, and a profiling run still wants
-        // per-pass timings -- so add it exactly when the census is on and
-        // nobody else has. Read the environment rather than the resource: this
-        // must not depend on whether the sim half of the census was built
-        // first.
+        // `bevy_render` installs this under `bevy/trace_tracy` (`--features
+        // profile`), and adding it twice panics. Otherwise it is absent, so add
+        // it when the census is on and nobody else has. Read the environment,
+        // not the resource, so this does not depend on plugin order.
         if RuntimeCensus::from_env().enabled()
             && !app.is_plugin_added::<bevy::render::diagnostic::RenderDiagnosticsPlugin>()
         {
@@ -869,8 +777,8 @@ mod tests {
 
     #[test]
     fn the_most_specific_marker_wins() {
-        // A portal rig also has an image target and would otherwise read as a
-        // plain offscreen camera, losing the one fact that explains its cost.
+        // A portal rig also has an image target; without this rule it reads as
+        // a plain offscreen camera.
         assert_eq!(
             classify_camera(true, false, false, false, true),
             CameraRole::PortalCapture
@@ -901,8 +809,8 @@ mod tests {
 
     #[test]
     fn only_world_drawing_roles_count_toward_repeated_world_rendering() {
-        // The question the count answers is "how many times is this world
-        // being drawn this frame" — a HUD overlay is not another draw of it.
+        // The count answers "how many times is this world drawn this frame". A
+        // HUD overlay is not a draw of it.
         assert!(CameraRole::MainGameplay.renders_world());
         assert!(CameraRole::LocalView.renders_world());
         assert!(CameraRole::PortalCapture.renders_world());

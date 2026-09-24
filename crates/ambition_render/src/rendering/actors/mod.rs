@@ -20,45 +20,20 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
-/// Build a textured player's presentation from its collision box — the ONE road.
+/// The one answer to "what quad does this sheet draw with, and where is it anchored".
 ///
-/// ⭐ THE FOUR STEPS WERE WRITTEN OUT THREE TIMES, and the last component of the
-/// tuple is why that mattered. `PlayerSpriteBaseline` is the reference
-/// `sync_visuals` scales the art against (`base_size / standing_collision`), so a
-/// site that built its sprite from one collision box and then recorded a
-/// DIFFERENT one in the baseline would silently scale every frame the body draws.
-/// Nothing downstream could tell that apart from art that is genuinely the wrong
-/// size, which is the shape of the Mary-O stretch (`70x84 -> 70x125`): the ratio
-/// was non-1 for a body that was simply not the default size.
-/// ⇒ Returning the sprite AND the baseline it was measured from makes the two
-/// impossible to disagree. A caller can no longer pass a different box to the
-/// render size than it records as the reference, because it only names the box
-/// once.
-/// THE one answer to "what quad does this sheet draw with, and where is it anchored".
+/// The actor road and the player road both use this rule. Both feed
+/// `CharacterAnimator`, and `apply_character_frame` writes its basis back over
+/// `custom_size` and `Anchor` every frame, so two different rules would fight.
 ///
-/// ⭐ ONE AUTHORITY, because this fact had two derivations and they disagreed. The
-/// actor road carried the rule below; the player road unconditionally sized from the
-/// COLLISION box with a FEET anchor. Both then feed `CharacterAnimator`, whose basis
-/// `apply_character_frame` writes back over `custom_size` AND `Anchor` every frame --
-/// so the disagreement was not cosmetic, it was which of two bases won the last write.
-///
-/// MEASURED before this was shared, one frame of the Mary-O demo course, per-sheet
-/// alignment as `body_feet + sprite_feet` (a y-flip leaves the SUM invariant, so its
-/// spread across sheets is the misalignment):
-///
-///   three actor-road sheets   383.818 / 384.000 / 384.287   (spread 0.47px)
-///   Mary-O, the player road   413.333                       (+29.33px)
-///
-/// ⇒ The rule was RIGHT and only one road had it.
-///
-/// The three cases, in the order they must be tested:
-/// - an authored quad WITH an authored offset: the sheet publishes where its art goes
-///   per pose, so the quad is CENTRED and the offset does the shifting. Stacking the
-///   sheet's one static feet anchor on top would double-count it, and that anchor comes
-///   from the idle frame -- precisely the wrong answer for a body that changes silhouette.
-/// - an authored quad with NO offset: render at the stored quad, so the sprite does not
-///   balloon once collision already equals the body, but keep the feet anchor.
-/// - no authored quad: derive both from the collision box.
+/// Test the three cases in this order:
+/// - An authored quad with an authored offset: the sheet publishes where its art goes
+///   per pose. The quad is centred and the offset does the shift. A static feet anchor
+///   on top would count the shift twice. That anchor also comes from the idle frame,
+///   which is wrong for a body that changes silhouette.
+/// - An authored quad with no offset: render at the stored quad, so the sprite does not
+///   grow once collision equals the body. Keep the feet anchor.
+/// - No authored quad: derive both from the collision box.
 pub fn character_render_basis(
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
     collision: BVec2,
@@ -75,14 +50,18 @@ pub fn character_render_basis(
     }
 }
 
+/// Build a textured player's presentation from its collision box.
+///
+/// Returns the sprite and the `PlayerSpriteBaseline` measured from the same box.
+/// `sync_visuals` scales the art by `base_size / standing_collision`, so a baseline
+/// from a different box would scale every frame. The caller names the box once, so
+/// the two cannot disagree.
 pub fn player_presentation_for_collision(
     asset: &ambition_sprite_sheet::character::CharacterSpriteAsset,
     collision: BVec2,
-    // ⭐ AN ARGUMENT, NOT A LOOKUP, so every caller must NAME whether this body has a
-    // sheet-authored quad. A clone spawning before it has a pose honestly passes
-    // `None`; a rebind that holds a `BodyPoseView` passes what the pose publishes.
-    // The two are gated on one flag sim-side and so arrive Some together or None
-    // together -- see `pose_view`'s `sheet_authored_body`.
+    // An argument, not a lookup: each caller must state whether the body has a
+    // sheet-authored quad. A clone with no pose yet passes `None`. The quad and
+    // offset are both Some or both None (see `pose_view`'s `sheet_authored_body`).
     authored_render: Option<BVec2>,
     authored_offset: Option<BVec2>,
 ) -> (Sprite, Anchor, CharacterAnimator, PlayerSpriteBaseline) {
@@ -162,18 +141,15 @@ pub fn ensure_player_visual_sprite(
 /// what is currently bound. It:
 ///
 /// * binds when a player first appears (the marker is absent), and
-/// * rebinds when the worn identity changes (marker id ≠ worn id), REPLACING the
-///   prior sheet-derived components rather than layering duplicates.
+/// * rebinds when the worn identity changes (marker id ≠ worn id), and replaces
+///   the prior sheet-derived components instead of adding duplicates.
 ///
-/// There is no per-character branch — every character resolves through the
-/// same `GameAssets` catalog lookup, so a new character needs zero code here.
-/// Owned by `ambition_render` (the lowest reusable presentation crate) and added
-/// by the shared animation plugin, so `ambition_app` AND standalone demos consume
-/// the identical path; neither binds the player sprite itself. With no `GameAssets`
-/// (a demo shell that ships no art) OR an id with no sheet, it installs the
-/// colored-rectangle fallback and still marks the identity — this system OWNS
-/// every `WornCharacter` player's presentation, so [`ensure_player_visual_sprite`]
-/// only backstops bare `PlayerVisual`s that carry no identity at all.
+/// There is no per-character branch: every character resolves through the
+/// `GameAssets` catalog. The shared animation plugin adds this system, so
+/// `ambition_app` and standalone demos use the same path. With no `GameAssets` or
+/// no sheet for the id, it installs the colored-rectangle fallback and still
+/// marks the identity. [`ensure_player_visual_sprite`] only covers bare
+/// `PlayerVisual`s with no identity.
 pub fn bind_worn_character_presentation(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -183,72 +159,43 @@ pub fn bind_worn_character_presentation(
             &ambition_characters::actor::WornCharacter,
             Option<&PlayerSpriteCharacter>,
             Has<CharacterAnimator>,
-            // This body's OWN standing size, from the READ-MODEL. See the seed
+            // This body's own standing size, from the read-model. See the seed
             // below.
-            //
-            // `BodyPoseView:base_size` is the same number where the component exists, and where
-            // it does NOT the view falls back to the body's CURRENT `size` while the old code
-            // fell back to the engine's default player size.
             Option<&ambition_sim_view::BodyPoseView>,
         ),
         With<PlayerVisual>,
     >,
 ) {
     for (entity, worn, bound, has_sheet, base_size) in &players {
-        // Resolve the sheet — absent `GameAssets` (art-free demo) and an id with no
-        // sheet both fall through to the rectangle, so a worn player is ALWAYS drawn.
+        // Resolve the sheet. No `GameAssets` and no sheet for the id both fall
+        // through to the rectangle, so a worn player is always drawn.
         let asset = assets.as_ref().and_then(|a| a.characters.sheet(worn.id()));
-        // Skip only when already CORRECTLY bound: same id AND either a real sheet is
-        // installed or none is available to upgrade to. A body sitting on a fallback
-        // (marker matches but no animator) is re-attempted once its sheet appears, so
-        // an asset that loads AFTER the first bind is not lost.
+        // Skip only when already correctly bound: same id, and a real sheet is
+        // installed or none is available. A body on the fallback (no animator)
+        // is tried again when its sheet appears, so a late asset is not lost.
         let already_bound = bound.map(|b| b.id.as_str()) == Some(worn.id());
-        // ⛔⛔ THE BASELINE GOES STALE AFTER A FORM CHANGE, AND THAT IS LEFT
-        // ALONE ON PURPOSE. `sync_grown_form` swaps the identity in phase
-        // `FeatureInteraction` (9) while `sync_sprite_posed_bodies` resizes the
-        // body in `WorldPrep` (2), so a rebind on the swap frame records the box
-        // the body is LEAVING, and the identity is stable again by the time the
-        // new box lands.
+        // The baseline goes stale after a form change, on purpose.
+        // `sync_grown_form` swaps the identity in `FeatureInteraction` (9), and
+        // `sync_sprite_posed_bodies` resizes the body in `WorldPrep` (2), so a
+        // rebind on the swap frame records the old box. Re-seeding on a size
+        // change does not help: every body that changes size with its form is
+        // sheet-authored, and `sync_visuals` uses `authored_render` for it, not
+        // the baseline. The bodies that read the baseline are the dev menu's
+        // body-profile experiment, where a ratio other than one is the point.
         //
-        // ⭐ RE-SEEDING ON A SIZE CHANGE WAS TRIED AND REVERTED, because it
-        // fixes nothing and breaks something. A sheet-authored body -- which is
-        // every body whose size changes with its form, Mary-O included
-        // (`ambition_demo_mary_o/src/lib.rs:1302` authors
-        // `BodySource::SpriteAuthored`) -- publishes `authored_render`, and
-        // `sync_visuals` takes that branch BEFORE the baseline one and never
-        // reads the baseline at all. Meanwhile the bodies that DO read it are
-        // the dev menu's live body-profile experiment, where a ratio other than
-        // one is the POINT: the stale baseline is the deviation being shown.
-        // ⇒ A stale baseline here is unobservable for the bodies that change
-        // size, and load-bearing for the bodies that read it.
-        // ⭐ A SHEET-BACKED PRESENTATION IS FINAL ONLY ONCE THE POSE EXISTS.
+        // A sheet-backed presentation is final only when the pose exists.
+        // `CharacterAnimator::render_basis` is set once, and the authored quad
+        // and offset come from `BodyPoseView`. A bind before the pose would fix
+        // the basis to a collision-derived guess, and nothing corrects it later,
+        // because the worn identity does not change when the pose appears. So a
+        // player with a sheet but no pose draws the provisional rectangle below.
+        // It has no `CharacterAnimator`, so `has_sheet` is false and the next
+        // pass binds for real.
         //
-        // `CharacterAnimator::render_basis` is initialized ONCE, by design: the
-        // basis is the logical quad every later frame is derived from, and a
-        // body whose basis changes under it pops. That invariant only holds if
-        // the initialization has the authored answer to hand, and the authored
-        // quad and offset come from `BodyPoseView` — the two arrive together or
-        // not at all (`pose_view`'s `sheet_authored_body`).
-        //
-        // Binding the sheet before the pose existed therefore burned the ONE
-        // initialization on a collision-derived guess, and nothing afterwards
-        // could correct it: the only key this binder has is the worn identity,
-        // which does not change when a pose appears. Mary-O's small form bound
-        // pre-pose and stayed misaligned against her box until a wand swapped
-        // her identity — the latch releasing, not the pose landing.
-        //
-        // So a player with a sheet but no pose is drawn PROVISIONALLY (the
-        // fallback rectangle below) and remains eligible: it carries no
-        // `CharacterAnimator`, so `has_sheet` is false and the next pass rebinds
-        // for real. The first final basis is the authored basis.
-        //
-        // ⛔ AND A POSE IS NOT ENOUGH: its geometry must be the WORN identity's.
-        // On the tick a form swap is decided the pose already names the new
-        // form while carrying the old one's box and offset
-        // (`ambition_sim_view::PoseGeometry`). A body in that window keeps the
-        // binding it has — which still matches the geometry it actually has —
-        // and a body with none draws the provisional rectangle. The final bind
-        // happens on the tick the geometry is settled.
+        // The pose geometry must also belong to the worn identity. On the tick a
+        // form swap is decided, the pose names the new form but carries the old
+        // box and offset (`ambition_sim_view::PoseGeometry`). A bound body keeps
+        // its binding in that window; an unbound body draws the rectangle.
         let settled = base_size.filter(|pose| pose.geometry.is_settled());
         if base_size.is_some() && settled.is_none() && has_sheet {
             continue;
@@ -258,23 +205,13 @@ pub fn bind_worn_character_presentation(
             continue;
         }
         if let Some((asset, pose)) = sheet_bind {
-            // The baseline is the BODY's own standing size, never a constant.
-            //
-            // `PlayerSpriteBaseline::standing_collision` is the reference the
-            // render scales the art against (`base_size / standing_collision`
-            // in `sync_visuals`), and that ratio exists for ONE reason: the dev
-            // menu's live body-profile experiment. Seeding it with the default
-            // player size made the ratio non-1 for any body that is simply not
-            // the default size — so Mary-O growing to her tall collider
-            // stretched the tall sheet's art by 1.5 (`render size 70x84 ->
-            // 70x125`) instead of just drawing the tall art at the tall size.
-            //
-            // Her forms have their own SHEETS. Growing should swap which art is
-            // drawn and how big her box is; it should never scale the art.
-            // Binding against the body's real baseline makes the ratio 1 for
-            // every form, and leaves the dev experiment working — that changes
-            // `base_size` after the bind, which is exactly the deviation the
-            // scale is for.
+            // The baseline is the body's own standing size, not a constant.
+            // `sync_visuals` scales the art by `base_size / standing_collision`
+            // for the dev menu's body-profile experiment. A default-size seed
+            // made that ratio differ from one for other bodies and stretched the
+            // art. Each form has its own sheet, so growth swaps art and box size
+            // and never scales the art. The dev experiment still works: it
+            // changes `base_size` after the bind.
             let player_collision = pose.base_size;
             let (sprite, anchor, animator, baseline) = player_presentation_for_collision(
                 asset,
@@ -283,13 +220,8 @@ pub fn bind_worn_character_presentation(
                 pose.authored_offset,
             );
             let player_render = baseline.standing_render;
-            // A visible sprite RESIZE mid-launch has no other trace: nothing
-            // else records that the quad changed size, or which of the bind
-            // sites seeded it, and the render size is not linear in collision.
-            // ⚠ Both bind sites go through `player_presentation_for_collision`
-            // and both now require a pose, so neither can seed from a constant.
-            // The line still says WHICH one fired, which is the difference
-            // between diagnosing a pop and guessing at it.
+            // Log each bind: a visible resize has no other trace, and the line
+            // names which bind site fired.
             eprintln!(
                 "[sprite-bind] worn character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
                  (seed: body baseline)",
@@ -299,17 +231,10 @@ pub fn bind_worn_character_presentation(
                 player_render.x,
                 player_render.y,
             );
-            // `try_insert`, not `insert`: this binder is deferred (Commands) and
-            // its target is the PLAYER BODY, which session teardown despawns. A
-            // provider switch therefore has one frame where the body is going
-            // away and this pass is still decorating it, and whether the insert
-            // or the despawn flushes first is decided by system ordering rather
-            // than by anything either system knows.
-            //
-            // Failing silently is CORRECT here, not a papering-over: binding a
-            // sprite onto a body that is being destroyed has no meaning, and the
-            // alternative — ordering presentation around teardown — makes the
-            // render layer responsible for session lifecycle.
+            // `try_insert`: the target is the player body, which session
+            // teardown can despawn before these commands apply. Binding a sprite
+            // to a body being destroyed has no meaning, so a silent failure is
+            // correct. The alternative makes render own session lifecycle.
             commands.entity(entity).try_insert((
                 sprite,
                 anchor,
@@ -325,26 +250,18 @@ pub fn bind_worn_character_presentation(
                 },
             ));
         } else {
-            // No sheet for this identity YET: draw the colored-rectangle and
-            // strip any sheet-derived presentation a PRIOR identity installed, so a
-            // rebind never leaves a stale animator/anchor/baseline behind.
-            //
-            // "Yet", because this is also the PROVISIONAL state of a body whose
-            // sheet exists but whose pose has not been published: the rectangle
-            // is a placeholder the loop above upgrades as soon as the pose
-            // lands. A body with no pose has no measured standing size either,
-            // so the placeholder is drawn at the engine default — the one place
-            // that constant is still the honest answer, because there is
-            // nothing else to ask.
+            // No sheet for this identity yet: draw the colored rectangle and
+            // remove any sheet-derived components a prior identity installed.
+            // This is also the provisional state of a body with a sheet but no
+            // pose; the branch above upgrades it when the pose lands. With no
+            // pose there is no measured size, so use the engine default.
             let player_collision = base_size.map(|pose| pose.base_size).unwrap_or(BVec2::new(
                 ae::DEFAULT_PLAYER_BODY_WIDTH,
                 ae::DEFAULT_PLAYER_BODY_HEIGHT,
             ));
             commands
                 .entity(entity)
-                // Same reasoning as the bind above: the whole chain targets a
-                // body that may be mid-teardown, and a `remove` on a despawned
-                // entity fails exactly like an `insert` does.
+                // `try_*` for the same teardown reason as the bind above.
                 .try_remove::<CharacterAnimator>()
                 .try_remove::<bevy::sprite::Anchor>()
                 .try_remove::<PlayerSpriteBaseline>()
@@ -378,12 +295,9 @@ pub fn sync_visuals(
     primary_player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
-    // The sim-built pose read-model (E4): position / roll / stance / flash
-    // facts resolved in `FeatureViewSync`; render never touches the live
-    // `Body*` clusters.
-    // Frame-clock positions for everything the sim publishes per tick. The
-    // camera frames these same values; sampling a different clock here is what
-    // made a moving body shudder against a stable world.
+    // The sim-built pose read-model (E4): render never reads the live `Body*`
+    // clusters. Positions use the frame clock, which the camera also uses, so a
+    // moving body does not shudder against the world.
     presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
     mut player_query: Query<
         (
@@ -393,9 +307,8 @@ pub fn sync_visuals(
             Option<&CharacterAnimator>,
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
-            // Re-anchored per frame for a sheet-authored body: its quad is the
-            // whole frame at an authored scale, so the anchor that plants its
-            // feet is a fact about the SHEET and moves when the sheet does.
+            // Re-anchored per frame for a sheet-authored body: the anchor that
+            // plants its feet depends on the current sheet.
             Option<&mut Anchor>,
         ),
         With<PlayerVisual>,
@@ -405,24 +318,12 @@ pub fn sync_visuals(
         Without<PlayerVisual>,
     >,
     mut warned_unsized_player: Local<bool>,
-    // Option<Option<_>>, and the nesting is the point: the OUTER None means
-    // "never observed", which is not the same fact as an observed
-    // `custom_size: None`. Collapsing them made the first observation of a
-    // perfectly correct sprite report a NONE -> 75x75 transition that never
-    // happened -- the player entity does not exist until its room loads, so
-    // the first observation is not a change.
+    // `Option<Option<_>>`: the outer `None` means "never observed", which
+    // differs from an observed `custom_size: None`. The first observation is
+    // not a change.
     mut last_player_render_size: Local<Option<Option<BVec2>>>,
-    // The other two multipliers between `custom_size` and what a player SEES.
-    //
-    // So the sprite's own size was never wrong, and the instrument's silence RULED OUT the two
-    // hypotheses it was built for rather than confirming either.
-    //
-    // What is left is everything else on the path to pixels: the entity's own
-    // `Transform:scale`, and the camera's orthographic scale. Both multiply the same quad, and
-    // a transient in either reads exactly like a sprite resize. Watching the drawn size instead
-    // of one of its factors is the difference between an instrument that can only confirm a
-    // guess and one that can localise. Was `Res<CameraViewState>`, a process-global that with
-    // two views could not say whose framing this is.
+    // Entity `Transform::scale` and camera orthographic scale also multiply the
+    // quad, and a transient in either looks like a sprite resize. Log them too.
     camera_view: ambition_sim_view::PresentedViewState,
     mut last_player_draw_scale: Local<Option<(BVec2, f32)>>,
 ) {
@@ -445,79 +346,27 @@ pub fn sync_visuals(
                 let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
                 sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
             } else if let Some(authored) = pose.authored_render {
-                // The SHEET authored this body's geometry, so there is
-                // nothing here to compute: the quad is the frame at the authored
-                // scale, produced beside the collision box from that one number.
-                //
-                // This branch exists because the one below cannot express it. `standing_render *
-                // (base_size / standing_collision)` is a guess about the art CORRECTED by how far
-                // the box has drifted from a baseline — two independent quantities reconciled by a
-                // ratio. Here the box and the quad are two readings of one number, so there is no
-                // ratio and nothing to double-count.
+                // The sheet authored this body's geometry: the quad is the frame
+                // at the authored scale. The baseline branch below reconciles two
+                // independent sizes by a ratio. Here box and quad come from one
+                // number, so there is no ratio.
                 sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
-                // and the PLACEMENT comes from the same publisher as the
-                // size, rather than being re-derived here. A sheet frame is not
-                // its character: the art sits somewhere inside the frame, usually
-                // off-centre, so a quad centred on the body draws the character
-                // wherever the padding happens to put it.
-                // `sync_sprite_posed_bodies` computes the offset that puts the
-                // ART on the BOX, and the actor path has always read it — this
-                // branch instead recomputed a feet anchor from
-                // `feet_anchor_norm`, which is a SECOND derivation of one fact
-                // and disagreed with the first (for v3, ~1 px vertically and
-                // ~2.5 px horizontally, because his `feet_pixel.y` is 157 against
-                // a box bottom of 158 and his authored box is centred on 114.5
-                // against a frame centre of 112).
+                // Placement comes from the same publisher.
+                // `sync_sprite_posed_bodies` computes the offset that puts the art
+                // on the box, and the actor path reads it too. With the offset the
+                // anchor is CENTER. Bevy y runs up and sheet y runs down, so y is
+                // negated.
                 //
-                // the anchor becomes CENTER and the offset moves the quad,
-                // which is what the actor path does. Sheet pixel space and world
-                // space share +y down, but Bevy's UI/render y runs UP — hence the
-                // negated y, the same conversion `sync_sprite_posed_bodies`
-                // documents at its own seam.
-                // ⛔⛔ TWO MECHANISMS OWN THIS PLACEMENT AND THE SEAM IS HERE.
-                // This offset is computed for the LOGICAL FRAME —
-                // `(frame/2 - body_centre) * world_per_pixel` — and is correct only
-                // if the quad it moves is that frame. For a body with an ANIMATOR,
-                // `animate_player` runs later in this same stage and replaces
-                // `custom_size` AND `Anchor` from the TRIMMED atlas basis, leaving
-                // this translation behind: a placement assembled from two bases.
-                //
-                // ⇒ MEASURED on Mary-O (pinned body, one input varied): suppressing
-                // the offset moves the drawable +3.81 -> -16.00, exactly the
-                // published 19.81, which is 62% of her 32-unit height. Her sheet's
-                // body sits 52px below its frame centre — the largest such gap in
-                // the tree by 6x (`scripts/measure_sheet_body_offsets.py`), which is
-                // why she is where this shows and 190 other sheets are not.
-                //
-                // ⛔ AND SUPPRESSING IT IS NOT THE FIX — TRIED AND PHOTOGRAPHED
-                // 2026-09-06. `.filter(|_| animator.is_none())` routes an animated
-                // body into the `else` arm below, a THIRD mechanism with its own
-                // feet-anchor derivation: she still floated and her quad collapsed
-                // to 12x16.4 against a 64-unit box. Turning one authority off does
-                // not make another one complete.
-                //
-                // ⭐⭐⭐ AND THE ROOT IS TWO DERIVATIONS OF ONE PLACEMENT, FROM TWO
-                // DIFFERENT SOURCES, IN TWO DIFFERENT ANCHOR CONVENTIONS:
-                //
-                //   · `player_presentation_for_collision` seeds the animator's
-                //     render basis from `sprite_render_size(spec, COLLISION)` and
-                //     `feet_anchor_for_render_size(..)` — sized from the BODY BOX,
-                //     anchored at the FEET;
-                //   · `authored_render` / `authored_offset` are computed from the
-                //     SHEET FRAME and applied with `Anchor::CENTER`.
-                //
-                // ⇒ Every frame, `sync_visuals` writes the frame-derived pair and
-                // `animate_player` overwrites size+anchor from the collision-derived
-                // basis, keeping the frame-derived translation. THE TWO NEVER AGREED;
-                // they only differ visibly where a sheet's body sits far from its
-                // frame centre, which is why Mary-O shows it and 190 sheets do not.
-                //
-                // ⇒ THE REPAIR IS ONE BASIS, NOT A CONDITION HERE: seed the
-                // animator from the same source the offset is computed from, so
-                // size, anchor and translation all speak one coordinate system.
-                // ⚠ That touches every sheet-authored character, so it wants the
-                // representative A/B first — Mary-O small and tall, a zero-offset
-                // sheet, and a high-offset one (`actor`/`performer` at 48%).
+                // Two mechanisms own this placement. The offset is computed for
+                // the logical frame. For a body with an animator, `animate_player`
+                // runs later in this stage and replaces `custom_size` and `Anchor`
+                // from the animator's basis, but keeps this translation. They agree
+                // only if that basis comes from the same authored quad with CENTER,
+                // which `character_render_basis` provides. Do not suppress the
+                // offset for animated bodies: that routes them to the baseline
+                // branch, which has its own anchor rule. The error shows most where
+                // a sheet's body sits far from its frame centre (Mary-O; see
+                // `scripts/measure_sheet_body_offsets.py`).
                 if let Some(offset) = pose.authored_offset {
                     transform.translation.x += offset.x;
                     transform.translation.y -= offset.y;
@@ -579,10 +428,8 @@ pub fn sync_visuals(
                 }
             } else if !*warned_unsized_player {
                 // Every bind site inserts sprite and baseline together, so this
-                // should be unreachable. Say so out loud rather than silently
-                // rendering the wrong size: if the line never appears, the
-                // launch-time resize is the two bind sites disagreeing instead,
-                // and that is worth knowing just as much.
+                // should not happen. Warn once instead of drawing the wrong size
+                // silently.
                 *warned_unsized_player = true;
                 bevy::log::warn!(
                     target: "ambition_platformer2d::sprites",
@@ -592,20 +439,16 @@ pub fn sync_visuals(
                 );
             }
 
-            // The bind sites report what they SEEDED; this reports what is
-            // actually drawn. A visible mid-launch resize is a change here,
-            // and the two need not agree: a size can change without a rebind
-            // (pose/stance scaling) and a rebind can leave the size identical.
-            // `None` is its own event — it means nothing assigned a size and
-            // the quad falls back to the atlas frame's native pixel size.
+            // The bind sites log what they seeded; this logs what is drawn. A
+            // size can change without a rebind, and a rebind can keep the size.
+            // `None` means nothing set a size, so the quad draws at the atlas
+            // frame's native pixel size.
             let describe = |size: Option<BVec2>| match size {
                 Some(size) => format!("{:.0}x{:.0}", size.x, size.y),
                 None => "NONE (draws at native frame size)".to_string(),
             };
             match *last_player_render_size {
-                // First sighting of this player. Report the state, not a
-                // transition, and say which it is -- an opening NONE is a
-                // genuine finding, an opening 75x75 is a healthy sprite.
+                // First sighting: report the state, not a transition.
                 None => {
                     *last_player_render_size = Some(sprite.custom_size);
                     eprintln!(
@@ -632,13 +475,9 @@ pub fn sync_visuals(
                 }
             }
 
-            // The two factors `custom_size` does NOT capture.
-            //
-            // Camera scale is the divisor: a smaller orthographic scale shows
-            // less world in the same viewport, which draws every quad bigger. So
-            // a camera that opens zoomed-in and eases out presents as "the
-            // character flashed large and then shrank" while every sprite size in
-            // the game is constant.
+            // The two factors `custom_size` does not capture. A smaller
+            // orthographic scale draws every quad bigger, so a camera that eases
+            // out looks like a sprite that shrinks.
             let entity_scale = BVec2::new(transform.scale.x, transform.scale.y);
             let camera_scale = camera_view
                 .get()
@@ -678,12 +517,8 @@ pub fn sync_visuals(
             *visibility = Visibility::Hidden;
             continue;
         };
-        // Patrolling enemies and moving props step on the tick clock exactly as
-        // the player body does, so they get the same frame-clock treatment.
-        // The QUAD's centre: the body's centre, plus whatever the sheet says
-        // about where this pose's art sits inside the frame. Absent for every
-        // feature that publishes no placement, so this is the identity
-        // everywhere it always was.
+        // Moving features use the frame clock, like the player. The quad centre
+        // is the body centre plus the sheet's per-pose art offset, if any.
         let draw_pos = presented_features.presented(&visual.id, view.pos)
             + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
         transform.translation = world_to_bevy(&world.0, draw_pos, feature_z(view.kind));
@@ -750,24 +585,18 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
     }
 }
 
-/// Which quality tier the presentation currently on this entity was built from.
+/// Which quality tier the presentation on this entity was built from.
 ///
-/// Already-spawned entities keep their cached image/atlas handles until a render
-/// system overwrites those components, so this is the only record of which
-/// generation of the art a body is actually SHOWING.
+/// Spawned entities keep their cached image/atlas handles until a render system
+/// overwrites them, so this is the only record of which art generation a body
+/// shows. Binders compare it with the realization, not the setting: stamping
+/// from the setting marks a body converged while it still draws old pixels.
 ///
-/// Stamping from the setting marks a body converged while it is still drawing old pixels, and
-/// then it is never revisited. Comparing against the realization asks the only question with an
-/// answer: *is this body drawn from the sheet the table currently holds?*
-///
-/// RESOLVED, not
-/// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier),
-/// and the question decides it. This component is a statement about PIXELS —
-/// which generation of the art is on screen — so it must move exactly when the
-/// pixels do. A sheet with no baked variant answers `Half` with full-resolution
-/// bytes; keyed on the request, a rebind to byte-identical pixels would look
-/// necessary. The request is the convergence key and it belongs to the loader,
-/// not to a presentation binder.
+/// It stores the resolved tier, not
+/// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier).
+/// A sheet with no baked variant answers `Half` with full-resolution bytes.
+/// Keyed on the request, a rebind to identical pixels would look necessary. The
+/// request belongs to the loader.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
@@ -782,40 +611,28 @@ pub struct PlayerSpriteCharacter {
     pub id: String,
 }
 
-// Every other binding site here asks the resident realization (`asset.resolved_tier`) instead.
-//
-//  removing it makes the rule structural rather than remembered: there is no
-// longer a way to reach for the requested setting from this file, so the next
-// binder cannot repeat the mistake by picking the convenient helper. The
-// requested tier still exists where it belongs — in the settings and in the
-// loader that resolves it — it just is not something a PRESENTATION binder may
-// stamp as fact.
+// Every binder here stamps the resident realization (`asset.resolved_tier`).
+// This file has no way to read the requested setting, so a new binder cannot
+// stamp it by mistake. The requested tier lives in settings and the loader.
 
-/// Bind an actor's visual to its character sheet once the asset is available —
-/// and re-bind when its collision footprint or the quality scale changes. ONE
-/// system for EVERY actor (enemy, NPC, sandbag): the enemy/NPC split was never a
-/// render type, so it collapsed with `FeatureVisualKind`. Resolution is
-/// name-first — an authored sprite-override label (a fighting-flipped NPC keeps
-/// its own sheet), then the actor's own display name, against the shared
-/// character registry — then a STATE-keyed fallback: a sandbag renders the
-/// sandbag sheet, a fighting actor the generic enemy sheet, and a peaceful
-/// un-registered actor keeps its terminal-rectangle placeholder.
 /// Which sprite upgrader owns this body.
 ///
-/// A boss is also an actor — post-unification there is one body vocabulary — so a boss's id is
-/// in `ActorRenderIndex` *and* `BossRenderIndex`. `upgrade_boss_sprites` is filtered
-/// `Without<CharacterAnimator>`, so it then skipped that boss forever and its dedicated sheet
-/// was never bound. Every boss in the game drew a generic body.
-///
-/// System ORDER cannot fix that (swapping them just moves the overwrite), and a
-/// `Without<BossAnimator>` filter cannot either (the boss upgrader legitimately
-/// skips a frame while its image loads, and the actor path would claim it in the
-/// gap). The read-model is the answer: the boss index claims the id, so the boss
-/// path owns it.
+/// A boss is also an actor, so its id is in `ActorRenderIndex` and
+/// `BossRenderIndex`. `upgrade_boss_sprites` filters `Without<CharacterAnimator>`,
+/// so if the actor path binds first, the boss sheet is never bound. System order
+/// cannot fix this, and a `Without<BossAnimator>` filter cannot either: the boss
+/// upgrader can skip frames while its image loads. The boss index claims the id,
+/// so the boss path owns it.
 pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRenderIndex) -> bool {
     boss_render.get(id).is_none()
 }
 
+/// Bind an actor's visual to its character sheet when the asset is available,
+/// and rebind when its collision footprint or quality tier changes. One system
+/// serves every actor (enemy, NPC, sandbag). Resolution: the actor's art
+/// identity (a fighting-flipped NPC keeps its own sheet), then its display
+/// name, against the shared character registry. An actor with no sheet draws
+/// the placeholder rectangle.
 pub fn upgrade_actor_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -834,8 +651,7 @@ pub fn upgrade_actor_sprites(
     // WITHOUT borrowing gameplay_core's live actor clusters. Built by
     // `rebuild_actor_render_index` in the sim's `FeatureViewSync` set.
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
-    // A boss is ALSO an actor (post-unification), so its id appears in BOTH render
-    // read-models. This one is read to YIELD, never to bind — see
+    // A boss is also an actor. Read this index only to yield; see
     // `actor_sprite_path_owns`.
     boss_render: Res<ambition_sim_view::BossRenderIndex>,
     // Names we've already warned about resolving no sprite, so the warning fires
@@ -853,50 +669,35 @@ pub fn upgrade_actor_sprites(
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
-        // Bound to the correct kind and collision footprint. The collision-size
-        // check is still useful for rare intentional runtime size changes, but
-        // shark riders should normally keep the same visual/collision scale
-        // across mount and dismount.
-        //
-        // this is only HALF of "nothing to do": the quality half cannot be answered until the
-        // realization is in hand, so the early-out moves below the lookup.
+        // Bound to the correct kind and collision footprint. The size check
+        // catches rare runtime size changes; shark riders keep one scale across
+        // mount and dismount. This is only half of "nothing to do": the quality
+        // half needs the realization, so it is checked below.
         let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
-        // IDENTITY decides which upgrader owns a body, not which one ran first.
+        // Identity decides which upgrader owns a body, not system order.
         if !actor_sprite_path_owns(&visual.id, &boss_render) {
             continue;
         }
-        // Read the actor's materialized identity snapshot. Absent  the read-model
-        // hasn't caught this actor yet (it just spawned); skip a frame — the next
-        // rebuild fills it in, exactly like the `feature_views` miss above.
+        // Absent: the read-model has not seen this actor yet. Skip a frame; the
+        // next rebuild fills it in.
         let Some(actor) = actor_render.get(&visual.id) else {
             continue;
         };
-        // ⛔ NOT FROM A BODY THAT IS NOT WHOLE YET — the player binder's rule
-        // (`bind_worn_character_presentation`), asked of an actor. A body whose
-        // worn identity's prepared body has not been granted carries the box and
-        // quad it was seeded with: measured in the Hall of Characters, `mary_o`
-        // is 32x48 on its first tick and 21.3x32 on its second. The binding
-        // below builds its render basis ONCE from that geometry, so it keeps
-        // what it has until the geometry is the identity's.
+        // Do not bind from a body that is not whole yet (the same rule as
+        // `bind_worn_character_presentation`). Until its prepared body is
+        // granted, the body has its seed box and quad, and the binding builds
+        // its render basis once from that geometry.
         if !actor.geometry.is_settled() {
             continue;
         }
-        // Resolution order, shared by every actor: the actor's ART IDENTITY,
-        // then its display name.
-        //
-        // the display name stays LAST rather than being deleted. A direct
-        // `EnemySpawn` with no id still resolves by name — intro raiders pick up
-        // their sheet without a duplicate enemy-side registry entry.
+        // Resolution order: the actor's art identity, then its display name. The
+        // name stays so a direct `EnemySpawn` with no id still resolves a sheet.
         let art_identity = actor.sprite_character_id.as_deref();
         let actor_name = Some(actor.name.as_str());
-        // ⛔ AN ART IDENTITY WHOSE SHEET IS COMING IS WAITED FOR, NOT SUBSTITUTED.
-        // Sheets are materialized on demand, so a body can be drawn before its
-        // own art is resident. Falling through to the display name then bound
-        // whatever sheet that name happened to resolve, and the binding is keyed
-        // on kind and collision size — which the arriving art does not change —
-        // so the substitute stayed. A DECLARED identity keeps what it has (the
-        // placeholder, or its current realization) until its own sheet lands;
-        // only an identity no content declares still falls back to the name.
+        // Wait for a declared art identity's sheet; do not substitute. Sheets
+        // load on demand, and the binding is keyed on kind and size, which the
+        // late art does not change, so a substitute would stay. Only an
+        // identity that no content declares falls back to the name.
         let own = art_identity.map(|n| assets.characters.sheet_state(n));
         if own
             .as_ref()
@@ -909,37 +710,22 @@ pub fn upgrade_actor_sprites(
             _ => actor_name.and_then(|n| assets.characters.sheet(n)),
         };
         let Some(character_asset) = named else {
-            // An actor whose own sheet does not resolve draws the marked placeholder rectangle,
-            // everywhere, and the binding report names the id.
-            //
-            // That made missing art invisible — a body with no sprite of its own looked like a
-            // deliberate goblin, so nobody ever went and drew it. Ambition's own enemies visibly
-            // regress until each gets art, which is the point: it turns silent debt into visible
-            // work.
+            // An actor with no resolvable sheet draws the marked placeholder,
+            // and the warning names the id, so missing art stays visible.
             if kind_bound {
                 continue;
             }
             if let Some(missed) = actor_name {
                 if warned_sprite_names.insert(missed.to_string()) {
-                    // Name what the table actually knows, so a TYPO and an
-                    // undecoded sheet stop reading as the same problem.
+                    // Name what the table knows, so a typo and an undecoded
+                    // sheet read differently.
                     let diagnosis = match assets.characters.sheet_state(missed) {
                         ambition_sprite_sheet::character::CharacterSheetState::Declared {
                             character_id,
                         } => {
-                            // ⛔⛔ `Declared` MEANS TWO DIFFERENT THINGS and this
-                            // line used to assert one of them. Its own type doc
-                            // says so — "either it never has, or its realization
-                            // was retired by a quality change" — and retiring
-                            // leaves the declaration standing, so the two states
-                            // are identical to look at. The old text read
-                            // "nothing demanded it, so the engine never decoded
-                            // its sheet", which for a retired sheet is false
-                            // twice over: it was demanded, and it WAS decoded.
-                            // That warning fired 111 times on one Hall reveal, so
-                            // it was the main evidence about a cause it had
-                            // guessed. `retired_tier` is the only thing that can
-                            // tell them apart.
+                            // `Declared` has two meanings: never realized, or
+                            // retired by a quality change. They look the same;
+                            // only `retired_tier` tells them apart.
                             match assets.characters.retired_tier(missed) {
                                 Some(tier) => format!(
                                     "declared as '{character_id}' and RETIRED from {tier:?} — it \
@@ -978,43 +764,25 @@ pub fn upgrade_actor_sprites(
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
         if !texture_is_ready(&asset_server, &images, &character_asset.texture) {
-            // ⛔⛔ THE HALL'S ULTRA BURST IS 129 BODIES STOPPING HERE. The cover
-            // lifts and then, ~370 ms later, all 129 report the unclaimed-body
-            // placeholder in ONE frame — so the barrier released on bodies whose
-            // textures cannot bind. `assets.characters.sheet(..)` resolves for
-            // every one of them ("resolved no sprite" prints zero times), which
-            // leaves this arm: the sheet's texture is not
-            // `is_loaded_with_dependencies` even though the barrier's own
-            // manifest was satisfied.
+            // Diagnostic: log the asset path of each texture that blocks a bind.
+            // Compare it with the handles the room barrier waited on. If they
+            // differ, the barrier must wait on the textures the resident sheets
+            // reference. Logged once per path, and only under
+            // `AMBITION_PROFILE_CENSUS`, because this arm runs every frame for
+            // every unbound body.
             //
-            // ⇒ WHAT THIS PRINTS IS THE SET DIFFERENCE: the asset PATH the
-            // resident sheet actually references, against the handles the
-            // barrier waited on. If they differ (per-character sheet vs pack
-            // page) the fix is that the barrier's readiness set must be the
-            // textures the RESIDENT sheets reference, not the manifest's
-            // pre-resolution list.
-            //
-            // Once per PATH, behind `AMBITION_PROFILE_CENSUS`: this arm runs on
-            // every frame of the ramp for every unbound body, and unthrottled it
-            // is tens of thousands of lines that push the reveal itself out of
-            // the log.
-            //
-            // ⚠ The gate is read from the environment through a `OnceLock`, NOT
-            // from the `RuntimeCensus` resource, deliberately: adding a system
-            // parameter to a shipped system is what turns a missing resource
-            // into a Bevy 0.19 SCHEDULE PANIC in every composition that does not
-            // provide it, which cost this repo 37 failures in one union run.
-            // An instrument may not change the signature of the system it
-            // instruments.
+            // Read the gate from the environment through a `OnceLock`, not from
+            // the `RuntimeCensus` resource. A new system parameter makes a
+            // missing resource a Bevy schedule panic in every composition that
+            // does not provide it. An instrument must not change the signature
+            // of the system it measures.
             {
                 use std::collections::BTreeSet;
                 use std::sync::{Mutex, OnceLock};
                 static ON: OnceLock<bool> = OnceLock::new();
                 static SEEN: OnceLock<Mutex<BTreeSet<String>>> = OnceLock::new();
-                // The CONST, not the literal: the name lives in
-                // `ambition_dev_tools` (already a dependency) and a literal here
-                // would keep compiling after that name changed, leaving an
-                // instrument that is simply never on.
+                // Use the const, not a literal, so a rename in
+                // `ambition_dev_tools` does not silently disable this.
                 let on = *ON.get_or_init(|| {
                     std::env::var(ambition_dev_tools::runtime_census::CENSUS_ENV)
                         .map(|v| !v.is_empty() && v != "0")
@@ -1054,18 +822,14 @@ pub fn upgrade_actor_sprites(
         );
         let (sprite, anchor, animator) =
             build_character_presentation_with_render_size(character_asset, render_size, anchor);
-        // The feet anchor plants the sprite's authored feet (`feet_anchor_y` from
-        // sprite metadata) on the gravity-side edge of the collision box. It is a
-        // 1-D anchor that rotates WITH the sprite, so for a surface-walker clung to
-        // a wall it correctly plants the contact edge once the collision box itself
-        // is oriented (see `update_enemy_actors`). No per-family special-casing.
-        // The constructor seeds the full logical render basis and applies frame-zero
-        // trim before this entity becomes drawable; later animation ticks reuse it.
-        // `try_insert`: REPRODUCED, and the same shape as the boss
-        // twin — these are `FeatureVisual` entities, which
-        // `despawn_dead_dynamic_feature_visuals` retires the moment a feature's
-        // view disappears. An actor dying on the frame its sheet finishes
-        // decoding is the ordinary way to hit it.
+        // The feet anchor plants the sprite's authored feet on the gravity-side
+        // edge of the collision box. It rotates with the sprite, so a
+        // surface-walker on a wall plants its contact edge (see
+        // `update_enemy_actors`). The constructor seeds the full render basis
+        // and applies frame-zero trim before the entity is drawable.
+        // `try_insert`: `despawn_dead_dynamic_feature_visuals` removes these
+        // entities when a feature's view goes away, which can happen on the
+        // frame its sheet finishes decoding.
         commands.entity(entity).try_insert((
             sprite,
             anchor,
@@ -1080,16 +844,12 @@ pub fn upgrade_actor_sprites(
 
 /// Keep the controlled body drawn from the realization the table holds.
 ///
-/// Deferred sheets finishing their decode, and a confirmed quality change
-/// retiring a realization for one at another tier, are the same event seen from
-/// here: the sheet behind this character is not the sheet this body is showing.
-/// Intentionally component-local — no room entities are despawned and the
-/// gameplay/body components are untouched. The animator is rebuilt from the new
-/// asset, restoring the spawn-time animation invariants rather than trying to
-/// carry an atlas cursor across a different texture and layout.
-///
-/// The condition that remains is a comparison against the realization's own tier, which is true for
-/// as long as the body is stale and stops being true the moment it is not.
+/// A deferred sheet finishing its decode and a quality change that retires a
+/// realization are the same event here: this body shows a sheet that is not
+/// current. Only presentation components change; no room entities are
+/// despawned. The animator is rebuilt from the new asset instead of carrying an
+/// atlas cursor across a different layout. The tier comparison is true while
+/// the body is stale and false once it is not.
 pub fn refresh_player_sprites_for_resident_quality(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -1140,20 +900,15 @@ pub fn refresh_player_sprites_for_resident_quality(
             pose.authored_offset,
         );
         let render = baseline.standing_render;
-        // The counterpart line to the one in `bind_worn_character_presentation`.
-        // This one fires when the RESIDENT realization moved — a deferred sheet
-        // landing, or a quality transition — so a size that differs from the
-        // earlier bind is the visible mid-launch pop, timestamped.
+        // Counterpart of the log in `bind_worn_character_presentation`. This
+        // one fires when the resident realization changes.
         eprintln!(
             "[sprite-bind] rebind character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
              tier={:?} (seed: live pose, trigger: resident realization moved)",
             start_id, collision.x, collision.y, render.x, render.y, asset.resolved_tier,
         );
-        // `try_insert`: REPRODUCED. Same `PlayerVisual` target as the
-        // bare-player safety net, reached on a very different frame — a
-        // confirmed quality-profile switch rebuilds `GameAssets`, and a provider
-        // switch in the same frame despawns the session scope this visual
-        // belongs to.
+        // `try_insert`: a provider switch in the same frame as a quality change
+        // can despawn this visual's session scope.
         commands.entity(entity).try_insert((
             sprite,
             anchor,
@@ -1182,21 +937,11 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     let Some(assets) = assets else {
         return;
     };
-    // THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
-    // SETTING.
-    //
-    // The actor path forty lines up (`BoundSpriteQuality { scale: asset.resolved_tier }`)
-    // always did this correctly; the two disagreed inside one file. Asking the
-    // asset is also what makes the comparison self-limiting: once stamped from
-    // `asset.resolved_tier`, the next frame matches and the loop settles.
-    //
-    // The difference is that a stale prop is now VISIBLE to whoever fixes that, instead of claiming
-    // to be up to date.
-    //
-    // the `assets.is_changed()` early-out is gone with it, for the reason the
-    // actor path dropped its own: images decode asynchronously, so the frame
-    // `GameAssets` changes is not the frame the texture is usable. The
-    // tier comparison below is the convergence check and it is cheap.
+    // Stamp the resident realization's tier, not the requested setting, like
+    // the actor path. The next frame then matches and the loop settles. There
+    // is no `assets.is_changed()` early-out: images decode asynchronously, so
+    // the frame `GameAssets` changes is not the frame the texture is ready. The
+    // tier comparison is the convergence check, and it is cheap.
     for (entity, prop, bound_quality) in &props {
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
@@ -1285,12 +1030,9 @@ mod render_basis_tests {
         .expect("the robot sheet record resolves a spec")
     }
 
-    /// ⭐ THE ARM THE PLAYER ROAD DID NOT HAVE. A sheet that publishes BOTH an authored
-    /// quad and an authored offset is drawn at that quad, anchored at CENTER, because
-    /// the offset is what carries the art onto the body. This is the whole content of
-    /// the defect: the player road sized from the collision box with a feet anchor
-    /// instead, and `apply_character_frame` wrote that basis back over the placement
-    /// every frame.
+    /// A sheet that publishes an authored quad and an authored offset draws at
+    /// that quad with a CENTER anchor, because the offset moves the art onto
+    /// the body.
     #[test]
     fn an_authored_quad_with_an_offset_is_centred() {
         let spec = spec();
@@ -1313,9 +1055,9 @@ mod render_basis_tests {
         );
     }
 
-    /// The same authored quad WITHOUT an offset keeps the feet anchor -- so the arms are
-    /// distinguished by the OFFSET, not by the presence of a quad. Pinning both together
-    /// is the point: a change that collapsed them would still pass either one alone.
+    /// The same authored quad without an offset keeps the feet anchor, so the
+    /// offset selects the arm, not the quad. Both tests together catch a change
+    /// that merges the arms.
     #[test]
     fn an_authored_quad_without_an_offset_keeps_its_feet_anchor() {
         let spec = spec();

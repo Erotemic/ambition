@@ -1,11 +1,10 @@
 //! Sandbox cutscene presentation overlay.
 //!
-//! The cutscene SCRIPT format + runtime stepper live in the foundation crate
-//! [`ambition_cutscene`] (pure data + logic, plus the live playback-state
-//! resources `ActiveCutscene` / `CutsceneAdvanceRequest`). The gameplay-side
-//! player that drives them — triggers, queue drain, tick, save-flag effects —
-//! lives in the cutscene runtime seam. The authored scripts/bindings
-//! are content (`ambition_content`).
+//! The cutscene script format and runtime stepper live in
+//! [`ambition_cutscene`] (data and logic, plus the playback resources
+//! `ActiveCutscene` and `CutsceneAdvanceRequest`). The cutscene runtime seam
+//! drives them (triggers, queue drain, tick, save-flag effects). Scripts and
+//! bindings are content (`ambition_content`).
 //!
 //! This module is presentation only: it reads `ActiveCutscene` and draws the
 //! screen-space overlay (banner / dialogue cards + skip-hold progress bar).
@@ -17,34 +16,31 @@ use bevy::prelude::*;
 // Presentation overlay
 // ─────────────────────────────────────────────────────────────────────
 //
-// Two complementary surfaces drive narrative text in the sandbox:
+// Two surfaces show narrative text:
 //
-// - Cutscene overlay (this module): a screen-space Bevy UI panel
-//   that draws CutsceneBeat::Dialogue (acknowledge — waits for player
-//   input) and CutsceneBeat::Banner (timed — auto-advances). The skip-
-//   hold progress bar lives here too. Owned by [`sync_cutscene_ui`].
+// - Cutscene overlay (this module): a screen-space Bevy UI panel that draws
+//   `CutsceneBeat::Dialogue` (waits for player input) and
+//   `CutsceneBeat::Banner` (timed, auto-advances), plus the skip-hold
+//   progress bar. Owned by [`sync_cutscene_ui`].
 //
-// - Speech bubbles (`crate::fx::update_speech_bubbles`): world-
-//   space transient quote bubbles that anyone can fire via
-//   `VfxMessage::SpeechBubble { pos, text }`. Already used by the
-//   combat / damage path so enemies can shout when they get hit. The
-//   "real-time dialog where characters just say thing" mode the
-//   intro design doc calls for is this — no UI input, no pause, just
-//   the line floats up and fades. The cutscene overlay never owns it.
+// - Speech bubbles (`crate::fx::update_speech_bubbles`): world-space quote
+//   bubbles that anything can fire with
+//   `VfxMessage::SpeechBubble { pos, text }` (for example enemies shouting
+//   when hit). No UI input and no pause; the line floats up and fades. The
+//   cutscene overlay never owns it.
 //
-// Both run unconditionally in the presentation half; headless / RL
-// builds skip the registrations.
+// Both run in the presentation half; headless and RL builds skip them.
 
-/// Root entity for cutscene screen-space presentation — the card panel, and
-/// the fade sheet, which is a SECOND root rather than a child (see
-/// [`sync_cutscene_ui`]). Despawned + respawned each frame `sync_cutscene_ui`
-/// runs (cheap — they only exist while a cutscene plays).
+/// Root entity for cutscene screen-space presentation: the card panel, and
+/// the fade sheet, which is a second root, not a child (see
+/// [`sync_cutscene_ui`]). Despawned and respawned each frame; they exist
+/// only while a cutscene plays.
 #[derive(Component)]
 pub struct CutsceneOverlayRoot;
 
-/// Build / refresh the cutscene UI overlay. Pattern matches
-/// the selected dialogue presenter: despawn last frame's overlay,
-/// re-spawn this frame's based on `ActiveCutscene` + `CutsceneAdvanceRequest`.
+/// Build or refresh the cutscene UI overlay, like the dialogue presenter:
+/// despawn last frame's overlay and spawn this frame's from `ActiveCutscene`
+/// and `CutsceneAdvanceRequest`.
 ///
 /// Layout:
 /// - Banner beats: centered card near the top, no input prompt
@@ -92,11 +88,10 @@ pub fn sync_cutscene_ui(
     let skip_progress = skip_hold.progress();
     let fade_alpha = active.presentation.fade_alpha.clamp(0.0, 1.0);
 
-    // ⭐⛤ THE FADE IS ITS OWN ROOT, and it has to be: the card root below is
-    // placed inside the READING RECT (`place_in_reading_rect`), a sub-region of
-    // the window, and a sheet parented there would darken a rectangle in the
-    // middle of the screen instead of the screen. It sits one layer under the
-    // cards so a line spoken over a fade stays readable.
+    // The fade is its own root. The card root below is placed inside the
+    // reading rect (`place_in_reading_rect`), a sub-region of the window, so a
+    // sheet parented there would darken only that rectangle. It sits one layer
+    // under the cards, so a line spoken over a fade stays readable.
     if fade_alpha > 0.001 {
         commands.spawn((
             Node {
@@ -114,18 +109,16 @@ pub fn sync_cutscene_ui(
         ));
     }
 
-    // Bail out early on a fully-empty cutscene state (e.g. between
-    // beats during a CameraPan). The card overlay only spawns when
-    // there's actually something to show — the cutscene runtime stays
-    // active in `ActiveCutscene` either way.
+    // Return early when there is nothing to show (for example between beats
+    // during a CameraPan). The runtime stays active in `ActiveCutscene`.
     if banner.is_none() && dialogue.is_none() && skip_progress <= 0.01 {
         return;
     }
 
     commands
         .spawn((
-            // Full-screen with `SpaceBetween` puts the speaker line and the skip meter along
-            // the BOTTOM — under the movement stick and the action cluster on a phone.
+            // Full-screen with `SpaceBetween` puts the speaker line and the skip
+            // meter at the bottom, under the stick and action cluster on a phone.
             {
                 let mut node = Node {
                     position_type: PositionType::Absolute,
@@ -147,9 +140,8 @@ pub fn sync_cutscene_ui(
             CutsceneOverlayRoot,
         ))
         .with_children(|root| {
-            // Top: banner card. Auto-dismisses based on the beat timer
-            // (the runtime advances on its own — this UI is purely
-            // presentational, the player doesn't have to press anything).
+            // Top: banner card. The runtime advances it on its own timer; the
+            // player does not press anything.
             if let Some((banner_text, _seconds)) = banner {
                 root.spawn((
                     Node {
@@ -171,14 +163,14 @@ pub fn sync_cutscene_ui(
                     ));
                 });
             } else {
-                // Spacer so the dialogue card always sits at the bottom
-                // even when no banner is showing.
+                // Spacer, so the dialogue card stays at the bottom when no banner
+                // shows.
                 root.spawn(Node::default());
             }
 
-            // Bottom: dialogue card. Waits for player input
-            // (Interact / Jump) — handled by `populate_control_frame_from_actions`
-            // which flips `request.dismiss_dialogue` on the right press.
+            // Bottom: dialogue card. Waits for Interact or Jump, which
+            // `populate_control_frame_from_actions` turns into
+            // `request.dismiss_dialogue`.
             if let Some((speaker, text)) = dialogue {
                 root.spawn((
                     Node {
@@ -207,11 +199,10 @@ pub fn sync_cutscene_ui(
                         TextColor(Color::srgba(0.93, 0.96, 1.00, 1.0)),
                     ));
                     panel.spawn((
-                        // The actual bindings live in
+                        // Bindings live in
                         // `ambition_input::presets::ControlPreset::input_map`
-                        // (Interact = E by default, Jump = Space/W).
-                        // The hint names the *semantic* actions so a
-                        // rebound key isn't a lie.
+                        // (Interact = E, Jump = Space/W by default). The hint names
+                        // the semantic actions, so a rebound key stays accurate.
                         Text::new("Press Interact (E) or Jump (Space) to continue. Hold Backspace to skip."),
                         cutscene_font(12.0, crate::ui_fonts::UiFontWeight::Regular),
                         TextColor(Color::srgba(0.66, 0.76, 0.88, 0.96)),
@@ -222,9 +213,8 @@ pub fn sync_cutscene_ui(
             }
         });
 
-    // Skip-hold progress bar — bottom-right corner, separate root so
-    // it doesn't interfere with the main column flex layout. Only
-    // spawned while the player is actively holding the skip button.
+    // Skip-hold progress bar: bottom-right, a separate root so it does not
+    // affect the main column layout. Spawned only while skip is held.
     if skip_progress > 0.01 {
         let fill_pct = (skip_progress * 100.0).clamp(0.0, 100.0);
         commands
@@ -294,8 +284,8 @@ mod tests {
             presentation: runtime.presentation(),
             runtime: Some(runtime),
         };
-        // ⚠ The projection is a cache; the renderer reads THAT, so refresh it
-        // the way the gameplay tick does rather than trusting construction.
+        // The projection is a cache that the renderer reads, so refresh it
+        // like the gameplay tick does.
         active.presentation = active.runtime.as_ref().unwrap().presentation();
 
         let mut app = App::new();
@@ -311,9 +301,8 @@ mod tests {
             .map(|(_, color)| color.0.alpha())
     }
 
-    /// ⛔⛤ THE BEAT DREW NOTHING FOR AS LONG AS IT EXISTED. `fade_alpha` had no
-    /// consumer, so an authored fade was a timer the player waited out. This is
-    /// the arm that says a fade is now a picture.
+    /// A fade beat draws a black sheet at its ramp value. `fade_alpha` must have
+    /// a consumer; otherwise a fade is only a timer the player waits out.
     #[test]
     fn a_fade_beat_draws_a_black_sheet_at_the_ramp_value() {
         // Up from black, halfway through.
@@ -323,10 +312,9 @@ mod tests {
             "the sheet was drawn at {half} halfway through a fade up from black"
         );
 
-        // ⭐ THE CONTROL IS A CLEAR SCREEN, not another fade: a renderer that
-        // always spawned a sheet would satisfy the arm above forever, and a
-        // fully transparent black sheet still costs a UI node every frame of
-        // every cutscene.
+        // The control is a clear screen: a renderer that always spawned a sheet
+        // would pass the arm above, and a transparent sheet still costs a UI
+        // node every frame.
         assert_eq!(
             drawn_fade_alpha(1.0, 0.0, 0.8, 0.8),
             None,

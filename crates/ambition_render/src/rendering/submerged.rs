@@ -1,19 +1,13 @@
-//! A body under the stage is not drawn, and a TRAPDOOR is drawn instead.
+//! A body under the stage is not drawn; a trapdoor is drawn instead.
 //!
-//! ⭐⭐ THE SECOND MODAL BODY MORPH, and the file next door already predicted
-//! it: `morph_ball.rs` ends with *"generalize modal body morphs — that is what
-//! this means, and it deletes this whole file."* This is not that
-//! generalization; it is the second customer, kept deliberately in the same
-//! shape so the eventual generalization has two examples to be right about
-//! rather than one.
+//! Same shape as `morph_ball.rs` and `flyline.rs`: a modal body visual, kept
+//! in that shape so the three can later be generalized together.
 //!
-//! ⛔⛔ IT RUNS AFTER THE MORPH-BALL SYNC AND IS THE LAST WORD. Both systems
-//! restore a hidden body to `Inherited`, and morph-ball's restore is
-//! unconditional on "not morphed" — so a body hidden HERE and read THERE on the
-//! same frame would be handed back to the renderer visible, standing under the
-//! stage in full view. Ordering is the fix rather than teaching morph-ball about
-//! submersion, because the thing morph-ball is wrong about is that it believes
-//! it is the only mode that hides a body.
+//! It runs after the morph-ball sync and has the last word. Both systems
+//! restore a hidden body to `Inherited`, and morph-ball restores whenever the
+//! body is not morphed. If morph-ball ran last, a submerged body would be
+//! made visible under the stage. Ordering fixes this; morph-ball does not need
+//! to know about submersion.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
@@ -26,10 +20,10 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 
 /// Hide every submerged body, and hand every other one back.
 ///
-/// ⛔ `Inherited` ON THE WAY OUT, NEVER A HARD `Visible`. A death overlay or a
-/// room-transition fade hides bodies through the parent; overriding to `Visible`
-/// would make a fighter who happened to surface mid-fade the one thing still on
-/// screen. Morph-ball states the same rule for the same reason.
+/// Restore to `Inherited`, never `Visible`. A death overlay or a
+/// room-transition fade hides bodies through the parent; `Visible` would
+/// leave a surfacing fighter as the only thing on screen. Morph-ball uses
+/// the same rule.
 pub fn sync_submerged_visibility(
     mut bodies: Query<(&ambition_sim_view::BodyPoseView, &mut Visibility), With<PlayerVisual>>,
 ) {
@@ -53,21 +47,15 @@ mod tests;
 
 /// The trapdoor she is replaced with while she is under the stage.
 ///
-/// ⭐⭐ JON, 2026-08-28: *"There should be a trapdoor sprite she is replaced
-/// with on the ground."* Hiding the body answered half of that and left the
-/// other half as nothing at all on stage — an opponent had no idea where she
-/// was, which makes a move whose whole cost is being readable free.
+/// The body is replaced with a trapdoor on the ground, so an opponent can
+/// see where she is. Without it the move would cost nothing in readability.
 ///
-/// ⛔ ONE DOOR PER SUBMERGED BODY, not one door. `morph_ball.rs` next door is a
-/// singleton and its own comments record what that cost: a versus match has
-/// four fighters and any of them may hold this move. The door names the body it
-/// belongs to and dies with that body's submersion.
+/// One door per submerged body: a versus match has four fighters, and any of
+/// them may use this move. The door names its body and is removed when that
+/// body surfaces.
 ///
-/// ⛔ AND IT IS PROCEDURAL, for the reason the morph ball is: the shipped
-/// `trapdoor_boards` art is an EFFECT — eight frames that play once and end —
-/// and the thing wanted here is a persistent object. Borrowing a row out of the
-/// FX atlas to hold it open would be a second consumer of a system that exists
-/// to finish.
+/// Procedural, like the morph ball: the shipped `trapdoor_boards` art is an
+/// effect (eight frames that play once), and this needs a persistent object.
 #[derive(Component)]
 pub struct TrapdoorVisual {
     /// The submerged body this door belongs to.
@@ -83,14 +71,11 @@ pub struct TrapdoorSprite {
 const DOOR_TEXTURE_W: u32 = 64;
 const DOOR_TEXTURE_H: u32 = 16;
 
-/// The door, CLOSED: boards set flush into the floor, a seam down the middle, a
-/// ring pull, and a lip of frame around them.
+/// The door, closed: boards flush in the floor, a seam down the middle, a
+/// ring pull, and a frame around them.
 ///
-/// ⛔⛔ UNOPENED, AND JON SAID SO IN AS MANY WORDS: *"where they move is shown by
-/// a unopened trap door sprite on the ground."* The first version drew an OPEN
-/// hatch — a dark hole with the two boards folded back — which reads as *"she is
-/// down there, look"* and gives the whole beat away. A closed door is a thing on
-/// the floor that has to be watched, and the OPENING is the next stage's own
+/// Closed on purpose. An open hatch would show where she is and give the
+/// move away; a closed door must be watched. Opening is the next stage's own
 /// effect.
 pub fn build_trapdoor_image() -> Image {
     let (w, h) = (DOOR_TEXTURE_W, DOOR_TEXTURE_H);
@@ -99,8 +84,8 @@ pub fn build_trapdoor_image() -> Image {
         for x in 0..w {
             let u = x as f32 / (w - 1) as f32;
             let v = y as f32 / (h - 1) as f32;
-            // The boards, with a grain along their length and a little more
-            // light near the top edge where the floor catches it.
+            // The boards, with grain along their length and more light near the top
+            // edge, where the floor catches it.
             let grain = ((x as f32 * 0.9).sin() * 0.5 + 0.5) * 0.08;
             let lift = (1.0 - v).powf(1.6) * 0.22;
             let base = 0.30 + grain + lift;
@@ -110,8 +95,8 @@ pub fn build_trapdoor_image() -> Image {
             if (u - 0.5).abs() < 0.014 {
                 rgb = [0.10, 0.07, 0.05];
             }
-            // The frame it is set into — a dark line all the way round, which is
-            // what makes it read as a door in the floor rather than a rug on it.
+            // The frame: a dark line all round, so it reads as a door in the floor
+            // and not a rug on it.
             if v < 0.10 || v > 0.90 || u < 0.03 || u > 0.97 {
                 rgb = [0.13, 0.09, 0.06];
             }
@@ -152,20 +137,18 @@ pub fn build_trapdoor_sprite(mut commands: Commands, mut images: ResMut<Assets<I
 }
 
 /// How much wider than the body the door is drawn. The shipped
-/// `trapdoor_boards` effect is 52-64 px across against a ~30 px fighter, and a
-/// door exactly the width of the person who went through it reads as a hatch.
+/// `trapdoor_boards` effect is 52-64 px across against a ~30 px fighter; a
+/// door exactly as wide as the body reads as a hatch.
 const DOOR_WIDTH_FACTOR: f32 = 1.8;
 /// The door's drawn height, in world px. It lies on the floor.
 const DOOR_HEIGHT: f32 = 12.0;
 
-/// Give every submerged body a door, take it away from every body that has
-/// surfaced, and keep the ones that remain sitting on the floor she went
-/// through.
+/// Give every submerged body a door, remove it from every body that
+/// surfaced, and keep the rest on the floor the body went through.
 ///
-/// ⛔ THE DOOR IS AT HER FEET, NOT AT HER CENTRE. A submerged body never moves
-/// along gravity — `integrate_submerged_clusters` pins that axis — so the feet
-/// line IS the surface she is travelling under, and drawing at the centre would
-/// float the door half a body above the boards.
+/// The door is at the feet, not the centre. A submerged body never moves
+/// along gravity (`integrate_submerged_clusters` pins that axis), so the feet
+/// line is the surface; the centre would float the door half a body up.
 pub fn sync_trapdoor_visuals(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -181,27 +164,20 @@ pub fn sync_trapdoor_visuals(
         ),
         With<PlayerVisual>,
     >,
-    // ⛔⛔ THE OTHER ROAD, AND IT IS THE ONE A MATCH FIGHTER TAKES. `PlayerVisual`
-    // is inserted in exactly one place in the engine — the session's single
-    // exploration player — so a door gated on it alone opened in an Ambition room
-    // and never once in a versus match. Every actor is a `FeatureVisual` reading
-    // `FeatureViewIndex`, and that read-model now carries `submerged`.
+    // The other road, used by match fighters. `PlayerVisual` is only on the
+    // session's single exploration player; every actor is a `FeatureVisual`
+    // reading `FeatureViewIndex`, which carries `submerged`.
     actors: Query<
         (Entity, &crate::rendering::FeatureVisual),
         Without<PlayerVisual>,
     >,
-    // ⛔⛔ `Option`, AND IT IS NOT DEFENSIVE. A plain `Res` here is a HARD STOP
-    // for any composition that does not build the index — it took out this
-    // module's own three player-road tests the moment it was added, with the
-    // undebuggable *"Parameter ... failed validation: Resource does not exist"*.
-    // `declare_the_match_cast_as_the_view` records the same lesson at a cost of
-    // 53 tests. A projection nobody has published yet has nothing to say.
+    // `Option`: a plain `Res` fails any composition that does not build the
+    // index ("Resource does not exist"). No index means nothing to draw.
     feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
     mut doors: Query<(Entity, &TrapdoorVisual, &mut Transform, &mut Sprite)>,
 ) {
-    // Both roads reduced to the only two facts a door needs: where the body is,
-    // and how big it is. Retirement and spawning below read this and nothing else,
-    // so neither has to learn that there are two kinds of body visual.
+    // Both roads reduced to two facts: where the body is and how big it is.
+    // The code below reads only this.
     let mut under: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
     for (body, pose, presented) in &bodies {
         if pose.submerged {
@@ -262,10 +238,8 @@ pub fn sync_trapdoor_visuals(
                 transform,
                 Visibility::Visible,
                 TrapdoorVisual { body },
-                // ⭐ THE SAME FACT THIS DRAWABLE ALREADY KNOWS, said in the ONE
-                // spelling every consumer can ask for. The field above stays --
-                // this visual needs the body to place itself -- but a consumer that
-                // knows nothing about it can now find out whose body it draws.
+                // Which body this drawable draws, in the shared spelling that any
+                // consumer can query. `TrapdoorVisual` above keeps it for placement.
                 ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
                 Name::new("Trapdoor Visual"),
             ),

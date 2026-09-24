@@ -1,6 +1,5 @@
-//! Gravity-zone visuals (visible build only — registered by the presentation
-//! rendering plugin). Extracted from `ambition_portal2d::presentation`
-//! (Stage 6 follow-up): these visualize a *gravity mechanic*, not a portal, and
+//! Gravity-zone visuals (visible build only, registered by the presentation
+//! rendering plugin). These show a gravity mechanic, not a portal, so they
 //! must not depend on portal mechanics.
 
 use bevy::prelude::*;
@@ -51,10 +50,8 @@ pub fn sync_gravity_zone_visual(
                 Name::new("Gravity zone visual"),
             ),
         );
-        // A brighter band on the edge gravity pulls TOWARD (the "down" edge under
-        // this zone's gravity), so the zone reads as a DIRECTION — you can see
-        // which way you'll fall before stepping in, not just that something
-        // changes here.
+        // A brighter band on the edge gravity pulls toward, so the zone shows a
+        // direction: you can see which way you will fall before stepping in.
         let band_color = if zone.dir.y < 0.0 {
             Color::srgba(0.62, 0.40, 0.95, 0.55) // up = violet
         } else {

@@ -11,24 +11,19 @@
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SpriteVisualSync;
 
-/// Every writer of a BODY-OWNED drawable's geometry this frame: the clock bar
+/// Every writer of a body-owned drawable's geometry this frame: the clock bar
 /// above a marked fighter, the hit-flash silhouette, the morph ball, the wire,
-/// the tether, the bubble. When this set is done, what each of those draws
-/// this frame is final.
+/// the tether, the bubble. When this set is done, each of those is final for
+/// the frame.
 ///
-/// ⭐⭐ THE PHASE THE PORTAL PUBLISHER CONSUMES. `publish_portal_compositing_
-/// candidates` reads a drawable's pose and frame to say what a pane may hide;
-/// it was ordered after the ANIMATORS and nothing else, so a body-owned
-/// drawable spawned or moved this frame could reach the renderer never having
-/// been classified, and one moved this frame could be classified where it was
-/// last frame. Rather than an edge per overlay -- the next overlay forgets --
-/// every such writer joins this set and the publisher runs `.after` it. The
-/// schedule edge is what makes Bevy flush their commands in between, so a
-/// drawable spawned inside the set is a candidate on its first frame. A GPT
-/// review named the gap 2026-09-07.
+/// `publish_portal_compositing_candidates` runs after this set. It reads each
+/// drawable's pose and frame to decide what a pane may hide. One set edge,
+/// not an edge per overlay, so a new overlay cannot be forgotten. The edge
+/// also makes Bevy flush commands in between, so a drawable spawned inside the
+/// set is a candidate on its first frame.
 ///
-/// ⚠ A NEW BODY-OWNED DRAWABLE WRITER JOINS THIS SET. That is the whole
-/// contract; a writer outside it is composited a frame late at best.
+/// A new body-owned drawable writer must join this set. Outside it, the
+/// writer is composited a frame late at best.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct BodyOwnedDrawableSync;
 
@@ -79,28 +74,22 @@ pub use actors::{
     sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, BossAnimation,
     PlayerSpriteCharacter,
 };
-// `BoundFeatureKind` lives with the foundation feature taxonomy; re-exported
-// here so existing render call sites resolve unchanged.
+// `BoundFeatureKind` lives with the foundation feature taxonomy;
+// re-exported so render call sites resolve unchanged.
 pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
-// `manage_gradient_lane_visual` + `GradientLaneVisual` stay
-// module-private; the schedule registration uses
-// `actors::manage_gradient_lane_visual` directly so no outside
-// callers need a re-export.
+// `manage_gradient_lane_visual` and `GradientLaneVisual` stay private; the
+// schedule uses `actors::manage_gradient_lane_visual` directly.
 pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, CameraViewState};
-/// The presentation FLOOR's marker: a feature the sim published that no render
-/// family has drawn, and that has stayed that way long enough to be a bug.
+/// The fallback stand-in's marker: a feature the sim published that no render
+/// family has drawn for long enough to be a bug.
 ///
-///  it is a DIAGNOSTIC only. "Is this room presentable yet" is
-/// [`UnclaimedFeatureViews`], which answers immediately where this one answers
-/// late — see that type for why one entity could not do both.
-// ⚠ TEST-ONLY, and narrow on purpose. The stand-in's marker and its resource
-// are already re-exported below; the SYSTEM that produces them was reachable
-// only from inside this module, so a regression test that wants to observe the
-// placeholder appearing had no way to run the pass that draws it. `#[cfg(test)]`
-// keeps the shipped surface exactly as it was.
+/// Diagnostic only. "Is this room presentable yet" is
+/// [`UnclaimedFeatureViews`], which answers at once; this answers late.
+// Test-only: lets a regression test run the pass that draws the stand-in.
+// `#[cfg(test)]` keeps the shipped surface unchanged.
 #[cfg(test)]
 pub(crate) use features::draw_unclaimed_feature_views;
 pub use features::UnclaimedBodyPlaceholder;
@@ -110,10 +99,9 @@ pub use label_layout::{
     layout_world_labels,
     mirror_static_world_labels_per_view,
     MirroredWorldLabel,
-    //  the MARKER is part of the seam, not an internal detail: a game that
-    // spawns its own static world text has to be able to say "one of these per
-    // view, please" — without it the mirror leaves the label as a single shared
-    // entity that a second view would fight over.
+    // The marker is part of the seam: a game that spawns its own static
+    // world text uses it to ask for one copy per view. Without it, a
+    // second view would share the single entity.
     StaticWorldLabel,
     WorldLabel,
     WorldLabelFamily,
@@ -129,30 +117,26 @@ pub use nameplates::{
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
     ensure_active_room_parallax_theme,
-    // The loader's OUTCOME, which presentation reads to tell "not yet" from
+    // The loader's outcome, which presentation reads to tell "not yet" from
     // "never". See `ParallaxThemeAttempts`.
     ParallaxThemeAttempts,
     mirror_parallax_layers_per_view,
     refresh_parallax_layers_on_quality_change,
     spawn_parallax_layers,
     sync_parallax_layers,
-    // The per-view copy's key back to the panel the room spawned. Exported
-    // beside the marker for the same reason: a consumer asking "is my sky
-    // drawn" in a two-view session has to be able to tell a ROOT from a COPY.
+    // The per-view copy's key back to the room's panel. Exported so a
+    // consumer in a two-view session can tell a root from a copy.
     MirroredParallaxLayer,
-    //  the MARKER, not just the systems. A consumer could install the whole
-    // parallax family and had no way to ask whether a backdrop existed — the
-    // component was behind a private module, so "is my sky drawn" was a question
-    // only this crate could answer. `fixtures/external_consumer` asks it now,
-    // which is the consumer that makes this worth exporting.
+    // The marker, so a consumer can ask whether a backdrop exists.
+    // `fixtures/external_consumer` uses it.
     ParallaxLayerVisual,
 };
 pub use primitives::{
     BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
     PlayerVisual, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
 };
-// Game-supplied art map for walk-into world items; the reusable renderer owns the
-// seam, each game fills it with its own pickups' images.
+// Game-supplied art map for walk-into world items: the renderer owns the
+// seam, and each game fills it with its own pickup images.
 pub use item_visuals::WorldItemArt;
 pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
@@ -163,31 +147,24 @@ pub use world::{
     sync_removed_block_visuals,
 };
 
-/// The public seam for CONTENT-OWNED per-actor overlay presentation: sibling
-/// meshes/materials that decorate animated actor sprites (e.g. Ambition's
-/// puppy-slug deep-dream pass). [`PresentationVisualAnimationPlugin`] positions
-/// this set inside the presentation visual-sync chain — after the character
-/// animators have advanced the frame the overlays mirror, before the renderer's
-/// own hit-flash mirror — and gates it on session readiness. A game adds its
-/// named overlay systems `.in_set(ActorOverlaySet)` from its content crate; the
-/// reusable renderer names no game's look.
+/// The public seam for content-owned per-actor overlays: sibling meshes and
+/// materials that decorate animated actor sprites (for example Ambition's
+/// puppy-slug deep-dream pass). [`PresentationVisualAnimationPlugin`] places
+/// this set after the character animators (so overlays mirror the new frame)
+/// and before the hit-flash mirror, and gates it on session readiness. A game
+/// adds its overlay systems `.in_set(ActorOverlaySet)`; the renderer names no
+/// game's look.
 #[derive(bevy::prelude::SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ActorOverlaySet;
 
-/// Presentation systems below consume session-created resources and entities.
-/// During startup, loading, and the launcher there is deliberately no gameplay
-/// session, so the complete per-frame presentation graph must stay dormant.
+/// Presentation systems below use session-created resources and entities.
+/// During startup, loading, and the launcher there is no gameplay session, so
+/// the per-frame presentation graph stays dormant.
 ///
-/// Each of those finds its own subject and no-ops without it.
-///
-///  it was never a deliberate precondition. The session identity that translation was
-/// protecting is entirely carried by the `SessionRoot` + `ActiveSessionScope` check below.
-///
-///  the invariant to hold this to: presentation must not demand more of a
-/// session than SIMULATION does. `simulation_authorized` — the gate on the
-/// gameplay sim itself — asks for exactly one `SessionRoot` naming the active
-/// scope and nothing more. Anything stricter here means a session the engine
-/// agreed to simulate is one it refuses to draw.
+/// Presentation must not demand more of a session than simulation does.
+/// `simulation_authorized` asks for exactly one `SessionRoot` naming the
+/// active scope. A stricter gate here would refuse to draw a session that the
+/// engine simulates.
 fn session_presentation_is_ready(
     gate: Option<
         bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
@@ -205,17 +182,11 @@ fn session_presentation_is_ready(
     })
 }
 
-/// Module-local Bevy plugin: schedules player-bound visual systems
-/// (morph-ball sprite + bubble-shield sprite). Each follows the same
-/// pattern — build the texture once at startup, spawn lazily once the
-/// player entity exists, sync visibility / tint every frame after
-/// `sync_visuals` has mirrored the player transform.
-///
-/// Carved out of `app/plugins.rs::install_player_visual_systems` per
-/// OVERNIGHT-TODO #6. Lives here in `ambition_render/src/rendering/` because
-/// both subsystems chain `.after(sync_visuals)` and are presentation-
-/// only — the body_mode + bubble_shield modules own the systems but
-/// the schedule ordering is a presentation concern.
+/// Schedules player-bound visual systems (morph-ball sprite, bubble-shield
+/// sprite, and related). Each builds its texture once at startup, spawns
+/// lazily once the player exists, and syncs visibility and tint every frame
+/// after `sync_visuals` mirrors the player transform. The modules own the
+/// systems; the ordering is a presentation concern, so it lives here.
 pub struct PlayerVisualSchedulePlugin;
 
 impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
@@ -230,37 +201,31 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 (
                     morph_ball::spawn_morph_ball_visual,
                     morph_ball::sync_morph_ball_visual.in_set(SpriteVisualSync),
-                    // ⛔ AFTER THE MORPH-BALL SYNC, and `chain()` below is what
-                    // makes that true. Both restore a hidden body to
-                    // `Inherited`; whichever runs last wins, and only one of
-                    // them knows the body is under the stage.
+                    // After the morph-ball sync (`chain()` below). Both restore a
+                    // hidden body to `Inherited`; the last one wins, and only this
+                    // one knows the body is under the stage.
                     submerged::sync_submerged_visibility.in_set(SpriteVisualSync),
-                    // The other half of hiding her: what the stage shows
-                    // INSTEAD. Behind the hide because a door drawn for a body
-                    // still on screen would be two of her.
+                    // What the stage shows instead of the hidden body. After the
+                    // hide, or a door and the body would both show.
                     submerged::sync_trapdoor_visuals.in_set(SpriteVisualSync),
-                    // THE WIRE. ⛔ NOT ordered against the door above: a move
-                    // authors one technique or the other, and a body on a rope
-                    // is not under the stage — a `chain()` here would state a
-                    // relationship that does not exist. It is inside this group
-                    // only because it shares the group's `after(sync_visuals)`
-                    // and readiness gate.
+                    // The wire. Not ordered against the door: a move uses one
+                    // technique or the other, and a body on a rope is not under
+                    // the stage. It is in this group only for the shared
+                    // `after(sync_visuals)` and readiness gate.
                     flyline::sync_flyline_visuals.in_set(SpriteVisualSync),
-                    // The tether line, beside the flying wire it borrows its
-                    // rope from — same set, same per-frame lifecycle, and the
-                    // same both-roads rule.
+                    // The tether line, beside the wire whose rope it borrows: same
+                    // set, same lifecycle, same both-roads rule.
                     tether::sync_tether_visuals.in_set(SpriteVisualSync),
                 )
                     .chain()
-                    // Body-owned drawables, every one: the portal publisher
-                    // waits for this set. See `BodyOwnedDrawableSync`.
+                    // All body-owned drawables: the portal publisher waits for this
+                    // set. See `BodyOwnedDrawableSync`.
                     .in_set(BodyOwnedDrawableSync)
                     .after(actors::sync_visuals)
                     .run_if(session_presentation_is_ready),
             )
-            // Bubble shield visual: similar pattern — toggle / tint every
-            // frame from `BodyShieldState::active` and
-            // `BodyShieldState::parrying()`.
+            // Bubble shield visual: toggle and tint every frame from
+            // `BodyShieldState::active` and `BodyShieldState::parrying()`.
             .add_systems(Startup, bubble_shield::build_bubble_shield_sprite)
             .add_systems(
                 Update,
@@ -273,44 +238,42 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .after(actors::sync_visuals)
                     .run_if(session_presentation_is_ready),
             )
-            // Resolve every provider's contributed held-item art (the
-            // `HeldItemArtManifest` data) into loaded `HeldItemArt` handles.
+            // Resolve each provider's held-item art (`HeldItemArtManifest`) into
+            // loaded `HeldItemArt` handles.
             .add_systems(Startup, item_visuals::build_held_item_art)
-            // Resolve every provider's contributed walk-into pickup art (the
-            // `WorldItemArtManifest` data) into loaded `WorldItemArt` handles.
+            // Resolve each provider's walk-into pickup art
+            // (`WorldItemArtManifest`) into loaded `WorldItemArt` handles.
             .add_systems(Startup, item_visuals::build_world_item_art)
-            // Deliberately NOT session-gated: an art file that failed to load is
-            // a fact about the build, and waiting for a session to be presentable
-            // to say so is how the spark blossom stayed quiet.
+            // Not session-gated: an art file that failed to load is a fact about
+            // the build, and should be reported without waiting for a session.
             .add_systems(Update, item_visuals::report_unloadable_item_art)
             .add_systems(
                 Update,
                 (
                     item_visuals::sync_ground_item_visuals.after(actors::sync_visuals),
                     item_visuals::sync_world_item_visuals.after(actors::sync_visuals),
-                    // Despawn any authored block the collision overlay is subtracting
-                    // this frame (a broken brick, a gate-dropped wall) — the render
-                    // half of `removed_block_names`. Generic; every game gets it.
+                    // Despawn any authored block the collision overlay removes this
+                    // frame (a broken brick, a gate-dropped wall): the render half of
+                    // `removed_block_names`.
                     sync_removed_block_visuals,
-                    // A struck block flinches — presentation only, see `block_nudge`.
+                    // A struck block flinches (presentation only; see `block_nudge`).
                     flinch_struck_blocks,
                     item_visuals::sync_held_item_visual.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),
                     shrine_visuals::animate_shrine_visuals.after(actors::animate_props),
                     unauthored_volumes::draw_unauthored_attack_volumes,
                     slash_visuals::spawn_slash_effects,
-                    // After the spawn, so a swing born this frame is already on
-                    // its body when the frame is drawn.
+                    // After the spawn, so a swing born this frame is on its body
+                    // when drawn.
                     slash_visuals::follow_slash_owner.after(slash_visuals::spawn_slash_effects),
                     slash_visuals::animate_slash,
                     mark_beacon::sync_mark_beacon_visual.after(actors::sync_visuals),
-                    // A readable clock above a body that carries one — the
-                    // delayed mark's telegraph. After `sync_visuals` so it sits
-                    // on this frame's pose.
+                    // A clock above a body that carries one (the delayed mark's
+                    // telegraph). After `sync_visuals`, so it uses this frame's pose.
                     body_clock::sync_body_clock_visuals
                         .in_set(BodyOwnedDrawableSync)
                         .after(actors::sync_visuals),
-                    // Reconciled from `MovingPlatformSet` here, it derives and never writes — see
+                    // Derived from `MovingPlatformSet`; never writes it. See
                     // `moving_platforms`.
                     moving_platforms::sync_moving_platform_visuals,
                 )
@@ -318,37 +281,32 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     .run_if(session_presentation_is_ready),
             );
 
-        // ⭐ The sprite-effect capability, installed UNCONDITIONALLY and outside
-        // the portal cfg below: `SpriteEffect` is an engine concept any sprite
-        // may carry, and gating it on the portal mechanic would make a general
-        // facility silently absent in a build that simply has no portals.
-        // The plugin installs its own state and systems, so this is one line.
+        // The sprite-effect capability, installed unconditionally and outside
+        // the portal cfg: `SpriteEffect` is an engine concept any sprite may
+        // carry, not a portal feature.
         app.add_plugins(ambition_sprite_fx::SpriteFxPlugin);
 
         // Portal-gun visuals (placed-portal quads, partial-transit pieces, the
-        // disorientation / mode indicators) now live in the reusable
-        // `ambition_portal2d_presentation` crate; the sandbox adds its plugin,
-        // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `ambition_portal2d::host_adapter`). Gravity visuals
-        // and the F7 dev off-switch stay host-side. All of it only compiles
-        // with the portal mechanic + its render feature.
+        // disorientation and mode indicators) live in
+        // `ambition_portal2d_presentation`. The sandbox adds its plugin, places
+        // its set, and bridges host seams (see `ambition_portal2d::host_adapter`).
+        // Gravity visuals and the F7 dev off-switch stay host-side.
         #[cfg(feature = "portal_render")]
         {
             use ambition_portal2d_presentation::{PortalPresentationPlugin, PortalPresentationSet};
-            // MEASUREMENT ONLY (D-HEADLESS-DESPAWN, not a landed fix): a view-cone
-            // capture rig is render-to-texture — an offscreen `Camera2d` whose
-            // target is an `Image`. `backends: None` omits the RenderApp, so the
-            // image never fills AND the rig's teardown despawns a `Camera`, whose
-            // `CameraMainTextureUsages` sync hook reads a resource only
-            // `SyncWorldPlugin` creates. Same reasoning as `tile_spine`.
+            // Measurement only (D-HEADLESS-DESPAWN): a view-cone capture rig
+            // renders to an `Image`. With `backends: None` there is no RenderApp,
+            // so the image never fills, and despawning its `Camera` runs a hook
+            // that reads a resource only `SyncWorldPlugin` creates. Same reasoning
+            // as `tile_spine`.
             let has_render_app = app.get_sub_app(bevy::render::RenderApp).is_some();
             app.add_plugins(PortalPresentationPlugin {
                 view_cones: has_render_app,
                 ..PortalPresentationPlugin::default()
             });
-            // Portal body-copy visuals must run after the player animator, not only after
-            // `sync_visuals`: trimmed sprites can update `Sprite::custom_size` and `Anchor` during
-            // animation, and the portal exit copy must clone that final per-frame render basis.
+            // Portal body-copy visuals run after the player animator, not only
+            // `sync_visuals`: trimmed sprites change `Sprite::custom_size` and
+            // `Anchor` during animation, and the exit copy clones the final basis.
             app.configure_sets(
                 Update,
                 PortalPresentationSet
@@ -367,28 +325,24 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
     }
 }
 
-/// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`].
+/// Schedules the per-frame visual animation chain into
+/// [`ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync`].
 ///
-/// Spawns dynamic feature visuals first (so `sync_visuals` finds them
-/// the same frame), then mirrors transforms / sprite atlas indices,
-/// upgrades enemy / boss sprites, ticks all the per-actor animators,
-/// and finishes with provider-authored wielded-item overlays. Carved out of
-/// `app/plugins.rs::install_visual_animation_systems` per
-/// OVERNIGHT-TODO #6 — every system in this chain lives under
-/// `presentation/rendering/`.
+/// Spawns dynamic feature visuals first (so `sync_visuals` finds them the same
+/// frame), then mirrors transforms and atlas indices, upgrades enemy and boss
+/// sprites, ticks the per-actor animators, and ends with provider-authored
+/// wielded-item overlays.
 ///
-/// Pinned `.after(map_menu::handle_map_menu_hotkeys)` because the
-/// map-menu input is the last presentation-input system this set
-/// runs after; ordering is per the presentation install chain.
+/// Pinned `.after(map_menu::handle_map_menu_hotkeys)`: the map-menu input is
+/// the last presentation-input system this set runs after.
 pub struct PresentationVisualAnimationPlugin;
 
 impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
-        // Every visual below draws from the frame-clock presented poses, so the
-        // resample must already have run this frame. Schedule-local edge: both
-        // sides live in `Update` for all three sim hosts.
+        // Every visual below draws from frame-clock presented poses, so the
+        // resample must run first. Both sides are in `Update` for all three sim
+        // hosts.
         app.configure_sets(
             Update,
             ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync
@@ -396,12 +350,11 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
         app.init_resource::<slash_visuals::SlashSources>();
-        // The presentation floor's CENSUS — "which published views is nothing
-        // drawing" — is what the room-transition cover waits on. Its publisher
-        // is the tail of the chain below; its dormant answer is the system
-        // beside it, because a `Resource` does not clean itself up when the
-        // session that filled it goes away and a stale non-zero census is an
-        // eight-second black screen.
+        // The fallback census ("which published views is nothing drawing") is
+        // what the room-transition cover waits on. The chain below publishes it.
+        // The dormant system clears it, because a `Resource` is not cleaned up
+        // with its session, and a stale non-zero census blacks out the screen
+        // until the cover deadline.
         app.init_resource::<features::UnclaimedFeatureViews>();
         app.add_systems(
             Update,
@@ -413,16 +366,15 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     session_presentation_is_ready,
                 )),
         );
-        // Open, content-owned projectile art registry (empty until a game's
-        // content crate registers looks). The renderer resolves each in-flight
-        // projectile's `ProjectileVisualId` through it.
+        // Content-owned projectile art registry (empty until a game registers
+        // looks). The renderer resolves each projectile's `ProjectileVisualId`
+        // through it.
         app.init_resource::<ambition_projectiles::ProjectileVisualCatalog>();
         hit_flash::add_hit_flash_material_plugin(app);
-        // Position the content-owned actor-overlay seam: after the character
-        // animator (overlays mirror the frame it just advanced), before the
-        // hit-flash mirror (the flash silhouette reads the sprite state overlay
-        // syncs may tint). The set carries the session gate so member systems
-        // stay dormant outside a running session, exactly like the chain below.
+        // Place the content-owned overlay seam: after the character animator
+        // (overlays mirror its new frame), before the hit-flash mirror (the
+        // silhouette reads sprite state that overlays may tint). The set carries
+        // the session gate, like the chain below.
         app.configure_sets(
             Update,
             ActorOverlaySet
@@ -433,67 +385,48 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 )
                 .run_if(session_presentation_is_ready),
         );
-        // The per-actor pose read-model (`ActorAnimIndex`) is rebuilt SIM-side
-        // (E4 slice 19: `FeatureViewSyncSchedulePlugin` owns the resource and
-        // the overlay-advance + rebuild pair, in the FeatureViewSync tail this
-        // chain is ordered after) — presentation is a pure consumer.
+        // `ActorAnimIndex` is rebuilt sim-side (`FeatureViewSyncSchedulePlugin`,
+        // in the FeatureViewSync tail this chain runs after). Presentation only
+        // consumes it.
         app.add_systems(
             Update,
             (
-                //  I claimed in `632ecf1b4` that an edge here would be a vacuous
-                // cross-schedule `.after`.
-                //
-                // Head of the chain, beside the other spawner, because the room
-                // has to be drawn before `sync_visuals` reads positions for it —
-                // not merely before the floor. The dependency also earns an
-                // auto-inserted `ApplyDeferred` (`Update` keeps Bevy's default
-                // build settings), which is the part that makes the spawns
-                // VISIBLE rather than merely earlier.
+                // Head of the chain: the room must be drawn before `sync_visuals`
+                // reads its positions. The edge also gets an auto-inserted
+                // `ApplyDeferred` (`Update` keeps default build settings), which makes
+                // the spawns visible, not only earlier.
                 world::respawn_room_visuals_on_request,
-                // Spawn visual entities for encounter-spawned enemies
-                // BEFORE sync_visuals reads positions for them, and retire the
-                // ones whose sim feature is gone (an expired loot drop) so a
-                // room doesn't accumulate invisible sprites.
+                // Spawn visuals for encounter-spawned enemies before `sync_visuals`
+                // reads them, and remove ones whose sim feature is gone (an expired
+                // drop), so a room does not collect invisible sprites.
                 features::spawn_dynamic_feature_visuals,
                 features::despawn_dead_dynamic_feature_visuals,
-                // The reusable selected-character binder: install (and rebind) the
-                // worn character's sheet/animator/anchor from the canonical
-                // `WornCharacter` identity. Runs BEFORE the fallback so a
-                // worn-identity player never gets the neutral rectangle. The app
-                // and every standalone demo consume this ONE path.
+                // The selected-character binder: install or rebind the worn
+                // character's sheet, animator, and anchor from `WornCharacter`.
+                // Before the fallback, so a worn player never gets the neutral
+                // rectangle. The app and every demo use this one path.
                 actors::bind_worn_character_presentation,
-                // Safety net for a bare PlayerVisual with no worn identity (a
-                // minimal shell): give it a drawable fallback before sync_visuals
-                // queries `&mut Sprite`.
+                // Fallback for a bare `PlayerVisual` with no worn identity (a
+                // minimal shell): give it a sprite before `sync_visuals` queries
+                // `&mut Sprite`.
                 actors::ensure_player_visual_sprite,
                 actors::sync_visuals.in_set(SpriteVisualSync),
                 actors::upgrade_actor_sprites,
-                // Grouped (parallel within their chain slot): player-sprite and
-                // prop-sprite quality refreshes touch disjoint entity families, so
-                // they need no order between them. Nesting also keeps this chained
-                // tuple within Bevy's 20-system arity after the pose-rebuild add.
+                // Grouped: player and prop quality refreshes touch disjoint entities,
+                // so they need no order. Nesting also keeps this tuple within Bevy's
+                // 20-system limit.
                 (
                     actors::refresh_player_sprites_for_resident_quality,
                     actors::refresh_prop_sprites_on_game_assets_change,
                 ),
                 actors::upgrade_boss_sprites,
-                // Attach the hit-flash white-silhouette overlay to every
-                // character sprite (player + enemies + NPCs + bosses) once
-                // its texture / atlas is loaded. Sized as a sibling mesh
-                // synced in world space every frame.
-                // ⛔⛔ GUARDED: it takes `ResMut<Assets<Mesh>>`,
-                // `ResMut<Assets<HitFlashMaterial>>` and
-                // `Res<Assets<TextureAtlasLayout>>`, and Bevy 0.19 panics the
-                // schedule when a parameter is absent where 0.18 skipped. In a
-                // headless composition with no render stack that took the whole
-                // app down — 26 of the feature union's failures.
-                // ⭐ THE DOC PREDICTED THIS SYSTEM BY NAME.
-                // `engine/headless-verification.md` records three of these
-                // hiding in succession — "a missing `Assets<TextureAtlasLayout>`,
-                // then `GizmoConfigStore`, then `Assets<Mesh>`" — and this one
-                // takes all three. Guarding on all three rather than on the one
-                // that happened to fail first is the whole point of that
-                // sentence.
+                // Attach the hit-flash overlay to every character sprite once its
+                // texture or atlas is loaded.
+                // Guarded on all three assets it uses (`Assets<Mesh>`,
+                // `Assets<HitFlashMaterial>`, `Assets<TextureAtlasLayout>`): Bevy
+                // 0.19 panics when a parameter is missing, and a headless
+                // composition has no render stack. See
+                // `engine/headless-verification.md`.
                 hit_flash::attach_hit_flash_overlays
                     .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
                         bevy::asset::Assets<bevy::mesh::Mesh>,
@@ -506,39 +439,26 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                     >),
                 actors::animate_player,
                 actors::animate_characters,
-                // Content-owned overlays (the `ActorOverlaySet` seam) run here:
-                // after `animate_characters`, before the hit-flash mirror.
+                // Content-owned overlays (`ActorOverlaySet`) run here: after
+                // `animate_characters`, before the hit-flash mirror.
                 //
-                // Mirror the source sprite's atlas + transform into the
-                // hit-flash overlay and gate visibility on the current
-                // hit_flash timer. Runs after the animator so the overlay
-                // tracks the same frame the source draws this tick.
+                // Mirror the source sprite's atlas and transform into the hit-flash
+                // overlay, after the animator, so it tracks this tick's frame.
                 hit_flash::sync_hit_flash_overlays.in_set(BodyOwnedDrawableSync),
                 hit_flash::cleanup_hit_flash_overlays,
                 actors::animate_props,
                 actors::animate_feature_sprites,
                 actors::animate_bosses.in_set(actors::BossAnimation),
-                // HazardColumn vertical-column visual — yellow during
-                // telegraph, red during strike. Runs after
-                // `animate_bosses` so it can read the move-derived
-                // `BossAttackState` read model upstream.
+                // HazardColumn column visual: yellow during telegraph, red during
+                // strike. After `animate_bosses`, so it reads the `BossAttackState`
+                // read model.
                 actors::manage_gradient_lane_visual,
-                // Provider-authored over-hand item sprites consume the generic
-                // wielded-item read model and App-local visual catalog.
+                // Provider-authored over-hand item sprites, from the wielded-item
+                // read model and the app-local visual catalog.
                 wielded_item_visuals::sync_wielded_item_visuals,
-                // The FLOOR, and it is LAST because that is the only position in
-                // which its comment is true: a body the sim published a view for
-                // that no family claimed gets a marked rectangle rather than
-                // nothing at all.
-                //
-                // It sat second in this chain — before the worn-character
-                // binder, the player fallback, the sprite upgrades and the boss
-                // pass — while claiming to run "after every family", and it was
-                // ALSO registered a second time outside the chain, ungated by
-                // `session_presentation_is_ready`. Two
-                // copies of a spawner is one copy too many, and the ungated one
-                // could draw a stand-in before the intended family was even
-                // allowed to run.
+                // The fallback runs last, after every family: a body the sim
+                // published that no family claimed gets a marked rectangle. It must
+                // be registered only once, here, under the session gate.
                 features::draw_unclaimed_feature_views,
             )
                 .chain()
@@ -548,10 +468,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
-        // The hard-launch smoke trail and the smash-charge cues. Both read only
-        // a read-model and write only messages, so neither needs an edge
-        // against the sprite chain — but both belong in the same set, which is
-        // what carries the session gate and what `schedule_tests` pins.
+        // The hard-launch trail and smash-charge cues read only a read model
+        // and write only messages, so they need no edge against the sprite
+        // chain. They share this set for the session gate, which
+        // `schedule_tests` checks.
         app.add_systems(
             Update,
             (
@@ -567,9 +487,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
-        // (The room's static-visual respawn is the head of the chain above. The
-        // sim emits `RespawnRoomVisualsRequested`; we own the actual spawn here
-        // so the sim never imports the render layer.)
+        // The room's static-visual respawn is the head of the chain above. The
+        // sim emits `RespawnRoomVisualsRequested`; the spawn is here so the sim
+        // never imports the render layer.
     }
 }
 
@@ -577,36 +497,28 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
 mod schedule_tests {
     use super::*;
 
-    /// The room's visuals must be SPAWNED inside the ordered visual chain,
-    /// not floating unordered in `Update`.
+    /// The room's visuals must be spawned inside the ordered visual chain, not
+    /// unordered in `Update`.
     ///
-    /// `632ecf1b4` recorded that an ordering edge here would be a vacuous cross-schedule
-    /// `.after` — reasoning from the SET'S NAME
-    /// (`Platformer2dSimulationPhaseMonolith::PresentationVisualSync` reads like a simulation
-    /// phase) instead of from where its members are registered. They are registered in
-    /// `Update`, the set is configured in `Update`, and the respawn was in `Update`: one
-    /// schedule, ordinary edge.
-    ///
-    /// That is how a room transition left every authored feature wearing a stand-in.
+    /// `Platformer2dSimulationPhaseMonolith::PresentationVisualSync` sounds like a
+    /// sim phase, but its members and the respawn are all registered in `Update`,
+    /// so an ordinary edge works. Without it, a room transition leaves every
+    /// authored feature with a stand-in.
     #[test]
     fn the_room_visual_respawn_is_inside_the_presentation_chain() {
         use bevy::ecs::schedule::{Schedules, SystemSet};
         use bevy::prelude::{App, Update};
 
-        //  the plugin installs a `Material2dPlugin`, so a bare `App` panics
-        // inside `bevy_asset`. Minimal + asset infrastructure is enough to build
-        // the schedule, which is all this test reads.
+        // The plugin installs a `Material2dPlugin`, so a bare `App` panics in
+        // `bevy_asset`. Minimal plus asset plugins are enough to build the
+        // schedule.
         let mut app = App::new();
         app.add_plugins((bevy::MinimalPlugins, bevy::asset::AssetPlugin::default()));
         app.add_plugins(PresentationVisualAnimationPlugin);
 
-        // systems cannot be identified by NAME here. Bevy compiles system names out unless its
-        // `debug` feature is on, so every one of them reports `<Enable the debug feature to see the
-        // name>`; a name-matching pin silently matches nothing. The mirror image of a check that
-        // cannot fail, and just as worthless.)
-        //
-        // So the assertion is a COUNT, and it is the better one anyway: every system this plugin
-        // puts in `Update` must be inside the ordered set.
+        // Systems cannot be matched by name: without Bevy's `debug` feature,
+        // every name is a placeholder. So the assertion is a count: every
+        // system this plugin puts in `Update` must be inside the ordered set.
         let total = {
             let schedules = app.world().resource::<Schedules>();
             schedules
@@ -616,9 +528,8 @@ mod schedule_tests {
                 .systems
                 .len()
         };
-        // The graph answers `systems_in_set` only once it has been BUILT — an
-        // unbuilt one reports `Uninitialized` rather than an empty set, which is
-        // the good failure direction. Build it without running anything.
+        // `systems_in_set` works only on a built graph; an unbuilt one reports
+        // `Uninitialized`, not an empty set. Build it without running anything.
         app.world_mut()
             .resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
                 schedules

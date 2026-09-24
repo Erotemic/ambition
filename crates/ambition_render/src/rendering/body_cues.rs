@@ -1,20 +1,19 @@
 //! One-shot cues detected from per-body timers in the read-model.
 //!
-//! Some beats are EDGES, and an edge wants a sound: the mechanical latch when
-//! a smash charge takes, the higher lock when it fills, the clang when a
-//! perfect shield catches a strike. None of those is a state a continuous cue
-//! can carry, and none of them is published as an event — the simulation
-//! publishes the resolved timer and this layer finds the edge on it.
+//! Some beats are edges, and an edge wants a sound: the latch when a smash
+//! charge takes, the higher lock when it fills, the clang when a perfect
+//! shield catches a strike. A continuous cue cannot carry these, and the sim
+//! does not publish them as events. It publishes the resolved timer, and
+//! this layer finds the edge.
 //!
-//! Finding it HERE, against the previous frame's published value rather than
-//! in the simulation, is what keeps these safe under rollback: a resimulated
-//! tick republishes the same value, and this pass runs once per rendered
-//! FRAME off the read-model, so a rewind cannot fire a cue twice. Nothing in
-//! this module is rollback state.
+//! Finding the edge here, against the previous frame's published value, is
+//! safe under rollback: a resimulated tick republishes the same value, and
+//! this pass runs once per rendered frame, so a rewind cannot fire a cue
+//! twice. Nothing here is rollback state.
 //!
-//! Both presentation roads are read through one key, because these are facts
-//! about a BODY and the fighter that has one may be an id-keyed actor (every
-//! seat in the Smash demo) or a player-bodied entity (the exploration road).
+//! Both presentation roads use one key, because these are body facts. The
+//! body may be an id-keyed actor (every seat in the Smash demo) or a
+//! player-bodied entity (the exploration road).
 
 use bevy::prelude::*;
 
@@ -22,9 +21,8 @@ use ambition_sfx::{ids, SfxMessage, SfxWriter};
 
 /// Which body a remembered beat belongs to.
 ///
-/// Two variants because the two presentation roads key their read-models
-/// differently, not because a cue means anything different on either. One map
-/// keyed by this beats two maps that have to be kept in step.
+/// Two variants because the two presentation roads key their read models
+/// differently. One map keyed by this avoids two maps kept in step.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 enum BodyCueKey {
     /// An id-keyed actor — every seated fighter.
@@ -36,8 +34,8 @@ enum BodyCueKey {
 /// What this pass remembers about one charge in flight.
 #[derive(Default)]
 struct ChargeMemory {
-    /// The lock has already sounded for THIS charge. Holding past maximum buys
-    /// nothing, so it must not keep saying so.
+    /// The lock has already sounded for this charge. Holding past maximum
+    /// adds nothing, so it does not sound again.
     locked: bool,
 }
 
@@ -48,11 +46,10 @@ pub struct SmashChargeCueState {
     live: std::collections::HashMap<BodyCueKey, ChargeMemory>,
 }
 
-/// The fraction at or above which a charge counts as LOADED.
+/// The fraction at or above which a charge counts as loaded.
 ///
-/// Not `>= 1.0` exactly: the fraction is a ratio of accumulated hold to the
-/// authored maximum, and a cue that waits for the last float ulp is a cue that
-/// sometimes never fires.
+/// Not exactly `>= 1.0`: the fraction is a ratio of hold time to the authored
+/// maximum, and waiting for the last float ulp can mean it never fires.
 const LOADED_FRACTION: f32 = 0.999;
 
 /// Sound the latch and the lock for every body holding a smash.
@@ -62,10 +59,9 @@ pub fn emit_smash_charge_cues(
     poses: Query<(Entity, &ambition_sim_view::BodyPoseView)>,
     mut sfx: SfxWriter,
 ) {
-    // Collected into one stream so the edge rule below is written once. The
-    // iteration order of the actor index is a hash order, which is safe here
-    // for the reason the index's own note gives: this is presentation, no sim
-    // state reads it, and the cues it emits are unordered anyway.
+    // One stream, so the edge rule is written once. The actor index iterates
+    // in hash order, which is fine here: presentation only, and the cues are
+    // unordered anyway.
     let actors = anim_frames.iter().filter_map(|(id, frame)| {
         frame
             .smash_charge
@@ -81,9 +77,8 @@ pub fn emit_smash_charge_cues(
     for (key, pos, charge) in actors.chain(bodies) {
         let fresh = !state.live.contains_key(&key);
         if fresh {
-            // THE LATCH — the hold took. This is the edge a player needs to
-            // hear, because until it lands they cannot tell a held button from
-            // a dropped input.
+            // The latch: the hold took. Until it sounds, the player cannot tell a
+            // held button from a dropped input.
             sfx.write(SfxMessage::Play {
                 id: ids::PLAYER_SMASH_CHARGE_LATCH,
                 pos,
@@ -99,30 +94,27 @@ pub fn emit_smash_charge_cues(
         }
         still_charging.insert(key);
     }
-    // A charge that ended — released, cancelled, or whose body left the
-    // world — is forgotten, so the NEXT one latches again. Retaining on
-    // presence rather than clearing on a release event is what makes a
-    // despawned fighter cost nothing.
+    // A charge that ended (released, cancelled, or its body left) is
+    // forgotten, so the next one latches again. Retaining on presence, not
+    // clearing on a release event, means a despawned fighter costs nothing.
     state.live.retain(|key, _| still_charging.contains(key));
 }
 
 /// Bodies whose parry beat is already sounding, so the clang fires on the
-/// EDGE rather than every frame the beat is still running.
+/// edge, not every frame of the beat.
 #[derive(Default)]
 pub struct ParryCueState {
     live: std::collections::HashSet<BodyCueKey>,
 }
 
-/// Clang for every perfect shield that actually CAUGHT a strike.
+/// Clang for every perfect shield that caught a strike.
 ///
-/// This cue is the only audible evidence a parry happened. A caught strike is
-/// negated outright — no hit event, no landed-hit fact, no cost to the guard —
-/// so there is no impact sound, no hurt sound and no shield-stress change for
-/// a listener to infer it from.
+/// This is the only audible sign of a parry. A caught strike is negated (no
+/// hit event, no landed-hit fact, no guard cost), so there is no impact, hurt,
+/// or shield-stress sound to infer it from.
 ///
-/// ⛔ the fact is `parry_flash_secs`, never `parrying()`. The window standing
-/// open is true of every raised guard for a few ticks, and a cue driven off
-/// that clangs on every shield raise.
+/// The fact is `parry_flash_secs`, never `parrying()`. The parry window is
+/// open for a few ticks on every guard raise.
 pub fn emit_parry_cues(
     mut state: Local<ParryCueState>,
     features: Res<ambition_sim_view::FeatureViewIndex>,
@@ -146,9 +138,9 @@ pub fn emit_parry_cues(
         }
         sounding.insert(key);
     }
-    // A beat that ended — or whose body left the world — is forgotten, so the
-    // NEXT parry clangs again. Retaining on presence rather than clearing on
-    // an end event is what makes a despawned fighter cost nothing.
+    // A beat that ended (or whose body left) is forgotten, so the next parry
+    // clangs again. Retaining on presence means a despawned fighter costs
+    // nothing.
     state.live = sounding;
 }
 
@@ -190,7 +182,7 @@ mod tests {
     }
 
     /// A released charge is forgotten, so the next one latches again. Without
-    /// the retain the second smash of a match would be silent.
+    /// the retain, a match's second smash would be silent.
     #[test]
     fn the_next_charge_latches_again() {
         let mut app = harness();
@@ -204,8 +196,7 @@ mod tests {
         assert_eq!(cues(&mut app), vec![ids::PLAYER_SMASH_CHARGE_LATCH]);
     }
 
-    /// A charge that starts already full still says both things, in order —
-    /// the frame budget is not a place to lose the latch.
+    /// A charge that starts already full still sounds both beats, in order.
     #[test]
     fn a_charge_that_arrives_full_latches_and_locks() {
         let mut app = harness();
@@ -231,8 +222,8 @@ mod tests {
         assert_eq!(cues(&mut app), vec![ids::PLAYER_SMASH_CHARGE_LOADED]);
     }
 
-    /// The clang fires on the EDGE of a caught parry and once only, and the
-    /// next parry clangs again.
+    /// The clang fires once on the edge of a caught parry, and the next parry
+    /// clangs again.
     #[test]
     fn a_caught_parry_clangs_once() {
         let mut app = parry_harness();
@@ -257,10 +248,9 @@ mod tests {
         assert_eq!(cues(&mut app), vec![ids::PLAYER_PARRY]);
     }
 
-    /// THE BUG THIS CUE EXISTS TO AVOID: a raised shield is not a parry. The
-    /// window standing open is true of every guard for a few ticks, so a cue
-    /// driven off it clangs on every shield raise. The gate is the CAUGHT
-    /// timer, and a body whose guard is merely up publishes zero for it.
+    /// A raised shield is not a parry. The parry window is open on every guard
+    /// raise for a few ticks. The gate is the caught timer, which is zero for a
+    /// guard that is only up.
     #[test]
     fn merely_raising_a_shield_never_clangs() {
         let mut app = parry_harness();
@@ -333,8 +323,8 @@ mod tests {
         }
     }
 
-    /// Rebuild the actor index the way the sim pass does — mark, write, sweep —
-    /// so a body that stops charging really loses its row.
+    /// Rebuild the actor index like the sim pass does (mark, write, sweep), so a
+    /// body that stops charging loses its row.
     fn set_charges(app: &mut App, charges: &[(&str, f32)]) {
         let rows: Vec<(String, ActorAnimFrame)> = charges
             .iter()

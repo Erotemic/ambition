@@ -1,26 +1,25 @@
-//! Engine-generic debug visualizations — the F1 gizmo layers any game opts
-//! into.
+//! Engine-generic debug visualizations: the F1 gizmo layers any game can use.
 //!
-//! The movement engine exposes simulation state; this module decides how to
-//! visualize the GENERIC part of it: world collision blocks (color-keyed by
-//! `BlockKind`), momentum surface chains with their normal/tangent quills,
-//! rebound-pad impulse vectors, moving platforms, room bounds, grids, and a
-//! body/feature layer drawn from the sim-view read-models (`BodyPoseView`,
-//! `FeatureViewIndex`) — never from live sim components, so the layer works in
-//! any host that renders at all.
+//! The movement engine exposes simulation state; this module draws the
+//! generic part: world collision blocks (colour-keyed by `BlockKind`),
+//! momentum surface chains with normal and tangent quills, rebound-pad
+//! impulses, moving platforms, room bounds, grids, and a body/feature layer.
+//! That layer reads the sim-view read models (`BodyPoseView`,
+//! `FeatureViewIndex`), never live sim components, so it works in any host
+//! that renders.
 //!
 //! Two consumers:
 //!
-//! - [`DebugVizPlugin`] — the whole package for a game that has no debug stack
-//!   of its own (the demo apps): an F1 toggle on the shared
-//!   [`DeveloperRuntimeState::debug`] seam plus one draw system over these layers.
-//!   Games start with the viz OFF and press F1 to opt in.
-//! - The sandbox's own richer overlay (`ambition_app::dev::debug_overlay`)
-//!   imports the layer/primitive functions from here and composes them with
-//!   its game-specific layers (authored combat volumes, boss clusters, LDtk
-//!   spine, portals). It does NOT add the plugin — it owns its own hotkeys.
+//! - [`DebugVizPlugin`]: the whole package for a game with no debug stack of
+//!   its own (the demo apps). An F1 toggle on the shared
+//!   [`DeveloperRuntimeState::debug`] seam, plus one draw system. The viz
+//!   starts off.
+//! - The sandbox's overlay (`ambition_app::dev::debug_overlay`) imports the
+//!   layer functions and adds game-specific layers (authored combat volumes,
+//!   boss clusters, LDtk spine, portals). It does not add the plugin; it owns
+//!   its hotkeys.
 //!
-//! NOT a dev HUD: this module draws shapes, nothing else.
+//! This module draws shapes only; it is not a dev HUD.
 
 use ambition_dev_tools::dev_tools::DeveloperTools;
 use ambition_dev_tools::DeveloperRuntimeState;
@@ -77,7 +76,7 @@ pub fn w2(world: &ae::World, p: ae::Vec2) -> BVec2 {
     world_to_bevy(world, p, 0.0).truncate()
 }
 
-/// World-space DELTA (direction/offset) → Bevy 2D (y-flip, no origin shift).
+/// World-space delta (direction/offset) → Bevy 2D (y-flip, no origin shift).
 pub fn engine_delta_to_bevy(delta: ae::Vec2) -> BVec2 {
     BVec2::new(delta.x, -delta.y)
 }
@@ -112,11 +111,9 @@ pub fn draw_aabb_styled(
     let size = aabb.half_size() * 2.0;
     let center = w2(world, aabb.center());
     let fill = with_alpha(color, 0.22);
-    // Bevy gizmos' `rect_2d` draws the outline by default. We want a
-    // filled appearance, so draw a stack of horizontal lines spaced
-    // 2px apart — works on every Bevy gizmo backend without needing a
-    // separate mesh path. The cost is bounded (each AABB is small in
-    // pixel terms and we only call this when the toggle is on).
+    // `rect_2d` draws only an outline. For a fill, draw horizontal lines
+    // 2px apart. This works on every gizmo backend without a mesh path, and
+    // the cost is small (AABBs are small and the toggle is usually off).
     let step = 2.0;
     let half_h = (size.y * 0.5).max(0.5);
     let mut y = -half_h;
@@ -129,8 +126,8 @@ pub fn draw_aabb_styled(
 }
 
 /// Draw a [`ae::CombatVolume`] outline — a box, rotated box, disc, or convex
-/// polygon. Lets an overlay show the ACTUAL shaped hitbox (a blade-arc poly)
-/// instead of its bounding box.
+/// polygon. Shows the actual hitbox shape (for example a blade-arc polygon),
+/// not its bounding box.
 pub fn draw_combat_volume(
     gizmos: &mut Gizmos,
     world: &ae::World,
@@ -180,12 +177,10 @@ pub fn draw_combat_volume(
     }
 }
 
-/// Draw a live hitbox's TRUE damage volume — the shape damage resolution
-/// actually tests, not a re-derived preview. When the hitbox authors a hull
-/// (a convex attack blade, an OBB, a circle) the hull is drawn prominently and
-/// its bounding box is reduced to a faint, vestigial broad-phase outline. A
-/// bare `Aabb` volume has no separate hull, so the box IS the volume (normal
-/// styled fill).
+/// Draw a live hitbox's true damage volume: the shape damage resolution tests.
+/// When the hitbox has a hull (a convex blade, an OBB, a circle), the hull is
+/// drawn prominently and the bounding box is a faint broad-phase outline. A
+/// bare `Aabb` volume is its own hull, so it gets the normal styled fill.
 pub fn draw_hitbox_volume(
     gizmos: &mut Gizmos,
     world: &ae::World,
@@ -202,23 +197,18 @@ pub fn draw_hitbox_volume(
     }
 }
 
-/// Where a body-anchored strike is DRAWN, as opposed to where it was resolved.
+/// Where a body-anchored strike is drawn, as opposed to where it was resolved.
 ///
-/// A diagnostic that misreports ATTACHMENT is worse than no diagnostic: it invites you to debug the
-/// hitbox when the hitbox is fine.
-///
-/// The translation is the owner's [`PresentedPose::delta`] — `presented −
-/// authoritative` — which is the same number every other row of that body takes
-/// this frame. deliberately NOT `presented − owner_anchor`: that form also
-/// silently re-anchors a strike whose volume was resolved against a position
-/// the body has since left, which is a REAL disagreement a diagnostic exists to
-/// show. Presentation moves geometry; it does not repair it.
+/// The translation is the owner's [`PresentedPose::delta`] (`presented -
+/// authoritative`), the same number every other row of that body uses this
+/// frame. Not `presented - owner_anchor`: that would hide a real mismatch
+/// when a volume was resolved against a position the body has since left.
+/// Presentation moves geometry; it does not repair it.
 ///
 /// [`PresentedPose::delta`]: ambition_sim_view::presented_pose::PresentedPose::delta
 ///
-/// the shape is never recomputed: `CombatVolume::translated` preserves it
-/// exactly, and presentation must not reach back into the authoritative
-/// `Hitbox` — the coupling the read model exists to remove.
+/// The shape is not recomputed: `CombatVolume::translated` preserves it, and
+/// presentation must not read the authoritative `Hitbox`.
 pub fn presented_strike_volume(
     strike: &ambition_sim_view::CombatStrikeGeometryView,
     owner_delta: ae::Vec2,
@@ -230,19 +220,15 @@ pub fn presented_strike_volume(
 }
 
 /// This frame's presentation translation for every body the overlay draws,
-/// keyed by body — the join a caller performs once and hands to the shared draw.
+/// keyed by body. A caller builds it once and passes it to the shared draw.
 ///
-/// one delta per BODY, not one lookup per row. The previous version of this join answered
-/// "where is the owner of a strike drawn", so only strikes were re-placed while the same body's
-/// collision envelope and hurtboxes stayed on the tick clock. Everything rigidly attached to one
-/// body has to take the same translation in the same frame or the diagnostic is lying about
-/// attachment.
+/// One delta per body: everything attached to one body (collision envelope,
+/// hurtboxes, strikes) must move by the same amount in the same frame, or the
+/// diagnostic misreports attachment. `PresentedPose` follows
+/// `BodyKinematics`, so bosses and actors are included.
 ///
-/// and the population is now every body: `PresentedPose` follows `BodyKinematics`, so a boss and an
-/// actor answer here exactly as a player does.
-///
-/// A body with no entry has no presented history yet (its first frame), and
-/// `ZERO` is then the honest translation.
+/// A body with no entry has no presented history yet (its first frame), so
+/// `ZERO` is correct.
 pub fn presentation_deltas(
     combat: &CombatGeometryView,
     bodies: &bevy::prelude::Query<&ambition_sim_view::presented_pose::PresentedPose>,
@@ -259,19 +245,17 @@ pub fn presentation_deltas(
 /// Draw authoritative body-combat geometry from the simulation-view boundary.
 ///
 /// Orange is the body's coarse collision envelope, cyan is the effective
-/// damageable silhouette, and red is a live strike. The rows intentionally
-/// carry no controller/primary-player distinction: a fighter is debugged by
-/// the geometry it publishes, not by who is driving it.
+/// Orange is the body's coarse collision envelope, cyan is the damageable
+/// silhouette, and red is a live strike. Rows carry no controller or
+/// primary-player distinction: a fighter is debugged by its geometry.
 ///
-/// every row of one body takes the SAME translation from `deltas` — see
-/// [`presentation_deltas`]. The collision envelope, the hurtboxes and the
-/// body-anchored strikes are one rigid group; translating a subset relocates the
-/// disagreement instead of removing it, which is exactly what happened when only
-/// the strikes were re-placed. Shape and size are preserved; presentation moves
-/// the group and nothing else. World-anchored strikes take no translation.
+/// Every row of one body takes the same translation from `deltas` (see
+/// [`presentation_deltas`]). The envelope, hurtboxes, and body-anchored
+/// strikes are one rigid group; moving a subset would misreport attachment.
+/// World-anchored strikes take no translation.
 ///
-/// An empty map draws the authoritative geometry, which is the honest answer for
-/// a host that publishes no presented poses.
+/// An empty map draws the authoritative geometry, which is correct for a host
+/// that publishes no presented poses.
 pub fn draw_combat_geometry_view(
     gizmos: &mut Gizmos,
     world: &ae::World,
@@ -313,34 +297,29 @@ pub fn draw_combat_geometry_view(
     }
 }
 
-/// The tuning readout: what a designer reads INSTEAD of a log.
+/// The tuning readout: what a designer reads instead of a log.
 ///
-/// Drawn per body, in gizmos only, so it needs no font and works in every
-/// composition the overlay already runs in. Four facts, each answering a
-/// question that a box renderer leaves you guessing at:
+/// Drawn per body with gizmos only, so it needs no font. Four facts:
 ///
-/// * a phase bar above the body — the move's whole duration as a track,
-///   filled to the clock, coloured by the authored window. *Startup* yellow,
-///   *Active* red, *Recovery* blue. "Did that connect during active, or did I
-///   just walk into them during recovery" is unanswerable without it.
-/// * a launch arrow while the body is in hitstun: the velocity it was
-///   thrown with, which is the number knockback tuning is actually about.
-/// * two facing ticks — the body's live facing above, the move's committed
-///   attack orientation below. They agree almost always; the times they do not
-///   are the times you need to see it.
-/// * lock bars under the body: hitstun, hitlag and landing lag as three
-///   distinct lengths. They look identical on screen as "the fighter is not
-///   moving", and they are three different reasons.
+/// * A phase bar above the body: the move's duration as a track, filled to
+///   the clock, coloured by the authored window (Startup yellow, Active red,
+///   Recovery blue). Shows whether a connect happened in active or in
+///   recovery.
+/// * A launch arrow during hitstun: the velocity the body was thrown with,
+///   which is what knockback tuning is about.
+/// * Two facing ticks: the body's live facing above, the move's committed
+///   attack orientation below. When they differ, it is visible.
+/// * Lock bars under the body: hitstun, hitlag, and landing lag as three
+///   lengths. On screen all three look like "the fighter is not moving".
 ///
-/// no controller, no faction, no primary-player check. It draws whatever
-/// the read model published, which is every combat body.
+/// No controller, faction, or primary-player check: it draws every combat
+/// body the read model publishes.
 fn draw_combat_tuning_readout(
     gizmos: &mut Gizmos,
     world: &ae::World,
     body: &ambition_sim_view::CombatBodyGeometryView,
-    // The readout hangs off the body's box, so it rides the SAME translation
-    // the box does — a readout left on the tick clock would slide against the
-    // very box it annotates.
+    // The readout hangs off the body's box, so it takes the same translation
+    // as the box.
     delta: ae::Vec2,
 ) {
     /// Width of the phase / lock tracks, in world px.
@@ -368,9 +347,8 @@ fn draw_combat_tuning_readout(
             Some(ambition_entity_catalog::WindowTag::Startup) => yellow(),
             Some(ambition_entity_catalog::WindowTag::Active) => red(),
             Some(ambition_entity_catalog::WindowTag::Recovery) => blue(),
-            // Invuln / Armor / Cancel are authored windows too, and a designer
-            // wanting them distinguished will want them distinguished; until
-            // then they read as "some authored window", not as nothing.
+            // Invuln, Armor, and Cancel windows read as "some authored window"
+            // until a designer needs them told apart.
             Some(_) => cyan(),
             None => white_dim(),
         };
@@ -382,7 +360,7 @@ fn draw_combat_tuning_readout(
             gizmos.line_2d(filled, tick_top, cyan());
         }
 
-        // The move's COMMITTED orientation, below the body's live one.
+        // The move's committed orientation, below the body's live one.
         let facing_y = center.y + half.y + 6.0;
         gizmos.line_2d(
             w2(world, ae::Vec2::new(center.x, facing_y)),
@@ -394,7 +372,7 @@ fn draw_combat_tuning_readout(
         );
     }
 
-    // The body's LIVE facing.
+    // The body's live facing.
     let live_y = center.y - half.y - 4.0;
     gizmos.line_2d(
         w2(world, ae::Vec2::new(center.x, live_y)),
@@ -412,7 +390,7 @@ fn draw_combat_tuning_readout(
         );
     }
 
-    // ── three locks that look identical on screen ────────────────────────
+    // ── three locks that look the same on screen ─────────────────────────
     let locks = [
         (body.hitstun_s, cyan()),
         (body.hitlag_s, red()),
@@ -423,8 +401,8 @@ fn draw_combat_tuning_readout(
         if *seconds <= 0.0 {
             continue;
         }
-        // A half-second lock fills the track; anything longer is pinned so a
-        // pathological value still reads as "very long" rather than off-screen.
+        // A half-second lock fills the track; longer values are clamped so a
+        // very long lock stays on screen.
         let width = (seconds / 0.5).clamp(0.0, 1.0) * TRACK_W;
         let y = center.y + half.y + 10.0 + row as f32 * 3.0;
         gizmos.line_2d(
@@ -456,23 +434,20 @@ pub fn draw_room_bounds(gizmos: &mut Gizmos, world: &ae::World) {
     draw_aabb(gizmos, world, room, white_dim());
 }
 
-/// Where the world ENDS, drawn beside where it is bounded.
+/// Where the world ends, drawn beside where it is bounded. Shares
+/// `show_room_bounds` with the room bounds.
 ///
-/// The room bounds and the kill line are the same idea one step apart, so they share
-/// `show_room_bounds`.
+/// `gravity_dir` matters: the gate measures every margin along the body's own
+/// `down`, so a line at `y = size.y + margin` is correct only under
+/// down-gravity (wrong in the Noether Chamber). The lines are rotated through
+/// the live frame, like the gate.
 ///
-/// `gravity_dir` is not decoration. The gate measures every margin along the
-/// body's own `down`, so a line drawn at `y = size.y + margin` is correct only
-/// under down-gravity and lies in the Noether Chamber. Both are rotated through
-/// the live frame here for the same reason the gate uses it.
-///
-/// The fall line is always drawn — every room has one whether it wanted one or
-/// not. The side and ceiling lines appear only when the stage opted in, so an
-/// absent line is the honest picture of a direction that does not kill.
+/// The fall line is always drawn: every room has one. Side and ceiling lines
+/// appear only when the stage opts in, so a missing line means that direction
+/// does not kill.
 pub fn draw_world_edges(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae::Vec2) {
-    // Red: crossing this is death. Dimmer for the opt-in pair, so the direction
-    // that is ALWAYS live reads as the default and the other two read as
-    // choices this stage made.
+    // Red: crossing this is death. The opt-in pair is dimmer, so the
+    // always-live direction reads as the default.
     let fall = Color::srgba(1.0, 0.25, 0.25, 0.55);
     let opt_in = Color::srgba(1.0, 0.45, 0.30, 0.42);
     for line in world_edge_lines(world, gravity_dir) {
@@ -481,7 +456,7 @@ pub fn draw_world_edges(gizmos: &mut Gizmos, world: &ae::World, gravity_dir: ae:
     }
 }
 
-/// One drawn world-edge boundary, in WORLD space.
+/// One drawn world-edge boundary, in world space.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldEdgeLine {
     pub from: ae::Vec2,
@@ -491,23 +466,22 @@ pub struct WorldEdgeLine {
     pub always_lethal: bool,
 }
 
-/// The out-of-bounds boundaries of `world` as world-space segments, resolved
-/// in the BODY's frame.
+/// The out-of-bounds boundaries of `world` as world-space segments, in the
+/// body's frame.
 ///
-/// Pure, and separate from the drawing, because the thing worth pinning is the
-/// GEOMETRY: the gate measures every margin along the body's own `down`, so a
-/// line drawn at `y = size.y + margin` is correct only under down-gravity and
-/// lies in the Noether Chamber. A gizmo call cannot be asserted; a segment can.
+/// Pure and separate from drawing, so the geometry can be tested: margins are
+/// measured along the body's own `down`, which a fixed `+y` line gets wrong
+/// under other gravity. A segment can be asserted; a gizmo call cannot.
 pub fn world_edge_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<WorldEdgeLine> {
     let frame = ae::AccelerationFrame::new(gravity_dir);
     let centre = world.size * 0.5;
-    // Half-extents measured along the body's own axes, so a sideways-gravity
-    // room reports its own "how far down" rather than the screen's.
+    // Half-extents along the body's own axes, so a sideways-gravity room
+    // reports its own "how far down".
     let half_side = centre.dot(frame.side).abs();
     let half_fall = centre.dot(frame.down).abs();
 
-    // A segment PERPENDICULAR to `axis`, `distance` along it from the centre,
-    // run out past the room so it reads as a boundary and not a tick mark.
+    // A segment perpendicular to `axis`, `distance` along it from the
+    // centre, extended past the room so it reads as a boundary.
     let segment = |axis: ae::Vec2, distance: f32, span: f32, always_lethal: bool| {
         let along = axis * distance;
         let across = ae::Vec2::new(-axis.y, axis.x) * (span + 240.0);
@@ -518,9 +492,8 @@ pub fn world_edge_lines(world: &ae::World, gravity_dir: ae::Vec2) -> Vec<WorldEd
         }
     };
 
-    // The fall line is ALWAYS present: every room has a pit whether it wanted
-    // one or not. The other two appear only when the stage opted in, so an
-    // absent line is the honest picture of a direction that does not kill.
+    // The fall line is always present. The other two appear only when the
+    // stage opts in.
     let mut lines = vec![segment(
         frame.down,
         half_fall + world.edges.fall,
@@ -567,11 +540,9 @@ pub fn draw_micro_grid(gizmos: &mut Gizmos, world: &ae::World, minor: f32, major
     }
 }
 
-/// Lightweight coarse grid drawn straight through gizmos. Used when
-/// `hide_sprites` strips the authored sprite grid so the player still has a
-/// spatial reference. Spacing matches
-/// [`ambition_platformer2d_core::config::GRID_STEP`] (the same step the sprite grid
-/// uses).
+/// Coarse grid drawn with gizmos. Used when `hide_sprites` removes the
+/// authored sprite grid, so there is still a spatial reference. Spacing is
+/// [`ambition_platformer2d_core::config::GRID_STEP`], like the sprite grid.
 pub fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
     let step = ambition_platformer2d_core::config::GRID_STEP;
     if step <= 0.0 {
@@ -609,8 +580,8 @@ pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools
                 tier: ae::BlinkWallTier::Hard,
             } => red(),
             ae::BlockKind::OneWay => blue(),
-            // Developer overlay: a hidden block is exactly what you want drawn
-            // when you have turned the overlay on.
+            // Developer overlay: draw hidden blocks, because that is what the
+            // overlay is for.
             ae::BlockKind::BonkOnly => green(),
             ae::BlockKind::Hazard => red(),
             ae::BlockKind::PogoOrb => green(),
@@ -620,11 +591,10 @@ pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools
     }
 }
 
-/// Momentum-surface debug: draw every `SurfaceChain` — its segments, and at
-/// each segment midpoint its TANGENT (green, along increasing arc length) and
-/// its outward NORMAL (yellow, the `+normal` side a body rides). Vertices get
-/// a small dot, so the ride geometry (slopes, a loop's interior winding) is
-/// legible without playing it.
+/// Momentum-surface debug: draw every `SurfaceChain` segment, and at each
+/// segment midpoint its tangent (green, toward increasing arc length) and its
+/// outward normal (yellow, the `+normal` side a body rides). Vertices get a
+/// small dot, so slopes and a loop's winding are readable.
 pub fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
     let seg_color = Color::srgba(0.30, 0.90, 1.00, 0.85); // cyan — the surface line
     let normal_color = Color::srgba(1.00, 0.90, 0.20, 0.85); // yellow — ridden side
@@ -686,14 +656,12 @@ pub fn draw_moving_platform_debug(
 // ─────────────────────────── the plugin ───────────────────────────
 
 /// The opt-in F1 debug-visualization package for a game host: an F1 toggle on
-/// the shared [`DeveloperRuntimeState::debug`] seam plus one draw pass over the
-/// generic layers above and a body/feature layer from the sim-view
-/// read-models. No dev HUD, no inspectors — shapes only. The per-layer
-/// [`DeveloperTools`] flags (already in the debug-first posture on desktop)
-/// choose what F1 reveals.
+/// the shared [`DeveloperRuntimeState::debug`] seam plus one draw pass over
+/// the generic layers and a body/feature layer from the sim-view read models.
+/// Shapes only. The per-layer [`DeveloperTools`] flags choose what F1 shows.
 ///
-/// The sandbox app does NOT add this plugin — it composes the same layer
-/// functions inside its own richer overlay and owns its own hotkeys.
+/// The sandbox app does not add this plugin; it uses the layer functions in
+/// its own overlay and owns its hotkeys.
 pub struct DebugVizPlugin {
     /// Whether the viz starts enabled. Games default to `false`: gameplay
     /// first, F1 to peek under the hood.
@@ -711,7 +679,7 @@ impl Default for DebugVizPlugin {
 impl Plugin for DebugVizPlugin {
     fn build(&self, app: &mut App) {
         // Thin-host safety: the shared sim stack normally owns these, but the
-        // plugin must not panic in a host that draws without it.
+        // plugin must not panic without it.
         app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
         );
         app.init_resource::<DeveloperRuntimeState>();
@@ -723,20 +691,16 @@ impl Plugin for DebugVizPlugin {
         app.add_systems(
             Startup,
             move |mut dev_state: ResMut<DeveloperRuntimeState>| {
-                // Shared state defaults clean for every game; an embedding host
-                // may still opt in explicitly for a dedicated diagnostic build.
+                // Shared state defaults to off; an embedding host can opt in for a
+                // diagnostic build.
                 dev_state.debug = start_enabled;
             },
         );
         // `.after(PresentedPoseSet)`: the overlay draws bodies and features at
-        // their PRESENTED positions, so the resample must have happened first.
-        //
-        // Without the edge this system merely CONFLICTED with the resample (it reads
-        // `PresentedPose`, the resample writes it), and Bevy answers a conflict by choosing an
-        // order — stably, and in this case stably wrong. The box was drawn from last frame's
-        // presented pose while the camera it is drawn through had already advanced to this
-        // frame's, so the two disagreed by one frame of motion, every frame: the collision box
-        // visibly shook while the sprite beside it sat still.
+        // their presented positions, so the resample must run first. Without
+        // the edge Bevy picks an order for the conflict, and here it picked the
+        // wrong one: the box used last frame's pose through this frame's camera
+        // and shook beside a still sprite.
         app.add_systems(
             Update,
             (
@@ -744,16 +708,12 @@ impl Plugin for DebugVizPlugin {
                 draw_debug_viz
                     .after(ambition_sim_view::PresentedPoseSet)
                     .run_if(session_world_exists)
-                    // ⛔ A GIZMO SYSTEM WITHOUT A GIZMO STACK IS NOT A PANIC, IT IS
-                    // A NO-OP. `Gizmos` needs `GizmoConfigStore`, which comes from
-                    // bevy's `GizmoPlugin` and therefore from a RENDERER. A headless
-                    // composition that still adds this plugin — `-p
-                    // ambition_demo_smash_app --features visible` is one, and it is
-                    // B3's whole subject — otherwise dies inside bevy's system
-                    // parameter validation naming nothing you can act on.
-                    //
-                    // Same guard `avatar::trail.rs` already puts on its own gizmo
-                    // system; this one was simply never given it.
+                    // No gizmo stack means a no-op, not a panic. `Gizmos` needs
+                    // `GizmoConfigStore` from `GizmoPlugin`, which comes with a
+                    // renderer. A headless composition that adds this plugin (for
+                    // example `-p ambition_demo_smash_app --features visible`) would
+                    // otherwise fail parameter validation. `avatar::trail.rs` uses
+                    // the same guard.
                     .run_if(bevy::ecs::schedule::common_conditions::resource_exists::<
                         bevy::gizmos::config::GizmoConfigStore,
                     >),
@@ -763,7 +723,7 @@ impl Plugin for DebugVizPlugin {
     }
 }
 
-/// F1 flips the shared debug flag — the same seam the sandbox's hotkeys and
+/// F1 toggles the shared debug flag, the same seam the sandbox's hotkeys and
 /// the portal debug overlay bridge read.
 pub fn toggle_debug_viz(
     mut actions: MessageReader<
@@ -779,8 +739,8 @@ pub fn toggle_debug_viz(
     }
 }
 
-/// One pass over the generic layers. Bodies and features are drawn from the
-/// sim-view read-models — presentation reads facts, never live sim clusters.
+/// One pass over the generic layers. Bodies and features come from the
+/// sim-view read models, never live sim clusters.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_debug_viz(
     mut gizmos: Gizmos,
@@ -790,22 +750,19 @@ pub fn draw_debug_viz(
     platform_set: Res<MovingPlatformSet>,
     features: Res<FeatureViewIndex>,
     combat_geometry: Res<CombatGeometryView>,
-    // Gizmos are drawn THROUGH the camera, and the camera advances on the
-    // render clock. A box placed at the raw tick pose is therefore a step
-    // function sampled by a smoothly-moving observer, which reads as a
-    // horizontal sawtooth at the tick rate — the box shakes even though the
-    // simulation is perfectly regular. Sampling the same frame clock as the
-    // camera and the sprite is what makes the overlay STILL, and it costs no
-    // truthfulness: the size, the shape, and the box's relationship to the art
-    // are all unchanged. Only the sub-tick sampling phase matches its viewer.
+    // Gizmos are drawn through the camera, which moves on the render clock.
+    // A box at the raw tick pose is a step function seen by a smooth camera,
+    // so it shakes at the tick rate. Sampling the same frame clock as the
+    // camera and sprite keeps it still; size, shape, and relation to the
+    // art are unchanged.
     presented_features: Res<ambition_sim_view::PresentedFeaturePoses>,
     bodies: Query<(&BodyPoseView, Option<&ambition_sim_view::PresentedPose>)>,
-    // The body-generic presentation translation, read for every body the combat
-    // view publishes — bosses and actors included, which the `bodies` query
-    // above cannot reach (`BodyPoseView` is player-bodied only).
+    // The body presentation translation for every body in the combat view,
+    // including bosses and actors, which `bodies` cannot reach
+    // (`BodyPoseView` is player-bodied only).
     presented_bodies: Query<&ambition_sim_view::PresentedPose>,
-    // The live gravity, for the world-edge lines. `Option` because headless and
-    // test apps do not insert it, and "down" is the honest fallback there.
+    // Live gravity for the world-edge lines. `Option` because headless and
+    // test apps do not insert it; then "down" is used.
     gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
@@ -824,8 +781,7 @@ pub fn draw_debug_viz(
     }
     if developer_tools.show_world_blocks {
         draw_world_blocks(&mut gizmos, world, &developer_tools);
-        // Momentum ride-surfaces live alongside the blocks: the SurfaceChains
-        // + their normals/tangents share the toggle.
+        // Momentum ride surfaces share the block toggle.
         draw_surface_chains(&mut gizmos, world);
     }
     if developer_tools.show_micro_grid {
@@ -840,12 +796,10 @@ pub fn draw_debug_viz(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
-    // TWO boxes for one player body, and the distinction is deliberate: this cyan one is the
-    // COLLISION box from the player-bodied pose view, while `draw_combat_geometry_view` draws
-    // the orange coarse ENVELOPE the combat model publishes for every combat body. They
-    // coincide for an ordinary body (its collision box IS its footprint) and diverge for a
-    // boss, whose envelope is much larger — seeing both is how that divergence is visible at
-    // all.
+    // Two boxes for one player body, on purpose. This cyan one is the
+    // collision box from the player pose view. `draw_combat_geometry_view`
+    // draws the orange coarse envelope from the combat model. They match for
+    // an ordinary body and differ for a boss, whose envelope is much larger.
     if developer_tools.show_player_hitbox || developer_tools.show_player_vectors {
         for (pose, presented) in &bodies {
             let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
@@ -885,8 +839,8 @@ pub fn draw_debug_viz(
                 FeatureVisualKind::Switch if view.switch_on => green(),
                 FeatureVisualKind::Switch => red(),
             };
-            // Same frame clock as the body box above: an enemy's gizmo would
-            // otherwise shake against the camera exactly as the player's did.
+            // Same frame clock as the body box above, so an enemy's gizmo does not
+            // shake against the camera.
             let aabb = ae::Aabb::new(presented_features.presented(id, view.pos), view.size * 0.5);
             draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
         }
@@ -919,8 +873,8 @@ mod world_edge_overlay_tests {
 
     const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);
 
-    /// A room that opted into nothing shows ONE line. An overlay that drew a
-    /// side boundary here would be telling a stage author their corridor kills.
+    /// A room that opts into nothing shows one line. A side boundary here would
+    /// tell a stage author that the corridor kills.
     #[test]
     fn a_room_that_opted_into_nothing_draws_only_its_pit() {
         let lines = world_edge_lines(&stage(None, None), DOWN);
@@ -931,8 +885,8 @@ mod world_edge_overlay_tests {
         assert!((lines[0].to.y - lines[0].from.y).abs() < 0.01, "level line");
     }
 
-    /// Opting in adds exactly the boundaries that were opted into: two sides
-    /// and a ceiling, none of them marked unconditional.
+    /// Opting in adds exactly the opted-in boundaries: two sides and a ceiling,
+    /// none marked always lethal.
     #[test]
     fn opting_in_draws_the_directions_that_were_opted_into() {
         let lines = world_edge_lines(&stage(Some(160.0), Some(64.0)), DOWN);
@@ -951,12 +905,11 @@ mod world_edge_overlay_tests {
         assert!(xs.iter().any(|x| (*x + 160.0).abs() < 0.01));
     }
 
-    /// The lines follow gravity, because the gate does.
+    /// The lines follow gravity, like the gate.
     ///
-    /// This is the whole reason the overlay takes a direction instead of
-    /// assuming `+y`. Rotate gravity a quarter turn and the pit boundary
-    /// becomes VERTICAL — a stage author in the Noether Chamber would otherwise
-    /// be shown a line the simulation does not use.
+    /// Rotate gravity a quarter turn and the pit boundary becomes vertical.
+    /// Otherwise the Noether Chamber would show a line the simulation does not
+    /// use.
     #[test]
     fn the_boundaries_rotate_with_gravity() {
         let world = stage(None, None);
@@ -995,9 +948,9 @@ mod presented_strike_tests {
         }
     }
 
-    /// The overlay drew `strike.volume` verbatim — authoritative tick geometry —
-    /// beside a body resampled on the frame clock, so the red box stepped while
-    /// the fighter glided.
+    /// A body-anchored strike follows its owner's presented position. Drawing
+    /// the raw tick volume beside a frame-clock body makes the box step while
+    /// the fighter glides.
     #[test]
     fn a_body_anchored_strike_follows_its_owners_presented_position() {
         let volume = presented_strike_volume(&strike(true), ae::Vec2::new(7.5, 0.0));
@@ -1020,16 +973,15 @@ mod presented_strike_tests {
         assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
     }
 
-    /// A zero delta is not a fallback, it is the answer. A body with no
-    /// presented history is drawn at its simulated position, so the
-    /// authoritative geometry already IS the drawn geometry.
+    /// A zero delta is the correct answer: a body with no presented history is
+    /// drawn at its simulated position.
     #[test]
     fn without_a_presented_owner_the_authoritative_geometry_is_drawn() {
         let volume = presented_strike_volume(&strike(true), ae::Vec2::ZERO);
         assert_eq!(volume.bounds().center(), ae::Vec2::new(100.0, 100.0));
     }
 
-    /// ONE BODY, ONE TRANSLATION.
+    /// One body, one translation.
     #[test]
     fn every_row_of_one_body_takes_the_same_translation() {
         let delta = ae::Vec2::new(6.0, -2.0);
@@ -1073,15 +1025,12 @@ mod presented_strike_tests {
         );
     }
 
-    /// The overlay and the unauthored-attack visual use the SAME rule.
+    /// The overlay and the unauthored-attack visual use the same rule.
     ///
-    /// `draw_unauthored_attack_volumes` translates the product-facing red
-    /// polygon by the owner's `PresentedPose::delta()`; if these two ever
-    /// disagreed, that polygon and the developer's red box would sit in
-    /// different places for one strike, and the overlay would be the one lying.
-    /// Both now take the same number from the same component — which is the
-    /// point of a delta owned by the body rather than a rule each consumer
-    /// spells out.
+    /// `draw_unauthored_attack_volumes` translates its polygon by the owner's
+    /// `PresentedPose::delta()`. If the two disagreed, the polygon and the debug
+    /// box would be in different places for one strike. Both take the same number
+    /// from the same component.
     #[test]
     fn the_overlay_matches_the_unauthored_attack_visuals_rule() {
         let row = strike(true);

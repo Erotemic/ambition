@@ -13,14 +13,12 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_sim_view::FeatureViewIndex;
 
-/// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
-/// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
-/// flag flips off, restore every sprite to `Inherited` *exactly once* on the
-/// falling edge — we deliberately do NOT keep stomping `Inherited` every
-/// frame because that wipes out legitimate `Visibility::Hidden` writes from
-/// upstream systems (collected pickups, idle morph-ball sphere, player while
-/// in morph-ball mode, etc.) and makes them flicker back to visible.
-/// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
+/// When `DeveloperTools::hide_sprites` is on, force every `Sprite` entity to
+/// `Hidden` so only gizmo outlines show. When it turns off, restore every
+/// sprite to `Inherited` once, on the falling edge. Writing `Inherited` every
+/// frame would undo legitimate `Hidden` writes from other systems (collected
+/// pickups, the morph ball, a morphed player) and make them flicker. UI uses
+/// `Node`/`ImageNode`, not `Sprite`, so HUD and menus are unaffected.
 pub fn apply_hide_sprites_override(
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     mut prev_active: Local<bool>,
@@ -44,33 +42,27 @@ pub fn apply_hide_sprites_override(
 }
 
 fn effective_hide_sprites(developer_tools: &ambition_dev_tools::dev_tools::DeveloperTools) -> bool {
-    // Placeholder art is a visible debug-art mode. If an old persisted or
-    // inspector-mutated state leaves both booleans true, keep placeholders
-    // visible instead of letting hide mode erase them.
+    // Placeholder art is a visible debug-art mode. If a persisted or
+    // inspector state has both flags on, keep placeholders visible.
     developer_tools.hide_sprites && !developer_tools.placeholder_sprites
 }
 
 // =================================================================
-// Gradient Sentinel — HazardColumn vertical-column visual
+// Gradient Sentinel: HazardColumn vertical-column visual
 // =================================================================
 //
-// The new HazardColumn boss attack profile is a tall vertical
-// hazard column at the boss x. `volumes_for_profile` already
-// returns the right AABB for damage; this system layers a visible
-// rectangle so the player can read the column shape during
-// telegraph (yellow pulsing) and strike (red solid). Without it
-// the player only sees the boss's sprite tint and can't tell where
-// the column is in world space.
+// The HazardColumn boss attack is a tall hazard column at the boss x.
+// `volumes_for_profile` gives the damage AABB; this system draws a visible
+// rectangle so the player can see the column during telegraph (yellow,
+// pulsing) and strike (red, solid).
 //
-// Pattern: a `GradientLaneVisual` marker component holds the owner
-// boss entity. `manage_gradient_lane_visual` spawns one when the
-// boss enters HazardColumn telegraph/active and despawns it when
-// the boss leaves the profile. Per-frame, it also updates the
-// visual's transform + color based on the live state.
+// A `GradientLaneVisual` marker holds the owner boss. The manager spawns one
+// when the boss enters HazardColumn telegraph or active, updates its
+// transform and colour each frame, and despawns it when the boss leaves.
 
-/// Marker for the HazardColumn column visual entity. Carries the
-/// owner boss's FEATURE ID (the stable view identity — never a sim
-/// `Entity`) so the manager system can find / remove the matching visual.
+/// Marker for the HazardColumn column visual. Holds the owner boss's feature
+/// id (the stable view identity, never a sim `Entity`) so the manager can
+/// find or remove the matching visual.
 #[derive(Component, Clone, Debug)]
 pub struct GradientLaneVisual {
     pub owner_id: String,
@@ -78,9 +70,8 @@ pub struct GradientLaneVisual {
 
 const GRADIENT_LANE_TELEGRAPH_COLOR: Color = Color::srgba(1.0, 0.85, 0.20, 0.45);
 const GRADIENT_LANE_STRIKE_COLOR: Color = Color::srgba(1.0, 0.32, 0.20, 0.75);
-/// Z layer for the lane visual. Sits behind feature sprites
-/// (`feature_z(Boss) = 11.0`) but in front of background tiles so
-/// the column reads as a foreground hazard.
+/// Z layer for the lane visual: behind feature sprites
+/// (`feature_z(Boss) = 11.0`), in front of background tiles.
 const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 
 /// Spawn/update/despawn a vertical column visual for every boss currently telegraphing or striking
@@ -125,7 +116,7 @@ pub fn manage_gradient_lane_visual(
                 GRADIENT_LANE_TELEGRAPH_COLOR
             };
         } else {
-            // Owner stopped telegraphing/striking HazardColumn — despawn.
+            // The owner stopped telegraphing or striking HazardColumn: despawn.
             commands.entity(visual_entity).despawn();
         }
     }
@@ -160,9 +151,9 @@ pub fn manage_gradient_lane_visual(
     }
 }
 
-/// Cached pre-placeholder sprite state so toggling `placeholder_sprites`
-/// off can restore the textured rendering. Stored per-entity the first
-/// time we collapse the sprite to a colored rectangle.
+/// Cached sprite state from before placeholder mode, so turning
+/// `placeholder_sprites` off can restore the textured sprite. Stored the first
+/// time a sprite becomes a coloured rectangle.
 #[derive(Component, Clone)]
 pub struct SpriteOriginalState {
     pub image: Handle<Image>,
@@ -172,15 +163,13 @@ pub struct SpriteOriginalState {
     pub image_mode: bevy::sprite::SpriteImageMode,
 }
 
-/// When `DeveloperTools::placeholder_sprites` is enabled, replace every
-/// textured sprite with a colored rectangle of the collision/debug size —
-/// the "placeholder art era" look. When the flag flips back off, restore
-/// the original texture, atlas, tint, sizing, and image mode.
+/// When `DeveloperTools::placeholder_sprites` is on, replace every textured
+/// sprite with a coloured rectangle of the collision/debug size. When it
+/// turns off, restore the original texture, atlas, tint, size, and image mode.
 ///
-/// The placeholder color is derived from a per-entity discriminator
-/// (`FeatureVisual` / `PlayerVisual` / boss / projectile markers) so
-/// similar entities visually group. Anything without a known marker
-/// falls back to the existing sprite color (kept as-is).
+/// The colour comes from a per-entity marker (`FeatureVisual`, `PlayerVisual`,
+/// boss, projectile) so similar entities group visually. Entities with no
+/// known marker keep their sprite colour.
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
@@ -198,15 +187,10 @@ pub fn apply_placeholder_sprites_override(
 ) {
     if developer_tools.placeholder_sprites {
         for (entity, mut sprite, original, feature, player, player_pose, proj_id) in &mut sprites {
-            // Record original state once so we can restore on toggle-off.
+            // Record the original state once, to restore on toggle-off.
             if original.is_none() {
-                // `try_insert`: the targets are sprite entities, and
-                // `despawn_dead_dynamic_feature_visuals` retires those the moment
-                // a feature's view disappears — so this deferred write can land
-                // on an entity that is already gone. Recording the "original"
-                // appearance of a sprite that is being destroyed has no meaning.
-                //
-                // REPRODUCED, not reasoned: see
+                // `try_insert`: `despawn_dead_dynamic_feature_visuals` can despawn
+                // the target before this deferred write lands. Covered by
                 // `deferred_write_safety::production_passes`.
                 commands.entity(entity).try_insert(SpriteOriginalState {
                     image: sprite.image.clone(),
@@ -225,10 +209,9 @@ pub fn apply_placeholder_sprites_override(
                 player.is_some(),
                 proj_tint,
             );
-            // Drop the texture and atlas so the sprite renders as a flat
-            // rectangle. Size feature placeholders to their gameplay AABB
-            // rather than their authored render bounds so placeholder mode
-            // doubles as a collision-readability mode.
+            // Drop the texture and atlas so the sprite is a flat rectangle. Size
+            // feature placeholders to their gameplay AABB, not their render
+            // bounds, so placeholder mode also shows collision size.
             if sprite.image != Handle::default() {
                 sprite.image = Handle::default();
             }
@@ -270,9 +253,8 @@ fn pick_placeholder_color(
     if is_player {
         return Color::srgba(0.55, 0.85, 1.00, 1.0);
     }
-    // Projectiles read their placeholder color from their visual id's authored
-    // debug tint (a glider, a fireball, an apple each distinct) — not from
-    // whether the player or an enemy fired them.
+    // Projectiles use their visual id's authored debug tint (glider,
+    // fireball, apple each distinct), not who fired them.
     if let Some([r, g, b, a]) = proj_tint {
         return Color::srgba(r, g, b, a);
     }

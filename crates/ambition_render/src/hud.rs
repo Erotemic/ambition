@@ -1,20 +1,18 @@
 //! Always-on player HUD: health, mana, and money meters (visible build).
 //!
 //! A small bottom-left overlay drawn with Bevy UI: a red **health** bar, a
-//! blue **mana** bar, and a gold **money** readout. Distinct from the
-//! debug/quest text HUD (`app/hud.rs`) — this is the player-facing status
-//! widget that's always on screen.
+//! blue **mana** bar, and a gold **money** readout. Separate from the
+//! debug/quest text HUD (`app/hud.rs`); this is the always-visible
+//! player-facing status widget.
 //!
-//! Mana is a real spendable resource where the experience declared it: the
-//! player mana regeneration system refills the body's banked Mana
-//! over time so charge attacks / the fireball (which already spend it
-//! via the projectile spawner) draw it down and it recovers. Money is fed by
-//! `PickupKind::Currency` collection crediting the body wallet. This module
-//! is a pure consumer of the sim-built
-//! [`ambition_sim_view::PlayerHudFacts`] snapshot (E4 slices
-//! 5+6+16) — it never queries live body clusters.
+//! Mana is a spendable resource where the experience declares it: the mana
+//! regeneration system refills the body's banked Mana, so charge attacks and
+//! the fireball draw it down and it recovers. Money comes from
+//! `PickupKind::Currency` pickups credited to the body wallet. This module
+//! only reads the sim-built [`ambition_sim_view::PlayerHudFacts`] snapshot;
+//! it never queries live body clusters.
 
-/// The DECLARED-HUD renderer: whatever the active route's game said its HUD reads.
+/// The declared-HUD renderer: whatever the active route's game declared.
 pub mod declared;
 
 use bevy::prelude::*;
@@ -35,18 +33,17 @@ const BAR_H: f32 = 13.0;
 /// Where the HUD sits when it overlays gameplay: top-left, clear of the
 /// bottom-left movement stick.
 ///
-/// Public so an assembled test can tell the two placements apart by NAME. On a
-/// widely pillarboxed display the overlay anchor happens to land in the
-/// surround anyway, so "is it clear of the gameplay rect" cannot distinguish
-/// "placed in the region it asked for" from "never moved" — the anchor can.
+/// Public so an assembled test can tell the two placements apart. On a wide
+/// pillarboxed display the overlay anchor can land in the surround anyway, so
+/// "clear of the gameplay rect" cannot tell "placed" from "never moved"; the
+/// anchor can.
 pub const OVERLAY_ANCHOR: Vec2 = Vec2::new(16.0, 34.0);
 
 /// Breathing room between the HUD and the edges of whatever region holds it.
 pub const HUD_MARGIN: f32 = 12.0;
 
-/// What the HUD needs to be legible. Below this a surround region is refused
-/// rather than squeezed — a clipped health bar is worse than one over the
-/// world.
+/// What the HUD needs to be legible. A smaller surround region is refused,
+/// not squeezed: a clipped health bar is worse than one over the world.
 const HUD_MIN: Vec2 = Vec2::new(BAR_W + HUD_MARGIN * 2.0, 96.0);
 
 /// Root container for the player HUD overlay.
@@ -82,8 +79,8 @@ pub fn spawn_player_hud(
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
-        // A shell host can retain a player for one deferred teardown frame.
-        // Never materialize new gameplay UI without a live session owner.
+        // A shell host can keep a player for one deferred teardown frame. Do
+        // not create gameplay UI without a live session owner.
         return;
     };
     let track = Color::srgba(0.05, 0.06, 0.09, 0.85);
@@ -111,9 +108,8 @@ pub fn spawn_player_hud(
                 PlayerHudRoot,
                 Node {
                     position_type: PositionType::Absolute,
-                    // Overlay anchor to start; `place_player_hud` moves it into
-                    // the reserved surround on the first frame if the active
-                    // profile offers one.
+                    // Start at the overlay anchor; `place_player_hud` moves it into
+                    // the reserved surround on the first frame if the profile has one.
                     left: Val::Px(OVERLAY_ANCHOR.x),
                     top: Val::Px(OVERLAY_ANCHOR.y),
                     flex_direction: FlexDirection::Column,
@@ -121,10 +117,9 @@ pub fn spawn_player_hud(
                     ..default()
                 },
                 Name::new("Player HUD"),
-                // Generic screen occupancy, read off this node's own computed
-                // layout. The HUD is not placed by the resolver, so unlike the
-                // touch clusters it really is a producer: it says what it is,
-                // and the host derives where it is.
+                // Generic screen occupancy from this node's computed layout. The
+                // resolver does not place the HUD, so the HUD is a producer: it
+                // says what it is, and the host derives where it is.
                 ScreenOccluder::hud(),
             ),
         )
@@ -182,9 +177,8 @@ pub fn spawn_player_hud(
 
 /// Put the HUD in the reserved surround when the active profile offers one.
 ///
-/// The whole author API is the three lines below: ask the resolved layout for a
-/// named region, take it if the HUD fits, otherwise keep overlaying. No
-/// responsive framework, no layout negotiation — a HUD knows its own size.
+/// Ask the resolved layout for a named region, use it if the HUD fits, and
+/// otherwise keep overlaying. A HUD knows its own size.
 ///
 /// [`ResolvedControlRegions::hud`]:
 ///     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedControlRegions::hud
@@ -192,8 +186,8 @@ pub fn place_player_hud(
     presentation: Res<ResolvedGameplayPresentation>,
     mut roots: Query<&mut Node, With<PlayerHudRoot>>,
 ) {
-    // Left surround: these are status bars, and they read left-to-right from
-    // the same edge they occupy when overlaying.
+    // Left surround: status bars read left to right from the edge they use
+    // when overlaying.
     let region = presentation
         .prefers_surround_hud()
         .then(|| presentation.hud_region(SurroundRegion::Left))
@@ -214,14 +208,13 @@ pub fn place_player_hud(
     }
 }
 
-/// This built-in HP/MP/$ row is AMBITION's own HUD (see the module docs). Hide it
-/// whenever the active route's game declared its OWN HUD — Sanic's rings,
-/// Mary-O's score/coins/lives — so the vitals bars never overlay a game that has
-/// no health or mana. Ambition declares no custom HUD, so its
-/// built-in row stays visible; a game that genuinely wants vitals can declare a
-/// health slot of its own.
+/// This built-in HP/MP/$ row is Ambition's own HUD (see the module docs).
+/// Hide it when the active route's game declares its own HUD (Sanic's rings,
+/// Mary-O's score, coins, and lives), so vitals bars never overlay a game with
+/// no health or mana. Ambition declares no custom HUD, so its row stays. A
+/// game that wants vitals can declare its own health slot.
 ///
-/// Presentation-only (a `Node.display` toggle), so it is outside any sim/rollback
+/// Presentation only (a `Node.display` toggle), outside any sim or rollback
 /// concern.
 pub fn toggle_builtin_hud_for_declared_games(
     active: Res<ActiveHudDeclaration>,
@@ -239,15 +232,12 @@ pub fn toggle_builtin_hud_for_declared_games(
     }
 }
 
-/// Mirror the controlled body's health / mana / money into the HUD widgets each
-/// frame: bar fill widths track the fractions, labels show the numbers.
+/// Mirror the controlled body's health, mana, and money into the HUD widgets
+/// each frame: bar widths follow the fractions, labels show the numbers.
 ///
-/// Every stat is a BODY stat — health, mana, and the wallet all follow the
-/// [`ControlledSubject`], so while possessing another body the HUD shows THAT
-/// body's HP / MP / purse, not the vacated home avatar's. Economy is a body
-/// concern (an NPC or merchant carries its own money and inventory), so the
-/// wallet is just another cluster the driven body may hold. It's `Option` only
-/// because not every body carries one yet; a body without a wallet reads `$0`.
+/// Every stat is a body stat and follows the [`ControlledSubject`], so while
+/// possessing another body the HUD shows that body's HP, MP, and purse. The
+/// wallet is `Option` because not every body has one; no wallet reads `$0`.
 pub fn update_player_hud(
     facts: Res<PlayerHudFacts>,
     mut fills: ParamSet<(
@@ -283,7 +273,7 @@ pub fn update_player_hud(
     if let Ok(mut text) = labels.p1().single_mut() {
         let label = match facts.mana {
             Some(mana) => format!("MP {}", mana.current as i32),
-            // A body that holds no Mana reads as such, not as an empty pool.
+            // A body with no Mana reads as such, not as an empty pool.
             None => "MP -".to_owned(),
         };
         set_text_if_changed(&mut text, label);
@@ -352,11 +342,10 @@ mod tests {
         Vec2::new(px(node.left), px(node.top))
     }
 
-    /// The proving vertical slice: a profile that reserves surround for HUD
-    /// actually gets the HUD put there.
+    /// A profile that reserves surround for the HUD gets the HUD placed there.
     #[test]
     fn a_reserved_surround_profile_puts_the_hud_in_the_surround() {
-        // 16:9 leaves 4:3 gameplay 1440 wide, so each side surround is 240px —
+        // 16:9 leaves 4:3 gameplay 1440 wide, so each side surround is 240px:
         // room for the 168px bars plus margins.
         let display = Vec2::new(1920.0, 1080.0);
         let presentation = layout(
@@ -383,8 +372,8 @@ mod tests {
         );
     }
 
-    /// A full-bleed profile has no surround, so the HUD keeps overlaying —
-    /// unchanged behavior for every game that did not ask for reserved HUD.
+    /// A full-bleed profile has no surround, so the HUD keeps overlaying, as
+    /// before for every game that did not ask for reserved HUD space.
     #[test]
     fn a_full_bleed_profile_leaves_the_hud_overlaying() {
         let presentation = layout(
@@ -396,8 +385,8 @@ mod tests {
         assert_eq!(placed_at(presentation), OVERLAY_ANCHOR);
     }
 
-    /// A surround too narrow to hold the bars is REFUSED, not squeezed. A
-    /// clipped health bar is worse than one over the world.
+    /// A surround too narrow for the bars is refused, not squeezed. A clipped
+    /// health bar is worse than one over the world.
     #[test]
     fn a_surround_too_narrow_for_the_hud_falls_back_to_overlay() {
         // Barely wider than 4:3: the gameplay rect takes 1365 of 1400, so
@@ -422,8 +411,8 @@ mod tests {
     fn hud_mirrors_the_sim_built_facts() {
         let mut app = App::new();
 
-        // The sim already resolved the controlled body's meters into the
-        // read-model — the HUD is a pure consumer (E4).
+        // The sim already resolved the controlled body's meters into the read
+        // model; the HUD only consumes it.
         app.insert_resource(PlayerHudFacts {
             present: true,
             hp_current: 3,
@@ -462,8 +451,8 @@ mod tests {
         assert_eq!(money_text.as_deref(), Some("$7"));
     }
 
-    /// another game declares its own HUD, so vitals never overlay Sanic's rings or
-    /// Mary-O's score.
+    /// Another game declares its own HUD, so vitals never overlay Sanic's rings
+    /// or Mary-O's score.
     #[test]
     fn the_builtin_vitals_hud_hides_when_a_game_declares_its_own() {
         use ambition_platformer2d_shared_tangle::gameplay_presentation::{
@@ -480,10 +469,9 @@ mod tests {
                 .query_filtered::<&Node, With<PlayerHudRoot>>();
             roots.single(app.world()).expect("the HUD root").display
         }
-        // Ambition declares no custom HUD → its built-in vitals row shows.
+        // Ambition declares no custom HUD, so its vitals row shows.
         assert_eq!(display_with(None), Display::Flex);
-        // Sanic / Mary-O declare their own HUD → the vitals row hides, so it can
-        // never overlay the game's own readouts.
+        // Sanic and Mary-O declare their own HUD, so the vitals row hides.
         assert_eq!(
             display_with(Some(HudDeclaration::new().slot(HudSlotSpec::new("rings")))),
             Display::None,

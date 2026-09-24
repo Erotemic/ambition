@@ -725,7 +725,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// empty custody relation when the composition had no lifecycle horizon, so
 /// "not participating" hashed as "nothing ever occurred". It now pins `None`,
 /// as the item half does, and the tag byte is peer-visible.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 219;
+/// ⛔⛤ 220 -> 221: `resource.gravity_field` is DERIVED, not canonical. It
+/// mirrors the primary body's resolved frame, and its sim readers (the
+/// zone-less `GravityCtx` arm, the posed-body resize, the pose view's facing
+/// flip, the projection retract) now read the ambient or the body's own frame.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 221;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

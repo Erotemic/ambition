@@ -48,13 +48,12 @@ pub fn sync_sprite_posed_bodies(
         // The STANCE, which composes with the pose rather than competing with
         // it. Absent  a body that never body-modes, and the pose IS the box.
         Option<&ae::BodyModeState>,
+        // The body's OWN resolved frame, the one movement and contact read.
+        // Absent only on a bare fixture body, which stands under the default.
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
-    // The body's LOCAL gravity, resolved the same way movement and contact do.
-    // Optional so a composition without a gravity field still poses bodies.
-    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
-    zones: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityZones>>,
 ) {
-    for (posed, pinned, mut kin, mut render_size, mut offset, body_mode) in &mut bodies {
+    for (posed, pinned, mut kin, mut render_size, mut offset, body_mode, frame) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -77,17 +76,7 @@ pub fn sync_sprite_posed_bodies(
         // pushed the body into or off its own support. The module's contract is
         // that the +gravity face stays planted; the direction has to be the
         // body's, not the default's.
-        let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
-            (Some(field), Some(zones)) => {
-                ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
-                    ae::Aabb::new(kin.pos, kin.size * 0.5),
-                    zones,
-                    field.dir,
-                )
-            }
-            (Some(field), None) => field.dir,
-            _ => ae::DEFAULT_GRAVITY_DIR,
-        };
+        let gravity_dir = frame.map_or(ae::DEFAULT_GRAVITY_DIR, |frame| frame.down());
         if kin.size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op: hold the +gravity
             // face and move the centre by half the change, so a withdraw/emerge never drives the

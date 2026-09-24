@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v219
+ggrs-rollback-schema-v221
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -421,7 +421,7 @@ resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snaps
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.gate_portal_phases	resource-clone-custom-checksum	GatePortalPhases	bevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection
-resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.gravity_field	derived	GravityField	re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation
 resource.impact_hitstop	resource-clone-custom-checksum	ImpactHitstop	bevy_ggrs clone snapshot + the freeze's expiry tick, which decides the sim clock
 resource.live_match_ticks	resource-canonical-custom-checksum	LiveMatchTicks	bevy_ggrs canonical codec snapshot + checksum over the elapsed micros, counted from the match's own start, and the peer match ordinal, excluding the host-local session and activation-tick stamps
 resource.minted_item_baseline	resource-clone-custom-checksum	MintedItemBaseline	bevy_ggrs clone snapshot + entity-free minted-instance-description checksum projection

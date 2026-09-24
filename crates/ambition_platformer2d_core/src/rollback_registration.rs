@@ -45,7 +45,7 @@ where
         .rollback_component_canonical::<bc::BodyDodgeState>(OWNER, "body.dodge")
         .rollback_component_canonical::<bc::BodyShieldState>(OWNER, "body.shield")
         .rollback_component_canonical::<bc::BodyOffense>(OWNER, "body.offense")
-        .rollback_component_canonical::<bc::BodyLifetime>(OWNER, "body.lifetime")
+        .rollback_component_canonical::<bc::BodyRestartLatch>(OWNER, "body.restart_latch")
         .rollback_component_canonical::<bc::BodyActionBuffer>(OWNER, "body.action_buffer")
         .rollback_component_canonical::<bc::BodyBaseSize>(OWNER, "body.base_size")
         .rollback_component_canonical::<bc::SweepSample>(OWNER, "body.sweep_sample")

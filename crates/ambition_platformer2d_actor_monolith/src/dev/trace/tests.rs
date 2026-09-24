@@ -198,6 +198,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_combat::BodyMelee::default(),
@@ -231,6 +232,7 @@ fn write_dump_writes_two_files() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_combat::BodyMelee::default(),
@@ -306,6 +308,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     update_previous_snapshot(
         &mut buf,
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
@@ -319,6 +322,7 @@ fn synthesizes_input_edge_event_on_button_press() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         20,
         controls,
@@ -353,6 +357,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            ae::BodyLifeStats::default(),
             &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
@@ -371,6 +376,7 @@ fn synthesizes_collision_correction_on_unexplained_teleport() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
@@ -413,6 +419,7 @@ fn portal_transit_window_suppresses_teleport_autodump() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            ae::BodyLifeStats::default(),
             &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
@@ -431,6 +438,7 @@ fn portal_transit_window_suppresses_teleport_autodump() {
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
@@ -448,7 +456,7 @@ fn portal_transit_window_suppresses_teleport_autodump() {
     );
 }
 
-/// P2 — incrementing `player.resets` should emit a `Reset` event
+/// P2 — incrementing `BodyLifeStats::resets` should emit a `Reset` event
 /// AND suppress the teleport detector (the player position can
 /// legitimately jump to spawn on reset).
 #[test]
@@ -462,6 +470,7 @@ fn reset_emits_event_and_suppresses_teleport_event() {
         update_previous_snapshot(
             &mut buf,
             &clusters_prev,
+            ae::BodyLifeStats::default(),
             &ae::BodyMotionFacts::default(),
             20,
             ControlFrame::default(),
@@ -470,13 +479,16 @@ fn reset_emits_event_and_suppresses_teleport_event() {
             ae::BodyMode::Standing,
         );
     }
-    let mut player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
-    player_cur.lifetime.resets = player_prev.lifetime.resets + 1;
+    let player_cur = dummy_player(ae::Vec2::new(150.0, 150.0));
     let mut scratch_cur = scratch_from(&player_cur);
     let clusters_cur = scratch_cur.as_mut();
     synthesize_events_from_diff(
         &mut buf,
         &clusters_cur,
+        ae::BodyLifeStats {
+            resets: 1,
+            ..Default::default()
+        },
         &ae::BodyMotionFacts::default(),
         20,
         ControlFrame::default(),
@@ -511,6 +523,7 @@ fn frame_includes_moving_platform_state() {
     let clusters = scratch.as_mut();
     let frame = build_frame(
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_combat::BodyMelee::default(),
@@ -573,6 +586,7 @@ fn frame_at(sim_frame: Option<i32>, pos: ae::Vec2) -> GameplayTraceFrame {
     let clusters = scratch.as_mut();
     let mut frame = build_frame(
         &clusters,
+        ae::BodyLifeStats::default(),
         &ae::BodyMotionFacts::default(),
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_combat::BodyMelee::default(),

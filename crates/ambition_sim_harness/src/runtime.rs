@@ -5,7 +5,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_platformer2d::actor::{
     default_body_size, transit_body, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
-    BodyFlightState, BodyHealth, BodyKinematics, BodyMode, BodyMotionFacts, BodySafetyState,
+    BodyFlightState, BodyHealth, BodyKinematics, BodyLifeStats, BodyMode, BodyMotionFacts, BodySafetyState,
     BossBrain, BossOverrides, Health, MotionModel, PrimaryPlayerOnly, SpawnActorKind,
     SpawnActorRequest, TransitVelocity,
 };
@@ -407,6 +407,10 @@ impl Platformer2dSimHarness {
             .query_filtered::<BodyClusterQueryData, PrimaryPlayerOnly>();
         // The published maneuver projection (ADR 0024): the observation's
         // cling/glide/blink flags are semantic facts, not policy internals.
+        let mut life_query = self
+            .app
+            .world_mut()
+            .query_filtered::<&BodyLifeStats, PrimaryPlayerOnly>();
         let mut facts_query = self
             .app
             .world_mut()
@@ -459,6 +463,7 @@ impl Platformer2dSimHarness {
             .collect();
         let cluster = cluster_query.single(world).ok();
         let facts = facts_query.single(world).ok();
+        let life = life_query.single(world).ok();
         let health = health_query
             .single(world)
             .map(|h| h.health)
@@ -495,7 +500,6 @@ impl Platformer2dSimHarness {
             .as_ref()
             .and_then(|c| c.resources)
             .and_then(|bank| bank.level_of(&ambition_platformer2d::actor::mana::MANA));
-        let lifetime = cluster.as_ref().map(|c| &*c.lifetime);
         AgentObservation {
             tick: self.tick,
             player_pos: (pos.x, pos.y),
@@ -516,8 +520,8 @@ impl Platformer2dSimHarness {
             hp_max: health.max,
             mana: mana.map(|m| m.current as i32).unwrap_or(0),
             mana_max: mana.map(|m| m.max as i32).unwrap_or(0),
-            time_alive: lifetime.map(|l| l.time_alive).unwrap_or(0.0),
-            resets: lifetime.map(|l| l.resets).unwrap_or(0),
+            time_alive: life.map(|l| l.time_alive).unwrap_or(0.0),
+            resets: life.map(|l| l.resets).unwrap_or(0),
             body_mode: format!(
                 "{:?}",
                 body_mode.map(|b| b.body_mode).unwrap_or(BodyMode::Standing)

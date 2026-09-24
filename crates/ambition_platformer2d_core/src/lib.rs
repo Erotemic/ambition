@@ -45,7 +45,7 @@ pub use body_clusters::{
     ActorSurfaceState, AuthoredMovementTuning, BodyAbilities, BodyActionBuffer, BodyBaseSize,
     BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch,
     BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
-    BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifetime,
+    BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifeStats, BodyRestartLatch,
     BodyLineAnchor,
     BodyModeState, BodyOffense, BodyRestarted, BodyShieldState, BodyWallState,
     RecoveryRefresh, ResetFacing, SweepSample, DEFAULT_RECOVERY_CHARGES,

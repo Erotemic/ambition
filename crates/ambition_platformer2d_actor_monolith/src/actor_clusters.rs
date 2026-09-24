@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
-    BodyLedgeState, BodyLifetime, BodyModeState, BodyOffense, BodyShieldState,
+    BodyLedgeState, BodyRestartLatch, BodyModeState, BodyOffense, BodyShieldState,
     BodyWallState,
 };
 
@@ -72,7 +72,7 @@ pub struct ActorMut<'a> {
     pub resources: Option<&'a mut ambition_platformer2d_core::resources::ActorResources>,
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
-    pub lifetime: &'a mut BodyLifetime,
+    pub restart: &'a mut BodyRestartLatch,
     pub combo_trace: &'a mut BodyComboTrace,
 }
 
@@ -100,7 +100,7 @@ impl<'a> ActorMut<'a> {
             resources: self.resources.as_deref_mut(),
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
-            lifetime: &mut *self.lifetime,
+            restart: &mut *self.restart,
             combo_trace: &mut *self.combo_trace,
         }
     }
@@ -156,7 +156,7 @@ pub struct ActorClusterQueryData {
     pub resources: Option<&'static mut ambition_platformer2d_core::resources::ActorResources>,
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
-    pub lifetime: &'static mut BodyLifetime,
+    pub restart: &'static mut BodyRestartLatch,
     pub combo_trace: &'static mut BodyComboTrace,
 }
 
@@ -196,7 +196,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             resources: self.resources.as_deref_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
-            lifetime: &mut self.lifetime,
+            restart: &mut self.restart,
             combo_trace: &mut self.combo_trace,
         }
     }
@@ -251,7 +251,7 @@ impl SeedActorMut for ActorClusterSeed {
             resources: body.resources.as_mut(),
             offense: &mut body.offense,
             action_buffer: &mut body.action_buffer,
-            lifetime: &mut body.lifetime,
+            restart: &mut body.restart,
             combo_trace: &mut body.combo_trace,
         }
     }

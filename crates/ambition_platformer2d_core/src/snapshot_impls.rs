@@ -208,15 +208,12 @@ snapshot_pod!(crate::body_clusters::BodyOffense {
     damage_multiplier: i32,
 });
 
-snapshot_pod!(crate::body_clusters::BodyLifetime {
-    time_alive: f32,
-    resets: u32,
-    max_speed: f32,
-    // The pending-announcement flag is SNAPSHOT state, not bookkeeping to drop:
-    // a rewind into the tick between a reset and its `BodyRestarted` trigger
-    // must replay the announcement, or the resimulation clears provider state
-    // the original run cleared and the two diverge.
-    restart_pending: bool,
+snapshot_pod!(crate::body_clusters::BodyRestartLatch {
+    // SNAPSHOT state, not bookkeeping to drop: a rewind into the tick between a
+    // reset and its `BodyRestarted` trigger must replay the announcement, or
+    // the resimulation clears provider state the original run cleared and the
+    // two diverge.
+    pending: bool,
 });
 
 snapshot_pod!(crate::body_clusters::BodyActionBuffer {

@@ -225,7 +225,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
 
     // ⭐ D192: THE RESTART IS RAISED WHEN THE BODY IS PLACED, and placement now
     // waits out the authored beat. `reset_body_clusters` is what sets
-    // `restart_pending`, so before the beat elapses there is no restart to see —
+    // `BodyRestartLatch`, so before the beat elapses there is no restart to see —
     // the twelve frames above are the blast gate's window, not the respawn's.
     for _ in 0..240 {
         if app
@@ -238,7 +238,7 @@ fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
         app.update();
     }
     // ⛔ AND THEN LET THE FRAME FINISH, for the same reason the twelve above
-    // exist: `reset_body_clusters` raises `restart_pending` and
+    // exist: `reset_body_clusters` raises `BodyRestartLatch` and
     // `announce_body_restarts` turns that into `BodyRestarted` in a later phase,
     // so breaking out on the placement tick samples the gap between them.
     for _ in 0..12 {
@@ -757,7 +757,7 @@ fn a_match_whose_last_loser_is_removed_still_decides() {
 //    all THREE stocks — something noticed the nonsense position and relocated
 //    it, which is not a knockout. The test spent its life asserting a restart no
 //    KO had caused.
-// 2. `restart_pending` is a ONE-SIM-TICK flag — raised by the reset, cleared
+// 2. `BodyRestartLatch` is a ONE-SIM-TICK flag — raised by the reset, cleared
 //    by `announce_body_restarts` in the next `WorldPrep` — and a fixed-tick host
 //    advances several sim ticks per `app.update()`. Polling it between updates
 //    can miss it entirely, whatever caused it.

@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v208",
+    "version": "ggrs-rollback-schema-v209",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -49,9 +49,9 @@
       "body.health\tcomponent-canonical\tBodyHealth",
       "body.jump\tcomponent-canonical\tBodyJumpState",
       "body.kinematics\tcomponent-canonical\tBodyKinematics",
-      "body.lifetime\tcomponent-canonical\tBodyLifetime",
       "body.offense\tcomponent-canonical\tBodyOffense",
       "body.resources\tcomponent-canonical\tActorResources",
+      "body.restart_latch\tcomponent-canonical\tBodyRestartLatch",
       "body.shield\tcomponent-canonical\tBodyShieldState",
       "body.sim_id_counter\tcomponent-canonical\tSimIdCounter",
       "body.sweep_sample\tcomponent-canonical\tSweepSample",
@@ -227,9 +227,9 @@
     "ambition_platformer2d_core::body_clusters::BodyJumpState",
     "ambition_platformer2d_core::body_clusters::BodyKinematics",
     "ambition_platformer2d_core::body_clusters::BodyLedgeState",
-    "ambition_platformer2d_core::body_clusters::BodyLifetime",
     "ambition_platformer2d_core::body_clusters::BodyModeState",
     "ambition_platformer2d_core::body_clusters::BodyOffense",
+    "ambition_platformer2d_core::body_clusters::BodyRestartLatch",
     "ambition_platformer2d_core::body_clusters::BodyShieldState",
     "ambition_platformer2d_core::body_clusters::BodyWallState",
     "ambition_platformer2d_core::body_clusters::SweepSample",

@@ -278,7 +278,7 @@ mod platform_advance_tests;
 /// the engine's reset-to-spawn path and never reach `HazardRuntime`"). So the
 /// most common death in a platformer emitted no death signal at all, and the one
 /// consumer that wanted it — Mary-O's lives — had to infer death from
-/// `BodyLifetime.resets` instead.
+/// a body reset counter instead.
 ///
 /// Six unrelated callers bump `resets`: two real deaths, a room load, an avatar rebuild, a sandbox
 /// reset, and a room replay's own reset. Mary-O read the replay's bump as a fresh death, spent

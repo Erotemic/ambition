@@ -322,6 +322,8 @@ pub mod actor {
     /// Where the body is, and how it moves.
     pub use ambition_platformer2d_core::movement::{transit_body, TransitVelocity};
     pub use ambition_platformer2d_core::BodyClusterQueryData;
+    /// Diagnostic counters beside a body (time since restart, restart count).
+    pub use ambition_platformer2d_core::BodyLifeStats;
     /// ⭐ WHETHER THE BODY IS STANDING ON SOMETHING — the companion to
     /// [`BodyFlightState`], and a question every observer of a body asks.
     ///

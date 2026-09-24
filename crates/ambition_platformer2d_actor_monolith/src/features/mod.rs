@@ -234,6 +234,24 @@ pub fn advance_gameplay_elapsed(
     elapsed.0 += world_time.scaled_dt;
 }
 
+/// Advance each body's diagnostic [`ae::BodyLifeStats`].
+///
+/// Reads the restart latch just before `announce_body_restarts` consumes it,
+/// so every announced restart is counted once and restarts the clock.
+pub fn track_body_life_stats(
+    world_time: bevy::prelude::Res<ambition_time::WorldTime>,
+    mut bodies: Query<(&ae::BodyRestartLatch, &mut ae::BodyLifeStats)>,
+) {
+    for (latch, mut stats) in &mut bodies {
+        if latch.pending {
+            stats.resets += 1;
+            stats.time_alive = 0.0;
+        } else {
+            stats.time_alive += world_time.scaled_dt;
+        }
+    }
+}
+
 /// Schedules `WorldPrep`: LDtk hot-reload, feature-world overlay rebuild,
 /// and per-frame hazard/actor/boss ticks before player simulation reads them.
 /// Register the DAMAGE-facing publication of every body's damageable volumes.
@@ -988,7 +1006,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // schedule at all.
         app.add_systems(
             sim,
-            ae::announce_body_restarts
+            (track_body_life_stats, ae::announce_body_restarts)
+                .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
                 .before(rebuild_feature_ecs_world_overlay),
         );
@@ -1479,6 +1498,46 @@ mod sim_clock_tests {
         assert_eq!(
             elapsed, after_pause,
             "a paused frame must not advance sim-time"
+        );
+    }
+}
+
+#[cfg(test)]
+mod body_life_stats_tests {
+    use super::track_body_life_stats;
+    use ambition_platformer2d_core as ae;
+    use bevy::prelude::*;
+
+    /// The diagnostics count each announced restart once and restart their
+    /// clock, reading the latch before the announcer consumes it.
+    #[test]
+    fn a_restart_is_counted_once_and_restarts_the_clock() {
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 0.5,
+            scaled_dt: 0.5,
+        });
+        app.add_systems(
+            Update,
+            (track_body_life_stats, ae::announce_body_restarts).chain(),
+        );
+        let body = app
+            .world_mut()
+            .spawn((ae::BodyRestartLatch::default(), ae::BodyLifeStats::default()))
+            .id();
+        app.update();
+        app.update();
+        let stats = *app.world().get::<ae::BodyLifeStats>(body).unwrap();
+        assert_eq!(stats, ae::BodyLifeStats { time_alive: 1.0, resets: 0 });
+
+        app.world_mut().get_mut::<ae::BodyRestartLatch>(body).unwrap().pending = true;
+        app.update();
+        app.update();
+        let stats = *app.world().get::<ae::BodyLifeStats>(body).unwrap();
+        assert_eq!(
+            stats,
+            ae::BodyLifeStats { time_alive: 0.5, resets: 1 },
+            "one pending restart is one reset, and the clock starts again from it"
         );
     }
 }

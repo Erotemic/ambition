@@ -493,11 +493,8 @@ fn update_body_simulation_inner(
         return (events, SimPhaseReach::ShortCircuited);
     }
 
-    // Age lifetime + timers + combo trace — cluster + maneuver-state inline.
+    // Age timers + combo trace — cluster + maneuver-state inline.
     {
-        clusters.lifetime.time_alive += dt;
-        let speed = clusters.kinematics.vel.length();
-        clusters.lifetime.max_speed = clusters.lifetime.max_speed.max(speed);
         for mark in clusters.combo_trace.combo.iter_mut() {
             mark.age += dt;
         }

@@ -2097,7 +2097,7 @@ pub fn spawn_encounter_mob(
     // Nothing failed, because a fallback IS a body.
     //
     //  AC6 removed the fallback rather than the silence.
-    let enemy = match definition {
+    let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
                 authored_sheets,
@@ -2134,6 +2134,10 @@ pub fn spawn_encounter_mob(
     ) {
         return;
     }
+    // A wave mob is not a placement: its id is minted per run, so a persisted
+    // death would be a save flag nothing reads. As for summons, `OnRoomReenter`
+    // is the policy that keeps no record.
+    enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
     // Read before the seed is moved into the plan: the geometry this body was
     // BUILT from, so the components it is spawned with come from that one

@@ -53,7 +53,7 @@ fn two_local_seats_each_pick_up_their_own_bomb() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

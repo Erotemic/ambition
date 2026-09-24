@@ -79,10 +79,6 @@ where
         "actor.attack_gesture_tuning",
     );
     registrar.rollback_component_canonical::<crate::actor::BodyWallet>(OWNER, "body.wallet");
-    registrar.rollback_component_clone::<crate::control::ScriptedControl>(
-        OWNER,
-        "actor.scripted_control",
-    );
     // `DrivingParticipant` is authoritative rollback state. Possession may
     // reconcile its value from registered `PossessionState`, but there is no
     // independent source from which it can be fully reprojected.
@@ -94,7 +90,7 @@ where
         "actor.driving_participant",
         |driver| u64::from(driver.0 .0),
     );
-    // `ScriptedControl` is the projection; this set records which authority owns it.
+    // Presence means ordinary control is suppressed; the bits say which authority holds it.
     registrar.rollback_component_clone_probed::<crate::control::ControlHolds>(
         OWNER,
         "actor.control_holds",

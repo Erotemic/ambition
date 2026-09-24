@@ -42,6 +42,11 @@ import sys
 from pathlib import Path
 
 DEFAULT_MAX_STALLED_BLOCKS = 3
+# The stall fuse also needs this much wall-clock time with no new commit. A
+# block is only a turn ending, and a turn ends every time the agent waits on a
+# long build or test lane — so a count of blocks alone released healthy runs
+# mid-validation. Zero means blocks alone decide.
+DEFAULT_MAX_STALLED_HOURS = 4.0
 # The wall-clock ceiling on how long an armed goal may block, counted from its
 # FIRST block. A backstop under `deadline_utc`, not a replacement for it: a goal
 # with no deadline (or one armed before `--arm` validated deadlines) would
@@ -738,14 +743,23 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     sha = head_sha(root)
     # An unreadable head is not progress. A new commit resets the stall
     # counter; the same or unknown head increments it.
+    progress_at = state.get("last_progress_at") or now_utc().isoformat()
     if not sha:
         stalled = as_int(state.get("stalled"), 0) + 1
     elif sha == state.get("last_head"):
         stalled = as_int(state.get("stalled"), 0) + 1
     else:
         stalled = 0
+        progress_at = now_utc().isoformat()
     max_stalled = as_int(
         goal.get("max_stalled_blocks"), DEFAULT_MAX_STALLED_BLOCKS
+    )
+    max_stalled_hours = as_float(
+        goal.get("max_stalled_hours"), DEFAULT_MAX_STALLED_HOURS
+    )
+    since_progress = parse_deadline(progress_at)
+    stalled_hours = (
+        (now_utc() - since_progress).total_seconds() / 3600.0 if since_progress else 0.0
     )
     blocks = as_int(state.get("blocks"), 0) + 1
     first_block_at = state.get("first_block_at") or now_utc().isoformat()
@@ -754,6 +768,7 @@ def mode_stop(root: Path, hook_input: dict) -> int:
         {
             "last_head": sha,
             "stalled": stalled,
+            "last_progress_at": progress_at,
             "blocks": blocks,
             "first_block_at": first_block_at,
             "last_block_at": now_utc().isoformat(),
@@ -766,13 +781,21 @@ def mode_stop(root: Path, hook_input: dict) -> int:
     )
     write_state(root, state)
 
-    if max_stalled > 0 and stalled >= max_stalled:
-        record_verdict(root, f"RELEASED: {stalled} blocks with no new commit")
+    if (
+        max_stalled > 0
+        and stalled >= max_stalled
+        and stalled_hours >= max_stalled_hours
+    ):
+        record_verdict(
+            root,
+            f"RELEASED: {stalled} blocks and {stalled_hours:.1f}h with no new commit",
+        )
         emit(
             {
                 "systemMessage": (
-                    f"Goal guard: released after {stalled} blocks with no new "
-                    f"commit — the run is stuck, not finished."
+                    f"Goal guard: released after {stalled} blocks and "
+                    f"{stalled_hours:.1f}h with no new commit — the run is "
+                    f"stuck, not finished."
                 )
             }
         )
@@ -1016,8 +1039,8 @@ def mode_unhold(root: Path) -> int:
 def timer_lines(root: Path, goal: dict) -> list[str]:
     """Return the deadline, run fuse, and stall fuse without running checks.
 
-    The stall fuse counts blocks rather than time and is not changed by
-    `--extend`, so it is reported separately from the two clocks.
+    The stall fuse counts blocks AND time since the last commit, and is not
+    changed by `--extend`, so it is reported separately from the two clocks.
     """
     now = now_utc()
     state = load_json(state_path(root)) or {}
@@ -1047,10 +1070,18 @@ def timer_lines(root: Path, goal: dict) -> list[str]:
         lines.append(f"  run fuse    {fuse_h:g}h from the first block (not blocked yet)")
 
     max_stalled = as_int(goal.get("max_stalled_blocks"), DEFAULT_MAX_STALLED_BLOCKS)
+    max_hours = as_float(goal.get("max_stalled_hours"), DEFAULT_MAX_STALLED_HOURS)
     stalled = as_int(state.get("stalled"), 0)
-    close = "  ⚠ CLOSE" if max_stalled > 0 and stalled >= max_stalled - 2 else ""
+    since = parse_deadline(state.get("last_progress_at"))
+    idle_h = (now - since).total_seconds() / 3600.0 if since else 0.0
+    close = (
+        "  ⚠ CLOSE"
+        if max_stalled > 0 and stalled >= max_stalled - 2 and idle_h >= max_hours * 0.75
+        else ""
+    )
     lines.append(
-        f"  stall fuse  {stalled} of {max_stalled} blocks with no new commit"
+        f"  stall fuse  {stalled} of {max_stalled} blocks and {format_hours(idle_h)} "
+        f"of {max_hours:g}h with no new commit (both must trip)"
         f"{close} — ⛔ NOT movable by --extend; commit something instead"
     )
     return lines
@@ -1229,7 +1260,11 @@ def validate_goal(goal: dict) -> list[str]:
             "deadline that does not parse is silently NO deadline"
         )
 
-    for field, kind in (("max_stalled_blocks", int), ("max_run_hours", float)):
+    for field, kind in (
+        ("max_stalled_blocks", int),
+        ("max_stalled_hours", float),
+        ("max_run_hours", float),
+    ):
         if field in goal:
             try:
                 kind(goal[field])

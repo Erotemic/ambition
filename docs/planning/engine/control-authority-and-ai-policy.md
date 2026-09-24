@@ -17,6 +17,12 @@ that refusal is the first thing to read.
 
 ## ⭐⭐ PREREQUISITE B — THE AUTHORITY, NAMED (2026-09-06)
 
+> ⚠ **`TemporaryControl` NO LONGER EXISTS** (schema v208). It was a per-tick
+> projection of `ControlClaims`; readers ask the claims directly
+> (`ControlClaims::holds(ControlClaimant::Possession)` is what `Player` meant).
+> Likewise `ScriptedControl` is gone: presence of `ControlHolds` is the
+> suppression fact. Mentions below describe the tree before v208.
+
 A review asks: *"Who owns transfer of control/custody between bodies? It should not
 be: mount owns one version; possession owns another; abilities happen to host the
 shared transition state."*

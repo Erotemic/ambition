@@ -141,12 +141,12 @@ pub fn collect_world_items(
             Entity,
             &BodyKinematics,
             bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            Option<&ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>,
+            Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
             Option<&mut WornEquipment>,
         ),
         (
             // A body the game is driving does not shop.
-            Without<ambition_characters::control::ScriptedControl>,
+            Without<ambition_characters::control::ControlHolds>,
             TouchCollectorFilter,
         ),
     >,
@@ -506,19 +506,23 @@ mod tests {
             .world_mut()
             .spawn((
                 kin(ae::Vec2::new(400.0, 0.0)),
-                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Player {
-                    controller: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0),
-                },
+                ambition_platformer2d_shared_tangle::temporary_control::ControlClaims::from_parts(
+                    Some(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(0)),
+                    None,
+                ),
             ))
             .id();
-        // An ordinary autonomous actor is in the query's FILTER (every actor
-        // carries `TemporaryControl`) and must still not collect — the poison
-        // for widening the filter without applying the value test.
+        // A body whose claims name no possession (a ride, or a released one)
+        // is in the query's FILTER and must still not collect — the poison for
+        // widening the filter without applying the value test.
         let bystander = app
             .world_mut()
             .spawn((
                 kin(ae::Vec2::new(0.0, 0.0)),
-                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
+                ambition_platformer2d_shared_tangle::temporary_control::ControlClaims::from_parts(
+                    None,
+                    Some(ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(1)),
+                ),
             ))
             .id();
 

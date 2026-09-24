@@ -185,20 +185,9 @@ impl SnapshotState for crate::gravity::GravityField {
     }
 }
 
-/// Temporary-control state: whether an autonomous body is masked by a player
-/// possession or a mount, by STABLE `SimId`. Registered so a rewind restores the
-/// control MODE across time (not just avoids clobbering a live one): the `Brain`
-/// cursor is a no-op for a body nobody drives, and possession/mount relationships were
-/// re-derived from live components, so without this a rollback across a
-/// possess/release boundary left the body in the wrong mode. Reconciliation
-/// rebuilds the live control (`DrivingParticipant` / `Mounted`) and its relationships
-/// from the restored id.
-/// ⭐⭐ THE CLAIMS TRAVEL, NOT JUST THE WINNER. `TemporaryControl` is the
-/// projection and is snapshotted too, but restoring only the projection loses
-/// every SHADOWED claim — rewind across a possession taken over a live ride and
-/// the ride would come back as nothing at all, so releasing the possession would
-/// project `Autonomous` on a body that is still riding. ⇒ Both optional ids are
-/// on the wire, and the projection is recomputed from them every tick anyway.
+/// Temporary-control claims by STABLE `SimId`, both slots on the wire: a
+/// shadowed claim (a ride under a possession) must survive a rewind, or
+/// releasing the possession would leave a riding body looking unclaimed.
 impl SnapshotState for crate::temporary_control::ControlClaims {
     fn encode(&self, out: &mut Vec<u8>) {
         for slot in [self.possession(), self.mount()] {
@@ -224,38 +213,6 @@ impl SnapshotState for crate::temporary_control::ControlClaims {
         }
         let [possession, mount] = slots;
         Some(Self::from_parts(possession, mount))
-    }
-}
-
-impl SnapshotState for crate::temporary_control::TemporaryControl {
-    fn encode(&self, out: &mut Vec<u8>) {
-        use crate::temporary_control::TemporaryControl as T;
-        match self {
-            T::Autonomous => put_u8(out, 0),
-            T::Player { controller } => {
-                put_u8(out, 1);
-                put_str(out, controller.as_str());
-            }
-            T::Mounted { mount } => {
-                put_u8(out, 2);
-                put_str(out, mount.as_str());
-            }
-        }
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::sim_id::SimId;
-        use crate::temporary_control::TemporaryControl as T;
-        Some(match r.u8()? {
-            0 => T::Autonomous,
-            1 => T::Player {
-                controller: SimId::from_snapshot(r.str()?.to_string()),
-            },
-            2 => T::Mounted {
-                mount: SimId::from_snapshot(r.str()?.to_string()),
-            },
-            _ => return None,
-        })
     }
 }
 

@@ -236,7 +236,7 @@ def test_a_near_deadline_says_how_long_is_left(repo: Path) -> None:
 def test_it_gives_up_after_blocking_with_no_new_commit(repo: Path) -> None:
     """Blocking forever against an agent that has stopped committing is not
     enforcement, it is a hang. Three strikes and it says so out loud."""
-    arm(repo, max_stalled_blocks=3)
+    arm(repo, max_stalled_blocks=3, max_stalled_hours=0)
     decisions = [run(repo).get("decision") for _ in range(4)]
     assert decisions[:3] == ["block", "block", "block"]
     assert decisions[3] is None, "the fourth must release"
@@ -257,6 +257,21 @@ def test_a_new_commit_resets_the_stall_counter(repo: Path) -> None:
 
     assert run(repo).get("decision") == "block", "progress buys more time"
     assert run(repo).get("decision") == "block"
+
+
+def test_blocks_alone_do_not_release_a_run_waiting_on_a_build(repo: Path) -> None:
+    """A turn ends every time the agent waits on a long test lane, so a block
+    count with no clock released healthy runs mid-validation. Blocks must be
+    joined by hours without a commit."""
+    arm(repo, max_stalled_blocks=2, max_stalled_hours=4)
+    decisions = [run(repo).get("decision") for _ in range(6)]
+    assert decisions == ["block"] * 6, "six quick blocks are a wait, not a stall"
+
+    stale = state_of(repo)
+    past = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=5)
+    stale["last_progress_at"] = past.isoformat()
+    (repo / ".goal" / "state.json").write_text(json.dumps(stale))
+    assert run(repo).get("decision") is None, "five idle hours and many blocks release"
 
 
 # ── The one-shot pause: it must be a pause and not a door ────────────────────
@@ -367,7 +382,12 @@ def test_extending_does_not_forgive_a_stall(repo: Path) -> None:
     landing. A version that also reset the stall counter would turn every "give
     it another day" into an unbounded silence, which is the failure the stall
     fuse exists for."""
-    arm(repo, deadline_utc="2999-01-01T00:00:00Z", max_stalled_blocks=2)
+    arm(
+        repo,
+        deadline_utc="2999-01-01T00:00:00Z",
+        max_stalled_blocks=2,
+        max_stalled_hours=0,
+    )
     assert run(repo).get("decision") == "block"
     assert run(repo).get("decision") == "block"
     assert cli_raw(repo, "--extend", "48h").returncode == 0

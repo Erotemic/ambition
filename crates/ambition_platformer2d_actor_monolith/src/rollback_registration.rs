@@ -218,21 +218,8 @@ where
         OWNER,
         "actor.perception_memory",
     );
-    // ⛔ THE TYPE MOVED to `shared_tangle::temporary_control` (2026-08-26); the
-    // STABLE NAME `actor.temporary_control` deliberately did NOT. It is an
-    // identity on the wire, not an address. The registration stays here because
-    // the monolith is still what installs the control modes it records.
-    registrar.rollback_component_canonical::<ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl>(
-        OWNER,
-        "actor.temporary_control",
-    );
-    // ⛔⛔ AND THE CLAIMS BEHIND IT. `actor.temporary_control` above is the
-    // PROJECTION — the winning claim — and restoring only the winner loses every
-    // shadowed one, so a rewind across "possessed while riding" would come back
-    // with the ride forgotten and releasing the possession would announce
-    // `Autonomous` on a body still on a mount. Registered here beside the
-    // projection for the same reason that one is: the monolith is what installs
-    // the control modes both record.
+    // Every live claim, shadowed ones included: restoring only a winner would
+    // forget a ride under a possession across a rewind.
     registrar
         .rollback_component_canonical::<ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>(
             OWNER,

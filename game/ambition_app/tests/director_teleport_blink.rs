@@ -52,7 +52,7 @@ fn the_directors_revision_asks_for_exactly_one_blink() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };
@@ -172,7 +172,7 @@ fn the_directors_revision_is_intangible_through_the_vanish_and_not_through_the_l
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };
@@ -298,7 +298,7 @@ fn the_directors_revision_rises_when_the_stick_is_released_after_the_press() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

@@ -6,7 +6,7 @@ use super::events::PlayerHealRequested;
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::{tick_player_brain, BrainSnapshot};
 use ambition_characters::control::ActorControl;
-use ambition_characters::control::ScriptedControl;
+use ambition_characters::control::ControlHolds;
 use ambition_characters::control::{DrivingParticipant, SlotControls};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
@@ -15,7 +15,7 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 /// Blank scripted bodies after brain production and before control consumers.
 ///
 /// Device state is untouched, so held input resumes when scripted control ends.
-pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<ScriptedControl>>) {
+pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<ControlHolds>>) {
     for mut control in &mut bodies {
         control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
     }

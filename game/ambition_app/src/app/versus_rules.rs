@@ -316,7 +316,7 @@ pub fn settle_versus_round(
             // decision; deciding a round and then letting it keep being fought
             // is not.
             //
-            // `ScriptedControl` is the engine's existing word for "a sequence is
+            // `ControlHolds` is the engine's existing word for "a sequence is
             // driving this body, it does not answer input", and a KO card is
             // exactly that sequence. It gates the DECISION and leaves everything
             // physical alone, so a body already in the air still arcs, a move

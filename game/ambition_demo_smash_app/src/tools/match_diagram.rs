@@ -114,12 +114,12 @@ pub fn run(args: MatchDiagramArgs) {
     {
         use ambition_platformer2d::actor::MatchSeat;
         use ambition_platformer2d::characters::brain::{Brain};
-use ambition_platformer2d::characters::control::{ScriptedControl};
+use ambition_platformer2d::characters::control::{ControlHolds};
         let world = app.world_mut();
         let mut q = world.query::<(
             &MatchSeat,
             Option<&Brain>,
-            bevy::prelude::Has<ScriptedControl>,
+            bevy::prelude::Has<ControlHolds>,
         )>();
         let mut rows: Vec<String> = q
             .iter(world)

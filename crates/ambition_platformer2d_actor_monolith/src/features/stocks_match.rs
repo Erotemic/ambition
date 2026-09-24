@@ -359,7 +359,7 @@ fn clock_outcome(sides: &std::collections::BTreeMap<String, (u32, i32)>) -> Side
 /// [`MatchInstance`], so the previous match's verdict stops applying on the tick
 /// the cast is built, and this puts the clock back by itself.
 ///
-/// not a control hold. `ScriptedControl` (the opening ceremony's
+/// not a control hold. `ControlHolds` (the opening ceremony's
 /// instrument) stops a body from ACTING while the world keeps moving, which is
 /// what a countdown wants and not what an ending wants — a winner launched off
 /// the top of the screen would go on travelling under it. The clock is the thing

@@ -121,7 +121,7 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 ///
 /// every component the absent `reconcile_autonomous_actors` would rebuild is
 /// registered rollback state: `Brain` (cursor), `BrainBinding`, `BodyHealth`,
-/// `ActorSurfaceState`, `TemporaryControl` and `CombatCapabilities` (canonical),
+/// `ActorSurfaceState` and `CombatCapabilities` (canonical),
 /// and `ActorConfig`, `ActionSet`, `Mounted`, `MountSlot`, `RidingOn` (clone).
 ///
 /// the HP assertion is the one that matters, and it is the one that would

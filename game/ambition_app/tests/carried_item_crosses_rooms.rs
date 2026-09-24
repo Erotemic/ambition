@@ -1945,19 +1945,9 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
 /// the ride is live. So "mounted AND possessed" is not a future crate composition
 /// — it is a composition this repository boots today.
 ///
-/// ⛔ WHAT USED TO HAPPEN. `TemporaryControl` is one enum and two domains assigned
-/// it independently: possession wrote `Player`, and `ambition_mount`'s death arm
-/// wrote `Autonomous`. The second writer erased the first CLAIM rather than
-/// shadowing it, so a mount dying under a possession left `PossessionState` naming
-/// the rider, `DrivingParticipant` pointing at it, and `TemporaryControl` saying
-/// nobody was driving.
-///
-/// ⇒ AND THE CONSEQUENCE WAS PLAYER-VISIBLE THROUGH A THIRD PARTY.
-/// `body_collects_on_touch` qualifies a possessed non-player body as a pickup
-/// collector by matching `TemporaryControl::Player`. After the mount died, the
-/// player went on driving a body that had quietly stopped picking things up —
-/// with no message, no state change either domain could see, and the wrong answer
-/// saved into the rollback stream because the component is canonical.
+/// Possession and the ride are separate claims, so the mount's death arm cannot
+/// erase the possession: `body_collects_on_touch` still qualifies the possessed
+/// rider as a pickup collector after its mount dies.
 #[test]
 fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
     use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
@@ -1965,7 +1955,7 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::platformer::temporary_control::{
-        ControlClaimant, ControlClaims, TemporaryControl,
+        ControlClaimant, ControlClaims,
     };
 
     let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
@@ -2006,24 +1996,10 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
     }
     assert!(possessed, "setup: the rider was never possessed");
 
-    // ⛔⛔ THE POSSESSION CLAIM IS LIVE AND THE RIDE'S IS NOT, AND THAT IS THE
-    // MEASURED TRUTH RATHER THAN THE ONE I EXPECTED. This asserted BOTH claims
-    // until 2026-09-06, and it only passed because the first version of the mount
-    // reconciler filed a Mount claim for every live ride.
-    //
-    // ⇒ `ControlClaimant::Mount` MEANS A BRAIN SWAP (`board()`'s own doc: the
-    // component records which controller is MASKING the autonomous brain, and
-    // boarding masks one only when there is a `MountedBrainCache`). Narrowed to
-    // that, it turns out NOTHING IN PRODUCTION CONSTRUCTS A `MountedBrainCache` —
-    // grep the tree: the type is defined, read as an `Option`, rollback-registered,
-    // and built only inside `mount_pair_tests.rs`. So the authored pirate rider is
-    // CARRIED, and `TemporaryControl::Mounted` is unreachable in shipped play.
-    //
-    // ⚠ THE BUG BELOW IS STILL REAL AND STILL REACHABLE, which is why this test
-    // stayed. The mount's death arm wrote `Autonomous` over a live possession, and
-    // that arm needs no cache — it fires for any `Mounted` rider whose mount dies.
-    // ⇒ What was never reachable is the `Mounted` PROJECTION; the ERASURE always
-    // was.
+    // Only the possession claims this rider: a Mount claim means a brain swap,
+    // which needs a `MountedBrainCache`, and nothing in production builds one —
+    // the authored pirate rider is CARRIED. The mount's death arm still runs for
+    // any rider whose mount dies, which is what this test exercises.
     let claims = sim
         .world()
         .get::<ControlClaims>(rider)
@@ -2039,11 +2015,9 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
          than mount-controlled and must file no mount claim: {claims:?}"
     );
     assert_eq!(
-        sim.world().get::<TemporaryControl>(rider),
-        Some(&TemporaryControl::Player {
-            controller: SimId::player_slot(0)
-        }),
-        "possession outranks the ride while both are live"
+        claims.possession(),
+        Some(&SimId::player_slot(0)),
+        "the possession claim names the possessing seat"
     );
 
     // Kill the mount. `enforce_mount_rider_link` reads `BodyHealth::alive()`.
@@ -2060,20 +2034,16 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
         sim.step(base());
     }
 
-    // ⛔ THE POISON. Before the claim arbiter this read `Autonomous`.
     let after = sim
         .world()
-        .get::<TemporaryControl>(rider)
+        .get::<ControlClaims>(rider)
         .cloned()
-        .expect("the rider still carries a control mode");
+        .expect("the rider still carries its claims");
     assert_eq!(
-        after,
-        TemporaryControl::Player {
-            controller: SimId::player_slot(0)
-        },
+        after.possession(),
+        Some(&SimId::player_slot(0)),
         "the mount died; the PLAYER did not stop driving. A dead mount ends the \
-         RIDE's claim, and saying `Autonomous` here erases a possession that is \
-         still live"
+         RIDE's claim, not the possession's"
     );
     assert!(
         ambition_platformer2d::platformer::markers::body_collects_on_touch(false, Some(&after)),
@@ -2083,8 +2053,7 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
     assert_eq!(
         sim.world_mut().resource::<PossessionState>().possessed,
         Some(rider),
-        "and possession itself was never in question — it is the control mode that \
-         used to disagree with it"
+        "and possession itself was never in question"
     );
 }
 
@@ -2124,7 +2093,7 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;
     use ambition_platformer2d::platformer::temporary_control::{
-        ControlClaimant, ControlClaims, TemporaryControl,
+        ControlClaimant, ControlClaims,
     };
 
     use ambition_app::AmbitionSim as _;
@@ -2197,13 +2166,6 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
         sim.step(base());
     }
 
-    assert_eq!(
-        sim.world().get::<TemporaryControl>(rider),
-        Some(&TemporaryControl::Player {
-            controller: SimId::player_slot(0)
-        }),
-        "after rewinding across the mount's death the player is still driving"
-    );
     let after = sim
         .world()
         .get::<ControlClaims>(rider)
@@ -2213,9 +2175,6 @@ fn a_mount_dying_under_a_possession_survives_rewinds() {
         after.holds(ControlClaimant::Possession) && !after.holds(ControlClaimant::Mount),
         "the ride's claim ended and the possession's did not: {after:?}"
     );
-    // ⇒ AND THE PROJECTION AGREES WITH THE CLAIMS, which is the property the
-    // whole arbiter exists for: a rewind across the death frame leaves the
-    // effective authority equal to the winner of the surviving claims.
 }
 
 /// A NEW GAME RESET REACHES THE WALLET AND THE BAG ON THE PRODUCTION ROAD.

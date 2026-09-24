@@ -871,14 +871,7 @@ impl NpcActorSpawnPlan {
         // (`RestoreDefault`), and snapshot/restore all read the same authoritative
         // state. Anonymous NPCs (no catalog identity) carry neither.
         if let Some((binding, authored_context)) = self.brain_binding {
-            // The autonomous body also carries its temporary-control state (starts
-            // `Autonomous`): possession / mount record their controller here by
-            // stable id, so a snapshot restores the control mode across a rewind.
-            scope.insert((
-                binding,
-                authored_context,
-                ambition_platformer2d_shared_tangle::temporary_control::TemporaryControl::Autonomous,
-            ));
+            scope.insert((binding, authored_context));
         }
         {
             let moveset = npc_moveset.unwrap_or_default();

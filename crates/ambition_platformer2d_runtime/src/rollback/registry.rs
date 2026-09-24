@@ -683,6 +683,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// announcement latch is the only body-lifetime fact the sim owns; the
 /// `time_alive` / `resets` diagnostics left the wire (`BodyLifeStats`,
 /// unregistered) and `max_speed`, read by nothing, is deleted.
+/// ⛔⛤ 208 -> 209: `actor.scripted_control` LEFT. The marker was present
+/// exactly when `ControlHolds` was; presence of the hold set is the fact now.
+/// `actor.temporary_control` LEFT with it: `TemporaryControl` was a per-tick
+/// projection of `ControlClaims`, which readers now ask directly.
 /// ⛔⛤ 209 -> 210: `actor.combo_trace` LEFT. The HUD's movement readout is
 /// app presentation state fed from `FrameEvents` after the kernel ran; no
 /// simulation system read it.

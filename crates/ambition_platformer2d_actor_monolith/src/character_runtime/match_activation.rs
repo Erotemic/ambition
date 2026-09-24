@@ -569,7 +569,7 @@ pub fn activate_the_prepared_match(
 
 /// Release the opening hold when the ceremony ends — every seat on ONE tick.
 ///
-/// `opens_suspended` stamps `ScriptedControl` on every fighter in the flush that
+/// `opens_suspended` stamps `ControlHolds` on every fighter in the flush that
 /// creates them, so no body is ever observable in a state the ruleset did not
 /// ask for. This is the other half: the tick the hold comes off.
 ///

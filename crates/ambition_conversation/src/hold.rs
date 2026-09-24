@@ -1,10 +1,10 @@
 //! Project conversation authority onto participant control.
 //! Dialogue input neutralizes the initiator; the other participant receives a
-//! conversation-owned `ScriptedControl` hold so both sides remain neutral.
+//! conversation-owned `ControlHolds` hold so both sides remain neutral.
 
 use bevy::prelude::*;
 
-use ambition_characters::control::{claim_control_hold, release_control_hold, ControlHold, ControlHolds, ScriptedControl};
+use ambition_characters::control::{claim_control_hold, release_control_hold, ControlHold, ControlHolds};
 
 use super::authority::ActiveConversation;
 
@@ -16,12 +16,12 @@ pub struct HeldByConversation;
 /// Reconcile conversation-owned control holds from [`ActiveConversation`].
 ///
 /// The projection is idempotent and rollback-reconstructible. Removal releases
-/// only [`ControlHold::Conversation`], leaving other `ScriptedControl` claims intact.
+/// only [`ControlHold::Conversation`], leaving other `ControlHolds` claims intact.
 pub fn project_conversation_hold(
     mut commands: Commands,
     conversation: Res<ActiveConversation>,
     mut claimed: Query<(Entity, Option<&mut ControlHolds>), With<HeldByConversation>>,
-    fully_held: Query<(), (With<HeldByConversation>, With<ScriptedControl>)>,
+    fully_held: Query<(), (With<HeldByConversation>, With<ControlHolds>)>,
 ) {
     let holding = conversation.talker();
     for (entity, holds) in &mut claimed {

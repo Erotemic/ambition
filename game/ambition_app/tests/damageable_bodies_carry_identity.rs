@@ -145,7 +145,7 @@ fn every_damageable_body_these_roads_build_carries_a_stable_identity() {
 /// encodes the opening ceremony's LENGTH, and dev mode runs that ceremony ten
 /// times faster — so the same number lands in a different world. The condition
 /// is observable: a cast exists and nothing in it is still held by
-/// `ScriptedControl`. Both halves, because a cast that does not exist yet is not
+/// `ControlHolds`. Both halves, because a cast that does not exist yet is not
 /// a cast whose hold has come off.
 #[test]
 fn every_fighter_in_a_match_carries_a_stable_identity() {
@@ -176,7 +176,7 @@ fn every_fighter_in_a_match_carries_a_stable_identity() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

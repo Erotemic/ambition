@@ -3968,7 +3968,7 @@ mod tests {
             !matches!(phase, flag::FlagPhase::Idle),
             "the transition was dropped and the room never changed, so the flag \
              sequence must NOT have rearmed to Idle — an Idle sequence is \
-             `run_flag_sequence` releasing ScriptedControl, which is the player \
+             `run_flag_sequence` releasing ControlHolds, which is the player \
              walking away from a level they already finished. Phase was {phase:?}"
         );
     }

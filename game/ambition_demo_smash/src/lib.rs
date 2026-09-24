@@ -2032,7 +2032,7 @@ pub fn publish_smash_hud(
 
 /// 3 — 2 — 1 — GO.
 ///
-/// The roster opens `opens_suspended`, which stamps `ScriptedControl` on every
+/// The roster opens `opens_suspended`, which stamps `ControlHolds` on every
 /// fighter in the same flush that creates them, and declares
 /// `opening_countdown_ticks`. The ENGINE takes the hold off when the ceremony
 /// ends (`release_the_opening_hold`), atomically, for every seat on one tick.

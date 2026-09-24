@@ -412,16 +412,6 @@ pub struct DrivingParticipant(pub PlayerSlot);
 )]
 pub struct ActorControl(pub crate::actor::control::ActorControlFrame);
 
-// Control authority: holds are claims on a body, while `ScriptedControl` is
-// derived suppression state. Neither is controller policy, so neither is a `Brain`.
-/// Marker that ordinary control is suppressed because another authority drives
-/// or holds this body.
-///
-/// Derived from [`ControlHolds`]. A subsystem claiming control remains
-/// responsible for the body's behavior while its hold is active.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct ScriptedControl;
-
 /// CPU struggle cadence, shared by every brain family so escape timing does not
 /// depend on the AI template.
 const STRUGGLE_PRESSES_PER_SECOND: f32 = 6.0;
@@ -458,11 +448,14 @@ pub enum ControlHold {
     Interlude = 1 << 4,
 }
 
-/// Authorities currently suppressing ordinary control.
+/// Authorities currently suppressing ordinary control. Holds are claims on a
+/// body, not controller policy, so they are not a `Brain`.
 ///
-/// Each subsystem releases only its own bit. This is rollback state because it
-/// determines [`ScriptedControl`]; snapshots must preserve the full claim set.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+/// PRESENCE is the suppression fact: the component exists exactly while some
+/// authority holds the body, so readers filter `With`/`Without<ControlHolds>`.
+/// There is no `Default` so an empty set cannot be inserted; each subsystem
+/// releases only its own bit, and releasing the last removes the component.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ControlHolds(u8);
 
 impl ControlHolds {
@@ -502,9 +495,8 @@ pub fn claim_control_hold(commands: &mut Commands, body: Entity, hold: ControlHo
     commands
         .entity(body)
         .entry::<ControlHolds>()
-        .or_default()
-        .and_modify(move |mut holds| holds.claim(hold));
-    commands.entity(body).try_insert(ScriptedControl);
+        .and_modify(move |mut holds| holds.claim(hold))
+        .or_insert(ControlHolds::only(hold));
 }
 
 /// **Release a control hold, and ONLY that hold.**
@@ -524,7 +516,7 @@ pub fn release_control_hold(
     if holds.is_empty() {
         commands
             .entity(body)
-            .try_remove::<(ControlHolds, ScriptedControl)>();
+            .try_remove::<ControlHolds>();
     }
 }
 
@@ -537,5 +529,5 @@ pub fn release_control_hold(
 pub fn clear_control_holds(commands: &mut Commands, body: Entity) {
     commands
         .entity(body)
-        .try_remove::<(ControlHolds, ScriptedControl)>();
+        .try_remove::<ControlHolds>();
 }

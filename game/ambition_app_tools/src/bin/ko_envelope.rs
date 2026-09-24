@@ -1622,7 +1622,6 @@ impl KoProbe {
                         hold_offset_local: EVec2::new(16.0, 0.0),
                         prior_gravity_scale: 1.0,
                     },
-                    ambition_platformer2d::characters::control::ScriptedControl,
                     ambition_platformer2d::characters::control::ControlHolds::only(
                         ambition_platformer2d::characters::control::ControlHold::Relationship,
                     ),
@@ -1864,7 +1863,6 @@ impl KoProbe {
             // measure a captive.
             self.app.world_mut().entity_mut(self.victim).remove::<(
                 ambition_platformer2d::combat::capture::CapturedBy,
-                ambition_platformer2d::characters::control::ScriptedControl,
                 ambition_platformer2d::characters::control::ControlHolds,
                 ambition_platformer2d::characters::smash_hold_state::SmashHoldState,
             )>();
@@ -2537,7 +2535,6 @@ fn run_throw_diag() {
             hold_offset_local: EVec2::new(16.0, 0.0),
             prior_gravity_scale: 1.0,
         },
-        ambition_platformer2d::characters::control::ScriptedControl,
         ambition_platformer2d::characters::control::ControlHolds::only(
             ambition_platformer2d::characters::control::ControlHold::Relationship,
         ),

@@ -132,7 +132,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
         ));
 
     // ⛔⛔ THE TWO HOSTS DO NOT ANNOUNCE THE ROUND THE SAME WAY. The app host
-    // holds its cast under `ScriptedControl` through the ceremony and releasing
+    // holds its cast under `ControlHolds` through the ceremony and releasing
     // it is observable; the demo shell boots straight into `smash_stage` and
     // never satisfies that condition, so waiting on it panics against a match
     // that is perfectly live. Wait on the ROSTER'S OWN countdown there.
@@ -153,7 +153,7 @@ pub fn stage(request: StageRequest<'_>) -> Staged {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };

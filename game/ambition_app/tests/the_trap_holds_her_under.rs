@@ -67,7 +67,7 @@ fn the_trap_keeps_her_under_the_stage_until_an_action_press_ends_it() {
                 let seated = all.iter(world).count();
                 let mut q = world.query_filtered::<
                     &MatchSeat,
-                    With<ambition_platformer2d::characters::control::ScriptedControl>,
+                    With<ambition_platformer2d::characters::control::ControlHolds>,
                 >();
                 (seated, q.iter(world).count())
             };

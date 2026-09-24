@@ -4,7 +4,7 @@
 //! carvable was not line count: this module reached the monolith four ways and
 //! all four were removed first — the dismount brain rebuild became an answer to
 //! the `MountDied` this crate already announces, `ResolvedMotionFrame` turned
-//! out to live in `shared_tangle` behind a re-export, `TemporaryControl` moved
+//! out to live in `shared_tangle` behind a re-export, the control claims moved
 //! to `shared_tangle` beside `Mass`, and the twenty-six-column
 //! `ActorClusterQueryData` was replaced by the FIVE columns these systems touch.
 //!
@@ -239,8 +239,8 @@ pub fn rider_of(mount: Entity) -> (RidingOn, RideConstraints) {
 /// ⛔⛔ THEY MUST BE ARMED AND DISARMED TOGETHER, and for a while they were not.
 /// `enforce_mount_rider_link` predates `PoseOwnedExternally` and still ran the
 /// older two-component machine: mount death removed `Mounted` alone, so the
-/// rider was handed back its gravity, its solo brain and `TemporaryControl::
-/// Autonomous` while the movement kernel went on believing another authority
+/// rider was handed back its gravity, its solo brain and an
+/// unclaimed control while the movement kernel went on believing another authority
 /// owned its pose — an autonomous body that could not move itself. The re-arm
 /// after a same-room reset had the mirror bug: it restored the cached brain,
 /// zero gravity and `Mounted`, and left the constraint off a body being
@@ -764,13 +764,13 @@ pub fn board_reserved_mounts(
 /// moments earlier and has no `Commands` flush between. A system with `Commands`
 /// reaches the same behaviour by queueing this.
 ///
-/// ⛔ `TemporaryControl` IS NOT WRITTEN HERE, and that is deliberate. That
-/// component says *which transient controller is MASKING the body's autonomous
+/// ⛔ NO MOUNT CLAIM IS FILED HERE, and that is deliberate. A `ControlClaims`
+/// mount claim says *a transient controller is MASKING the body's autonomous
 /// brain*, and boarding only masks a brain when there is a
 /// [`MountedBrainCache`] to swap in — the authored NPC composite. A seated
 /// fighter or a possessing human keeps driving its own body from the saddle, so
 /// stamping `Mounted` there would claim a brain swap that never happened.
-/// `enforce_mount_rider_link` writes it on the arm that does the swap.
+/// `enforce_mount_rider_link` files it on the arm that does the swap.
 pub fn board(world: &mut bevy::prelude::World, rider: Entity, mount: Entity) -> bool {
     if rider == mount {
         return false;
@@ -900,7 +900,7 @@ pub fn apply_dismount_requests(
         // This arm removes `RidingOn`, and the only other place that released the
         // mount's claim queries bodies that HAVE `RidingOn` — so after an ordinary
         // dismount the rider could never reconcile: a stale, rollback-canonical
-        // claim projecting `TemporaryControl::Mounted` for the rest of the match.
+        // Mount claim for the rest of the match.
         // ⇒ The Pirate Admiral's timed shark is the production path: its lease
         // expires, `DismountRequested` fires, and he walks away still described as
         // mount-controlled.
@@ -1162,7 +1162,7 @@ pub fn enforce_mount_rider_link(
             // known to be true.
             (true, true) => {
                 // ⛔⛔ ONLY WHEN A BRAIN WAS ACTUALLY SWAPPED, and `board()`'s own
-                // doc says so in as many words: `TemporaryControl` records "which
+                // doc says so in as many words: a Mount claim records "which
                 // transient controller is MASKING the body's autonomous brain",
                 // and boarding masks a brain only when there is a
                 // `MountedBrainCache` to swap in. A seated fighter — the Smash
@@ -1399,7 +1399,7 @@ impl bevy::ecs::entity::MapEntities for RidingOn {
 /// label does change (it is `CARGO_PKG_NAME`), and the readable baseline omits
 /// owner labels for exactly this reason: ownership is organizational.
 ///
-/// ⚠ `Mass`, `SpawnBaseline` and `TemporaryControl` are NOT swept in here. Mount
+/// ⚠ `Mass`, `SpawnBaseline` and `ControlClaims` are NOT swept in here. Mount
 /// reads them, which is not the same as owning them — all three moved to
 /// `shared_tangle` precisely because two domains share them, and each is its own
 /// ownership decision rather than something this patch gets to settle by
@@ -1816,8 +1816,8 @@ mod dismount_claim_tests {
     /// `apply_dismount_requests` removes `RidingOn`, and the only other release
     /// arm — the mount-death branch of `enforce_mount_rider_link` — queries bodies
     /// that HAVE `RidingOn`. So after an ordinary dismount the rider could never
-    /// reconcile: a stale, rollback-canonical claim projecting
-    /// `TemporaryControl::Mounted` for the rest of the match.
+    /// reconcile: a stale, rollback-canonical Mount claim for the rest of the
+    /// match.
     ///
     /// ⚠ AND THE OBVIOUS PLACE TO GUARD IT CANNOT. `smash_ride.rs` runs the whole
     /// production road — summon, board, steer, jump off — but the Admiral is a

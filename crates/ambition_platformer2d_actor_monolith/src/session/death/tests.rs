@@ -1,15 +1,13 @@
 //! A death holds the body by CLAIMING, so nobody else's release can free
 //! it.
 //!
-//! The two tests below are the invariant and its poison in the same file:
 //! [`a_death_claims_the_sequence_hold`] says the claim happened at all, and
 //! [`a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip`] says what
-//! the claim BUYS — which is the whole reason the direct
-//! `try_insert(ScriptedControl)` was wrong.
+//! the claim buys.
 
 use super::*;
 use ambition_combat::death_rules::DeathCause;
-use ambition_characters::control::{release_control_hold, ControlHold, ControlHolds, ScriptedControl};
+use ambition_characters::control::{release_control_hold, ControlHold, ControlHolds};
 use ambition_combat::events::HitSource;
 use bevy::prelude::{App, Commands, Entity, Query, Update};
 
@@ -39,9 +37,7 @@ fn kill(app: &mut App, victim: Entity) {
     app.update();
 }
 
-/// The claim itself. `ScriptedControl` is DERIVED — its presence means
-/// `ControlHolds` is non-empty — so a death that produced the marker without a
-/// bit would leave the two disagreeing.
+/// The claim itself: a dead body is held by exactly the sequence bit.
 #[test]
 fn a_death_claims_the_sequence_hold() {
     let mut app = app_with_the_death_beat();
@@ -54,15 +50,10 @@ fn a_death_claims_the_sequence_hold() {
         "the death beat did not run at all — every assertion below would pass \
          vacuously on a body that was never killed"
     );
-    assert!(
-        app.world().get::<ScriptedControl>(victim).is_some(),
-        "a dead body still answers input"
-    );
     assert_eq!(
         app.world().get::<ControlHolds>(victim).copied(),
         Some(ControlHolds::only(ControlHold::Sequence)),
-        "the death interlude produced `ScriptedControl` without claiming a bit, so \
-         the marker and the claim set disagree about who is holding this body"
+        "a dead body still answers input, or is held by an authority other than the death beat"
     );
 }
 
@@ -76,7 +67,6 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            ScriptedControl,
             ControlHolds::only(ControlHold::Relationship),
         ))
         .id();
@@ -110,7 +100,7 @@ fn a_captor_letting_go_cannot_free_a_body_that_died_in_its_grip() {
     app.update();
 
     assert!(
-        app.world().get::<ScriptedControl>(victim).is_some(),
+        app.world().get::<ControlHolds>(victim).is_some(),
         "a captor's release freed a body that is still mid-death-interlude: the death \
          claimed no bit, so the release read an empty claim set as `nobody is holding \
          this` and took the marker off a corpse"

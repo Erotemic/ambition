@@ -46,7 +46,7 @@ fn the_admirals_side_b_fires_the_gun_swords_discharge() {
             let seated = all.iter(world).count();
             let mut q = world.query_filtered::<
                 &MatchSeat,
-                With<ambition_platformer2d::characters::control::ScriptedControl>,
+                With<ambition_platformer2d::characters::control::ControlHolds>,
             >();
             (seated, q.iter(world).count())
         };

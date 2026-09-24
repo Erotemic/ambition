@@ -127,7 +127,7 @@ pub fn rebuild_dismounted_rider_brains(
         // tests rather than by reasoning:
         //
         // 1. `MountedBrainCache`. The mount crate draws exactly this distinction
-        //    for `TemporaryControl` claims — *"the claim is the BRAIN SWAP, not a
+        //    for `ControlClaims` — *"the claim is the BRAIN SWAP, not a
         //    ride"* — so keying on the cache read as the same rule stated twice.
         //    **Nothing in the tree ever CONSTRUCTS that component**: it is
         //    declared, rollback-registered, read in three places and documented

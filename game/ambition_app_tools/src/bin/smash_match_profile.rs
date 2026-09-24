@@ -39,7 +39,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actor::{BodyKinematics, MatchSeat};
-use ambition_platformer2d::characters::control::{ScriptedControl, SlotControls};
+use ambition_platformer2d::characters::control::{ControlHolds, SlotControls};
 use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId};
 
 /// Frames to let the shell settle before the roster lands. A roster inserted
@@ -191,7 +191,7 @@ fn warn_if_scaling_sprites_were_culled(world: &mut World, spawned: usize) {
 fn cast_state(world: &mut World) -> (usize, usize) {
     let seated = world.query::<&MatchSeat>().iter(world).count();
     let held = world
-        .query_filtered::<&MatchSeat, With<ScriptedControl>>()
+        .query_filtered::<&MatchSeat, With<ControlHolds>>()
         .iter(world)
         .count();
     (seated, held)

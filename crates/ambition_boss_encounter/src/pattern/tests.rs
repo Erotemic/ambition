@@ -1497,3 +1497,45 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     };
     assert_eq!(uni_state.attack_intent, direct_attack);
 }
+
+/// A SELF-DODGING GIANT STEPS ASIDE WHILE ITS OWN STRIKE IS LIVE, AND ONLY THEN.
+///
+/// `self_dodge` is authored boss data (GNU-ton: `(70.0, 1.6)`). The branch that
+/// was meant to apply it computed its condition and moved nothing, so the
+/// authored weave never happened. The dodge is gated on the live move's strike
+/// window, not the whole fight, which is what "weaving out of its apple rain"
+/// asks for.
+#[test]
+fn a_self_dodging_giant_steps_aside_only_while_its_strike_is_live() {
+    let at = ae::Vec2::new(500.0, 500.0);
+    let tick_x = |amp: f32, striking: Option<bool>| {
+        let mut cfg = cfg_with(BossAttackPattern::Cycle);
+        cfg.spawn = at;
+        cfg.self_dodge_amp = amp;
+        cfg.self_dodge_freq = 1.6;
+        let mut state = BossPatternState {
+            // Far enough into the oscillator that `sin` is not near zero.
+            movement_timer: 1.0,
+            ..Default::default()
+        };
+        let mut c = ctx(BossEncounterPhase::Phase1, 0.05);
+        c.actor_pos = at;
+        c.target_pos = at + ae::Vec2::new(50.0, 0.0);
+        c.live_attack = striking.map(|striking| LiveBossAttack {
+            profile: BossAttackProfile::Special("apple_rain".to_string()),
+            striking,
+        });
+        let mut out = ambition_characters::actor::control::ActorControlFrame::default();
+        let mut intent = BossAttackIntent::default();
+        tick_boss_pattern(&cfg, &mut state, &c, &mut out, &mut intent);
+        out.velocity_target.0.x
+    };
+    let dodging = tick_x(70.0, Some(true));
+    assert!(
+        dodging.abs() > 1.0,
+        "the authored self-dodge moved nothing during a live strike ({dodging})"
+    );
+    assert_eq!(tick_x(0.0, Some(true)), 0.0, "control: a boss that holds its ground");
+    assert_eq!(tick_x(70.0, Some(false)), 0.0, "a windup is not the strike window");
+    assert_eq!(tick_x(70.0, None), 0.0, "and neither is rest");
+}

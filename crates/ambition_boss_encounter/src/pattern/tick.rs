@@ -551,15 +551,14 @@ fn emit_desired_vel(
 
     // While a strike is live, a self-dodging boss adds a horizontal dodge to
     // the sway, so it reads as stepping aside from its own attack (GNU-ton
-    // weaving out of its apple rain).
+    // weaving out of its apple rain). It rides the same `movement_timer` the
+    // sway does, which advances every tick, so the dodge is a pure function of
+    // rewound state.
     let self_dodge_active = matches!(cfg.movement, BossMovementProfile::StationaryGiant { .. })
         && cfg.self_dodge_amp > 0.0
-        && ctx.encounter_phase.is_attacking();
+        && ctx.live_attack.as_ref().is_some_and(|live| live.striking);
     if self_dodge_active {
-        // This function cannot tell whether DebrisRain is active without the
-        // `BossAttackState` mirror. It relies on the sway oscillator in
-        // `state.movement_timer` running every tick.
-        let _ = state.movement_timer;
+        target.x += cfg.self_dodge_amp * (state.movement_timer * cfg.self_dodge_freq).sin();
     }
 
     // Soft world-bounds clamp: collision owns the hard stop, but the brain

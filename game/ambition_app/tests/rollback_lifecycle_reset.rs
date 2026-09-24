@@ -649,8 +649,10 @@ fn a_failed_preparation_is_ended_by_the_confirmed_host_too() {
                 key,
                 frame: 0,
                 intent: intent.clone(),
-                occurrences: Default::default(),
-                custody: Default::default(),
+                lifecycle: Some(ambition_platformer2d::platformer::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody: Default::default(),
+                }),
                 item: None,
             });
         assert!(world

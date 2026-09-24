@@ -770,8 +770,10 @@ fn the_commit_applies_the_operation_it_was_opened_for_and_always_removes_its_inp
             key: second,
             frame: 3,
             intent: crossing("east"),
-            occurrences: Default::default(),
-            custody: Default::default(),
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody: Default::default(),
+            }),
             item: Some(ItemCheckpointRestoreInputs {
                 minted: Default::default(),
                 owned: Default::default(),
@@ -834,8 +836,10 @@ fn a_key_from_a_retired_session_matches_nothing_in_the_next_one() {
                 target_room: "here".into(),
             },
         ),
-        occurrences: Default::default(),
-        custody: Default::default(),
+        lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+            occurrences: Default::default(),
+            custody: Default::default(),
+        }),
         item: None,
     });
     assert!(
@@ -1020,8 +1024,10 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
             },
             frame: 7,
             intent: LifecycleIntent::Transition(crossing()),
-            occurrences: Default::default(),
-            custody: Default::default(),
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody: Default::default(),
+            }),
             item: Some(crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: MintedItemBaseline::default(),
                 owned: Default::default(),
@@ -1129,6 +1135,15 @@ fn the_accepted_restores_checksum_separates_every_field_that_changes_what_it_bui
                 ..base()
             },
         ),
+        (
+            "an ABSENT lifecycle baseline versus an installed empty one — a \
+             composition without the lifecycle horizon is not a checkpoint in \
+             which nothing occurred",
+            AcceptedRestore {
+                lifecycle: None,
+                ..base()
+            },
+        ),
     ];
     for (what, perturbed) in perturbations {
         assert_ne!(
@@ -1196,8 +1211,10 @@ fn a_restore_that_fails_verification_blocks_gameplay_and_publishes_one_failure()
             intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
                 target_room: "here".into(),
             }),
-            occurrences: Default::default(),
-            custody,
+            lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                occurrences: Default::default(),
+                custody,
+            }),
             item: None,
         });
 
@@ -1589,8 +1606,10 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
                 intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
                     target_room: "here".into(),
                 }),
-                occurrences: Default::default(),
-                custody,
+                lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody,
+                }),
                 item: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
@@ -1638,6 +1657,13 @@ fn custody_verification_names_the_custodian_and_refuses_a_duplicate() {
 /// Shared by the acceptance rows below, which are all about what happens to an
 /// operation BETWEEN admission and commit and differ only in what they disturb.
 fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
+    a_session_that_can_reset_with(true)
+}
+
+/// [`a_session_that_can_reset`], with or without the lifecycle horizon.
+fn a_session_that_can_reset_with(
+    lifecycle_horizon: bool,
+) -> (App, bevy::ecs::schedule::InternedScheduleLabel) {
     use ambition_platformer2d_shared_tangle::lifecycle::{
         insert_session_world_component, ActiveSessionScope, ResetToCheckpoint,
     };
@@ -1668,10 +1694,12 @@ fn a_session_that_can_reset() -> (App, bevy::ecs::schedule::InternedScheduleLabe
     app.add_message::<ambition_platformer2d_shared_tangle::lifecycle::CheckpointCommitted>();
     app.add_message::<ambition_combat::events::RoomReplayAdmitted>();
     let sim = app.sim_schedule();
-    app.add_plugins((
-        ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
-        super::SessionCheckpointHorizonPlugin,
-    ));
+    if lifecycle_horizon {
+        app.add_plugins(
+            ambition_platformer2d_shared_tangle::lifecycle::LifecycleCheckpointHorizonPlugin,
+        );
+    }
+    app.add_plugins(super::SessionCheckpointHorizonPlugin);
     app.world_mut().spawn((
         PlayerEntity,
         PrimaryPlayer,
@@ -1741,8 +1769,10 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
                 intent: LifecycleIntent::ReconstituteRoom(RoomReconstitutionIntent {
                     target_room: "here".into(),
                 }),
-                occurrences,
-                custody: Default::default(),
+                lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences,
+                    custody: Default::default(),
+                }),
                 item: None,
             });
         assert!(super::apply_committed_checkpoint_restore(app.world_mut(), key));
@@ -1780,6 +1810,38 @@ fn verification_requires_the_rebuilt_room_to_contain_what_the_checkpoint_puts_in
 /// on it alone would pass on a session that minted two operation keys and
 /// accepted the second over the first, which is two reconstructions' worth of
 /// consequences behind one crossing.
+/// ⛔ **A COMPOSITION WITH NO LIFECYCLE HORIZON PINS NO LIFECYCLE HALF.**
+///
+/// The admission used to pin an EMPTY ledger and an empty custody relation when
+/// the baselines were absent. An empty baseline is a real answer: the custody
+/// restore takes every carried object from its holder, and room preparation
+/// builds from that ledger instead of the live one. So absence must stay
+/// absence, as it does for the item half.
+#[test]
+fn a_restore_admitted_without_the_lifecycle_horizon_pins_no_lifecycle_inputs() {
+    use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
+
+    for lifecycle_horizon in [true, false] {
+        let (mut app, sim) = a_session_that_can_reset_with(lifecycle_horizon);
+        app.world_mut().write_message(ResetToCheckpoint);
+        app.world_mut().run_schedule(sim);
+        let accepted = app
+            .world()
+            .resource::<AcceptedCheckpointRestore>()
+            .accepted()
+            .expect("the reset was admitted in both compositions")
+            .clone();
+        assert_eq!(
+            accepted.lifecycle.is_some(),
+            lifecycle_horizon,
+            "with the lifecycle horizon installed = {lifecycle_horizon}, the \
+             admission pinned lifecycle inputs = {}. An absent horizon must pin \
+             nothing, and an installed one must pin its baselines",
+            accepted.lifecycle.is_some(),
+        );
+    }
+}
+
 #[test]
 fn two_reset_requests_in_one_tick_become_one_operation() {
     use ambition_platformer2d_shared_tangle::lifecycle::ResetToCheckpoint;
@@ -1917,7 +1979,12 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
     }
     assert_ne!(
         app.world().resource::<OccurrenceBaseline>().remembered(),
-        pinned.occurrences.remembered(),
+        pinned
+            .lifecycle
+            .as_ref()
+            .expect("the lifecycle horizon is installed, so the operation pinned its half")
+            .occurrences
+            .remembered(),
         "the later capture did not actually change the live baseline, so the \
          snapshot check below is about a horizon that never moved"
     );
@@ -1934,7 +2001,7 @@ fn an_admitted_operation_keeps_its_subject_and_its_snapshot_while_it_waits() {
          several frames later would then transit a body that never triggered it"
     );
     assert_eq!(
-        still.occurrences, pinned.occurrences,
+        still.lifecycle, pinned.lifecycle,
         "a checkpoint committed while the operation waited retargeted it. The \
          restore would apply a horizon taken AFTER the one it was accepted for"
     );
@@ -1982,8 +2049,10 @@ fn an_operation_at(
                 zone_sfx: None,
             },
         ),
-        occurrences: Default::default(),
-        custody: Default::default(),
+        lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+            occurrences: Default::default(),
+            custody: Default::default(),
+        }),
         item: None,
     }
 }

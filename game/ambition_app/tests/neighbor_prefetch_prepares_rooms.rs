@@ -322,8 +322,10 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
                 key,
                 frame: 0,
                 intent: LifecycleIntent::Transition(intent.clone()),
-                occurrences,
-                custody: Default::default(),
+                lifecycle: Some(ambition_platformer2d::platformer::lifecycle::CheckpointRestoreInputs {
+                    occurrences,
+                    custody: Default::default(),
+                }),
                 item: None,
             });
     }

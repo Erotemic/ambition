@@ -159,6 +159,61 @@ fn commanded_move_steers_the_boss_toward_target() {
     assert_eq!(control.0.facing, 1.0, "and faces the target");
 }
 
+/// A lured boss starts no attack: the steer clears the brain's INTENT, which is
+/// what the move trigger reads. The attack read-model is the move projection's
+/// alone to write.
+#[test]
+fn commanded_move_clears_the_attack_intent_not_the_projection() {
+    let mut app = App::new();
+    app.add_systems(Update, tick_commanded_moves);
+    let wanted = ambition_characters::brain::BossAttackProfile::Strike("floor_slam".into());
+    let projected = ambition_characters::brain::BossAttackState {
+        active_profile: Some(wanted.clone()),
+        active_remaining: 0.5,
+        ..Default::default()
+    };
+    let boss = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::body::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::splat(40.0),
+                facing: -1.0,
+            },
+            boss_config(),
+            member(100),
+            ambition_characters::control::ActorControl::default(),
+            projected.clone(),
+            ambition_characters::brain::BossAttackIntent {
+                telegraph_profile: Some(wanted.clone()),
+                active_profile: Some(wanted),
+            },
+            CommandedMove {
+                target: ae::Vec2::new(300.0, 0.0),
+                speed: 150.0,
+                arrive_tolerance: 10.0,
+            },
+        ))
+        .id();
+
+    app.update();
+
+    let world = app.world();
+    assert_eq!(
+        world.get::<ambition_characters::brain::BossAttackIntent>(boss),
+        Some(&ambition_characters::brain::BossAttackIntent::default()),
+        "a lured boss still wants to attack, so the trigger starts its move"
+    );
+    let after = world
+        .get::<ambition_characters::brain::BossAttackState>(boss)
+        .expect("the read-model stays on the boss");
+    assert_eq!(
+        after.active_profile, projected.active_profile,
+        "the steer wrote the move projection's read-model"
+    );
+}
+
 /// An aligned `FallingHazard` falls onto its target and fires its impact gate.
 #[test]
 fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {

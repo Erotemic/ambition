@@ -245,24 +245,25 @@ pub struct CommandedMove {
 }
 
 /// Steer every [`CommandedMove`] boss toward its target, overriding the brain's
-/// `ActorControl` (and clearing its attack intent). Runs in the boss steer slot
+/// `ActorControl` and clearing its attack intent, so no new move starts and a
+/// windup in progress is interrupted; a committed strike runs out. Runs in the boss steer slot
 /// (between the brain tick and the body integrate).
 pub fn tick_commanded_moves(
     mut bosses: Query<(
         BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &mut ambition_characters::control::ActorControl,
-        &mut ambition_characters::brain::BossAttackState,
+        &mut ambition_characters::brain::BossAttackIntent,
         &CommandedMove,
     )>,
 ) {
-    for (feature, health, mut control, mut attack_state, cmd) in &mut bosses {
+    for (feature, health, mut control, mut attack_intent, cmd) in &mut bosses {
         let boss = feature.as_boss_ref();
         if !health.alive() {
             continue;
         }
         let dx = cmd.target.x - boss.kin.pos.x;
-        attack_state.clear();
+        attack_intent.clear();
         control.0.melee_pressed = false;
         control.0.special_pressed = false;
         control.0.facing = if dx.abs() > 2.0 {

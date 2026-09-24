@@ -896,6 +896,99 @@ mod authored_enemy_reads_its_character {
         );
     }
 
+    /// A prepared character with NO body blueprint (it authored no locomotion)
+    /// placed as an NPC still gets its BODY at construction, and only its
+    /// persona is left to the derive. The Hall of Characters places four such
+    /// characters (`mary_o`, `mary_o_tall`, `sanic`, `super_sanic`); left to the
+    /// derive, their body was the seed's for a tick, so the pose view called
+    /// the geometry `Pending` and `mary_o` stood 32x48 before 21.3x32.
+    #[test]
+    fn a_prepared_npc_without_a_blueprint_is_granted_its_body_but_not_its_persona() {
+        use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
+        let authored = ambition_platformer2d_world::rooms::Authored::new(
+            "NpcSpawn-beaver",
+            "NpcSpawn",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            InteractableSpec::new(
+                "Talk",
+                InteractionKindSpec::Npc {
+                    character_id: Some("npc_busy_beaver".to_string()),
+                    dialogue_id: None,
+                    patrol_radius: 0.0,
+                    patrol_path_id: None,
+                    brain_override: Some("stand_still".to_string()),
+                },
+            ),
+        );
+        let definition = ambition_characters::actor::definition::CharacterDefinition::new(
+            "npc_busy_beaver",
+            "Busy Beaver",
+            "test",
+        );
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &ambition_characters::prepared::CharacterBindings::default(),
+        );
+        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        assert!(
+            registry.get("npc_busy_beaver").unwrap().body_blueprint().is_err(),
+            "the premise: this character cannot build a body on its own"
+        );
+        let generation = registry.generation();
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(registry);
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  prepared: bevy::prelude::Res<
+                ambition_characters::prepared::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                ambition_platformer2d_actor_spawn::spawn_interactable_into(
+                    &mut ambition_platformer2d_shared_tangle::construction::RootScope::new(
+                        &mut commands,
+                        SessionSpawnScope::UNSCOPED,
+                        root,
+                    ),
+                    &catalog,
+                    &Default::default(),
+                    &prepared,
+                    &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
+                    &authored.name,
+                    &[],
+                    &ambition_characters::brain::AuthoredBrainOverride::default(),
+                    ambition_platformer2d_actor_spawn::RecordedFate::AsAuthored,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_characters::actor::WornCharacter,
+            Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+            Option<&ambition_body_seed::PersonaBaseline>,
+        )>();
+        let (worn, kit, baseline) = q.iter(world).next().expect("the NPC was built");
+        assert_eq!(worn.id(), "npc_busy_beaver");
+        assert_eq!(
+            kit.map(|kit| (kit.id.as_str(), kit.generation)),
+            Some(("npc_busy_beaver", generation)),
+            "the NPC's prepared body was not granted by its construction, so its \
+             geometry is the seed's until the projector grants it a tick later"
+        );
+        assert!(
+            baseline.is_none(),
+            "the persona memo was stamped, which switches off the derive that owns \
+             this body's health, weight and kit"
+        );
+    }
+
     /// Initial orientation is carried by the authored occurrence and lands on the authoritative
     /// body before its first controller tick.
     #[test]

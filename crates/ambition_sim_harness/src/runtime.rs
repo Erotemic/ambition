@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
 use ambition_platformer2d::actor::{
-    default_body_size, transit_body, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
+    default_body_size, transit_body, AbilityBase, ActorFaction, BodyAbilities, BodyClusterQueryData, BodyCombat,
     BodyFlightState, BodyHealth, BodyKinematics, BodyLifeStats, BodyMode, BodyMotionFacts, BodySafetyState,
     BossBrain, BossOverrides, Health, MotionModel, PrimaryPlayerOnly, SpawnActorKind,
     SpawnActorRequest, TransitVelocity,
@@ -770,13 +770,17 @@ impl Platformer2dSimHarness {
     }
 
     /// Grant the player the pogo (down-attack bounce) ability. Test setup.
+    ///
+    /// Written to the body's base as well as its effective set: the effective
+    /// set is re-projected from the base every tick.
     pub fn grant_pogo_ability(&mut self) {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut BodyAbilities, PrimaryPlayerOnly>();
-        if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
+            .query_filtered::<(&mut BodyAbilities, &mut AbilityBase), PrimaryPlayerOnly>();
+        if let Ok((mut abilities, mut base)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
+            base.abilities.pogo = true;
         }
         self.rebase_after_direct_setup_mutation();
     }
@@ -790,9 +794,10 @@ impl Platformer2dSimHarness {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<(&mut BodyAbilities, &mut BodyFlightState), PrimaryPlayerOnly>();
-        if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
+            .query_filtered::<(&mut BodyAbilities, &mut AbilityBase, &mut BodyFlightState), PrimaryPlayerOnly>();
+        if let Ok((mut abilities, mut base, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
+            base.abilities.fly = true;
             flight.fly_enabled = true;
         }
         self.rebase_after_direct_setup_mutation();

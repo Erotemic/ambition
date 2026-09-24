@@ -225,20 +225,15 @@ pub fn request_developer_slow_motion(
 /// developer HUD's flash. The value is written by a room commit and read by the
 /// app's HUD; nothing in the sim reads it.
 ///
-/// ⛔ STILL THE SIM SCHEDULE, NOT `Update`, and that is deliberate: its old home
-/// ran in `PresentationSync` precisely so presentation timers decay while
-/// gameplay is suspended, and moving it to `Update` would change WHICH CLOCK it
-/// counts on under a rollback host. Ownership moved; the clock did not.
-///
-/// ⚠ UNORDERED within the tick, on purpose. It is a monotonic decay of a value
-/// no sim system reads, so what it needs is to run once per tick — and the set
-/// its old neighbour sits in (`Platformer2dSimulationPhaseMonolith`) is a name
-/// this crate is forbidden to reach for.
+/// ⛔ `Update`, NOT THE SIM SCHEDULE, on the render frame's own clock. It is
+/// presentation state no sim system reads and is not rollback-registered, so
+/// inside the rewinding schedule every resimulated tick decayed it again; the
+/// render frame runs once per frame whether gameplay is suspended or not.
 pub fn decay_developer_presentation_flash(
-    time: bevy::prelude::Res<bevy::prelude::Time>,
+    time: ambition_time::PresentationTime,
     mut dev_state: bevy::prelude::ResMut<DeveloperRuntimeState>,
 ) {
-    dev_state.preset_flash = (dev_state.preset_flash - time.delta_secs()).max(0.0);
+    dev_state.preset_flash = (dev_state.preset_flash - time.wall_dt()).max(0.0);
 }
 
 impl Default for DeveloperRuntimeState {
@@ -456,6 +451,7 @@ mod developer_runtime_state_tests {
         let mut time = Time::<()>::default();
         time.advance_by(std::time::Duration::from_millis(20));
         world.insert_resource(time);
+        world.insert_resource(ambition_time::ClockState::default());
         let mut run =
             bevy::ecs::system::IntoSystem::into_system(decay_developer_presentation_flash);
         run.initialize(&mut world);

@@ -278,21 +278,6 @@ ADJUDICATED: dict[str, str] = {
         "makes the pulse fade marginally early on a rewinding host and cannot "
         "reach a checksum (read 2026-09-18)"
     ),
-    "decay_developer_presentation_flash": (
-        "⭐ PRESENTATION ONLY, AND DELIBERATELY IN THIS SCHEDULE. `preset_flash` "
-        "is a developer HUD timer read only by "
-        "`game/ambition_app/src/app/hud.rs:305`; "
-        "`crates/ambition_platformer2d_actor_monolith/src/control/input_systems.rs:305-310` "
-        "records it LEAVING the simulation kernel's control module for this "
-        "system *\"in the same schedule\"*, and "
-        "`game/ambition_app/tests/the_developer_hud_flash_still_winds_down.rs` "
-        "holds the registration. ⚠ It reads `Res<Time>` — WALL dt — inside the "
-        "rewinding schedule, which for any value the timeline reads would be the "
-        "measured `PlayerCloneClock` defect. It is correct here only because a "
-        "HUD timer wants wall time and nothing inside the timeline reads it; a "
-        "future reader moving `preset_flash` into gameplay must change the clock "
-        "in the same edit (read 2026-09-18)"
-    ),
     "observe_brain_action_counter": (
         "⭐ AN OBSERVATION CENSUS WITH NO READER. `BrainActionCounter.total` "
         "accumulates `ActorActionMessage` counts and `last_frame` is written "

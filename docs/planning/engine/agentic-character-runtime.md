@@ -66,7 +66,7 @@
 >
 > ⛔ **BUT THE POLICY LAYER ABOVE IT IS A CLOSED ENUM, AND THAT IS A SECOND GATE
 > THIS PAGE DOES NOT NAME.** `CharacterBrainTemplate`
-> (`crates/ambition_characters/src/brain/mod.rs:511`) has nine variants — re-derived
+> (`crates/ambition_characters/src/brain/mod.rs:406`) has nine variants — re-derived
 > 2026-09-17, and the NAMES are unchanged, which is the durable form of this
 > claim — `StandStill`,
 > `Wanderer`, `MeleeBrute`, `Skirmisher`, `Sniper`, `ChargeCrash`, `Smash`,

@@ -158,10 +158,11 @@ pub fn emit_player_time_intent_system(
 pub fn smooth_sim_clock_toward_target_system(
     target: Res<RequestedClockScale>,
     feel: Res<Platformer2dFeelTuningMonolith>,
-    time: Res<Time>,
+    world_time: Res<ambition_time::WorldTime>,
     mut clock: ResMut<ClockState>,
 ) {
-    let frame_dt = time.delta_secs();
+    // Unscaled: the ramp is in real seconds, whatever scale it is ramping.
+    let frame_dt = world_time.wall_dt();
     let rate = if target.sim_clock < clock.time_scale {
         feel.time_ramp_down_rate
     } else {

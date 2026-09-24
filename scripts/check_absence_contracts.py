@@ -193,6 +193,34 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-sim-clock-is-world-time",
+        # The simulation's one time authority is `WorldTime`, published at
+        # `SimClockHead` from Bevy's `Time`; `SimDt` is its derived mirror.
+        "paths": [
+            "crates/ambition_platformer2d_actor_monolith/src/time/",
+            "crates/ambition_platformer2d_actor_monolith/src/control/",
+            "crates/ambition_platformer2d_actor_monolith/src/dev/trace/",
+            "crates/ambition_dev_tools/src/lib.rs",
+        ],
+        "patterns": [
+            {
+                "grep": r"Res<",
+                "match": r"Res<\s*(bevy::(prelude|time)::)?Time\s*(<[^>]*>)?\s*>",
+            }
+        ],
+        "reason": (
+            "ONE CLOCK. Inside the rewinding schedule `Res<Time>` happens to "
+            "carry the same delta as `WorldTime::wall_dt()`, which is why the "
+            "clock smoothing, the camera-ease decay and the trace recorder "
+            "reading it directly never diverged — and why nothing would notice "
+            "the day one of them did. They read `WorldTime`; the trace "
+            "recorder's `sim_dt` had in fact diverged, multiplying by the scale "
+            "this tick's smoothing had already moved. A presentation timer that "
+            "wants the render frame's clock runs in `Update` and reads "
+            "`PresentationTime`."
+        ),
+    },
+    {
         "id": "world-construction-does-not-read-the-ability-editor",
         "paths": [
             "crates/ambition_platformer2d_provider/",

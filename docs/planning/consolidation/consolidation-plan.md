@@ -499,7 +499,7 @@ WAS NOT CORRECT — REVIEWED AND REPAIRED 2026-09-20.** The claim was that
 `game/ambition_app/src/app/dev_runtime.rs`'s HOT RELOAD is *"BUILDING the
 generation that replaces the live one, so the registries it was handed are the
 candidate's"*, and it said so by calling
-`GenerationMechanics::for_the_generation_being_built`.
+`GenerationMechanics::for_the_generation_being_built`. <!-- cite-ok: deleted in a49ae6654; this paragraph records why -->
 
 That is true of a MECHANICAL replacement and false of the only caller there was.
 `reload_ldtk_world_from_disk` builds its candidate with

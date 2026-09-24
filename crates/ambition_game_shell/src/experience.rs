@@ -57,19 +57,13 @@ pub struct ExperienceRegistration {
     pub description: String,
     pub launch_route: ShellRouteId,
     pub availability: ExperienceAvailability,
-    /// Whether the launcher ADVERTISES this experience.
+    /// Whether the launcher lists this experience.
     ///
-    /// not the same question as [`availability`](Self::availability), and
-    /// conflating them was the gap. An unavailable experience is shown and
-    /// greyed with a reason, because the player is meant to know it exists and
-    /// why they cannot have it. An UNLISTED one is composed, routed and
-    /// reachable — and simply not offered, because it is a test fixture or a
-    /// development stage rather than something anyone came here to play.
-    ///
-    /// it stays fully registered, which is the whole point: its route is
-    /// in the catalog, its characters join the roster, and a test that activates
-    /// it by route id works unchanged. Removing the composition instead would
-    /// have deleted the only place two providers' casts coexist.
+    /// Different from [`availability`](Self::availability). An unavailable
+    /// experience is shown greyed with a reason. An unlisted one (a test
+    /// fixture or development stage) is not shown, but stays fully registered:
+    /// its route is in the catalog, its characters join the roster, and tests
+    /// can activate it by route id.
     pub listed: bool,
 }
 
@@ -92,9 +86,8 @@ impl ExperienceRegistration {
 
     /// Compose and route this experience, but keep it out of the launcher.
     ///
-    /// For a stage that exists to be tested or developed against rather than
-    /// chosen: the route works, the roster is installed, and the player's game
-    /// list stays a list of games.
+    /// For a stage used for tests or development. The route and roster still
+    /// work.
     pub fn unlisted(mut self) -> Self {
         self.listed = false;
         self
@@ -113,18 +106,13 @@ impl ExperienceRegistration {
 
     /// Enter through a route other than the one that owns the session.
     ///
-    /// That is right for a game whose first frame IS gameplay, and wrong for one that asks a
-    /// question first: a character select, a stage select, a save-slot picker. Those are not
-    /// loading screens (nothing is loading) and not the launcher (the launcher lists games, not
-    /// fighters), so the shell had nowhere to put them and the smash demo's select screen could
-    /// only exist as its own app's HOME — unreachable from a host that lists more than one
-    /// game.
+    /// For a game that asks a question first: a character select, a stage
+    /// select, a save-slot picker.
     ///
-    /// The entry route is an ordinary shell route the provider registers itself,
-    /// under an experience id of its own that is NOT a gameplay session (a
-    /// frontend screen the provider draws). It must already be in the
-    /// [`ShellRouteCatalog`] when the experience registers — advertising an
-    /// entry nobody registered is the one failure this cannot detect later.
+    /// The entry route is an ordinary shell route the provider registers
+    /// itself, under its own experience id that is not a gameplay session. It
+    /// must already be in the [`ShellRouteCatalog`] when the experience
+    /// registers.
     pub fn entered_at(mut self, route: impl Into<ShellRouteId>) -> Self {
         self.launch_route = route.into();
         self
@@ -183,11 +171,8 @@ impl ShellExperienceRegistry {
 
     /// The derived launcher entries, in registration order.
     ///
-    /// UNLISTED registrations are omitted, and they are the only thing
-    /// omitted. An *unavailable* experience still appears here — greyed, with
-    /// its reason — because the player is meant to see that it exists. This
-    /// filter is for the other case: a stage that is composed and routed but was
-    /// never for the player to choose.
+    /// Only unlisted registrations are omitted. Unavailable experiences still
+    /// appear, greyed with their reason.
     pub fn launch_entries(&self) -> Vec<ShellLaunchEntry> {
         self.entries
             .iter()
@@ -202,11 +187,10 @@ pub trait ShellExperienceAppExt {
     /// Register one experience: install its `route` in the [`ShellRouteCatalog`]
     /// and publish its `registration` in the [`ShellExperienceRegistry`].
     ///
-    /// `route` is the experience's SESSION route. The registration's
-    /// `launch_route` is where the launcher sends the player, which is normally
-    /// the same route — an experience that opens on a screen of its own
-    /// ([`ExperienceRegistration::entered_at`]) must have registered that route
-    /// FIRST, and this refuses an entry route nobody registered.
+    /// `route` is the experience's session route. The registration's
+    /// `launch_route` is where the launcher sends the player, normally the same
+    /// route. An entry route set with [`ExperienceRegistration::entered_at`]
+    /// must be registered first; otherwise this panics.
     ///
     /// A provider plugin calls this in its `build`; the host installs the
     /// provider plugin. There is no central match over demo identities.
@@ -224,10 +208,9 @@ impl ShellExperienceAppExt for App {
         route: ShellRouteSpec,
     ) -> &mut Self {
         let world = self.world_mut();
-        // The entry route either IS this session route, or is a route somebody
-        // already registered. A launcher row pointing at an unknown route is a
-        // dead entry that fails at the worst possible moment — when a player
-        // presses it — so it fails here, naming what does exist.
+        // The entry route is this session route or an already registered
+        // route. Fail here, listing the known routes, not when a player
+        // presses the row.
         if registration.launch_route != route.id {
             let registered = world
                 .get_resource::<ShellRouteCatalog>()
@@ -245,17 +228,14 @@ impl ShellExperienceAppExt for App {
                     .unwrap_or_default(),
             );
         }
-        // Two failure modes, both deterministic composition errors with order-independent
-        // diagnostics:
+        // Two composition errors, with order-independent diagnostics:
         //
-        //  1. duplicate experience id — two providers claiming one launcher
-        //     identity would make launcher order and routing ambiguous;
-        //  2. duplicate route id — two experiences claiming one route would make
-        //     activation ambiguous (and `BTreeMap::insert` would silently clobber
-        //     the first route).
+        //  1. duplicate experience id: launcher order and routing would be
+        //     ambiguous;
+        //  2. duplicate route id: activation would be ambiguous, and
+        //     `BTreeMap::insert` would replace the first route.
         //
-        // An IDENTICAL re-registration (same plugin composed twice) is
-        // idempotent and returns before any mutation.
+        // An identical re-registration (same plugin twice) does nothing.
         if let Some(existing) = world
             .get_resource::<ShellExperienceRegistry>()
             .and_then(|registry| registry.get(&registration.id).cloned())
@@ -265,13 +245,12 @@ impl ShellExperienceAppExt for App {
                 "{}",
                 duplicate_experience_diagnostic(&registration.id, &existing, &registration),
             );
-            // Same id AND identical spec: the route is already registered from the
-            // first call, so re-registering it would trip the duplicate-route
-            // check below. Return here — idempotent, no mutation.
+            // Same id and identical spec: already registered. Return before
+            // the duplicate-route check.
             return self;
         }
-        // The experience id is NEW. Any existing route under this id therefore
-        // belongs to a DIFFERENT experience — a genuine collision.
+        // The experience id is new, so an existing route with this id belongs
+        // to a different experience.
         if let Some(existing_route) = world
             .get_resource::<ShellRouteCatalog>()
             .and_then(|catalog| catalog.get(&route.id).cloned())
@@ -341,9 +320,8 @@ fn canonical_pair(a: String, b: String) -> (String, String) {
 
 /// Rebuild the launcher catalog from the experience registry.
 ///
-/// Runs whenever the registry changes (registrations happen at app build, so
-/// this fires on the first frame). The launcher catalog is a pure projection:
-/// the registry is the single source of truth for what a host can launch.
+/// Runs when the registry changes (on the first frame, since registration
+/// happens at app build). The registry is the source of truth.
 pub(crate) fn sync_registry_into_launch_catalog(
     registry: bevy::prelude::Res<ShellExperienceRegistry>,
     mut catalog: bevy::prelude::ResMut<ShellLaunchCatalog>,
@@ -351,8 +329,8 @@ pub(crate) fn sync_registry_into_launch_catalog(
     if !registry.is_changed() {
         return;
     }
-    // A host with no registered experiences (e.g. a pure headless load test) must
-    // not have its manually-seeded catalog wiped. Only project when non-empty.
+    // Do not wipe a manually seeded catalog in a host with no registered
+    // experiences (e.g. a headless load test).
     if registry.is_empty() {
         return;
     }

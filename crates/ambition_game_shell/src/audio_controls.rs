@@ -1,31 +1,14 @@
 //! The universal audio controls the shell offers every experience.
 //!
-//! ⛔⛔ THIS LIVED INSIDE `pause_menu`, WHICH IS `#[cfg(feature =
-//! "basic_presentation")]`, AND THAT BROKE THE CRATE AT DEFAULT FEATURES.
-//! `plugin.rs` is NOT gated, and once the launcher's settings tab needed these
-//! rows it imported them unconditionally from a module that may not exist:
-//! *"could not find `pause_menu` in the crate root"*. Reported by the peer
-//! session 2026-09-05, blocking its builds, because `ambition_content` pulls
-//! this crate in transitively.
-//!
-//! ⚠ I never saw it because every check I ran passed `--features
-//! basic_presentation`. The same shape as the regression an assembled-host test
-//! caught for me an hour earlier: the configuration I exercised was not the
-//! configuration that breaks.
-//!
-//! ⭐ The fix is not to gate the import. These are SHELL IDENTITY -- "the four
-//! global audio fields that belong on the universal shell menu" -- and they now
-//! have two consumers, the pause menu and the launcher's settings tab, one of
-//! which lives in ungated code. A type's home should match its SCOPE, so it
-//! moved out of the presentation-gated module rather than the ungated caller
-//! learning to live without it.
+//! Not gated on `basic_presentation`: the pause menu and the launcher settings
+//! tab both use these, and `plugin.rs` is ungated. Check changes to this
+//! module at default features too.
 
 
 /// The universal audio controls the shell offers every experience.
 ///
-/// This is shell presentation identity, not the full settings-menu IR. The mutation law stays
-/// canonical in `ambition_persistence::settings::AudioSettings`; this enum only says which four
-/// global audio fields belong on the universal shell menu.
+/// This enum only says which four global audio fields the shell menu shows.
+/// The mutation rules live in `ambition_persistence::settings::AudioSettings`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ShellAudioControl {
     Mute,
@@ -42,10 +25,8 @@ impl ShellAudioControl {
         Self::SfxVolume,
     ];
 
-    // ⚠ PRESENTATION-ONLY, so gated with the presentation. `ALL` and `adjust`
-    // are unconditional: `plugin.rs` applies an adjustment whether or not any
-    // renderer is compiled in, because the COMMAND exists either way. A label
-    // and a formatted value only mean something to a menu that draws.
+    // Labels and values are for presentation only, so they are gated. `ALL`
+    // and `adjust` are not: `plugin.rs` applies adjustments without a renderer.
     #[cfg(feature = "basic_presentation")]
     pub(crate) fn label(self) -> &'static str {
         match self {

@@ -22,15 +22,12 @@ pub const PREPARE_ADAPTIVE_WORK_ID: &str = "validate-adaptive-cues";
 pub const PREPARE_DEFAULTS_WORK_ID: &str = "validate-provider-defaults";
 pub const PREPARE_AUDIO_WORK_ID: &str = PREPARE_MUSIC_WORK_ID;
 pub const PREPARE_SESSION_WORK_ID: &str = "publish-prepared-session";
-/// The first room's art — its cast at the room's tier and the starting
-/// character's sheet — decoded and inserted BEFORE the route activates, so
-/// the reveal is not the frame the player's own sheet arrives in (host
-/// captures 2026-09-02: a 67-79 ms frame 0.1 s after every first
-/// `room-loaded`). Required, so the barrier holds the load foreground for it.
-/// Owned by the host that has the sprite catalog and asset server; a
-/// provider whose host installs no first-room-art contributor completes it
-/// itself at publish time, so a thin composition never waits on a question
-/// nobody there can answer.
+/// The first room's art (its cast at the room's tier and the starting
+/// character's sheet), decoded and inserted before the route activates, to
+/// avoid a long frame at the reveal. Required, so the barrier waits for it.
+/// The host with the sprite catalog and asset server owns it. If the host
+/// installs no first-room-art contributor, the provider completes it at
+/// publish time.
 pub const PREPARE_FIRST_ROOM_ART_WORK_ID: &str = "prepare-first-room-art";
 pub const PREPARE_PACKED_SFX_WORK_ID: &str = "stream-packed-sfx";
 
@@ -187,20 +184,12 @@ pub struct ProviderLoadTransaction {
     pub route_id: ShellRouteId,
     pub experience_id: ShellExperienceId,
     pub barrier: LoadBarrierRef,
-    /// ⭐⭐ **WHOSE REQUEST THIS TRANSACTION CAME FROM**, carried through from the
-    /// `ShellCommand` the caller wrote.
+    /// The request this transaction came from, carried from the caller's
+    /// `ShellCommand`. Match on this, not `route_id`: two `ReplaceWith` for one
+    /// route can be in flight. See `ShellRequestId`.
     ///
-    /// ⛔⛤ **WITHOUT IT A CALLER HAD TO INFER OWNERSHIP FROM THE ROUTE NAME.**
-    /// `barrier.load_id` is minted HERE, inside the router, in a later system
-    /// than the request — so a caller that must act on ITS OWN transaction could
-    /// only match on `route_id`, and two `ReplaceWith` for one route in a single
-    /// frame mint two loads where the second SUPERSEDES the first. Adopting by
-    /// route can take a transaction the caller did not issue, or one already
-    /// cancelled.
-    ///
-    /// ⚠ `None` MEANS NOBODY IS CORRELATING and is correct for ordinary
-    /// navigation. It is NOT a wildcard: a caller comparing against `None` must
-    /// treat it as "not mine", or it is back to inferring.
+    /// `None` means nobody correlates. It is not a wildcard: treat it as "not
+    /// mine".
     pub request: Option<crate::ShellRequestId>,
 }
 

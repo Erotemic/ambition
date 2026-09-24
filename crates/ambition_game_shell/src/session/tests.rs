@@ -1,6 +1,5 @@
-//! Unit tests for the session bridge, extracted to an adjacent child module
-//! (test-placement: large private test modules live in `src/foo/tests.rs`, <!-- cite-ok: an illustrative path, never a real one -->
-//! keeping private access via `use super::*;` without widening any API).
+//! Unit tests for the session bridge. A child module keeps private access
+//! through `use super::*;`.
 
 #![allow(clippy::module_inception)]
 
@@ -43,8 +42,8 @@ fn app() -> App {
         ExperienceRegistration::new(GAME, "Test game", GAME_ROUTE),
         ShellRouteSpec::new(GAME_ROUTE, GAME),
     );
-    // Every gameplay provider must declare audio intent; the plain test game is
-    // deliberately silent, declared as an explicit empty fragment.
+    // Every gameplay provider must declare audio. This test game is silent,
+    // declared as an explicit empty fragment.
     app.register_audio_catalog_fragment(
         ambition_audio::catalog::AudioCatalogFragment::new(GAME, None, None).unwrap(),
     );
@@ -78,10 +77,7 @@ fn registered_gameplay_route_mints_and_retires_one_scope() {
         .as_ref()
         .expect("game active")
         .activation_id;
-    // ⭐ ONE AUTHORITY. This read the scope out of `GameplaySessionLinks` and
-    // then asserted it equalled `ActiveGameplaySession`'s — an assertion that two
-    // copies of one pair agreed, which is the duplication stated as a test rather
-    // than removed.
+    // `ActiveGameplaySession` is the only authority for the scope.
     let scope = live_scope_of(&app, activation).expect("activation owns session scope");
 
     app.world_mut()
@@ -122,10 +118,9 @@ fn retirement_revokes_spawn_authority_before_provider_teardown() {
     );
 }
 
-/// C1-audio-session: activating a session selects ITS provider's audio;
-/// a provider with no registered fragments gets a deliberate empty
-/// authority (never another provider's); switching sessions replaces the
-/// selection; returning home retires playback authority entirely.
+/// Activating a session selects its own provider's audio. A silent provider
+/// gets an empty authority, never another provider's. Switching sessions
+/// replaces the selection. Returning home retires playback authority.
 #[test]
 fn session_activation_owns_audio_authority_and_home_retires_it() {
     use ambition_audio::catalog::{AudioCatalogFragment, AudioCatalogRegistry};
@@ -140,8 +135,8 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
         ExperienceRegistration::new(SILENT_GAME, "Silent game", SILENT_ROUTE),
         ShellRouteSpec::new(SILENT_ROUTE, SILENT_GAME),
     );
-    // `test_game` authors music; `silent_game` registers an EXPLICIT empty
-    // fragment (deliberate silence — never inherits another provider's music).
+    // `test_game` has music; `silent_game` registers an explicit empty
+    // fragment.
     let mut catalogs = AudioCatalogRegistry::default();
     catalogs
         .register(
@@ -200,10 +195,8 @@ fn session_activation_owns_audio_authority_and_home_retires_it() {
     );
 }
 
-/// Issue 5: a gameplay provider that registered NO audio fragment is a
-/// composition error, not inferred silence. Activating it must fail loudly so a
-/// host built without an audio system can never be silently mistaken for "every
-/// provider is deliberately silent."
+/// A gameplay provider with no audio fragment is a composition error, not
+/// silence. Activating it must fail loudly.
 #[test]
 #[should_panic(expected = "registered no audio catalog fragment")]
 fn activating_a_provider_with_no_audio_fragment_panics() {
@@ -315,41 +308,19 @@ fn relaunch_receives_a_fresh_scope() {
     assert_ne!(first_scope, second_scope);
 }
 
-/// **A RETIREMENT THAT ARRIVES AFTER ITS SESSION ALREADY ENDED CHANGES NOTHING.**
+/// A retirement that arrives after its session already ended changes nothing.
 ///
-/// Inside the retirement block sits a `GameMode` reset that is deliberately
-/// unconditional — the comment beside it explains why, and it is right for a
-/// retirement of the LIVE session: `QuitToHome` has four writers and *"the
-/// lifecycle that ended the session is the one place that cannot forget"*.
-/// Delivered for a session that already ended, the same line would reach into one
-/// that is still being played — the shape
-/// `reset_session_scoped_resources_on_retire` was corrected for on 2026-09-13,
-/// where *"a delayed `SessionScopeRetired(A)` delivered after B became current
-/// wiped B's mechanics"*.
+/// The retirement block resets `GameMode` without a scope guard. A delayed
+/// retirement for an old session must not reach it while a newer session is
+/// live.
 ///
-/// ⛔⛤ **AND THIS ARM WAS WRITTEN EXPECTING TO WITNESS THAT DEFECT, WHICH DOES
-/// NOT EXIST. MEASURED, NOT ARGUED: IT PASSES AGAINST THE PRE-COLLAPSE CODE
-/// TOO.** The suspicion was that `GameplaySessionLinks` gated the block more
-/// loosely than the live session would. It does not — `unbind` REMOVES the
-/// binding, so a re-delivered retirement found nothing and skipped, exactly as
-/// the live instance now does. The hazard needs an activation that was bound and
-/// never retired, and the assert at activation makes that unreachable.
-///
-/// ⇒ So its job is not to show a repair. It is to hold the behaviour still while
-/// a duplicate authority is removed from underneath it, which is the assertion a
-/// collapse most needs and most often does not have.
-///
-/// ⭐ THE STALE ACTIVATION IS A REAL ONE, not a synthetic id: this fixture's boot
-/// spec activates the route, retires it and activates it again, so the first
-/// activation is genuinely retired while the second is live. Re-delivering its
-/// retirement is the delayed event, spelled the way the shell spells it.
+/// The stale activation is real: the fixture activates the route, retires it,
+/// and activates it again. The test re-sends the first retirement.
 #[test]
 fn a_retirement_that_arrives_after_its_session_ended_changes_nothing() {
     let mut app = app();
-    // ⚠ `GameMode` is a Bevy `States`, and the bridge takes it as
-    // `Option<ResMut<NextState<_>>>` precisely so a composition without one still
-    // runs — so this arm installs the state machine, or it would be asserting
-    // about a reset that could never have fired.
+    // The bridge takes `GameMode` as an `Option`, so install the state machine
+    // or the reset could never fire.
     app.add_plugins(bevy::state::app::StatesPlugin);
     app.init_state::<GameMode>();
     settle(&mut app);
@@ -365,8 +336,7 @@ fn a_retirement_that_arrives_after_its_session_ended_changes_nothing() {
         .expect("the game route is active")
         .activation_id;
     let scope = live_scope_of(&app, live).expect("the live activation owns a scope");
-    // The premise: an activation that ran BEFORE the live one. Without it this
-    // arm would be about the live session retiring, which must not be a no-op.
+    // Premise: an activation that ran before the live one.
     let stale = ShellActivationId(live.0 - 1);
     assert_ne!(stale, live);
     assert_eq!(
@@ -412,13 +382,7 @@ fn a_retirement_that_arrives_after_its_session_ended_changes_nothing() {
 
 /// The scope `activation` owns, or `None` when it is not the live session.
 ///
-/// ⛔⛤ **`GameplaySessionLinks` USED TO ANSWER THIS AND IT WAS A SECOND COPY OF
-/// THE PAIR.** Activation asserts `active_session.0.is_none()`, so at most one
-/// binding could ever exist; the map's `scope_for` had no production reader at
-/// all, and the retirement path asked BOTH authorities in the same block. The
-/// live instance is now the only one that answers, which also makes a retirement
-/// naming a stale activation a no-op rather than something that reaches the
-/// unguarded `GameMode` reset.
+/// The live session is the only authority for this.
 fn live_scope_of(app: &App, activation: ShellActivationId) -> Option<SessionScopeId> {
     app.world()
         .resource::<ActiveGameplaySession>()
@@ -469,15 +433,10 @@ fn delayed_retirement_for_a_cannot_retire_b() {
 
 /// A world prepared for activation A cannot be adopted into activation B.
 ///
-/// ⛔⛤ **THIS ARM USED TO HOLD `spawn_world_for`, WHICH NOTHING CALLED.** Both
-/// primitives validated the activation identically, so the contract was tested
-/// on the copy the game does not run and untested on `adopt_world`, the one road
-/// a gameplay world reaches [`ActiveGameplaySession`] by. The unreachable copy
-/// is gone and the contract lives here.
-///
-/// ⚠ **THE POSITIVE HALF IS NOT DECORATION.** An `adopt_world` that returned
-/// `None` unconditionally satisfies every assertion in the first half, so the
-/// matching activation has to be shown adopting the same candidate root.
+/// Tests `adopt_world`, the only way a gameplay world reaches
+/// [`ActiveGameplaySession`]. The positive half shows that the matching
+/// activation does adopt the root, so an `adopt_world` that always returns
+/// `None` fails.
 #[test]
 fn a_candidate_world_prepared_for_a_cannot_be_adopted_into_b() {
     let mut app = App::new();
@@ -521,13 +480,6 @@ fn a_candidate_world_prepared_for_a_cannot_be_adopted_into_b() {
     );
 }
 
-// ⛔⛤ **THE ID-PEER PROVENANCE ARM USED TO BE HERE AND ITS SUBJECT IS GONE.**
-// `two_hosts_with_different_route_histories_name_the_session_root_identically`
-// proved the session root's canonical `SimId` no longer carries
-// `ShellActivationId` — through `spawn_world_for`, which had no production
-// caller. The claim is still live and still worth a guard; the road it has to be
-// held on is A10's candidate mint in `ambition_platformer2d_provider`'s
-// `lifecycle.rs`, and the arm is
+// The session root `SimId` must not carry `ShellActivationId`. That guard is
 // `two_local_histories_name_every_simulated_entity_identically` in
-// `game/ambition_app/tests/shell_host_lifecycle.rs`, which censuses every
-// canonical identity in a built world across two local route histories.
+// `game/ambition_app/tests/shell_host_lifecycle.rs`.

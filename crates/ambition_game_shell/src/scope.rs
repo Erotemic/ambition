@@ -14,29 +14,24 @@ use bevy::prelude::{App, Res, Resource, World};
 
 use crate::{ShellExperienceId, ShellRouter};
 
-/// What OWNERSHIP CLAIM a giveback makes about the state it releases.
+/// The ownership claim a giveback makes about the state it releases.
 ///
-/// this is a claim about the world, not an implementation detail.
-/// [`ReleaseKind::SoleRemoval`] asserts *no other experience publishes this
-/// resource* — and two experiences making that claim about one resource is a
-/// contradiction that no amount of reading either declaration in isolation can
-/// reveal. Recording the kind is what lets the claim be CHECKED across every
-/// scope at once, which is the only place the contradiction is visible.
+/// [`ReleaseKind::SoleRemoval`] claims that no other experience publishes the
+/// resource. Two scopes that make that claim for one resource contradict each
+/// other; recording the kind lets a check across all scopes find this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReleaseKind {
-    /// [`ExperienceScopeBuilder::releasing`] — removed outright, on the claim
-    /// that this provider ALONE publishes it.
+    /// [`ExperienceScopeBuilder::releasing`]: removed, on the claim that only
+    /// this provider publishes it.
     SoleRemoval,
-    /// [`ExperienceScopeBuilder::releasing_owned`] — removed only when the value
-    /// itself says this owner published it. The shape for SHARED state.
+    /// [`ExperienceScopeBuilder::releasing_owned`]: removed only when the value
+    /// says this owner published it. For shared state.
     OwnedRemoval,
-    /// [`ExperienceScopeBuilder::resetting`] — put back to its default. Never a
-    /// removal, so it makes no ownership claim: a stranger's value is
-    /// overwritten rather than deleted, which is a different question.
+    /// [`ExperienceScopeBuilder::resetting`]: set back to its default. Not a
+    /// removal, so it makes no ownership claim.
     Reset,
-    /// [`ExperienceScopeBuilder::releasing_with`] — a custom giveback whose
-    /// ownership rule, if it has one, lives inside the closure where nothing
-    /// outside can read it.
+    /// [`ExperienceScopeBuilder::releasing_with`]: a custom giveback. Any
+    /// ownership rule is inside the closure and cannot be checked.
     Custom,
 }
 
@@ -54,7 +49,7 @@ pub struct ExperienceScope {
     inside: BTreeSet<ShellExperienceId>,
     releases: Vec<ScopedRelease>,
     /// Whether the active route was inside this scope at the last release pass.
-    /// The `true → false` edge is the whole mechanism.
+    /// Release happens on the `true → false` edge.
     inside_now: bool,
 }
 
@@ -73,11 +68,8 @@ impl ExperienceScope {
         self.releases.iter().map(|release| release.what)
     }
 
-    /// Every giveback this scope declares, WITH the ownership claim it makes.
-    ///
-    /// read across every scope at once, this is what makes "two experiences
-    /// both claim to be the sole publisher of one resource" a checkable
-    /// question instead of a thing you have to notice by reading two files.
+    /// Every giveback this scope declares, with its ownership claim. Read
+    /// across all scopes to find two sole publishers of one resource.
     pub fn releases(&self) -> impl Iterator<Item = (&'static str, ReleaseKind)> + '_ {
         self.releases
             .iter()
@@ -119,10 +111,8 @@ impl ShellExperienceScopes {
 
 /// Is this experience the one on screen right now?
 ///
-/// A run condition, answered from the router rather than from a cached flag, so
-/// it is correct wherever in `Update` the caller happens to be scheduled. A host
-/// with no router installed reads as inactive: a system gated on "my experience
-/// owns the route" must not run in a composition that has no routes.
+/// A run condition read from the router, not a cached flag, so it is correct
+/// anywhere in `Update`. A host with no router reads as inactive.
 pub fn shell_experience_is_active(
     experience: impl Into<ShellExperienceId>,
 ) -> impl Fn(Option<Res<ShellRouter>>) -> bool + Clone {
@@ -139,23 +129,17 @@ pub fn shell_experience_is_active(
 
 /// Release the state of every scope the shell has just left.
 ///
-/// `router.active` is the whole answer, and a pending route adds nothing.
-/// `ShellRouter::activate` takes the old activation and installs the new one in
-/// one non-yielding call, so nothing ever observes `active` empty in the middle
-/// of a transition: while a route waits on its load barrier, `active` still
-/// names the route being left. A departure is therefore exactly a change of
-/// `active`, and consulting `pending` as well would be defensive code for a
-/// state the router cannot produce.
+/// Only `router.active` matters, not `pending`. `ShellRouter::activate`
+/// replaces the old activation in one call, and while a route waits on its
+/// load, `active` still names the route being left. A departure is a change of
+/// `active`.
 ///
-/// Exclusive-world, and deliberately not `Commands`: a release that landed at
-/// the next command flush would be visible to one more frame of the experience
-/// that inherited it, which is exactly the window the leak lived in.
+/// Exclusive world access, not `Commands`: a deferred release would stay
+/// visible for one more frame of the next experience.
 ///
-/// Public so a harness that composes a provider WITHOUT the shell plugin can
-/// still run the real release mechanism against the real declarations —
-/// otherwise a scope-owned invariant ("the match's rules leave with the
-/// match") is untestable except through the whole shell. The shipped
-/// registration stays the shell's (`AmbitionGameShellPlugin`, Cleanup).
+/// Public so a harness without the shell plugin can run the real release
+/// against the real declarations. The shell registers it in
+/// `AmbitionGameShellPlugin` (Cleanup).
 pub fn release_departed_experience_state(world: &mut World) {
     if !world.contains_resource::<ShellExperienceScopes>() {
         return;
@@ -205,8 +189,8 @@ impl ExperienceScopeBuilder<'_> {
         self
     }
 
-    /// Another experience id that is still this provider (its select screen, its
-    /// results screen). Moving between covered ids is not leaving.
+    /// Another experience id of this provider (e.g. its select or results
+    /// screen). Moving between covered ids is not leaving.
     pub fn covering(&mut self, experience: impl Into<ShellExperienceId>) -> &mut Self {
         let experience = experience.into();
         self.with(|scope| {
@@ -214,14 +198,11 @@ impl ExperienceScopeBuilder<'_> {
         })
     }
 
-    /// A resource this provider alone publishes: removed outright on the way out.
+    /// A resource only this provider publishes: removed on the way out.
     ///
-    /// only for a resource every reader takes as `Option<Res<R>>`. A Bevy
-    /// system with a plain `Res<R>`/`ResMut<R>` parameter PANICS when the
-    /// resource is missing, so releasing one by removal turns a leak into a
-    /// crash — measured, on the smash select screen's own `ResMut<SmashSelect>`.
-    /// A resource that is `init_resource`'d and always read wants
-    /// [`Self::resetting`] instead.
+    /// Use only when every reader takes `Option<Res<R>>`. A plain `Res<R>` or
+    /// `ResMut<R>` parameter panics when the resource is missing. For a
+    /// resource that is always read, use [`Self::resetting`].
     pub fn releasing<R: Resource>(&mut self) -> &mut Self {
         let what = std::any::type_name::<R>();
         self.with(move |scope| {
@@ -235,12 +216,9 @@ impl ExperienceScopeBuilder<'_> {
         })
     }
 
-    /// A resource that must always EXIST but must not carry a decision across
-    /// the experience that made it: put back to its default on the way out.
-    ///
-    /// The select screen's value, its cursor and its start latch are this shape
-    /// — always present, always read, and a restart that inherited them would
-    /// open on the previous match's answer.
+    /// A resource that must always exist but must not carry state into the
+    /// next visit: set back to its default on the way out. Example: the select
+    /// screen's value, cursor, and start latch.
     pub fn resetting<R: Resource + Default>(&mut self) -> &mut Self {
         let what = std::any::type_name::<R>();
         self.with(move |scope| {
@@ -256,13 +234,10 @@ impl ExperienceScopeBuilder<'_> {
         })
     }
 
-    /// A resource SHARED with other experiences: removed only when the value
-    /// itself says this owner published it.
-    ///
-    /// this is the shape that keeps cleanup from being one game deleting
-    /// another's state, and the predicate is the value's own ownership question
-    /// (`MatchParticipantRoster::is_published_by`) rather than a second table
-    /// this module would have to keep in step.
+    /// A resource shared with other experiences: removed only when the value
+    /// says this owner published it (e.g.
+    /// `MatchParticipantRoster::is_published_by`). This keeps one game from
+    /// deleting another's state.
     pub fn releasing_owned<R: Resource>(
         &mut self,
         owned_by: fn(&R, &ShellExperienceId) -> bool,
@@ -284,21 +259,14 @@ impl ExperienceScopeBuilder<'_> {
         })
     }
 
-    /// A resource whose OWNER is written on a different resource — the receipt
-    /// and the plan it was issued from.
+    /// A resource whose owner is recorded on a different resource (the
+    /// witness). For state that cannot carry its own publisher: `ActiveMatch` is
+    /// rollback state and must not hold a shell experience id.
     ///
-    /// the shape for state that cannot carry its own publisher. An `ActiveMatch` is
-    /// rollback state and deliberately holds nothing but the facts of the activation; stamping
-    /// a shell experience id into it would put frontend identity on the rollback wire to answer
-    /// a teardown question. So the activation is released by asking the WITNESS.
-    ///
-    /// the witness must outlive the release, so it may not already be
-    /// declared in this scope. Givebacks run in declaration order, and a
-    /// witness released first would leave every later release reading a resource
-    /// that is gone — silently answering "not mine" forever, which is a release
-    /// that stops working rather than one that fails. That ordering is invisible
-    /// at the call site, so it is checked HERE, at declaration, where the panic
-    /// names both resources.
+    /// The witness must outlive the release, so it must not be declared earlier
+    /// in this scope. Givebacks run in declaration order, and a missing witness
+    /// would always answer "not mine". This is checked here, and the panic names
+    /// both resources.
     pub fn releasing_witnessed<R: Resource, W: Resource>(
         &mut self,
         witness_owns: fn(&W, &ShellExperienceId) -> bool,
@@ -315,9 +283,7 @@ impl ExperienceScopeBuilder<'_> {
             );
             scope.releases.push(ScopedRelease {
                 what,
-                // An owner-scoped removal, and truthfully so: it removes only
-                // what this owner published. Where the proof is written does not
-                // change what is being claimed.
+                // It removes only what this owner published.
                 kind: ReleaseKind::OwnedRemoval,
                 release: Box::new(move |world, owner| {
                     if world

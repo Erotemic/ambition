@@ -111,7 +111,7 @@ All paths in this table are under
 | `items/pickup/mod.rs` | Held/collection installation and misplaced checkpoint startup installation | A1 removes checkpoint restoration from item installation; do not move all item code with it |
 | `session/lifecycle_commit.rs` | First-admitted pending room lifecycle intent and subject/retraction rules | Session/lifecycle authority; not dependency-neutral foundation |
 | `session` | Setup, active content/session integration, save restoration, teardown and horizon coordination | Retain coordinator; domain-specific cleanup stays with domain owners under named boundaries |
-| `world/placements.rs` | Character/object-aware authored placement lowering context and provider bridge | A3 moves the bridge toward construction; room definitions remain in world |
+| `construction/placements.rs` | Character/object-aware authored placement lowering context and provider bridge | A3 moves the bridge toward construction; room definitions remain in world |
 | Re-exported `ambition_platformer2d_world` collision service, integrated through `world/mod.rs` | Active-room collision assembly with dynamic overlays and specialized query views | Spatial read authority; cache only against explicit generations and measured costs |
 | `world` (remaining staging/replay roads) | Mixed world query, room preparation and lifecycle adapters | Inventory each operation; room activation is not the same as immutable room geometry |
 | `construction` | Typed assembly of actors, objects, summons and encounter-specific parts | The actor label overstates coherence; preserve typed lanes and separate adapters when a real domain warrants it |

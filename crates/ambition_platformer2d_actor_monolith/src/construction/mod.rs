@@ -4,6 +4,8 @@
 //! closed [`ConstructionDomain`](ambition_platformer2d_shared_tangle::construction::ConstructionDomain)
 //! through construction federation.
 
+pub mod placements;
+
 use ambition_boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_characters::actor::limb::{Limb, LimbRig, LimbSlot};
 use ambition_platformer2d_shared_tangle::construction::{
@@ -15,7 +17,7 @@ use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Entity, World};
 
 use ambition_platformer2d_actor_spawn::{SpawnActorKind, SpawnActorRequest};
-use crate::world::placements::ActorPlacementContext;
+use crate::construction::placements::ActorPlacementContext;
 use ambition_boss_encounter::BossCatalog;
 
 #[cfg(test)]
@@ -181,7 +183,7 @@ pub enum ActorConstructionParams {
     Placement {
         record: ambition_platformer2d_world::placements::PlacementRecord,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
-        lower: crate::world::placements::LoweringFn,
+        lower: crate::construction::placements::LoweringFn,
     },
     /// Now it is a plan row like everything else in the room.
     Shrine {
@@ -875,7 +877,7 @@ fn construct_placement(
     // Every read is bound BEFORE `root_scope`, which borrows the whole context.
     let room_id = ctx.scope.room().unwrap_or("").to_string();
     let facts = ctx.facts;
-    let mut lowering = crate::world::placements::LoweringCtx {
+    let mut lowering = crate::construction::placements::LoweringCtx {
         scope: ctx.root_scope(),
         room_id: &room_id,
         paths,
@@ -2018,7 +2020,7 @@ fn resolve_planned_character<'a>(
 /// ERROR is deliberate future work; this slice is behavior-preserving.)
 pub fn placement_requests(
     placements: &ambition_platformer2d_world::placements::PlacementLoweringPlan<
-        crate::world::placements::ActorPlacementContext,
+        crate::construction::placements::ActorPlacementContext,
     >,
     room_id: &str,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],

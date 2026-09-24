@@ -261,7 +261,7 @@ measurement and the poison.
 ownership diagnosis. **Problem:** the world region hosts actor-specific catalogs,
 prepared-character/materialization inputs and lowering functions.
 
-**Source:** `crates/ambition_platformer2d_actor_monolith/src/world/placements.rs`.
+**Source:** `crates/ambition_platformer2d_actor_monolith/src/construction/placements.rs`.
 **Destination:** the existing monolith construction region, in a proposed
 `construction/placement_lowering.rs` module. <!-- cite-ok: proposed file path -->
 Move `ActorPlacementContext`, actor-specific lowering implementations and their

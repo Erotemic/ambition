@@ -1120,7 +1120,7 @@ fn every_parameter_variant_constructs_its_root() {
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     let services = ActorConstructionServices {
-        context: crate::world::placements::ActorPlacementContext::new(
+        context: crate::construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -1530,7 +1530,7 @@ fn bare_request(id: &str) -> ActorConstructionRequest {
 
 fn test_services() -> ActorConstructionServices {
     ActorConstructionServices {
-        context: crate::world::placements::ActorPlacementContext::new(
+        context: crate::construction::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
             &Default::default(),
         )
@@ -3209,8 +3209,8 @@ fn a_boss_respawns_through_the_planner() {
 
 // ── Phase 4c: authored placements are plan rows ───────────────────────────────
 
-fn placement_registry() -> crate::world::placements::PlacementLoweringRegistry {
-    let mut registry = crate::world::placements::PlacementLoweringRegistry::default();
+fn placement_registry() -> crate::construction::placements::PlacementLoweringRegistry {
+    let mut registry = crate::construction::placements::PlacementLoweringRegistry::default();
     registry
         .try_register(
             ambition_entity_catalog::placements::PlacementKind::Pickup,

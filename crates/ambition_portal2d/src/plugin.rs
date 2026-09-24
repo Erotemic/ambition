@@ -14,27 +14,22 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Backward-compatible full portal composition.
 ///
-/// Existing Ambition hosts install this and keep the historical gun-enabled
-/// behavior. Portal-only consumers may install [`PortalSimulationPlugin`]
-/// directly and avoid the gun control/custody vocabulary entirely.
+/// Portal simulation plus the portal gun. Consumers that want portals without
+/// a gun install [`PortalSimulationPlugin`] only.
 pub struct PortalPlugin;
 
 impl Plugin for PortalPlugin {
     fn build(&self, app: &mut App) {
-        // Backward-compatible full portal experience: the reusable portal
-        // simulation plus the optional gun opener. A game that wants static,
-        // scripted, or moving portals without gun vocabulary installs only
-        // `PortalSimulationPlugin`.
         app.add_plugins((PortalSimulationPlugin, PortalGunPlugin));
     }
 }
 
 /// Optional portal-gun opener layered over the reusable portal simulation.
 ///
-/// This plugin owns only gun vocabulary and gun lifetime policy. It translates
-/// no host input itself; Ambition's inventory/input adapters still live above
-/// this crate. The generic shot path remains in [`PortalSimulationPlugin`] and
-/// consumes [`PortalFireIntent`], so scripts or other emitters do not need a gun.
+/// Owns only gun vocabulary and gun lifetime. It reads no host input; the
+/// Ambition inventory and input adapters are above this crate. The shot path
+/// is in [`PortalSimulationPlugin`] and consumes [`PortalFireIntent`], so other
+/// emitters do not need a gun.
 pub struct PortalGunPlugin;
 
 impl Plugin for PortalGunPlugin {
@@ -50,9 +45,8 @@ impl Plugin for PortalGunPlugin {
         app.add_message::<PickUpPortalGun>();
         app.add_message::<PortalGunEquipped>();
 
-        // Construction metadata is federated as DATA. The actual constructor
-        // remains the closed `PortalGunConstruction` dispatch and is never
-        // selected from this catalog.
+        // Construction metadata is data only. The constructor is the closed
+        // `PortalGunConstruction` dispatch, never selected from this catalog.
         app.init_resource::<
             ambition_platformer2d_shared_tangle::construction::ConstructionSchemaCatalog,
         >();
@@ -67,10 +61,8 @@ impl Plugin for PortalGunPlugin {
             )
             .expect("the portal-gun construction schema cannot conflict with itself");
 
-        // Toggle is gun-local policy; generic fire consumes a PortalFireIntent
-        // and remains in the simulation plugin. Keeping the explicit edge
-        // preserves the old same-set ordering without making portal core know a
-        // gun exists.
+        // Toggle is gun policy; fire is in the simulation plugin. The explicit
+        // edge keeps the order without portal core knowing about the gun.
         app.add_systems(
             sim,
             super::portal_toggle_system
@@ -86,45 +78,36 @@ impl Plugin for PortalGunPlugin {
 
 /// Module-local plugin for portal simulation systems and resources.
 ///
-/// This keeps portal-owned scheduling with the portal mechanic instead of
-/// growing `app/plugins.rs` as a central registry. App assembly still decides
-/// whether to install the top-level [`PortalPlugin`].
+/// Keeps portal scheduling with the portal mechanic. App assembly decides
+/// whether to install [`PortalPlugin`].
 pub struct PortalSimulationPlugin;
 
 impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
         app.add_message::<BodyTeleported>();
-        // Emitted by the generic `portal_transit` core on every Transfer; the
-        // Host input adapters read it to reproduce the transiting body's
-        // input/trace bits (BodyTeleported, PortalEmission, PortalInputWarp).
+        // Emitted by `portal_transit` on every Transfer. Host input adapters
+        // read it for BodyTeleported, PortalEmission, and PortalInputWarp.
         app.add_message::<PortalBodyTransited>();
-        // Reusable portal intent / outcome messages. Host input/inventory
-        // adapters write these; core consumes them, staying content-agnostic.
-        // Generic fire intent the core fire system consumes (origin/dir/channel);
-        // a host may map a gun gesture, script, AI, or moving emitter into this.
+        // Fire intent (origin, dir, channel). A host maps a gun, script, AI,
+        // or moving emitter into it.
         app.add_message::<PortalFireIntent>();
-        // Portal-owned reset signal; the host room-reset adapter emits it so
-        // core never names the host reset event.
+        // Reset signal; the host room-reset adapter emits it.
         app.add_message::<ClearPortals>();
-        // Portal-owned audio SIGNALS (not sfx): the crate emits these on a fire /
-        // aperture entry; a host audio adapter maps them to the sfx vocabulary. The EXIT cue rides `PortalBodyTransited` (`exit_pos`).
+        // Audio signals (not sfx) for fire and aperture entry; a host audio
+        // adapter maps them to sfx. The exit cue uses `PortalBodyTransited`.
         app.add_message::<PortalShotFired>();
         app.add_message::<PortalBodyEntered>();
-        // Portal-owned carve output. `publish_portal_carves` writes the aperture
-        // geometry here; the host bridge copies it into the host collision
-        // overlay each frame (portal core never names the concrete overlay).
+        // `publish_portal_carves` writes here; the host bridge copies it into
+        // the host collision overlay each frame.
         app.init_resource::<PortalCarves>();
         app.init_resource::<crate::PortalHostDepths>();
         app.init_resource::<PortalTuning>();
-        // ⛔⛤ **THE PANEL EDITS A MIRROR AND THE SIMULATION READS THE AUTHORITY —
-        // `Q120`, 2026-09-13.** `transit.rs` takes `Res<PortalTuning>` in the sim
-        // schedule, which under the rollback host IS `GgrsSchedule`; the F-key
-        // inspector used to write that same resource from an egui pass, so a
-        // replay of frame N observed whatever the panel held NOW. The chain below
-        // is the shared mechanical-edit protocol: propose, let the timeline's
-        // owner admit, then publish — all in `PreUpdate`, and the rollback host
-        // orders the whole chain before `RunGgrsSystems`.
+        // The inspector panel edits `EditablePortalTuning`; the sim reads
+        // `PortalTuning` (in `GgrsSchedule` under rollback). Edits go through
+        // the shared mechanical-edit protocol: propose, admit, publish, all in
+        // `PreUpdate` before `RunGgrsSystems`, so a replay does not see live
+        // panel values (`Q120`).
         app.init_resource::<crate::tuning::EditablePortalTuning>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
@@ -138,47 +121,35 @@ impl Plugin for PortalSimulationPlugin {
                     .in_set(ambition_platformer2d_core::MechanicalEditSet::Publish),
             ),
         );
-        // NOTE: the held-gun aim hint (`PortalAimHint`) is a render-only resource
-        // owned by the HOST presentation layer (it is not part of the headless
-        // mechanic), so it is initialised host-side behind the render feature, not
-        // here. The portal *simulation* carries no render-only resource.
+        // The aim hint (`PortalAimHint`) is render-only and initialised by the
+        // host presentation layer.
 
-        // Portal systems are registered `.in_set(PortalSet::X)` with only
-        // PORTAL-INTERNAL ordering here. The placement of each [`PortalSet`] into
-        // the host's app phases, the cross-set `.after`/`.before` edges against
-        // host systems, and any run condition (e.g. "gameplay allowed") are all
-        // declared HOST-SIDE (the host wires the portal schedule right after
-        // `add_plugins(PortalPlugin)`). This keeps the crate free of host schedule
-        // labels / systems / run conditions so it stays standalone; the execution
-        // order is identical — the same edges are simply declared from the other
-        // side of the seam.
+        // Only portal-internal ordering is declared here. The host places each
+        // [`PortalSet`] in its phases, adds edges against host systems, and adds
+        // run conditions (e.g. "gameplay allowed"), right after
+        // `add_plugins(PortalPlugin)`.
 
-        // PlacedPortal carves are published with the same early-world snapshot
-        // cadence as the gravity-zone snapshot (`collect_gravity_zones` before
-        // `CoreSimulation`); that cross-set placement is declared sandbox-side.
+        // Published at the same point as the gravity-zone snapshot (before
+        // `CoreSimulation`); the host declares that placement.
         app.add_systems(sim, publish_portal_carves.in_set(PortalSet::Carves));
 
-        // The host input warp (`warp_portal_input`) is an INPUT-shaping adapter
-        // and lives in the host portal adapter
-        // (registered in `PortalSet::InputWarp` there). Portal core owns only the
-        // marker components it sets on a crossing (`PortalInputWarp` /
-        // `PortalEmission`).
+        // The input warp (`warp_portal_input`) is in the host portal adapter
+        // (`PortalSet::InputWarp`). Portal core owns only the marker components
+        // (`PortalInputWarp`, `PortalEmission`).
 
         // The drop consumer lives in the inventory adapter while it touches host item state.
         app.configure_sets(
             sim,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
         );
-        // The gameplay-gated weapon systems. The host gates this set with
-        // `gameplay_allowed`; the maintenance set below stays ungated (matching
-        // the pre-extraction per-system gating) and chains after it.
+        // The host gates this weapon set with `gameplay_allowed`. The
+        // maintenance set below is not gated and runs after it.
         app.configure_sets(
             sim,
             PortalSet::WeaponMaintenance.after(PortalSet::WeaponAndProjectiles),
         );
-        // Host adapters run their world-reading shot stepper after
-        // `portal_fire_system`; core keeps only the pure `step_portal_shot`
-        // helper over `SolidWorldQuery`.
+        // Host adapters run their shot stepper after `portal_fire_system`,
+        // using the pure `step_portal_shot`.
         app.add_systems(
             sim,
             portal_fire_system.in_set(PortalSet::WeaponAndProjectiles),
@@ -186,9 +157,8 @@ impl Plugin for PortalSimulationPlugin {
 
         app.add_systems(sim, clear_portals_on_reset.in_set(PortalSet::RoomReset));
 
-        // Ledge-grab suppression while transiting mutates host ability state, so
-        // it remains a host ability adapter registered in `PortalSet::TransitGuards`.
-        // Portal core owns only the `PortalTransit` latch it reads off.
+        // Ledge-grab suppression during transit is a host adapter in
+        // `PortalSet::TransitGuards`; it reads the `PortalTransit` latch.
 
         // Teleports run after actor and ground-item integration so this frame's
         // integrated body positions are what cross the portal.
@@ -197,15 +167,12 @@ impl Plugin for PortalSimulationPlugin {
         app.add_systems(
             sim,
             (
-                // Explicit link-id authoring → channel pairs, then shrink each
-                // pair's opening to the MIN (centered, no scaling). First, so
-                // transit/carve/eviction see resolved channels + equalized
-                // apertures this frame.
+                // Link ids to channel pairs, then equalize each pair's opening.
+                // First, so transit, carve, and eviction see the results.
                 crate::resolve_portal_links.in_set(crate::PortalLinkResolution),
                 crate::equalize_pair_apertures,
-                // moved/closed under a straddler shoves it clear (vs ripping it
-                // in half), so transit never acts on a body the closing plane
-                // already evicted.
+                // A portal that moved or closed under a straddling body pushes
+                // it clear, before transit runs.
                 crate::evict_straddlers_on_portal_change,
             )
                 .chain()

@@ -1,14 +1,9 @@
 //! Transactional construction owned by the optional portal-gun capability.
 //!
-//! Portal topology does not need a gun, and actor construction does not own a
-//! portal-gun pickup. This module is the narrow bridge between those facts: it
-//! owns the gun pickup's closed construction vocabulary and lowers an already
-//! resolved pickup description onto the root allocated by the generic
-//! construction executor.
-//!
-//! The room/composition layer may place this plan in a named construction lane
-//! beside actor construction. Executable behavior remains a closed match here;
-//! the shared construction schema catalog receives metadata only.
+//! Owns the gun pickup's closed construction vocabulary, and applies a
+//! resolved pickup description to the root the generic construction executor
+//! allocated. Behaviour is a closed match here; the shared construction
+//! schema catalog gets metadata only.
 
 use bevy::prelude::{Name, Vec2};
 
@@ -32,9 +27,8 @@ pub struct PortalGunConstructionParams {
     pub name: String,
     pub pos: Vec2,
     pub half_extent: Vec2,
-    /// Which portal pair the gun this pickup yields will own. `0` is the
-    /// classic blue/orange gun; a level that wants a second, independently
-    /// coloured gun places another pickup on a different pair.
+    /// Which portal pair this pickup's gun owns. `0` is blue/orange; a second
+    /// gun uses a different pair.
     pub pair: u8,
 }
 
@@ -117,9 +111,8 @@ fn construct_portal_gun_pickup(
             PortalGunPickup {
                 pos: parameters.pos,
                 half_extent: parameters.half_extent,
-                // Authored pickups are immediately available. A dropped gun is
-                // the host inventory adapter's runtime-dynamic object and keeps
-                // its short anti-regrab arm delay there.
+                // Authored pickups start armed. The host inventory adapter
+                // sets the delay for dropped guns.
                 arm_timer: 0.0,
                 pair: parameters.pair,
             },

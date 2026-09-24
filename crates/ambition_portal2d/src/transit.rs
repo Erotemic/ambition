@@ -19,36 +19,32 @@ use super::types::{
     find_portal, portal_exit_clearance, PlacedPortal, PortalHostDepths, PortalTransitCooldown,
 };
 
-/// Semantic transit message: a body's authoritative position just snapped to a portal's exit
-/// (the centroid crossed). Carries the teleported entity so a consumer can scope to a specific
-/// body (e.g. the locally focused body).
+/// A body's position just moved to a portal exit (the centroid crossed).
+/// Carries the entity so a consumer can filter to one body (e.g. the locally
+/// focused body).
 #[derive(Message, Clone, Copy, Debug)]
 pub struct BodyTeleported {
     /// The body whose position snapped to a portal exit this frame.
     pub body: Entity,
 }
 
-/// Per-body transit state: the aperture latch / centroid-crossing machine
-/// that replaces "touch = teleport". A body is mid-transit while any part of it
-/// straddles a portal plane; the authoritative body transfers to the exit when
-/// the CENTROID crosses, and transit ends (re-arming after a clear) once the
-/// body fully clears the plane.
+/// Per-body transit state. A body is mid-transit while any part of it
+/// straddles a portal plane. It transfers to the exit when the centroid
+/// crosses, and transit ends when the body fully clears the plane.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalTransit {
     /// Channel of the portal whose plane the body currently straddles — the entry
     /// before the centroid crosses, the exit after.
     pub straddling: PortalChannel,
-    /// True once the centroid crossed the entry plane (authoritative body now
-    /// on the exit side).
+    /// True once the centroid crossed the entry plane (the body is now on the
+    /// exit side).
     pub crossed: bool,
 }
 
-/// Portal-owned output of [`publish_portal_carves`]: the aperture rectangles to
-/// carve OUT of the host surface this frame, in publish order. Portal core writes
-/// the geometry here; a host bridge copies it into the host collision overlay
-/// each frame, ordered identically, so the collision world sees the same carves
-/// the same frame. Portal core owns the carve geometry; the host owns how a
-/// carve alters its collision representation.
+/// Output of [`publish_portal_carves`]: the aperture rectangles to carve out of
+/// the host surface this frame, in publish order. A host bridge copies them into
+/// the host collision overlay in the same frame and order. Portal core owns the
+/// geometry; the host owns how a carve changes its collision.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortalCarves {
     /// Aperture rectangles to carve this frame, in publish order.
@@ -58,9 +54,8 @@ pub struct PortalCarves {
 /// Publish apertures that must be carved from host collision this frame.
 ///
 /// A paired portal is carved while an opted-in body overlaps the opening,
-/// approaches it inward, or remains mid-transit. Approach uses a fixed
-/// dt-independent geometric reach so carve publication does not depend on the
-/// simulation clock. The host bridge applies the resulting `PortalCarves`.
+/// approaches it inward, or is mid-transit. Approach uses a fixed geometric
+/// reach, independent of dt. The host bridge applies the `PortalCarves`.
 pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
     bodies: Query<&BodyKinematics, With<PortalBody>>,
@@ -71,20 +66,15 @@ pub fn publish_portal_carves(
     use super::placement::{approach_box, capture_box, portal_fits};
 
     carves.holes.clear();
-    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
-    // WINNER from this list and a `Query` yields archetype order -- not a
-    // promise, and not reproduced by a rollback resimulation. The body path's
-    // `for enter in portals { .. break }` and the item path's own loop both
-    // select the first match, so an entity overlapping TWO apertures could be
-    // sent somewhere else on a replayed frame. One sort here beats three
-    // tie-breaks that could disagree with each other.
+    // Sort here: downstream loops take the first match, and `Query` order is
+    // archetype order, which a rollback resimulation may not reproduce.
     let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     all.sort_by(crate::stable_portal_order);
     if all.is_empty() {
         return;
     }
-    // Carve a channel once (deduped), and only if its pair partner is placed — a
-    // lone portal must never open a bottomless hole.
+    // Carve each channel once, and only if its partner is placed: a lone
+    // portal must not open a hole.
     let mut carved: Vec<PortalChannel> = Vec::new();
     let mut carve = |channel: PortalChannel, holes: &mut Vec<ae::Aabb>| {
         if carved.contains(&channel) {
@@ -109,19 +99,14 @@ pub fn publish_portal_carves(
             }
             let ap = p.aperture();
             let front = pp::front_distance(kin.pos, &ap.frame);
-            // FRONT-side engagement only: in the opening now (walk-in /
-            // resting), or closing in fast enough that this frame's
-            // integration may cross it. Without the front gate, a body
-            // pressed against the BACK of a thin host wall reached the
-            // capture box THROUGH the material and opened a hole it could
-            // then walk through without ever transiting.
+            // Front side only: in the opening now, or approaching fast enough
+            // to cross this frame. Otherwise a body behind a thin wall could
+            // open a hole through it without transiting.
             let frontal = front >= -TRANSIT_BEGIN_MARGIN
                 && (body.strict_intersects(capture_box(p))
                     || (kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(approach_box(p))));
-            // Mid-fall-through (a fast crossing that skipped Begin): keep the
-            // hole open while the body is inside the aperture VOLUME — the
-            // carve hole bounded by the measured host material, so the open
-            // room behind a thin wall never counts.
+            // Fast crossing that skipped Begin: keep the hole open while the
+            // body is inside the carve volume, bounded by the host depth.
             let hole = pp::carve_hole_with_depth(
                 &ap,
                 depths.map_or(f32::INFINITY, |d| d.depth(p.channel)),
@@ -138,21 +123,17 @@ pub fn publish_portal_carves(
     }
 }
 
-/// Marker: opts an entity into the one generic portal-transit algorithm
-/// ([`portal_transit`]). Any body carrying [`BodyKinematics`] + this marker +
-/// a [`PortalPolicy`] sinks into a carved aperture and transfers when its
-/// centroid crosses, exactly like the player. Ambition adds it (and the policy)
-/// to the entities that should transit — see
-/// the host portal adapter.
+/// Marker: opts an entity into [`portal_transit`]. A body with
+/// [`BodyKinematics`], this marker, and a [`PortalPolicy`] sinks into a carved
+/// aperture and transfers when its centroid crosses. The host portal adapter
+/// adds it.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PortalBody;
 
-/// Convert the canonical movement-kernel sample into the portal crate's swept
-/// transit input. The sample is only valid for portal CCD when its recorded
-/// post-sim endpoint still matches the body's live position at this system: if
-/// some earlier post-sim system teleported the body, the movement record remains
-/// correct, but it is no longer the segment ending at `kin.pos` and must not be
-/// interpreted as travel through an aperture.
+/// Convert the movement-kernel sample into swept transit input. Valid only
+/// when the sample endpoint still equals the live `kin.pos`. If an earlier
+/// post-sim system teleported the body, the segment is not travel through an
+/// aperture.
 fn portal_sweep_sample(
     kin: &BodyKinematics,
     sweep: Option<&ae::SweepSample>,
@@ -164,30 +145,25 @@ fn portal_sweep_sample(
     })
 }
 
-/// HOW a body participates in transit — behavioral, never identity. The core
-/// transit reads only these flags; it never names Player / Boss / Projectile.
-/// Ambition maps its game identities → policy when it tags an entity.
+/// How a body takes part in transit. Behaviour flags only: the core never
+/// names Player, Boss, or Projectile. Ambition maps identities to a policy.
 ///
-/// Velocity rotation is core/default (it lives in [`transit_step`]'s `vel`
-/// output) — this only chooses whether to *write* that rotated velocity and
-/// whether to re-orient the body's facing.
+/// [`transit_step`] always rotates the velocity. This only chooses whether
+/// to write it, and whether to re-orient facing.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalPolicy {
-    /// Flip the body's `facing` to the exit aperture on a same-wall turn-around
-    /// (`facing_flip`). Players/enemies re-orient; a boss whose facing follows
-    /// its AI does not.
+    /// Flip the body's `facing` on a same-wall turn-around (`facing_flip`).
+    /// A boss whose facing follows its AI does not.
     pub reorient: bool,
-    /// Write the rotated exit velocity into the body. `false` is the old boss
-    /// no-velocity path (the boss floats; its `vel` stays as the brain set it).
+    /// Write the rotated exit velocity into the body. `false` keeps the `vel`
+    /// the brain set (e.g. a floating boss).
     pub carry_velocity: bool,
 }
 
-/// Emitted on every Transfer by the generic [`portal_transit`] core, carrying
-/// what an input/trace adapter needs without the core touching input or trace
-/// state. The Ambition player-input adapter
-/// (the host portal adapter) reads this
-/// and — for the player only — emits [`BodyTeleported`] and inserts the
-/// `PortalEmission` / `PortalInputWarp` input bits.
+/// Emitted on every Transfer by [`portal_transit`], with what input, trace,
+/// and audio adapters need. The host portal adapter reads it and, for the
+/// player only, emits [`BodyTeleported`] and inserts `PortalEmission` /
+/// `PortalInputWarp`.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct PortalBodyTransited {
     /// The body that just transferred to a portal exit.
@@ -206,17 +182,14 @@ pub struct PortalBodyTransited {
     pub exit_pos: Vec2,
 }
 
-/// The ONE generic transit algorithm: drive any [`PortalBody`] through a
-/// portal as an aperture, not a trigger, via the shared [`transit_step`]
-/// machine. The body physically sinks into the carved opening (the movement
-/// integrator does that), transfers when the centroid crosses (carrying the
-/// rotated momentum + a somersault roll per its [`PortalPolicy`]), and clears
-/// on trailing-edge out.
+/// The generic transit algorithm: drive any [`PortalBody`] through a portal
+/// aperture with [`transit_step`]. The movement integrator sinks the body into
+/// the carved opening. It transfers when the centroid crosses (with rotated
+/// momentum and a roll per its [`PortalPolicy`]) and clears when the trailing
+/// edge is out.
 ///
-/// Transiting a placed pair is INDEPENDENT of holding the
-/// [`PortalGun`](super::gun::PortalGun) — once a pair exists any opted-in body
-/// crosses it. The anti-ping-pong cooldown lives on the BODY
-/// ([`PortalTransitCooldown`]), not on the gun.
+/// Transit does not need the [`PortalGun`](super::gun::PortalGun). The
+/// anti-ping-pong cooldown is on the body ([`PortalTransitCooldown`]).
 pub fn portal_transit(
     mut commands: Commands,
     portals: Query<&PlacedPortal>,
@@ -232,33 +205,20 @@ pub fn portal_transit(
         ),
         With<PortalBody>,
     >,
-    // ⭐⭐ ONE AUTHORITY FOR "WHICH WAY IS DOWN FOR THIS BODY", and it already existed.
-    // My first repair here took `GravityField` + `GravityZones` and re-implemented the
-    // resolution inline -- which duplicated a rule `GravityCtx` owns AND got its
-    // fallback wrong: with a zone snapshot present it fell back to `GravityField` (a
-    // MIRROR OF THE PRIMARY BODY's frame) where the room ambient `BaseGravity` is the
-    // right answer. A GPT review caught it.
-    //
-    // ⇒ `GravityCtx::dir_for(aabb)` IS that rule: zones -> per-body lookup with a
-    // `BaseGravity` fallback, no zones -> the field for compatibility. Taking the ctx
-    // instead of its ingredients removes the copy rather than correcting it, and its
-    // own doc gives the second reason: Bevy caps systems at 16 params.
+    // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
+    // zones give a per-body lookup with a `BaseGravity` fallback. Do not
+    // re-implement it from `GravityField`, which mirrors the primary body.
+    // One param also keeps this system under Bevy's 16-param limit.
     gravity: ambition_platformer2d_shared_tangle::gravity::GravityCtx,
     tuning: Res<PortalTuning>,
     host_depths: Option<Res<PortalHostDepths>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
-    // Optional: a minimal test app that never added the engine's schedule
-    // plugin still runs transit. The ledger is diagnostic, never load-bearing.
+    // Optional: a minimal test app may not have it. Diagnostic only.
     mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
-    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
-    // WINNER from this list and a `Query` yields archetype order -- not a
-    // promise, and not reproduced by a rollback resimulation. The body path's
-    // `for enter in portals { .. break }` and the item path's own loop both
-    // select the first match, so an entity overlapping TWO apertures could be
-    // sent somewhere else on a replayed frame. One sort here beats three
-    // tie-breaks that could disagree with each other.
+    // Sort here: downstream loops take the first match, and `Query` order is
+    // archetype order, which a rollback resimulation may not reproduce.
     let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     all.sort_by(crate::stable_portal_order);
     if all.is_empty() {
@@ -266,28 +226,19 @@ pub fn portal_transit(
     }
 
     for (entity, mut kin, policy, mut transit, mut roll, cooldown, sweep) in &mut bodies {
-        // ⭐ RESOLVED PER BODY, INSIDE THE LOOP. `gravity_dir` feeds exactly one
-        // decision downstream -- `placement::wall_to_wall`, which classifies each
-        // aperture as WALL or FLOOR/CEILING by its angle to "down" and gates the
-        // somersault/upright accommodation. Answering it once above the loop meant
-        // every body was classified against the PRIMARY body's down, so an actor
-        // transiting inside a gravity column was oriented by where the PLAYER happened
-        // to be standing.
+        // Per body, not once for all: `placement::wall_to_wall` classifies each
+        // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(ambition_platformer2d_core::Aabb::new(
             kin.pos,
             kin.size * 0.5,
         ));
-        // The transit cooldown is a BODY latch (`PortalTransitCooldown`),
-        // ticked by `tick_portal_cooldowns` and scoped to the PAIR the body
-        // just crossed; gun-independent so nothing can ping-pong back through
-        // an authored pair, while a different pair stays enterable.
+        // Body latch (`PortalTransitCooldown`), ticked by
+        // `tick_portal_cooldowns`, scoped to the pair just crossed.
         let cooldown_pair = cooldown.map(|c| c.pair);
         let default_depths = PortalHostDepths::default();
-        // The swept (CCD) tier's segment start comes from the movement kernel's
-        // §3.1 `SweepSample`: the TRUE sim-phase entry point and the velocity
-        // that produced it. No portal-local anchor is maintained here; teleports
-        // outside the sim phase never become swept travel because the sample is
-        // used only when its `curr` still equals this body's live `kin.pos`.
+        // The swept segment comes from the movement kernel's `SweepSample`. It
+        // is used only when its `curr` equals the live `kin.pos`, so teleports
+        // outside the sim phase are not swept travel.
         let sweep = portal_sweep_sample(&*kin, sweep);
         let step = transit_step_with_tuning(
             kin.pos,
@@ -311,8 +262,7 @@ pub fn portal_transit(
                     straddling: channel,
                     crossed: false,
                 });
-                // The crate emits the ENTER signal; an Ambition audio adapter
-                // plays the cue (the crate owns neither audio nor sfx ids).
+                // An Ambition audio adapter plays the enter cue.
                 entered.write(super::messages::PortalBodyEntered { pos: portal_pos });
             }
             TransitStep::Transfer {
@@ -328,30 +278,25 @@ pub fn portal_transit(
             } => {
                 kin.pos = pos;
                 // Class-B transit authority (`docs/concepts/movement-collision.md`),
-                // recorded at the moment the position is written — not when the
-                // crossing is detected. The CC3 oracle reads this to tell a
-                // legal aperture warp from a clip through solid geometry.
+                // recorded when the position is written. The CC3 oracle uses it
+                // to tell an aperture warp from a clip through solid geometry.
                 if let Some(log) = class_b.as_mut() {
                     log.record(entity, ClassBRemap::PortalTransit);
                 }
-                // Velocity rotation is core/default; the policy only chooses
-                // whether to WRITE it (false = old boss no-velocity path).
+                // The policy chooses whether to write the rotated velocity.
                 if policy.carry_velocity {
                     kin.vel = vel;
                 }
-                // Re-orientation is the optional part: flip facing to the exit
-                // aperture on a same-wall turn-around, only if the policy asks AND
-                // the global `reorient_facing` knob is on (the Ambition
-                // `portal_reverses_facing` gameplay setting mirrors into it).
+                // Flip facing on a same-wall turn-around only if the policy and
+                // `tuning.reorient_facing` (mirrors the `portal_reverses_facing`
+                // setting) both allow it.
                 if policy.reorient && facing_flip && tuning.reorient_facing {
                     kin.facing = -kin.facing;
                 }
                 if let Some(roll) = roll.as_deref_mut() {
                     roll.angle += roll_delta;
                 }
-                // Latch the body's transit cooldown so it can't ping-pong back
-                // through the pair it just crossed — gun-independent and
-                // scoped to THIS pair (other pairs stay enterable).
+                // Latch the cooldown for this pair to stop ping-pong.
                 commands.entity(entity).insert(PortalTransitCooldown {
                     remaining: tuning.teleport_cooldown_s,
                     pair: exit_channel,
@@ -360,14 +305,9 @@ pub fn portal_transit(
                     t.crossed = true;
                     t.straddling = exit_channel;
                 }
-                // The trace message + player-input bits (`PortalEmission`,
-                // `PortalInputWarp`) are emitted by the Ambition player-input
-                // adapter from this event — input/trace are not core concerns.
-                // The EXIT cue rides this event's `exit_pos` (an Ambition audio
-                // adapter plays it); the trace message + player-input bits
-                // (`PortalEmission`, `PortalInputWarp`) are likewise emitted by
-                // the Ambition adapters from this event — audio/input/trace are
-                // not core concerns.
+                // Ambition adapters read this event for the exit cue (at
+                // `exit_pos`), the trace message, and the player input bits
+                // (`PortalEmission`, `PortalInputWarp`).
                 transited.write(PortalBodyTransited {
                     body: entity,
                     enter_normal,
@@ -385,15 +325,14 @@ pub fn portal_transit(
     }
 }
 
-/// The input-layer fix for portal ping-pong: after a portal crossing the
-/// player's HELD movement input is warped by the same portal map as velocity
-/// when that map keeps horizontal movement expressible. Soft, not a hard latch —
-/// see the Ambition `warp_portal_input` adapter.
+/// Stops portal ping-pong from held input: after a crossing, held movement is
+/// warped by the same portal map as velocity, when that map keeps horizontal
+/// movement expressible. Soft, not a hard latch; see the Ambition
+/// `warp_portal_input` adapter.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalInputWarp {
-    /// Entry + exit portal normals — the held movement axis is mapped through the
-    /// tangent-preserving portal map (so a horizontal hold mirrors horizontally
-    /// and a vertical hold is left alone).
+    /// Entry and exit portal normals. Held movement is mapped through the
+    /// tangent-preserving portal map.
     pub n_in: Vec2,
     pub n_out: Vec2,
     /// Raw (un-warped) movement direction held when the warp was set; the warp
@@ -401,12 +340,9 @@ pub struct PortalInputWarp {
     pub anchor: Vec2,
 }
 
-/// Short-lived guard set on every crossing by the Ambition player-input adapter:
-/// for a brief window the held movement input cannot push back INTO the exit wall
-/// (against `exit_normal`), so
-/// the floored exit velocity carries the body out instead of the input cancelling
-/// the emergence. Gravity-general — it works off the exit normal vector, not a
-/// hard-coded axis.
+/// Short guard set on every crossing by the Ambition player-input adapter:
+/// held input cannot push back into the exit wall (against `exit_normal`), so
+/// the exit velocity carries the body out. Works for any gravity direction.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalEmission {
     /// Outward normal of the exit portal (the emergence direction).
@@ -415,15 +351,11 @@ pub struct PortalEmission {
     pub timer: f32,
 }
 
-/// A free in-flight body that should travel through a portal pair (thrown axes /
-/// javelins / any content-owned projectile). This is portal core's
-/// content-agnostic transit body: it carries exactly the kinematics
-/// [`portal_teleport_ground_items`] reads and writes (position, velocity,
-/// half-extent), so portal core never names the Ambition `GroundItem`. The
-/// content/item layer attaches this marker to its transitable bodies and keeps
-/// it in sync with its own body component each frame (see
-/// the host portal adapter). Resting bodies (`vel == ZERO`) are
-/// ignored; a transited body pops out clear of the exit portal.
+/// A free in-flight body that travels through portal pairs (thrown axes,
+/// javelins, other projectiles). It carries only the kinematics
+/// [`portal_teleport_ground_items`] uses, so portal core never names the
+/// Ambition `GroundItem`. The host portal adapter attaches it and syncs it each
+/// frame. Resting bodies (`vel == ZERO`) are ignored.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalTransitable {
     /// Authoritative world position of the body's center.
@@ -434,18 +366,11 @@ pub struct PortalTransitable {
     pub half_extent: Vec2,
 }
 
-/// In-flight transitable bodies (thrown axes / javelins) also travel through
-/// EVERY placed portal pair — gun-fired, authored, or link-authored — carrying
-/// momentum through the rotation: throw a javelin into one end and it flies out
-/// of the partner. Resting bodies are ignored (only `vel != ZERO` bodies
-/// teleport), a body must be moving INTO the face (`vel · normal < 0`) to
-/// transit — grazing past a portal parallel to its surface is not an entry —
-/// and a teleported body pops out clear of the exit portal so it doesn't
-/// immediately re-enter.
-///
-/// Operates on the content-agnostic [`PortalTransitable`] component, not the
-/// Ambition `GroundItem`: the item layer syncs its body into/out of this marker
-/// around transit, so portal core teleports any transitable body.
+/// Moving [`PortalTransitable`] bodies travel through every placed portal
+/// pair (gun-fired, authored, or link-authored), keeping momentum through the
+/// rotation. A body must move into the face (`vel · normal < 0`) to transit.
+/// A teleported body is placed clear of the exit portal so it does not
+/// re-enter at once.
 pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
     mut items: Query<&mut PortalTransitable>,
@@ -453,13 +378,8 @@ pub fn portal_teleport_ground_items(
     tuning: Res<crate::tuning::PortalTuning>,
 ) {
     let convention = tuning.convention.map_convention();
-    // ⛔⛔ SORTED AT THE COLLECTION POINT, because everything downstream picks a
-    // WINNER from this list and a `Query` yields archetype order -- not a
-    // promise, and not reproduced by a rollback resimulation. The body path's
-    // `for enter in portals { .. break }` and the item path's own loop both
-    // select the first match, so an entity overlapping TWO apertures could be
-    // sent somewhere else on a replayed frame. One sort here beats three
-    // tie-breaks that could disagree with each other.
+    // Sort here: downstream loops take the first match, and `Query` order is
+    // archetype order, which a rollback resimulation may not reproduce.
     let mut all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     all.sort_by(crate::stable_portal_order);
     if all.is_empty() {

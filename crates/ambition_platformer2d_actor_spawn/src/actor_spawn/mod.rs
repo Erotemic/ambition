@@ -856,17 +856,33 @@ impl NpcActorSpawnPlan {
         // derive finds it current rather than completing it on its first tick.
         // LAST, so its kit replaces the seed's rather than being replaced by it.
         //
-        // ⚠ NOT a prepared character without a body blueprint: the peaceful seed
-        // built it with default vitals, and its physical baseline still arrives
-        // from the derive, which a stamp here would switch off. Nor an id nobody
-        // prepared (reported above), which takes the derive's unknown-id answer.
+        // A prepared character WITHOUT a body blueprint (no authored locomotion)
+        // is not worn whole: the peaceful seed built it with default vitals, and
+        // its persona (health, weight, mass, kit) still arrives from the derive,
+        // which the persona memo would switch off. Its BODY is granted here
+        // anyway (`PersonaDerive`), as the home body's is, because the body is
+        // what the art is bound against. Measured 2026-09-24 in the Hall of
+        // Characters, which places `mary_o`, `mary_o_tall`, `sanic` and
+        // `super_sanic` this way: left to the derive, `mary_o` stood 32x48 on
+        // her first tick and 21.3x32 on her second.
+        //
+        // An id nobody prepared (reported above) takes the derive's unknown-id
+        // answer.
         if let Some(character) = worn {
-            match prepared
-                .get(&character)
-                .filter(|definition| definition.body_blueprint().is_ok())
-            {
-                Some(definition) => {
+            match prepared.get(&character) {
+                Some(definition) if definition.body_blueprint().is_ok() => {
                     wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation())
+                }
+                Some(definition) => {
+                    scope.insert(ambition_characters::actor::WornCharacter::new(character));
+                    crate::character_body::grant_prepared_character_body(
+                        &mut scope.entity_scope(),
+                        definition,
+                        prepared.generation(),
+                        crate::character_body::KitOwnership::PersonaDerive,
+                        definition.movement_tuning,
+                        ambition_characters::repertoire::Hand::Empty,
+                    );
                 }
                 None => {
                     scope.insert(ambition_characters::actor::WornCharacter::new(character));

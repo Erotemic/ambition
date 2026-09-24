@@ -467,7 +467,7 @@ taken), and `InteractableSpec.requires_facing`. Real authority for chest
 persistence remains `encounter_reward_looted_flag`, which never consulted the
 field.
 And *"melee/projectile geometry agreement"* now has a guard
-(`world/overlay.rs::breakable_geometry_agreement`, poison-verified): both
+(`features/ecs/world_overlay.rs::breakable_geometry_agreement`, poison-verified): both
 publishers read one `CenteredAabb`, and their ELIGIBILITY predicates diverge on
 purpose.
 

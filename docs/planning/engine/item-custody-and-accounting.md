@@ -221,7 +221,7 @@ promising a reader is what makes the next author build on it.
 
 ⇒ Sibling check, and it is why the table is four rows and not five: `pogo_refresh`
 is the same shape and IS read (`features/ecs/damage/mod.rs:611`, `:978`,
-`damage_predicates.rs:52`, `target_volumes.rs:122`, `world/overlay.rs:58`), so it
+`damage_predicates.rs:52`, `target_volumes.rs:122`, `features/ecs/world_overlay.rs:58`), so it
 is merely dormant — never set true by content — not stranded. The difference took
 reading the consumer, which is the only way to tell them apart.
 

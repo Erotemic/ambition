@@ -499,6 +499,7 @@ mod character_sprite_passes {
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         };
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([
             (ACTOR_ID.to_string(), super::boss_pass::a_feature_view()),

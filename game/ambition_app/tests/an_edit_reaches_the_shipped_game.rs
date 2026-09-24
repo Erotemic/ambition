@@ -423,7 +423,7 @@ fn an_edited_pack_reaches_the_cast_the_shipped_composition_plays() {
     // `the_retired_scopes_sweep_precedes_the_incoming_sessions_construction`.
     let verification = app
         .world()
-        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         verification.published,
@@ -855,7 +855,7 @@ fn a_refused_world_reload_leaves_the_running_game_untouched() {
 
     let verdict = app
         .world()
-        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         !verdict.published,
@@ -1085,7 +1085,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     // satisfied by an app that simply did nothing.
     let verdict = app
         .world()
-        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         !verdict.published,
@@ -1358,7 +1358,7 @@ fn a_shell_handoff_publishes_the_incoming_sessions_room() {
 
     let verification = app
         .world()
-        .resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+        .resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
         .clone();
     assert!(
         verification.published,
@@ -1692,7 +1692,7 @@ fn a_published_room_inside_a_pending_candidate_session_stays_invisible() {
         app.update();
         let published = app
             .world()
-            .get_resource::<ambition_platformer2d::actors::features::LastConstructionVerification>()
+            .get_resource::<ambition_platformer2d::actors::world::rooms::LastConstructionVerification>()
             .is_some_and(|verification| verification.published);
         if published && room_published_at.is_none() {
             room_published_at = Some(frame);

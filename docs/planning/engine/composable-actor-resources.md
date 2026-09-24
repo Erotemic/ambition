@@ -1312,6 +1312,36 @@ co-resident.
 survives only as the value type of other non-body meters; the body no longer
 holds one.
 
+### Verified 2026-09-24 — the Smash Limit slice holds (campaign item 3)
+
+Re-derived against the source, not this page:
+
+- **Authoring → layout → dense storage.** `MatchRules::resources` declares the
+  Limit (`SMASH_LIMIT.declaration()`); seat preparation builds
+  `ActorResources::declared(&rules.resources)` (`ambition_match/src/prepared.rs`);
+  the bank is one `Arc<ResourceLayout>` plus a `Vec<ResourceLevel>` per body.
+- **Costs name their resource.** `MoveGates::costs: Vec<ResourceCost>`; the
+  afford check (`resources::can_pay`) and the move-start pay
+  (`ambition_combat/src/moveset/mod.rs`, `bank.pay`) read the same bank on the
+  same tick. A term naming a resource the body does not hold is unaffordable,
+  and a body with no bank is refused unless the price is empty. The pay site
+  discards `pay`'s bool on purpose, as its comment says: the refusal happened at
+  afford time, and the two cannot disagree within one tick.
+- **Spawn and reset share one baseline.** `reset_body_clusters` calls
+  `ActorResources::reset_to_start`, which restores the SAME declarations the
+  seat was built from. `BodyMana` and `ResetMeter` are deleted, so there is no
+  full-Mana frame followed by a Limit normalization.
+- **Absence.** `a_match_that_declares_no_limit_fills_nothing` and
+  `a_body_that_holds_no_limit_gains_nothing_from_any_limit_source`.
+
+Open, and REASONED rather than measured: the "prepared handle" is still a
+binary search over the body's layout (`ResourceLayout::slot`) at each access,
+not a slot cached at preparation. Every shipped layout holds ONE resource
+(`{smash.limit}` on a seat, `{mana}` on the home body), so the search is one
+comparison. The 0D measurement comes due when a shipped layout holds several.
+`ResourceMeter` survives only as the value type of non-body meters (projectile
+ammo), which is a real owner, so step 7's deletion does not apply.
+
 ### Classification, measured 2026-09-23 (Phase 2 step 1 and Phase 3's first step)
 
 Taken by grepping production `crates/` and `game/` for `BodyMana`, `.mana`,

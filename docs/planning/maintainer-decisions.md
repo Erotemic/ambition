@@ -143,8 +143,13 @@ script fails if the two disagree. They moved here from
 `awaiting-maintainer-decision.md` when `Q136` was ruled and deleted — a marker
 pinned to a page that no longer states the fact is a check against nothing.
 
-<!-- crossing-census: both_side_resources=57 rollback_registered=33 adjudicated_harmless=20 session_edge_only=3 filed=1 unclassified=0 -->
+<!-- crossing-census: both_side_resources=56 rollback_registered=33 adjudicated_harmless=19 session_edge_only=3 filed=1 unclassified=0 -->
 <!-- ingress-census: spent_resources=56 resource_crossings=3 written_messages=95 message_crossings=3 unlocated=41 unlocated_types=15 -->
+
+⛔ **`both_side_resources` WENT 57 → 56 AND `adjudicated_harmless` 20 → 19 ON
+2026-09-24, and the one that left is named:** `DeveloperRuntimeState`. AP17
+(`5539d8667`) moved its HUD-flash decay out of the simulation into `Update`, so
+it no longer crosses the boundary.
 
 ⛔⛤ **`unlocated` WENT 42 → 41 ON 2026-09-21, AND THE ONE THAT LEFT IS NAMED
 RATHER THAN SUBTRACTED.** Diffed against `ace00e006`, the commit that wrote this

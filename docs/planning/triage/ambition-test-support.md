@@ -1,54 +1,25 @@
 # `ambition_test_support` — sequester harness boilerplate and make behavioral tests cheap
 
-> **State:** TRIAGE — STRONG CANDIDATE, DESIGN DECISIONS PENDING, 2026-07-22.
->
-> **RE-MEASURED against `92e60d62b` (2026-09-02), six weeks on. The problem is
-> still real and Layer 2 has largely LANDED UNDER ANOTHER NAME.**
->
-> - `ambition_test_support` does not exist. ⚠ **`ambition_registry_core` NOW
->   DOES** — landed `479f9d3e4`, after this was written; the sentence pairing
->   the two is no longer true of both, and only the first half stands. See
->   [`ambition-registry-core.md`](ambition-registry-core.md), which carries what
->   the crate is and its four current consumers. (Corrected 2026-09-03.)
-> - ⭐ **But `crates/ambition_sim_harness` DOES**, extracted the same day this
->   note was written (`6bcd53d45`, "Extract ambition_sim_harness below the
->   product shell (track 4)") and already depended on by **4 crates** —
->   `actor_monolith`, `examples/capability_demo`, `ambition_app`,
->   `ambition_app_tools` — ✔ re-derived 2026-09-17 and it is the SAME FOUR, so
->   the harness's reach has not moved while Layer 1's population grew by a fifth. ⚠ **This row said "6 manifests" until 2026-09-03, and
->   the difference is the instrument.** Six FILES match
->   `grep -rl ambition_sim_harness --include=Cargo.toml`: those four, plus the
->   crate's OWN manifest and the workspace root that declares the shared
->   dependency. Neither of the last two consumes it, so the count that sounded
->   like reach was a count of string occurrences. Its
->   `Platformer2dSimHarness` offers `build`, `step`/`step_n`/`step_frame`,
->   `set_timestep`, `reset_episode`, `drive_seat`, rollback setup and health,
->   and `world`/`world_mut`/`app_mut` — which is the **Layer 2 — engine/session
->   fixtures** section below, near enough that proposing to build it fresh
->   would now be duplicating it.
-> - **Layer 1 is untouched and the magnitude is GROWING.** It read 1004
->   `App::new()` call sites across 337 files, 329 of which also carry `#[test]`.
->   ⭐ **Re-derived 2026-09-17: 1,212 sites across 403 files, 396 with `#[test]`
->   — up about 20% in fifteen days**, with the instrument this time:
->   `grep -rn 'App::new()' --include=*.rs crates game`. ⚠ The root choice barely
->   matters here, which is why the growth is readable: adding `examples`,
->   `fixtures` and `tests` moves it to 1,228 / 408, so the old 1004 is below
->   every plausible bracket and the rise is a fact about the tree rather than
->   about the flags. ⇒ **The cost of not deciding is measurable and it
->   compounds** — every month this stays pending, another two hundred call sites
->   are written against no supported harness.
->
-> ⇒ **The open decision has therefore MOVED.** It is no longer "should a
-> dev-only support crate exist" — one does, for the simulation. It is whether
-> Layer 1's generic Bevy/app boilerplate belongs *inside* `ambition_sim_harness`
-> or in a crate beneath it, and that is a dependency question the pilot
-> migration below should now answer against the real crate rather than a
-> proposed one.
->
-> The need is clear: Ambition's tests repeatedly rebuild Bevy apps, schedules,
-> fixed time, session roots, room state, catalogs, and command-flush sequences.
-> A dedicated dev-only support crate is likely worthwhile. The exact dependency
-> boundary and fixture API must be piloted before promotion.
+**State:** triage. Strong candidate; design decisions pending.
+
+Current facts (re-measured 2026-09-17):
+
+- `ambition_test_support` does not exist.
+- `crates/ambition_sim_harness` exists and covers most of Layer 2 below. Its
+  `Platformer2dSimHarness` offers `build`, `step`/`step_n`/`step_frame`,
+  `set_timestep`, `reset_episode`, `drive_seat`, rollback setup and health, and
+  `world`/`world_mut`/`app_mut`. Four crates consume it: `actor_monolith`,
+  `examples/capability_demo`, `ambition_app`, `ambition_app_tools`. Do not
+  build Layer 2 again.
+- Layer 1 is not started, and the cost grows: 1,212 `App::new()` sites across
+  403 files in `crates/` and `game/`, 396 of them with `#[test]` (1,004 sites on
+  2026-07-22). Measure with `grep -rn 'App::new()' --include=*.rs crates game`.
+- `ambition_registry_core` is a separate crate; see
+  [`ambition-registry-core.md`](ambition-registry-core.md).
+
+The open decision: does Layer 1 (generic Bevy/app boilerplate) go inside
+`ambition_sim_harness` or in a crate below it? This is a dependency question.
+The pilot migration below answers it against the real crate.
 
 ## Problem
 
@@ -74,7 +45,7 @@ approximation.
 
 ## Direction under consideration
 
-Create a dev-only workspace crate tentatively named:
+Create a dev-only workspace crate (or a layer of `ambition_sim_harness`) tentatively named:
 
 ```text
 crates/ambition_test_support

@@ -82,7 +82,6 @@ pub struct EnemyActorBundle {
     /// entity (OVERNIGHT-TODO #17.8). Defaults to "no target",
     /// updated each tick.
     pub target: ActorTarget,
-    pub pose: ActorPose,
     /// Explicit movement-policy identity and private runtime state. Every
     /// integrated actor carries exactly one policy from spawn; absence is not
     /// an axis-swept fallback.
@@ -118,7 +117,6 @@ impl EnemyActorBundle {
         base: FeatureRenderedBundle,
         disposition: ActorDisposition,
         faction: ActorFaction,
-        pose: ActorPose,
         identity_kit: IdentityKit,
         aggression: ActorAggression,
         combat: BodyCombat,
@@ -128,7 +126,6 @@ impl EnemyActorBundle {
             disposition,
             faction,
             target: ActorTarget::default(),
-            pose,
             motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
             identity_kit,
             aggression,

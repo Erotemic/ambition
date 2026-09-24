@@ -675,7 +675,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `ActorControl`'s fire request no longer encodes a launch speed (the resolved
 /// `RangedActionSpec` owns it); and `CombatTuning` (clone, unhashed) lost
 /// `attack_cooldown_mult`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 206;
+/// ⛔⛤ 206 -> 207: `actor.pose` LEFT. `ActorPose` was a checksummed copy of the
+/// body's box and facing, synced by two systems on different schedules and
+/// seeded from the placement rect before the first sync corrected it; its one
+/// reader (the brain action origin) reads `BodyKinematics::pos` now.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 207;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

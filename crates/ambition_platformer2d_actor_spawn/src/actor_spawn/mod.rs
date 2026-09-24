@@ -65,7 +65,7 @@ use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossO
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
 use ambition_combat::components::{
-    ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
+    ActorAggression, BossDeathAnimation, BossPhase, CenteredAabb,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_encounter::switches::{SwitchFeature, SwitchOn};
@@ -545,7 +545,6 @@ impl EnemyActorSpawnPlan {
     /// ⭐ The root arrives inside the scope, so this can no longer be handed a
     /// `Commands` and asked to make its own.
     pub(super) fn spawn_into(self, scope: &mut RootScope) {
-        let facing = self.enemy.kin.facing;
         let motion_model = self.enemy.config.tuning.motion_model();
         let (disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
@@ -559,11 +558,6 @@ impl EnemyActorSpawnPlan {
                         ),
                         disposition,
                         self.faction,
-                        ActorPose::from_parts(
-                            self.feature_aabb.center,
-                            self.feature_aabb.half_size,
-                            facing,
-                        ),
                         ambition_characters::brain::action_set::IdentityKit::of(
                             self.action_set.clone(),
                             self.moveset.clone().unwrap_or_default(),
@@ -809,7 +803,6 @@ impl NpcActorSpawnPlan {
         self,
         scope: &mut RootScope,
     ) -> Entity {
-        let facing = self.seed.kin.facing;
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
         // component so it survives a hostile flip (otherwise the body-sized
         // collision would get `collision_scale` re-applied, ballooning the sprite).
@@ -841,11 +834,6 @@ impl NpcActorSpawnPlan {
                     FeatureRenderedBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
                     disposition,
                     ambition_combat::components::ActorFaction::Npc,
-                    ActorPose::from_parts(
-                        self.feature_aabb.center,
-                        self.feature_aabb.half_size,
-                        facing,
-                    ),
                     ambition_characters::brain::action_set::IdentityKit::of(
                         self.action_set.clone(),
                         npc_moveset.clone().unwrap_or_default(),
@@ -1178,7 +1166,6 @@ pub fn spawn_boss_with_overrides_into(
     let boss_baseline = boss_action_set.clone();
     let boss_combat = ambition_characters::actor::BodyCombat::default();
     let (boss_identity, boss_disposition) = boss_component_snapshot(boss.as_ref());
-    let boss_facing = boss.kin.facing;
     // Kin/HP are NOT in this bundle — the boss owns those directly (§A1).  the pool is NOT
     // passed in (AC6.2). It was — as `boss.health.max()`, to fill an
     // `ActorTuning::max_health` that the boss's own `BodyHealth` already held. The boss owns
@@ -1199,7 +1186,6 @@ pub fn spawn_boss_with_overrides_into(
             initial_phase,
             ambition_combat::components::ActorFaction::Boss,
             ambition_combat::components::ActorTarget::default(),
-            ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, boss_facing),
             (
                 DamageableVolumes::default(),
                 PogoPolicy::FromDamageable,

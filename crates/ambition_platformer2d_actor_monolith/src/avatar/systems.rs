@@ -8,7 +8,6 @@ use ambition_characters::brain::{tick_player_brain, BrainSnapshot};
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::ScriptedControl;
 use ambition_characters::control::{DrivingParticipant, SlotControls};
-use ambition_combat::components::ActorPose;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::{BodyGroundState, BodyKinematics};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
@@ -19,19 +18,6 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 pub fn blank_scripted_control_frames(mut bodies: Query<&mut ActorControl, With<ScriptedControl>>) {
     for mut control in &mut bodies {
         control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
-    }
-}
-
-/// Mirror authoritative player body state into the generic gameplay
-/// [`ActorPose`] used by the brain/action resolver.
-///
-/// The player, NPCs, enemies, and bosses should all expose action origins
-/// through gameplay pose data rather than presentation `Transform`s.
-pub fn sync_player_actor_poses(
-    mut players: Query<(&BodyKinematics, &mut ActorPose), With<PlayerEntity>>,
-) {
-    for (kin, mut pose) in &mut players {
-        *pose = ActorPose::from_parts(kin.pos, kin.size * 0.5, kin.facing);
     }
 }
 

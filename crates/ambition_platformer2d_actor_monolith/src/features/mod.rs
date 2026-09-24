@@ -133,7 +133,6 @@ pub use ecs::{
     refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes,
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
     snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
-    sync_actor_poses_from_feature_aabbs,
     sync_boss_encounter_phase,
     sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
@@ -974,7 +973,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 tick_boss_brains_system,
                 integrate_boss_bodies,
                 update_ecs_bosses,
-                sync_actor_poses_from_feature_aabbs,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),

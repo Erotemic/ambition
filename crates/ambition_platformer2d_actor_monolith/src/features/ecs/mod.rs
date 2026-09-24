@@ -74,7 +74,7 @@ mod target_volumes;
 
 pub use actors::{
     apply_actor_contact_damage, integrate_sim_bodies, route_boss_strikes_to_limbs,
-    snapshot_body_contact, sync_actor_poses_from_feature_aabbs,
+    snapshot_body_contact,
     tick_actor_brains, tick_npc_idle_barks, ActorSteering, AxisSweptMotion, MomentumMotion,
     MotionModel,
 };

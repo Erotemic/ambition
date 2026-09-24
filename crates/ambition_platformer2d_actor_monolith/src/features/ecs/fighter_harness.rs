@@ -11,7 +11,6 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_characters::actor::control::ActorControlFrame;
-use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::{
     action_set::ActionRequest, ActionSet, ActorActionMessage, RangedActionSpec,
 };
@@ -96,7 +95,6 @@ impl FighterHarness {
                 seed.into_components(),
                 action_set,
                 ActorControl::default(),
-                ActorPose::from_parts(pos, ae::Vec2::new(14.0, 23.0), 1.0),
             ))
             .id();
         Self { app, body, tick: 0 }

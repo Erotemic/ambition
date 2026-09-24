@@ -23,7 +23,7 @@ use ambition_boss_encounter::{
 use ambition_characters::brain::BossAttackState;
 use ambition_characters::control::ActorControl;
 use ambition_combat::components::{
-    ActorPose, CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
+    CenteredAabb, DamageableVolumes, FeatureId, FeatureName, PogoPolicy,
     PogoTargetVolumes, PostBossNpc,
 };
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, RoomReplayAdmitted};

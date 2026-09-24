@@ -345,28 +345,26 @@ impl ActorActionMessage {
 }
 
 /// Bevy system: walk every actor entity that has a Brain +
-/// ActionSet + crate::control::ActorControl + gameplay ActorPose and emit one
+/// ActionSet + crate::control::ActorControl + BodyKinematics and emit one
 /// `ActorActionMessage` per resolved action request. Runs after the
 /// brain-driver systems (tick_controlled_brains, update_ecs_actors's
 /// runtime tick) so the frame is current.
 ///
-/// The resolver intentionally reads `ActorPose` instead of Bevy
-/// `Transform`. Feature sim entities use `CenteredAabb` / `ActorPose` as
-/// gameplay truth; rendered child/visual entities own presentation
-/// transforms with sprite anchors, scaling, and hierarchy concerns.
+/// The origin is the body's own position (`BodyKinematics`), never Bevy
+/// `Transform`, which belongs to presentation.
 pub fn emit_brain_action_messages(
     actors: Query<(
         Entity,
         &crate::control::ActorControl,
         &ActionSet,
-        &crate::actor::ActorPose,
+        &ambition_platformer2d_core::BodyKinematics,
         bevy::prelude::Has<MovesetRanged>,
         bevy::prelude::Has<ChargesProjectiles>,
     )>,
     mut writer: MessageWriter<ActorActionMessage>,
 ) {
-    for (entity, control, action_set, pose, moveset_ranged, charges) in &actors {
-        for request in action_set::resolve(action_set, &control.0, pose.origin()) {
+    for (entity, control, action_set, kin, moveset_ranged, charges) in &actors {
+        for request in action_set::resolve(action_set, &control.0, kin.pos) {
             // A body whose ranged shot is a moveset `"ranged"` move fires through the
             // move's timed event (`MoveEventKind::Ranged`), not this flat
             // `frame.fire → Ranged` path — skip the flat emission so it doesn't fire

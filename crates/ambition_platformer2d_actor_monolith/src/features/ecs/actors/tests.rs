@@ -1,9 +1,7 @@
 //! Tests for the actor tick helpers: shark charge-crash geometry, nearest-same-kind
-//! neighbor lookup, holding-position spread, per-actor crowding, and pose sync.
+//! neighbor lookup, holding-position spread, and per-actor crowding.
 
 use super::*;
-use ambition_combat::components::CenteredAabb;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 #[test]
 fn shark_crashes_on_a_fast_charge_blocked_on_either_axis() {
@@ -243,42 +241,6 @@ fn burning_shark_enemy() -> ambition_body_seed::ActorClusterSeed {
     // the function below takes the resolved capability rather than a body.
     seed.caps.charge_crash_explodes = true;
     seed
-}
-
-#[test]
-fn sync_actor_pose_uses_feature_aabb_and_actor_facing() {
-    use bevy::prelude::{App, Update};
-
-    let mut app = App::new();
-    app.add_systems(Update, sync_actor_poses_from_feature_aabbs);
-
-    let mut enemy = burning_shark_enemy();
-    enemy.kin.facing = -1.0;
-    let entity = app
-        .world_mut()
-        .spawn((
-            FeatureSimEntity,
-            CenteredAabb::from_center_size(ae::Vec2::new(40.0, 80.0), ae::Vec2::new(20.0, 30.0)),
-            ambition_combat::components::ActorPose::default(),
-            enemy.into_components(),
-        ))
-        .id();
-
-    app.update();
-
-    let entity_ref = app.world().entity(entity);
-    let pose = entity_ref
-        .get::<ambition_combat::components::ActorPose>()
-        .unwrap();
-    assert_eq!(pose.center, ae::Vec2::new(40.0, 80.0));
-    assert_eq!(pose.feet, ae::Vec2::new(40.0, 95.0));
-    assert_eq!(pose.facing, -1.0);
-    assert!(
-        entity_ref
-            .get::<bevy::transform::components::Transform>()
-            .is_none(),
-        "ActorPose sync should not require a gameplay Transform shim"
-    );
 }
 
 #[test]

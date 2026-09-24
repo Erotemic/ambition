@@ -47,7 +47,7 @@ fn brain_display_contains_label() {
 #[test]
 fn emit_brain_action_messages_skips_entities_missing_components() {
     // Resolver queries Brain + ActionSet + crate::control::ActorControl +
-    // ActorPose. Entities missing any one are skipped silently
+    // BodyKinematics. Entities missing any one are skipped silently
     // (Bevy query filter). Pins this behavior so a future
     // refactor that loosens the filter doesn't accidentally
     // process partially-spawned entities and panic on the
@@ -62,10 +62,10 @@ fn emit_brain_action_messages_skips_entities_missing_components() {
         .spawn((
             Brain::stand_still(),
             crate::control::ActorControl::default(),
-            crate::actor::ActorPose::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
         ))
         .id();
-    // Entity 2: missing ActorPose.
+    // Entity 2: missing BodyKinematics.
     let _e2 = app
         .world_mut()
         .spawn((
@@ -87,7 +87,7 @@ fn emit_brain_action_messages_skips_entities_missing_components() {
 
 #[test]
 fn emit_brain_action_messages_handles_many_actors() {
-    // Stress: 50 actors with Brain + ActionSet + ActorPose all
+    // Stress: 50 actors with Brain + ActionSet + BodyKinematics all
     // wanting to attack this tick. The resolver should emit
     // 50 messages in one update with no panic or quadratic
     // slowdown.
@@ -106,10 +106,10 @@ fn emit_brain_action_messages_handles_many_actors() {
             Brain::stand_still(),
             crate::control::ActorControl(frame),
             actions.clone(),
-            crate::actor::ActorPose {
-                center: ae::Vec2::new(i as f32 * 10.0, 0.0),
-                feet: ae::Vec2::new(i as f32 * 10.0, 24.0),
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(i as f32 * 10.0, 0.0),
                 facing: 1.0,
+                ..Default::default()
             },
         ));
     }
@@ -442,7 +442,7 @@ fn observe_brain_action_counter_sums_per_frame_messages() {
         }),
         crate::control::ActorControl(frame),
         actions,
-        crate::actor::ActorPose::default(),
+        ambition_platformer2d_core::BodyKinematics::default(),
     ));
     app.update();
     let counter = app.world().resource::<BrainActionCounter>();
@@ -456,7 +456,7 @@ fn observe_brain_action_counter_sums_per_frame_messages() {
 }
 
 /// emit_brain_action_messages walks every Brain/ActionSet/
-/// crate::control::ActorControl + ActorPose entity and writes a message per resolved
+/// crate::control::ActorControl + BodyKinematics entity and writes a message per resolved
 /// ActionRequest. Pins that the resolver system, scheduled in
 /// PlayerInput, observes the brain output correctly.
 #[test]
@@ -481,10 +481,10 @@ fn emit_brain_action_messages_writes_one_message_per_request() {
             }),
             crate::control::ActorControl(frame),
             actions,
-            crate::actor::ActorPose {
-                center: ae::Vec2::new(50.0, 100.0),
-                feet: ae::Vec2::new(50.0, 124.0),
+            ambition_platformer2d_core::BodyKinematics {
+                pos: ae::Vec2::new(50.0, 100.0),
                 facing: 1.0,
+                ..Default::default()
             },
         ))
         .id();

@@ -41,9 +41,6 @@ impl FeatureName {
 /// conversion.
 pub use ae::CenteredAabb;
 
-// Re-exported below so kit paths keep working.
-pub use ambition_characters::actor::pose::ActorPose;
-
 /// Explicit persistence key. Kept separate from `FeatureId` so migrated features
 /// can choose when authored identity and save identity differ.
 #[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]

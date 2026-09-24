@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v206",
+    "version": "ggrs-rollback-schema-v207",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -30,7 +30,6 @@
       "actor.out_of_play\tcomponent-canonical\tOutOfPlay",
       "actor.perception\tcomponent-canonical\tPerception",
       "actor.perception_memory\tcomponent-canonical\tPerceptionMemory",
-      "actor.pose\tcomponent-canonical\tActorPose",
       "actor.proper_time_scale\tcomponent-canonical\tProperTimeScale",
       "actor.roll\tcomponent-canonical\tActorRoll",
       "actor.ruleset_owns_death\tcomponent-canonical\tRulesetOwnsDeath",
@@ -162,7 +161,6 @@
     "ambition_characters::actor::body::BodyCombat",
     "ambition_characters::actor::character_catalog::AuthoredBrainContext",
     "ambition_characters::actor::character_catalog::BrainBinding",
-    "ambition_characters::actor::pose::ActorPose",
     "ambition_characters::brain::boss_pattern::BossAttackIntent",
     "ambition_characters::brain::boss_pattern::BossAttackProfile",
     "ambition_characters::brain::boss_pattern::BossAttackState",

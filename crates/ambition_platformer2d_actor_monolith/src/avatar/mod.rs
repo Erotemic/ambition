@@ -27,7 +27,7 @@ pub use starting_character::{
 pub use events::PlayerHealRequested;
 pub use systems::{
     apply_player_heal_requests, blank_scripted_control_frames, regen_player_mana,
-    sync_player_actor_poses, tick_controlled_brains, ControlledBrainTick,
+    tick_controlled_brains, ControlledBrainTick,
 };
 
 /// Build the primary home body's scratch state with its authored abilities.
@@ -81,22 +81,13 @@ pub fn install_avatar_player_input(
     // body's mode follows THIS tick's decision rather than the last one — the AI
     // frame did not exist yet when this sat in `PlayerInput`.
     //
-    // ⚠ THE CHAIN IS THIS CRATE'S FACT, not the composition's: the body mode has
-    // to settle before the poses that read it are synced, and neither system is
-    // meaningful to a host that does not know what a body mode is.
-    //
-    // ⛔ THESE THREE COMMENTS CAME WITH THE CODE, and carrying them was not
+    // ⛔ THESE COMMENTS CAME WITH THE CODE, and carrying them was not
     // tidiness. A carve DELETES the block it moves, and every reason written
     // beside that block goes with it unless somebody carries it — which is the
     // one edit shape where losing a specification produces no warning and no
     // failing test.
     app.add_systems(
         schedule,
-        (
-            crate::body_mode::update_body_mode,
-            sync_player_actor_poses,
-        )
-            .chain()
-            .in_set(PlayerInputSet::BodyMode),
+        crate::body_mode::update_body_mode.in_set(PlayerInputSet::BodyMode),
     );
 }

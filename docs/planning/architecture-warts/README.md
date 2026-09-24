@@ -29,7 +29,7 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W020, W024. The remaining rows it owns carry their AP number there.
+Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024. The remaining rows it owns carry their AP number there.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
@@ -45,7 +45,6 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 | W011 | CONFIRMED | movement diagnostics | `BodyComboTrace` exists so the HUD combo trace does not blank. It is mandatory on the central body shape, rollback canonical, and threaded through movement, ledge, dodge, blink, knockdown, and other kernel APIs. The visible production reader is the HUD. | Move diagnostic history out of the core body contract. Keep gameplay events or semantic state separate from the display trace. |
 | W012 | CONFIRMED | body lifecycle | `BodyLifetime` mixes diagnostic counters (`time_alive`, `resets`, `max_speed`) with the real replay latch `restart_pending`. Its comment says the latch lives there because the component was already snapshotted. | Split the replay latch from diagnostics. Then decide independently which counters need rollback semantics. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
-| W019 | CONFIRMED | actor pose | `ActorPose::feet` is derived from center and half-size at construction. Production code has no `.feet` read, but snapshot code stores it. | Remove the unused field and snapshot bytes unless a real consumer is introduced. |
 | W021 | CONFIRMED | encounter music | `EncounterMusicRequest::last_applied` is written by the music-intent adapter for diagnostics/tests. Its accessor has no production caller, but the field lives inside gameplay encounter state. | Delete the field if transition detection does not need it, or move adapter history to presentation/audio state. |
 | W022 | STRUCTURAL | combat component ownership | `BodyMelee::ranged_cooldown` is the live ranged fire-rate floor. It is actively used by ranged acceptance and prompts even though the owner type is `BodyMelee`. | Move ranged cooldown state to a weapon/ranged/action owner without changing the one-body fire-rate invariant. |
 | W023 | STRUCTURAL | combat/presentation boundary | `BodyCombat::hit_flash` is a visual flash timer, but gameplay and AI use it as a recent-hit signal for bark suppression and hostility/behavior gates. | Introduce a semantic recent-hit/reaction fact if gameplay needs one. Keep visual flash lifetime as presentation state. |

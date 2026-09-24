@@ -218,7 +218,7 @@ section refines the affected boundary. The queue is still the only priority list
 | [engine/world-facts-observations-and-memory.md](world-facts-observations-and-memory.md) | Revised | Scoped read facts reduce producer knowledge; no mutable world-facts bus. |
 | [engine/world-geometry-and-spatial-semantics.md](world-geometry-and-spatial-semantics.md) | Revised | Keep broad unification deferred while allowing contact repair and adapter relocation. |
 | [engine_rename_campaign.md](../engine_rename_campaign.md) | Revised | Make naming follow ownership; preserve warning labels and stable serialized identity. |
-| [frontend-audio-is-per-experience.md](../frontend-audio-is-per-experience.md) | Retained | Retain route-specific audio policy; common registry protocol does not force replacement semantics. |
+| `frontend-audio-is-per-experience.md` (deleted 2026-09-24) | Retained | Retain route-specific audio policy; common registry protocol does not force replacement semantics. | <!-- cite-ok: deleted file, kept as the review record -->
 | [game/ambition.md](../game/ambition.md) | Retained | Flagship remains deep co-evolving engine customer, not a thin demo waiting for engine completion. |
 | [game/bosses.md](../game/bosses.md) | Revised | Remove core-as-catch-all description; preserve boss content design. |
 | [game/multiplayer.md](../game/multiplayer.md) | Retained | Co-op product scope and policy remain maintainer-owned; no policy invented from package structure. |

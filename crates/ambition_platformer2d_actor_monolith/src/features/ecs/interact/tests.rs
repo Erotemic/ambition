@@ -233,7 +233,6 @@ fn spawn_pedestal(app: &mut App, pos: ae::Vec2, character_id: &str, dialogue_id:
             ActorIdentity::new("hall_pedestal_placement", "Player"),
             ActorInteraction {
                 interactable,
-                talk_radius: 40.0,
             },
         ))
         .id()

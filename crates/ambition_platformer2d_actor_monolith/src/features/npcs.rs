@@ -3,8 +3,8 @@
 //! idle-bark line resolvers. Peaceful actors are the SAME ECS cluster as hostile
 //! enemies now (see [`crate::actor_clusters`]); this module no
 //! longer owns a separate NPC runtime view — only the dialogue/bark selection and
-//! the peaceful brain selection. Talk/hostility tuning consts
-//! ([`NPC_TALK_RADIUS`], [`NPC_HOSTILE_STRIKE_THRESHOLD`]) live here.
+//! the peaceful brain selection. The hostility tuning const
+//! ([`NPC_HOSTILE_STRIKE_THRESHOLD`]) lives here.
 //!
 //! A character's VOICE (its per-situation bark pools) is content: it lives in
 //! the catalog `barks` field, keyed by the character id (the single source of

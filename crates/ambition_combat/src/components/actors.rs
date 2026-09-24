@@ -195,12 +195,14 @@ pub struct BodyEnvelope(pub ae::Vec2);
 /// to"; the interact / proximity-highlight / dialogue-bubble systems key off the
 /// component instead of an actor-type tag.
 ///
-/// `talk_radius` is the world-pixel range at which a patrolling actor stops to
-/// face the player so the interact is reachable.
+/// Reach is geometric: an interact press reaches this actor when the acting
+/// body's box overlaps the actor's `CenteredAabb`
+/// (`interact_ecs_actors_and_switches`). A peaceful patroller stops and faces
+/// the player through its patrol brain's own `aggro_radius`
+/// (`PatrolCfg::NPC_DEFAULT`); this component carries no range of its own.
 #[derive(Component, Clone, Debug)]
 pub struct ActorInteraction {
     pub interactable: ambition_interaction::Interactable,
-    pub talk_radius: f32,
 }
 // TODO(compat-remove): migrate remaining combat callers to
 // `ambition_characters::actor::pose::ActorFaction`, then delete this re-export.

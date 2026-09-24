@@ -72,8 +72,8 @@ pub enum InteractionKind {
         /// radius — it does NOT select whether the NPC receives a patrol brain
         /// (the explicit `brain_override` / catalog `default_brain` does). `0.0`
         /// (the default) leaves the selected patrol preset's authored radius.
-        /// Ignored by every non-patrol preset. The NPC still stops inside the
-        /// player's `talk_radius` so dialog is reachable.
+        /// Ignored by every non-patrol preset. Dialog reach does not depend on
+        /// it: an interact reaches the NPC when the bodies overlap.
         patrol_radius: f32,
         /// Optional authored `KinematicPathSpec` lookup id, threaded to a
         /// selected patrol preset that supports one. Like `patrol_radius`, a

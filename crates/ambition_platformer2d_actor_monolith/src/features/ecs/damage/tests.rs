@@ -735,7 +735,6 @@ fn spawn_talkable_npc_with_threshold(
             ambition_platformer2d_core::movement::MotionModel::default(),
             ambition_combat::components::ActorInteraction {
                 interactable,
-                talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             disposition,
             combat,

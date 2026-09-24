@@ -71,7 +71,6 @@ fn world_with_patrolling_npc(
             seed.spawn.pos.x,
             patrol_radius.max(0.0),
         );
-        cfg.aggro_radius = ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS;
         ambition_characters::brain::Brain::StateMachine(
             ambition_characters::brain::StateMachineCfg::Patrol {
                 cfg,

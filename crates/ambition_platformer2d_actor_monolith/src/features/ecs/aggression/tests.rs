@@ -61,7 +61,6 @@ fn spawn_actor_from_seed(
             seed.into_components(),
             ActorInteraction {
                 interactable,
-                talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
             },
             disposition,
             combat,

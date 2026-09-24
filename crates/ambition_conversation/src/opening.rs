@@ -226,7 +226,6 @@ mod tests {
         );
         let interaction = ActorInteraction {
             interactable,
-            talk_radius: 40.0,
         };
         let identity = ActorIdentity::new("some_ldtk_placement_iid", "Player");
         assert_eq!(

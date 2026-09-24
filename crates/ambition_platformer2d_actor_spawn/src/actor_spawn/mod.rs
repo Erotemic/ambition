@@ -786,7 +786,6 @@ impl NpcActorSpawnPlan {
         // Dialogue is a SHARED actor capability (`ActorInteraction`).
         let interaction = ambition_combat::components::ActorInteraction {
             interactable: self.interactable,
-            talk_radius: self::npc_policy::NPC_TALK_RADIUS,
         };
         let (disposition, combat) =
             self::conversion::actor_component_snapshot(&self.seed, self.disposition);

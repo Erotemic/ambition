@@ -384,7 +384,6 @@ fn interact_buffered_starts_npc_dialogue() {
     // `ActorDisposition`, not an `ActorRuntime::Npc` type tag.
     let interaction = ambition_combat::components::ActorInteraction {
         interactable,
-        talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
     };
     app.world_mut().spawn((
         FeatureSimEntity,

@@ -126,7 +126,6 @@ fn spawn_victory_npc_entity(
     // tag) still offer "Talk" on this runtime-spawned victory NPC.
     let interaction = ambition_combat::components::ActorInteraction {
         interactable: interactable.clone(),
-        talk_radius: ambition_platformer2d_actor_spawn::npc_policy::NPC_TALK_RADIUS,
     };
     let (disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::actor_component_snapshot(

@@ -418,6 +418,11 @@ where
     // nothing enforces. ⛔ the STABLE NAME is unchanged — `actor.config` — so the
     // wire did not move; only the OWNER string did.
     registrar.rollback_component_clone::<crate::actor_tuning::ActorConfig>(OWNER, "actor.config");
+    registrar.declare_rollback_derived_component::<crate::actor_tuning::ContactThreatWithdrawn>(
+        OWNER,
+        "derived.contact_threat_withdrawn",
+        "re-derived every tick, before the contact pass, by the system owning the body's canonical state",
+    );
 }
 
 /// Entity-free canonical projection of the staged victim-hit FIFO.

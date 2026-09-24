@@ -149,20 +149,6 @@ fn jump_edges_pass_through() {
 }
 
 #[test]
-fn player_brain_keeps_body_contact_damage_disabled() {
-    let input = input_with(|c| {
-        c.axis_x = 1.0;
-        c.jump_pressed = true;
-        c.attack_pressed = true;
-    });
-    let s = BrainSnapshot::idle();
-    let mut out = crate::actor::control::ActorControlFrame::default();
-    out.body_contact_damage_enabled = true; // pre-poisoned
-    tick_player_brain_from_control(&input, &s, &mut out);
-    assert!(!out.body_contact_damage_enabled);
-}
-
-#[test]
 fn projectile_released_emits_fire_with_resolved_aim_or_facing() {
     // Aim stick -> local aim is preserved for charge projectiles. The
     // fire request carries that same local direction plus an explicit

@@ -1508,6 +1508,7 @@ pub fn apply_actor_contact_damage(
                 // those flows through this permanent trait.
                 Has<ambition_match::MatchSeat>,
                 Option<crate::actor_clusters::ActorClusterQueryData>,
+                Option<&ambition_combat::actor_tuning::ContactThreatWithdrawn>,
             ),
             // Bosses are contact attackers through THIS shared system now (fable
             // AD2): their `body_contact_damage` tuning is driven from
@@ -1532,16 +1533,18 @@ pub fn apply_actor_contact_damage(
     // Pass 1 — snapshot each live contact attack while the attacker's clusters
     // are borrowed.
     let mut pending: Vec<(Entity, Entity, crate::features::enemies::ContactAttack)> = Vec::new();
-    for (actor_entity, target, driver, seated_in_a_match, clusters) in &mut set.p0() {
+    for (actor_entity, target, driver, seated_in_a_match, clusters, withdrawn) in &mut set.p0() {
         let Some(mut cq) = clusters else {
             continue;
         };
         let em = cq.as_actor_mut();
         // Body-contact hazard is off for any participant-driven body; derived
         // from the DRIVER (no possession special-case), gated by the body's
-        // authored `body_contact_damage` tuning.
-        let enabled =
-            driver.is_none() && !seated_in_a_match && em.config.tuning.body_contact_damage;
+        // authored `body_contact_damage` tuning and by any live withdrawal.
+        let enabled = driver.is_none()
+            && !seated_in_a_match
+            && em.config.tuning.body_contact_damage
+            && !withdrawn.is_some_and(|w| w.0);
         if !enabled || !em.health.alive() {
             continue;
         }

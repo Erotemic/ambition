@@ -258,8 +258,6 @@ pub fn tick_player_brain_from_control(
     out.jump_held = c.jump_held;
     out.jump_released = c.jump_released;
 
-    out.body_contact_damage_enabled = false;
-
     // Burst, interact, shield, grab, special.
     out.burst_pressed = c.burst_pressed;
     out.interact_pressed = c.interact_pressed;

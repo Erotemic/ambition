@@ -739,7 +739,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// numbered in parallel.)
 /// ⛔⛤ 222 -> 223: `actor.body_melee` no longer encodes `pending_axis`. Its one
 /// writer, `BodyMelee::begin`, has no production caller, and nothing read it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 223;
+/// ⛔⛤ 223 -> 226: `actor.control` no longer encodes
+/// `body_contact_damage_enabled` (the player brain wrote it `false`, nothing
+/// read it; contact harm is the body's tuning plus "no driver"), and
+/// `derived.contact_threat_withdrawn` joins: the Mary-O shell's contact threat
+/// is a read of `SnakeShell` rather than a per-tick write into `actor.config`.
+/// (224 is AP12's `BodyMelee::swing` and 225 is W006, numbered in parallel.)
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 226;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

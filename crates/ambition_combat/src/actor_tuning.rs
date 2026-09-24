@@ -246,6 +246,17 @@ mod authority_split_tests {
     }
 }
 
+/// This body's contact threat is withdrawn this tick, whatever its authored
+/// `body_contact_damage` says.
+///
+/// Not a second authority: the system that owns the body's canonical state
+/// re-derives it every tick BEFORE the contact pass reads it (a Mary-O snake
+/// from its `SnakeShell` phase), so it cannot disagree with that state at a read. That keeps [`ActorTuning`] what it
+/// is — construction input — instead of a row a content state machine rewrites
+/// every tick. Absent means nothing has withdrawn the threat.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ContactThreatWithdrawn(pub bool);
+
 /// Authored configuration for an actor (any disposition). Archetype-free by
 /// construction: the named roster enum is resolved at spawn and projected into
 /// generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`

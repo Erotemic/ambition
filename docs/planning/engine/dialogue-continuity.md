@@ -1,26 +1,5 @@
 # Dialogue continuity — a conversation is sustained, not modal
 
-> **Verified against `205fccd47` (2026-09-17); previously `4dc3bef48` (2026-09-05) and
-> `ef2c4bd50` (2026-09-04).**
-> ✔ RE-DERIVED at the newer SHA, not carried forward: all four claims below still
-> hold at the exact lines cited — checked by reading those lines, which is the
-> only reason this header moved. Four claims re-derived from the
-> code, not re-read from this page: `crates/ambition_conversation/src/rules.rs:32` is still the `let [a, b] =
-> participants.as_slice()` let-else that guards multi-participant;
-> `can_hold_station(&AbilitySet, grounded: bool)` is still at
-> `ambition_platformer2d_core/src/abilities.rs:177`; the break predicate still
-> reads `strict_intersects` on the two bodies' own AABBs (`crates/ambition_conversation/src/rules.rs:52`); and
-> `ConversationCutBark { speaker: *b }` still names the second participant
-> (`crates/ambition_conversation/src/rules.rs:67`). ⛔ **AND A COMPLAINT THIS HEADER USED TO MAKE IS WITHDRAWN
-> (2026-09-04): it said "the planning README's drift list still names this file …
-> that entry is not current". THE README ENTRY IS CORRECT.** It sits under
-> *"OBSERVED 2026-09-02, over a sweep of eleven planning files"* and its list is
-> introduced as *"Drifted, none of them header-bearing **at the time**"* — a
-> dated observation with its own tense, not a live status list. ⇒ This page was
-> reading dated EVIDENCE as if it were a stale CLAIM, which is the inverse of the
-> error the recipe warns about, and it told a reader to distrust an accurate
-> entry. Nothing in the README needs changing; this sentence did.
-
 **Jon, 2026-08-06, verbatim:**
 
 > "I think I do want time to not stop when you are in dialog. So if you get hit
@@ -31,7 +10,7 @@
 > broken dialog can have some bark to indicate that it was broken."
 
 This supersedes the shape D4 was recorded with. D4 decided that dialogue stops
-claiming to stop the world; this decides what has to exist *because* the world
+claiming to stop the world; this decides what has to exist because the world
 keeps running.
 
 ## The reframe
@@ -43,249 +22,82 @@ and three things follow that did not exist before:
 
 1. **It can be broken.** By damage, and by the participants ceasing to be in a
    position to talk.
-2. **It can be HELD.** Participants that are capable of holding station do so,
+2. **It can be held.** Participants that are capable of holding station do so,
    *so that* the conversation stays possible.
-3. **A break is an EVENT with an outward sign** — a bark — because a conversation
+3. **A break is an event with an outward sign** — a bark — because a conversation
    that simply vanishes reads as a bug.
 
-⭐ Note the direction of (2). The hover is not a special case bolted on; it is the
+Note the direction of (2). The hover is not a special case bolted on; it is the
 general rule stated from the actors' side. A conversation asks its participants to
 maintain a conversational stance, they comply if they can, and the ones that
 cannot are carried off by ordinary physics — at which point (1) fires. The parrot
 is not a parrot rule.
 
-⚠ **and it is symmetric.** "Both characters should hover" — not "the NPC waits
+**It is symmetric.** "Both characters should hover" — not "the NPC waits
 for the player". This is [relativity over player-centrism](relativity.md) applied
 to dialogue: the flying parrot holds station for the same reason the player does,
 and a grounded NPC talking to a hovering player is the same situation with the
 roles swapped. Any implementation that reads "can the PLAYER still talk" has
 already got it wrong.
 
-## What exists to build this on
+## Implementation (checked 2026-09-17)
 
-- **Breaking a dialogue**: `ambition_dialog`'s runtime already has `close()` /
-  `pending_close`, drained by a dispatch system. A break is that path with a
-  reason attached, not a new teardown.
-- **Barks**: real vocabulary already, not a new concept — `tick_npc_idle_barks`,
-  `suggested_barks` in the actor RON (`richard_duckling_actor.ron`,
-  `paul_diracula_actor.ron`, …), and room-metadata bark pools keyed `Hall` /
-  `Idle`. A break bark wants a pool of its own beside those.
-- **Station-keeping**: ⛔ **was the gap — CLOSED, see the re-measure below.**
-  ⚠ **This bullet is kept as written and corrected here rather than edited,
-  because a reader arriving at the top of the page would otherwise meet a ⛔ that
-  the block below refutes.** What it said: `can_fly` exists only inside the SMASH
-  brain config (`ambition_characters/src/brain/smash.rs`) as a per-fighter tuning
-  field, there is no general actor capability answering *"can this body hold its
-  position without being carried away"*, and that is the one new authority this
-  design needs. ⇒ That authority now exists as
-  `can_hold_station(&AbilitySet, grounded: bool)`
-  (`ambition_platformer2d_core/src/abilities.rs:177`), general and body-facing
-  exactly as this bullet asked.
+The design is built in `crates/ambition_conversation`. `ActiveConversation` is
+the simulation authority; holds and UI are projections of it.
 
-## The open sub-questions
+- **Break on a hit: knockback, not damage.** `break_dialogue_on_hit_or_separation`
+  tests `recoil_lock_timer > 0.0 || hitstun_timer > 0.0` on `BodyCombat`. A
+  poison tick or chip damage does not move the bodies, so it does not end the
+  conversation.
+- **Break on separation: the two bodies' own AABBs must overlap**
+  (`strict_intersects`). No authored range or radius owns a number. This is
+  tighter than a normal talking range; if it feels wrong in play, change this
+  one predicate.
+- **Bark on a break:** the second participant speaks a
+  `ConversationCutBark`, only for separation (`reason.wants_its_own_bark()`). A
+  hit break emits no cut bark, because `npc_hit_bark_line` already fires. The
+  line and pool are a cast question.
+- **Holding station:** a conversation zeroes its participants' movement intent.
+  A grounded body then stands still, a flying body hovers
+  (`integrate_flight_clusters` decays to rest under neutral input), and a
+  falling body with no flight keeps falling and breaks the conversation. No
+  per-case rule exists. `can_hold_station(&AbilitySet, grounded: bool)`
+  (`ambition_platformer2d_core/src/abilities.rs`) predicts the result; nothing
+  enforces it. Do not force `fly_enabled` on and restore it later: that is a
+  memo, and a memo is rollback state.
+- **The other participant:** `project_conversation_hold` claims it with
+  `HeldByConversation` and `ControlHold::Conversation`, and the release removes
+  only that claim. Note: `ActiveConversation::talker()` is the body being talked
+  to, not the one talking; the initiator is `initiator()`.
 
-> **RE-MEASURED against `4a9d73a27` (2026-09-02). THIS DESIGN IS BUILT.** It lives in
-> `crates/ambition_conversation` (carved out by `197ec6828`), whose module doc
-> states the same authority split this page argued for: `ActiveConversation` is
-> the simulation authority and holds/UI are projections rebuilt from it.
->
-> ⭐ **AND "THE GAP" IS CLOSED.** This page called `can_hold_station` the one new
-> authority the design needed, existing then only as a per-fighter `can_fly`
-> field inside the SMASH brain config. It is now
-> `can_hold_station(&AbilitySet, grounded: bool)` in
-> `ambition_platformer2d_core/src/abilities.rs`, with its own tests — a general
-> body-capability predicate, exactly as specified.
->
-> The ⚠ below ("measure the other participant's brain before building anything")
-> is also resolved: `project_conversation_hold` claims non-talker participants
-> with `HeldByConversation` and `ControlHold::Conversation`, and releases them
-> when the conversation ends.
->
-> Three of the four questions below are now ANSWERED BY THE CODE, marked inline.
-> The fourth is still open and is now explicitly guarded rather than merely
-> unaddressed.
+## Open
 
-None of these block starting; each changes behaviour enough to be worth an
-explicit answer rather than a default nobody chose.
+- ▢ **More than two participants.** The rules are written for two. The only
+  participant destructure, `let [a, b] = participants.as_slice() else { return; }`
+  in `crates/ambition_conversation/src/rules.rs`, returns early for any other
+  count, so a third actor does not get a half-applied rule. Do not design the
+  multi-participant case until a customer needs it.
 
-- ✔ **What counts as "hit"? ANSWERED — KNOCKBACK, and the prediction below was
-  right.** `break_dialogue_on_hit_or_separation` tests
-  `recoil_lock_timer > 0.0 || hitstun_timer > 0.0` on `BodyCombat`, not any
-  health change, and says why in situ: a poison tick or a chip of environmental
-  damage leaves both bodies standing where they were and leaves them talking.
-  (Original reasoning: damage alone breaks a conversation when a poison tick
-  lands; knockback alone lets a chip hit pass unnoticed. ⭐ knockback is the one
-  that matches the stated reason — the *reason* a hit ends a conversation is
-  that it moves you.)
-- ✔ **What is the break DISTANCE, and who owns it? ANSWERED — BY NONE OF THE
-  THREE OPTIONS OFFERED.** The rule is `a_aabb.strict_intersects(b_aabb)`: the
-  two bodies' own AABBs must overlap. Not a dialogue-authored range, not a
-  per-actor reach, and not a proximity radius — the bodies themselves are the
-  reach, and nothing owns a number. ⚠ Worth a deliberate look rather than
-  acceptance by default: overlap is TIGHTER than "talking range" as this page
-  imagined it, so two characters conversing at arm's length break the moment
-  they stop touching. If that reads wrong in play, this is the line to change,
-  and it is one predicate.
-- ✔ **Who barks? ANSWERED — the second participant, and ONLY for separation.**
-  `ConversationCutBark { speaker: b }`, gated on `reason.wants_its_own_bark()`.
-  ⭐ The interesting half is the suppression: a conversation broken by a HIT
-  emits no cut bark, because `npc_hit_bark_line` already fires on every strike,
-  and a second bubble for one event would be worse than none. The continuity
-  layer names the speaker; which line, from which pool, with which fallback,
-  stays a cast question.
-- ✔ **Is station-keeping a suspension or an ABILITY being exercised?**
-  **ANSWERED 2026-08-06, from the code rather than from taste.** Exercising the
-  real thing — and the tree already does it, so no new mechanism is needed.
-  `integrate_flight_clusters` drives a flying body toward
-  `local_stick * terminal_speed`, so a flying body given NEUTRAL input decays to
-  rest and hovers. Zeroing gravity would have been a lie that shows up the first
-  time something reads velocity; this is the body doing what it can do.
-
-  ⭐ **and that collapses the whole hold into one rule: a conversation zeroes its
-  participants' movement INTENT.** All three of Jon's cases fall out of it,
-  symmetrically, with no per-case branch:
-  - a grounded body given no intent stands still — it holds station;
-  - a flying body given no intent hovers — it holds station;
-  - a falling body with no flight has no intent to zero, keeps falling, leaves
-    reach, and the conversation breaks — which is the parrot case, correct by
-    omission rather than by a rule about parrots.
-
-  So `can_hold_station` is a PREDICTION of what neutral intent produces, not a
-  thing anybody enforces. Nothing has to force `fly_enabled` on and restore it
-  afterwards — which matters, because that would be a memo with a restore
-  obligation, and a memo is rollback state.
-
-  ✔ **BOTH HALVES ARE TRUE NOW — this row is FINISHED, and the paragraph it
-  supersedes is compressed to a line rather than left standing below its own
-  answer.** It read *"half of this is already true … what is left is the other
-  participant — an NPC whose brain may still be steering it mid-sentence.
-  Measure that before building anything."* Measured 2026-09-04:
-  `project_conversation_hold` (`ambition_conversation/src/hold.rs:20`) claims the
-  other participant with `HeldByConversation` + `ControlHold::Conversation` and
-  releases it when the conversation ends — and the release names ONLY
-  `ControlHold::Conversation`, so other `ScriptedControl` claims survive.
-
-  ⚠ **AND ONE NAMING TRAP, recorded because it nearly cost a false correction:
-  `ActiveConversation::talker()` is NOT the one talking.** Its doc says *"The
-  body being talked TO. The hold applies to this one"*, and the initiator is
-  `initiator()`. So `let holding = conversation.talker()` in
-  `project_conversation_hold` **is** the other participant — but a reader
-  checking this row against the code will briefly conclude the opposite. The
-  page's claim is right; the identifier reads backwards.
-- ▢ **Multi-participant — STILL OPEN, and now explicitly guarded.** Everything
-  above is written for two, and the code enforces that rather than degrading:
-  `break_dialogue_on_hit_or_separation` destructures participants as `[a, b]`
-  and returns early otherwise, so a third actor does not silently get a
-  half-applied rule. A third actor joining or leaving is still not addressed and
-  should still not be invented yet — but the place it would go is now one
-  `else` branch with a comment on it.
-  ✔ **Re-verified against the code 2026-09-05 (and 09-02 before it) and it holds
-  exactly** — with one fact added this time: that let-else is the ONLY
-  participant destructure in `ambition_conversation`, so the two-ness is stated
-  in exactly one place rather than assumed in several.
-
-  `crates/ambition_conversation/src/rules.rs:32` is
-  `let [a, b] = participants.as_slice() else { … return; };` — a let-else, so a
-  conversation with one or three participants leaves the rule without applying
-  half of it. Nothing has quietly generalised it, and the `else` is still the
-  one place a third actor would be handled.
-
-## What this does NOT change
+## What this does not change
 
 `RoomTransition` and `Cutscene` stay globally world-stopping. A room is loading,
 or a scripted beat owns the screen; neither is a conversation between actors.
 The per-experience opt-in to stop the world for dialogue also stays — Jon's
 2026-08-03 ruling made both expressible a requirement, and this decides the
-DEFAULT.
+default.
 
-## ✔ A cutscene has ONE ending now, and the rule it carries is finally guarded
+## Ending rules for cutscenes and dialogue
 
-**2026-09-05.** `advance_active_cutscene` had two endings — SKIP and COMPLETED —
-and each wrote the same four steps: read `script.seen_flag`, set it, null the
-runtime, reset the presentation. ⇒ *"What it means for a cutscene to end"* had two
-authorities standing side by side in one function, and a third ending (a cancel, a
-room change, an abandoned session) would have had to remember all four from
-scratch.
-
-Both now call `end_cutscene`
-(`crates/ambition_platformer2d_actor_monolith/src/cutscene.rs`).
-⭐ Behaviour-preserving, and checked by reading rather than only by green tests:
-`CutsceneRuntime::skip` sets `finished` and never touches `self.script`, so
-reading `seen_flag` after it yields exactly what the old skip path read.
-
-⛔⛔ **THE RULE WAS COMPLETELY UNGUARDED, learned by poisoning BEFORE writing
-anything** — deleting the `set_flag` left every cutscene test green. Forgetting it
-is the expensive half: the cutscene has no record of having played, so
-`should_play` runs it AGAIN every time its trigger is met, which a player meets on
-the second visit and no test met at all.
-⇒ Two tests now cover it, and one exists only because the merge happened: with a
-single ending there is one place to guard instead of two. The second pins that a
-script with NO `seen_flag` writes NOTHING, because ending unrecorded differs from
-ending unmarked and a helper that invented an id would put a durable row in the
-save for every unnamed cutscene.
-
-## ✔ `DialogState` had THREE close paths and no two agreed — CLOSED 2026-09-17
-
-⛔⛤ **THE ROW THAT STOOD HERE WAS A MIS-CENSUS, AND THE COUNT WAS THE LEAST OF
-IT.** It said `close_dialogue` (`crates/ambition_dialog/src/bridge.rs:237`)
-resets by hand and that **11 of 24 fields are not reset**, naming
-`npc_name`, `dialogue_id`, `line_reveal`, `speech_style`, `pointer_armed`,
-`focus`, `last_pointer_position`, `row_press`, `pending_start`, `pending_select`,
-`pending_advance`. Re-derived at HEAD by parsing the struct and the close body
-rather than reading them:
-
-- there is no `close_dialogue`, in `bridge.rs` or anywhere else, at any commit
-  this history holds. The close is `DialogState::close`, and `DialogState` is in
-  `runtime.rs`, not `bridge.rs`;
-- **five of the eleven ARE cleared** by it — `line_reveal`, `speech_style`,
-  `pointer_armed`, `focus` and `last_pointer_position`;
-- **two that are not were missing** — `selected_option` and
-  `runner_done_pending_close`;
-- the field count, 24, was the one thing that was right.
-
-⇒ **A WRONG MEMBER OF A LIST SURVIVES A COUNT OF THE LIST**, and this row is a
-worked example: it published a shortlist, warned correctly that a shortlist is
-not a defect list, prescribed *"classify the eleven FIRST"*, and seven of the
-eleven were wrong in one direction or the other. The instrument is `git grep` on
-the struct and the function, not a reading.
-
-⛔⛔ **AND THE CENSUS HID THE ACTUAL FINDING, WHICH IS THE ONE THIS PAGE ALREADY
-KNOWS HOW TO NAME.** *"What it means for a dialogue to close"* had **three**
-authorities standing side by side:
-
-| road | fields it wrote | what it left |
-|---|---|---|
-| `DialogState::close` | 14 + the `pending_close` request | `selected_option`, `runner_done_pending_close` |
-| the `pending_close` drain in `bridge.rs` | 10 + `runner.stop()` | the whole pointer/focus group, `line_reveal`, `speech_style` |
-| `confirm_or_advance`'s runner-finished branch | 4 | everything else, to whichever of the other two ran next |
-
-**No one of the three contained another**, so "is this field reset on close" had
-no answer — and a FOURTH ending (a cancel, a room change, an abandoned session)
-would have had to reinvent one of them. It is the same shape as the cutscene
-finding two sections above, in the same page, found by measuring instead of by
-re-reading the row.
-
-✔ **COLLAPSED.** `DialogState::clear_conversation_presentation` is the one
-description of what a closed dialogue looks like, and all three roads call it.
-The REQUEST half deliberately stays at the call sites: what a closed dialogue
-LOOKS like is one fact and what each road asks the runner to do is another —
-`close` stashes `pending_close`, the drain has already taken it and calls
-`runner.stop()`, and `confirm_or_advance` is the press that dismisses accumulated
-text.
-
-⭐⭐ **AND THE GUARD IS MECHANICAL AFTER ALL, BECAUSE THE JUDGEMENTS DROPPED FROM
-ELEVEN TO SIX AND EVERY ONE OF THE SIX HAS THE SAME ANSWER.** `npc_name`,
-`dialogue_id`, `row_press`, `pending_start`, `pending_select` and
-`pending_advance` survive a close — and all six are rewritten unconditionally by
-`DialogState::start`, which is the only road back to a visible conversation. The
-discriminator this row already stated (*a field is a leak only if something READS
-it before the next writer sets it*) therefore resolves for all six, rather than
-needing eleven separate calls.
-
-`every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start`
-(`crates/ambition_dialog/src/runtime.rs`) destructures `DialogState`
-exhaustively, so a new field fails to COMPILE until somebody puts it on one side
-or the other, and each survivor carries its reason at the assertion. ⚠
-Poison-verified both ways: removing the `selected_option` clear fails the
-assertion (`left: 3, right: 0`), and adding a field fails with
-`error[E0027]: pattern does not mention field`.
+- **A cutscene has one ending.** Skip and completion both call `end_cutscene`
+  (`crates/ambition_platformer2d_actor_monolith/src/cutscene.rs`), which sets
+  the script's `seen_flag` and clears the runtime and presentation. If the flag
+  is not set, `should_play` runs the cutscene again on each visit. A script with
+  no `seen_flag` writes nothing. Tests guard both cases.
+- **A dialogue close has one description.** The three close roads
+  (`DialogState::close`, the `pending_close` drain in `bridge.rs`, and
+  `confirm_or_advance`'s runner-finished branch) all call
+  `DialogState::clear_conversation_presentation`. Each road keeps its own runner
+  request. `every_field_is_cleared_by_a_close_or_rewritten_by_the_next_start`
+  (`crates/ambition_dialog/src/runtime.rs`) destructures `DialogState`
+  exhaustively, so a new field does not compile until it is classified. The six
+  fields that survive a close are all rewritten by `DialogState::start`.

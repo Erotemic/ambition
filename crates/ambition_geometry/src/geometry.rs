@@ -1,10 +1,9 @@
 //! Bevy-native geometry helpers.
 //!
-//! Ambition uses Bevy's `Aabb2d` as its public rectangular collision primitive
-//! instead of maintaining a bespoke engine AABB type. This module only keeps the
-//! Ambition-specific semantics layered on top of that primitive: center/half
-//! convenience helpers, strict platformer overlap where edge-touching is not an
-//! overlap, and Parry-backed swept-box queries.
+//! Ambition uses Bevy's `Aabb2d` as its public rectangle collision primitive.
+//! This module adds only Ambition-specific semantics on top: center/half
+//! helpers, strict platformer overlap (edge-touching is not overlap), and
+//! swept-box queries.
 
 use bevy_math::bounding::Aabb2d;
 use parry2d::{
@@ -19,9 +18,8 @@ const CONTACT_EPS: f32 = 1.0e-4;
 
 /// Public engine AABB type.
 ///
-/// This is Bevy's battle-tested 2D bounding box, re-exported as
-/// `ambition_platformer2d::engine_core::Aabb` so callers can import `ae::Aabb` (`ae` is the
-/// conventional alias for `ambition_platformer2d_core`).
+/// Bevy's 2D bounding box, re-exported so callers can import `ae::Aabb`
+/// (`ae` is the usual alias for `ambition_platformer2d_core`).
 pub type Aabb = Aabb2d;
 
 /// Construct an AABB from a minimum corner and a size.
@@ -40,16 +38,14 @@ pub fn aabb_from_min_max(x0: f32, y0: f32, x1: f32, y1: f32) -> Option<Aabb> {
     ))
 }
 
-/// Set-difference of two axis-aligned rectangles: `block` minus `hole`, pushed
-/// into `out` as up to four sub-rectangles (the frame around the hole). If they
-/// don't overlap, `block` is pushed unchanged; if `hole` covers `block`, nothing
-/// is pushed.
+/// Set difference of two axis-aligned rectangles: `block` minus `hole`, pushed
+/// into `out` as up to four sub-rectangles (the frame around the hole). If
+/// they do not overlap, `block` is pushed unchanged; if `hole` covers `block`,
+/// nothing is pushed.
 ///
-/// This is how a portal carves a doorway out of its host surface while leaving
-/// the rim and surrounding geometry solid — but the operation is plain rectangle
-/// algebra, so it lives here rather than in a mechanic crate. That is what lets
-/// `ambition_platformer2d_world` composite a carved collision world without depending on
-/// `ambition_portal2d` (the space IR is an INPUT to the sim, never a peer).
+/// A portal uses this to carve a doorway in its host surface. It is plain
+/// rectangle algebra, so it lives here, and `ambition_platformer2d_world` can
+/// build a carved collision world without depending on `ambition_portal2d`.
 pub fn subtract_aabb(block: Aabb, hole: Aabb, out: &mut Vec<Aabb>) {
     let (bx0, by0, bx1, by1) = (block.min.x, block.min.y, block.max.x, block.max.y);
     // Clamp the hole to the block.
@@ -58,7 +54,7 @@ pub fn subtract_aabb(block: Aabb, hole: Aabb, out: &mut Vec<Aabb>) {
     let hx1 = hole.max.x.min(bx1);
     let hy1 = hole.max.y.min(by1);
     if hx0 >= hx1 || hy0 >= hy1 {
-        // No real overlap — keep the block whole.
+        // No real overlap: keep the block whole.
         out.push(block);
         return;
     }
@@ -113,16 +109,15 @@ mod subtract_aabb_tests {
 
 /// Canonical mutable axis-aligned box, stored as `center` + `half_size`.
 ///
-/// [`Aabb`] (= `Aabb2d`) is the collision-math primitive — min/max corners, Parry
-/// sweeps, strict overlap. `CenteredAabb` is its ECS-friendly storage twin: a
-/// `Component` you reposition by writing `center` and size by writing
-/// `half_size`, with no min/max bookkeeping. Convert to the math primitive with
-/// [`CenteredAabb::aabb`] and back with [`CenteredAabb::from_aabb`].
+/// [`Aabb`] (= `Aabb2d`) is the collision-math primitive (min/max corners,
+/// sweeps, strict overlap). `CenteredAabb` is its ECS storage twin: a
+/// `Component` you move by writing `center` and resize by writing
+/// `half_size`. Convert with [`CenteredAabb::aabb`] and
+/// [`CenteredAabb::from_aabb`].
 ///
-/// This is the single canonical center+half box for entities that own a
-/// footprint (feature geometry, pickups, triggers). It deliberately mirrors the
-/// `Aabb::new(center, half)` constructor convention so the two are trivially
-/// interchangeable.
+/// The canonical center+half box for entities that own a footprint (feature
+/// geometry, pickups, triggers). Mirrors the `Aabb::new(center, half)`
+/// convention.
 #[derive(
     bevy_ecs::component::Component,
     Clone,
@@ -178,9 +173,9 @@ pub struct AabbSweepHit {
 
 /// Ambition-specific helpers layered on Bevy's `Aabb2d`.
 ///
-/// Bevy's own bounding-volume traits intentionally use general-purpose geometry
-/// semantics. Ambition needs slightly stricter platformer semantics in a few
-/// places, most importantly treating edge-touching boxes as non-overlapping.
+/// Bevy's bounding-volume traits use general geometry semantics. Ambition
+/// needs stricter platformer semantics in places, mainly that edge-touching
+/// boxes do not overlap.
 pub trait AabbExt {
     fn center(self) -> Vec2;
     fn half_size(self) -> Vec2;
@@ -194,14 +189,13 @@ pub trait AabbExt {
     fn strict_intersects(self, rhs: Self) -> bool;
     fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit>;
 
-    // --- Gravity-relative edges (the ONE source of truth for "feet") ---
+    // --- Gravity-relative edges (the one source of truth for "feet") ---
     //
-    // Ambition's gravity is cardinal (down `(0,1)`, up `(0,-1)`, wall `(±1,0)`).
-    // A body's FEET are the AABB face in the +gravity direction; its HEAD is the
-    // opposite face. Every grounding / resize / one-way / sprite-anchor site reads
-    // these instead of hardcoding `.bottom()` so they all flip together under a
-    // gravity change. Under down-gravity `feet == bottom` / `head == top`, so
-    // routing existing code through these is byte-identical.
+    // Gravity is cardinal (down `(0,1)`, up `(0,-1)`, wall `(±1,0)`). A body's
+    // feet are the AABB face in the +gravity direction; its head is the
+    // opposite face. Grounding, resize, one-way, and sprite-anchor code reads
+    // these instead of `.bottom()`, so all of it flips together with gravity.
+    // Under down-gravity `feet == bottom` and `head == top`.
 
     /// Half-extent along the gravity axis (`half_size.y` for vertical gravity,
     /// `half_size.x` for wall-walking).
@@ -213,8 +207,8 @@ pub trait AabbExt {
         h.x * gravity_dir.x.abs() + h.y * gravity_dir.y.abs()
     }
 
-    /// The FEET face center — the AABB face a falling body lands on (in the
-    /// +gravity direction). Bottom-center under down-gravity, top-center under up.
+    /// The feet face center: the face a falling body lands on (+gravity side).
+    /// Bottom-center under down-gravity, top-center under up.
     fn feet(self, gravity_dir: Vec2) -> Vec2
     where
         Self: Sized + Copy,
@@ -222,7 +216,7 @@ pub trait AabbExt {
         self.center() + gravity_dir * self.gravity_half(gravity_dir)
     }
 
-    /// The HEAD face center — opposite gravity.
+    /// The head face center, opposite gravity.
     fn head(self, gravity_dir: Vec2) -> Vec2
     where
         Self: Sized + Copy,
@@ -239,8 +233,8 @@ pub trait AabbExt {
         self.center().dot(gravity_dir) + self.gravity_half(gravity_dir)
     }
 
-    /// The head edge projected onto the gravity axis — for a platform, the FACE a
-    /// falling body lands on (its anti-gravity face).
+    /// The head edge projected onto the gravity axis. For a platform, the face
+    /// a falling body lands on (its anti-gravity face).
     fn head_coord(self, gravity_dir: Vec2) -> f32
     where
         Self: Sized + Copy,
@@ -297,10 +291,9 @@ impl AabbExt for Aabb {
 
     /// Strict overlap test backed by Parry.
     ///
-    /// Ambition historically treated edge-touching boxes as non-overlapping. We
-    /// preserve that gameplay contract with a cheap separating-axis guard before
-    /// calling Parry's shape intersection routine, which considers touching
-    /// shapes intersecting.
+    /// Edge-touching boxes do not overlap in Ambition. A cheap separating-axis
+    /// guard runs before Parry's intersection test, which counts touching
+    /// shapes as intersecting.
     fn strict_intersects(self, rhs: Self) -> bool {
         if self.right() <= rhs.left()
             || self.left() >= rhs.right()
@@ -319,16 +312,14 @@ impl AabbExt for Aabb {
     /// Return the first hit at which this box first touches `rhs` while
     /// moving by `delta`, or `None` if no hit occurs along that segment.
     ///
-    /// This is a thin wrapper around Parry's shape cast / swept collision query.
-    /// Callers pass a frame or ability delta directly, so `time_of_impact` is a
-    /// normalized fraction of that delta rather than seconds.
+    /// `time_of_impact` is a fraction of `delta` (a frame or ability delta),
+    /// not seconds.
     ///
-    /// Parry deliberately reports some edge-touching starts as an immediate
-    /// contact. Ambition's platformer contract is stricter: resting on a floor
-    /// must not block horizontal motion, and sliding along a wall must not block
-    /// vertical motion. We therefore discard zero-time Parry hits when the boxes
-    /// were merely touching and the requested delta is not moving into the
-    /// touching face.
+    /// Parry reports some edge-touching starts as immediate contact. Ambition
+    /// is stricter: resting on a floor must not block horizontal motion, and
+    /// sliding along a wall must not block vertical motion. So zero-time hits
+    /// are discarded when the boxes only touch and `delta` does not move into
+    /// the touching face.
     fn sweep_hit(self, delta: Vec2, rhs: Self) -> Option<AabbSweepHit> {
         if delta.length_squared() <= 1.0e-8 {
             return self.strict_intersects(rhs).then_some(AabbSweepHit {
@@ -337,59 +328,41 @@ impl AabbExt for Aabb {
             });
         }
 
-        // ⭐⭐ THE CLOSED FORM, AND IT IS 10.7% OF THE PROCESS. Measured
-        // 2026-09-01 on `hall_of_characters` at 130 bodies: `cast_shapes` under
-        // this function was the single largest cost in the whole `perf` profile,
-        // twice what per-actor perception construction cost. Both poses here are
-        // `Pose::translation` — there is no rotation anywhere in this path — so
-        // parry was solving an axis-aligned box against an axis-aligned box with
-        // an iterative support-mapping GJK, through a generic dispatcher.
+        // Closed-form fast path. Both poses are pure translations, so a
+        // general GJK shape cast is not needed for box against box; the shape
+        // cast was the largest cost in large-crowd profiles.
         //
-        // ⛔ THE FAST PATH DECLINES THE PENETRATING START. An overlapping pair
-        // needs parry's `compute_impact_geometry_on_penetration` geometry —
-        // minimum-translation direction — and reimplementing that from guesswork
-        // in the movement kernel is exactly the trade this repository does not
-        // make. `slab_sweep` returns `None` for that case and the parry road
-        // below runs, which is rare in practice and identical when it happens.
+        // The fast path declines a penetrating start. An overlapping pair
+        // needs Parry's `compute_impact_geometry_on_penetration`
+        // (minimum-translation direction). `slab_sweep` returns `None` there
+        // and the Parry path below runs.
         if let Some(hit) = slab_sweep(self, delta, rhs) {
             return reject_grazing_contact(self, delta, rhs, hit);
         }
         if !starts_overlapping(self, rhs) {
-            // The fast path is EXACT for separated boxes: it said no hit, and
-            // there is no hit. Asking parry to agree would be paying the cost
-            // this whole change exists to avoid.
+            // The fast path is exact for separated boxes: no hit means no hit.
             return None;
         }
         parry_sweep(self, delta, rhs).and_then(|hit| reject_grazing_contact(self, delta, rhs, hit))
     }
 }
 
-// How many times the general solver ran. Test-only, and it exists to guard the
-// WIRING rather than the arithmetic: the differential test proves the two
-// solvers agree, which stays true if a refactor routes every call to the slow
-// one and quietly restores 10.7% of the process.
+// Test-only count of general-solver calls. Guards the routing: the
+// differential test still passes if every call goes to the slow solver.
 //
-// ⚠ THREAD-LOCAL, because `cargo test` runs tests in PARALLEL THREADS and the
-// differential test below calls `parry_sweep` twenty thousand times. A global
-// counter is bumped by whichever test happens to be running beside this one,
-// which made the guard fail against its own suite rather than against a defect.
-//
-// ⛔ `//` AND NOT `///`. A doc comment on a macro invocation documents nothing —
-// rustc warns `unused doc comment`, because the docs would have to come out of
-// the expansion. Written as `///` first, and the warning is what said so.
+// Thread-local because `cargo test` runs tests in parallel and the
+// differential test calls `parry_sweep` many times; a global counter would see
+// other tests. Plain `//`: a doc comment on a macro invocation is an unused
+// doc comment.
 #[cfg(test)]
 thread_local! {
     static PARRY_SWEEPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
-/// The general solver, kept for the penetrating start and as the ORACLE the fast
-/// path is tested against.
-///
-/// ⭐ IT IS NOT DEAD CODE AND MUST NOT BECOME IT. `slab_sweep` is only allowed to
-/// answer for separated boxes; an overlapping pair needs parry's
-/// `compute_impact_geometry_on_penetration` geometry, which is a
-/// minimum-translation question rather than a sweep. Deleting this would mean
-/// reimplementing that in the movement kernel from guesswork.
+/// The general solver: used for a penetrating start, and the oracle the fast
+/// path is tested against. Keep it. `slab_sweep` answers only for separated
+/// boxes; an overlapping pair needs Parry's
+/// `compute_impact_geometry_on_penetration` geometry.
 fn parry_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
     #[cfg(test)]
     PARRY_SWEEPS.with(|count| count.set(count.get() + 1));
@@ -423,10 +396,9 @@ fn parry_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
 
 /// Whether the two boxes overlap enough that a sweep begins in penetration.
 ///
-/// ⚠ NOT `strict_intersects`. That treats edge-touching as separate, which is
-/// Ambition's platformer semantics; parry treats a touching start as a contact
-/// and computes impact geometry for it. This asks parry's question, because it
-/// decides which of the two solvers is allowed to answer.
+/// Not `strict_intersects`, which treats edge-touching as separate. Parry
+/// treats a touching start as contact, and this decides which solver may
+/// answer, so it asks Parry's question.
 fn starts_overlapping(lhs: Aabb, rhs: Aabb) -> bool {
     lhs.right() >= rhs.left()
         && lhs.left() <= rhs.right()
@@ -436,10 +408,9 @@ fn starts_overlapping(lhs: Aabb, rhs: Aabb) -> bool {
 
 /// The strict-touching rejection, shared by both solvers.
 ///
-/// ⭐ ONE COPY, because it is Ambition's own contract rather than a property of
-/// whichever library computed the hit: resting on a floor must not block
-/// horizontal motion, and sliding along a wall must not block vertical motion.
-/// A second copy beside the fast path is how the two roads would drift.
+/// One copy, because this is Ambition's contract, not a property of either
+/// solver: resting on a floor must not block horizontal motion, and sliding
+/// along a wall must not block vertical motion.
 fn reject_grazing_contact(
     lhs: Aabb,
     delta: Vec2,
@@ -460,14 +431,12 @@ fn reject_grazing_contact(
 /// `lhs`'s centre through it as a point, and take the latest entry against the
 /// earliest exit.
 ///
-/// `None` means one of two DIFFERENT things and the caller must distinguish
-/// them: no hit along `delta`, or a penetrating start this function declines to
-/// answer. [`starts_overlapping`] is what tells them apart.
+/// `None` means either no hit along `delta` or a penetrating start that this
+/// function declines. [`starts_overlapping`] tells them apart.
 ///
-/// ⛔ AN AXIS WITH NO MOTION IS NOT A DIVISION. `delta.x == 0` makes the x slab
-/// times infinite, and `0.0 / 0.0` where the centre sits exactly on a face is a
-/// NaN that compares false against everything — silently turning a real hit into
-/// a miss. The zero-motion axis is answered by containment instead.
+/// An axis with no motion is not divided. `delta.x == 0` gives infinite slab
+/// times, and `0.0 / 0.0` on a face is a NaN that turns a hit into a miss.
+/// The zero-motion axis uses containment instead.
 fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
     let half = lhs.half_size();
     let min_x = rhs.left() - half.x;
@@ -480,7 +449,7 @@ fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
 
     let mut enter = f32::NEG_INFINITY;
     let mut exit = f32::INFINITY;
-    // Which axis the LAST entry happened on, and from which side. 0 = x, 1 = y.
+    // Which axis the last entry was on, and from which side. 0 = x, 1 = y.
     let mut axis = 0usize;
     let mut sign = 0.0f32;
 
@@ -501,12 +470,9 @@ fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
         if near > far {
             std::mem::swap(&mut near, &mut far);
         }
-        // ⭐ `normal1` IS THE MOVING SHAPE'S OUTWARD FACE NORMAL, not the surface
-        // it lands on — so it points ALONG the motion on the entry axis. A box
-        // moving right contacts with its own right face, whose outward normal is
-        // +x. The differential test caught the opposite sign immediately, and it
-        // would not have panicked in the game: it slides a body along the wrong
-        // face.
+        // `normal1` is the moving shape's outward face normal, not the surface
+        // normal, so it points along the motion on the entry axis. A box moving
+        // right contacts with its right face (+x).
         let side = motion.signum();
         if near > enter {
             enter = near;
@@ -524,7 +490,7 @@ fn slab_sweep(lhs: Aabb, delta: Vec2, rhs: Aabb) -> Option<AabbSweepHit> {
     if enter > 1.0 || exit < 0.0 {
         return None;
     }
-    // A penetrating start belongs to parry — see the caller.
+    // A penetrating start belongs to Parry; see the caller.
     if enter < 0.0 {
         return None;
     }
@@ -635,10 +601,8 @@ mod tests {
 
     #[test]
     fn strict_intersects_rejects_edge_touching() {
-        // Ambition's contract: edge-touching AABBs do NOT count as
-        // intersecting. The `body_overlaps_any` predicate relies on
-        // this — a player resting on a floor must not register as
-        // overlapping the floor.
+        // Edge-touching AABBs do not intersect. `body_overlaps_any` relies on
+        // this: a player resting on a floor must not overlap it.
         let a = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
         let b = Aabb::new(Vec2::new(20.0, 0.0), Vec2::new(10.0, 10.0));
         assert_eq!(a.right(), b.left());
@@ -654,8 +618,8 @@ mod tests {
 
     #[test]
     fn strict_intersects_accepts_full_containment() {
-        // Every hit path (`ecs_hit_event_hits_boss/_actor`, `apply_boss_hit`, the projectile)
-        // routes through `strict_intersects`, so this is the shared guarantee.
+        // Every hit path (`ecs_hit_event_hits_boss/_actor`, `apply_boss_hit`,
+        // the projectile) uses `strict_intersects`.
         let hurtbox = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(20.0, 20.0));
         let inside = Aabb::new(Vec2::new(2.0, -3.0), Vec2::new(3.0, 3.0));
         assert!(
@@ -684,15 +648,11 @@ mod tests {
 mod slab_sweep_agrees_with_parry {
     use super::*;
 
-    /// ⛔⛔ **MOVEMENT IS THE MOST SAFETY-CRITICAL CODE IN THE ENGINE**, and this
-    /// change replaced its inner loop. `slab_sweep` is only allowed to answer for
-    /// SEPARATED boxes, so parry stays the oracle for exactly that population and
-    /// the two must agree on both the time of impact and the contact normal.
-    ///
-    /// A hand-written table of cases would test the cases I thought of. This
-    /// sweeps a deterministic grid instead — every relative placement, every
-    /// direction, including the ones that graze a corner, start flush against a
-    /// face, or move parallel to one.
+    /// Movement is safety-critical. `slab_sweep` answers only for separated
+    /// boxes, and Parry is the oracle for them: both must agree on time of
+    /// impact and contact normal. The test sweeps a deterministic grid of
+    /// placements and directions, including corner grazes, flush starts, and
+    /// parallel motion.
     fn xorshift(state: &mut u64) -> f32 {
         *state ^= *state << 13;
         *state ^= *state >> 7;
@@ -742,18 +702,13 @@ mod slab_sweep_agrees_with_parry {
                         f.time_of_impact,
                         o.time_of_impact
                     );
-                    // ⭐ COMPARED AS THE MOVEMENT KERNEL CONSUMES IT: which axis
-                    // is cancelled, and in which direction. Getting that wrong
-                    // does not fail a toi assertion and does not panic — it
-                    // slides a body along the wrong face.
+                    // Compare as the movement kernel uses the normal: which
+                    // axis is cancelled, and in which direction. A wrong
+                    // normal slides a body along the wrong face.
                     //
-                    // ⚠ NOT COMPONENT-WISE, and the reason is the ORACLE rather
-                    // than the fast path: on a near-flush contact parry's GJK
-                    // converges to a corner and returns e.g.
-                    // `(-0.0016, 0.9999986)` where the exact normal is `(0, 1)`.
-                    // Demanding component equality would be asserting that the
-                    // closed form reproduces the general solver's numerical
-                    // noise, which is backwards.
+                    // Not component-wise: on a near-flush contact Parry's GJK
+                    // can return e.g. `(-0.0016, 0.9999986)` for `(0, 1)`.
+                    // The closed form should not match that noise.
                     let axis_of = |n: Vec2| if n.x.abs() >= n.y.abs() { 0 } else { 1 };
                     assert_eq!(
                         axis_of(f.normal1),
@@ -777,9 +732,8 @@ mod slab_sweep_agrees_with_parry {
                 ),
             }
         }
-        // ⭐ THE PREMISE. A generator that never produced a hit — or never
-        // produced a separated pair — would pass every assertion above by
-        // vacuum.
+        // Premise: the generator produced hits and separated pairs, or the
+        // checks above pass vacuously.
         assert!(
             compared > 20_000,
             "only {compared} separated pairs; the generator is not exercising the population"
@@ -800,20 +754,15 @@ mod the_fast_path_is_actually_used {
         PARRY_SWEEPS.with(|count| count.get())
     }
 
-    /// ⛔⛔ **THE DIFFERENTIAL TEST CANNOT CATCH THIS.** It proves `slab_sweep`
-    /// and `parry_sweep` agree — which stays true if a refactor routes every
-    /// call to the slow one. That reverts a measured 10.7% of the process with
-    /// every test still green, and the only symptom is a number in a journal
-    /// nobody re-runs.
-    ///
-    /// So this asserts the ROUTE, not the answer: a separated pair must be
-    /// answered without the general solver being called at all.
+    /// The differential test cannot catch a refactor that routes every call
+    /// to the slow solver. This checks the route: a separated pair is
+    /// answered without calling the general solver.
     #[test]
     fn a_separated_sweep_never_reaches_the_general_solver() {
         let before = parry_sweeps();
 
-        // A plain approach, a clean miss, and a graze along a face — the three
-        // shapes the movement kernel asks for constantly.
+        // A plain approach, a clean miss, and a graze along a face: the common
+        // movement-kernel queries.
         let mover = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(5.0, 5.0));
         let ahead = Aabb::new(Vec2::new(40.0, 0.0), Vec2::new(5.0, 5.0));
         let aside = Aabb::new(Vec2::new(0.0, 400.0), Vec2::new(5.0, 5.0));
@@ -836,8 +785,8 @@ mod the_fast_path_is_actually_used {
 
     /// Premise guard: the counter must be capable of moving.
     ///
-    /// Without this, a counter that was never incremented — or a `parry_sweep`
-    /// that had been deleted — would make the arm above pass forever.
+    /// Without this, a counter that is never incremented (or a deleted
+    /// `parry_sweep`) would make the test above pass forever.
     #[test]
     fn the_counter_moves_when_the_general_solver_does_run() {
         let before = parry_sweeps();

@@ -1,17 +1,16 @@
 //! `CombatVolume` — a hit/hurt shape that can be an axis-aligned box, a rotated
 //! box (OBB), or a general convex polygon.
 //!
-//! The common case is and will stay [`Aabb`]: box-vs-box overlap fast-paths to
-//! the existing strict [`AabbExt::strict_intersects`] (cheap separating-axis +
-//! Parry tie-break, edge-touching = miss). Rotated and convex shapes route
-//! through Parry's `intersection_test` — the same engine the AABB path already
-//! uses — so the SAT/GJK math is reused, not reimplemented. A conservative
-//! bounding [`Aabb`] gives every variant an O(1) broad-phase reject before any
-//! Parry shape is built, so non-overlapping pairs never pay polygon cost.
+//! The common case is [`Aabb`]: box-vs-box overlap uses the strict
+//! [`AabbExt::strict_intersects`] (separating-axis guard plus Parry;
+//! edge-touching is a miss). Rotated and convex shapes use Parry's
+//! `intersection_test`, so SAT/GJK math is reused. A conservative bounding
+//! [`Aabb`] gives every variant an O(1) broad-phase reject before any Parry
+//! shape is built.
 //!
-//! OBB and convex shapes are both lowered to world-space corner points and a
-//! Parry [`ConvexPolygon`] with an identity pose, so we never touch the isometry
-//! rotation API — the rotation lives in the corner positions.
+//! OBB and convex shapes lower to world-space corner points and a Parry
+//! [`ConvexPolygon`] with an identity pose, so the rotation lives in the
+//! corner positions.
 
 use parry2d::{
     math::{Pose, Vector},
@@ -26,7 +25,7 @@ use crate::{Aabb, AabbExt, AccelerationFrame, Vec2};
 /// [`CombatVolume::intersects`]. World-space.
 #[derive(Clone, Debug, PartialEq)]
 pub enum CombatVolume {
-    /// Axis-aligned box — the common, cheapest case.
+    /// Axis-aligned box: the common, cheapest case.
     Aabb(Aabb),
     /// Box rotated `rotation` radians about `center` (CCW, screen axes).
     Obb {
@@ -34,11 +33,11 @@ pub enum CombatVolume {
         half: Vec2,
         rotation: f32,
     },
-    /// Circle / disc — first-class (Parry `Ball`), exact and cheap. The natural
-    /// shape for explosions and radial AoE.
+    /// Circle (Parry `Ball`): exact and cheap. The natural shape for
+    /// explosions and radial AoE.
     Circle { center: Vec2, radius: f32 },
     /// Arbitrary convex polygon (world-space points). `bounds` is the cached
-    /// broad-phase AABB so we never recompute it per test.
+    /// broad-phase AABB.
     Convex { bounds: Aabb, points: Vec<Vec2> },
 }
 
@@ -71,16 +70,13 @@ impl CombatVolume {
     /// Place a BODY-LOCAL volume into the world.
     ///
     /// Body-local means what [`crate::volume_shape::VolumeShape::place_at`]
-    /// means: origin at the body centre, `+x` toward the body's committed
-    /// facing, `+y` toward its feet. This is the same transform, for a volume
-    /// that already carries its own offset — an authored blade whose shape and
-    /// position are both in the manifest, where `place_at`'s shapes are
-    /// centred on the origin by construction.
+    /// means: origin at the body center, `+x` toward committed facing, `+y`
+    /// toward the feet. This is for a volume that carries its own offset (an
+    /// authored blade), where `place_at`'s shapes are centered on the origin.
     ///
-    /// Mirroring belongs HERE and only here: the volume arrives with the art's
-    /// handedness already resolved (see `SheetRecord::art_forward_x`), so
-    /// `facing` is the only mirror left to apply. A caller that mirrors before
-    /// calling this applies it twice.
+    /// Mirror only here: the volume arrives with the art's handedness already
+    /// resolved (see `SheetRecord::art_forward_x`), so `facing` is the only
+    /// mirror left. A caller that mirrors first applies it twice.
     pub fn place_body_local(&self, origin: Vec2, facing: f32, frame_down: Vec2) -> Self {
         let frame = AccelerationFrame::new(frame_down);
         let face = if facing < 0.0 { -1.0 } else { 1.0 };
@@ -109,20 +105,15 @@ impl CombatVolume {
         }
     }
 
-    /// Build a convex volume from world-space points. The points need not be
-    /// pre-ordered — the Parry shape is built from their convex hull.
-    /// The region an axis-aligned box covers while travelling from `from` to
-    /// `to` — the exact swept shape, as a convex hull of the box at both ends.
+    /// The region an axis-aligned box covers while moving from `from` to
+    /// `to`: the convex hull of the box at both ends.
     ///
-    /// ⭐ EXACT, WHICH IS THE POINT. The cheap alternative is the UNION of the
-    /// two bounding boxes, and that is right only for axis-aligned travel: on a
-    /// diagonal it covers corners the box never passed through, so a swept test
-    /// built on it invents hits on bodies the mover visually missed. A hull of
-    /// the eight corners is the same cost to test and answers what actually
-    /// happened.
+    /// Exact. The union of the two end boxes is right only for axis-aligned
+    /// travel; on a diagonal it covers corners the box never passed and
+    /// reports false hits. The eight-corner hull costs the same to test.
     ///
-    /// ⚠ A STRAIGHT leg. Curved motion must be split into segments by the
-    /// caller; sweeping an arc as one hull would cover the inside of the curve.
+    /// One straight leg only. The caller splits curved motion into segments;
+    /// one hull over an arc would cover the inside of the curve.
     pub fn swept_aabb(from: Vec2, to: Vec2, half: Vec2) -> Self {
         let corners = |c: Vec2| {
             [
@@ -138,6 +129,8 @@ impl CombatVolume {
         Self::convex(convex_hull(&points))
     }
 
+    /// Build a convex volume from world-space points. The points need not be
+    /// ordered; the Parry shape is built from their convex hull.
     pub fn convex(points: Vec<Vec2>) -> Self {
         CombatVolume::Convex {
             bounds: bounds_of_points(&points),
@@ -171,10 +164,9 @@ impl CombatVolume {
     /// Reflect the volume across the vertical line `axis_x`, leaving its size
     /// unchanged.
     ///
-    /// A sprite that mirrors to face the other way takes its authored hit and
-    /// hurt geometry with it. For a box that is a centre flip; for a hull every
-    /// point moves, which is exactly why this belongs here rather than being
-    /// re-derived by each consumer that thought it only had boxes.
+    /// A mirrored sprite takes its hit and hurt geometry with it. For a box
+    /// that is a center flip; for a hull every point moves, so it is done here
+    /// once.
     pub fn mirrored_x(&self, axis_x: f32) -> Self {
         let flip = |x: f32| 2.0 * axis_x - x;
         match self {
@@ -226,13 +218,12 @@ impl CombatVolume {
         }
     }
 
-    /// True when this volume overlaps `other`. Box-vs-box preserves the strict
-    /// platformer contract (edge-touching is NOT an overlap); any rotated/convex
-    /// pair is resolved by Parry after a cheap bounds reject.
+    /// True when this volume overlaps `other`. Box-vs-box keeps the strict
+    /// platformer contract (edge-touching is not overlap); rotated or convex
+    /// pairs go to Parry after a bounds reject.
     pub fn intersects(&self, other: &CombatVolume) -> bool {
-        // Broad-phase: bounding boxes must strictly overlap. Because each
-        // volume is contained in its bounds, a bounds miss is a true miss, and
-        // this keeps the touching-is-not-overlap contract for the box case.
+        // Broad phase: the bounds must strictly overlap. Each volume is inside
+        // its bounds, so a bounds miss is a true miss.
         if !self.bounds().strict_intersects(other.bounds()) {
             return false;
         }
@@ -247,21 +238,18 @@ impl CombatVolume {
             .unwrap_or(true)
     }
 
-    /// Convenience: overlap against a plain [`Aabb`] target (the common case —
-    /// most hurtboxes are still boxes).
+    /// Overlap against a plain [`Aabb`] target (most hurtboxes are boxes).
     pub fn intersects_aabb(&self, other: Aabb) -> bool {
         match self {
-            // Fast path: box-vs-box keeps the exact strict semantics with no
-            // wrapping allocation.
+            // Box-vs-box keeps the strict semantics with no allocation.
             CombatVolume::Aabb(a) => a.strict_intersects(other),
             _ => self.intersects(&CombatVolume::Aabb(other)),
         }
     }
 
-    /// Lower to a Parry shape + pose. AABB → translated `Cuboid`; OBB/convex →
-    /// `ConvexPolygon` of world corner points with an identity pose (the
-    /// rotation is baked into the points). A degenerate convex hull falls back
-    /// to the bounds box so a test never silently drops.
+    /// Lower to a Parry shape and pose. AABB gives a translated `Cuboid`;
+    /// OBB/convex give a `ConvexPolygon` of world points with an identity pose.
+    /// A degenerate hull falls back to the bounds box, so a test never drops.
     fn parry_shape(&self) -> (ParryShape, Pose) {
         match self {
             CombatVolume::Aabb(a) => {
@@ -335,13 +323,12 @@ pub(crate) fn obb_corners(center: Vec2, half: Vec2, rotation: f32) -> Vec<Vec2> 
 
 /// The convex hull of `points`, counter-clockwise, duplicates dropped.
 ///
-/// Monotone chain. Exists because [`CombatVolume::convex`] stores the points it
-/// is GIVEN — it does not hull them — so a caller assembling a shape from raw
-/// corners owes the hull, and every overlap test downstream assumes convexity.
+/// Monotone chain. [`CombatVolume::convex`] stores its points as given, so a
+/// caller that builds a shape from raw corners should hull them first; the
+/// overlap tests assume convexity.
 ///
-/// Degenerate input answers honestly: fewer than three distinct points cannot
-/// bound an area, so they come back as-is rather than as a polygon nothing can
-/// intersect.
+/// Fewer than three distinct points cannot bound an area, so they are
+/// returned as they are.
 pub fn convex_hull(points: &[Vec2]) -> Vec<Vec2> {
     let mut sorted: Vec<Vec2> = points.to_vec();
     sorted.sort_by(|a, b| a.x.total_cmp(&b.x).then(a.y.total_cmp(&b.y)));
@@ -349,8 +336,8 @@ pub fn convex_hull(points: &[Vec2]) -> Vec<Vec2> {
     if sorted.len() < 3 {
         return sorted;
     }
-    // > 0 is a left turn; collinear points are dropped, which keeps the hull
-    // minimal and the downstream SAT loops shorter.
+    // > 0 is a left turn. Collinear points are dropped, which keeps the hull
+    // minimal.
     let cross = |o: Vec2, a: Vec2, b: Vec2| (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
     let mut hull: Vec<Vec2> = Vec::with_capacity(sorted.len() * 2);
     for &p in sorted.iter() {
@@ -402,17 +389,15 @@ mod tests {
         let c = aabb(30.0, 0.0, 5.0, 5.0); // disjoint
         assert!(CombatVolume::from(a).intersects(&b.into()));
         assert!(!CombatVolume::from(a).intersects(&c.into()));
-        // Edge-touching is NOT an overlap (platformer contract).
+        // Edge-touching is not an overlap (platformer contract).
         let touching = aabb(20.0, 0.0, 10.0, 10.0); // a.right()=10, touching.left()=10
         assert!(!CombatVolume::from(a).intersects(&touching.into()));
     }
 
     #[test]
     fn rotated_box_overlaps_a_corner_an_axis_box_misses() {
-        // A 45°-rotated box whose diagonal pokes into an axis box that the
-        // rotated box's own AABB would also overlap — but here we check a case
-        // where rotation matters: the OBB corner reaches a point the unrotated
-        // footprint shares, confirming the polygon path runs.
+        // A 45°-rotated box whose corner reaches a point that only the
+        // rotation covers, so the polygon path runs.
         let obb = CombatVolume::obb(
             Vec2::new(0.0, 0.0),
             Vec2::new(10.0, 2.0),
@@ -424,8 +409,8 @@ mod tests {
             obb.intersects(&near_tip),
             "rotated box's diagonal should reach the tip box"
         );
-        // Same box position but the UNROTATED footprint (half 10x2) would not
-        // reach (8,8): confirm the rotation is what made the hit.
+        // The unrotated footprint (half 10x2) would not reach (8,8), so the
+        // rotation caused the hit.
         let flat = CombatVolume::obb(Vec2::new(0.0, 0.0), Vec2::new(10.0, 2.0), 0.0);
         assert!(
             !flat.intersects(&near_tip),
@@ -450,8 +435,8 @@ mod tests {
         let circle = CombatVolume::circle(Vec2::new(0.0, 0.0), 10.0);
         // A box overlapping the disc near its edge along an axis: hit.
         assert!(circle.intersects(&aabb(9.0, 0.0, 1.0, 1.0).into()));
-        // A box in the bounding-box CORNER the disc doesn't reach (~(8.5,8.5) is
-        // outside r=10? dist=12.0>10 → miss), proving it's a disc not its bbox.
+        // A box in the bounding-box corner the disc does not reach
+        // (distance 12 > r 10): it is a disc, not its bbox.
         assert!(!circle.intersects(&aabb(8.5, 8.5, 0.2, 0.2).into()));
         // Circle vs circle.
         assert!(circle.intersects(&CombatVolume::circle(Vec2::new(18.0, 0.0), 10.0)));
@@ -477,8 +462,7 @@ mod tests {
         assert_eq!(super::convex_hull(&pts).len(), 4);
     }
 
-    /// Interior and duplicate points are dropped: a hull is the boundary, and
-    /// carrying redundant vertices lengthens every SAT loop downstream.
+    /// Interior and duplicate points are dropped; the hull is the boundary.
     #[test]
     fn a_hull_drops_interior_duplicate_and_collinear_points() {
         let pts = vec![
@@ -493,12 +477,9 @@ mod tests {
         assert_eq!(super::convex_hull(&pts).len(), 4);
     }
 
-    /// ⭐ THE CLAIM `swept_aabb` EXISTS FOR: it is EXACT on a diagonal, where the
-    /// cheap union-of-boxes is not.
-    ///
-    /// A box travelling up-right never visits the bottom-right corner of the
-    /// union rectangle. A swept test built on that union would report a hit
-    /// against a body sitting there — a body the mover visually missed.
+    /// `swept_aabb` is exact on a diagonal, where the union of boxes is not. A
+    /// box moving up-right never visits the union's bottom-right corner, so a
+    /// body there must not be hit.
     #[test]
     fn a_diagonal_sweep_excludes_the_corner_the_union_would_include() {
         let half = Vec2::new(1.0, 1.0);
@@ -527,8 +508,8 @@ mod tests {
         assert!(!swept.intersects(&CombatVolume::from(aabb(60.0, 0.0, 0.5, 0.5))));
     }
 
-    /// A zero-length sweep is just the box: the degenerate case a fast-path
-    /// caller hands in when nothing moved.
+    /// A zero-length sweep is just the box (a caller passes this when nothing
+    /// moved).
     #[test]
     fn a_zero_length_sweep_is_the_box_itself() {
         let half = Vec2::new(3.0, 3.0);

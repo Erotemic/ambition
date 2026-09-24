@@ -36,7 +36,7 @@
 | [`sim_id`](src/sim_id.rs) | Stable deterministic identity for snapshot, replay, and netcode. |
 | [`sim_selection`](src/sim_selection.rs) | One rule for deciding a gameplay contest, so a rewind decides it the same way. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
-| [`temporary_control`](src/temporary_control.rs) | Temporary-control state: whether an autonomous actor is currently masked by a transient controller (player possession or a mount), recorded by STABLE [`SimId`] so it survives a snapshot rewind in both directions. |
+| [`temporary_control`](src/temporary_control.rs) | Temporary-control claims: which transient controllers (player possession, a mount) currently hold an actor's control, recorded by STABLE [`SimId`] so the claims survive a snapshot rewind in both directions. |
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |

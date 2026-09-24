@@ -9,7 +9,9 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{action_set, ActionSet, ActorActionMessage, ChargesProjectiles};
+use ambition_characters::brain::{
+    action_set, ActionSet, ActorActionMessage, BrainActionCounter, ChargesProjectiles,
+};
 
 use crate::moveset::{routes_ranged, ActorMoveset};
 
@@ -116,6 +118,18 @@ pub fn emit_player_projectile_tick_messages(
             move_instance: None,
         });
     }
+}
+
+/// Bevy system: observe the `ActorActionMessage` stream and update
+/// the counter. Runs after the emitters above. Doesn't consume the
+/// messages — other readers still see them.
+pub fn observe_brain_action_counter(
+    mut counter: ResMut<BrainActionCounter>,
+    mut reader: MessageReader<ActorActionMessage>,
+) {
+    let this_frame = reader.read().count() as u32;
+    counter.last_frame = this_frame;
+    counter.total = counter.total.wrapping_add(this_frame as u64);
 }
 
 #[cfg(test)]

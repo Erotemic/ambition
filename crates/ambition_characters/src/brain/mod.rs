@@ -238,11 +238,10 @@ impl Brain {
 /// module into its own crate) is a single `app.add_plugins(...)`
 /// change at the call site.
 ///
-/// Scheduling of the per-tick systems (tick_controlled_brains,
-/// emit_brain_action_messages, observe_brain_action_counter) is
-/// still done explicitly in `app/plugins.rs` because they need to
-/// chain after sandbox-side input systems — the plugin owns
-/// resources, not schedule.
+/// The plugin owns resources, not schedule: the per-tick systems
+/// (`tick_controlled_brains`, and the action stream in
+/// `ambition_combat::action_emission`) are scheduled by the runtime
+/// because they chain after sandbox-side input systems.
 #[derive(Default)]
 pub struct BrainPlugin;
 
@@ -369,18 +368,6 @@ pub struct BrainActionCounter {
     pub total: u64,
     /// Messages observed this frame.
     pub last_frame: u32,
-}
-
-/// Bevy system: observe the `ActorActionMessage` stream and update
-/// the counter. Runs after `emit_brain_action_messages`. Doesn't
-/// consume the messages — other readers still see them.
-pub fn observe_brain_action_counter(
-    mut counter: bevy::ecs::system::ResMut<BrainActionCounter>,
-    mut reader: MessageReader<ActorActionMessage>,
-) {
-    let this_frame = reader.read().count() as u32;
-    counter.last_frame = this_frame;
-    counter.total = counter.total.wrapping_add(this_frame as u64);
 }
 
 /// Bevy system: log each `ActorActionMessage` at debug level using

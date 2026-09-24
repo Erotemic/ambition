@@ -1,11 +1,11 @@
 use ambition_characters::brain::action_set::{ActionRequest, MeleeActionSpec, SwipeSpec};
 use ambition_characters::brain::{
-    observe_brain_action_counter, ActionSet, ActorActionMessage, Brain, BrainActionCounter,
+    ActionSet, ActorActionMessage, Brain, BrainActionCounter,
     MeleeBruteCfg, MeleeBruteState, StateMachineCfg,
 };
 use ambition_platformer2d_core as ae;
 
-use super::emit_brain_action_messages;
+use super::{emit_brain_action_messages, observe_brain_action_counter};
 
 #[test]
 fn emit_brain_action_messages_skips_entities_missing_components() {

@@ -26,6 +26,7 @@
 | [`control`](src/control/mod.rs) | Local control seam from device input to the body driven by a participant. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
+| [`fate_flags`](src/fate_flags.rs) | The save-flag spellings of a body's durable FATE — a death its respawn policy remembers, and a provocation construction rebuilds. |
 | [`features`](src/features/mod.rs) | The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a feature-toggle layer. |
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
@@ -43,7 +44,7 @@
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 | [`world_facts`](src/world_facts.rs) | Authored-logic domain for durable world flags. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_37 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

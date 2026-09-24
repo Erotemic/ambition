@@ -15,7 +15,7 @@
 | [`music`](src/music.rs) | The single encounter→audio music-intent stream. |
 | [`objective`](src/objective.rs) | Generic encounter OBJECTIVES (§5): a small predicate vocabulary over participants, elapsed time, and received signals. |
 | [`participants`](src/participants.rs) | Generic encounter PARTICIPANTS (§3): membership as relations, not boss-specific `Vec<Entity>`. |
-| [`registry`](src/registry.rs) | `EncounterRegistry` resource: the `id -> Entity` INDEX into the live encounter entities (E1 — the live state lives on the entity's [`EncounterState`](crate::EncounterState) component, not here). |
+| [`registry`](src/registry.rs) | `EncounterRegistry` resource: the populate latch (the live encounter state lives on each encounter entity). |
 | [`rewards`](src/rewards.rs) | Encounter reward-chest helpers: `encounter_reward_looted_flag` (the per-encounter save-flag id that remembers a chest was opened across save/load) and `encounter_reward_chest_pos` (where the `EncounterSpec`'s reward chest spawns — centered on the trigger, resting on its floor). |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_encounter`. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |

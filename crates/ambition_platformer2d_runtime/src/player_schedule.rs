@@ -220,7 +220,7 @@ impl Plugin for PlayerSchedulePlugin {
             (
                 ambition_combat::action_emission::emit_brain_action_messages,
                 ambition_combat::action_emission::emit_player_projectile_tick_messages,
-                ambition_characters::brain::observe_brain_action_counter,
+                ambition_combat::action_emission::observe_brain_action_counter,
             )
                 .chain()
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)

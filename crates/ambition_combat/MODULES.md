@@ -6,6 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`action_emission`](src/action_emission.rs) | The brain's action stream, routed around the moveset. |
 | [`actor_tuning`](src/actor_tuning.rs) | PER-ACTOR RUNTIME TUNING, THE BRAIN-CONSTRUCTION INPUTS, AND THE CONFIG THAT CARRIES THEM. |
 | [`attack_support`](src/attack_support.rs) | Attack-phase support: brain-output → engine-input translation, the shared post-hit stagger gates, the moveset down-air's world-orb pogo, and the debug-overlay hitbox source. |
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
@@ -50,7 +51,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_43 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_44 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

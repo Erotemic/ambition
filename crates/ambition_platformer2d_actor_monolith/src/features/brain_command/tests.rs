@@ -263,6 +263,37 @@ fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_poli
     );
 }
 
+/// A BINDING WITHOUT ITS AUTHORED HOME IS REJECTED, NOT REHOMED.
+///
+/// The two are built as one pair. Rebuilding a patrol preset around wherever
+/// the body stands would move its lane to the spot the command caught it at,
+/// silently and for good.
+#[test]
+fn a_binding_without_its_authored_home_is_rejected_not_rehomed() {
+    let mut app = app();
+    let e = spawn_npc(&mut app, "stray", "npc_puppy_slug", 100.0);
+    app.world_mut()
+        .entity_mut(e)
+        .remove::<AuthoredBrainContext>();
+
+    send(
+        &mut app,
+        BrainCommand::use_preset(SimId::placement("stray"), "stand_still"),
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Brain>(e).unwrap().label(),
+        "wanderer",
+        "a body with no authored home was given a brain built around its pose"
+    );
+    assert_eq!(
+        app.world().get::<BrainBinding>(e).unwrap().source,
+        AutonomousSource::CatalogDefault,
+        "a rejected command must not move the recorded source either"
+    );
+}
+
 /// A brain command to a body under MOUNT CONTROL does not disturb the live
 /// (mount's) brain, but it updates the autonomous SOURCE — not lost.
 ///

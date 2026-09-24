@@ -11,7 +11,6 @@ use ambition_characters::actor::character_catalog::{
     qualify_preset_like, AuthoredBrainContext, BrainBinding, BrainBuildContext, BrainPresetId,
     CharacterCatalog,
 };
-use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::{ActorAggression, ActorDisposition};
@@ -250,7 +249,6 @@ pub fn apply_brain_commands(
         Option<&AuthoredBrainContext>,
         Option<&mut ActorConfig>,
         Option<&ambition_combat::components::ActorIdentity>,
-        &ActorPose,
         // Who is MASKING this body's own policy, if anyone — see the arm below.
         Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
         // The body's own verbs, for a default that is the character's
@@ -279,7 +277,6 @@ pub fn apply_brain_commands(
         authored,
         config,
         identity,
-        pose,
         claims,
         body_abilities,
         worn,
@@ -288,11 +285,6 @@ pub fn apply_brain_commands(
         let Some(kinds) = by_id.get(sim_id.as_str()) else {
             continue;
         };
-        // Rebuild around the AUTHORED home, not the current pose. (A catalog NPC
-        // always carries `AuthoredBrainContext`; the pose is a defensive fallback.)
-        let ctx = authored
-            .map(AuthoredBrainContext::build_context)
-            .unwrap_or_else(|| BrainBuildContext::at(pose.origin().x));
         let abilities = body_abilities
             .map(|abilities| abilities.abilities)
             .unwrap_or_default();
@@ -337,6 +329,21 @@ pub fn apply_brain_commands(
             let _ = changed;
             continue;
         }
+
+        // Rebuild around the AUTHORED home. The binding and this context are
+        // built as one pair (`resolve_npc_brain`), so a body carrying the
+        // binding alone is a broken composition — and rebuilding around
+        // wherever it happens to stand would silently move its home.
+        let Some(authored) = authored else {
+            warn!(
+                target: "crate::brain_command",
+                "BrainCommand for {}: the body has a brain binding but no authored \
+                 home to rebuild around; command rejected",
+                sim_id.as_str(),
+            );
+            continue;
+        };
+        let ctx = authored.build_context();
 
         let mut changed = false;
         for kind in kinds {

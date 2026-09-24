@@ -1,5 +1,5 @@
 //! Switch-arming gate for encounters. `EncounterSwitchIndex` is rebuilt each
-//! frame from `SwitchFeature + SwitchOn` components and answers
+//! frame from `SwitchFeature` and the save's switch map and answers
 //! `encounter_armed(id)` (semantics: off/red switch arms, green/on disables,
 //! unlinked = always armed, any one off switch arms a multi-switch fight).
 //! ⭐ COMPLETION IS THE SAME RULE READ BACKWARDS: `switch_ids_for_encounter`
@@ -21,7 +21,7 @@ pub struct EncounterSwitchLink {
 
 /// Cached ECS switch state used by the encounter state machine.
 ///
-/// Rebuilt from `SwitchFeature + SwitchOn` components each frame.
+/// Rebuilt each frame from `SwitchFeature` and the save's switch map.
 #[derive(Resource, Default, Clone, Debug)]
 pub struct EncounterSwitchIndex {
     pub links: Vec<EncounterSwitchLink>,
@@ -275,9 +275,6 @@ impl SwitchFeature {
     }
 }
 
-/// Live switch state used by rendering and encounter reset logic.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SwitchOn(pub bool);
 
 /// A Switch interactable was activated. Carries the parsed
 /// [`SwitchActivation`] directly — the `switch:<id>:<action>:<target>` wire

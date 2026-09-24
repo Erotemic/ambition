@@ -73,6 +73,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         ambition_characters::brain::BossAttackState::default(),
         (identity, disposition, combat),
     ));
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.add_systems(Update, rebuild_feature_view_index);
     app.update();
 
@@ -113,6 +114,7 @@ fn feature_view_index_reflects_same_frame_pickup_collection() {
             )),
         ))
         .id();
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.add_systems(Update, rebuild_feature_view_index);
     app.update();
     assert!(
@@ -164,6 +166,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
         CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
         ChestFeature::new(ambition_interaction::Chest::new("dup_id", None)),
     ));
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.add_systems(Update, rebuild_feature_view_index);
     app.update();
     let view = app
@@ -221,6 +224,7 @@ fn feature_view_index_reflects_same_frame_reset_spawn() {
         )),
     ));
     configure_platformer2d_simulation_phases(&mut app);
+    app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     app.world_mut()
         .spawn(ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
             ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(0),

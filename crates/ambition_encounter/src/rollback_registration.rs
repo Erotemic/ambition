@@ -105,11 +105,6 @@ where
         "queued switch activations, in order, by id/action/target",
         crate::switches::SwitchActivationQueue::checksum,
     );
-    registrar.rollback_component_clone_probed::<crate::switches::SwitchOn>(
-        OWNER,
-        "feature.switch_on",
-        |on| u64::from(on.0),
-    );
     registrar.rollback_component_clone::<crate::switches::SwitchFeature>(OWNER, "feature.switch");
     registrar.clear_message_on_rollback::<crate::switches::SwitchActivated>(
         OWNER,
@@ -118,6 +113,6 @@ where
     registrar.declare_rollback_derived_resource::<crate::switches::EncounterSwitchIndex>(
         OWNER,
         "derived.encounter_switch_index",
-        "rebuilt from SwitchFeature + SwitchOn components each frame",
+        "rebuilt from SwitchFeature and the save's switch map each frame",
     );
 }

@@ -694,10 +694,9 @@ pub enum FeatureInteractionSet {
     /// [`Self::Actuate`] because that is what opens a chest.
     WorldObjects,
     /// The encounter switch index, rebuilt last. It is a cache of
-    /// `SwitchFeature + SwitchOn` over the whole world, so it must observe every
+    /// `SwitchFeature` and the save's switch map, so it must observe every
     /// switch mutation this phase makes — the Interact toggle in
-    /// [`Self::Actuate`] and the save mirror in [`Self::WorldObjects`] — or the
-    /// encounter arms a frame late off a stale index.
+    /// [`Self::Actuate`] — or the encounter arms a frame late off a stale index.
     SwitchIndex,
 }
 

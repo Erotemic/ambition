@@ -68,7 +68,7 @@ use ambition_combat::components::{
     ActorAggression, BossDeathAnimation, BossPhase, CenteredAabb,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
-use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -2010,7 +2010,6 @@ pub fn spawn_interactable_into(
                     FeatureName::new(authored_name.to_string()),
                     feature_aabb,
                     SwitchFeature::new(activation),
-                    SwitchOn(false),
             ));
         } else {
             bevy::log::error!(

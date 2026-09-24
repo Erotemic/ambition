@@ -690,7 +690,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 209 -> 210: `actor.combo_trace` LEFT. The HUD's movement readout is
 /// app presentation state fed from `FrameEvents` after the kernel ran; no
 /// simulation system read it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 210;
+/// ⛔⛤ 210 -> 212 (211 is CalculexAmbition's AP6.3): `feature.switch_on` LEFT.
+/// `SwitchOn` mirrored the save's switch map every tick and was spawned `false`
+/// until the first mirror; readers take the save by the activation id.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 212;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

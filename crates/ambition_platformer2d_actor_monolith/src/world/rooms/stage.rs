@@ -21,7 +21,7 @@ use bevy::prelude::{Commands, Resource};
 use super::transaction;
 use crate::features::{self, RoomFeatureConstructionPlan};
 use crate::world::physics::{self, PhysicsRoomEntity};
-use crate::world::placements::PlacementLoweringRegistry;
+use crate::construction::placements::PlacementLoweringRegistry;
 use ambition_platformer2d_shared_tangle::lifecycle::RoomScopedEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     session_world_component_mut, SessionSpawnScope,

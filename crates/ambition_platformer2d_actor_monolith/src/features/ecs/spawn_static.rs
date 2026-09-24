@@ -284,7 +284,7 @@ pub(crate) fn spawn_hazard_into(
 
 pub(crate) fn lower_hazard_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Hazard(spec) = &record.schema else {
         return;
@@ -334,7 +334,7 @@ pub(crate) fn counts_against_the_actor_cap(
 
 pub(crate) fn lower_interactable_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Interactable(spec) = &record.schema else {
         return;
@@ -371,7 +371,7 @@ pub(crate) fn lower_interactable_placement(
 
 pub(crate) fn lower_pickup_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Pickup(spec) = &record.schema else {
         return;
@@ -441,7 +441,7 @@ pub(crate) fn spawn_pickup_into(
 #[cfg(feature = "portal")]
 pub(crate) fn lower_portal_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Portal(schema) = &record.schema else {
         return;
@@ -492,7 +492,7 @@ pub(crate) fn spawn_portal_into(
 
 pub(crate) fn lower_chest_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Chest(spec) = &record.schema else {
         return;
@@ -529,7 +529,7 @@ pub(crate) fn spawn_chest_into(
 
 pub(crate) fn lower_breakable_placement(
     record: &ambition_platformer2d_world::placements::PlacementRecord,
-    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+    ctx: &mut crate::construction::placements::LoweringCtx<'_, '_, '_>,
 ) {
     let PlacementSchema::Breakable(spec) = &record.schema else {
         return;

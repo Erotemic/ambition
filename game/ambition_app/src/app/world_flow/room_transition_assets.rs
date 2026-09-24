@@ -1367,7 +1367,7 @@ pub(crate) fn prefetch_neighbor_room_preparation_system(
     room_set: SessionWorldRef<RoomSet>,
     content_epoch: Res<ambition_platformer2d::runtime::room_transition::RoomTransitionContentEpoch>,
     placement_lowering: Res<
-        ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,
+        ambition_platformer2d::actors::construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Res<RoomContentStagingRegistry>,
     character_catalog: Res<

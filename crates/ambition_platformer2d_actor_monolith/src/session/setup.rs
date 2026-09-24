@@ -75,7 +75,7 @@ pub struct SimulationSetup<'a> {
     /// start room's authored placements through THIS registry — the same one
     /// room transition and snapshot restore consume — so there is no
     /// setup-only reconstruction of the six built-in interpreters.
-    pub placement_lowering: &'a crate::world::placements::PlacementLoweringRegistry,
+    pub placement_lowering: &'a crate::construction::placements::PlacementLoweringRegistry,
     /// The App-installed room-content staging seam. Setup drains the start
     /// room's registered content stagers exactly as transition, reset,
     /// hot-reload, and restore staging do — one construction authority.

@@ -1,4 +1,4 @@
-//! Actor-runtime facade for authored placement records.
+//! Actor construction's context for lowering authored placement records.
 //!
 //! `ambition_platformer2d_world` owns the pure generic lowering registry. The actor runtime
 //! specializes that registry with the App-local [`CharacterCatalog`] context,
@@ -113,7 +113,7 @@ impl ActorPlacementContext {
 }
 
 impl ambition_platformer2d_world::placements::LoweringContext for ActorPlacementContext {
-    type CommitFacts = crate::construction::PersistedFates;
+    type CommitFacts = super::PersistedFates;
 }
 
 pub type LoweringCtx<'w, 's, 'a> =

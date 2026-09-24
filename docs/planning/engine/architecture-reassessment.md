@@ -81,6 +81,9 @@ when possession moved from `abilities::traversal` to `control::possession`:
 possession is a seat redirect, and it was the only reference between `abilities`
 and `control` in either direction. The `assets`/`character_sprites` pair is
 unchanged.
+Then **six**: `construction` LEFT when the placement-lowering context moved from
+`world::placements` to `construction::placements` — its commit facts are
+construction's, and `world` only stages rooms with it.
 
 The workspace has 79 packages and 679,785 physical Rust lines under their `src`
 directories, including tests and comments. The actor monolith accounts for 98,464

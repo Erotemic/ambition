@@ -197,7 +197,7 @@ pub fn apply_summon_effects(
     );
     let services = crate::construction::ActorConstructionServices {
         context: {
-            let context = crate::world::placements::ActorPlacementContext::new(
+            let context = crate::construction::placements::ActorPlacementContext::new(
                 &character_catalog,
                 &authored_sheets,
             );

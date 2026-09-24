@@ -113,7 +113,7 @@ fn body_driven_by(
 /// then yields the marker, which the deleted default-six helper never could.
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
-    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
+    use crate::construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
@@ -1604,7 +1604,7 @@ mod authored_enemy_reads_its_character {
 /// construction` dropping it: every plan carries all four).
 #[test]
 fn the_population_cap_is_spent_at_plan_time_and_each_plan_gets_its_own_quota() {
-    use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry};
+    use crate::construction::placements::{LoweringCtx, PlacementLoweringRegistry};
     use ambition_characters::actor::AuthoredPopulationCap;
     use ambition_entity_catalog::placements::{
         InteractableSpec, InteractionKindSpec, PlacementKind, PlacementSchema,

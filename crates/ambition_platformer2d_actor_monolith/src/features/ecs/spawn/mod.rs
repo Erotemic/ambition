@@ -554,7 +554,7 @@ fn placement_counts_against_the_actor_cap(
 impl RoomFeatureConstructionPlan {
     pub fn prepare(
         room: &ambition_platformer2d_world::rooms::RoomSpec,
-        registry: &crate::world::placements::PlacementLoweringRegistry,
+        registry: &crate::construction::placements::PlacementLoweringRegistry,
         content_staging: &RoomContentStagingRegistry,
         boss_catalog: &BossCatalog,
         // ⛔ THE CATALOG AND THE SHEETS ARRIVE ON THIS, not beside it — see
@@ -878,7 +878,7 @@ impl RoomFeatureConstructionPlan {
         capability_lanes.claim_planned_ids(&room.id, &mut expected_authoritative_ids)?;
 
         let mut placement_context =
-            crate::world::placements::ActorPlacementContext::new(
+            crate::construction::placements::ActorPlacementContext::new(
                 construction.characters,
                 construction.sheets,
             );

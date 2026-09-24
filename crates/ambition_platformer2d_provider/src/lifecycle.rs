@@ -265,7 +265,7 @@ pub(crate) struct PlatformerPreparation<'w> {
         Option<Res<'w, ambition_characters::actor::character_catalog::CharacterCatalogRegistry>>,
     snapshot_registry: Option<Res<'w, ambition_platformer2d_runtime::rollback::RollbackRegistry>>,
     placement_lowering: Option<
-        Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
+        Res<'w, ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
     >,
     content_staging:
         Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
@@ -958,7 +958,7 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let placement_lowering = app
         .world()
-        .get_resource::<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>()
+        .get_resource::<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>()
         .cloned();
     let content_staging = app
         .world()
@@ -1324,7 +1324,7 @@ pub fn prepare_platformer_content(
         &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
     >,
     placement_lowering: Option<
-        &ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry,
+        &ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Option<
         &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
@@ -2160,7 +2160,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// from its sheet, so the builder needs it beside the catalog.
 
     placement_lowering:
-        Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
+        Res<'w, ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
     content_staging:
         Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
     construction_recipes:

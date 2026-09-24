@@ -2156,7 +2156,7 @@ fn announce_the_opening_countdown(
 ///
 /// `reset_body_clusters` is the verb that means "this body starts again" — the same one the
 /// sandbox reset and the versus round boundary use — and it raises
-/// `BodyLifetime::restart_pending`, so `announce_body_restarts` triggers `ae::BodyRestarted`
+/// `BodyRestartLatch`, so `announce_body_restarts` triggers `ae::BodyRestarted`
 /// and every PROVIDER hears about the respawn too.
 fn place_respawning_fighters(
     mut commands: bevy::prelude::Commands,

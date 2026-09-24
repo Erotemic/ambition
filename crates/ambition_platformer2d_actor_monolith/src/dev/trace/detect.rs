@@ -188,6 +188,7 @@ fn nearby_collision(world: &ae::World, player_pos: ae::Vec2) -> Vec<CollisionTra
 #[allow(clippy::too_many_arguments)]
 pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
+    life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     // AC3.1.B: the melee AUTHORITY.
@@ -239,8 +240,8 @@ pub fn build_frame(
             locomotion: locomotion.into(),
             body_mode: body_mode.into(),
             last_safe_pos: safety.last_safe_pos.into(),
-            time_alive: clusters.lifetime.time_alive,
-            resets: clusters.lifetime.resets,
+            time_alive: life.time_alive,
+            resets: life.resets,
             wall_normal_x: clusters.wall.wall_normal_x,
             ledge_grabbing: facts.ledge.is_some(),
             attacking: melee.is_swinging(),
@@ -305,6 +306,7 @@ fn build_moving_platform_states(
 pub(crate) fn synthesize_events_from_diff(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     hp_current: i32,
     controls: ControlFrame,
@@ -335,7 +337,7 @@ pub(crate) fn synthesize_events_from_diff(
         suppressed_teleport = true;
     }
 
-    if clusters.lifetime.resets > prev.resets {
+    if life.resets > prev.resets {
         buffer.push_event(GameplayTraceEvent::Reset { tick });
         suppressed_teleport = true;
     }
@@ -525,6 +527,7 @@ pub fn record_frame(
 pub(crate) fn update_previous_snapshot(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     hp_current: i32,
     controls: ControlFrame,
@@ -542,7 +545,7 @@ pub(crate) fn update_previous_snapshot(
         fast_falling: facts.fast_falling,
         dash_charges_available: clusters.dash.charges_available,
         air_jumps_available: clusters.jump.air_jumps_available,
-        resets: clusters.lifetime.resets,
+        resets: life.resets,
         hp_current,
         locomotion,
         body_mode,

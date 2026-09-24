@@ -3731,8 +3731,6 @@ mod tests {
     /// fact, published by the hit resolver for combat deaths and by
     /// `publish_kernel_reset_death` for the pit/drown/hazard reset that never
     /// reaches the resolver.
-    ///
-    /// This deliberately no longer bumps `BodyLifetime.resets`.
     #[test]
     fn a_death_or_a_timeout_spends_a_life_and_zero_is_not_a_floor() {
         use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
@@ -3751,7 +3749,7 @@ mod tests {
             app.add_message::<ambition_platformer2d::combat::death_rules::ActorDiedMessage>();
             app.add_plugins(MaryORulesPlugin::global());
             app.world_mut().spawn((
-                ambition_platformer2d::engine_core::BodyLifetime::default(),
+                ambition_platformer2d::engine_core::BodyLifeStats::default(),
                 ambition_platformer2d::platformer::markers::PlayerEntity,
                 ambition_platformer2d::platformer::markers::PrimaryPlayer,
             ));
@@ -3864,7 +3862,7 @@ mod tests {
         let body = app
             .world_mut()
             .spawn((
-                ambition_platformer2d::engine_core::BodyLifetime::default(),
+                ambition_platformer2d::engine_core::BodyLifeStats::default(),
                 ambition_platformer2d::platformer::markers::PlayerEntity,
                 ambition_platformer2d::platformer::markers::PrimaryPlayer,
             ))
@@ -3881,7 +3879,7 @@ mod tests {
         // rebuild. None of them is a death.
         for _ in 0..8 {
             app.world_mut()
-                .get_mut::<ambition_platformer2d::engine_core::BodyLifetime>(body)
+                .get_mut::<ambition_platformer2d::engine_core::BodyLifeStats>(body)
                 .unwrap()
                 .resets += 1;
             app.update();

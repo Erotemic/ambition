@@ -142,6 +142,13 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             melee_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
+        let life = {
+            let mut life_q = sim
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::engine_core::BodyLifeStats, ambition_platformer2d::platformer::markers::PrimaryPlayerOnly>();
+            life_q.single(sim.world()).copied().unwrap_or_default()
+        };
+
         // The movement policy + its published projection (ADR 0024): the
         // locomotion label reads the model; the trace flags read facts. Both
         // copied out before the mutable cluster borrow below.
@@ -179,6 +186,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         record_simulation_frame(
             &mut buffer,
             &clusters,
+            life,
             &motion_facts,
             &combat,
             &melee,

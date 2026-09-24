@@ -36,6 +36,11 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding",
         "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
     ),
+    // Diagnostics beside a body, read by traces and the agent harness only.
+    (
+        "ambition_platformer2d_core::body_clusters::BodyLifeStats",
+        "diagnostic counters: no sim system reads them, and a rewind that replays a restart counts it again",
+    ),
     // Presentation / observation: derived from sim facts, never authoritative.
     (
         "ambition_sim_view::",

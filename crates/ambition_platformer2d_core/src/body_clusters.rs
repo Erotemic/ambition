@@ -37,7 +37,7 @@ pub struct BodyClustersMut<'a> {
     pub resources: Option<&'a mut crate::resources::ActorResources>,
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
-    pub lifetime: &'a mut BodyLifetime,
+    pub restart: &'a mut BodyRestartLatch,
     pub combo_trace: &'a mut BodyComboTrace,
 }
 
@@ -65,7 +65,7 @@ pub struct BodyClusterQueryData {
     pub resources: Option<&'static mut crate::resources::ActorResources>,
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
-    pub lifetime: &'static mut BodyLifetime,
+    pub restart: &'static mut BodyRestartLatch,
     pub combo_trace: &'static mut BodyComboTrace,
 }
 
@@ -95,7 +95,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             resources: self.resources.as_deref_mut(),
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
-            lifetime: &mut *self.lifetime,
+            restart: &mut *self.restart,
             combo_trace: &mut *self.combo_trace,
         }
     }
@@ -851,7 +851,7 @@ pub fn tick_shield_resource(
 ///
 /// [`reset_body_clusters`] clears engine-owned state. Providers observe this
 /// event to reset authoritative state they own. The event is derived from
-/// [`BodyLifetime::restart_pending`] so every reset path announces once.
+/// [`BodyRestartLatch`] so every reset path announces once.
 #[derive(bevy_ecs::event::EntityEvent, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BodyRestarted {
     /// The body starting again.
@@ -864,19 +864,19 @@ pub struct BodyRestarted {
 /// once. Observers run at the next command flush rather than reentrantly.
 pub fn announce_body_restarts(
     mut commands: bevy_ecs::system::Commands,
-    mut bodies: bevy_ecs::system::Query<(bevy_ecs::entity::Entity, &mut BodyLifetime)>,
+    mut bodies: bevy_ecs::system::Query<(bevy_ecs::entity::Entity, &mut BodyRestartLatch)>,
 ) {
-    for (entity, mut lifetime) in &mut bodies {
-        if !lifetime.restart_pending {
+    for (entity, mut latch) in &mut bodies {
+        if !latch.pending {
             continue;
         }
-        lifetime.restart_pending = false;
+        latch.pending = false;
         commands.trigger(BodyRestarted { entity });
     }
 }
 
 /// Reset a live player back to spawn while preserving the
-/// `BodyAbilities` and incrementing the lifetime reset counter. The
+/// `BodyAbilities` and raising the [`BodyRestartLatch`]. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
 ///
 /// The pose snap is a discrete TRANSIT ([`crate::movement::transit_body`], the
@@ -958,7 +958,6 @@ pub fn reset_body_clusters(
 ) {
     use crate::movement::{ComboMark, MovementOp};
 
-    let new_resets = clusters.lifetime.resets + 1;
     let abilities = clusters.abilities.abilities;
     // A reset restores the body to its BASE size; it does not redefine what the
     // base IS. `base_size` is IDENTITY-derived — a worn form, a mount, a boss
@@ -1017,14 +1016,10 @@ pub fn reset_body_clusters(
     }
     *clusters.offense = BodyOffense::default();
     *clusters.action_buffer = BodyActionBuffer::default();
-    *clusters.lifetime = BodyLifetime {
-        resets: new_resets,
-        // The announcement is DERIVED from the reset, not asked of the caller. A flag on state
-        // this function already owns cannot be forgotten by a caller that does not know it
-        // exists.
-        restart_pending: true,
-        ..Default::default()
-    };
+    // The announcement is DERIVED from the reset, not asked of the caller. A flag on state
+    // this function already owns cannot be forgotten by a caller that does not know it
+    // exists.
+    clusters.restart.pending = true;
     clusters.combo_trace.combo.clear();
     clusters.combo_trace.combo.push(ComboMark {
         op: MovementOp::Reset,
@@ -1229,20 +1224,27 @@ impl BodyActionBuffer {
     }
 }
 
-/// Lifetime + diagnostic counters.
+/// This body was reset and the providers have not been told yet.
+///
+/// Set by [`reset_body_clusters`], cleared by [`announce_body_restarts`], which
+/// turns it into a [`BodyRestarted`] trigger. It is rollback state: a
+/// resimulation that replays the reset must replay the announcement with it.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct BodyLifetime {
+pub struct BodyRestartLatch {
+    pub pending: bool,
+}
+
+/// Diagnostic counters for traces and the agent harness.
+///
+/// Not simulation state: nothing in the sim reads it, it is not snapshotted,
+/// and it is not a member of the body clusters. `resets` counts
+/// [`BodyRestarted`] announcements, so a rollback resimulation that replays a
+/// reset counts it again.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct BodyLifeStats {
+    /// Sim seconds since the last restart.
     pub time_alive: f32,
     pub resets: u32,
-    pub max_speed: f32,
-    /// This body was reset and the providers have not been told yet.
-    ///
-    /// Set by [`reset_body_clusters`], cleared by [`announce_body_restarts`],
-    /// which turns it into a [`BodyRestarted`] trigger. It rides here rather
-    /// than in a component of its own because this one is already snapshotted
-    /// and restored: a resimulation that replays the reset replays the
-    /// announcement with it, which a separate unregistered marker could not do.
-    pub restart_pending: bool,
 }
 
 /// Symbolic operation trace ("J o D o D"), preserved across the
@@ -1297,7 +1299,7 @@ pub struct BodyClusterScratch {
     pub resources: Option<crate::resources::ActorResources>,
     pub offense: BodyOffense,
     pub action_buffer: BodyActionBuffer,
-    pub lifetime: BodyLifetime,
+    pub restart: BodyRestartLatch,
     pub combo_trace: BodyComboTrace,
 }
 
@@ -1340,7 +1342,7 @@ impl BodyClusterScratch {
                 damage_multiplier: 1,
             },
             action_buffer: BodyActionBuffer::default(),
-            lifetime: BodyLifetime::default(),
+            restart: BodyRestartLatch::default(),
             combo_trace: BodyComboTrace::default(),
         }
     }
@@ -1392,7 +1394,7 @@ impl BodyClusterScratch {
             resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
-            lifetime: &mut self.lifetime,
+            restart: &mut self.restart,
             combo_trace: &mut self.combo_trace,
         };
         (&mut self.model, clusters)
@@ -1439,7 +1441,7 @@ impl BodyClusterScratch {
             resources: self.resources.as_mut(),
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
-            lifetime: &mut self.lifetime,
+            restart: &mut self.restart,
             combo_trace: &mut self.combo_trace,
         }
     }
@@ -1641,7 +1643,7 @@ mod reset_tests {
             Vec2::ZERO,
             crate::abilities::AbilitySet::default(),
         );
-        assert!(!scratch.lifetime.restart_pending);
+        assert!(!scratch.restart.pending);
         let (model, mut clusters) = scratch.parts();
         reset_body_clusters(
             model,
@@ -1650,7 +1652,7 @@ mod reset_tests {
             ResetFacing::Keep,
             crate::movement::DEFAULT_TUNING.air_jumps,
         );
-        assert!(scratch.lifetime.restart_pending);
+        assert!(scratch.restart.pending);
     }
 
     /// ...and the pending flag becomes exactly one trigger, then stops.
@@ -1667,22 +1669,19 @@ mod reset_tests {
             counter.fetch_add(1, Ordering::Relaxed);
         });
         let body = world
-            .spawn(BodyLifetime {
-                restart_pending: true,
-                ..Default::default()
-            })
+            .spawn(BodyRestartLatch { pending: true })
             .id();
         // A second body with nothing pending: the announcement is per-body, and
         // a sweep that told every body it had restarted would be worse than one
         // that told nobody.
-        world.spawn(BodyLifetime::default());
+        world.spawn(BodyRestartLatch::default());
 
         let mut system = bevy_ecs::system::IntoSystem::into_system(announce_body_restarts);
         system.initialize(&mut world);
         system.run((), &mut world).expect("the announcer runs");
         world.flush();
         assert_eq!(seen.load(Ordering::Relaxed), 1);
-        assert!(!world.get::<BodyLifetime>(body).unwrap().restart_pending);
+        assert!(!world.get::<BodyRestartLatch>(body).unwrap().pending);
 
         system.run((), &mut world).expect("the announcer runs");
         world.flush();

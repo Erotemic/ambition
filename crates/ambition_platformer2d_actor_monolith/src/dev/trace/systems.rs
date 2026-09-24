@@ -20,6 +20,7 @@ use ambition_gameplay_trace::DumpReason;
 pub fn record_simulation_frame(
     buffer: &mut GameplayTraceBuffer,
     clusters: &ae::BodyClustersMut<'_>,
+    life: ae::BodyLifeStats,
     facts: &ae::BodyMotionFacts,
     combat: &ambition_characters::actor::BodyCombat,
     // AC3.1.B: the melee AUTHORITY.
@@ -47,6 +48,7 @@ pub fn record_simulation_frame(
     );
     let mut frame = build_frame(
         clusters,
+        life,
         facts,
         combat,
         melee,
@@ -191,6 +193,7 @@ pub fn record_frame_system(
             // AC3.1.B: the melee authority, read directly rather than through the
             // deleted `BodyCombat.attacking` mirror.
             &ambition_combat::BodyMelee,
+            Option<&ae::BodyLifeStats>,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
         // trajectory, and the replay harness drives slot 0's input stream. A
@@ -209,11 +212,12 @@ pub fn record_frame_system(
     if teleported.read().next().is_some() {
         buffer.teleport_suppress_ticks = ambition_gameplay_trace::PORTAL_TELEPORT_SUPPRESS_FRAMES;
     }
-    let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee)) =
+    let Ok((mut cluster_item, model, facts, player_health, safety, combat, melee, life)) =
         player_q.single_mut()
     else {
         return;
     };
+    let life = life.copied().unwrap_or_default();
     // Trace recording is read-only. Walks the cluster components
     // directly through `BodyClustersMut`.
     let clusters = cluster_item.as_clusters_mut();
@@ -239,6 +243,7 @@ pub fn record_frame_system(
     synthesize_events_from_diff(
         &mut buffer,
         &clusters,
+        life,
         facts,
         hp_current,
         control_frame,
@@ -252,6 +257,7 @@ pub fn record_frame_system(
     record_simulation_frame(
         &mut buffer,
         &clusters,
+        life,
         facts,
         combat,
         melee,
@@ -275,6 +281,7 @@ pub fn record_frame_system(
     update_previous_snapshot(
         &mut buffer,
         &clusters,
+        life,
         facts,
         hp_current,
         control_frame,

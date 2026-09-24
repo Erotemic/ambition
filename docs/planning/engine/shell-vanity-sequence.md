@@ -50,10 +50,8 @@ Status: **OPEN — VC5 only**
 > screen-alpha CONSUMER, not the question of where a cutscene fade begins.
 
 The original shell vanity-sequence campaign is complete except for the title
-launcher fade-in. VC1–VC4 and VC6 are implemented. The full campaign history is
-archived at
-`docs/archive/planning-superseded/2026-08-13/engine/shell-vanity-sequence.md` — <!-- cite-ok: removed from the checkout 2026-09-05; naming the path is the point -->
-removed from the checkout 2026-09-05, still in git history.
+launcher fade-in. VC1–VC4 and VC6 are implemented. Git history has the full campaign
+record.
 
 ## Verified landed
 

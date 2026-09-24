@@ -1,97 +1,39 @@
-# Engine restructuring candidates and couch multiplayer — remaining work
+# Engine restructuring candidates - remaining work
 
-> **The original stale `Sandbox*`/Ambition naming campaign is complete, and its
-> guard is re-run rather than re-dated: `scripts/check_retired_crate_names.py`
-> answers *"No retired crate name is live (14 tracked)"* at HEAD, 2026-09-17,
-> as it did at `cecd01ca` (2026-08-13) when this line was written.** ⚠ The
-> banner is what the CHECK says, not a sha this page was read against — a guard
-> that runs in one command should not be quoted from a receipt. Its full record is archived at
-> `../archive/planning-superseded/2026-08-13/engine_rename_campaign.md` (docs/archive/planning-superseded/2026-08-13/engine_rename_campaign.md — removed from the checkout 2026-09-05; still in git history).
->
-> This live file retains only the architecture/product work that was bundled
-> behind that rename campaign. These are candidates/triggers, not one mandatory
-> flag-day refactor. The focused actor carve remains
-> [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
+**Status:** candidates and triggers, not one flag-day refactor. The retired
+`Sandbox*` naming campaign is complete; `python3
+scripts/check_retired_crate_names.py` guards it. The focused actor carve is
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-> ⭐ **RE-VERIFIED against `8bb0dd5a7` (2026-09-03) and again against
-> `bb149b0f3` (2026-09-17). Every candidate is still where it was; one number has
-> reversed direction and it is the interesting one.** A page that is accurate and
-> looks stale costs a reader the same hour as one that is wrong, so the numbers
-> are here rather than the date alone. Each was measured with the method the claim
-> it checks already uses.
->
-> ⛔⛤ **THE MONOLITH GREW BACK, AND THE PAGE'S OWN RULE IS WHY THAT IS NOT A
-> CONTRADICTION.** Measured 2026-09-17 by the same `src/**/*.rs` count: **241
-> files, 114,767 lines**, against 101,042 on 2026-09-03 — **+13,725 in two
-> weeks**, while the `ambition_*` dependency table went 33 → **34**. So the
-> anti-metric went up by one and the metric that was supposed to fall went up by
-> thirteen thousand. ⚠ **That is a reading, not an accusation:** this count
-> includes tests, and two weeks of ID-PEER and A10 work added guards and their
-> fixtures to this crate on purpose. ⇒ What it does refute is treating the source
-> figure as a carve scoreboard. The number that means "a domain left" is a
-> DOMAIN, not a line count, and neither number here names one.
->
-> - **The rename campaign is still closed.** `scripts/check_retired_crate_names.py`:
->   *"No retired crate name is live (14 tracked)."*
-> - **Split persistence — not started.** `ambition_persistence` exists; neither
->   `ambition_user_settings` nor `ambition_game_save` does.
-> - **Feel tuning — not started, and the page never said where it lives.**
->   `Platformer2dFeelTuningMonolith` is in `crates/ambition_combat/src/feel.rs`
->   and is named 135 times; **154 on 2026-09-17**, so the type is spreading rather
->   than being split.
-> - **Snapshot vocabulary — not started.** `ambition_snapshot` does not exist.
-> - **The actor carve is live, and ⛔ ITS TRACKED METRIC IS AN ANTI-METRIC.**
->   This line used to read "has not moved", with the monolith's
->   `[dependencies]` table at **28** `ambition_*` entries. Re-measured
->   2026-09-03 after five carves landed in one day (`ambition_held_items`,
->   `ambition_body_seed`, `ambition_match`, `ambition_abilities`, and calculex's
->   encounter split): **the table went 29 → 33 while the monolith's own source
->   went 112,733 → 101,042 lines, −11,691 in a day.** (Raw `src/` line count
->   from the day's start. The compile ratchet quotes `108,364 → 98,808` for the
->   same crate because 108,364 is its stored BASELINE, not that morning's
->   value — same ruler, different reference point, verified by running it.)
->
->   ⇒ **A carve makes that number GO UP, by construction.** The kernel stops
->   *containing* a domain and starts *depending* on it — it keeps the rollback
->   ledger, the checkpoint policy, or an inter-crate schedule edge, all of which
->   need the crate named in the manifest. So watching the dependency table for
->   carve progress reads every success as a regression. What shrinks is the
->   SOURCE; what grows is the manifest, and both are the same event.
->
->   ⚠ Two honesty notes on the numbers. The old **28** came from a slightly
->   different count than the one above — the same commit measures **29** under
->   `awk '/^\[dependencies\]/{f=1;next} /^\[/{f=0} f'` piped to
->   `grep -cE '^ambition_[a-z0-9_]+ *='` — so trust the DELTA under one method,
->   never the absolute across two. And the source figure counts `src/**/*.rs`
->   including tests, which is the honest total for "what this crate carries",
->   not a production-only line count.
->
-> ⛔⛔ **AND THE INPUT SPLIT IS HALF BUILT, WHICH CHANGES WHAT THE SECTION BELOW
-> IS ASKING FOR.** `ambition_input` exists — but it is the WHOLE of the proposed
-> split, not the generic half, and `ambition_platformer2d_input` does not exist.
-> Two consequences the page predates:
->
-> 1. **`ControlFrame` already moved, the other way.** The section below assigns
->    it to the platformer crate; it lives in `ambition_platformer2d_core` today,
->    and `ambition_input` keeps only a re-export carrying its own
->    `TODO(compat-remove)`. So that line item is not "to do" — it is "finish
->    removing the compat re-export".
-> 2. **The everything-enum is still closed, and its seam is now measurable.**
->    `Platformer2dInputActionMonolith` has **36 variants — 9 `Menu*` and 27
->    gameplay** — and 448 references. That 9/27 split is exactly the shell-vs-
->    platformer boundary the section proposes, so the split is a named partition
->    rather than a judgement call. ⚠ It sits in the crate the section wants to be
->    the GENERIC one, which is the reverse of where it should end up.
+State on 2026-09-17:
 
-# Candidate Engine Restructures by Difficulty
+- **Split persistence:** not started. `ambition_persistence` exists;
+  `ambition_user_settings` and `ambition_game_save` do not.
+- **Feel tuning:** not started. `Platformer2dFeelTuningMonolith` is in
+  `crates/ambition_combat/src/feel.rs`, and its use is increasing.
+- **Snapshot vocabulary:** not started. `ambition_snapshot` does not exist.
+- **Input split:** half done. `ambition_input` exists and holds the whole input
+  model; `ambition_platformer2d_input` does not exist. `ControlFrame` is in
+  `ambition_platformer2d_core`, and `ambition_input` keeps only a
+  `TODO(compat-remove)` re-export. `Platformer2dInputActionMonolith` has 36
+  variants (9 `Menu*`, 27 gameplay); that split is the shell/platformer
+  boundary.
+- **Actor carve:** live. Do not use the monolith's `[dependencies]` count as a
+  progress metric: a carve makes it go up, because the kernel then depends on
+  the new crate. Measure a carve by the domain that left, not by line counts.
+- **Couch multiplayer:** implemented. `InputAssignmentPolicy`
+  (`UnifiedPrimary`, `JoinToClaim`, `ExplicitAssignment`) is in
+  `crates/ambition_input/src/sources.rs`, and a frozen session keeps its device
+  mapping when a pad disconnects. Participant and view architecture is owned by
+  [`engine/multiplayer-and-multiview.md`](engine/multiplayer-and-multiview.md).
 
-## Extended abstract
+## Candidates by difficulty
 
 The crate rename exposed several useful decomposition opportunities. They should not be executed as one architecture campaign. Difficulty here reflects dependency risk and semantic uncertainty, not merely the amount of file movement.
 
-## Lower difficulty
+### Lower difficulty
 
-### Split persistence
+#### Split persistence
 
 Separate user preferences from shipped-game progression:
 
@@ -109,7 +51,7 @@ ambition_game_save
 
 Current quest data should remain with the game save until a proper quest architecture exists.
 
-### Decompose gameplay tuning as touched
+#### Decompose gameplay tuning as touched
 
 `Platformer2dFeelTuningMonolith` still mixes unrelated concerns. Split fields into domain-owned resources when those systems are next modified:
 
@@ -122,9 +64,9 @@ TimeFeelTuning
 
 This need not be a standalone campaign.
 
-## Moderate difficulty
+### Moderate difficulty
 
-### Extract generic snapshot vocabulary
+#### Extract generic snapshot vocabulary
 
 Move genuinely generic deterministic snapshot machinery out of the platformer core, possibly into:
 
@@ -150,7 +92,7 @@ InputFrameMode
 
 After extraction, rerun the dependency census before creating any broader low-level crate.
 
-### Split generic input from platformer input
+#### Split generic input from platformer input
 
 First establish the identity model:
 
@@ -186,9 +128,9 @@ ambition_platformer2d_input
 
 This is moderate rather than easy because it changes ownership at the boundary between devices, participants, session preparation, rollback input, and controlled actors.
 
-## Continuing decomposition campaign
+### Continuing decomposition campaign
 
-### Shrink the actor monolith by destination
+#### Shrink the actor monolith by destination
 
 Move behavior to existing owners:
 
@@ -219,9 +161,9 @@ compile isolation and consumer dependency leakage now make decomposition explici
 work, while each individual boundary is still chosen by semantic ownership rather
 than arbitrary file splitting.
 
-## Higher difficulty
+### Higher difficulty
 
-### Untangle the shared tangle
+#### Untangle the shared tangle
 
 The clearest large strands are:
 
@@ -241,7 +183,7 @@ ambition_content_binding
 
 Extract a strand only when its authority boundary and dependency direction are understood. The goal is not smaller crates by itself; it is removing dependency knots.
 
-### Separate sprite format from sprite runtime
+#### Separate sprite format from sprite runtime
 
 A likely eventual structure is:
 
@@ -258,7 +200,7 @@ domain adapters
 
 This should wait until substantive sprite-runtime work makes the seam valuable.
 
-### Replace the current quest model
+#### Replace the current quest model
 
 The current quest system is too underdeveloped to deserve preservation as an independent abstraction.
 
@@ -275,124 +217,9 @@ A future quest redesign should establish:
 
 Do not extract the current quest code merely to improve crate symmetry.
 
-## Guiding rule
+### Guiding rule
 
 Prefer decompositions that establish a clear owner and improve dependency direction. Do not create generic layers merely because several unrelated concepts are low-level, and do not delay product work to prove every future engine configuration.
-
-
----
-
-# Smash Siblings Couch Multiplayer
-
-## Extended abstract
-
-Smash Siblings should support multiple local participants using distinct input sources. The first required case is one participant on keyboard and another on a gamepad.
-
-The current input model largely treats keyboard and gamepad as interchangeable ways to drive one primary participant. That behavior should remain available for normal single-participant Ambition play, but Smash Siblings needs explicit source ownership.
-
-## Identity model
-
-Represent these as separate concepts:
-
-```text
-InputSourceId
-    → ParticipantId
-    → SessionSeatId
-    → ControlChannelId
-    → controlled actor
-```
-
-`InputSourceId` identifies a keyboard-and-mouse bundle, gamepad, touch controller, synthetic source, replay, or agent.
-
-`ParticipantId` identifies the local or remote input authority.
-
-`SessionSeatId` identifies the participant’s place in the current lobby or match.
-
-`ControlChannelId` identifies the deterministic input stream consumed by simulation or rollback.
-
-A connected device is not automatically a participant, and a participant is not the same thing as a temporary match seat.
-
-## Assignment policies
-
-Support:
-
-```text
-UnifiedPrimary
-    keyboard, gamepad, and other local sources drive one participant
-
-JoinToClaim
-    an unassigned source joins as a distinct participant
-
-ExplicitAssignment
-    the host supplies the source-to-participant mapping
-```
-
-`UnifiedPrimary` preserves the existing single-participant workflow.
-
-`JoinToClaim` provides the normal Smash Siblings couch flow.
-
-## Lobby and character selection
-
-The lobby or character-select flow should own:
-
-* joining and leaving;
-* source assignment;
-* seat assignment;
-* character selection;
-* ready or lock-in state.
-
-Before the match starts, freeze:
-
-```text
-participant
-session seat
-control channel
-input sources
-controlled actor
-```
-
-Simulation should receive independent deterministic control frames without knowing which physical device produced them.
-
-## Disconnect behavior
-
-A disconnect must not reorder participants or transfer ownership.
-
-The disconnected participant should:
-
-* retain its seat and actor;
-* produce neutral input;
-* reconnect to the same assignment when possible;
-* change ownership only through an explicit host action.
-
-## Input ownership
-
-The couch-multiplayer work should drive the input split:
-
-```text
-ambition_input
-    sources, participants, assignments, joins, bindings,
-    contexts, semantic actions, and menu routing
-
-ambition_platformer2d_input
-    ControlFrame, InputFrameMode, platformer actions,
-    presets, and control-frame translation
-```
-
-## First playable milestone
-
-The first milestone is complete when:
-
-1. Keyboard joins one participant.
-2. A gamepad joins a second participant.
-3. Both receive stable session seats.
-4. Both select distinct controlled actors.
-5. Both produce independent control frames during the match.
-6. Disconnecting the gamepad does not transfer ownership.
-7. Reconnecting restores the same participant.
-8. Single-participant Ambition still supports unified keyboard and gamepad control.
-
-This milestone does not require online multiplayer, complete rebinding UI, every device backend, or cross-build protocol compatibility.
-
 
 ## Naming is subordinate to ownership
 

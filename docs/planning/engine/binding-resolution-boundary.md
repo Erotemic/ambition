@@ -1,12 +1,11 @@
 # Binding resolution boundary - remaining work
 
-**Status:** residual defects only, re-verified against HEAD on 2026-08-13.
+**Status:** residual defects only.
 
 The original binding-resolution campaign landed the core mechanism:
 `Ref<N>`, `Resolver<N>`, `Bound<N>`, structured unresolved diagnostics, item-art
-bindings, and construction-time refusal for several authored identities. Its full
-history, including corrected overclaims, is archived at
-docs/archive/planning-superseded/2026-08-13/engine/binding-resolution-boundary.md (removed from the checkout 2026-09-05; still in git history) (docs/archive/planning-superseded/2026-08-13/engine/binding-resolution-boundary.md — removed from the checkout 2026-09-05; still in git history).
+bindings, and construction-time refusal for several authored identities. Git
+history has the full record.
 
 Do not reopen a campaign to convert every string ID to the same wrapper. Keep a
 binding slice only when it removes a real silent-failure or duplicate-authority

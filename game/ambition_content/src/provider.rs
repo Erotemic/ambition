@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
-use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomSet};
+use ambition_platformer2d::world::rooms::RoomSet;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_runtime::PreparedPlatformerSource;
 
@@ -39,13 +39,11 @@ impl AmbitionPreparedWorld {
     pub fn prepared_source(&self) -> PreparedPlatformerSource {
         let room_set = self.room_set.clone();
         let geometry = RoomGeometry(room_set.active_world().clone());
-        let active_room = ActiveRoomMetadata(room_set.active_spec().metadata.clone());
         if self.builds_a_home_body {
             PreparedPlatformerSource::new(
                 AMBITION_EXPERIENCE,
                 room_set.clone(),
                 geometry,
-                active_room,
                 self.starting_character.clone(),
             )
             // Ambition's player holds Mana: the pool its held abilities spend.
@@ -69,7 +67,6 @@ impl AmbitionPreparedWorld {
                 AMBITION_EXPERIENCE,
                 room_set.clone(),
                 geometry,
-                active_room,
                 self.starting_character.clone(),
             )
             .with_installed_ldtk_index(self.ldtk_index.clone())

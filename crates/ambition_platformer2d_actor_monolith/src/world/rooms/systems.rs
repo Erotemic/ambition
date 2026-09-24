@@ -1,8 +1,7 @@
 //! Bevy systems that drive room state from the data types in sibling modules.
 //!
-//! Syncs active-room metadata + music request (`sync_active_room_metadata`,
-//! `sync_room_music_request`) and ticks gate-portal phases
-//! (`tick_portal_phases_system`). The portal sprite/ring PRESENTATION
+//! Ticks gate-portal phases (`tick_portal_phases_system`) and detects room
+//! transitions. The portal sprite/ring PRESENTATION
 //! systems live render-side (`ambition_render::rendering::
 //! gate_portal_visuals`, E4 slices 10+20) and consume the phase registry;
 //! pure-data types/phase logic live in `gate_portal`/`metadata`/`room_graph`.
@@ -11,52 +10,10 @@ use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut, Without};
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_world::rooms::{
-    tick_gate_portal_phase, ActiveRoomMetadata, GatePortalPhases, GatePortalRegistry,
-    LoadingZoneActivation, RoomMusicRequest, RoomSet, RoomSfxId,
+    tick_gate_portal_phase, GatePortalPhases, GatePortalRegistry, LoadingZoneActivation, RoomSet,
+    RoomSfxId,
 };
 use ambition_time::WorldTime;
-
-/// The set [`sync_active_room_metadata`] runs in — the active room is current.
-///
-/// Mode teardown waits for it: a transition into a different mode tears the old
-/// mode down on the same frame it becomes stale, which requires the room
-/// metadata to already describe the NEW room.
-///
-/// ONE member. The chained neighbours (`sync_room_music_request`,
-/// `tick_portal_phases_system`) are CONSUMERS of the fresh metadata, not part of
-/// establishing it, so widening would make teardown wait on music and portals.
-#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct ActiveRoomMetadataSynced;
-
-/// Reconcile `RoomSet::active_metadata()` into the sibling
-/// `ActiveRoomMetadata` component on the same session root, but only when the
-/// metadata actually changes. The
-/// PartialEq guard means change-detection consumers (e.g. a future
-/// room-music selector) only fire when the active room's biome /
-/// music_track / ambient / theme really differ — not on every frame.
-pub fn sync_active_room_metadata(
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
-    mut active: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<ActiveRoomMetadata>,
-) {
-    let current = room_set.active_metadata().clone();
-    if current != active.0 {
-        active.0 = current;
-    }
-}
-
-/// Push the active room's `music_track` into `RoomMusicRequest` so the
-/// audio system knows the room-default track when no encounter
-/// override is active. Empty values clear the request, falling back to
-/// the music registry's `default_track`.
-pub fn sync_room_music_request(
-    active: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
-    mut request: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<RoomMusicRequest>,
-) {
-    let next = active.0.music_track.clone();
-    if next != request.desired_track {
-        request.desired_track = next;
-    }
-}
 
 /// Advance every registered portal's phase based on its controlling
 /// switch's state + the per-phase timer. Pure state update — sprite

@@ -5,8 +5,8 @@
 //! host-override convention (`Platformer2dSimulationFoundationPlugin` docs).
 //!
 //! What the engine group deliberately does NOT provide (the game/fixture
-//! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
-//! `ActiveRoomMetadata` — which world is loaded is the game's choice), the
+//! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry` — which world
+//! is loaded is the game's choice), the
 //! authored content catalogs/registries (character catalog, music/sfx
 //! registries, item roster), and the app startup chain itself (the host's
 //! `Startup` systems and its `SimulationSetupSet` slot).

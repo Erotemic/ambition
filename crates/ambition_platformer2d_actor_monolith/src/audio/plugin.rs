@@ -199,13 +199,6 @@ struct AudioRequestState<'w, 's> {
             ambition_encounter::EncounterMusicRequest,
         >,
     >,
-    room: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
-            'w,
-            's,
-            ambition_platformer2d_world::rooms::RoomMusicRequest,
-        >,
-    >,
     radio: Option<ResMut<'w, ambition_audio::library::RadioStationState>>,
     narrative: Option<ResMut<'w, ambition_conversation::NarrativeMusicRequest>>,
     intent: Option<ResMut<'w, ambition_audio::music::MusicIntent>>,
@@ -237,7 +230,7 @@ fn reset_audio_request_state_on_context_change(
     }
 
     // The title theme can OUTLIVE this reset — see `title_theme_keeps_playing`.
-    // Everything else here still runs: the encounter/room/radio requests and the
+    // Everything else here still runs: the encounter/radio requests and the
     // intent are activation-local by definition, and it is only the song that is
     // the same song.
     let keep_base_track = match (
@@ -255,9 +248,6 @@ fn reset_audio_request_state_on_context_change(
     };
     if let Some(encounter) = state.encounter.as_deref_mut() {
         **encounter = Default::default();
-    }
-    if let Some(room) = state.room.as_deref_mut() {
-        **room = Default::default();
     }
     if let Some(radio) = state.radio.as_deref_mut() {
         *radio = Default::default();

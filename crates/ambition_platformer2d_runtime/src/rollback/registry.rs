@@ -710,7 +710,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 214 -> 215: `AbilitySet` encodes `crouch`, `climb` and `morph`, and
 /// `derived.body_mode_capabilities` LEFT. The posture driver reads the body's
 /// ability set; Morph Ball is a game's grant to its home body.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 215;
+/// ⛔⛤ 215 -> 216: `root.active_room_metadata` and `root.room_music_request`
+/// LEFT. Both copied `RoomSet`'s active entry onto the session root once per
+/// tick; readers take `RoomSet::active_metadata()`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 216;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

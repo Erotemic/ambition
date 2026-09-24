@@ -4,6 +4,21 @@ mod speedway_oracles;
 
 use super::*;
 
+/// A session whose one room claims `mode`: the room set is the only place a
+/// session's mode lives.
+fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::RoomSet {
+    let mut room = ambition_platformer2d::world::rooms::RoomSpec::new(
+        "mode_fixture",
+        ae::World::new("mode_fixture", ae::Vec2::splat(64.0), ae::Vec2::ZERO, Vec::new()),
+    );
+    room.metadata.mode = mode.map(str::to_string);
+    ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
+        "mode_fixture",
+        vec![room],
+        Vec::new(),
+    )
+}
+
 #[test]
 fn sanic_demo_content_plugin_installs() {
     // The direct-entry content plugin publishes an exact PreparedContent root at
@@ -814,8 +829,6 @@ fn a_distance_marker_sounds_like_the_course_and_not_like_the_host() {
 #[test]
 fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
-    use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
-
     fn elapsed(app: &mut App) -> Option<f32> {
         let mut q = app.world_mut().query::<&SanicActState>();
         q.iter(app.world()).next().map(|s| s.elapsed)
@@ -828,10 +841,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ActiveRoomMetadata(RoomMetadata {
-                mode: mode.map(str::to_string),
-                ..Default::default()
-            }),
+            rooms_in_mode(mode),
         );
         app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 0.5,
@@ -872,7 +882,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
     assert!(elapsed(&mut app).is_some());
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ActiveRoomMetadata::default(),
+        rooms_in_mode(None),
     ); // left the Sanic rooms
     app.world_mut()
         .run_system_once(ambition_platformer2d::runtime::despawn_departed_mode_entities)
@@ -899,15 +909,17 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
 fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
     use ambition_platformer2d::runtime::in_mode;
-    use ambition_platformer2d::world::rooms::ActiveRoomMetadata;
-
     let room = sanic_speedway();
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
 
     let mut app = App::new();
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ActiveRoomMetadata(room.metadata.clone()),
+        ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
+            SPEEDWAY_ROOM_ID,
+            vec![room.clone()],
+            Vec::new(),
+        ),
     );
     let awake = app
         .world_mut()
@@ -918,7 +930,7 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
     // Ambition's own rooms carry no mode, so the demo's rules sleep there.
     ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
         app.world_mut(),
-        ActiveRoomMetadata::default(),
+        rooms_in_mode(None),
     );
     let awake = app
         .world_mut()

@@ -1503,7 +1503,7 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
     let rooms = definition.rooms.clone();
 
     Some(Box::new(move |app: &mut App| {
-        use crate::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet, StartingCharacter};
+        use crate::runtime::demo_fixture::{RoomSet, StartingCharacter};
         // ⚠ The silent `rooms.first()` guard that stood here is gone: an empty
         // set is `RoomSetRefused::NoRooms` below, which SAYS SO instead of
         // returning quietly from a composition callback.
@@ -1532,12 +1532,10 @@ fn experience_installer(experience: &ExperienceDraft) -> Option<CapabilityInstal
         };
         let starting = room_set.active_spec().clone();
         let geometry = crate::engine_core::RoomGeometry(starting.world.clone());
-        let metadata = ActiveRoomMetadata(starting.metadata.clone());
         let prepared = crate::runtime::PreparedPlatformerSource::new(
             id.clone(),
             room_set,
             geometry,
-            metadata,
             StartingCharacter::new(starting_character.clone()),
         );
         crate::provider::PlatformerExperienceAuthoring::new(

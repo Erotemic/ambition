@@ -1500,7 +1500,7 @@ pub fn install_mary_o_content(app: &mut App) {
 
 impl Plugin for MaryODemoContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
+        use ambition_platformer2d::runtime::demo_fixture::RoomSet;
         use bevy::prelude::IntoScheduleConfigs;
 
         install_mary_o_content(app);
@@ -1510,7 +1510,6 @@ impl Plugin for MaryODemoContentPlugin {
             provider::MARY_O_EXPERIENCE,
             RoomSet::from_parts_or_panic(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
-            ActiveRoomMetadata(room.metadata.clone()),
             ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
                 provider::MARY_O_CHARACTER_ID,
             ),
@@ -2614,6 +2613,19 @@ pub fn add_demo_content(app: &mut App) {
 mod tests {
     use super::*;
 
+    /// A session in 1-1 whose room claims `mode`: the room set is the only place a
+    /// session's mode lives. A real authored room, because the flag rules resolve
+    /// the active room's authored area by id.
+    fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::RoomSet {
+        let mut room = level_1_1();
+        room.metadata.mode = mode.map(str::to_string);
+        ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
+            LEVEL_1_1_ROOM_ID,
+            vec![room],
+            Vec::new(),
+        )
+    }
+
     // Seven tests here looked terrain up by the name `level_1_1` gave it —
     // `ground_open_teach`, `stair_up_3`, `secret_pipe`. Terrain is painted into
     // an IntGrid now, and `area create`'s lowering EATS the name (the merged
@@ -3158,7 +3170,6 @@ mod tests {
     /// timer, for a completely different game — which is the D-C pattern's claim.
     #[test]
     fn hosted_rules_tick_the_level_clock_only_in_mary_o_rooms() {
-        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn remaining(app: &mut App) -> Option<f32> {
             let mut q = app.world_mut().query::<&MaryOLevelState>();
@@ -3169,10 +3180,7 @@ mod tests {
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
             ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
                 app.world_mut(),
-                ActiveRoomMetadata(RoomMetadata {
-                    mode: mode.map(str::to_string),
-                    ..Default::default()
-                }),
+                rooms_in_mode(mode),
             );
             app.insert_resource(ambition_platformer2d::time::WorldTime {
                 scaled_dt: dt,
@@ -3737,14 +3745,13 @@ mod tests {
     /// reaches the resolver.
     #[test]
     fn a_death_or_a_timeout_spends_a_life_and_zero_is_not_a_floor() {
-        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         fn shell(dt: f32) -> App {
             let mut app = App::new();
             ambition_platformer2d::engine::add_headless_foundation(&mut app);
             ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
                 app.world_mut(),
-                ActiveRoomMetadata(RoomMetadata::default()),
+                rooms_in_mode(None),
             );
             app.insert_resource(ambition_platformer2d::time::WorldTime {
                 scaled_dt: dt,
@@ -3849,13 +3856,12 @@ mod tests {
     /// hosted end-to-end proof is still open — see the demo's planning doc.
     #[test]
     fn a_replay_reset_is_not_a_death_so_lives_cannot_drain() {
-        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ActiveRoomMetadata(RoomMetadata::default()),
+            rooms_in_mode(None),
         );
         app.insert_resource(ambition_platformer2d::time::WorldTime {
             scaled_dt: 0.0,
@@ -3925,13 +3931,12 @@ mod tests {
     /// She must stay held at the pole, still asking.
     #[test]
     fn a_dropped_level_transition_does_not_hand_control_back() {
-        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ActiveRoomMetadata(RoomMetadata::default()),
+            rooms_in_mode(None),
         );
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
@@ -3979,13 +3984,12 @@ mod tests {
 
     #[test]
     fn a_settled_tally_rearms_the_level_after_a_dwell() {
-        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
 
         let mut app = App::new();
         ambition_platformer2d::engine::add_headless_foundation(&mut app);
         ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
             app.world_mut(),
-            ActiveRoomMetadata(RoomMetadata::default()),
+            rooms_in_mode(None),
         );
         // Half the dwell per frame: frame 1 arms nothing, frame 2 crosses it.
         app.insert_resource(ambition_platformer2d::time::WorldTime {

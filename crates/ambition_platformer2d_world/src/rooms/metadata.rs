@@ -1,29 +1,5 @@
-//! Room metadata, music request, and visual profile.
-
-use bevy_ecs::prelude::Component;
-
-/// Track the music identifier the active room would like to play.
-///
-/// Written by `sync_room_music_request` from `ActiveRoomMetadata`,
-/// consumed by the music-intent adapter as the "default track" when no
-/// encounter override is active. The encounter system retains
-/// priority — a `Some(...)` from `EncounterMusicRequest::desired_track()`
-/// overrides this component the same way it overrides the sandbox-wide
-/// default music track. Empty/absent room music falls back to
-/// the music registry's `default_track`.
-#[derive(Component, Clone, Debug, Default)]
-pub struct RoomMusicRequest {
-    pub desired_track: Option<String>,
-}
-
-/// Focused active-room metadata on the same canonical session root as `RoomSet`.
-///
-/// Updated by `sync_active_room_metadata` when the active room changes. Consumers
-/// (room music selection, ambient layer selection,
-/// renderer palette swaps) can subscribe via `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>`
-/// + change detection without importing the larger `RoomSet` type.
-#[derive(Component, Clone, Debug, Default)]
-pub struct ActiveRoomMetadata(pub RoomMetadata);
+//! Room metadata and visual profile. The live room's metadata is
+//! `RoomSet::active_metadata()`; nothing copies it onto the session root.
 
 /// Optional declarative room metadata authored on LDtk levels.
 ///

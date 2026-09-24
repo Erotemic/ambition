@@ -970,7 +970,7 @@ fn sanic_cue(
 
 impl Plugin for SanicDemoContentPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_platformer2d::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
+        use ambition_platformer2d::runtime::demo_fixture::RoomSet;
         use bevy::prelude::IntoScheduleConfigs;
 
         install_sanic_content(app);
@@ -979,7 +979,6 @@ impl Plugin for SanicDemoContentPlugin {
             SANIC_EXPERIENCE,
             RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
-            ActiveRoomMetadata(room.metadata.clone()),
             ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
                 SANIC_CHARACTER_ID,
             ),
@@ -1966,14 +1965,15 @@ fn is_sanic_persona(id: &str) -> bool {
 /// the way out costs the standalone one nothing.
 fn sync_sanic_wallet_shield(
     mut commands: bevy::prelude::Commands,
-    active: Option<
+    rooms: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-            ambition_platformer2d::world::rooms::ActiveRoomMetadata,
+            ambition_platformer2d::world::rooms::RoomSet,
         >,
     >,
     bodies: SanicShieldBodies<'_, '_>,
 ) {
-    let in_sanic_rooms = active.is_some_and(|active| active.0.mode.as_deref() == Some(SANIC_MODE));
+    let in_sanic_rooms =
+        rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(SANIC_MODE));
     for (entity, worn, shielded) in &bodies {
         let sanic_persona = is_sanic_persona(worn.id());
         // not this ruleset's body. See `SanicShieldBodies`: Sanic answers

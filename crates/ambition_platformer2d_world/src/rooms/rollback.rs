@@ -1,22 +1,14 @@
 //! The room graph's own rollback declaration.
 //!
-//! ⛔⛔ IT LIVED IN THE ACTOR MONOLITH, WHOSE HEADER PROMISES OTHERWISE. That
-//! file says *"the actor runtime names only state defined in this crate"* and
-//! then registered `RoomSet`, `ActiveRoomMetadata` and `RoomMusicRequest` — all
-//! three defined here — along with the room-set checksum. Removing the
-//! `crate::rooms` re-export facade made the contradiction impossible to miss:
-//! the code stopped LAUNDERING the world's types through a monolith path, and
-//! the rollback census went on claiming them anyway.
+//! The world crate registers the types it defines (`RoomSet`, the live-room
+//! instance, gate portals) rather than the actor runtime, so a capability's
+//! state is declared by its owner. The stable names are wire identities, not
+//! addresses; the owner label is organizational and the readable baseline
+//! omits it.
 //!
-//! ⭐ THE RUNTIME'S RULE, applied: *"each capability names its own concrete
-//! types and projections; adding state to an existing domain edits only that
-//! domain."* `register_gate_portal_rollback_state` beside this was already the
-//! proof that a world-owned declaration composes.
-//!
-//! ⛔ THE STABLE NAMES DO NOT MOVE. `root.room_set`, `root.active_room_metadata`
-//! and `root.room_music_request` are identities on the wire, not addresses, so
-//! this is a repoint and NOT a schema change. Only the owner label changes, and
-//! the readable baseline omits owner labels because ownership is organizational.
+//! The active room's METADATA has no row: it is `RoomSet::active_metadata()`,
+//! read where needed, so the set and a copy of its active entry cannot disagree
+//! after a restore.
 
 use ambition_platformer2d_core::snapshot::{checksum_bytes, put_str, put_u64, RollbackRegistrar};
 
@@ -52,12 +44,6 @@ where
         "active/start room identity checksum",
         room_set_checksum,
     );
-    registrar.rollback_component_clone::<super::ActiveRoomMetadata>(
-        OWNER,
-        "root.active_room_metadata",
-    );
-    registrar
-        .rollback_component_clone::<super::RoomMusicRequest>(OWNER, "root.room_music_request");
     // ⭐ **WHICH LIVE ROOM, WHICH `root.room_set` CANNOT SAY.** The room-set
     // checksum above folds the active INDEX and the active room's id, and both
     // read the same after a session leaves a room and comes back — so a rewind

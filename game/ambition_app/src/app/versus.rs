@@ -21,9 +21,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::demo_fixture::{
-    ActiveRoomMetadata, RoomSet, StartingCharacter,
-};
+use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, RosterSeating, StagesCharacters,
@@ -90,7 +88,6 @@ fn versus_arena() -> RoomSpec {
 fn versus_prepared_session_world() -> PreparedPlatformerSource {
     let room = versus_arena();
     let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
     // `for_match`: no home body. The comment this replaces described the
     // old contract exactly — *"the body a human seat takes over"* — and that
     // takeover is the fork that has been deleted. Every fighter is built by the
@@ -99,7 +96,6 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
         VERSUS_EXPERIENCE,
         RoomSet::from_parts_or_panic(VERSUS_ROOM_ID, vec![room], Vec::new()),
         geometry,
-        metadata,
         StartingCharacter::new(FIGHTERS[0]),
     )
 }

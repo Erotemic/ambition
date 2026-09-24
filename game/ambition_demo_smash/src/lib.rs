@@ -4695,9 +4695,7 @@ impl SmashStageChoice {
 fn smash_prepared_session_world(
     choice: bevy::prelude::Res<SmashStageChoice>,
 ) -> ambition_platformer2d::runtime::PreparedPlatformerSource {
-    use ambition_platformer2d::runtime::demo_fixture::{
-        ActiveRoomMetadata, RoomSet, StartingCharacter,
-    };
+    use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 
     let choice = *choice;
     let rooms = vec![smash_stage(), smash_platform_stage(), smash_narrow_stage()];
@@ -4706,14 +4704,12 @@ fn smash_prepared_session_world(
         .find(|room| room.id == choice.room_id())
         .expect("every stage room is in the set the line above built");
     let geometry = ae::RoomGeometry(started.world.clone());
-    let metadata = ActiveRoomMetadata(started.metadata.clone());
     // The match realizes its own cast; the id below is only this experience's catalog DEFAULT,
     // which its worn fighters still fall back to.
     ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
         RoomSet::from_parts_or_panic(choice.room_id(), rooms.clone(), Vec::new()),
         geometry,
-        metadata,
         StartingCharacter::new(SMASH_CHARACTER_ID),
     )
 }

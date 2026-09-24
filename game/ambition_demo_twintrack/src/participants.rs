@@ -13,7 +13,7 @@ use ambition_platformer2d::relativity2d::{
     OpticalSource2d, ProperTimeElapsed, RelativisticClock2d, RelativisticObserver2d,
     RelativityClockLabel, WorldlineTracked2d,
 };
-use ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata;
+use ambition_platformer2d::runtime::demo_fixture::RoomSet;
 use ambition_platformer2d::sim_view::{LocalView, LocalViewId, ViewParticipant, ViewPlacement};
 
 use crate::{
@@ -75,13 +75,13 @@ struct TwinTrackPaneCamera;
 /// the pane freezes at the origin with nothing in the log.
 fn compose_the_panes(
     mut commands: Commands,
-    roots: Query<&ActiveRoomMetadata>,
+    roots: Query<&RoomSet>,
     views: Query<(Entity, &LocalViewId, Option<&ViewPlacement>), With<LocalView>>,
     panes: Query<Entity, With<TwinTrackPaneCamera>>,
 ) {
     let live = roots
         .iter()
-        .any(|metadata| metadata.0.mode.as_deref() == Some(TWINTRACK_EXPERIENCE));
+        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE));
     let mut seen: Vec<LocalViewId> = Vec::new();
     for (view, id, placement) in &views {
         seen.push(*id);

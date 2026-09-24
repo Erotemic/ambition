@@ -210,17 +210,17 @@ pub(crate) fn install(app: &mut App) {
 /// The question [`twintrack_is_active`] answers, in the shape a run condition
 /// needs. Kept beside it so the two cannot drift.
 fn twintrack_display_is_live(
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
 ) -> bool {
     twintrack_is_active(&roots)
 }
 
 fn twintrack_is_active(
-    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: &Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
 ) -> bool {
     roots
         .iter()
-        .any(|metadata| metadata.0.mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
+        .any(|rooms| rooms.active_metadata().mode.as_deref() == Some(TWINTRACK_EXPERIENCE))
 }
 
 fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &str) {
@@ -256,7 +256,7 @@ fn spawn_clock_pair(commands: &mut Commands, target: ClockVisualTarget, name: &s
 
 fn spawn_twintrack_visuals(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     existing: Query<(), With<TwinTrackVisible>>,
 ) {
     if !twintrack_is_active(&roots) || !existing.is_empty() {
@@ -1726,7 +1726,7 @@ fn update_optical_proxies(
 
 fn cleanup_visuals_when_inactive(
     mut commands: Commands,
-    roots: Query<&ambition_platformer2d::runtime::demo_fixture::ActiveRoomMetadata>,
+    roots: Query<&ambition_platformer2d::runtime::demo_fixture::RoomSet>,
     visuals: Query<Entity, With<TwinTrackVisible>>,
 ) {
     if twintrack_is_active(&roots) {

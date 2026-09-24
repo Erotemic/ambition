@@ -196,7 +196,7 @@ population's total and prints four methods beside it. This table carries only
 the SHAPE — the per-spelling split and the two semantics — re-measured
 2026-09-19 under that row's method so the two cannot disagree.
 
-<!-- alias-split: SessionWorldRef=166/91 SessionWorldMut=16/13 live_session_world_root=3/1 session_root_for_scope=2/2 -->
+<!-- alias-split: SessionWorldRef=166/91 SessionWorldMut=13/12 live_session_world_root=3/1 session_root_for_scope=2/2 -->
 | spelling | what it is | production uses |
 | --- | --- | ---: |
 | `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 166, in 91 files |

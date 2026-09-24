@@ -209,7 +209,6 @@ fn resolver_iterates_multiple_bindings() {
 use super::intent::simple_track_candidates;
 use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::EncounterMusicRequest;
-use ambition_platformer2d_world::rooms::RoomMusicRequest;
 
 fn narrative(track: &str) -> ambition_conversation::NarrativeMusicRequest {
     let mut request = ambition_conversation::NarrativeMusicRequest::default();
@@ -217,17 +216,15 @@ fn narrative(track: &str) -> ambition_conversation::NarrativeMusicRequest {
     request
 }
 
-fn room(track: &str) -> RoomMusicRequest {
-    RoomMusicRequest {
-        desired_track: Some(track.to_string()),
-    }
+fn room(track: &str) -> Option<&str> {
+    Some(track)
 }
 
 /// A conversation outranks the room it happens in — the point of the command.
 #[test]
 fn a_conversations_track_beats_the_rooms_own() {
     let candidates = simple_track_candidates(
-        &room("for_emmy_forever_ago"),
+        room("for_emmy_forever_ago"),
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
@@ -249,7 +246,7 @@ fn a_fight_outranks_a_conversations_track() {
     let mut encounter = EncounterMusicRequest::default();
     encounter.claim_priority("test_boss", "you_are_too_slow");
     let candidates = simple_track_candidates(
-        &room("for_emmy_forever_ago"),
+        room("for_emmy_forever_ago"),
         Some(&narrative("super_smash_siblings_theme")),
         None,
         &ActiveAudioSelection::default(),
@@ -265,7 +262,7 @@ fn a_fight_outranks_a_conversations_track() {
 #[test]
 fn an_empty_id_is_not_a_claim() {
     let candidates = simple_track_candidates(
-        &room("for_emmy_forever_ago"),
+        room("for_emmy_forever_ago"),
         Some(&narrative("")),
         None,
         &ActiveAudioSelection::default(),

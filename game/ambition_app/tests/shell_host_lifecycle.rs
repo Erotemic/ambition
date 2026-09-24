@@ -652,9 +652,6 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
             move |mut room_set: SessionWorldMut<RoomSet>,
                   mut geometry: SessionWorldMut<
                 ambition_platformer2d::engine_core::RoomGeometry,
-            >,
-                  mut active_room: SessionWorldMut<
-                ambition_platformer2d::world::rooms::ActiveRoomMetadata,
             >| {
                 let index = room_set
                     .room_index_by_id(&alternate_room_for_edit)
@@ -664,7 +661,6 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
                     .expect("`index` came from this set's own id lookup")
                     .clone();
                 geometry.0 = spec.world.clone();
-                active_room.0 = spec.metadata.clone();
             },
         )
         .expect("session-world mutation system runs");

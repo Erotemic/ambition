@@ -20,7 +20,7 @@ use ambition_audio::selection::ActiveAudioSelection;
 use ambition_encounter::{
     Encounter, EncounterLifecycle, EncounterMusicRequest, EncounterPhase, EncounterWaves,
 };
-use ambition_platformer2d_world::rooms::RoomMusicRequest;
+use ambition_platformer2d_world::rooms::RoomSet;
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
@@ -33,8 +33,8 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 
 /// Clear room-scoped narrative music when the active room changes.
 pub fn release_narrative_music_on_room_change(
-    active_room: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_world::rooms::ActiveRoomMetadata,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
     >,
     // Conversation support is optional in hosts that still install the audio plugin.
     narrative_music: Option<ResMut<ambition_conversation::NarrativeMusicRequest>>,
@@ -42,7 +42,7 @@ pub fn release_narrative_music_on_room_change(
     let Some(mut narrative_music) = narrative_music else {
         return;
     };
-    if active_room.is_changed() && narrative_music.track().is_some() {
+    if rooms.is_changed() && narrative_music.track().is_some() {
         narrative_music.clear();
     }
 }
@@ -59,7 +59,7 @@ pub fn compute_music_intent(
     mut encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
         EncounterMusicRequest,
     >,
-    room_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomMusicRequest>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     narrative_music: Option<Res<ambition_conversation::NarrativeMusicRequest>>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
@@ -83,7 +83,7 @@ pub fn compute_music_intent(
     };
 
     let candidates = simple_track_candidates(
-        &room_music,
+        rooms.active_metadata().music_track.as_deref(),
         narrative_music.as_deref(),
         radio.as_deref(),
         &audio_selection,
@@ -119,7 +119,7 @@ pub fn compute_music_intent(
 /// list of candidate ids (no audio backend access here).
 
 pub(super) fn simple_track_candidates(
-    room_music: &RoomMusicRequest,
+    room_track: Option<&str>,
     narrative_music: Option<&ambition_conversation::NarrativeMusicRequest>,
     radio: Option<&RadioStationState>,
     audio_selection: &ActiveAudioSelection,
@@ -135,8 +135,8 @@ pub(super) fn simple_track_candidates(
     if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
         candidates.push(track.to_string());
     }
-    if let Some(track) = &room_music.desired_track {
-        candidates.push(track.clone());
+    if let Some(track) = room_track {
+        candidates.push(track.to_string());
     }
     // The ACTIVE provider's default track closes the priority list. No
     // selection (frontend routes) or a provider with no authored music means

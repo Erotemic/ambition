@@ -691,14 +691,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "presentation camera state, republished from the blink clock",
         ),
         (
-            "ambition_platformer2d_world::rooms::metadata::ActiveRoomMetadata",
-            "authored room metadata; replaced on room load",
-        ),
-        (
-            "ambition_platformer2d_world::rooms::metadata::RoomMusicRequest",
-            "authored music request; immutable at runtime",
-        ),
-        (
             "ambition_sprite_sheet::character::anim::ActorAnimOverride",
             "republished from the move clock by the moveset animator",
         ),

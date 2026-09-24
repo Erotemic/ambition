@@ -4105,14 +4105,14 @@
       "owner": "ambition_platformer2d_runtime::session_world",
       "status": "SOURCE_CONFIRMED",
       "complexity": "ESSENTIAL_COMPLEXITY",
-      "current_truth": "RoomSet, RoomGeometry, ActiveRoomMetadata, initial-body policy, and session requests are already stored on the canonical SessionRoot instead of process-global resources.",
+      "current_truth": "RoomSet, RoomGeometry, initial-body policy, and session requests are already stored on the canonical SessionRoot instead of process-global resources.",
       "source_paths": [
         "crates/ambition_platformer2d_runtime/src/session_world.rs"
       ],
       "evidence": [
         {
           "status": "SOURCE_CONFIRMED",
-          "claim": "RoomSet, RoomGeometry, ActiveRoomMetadata, initial-body policy, and session requests are already stored on the canonical SessionRoot instead of process-global resources.",
+          "claim": "RoomSet, RoomGeometry, initial-body policy, and session requests are already stored on the canonical SessionRoot instead of process-global resources.",
           "sources": [
             "crates/ambition_platformer2d_runtime/src/session_world.rs"
           ]

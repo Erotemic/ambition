@@ -72,15 +72,9 @@ impl Plugin for ProgressionSchedulePlugin {
         );
         app.add_systems(
             sim,
-            (
-                ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata
-                    .in_set(ambition_platformer2d_actor_monolith::rooms::ActiveRoomMetadataSynced),
-                ambition_platformer2d_actor_monolith::rooms::sync_room_music_request,
-                // Portal lifecycle: advance every registered portal's phase from
-                // its switch state + per-phase timers.
-                ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system,
-            )
-                .chain()
+            // Portal lifecycle: advance every registered portal's phase from its
+            // switch state + per-phase timers.
+            ambition_platformer2d_actor_monolith::rooms::tick_portal_phases_system
                 .in_set(ProgressionSet::WorldSync),
         );
         // ⭐ THE MAP OWNS ITS SIMULATION HALF, completing the split its input/view half

@@ -11,7 +11,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, Mode
 use ambition_platformer2d_shared_tangle::schedule::{
     Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
 };
-use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
+use ambition_platformer2d_world::rooms::RoomSet;
 
 /// Run condition: the active room belongs to the game mode `name`.
 ///
@@ -20,13 +20,11 @@ use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 /// metadata is the base game, and matches no named mode.
 pub fn in_mode(
     name: &'static str,
-) -> impl FnMut(
-    Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
-) -> bool
+) -> impl FnMut(Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>) -> bool
        + Clone {
-    move |active: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
-    >| { active.is_some_and(|active| active.0.mode.as_deref() == Some(name)) }
+    move |rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>| {
+        rooms.is_some_and(|rooms| rooms.active_metadata().mode.as_deref() == Some(name))
+    }
 }
 
 /// Run condition: a live session is in Ambition's OWN base mode — an active room
@@ -42,32 +40,27 @@ pub fn in_mode(
 /// [`ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized`] when a
 /// system also needs the full scope-identity guarantee.
 pub fn in_base_mode(
-    active: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
-    >,
+    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
 ) -> bool {
-    active.is_some_and(|active| active.0.mode.is_none())
+    rooms.is_some_and(|rooms| rooms.active_metadata().mode.is_none())
 }
 
 /// Despawn every [`ModeScopedEntity`] whose mode is not the active room's.
 ///
-/// Runs only when `ActiveRoomMetadata` changes — `sync_active_room_metadata`
-/// writes it behind a `PartialEq` guard, so "changed" already means the active
-/// room's metadata really differs. Entities of the mode we just entered survive;
-/// so does everything belonging to a mode we never left, which is exactly what
-/// makes a mode a lifetime distinct from a room.
+/// Runs only when `RoomSet` changes, which is a room publication or a world
+/// replacement. A room change inside one mode leaves that mode's entities alone:
+/// the sweep compares modes, not rooms, which is what makes a mode a lifetime
+/// distinct from a room.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
-    active: Option<
-        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
-    >,
+    rooms: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>>,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
-    let Some(active) = active else { return };
-    if !active.is_changed() {
+    let Some(rooms) = rooms else { return };
+    if !rooms.is_changed() {
         return;
     }
-    let current = active.0.mode.as_deref();
+    let current = rooms.active_metadata().mode.as_deref();
     for (entity, scope) in scoped.iter() {
         if current != Some(scope.0.as_str()) {
             despawn_scoped_entity(&mut commands, entity);
@@ -83,13 +76,9 @@ pub struct ModeScopePlugin;
 impl Plugin for ModeScopePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // After the canonical metadata component publishes this frame's active
-        // room, so a transition INTO a different mode tears the old mode down
-        // on the same frame it becomes stale.
         app.add_systems(
             sim,
             despawn_departed_mode_entities
-                .after(ambition_platformer2d_actor_monolith::rooms::ActiveRoomMetadataSynced)
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
     }

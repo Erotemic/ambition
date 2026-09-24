@@ -18,9 +18,7 @@ use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{
     HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };
-use ambition_platformer2d_world::rooms::{
-    ActiveRoomMetadata, LiveRoomInstance, RoomMusicRequest, RoomSet,
-};
+use ambition_platformer2d_world::rooms::{LiveRoomInstance, RoomMetadata, RoomSet};
 use ambition_platformer2d_core::RoomGeometry;
 #[cfg(feature = "ldtk")]
 use ambition_platformer2d_ldtk::LdtkRuntimeIndex;
@@ -50,7 +48,6 @@ pub struct PreparedPlatformerSource {
     catalogs: PlatformerSessionCatalogs,
     room_set: RoomSet,
     geometry: RoomGeometry,
-    active_room: ActiveRoomMetadata,
     starting_character: StartingCharacter,
     /// Whether this session builds a home body at all. See
     /// [`InitialBodyPolicy`]; a match experience declares
@@ -74,14 +71,12 @@ impl PreparedPlatformerSource {
         provider: impl Into<String>,
         room_set: RoomSet,
         geometry: RoomGeometry,
-        active_room: ActiveRoomMetadata,
         starting_character: StartingCharacter,
     ) -> Self {
         Self {
             catalogs: PlatformerSessionCatalogs::provider(provider),
             room_set,
             geometry,
-            active_room,
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             home_body_resources: HomeBodyResources::default(),
             home_body_abilities: HomeBodyAbilities::default(),
@@ -108,14 +103,12 @@ impl PreparedPlatformerSource {
         provider: impl Into<String>,
         room_set: RoomSet,
         geometry: RoomGeometry,
-        active_room: ActiveRoomMetadata,
         catalog_default: StartingCharacter,
     ) -> Self {
         Self {
             catalogs: PlatformerSessionCatalogs::provider(provider),
             room_set,
             geometry,
-            active_room,
             starting_character: catalog_default,
             initial_body: InitialBodyPolicy::NoInitialBody,
             home_body_resources: HomeBodyResources::default(),
@@ -164,8 +157,8 @@ impl PreparedPlatformerSource {
     pub fn geometry(&self) -> &RoomGeometry {
         &self.geometry
     }
-    pub fn active_room(&self) -> &ActiveRoomMetadata {
-        &self.active_room
+    pub fn active_room(&self) -> &RoomMetadata {
+        self.room_set.active_metadata()
     }
     pub fn starting_character(&self) -> &StartingCharacter {
         &self.starting_character
@@ -197,13 +190,11 @@ impl PreparedPlatformerSource {
         &self,
         room_set: RoomSet,
         geometry: RoomGeometry,
-        active_room: ActiveRoomMetadata,
     ) -> Self {
         Self {
             catalogs: self.catalogs.clone(),
             room_set,
             geometry,
-            active_room,
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
@@ -226,11 +217,7 @@ impl PreparedPlatformerSource {
         // `mut` only under `ldtk`: the block that mutates the installed index is
         // behind that feature, so without it the binding is read-only.
         #[cfg_attr(not(feature = "ldtk"), allow(unused_mut))]
-        let mut candidate = self.with_world(
-            room_set,
-            RoomGeometry(active_spec.world),
-            ActiveRoomMetadata(active_spec.metadata),
-        );
+        let mut candidate = self.with_world(room_set, RoomGeometry(active_spec.world));
         // Only a session that HAS an installed index has an active area to
         // normalize; a RON-authored one tracks its active room in `RoomSet`
         // alone, which the clone above already carries.
@@ -247,7 +234,6 @@ impl PreparedPlatformerSource {
             room_set: self.room_set.clone(),
             live_room: LiveRoomInstance::ACTIVATION,
             geometry: self.geometry.clone(),
-            active_room: self.active_room.clone(),
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
@@ -259,7 +245,6 @@ impl PreparedPlatformerSource {
 
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct PlatformerSessionRequests {
-    pub room_music: RoomMusicRequest,
     pub encounter_music: EncounterMusicRequest,
 }
 
@@ -281,7 +266,6 @@ pub struct PlatformerSessionWorld {
     /// been instantiated before.
     pub live_room: LiveRoomInstance,
     pub geometry: RoomGeometry,
-    pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
     pub initial_body: InitialBodyPolicy,
     pub home_body_resources: HomeBodyResources,

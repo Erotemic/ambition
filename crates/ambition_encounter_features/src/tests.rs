@@ -443,8 +443,8 @@ fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
     assert!(spec.intro_seconds > 0.0);
     // goblin_encounter is driven by generated_music.rs (intro → adaptive
     // stem loops → outro), so its EncounterSpec deliberately has
-    // an empty `music_track` — the encounter system must NOT push
-    // a `RoomMusicRequest` swap on entry. See the conditional in
+    // an empty `music_track` — the encounter system must NOT claim
+    // `EncounterMusicRequest` on entry. See the conditional in
     // `load_encounter_specs_from_rooms`.
     assert_eq!(spec.music_track, "");
 }

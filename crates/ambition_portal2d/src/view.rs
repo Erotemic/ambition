@@ -34,7 +34,7 @@ fn factor_orthogonal(col_x: Vec2, col_y: Vec2) -> OrthogonalFactor {
     }
 }
 
-/// The rigid/reflected map of the VIEW through a portal pair: optional `flip_x`,
+/// The rigid or reflected map of the view through a portal pair: optional `flip_x`,
 /// then rotation `(cos, sin)` about the entry portal's center, then translation
 /// onto the exit's. The flip is false under the reflection body convention and
 /// true under the rotation body convention.
@@ -119,8 +119,8 @@ impl PortalViewMap {
 }
 
 /// What a viewer sees at entry-side point `p`: the view map applied to `p`.
-/// Convenience over [`PortalViewMap::between`] + `apply` for one-off points;
-/// equals `map_point(reflect(p))` by construction.
+/// Shorthand for [`PortalViewMap::between`] then `apply`; equals
+/// `map_point(reflect(p))`.
 pub fn view_point(
     p: Vec2,
     enter: &PortalFrame,
@@ -132,22 +132,18 @@ pub fn view_point(
 
 /// A camera/viewpoint frame in portal world coordinates.
 ///
-/// `rotation` is the 2D z-rotation in the same world-space convention as the
-/// caller uses for the view basis. The helper below composes it with the shared
-/// portal VIEW map so camera continuity, view windows, and body/copy math do
-/// not grow separate angle-difference shortcuts.
+/// `rotation` is the 2D z-rotation, in the caller's world-space convention.
+/// `map_viewpoint_frame` composes it with the shared portal view map, so
+/// cameras, view windows, and body copies use one map.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalViewpointFrame {
     pub pos: Vec2,
     pub rotation: f32,
 }
 
-/// Map a camera/viewpoint frame through a portal pair using the portal VIEW map.
-///
-/// This is intentionally tiny: it does not decide when a host camera should use
-/// continuity, how long to blend, or what entity the camera follows. It only
-/// exposes the same map that recursive windows use as a reusable pure helper for
-/// presentation layers.
+/// Map a camera or viewpoint frame through a portal pair with the portal view
+/// map (the same map recursive windows use). Camera policy (when to use it,
+/// blending, follow target) belongs to the host.
 pub fn map_viewpoint_frame(
     frame: PortalViewpointFrame,
     enter: &PortalFrame,
@@ -161,35 +157,29 @@ pub fn map_viewpoint_frame(
     }
 }
 
-/// The view cone of one portal, window semantics: a trapezoid receding
-/// from the entry face INTO the host surface (you look "through" the portal a
-/// little way), displaying the world in front of the exit via the body
-/// [`map_point`] (the transit map, so the window agrees with where bodies
-/// actually emerge; the sprite copy realizes the same map via [`copy_roll`]).
+/// The view cone of one portal: a trapezoid from the entry face into the host
+/// surface, showing the world in front of the exit through the body
+/// [`map_point`]. This is the transit map, so the window agrees with where
+/// bodies emerge; the sprite copy uses the same map through [`copy_roll`].
 ///
-/// Corner order is `[near_a, near_b, far_b, far_a]` — near edge ON the face
-/// (lateral ∓ aperture), far edge `depth` INTO the wall (lateral widened by
-/// `spread * depth` per side) — so `(0,1,2) (0,2,3)` triangulates it with
-/// consistent winding.
+/// Corner order is `[near_a, near_b, far_b, far_a]`: the near edge is on the
+/// face, the far edge is `depth` into the wall and wider by `spread * depth`
+/// per side. `(0,1,2) (0,2,3)` triangulates it with consistent winding.
 #[derive(Clone, Copy, Debug)]
 pub struct ViewCone {
     /// Trapezoid corners at the ENTRY portal (face + into-the-wall), world space.
     pub entry_quad: [Vec2; 4],
-    /// The same corners pushed through the body [`map_point`]: the exit-side
-    /// world quad the window displays. `source_quad[i]` is what `entry_quad[i]`
-    /// shows — a renderer derives per-vertex UVs by normalizing these inside
-    /// [`Self::source`].
+    /// The same corners through the body [`map_point`]: the exit-side quad the
+    /// window shows. `source_quad[i]` is what `entry_quad[i]` shows; a renderer
+    /// gets per-vertex UVs by normalizing these inside [`Self::source`].
     pub source_quad: [Vec2; 4],
-    /// Axis-aligned bounds of `source_quad`: the world rect (in FRONT of the
-    /// exit) a capture camera must frame. Axis-aligned exactly (not just
-    /// bounding) for axis-aligned portals, since the display map's linear part
-    /// is then axis-aligned.
+    /// Axis-aligned bounds of `source_quad`: the world rect in front of the
+    /// exit that a capture camera must frame. Exact for axis-aligned portals.
     pub source: ae::Aabb,
 }
 
 /// Sprite transform for a portal body copy. Bevy applies `flip_x` in texture
-/// space and then the transform rotation, so this factors the active BODY map
-/// as exactly that pair.
+/// space and then the rotation, so this factors the body map into that pair.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PortalCopyTransform {
     /// Render-space z-rotation to add to the copied sprite.
@@ -242,10 +232,8 @@ pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame, convention: MapConvent
     copy_transform(enter, exit, convention).roll
 }
 
-/// Build a [`ViewCone`] from its four entry-side corners: the source quad is
-/// the corners through the body [`map_point`] (the transit map), the source
-/// rect their bounds. One place that defines the display map, shared by every
-/// cone constructor.
+/// Build a [`ViewCone`] from its four entry-side corners. Every cone
+/// constructor uses this, so the display map is defined in one place.
 fn from_entry_quad(
     entry_quad: [Vec2; 4],
     enter: &PortalAperture,
@@ -265,7 +253,7 @@ fn from_entry_quad(
     }
 }
 
-/// Viewer-independent — the "always show this much" baseline (also the minimum-cone floor; see
+/// Viewer-independent: the minimum cone that always shows (see
 /// [`blend_cones`]).
 pub fn view_cone(
     enter: &PortalAperture,
@@ -297,18 +285,15 @@ const MIN_FRONT: f32 = 1.0;
 /// In-doorway grace, lateral: how far outside the aperture span the eye may sit
 /// and still count as "in the doorway" of that end.
 const DOORWAY_LATERAL_GRACE: f32 = 26.0;
-/// In-doorway grace, depth: how far the eye may dip BEHIND the surface while
+/// In-doorway grace, depth: how far the eye may go behind the surface while
 /// transiting and still count as in the doorway. The centroid transfer fires
-/// shortly after the plane crossing, so a small slab suffices; anything deeper
-/// is genuinely "behind the wall."
+/// soon after the plane crossing, so a small value is enough.
 const DOORWAY_DEPTH_GRACE: f32 = 24.0;
 
-/// Half-width (px, in end-distance difference) of the handoff band around a
-/// pair's equidistance midpoint, over which [`window_eye`] CROSSFADES the two
-/// ends' resolved eyes instead of hard-switching to the nearer end. Sized to
-/// the doorway grace: the crossfade completes over a body-scale walk, quick
-/// enough that the transitional wedge shapes barely register, wide enough that
-/// no single frame jumps (the Q10.2 crossing pop).
+/// Half-width (px, in end-distance difference) of the band around a pair's
+/// equidistance midpoint where [`window_eye`] crossfades the two ends' eyes
+/// instead of switching. Sized like the doorway grace: wide enough that no
+/// frame jumps, narrow enough that the blend is quick.
 const EYE_HANDOFF_BAND: f32 = 24.0;
 
 /// Resolve `eye` against ONE portal end, in that end's own chart: the eye
@@ -325,8 +310,8 @@ fn resolve_end_front(end: &PortalAperture, eye: Vec2) -> Option<Vec2> {
     let front = if front >= MIN_FRONT {
         front
     } else if in_doorway {
-        // At/inside the doorway: lift to a hair in front — the wedge's
-        // limit continuation turns this into the half-plane.
+        // In the doorway: lift to just in front. The wedge's limit case
+        // turns this into the half-plane.
         MIN_FRONT * 0.5
     } else {
         return None;
@@ -335,26 +320,20 @@ fn resolve_end_front(end: &PortalAperture, eye: Vec2) -> Option<Vec2> {
 }
 
 /// The effective eye for looking into `enter`, given the controlled
-/// character's real `eye`. A portal pair glues two surfaces into ONE window,
-/// so the character can look into `enter` from in front of EITHER end —
-/// directly, or through the pair (standing in front of the partner IS standing
-/// in front of this end; the eye's image is the front-preserving
-/// [`view_point`], never the front-flipping body map).
+/// character's real `eye`. A portal pair joins two surfaces into one window,
+/// so the character can look into `enter` from in front of either end:
+/// directly, or through the pair. The image of the eye uses the
+/// front-preserving [`view_point`], not the body map.
 ///
-/// When only one end resolves, it wins outright. When the eye is in front of BOTH ends — e.g.
-/// two floor portals share one plane, so a viewer above the partner is "in front of" this end
-/// too, but 250px to the side — the ends' resolutions are combined nearest-weighted:
-/// outside the [`EYE_HANDOFF_BAND`] around the equidistance midpoint that is exactly the nearer
-/// end (the honest window comes from the partner-side image right above the aperture, not from
-/// the grazing direct ray), and inside the band the two resolved eyes crossfade.
+/// If only one end resolves, it wins. If both do (e.g. two floor portals on
+/// one plane), outside the [`EYE_HANDOFF_BAND`] the nearer end wins, and
+/// inside it the two eyes crossfade.
 ///
-/// In-doorway grace: while transiting, the eye dips just BEHIND the plane
-/// of the end it is passing through; visually the character is *in* the
-/// window, which should read as a (near) half-plane, not vanish. An eye within
-/// the aperture span (+[`DOORWAY_LATERAL_GRACE`]) and within
-/// [`DOORWAY_DEPTH_GRACE`] of the plane is lifted to just in front of it —
-/// [`aperture_wedge`]'s small-front continuation then yields the half-plane
-/// limit. `None` only when the eye is behind both ends and in neither doorway.
+/// In-doorway grace: while transiting, the eye goes just behind the plane of
+/// the end it passes through, and the window should show a near half-plane. An
+/// eye within the aperture span (plus [`DOORWAY_LATERAL_GRACE`]) and within
+/// [`DOORWAY_DEPTH_GRACE`] of the plane is lifted to just in front of it.
+/// `None` only when the eye is behind both ends and in neither doorway.
 pub fn window_eye(
     enter: &PortalAperture,
     exit: &PortalAperture,
@@ -407,19 +386,14 @@ pub fn aperture_wedge(
     aperture_wedge_multi(enter, exit, &[eye], max_depth, max_lateral, convention)
 }
 
-/// The wedge a SET of eyes jointly sees through the aperture: the UNION of each
-/// in-front eye's wedge, as one trapezoid whose far edge spans the combined
-/// lateral extent. The near edge is always the aperture (exactly on the
-/// surface), so the window is anchored at the portal face regardless of the
-/// viewpoints.
+/// The wedge a set of eyes sees through the aperture: the union of each
+/// in-front eye's wedge, as one trapezoid. The near edge is always the
+/// aperture on the surface.
 ///
-/// Why a set: a body STRADDLING a portal has presence at both ends — its real
-/// AABB corners AND the "shadow" corners the sprite trick maps through. Feeding
-/// both makes the wedge a continuous function of position (as a corner crosses
-/// the plane its real contribution hands off to its shadow), which removes the
-/// abrupt flip when the viewer passes the midpoint between a pair (the eye no
-/// longer hard-switches direct↔wormhole). Eyes behind the plane contribute
-/// nothing; `None` only when EVERY eye is behind.
+/// A body that straddles a portal is present at both ends (its real AABB
+/// corners and the mapped "shadow" corners). Using both keeps the wedge
+/// continuous as the body moves, with no sudden flip at the pair midpoint.
+/// Eyes behind the plane add nothing; `None` only when every eye is behind.
 pub fn aperture_wedge_multi(
     enter: &PortalAperture,
     exit: &PortalAperture,
@@ -441,12 +415,9 @@ pub fn aperture_wedge_multi(
         let lat_eye = v.dot(t);
         let far_lat = |lat_a: f32| -> f32 {
             if front < MIN_FRONT && lat_eye.abs() <= h {
-                // Limit continuation: on the plane, both endpoint rays are
-                // parallel to the surface only when the eye is inside the
-                // aperture span, so the visible set is the entire half-plane
-                // behind the aperture. Give each aperture endpoint its own side
-                // of the lateral clamp; the renderer clips the oversized strip
-                // back to the current viewport/world rect.
+                // Limit case: an eye on the plane inside the aperture span sees
+                // the whole half-plane behind it. Give each endpoint its own
+                // side of the lateral clamp; the renderer clips the strip.
                 lat_a.signum() * max_lateral
             } else {
                 let front = front.max(MIN_FRONT);
@@ -487,9 +458,8 @@ pub fn visible_cone(
 }
 
 /// Per-corner linear blend `a → b` by `t ∈ [0,1]`. With `a` the minimum cone
-/// and `b` the viewer wedge, `t = 0` shows the always-on minimum and `t = 1`
-/// the full visible wedge — the two share the near (aperture) edge, so the
-/// blend just opens the far edge from the floor out to what the viewer sees.
+/// and `b` the viewer wedge, both share the near edge, so the blend only opens
+/// the far edge.
 pub fn blend_cones(
     a: &ViewCone,
     b: &ViewCone,

@@ -78,12 +78,8 @@ impl ShellRouteCatalog {
         self.routes.contains_key(id)
     }
 
-    /// Every registered route id, in id order.
-    ///
-    /// Exists so a refusal can NAME what was available. This repo's binding
-    /// boundary makes that the rule rather than a courtesy: "unknown route" is
-    /// a puzzle, and "unknown route, here are the eight that exist" is a typo
-    /// somebody can fix without a debugger.
+    /// Every registered route id, in id order. A refusal uses this to list the
+    /// routes that exist.
     pub fn ids(&self) -> impl Iterator<Item = &str> {
         self.routes.keys().map(ShellRouteId::as_str)
     }
@@ -124,38 +120,23 @@ pub struct ActiveShellExperience {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingShellRoute {
-    /// ⛔⛤ **THE ACTIVATION IDENTITY, DECIDED WHEN THE ROUTE GOES PENDING —
-    /// A10.5, 2026-09-14.** It was minted inside [`ShellRouter::activate`], in
-    /// the same statement that deactivates the outgoing route, so a participant
-    /// that must PREPARE its material for an activation BEFORE that activation
-    /// happens — A10's candidate session — could not name the activation it was
-    /// preparing for.
+    /// The activation id, reserved when the route goes pending, so a
+    /// participant can prepare material (e.g. a candidate session) for an
+    /// activation before it happens.
     ///
-    /// ⚠ **WHAT THE CANDIDATE ACTUALLY NEEDS IT FOR, re-derived 2026-09-18,
-    /// because this comment used to answer with a SimId that no longer exists.**
-    /// It said the candidate's root carries `SimId::singleton("session",
-    /// activation_id)`. It does not: the one live mint is
-    /// `SimId::singleton("session", "root")` (`ambition_platformer2d_provider`'s
-    /// `lifecycle.rs`), because exactly one session root is ever visible and the
-    /// per-App activation count disambiguated nothing while leaking local
-    /// history into a `component-canonical` comparison. ⇒ The reservation's job
-    /// is HOST-LOCAL CORRELATION, and it is load-bearing there: the candidate
-    /// slot is keyed on it, so `pending_activation() != candidate.activation_id`
-    /// is how an abandoned candidate is found and released, and how a candidate
-    /// already prepared for this exact activation avoids being rebuilt.
+    /// It is used for host-local correlation only. The candidate slot is keyed
+    /// on it: `pending_activation() != candidate.activation_id` finds an
+    /// abandoned candidate, and a match reuses a prepared one. It is not part of
+    /// the session root `SimId`.
     ///
-    /// ⭐ **THIS DECIDES AN EXISTING ID EARLIER; IT DOES NOT INVENT ONE.** The
-    /// source and the sequence are unchanged.
-    ///
-    /// ⭐ A pending route that never activates BURNS an id, and gaps are legal:
-    /// nothing derives meaning from consecutive activation ids.
+    /// A pending route that never activates uses up an id. Gaps are legal.
     pub reserved_activation: ShellActivationId,
     pub route_id: ShellRouteId,
     pub push_history: bool,
     pub barrier: LoadBarrierRef,
     pub requires_prepared_session: bool,
     pub terminal_reported: bool,
-    /// Whose request started this route, so a transaction that ends WITHOUT
+    /// Whose request started this route, so a transaction that ends without
     /// activating can name its owner. See [`ShellEvent::TransactionEnded`].
     pub request: Option<ShellRequestId>,
 }
@@ -176,18 +157,11 @@ pub struct ShellRouteHolds {
     holds: BTreeMap<ShellRouteId, std::collections::BTreeSet<ShellHoldId>>,
 }
 
-/// What an activation GATE says when the router asks it, at the moment of asking.
+/// What an activation gate answers when the router asks it.
 ///
-/// ⛔⛤ **THE VERDICT IS ASKED FOR INSIDE THE ACTIVATION, WHICH IS THE WHOLE
-/// POINT.** `Q118`'s defect is a TOCTOU: a participant checks a condition, sees
-/// it hold, releases its block, and the condition changes before the router
-/// activates. A transaction-specific hold id fixes WHICH block is released; it
-/// does not fix WHEN the condition is evaluated, and a block released on an
-/// earlier check is that check with extra steps.
-///
-/// ⇒ So a gate never releases itself. It ANSWERS, and
-/// [`ShellActivationGates`]'s evaluation and the activation that follows happen
-/// in one exclusive operation with nothing able to run between them.
+/// The router asks inside the activation, to avoid a check-then-act race
+/// (`Q118`): a gate never releases itself. [`ShellActivationGates`] evaluation
+/// and the activation that follows run in one exclusive operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ShellGateVerdict {
     /// Not yet — stay pending and ask again next time.
@@ -198,18 +172,14 @@ pub enum ShellGateVerdict {
     Refuse,
 }
 
-/// The prerequisites a pending shell transaction must satisfy AT ACTIVATION.
+/// The prerequisites a pending shell transaction must satisfy at activation.
 ///
-/// ⭐ **THE SHELL STAYS GENERIC.** It knows *"this pending transaction has
-/// prerequisites; are they satisfied right now?"* and nothing else. Rollback
-/// publication is the first answerer, not the vocabulary: a gate is a registered
-/// system returning a [`ShellGateVerdict`], so a future participant joins the
-/// same barrier instead of racing the shell with a watcher of its own.
+/// The shell stays generic: a gate is a registered system that returns a
+/// [`ShellGateVerdict`]. Rollback publication is the first user.
 ///
-/// ⚠ **KEYED BY HOLD ID, NOT BY ROUTE.** A participant registers ONE evaluator
-/// and holds whichever route its transaction is on — and a transaction-specific
-/// hold id (`"content-publication:<request-id>"`) is what keeps a stale
-/// transaction's cleanup from freeing its successor's block on the same route.
+/// Keyed by hold id, not by route. A transaction-specific hold id
+/// (`"content-publication:<request-id>"`) keeps a stale transaction's cleanup
+/// from releasing its successor's hold on the same route.
 #[derive(Resource, Default)]
 pub struct ShellActivationGates {
     gates: BTreeMap<ShellHoldId, bevy::ecs::system::SystemId<(), ShellGateVerdict>>,
@@ -278,26 +248,13 @@ pub struct ShellScopedEntity {
     pub activation_id: ShellActivationId,
 }
 
-/// **WHICH CALLER REQUEST CAUSED THIS TRANSACTION** — minted by the caller,
-/// before it writes the command.
+/// Which caller request caused this transaction. The caller mints it before
+/// it writes the command.
 ///
-/// ⛔⛤ **THE ROUTER'S `LoadId` ANSWERS A DIFFERENT QUESTION, AND A CALLER THAT
-/// NEEDED THIS ONE WAS INFERRING IT FROM A ROUTE NAME.** `LoadId` is minted
-/// INSIDE `start_route`, in a later system than the request, and
-/// `ShellCommand::ReplaceWith` carried no slot for a correlator — so
-/// `ambition_content::reload` adopted the first `PreparationRequested` whose
-/// ROUTE matched its own, and its own comment said *"a route name is not a
-/// transaction identity"* while using one.
-///
-/// ⇒ TWO `ReplaceWith("game")` QUEUED IN ONE FRAME mint `shell.game.N` and
-/// `shell.game.N+1`, and the second SUPERSEDES the first. A caller adopting by
-/// route can therefore take a transaction it did not issue, or one already
-/// cancelled in the same frame — and then wait forever for an activation that
-/// cannot come.
-///
-/// ⭐ **THIS IS GENERIC ON PURPOSE.** It answers "whose request was this" for any
-/// caller; `LoadId` stays router-owned and answers "which load is this". Two
-/// questions, two identities, neither inferring the other.
+/// `LoadId` is different: the router mints it later, inside `start_route`, and
+/// it names the load. A route name is not a transaction identity: two
+/// `ReplaceWith("game")` in one frame give two transactions, and the second
+/// supersedes the first.
 #[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct ShellRequestId(String);
 
@@ -321,13 +278,10 @@ impl std::fmt::Display for ShellRequestId {
 pub enum ShellCommand {
     Initialize,
     GoTo(ShellRouteId),
-    /// Replace the active route. `request` is the CALLER's own correlation id,
-    /// carried through to [`crate::ProviderLoadTransaction`] so the caller can
-    /// recognise the transaction its own command produced.
-    ///
-    /// ⚠ `None` MEANS NOBODY IS CORRELATING, which is the right answer for
-    /// ordinary navigation and the wrong one for a caller that must publish at
-    /// the activation of ITS transaction. See [`ShellRequestId`].
+    /// Replace the active route. `request` is the caller's correlation id,
+    /// carried to [`crate::ProviderLoadTransaction`]. `None` means nobody
+    /// correlates, which is correct for ordinary navigation. See
+    /// [`ShellRequestId`].
     ReplaceWith {
         route: ShellRouteId,
         request: Option<ShellRequestId>,
@@ -342,26 +296,16 @@ pub enum ShellCommand {
         activation_id: ShellActivationId,
         message: String,
     },
-    /// Cancel the pending transaction THIS request produced, because the
+    /// Cancel the pending transaction this request produced, because the
     /// condition it was authorized under no longer holds.
     ///
-    /// ⛔⛤ **THE ONE THING A CORRELATED REQUESTER COULD NOT DO.** A caller that
-    /// issues `ReplaceWith { request }` owns half of a two-halved transaction —
-    /// the shell prepares and activates a route, and the caller publishes its own
-    /// material at that activation. If the caller's half becomes ILLEGAL while
-    /// the transaction is in flight, its only previous options were to publish
-    /// anyway or to drop its half silently and let the route activate without
-    /// it. Both are the split the whole road exists to prevent: a route at
-    /// generation N+1 with content still at N.
+    /// The caller owns half of the transaction (it publishes material at
+    /// activation). Cancelling ends both halves, so a route never activates
+    /// with stale content (`Q118`).
     ///
-    /// ⇒ **BREAKING THE AUTHORIZATION EARLY CANCELS BOTH HALVES**, which is what
-    /// `Q118` asks for in as many words.
-    ///
-    /// ⛔ **IT NAMES A REQUEST, NOT A ROUTE, AND IT IS REFUSED IF THE PENDING
-    /// TRANSACTION IS SOMEBODY ELSE'S.** Two generations can target one route —
-    /// that is exactly what a reload does — so a route-matching cancel could tear
-    /// down a transaction the caller did not issue. Same rule, and the same
-    /// reason, as `PendingGenerationInputs`' load-id claim.
+    /// It names a request, not a route, and does nothing if the pending
+    /// transaction belongs to another request. A reload can target the same
+    /// route twice. Same rule as `PendingGenerationInputs`' load-id claim.
     CancelPending {
         request: ShellRequestId,
     },
@@ -373,12 +317,9 @@ pub enum ShellCommandRejection {
     UnknownRoute(ShellRouteId),
     StaleActivation(ShellActivationId),
     /// A route's required load reached a terminal non-ready state. `failures`
-    /// carries the coordinator's well-worded [`LoadFailure`] reasons when
-    /// `readiness` is [`BarrierReadiness::Failed`] (empty for cancellation and
-    /// supersession, which carry no per-work failure) — without it a headless
-    /// host only ever saw "Failed" and the underlying provider reason (e.g.
-    /// "provider registered no explicit audio fragment") was discarded, so the
-    /// route appeared to stall forever with no diagnosable cause.
+    /// carries the [`LoadFailure`] reasons when `readiness` is
+    /// [`BarrierReadiness::Failed`], and is empty for cancellation and
+    /// supersession.
     LoadFailed {
         readiness: BarrierReadiness,
         failures: Vec<LoadFailure>,
@@ -402,28 +343,15 @@ pub enum ShellEvent {
     },
     ExitRequested,
     CommandRejected(ShellCommandRejection),
-    /// ⭐⭐ **A TRANSACTION ENDED WITHOUT ACTIVATING, AND THIS IS THE WORD THE
-    /// VOCABULARY DID NOT HAVE.**
+    /// A transaction ended without activating.
     ///
-    /// ⛔⛤ **BEFORE THIS, SUPERSESSION EMITTED NOTHING ABOUT THE LOAD IT
-    /// CANCELLED.** `start_route` takes `self.pending`, calls
-    /// `prepared.cancel(&previous.barrier)` and returns events about the NEW
-    /// route only; `PreparedSessionRegistry::cancel` is a `records.remove`
-    /// returning `bool` — a state mutation, not an observable event. And of the
-    /// seven other variants only `PreparationRequested` and `WaitingForLoad`
-    /// carry a barrier, both naming the NEW one; `CommandRejected(LoadFailed
-    /// {..})` carries a readiness and a failure list but no load id, and
-    /// `ExperienceFailed` carries an activation id.
+    /// This is the only event that names the ended transaction's barrier and
+    /// request. Other events name the new route, or carry no load id. Without
+    /// it, a caller waiting on a superseded or cancelled transaction gets no
+    /// signal, and its pending generation is stranded.
     ///
-    /// ⇒ So a caller waiting on its own transaction had NOTHING to match on for
-    /// the one terminal state that produces no error at all, and had to infer
-    /// ownership from `ShellRouter.pending` — which by then names the SUPERSEDING
-    /// route. A pending generation could be stranded with no signal, and every
-    /// later save answered `AlreadyPending`.
-    ///
-    /// ⚠ IT NAMES BOTH IDENTITIES ON PURPOSE: the `barrier` for anything
-    /// correlating on the router's load, and `request` for the caller that minted
-    /// the command. Neither is derivable from the other.
+    /// It carries both identities: `barrier` for code that correlates on the
+    /// router's load, and `request` for the caller that minted the command.
     TransactionEnded {
         route_id: ShellRouteId,
         barrier: LoadBarrierRef,
@@ -434,25 +362,15 @@ pub enum ShellEvent {
 
 /// Why a transaction ended without activating.
 ///
-/// ⛔ SUPERSEDED IS NOT A FAILURE, and conflating them is what made the old
-/// silence defensible: nothing went wrong, the caller simply asked for something
-/// else first. A caller still has to hear about it, because its own generation is
-/// waiting on a load that will never activate.
+/// Superseded is not a failure, but the caller must still hear about it: its
+/// generation waits on a load that will never activate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TransactionEnd {
-    /// A PERSON cancelled the load, through the load-presentation screen's
-    /// cancel or quit.
+    /// A person cancelled the load (the load screen's cancel or quit), or the
+    /// requester sent `ShellCommand::CancelPending`.
     ///
-    /// ⛔⛤ **THE LAST TERMINAL ROAD THAT NAMED NOTHING.**
-    /// `ShellRouter::cancel_pending` was a bare `self.pending.take()` returning
-    /// the route for its caller's hold bookkeeping, so a player who cancelled a
-    /// load while a content reload was in flight stranded that reload's
-    /// generation — and because `ReloadRequest::AlreadyPending` refuses while one
-    /// is in flight, every later save was refused too.
-    ///
-    /// ⚠ A SEPARATE REASON FROM `Superseded` ON PURPOSE: nobody asked for
-    /// anything else, so a caller that retries on supersession must NOT retry
-    /// here.
+    /// Separate from `Superseded`: nothing else was requested, so a caller that
+    /// retries on supersession must not retry here.
     Cancelled,
     /// Another `start_route` began while this one was still pending.
     Superseded,
@@ -505,18 +423,14 @@ impl ShellRouter {
                 self.start_route(route, false, request, catalog, loads, prepared)
             }
             ShellCommand::CancelPending { request } => {
-                // ⛔ ONLY THE ISSUER'S OWN TRANSACTION. A `None` request on the
-                // pending transaction means nobody was correlating, so nobody
-                // can be cancelling it by name either.
+                // Only the issuer's own transaction. A pending transaction with
+                // no request cannot be cancelled by name.
                 match self.pending.as_ref().map(|pending| pending.request.clone()) {
                     Some(Some(pending)) if pending == request => {
                         self.cancel_pending(loads, prepared)
                     }
-                    // ⚠ NOT AN ERROR AND NOT A REJECTION. A transaction that has
-                    // already ended — activated, failed, superseded — is the
-                    // ordinary race: the authorization broke on the same frame
-                    // the transaction finished. Silence is the honest answer,
-                    // and the caller's own half is discarded either way.
+                    // Not an error: the transaction already ended in the same
+                    // frame. The caller discards its own half either way.
                     _ => Vec::new(),
                 }
             }
@@ -602,53 +516,17 @@ impl ShellRouter {
         }
     }
 
-    /// Abandon the pending transaction and SAY SO.
+    /// End the pending transaction because it was cancelled: cancel its
+    /// [`PreparedSessionRegistry`] record, retire its [`LoadCoordinator`] plan,
+    /// clear the router, and return [`ShellEvent::TransactionEnded`].
     ///
-    /// ⭐⭐ **IT RETURNS EVENTS RATHER THAN THE ROUTE BECAUSE A CALLER MUST NOT
-    /// BE ABLE TO CANCEL SILENTLY.** The previous signature handed back
-    /// `Option<PendingShellRoute>` and emitted nothing; both callers used it for
-    /// `route_id` alone and neither could have known a correlating caller was
-    /// waiting. Now the route id arrives INSIDE
-    /// [`ShellEvent::TransactionEnded`], so the bookkeeping a caller wants and
-    /// the signal a waiter needs are the same value — a caller cannot keep the
-    /// first and drop the second.
+    /// This does the same cleanup as supersession in `start_route`; only the
+    /// `reason` differs. Without it, abandoned provider work could still publish
+    /// a prepared session, and repeated cancels would leak records and plans.
     ///
-    /// ⚠ A SMALLER STEP THAN IT COULD BE, DELIBERATELY. Routing cancellation
-    /// through a `ShellCommand` would leave `apply`/`advance_pending` as the ONLY
-    /// producers of `ShellEvent`, which is the better shape; it also defers the
-    /// hold release and the presentation clear by a frame, and both are currently
-    /// synchronous with the person's click. That collapse is its own change.
-    /// End the pending transaction because a PERSON cancelled it: retire its
-    /// preparation and its load authority, clear the router, and say so.
-    ///
-    /// ⛔⛤ **THIS USED TO BE `self.pending.take()` AND THE EVENT, AND NOTHING
-    /// ELSE — SO "CANCELLED" DESCRIBED THE ROUTER AND NOT THE TRANSACTION.**
-    /// The announcement half was correct and the lifecycle half was missing:
-    /// the [`PreparedSessionRegistry`] record and the [`LoadCoordinator`] plan
-    /// both survived a cancel, so
-    ///
-    /// * the abandoned provider work kept going and could still PUBLISH a
-    ///   prepared session for a transaction the shell had already declared
-    ///   ended — and with `self.pending` gone it could never activate, so that
-    ///   record had no consumer at all;
-    /// * `start → cancel` repeated accumulated resident preparation and load
-    ///   authority, one abandoned record and one abandoned plan per cancel.
-    ///
-    /// ⭐⭐ **THE TELL WAS THE SIBLING.** `start_route`'s SUPERSESSION path
-    /// already did the whole job — `prepared.cancel(..)` and
-    /// `loads.retire(..)` — so the two terminal roads out of one pending
-    /// transaction disagreed about what ending it means. ⇒ The two now do the
-    /// same three things; only the `reason` differs, which is the one thing
-    /// that really is different.
-    ///
-    /// ⚠ **`retire` RATHER THAN `LoadCommand::Cancel` THEN `retire`, AND THE
-    /// REASON IS NOT TIDINESS.** `Cancel` flips the plan to
-    /// `LoadPlanState::Cancelled` and returns a `PlanCancelled` event; retiring
-    /// immediately afterwards removes the plan that flip just marked, and this
-    /// caller would drop the event. A state change nobody can observe followed
-    /// by a delete is ceremony, and supersession already established `retire`
-    /// as the terminal operation. The observable announcement is the
-    /// [`ShellEvent::TransactionEnded`] below.
+    /// It returns events, not the route, so a caller cannot cancel silently.
+    /// It calls `retire` without `LoadCommand::Cancel` first: the cancel event
+    /// would be dropped, and `TransactionEnded` is the observable signal.
     pub fn cancel_pending(
         &mut self,
         loads: &mut LoadCoordinator,
@@ -671,12 +549,9 @@ impl ShellRouter {
 
     /// Would the pending route activate on this call if nothing were holding it?
     ///
-    /// ⛔⛤ **THE ACTIVATION GATES ARE ASKED ONLY WHEN THE ANSWER IS YES, AND THAT
-    /// IS NOT A DETAIL.** A gate's `Admit` CONSUMES its hold. Asking on a frame
-    /// where the barrier is not ready would consume it early and leave the route
-    /// unheld for every frame until readiness — which is the exact window `Q118`
-    /// is about, reopened by the machinery meant to close it. So the gate is
-    /// asked at the last moment it can be asked and not before.
+    /// Ask the activation gates only when this is true. A gate's `Admit`
+    /// consumes its hold, so an early ask would leave the route unheld until
+    /// readiness (the `Q118` race).
     pub fn ready_but_for_holds(
         &self,
         loads: &LoadCoordinator,
@@ -745,9 +620,7 @@ impl ShellRouter {
                         };
                         self.pending = None;
                         self.activate(
-                            // ⛔ THE ID THE PENDING ROUTE RESERVED, so a
-                            // participant that prepared material for this exact
-                            // activation named the same one.
+                            // The id the pending route reserved.
                             pending.reserved_activation,
                             pending.route_id,
                             pending.push_history,
@@ -775,20 +648,10 @@ impl ShellRouter {
                     let failures = snapshot
                         .map(|snapshot| snapshot.failures)
                         .unwrap_or_default();
-                    // ⭐⭐ **THIS IS THE ROAD A PRODUCTION LOAD ACTUALLY DIES
-                    // ON**, and until now it named nothing. `start_route`'s
-                    // terminal check only fires for a barrier that is ALREADY
-                    // terminal when the command arrives; a load that fails while
-                    // the shell waits arrives here, one frame at a time. A
-                    // correlating caller that watched only `start_route` would
-                    // wait forever on the normal failure.
-                    //
-                    // ⛔ BOTH EVENTS, NOT ONE. `CommandRejected(LoadFailed)` is
-                    // what the shell's own readers already handle and carries the
-                    // per-failure list; `TransactionEnded` carries the identity
-                    // and no detail. Collapsing them would either strand those
-                    // readers or bloat the identity event into a second copy of
-                    // the failure report.
+                    // A load that fails while the shell waits ends here (the
+                    // usual case). Send both events: `TransactionEnded` names
+                    // the transaction, and `CommandRejected(LoadFailed)` carries
+                    // the failure list that existing readers handle.
                     vec![
                         ShellEvent::TransactionEnded {
                             route_id: pending.route_id.clone(),
@@ -813,33 +676,27 @@ impl ShellRouter {
         &mut self,
         route_id: ShellRouteId,
         push_history: bool,
-        // ⛔ THREADED, NOT INVENTED HERE. The router cannot know whose request
-        // this was; only the caller that wrote the command does.
+        // Passed through from the command; the router cannot know it.
         request: Option<ShellRequestId>,
         catalog: &ShellRouteCatalog,
         loads: &mut LoadCoordinator,
         prepared: &mut PreparedSessionRegistry,
     ) -> Vec<ShellEvent> {
         let Some(route) = catalog.get(&route_id) else {
-            // ⚠ BEFORE `self.pending` IS TAKEN, so there is nothing superseded
-            // to report: an unknown route cancels nothing.
+            // Before `self.pending` is taken: an unknown route cancels nothing.
             return vec![ShellEvent::CommandRejected(
                 ShellCommandRejection::UnknownRoute(route_id),
             )];
         };
 
-        // ⛔ RESERVED FOR WHATEVER PENDING ROUTE THIS CALL PRODUCES. Taken once,
-        // before the branches below, so every `PendingShellRoute` this function
-        // can build names the same reservation and no branch can forget to make
-        // one. See `PendingShellRoute::reserved_activation`.
+        // Reserve once, before the branches, so every branch uses the same id.
+        // See `PendingShellRoute::reserved_activation`.
         let reserved = self.reserve_activation();
         let previous_pending = self.pending.take();
         let supersedes = previous_pending
             .as_ref()
             .map(|pending| pending.barrier.load_id.clone());
-        // ⛔⛔ **SAY SO. THE CANCELLED TRANSACTION USED TO VANISH IN SILENCE.**
-        // A caller waiting on it has a generation staged against a load that will
-        // never activate, and no other variant names a cancelled barrier.
+        // Announce the superseded transaction; its caller is waiting on it.
         let mut events: Vec<ShellEvent> = Vec::new();
         if let Some(previous) = previous_pending.as_ref() {
             prepared.cancel(&previous.barrier);
@@ -934,10 +791,8 @@ impl ShellRouter {
                     let failures = snapshot
                         .map(|snapshot| snapshot.failures)
                         .unwrap_or_default();
-                    // ⛔ AND THE NEW TRANSACTION'S OWN TERMINAL STATE NAMES
-                    // ITSELF TOO. `CommandRejected(LoadFailed { .. })` carries a
-                    // readiness and a failure list and NO load id, so a caller
-                    // correlating on its own request had nothing to match.
+                    // Also send `TransactionEnded`: `LoadFailed` has no load id
+                    // for a correlating caller to match.
                     events.extend([
                         ShellEvent::WaitingForLoad {
                             route_id: route_id.clone(),
@@ -977,9 +832,7 @@ impl ShellRouter {
 
     /// Reserve the identity the next pending route will activate under.
     ///
-    /// ⛔ See [`PendingShellRoute::reserved_activation`]: a participant that must
-    /// prepare material FOR an activation cannot wait until the activation to
-    /// learn its name.
+    /// See [`PendingShellRoute::reserved_activation`].
     fn reserve_activation(&mut self) -> ShellActivationId {
         self.next_activation = self.next_activation.saturating_add(1);
         ShellActivationId(self.next_activation)
@@ -994,13 +847,8 @@ impl ShellRouter {
 
     fn activate(
         &mut self,
-        // ⛔⛤ **PASSED IN, NOT READ OFF `self.pending` — MEASURED 2026-09-14.**
-        // My first version read the reservation from `self.pending`, and the one
-        // caller that matters clears `self.pending` before calling: the shipped
-        // handoff prepared a candidate for `ShellActivationId(3)` and activated
-        // as `ShellActivationId(4)`, so every session took the fallback road and
-        // A10.5's whole point was dead code. A caller that has a reservation
-        // states it; a caller with no pending route reserves one.
+        // Passed in, not read from `self.pending`: `advance_pending` clears
+        // `self.pending` before it calls this.
         activation_id: ShellActivationId,
         route_id: ShellRouteId,
         push_history: bool,

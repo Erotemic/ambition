@@ -44,14 +44,12 @@ pub struct PortalPresentationPlugin {
     /// from the real sprite each frame via [`crate::PortalClipMaterial`].
     pub body_pieces: bool,
     /// Far-side compositing ([`far_side::composite_far_side_bodies`]): a body
-    /// standing BEHIND an aperture is redrawn as the part the pane leaves
+    /// standing behind an aperture is redrawn as the part the pane leaves
     /// visible, so the covered pixels are never submitted and no depth ordering
     /// can bring them back.
     ///
-    /// ⛔ Turning this off restores the punch-through Jon reported on
-    /// 2026-09-05: a pane draws at [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every
-    /// actor above it, so a far-side body wins the depth test against the
-    /// captured image that should hide it.
+    /// With this off, far-side bodies draw over panes: a pane draws at
+    /// [`crate::PORTAL_WINDOW_Z`] (`9.5`) and every actor above it.
     pub far_side_compositing: bool,
     /// The held portal-gun sprite aimed by [`PortalAimHint`]
     /// ([`gun_visuals::sync_portal_mode_indicator`]).
@@ -123,15 +121,11 @@ impl Plugin for PortalPresentationPlugin {
                 far_side::composite_far_side_bodies.in_set(PortalPresentationSet),
             );
         }
-        // ⭐ THE ONE WRITER of a portal-presented body's `Visibility`, after every
-        // system that states a reason to hide it. Registered UNCONDITIONALLY:
-        // the reason-staters are behind feature flags and either may be off, but
-        // a body whose only hide reason just went away still has to be given
-        // back — and with both off the resolver's query matches nothing, which
-        // costs a filtered iteration and keeps the invariant in one place.
-        //
-        // ⚠ `.after` on a system that is not registered is not an error; it
-        // simply constrains nothing, which is the correct meaning here.
+        // The one writer of a portal-presented body's `Visibility`, after every
+        // system that states a reason to hide it. Registered unconditionally: a
+        // body whose last hide reason went away must still be given back. With
+        // both flags off, the query matches nothing. `.after` on an unregistered
+        // system constrains nothing, which is correct here.
         app.add_systems(
             Update,
             source_visibility::resolve_portal_source_visibility
@@ -157,47 +151,24 @@ impl Plugin for PortalPresentationPlugin {
             app.init_resource::<view_cones::PortalViewConeConfig>();
             app.init_resource::<view_cones::PortalCaptureQualityBudget>();
             app.init_resource::<view_cones::PortalViewConeDebugDumpRequest>();
-            // The viewer seam (host-synced each frame); empty/absent  static
-            // window fallback. Init here so the host can `ResMut` it.
+            // The viewer seam (host-synced each frame); empty or absent means the
+            // static window fallback. Init here so the host can `ResMut` it.
             app.init_resource::<view_cones::PortalViewer>();
             app.init_resource::<PortalDebugOverlay>();
             app.add_systems(
                 Update,
                 (
                     view_cones::handle_portal_view_cone_dump_hotkey,
-                    // ⛔⛔ GUARDED BECAUSE BEVY 0.19 MADE A MISSING PARAMETER
-                    // FATAL. `ConeRigAssets` takes `ResMut<Assets<Image>>`,
-                    // `<Mesh>` and `<ColorMaterial>`; 0.18 skipped a system whose
-                    // params were absent, 0.19 panics the schedule. A composition
-                    // that installs portal presentation without a render stack —
-                    // every headless demo app — took the whole app down with it:
-                    // 37 of the feature union's 48 failures were this one line.
-                    //
-                    // ⭐ NOT A NEW POLICY. `engine/headless-verification.md`
-                    // already ruled on this class: *"the fix is usually NOT to
-                    // register the resource. A gizmo or mesh system with no
-                    // render stack should be `run_if(resource_exists::<..>)`-
-                    // guarded so it skips … because registering render assets one
-                    // at a time into a headless app is fitting the app to the
-                    // test."* `avatar::trail.rs` is the named pattern.
-                    //
-                    // ⚠ ALL THREE, not the one that happened to fail first. That
-                    // doc records three of these hiding in succession on
-                    // 2026-09-02 — a missing `Assets<TextureAtlasLayout>`, then
-                    // `GizmoConfigStore`, then `Assets<Mesh>` — each looking
-                    // identical to the last. Chained `run_if`s are ANDed.
+                    // Guard all three asset params: Bevy 0.19 panics on a missing
+                    // system param, and headless compositions have no render stack.
+                    // Per `engine/headless-verification.md`, guard with `run_if`
+                    // instead of registering render assets in headless apps (same
+                    // pattern as `avatar::trail.rs`). Chained `run_if`s are ANDed.
                     view_cones::sync_portal_view_cones
                         .run_if(resource_exists::<Assets<Image>>)
                         .run_if(resource_exists::<Assets<Mesh>>)
                         .run_if(resource_exists::<Assets<ColorMaterial>>),
-                    // ⛔⛔ AND THE NEXT ONE IN THE CHAIN NEEDED IT TOO, which
-                    // is the thing headless-verification.md warns about in as
-                    // many words: three of these hid in succession, "each
-                    // looking identical to the last". Guarding
-                    // `sync_portal_view_cones` alone moved all 37 union
-                    // failures onto THIS system within one run.
-                    // `Gizmos` requires `GizmoConfigStore`, and this is
-                    // `avatar::trail.rs`'s pattern verbatim.
+                    // Same guard: `Gizmos` requires `GizmoConfigStore`.
                     view_cones::debug_portal_view_zones.run_if(
                         resource_exists::<bevy::gizmos::config::GizmoConfigStore>,
                     ),

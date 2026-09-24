@@ -141,9 +141,8 @@ fn route_hold_delays_commit_and_activation() {
     let mut holds = ShellRouteHolds::default();
     holds.hold(ShellRouteId::new("held"), ShellHoldId::new("test-hold"));
 
-    // A ready route commits immediately when first requested, so install the
-    // hold through a pending route before readiness in real composition. This
-    // direct hold test exercises the pending advance seam explicitly.
+    // A ready route commits immediately when first requested. This test
+    // installs the hold directly to exercise `advance_pending`.
     loads.apply(LoadCommand::SetDiscovery {
         load_id: load.clone(),
         barrier_id: barrier.clone(),
@@ -243,8 +242,8 @@ mod composed {
             ));
     }
 
-    /// The SAME provider, installed identically under any host. It names no home
-    /// route — only its own gameplay route — which is the host-independence claim.
+    /// The same provider under any host. It names only its own gameplay route,
+    /// never a home route.
     fn register_alpha_provider(app: &mut App) {
         use crate::ShellExperienceAppExt;
         app.register_experience(
@@ -254,7 +253,7 @@ mod composed {
         );
     }
 
-    /// The answer a test gate gives, so an arm can change it BETWEEN frames.
+    /// The answer a test gate gives; a test can change it between frames.
     #[derive(bevy::prelude::Resource, Clone, Copy)]
     struct GateAnswer(crate::ShellGateVerdict);
 
@@ -267,13 +266,10 @@ mod composed {
     fn app_with_a_gated_route(route: &str) -> App {
         use ambition_load::{LoadBarrierSpec, LoadCommand, LoadCoordinator, LoadPlanSpec};
         let mut app = shell_app();
-        // ⚠ **A BARRIER, BECAUSE ONLY A PENDING ROUTE IS GATED.** A route that is
-        // already satisfiable when the command is applied activates inside
-        // `start_route` and never reaches `advance_pending` — the same road the
-        // loading-screen hold documents as *"a ready route commits immediately
-        // when first requested"*. The content-publication transaction this
-        // machinery is for always carries a preparation plan and so is always
-        // pending; see the queue row.
+        // Use a barrier, because only a pending route is gated. A route that is
+        // ready when requested activates inside `start_route` and never reaches
+        // `advance_pending`. Content publication always has a preparation plan,
+        // so it is always pending.
         let load = ambition_load::LoadId::new(format!("{route}-load"));
         let barrier = ambition_load::LoadBarrierId::new(format!("{route}-ready"));
         {
@@ -321,20 +317,10 @@ mod composed {
         });
     }
 
-    /// ⛔⛤ **THE `Q118` ATOMICITY ARM: A GATE THAT SAID YES EARLIER DOES NOT MAKE
-    /// THE ACTIVATION AUTHORIZED.**
-    ///
-    /// The design this replaced had each participant CHECK its condition in an
-    /// earlier system and RELEASE its hold when the condition held. Measured, the
-    /// interval between that check and `RouteActivated` is real — an ownership
-    /// change landing inside it publishes against a timeline that no longer
-    /// permits it. This arm puts the change exactly there: the gate answers
-    /// `Admit` on one frame, the answer becomes `Hold` before the next, and the
-    /// route must still not be active.
-    ///
-    /// ⚠ **THE FIRST ASSERTION IS THE PREMISE.** Under the old design the frame
-    /// that answered `Admit` would have RELEASED the hold, so a route that is
-    /// still held here is what makes the second assertion mean anything.
+    /// `Q118` atomicity: a gate that said yes earlier does not authorize the
+    /// activation. The gate answers `Admit` on one frame and `Hold` before the
+    /// next, and the route must not activate. The first assertion checks that
+    /// the early `Admit` did not release the hold.
     #[test]
     fn a_gate_that_answered_yes_earlier_does_not_authorize_a_later_activation() {
         let mut app = app_with_a_gated_route("gated");
@@ -350,7 +336,7 @@ mod composed {
         // The gate would say yes on THIS frame...
         set_answer(&mut app, crate::ShellGateVerdict::Admit);
         // ...and the condition changes before the next one. The gate is asked
-        // fresh each time, so the earlier yes authorizes nothing.
+        // again each time.
         set_answer(&mut app, crate::ShellGateVerdict::Hold);
         app.update();
         assert!(
@@ -381,8 +367,8 @@ mod composed {
         );
     }
 
-    /// AND A REFUSED TRANSACTION DOES NOT ACTIVATE, EVER — it is cancelled rather
-    /// than left pending, so a route is not blocked forever by a refusal.
+    /// A refused transaction never activates. It is cancelled, not left
+    /// pending, so a refusal does not block the route forever.
     #[test]
     fn a_refusing_gate_cancels_the_transaction_instead_of_activating_it() {
         let mut app = app_with_a_gated_route("refused");
@@ -445,25 +431,15 @@ mod composed {
         assert_eq!(active_route(&app), Some("alpha-route".to_owned()));
     }
 
-    /// Moving the cursor must not rebuild the launcher.
+    /// Moving the cursor must not rebuild the launcher. The cursor is runtime
+    /// state; `follow_the_launcher_cursor` moves the highlight in place.
     ///
-    /// The cursor is RUNTIME STATE, not structure. `follow_the_launcher_cursor`
-    /// moves the highlight in place through `MenuVisualState`, and the restyle
-    /// system recolours what changed; the key names only what a rebuild is
-    /// actually needed for — which rows exist and what they say.
+    /// This asserts entity identity, not a node count: a rebuild can spawn the
+    /// same number of nodes.
     ///
-    /// this asserts entity IDENTITY, not a node count. A rebuild that happened
-    /// to spawn the same number of nodes would pass a count and still have
-    /// thrown the tree away.
-    ///
-    /// gated, because the presentation is. `basic_presentation` is not a
-    /// default feature, so a bare `cargo test -p ambition_game_shell` renders no
-    /// launcher at all — the 38 tests it reports never touch this. The runner's
-    /// per-crate feature job is what runs it, and what keeps that job honest is
-    /// `DENY_EXACT` in `scripts/run_tests.py`: the job enumerates every feature
-    /// NOT on that list, so `basic_presentation` is covered by being absent from
-    /// it. ⚠ This named a `scripts/tests/test_no_test_module_is_dark.py` until <!-- cite-ok: quotes the dead name this correction is about -->
-    /// 2026-09-17; no file by that name has ever been tracked.
+    /// Gated on `basic_presentation`, which is not a default feature. The
+    /// per-crate feature job in `scripts/run_tests.py` runs it, because the
+    /// feature is not in `DENY_EXACT`.
     #[cfg(feature = "basic_presentation")]
     #[test]
     fn moving_the_launcher_cursor_does_not_respawn_the_ui_tree() {
@@ -501,7 +477,7 @@ mod composed {
         let selected_before = app.world().resource::<ShellLauncherState>().selected;
 
         app.world_mut().write_message(ShellLauncherCommand::Next);
-        // TWO updates.
+        // Two updates.
         app.update();
         app.update();
 
@@ -544,35 +520,29 @@ mod composed {
 
     /// An empty Home list survives confirm / focus / activate.
     ///
-    /// ⛔ `selectable` is `available.len() + usize::from(exit_index.is_some())`, and an
-    /// empty catalog with NO exit label makes it zero. `basic_presentation` has an
-    /// explicit empty-page branch, so that is a supported state rather than a
-    /// theoretical one — and three command arms computed `selectable - 1` before
-    /// checking it, which underflows. `Previous`/`Next` already returned early on
-    /// `!has_launchable`; these three did the arithmetic first.
+    /// `selectable` is `available.len() + usize::from(exit_index.is_some())`.
+    /// An empty catalog with no exit label makes it zero, which
+    /// `basic_presentation` supports. The command arms must not compute
+    /// `selectable - 1` in that state.
     #[test]
     fn an_empty_home_list_survives_confirm_focus_and_activate() {
         let mut app = shell_app();
         register_home(&mut app, "launcher");
-        // No experiences registered: `available` is empty. No exit label either, so
-        // `selectable == 0` — the underflow case.
+        // No experiences and no exit label: `selectable == 0`.
         app.world_mut()
             .resource_mut::<ShellHostConfiguration>()
             .spec = Some(ShellHostSpec::new("launcher", "launcher"));
         app.update();
 
-        // ⛔ AND CLEAR THE EXIT LABEL. It defaults to `Some("Exit")`, which makes
-        // `selectable == 1` and `selectable - 1 == 0` — no underflow, and a poison run
-        // proved the test was passing for exactly that reason. The review's state is
-        // an empty catalog AND no exit row.
+        // Clear the exit label. It defaults to `Some("Exit")`, which makes
+        // `selectable == 1` and hides the underflow.
         app.world_mut()
             .resource_mut::<crate::ShellLauncherPresentation>()
             .exit_label = None;
         app.update();
 
-        // ⚠ ANTI-VACUITY: prove the zero-row state actually exists before asserting
-        // that it survives. A test that never reaches `selectable == 0` passes whether
-        // or not the guards are there — which is exactly what a poison run revealed.
+        // Premise: the zero-row state exists. Otherwise the test passes without
+        // the guards.
         {
             let catalog = app.world().resource::<crate::ShellLaunchCatalog>();
             assert!(
@@ -599,11 +569,8 @@ mod composed {
             app.world_mut().write_message(command);
             app.update();
         }
-        // Reaching here at all is the assertion: without the zero-row guards each
-        // confirm arm panics on `0 - 1` in debug. Nothing should have been launched.
-        // ⚠ The launcher's OWN route is the expected value here, not `None`: the shell
-        // is sitting on its home page. The assertion is that it did not NAVIGATE
-        // anywhere, which on an empty list means staying exactly where it was.
+        // Without the guards, each arm panics on `0 - 1` in debug. The route is
+        // still the launcher's own route: nothing navigated.
         assert_eq!(
             active_route(&app),
             Some("launcher".to_owned()),
@@ -628,8 +595,8 @@ mod composed {
         host_a.update();
         assert_eq!(active_route(&host_a), Some("home-a".to_owned()));
 
-        // Host B: the SAME provider, a DIFFERENT home. QuitToHome is semantic;
-        // the provider never named either launcher route.
+        // Host B: the same provider, a different home. The provider never names
+        // either launcher route.
         let mut host_b = shell_app();
         register_home(&mut host_b, "home-b");
         register_alpha_provider(&mut host_b);
@@ -823,23 +790,13 @@ mod composed {
     }
 }
 
-/// ⭐⭐ **RE-ENTERING THE ROUTE YOU ARE ALREADY *ACTIVE ON* REQUESTS A FRESH
-/// PREPARATION, AND THAT IS THE ROAD A CONTENT RELOAD SHOULD TAKE** (fast-
-/// iteration I3, step 4's *"file watching calls the same request path"*).
+/// Re-requesting the route that is already active starts a fresh preparation.
+/// A content reload uses this path: it needs no new publication path or route
+/// kind. The old generation stays authoritative until the new one activates.
 ///
-/// ⛔⛤ **TWO SIBLINGS LOOK LIKE THEY ALREADY PROVE THIS AND NEITHER DOES.**
-/// `provider_retry_supersedes_the_failed_transaction…` re-requests after the
-/// first transaction FAILED, so it pins retry-after-failure.
-/// `same_provider_relaunch_mints_a_fresh_load_transaction` runs a full round
-/// trip and then **`QuitToHome` before relaunching** — it pins relaunch-after-
-/// leaving. A reload leaves nothing: the route is ACTIVE, the session is
-/// published, and the request arrives anyway. That branch had no witness.
-///
-/// ⇒ **SO A RELOAD NEEDS NO NEW PUBLICATION ROAD AND NO NEW ROUTE KIND.** Select
-/// the new pack, re-request the route already running, and the existing
-/// preparation lifecycle allocates the epoch, fingerprints the content and
-/// publishes at the activation boundary — with the old generation authoritative
-/// until it does.
+/// Differs from `provider_retry_supersedes_the_failed_transaction…` (retry
+/// after failure) and `same_provider_relaunch_mints_a_fresh_load_transaction`
+/// (relaunch after `QuitToHome`).
 #[test]
 fn re_requesting_the_route_already_active_starts_a_new_transaction() {
     let mut loads = LoadCoordinator::default();
@@ -851,9 +808,7 @@ fn re_requesting_the_route_already_active_starts_a_new_transaction() {
     let host = ShellHostConfiguration::default();
     let mut router = ShellRouter::default();
 
-    // The same round trip the relaunch sibling runs — request, publish, complete,
-    // close discovery, advance to activation — so the ONLY difference between
-    // that test and this one is the `QuitToHome` it does and this does not.
+    // The same round trip as the relaunch test; only its `QuitToHome` differs.
     let launch = |router: &mut ShellRouter,
                   loads: &mut LoadCoordinator,
                   prepared: &mut PreparedSessionRegistry| {
@@ -900,8 +855,7 @@ fn re_requesting_the_route_already_active_starts_a_new_transaction() {
     };
 
     let first = launch(&mut router, &mut loads, &mut prepared);
-    // ⛔ NO `QuitToHome`. The route stays active across this line, which is the
-    // entire point.
+    // No `QuitToHome`: the route stays active.
     let second = launch(&mut router, &mut loads, &mut prepared);
     assert_ne!(
         first.barrier.load_id, second.barrier.load_id,
@@ -982,9 +936,8 @@ fn provider_retry_supersedes_the_failed_transaction_and_rejects_stale_publicatio
 
 #[test]
 fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
-    // The terminal event must now carry the provider's developer detail so
-    // `log_shell_routing_failures` — and any headless consumer inspecting the event — can name the
-    // cause instead of watching the route stall.
+    // The terminal event carries the provider's reason, so
+    // `log_shell_routing_failures` and headless consumers can name the cause.
     let mut loads = LoadCoordinator::default();
     let mut prepared = PreparedSessionRegistry::default();
     let plan = ProviderPreparationPlan::new("Prepare fixture", "ready", "Ready")
@@ -1009,8 +962,7 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
         })
         .expect("GoTo on a preparing route requests a preparation");
 
-    // The provider refuses preparation with a specific, well-worded reason —
-    // exactly the audio-fragment refusal the Outlander fixture recorded.
+    // The provider refuses preparation with a specific reason.
     loads.apply(LoadCommand::SetWorkState {
         load_id: transaction.barrier.load_id.clone(),
         work_id: ambition_load::LoadWorkId::new("publish"),
@@ -1043,8 +995,7 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
          host can now name why the route failed instead of watching it stall",
     );
 
-    // The terminal report fires once, not on every advance, or a headless log
-    // would spam the same failure every frame the route stays pending.
+    // The terminal report fires once, not on every advance.
     let repeat = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
     assert!(
         !repeat
@@ -1054,54 +1005,9 @@ fn a_failed_route_preparation_surfaces_the_provider_reason_not_just_failed() {
     );
 }
 
-/// ⭐⭐ **A LOAD THAT FAILS WHILE THE SHELL WAITS NAMES THE REQUEST THAT ASKED
-/// FOR IT.** This is the road a production transaction actually dies on and it
-/// named nothing: `start_route`'s terminal check only fires for a barrier that is
-/// ALREADY terminal when the command arrives, which never happens for a load the
-/// router just minted. Every real failure arrives HERE, one `advance_pending` at
-/// a time, and `CommandRejected(LoadFailed { .. })` carries a readiness and a
-/// failure list and no identity at all.
-///
-/// ⇒ So a caller correlating on its own request — the content reload, whose
-/// staged generation is refused while one is in flight — could only infer
-/// ownership from `ShellRouter.pending`, and an unrelated rejection while its own
-/// load was pending discarded the edit.
-/// ⭐⭐ **A SUPERSEDED TRANSACTION NAMES THE REQUEST IT CANCELLED**, and before
-/// `TransactionEnded` it named nothing whatsoever. `start_route` took
-/// `self.pending`, called `prepared.cancel(&previous.barrier)` — a `records`
-/// removal returning `bool`, a state mutation and not an observable event — and
-/// returned events describing the NEW route only. The caller waiting on the old
-/// one was left waiting on a load that would never activate, with no signal it
-/// could ever receive.
-///
-/// ⛔ NOT DERIVABLE FROM THE OTHER EVENTS. The two that do carry a barrier,
-/// `PreparationRequested` and `WaitingForLoad`, both name the SUPERSEDING
-/// transaction; inferring the cancelled one from `ShellRouter.pending` reads the
-/// very field that was just overwritten.
-/// ⭐⭐ **A CANCELLED TRANSACTION NAMES THE REQUEST IT ABANDONED, AND
-/// `cancel_pending` HAD NO TEST AT ALL.**
-///
-/// MEASURED 2026-09-12: `git grep cancel_pending` returns three hits — the
-/// definition and its two callers in
-/// `ambition_load_presentation::shell_adapter` (the load screen's CANCEL and
-/// QUIT). **Zero tests.** A public method that abandons a live transaction was
-/// exercised by nothing, which is why it could be a bare `self.pending.take()`
-/// for as long as it was.
-///
-/// ⛔ `Cancelled` IS NOT `Superseded` AND NOT `Failed`. Nobody asked for
-/// something else and nothing went wrong — a person pressed cancel. A caller that
-/// retries on supersession must not retry here, and one that reports a failure
-/// must not report this.
-/// ⛔⛤ **`CancelPending` CANCELS THE ISSUER'S OWN TRANSACTION AND NOBODY
-/// ELSE'S.**
-///
-/// A correlated requester owns half of a two-halved transaction and must be able
-/// to break BOTH halves when its own half becomes illegal — `Q118`'s publication
-/// lease is the first caller. But two generations can target one route, which is
-/// exactly what a reload does, so a cancel that matched on the ROUTE could tear
-/// down a transaction the caller never issued. That is the same defect
-/// `PendingGenerationInputs`' load-id claim exists to prevent, at the other end
-/// of the same road.
+/// `CancelPending` cancels the issuer's own transaction and no other. Two
+/// generations can target one route (a reload), so the cancel matches on the
+/// request, not the route.
 #[test]
 fn a_cancel_names_a_request_and_a_strangers_transaction_survives_it() {
     let mut loads = LoadCoordinator::default();
@@ -1129,8 +1035,7 @@ fn a_cancel_names_a_request_and_a_strangers_transaction_survives_it() {
         "the fixture has nothing pending, so every assertion below is vacuous",
     );
 
-    // ⛔ A STRANGER'S CANCEL FIRST, and it must change nothing. Asserting the
-    // owner's cancel alone would pass for a router that cancels on any name.
+    // Another request's cancel must change nothing.
     let stranger = ShellRequestId::new("reload.game.2");
     let ignored = router.apply(
         ShellCommand::CancelPending {
@@ -1151,8 +1056,7 @@ fn a_cancel_names_a_request_and_a_strangers_transaction_survives_it() {
          can target one route, so this is reachable rather than theoretical",
     );
 
-    // ⛔ AND THE OWNER'S CANCEL DOES END IT, or the arm above is satisfied by a
-    // command that never cancels anything at all.
+    // The owner's cancel ends it (control for the check above).
     let ended = router.apply(
         ShellCommand::CancelPending { request: mine },
         &catalog,
@@ -1173,6 +1077,10 @@ fn a_cancel_names_a_request_and_a_strangers_transaction_survives_it() {
     assert!(router.pending.is_none());
 }
 
+/// A cancelled transaction names the request it abandoned. The load screen's
+/// cancel and quit (`ambition_load_presentation::shell_adapter`) call
+/// `cancel_pending`. `Cancelled` is not `Superseded` or `Failed`: a caller that
+/// retries on supersession must not retry here.
 #[test]
 fn a_cancelled_transaction_names_the_request_it_abandoned() {
     let mut loads = LoadCoordinator::default();
@@ -1202,17 +1110,13 @@ fn a_cancelled_transaction_names_the_request_it_abandoned() {
             _ => None,
         })
         .expect("a ReplaceWith on a preparing route requests a preparation");
-    // ⛔ THE PREMISE: there IS a pending transaction to cancel. Cancelling
-    // nothing correctly emits nothing, and this arm must not pass that way.
+    // Premise: a transaction is pending.
     assert!(
         router.pending.is_some(),
         "the fixture has nothing pending, so an empty result would be correct",
     );
 
-    // ⛔ THE OTHER PREMISE: the two authorities a cancel must retire are
-    // actually resident. Without these the lifecycle assertions below pass
-    // against a registry and a coordinator that were empty all along — the
-    // classic vacuous-absence arm.
+    // Premise: the prepared record and the load plan exist before the cancel.
     assert!(
         prepared.contains_load(&transaction.barrier.load_id),
         "the fixture staged no preparation record, so 'no record after cancel' \
@@ -1251,11 +1155,7 @@ fn a_cancelled_transaction_names_the_request_it_abandoned() {
         "the transaction was announced as ended and is still pending",
     );
 
-    // ⛔⛤ **AND THE TRANSACTION'S AUTHORITIES ARE GONE, WHICH IS THE HALF THAT
-    // WAS MISSING.** `cancel_pending` announced the end and retired nothing, so
-    // the abandoned provider could still finish preparing and PUBLISH a prepared
-    // session for a transaction the shell had already declared over — into a
-    // record that, with `pending` cleared, nothing could ever activate.
+    // The prepared record and the load plan are gone.
     assert!(
         !prepared.contains_load(&transaction.barrier.load_id),
         "the cancelled transaction's preparation record survived its own \
@@ -1273,40 +1173,24 @@ fn a_cancelled_transaction_names_the_request_it_abandoned() {
         loads.len(),
     );
 
-    // ⛔⛤ **THE LATE PROVIDER CANNOT RESURRECT IT.** This is the consequence the
-    // retirement exists to produce, asserted directly rather than inferred from
-    // the registry being empty: the provider that was preparing this transaction
-    // finishes AFTER the person cancelled, and its publication is refused
-    // because the record it would publish into no longer exists.
-    //
-    // ⚠ It is refused by ABSENCE, and that is worth naming: `publish` returns
-    // `None` for a load it does not hold, so the same call that succeeded a
-    // moment ago now fails for the one reason that is honest here — there is no
-    // transaction to publish into.
+    // A provider that finishes after the cancel cannot publish: `publish`
+    // returns `None` because the record no longer exists.
     assert!(
         prepared.publish(&transaction).is_none(),
         "a provider finishing after the cancel published a prepared session for \
          a transaction the shell had already declared ended",
     );
 
-    // ⭐ AND CANCELLING NOTHING SAYS NOTHING — the control, without which the
-    // arm above is satisfied by a method that emits an event unconditionally.
+    // Control: cancelling nothing emits nothing.
     assert!(
         router.cancel_pending(&mut loads, &mut prepared).is_empty(),
         "cancelling with nothing pending invented a terminal event",
     );
 }
 
-/// ⛔⛤ **REPEATED start → cancel USED TO ACCUMULATE ABANDONED AUTHORITY, ONE
-/// RECORD AND ONE PLAN PER CYCLE.**
-///
-/// The single-cancel arm above proves the two authorities are retired once. This
-/// one proves the loop is CLOSED: three full cycles end where they began. A
-/// cancel that retired only the newest record would satisfy the arm above and
-/// still leak here.
-///
-/// ⚠ It asserts a RETURN TO BASELINE rather than a bound, because "fewer than
-/// three" is the shape of a leak that got slower.
+/// Repeated start and cancel must not leak prepared records or load plans.
+/// Three cycles must return to the baseline exactly, not just stay under a
+/// bound.
 #[test]
 fn repeated_start_and_cancel_returns_the_shell_to_its_baseline() {
     let mut loads = LoadCoordinator::default();
@@ -1348,6 +1232,9 @@ fn repeated_start_and_cancel_returns_the_shell_to_its_baseline() {
     }
 }
 
+/// A superseded transaction names the request it cancelled. The other events
+/// that carry a barrier (`PreparationRequested`, `WaitingForLoad`) name the new
+/// transaction, and `ShellRouter.pending` is already overwritten.
 #[test]
 fn a_superseded_transaction_names_the_request_it_cancelled() {
     let mut loads = LoadCoordinator::default();
@@ -1379,8 +1266,7 @@ fn a_superseded_transaction_names_the_request_it_cancelled() {
         })
         .expect("the first request creates a transaction");
 
-    // ⛔ THE PREMISE: the first transaction is STILL PENDING, neither ready nor
-    // terminal. A supersession of nothing would emit nothing correctly.
+    // Premise: the first transaction is still pending.
     let holds = ShellRouteHolds::default();
     assert!(
         router
@@ -1389,8 +1275,7 @@ fn a_superseded_transaction_names_the_request_it_cancelled() {
         "the fixture's first transaction already resolved, so nothing is being          superseded",
     );
 
-    // ⭐ A SECOND SAVE ARRIVES BEFORE THE FIRST FINISHED — what a file watcher
-    // makes ordinary.
+    // A second save arrives before the first finishes.
     let events = router.apply(
         ShellCommand::ReplaceWith {
             route: ShellRouteId::new("game"),
@@ -1423,8 +1308,7 @@ fn a_superseded_transaction_names_the_request_it_cancelled() {
         "it named the superseding request rather than the cancelled one",
     );
     assert_eq!(ended.2, TransactionEnd::Superseded);
-    // ⚠ AND NOT AS A FAILURE. Nothing went wrong; the caller asked for something
-    // else. A caller that retried on `Failed` would loop forever here.
+    // Not reported as a failure.
     assert_ne!(ended.2, TransactionEnd::Failed);
 
     let second = events
@@ -1442,6 +1326,9 @@ fn a_superseded_transaction_names_the_request_it_cancelled() {
     assert_ne!(first.barrier.load_id, second.barrier.load_id);
 }
 
+/// A load that fails while the shell waits names the request that asked for
+/// it. Real failures arrive through `advance_pending`, and
+/// `CommandRejected(LoadFailed { .. })` carries no identity.
 #[test]
 fn a_load_that_fails_while_the_shell_waits_names_the_request_that_asked_for_it() {
     let mut loads = LoadCoordinator::default();
@@ -1471,8 +1358,7 @@ fn a_load_that_fails_while_the_shell_waits_names_the_request_that_asked_for_it()
             _ => None,
         })
         .expect("a ReplaceWith on a preparing route requests a preparation");
-    // ⛔ THE PREMISE: the request reached the transaction. Without it the arm
-    // below would be asserting that `None` equals `None`.
+    // Premise: the request reached the transaction.
     assert_eq!(
         transaction.request.as_ref(),
         Some(&mine),
@@ -1507,9 +1393,7 @@ fn a_load_that_fails_while_the_shell_waits_names_the_request_that_asked_for_it()
     assert_eq!(ended.0, transaction.barrier, "it named a different barrier");
     assert_eq!(ended.1.as_ref(), Some(&mine), "it named a different request");
     assert_eq!(ended.2, TransactionEnd::Failed);
-    // ⚠ AND THE DETAILED REPORT IS STILL THERE. The identity event carries no
-    // failure list, so collapsing the two would cost every existing reader the
-    // provider's reason.
+    // The detailed `LoadFailed` report is still sent.
     assert!(
         events.iter().any(|event| matches!(
             event,
@@ -1518,7 +1402,7 @@ fn a_load_that_fails_while_the_shell_waits_names_the_request_that_asked_for_it()
         "the identity event replaced the failure report instead of joining it",
     );
 
-    // ⛔ ONCE, NOT EVERY FRAME — the `terminal_reported` latch covers both.
+    // Once, not every frame: the `terminal_reported` latch covers both events.
     let repeat = router.advance_pending(&catalog, &mut loads, &mut prepared, &holds);
     assert!(
         !repeat

@@ -175,12 +175,7 @@ fn level_with_collision(w: i32, h: i32, solid: &[(i32, i32)]) -> LdtkLevel {
     serde_json::from_value(json).expect("the probe level parses")
 }
 
-/// THE REACHABILITY RULE ASKS ABOUT A STEP, NOT ABOUT SOLIDITY.
-///
-///  two proxies preceded it. The first scanned entities named `Solid` while
-/// these levels paint their floors into the Collision IntGrid, so it read an
-/// empty set on every world. The second counted solid CELLS inside the zone and
-/// flagged five of twenty-four exits — three of them correct authoring.
+/// The reachability rule asks about a step, not about solidity.
 ///
 /// This is `central_hub_main`'s real shape: the opening is a hole in a wall
 /// whose bottom row is still solid, so the ground inside is one cell higher than
@@ -209,8 +204,7 @@ fn an_exit_whose_ground_is_higher_than_the_approach_reports_the_step() {
     assert_eq!(edge_exit_step_up_px(&level, (96, 64, 32, 64)), 16);
 }
 
-///  AND A ZONE STANDING ON THE ROOM'S OWN FLOOR REPORTS NOTHING — which is
-/// the half the previous rule got WRONG.
+/// A zone standing on the room's own floor reports nothing.
 ///
 /// `scroll_lab`, `square_arena` and `tiny_chamber` all have solid cells in their
 /// zone's bottom row, and all three are fine: that row is the floor, running
@@ -240,7 +234,7 @@ fn a_zone_standing_on_the_rooms_own_floor_is_not_a_step() {
     assert_eq!(edge_exit_step_up_px(&empty, (0, 0, 128, 128)), 0);
 }
 
-///  THE APPROACH COLUMN IS ON THE ROOM'S SIDE, NOT ALWAYS THE LEFT.
+/// The approach column is on the room's side, not always the left.
 ///
 /// An `EdgeExit` touches a level edge, so the room is on whichever side is not the edge.
 #[test]

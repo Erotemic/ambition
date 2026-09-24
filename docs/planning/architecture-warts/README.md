@@ -29,7 +29,11 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W009, W010, W011, W012, W021, W022, W023 and W028 on 2026-09-24. W007 closed 2026-09-24 by deletion (`DifficultyProfile::mash_speed_hz`, no reader and no shipped author). W003 closed 2026-09-24 by deletion: the four fields left the schema and the nine shipped files; no intrinsic trigger enters `BossEncounterPhase::Stagger` (reachable only through `extra_phase_triggers`, which no shipped boss authors). The remaining rows it owns carry their AP number there.
+Closed rows are removed; Git history and the
+[AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel)
+row record them. Open rows that AUTHORITY-POLISH owns carry their AP number
+there. After the W003 deletion, only `extra_phase_triggers` can enter
+`BossEncounterPhase::Stagger`, and no shipped boss authors it.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |

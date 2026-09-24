@@ -1,25 +1,15 @@
-//! Straddle eviction — the ONE sanctioned pushout.
+//! Straddle eviction: the only pushout the portal mechanic performs.
 //!
-//! Pushout corrupts position/reversibility and papers over real bugs.
+//! Pushout breaks position reversibility and hides real bugs, so it is used
+//! only here. When a portal moves, closes, or teleports while a body
+//! straddles its plane (a re-fired portal, a room reset, a vanished partner),
+//! the body is pushed fully to its centroid's side, so it lands in open space
+//! and not inside the wall.
 //!
-//! The lone exception is here: a portal moves, closes, or teleports while a
-//! body straddles its plane (re-firing the gun to reposition a portal out
-//! from under a straddler; a room reset clearing portals; the partner of a
-//! transiting body vanishing). Physically the body's two halves are in two
-//! different places, and the closing aperture would rip the body in half.
-//! We model a world-force that instead shoves the straddling body fully to the
-//! side its centroid is on, so it lands intact in open space rather than
-//! embedded in the now-solid wall. This is the only displacement the portal
-//! mechanic performs.
-//!
-//! ## Disabling this (the rip-in-half mechanic)
-//! A game that WANTS lethal portal-close — severing or killing anything caught
-//! straddling a vanishing portal — simply does NOT register
-//! [`evict_straddlers_on_portal_change`], and instead reacts to the same event
-//! (a body straddling a portal that just changed) by killing/splitting it.
-//! The detection (frame history → straddle test) is the reusable half; the
-//! *response* (evict vs. rip) is the game's choice. Ambition currently evicts;
-//! the rip may become a real mechanic later.
+//! ## Disabling this
+//! A game that wants a lethal portal close does not register
+//! [`evict_straddlers_on_portal_change`], and reacts to the same event (a body
+//! straddling a portal that just changed) itself. Ambition evicts.
 
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -34,8 +24,8 @@ use crate::transit::PortalBody;
 use crate::types::PlacedPortal;
 
 /// Last frame's placed-portal frame per channel, so
-/// [`evict_straddlers_on_portal_change`] can detect a portal that MOVED or
-/// VANISHED under a straddling body. Crate-owned; the [`PortalPlugin`](crate::PortalPlugin)
+/// [`evict_straddlers_on_portal_change`] can detect a portal that moved or
+/// vanished under a straddling body. [`PortalPlugin`](crate::PortalPlugin)
 /// initialises it.
 #[derive(Resource, Default, Clone)]
 pub struct PortalFrameHistory(HashMap<PortalChannel, PortalAperture>);
@@ -44,19 +34,17 @@ pub struct PortalFrameHistory(HashMap<PortalChannel, PortalAperture>);
 /// on one side (not resting exactly on it).
 const EVICT_MARGIN: f32 = 1.0;
 
-/// Detect portals that moved / vanished since last frame and shove any body
-/// straddling the OLD plane fully to its centroid's side (the sanctioned
-/// pushout — see the module docs; the alternative is to rip the body in half).
+/// Detect portals that moved or vanished since last frame, and push any body
+/// straddling the old plane fully to its centroid's side (see module docs).
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<&PlacedPortal>,
     mut bodies: Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>), With<PortalBody>>,
 ) {
-    // A HOSTED aperture riding its face (CC6) is the same portal in motion,
-    // not a close: compare against where host-carried motion says it should
-    // be. Unhosted portals have zero frame_delta, so this is byte-identical
-    // to the pre-CC6 rule for them. A refire/teleport still evicts — its
-    // displacement never matches the host delta.
+    // A hosted aperture moving with its face is the same portal, not a close:
+    // compare against the host-carried position. Unhosted portals have zero
+    // `frame_delta`. A refire or teleport does not match the host delta, so it
+    // still evicts.
     let current: HashMap<PortalChannel, (PortalAperture, Vec2)> = portals
         .iter()
         .map(|p| (p.channel, (p.aperture(), p.frame_delta())))
@@ -91,12 +79,10 @@ fn evict_for_plane(
         if !pp::straddles(body, &plane) {
             continue;
         }
-        // Signed centroid distance (+ in front), and the body's half-extent
-        // along the normal: push so the trailing edge clears the plane on the
-        // centroid's side.
+        // Push so the trailing edge clears the plane on the centroid's side.
         let d = pp::front_distance(kin.pos, &plane.frame);
         let half_n = (kin.size * 0.5).dot(n.abs());
-        // authority (ADR 0024): the closing portal carries the straddling body
+        // Position authority (ADR 0024): the closing portal moves the body
         // clear of the plane.
         if d >= 0.0 {
             let push = half_n - d + EVICT_MARGIN;

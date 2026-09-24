@@ -126,27 +126,18 @@ pub struct GameplaySessionWorldRoot {
     pub prepared: Option<PreparedSessionIdentity>,
 }
 
-/// Session scopes a provider RESERVED for activations that have not happened
+/// Session scopes a provider reserved for activations that have not happened
 /// yet.
 ///
-/// ⛔⛤ **A10.5: A CANDIDATE SESSION NEEDS ITS IDENTITY BEFORE IT IS ALLOWED TO
-/// BE PLAYED.** A provider that prepares a whole session off to the side — a
-/// hidden root, its first room, its content binding — must stamp all of it with
-/// the scope that session will own, and that is long before the shell decides
-/// the route may activate. Without this the bridge would mint a SECOND scope at
-/// activation and the prepared world would belong to nobody.
+/// A provider that prepares a candidate session in advance (hidden root, first
+/// room, content binding) stamps it with the scope the session will own. The
+/// bridge adopts that scope at activation instead of minting a second one.
 ///
-/// ⚠ **IT IS A RESERVATION LEDGER, NOT A SECOND ACTIVE-SCOPE AUTHORITY.**
-/// `ActiveSessionScope` still owns both the allocator (`reserve`) and the one
-/// `current` (`publish`); this only remembers which reserved scope belongs to
-/// which pending activation so the bridge can adopt it.
+/// This is only a ledger. `ActiveSessionScope` still owns the allocator
+/// (`reserve`) and the current scope (`publish`).
 ///
-/// ⛔⛤ **A RESERVATION WHOSE ACTIVATION NEVER HAPPENS IS RELEASED — 2026-09-15.**
-/// This said such a reservation "is dropped, and the scope id is simply never
-/// used", which describes a leak in the voice of a policy: the row stayed in the
-/// map forever and the candidate that claimed it stayed hidden in the world. Its
-/// owner calls [`Self::release`] when a later pending route supersedes it, in the
-/// same statement that discards the candidate.
+/// When a later pending route supersedes a reservation, its owner calls
+/// [`Self::release`] and discards the candidate.
 #[derive(Resource, Default, Debug)]
 pub struct ReservedGameplayScopes(BTreeMap<ShellActivationId, SessionScopeId>);
 
@@ -167,22 +158,14 @@ impl ReservedGameplayScopes {
     }
 
     /// Give a reservation back unadopted: the candidate that claimed it was
-    /// superseded before its route ever activated.
-    ///
-    /// ⛔ SEPARATE FROM [`Self::take`] because the two mean opposite things and a
-    /// shared spelling would let a discard read as an adoption. This one is the
-    /// refusal half, and a ledger that only ever grows is a ledger that will one
-    /// day answer for an activation nobody is waiting for.
+    /// superseded before its route activated. Separate from [`Self::take`] so a
+    /// discard does not read as an adoption.
     pub fn release(&mut self, activation: ShellActivationId) {
         self.0.remove(&activation);
     }
 
-    /// How many reservations are outstanding.
-    ///
-    /// ⛔ FOR ASSERTING THE LEDGER DOES NOT GROW. The doc above used to say a
-    /// reservation whose activation never happens "is dropped, and the scope id
-    /// is simply never used" — which described a leak in the voice of a policy.
-    /// Nothing could see it; now something can.
+    /// How many reservations are outstanding. Tests use it to assert that the
+    /// ledger does not grow.
     pub fn outstanding(&self) -> usize {
         self.0.len()
     }
@@ -234,27 +217,15 @@ impl GameplaySessionInstance {
 pub struct ActiveGameplaySession(pub Option<GameplaySessionInstance>);
 
 impl ActiveGameplaySession {
-    /// Adopt a world that was built BEFORE this activation, as A10.5's candidate
-    /// session is. **The only road a gameplay session's world reaches this
-    /// resource by.**
+    /// Adopt a world that was built before this activation, such as a
+    /// candidate session. This is the only way a gameplay session's world
+    /// reaches this resource. The candidate may be built while another session
+    /// is still live, so the provider spawns its own root and passes it here.
     ///
-    /// ⛔⛤ **THERE WAS A SECOND ONE, `spawn_world_for`, AND NOTHING CALLED IT.**
-    /// It spawned the root itself behind the same validation this function
-    /// performs, which made it a duplicate of both halves: a second mint of the
-    /// canonical `SimId::singleton("session", "root")` and a second copy of the
-    /// publication contract. A10's candidate is deliberately not yet the live
-    /// session — it may be prepared while a DIFFERENT session is still live — so
-    /// it builds its own root and hands it here, and the primitive that validates
-    /// against the already-published session could never serve it.
-    ///
-    /// ⚠ Its only two callers were its own tests, and the ID-PEER provenance arm
-    /// among them reported the session root's identity safe on a road the game
-    /// does not take. `delayed_world_publication_for_a_cannot_attach_to_b` moved
-    /// here with it.
-    ///
-    /// Returns the shell facts the caller must put ON that root — the activation
-    /// identity a candidate could not know — or `None` when this is not the
-    /// session being adopted into.
+    /// Returns the shell facts the caller must put on that root (the
+    /// activation identity), or `None` when this is not the session being
+    /// adopted into. Guarded by
+    /// `delayed_world_publication_for_a_cannot_attach_to_b`.
     pub fn adopt_world(
         &mut self,
         activation: &ActiveShellExperience,
@@ -341,10 +312,8 @@ pub struct GameplaySessionBridgePlugin;
 impl Plugin for GameplaySessionBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(SessionScopePlugin)
-            // Opt this App into session-gated simulation: composing the bridge
-            // IS the declaration that gameplay belongs to shell-routed
-            // sessions, so the gameplay-simulation root sleeps whenever no
-            // session scope is live (launcher/title/loading frames).
+            // Adding the bridge opts into session-gated simulation: gameplay
+            // sleeps while no session scope is live (launcher, title, loading).
             .init_resource::<SessionGatedSimulation>()
             .init_resource::<GameplaySessionRegistry>()
             .init_resource::<ActiveGameplaySession>()
@@ -353,22 +322,19 @@ impl Plugin for GameplaySessionBridgePlugin {
             .init_resource::<PresentationOwnershipPolicy>()
             .init_resource::<ActiveAudioSelection>()
             .init_resource::<SfxEmissionContext>()
-            // Required, never Option: session-audio composition must fail loudly
-            // if the host was built without an audio system rather than treating
-            // a missing registry as "everyone is silent."
+            // Required, not `Option`: a host without an audio system must fail
+            // loudly, not play silence.
             .init_resource::<AudioCatalogRegistry>()
-            // The bank-id index defaults empty (a host may ship no SFX bank);
-            // providers that contribute a bank register their ids here so a
-            // session's SFX authority spans its cues AND its bank content.
+            // Empty by default. Providers with an SFX bank register its ids
+            // here, so session SFX authority covers cues and bank content.
             .init_resource::<SfxBankRegistry>()
             .add_message::<GameplaySessionEvent>()
             .add_message::<AudioContextChanged>()
             .configure_sets(
                 Update,
-                // ⛔ `SessionScopeSet::Activate` sits BETWEEN them, not beside
-                // them: the bridge announces the new scope, the scope's own
-                // state is re-established, and only then does a provider build
-                // the world that will read it.
+                // `SessionScopeSet::Activate` runs between these: the bridge
+                // announces the scope, scope state is reset, then providers
+                // build the world.
                 (
                     (
                         GameplaySessionSet::Bridge,
@@ -378,16 +344,10 @@ impl Plugin for GameplaySessionBridgePlugin {
                         .chain()
                         .after(AmbitionGameShellSet::Pending)
                         .before(SessionScopeSet::Presentation),
-                    // ⛔⛤ **THE BRIDGE IS THE ONLY WRITER OF `SessionScopeRetired`,
-                    // SO IT MUST PRECEDE THE SEAM THAT READS IT.**
-                    //
-                    // `SessionScopeSet` chains `RetireAuthority -> Cleanup ->
-                    // Activate`, and the `Bridge -> Activate` edge above is
-                    // satisfied by running the bridge anywhere before activation —
-                    // including AFTER the sweep, which would defer every retirement
-                    // by a frame and put the dying scope's despawns back inside the
-                    // new session's world. This edge is what makes the retire
-                    // message readable in the frame it is written.
+                    // The bridge is the only writer of `SessionScopeRetired`,
+                    // so it must run before `RetireAuthority` reads it. The
+                    // `Bridge -> Activate` edge alone allows the bridge to run
+                    // after cleanup, which delays retirement by a frame.
                     GameplaySessionSet::Bridge.before(SessionScopeSet::RetireAuthority),
                 ),
             )
@@ -430,11 +390,10 @@ fn select_frontend_authority(
 
 /// Derive the active audio authority from gameplay-session lifecycle.
 ///
-/// Activation selects the session profile's audio provider (defaulting to the
-/// experience id) out of the App-local [`AudioCatalogRegistry`]; a provider
-/// that registered no fragment is a composition error; deliberate silence is
-/// represented by an explicit empty fragment. Retirement clears playback authority
-/// — cached assets may outlive the session, the selection does not.
+/// Activation selects the session profile's audio provider (default: the
+/// experience id) from the App-local [`AudioCatalogRegistry`]. A provider with
+/// no fragment is a composition error; silence is an explicit empty fragment.
+/// Retirement clears playback authority; cached assets may remain.
 ///
 /// Chained directly after [`translate_shell_session_lifecycle`], so providers
 /// in [`GameplaySessionSet::Providers`] already observe the new selection on
@@ -495,13 +454,10 @@ fn select_shell_audio_context(
         }
     }
 
-    // Plain shell routes (startup, launcher, loading, credits, a provider's own
-    // character select) each get the frontend profile DECLARED FOR THAT ROUTE,
-    // falling back to the host's default. They are not "ungoverned": menu SFX
-    // and title music are authorized by the exact shell activation that emitted
-    // them, while stale gameplay requests remain invalid.
-    //
-    // `activation.route_id` was in scope and unread.
+    // Plain shell routes (startup, launcher, loading, credits, a provider's
+    // character select) get the frontend profile declared for that route, or
+    // the host default. Their menu SFX and music are authorized by the exact
+    // shell activation; stale gameplay requests stay invalid.
     for event in shell_events.read() {
         match event {
             ShellEvent::RouteActivated(activation)
@@ -560,8 +516,7 @@ fn translate_shell_session_lifecycle(
     mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
     mut active_scope: ResMut<ActiveSessionScope>,
-    // What a provider claimed for this activation before it happened — see
-    // [`ReservedGameplayScopes`].
+    // Scopes providers reserved before activation; see [`ReservedGameplayScopes`].
     mut reserved: ResMut<ReservedGameplayScopes>,
     mut active_session: ResMut<ActiveGameplaySession>,
     mut loads: ResMut<ambition_load::LoadCoordinator>,
@@ -573,35 +528,11 @@ fn translate_shell_session_lifecycle(
     for event in shell_events.read() {
         match event {
             ShellEvent::RouteDeactivated(activation) => {
-                // ⛔⛤ **THIS ASKED TWO AUTHORITIES THE SAME QUESTION AND
-                // BELIEVED THE WEAKER ONE.** `GameplaySessionLinks` held
-                // `Vec<(ShellActivationId, SessionScopeId)>` and gated this whole
-                // block; `retire_if_activation` was then asked the SAME question
-                // and its answer used only for the load barrier. The map could
-                // hold at most one binding — activation asserts
-                // `active_session.0.is_none()` — so it was a one-entry copy of a
-                // pair the live instance already carries, with a query API
-                // (`scope_for`) that no production caller read.
-                //
-                // ⭐ BEHAVIOUR-IDENTICAL, MEASURED RATHER THAN ARGUED. A probe
-                // asserting the two answers agree ran the whole app suite green
-                // (709/0/45), and
-                // `a_retirement_that_arrives_after_its_session_ended_changes_nothing`
-                // passes against BOTH the old code and this one.
-                //
-                // ⛔ I expected a behaviour fix here and there is none. The
-                // suspicion was that the map's gate was looser — that a delayed
-                // retirement could pass it and reach the `GameMode` reset below,
-                // which is NOT scope-guarded the way `clear_if_current` is, the
-                // shape the session teardown was corrected for on 2026-09-13.
-                // It cannot: `unbind` REMOVES the binding, so a re-delivered
-                // retirement found nothing and skipped, exactly as this does. The
-                // hazard needs an activation that was bound and never retired,
-                // and the assert at activation makes that unreachable.
-                //
-                // ⇒ So this is a duplicate authority removed, not a defect fixed,
-                // and the arm's job is to keep the behaviour pinned across the
-                // change rather than to witness a repair.
+                // The live session is the only authority for which activation
+                // is retiring. A retirement for an activation that is not live
+                // does nothing, so the `GameMode` reset below (which is not
+                // scope-guarded) cannot run for a stale retirement. Guarded by
+                // `a_retirement_that_arrives_after_its_session_ended_changes_nothing`.
                 if let Some(retired_session) =
                     active_session.retire_if_activation(activation.activation_id)
                 {
@@ -609,23 +540,12 @@ fn translate_shell_session_lifecycle(
                     if let Some(load) = retired_session.load.as_ref() {
                         loads.retire(&load.load_id);
                     }
-                    // `GameMode` is a Bevy `States` global, and pausing is the one thing that
-                    // writes it from OUTSIDE the session's own systems. Quit to the title from a
-                    // paused match and the mode stayed `Paused` with no session to explain it: the
-                    // next match built its fighters, seated them, framed them and never advanced a
-                    // tick — bodies hanging in the air with a menu that still answered.
-                    //
-                    // the pause menu already handed the sim back on its way
-                    // out, and that is exactly the problem: `QuitToHome` has
-                    // four writers (the pause menu, the F10 developer hotkey, the
-                    // in-world system menu, the scripted route sweep) and only
-                    // one of them remembered. A rule every caller must obey is a
-                    // rule three callers will eventually break. The lifecycle
-                    // that ended the session is the one place that cannot forget.
-                    //
-                    // `Dialogue`, `RoomTransition` and `Cutscene` reset too,
-                    // for the same reason — every one of them describes a live
-                    // world, and this one has just been retired.
+                    // Reset `GameMode` (a global Bevy state) when the session
+                    // retires. Otherwise a quit from a paused match leaves it
+                    // `Paused`, and the next match never ticks. `QuitToHome` has
+                    // several writers, so the reset lives here and not in each
+                    // caller. `Dialogue`, `RoomTransition`, and `Cutscene` also
+                    // describe a live world, so they reset too.
                     if let Some(mode) = game_mode.as_mut() {
                         ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
                             GameMode::default(),
@@ -634,10 +554,8 @@ fn translate_shell_session_lifecycle(
                         mode.set(GameMode::default());
                     }
                     active_scope.clear_if_current(scope);
-                    // Session lifetime was logged NOWHERE: the word "session"
-                    // matched zero lines across a 258-second desktop capture.
-                    // This system is the only translator from shell routing to
-                    // gameplay-session lifetime, so both edges are marked here.
+                    // Log both session edges here: this system is the only
+                    // translator from shell routing to session lifetime.
                     ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
                         "session-end experience={} activation={:?} scope={}",
                         activation.experience_id.as_str(),
@@ -663,12 +581,8 @@ fn translate_shell_session_lifecycle(
                         .as_ref()
                         .map(|session| session.activation.activation_id),
                 );
-                // ⛔⛤ **ADOPT THE RESERVATION IF A PROVIDER MADE ONE.** A
-                // candidate session prepared before this activation stamped its
-                // root, its entities and its content binding with a scope it
-                // reserved; minting a second one here would leave that world
-                // owned by nobody. `begin` is still the ordinary road for an
-                // activation nobody prepared for.
+                // Adopt a provider's reserved scope if one exists; the prepared
+                // candidate world already uses it. Otherwise `begin` a new one.
                 let scope = match reserved.take(activation.activation_id) {
                     Some(reserved) => {
                         active_scope.publish(reserved);
@@ -676,12 +590,8 @@ fn translate_shell_session_lifecycle(
                     }
                     None => active_scope.begin(),
                 };
-                // ⭐ BOTH EDGES ARE ANNOUNCED HERE. This is the one translator
-                // from shell routing to gameplay-session lifetime, so it is the
-                // one place that can say a session has begun before anything
-                // has been built for it — which is what lets session-scoped
-                // process globals be re-established by their owner rather than
-                // by a teardown somebody has to remember.
+                // Announce the scope before anything is built, so owners of
+                // session-scoped globals can reset them on activation.
                 activated.write(SessionScopeActivated(scope));
                 let audio_provider = registry
                     .profile(&activation.experience_id)

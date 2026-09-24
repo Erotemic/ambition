@@ -32,20 +32,15 @@ use crate::{
 #[derive(Component)]
 pub struct BasicSequenceRoot;
 
-/// Marks the fade-able CONTENT of a vanity card (its text / image), distinct from
-/// the opaque black backdrop. [`drive_basic_sequence_card`] ramps its alpha from
-/// the sequence runtime's elapsed time so the card eases in from black and out
-/// again, instead of snapping.
+/// Marks the content of a vanity card (text or image), not its black backdrop.
+/// [`drive_basic_sequence_card`] ramps its alpha so the card fades in and out.
 #[derive(Component)]
 pub struct BasicSequenceCardContent;
 
-/// Every frame handle of an animated sequence, resolved ONCE when the card
-/// spawns and held on its image node.
-///
-/// Preloading matters here: the card is short, so resolving handles lazily per
-/// frame would let a late-arriving image miss its own slot entirely. It also
-/// keeps the node tree stable — the animation advances by swapping this node's
-/// texture, never by rebuilding the card (see [`shell_frame_key`]).
+/// Every frame handle of an animated sequence, resolved once when the card
+/// spawns. The card is short, so lazy loading could miss a frame's slot. The
+/// animation swaps this node's texture and does not rebuild the card (see
+/// [`shell_frame_key`]).
 #[derive(Component)]
 pub struct BasicSequenceImages {
     handles: Vec<Handle<Image>>,
@@ -53,16 +48,14 @@ pub struct BasicSequenceImages {
 
 /// The per-frame "this picture is missing" notice.
 ///
-/// Sequence payloads can be absent from a checkout (they are generated, and
-/// git-ignored), so a frame that fails to load degrades to a visible label for
-/// exactly its own slot rather than taking down the card. Timing is untouched:
-/// the sequence still runs its full length and still hands off on schedule.
+/// Sequence payloads are generated and git-ignored, so they can be absent. A
+/// frame that fails to load shows a label for its own slot only. Timing does
+/// not change.
 #[derive(Component)]
 pub struct BasicSequenceMissingNotice;
 
-/// Seconds the vanity card spends fading in, and (separately) fading out. The
-/// card holds at full opacity in between; a card whose `auto_advance_after` is
-/// shorter than `2 * FADE` still reads as a smooth in-then-out.
+/// Seconds the vanity card fades in, and again fades out. The card holds at
+/// full opacity between the fades.
 const CARD_FADE_SECONDS: f32 = 0.55;
 
 #[derive(Default)]
@@ -70,8 +63,7 @@ struct BasicSequenceFrame {
     key: String,
     text: String,
     image_path: Option<String>,
-    /// Every frame path, when this segment is an animated sequence. Empty for
-    /// still cards. Drives preloading and the per-frame texture swap.
+    /// Every frame path of an animated sequence; empty for still cards.
     sequence_paths: Vec<String>,
 }
 
@@ -91,9 +83,8 @@ enum BasicLauncherPage {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct BasicLauncherAction(usize);
 
-/// The full-screen tap-anywhere surface of a startup/vanity card. One
-/// semantic activation: acknowledge (or skip) the card — the same command
-/// keyboard/controller confirm fires.
+/// The full-screen tap surface of a startup card. It acknowledges or skips the
+/// card, the same command as keyboard or controller confirm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct ShellCardAction;
 
@@ -103,25 +94,18 @@ pub struct BasicShellPresentationPlugin;
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
         install_bevy_ui_menu_actions::<BasicLauncherAction>(app);
-        // ⛔⛔ WITHOUT THIS THE TAB STRIP IS DECORATION. The renderer draws each
-        // tab as a real `Button`, but `publish_bevy_ui_menu_tabs` — the system
-        // that turns a press into `MenuTabActivated` — was installed by the
-        // kaleidoscope menu and by nothing else. So on the title screen a click
-        // or tap on `Settings` reached no system at all, and the tab was
-        // available ONLY to Escape/Start. Reported by Jon 2026-09-06: "in the
-        // title screen there is no way for me to select the settings menu. I
-        // can't click, tap, nothing."
+        // Installs `publish_bevy_ui_menu_tabs`, which turns a tab press into
+        // `MenuTabActivated`. Without it, pointer presses on the tab strip do
+        // nothing. Guarded by `the_shell_plugin_installs_the_tab_pointer_road`.
         ambition_menu::render::bevy_ui::install_bevy_ui_menu_tabs(app);
         install_bevy_ui_menu_actions::<ShellCardAction>(app);
         app.add_message::<OwnedSfxMessage>()
             .init_resource::<ambition_sfx::SfxEmissionContext>()
             .init_resource::<ActiveUiCues>()
-            // This presentation owns the words on its surfaces, so it also
-            // publishes their submit cues ("Continue", "Play", the exit
-            // label) for the prompt fold and the touch confirm button.
+            // This presentation owns its surface text, so it also publishes
+            // the submit cues ("Continue", "Play", the exit label).
             .add_systems(Update, publish_shell_ui_cues.in_set(InputSet::PublishCues))
-            // Consumers of the routed input semantics: after every producer,
-            // same frame.
+            // Input consumers: after every producer, in the same frame.
             .add_systems(
                 Update,
                 (
@@ -129,9 +113,8 @@ impl Plugin for BasicShellPresentationPlugin {
                     basic_shell_pointer.after(BevyUiMenuInteractionSet),
                     basic_shell_card_tap.after(BevyUiMenuInteractionSet),
                     render_basic_shell,
-                    // AFTER the render: on a rebuild frame the tree spawns with
-                    // the cursor already correct, and on every other frame this
-                    // is the only thing that moves it.
+                    // After the render: a rebuild spawns the correct cursor;
+                    // on other frames only this system moves it.
                     follow_the_launcher_cursor,
                     drive_basic_sequence_card,
                 )
@@ -193,20 +176,14 @@ fn basic_shell_pointer(
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sfx: SfxWriter,
 ) {
-    // HOVER moves the cursor.
-    //
-    // Hovering is not choosing, so this is `Focus` rather than `Activate`: a
-    // launcher that started a game because the pointer crossed a row on its way
-    // somewhere else would be unusable. It lands in the SAME cursor the keyboard
-    // moves, so hover-then-Enter does what it looks like it will.
+    // Hover moves the cursor (`Focus`, not `Activate`). It is the same cursor
+    // the keyboard moves, so hover then Enter launches the hovered row.
     for preview in previewed.read() {
         if !launcher.active {
             continue;
         }
         launcher_commands.write(ShellLauncherCommand::Focus(preview.action.0));
-        // The same cue the cursor makes when a key moves it. A row that
-        // highlights silently under the mouse and clicks under the keyboard is
-        // two different menus.
+        // Same cue as a keyboard cursor move.
         sfx.write(SfxMessage::Play {
             id: ids::UI_MENU_MOVE,
             pos: Vec2::ZERO,
@@ -223,19 +200,9 @@ fn basic_shell_pointer(
         });
     }
 
-    // ⛔⛔ THE TAB STRIP IS CLICKABLE AND NOBODY WAS LISTENING.
-    // `publish_bevy_ui_menu_tabs` draws each tab as a real `Button`, arms it on
-    // press and publishes `MenuTabActivated` — and its ONLY reader was the
-    // kaleidoscope menu's grid backend. So on the title screen a click or tap on
-    // `Settings` produced a message nothing consumed, and the tab was reachable
-    // ONLY by Escape/Start. Reported by Jon 2026-09-06: "in the title screen
-    // there is no way for me to select the settings menu. I can't click, tap,
-    // nothing."
-    //
-    // ⚠ THE GESTURE ROAD WAS NEVER BROKEN, which is why this survived: the arm
-    // above it deliberately kept Start reaching settings when the pause-menu road
-    // was removed, and a test pins that. A keyboard-driven test cannot see that
-    // the POINTER has no road at all.
+    // Pointer presses on the tab strip. `publish_bevy_ui_menu_tabs` writes
+    // `MenuTabActivated`; this is its reader on the title screen. Keyboard tests
+    // do not cover this path; `clicking_the_settings_tab_reaches_it` does.
     for tab in tab_activated.read() {
         if !launcher.active {
             continue;
@@ -264,24 +231,15 @@ fn basic_shell_menu_intent(
 ) {
     let actions = shell_action_edges(menu_frame.as_deref());
     let (up, down, confirm) = (actions.previous, actions.next, actions.confirm);
-    // ⭐ Bumpers cycle the tab strip, the same contract the kaleidoscope's strip
-    // uses, so one gesture works on every tabbed surface in the game.
+    // Bumpers cycle the tab strip, as on the kaleidoscope menu.
     let bump = menu_frame.as_deref().map_or(0, |frame| {
         (frame.page_right as i32) - (frame.page_left as i32)
     });
     if launcher.active {
-        // ⛔⛔ ESCAPE / START MUST STILL REACH SETTINGS FROM THE TITLE SCREEN.
-        // It used to open the shell PAUSE menu over the launcher, which is the
-        // stacking bug Jon reported — but that road was also the ONLY answer to
-        // "how do I mute this", which is the question this screen actually gets.
-        // Making the pause menu yield fixed the stacking and silently took the
-        // capability with it; `shell_host_rendered`'s title-screen test caught
-        // exactly that, which is what an assembled-host test is for.
-        //
-        // ⭐ So the gesture keeps its MEANING and loses its mechanism: on a
-        // screen with nothing to pause, Start shows you the settings instead of
-        // opening a second menu over the first. With exactly two tabs a cycle IS
-        // a toggle, so pressing it again goes back to the game list.
+        // Escape/Start must reach settings from the title screen (the pause
+        // menu yields to the launcher, so this is the only way to mute here).
+        // With two tabs, a cycle is a toggle. Guarded by
+        // `shell_host_rendered::the_title_screen_menu_opens_and_mutes_the_game`.
         if actions.pause {
             launcher_commands.write(ShellLauncherCommand::CycleTab(1));
             sfx.write(SfxMessage::Play {
@@ -298,10 +256,8 @@ fn basic_shell_menu_intent(
             });
             return;
         }
-        // ⛔ THE SETTINGS TAB IS NOT A LIST OF THINGS TO LAUNCH. Up/down still
-        // move the cursor, but left/right ADJUST the focused control and confirm
-        // does nothing -- routing a confirm here through `LaunchSelected` would
-        // start a game from the settings screen.
+        // On the settings tab, up/down move the cursor and left/right adjust
+        // the focused control. Confirm does nothing, so it cannot launch a game.
         if launcher.tab == LauncherTab::Settings {
             let rows = ShellAudioControl::ALL.len();
             if up || down {
@@ -351,8 +307,7 @@ fn basic_shell_menu_intent(
     }
 }
 
-/// Acknowledge (or skip) the active card — the ONE semantic advance both the
-/// confirm intent and a direct tap on the card converge on.
+/// Acknowledge or skip the active card. Both confirm and a card tap use this.
 fn advance_active_sequence(
     sequence: &ActiveShellSequence,
     sequence_commands: &mut MessageWriter<ShellSequenceCommand>,
@@ -376,9 +331,8 @@ fn advance_active_sequence(
     }
 }
 
-/// Tap-anywhere on a startup/vanity card: the card's full-screen surface is a
-/// pressable control, and its activation advances the sequence through the
-/// SAME semantic command as keyboard/controller confirm — not a special case.
+/// A tap anywhere on a startup card advances the sequence with the same
+/// command as keyboard or controller confirm.
 fn basic_shell_card_tap(
     launcher: Res<ShellLauncherState>,
     sequence: Res<ActiveShellSequence>,
@@ -394,9 +348,7 @@ fn basic_shell_card_tap(
     }
 }
 
-/// The neutral `(up, down, confirm)` navigation edges for this frame, unified
-/// across keyboard and every connected controller. Kept as a free function so
-/// the mapping is unit-testable without a live window.
+/// Rebuild the launcher or startup card when [`shell_frame_key`] changes.
 fn render_basic_shell(
     mut commands: Commands,
     launcher: Res<ShellLauncherState>,
@@ -407,8 +359,7 @@ fn render_basic_shell(
     asset_server: Option<Res<AssetServer>>,
     // The font menus draw with; `None` keeps Bevy's ASCII-only default.
     menu_font: Option<Res<ambition_menu::render::bevy_ui::MenuFont>>,
-    // ⚠ `Option` for the same reason the font is: a thin composition may carry
-    // no user settings, and the title screen still has to draw.
+    // `Option`: a thin composition may have no user settings.
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     sequence_roots: Query<Entity, With<BasicSequenceRoot>>,
     // Identity, not species: only THIS presentation's launcher tree. Other
@@ -461,12 +412,8 @@ fn render_basic_shell(
     if frame.text.is_empty() && frame.image_path.is_none() {
         return;
     }
-    // Startup cards render AUTHORED prose, so they need the same typeface the
-    // launcher below gets. Left at `TextFont::default()` they resolved Bevy's
-    // built-in `FiraMono-subset.ttf`, which drew hollow boxes for `·` and `—`
-    // in every menu until `MenuFont` existed. `None` still means that font; see
-    // `ambition_menu::render::bevy_ui::MenuFont`, which records what about it is
-    // proven and what is not.
+    // Startup cards use the menu font. Bevy's default font draws boxes for
+    // `·` and `—`. See `ambition_menu::render::bevy_ui::MenuFont`.
     let card_font = menu_font
         .as_deref()
         .and_then(|font| font.0.clone())
@@ -487,11 +434,8 @@ fn render_basic_shell(
             },
             BackgroundColor(Color::srgb(0.025, 0.03, 0.05)),
             GlobalZIndex(900),
-            // The whole card is one tap-anywhere control: bevy's
-            // `ui_focus_system` presses it from mouse OR touch, the shared
-            // interaction bridge publishes the semantic activation, and
-            // `basic_shell_card_tap` advances the sequence — the same command
-            // path as keyboard/controller confirm.
+            // The whole card is one tap control (mouse or touch).
+            // `basic_shell_card_tap` advances the sequence.
             Button,
             Interaction::default(),
             AmbitionMenuControl::<ShellCardAction> {
@@ -512,15 +456,12 @@ fn render_basic_shell(
                 .zip(asset_server.as_deref())
                 .map(|(path, server)| server.load::<Image>(path.clone()))
             {
-                // Start transparent; the fade system eases it in (matching the
-                // text below, so neither content kind flashes for a frame).
+                // Start transparent; the fade system eases it in.
                 let mut image = ImageNode::new(handle);
                 image.color.set_alpha(0.0);
                 let mut node = root.spawn((
                     image,
-                    // Width-driven with an automatic height so the picture keeps
-                    // its own aspect ratio. Pinning both axes stretches whatever
-                    // is loaded to the box — a 16:9 card would render squashed.
+                    // Automatic height keeps the image aspect ratio.
                     Node {
                         width: Val::Percent(70.0),
                         height: Val::Auto,
@@ -530,8 +471,7 @@ fn render_basic_shell(
                     BasicSequenceCardContent,
                     Name::new("basic shell sequence image"),
                 ));
-                // Resolve every frame up front so a short card never waits on a
-                // texture mid-animation.
+                // Resolve every frame up front.
                 if let Some(server) = asset_server.as_deref() {
                     if !frame.sequence_paths.is_empty() {
                         node.insert(BasicSequenceImages {
@@ -545,8 +485,7 @@ fn render_basic_shell(
                 }
             }
             if !frame.sequence_paths.is_empty() {
-                // Always present for a sequence, empty until a frame actually
-                // fails to load — see `BasicSequenceMissingNotice`.
+                // Empty until a frame fails to load.
                 root.spawn((
                     Text::default(),
                     TextFont {
@@ -595,11 +534,8 @@ fn spawn_launcher_menu(
         presentation.title.clone(),
         MenuColor::rgba(0.015, 0.020, 0.055, 0.98),
     );
-    // Sizes are PERCENTAGES OF VIEWPORT HEIGHT, like the `x`/`y` beside them —
-    // see `MenuNode::Text`. These three were always authored that way and were
-    // always right; the `bevy_ui` backend was reading them as pixels and
-    // drawing this title FIVE PIXELS tall. It now spawns them as
-    // `FontSize::Vh`, which is that unit, so the engine resolves them.
+    // Text sizes are percentages of viewport height, like `x`/`y` (see
+    // `MenuNode::Text`).
     page.text(
         50.0,
         8.0,
@@ -608,9 +544,8 @@ fn spawn_launcher_menu(
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    // ⭐ THE SETTINGS TAB IS A DIFFERENT PAGE BODY, NOT A DIFFERENT MENU. The tab
-    // strip, the view and the spawn below are shared, so the two tabs cannot
-    // drift apart in framing or in how they are torn down.
+    // The settings tab is a different page body in the same menu. Both tabs
+    // share the tab strip, view, and spawn below.
     if launcher.tab == LauncherTab::Settings {
         page.text(
             50.0,
@@ -624,19 +559,15 @@ fn spawn_launcher_menu(
             let focused = index == launcher.selected;
             page.control(
                 MenuRect::new(22.0, 24.0 + index as f32 * 9.0, 56.0, 7.0),
-                // The kind the pause menu already gives these four rows.
+                // Same kind as the pause menu uses for these rows.
                 ambition_menu::MenuControlKind::Action,
                 control.label().to_owned(),
-                // ⚠ The VALUE is read from the same `UserSettings` the pause
-                // menu reads. A second reading here -- a cached copy, a local
-                // mirror -- is how two surfaces come to disagree about the
-                // volume they are both showing.
+                // Read the value from `UserSettings`, as the pause menu does.
+                // Do not cache a copy.
                 settings.map(|s| control.value(s)),
                 focused,
                 false,
-                // ⚠ The row's action index is its POSITION in the control list,
-                // which is what a pointer activation resolves back to — the same
-                // contract the game rows use.
+                // The action index is the row position, as for game rows.
                 Some(BasicLauncherAction(index)),
             );
         }
@@ -663,10 +594,7 @@ fn spawn_launcher_menu(
         // The navigation cursor addresses only available entries, so map that
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
-        // The cap only binds when there are FEW experiences, which is the case
-        // that was too small: three games shared a budget sized for eight. With
-        // many rows the divisor still wins and nothing overflows, so this makes
-        // the common launcher bigger without making a full one break.
+        // The cap applies only with few rows; many rows still share the height.
         let row_height = (66.0 / (catalog.entries.len() + exit_rows).max(1) as f32).min(16.0);
         let row_left = 12.0;
         let row_width = 76.0;
@@ -674,8 +602,8 @@ fn spawn_launcher_menu(
         for (index, entry) in catalog.entries.iter().enumerate() {
             let (kind, action, detail, selected) = if entry.available {
                 let selected = available_index == launcher.selected;
-                // The row carries its SELECTION index, not its route: pointer
-                // activation then lands in the same command the cursor produces.
+                // The row carries its selection index, not its route, so a
+                // pointer activation gives the same command as the cursor.
                 let action = BasicLauncherAction(available_index);
                 available_index += 1;
                 (
@@ -746,9 +674,7 @@ fn spawn_launcher_menu(
         }
     }
 
-    // screen, where nothing is being played yet — the verb belongs on the
-    // confirm button (which still says "Play" on an experience row), and the
-    // heading should say what the screen is for.
+    // Tab labels name the screen. The verb ("Play") is on the confirm button.
     let tabs = [
         BevyUiMenuTabSpec::new(BasicLauncherPage::Home, LauncherTab::Home.label()),
         BevyUiMenuTabSpec::new(BasicLauncherPage::Settings, LauncherTab::Settings.label()),
@@ -789,10 +715,8 @@ fn card_alpha(elapsed: f32, duration: Option<f32>) -> f32 {
     fade_in.min(fade_out)
 }
 
-/// Ease the vanity card's content (text / image) in and out each frame from the
-/// sequence runtime's elapsed time, so the "Powered by Ambition" card no longer
-/// snaps on and off. The opaque black backdrop is untouched — only the content
-/// alpha ramps, so the card fades up from and back down to black.
+/// Fade the vanity card content in and out from the sequence elapsed time, and
+/// swap animated frames. The black backdrop does not fade.
 fn drive_basic_sequence_card(
     sequence: Res<ActiveShellSequence>,
     asset_server: Option<Res<AssetServer>>,
@@ -826,8 +750,7 @@ fn drive_basic_sequence_card(
         let Some(handle) = frames.handles.get(index) else {
             continue;
         };
-        // A frame whose file is absent hides its own slot and names itself; the
-        // rest of the sequence is unaffected.
+        // A missing frame hides its own slot and shows the notice.
         let failed = asset_server
             .as_deref()
             .is_some_and(|server| server.get_load_state(handle).is_some_and(|s| s.is_failed()));
@@ -852,20 +775,15 @@ fn drive_basic_sequence_card(
 
 /// Move the launcher highlight in place.
 ///
-/// The rows already carry their selection index — `BasicLauncherAction(i)`, put
-/// there so pointer activation lands in the same command the cursor produces —
-/// so nothing new has to be tracked. This writes `MenuVisualState`, and the
-/// menu crate's `restyle_bevy_ui_menu_controls` recolours what changed.
-///
-/// writes only on a real change. Bevy stamps the change tick on any `&mut`
-/// deref, so touching every row every frame would defeat the `Changed<..>` query
-/// this is paired with and restore the churn in a quieter form.
+/// Rows carry their selection index in `BasicLauncherAction(i)`. This writes
+/// `MenuVisualState`, and `restyle_bevy_ui_menu_controls` recolours what
+/// changed. It writes only on a real change, because any `&mut` deref marks
+/// the row changed for the `Changed<..>` query.
 fn follow_the_launcher_cursor(
     mut commands: Commands,
     launcher: Res<ShellLauncherState>,
-    // No extra marker: `AmbitionMenuControl<BasicLauncherAction>` is already
-    // this presentation's own action type, so the query cannot reach another
-    // menu's rows.
+    // `BasicLauncherAction` is private to this presentation, so the query
+    // cannot reach another menu's rows.
     mut rows: Query<(
         Entity,
         &ambition_menu::AmbitionMenuControl<BasicLauncherAction>,
@@ -885,9 +803,8 @@ fn follow_the_launcher_cursor(
         }
         visual.selected = selected;
         visual.focused = selected;
-        // Nothing outside the menu crate reads it today, which is exactly why leaving it pointing
-        // at the wrong row would be a trap rather than a bug — the first reader to trust it would
-        // be wrong.
+        // Keep `BevyUiMenuFocused` on the selected row so future readers can
+        // trust it.
         if selected {
             commands
                 .entity(entity)
@@ -908,58 +825,20 @@ fn shell_frame_key(
     settings: Option<&ambition_persistence::settings::UserSettings>,
 ) -> String {
     if launcher.active {
-        // `launcher.selected` is DELIBERATELY not here. It was, and an
-        // arrow press therefore despawned and respawned every node in the
-        // launcher — throwing away hover state and any per-frame animation, and
-        // making a one-frame text defect visible as a whole-UI blink.
+        // The key names only what needs a rebuild: which rows exist and what
+        // they say. Include a field only if it changes which nodes exist or
+        // their text.
         //
-        // The cursor is runtime state, not structure. `follow_the_launcher_cursor`
-        // moves the highlight in place through `MenuVisualState`, and
-        // `restyle_bevy_ui_menu_controls` recolours what changed. This key names
-        // only what a REBUILD is actually needed for: which rows exist and what
-        // they say.
-        // ⛔⛔ THE TAB IS STRUCTURE, NOT CURSOR, AND LEAVING IT OUT MADE THE
-        // SETTINGS TAB UNREACHABLE BY EVERY ROAD AT ONCE. Reported by Jon three
-        // times (2026-09-06): *"I can't click, tap, nothing"*, then *"Q and E do
-        // not change the visible menu"*. Both are this line. `ShellLauncherState.tab`
-        // selects WHICH ROWS EXIST -- the game list or the settings rows -- so a
-        // key without it is identical either side of a tab switch, `render_basic_shell`
-        // returns early, and the view keeps drawing the page you left.
+        // - `launcher.selected` is not included. The cursor is runtime state;
+        //   `follow_the_launcher_cursor` moves the highlight in place.
+        // - `launcher.tab` is included. It selects the game rows or the
+        //   settings rows. Guarded by
+        //   `switching_the_tab_redraws_the_menu_the_player_sees`.
+        // - The audio values are included, because settings rows read their
+        //   text at build time. They change only when the player adjusts one.
         //
-        // ⚠ THE STATE WAS ALWAYS CHANGING, which is what made it so hard to find:
-        // `ShellLauncherState.tab` flipped to `Settings` on every road (pointer,
-        // `E`/`Q`, bumpers) and the tests that assert the STATE passed throughout.
-        // Measured in the shipped composition: state `Home` -> `Settings`, tab
-        // `active` flags unchanged, text nodes unchanged at 29.
-        //
-        // ⇒ Contrast `selected` above, which is correctly absent: a cursor moves
-        // in place through `MenuVisualState`. The discriminator is whether the
-        // field changes WHICH NODES SHOULD EXIST, and a tab does.
-        //
-        // ⭐⭐ AND THE SIBLING KEY IN THIS REPO CANNOT HAVE THIS BUG, which is the
-        // lesson worth carrying. `ambition_load_presentation`'s `render_basic_load`
-        // keys on `"{load_id}:{text}"` where `text` is the RENDERED CONTENT it is
-        // about to draw. ⇒ A key derived from the OUTPUT cannot omit a field. A key
-        // assembled from selected INPUTS -- which is what this one is -- can, and
-        // did: two inputs were named here and the third was not, for as long as
-        // there had been a third.
-        //
-        // ⚠ This one cannot simply copy that shape: its output is a whole page
-        // model rather than a string, so naming the inputs is the affordable
-        // approximation. The cost of the approximation is that adding a field to
-        // `ShellLauncherState` silently does nothing until someone remembers this
-        // line, and `switching_the_tab_redraws_the_menu_the_player_sees` exists
-        // because remembering is not a mechanism.
-        // ⛔⛔ AND THE VALUES A SETTINGS ROW SHOWS ARE PART OF WHAT IT SAYS.
-        // The rows read their text at BUILD time (`control.value(settings)`), so
-        // without this a volume change moved `UserSettings` and left the drawn
-        // percentage untouched -- the same defect as the missing tab, one level
-        // down, and the one Jon would have met next: "I press master volume and
-        // the number does not change."
-        //
-        // ⚠ It stays cheap for the reason the whole key is cheap: these values
-        // change when somebody adjusts a control, not per frame. Measured: an
-        // idle title screen still rebuilds 0 times in 60 frames.
+        // This key is built from selected inputs, so a new field on
+        // `ShellLauncherState` has no effect until it is added here.
         let audio = settings
             .map(|s| {
                 ShellAudioControl::ALL
@@ -1010,9 +889,8 @@ fn sequence_frame(sequence: &ActiveShellSequence) -> BasicSequenceFrame {
             image_path: Some(asset_path.clone()),
             sequence_paths: Vec::new(),
         },
-        // Keyed on segment IDENTITY, deliberately not on the current frame: the
-        // card spawns once and animates by swapping its texture. Folding the
-        // frame index in here would rebuild the entire node tree every frame.
+        // Keyed on segment identity, not the current frame: the card animates
+        // by swapping its texture, not by a rebuild.
         ShellSegmentPresentation::ImageSequence { frames, alt_text } => BasicSequenceFrame {
             key: format!("sequence:{}:{}", segment.id, frames.len()),
             text: alt_text.clone(),
@@ -1108,10 +986,8 @@ mod semantic_input_tests {
         *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
     }
 
-    /// ⭐⭐ JON'S DESIGN, 2026-09-05: *"choose game be one menu tab, and then
-    /// have the settings menu be in a second tab. There really isn't a notion of
-    /// 'paused' in the title screen."* The bumpers cycle the strip, the same
-    /// gesture the kaleidoscope's tabs already use.
+    /// The title screen has a game tab and a settings tab. The bumpers cycle
+    /// them, as on the kaleidoscope menu.
     #[test]
     fn the_bumpers_cycle_the_title_screen_tabs() {
         let mut app = app_with_launcher(true);
@@ -1131,16 +1007,10 @@ mod semantic_input_tests {
         );
     }
 
-    /// ⛔⛔ START/ESCAPE STILL REACHES SETTINGS, and losing that was a real
-    /// regression my own fix introduced. Making the shell pause menu yield to the
-    /// launcher stopped the two menus stacking — and that road was also the ONLY
-    /// answer to "how do I mute this" on the one screen where the question gets
-    /// asked. `shell_host_rendered::the_title_screen_menu_opens_and_mutes_the_game`
-    /// caught it; the shell's own unit tests could not, because they do not
-    /// compose a launcher.
-    ///
-    /// ⭐ The gesture keeps its MEANING and loses its mechanism: nothing here is
-    /// paused, so Start shows the settings rather than opening a menu over one.
+    /// Start/Escape on the title screen shows the settings tab. The pause menu
+    /// yields to the launcher, so this is the only way to reach audio settings
+    /// here. See also
+    /// `shell_host_rendered::the_title_screen_menu_opens_and_mutes_the_game`.
     #[test]
     fn start_on_the_title_screen_reaches_the_settings_tab() {
         let mut app = app_with_launcher(true);
@@ -1153,9 +1023,7 @@ mod semantic_input_tests {
         );
     }
 
-    /// ⚠ And it TOGGLES: with two tabs a cycle returns to the game list, so the
-    /// same key that showed the settings puts them away. A one-way trip would
-    /// strand a player who pressed it by accident.
+    /// Start toggles: with two tabs, a cycle returns to the game list.
     #[test]
     fn start_toggles_back_to_the_game_list() {
         let mut app = app_with_launcher(true);
@@ -1172,10 +1040,7 @@ mod semantic_input_tests {
             .any(|c| matches!(c, ShellLauncherCommand::CycleTab(1))));
     }
 
-    /// ⛔⛔ THE SETTINGS TAB IS NOT A LIST OF THINGS TO LAUNCH. Routing its
-    /// confirm through `LaunchSelected` would start a game from the settings
-    /// screen — the same class as the two menus that used to overlap, where a
-    /// press meant something to a surface that should not have had it.
+    /// Confirm on the settings tab must not start a game.
     #[test]
     fn confirm_on_the_settings_tab_does_not_launch_a_game() {
         let mut app = app_with_launcher(true);
@@ -1190,8 +1055,7 @@ mod semantic_input_tests {
         );
     }
 
-    /// Left/right ADJUST on the settings tab, where on the game list they mean
-    /// nothing.
+    /// Left/right adjust on the settings tab and do nothing on the game list.
     #[test]
     fn left_and_right_adjust_only_on_the_settings_tab() {
         let mut app = app_with_launcher(true);
@@ -1214,8 +1078,7 @@ mod semantic_input_tests {
         );
     }
 
-    /// ⚠ A bumper during a startup card must not silently move a tab nobody can
-    /// see.
+    /// A bumper during a startup card must not move a hidden tab.
     #[test]
     fn the_bumpers_do_nothing_while_the_launcher_is_closed() {
         let mut app = app_with_launcher(false);
@@ -1312,12 +1175,8 @@ mod semantic_input_tests {
             "confirm on a card with no acknowledgement requirement skips it"
         );
 
-        // The tap path: the card surface's pointer press flows through the
-        // shared bridge into the SAME consumer command.
-        //
-        // press THEN release. The bridge activates on the way up, so a tap is
-        // two `Interaction` states — `Pressed`, then the `Hovered` Bevy reports
-        // when a pointer comes up still over the control.
+        // The tap path must give the same command. The bridge activates on
+        // release, so a tap is `Pressed` and then `Hovered`.
         with_active_card(&mut app);
         install_bevy_ui_menu_actions::<ShellCardAction>(&mut app);
         app.add_systems(Update, basic_shell_card_tap.after(BevyUiMenuInteractionSet));
@@ -1416,10 +1275,8 @@ mod pointer_hover_tests {
         app.add_message::<MenuActionActivated<BasicLauncherAction>>();
         app.add_message::<MenuActionPreviewed<BasicLauncherAction>>();
         app.add_message::<OwnedSfxMessage>();
-        // ⚠ `basic_shell_pointer` READS this, so a fixture without it PANICS —
-        // a `MessageReader` whose `Messages<T>` is absent is not a silent no-op.
-        // The plugin installs it via `install_bevy_ui_menu_tabs`; this fixture
-        // stands in for the plugin and must state the same thing.
+        // `basic_shell_pointer` reads this; a missing `Messages<T>` panics.
+        // The plugin installs it through `install_bevy_ui_menu_tabs`.
         app.add_message::<ambition_menu::MenuTabActivated>();
         app.init_resource::<ambition_sfx::SfxEmissionContext>();
         app.world_mut()
@@ -1431,15 +1288,8 @@ mod pointer_hover_tests {
         app
     }
 
-    /// ⛔⛔ THE PLUGIN INSTALLS THE TAB ROAD — the arm the two below cannot give.
-    ///
-    /// `app_with_pointer` registers `MenuTabActivated` and `basic_shell_pointer`
-    /// ITSELF, so those tests prove the handler behaves once it is wired and say
-    /// NOTHING about whether anything wires it. That is exactly the shipped bug:
-    /// the handler's absence was never the problem, the INSTALL was
-    /// (`install_bevy_ui_menu_tabs` had one caller in the whole workspace, and it
-    /// was the kaleidoscope menu). ⇒ This one builds the real plugin and asks the
-    /// world.
+    /// The real plugin installs the tab pointer path. `app_with_pointer` wires
+    /// the handler itself, so the tests below do not prove this.
     #[test]
     fn the_shell_plugin_installs_the_tab_pointer_road() {
         let mut app = App::new();
@@ -1453,21 +1303,10 @@ mod pointer_hover_tests {
         );
     }
 
-    /// ⛔⛔ CLICKING OR TAPPING THE SETTINGS TAB REACHES IT — Jon, 2026-09-06:
-    /// *"in the title screen there is no way for me to select the settings menu.
-    /// I can't click, tap, nothing."*
+    /// A click or tap on the Settings tab selects it.
     ///
-    /// The renderer already drew each tab as a real `Button` and
-    /// `publish_bevy_ui_menu_tabs` already published `MenuTabActivated`. Its ONLY
-    /// consumer was the kaleidoscope menu's grid backend, so on this screen the
-    /// message went nowhere and the tab was reachable ONLY by Escape/Start.
-    ///
-    /// ⭐ WHY EVERY EXISTING TEST WAS GREEN THROUGH IT, and this is the part
-    /// worth keeping: the two tests above drive `MenuControlFrame` edges — the
-    /// keyboard/controller road — and the gesture road was never broken. A
-    /// surface can lose an entire INPUT DEVICE while every test of its other
-    /// devices passes, because they do not share a seam. This one publishes what
-    /// a POINTER publishes and nothing else.
+    /// Keyboard and controller tests use `MenuControlFrame` and cannot see the
+    /// pointer path. This test sends only what a pointer sends.
     #[test]
     fn clicking_the_settings_tab_reaches_it() {
         let mut app = app_with_pointer(true);
@@ -1487,13 +1326,9 @@ mod pointer_hover_tests {
         );
     }
 
-    /// ⚠ AND A CLICK NAMES THE TAB RATHER THAN STEPPING TOWARDS IT.
-    ///
-    /// Answering a pointer with a `CycleTab` delta would need the CURRENT tab to
-    /// compute the step, putting tab arithmetic in the pointer handler as well as
-    /// on `LauncherTab` — the second copy the `CycleTab` arm warns about in as
-    /// many words. Clicking the tab you are already on must therefore be a no-op,
-    /// not a cycle away from it.
+    /// A click names the tab (`SelectTab`), not a `CycleTab` step. Tab
+    /// arithmetic stays on `LauncherTab`. A click on the current tab does not
+    /// move the strip.
     #[test]
     fn clicking_the_tab_you_are_on_does_not_move_the_strip() {
         let mut app = app_with_pointer(true);
@@ -1524,10 +1359,7 @@ mod pointer_hover_tests {
             .collect()
     }
 
-    /// It did nothing because the renderer translated only `Interaction::Pressed`.
-    /// `MenuActionPreviewed` was defined, documented as the hover message, and had
-    /// no emitter and no reader anywhere in the tree — a vocabulary with no
-    /// customer, which reads as a feature right up until somebody moves a mouse.
+    /// Hover (`MenuActionPreviewed`) moves the cursor to the row.
     #[test]
     fn hovering_a_launcher_row_moves_the_cursor_to_it() {
         let mut app = app_with_pointer(true);
@@ -1543,9 +1375,7 @@ mod pointer_hover_tests {
         );
     }
 
-    /// Hovering is not choosing. A launcher that started a game because the
-    /// pointer crossed a row on its way somewhere else would be unusable, and
-    /// that is why hover is a separate command rather than a flag on activation.
+    /// Hovering is not choosing: hover must not launch a game.
     #[test]
     fn hovering_a_launcher_row_does_not_launch_it() {
         let mut app = app_with_pointer(true);
@@ -1562,8 +1392,7 @@ mod pointer_hover_tests {
         );
     }
 
-    /// A press still launches — the point is to ADD hover, not to replace the
-    /// click with it.
+    /// A press still launches.
     #[test]
     fn pressing_a_launcher_row_still_activates_it() {
         let mut app = app_with_pointer(true);
@@ -1574,8 +1403,7 @@ mod pointer_hover_tests {
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Activate(1)]);
     }
 
-    /// The launcher is not the only surface on screen. A hover arriving while a
-    /// startup card is up must not move a cursor nobody can see.
+    /// A hover while a startup card shows must not move the hidden cursor.
     #[test]
     fn a_hover_while_the_launcher_is_inactive_is_ignored() {
         let mut app = app_with_pointer(false);
@@ -1597,9 +1425,8 @@ mod cursor_moves_without_a_rebuild_tests {
     use ambition_menu::{AmbitionMenuControl, MenuControlKind, MenuFocusKey, MenuVisualState};
     use bevy::prelude::{App, Entity, Update};
 
-    /// Two launcher rows, as `render_basic_shell` spawns them: each carrying its
-    /// SELECTION index in its action, which is what lets the cursor be applied
-    /// without knowing anything about the page that built them.
+    /// Two launcher rows, as `render_basic_shell` spawns them, each with its
+    /// selection index in its action.
     fn app_with_two_rows() -> (App, Entity, Entity) {
         let mut app = App::new();
         app.init_resource::<ShellLauncherState>();
@@ -1634,11 +1461,7 @@ mod cursor_moves_without_a_rebuild_tests {
             .selected
     }
 
-    /// The cursor moves and the rows are the SAME entities.
-    ///
-    /// this is the whole row.
-    ///
-    /// Asserting the ENTITY IDS is the point.
+    /// The cursor moves and the rows stay the same entities.
     #[test]
     fn moving_the_cursor_restyles_the_existing_rows_instead_of_respawning_them() {
         let (mut app, first, second) = app_with_two_rows();
@@ -1653,16 +1476,12 @@ mod cursor_moves_without_a_rebuild_tests {
 
         assert!(!selected(&app, first), "the cursor left row 0");
         assert!(selected(&app, second), "and arrived at row 1");
-        // The same two entities answered before and after. Bevy recycles indices,
-        // so this is `get` on the original ids rather than a count.
+        // Bevy recycles indices, so check the original ids, not a count.
         assert!(app.world().get::<MenuVisualState>(first).is_some());
         assert!(app.world().get::<MenuVisualState>(second).is_some());
     }
 
-    /// And the REBUILD is what actually went away.
-    ///
-    /// If it comes back, the in-place path still works and the churn returns silently — so the key
-    /// itself is the assertion.
+    /// A cursor move does not change the frame key, so it does not rebuild.
     #[test]
     fn the_frame_key_does_not_change_when_only_the_cursor_moves() {
         use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
@@ -1687,8 +1506,7 @@ mod cursor_moves_without_a_rebuild_tests {
         );
     }
 
-    /// The control: the key DOES move when the rows themselves change, so the
-    /// test above is not passing on a key that never changes at all.
+    /// Control for the test above: the key changes when the rows change.
     #[test]
     fn the_frame_key_still_changes_when_the_rows_do() {
         use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
@@ -1719,11 +1537,7 @@ mod cursor_moves_without_a_rebuild_tests {
         assert_ne!(before, after, "a real structural change still rebuilds");
     }
 
-    /// The marker that says "this is the cursor" moves with the state.
-    ///
-    /// nothing outside the menu crate reads `BevyUiMenuFocused` today, which
-    /// is exactly why a stale one would be a trap rather than a bug: the first
-    /// reader to trust it would be wrong, and nothing would have told them.
+    /// The `BevyUiMenuFocused` marker moves with the highlight.
     #[test]
     fn the_cursor_marker_moves_with_the_highlight() {
         let (mut app, first, second) = app_with_two_rows();

@@ -33,103 +33,30 @@ The repository already has useful pieces:
 These primitives are substrate. Their existence does not prove every consumer's
 decision policy is correct.
 
-> **RE-MEASURED against `46da98b7f` (2026-09-05); previously `5fdf977db`
-> (2026-09-03). The substrate list is accurate, and the layer above it is still
-> empty.**
->
-> ✔ **ALL EIGHT LINE CITATIONS BELOW RE-VERIFIED BY OPENING THEM, and all eight
-> are exact** — `RecoveryLens` at `crates/ambition_combat/src/brain/fighter/recovery.rs:79`, the three support/floor
-> queries at `collision_semantics.rs:82`/`:130`/`:136`, and the four
-> `CollisionWorld` questions at
-> `crates/ambition_platformer2d_world/src/collision.rs:96`/`:126`/`:148`/`:159`.
-> ⭐ Worth stating because three OTHER line citations in this planning stack
-> were found drifted the same day (`sim_core_resources.rs:85`,
-> `room_transition_assets.rs:1271`, <!-- cite-ok: three coordinates recorded BECAUSE they had drifted — repointing them would delete the finding --> `crates/ambition_render/src/quality.rs:182`). ⇒ **citation drift is
-> not uniform**; it tracks how often a page is re-derived rather than how old it
-> is, and this one has been.
->
-> Spot-checked the two most specific entries and one the kinematic campaign
-> added since: `RecoveryLens`
-> (`crates/ambition_combat/src/brain/fighter/recovery.rs:79`) exists and is
-> consumed by the fighter rollout; support/floor queries are
-> `is_support_surface`, `support_face_separation` and `body_on_support_side`
-> (`crates/ambition_platformer2d_core/src/collision_semantics.rs:82`, `:130`,
-> `:136`); and `CollisionWorld` answers the four questions the game asks —
-> `solids`, `carves_only`, `hostable_surfaces`, `base`
-> (`crates/ambition_platformer2d_world/src/collision.rs:96`, `:126`, `:148`,
-> `:159`).
->
-> ⛔ **AND THERE IS STILL NO NAVIGATION.** No reachability type, no nav graph, no
-> pathfinding of any kind anywhere in `crates/`. So the split this section draws
-> — substrate present, policy unproven — is now sharper than "unproven": there is
-> no navigation consumer to prove or disprove.
->
-> ✔ **RE-DERIVED INDEPENDENTLY 2026-09-05 at a later HEAD, and it holds** — by a
-> different search than the one above, which is what makes it worth a stamp
-> rather than a repetition. Searched `crates/` AND `game/` for
-> `navmesh|NavGraph|pathfind|path_to|astar|a_star|waypoint|navigation|
-> reachability`. ⛔ **The wide search returns APPARENT refutations and every one
-> is a false positive**: `a_star` matches
-> `a_starting_character_other_than_the_default_prepares`; `reachability` matches
-> `unreachable!()` and doc prose; and **all 38 files mentioning "navigation" are
-> MENU navigation** — `ambition_ui_nav`, `ambition_input`, `ambition_menu`,
-> `ambition_settings_menu`, `ambition_touch_input`, `game_shell`,
-> `menu_kaleidoscope`. Sorting hits by CRATE makes that visible in one line.
-> ⓘ `WorldView::reachable`, the one name in the tree that sounds like a route
-> query, is cited in
-> `crates/ambition_platformer2d_actor_monolith/src/features/ecs/perception.rs:1040`
-> as something that USED to exist.
->
-> ⚠ **Which makes this page the single remaining gate on another program.**
-> [`agentic-character-runtime.md`](agentic-character-runtime.md) says to wait for
-> actor/navigation/world-fact foundations; world facts and observations/memory
-> both exist now, so navigation is the only one of its three still missing. That
-> is worth knowing before this page is deprioritised again: it is not only its
-> own capability, it is somebody else's blocker.
->
-> ⭐⭐ **CUSTOMER 4 IS HALF-BUILT AND THIS PAGE DID NOT KNOW (2026-09-04).** The
-> near-term customer *"authoring/inspection needs to explain why a route is
-> unreachable"* now has a shipped, production-consumed EXPLANATION VOCABULARY —
-> just not for a physical question. `GatedLockWallVerdicts` publishes a
-> `ConditionOutcome` per authored wall every frame, and a standing wall carries
-> `WhyNot { term, subject, observed }`
-> (`shared_tangle/src/authored_logic/mod.rs:290`): the condition that said no,
-> the object it named, and that object's state **in the domain's own words**.
-> `body.can` fills it with the verb and *"no body a participant is driving has
-> it"*; `body.fits` with the opening and the body's height.
->
-> ⛔ **BE PRECISE ABOUT WHICH HALF, because the two are easy to conflate and the
-> difference is this page's whole subject.** That road explains why a POLICY GATE
-> is shut. It says nothing about whether a body could physically get there — a
-> wall with no gate, a ledge too high, a gap too wide are all invisible to it.
-> ⇒ So customer 4 is not satisfied; what is settled is the SHAPE a physical
-> answer should take: structured rather than a log line, headless, deterministic,
-> per-frame.
->
-> ⛔⛔ **AND A CLAIM I PUT HERE HOURS EARLIER WAS FALSE, corrected the same day:
-> I wrote that the shape is "already read by a consumer". IT IS NOT.**
-> `git grep -l GatedLockWallVerdicts` returns four files — the module that writes
-> it, its own tests, the rollback registration that declares it derived, and the
-> schema baseline. **There is no production reader.** The resource is written
-> every frame, rollback-declared, and consumed by nothing but its tests.
-> ⇒ **So the explanation road is a PROVEN SHAPE, not a proven consumer**, and the
-> difference is exactly what this page cares about. It also means the road is
-> itself in the dormant-cluster shape this repository has retired things for, and
-> ⛔ **a second PRODUCER should not be added to it** — the encounter lock-wall
-> writer (`ambition_encounter_features/src/lock_walls.rs`) contributes to the same
-> `gate_solids` and publishes no verdict, which looks like a gap and is really the
-> correct restraint until something reads the first one.
-> ⚠ The right first move for customer 4 is therefore a READER, not more
-> producers: something that answers *"why is the route in front of me shut"* out
-> loud. Until one exists, adding explanations is writing into a resource nobody
-> opens.
->
-> ⇒ **The practical consequence for whoever promotes a slice here: do not invent
-> an explanation type, and bring a reader with you.** A reachability answer that says *"the body cannot make
-> this"* should join `WhyNot`'s vocabulary rather than grow a parallel one, or
-> the authoring tools that already read gate verdicts will need two readers for
-> one question. That is the cheapest thing this page can inherit from the gating
-> track, and it costs nothing to honour now and a migration to honour later.
+Substrate locations: `RecoveryLens`
+(`crates/ambition_combat/src/brain/fighter/recovery.rs`); support queries
+`is_support_surface`, `support_face_separation` and `body_on_support_side`
+(`crates/ambition_platformer2d_core/src/collision_semantics.rs`); and the
+`CollisionWorld` questions `solids`, `carves_only`, `hostable_surfaces` and
+`base` (`crates/ambition_platformer2d_world/src/collision.rs`).
+
+**No navigation exists** (checked 2026-09-05): no reachability type, nav graph
+or pathfinding in `crates/` or `game/`. Search hits for `navigation` are menu
+navigation, and `a_star` and `reachability` hits are substrings. This page is
+also the one missing foundation for
+[`agentic-character-runtime.md`](agentic-character-runtime.md).
+
+**Explanation vocabulary.** For "why is this route shut", reuse `WhyNot { term,
+subject, observed }` (`shared_tangle/src/authored_logic/mod.rs`), which
+`GatedLockWallVerdicts` publishes per authored wall. It explains policy gates
+only, not physical reachability. It has no production reader yet. So:
+
+- do not invent a second explanation type; a physical "the body cannot make
+  this" answer joins `WhyNot`'s vocabulary;
+- bring a reader with the first slice;
+- do not add a second producer (for example the encounter lock walls in
+  `ambition_encounter_features/src/lock_walls.rs`) until something reads the
+  first.
 
 ## ✔ THE ROOM GRAPH IS NAVIGABLE, measured 2026-09-05 — a POSITIVE verdict
 

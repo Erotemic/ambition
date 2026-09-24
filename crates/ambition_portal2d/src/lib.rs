@@ -24,8 +24,7 @@ mod gun_projectile;
 mod lifecycle;
 mod link;
 mod messages;
-/// Pure portal-piece geometry — the Core invariant. Public because a host's
-/// world-overlay carve and debug overlay read `pieces` directly.
+/// Pure portal-piece geometry. Public because host overlays read it.
 pub mod pieces;
 mod placement;
 mod plugin;
@@ -33,10 +32,8 @@ mod schedule;
 mod transit;
 mod tuning;
 mod types;
-/// Pure through-portal VIEW geometry (the view map — always a proper rotation
-/// — and the view cone). Public because renderers (the
-/// `ambition_portal2d_presentation` default renderer or a host's own) build
-/// capture cameras + cone UVs from it.
+/// Pure through-portal view geometry (the view map and the view cone). Public
+/// because renderers build capture cameras and cone UVs from it.
 pub mod view;
 
 // TODO(compat-remove): migrate host callers to the owning crates, then remove these lower-crate

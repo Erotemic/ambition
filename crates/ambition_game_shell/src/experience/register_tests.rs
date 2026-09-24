@@ -53,9 +53,8 @@ fn capture_panic(build: impl FnOnce() + std::panic::UnwindSafe) -> String {
         .expect("panic payload is a string")
 }
 
-/// Issue 7: two different experiences claiming one route id is a collision,
-/// not a silent clobber. Issue 8: the diagnostic is byte-identical regardless
-/// of which registered first.
+/// Two experiences claiming one route id is an error, not a silent overwrite.
+/// The diagnostic is the same whichever registered first.
 #[test]
 fn duplicate_route_id_is_rejected_in_both_orders_with_one_message() {
     let forward = capture_panic(|| {
@@ -139,11 +138,9 @@ fn preexisting_route_blocks_a_later_experience_claiming_it() {
     );
 }
 
-/// The launcher opens the SCREEN, the session stays on its own route.
-///
-/// A character select is the case: the row says "Smash" and leads to a
-/// question, and the stage route it eventually reaches still owns the
-/// session, the preparation plan and the completion policy.
+/// The launcher opens the entry screen; the session stays on its own route.
+/// Example: a character select, after which the stage route still owns the
+/// session, the preparation plan, and the completion policy.
 #[test]
 fn an_experience_can_enter_at_a_screen_of_its_own() {
     let mut app = App::new();

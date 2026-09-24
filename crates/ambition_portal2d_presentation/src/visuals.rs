@@ -146,14 +146,10 @@ pub fn sync_portal_body_pieces(
         return;
     };
     // Outside transit the real character sprite shows whole; the pieces are a
-    // transit-only replacement.
-    //
-    // ⛔⛔ THIS USED TO WRITE `Visibility::Inherited` HERE, UNCONDITIONALLY, and
-    // that clobbered the far-side compositor's hide on every ordinary frame --
-    // not merely during the transit handoff. Withdrawing the REASON says the
-    // same thing without overruling anyone else's:
-    // `resolve_portal_source_visibility` draws the body whole only when NO
-    // reason remains.
+    // transit-only replacement. Withdraw the reason instead of writing
+    // `Visibility`, so the far-side compositor's hide is not overruled:
+    // `resolve_portal_source_visibility` shows the body only when no reason
+    // remains.
     commands
         .entity(source_body)
         .remove::<crate::source_visibility::PortalTransitHidden>();

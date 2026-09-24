@@ -1,10 +1,9 @@
 //! Profiling-only workload census: what Ambition asked the engine to do.
 //!
-//! A native profile proves the engine was expensive; it cannot say the game
-//! was presenting three world-rendering cameras and refreshing two portal
-//! captures while it happened. These censuses record that workload on stderr
-//! on ONE shared clock, so a slow interval in a perf/Tracy capture can be read
-//! against the frame's actual scene.
+//! A native profile shows that the engine was expensive. It cannot show that
+//! the game presented three world cameras and refreshed two portal captures at
+//! that time. These censuses write that workload to stderr on one shared clock,
+//! so you can read a slow interval in a perf/Tracy capture against the scene.
 //!
 //! Every row is a single line of the form
 //!
@@ -15,13 +14,11 @@
 //! `scripts/profile_desktop.sh` turns those rows into one CSV per kind.
 //!
 //! **Off unless asked for.** [`RuntimeCensus::from_env`] reads
-//! `AMBITION_PROFILE_CENSUS` once at startup; when it is unset every census
-//! system costs one already-resident bool test per frame and returns. The
-//! sample cadence (`AMBITION_PROFILE_CENSUS_HZ`, default 1 Hz) bounds the work
-//! the enabled path does: no census iterates a per-entity population on a
-//! frame that is not a sample frame. Measured on a headless sandbox run, the
-//! enabled census is under the run-to-run spread of retired instructions —
-//! see `docs/recipes/profiling.md`.
+//! `AMBITION_PROFILE_CENSUS` once at startup. When it is unset, each census
+//! system does one bool test per frame and returns. The sample cadence
+//! (`AMBITION_PROFILE_CENSUS_HZ`, default 1 Hz) bounds the enabled cost: no
+//! census iterates a per-entity population on a frame that is not a sample
+//! frame. See `docs/recipes/profiling.md`.
 
 use bevy::diagnostic::{Diagnostic, DiagnosticPath, Diagnostics, RegisterDiagnostic};
 use bevy::ecs::archetype::Archetypes;
@@ -35,9 +32,8 @@ use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 
 use std::time::Duration;
-// ⛔ THE `cfg` BELONGS TO `Instant` ALONE. Keep any unconditional import ABOVE
-// it: an attribute drifts onto whatever item follows, and a `Duration` that
-// silently vanished on wasm would break the build only on the web.
+// The `cfg` applies only to `Instant`. Keep unconditional imports above it, or
+// they disappear on wasm.
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
@@ -48,21 +44,17 @@ pub const CENSUS_HZ_ENV: &str = "AMBITION_PROFILE_CENSUS_HZ";
 
 /// The shared census clock and gate.
 ///
-/// ONE resource decides both whether a census runs and which frame is a sample
-/// frame, so every row written in a frame carries the same `t=` and rows from
-/// different crates line up without a correlation step. A census that kept its
-/// own timer would drift against its neighbours and make "the camera count rose
-/// while the pass got slower" unprovable.
+/// One resource decides both whether a census runs and which frame is a sample
+/// frame. Thus every row in a frame has the same `t=`, and rows from different
+/// crates line up. A census with its own timer would drift.
 #[derive(Resource)]
 pub struct RuntimeCensus {
     enabled: bool,
     interval_s: f64,
     #[cfg(not(target_arch = "wasm32"))]
     started_at: Instant,
-    // ⛔ GATED LIKE `started_at` ABOVE, because the only code that touches it —
-    // `advance_runtime_census` — is `#[cfg(not(target_arch = "wasm32"))]`. On
-    // wasm the field had no reader and the compiler said so; the no-warnings
-    // gate could not, because it checks the HOST target under DEFAULT features.
+    // Gated like `started_at`: its only reader, `advance_runtime_census`, is not
+    // built on wasm.
     #[cfg(not(target_arch = "wasm32"))]
     next_at: f64,
     /// Seconds since census start for this frame's sample, or `None` when this
@@ -114,9 +106,8 @@ impl RuntimeCensus {
 
     /// `Some(seconds_since_census_start)` on a sample frame, `None` otherwise.
     ///
-    /// This is the ONLY thing a census system should branch on: `let Some(at) =
-    /// census.due() else { return; }` keeps a disabled or off-cadence frame at
-    /// a single bool test.
+    /// Census systems branch only on this: `let Some(at) = census.due() else {
+    /// return; }` keeps a disabled or off-cadence frame at one bool test.
     pub fn due(&self) -> Option<f64> {
         self.due_at
     }
@@ -155,10 +146,8 @@ pub fn advance_runtime_census(_census: ResMut<RuntimeCensus>) {}
 
 /// Scene entities — everything a resource is not.
 ///
-/// ⛔⛔ THE NAME IS THE POINT. Bevy 0.19 made a resource an entity, so "entity
-/// count" is now ambiguous in a way it never used to be. Publishing one number
-/// called `entities` would carry that ambiguity into every dashboard and note
-/// taken from it; two paths whose names SAY which population they are cannot.
+/// Since Bevy 0.19 a resource is an entity, so "entity count" is ambiguous.
+/// Two paths whose names state their population remove that ambiguity.
 pub const SCENE_ENTITIES: DiagnosticPath = DiagnosticPath::const_new("ambition/ecs/scene_entities");
 
 /// Entities that exist only to hold a resource value. See [`SCENE_ENTITIES`].
@@ -170,16 +159,11 @@ pub const BODIES: DiagnosticPath = DiagnosticPath::const_new("ambition/ecs/bodie
 
 /// Register Ambition's ECS diagnostics and keep them fed.
 ///
-/// ⭐ ONE MEASUREMENT, TWO CONSUMERS. This publishes from [`EcsPopulation`] —
-/// the same system param `report_ecs_census` prints from — so the periodic log
-/// row and the F1 panel cannot disagree about how many entities there are.
-/// The alternative, a second count inside the overlay, is how two numbers with
-/// one name get born.
+/// This publishes from [`EcsPopulation`], the same param that
+/// `report_ecs_census` prints from, so the log row and the F1 panel agree.
 ///
-/// ⛔ IT IS NOT GATED ON `AMBITION_PROFILE_CENSUS`. The census printer is, and
-/// should be: it writes to stderr on a clock nobody asked for. This publishes
-/// into `DiagnosticsStore`, which is what the F1 panel reads, and F1 is a thing
-/// a developer turns on WITHOUT setting an environment variable and restarting.
+/// It is not gated on `AMBITION_PROFILE_CENSUS`. It feeds `DiagnosticsStore`
+/// for the F1 panel, which a developer can open without a restart.
 pub struct EcsDiagnosticsPlugin;
 
 impl Plugin for EcsDiagnosticsPlugin {
@@ -196,14 +180,9 @@ impl Plugin for EcsDiagnosticsPlugin {
 
 /// How often the ECS populations are re-counted for the diagnostics store.
 ///
-/// ⭐ THE PATHS STAY REGISTERED; ONLY THE SAMPLING IS PACED. F1 can therefore be
-/// opened at any moment without a restart, and still shows a number within a
-/// quarter second of the truth — which is finer than a human reading a dashboard
-/// can perceive, and finer than the overlay's own refresh.
-///
-/// ⛔ A DASHBOARD DOES NOT GET TO BILL THE FRAME LOOP FOR FRESHNESS NOBODY CAN
-/// SEE. `Query::count()` below already makes one sample cheap; this bounds the
-/// cost against a world that grows more archetypes than today's.
+/// The paths stay registered and only the sampling is paced, so F1 can open at
+/// any time and show a value less than 250 ms old. Pacing bounds the cost if
+/// the world grows more archetypes.
 const ECS_DIAGNOSTIC_SAMPLE_PERIOD: Duration = Duration::from_millis(250);
 
 fn publish_ecs_diagnostics(mut diagnostics: Diagnostics, population: EcsPopulation) {
@@ -214,12 +193,10 @@ fn publish_ecs_diagnostics(mut diagnostics: Diagnostics, population: EcsPopulati
 
 /// The four entity populations the ECS census counts, as one reusable param.
 ///
-/// ⛔⛔ THIS TYPE EXISTS SO THE `Without<IsResource>` CANNOT BE FORGOTTEN. Under
-/// Bevy 0.19 a resource IS an entity, so the obvious spelling of "how many
-/// entities are there" — `Query<()>` — silently answers "scene content plus
-/// every registered resource". Anything that wants a scene-entity count asks
-/// this param rather than writing its own query, and the guard test below
-/// drives THIS type rather than a hand-copied one.
+/// This type exists so that the `Without<IsResource>` filter is not forgotten.
+/// Since Bevy 0.19 a resource is an entity, so a bare `Query<()>` counts scene
+/// content plus every resource. Code that wants a scene-entity count uses this
+/// param. The tests drive this type directly.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct EcsPopulation<'w, 's> {
     scene: Query<'w, 's, (), Without<IsResource>>,
@@ -228,11 +205,9 @@ pub struct EcsPopulation<'w, 's> {
     players: Query<'w, 's, (), With<PlayerEntity>>,
 }
 
-/// ⭐ EVERY COUNT HERE IS `Query::count()`, NOT `iter().count()`. All four
-/// queries take no data (`()`) and filter only with `With`/`Without`, so both
-/// halves are ARCHETYPAL and Bevy answers from archetype and table sizes without
-/// visiting an entity. `iter().count()` forfeits that and walks the world — for
-/// the scene population that is every entity in the game, on every sample.
+/// Every count uses `Query::count()`, not `iter().count()`. The queries take no
+/// data and filter only with `With`/`Without`, so Bevy answers from archetype
+/// sizes without visiting entities. `iter().count()` walks the whole world.
 impl EcsPopulation<'_, '_> {
     /// Entities that are scene content: everything a resource is not.
     pub fn scene_entities(&self) -> usize {
@@ -271,25 +246,13 @@ pub fn report_ecs_census(
     let Some(at) = census.due() else {
         return;
     };
-    // ⛔⛔ `entities`, `live` AND `resources` ARE THREE DIFFERENT QUESTIONS, AND
-    // THE FIRST ONE MISLEADS. `Entities::len()` counts ALLOCATED entity slots,
-    // which land on round powers of two — measured 2026-08-29, four
-    // structurally different rooms all reported exactly 2048 or exactly 4096
-    // while their real content (`Transform` 703 vs 1379) was nothing like a
-    // power of two. Three separate entries in the performance notebook quote a
-    // "2048-entity" scene that does not exist. `live` iterates, so it is the
-    // number of entities that are actually there.
-    //
-    // ⛔⛔ AND SINCE BEVY 0.19 "ACTUALLY THERE" NEEDS `Without<IsResource>`.
-    // Resources became components on singleton entities, so an unfiltered
-    // `Query<()>` counts every registered resource as scene content — a bare
-    // App reads 16 before anything is spawned, and a full session's resource
-    // count is in the hundreds. That is a constant offset, which is the worst
-    // kind: it never looks like a bug, it just makes every scene bigger than it
-    // is. `resources` is reported BESIDE `live` rather than folded into it
-    // because the count is real engine population — it is simply not scene.
-    // ⇒ READ `live`; `entities - live - resources` is the reservation slack,
-    // and a large gap is itself a finding.
+    // Three different counts:
+    // - `entities` is `Entities::len()`: allocated slots, which round to powers of
+    //   two. Do not read it as scene size.
+    // - `live` is scene content (`Without<IsResource>`).
+    // - `resources` is resource entities. It is real engine population, but not
+    //   scene content, so it is reported beside `live`, not added to it.
+    // Read `live`. `entities - live - resources` is reservation slack.
     eprintln!(
         "[census] ecs t={at:.3} entities={} live={} resources={} archetypes={} components={} \
          bodies={} players={}",
@@ -312,11 +275,8 @@ pub fn report_schedule_load_census(census: Res<RuntimeCensus>, schedules: Res<Sc
     };
     let mut total = 0usize;
     let mut visible = 0usize;
-    // ⭐ PER-SCHEDULE, NOT JUST A TOTAL. `[census] phases` says which phase of
-    // the frame cost the most; this says how many systems that phase is
-    // carrying. Together they turn "StateTransition is 10% of the frame" into
-    // an answerable question — a phase that is expensive with four systems in
-    // it is a different bug from one that is expensive with four hundred.
+    // Per schedule, not only a total. `[census] phases` gives the cost of each
+    // phase; this gives how many systems it carries.
     let mut populations: Vec<(String, usize)> = Vec::new();
     for (label, schedule) in schedules.iter() {
         let count = schedule.systems_len();
@@ -336,36 +296,26 @@ pub fn report_schedule_load_census(census: Res<RuntimeCensus>, schedules: Res<Sc
     eprintln!("{row}");
 }
 
-/// Where the RUN CONDITIONS sit, and how many there are.
+/// Where the run conditions sit, and how many there are.
 ///
-/// ⛔⛔ ONE-SHOT, AND IT MUST RUN BEFORE THE SCHEDULES DO. `Schedule::initialize`
-/// MOVES every condition out of the `ScheduleGraph` into the private executable
-/// (`update_schedule` drains them, and hands them back to the graph only to
-/// rebuild). There is no public accessor for the built conditions, so a sampled
-/// census in `Last` reads a drained graph and reports a confident ZERO —
-/// measured, 886 systems and `system_conditions=0`, which is how this ended up
-/// registered at startup instead.
+/// This is a one-shot and must run before the schedules do.
+/// `Schedule::initialize` moves every condition out of the `ScheduleGraph` into
+/// the private executable, and there is no public accessor for built
+/// conditions. A sampled census in `Last` would read a drained graph and report
+/// zero.
 ///
-/// ⚠ IT COUNTS WHAT PLUGIN BUILD REGISTERED. Schedules gain systems later when a
-/// session activates, and those are not in this number.
+/// It counts only what plugin build registered. Systems added later, when a
+/// session activates, are not included.
 ///
-/// ⭐⭐ THE STRUCTURAL METRIC, DELIBERATELY NOT A PROFILER ONE. Bevy evaluates a
-/// system's conditions once per system per schedule run and a SET's conditions
-/// once per run regardless of how many systems the set holds, so "how many
-/// conditions are attached, and to what" is a count the schedule graph already
-/// knows — no Tracy, no sampling, no observer effect. That matters twice over:
-/// Tracy inflates this app's frame roughly 9x, and a deterministic count is a
-/// far better regression gate than a wall-clock millisecond.
+/// This is a structural metric, not a timing. Bevy evaluates a system's
+/// conditions once per system per run, and a set's conditions once per run, so
+/// the graph already knows the counts. A deterministic count is a better
+/// regression gate than a wall-clock time.
 ///
-/// ⛔ IT COUNTS ATTACHMENTS, NOT EVALUATIONS, and the gap between them is the
-/// whole point. `system_conditions` is what a frame pays per run; `set_conditions`
-/// is what the same semantic gate costs once it has been hoisted onto a set.
-/// Moving N systems' shared condition onto one set moves N out of the first
-/// number and 1 into the second, which is exactly the shape of the improvement
-/// and is invisible to any timing measurement small enough to trust.
-///
-/// The per-condition breakdown names the offenders: one condition attached 87
-/// times is a line saying so, rather than a number somebody has to explain.
+/// It counts attachments, not evaluations. Moving a shared condition from N
+/// systems onto one set moves N out of `system_conditions` and 1 into
+/// `set_conditions`. The per-condition breakdown names the conditions attached
+/// most often.
 pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     let mut system_conditions = 0usize;
     let mut set_conditions = 0usize;
@@ -391,9 +341,8 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
             set_conditions += conditions.len();
         }
     }
-    // ⛔ A ZERO HERE IS THE INSTRUMENT FAILING, NOT THE ENGINE BEING CLEAN.
-    // Every schedule in this app carries conditions; reading none means this ran
-    // after the graphs were drained. Say so, so nobody records a 0 as a fact.
+    // Every schedule in this app has conditions, so zero means this ran after the
+    // graphs were drained. Say so, so that nobody records a zero as a fact.
     if system_conditions == 0 && set_conditions == 0 {
         eprintln!(
             "[census] conditions t=0.000 unavailable=graph_already_initialized \
@@ -402,33 +351,22 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
         return;
     }
     report_schedule_owners(&schedules);
-    // The two phases the campaign cannot yet attribute. `PreUpdate` because
-    // 0.95ms of it is not the sim; `Update` because in the SHIPPED app the sim
-    // lives in `GgrsSchedule`, so nobody knows what its 1.4ms is made of.
+    // Name the members of the phases that profiling cannot yet attribute.
     report_schedule_membership(&schedules, "PreUpdate", 0.0);
     report_schedule_membership(&schedules, "Update", 0.0);
-    // `PostUpdate` is 0.65ms of a Smash frame — 14% — and nothing has looked at
-    // it. Presentation and render extraction live here.
     report_schedule_membership(&schedules, "PostUpdate", 0.0);
-    // Who owns `Update` — the campaign's last unexplained phase that is ours.
     report_schedule_owners_in(&schedules, "Update");
-    // ⭐ AND THE OTHER TWO PHASES THAT CARRY REAL COST. `PostUpdate` is 31% of
-    // what an added FIGHTER costs (presentation and render extraction live
-    // there) and nobody had looked at who owns it; `PreUpdate` holds the 0.93ms
-    // that is neither the sim nor the rollback driver.
+    // And the owners of the other two costly phases.
     report_schedule_owners_in(&schedules, "PreUpdate");
     report_schedule_owners_in(&schedules, "PostUpdate");
-    // ⭐ The two phases that inflate WORST between a Smash stage and a real room:
-    // `StateTransition` 0.14ms -> 2.06ms (15x) and `RunFixedMainLoop` 0.40 ->
-    // 2.42ms (6x). Naming their populations is the first question about either.
+    // The two phases that grow most between a Smash stage and a real room.
     report_schedule_membership(&schedules, "StateTransition", 0.0);
     report_schedule_membership(&schedules, "RunFixedMainLoop", 0.0);
     let mut row = format!(
         "[census] conditions t=0.000 system_conditions={system_conditions} \
          set_conditions={set_conditions} sets_with_conditions={sets_with_conditions}"
     );
-    // Only the ones worth a name. A condition attached once is not the story;
-    // the tail would bury the ones that are.
+    // Name only conditions attached 4 or more times; the tail hides the rest.
     let mut ranked: Vec<(&String, &usize)> =
         by_name.iter().filter(|(_, count)| **count >= 4).collect();
     ranked.sort_by(|left, right| right.1.cmp(left.1).then_with(|| left.0.cmp(right.0)));
@@ -438,31 +376,22 @@ pub fn report_schedule_conditions_census(schedules: Res<Schedules>) {
     eprintln!("{row}");
 }
 
-/// Where the SIM TICK's time goes, phase by phase.
+/// Where the sim tick's time goes, phase by phase.
 ///
-/// ⭐⭐ THE INSTRUMENT THE CAMPAIGN ACTUALLY NEEDED. `[census] phases` splits the
-/// MAIN schedule and reports `PreUpdate=1.98ms` for a Smash match — but in this
-/// app `PreUpdate` holds one exclusive system, `bevy_ggrs`'s
-/// `run_ggrs_schedules`, which runs the whole sim as `GgrsSchedule`. So the main
-/// split bottoms out at "the simulation costs 2ms" and cannot say which part.
-/// This splits THAT.
+/// `[census] phases` splits the main schedule, but there `PreUpdate` holds one
+/// exclusive system (`bevy_ggrs`'s `run_ggrs_schedules`) that runs the whole
+/// sim as `GgrsSchedule`. This census splits the sim itself.
 ///
-/// ⛔ IT CANNOT USE THE `FramePhaseMark` TRICK. That one interleaves marker
-/// SCHEDULES into `MainScheduleOrder`; these are SETS inside one schedule, so
-/// the boundary has to be a system ordered between them. The phases are already
-/// `.chain()`ed, which is what makes "after this set, before the next" a
-/// well-defined place to stand.
+/// It cannot use `FramePhaseMark`: that adds marker schedules to
+/// `MainScheduleOrder`, but these phases are sets inside one schedule. So each
+/// boundary is a system ordered between two chained sets.
 ///
-/// ⚠ THE TOTALS ARE NOT ROLLBACK STATE, deliberately. This resource is mutated
-/// inside the sim schedule and never registered for rollback, so a rewind leaves
-/// last-branch timings in it. That is correct for an instrument — it measures
-/// what the CPU actually did, including work that was later discarded — but it
-/// means these numbers are not reproducible across a rewind and must never gate
-/// behaviour. The shipped local session runs `check_distance: 0` and never
-/// rewinds at all.
-/// ⛔ WALL CLOCK, so NOT ON WASM — the same rule every other census in this
-/// file follows. `std::time::Instant::now()` panics in a browser, and this
-/// file's `Instant` import is already `cfg(not(wasm32))` for that reason.
+/// The totals are not rollback state. A rewind leaves timings from the
+/// discarded branch in them. That is correct for an instrument, but these
+/// numbers must never gate behaviour. (The local session uses
+/// `check_distance: 0` and does not rewind.)
+///
+/// Wall clock, so not on wasm: `Instant::now()` panics in a browser.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Default)]
 pub struct SimPhaseCensus {
@@ -494,9 +423,9 @@ impl SimPhaseCensus {
 
     /// Whether this window holds enough ticks to be a mean rather than a sample.
     ///
-    /// See the block comment in `report_sim_phase_census` for what a one-tick
-    /// window cost. The time it accumulated is NOT discarded: the reporter
-    /// returns before the reset, so the partial window folds into the next.
+    /// A one-tick window is not reported (see `report_sim_phase_census`). Its time
+    /// is kept: the reporter returns before the reset, so it folds into the next
+    /// window.
     fn is_reportable(&self) -> bool {
         self.ticks >= 2
     }
@@ -515,13 +444,10 @@ impl SimPhaseCensus {
 
 /// The bucket the actor decision chain closes, from the actor monolith.
 ///
-/// ⛔ IT IS AN INDEX INTO A LIST IN ANOTHER CRATE, which is not a shape to copy.
-/// It is here because `ambition_dev_tools` cannot name `ActorDecisionSet` —
-/// it depends on `shared_tangle`, not on the monolith, and the edge only runs
-/// the other way. The alternative was a runtime registration API whose
-/// correctness depends on plugin BUILD ORDER, which is the more fragile of the
-/// two. `report_sim_phase_census` reports an unclosed bucket rather than letting
-/// the neighbouring name quietly widen.
+/// This is an index into a list in this crate that another crate uses. It
+/// replaces a runtime registration API that would depend on plugin build
+/// order. `report_sim_phase_census` reports an unclosed bucket instead of
+/// letting the neighbouring bucket silently grow.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_ACTOR_DECISION: usize = 21;
 /// `ActorDecisionSet::Targeting` — `select_actor_targets` and friends.
@@ -546,19 +472,11 @@ pub const SIM_PHASE_DECISION_PUBLISH: usize = 27;
 /// Whether the sim-phase census is installed at all, for a crate that registers
 /// its own boundary marks.
 ///
-/// ⛔⛔ THE MARKS ARE NOT INSTALLED WHEN THE CENSUS IS OFF, and a caller outside
-/// this crate cannot see the `if enabled` in `RuntimeCensusPlugin::build` that
-/// says so. `install_actor_decision_census_boundary` in the actor monolith
-/// registered seven marks unconditionally and every run with the census OFF —
-/// which is every run a player makes — panicked in `mark_sim_phase` with
-/// "Resource does not exist". The warning against exactly this was already
-/// written here, on the reporter, where the crate that needed it could not read
-/// it.
-///
-/// ⇒ TWO defences, because they answer different questions. This one keeps a
-/// mark out of the hottest schedule in the app when nobody asked for it. The
-/// `Option` on [`mark_sim_phase`] makes forgetting to ask a no-op rather than a
-/// crash.
+/// The marks are not installed when the census is off, and a caller in another
+/// crate cannot see the `if enabled` in `RuntimeCensusPlugin::build`. Check
+/// this before registering marks, so the sim schedule carries none when not
+/// needed. The `Option` on [`mark_sim_phase`] is the second defence: a mark
+/// without a census is a no-op, not a panic.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn sim_phase_census_enabled() -> bool {
     std::env::var(CENSUS_ENV)
@@ -568,10 +486,9 @@ pub fn sim_phase_census_enabled() -> bool {
 
 /// The boundary system for one sim phase.
 ///
-/// ⚠ `Option`, and it is load-bearing rather than defensive: this function is
-/// `pub` so other crates can close buckets for sets only they can name, and the
-/// resource it writes is inserted only when the census is on. A missing census
-/// is a mark with nothing to record, not a reason to stop the game.
+/// The `Option` is required. This function is `pub` so other crates can close
+/// buckets for sets that only they can name, and the resource exists only when
+/// the census is on. Without a census, the mark does nothing.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn mark_sim_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>) {
     move |census: Option<ResMut<SimPhaseCensus>>| {
@@ -581,43 +498,30 @@ pub fn mark_sim_phase(index: usize) -> impl FnMut(Option<ResMut<SimPhaseCensus>>
     }
 }
 
-/// OPEN the window, attributing nothing.
+/// Open the window, attributing nothing.
 ///
-/// ⛔⛔ WITHOUT THIS THE FIRST BUCKET IS A LIE, and it lied convincingly. A
-/// closing boundary attributes "now minus the previous boundary", so with no
-/// opening mark the first phase absorbs everything between the PREVIOUS tick's
-/// last phase and this one's first — the entire rest of the frame, main
-/// schedule and render included. Measured 2026-08-29: it reported
-/// `PlayerInput=3.96ms` inside a sim tick that the main-phase census put at
-/// 1.98ms TOTAL. A bucket larger than the thing containing it is the tell.
+/// Without this, the first bucket is wrong. A closing mark records "now minus
+/// the previous mark", so with no opening mark the first phase absorbs the rest
+/// of the previous frame (main schedule and render included). A bucket larger
+/// than the whole sim tick is the symptom.
 #[cfg(not(target_arch = "wasm32"))]
 fn open_sim_phase_window(mut census: ResMut<SimPhaseCensus>) {
     census.open();
 }
 
-/// Report the sim-phase split on the census interval, then reset.
+/// Report the membership of the sim schedule, which
+/// `report_schedule_conditions_census` cannot see.
 ///
-/// ⭐ REPORTED AS A PER-TICK AVERAGE over the interval, because a single sim
-/// tick is microseconds and the interesting quantity is what the tick costs on
-/// average, not what one of them did.
-/// The SIM schedule's membership — the one schedule `report_schedule_conditions_census`
-/// could never name.
+/// The `PreStartup` pass reports only main-schedule labels. `GgrsSchedule` does
+/// not exist until a session activates, so that pass reports zero for every
+/// sim system, present or not.
 ///
-/// ⛔⛔ WHY THIS EXISTS: the `PreStartup` membership pass reports only MAIN-schedule
-/// labels, and the shipped sim lives in `GgrsSchedule`, which does not exist yet
-/// at `PreStartup` — it is created when a session activates. So a grep for a
-/// system in `GgrsSchedule` against that pass returns zero FOR EVERY SYSTEM,
-/// present or absent. Measured 2026-08-29, when exactly that zero was published
-/// as "verified: 0 occurrences in GgrsSchedule" for two systems that had been
-/// moved out. The move was real; the evidence was not.
+/// This runs once, on a sample frame after the sim schedule exists. Its graph
+/// is drained by then, so it uses `report_schedule_membership`, which falls
+/// back to the initialized executable.
 ///
-/// ⇒ SAMPLED, and ONCE. By the time this can see the schedule its graph is
-/// drained, so it goes through `report_schedule_membership`, whose executable
-/// fallback reads the systems back out of the initialized schedule.
-///
-/// ⭐ Matched BY NAME rather than by label type, deliberately: `ambition_dev_tools`
-/// must not take a `bevy_ggrs` dependency (see `install_ggrs_driver_census`,
-/// which lives in the ggrs crate for exactly that reason).
+/// Matched by name, not label type: `ambition_dev_tools` must not depend on
+/// `bevy_ggrs` (see `install_ggrs_driver_census` in the ggrs crate).
 pub fn report_sim_schedule_membership(
     census: Res<RuntimeCensus>,
     schedules: Option<Res<bevy::ecs::schedule::Schedules>>,
@@ -632,8 +536,7 @@ pub fn report_sim_schedule_membership(
     let Some(schedules) = schedules else {
         return;
     };
-    // Only once the session has actually built it; before that the honest answer
-    // is "not yet", and saying it every sample would be noise.
+    // Wait until the session builds the schedule; do not repeat "not yet".
     let present = schedules
         .iter()
         .any(|(label, _)| SIM_SCHEDULE_NAMES.contains(&format!("{label:?}").as_str()));
@@ -647,11 +550,8 @@ pub fn report_sim_schedule_membership(
             .any(|(label, _)| format!("{label:?}") == *wanted)
         {
             report_schedule_membership(&schedules, wanted, at);
-            // ⭐ AND WHO OWNS IT. The membership row gives bare system NAMES
-            // (`condition_label` drops the path), so crate attribution is lost
-            // there. This is the "which crate is asking the SIM for work"
-            // question — the one an architecture decomposition actually needs,
-            // and it was previously answerable only for main schedules.
+            // The membership row drops crate paths, so also report which crates own the
+            // sim's systems.
             report_schedule_owners_in(&schedules, wanted);
         }
     }
@@ -661,12 +561,15 @@ pub fn report_sim_schedule_membership(
 /// one; `SimSchedule` is what a non-rollback host binds.
 const SIM_SCHEDULE_NAMES: &[&str] = &["GgrsSchedule", "SimSchedule"];
 
+/// Report the sim-phase split on the census interval, then reset.
+///
+/// Values are per-tick means over the interval, because one sim tick is only
+/// microseconds.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn report_sim_phase_census(
     census: Res<RuntimeCensus>,
     mut phases: ResMut<SimPhaseCensus>,
-    // ⛔ `Option`: a composition may run this census with no developer tools
-    // installed, and "nobody is steering" is the honest reading of absence.
+    // `Option`: a composition can run this census without developer tools.
     brains: Option<Res<ambition_characters::brain::AuthoredBrainOverride>>,
     population_cap: Option<Res<ambition_characters::actor::AuthoredPopulationCap>>,
 ) {
@@ -676,53 +579,25 @@ pub fn report_sim_phase_census(
     if phases.ticks == 0 {
         return;
     }
-    // ⛔⛔ A WINDOW OF ONE TICK IS NOT A MEASUREMENT, AND EMITTING IT COST A DAY.
-    // The first report after boot covers the fraction of a second between the
-    // census opening and its first due time, which in a starting app is one tick
-    // in a world that has not finished spawning. Every phase in it reads 0.000 —
-    // not because the phases are free, but because almost nothing had run yet.
-    //
-    // ⇒ IT WAS AVERAGED IN, REPEATEDLY, BY THE PERSON WHO WROTE THE ROW ABOVE.
-    // The obvious summary of a run is "the last few windows", and on 2026-09-01
-    // a 1200-tick capture produced about three of them, one of which was this:
-    //
-    //     (0.000 + 0.341 + 0.332) / 3 = 0.224
-    //
-    // That 0.224 was published as the hall's `Decide` cost against a true steady
-    // value of 0.341, and the same bias sat under a population curve, a density
-    // sweep and three A/B decompositions — worst at low populations, where runs
-    // are shortest and the zero is the largest share of the mean.
-    //
-    // ⭐ SO IT IS NOT EMITTED. `ticks=1` is already in the row and a reader could
-    // filter on it; three separate analyses did not. A row that cannot be read
-    // correctly is worse than a row that is absent, because absence is visible.
-    // The window's time is not lost — it is folded into the next one, which is
-    // the reading anyone wanted.
+    // Do not emit a one-tick window. The first window after boot holds one tick in
+    // a world that has not finished spawning, so every phase reads 0.000.
+    // Averaging that row with later ones biases means low, most at low
+    // populations. `ticks=1` is on the row, but readers did not filter on it. The
+    // window's time is not lost: it folds into the next window.
     if !phases.is_reportable() {
         return;
     }
     let ticks = phases.ticks as f64;
     let mut row = format!("[census] sim_phases t={at:.3} ticks={}", phases.ticks);
-    // ⛔⛔ A CAPPED RUN IS NOT THE SHIPPED ROOM. `AMBITION_ACTOR_POPULATION_CAP`
-    // removes authored actors to make a scaling curve possible, and a row taken
-    // under it describes a room nobody plays. Say so ON THE ROW — a reader
-    // quoting a number will not go looking for the environment it was taken in.
-    // ⭐ AND IT READS THE RESOURCE THE SIM READ, not the environment, for the
-    // same reason as the brain override below: the row reports what was IN
-    // FORCE, and the two cannot disagree.
+    // A population-capped run does not describe the authored room. Say so on the
+    // row, because readers quote rows without their environment. Read the
+    // resource the sim read, not the environment, so the row reports what was in
+    // force.
     if let Some(cap) = population_cap.as_deref().and_then(|cap| cap.cap()) {
         row.push_str(&format!(" actor_cap={cap}"));
     }
-    // ⛔⛔ AND A RE-BRAINED CAST IS NOT THE AUTHORED ONE EITHER.
-    // `AMBITION_ACTOR_BRAIN_OVERRIDE` replaces what every body in the room
-    // thinks with, which moves the decision cost far more than removing bodies
-    // does. Same rule: say so ON THE ROW.
-    //
-    // ⭐ AND IT READS THE RESOURCE THE SIM READ, not the environment. The two
-    // used to be separate readers of one `OnceLock`; now the census reports what
-    // was actually IN FORCE, so a row cannot claim a knob the world was not
-    // built under. `None` — a composition with no developer tools — prints
-    // nothing, which is what an unset variable printed.
+    // The same for a brain override, which changes decision cost more than
+    // removing bodies. `None` (no developer tools) prints nothing.
     if let Some(forced) = brains.as_deref() {
         if let Some(preset) = forced.preset() {
             row.push_str(&format!(" brain_override={preset}"));
@@ -731,16 +606,11 @@ pub fn report_sim_phase_census(
             row.push_str(&format!(" brain_profile={profile}"));
         }
     }
-    // ⛔ The schedule declares no order between these, so their buckets are
-    // differences between marks nobody sequenced. Named on the row so a reader
-    // cannot mistake the list for a serial partition of the frame.
-    // ⭐ WHAT EACH VIEWER ACTUALLY KEPT. `Decide`'s slope follows this number
-    // rather than the room's population: it grows superlinearly while the kept
-    // set is still growing and flattens when the viewport saturates. Reported
-    // beside the phase it explains.
-    // `visible` is the density term (peers inside the viewport); `kept` is what
-    // the attention budget let through and what the cost follows — equal
-    // until the budget binds (`TACTICAL_ATTENTION`).
+    // Perception census: what each viewer kept. `Decide` cost follows `kept`, not
+    // room population. `visible` is peers inside the viewport; `kept` is what the
+    // attention budget let through (equal until the budget binds, see
+    // `TACTICAL_ATTENTION`).
+    // The phases in `unmeasured=` have no declared order, so they have no bucket.
     if let Some(census) = ambition_characters::perception::census::drain() {
         row.push_str(&format!(
             " views={} offered={:.1} visible={:.1} kept={:.1} kept_max={}",
@@ -773,11 +643,8 @@ pub fn report_sim_phase_census(
     for (name, per_tick) in ranked {
         row.push_str(&format!(" {name}={per_tick:.3}"));
     }
-    // ⛔⛔ AN UNCLOSED BUCKET WIDENS ITS NEIGHBOUR SILENTLY, which is exactly how
-    // `WorldPrep.BeforeIntegrate` came to mean the whole prefix through it.
-    // Ticks ran and this bucket took literally none of them, so the mark is not
-    // installed — say it on the row a reader is about to quote, not in a comment
-    // they will not open.
+    // An unclosed bucket silently widens its neighbour. If ticks ran and this
+    // bucket got no time, its mark is not installed; say so on the row.
     if phases
         .totals
         .get(SIM_PHASE_ACTOR_DECISION)
@@ -793,19 +660,15 @@ pub fn report_sim_phase_census(
     phases.ticks = 0;
 }
 
-/// WHAT the entities ARE — the biggest populations, by the component that names
+/// What the entities are: the largest populations, by the component that names
 /// them.
 ///
-/// ⭐⭐ THE QUESTION `entities=2048` CANNOT ANSWER. A Smash match takes this app
-/// from 64 entities to 2048 while `bodies` stays at 2, so the population that
-/// grew is not the one the other rows name. A phase cost that scales with
-/// entities is unattributable until somebody can say WHICH entities.
+/// `entities` alone cannot say which population grew (a Smash match goes from
+/// 64 to 2048 entities while `bodies` stays at 2).
 ///
-/// ⛔ IT RANKS BY COMPONENT, NOT BY ARCHETYPE, and the difference matters: an
-/// archetype is a SET of components and its name is a list nobody can read,
-/// while "2000 entities carry `Sprite`" is a sentence. An entity is counted once
-/// per component it holds, so the numbers do not sum to the entity count and are
-/// not meant to.
+/// This ranks by component, not by archetype, because an archetype name is an
+/// unreadable component list. An entity counts once per component it holds, so
+/// the numbers do not sum to the entity count.
 pub fn report_entity_populations(
     census: Res<RuntimeCensus>,
     entities: &Entities,
@@ -852,18 +715,13 @@ fn short_type_name(name: &str) -> String {
     head.rsplit("::").next().unwrap_or(head).to_string()
 }
 
-/// WHO OWNS the systems in ONE schedule.
+/// Who owns the systems in one schedule.
 ///
-/// ⭐⭐ THE CUT THAT MAPS ONTO CAPABILITIES. `[census] owners` totals every
-/// schedule at once, and `[census] membership` names systems without grouping
-/// them. Neither answers "which crate should I gate to attribute `Update`'s
-/// 1.42ms", which is the campaign's last open question — the only phase both
-/// substantially OURS and unexplained.
+/// `[census] owners` totals all schedules, and `[census] membership` names
+/// systems without grouping them. This groups one schedule's systems by crate,
+/// which shows what to gate to attribute that schedule's cost.
 ///
-/// ⛔ A COUNT IS STILL NOT A COST. This ranks who is REGISTERED here, which is
-/// how you choose what to gate and measure next; it does not claim any of them
-/// is expensive. Eleven probes on this codebase have found population size to be
-/// a poor predictor of frame time.
+/// A count is not a cost. This shows who is registered, not who is expensive.
 fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
     for (label, schedule) in schedules.iter() {
         if format!("{label:?}") != wanted {
@@ -891,19 +749,15 @@ fn report_schedule_owners_in(schedules: &Schedules, wanted: &str) {
     }
 }
 
-/// NAME every system in one schedule, so an unattributed cost stops being
+/// Name every system in one schedule, so an unattributed cost stops being
 /// "DefaultPlugins" and becomes something a person can act on.
 ///
-/// ⭐⭐ WHY IT PRINTS NAMES RATHER THAN TIMING THEM. `[census] ggrs_driver`
-/// measured ~0.95ms of `PreUpdate` sitting OUTSIDE the GGRS driver in a headless
-/// Smash match — the third-largest cost in the frame. Timing each system would
-/// need this crate to depend on `bevy_ui`, `bevy_picking` and leafwing purely to
-/// name their sets, which is an instrument joining the population it measures.
-/// The graph already knows the names; reading them costs nothing and turns
-/// "DefaultPlugins is 0.95ms" into a list somebody can bracket deliberately.
+/// This prints names instead of timing systems. Timing them would make this
+/// crate depend on `bevy_ui`, `bevy_picking` and leafwing only to name their
+/// sets. The graph already has the names, at no cost.
 ///
-/// ⛔ ONE-SHOT AT `PreStartup`, for the reason in `report_schedule_conditions_census`:
-/// `Schedule::initialize` drains the graph, so this is readable exactly once.
+/// The graph is drained by `Schedule::initialize` (see
+/// `report_schedule_conditions_census`), so the executable is the fallback.
 fn report_schedule_membership(schedules: &Schedules, wanted: &str, at: f64) {
     for (label, schedule) in schedules.iter() {
         if format!("{label:?}") != wanted {
@@ -916,21 +770,10 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str, at: f64) {
             .map(|(_key, system, _conditions)| condition_label(system.name().as_ref()))
             .collect();
         names.sort();
-        // ⛔⛔ A ZERO HERE IS A DRAINED GRAPH, NOT AN EMPTY SCHEDULE. Any schedule
-        // that has already run by `PreStartup` — `StateTransition` and `Startup`
-        // among them — has had its systems MOVED into the private executable, so
-        // this read finds nothing. Measured: this reported `StateTransition
-        // systems=0` while `[census] schedules`, which falls back to
-        // `systems_len()`'s executable count, reported EIGHT. Say which it is,
-        // because "zero systems costing 2ms" is a conclusion somebody will draw.
-        // ⭐ THE EXECUTABLE IS THE OTHER HALF OF THE ANSWER. A drained graph is not
-        // an empty schedule — `Schedule::initialize` MOVES the systems into the
-        // private executable, and `Schedule::systems()` reads them back from
-        // exactly there. So the two accessors are complementary: the graph
-        // answers before first run, the executable answers after. Reading only
-        // the graph reported `StateTransition systems=0` while
-        // `[census] schedules` said EIGHT, and "zero systems costing 2ms" is a
-        // conclusion somebody will draw from that.
+        // An empty graph can be a drained graph, not an empty schedule. A schedule
+        // that already ran (`StateTransition`, `Startup`) has its systems moved into
+        // the private executable, and `Schedule::systems()` reads them from there.
+        // The graph answers before the first run; the executable answers after.
         if names.is_empty() {
             match schedule.systems() {
                 Ok(systems) => {
@@ -958,20 +801,16 @@ fn report_schedule_membership(schedules: &Schedules, wanted: &str, at: f64) {
     eprintln!("[census] membership t={at:.3} schedule={wanted} unavailable=not_found");
 }
 
-/// WHO OWNS the registered systems — the population behind "this app installs
+/// Who owns the registered systems — the population behind "this app installs
 /// every experience it can launch".
 ///
-/// ⭐⭐ THE COST-OWNERSHIP QUESTION, and it is the one a profiler answers worst.
-/// A trace says `tick_rolling` was called 1802 times; it does not say that
-/// `tick_rolling` belongs to an experience this run never entered. System names
-/// carry their crate, so the schedule graph can say which crate is asking the
-/// frame for work — before any of it runs, and without attributing a cost to it.
+/// System names carry their crate, so the schedule graph shows which crate
+/// asks the frame for work, including experiences this run never entered.
 ///
-/// ⛔ A COUNT IS NOT A COST. A crate with 200 registered systems whose set is
-/// gated costs one condition; a crate with 3 ungated ones costs 3 per frame.
-/// This row says who is REGISTERED, which is the question "should a shipped
-/// title carry this at all" needs, and it does not claim to answer "what did
-/// the frame spend".
+/// A count is not a cost. A crate with 200 systems in a gated set costs one
+/// condition; a crate with 3 ungated systems costs 3 per frame. This row
+/// answers "should a shipped title carry this crate", not "what did the frame
+/// spend".
 fn report_schedule_owners(schedules: &Schedules) {
     let mut by_owner: std::collections::BTreeMap<String, usize> = Default::default();
     let mut total = 0usize;
@@ -989,13 +828,9 @@ fn report_schedule_owners(schedules: &Schedules) {
         "[census] owners t=0.000 systems={total} crates={}",
         by_owner.len()
     );
-    // ⛔ EVERY OWNER, NOT A TOP-20, and the doc comment above is the reason.
-    // "Should a shipped title carry this at all" is an ABSENCE question: a
-    // reader greps this row for a crate and reads nothing as "registers no
-    // systems". While this printed the top twenty of `crates=82`, absence was
-    // uninformative for 62 crates and looked authoritative — one read of it
-    // nearly produced a finding that 16 of 17 facade capabilities were dead.
-    // Ranked, so the top of the line still reads as the old one did.
+    // Print every owner, not a top N. Readers search this row for a crate and read
+    // absence as "registers no systems", which is only true if the list is
+    // complete. Ranked, so the largest owners come first.
     for (name, count) in ranked.iter() {
         row.push_str(&format!(" {name}={count}"));
     }
@@ -1096,10 +931,9 @@ pub fn report_frame_interval_census(
 ///
 /// Each is a real schedule holding exactly one system, inserted into
 /// [`MainScheduleOrder`] immediately before the phase it opens (and one more
-/// after the last phase). That placement is what makes the breakdown EXACT:
-/// a marker system added to `Update` itself would run wherever the executor
-/// happened to order it, silently charging part of `Update` to whatever ran
-/// before it. A schedule's position in `MainScheduleOrder` is not ambiguous.
+/// That placement makes the breakdown exact. A marker system inside `Update`
+/// would run wherever the executor put it and charge part of `Update` to the
+/// phase before it.
 ///
 /// The index is the phase it opens, so `FramePhaseMark(0)` runs before the
 /// first phase and `FramePhaseMark(n)` after the last.
@@ -1107,38 +941,18 @@ pub fn report_frame_interval_census(
 #[derive(bevy::ecs::schedule::ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 struct FramePhaseMark(usize);
 
-/// Wall time attributed to each phase of the main schedule.
+/// Process CPU time, in milliseconds, or `None` where it is not available.
 ///
-/// ⭐ **THIS IS THE ONE FRAME BREAKDOWN THAT NEEDS NO PROFILER.** Tracy answers
-/// it too, but Tracy is a desktop build whose symbol worker can cost more than
-/// the game — a measured headless run spent 55% of its cycles inside the
-/// profiler and 40% inside the game — and it does not exist at all on the
-/// platforms where the answer matters most: web, Android, a Steam Deck in
-/// someone else's hands. A handful of `Instant::now()` calls per frame put
-/// "which phase owns the frame" in reach of any build that can write to stderr.
+/// This separates busy from blocked. `Instant` measures wall time, so a phase
+/// that waits 3 ms on the GPU looks like one that works 3 ms. A CPU clock does
+/// not advance while nothing runs.
 ///
-/// ⭐ THE PHASES ARE READ FROM [`MainScheduleOrder`], NOT HARDCODED. A census
-/// that listed `First, PreUpdate, Update, PostUpdate, Last` would quietly
-/// mis-attribute `StateTransition` (inserted by `bevy_state`), `SpawnScene`, and
-/// any schedule a game inserts of its own. Taking the list from the app means
-/// the row describes the schedule the app actually composed.
-/// PROCESS CPU time, in milliseconds, or `None` where we cannot ask.
+/// Process, not thread: Bevy does not run consecutive mark schedules on one
+/// thread, so differencing a per-thread clock across threads gives wrong
+/// values.
 ///
-/// ⭐ THIS IS WHAT SEPARATES BUSY FROM BLOCKED. `Instant` measures WALL time, so
-/// a phase that spends 3 ms waiting on the GPU and one that spends 3 ms working
-/// are the same number — which made a real RTX 3090 capture unreadable on
-/// 2026-09-01. A CPU clock does not advance while nothing runs, so a phase whose
-/// wall time far exceeds its CPU time was WAITING.
-///
-/// ⛔⛔ PROCESS, NOT THREAD, AND THE FIRST VERSION GOT THIS WRONG.
-/// `CLOCK_THREAD_CPUTIME_ID` is per-thread and Bevy does not run consecutive
-/// mark schedules on one thread, so differencing across a switch invented time —
-/// it read 50.963 ms of "CPU" inside a phase whose wall was 0.558 ms. The
-/// process clock is thread-independent and needs no pairing.
-///
-/// ⚠ IT SUMS EVERY THREAD, so on a multicore machine a busy phase can report
-/// MORE CPU than wall. That is the signal, not a bug: cpu/wall is roughly how
-/// many cores the phase kept busy, and a ratio near zero is a stall.
+/// It sums every thread, so a busy phase can show more CPU than wall time.
+/// cpu/wall is roughly the number of busy cores; a ratio near zero is a stall.
 #[cfg(all(unix, not(target_arch = "wasm32")))]
 fn process_cpu_ms() -> Option<f64> {
     let mut ts = libc::timespec {
@@ -1156,6 +970,14 @@ fn process_cpu_ms() -> Option<f64> {
     None
 }
 
+/// Wall time attributed to each phase of the main schedule.
+///
+/// This frame breakdown needs no profiler, so it works on web, Android and
+/// other builds where Tracy is not available or costs more than the game.
+///
+/// The phases come from [`MainScheduleOrder`], not a hardcoded list, so
+/// `StateTransition`, `SpawnScene` and game-inserted schedules are attributed
+/// correctly.
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Default)]
 pub struct SchedulePhaseCensus {
@@ -1165,13 +987,12 @@ pub struct SchedulePhaseCensus {
     /// Index of the phase currently open, or `None` before the first mark.
     current: Option<usize>,
     marked_at: Option<Instant>,
-    /// PROCESS CPU milliseconds at the last mark, when the clock is available.
+    /// Process CPU milliseconds at the last mark, when the clock is available.
     /// Every thread, not the main one — see `process_cpu_ms`.
-    ///
     marked_cpu: Option<f64>,
     /// Accumulated milliseconds per phase since the last report.
     totals_ms: Vec<f64>,
-    /// Accumulated PROCESS CPU milliseconds per phase, parallel to `totals_ms`.
+    /// Accumulated process CPU milliseconds per phase, parallel to `totals_ms`.
     /// Summed across every thread, so this can exceed the wall time beside it.
     cpu_ms: Vec<f64>,
     frames: u32,
@@ -1233,7 +1054,7 @@ fn mark_frame_phase(phase: usize) -> impl FnMut(ResMut<SchedulePhaseCensus>) {
 
 /// Report the phase breakdown on a sample frame.
 ///
-/// Runs in the LAST mark schedule, after its marker, so every phase of the
+/// Runs in the last mark schedule, after its marker, so every phase of the
 /// frame it reports has already been closed.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn report_schedule_phase_census(
@@ -1255,19 +1076,11 @@ pub fn report_schedule_phase_census(
         row.push_str(&format!(" {name}={:.3}", total_ms / frames));
     }
     eprintln!("{row}");
-    // ⭐ THE SAME SPLIT ON THE PROCESS CPU CLOCK. `phases` above is WALL time,
-    // so a phase BLOCKED on the GPU is indistinguishable from one that is busy —
-    // the reason a rendering capture's split is untrustworthy. A CPU clock does
-    // not tick while nothing runs, so `phases_cpu` is work that can be trusted
-    // even while rendering.
-    //
-    // ⛔⛔ AND `phases - phases_cpu` IS NOT THE STALL. This comment said it was.
-    // `process_cpu_ms` reads `CLOCK_PROCESS_CPUTIME_ID`, which SUMS EVERY
-    // THREAD, so a phase that keeps four cores busy for 2 ms reports 8 ms of CPU
-    // against 2 ms of wall and the difference is NEGATIVE. Read the RATIO:
-    // cpu/wall is roughly how many cores the phase kept busy, and a ratio near
-    // zero is a stall. The subtraction is the stall only where the ratio cannot
-    // exceed one, i.e. genuinely single-threaded work.
+    // The same split on the process CPU clock. Wall time cannot separate a phase
+    // that is blocked on the GPU from one that is busy; CPU time can.
+    // `phases - phases_cpu` is not the stall: the process clock sums every thread,
+    // so the difference can be negative. Read the ratio cpu/wall instead (see
+    // `process_cpu_ms`).
     if phases.cpu_ms.iter().any(|ms| *ms > 0.0) {
         let mut cpu_row = format!("[census] phases_cpu t={at:.3} frames={}", phases.frames);
         for (name, cpu_ms) in phases.names.iter().zip(&phases.cpu_ms) {
@@ -1284,60 +1097,21 @@ pub fn report_schedule_phase_census(
     phases.frames = 0;
 }
 
-/// Install the phase marks, reading the phase list off the app's own
-/// [`MainScheduleOrder`].
+/// The phases the schedule declares no order between, by bucket index.
 ///
-/// Returns the phase names in order. Call ONLY when the census is enabled: this
-/// adds a schedule per boundary, and a schedule that runs every frame is not
-/// free. The census is a measuring instrument, and it must not join the
-/// population it measures when nobody asked it to.
-/// Stand a boundary system after each top-level sim phase, and after each
-/// sub-phase of `CoreSimulation`.
-///
-/// ⛔⛔ **`.after(phase)` DOES NOT PUT A MARK AT THAT PHASE'S TRAILING EDGE**, and
-/// this doc said it did until 2026-09-01. `.after(A)` constrains the mark
-/// against `A` and against nothing else, so `A`'s successor may start before the
-/// mark runs and have part of its work billed to `A`. Every mark that CAN be
-/// bracketed is now `.after(A).before(B)`.
-///
-/// ⚠ ALMOST ALL CAN, and my first repair got this wrong. I read one
-/// `configure_sets` block, saw no `.chain()`, and declared eleven phases
-/// unordered. `configure_platformer2d_simulation_phases` chains them in a
-/// SECOND block further down:
-///
-/// ```text
-/// CoreSimulation -> FeatureCollection -> FeatureInteraction -> LdtkRuntimeSpine
-///   -> EncounterSimulation -> Cutscene -> GameplayEffects -> Progression
-///   -> ResetProcessing -> FeatureViewSync,  then PresentationVisualSync after it
-/// ```
-///
-/// ⛔ `Trace` is the ONLY genuinely unordered phase — `.after(CoreSimulation)`
-/// and nothing else. See `SIM_PHASE_UNORDERED`.
-///
-/// ⛔ The names below still duplicate the
-/// chain's membership, and a phase added there without a line here is simply
-/// unattributed — its time lands in whichever neighbour closes next, which is
-/// the honest failure mode for a boundary instrument but is a failure mode.
-/// The phases the schedule declares NO order between, by bucket index.
-///
-/// ⛔⛔ UNMEASURED, NOT MERELY UNORDERED. `Trace` is `.after(CoreSimulation)` and
-/// nothing else, and nothing is declared after it. A serial mark there advances
-/// `last` and steals from whichever chain bucket closes next; an "independent"
-/// pair around it is unbounded on both outer sides and measured **2.317 ms**
-/// against a chain phase of 0.1 — most of the frame. There is no pair of marks
-/// that bounds a phase the schedule does not bound.
-///
-/// ⇒ Its bucket stays ZERO and the census row says `unmeasured=Trace`. Giving it
-/// a number needs spans inside its systems, not a boundary instrument.
+/// These are unmeasured, not only unordered. `Trace` is `.after(CoreSimulation)`
+/// and nothing is ordered after it. A serial mark there would take time from
+/// the next chain bucket. A pair of marks around it is unbounded on both outer
+/// sides and times most of the frame. Its bucket stays zero and the row says
+/// `unmeasured=Trace`. Measuring it needs spans inside its systems.
 #[cfg(not(target_arch = "wasm32"))]
 pub const SIM_PHASE_UNORDERED: [usize; 1] = [20];
 
 /// The sim-phase bucket names, in index order.
 ///
-/// ⛔⛔ THE INDICES ARE A CROSS-CRATE CONTRACT. `SIM_PHASE_ACTOR_DECISION` is a
-/// bare `usize` the actor monolith passes back to `mark_sim_phase`, so inserting
-/// a name ANYWHERE above it silently re-points that mark at another bucket. The
-/// test below is what makes that a build failure instead of a plausible number.
+/// The indices are a contract with the `SIM_PHASE_*` constants. Inserting a name
+/// above one of them points that mark at another bucket. The tests in
+/// `sim_phase_index_tests` catch this.
 #[cfg(not(target_arch = "wasm32"))]
 fn sim_phase_names() -> Vec<&'static str> {
     vec![
@@ -1362,22 +1136,14 @@ fn sim_phase_names() -> Vec<&'static str> {
         "FeatureViewSync",
         "PresentationVisualSync",
         "Trace",
-        // ⛔⛔ APPENDED, AND THE ORDER OF THIS LIST IS NOT THE ORDER OF THE CHAIN.
-        // `close(index)` bills "now minus the previous mark" into whichever
-        // bucket the mark names, so attribution follows the RUNTIME order of the
-        // marks and an index is only a label. ⚠ THESE SEVEN WERE CLOSED FROM THE
-        // ACTOR MONOLITH until 2026-09-02, *"the only crate that can name
-        // `ActorDecisionSet`"* — which stopped being true when that set moved to
-        // `shared_tangle`. They are installed by `install_sim_phase_boundaries`
-        // below now, beside every other mark.
+        // Appended, so this order is not the chain order. `close(index)` bills
+        // "now minus the previous mark" to the named bucket, so attribution follows
+        // the runtime order of the marks and an index is only a label.
         //
-        // ⭐ ALL SEVEN OR NONE. They are installed by one function in one crate,
-        // so there is no arrangement where the six decision phases are marked and
-        // the gate tail is not. That is what makes it safe for bucket
-        // `SIM_PHASE_ACTOR_DECISION` to mean the TAIL (`Publish` through
-        // `BodyMode`) rather than the whole prefix: the meaning cannot change
-        // under a partial install, and the NEVER-CLOSED line catches the empty
-        // one.
+        // `install_sim_phase_boundaries` installs all seven together, so bucket
+        // `SIM_PHASE_ACTOR_DECISION` always means the tail (`Publish` through
+        // `BodyMode`), not the whole prefix. The "NEVER CLOSED" row text catches an
+        // empty bucket.
         "WorldPrep.Decision.Gate",
         "WorldPrep.Decision.Targeting",
         "WorldPrep.Decision.Prepare",
@@ -1388,6 +1154,23 @@ fn sim_phase_names() -> Vec<&'static str> {
     ]
 }
 
+/// Put a boundary system after each top-level sim phase, and after each
+/// sub-phase of `CoreSimulation` and of the actor decision chain.
+///
+/// `.after(A)` alone does not put a mark at `A`'s trailing edge: `A`'s
+/// successor can start before the mark and have part of its work billed to
+/// `A`. So every mark that can be bracketed is `.after(A).before(B)`. The
+/// chains come from `configure_platformer2d_simulation_phases`:
+///
+/// ```text
+/// CoreSimulation -> FeatureCollection -> FeatureInteraction -> LdtkRuntimeSpine
+///   -> EncounterSimulation -> Cutscene -> GameplayEffects -> Progression
+///   -> ResetProcessing -> FeatureViewSync,  then PresentationVisualSync after it
+/// ```
+///
+/// Only `Trace` is unordered; see `SIM_PHASE_UNORDERED`. These names copy the
+/// chain's membership. A phase added there without a mark here is billed to
+/// whichever neighbour closes next.
 #[cfg(not(target_arch = "wasm32"))]
 fn install_sim_phase_boundaries(app: &mut App) {
     use ambition_platformer2d_shared_tangle::schedule::{
@@ -1396,76 +1179,37 @@ fn install_sim_phase_boundaries(app: &mut App) {
     };
 
     let sim = app.sim_schedule();
-    // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first
-    // because the umbrella closes only once they all have.
-    // ⛔⛔ AND `WorldPrep.BeforeIntegrate` MEANT THE WHOLE PREFIX BEFORE IT.
-    // The failure mode two paragraphs down — "a phase added there without a line
-    // here is simply unattributed; its time lands in whichever neighbour closes
-    // next" — is one this instrument walked straight into on 2026-08-31. The
-    // actor decision chain (`ActorDecisionSet::Targeting` through `Publish`) is
-    // `in_set(Phase::WorldPrep)` and `before(WorldPrepSet::BeforeIntegrate)`, so
-    // with no mark between `PlayerInput` and `BeforeIntegrate` all six of its
-    // sets billed into bucket 1 under a name that says otherwise. The 1.214
-    // ms/tick that name carried was read as a movement-prep cost and used to
-    // rule a physics engine in or out; it is a prefix, and most of it may be
-    // cognition.
+    // Ordered as the chain runs. `CoreSimulation`'s sub-phases come first because
+    // the umbrella closes only after all of them.
     //
-    // ⇒ bucket `SIM_PHASE_ACTOR_DECISION` closes after `Publish`, so bucket 1
-    // means what it says. `report_sim_phase_census` says so out loud when that
-    // mark never fired, because a bucket silently changing meaning depending on
-    // which plugins are installed is the defect, not the fix.
-    //
-    // ⛔⛔ `WorldPrep` IS SPLIT, AND THE HALL IS WHY. A windowed capture on
-    // 2026-08-31 walked into `hall_of_characters` and the frame went
-    // 7.91ms -> 10.52ms; 91% of the SIMULATION's share of that was `WorldPrep`
-    // alone, +1.546 ms/tick, while every other phase stayed flat. One number for
-    // a phase containing four sets could say THAT it grew and never WHICH part
-    // of it did — and the two candidates want opposite fixes: the body-contact
-    // pairing is O(n^2) and wants a broadphase, the movement kernel is O(n) and
-    // wants a smaller constant. The sub-sets below are what tells them apart.
+    // `WorldPrep` is split into its sub-sets so that a growth in `WorldPrep` can
+    // be assigned: body-contact pairing (O(n^2)) and the movement kernel (O(n))
+    // need different fixes.
     app.insert_resource(SimPhaseCensus::with_names(sim_phase_names()));
     ambition_characters::perception::census::enable();
 
-    // ⛔ THE OPENING MARK COMES FIRST, and it is what makes bucket 0 mean
-    // `PlayerInput` rather than `PlayerInput plus the whole preceding frame`.
+    // The opening mark makes bucket 0 mean `PlayerInput` only, not `PlayerInput`
+    // plus the previous frame.
     app.add_systems(sim, open_sim_phase_window.before(Phase::PlayerInput));
-    // ⛔⛔ EACH MARK NEEDS BOTH EDGES, AND THESE HAD ONLY ONE UNTIL 2026-09-01.
-    // `.after(A)` alone says the mark runs after `A`; it says NOTHING about the
-    // mark and `A`'s successor, so the scheduler may start `B` before the mark
-    // fires and bill part of `B` into `A`'s bucket. The actor-decision marks in
-    // `features/mod.rs` already carried this reasoning and both edges; the
-    // parent marks did not, and the comment here claimed `.after(phase)` put a
-    // mark "exactly at that phase's trailing edge". It does not.
-    //
-    // A `.before(next)` is only available where the schedule actually DECLARES a
-    // successor. Two groups here do:
+    // Each mark needs both edges where the schedule declares a successor:
     //
     //   PlayerInput -> WorldPrep -> PlayerSimulation -> RoomTransition
     //                -> Combat -> PresentationSync        (CoreSimulation, chained)
     //   BeforeIntegrate -> Integrate -> AfterIntegrate    (WorldPrep, chained)
-    //
-    // And a THIRD, which my first repair missed by reading only the first
-    // `configure_sets` block in that file:
-    //
     //   CoreSimulation -> FeatureCollection -> ... -> ResetProcessing
     //     -> FeatureViewSync -> PresentationVisualSync
-    //
-    // Only `Trace` is genuinely unordered; it gets an independent clock below.
     app.add_systems(
         sim,
         mark_sim_phase(0)
             .after(Phase::PlayerInput)
             .before(Phase::WorldPrep),
     );
-    // ⭐ THE SUB-SETS CLOSE BEFORE THEIR UMBRELLA. Each mark bills the span since
-    // the previous one, so bucket 5 (`WorldPrep`) ends up holding only what ran
-    // inside the phase but in NONE of its four sets — which is a real quantity
-    // worth seeing, not a rounding error: `snapshot_body_contact` and the
-    // monolith's own `WorldPrep` systems are exactly that.
+    // Sub-sets close before their umbrella. Each mark bills the span since the
+    // previous one, so bucket 5 (`WorldPrep`) holds only work in the phase but in
+    // none of its sets (for example `snapshot_body_contact`).
     //
-    // ⚠ `AfterIntegrate` and `ContactDamage` are deliberately NOT chained to each
-    // other (see `WorldPrepSet`), so their marks record the order the schedule
-    // actually resolved, not an order this instrument imposed.
+    // `AfterIntegrate` and `ContactDamage` are not chained to each other (see
+    // `WorldPrepSet`), so their marks record the order the schedule resolved.
     app.add_systems(
         sim,
         mark_sim_phase(1)
@@ -1570,57 +1314,18 @@ fn install_sim_phase_boundaries(app: &mut App) {
             .before(Phase::PresentationVisualSync),
     );
     app.add_systems(sim, mark_sim_phase(19).after(Phase::PresentationVisualSync));
-    // ⛔⛔ TRACE IS NOT TIMED, AND CANNOT BE BY THIS INSTRUMENT.
-    //
-    // It is `.after(CoreSimulation)` and nothing else — nothing is declared
-    // after it — so every pair of marks I can place has an unbounded side. A
-    // serial mark steals from whichever chain bucket closes next; an
-    // "independent" pair `open.before(Trace)` / `close.after(Trace)` is
-    // unbounded on BOTH outer sides, which is the very defect this repair was
-    // about. It read **2.317 ms** against a chain phase of 0.1 — it was timing
-    // most of the frame, not Trace.
-    //
-    // ⇒ Bucket 20 stays ZERO and the row says `unmeasured=Trace`. A phase
-    // nothing orders cannot be given a wall-time slice by a boundary
-    // instrument; measuring it needs its own spans, not a mark.
+    // `Trace` gets no mark; see `SIM_PHASE_UNORDERED`.
 
-    // ⭐⭐ THE DECISION CHAIN, MOVED HERE 2026-09-02 FROM THE ACTOR KERNEL.
-    // These seven used to be installed by
-    // `ambition_platformer2d_actor_monolith::features::install_actor_decision_
-    // census_boundary`, because `ActorDecisionSet` was `pub(crate)` there and
-    // this crate may not name that one
-    // (`engine.ambition_dev_tools-source-purity`). The set moved down to
-    // `shared_tangle` beside `WorldPrepSet`, so the instrument's own
-    // registration lives with the instrument and the simulation package no
-    // longer schedules a developer facility.
+    // The actor decision chain. Every decision set is `in_set(WorldPrep)` and
+    // `before(BeforeIntegrate)`, so without these marks all of it bills to bucket
+    // 1. Six sub-marks separate `Targeting` (`select_actor_targets`, O(n²)) from
+    // `Decide` (`tick_actor_brains`, which builds a `WorldView` for every actor).
     //
-    // ⛔⛔ WITHOUT THESE, ALL OF IT BILLS TO BUCKET 1. Every decision set is
-    // `in_set(WorldPrep)` and `before(BeforeIntegrate)`, and bucket 1 closes
-    // AFTER `BeforeIntegrate`; a boundary instrument attributes "now minus the
-    // previous mark", so the six decision sets plus the two gate sets landed in
-    // a bucket named after a set none of them belong to. A windowed Hall
-    // capture on 2026-08-31 read 1.214 ms/tick there and it was taken for
-    // movement preparation.
+    // The tail mark closes after `BodyMode`, not `Publish`, because the two gate
+    // sets run between publication and `BeforeIntegrate`.
     //
-    // ⭐ MEASURED 2026-09-01, and it is why the six sub-marks exist rather than
-    // one. In `hall_of_characters` at 130 bodies, headless and without Tracy,
-    // the span was **0.958 ms/tick against `BeforeIntegrate`'s 0.037** — 96% of
-    // a bucket that had been read as movement preparation. Splitting it
-    // separates the two candidates: `Targeting` (`select_actor_targets`
-    // documents itself O(n²)) from `Decide` (`tick_actor_brains` builds a full
-    // `WorldView` for every actor, including the ones authored `stand_still`
-    // that read none of it).
-    //
-    // ⚠ THE SPAN IS `Targeting` THROUGH `BodyMode`, not `Targeting` through
-    // `Publish` — the two gate sets sit between publication and
-    // `BeforeIntegrate`, so a mark after `Publish` would leave them
-    // misattributed exactly as before, just less of them.
-    //
-    // ⛔⛔ EACH MARK NEEDS BOTH EDGES, the same rule the parent marks above
-    // learned on 2026-09-01: `.after(Targeting)` alone has no upper bound — the
-    // sets are chained to each other, not to this system — so a mark with only
-    // a lower bound may legally run after `Decide` and bill five phases into
-    // one bucket.
+    // Each mark needs both edges: the sets are chained to each other, not to these
+    // systems, so a mark with only `.after` may run after a later set.
     app.add_systems(
         sim,
         (
@@ -1651,6 +1356,11 @@ fn install_sim_phase_boundaries(app: &mut App) {
     );
 }
 
+/// Install the phase marks, reading the phase list from the app's own
+/// [`MainScheduleOrder`]. Returns the phase names in order.
+///
+/// Call only when the census is enabled: each boundary is a schedule that runs
+/// every frame.
 #[cfg(not(target_arch = "wasm32"))]
 fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
     use bevy::app::MainScheduleOrder;
@@ -1679,12 +1389,10 @@ fn install_frame_phase_marks(app: &mut App) -> Vec<String> {
         (mark_frame_phase(phases.len()), report_schedule_phase_census).chain(),
     );
 
-    // ⛔ NOT `MainScheduleOrder::insert_before`. It locates the anchor with
-    // `(**current).eq(&before)`, which downcasts to the anchor's CONCRETE type;
-    // handing it the `InternedScheduleLabel` we just read back out of `labels`
-    // fails that downcast and panics with "Expected First to exist". The list
-    // is public, so interleave it directly -- which is also the whole order in
-    // one pass instead of N searches.
+    // Do not use `MainScheduleOrder::insert_before`. It finds the anchor by
+    // downcasting to its concrete type, so an `InternedScheduleLabel` read back
+    // from `labels` fails and panics ("Expected First to exist"). The list is
+    // public, so interleave it directly in one pass.
     let mut interleaved = Vec::with_capacity(phases.len() * 2 + 1);
     for (index, phase) in phases.iter().enumerate() {
         interleaved.push(FramePhaseMark(index).intern());
@@ -1715,23 +1423,15 @@ impl Plugin for RuntimeCensusPlugin {
         app.init_resource::<RuntimeCensus>();
         app.init_resource::<FrameIntervalCensus>();
         app.add_systems(First, advance_runtime_census);
-        // ⛔ PreStartup, and the phase is load-bearing: `Update` and the sim
-        // schedule have not initialized yet, so their graphs still hold the
-        // conditions this counts. One frame later they are gone.
+        // `PreStartup` is required: `Update` and the sim schedule are not initialized
+        // yet, so their graphs still hold the conditions this counts.
         app.add_systems(PreStartup, report_schedule_conditions_census);
         let enabled = app.world().resource::<RuntimeCensus>().enabled();
 
-        // ⛔⛔ THE REPORTERS ARE GATED AT BUILD TIME TOO, and until now they were
-        // not — nine of them across this crate and `ambition_render` were
-        // registered unconditionally, two lines from the comment below saying an
-        // instrument must not join the population it measures. Each early-returns
-        // on `census.due()`, so the cost was small; the point is that it was not
-        // ZERO, and a census that installs itself into every shipped frame to
-        // discover it was not asked for is the exact shape this campaign spent
-        // eleven probes cataloguing elsewhere.
-        //
-        // ⭐ PROVABLY BEHAVIOUR-PRESERVING: `due_at` is only ever set while
-        // enabled, so a disabled census could never have reported anything.
+        // Reporters are registered only when enabled. Each one returns early on
+        // `census.due()`, but an instrument must not add systems to frames that did
+        // not ask for it. This changes no behaviour: `due_at` is set only while
+        // enabled.
         if enabled {
             app.add_systems(
                 Last,
@@ -1740,35 +1440,23 @@ impl Plugin for RuntimeCensusPlugin {
                     report_ecs_census,
                     report_schedule_load_census,
                     report_entity_populations,
-                    // ⭐ Names the SIM schedule's systems, which the `PreStartup`
-                    // pass structurally cannot: that schedule does not exist
-                    // until a session activates. Latches after one report.
+                    // The sim schedule exists only after a session activates, so the
+                    // `PreStartup` pass cannot see it. Latches after one report.
                     report_sim_schedule_membership,
                 ),
             );
         }
 
-        // ⛔ THE BOUNDARIES ARE NOT REGISTERED WHEN THE CENSUS IS OFF. They run
-        // inside the SIM schedule — the hottest schedule in the app — and an
-        // instrument must not join the population it measures when nobody asked.
+        // The boundaries run inside the sim schedule, the hottest schedule in the app.
         #[cfg(not(target_arch = "wasm32"))]
         if enabled {
             install_sim_phase_boundaries(app);
-            // ⛔⛔ THE REPORTER GOES HERE, NOT IN THE UNCONDITIONAL LIST. It takes
-            // `ResMut<SimPhaseCensus>`, and that resource is inserted by
-            // `install_sim_phase_boundaries` — which only runs when the census
-            // is on. Registered unconditionally it panics with "Resource does
-            // not exist" on every run with the census OFF, which is every test
-            // in the suite. An instrument that is not asked for must not be
-            // able to stop the game.
+            // Register the reporter here: it needs `SimPhaseCensus`, which
+            // `install_sim_phase_boundaries` inserts only when the census is on.
             app.add_systems(Last, report_sim_phase_census);
         }
 
-        // ⛔ THE PHASE MARKS ARE NOT REGISTERED WHEN THE CENSUS IS OFF. Every
-        // other census here costs one bool test on a frame it does not sample.
-        // These are SCHEDULES, one per boundary, and a schedule that runs every
-        // frame is not free. An instrument must not join the population it
-        // measures when nobody asked it to.
+        // Phase marks are schedules, one per boundary, that run every frame.
         #[cfg(not(target_arch = "wasm32"))]
         if enabled {
             let names = install_frame_phase_marks(app);
@@ -1790,17 +1478,12 @@ impl Plugin for RuntimeCensusPlugin {
 mod tests {
     use super::*;
 
-    /// The panel and the log row read the SAME number.
+    /// The panel and the log row read the same number.
     ///
-    /// ⭐⭐ THIS IS THE ONE PROPERTY THE DIAGNOSTICS WORK IS FOR. The campaign's
-    /// architecture is one measurement with several consumers; the failure it
-    /// prevents is two counts with one name, which is unattributable the moment
-    /// they disagree. Both the census printer and the diagnostics publisher take
-    /// [`EcsPopulation`], so this asserts the published value equals what the
-    /// param reports in the same frame.
-    ///
-    /// ⛔ AND IT MOVES THE POPULATION, because a publisher that always wrote a
-    /// constant would satisfy a single-sample check.
+    /// Both the census printer and the diagnostics publisher take
+    /// [`EcsPopulation`], so the published value must equal the param's value in
+    /// the same frame. The test changes the population, so a publisher that writes
+    /// a constant fails.
     #[test]
     fn the_published_entity_counts_are_the_ones_the_census_param_reports() {
         #[derive(Resource, Default)]
@@ -1827,18 +1510,14 @@ mod tests {
         app.add_plugins(bevy::diagnostic::DiagnosticsPlugin);
         app.add_plugins(EcsDiagnosticsPlugin);
         app.add_systems(Update, sample);
-        // The publisher is PACED (see ECS_DIAGNOSTIC_SAMPLE_PERIOD), so a test
-        // about WHAT it publishes has to hand it enough clock to publish at all.
-        // One update per period keeps this test's "publish every update" shape.
+        // The publisher is paced (`ECS_DIAGNOSTIC_SAMPLE_PERIOD`), so advance one
+        // full period per update.
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
             ECS_DIAGNOSTIC_SAMPLE_PERIOD,
         ));
 
-        // ⛔ THE FIRST `update()` HAS A ZERO DELTA. `Time<Real>` has no previous
-        // instant to subtract on the first pass, so even `ManualDuration` reports
-        // 0ns there and no timed run condition fires. Every update after it
-        // advances by a full period, so one priming frame buys "publishes on
-        // every update" for the rest of the test.
+        // The first `update()` has a zero delta (`Time<Real>` has no previous
+        // instant), so no timed condition fires. One priming frame is needed.
         app.update();
         app.update();
         let (scene, resources) = app.world().resource::<Sampled>().0;
@@ -1848,7 +1527,7 @@ mod tests {
             "the published values must be the param's own"
         );
 
-        // Move BOTH populations, then re-read: a publisher wired to a constant
+        // Move both populations, then re-read: a publisher wired to a constant
         // agrees with the first sample and not with this one.
         app.world_mut().spawn_empty();
         app.world_mut().spawn_empty();
@@ -1869,13 +1548,10 @@ mod tests {
 
     /// The ECS populations are counted on a CADENCE, not on every frame.
     ///
-    /// ⛔ THIS IS A COST GUARD, NOT A FEATURE. `publish_ecs_diagnostics` used to
-    /// sit bare in `Update`, so a panel nobody had opened billed the frame loop
-    /// for three world counts on every visible frame. Deleting the run condition
-    /// makes this test red on its first assertion.
-    ///
-    /// The arms STRADDLE the period deliberately: many short frames must not
-    /// publish, and one frame past the period must.
+    /// This is a cost guard. Without the run condition, a panel nobody opened
+    /// counts the world on every frame, and the first assertion fails. The arms
+    /// straddle the period: many short frames must not publish, and one frame past
+    /// the period must.
     #[test]
     fn the_ecs_populations_are_sampled_on_a_cadence_not_every_frame() {
         fn published(app: &App) -> Option<f64> {
@@ -1892,11 +1568,8 @@ mod tests {
         app.add_plugins(EcsDiagnosticsPlugin);
         app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(short));
 
-        // ⛔ THE FIRST `update()` ADVANCES THE CLOCK BY ZERO — `Time<Real>` has
-        // no previous instant to subtract on the first pass — so ten frames buy
-        // only nine tenths of a period. That off-by-one is exactly the kind of
-        // thing that makes a cadence test pass for the wrong reason, so the
-        // arms are counted from it rather than around it.
+        // The first `update()` advances the clock by zero, so ten frames give only
+        // nine tenths of a period.
         for _ in 0..10 {
             app.update();
         }
@@ -1916,20 +1589,13 @@ mod tests {
         );
     }
 
-    /// The scene count must not move when a RESOURCE is added.
+    /// The scene count must not move when a resource is added.
     ///
-    /// ⛔⛔ THE DEFECT THIS PINS SHIPPED. Until 2026-08-31 this census read an
-    /// unfiltered `Query<()>` and called the answer "the number of entities
-    /// that are actually there". Under Bevy 0.18 that was true. Under 0.19 a
-    /// resource is an entity, so the row reported scene content plus every
-    /// registered resource — a constant, invisible inflation of every
-    /// performance note taken from it.
-    ///
-    /// The two arms are what make this a measurement rather than an assertion:
-    /// spawning a resource must move `resource_entities` and must NOT move
-    /// `scene_entities`, and spawning an ordinary entity must do the opposite.
-    /// A test that only checked the first would pass against a query that
-    /// counted nothing at all.
+    /// Since Bevy 0.19 a resource is an entity, so an unfiltered `Query<()>` adds
+    /// every resource to the scene count. Two arms: adding a resource must move
+    /// `resource_entities` and not `scene_entities`; spawning an entity must do
+    /// the opposite. The second arm stops a query that counts nothing from
+    /// passing.
     #[test]
     fn a_resource_is_not_scene_content() {
         #[derive(Resource, Default)]
@@ -1948,7 +1614,7 @@ mod tests {
         app.update();
         let (scene_before, resources_before) = app.world().resource::<Sampled>().0;
 
-        // A RESOURCE: `resources` moves, `scene` does not.
+        // A resource: `resources` moves, `scene` does not.
         app.init_resource::<OnlyForThisTest>();
         app.update();
         let (scene_after_resource, resources_after_resource) = app.world().resource::<Sampled>().0;
@@ -1963,7 +1629,7 @@ mod tests {
             "the resource population must see the resource this test just added"
         );
 
-        // AN ENTITY: `scene` moves, `resources` does not. Without this arm a
+        // An entity: `scene` moves, `resources` does not. Without this arm a
         // query matching nothing would pass the assertion above.
         app.world_mut().spawn_empty();
         app.update();
@@ -1995,13 +1661,9 @@ mod tests {
 
     #[test]
     fn every_phase_gets_a_mark_before_it_and_one_after_the_last() {
-        // ⛔ REGRESSION GUARD. The first version of this used
-        // `MainScheduleOrder::insert_before`, which finds its anchor by
-        // downcasting to the anchor's CONCRETE label type. Handing it an
-        // `InternedScheduleLabel` read back out of `labels` fails that
-        // downcast, and the app panicked at startup with "Expected First to
-        // exist" -- only reachable with the census enabled, so no test that
-        // left it off would have seen it.
+        // Regression guard: `MainScheduleOrder::insert_before` panics with an
+        // interned label ("Expected First to exist"). Only reachable with the census
+        // enabled, so no other test sees it.
         use bevy::app::MainScheduleOrder;
 
         let mut app = App::new();
@@ -2109,28 +1771,20 @@ mod tests {
 mod sim_phase_bracket_tests {
     //! Every sim-phase mark that CAN be bracketed must carry both edges.
     //!
-    //! ⛔⛔ **THE DEFECT THIS PINS SHIPPED IN NINETEEN MARKS AT ONCE**, while the
-    //! actor-decision marks one level down carried the correct reasoning in a
-    //! comment: *"EACH MARK NEEDS BOTH EDGES. `.after(Targeting)` alone has no
-    //! upper bound."* The parent marks were all `.after(phase)` and this file's
-    //! own doc asserted that put them "exactly at that phase's trailing edge".
-    //! It does not: the successor may start before the mark runs, and its work
-    //! is then billed to the previous bucket.
+    //! `.after(phase)` alone does not put a mark at the phase's trailing edge:
+    //! the successor may start first, and its work is billed to the previous
+    //! bucket.
     //!
-    //! ⚠ A SOURCE guard, not a schedule-graph proof. It cannot tell you the
-    //! `.before` names the RIGHT successor — only that a mark which could be
-    //! bracketed is not left one-sided. The chain it must agree with lives in
+    //! This is a source guard, not a schedule-graph proof. It cannot check that
+    //! `.before` names the correct successor, only that a bracketable mark is not
+    //! one-sided. The chain it must agree with is in
     //! `configure_platformer2d_simulation_phases`.
 
     const SOURCE: &str = include_str!("runtime_census.rs");
 
     /// Marks the schedule gives no successor to, and why.
     ///
-    /// `4` is `WorldPrepSet::ContactDamage`, attached with `.after(AfterIntegrate)`
-    /// and deliberately not chained — *"a LABEL, not a chain position: chaining it
-    /// would add edges nobody chose."* `9` is `PresentationSync`, the last link of
-    /// the `CoreSimulation` chain. `10..=18` are the `GameplaySimulationRoot`
-    /// phases, configured with no `.chain()` at all.
+    /// Marks the schedule gives no successor to.
     fn has_no_declared_successor(index: usize) -> bool {
         // 4  = `WorldPrepSet::ContactDamage`, attached `.after(AfterIntegrate)`
         //      and deliberately not chained.
@@ -2186,8 +1840,8 @@ mod sim_phase_bracket_tests {
 
     #[test]
     fn the_unbracketable_marks_are_declared_and_not_merely_missing() {
-        // ⛔ PREMISE GUARD. Without this, declaring every index successor-less
-        // would make the test above pass vacuously.
+        // Premise guard: without this, marking every index successor-less would make
+        // the test above pass vacuously.
         let bracketable: Vec<usize> = installations()
             .into_iter()
             .map(|(i, _)| i)
@@ -2216,12 +1870,9 @@ mod sim_phase_bracket_tests {
 mod sim_phase_index_tests {
     use super::*;
 
-    /// ⛔⛔ **A CROSS-CRATE INDEX WITH NOTHING HOLDING IT.**
-    /// `SIM_PHASE_ACTOR_DECISION` is a bare `usize` that the actor monolith
-    /// hands back to `mark_sim_phase`. Inserting a name above it re-points that
-    /// mark at a neighbouring bucket, and nothing would fail — the census would
-    /// simply publish cognition time under some other phase's name, which is the
-    /// precise defect this bucket was added to end.
+    /// `SIM_PHASE_ACTOR_DECISION` is a bare `usize` passed to `mark_sim_phase`.
+    /// Inserting a name above it would point that mark at another bucket, and
+    /// nothing else would fail.
     #[test]
     fn the_actor_decision_index_still_names_the_actor_decision_bucket() {
         let names = sim_phase_names();
@@ -2235,11 +1886,8 @@ mod sim_phase_index_tests {
 
     /// Every decision-phase index names the phase its constant is named for.
     ///
-    /// ⛔⛔ SIX CONSECUTIVE INDICES IS A TRANSPOSITION WAITING TO HAPPEN, and a
-    /// transposed pair does not fail — it publishes `Targeting`'s milliseconds
-    /// under `Decide`'s name, which is the one thing this whole split exists to
-    /// get right. Two hypotheses are being separated here and they live in those
-    /// two buckets.
+    /// A transposed pair would not fail on its own; it would publish `Targeting`
+    /// time under `Decide`'s name.
     #[test]
     fn each_decision_index_names_its_own_phase() {
         let names = sim_phase_names();
@@ -2280,15 +1928,11 @@ mod sim_phase_index_tests {
 mod mark_without_census_tests {
     use super::*;
 
-    /// ⛔⛔ **A MARK WITHOUT A CENSUS MUST NOT STOP THE GAME.**
+    /// A mark without a census must not stop the game.
     ///
-    /// `mark_sim_phase` is `pub` so a crate that owns a set this one cannot name
-    /// can close its own bucket. That crate cannot see the `if enabled` guard in
-    /// `RuntimeCensusPlugin::build`, and the actor monolith duly registered seven
-    /// marks unconditionally: every run with `AMBITION_PROFILE_CENSUS` unset —
-    /// every run a player makes — panicked with "Resource does not exist".
-    ///
-    /// The `Option` is what makes that impossible rather than merely documented.
+    /// `mark_sim_phase` is `pub`, and a caller in another crate cannot see the
+    /// `if enabled` guard in `RuntimeCensusPlugin::build`. The `Option` makes an
+    /// unconditional registration safe when `AMBITION_PROFILE_CENSUS` is unset.
     #[test]
     fn a_mark_runs_harmlessly_with_no_census_resource() {
         let mut app = App::new();
@@ -2302,9 +1946,7 @@ mod mark_without_census_tests {
     }
 
     /// Premise guard: with a census present the mark still records.
-    ///
-    /// Without this, `mark_sim_phase` could have been emptied out entirely and
-    /// the arm above would still pass.
+    /// Without this, an empty `mark_sim_phase` would pass the test above.
     #[test]
     fn a_mark_still_closes_its_bucket_when_the_census_is_there() {
         let mut app = App::new();
@@ -2331,18 +1973,14 @@ mod mark_without_census_tests {
 mod partial_window_tests {
     use super::*;
 
-    /// ⛔⛔ **THE ONE-TICK STARTUP WINDOW WAS AVERAGED INTO PUBLISHED NUMBERS.**
-    /// Its phases all read 0.000 — not because they are free, but because almost
-    /// nothing had run between the census opening and its first due time. A
-    /// 1200-tick capture produces about three windows, one of which was that:
+    /// A one-tick startup window reads 0.000 for every phase, because almost
+    /// nothing ran yet. Averaged with real windows, for example
     ///
     /// ```text
     /// (0.000 + 0.341 + 0.332) / 3 = 0.224
     /// ```
     ///
-    /// 0.224 was published as the hall's `Decide` cost against a true 0.341, and
-    /// the same bias sat under a population curve, a density sweep and three A/B
-    /// decompositions — worst at low populations, where runs are shortest.
+    /// it biases the mean low, most at low populations where runs are short.
     #[test]
     fn a_single_tick_window_is_not_a_reportable_mean() {
         let mut census = SimPhaseCensus::with_names(sim_phase_names());
@@ -2365,10 +2003,8 @@ mod partial_window_tests {
 
     /// And the suppressed window's time must survive into the next one.
     ///
-    /// ⭐ THIS IS THE HALF THAT MAKES SUPPRESSION HONEST rather than lossy. The
-    /// reporter returns BEFORE its reset, so a skipped window keeps accumulating
-    /// — if it reset instead, suppressing would silently delete real elapsed
-    /// time from the run.
+    /// This makes suppression lossless. The reporter returns before its reset, so
+    /// a skipped window keeps accumulating.
     #[test]
     fn a_suppressed_window_keeps_its_accumulation() {
         let mut census = SimPhaseCensus::with_names(sim_phase_names());

@@ -37,17 +37,12 @@ pub use clip_material::{
     clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
     SpriteFrameBasis, CLIP_PLANE_OFF,
 };
-/// ⭐ RE-EXPORTED FOR HOSTS, not for convenience. A host composing portal
-/// presentation must be able to say "run this only when a portal exists", and
-/// every public system in this crate already queries the type — so the alternative
-/// was a NEW DEPENDENCY EDGE from the renderer to `ambition_portal2d` purely to
-/// name a `run_if` condition. One re-export costs nothing; an edge is priced by
-/// the compile ratchet forever.
-// ⚠ THE CHANNEL TYPES COME WITH IT. `PlacedPortal::fixed` takes a
-// `PortalChannel`, which takes a `PortalChannelColor`, so re-exporting the
-// struct alone left it UNCONSTRUCTIBLE from outside this crate -- a seam that
-// hands you a type you cannot make. `ambition_render` hit exactly that writing
-// a test against the re-export it was given.
+/// Re-exported for hosts. A host must be able to say "run this only when a
+/// portal exists" without a new dependency edge to `ambition_portal2d` just to
+/// name a `run_if` condition.
+// The channel types are re-exported too: `PlacedPortal::fixed` takes a
+// `PortalChannel`, which takes a `PortalChannelColor`, so without them the
+// struct cannot be built outside this crate.
 pub use ambition_portal2d::{PlacedPortal, PortalChannel, PortalChannelColor};
 pub use far_side::{composite_far_side_bodies, PortalFarSideHidden, PortalFarSidePiece};
 pub use source_visibility::{
@@ -97,13 +92,8 @@ pub const PORTAL_EXIT_COPY_Z: f32 = 9.4;
 /// occlude the whole portal.
 pub const PORTAL_RIM_OVERLAY_Z: f32 = 10.0;
 
-// ⭐⭐ THE STACK THOSE THREE DOC COMMENTS DESCRIBE, ASSERTED RATHER THAN HOPED.
-// Each constant's doc states where it sits relative to the others and to the
-// actors above them, and until now nothing checked any of it: three literals in
-// one file, an ordering in prose, and a fourth relationship living in ANOTHER
-// crate. A `const` assertion is a compile error, so the stack cannot be
-// reordered by editing one number -- which is exactly how a z-band regression
-// arrives, since every value here is individually plausible.
+// Compile-time checks of the z stack that the three doc comments above
+// describe, so editing one number cannot reorder it.
 const _: () = assert!(
     PORTAL_EXIT_COPY_Z < PORTAL_WINDOW_Z,
     "the exit-side body slice draws BELOW the through-portal composite"
@@ -113,16 +103,10 @@ const _: () = assert!(
     "the rim/core/label overlay draws ABOVE the window, so the thin rim stays \
      intact over the captured far-side image"
 );
-// ⚠ THE CROSS-CRATE HALF IS NOT REPEATED HERE, DELIBERATELY. "The portal band
-// sits at or below `WORLD_Z_DUMMY`" already has an owner:
-// `compositing::tests::the_portal_band_stays_at_or_below_the_shared_world_datum`
-// checks ALL THREE constants against that datum, and its failure message carries
-// the reason — raising the window above the cast is the two-line change that
-// makes a screenshot look right and INVERTS the bug. I added a narrower
-// compile-time copy of that check here and removed it again: it covered one
-// constant instead of three and said the same thing in a second place.
-// ⇒ The asserts above are the INTERNAL ordering, which nothing owned. The
-// external one stays where its rationale lives.
+// The cross-crate check ("the portal band sits at or below `WORLD_Z_DUMMY`")
+// is in `compositing::tests::the_portal_band_stays_at_or_below_the_shared_world_datum`,
+// which checks all three constants and explains why raising the window above
+// the cast inverts the bug. These asserts cover only the internal order.
 
 /// The host-world half of the render transform: the world's size, copied from
 /// the host each frame. Engine coordinates are top-left-origin y-down; Bevy's
@@ -168,41 +152,29 @@ pub struct PortalSceneBody;
 #[derive(Component)]
 pub struct PortalAffordanceBody;
 
-/// Host seam: a drawable this crate must be able to COMPOSITE against a pane.
+/// Host seam: a drawable this crate must be able to composite against a pane.
 ///
-/// ⛔⛔ WITHOUT THIS THE CRATE CANNOT SEE THE BUG IT HAS. Its only body seams are
-/// [`PortalSceneBody`] (ONE entity — whose sprite is decomposed at the seam) and
-/// [`PortalAffordanceBody`] (whoever operates the portals). An ordinary NPC
-/// standing behind an aperture is neither, so portal presentation had no way to
-/// know it exists — while the renderer happily drew it at
-/// `WORLD_Z_DUMMY + 1.0`, above every pane. The far-side actor punching through
-/// a seamless window (Jon, 2026-09-05) is invisible from inside this crate.
+/// The other body seams are [`PortalSceneBody`] (the one entity whose sprite is
+/// decomposed at the seam) and [`PortalAffordanceBody`] (whoever operates the
+/// portals). An ordinary NPC behind an aperture is neither, so without this
+/// tag portal presentation cannot see it, while the renderer draws it at
+/// `WORLD_Z_DUMMY + 1.0`, above every pane. The host decides what is drawable;
+/// this crate does not know what a "player" or an "NPC" is.
 ///
-/// ⭐ THE POPULATION WIDENS, NOT THE VOCABULARY. A tagged entity carries the
-/// same [`PortalBodyView`] the other two seams already publish; nothing new is
-/// invented for it. The host decides who is drawable — this crate still does not
-/// know what a "player" or an "NPC" is.
+/// Tagging is optional and its absence is silent: a host that tags nothing gets
+/// no compositing and an empty report. The diagnostics print the candidate
+/// count, so "0 overlapping drawables" means "not tagged", not "fine".
 ///
-/// ⚠ TAGGING IS OPTIONAL AND ITS ABSENCE IS SILENT, which is the honest cost: a
-/// host that tags nothing gets today's behaviour and an empty compositing
-/// report. The diagnostics print the CANDIDATE COUNT for that reason — a report
-/// that says "0 overlapping drawables" beside a screenshot showing one is
-/// telling you the host has not tagged them, not that the geometry is fine.
-///
-/// ⛔⛔ IT CARRIES ITS OWN DRAWN BOUNDS AND DOES NOT REUSE [`PortalBodyView`],
-/// which was the tempting shortcut and would have made the report LIE.
-/// `PortalBodyView::size` is the COLLISION box — its own doc says so, "crouch /
-/// morph compaction included" — and the question here is which PIXELS a pane
-/// should cover. A sprite is routinely taller and wider than the box that
-/// collides, so a report built on collision bounds would miss exactly the
-/// overhanging part of the sprite that punches through the window, which is the
-/// part of the screenshot Jon circled.
+/// It carries its own drawn bounds instead of reusing [`PortalBodyView`].
+/// `PortalBodyView::size` is the collision box, and a sprite is often larger.
+/// Collision bounds would miss the overhanging part of the sprite that draws
+/// over the window.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalCompositingCandidate {
     /// World-space centre of the drawn sprite (engine coordinates).
     pub drawn_centre: Vec2,
-    /// Half-extent of the drawn sprite, INCLUDING whatever the collision box
-    /// does not cover.
+    /// Half-extent of the drawn sprite, including what the collision box does not
+    /// cover.
     pub drawn_half: Vec2,
 }
 

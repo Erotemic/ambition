@@ -1,8 +1,5 @@
-//! Portal lifecycle / persistence policy for placed portals and transit cooldowns.
-//!
-//! The gravity-zone mechanic (room-reset gravity reset + the ambient
-//! gravity-flip switch) moved to `crate::gravity` (Stage 6 follow-up):
-//! it is a gravity mechanic, not portal behavior.
+//! Portal lifecycle and persistence policy for placed portals and transit
+//! cooldowns.
 
 use bevy::prelude::*;
 
@@ -10,14 +7,11 @@ use super::messages::ClearPortals;
 use super::types::{PlacedPortal, PortalTransitCooldown};
 
 /// Despawn disposable gun-owned portals on a [`ClearPortals`] signal, and clear
-/// any body's transit cooldown. Authored portals are level content and are
-/// spared — a room reset must not wipe the purple/yellow/etc. portals the level
-/// placed.
+/// any body's transit cooldown. Authored portals are level content and stay.
+/// The host emits [`ClearPortals`] on its room reset.
 ///
 /// FIXME(portal-api): when authored portals become movable, reset should snap
-/// them back to their authored spec instead of merely sparing their current
-/// entity. The host emits this portal-owned message; core never names the
-/// host's reset event.
+/// them back to their authored spec.
 pub fn clear_portals_on_reset(
     mut commands: Commands,
     mut resets: MessageReader<ClearPortals>,
@@ -38,9 +32,7 @@ pub fn clear_portals_on_reset(
     }
 }
 
-// Gun-owned portal cleanup lives in `gun_lifecycle.rs` so the core lifecycle
-// module remains about portal state and room-reset policy, not the current
-// Ambition gun ownership model.
+// Gun-owned portal cleanup is in `gun_lifecycle.rs`.
 
 #[cfg(test)]
 mod reset_tests {

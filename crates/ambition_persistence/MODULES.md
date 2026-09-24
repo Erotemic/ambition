@@ -12,7 +12,7 @@
 | [`save`](src/save.rs) | Sandbox save game I/O + autosave. |
 | [`save_data`](src/save_data.rs) | Pure save-game data shapes (`AmbitionGameSaveData`, `PersistedEncounter`, `PersistedSwitch`, ability/quest flags) — the vocabulary the save format is built from. |
 | [`settings`](src/settings/mod.rs) | User-facing persisted settings data. |
-| [`store`](src/store.rs) | Where a persisted file's BYTES actually go, per platform. |
+| [`store`](src/store.rs) | Where a persisted file's bytes go, per platform. |
 
 _7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

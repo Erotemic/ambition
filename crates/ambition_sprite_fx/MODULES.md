@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_sprite_fx** — ONE SPRITE, ONE SIMPLE VISUAL MANIPULATION.
+**ambition_sprite_fx** — One sprite, one simple visual manipulation.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

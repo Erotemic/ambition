@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`abandon`](src/abandon.rs) | LEAVING WHAT IS RUNNING — the row an experience contributes to the shell's system menu, and the request it gets back when somebody picks it. |
+| [`abandon`](src/abandon.rs) | Leaving what is running: the row an experience contributes to the shell's system menu (e.g. |
 | [`audio_controls`](src/audio_controls.rs) | The universal audio controls the shell offers every experience. |
 | [`basic_presentation`](src/basic_presentation.rs) | Plain Bevy UI reference presentation for launchers and shell sequences. |
 | [`experience`](src/experience.rs) | Registered top-level experiences: the launcher-visible identity of a provider. |

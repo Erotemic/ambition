@@ -17,7 +17,7 @@
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`match_scope`](src/match_scope.rs) | What a match created, and what ends when the match does. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
-| [`motion`](src/motion.rs) | THE SMASH RULESET'S COMMANDED-VELOCITY SEAM (ADR 0024, authority #4). |
+| [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
 | [`moveset`](src/moveset.rs) | Shared authored platform-fighter repertoire for demo fighters that do not provide a character-owned table. |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |

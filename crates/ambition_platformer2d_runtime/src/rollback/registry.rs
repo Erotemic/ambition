@@ -725,7 +725,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// empty custody relation when the composition had no lifecycle horizon, so
 /// "not participating" hashed as "nothing ever occurred". It now pins `None`,
 /// as the item half does, and the tag byte is peer-visible.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 219;
+/// ⛔⛤ 219 -> 220: `AttackSpec` (inside `actor.body_melee`'s swing) no longer
+/// encodes `damage_kind`, `can_pogo` or `damage_override`. All three were
+/// written and snapshotted and read by nothing; the damage a swing deals is the
+/// moveset's.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 220;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

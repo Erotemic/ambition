@@ -44,7 +44,6 @@ use ambition_characters::actor::attack_gesture::{
 use ambition_characters::brain::action_set::{ActionRequest, RangedCommitment, SpecialActionSpec};
 use ambition_characters::brain::ActorActionMessage;
 use ambition_characters::control::ActorControl;
-use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
@@ -4638,9 +4637,6 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
         hitbox_half_size: ae::Vec2::ZERO,
         self_impulse: ae::Vec2::ZERO,
         knockback: ae::Vec2::ZERO,
-        damage_kind: DamageKind::Slash,
-        can_pogo: false,
-        damage_override: None,
     };
     let mut swing = MeleeSwing::new(attack_spec);
     swing.elapsed = pb.t;

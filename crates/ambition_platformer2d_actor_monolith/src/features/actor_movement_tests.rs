@@ -44,12 +44,22 @@ fn world_with_patrolling_npc(
             brain_override: None,
         },
     );
-    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let (mut seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         id.clone(),
         id.clone(),
         aabb,
         &interactable,
         &[],
+    );
+    // An anonymous NPC is built with no abilities: nothing authored its body.
+    // This fixture authors a walking one, which is all a patrol needs.
+    seed.body = ambition_body_seed::ActorBody::from_abilities(
+        ae::AbilitySet {
+            move_horizontal: true,
+            ..ae::AbilitySet::NONE
+        },
+        false,
+        seed.kin.size,
     );
     // This is a patrol MOVEMENT test: it needs a patrol brain to drive the body,
     // not the brain-SELECTION logic (which now lives in `resolve_npc_brain` and is

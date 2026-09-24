@@ -48,9 +48,9 @@ pub struct PackFrame {
     pub y: i32,
     pub w: i32,
     pub h: i32,
-    /// Trim offset `(off_x, off_y)`: where the trimmed rect's top-left sat
-    /// inside the full logical frame. Add it back so trimmed pixels draw exactly
-    /// where the untrimmed frame did. `(0, 0)`  untrimmed.
+    /// Trim offset `(off_x, off_y)` of the trimmed rect inside the logical
+    /// frame. Add it back so trimmed pixels draw where the untrimmed frame did.
+    /// `(0, 0)` means untrimmed.
     #[serde(default)]
     pub off: (i32, i32),
     /// Logical (untrimmed) frame size `(w, h)` — the gameplay coordinate space,
@@ -85,9 +85,9 @@ pub struct SpritePackCatalog {
     pub scale: f32,
     /// Page image filenames, relative to the catalog file.
     pub pages: Vec<String>,
-    /// Locality group of each page (parallel to `pages`, from the PackPlan):
-    /// a group's frames pack only onto its own pages so a zone's visuals can
-    /// be loaded/unloaded as a unit. Empty (older catalogs)  all `"shared"`.
+    /// Locality group of each page (parallel to `pages`). A group's frames
+    /// pack only onto its own pages, so a zone's visuals load and unload as a
+    /// unit. Empty (older catalogs) means all `"shared"`.
     #[serde(default)]
     pub page_groups: Vec<String>,
     /// `target → animations`.
@@ -198,13 +198,11 @@ impl SpritePackCatalog {
             .map(Vec::as_slice)
     }
 
-    /// Resolve `(target, animation, frame index) → placement`. `None` if the
-    /// target/animation is unknown, the frame index is absent, or its page has
-    /// no image entry.
+    /// Resolve `(target, animation, frame index)` to a placement. `None` if the
+    /// target, animation, or frame is unknown, or its page has no image entry.
     ///
-    /// `index` is matched on [`PackFrame::index`] (play order), not the position
-    /// in the vec — they coincide for a well-formed catalog, but matching the
-    /// field is robust to a sparse or reordered list.
+    /// `index` matches [`PackFrame::index`] (play order), not the vec position,
+    /// so a sparse or reordered list still works.
     pub fn resolve(&self, target: &str, animation: &str, index: u32) -> Option<ResolvedFrame<'_>> {
         let frame = self
             .frames(target, animation)?
@@ -225,29 +223,24 @@ impl SpritePackCatalog {
         })
     }
 
-    /// Synthesize the canonical [`SheetRecord`](crate::SheetRecord) view of one
-    /// target's frames in this pack.
+    /// Build the [`SheetRecord`](crate::SheetRecord) view of one target's
+    /// frames in this pack.
     ///
-    /// `SheetRecord` is the single frame-addressing algebra every runtime
-    /// reader consumes (see `frames.rs`), and it already speaks the pack's
-    /// language: freely-packed rows whose per-frame rects carry their own
-    /// `page` + trim `off`. So a pack target does not need a parallel render
-    /// path — this view drops it onto the existing one. The synthesized record
-    /// carries NO gameplay geometry (`body_metrics: None`) on purpose:
-    /// gameplay stays on the base per-target record / entity data, packs are
+    /// `SheetRecord` is the one frame-addressing model that runtime readers use
+    /// (see `frames.rs`). It already supports freely packed rows with per-frame
+    /// `page` and trim `off`, so a pack target needs no separate render path.
+    /// The record has no gameplay geometry (`body_metrics: None`): packs are
     /// visual storage only.
     ///
-    /// Rows are ordered by animation name and frames by their play `index`,
-    /// so the record (and any atlas built from it) is deterministic regardless
-    /// of catalog map order.
+    /// Rows are sorted by animation name and frames by `index`, so the record
+    /// is deterministic for any catalog map order.
     pub fn to_sheet_record(&self, target: &str) -> Option<crate::SheetRecord> {
         let pack_target = self.targets.get(target)?;
         let mut anim_names: Vec<&String> = pack_target.animations.keys().collect();
         anim_names.sort();
 
-        // Logical frame size: every frame of one target shares the source
-        // sheet's logical size; take the max defensively so trim offsets can
-        // never overflow the declared frame box.
+        // All frames of one target share the source sheet's logical size. Take
+        // the max so trim offsets cannot overflow the frame box.
         let mut frame_w: i32 = 0;
         let mut frame_h: i32 = 0;
         for frames in pack_target.animations.values() {
@@ -286,8 +279,8 @@ impl SpritePackCatalog {
                 frame_count: rects.len() as u32,
                 duration_ms,
                 duration_secs: duration_ms as f32 / 1000.0,
-                // Freely packed: the per-frame `page` on each rect is
-                // authoritative; the row-level page is only the default.
+                // Freely packed: each rect's `page` is authoritative; the row
+                // page is only the default.
                 page: rects.first().map(|r| r.page).unwrap_or(0),
                 rects,
             });
@@ -330,10 +323,10 @@ impl SpritePackCatalog {
             .unwrap_or("shared")
     }
 
-    /// Structural validation against the catalog's own declared geometry: every
-    /// frame must reference an existing page, fit inside the page bounds, and
-    /// carry a positive logical size. When `page_groups` is present it must be
-    /// parallel to `pages`. Returns every violation (empty  sound).
+    /// Validate against the catalog's own geometry: each frame references an
+    /// existing page, fits inside the page, and has a positive logical size.
+    /// If present, `page_groups` must be parallel to `pages`. Returns every
+    /// violation (empty means valid).
     pub fn validate(&self) -> Vec<PackCatalogError> {
         let mut errors = Vec::new();
         if !self.page_groups.is_empty() && self.page_groups.len() != self.pages.len() {

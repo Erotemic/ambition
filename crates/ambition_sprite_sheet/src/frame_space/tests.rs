@@ -7,8 +7,7 @@ const FEET_X: f32 = 150.0;
 const FEET_Y: f32 = 190.0;
 
 /// A one-row sheet whose `jab` authors a hitbox at `poly`, drawn facing
-/// `faces_left`. Everything else is held identical so the handedness is the
-/// only variable a comparison can be measuring.
+/// `faces_left`. All else is identical, so handedness is the only variable.
 fn sheet(faces_left: bool, poly: &[(f32, f32)]) -> SheetRecord {
     let points: Vec<String> = poly.iter().map(|(x, y)| format!("({x}, {y})")).collect();
     let text = format!(
@@ -59,20 +58,16 @@ fn points(volume: &ae::CombatVolume) -> Vec<ae::Vec2> {
     }
 }
 
-/// THE INVARIANT, and the one the jab bug broke: the same swing drawn the
-/// other way round is the same swing.
+/// The same swing drawn the other way round is the same swing.
 ///
-/// Two sheets for one character — identical art, mirrored about the feet, one
-/// declaring `authored_faces_left`. A frame pixel means nothing without that
-/// declaration, so if the map reads it, these two resolve to the SAME
-/// body-local blade; if it reads `facing` alone (what every geometry consumer
-/// did before this module), the left-drawn sheet's blade comes out behind the
-/// body while the right-drawn one's comes out in front.
+/// Two sheets with identical art mirrored about the feet; one declares
+/// `authored_faces_left`. If the map reads that flag, both resolve to the same
+/// body-local blade. If it reads only `facing`, the left-drawn blade comes out
+/// behind the body.
 #[test]
 fn a_left_drawn_sheet_and_its_mirror_image_author_the_same_body_local_blade() {
     let right = [(200.0, 80.0), (290.0, 95.0), (200.0, 110.0)];
-    // The same drawing, mirrored about the feet — which is what redrawing this
-    // character facing the other way produces.
+    // The same drawing, mirrored about the feet.
     let left: Vec<(f32, f32)> = right
         .iter()
         .map(|(x, y)| (2.0 * FEET_X - x, *y))
@@ -93,16 +88,16 @@ fn a_left_drawn_sheet_and_its_mirror_image_author_the_same_body_local_blade() {
              {from_right:?} and {from_left:?})"
         );
     }
-    // And the premise: this really is a forward-reaching swing, so the test
-    // above cannot pass by both sheets being wrong in the same direction.
+    // The swing reaches forward, so the test above cannot pass with both
+    // sheets wrong in the same direction.
     assert!(
         from_right.iter().any(|p| p.x > 15.0),
         "the fixture jab must reach forward of the body, got {from_right:?}"
     );
 }
 
-/// A left-drawn sheet's forward is `-x` in its own art. Stated directly, so
-/// the sign has a home that is not an arithmetic accident inside `point`.
+/// A left-drawn sheet's forward is `-x` in its own art. Stated directly, not
+/// left implicit in `point`.
 #[test]
 fn the_art_forward_sign_is_the_whole_of_the_handedness() {
     assert_eq!(sheet(false, &[(0.0, 0.0)]).art_forward_x(), 1.0);
@@ -111,9 +106,9 @@ fn the_art_forward_sign_is_the_whole_of_the_handedness() {
 
 /// The renderer's mirror and the geometry map's mirror are one decision.
 ///
-/// `art_is_mirrored` is what `apply_character_frame` writes to `flip_x`; a
-/// left-drawn sheet mirrors when facing RIGHT, which is the opposite of the
-/// `facing < 0` rule every geometry consumer used to apply on its own.
+/// `art_is_mirrored` is what `apply_character_frame` writes to `flip_x`. A
+/// left-drawn sheet mirrors when facing right, the opposite of a plain
+/// `facing < 0` rule.
 #[test]
 fn a_left_drawn_sheet_mirrors_on_the_opposite_facing_from_a_right_drawn_one() {
     let down = ae::Vec2::new(0.0, 1.0);

@@ -11,24 +11,17 @@
 //! then building is enough to refresh the baked table for desktop, Android, wasm,
 //! and other targets.
 //!
-//! ⛔⛔ WHAT THIS CRATE REFUSES, because a destination that says nothing accepts
-//! everything.
+//! This crate does not hold:
 //!
-//! - **Anything `ambition_characters` must read.** This crate DEPENDS on it, so a
-//!   type placed here that a character needs inverts the edge — which is why
-//!   `ActorSpriteMetrics` could arrive (only sheet consumers read it) and why a
-//!   character-facing fact may not.
-//! - **What a character IS.** This crate answers what a generated SHEET says: the
-//!   frame, the row layout, the measured body inside a frame. How tall a body
-//!   stands in the world is the catalog's answer, and the sheet only supplies the
-//!   pixels it is measured against — see `character::catalog_join`, where the two
-//!   meet and the catalog wins.
+//! - Types that `ambition_characters` must read. This crate depends on it, so
+//!   such a type would invert the edge. `ActorSpriteMetrics` is here because
+//!   only sheet consumers read it.
+//! - Character facts. This crate describes a generated sheet: the frame, the
+//!   rows, and the measured body in a frame. The catalog owns world size; see
+//!   `character::catalog_join`, where the two meet and the catalog wins.
 
-// SheetRecord / SheetRow / BodyMetrics / FrameRect / PixelRect /
-// PixelPoint / NormPoint carry the full generator-emitted schema.
-// Several fields are diagnostic or reserved for future consumers
-// (atlas viewer, per-frame anchor probes) — silence the unused-field
-// warnings at the module level so the schema stays whole.
+// The schema structs mirror the full generator output. Some fields are
+// diagnostic or reserved for later consumers, so allow dead code here.
 #![allow(
     dead_code,
     reason = "deserialize surface that mirrors the on-disk RON schema; not every field is queried at runtime yet"
@@ -81,40 +74,31 @@ pub use portrait::{
 /// generator emitters don't branch.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SheetRecord {
-    /// THE SHEET KEY — how this record is asked for. Product identity, plus a
-    /// packed member's own name when the product holds several.
+    /// The sheet key: the name used to look this record up. It is the product
+    /// identity, plus the member name when a product packs several records.
     ///
-    /// ⛔⛔ NOT DESERIALIZED. It is assigned by whoever indexes the record
-    /// ([`index_baked_table`] and `AuthoredSheets::insert_ron`, which agree on
-    /// one rule), because the key is a property of the PRODUCT the record was
-    /// published in and a record cannot know that about itself.
+    /// Not deserialized. The indexer assigns it ([`index_baked_table`] and
+    /// `AuthoredSheets::insert_ron` use the same rule), because the key belongs
+    /// to the product, which the record cannot know.
     #[serde(skip)]
     pub key: String,
-    /// WHAT THE MANIFEST AUTHORED, and it is not a lookup key.
+    /// The authored target. It is not a lookup key.
     ///
-    /// For an ordinary single-record sheet this is the RIG TARGET — which rig
-    /// adapter drew it — and 48 sheets share five of them (`robot` ×18, `toon`
-    /// ×16, `goblin` ×9, `sandbag` ×3, `ninja` ×2). For a packed atlas it is the
-    /// MEMBER's name, which is product identity. One RON field, two meanings,
-    /// decided by the file's shape — which is exactly why [`Self::key`] exists
-    /// beside it instead of this being overwritten to mean the lookup.
-    ///
-    /// ⛔ ask for a sheet by [`Self::key`]. Keyed by this, *"give me sheet X"*
-    /// is answered by whichever manifest happened to load last: `robot` lost its
-    /// own 256×256 page to `tech_bro_disruptor` that way.
+    /// For a single-record sheet it is the rig target (the rig adapter that
+    /// drew it), and many sheets share one rig (`robot`, `toon`, `goblin`). For
+    /// a packed atlas it is the member name. Look sheets up by [`Self::key`];
+    /// keyed by target, the last manifest loaded wins.
     pub target: String,
     /// PNG filename, relative to the sprites asset dir. May be shared
     /// across multiple records when several targets pack onto the same
     /// sheet image (in which case `y_offset` selects each target's row
     /// band). For multi-page sheets this is page 0 (same as `images[0]`).
     pub image: String,
-    /// Page image filenames for sheets split across multiple PNGs. A sheet
-    /// with one animation per row can grow taller than the GPU texture limit
-    /// (16384px); the generator then splits the animation rows across several
-    /// page images so each PNG stays within the limit. Each [`SheetRow::page`]
-    /// indexes into this list, and that row's `rects` are in that page image's
-    /// own coordinate space (each page starts at y=0). Empty (the common case)
-    ///  the whole sheet is the single `image` and every row is page 0.
+    /// Page images for a sheet split across several PNGs, because a tall sheet
+    /// can exceed the GPU texture limit (16384px). Each [`SheetRow::page`]
+    /// indexes this list, and that row's `rects` use that page's own
+    /// coordinates (each page starts at y=0). Empty (the common case) means the
+    /// sheet is the single `image` and every row is page 0.
     #[serde(default)]
     pub images: Vec<String>,
     pub label_width: u32,
@@ -135,30 +119,19 @@ pub struct SheetRecord {
     /// callers use their Rust fallback tuning.
     #[serde(default)]
     pub tuning: Option<SheetTuningSpec>,
-    /// Which way this sheet's ART WAS DRAWN — `true` when the generator
-    /// rendered the neutral pose facing left (−x), the opposite of the
-    /// renderer's standing assumption that art faces +x (right).
+    /// `true` when the generator drew the neutral pose facing left (−x). The
+    /// renderer assumes that art faces +x.
     ///
-    /// It is a fact about the ARTWORK, not about the character, which is why it
-    /// lives on the sheet: redraw the same character facing the other way and
-    /// only this flips. The renderer's mirror decision is therefore *"does the
-    /// requested facing differ from the facing this art was drawn in"* —
-    /// `flip_x = (facing < 0) XOR authored_faces_left` — rather than
-    /// `facing < 0`.
+    /// This is a fact about the artwork, not the character, so it lives on the
+    /// sheet. The mirror rule is `flip_x = (facing < 0) XOR authored_faces_left`.
+    /// The default `false` keeps sheets that omit the field unchanged. The
+    /// generator emits it only when `true` (an SVG rig with
+    /// `features.facing: "west"`, such as the Patent Clerk).
     ///
-    /// `false` is the whole population minus a handful, so the default
-    /// keeps every sheet that never mentions the field byte-identical. The
-    /// generator only emits it when it is `true`, which today means an
-    /// SVG-rigged sheet whose rig declares `features.facing: "west"` (the
-    /// Patent Clerk, whose `Side Left` paperdoll view is the drawn source).
-    ///
-    /// ⚠ It DOES touch every gameplay rectangle the sheet publishes. A hitbox,
-    /// a hurtbox and a body box are all frame pixels — coordinates in the
-    /// artwork — so a left-drawn sheet's forward runs toward `-x` in all of
-    /// them. ⛔ "it does not touch gameplay rectangles" holds only while the
-    /// left-drawn sheets author none; the first one that does has its jab come
-    /// out behind it. `frame_space::FrameToBody` is the crossing that
-    /// applies it, and the only one that should.
+    /// It also applies to every gameplay rectangle the sheet publishes (hitbox,
+    /// hurtbox, body box), because they are frame pixels. On a left-drawn
+    /// sheet, forward is `-x` in all of them. `frame_space::FrameToBody`
+    /// applies this, and it must be the only place that does.
     #[serde(default)]
     pub authored_faces_left: bool,
     pub rows: Vec<SheetRow>,
@@ -183,22 +156,16 @@ impl SheetRecord {
         (self.images.len() as u32).max(by_frames)
     }
 
-    /// The pages this sheet's frames actually draw from.
+    /// The pages this sheet's frames draw from.
     ///
-    /// [`Self::page_count`] is a COUNT — the highest page index plus one —
-    /// which is the right answer for a dedicated sheet, whose pages are its
-    /// own and contiguous. It is the wrong answer for a target inside a
-    /// SHARED pack: there the target's frames occupy a sparse subset of a
-    /// pack-wide page list, and treating `0..page_count` as the load set
-    /// pulls in every intervening page of the whole pack. One prop whose
-    /// frames land on pages 4 and 53 was loading all 54 ultrapack pages
-    /// (~221 megapixels, ~880 MB) at boot.
+    /// [`Self::page_count`] is the highest page index plus one. That is correct
+    /// for a dedicated sheet, but not for a target in a shared pack: its frames
+    /// use a sparse subset of the pack's pages, and loading `0..page_count`
+    /// would load every page in between.
     ///
-    /// Per-frame `rect.page` is authoritative wherever it exists (the packer
-    /// places frames freely); `row.page` is the per-row fallback for the
-    /// unpacked multi-page layout, so it only counts for rows with no rects.
-    /// Returns a sorted, deduplicated set — never empty, so a sheet with no
-    /// rows still loads page 0.
+    /// Per-frame `rect.page` is authoritative. `row.page` counts only for rows
+    /// with no rects. Returns a sorted set that is never empty, so a sheet with
+    /// no rows still loads page 0.
     pub fn used_pages(&self) -> BTreeSet<u32> {
         let mut pages = BTreeSet::new();
         for row in &self.rows {
@@ -228,12 +195,10 @@ impl SheetRecord {
 /// Per-target gameplay-tuning fields embedded in the spritesheet manifest.
 #[derive(Debug, Clone, Copy, Deserialize)]
 pub struct SheetTuningSpec {
-    /// Multiplier on the actor's collision AABB when computing the
-    /// rendered sprite size. `1.0` = sprite exactly fills the AABB;
-    /// `2.1` (the robot's tuning) = sprite is much larger than the
-    /// hitbox. Authored per-character to compensate for the fraction
-    /// of each frame the actual character art occupies after
-    /// auto-crop.
+    /// Multiplier on the actor's collision AABB that gives the rendered sprite
+    /// size. `1.0` means the sprite fills the AABB; the robot uses `2.1`.
+    /// Authored per character to compensate for how much of each frame the art
+    /// fills after auto-crop.
     pub collision_scale: f32,
     /// Inset (pixels) applied to each frame rect when sampling the
     /// atlas. `1` (the common case) trims one pixel from every edge
@@ -242,31 +207,19 @@ pub struct SheetTuningSpec {
     pub frame_sample_inset: u32,
 }
 
-/// Body / hurtbox metadata emitted alongside the sprite sheet.
+/// Body and hurtbox metadata emitted with the sprite sheet.
 ///
-/// `body_pixel_bbox` is the single overall bbox (alpha-bbox of the
-/// idle/rest frame) — the common case for single-piece characters
-/// (player, goblins, small bosses).
+/// - `body_pixel_bbox`: one alpha-bbox of the idle frame, for single-piece
+///   characters.
+/// - `body_pixel_parts`: named rectangles for characters with disjoint pieces
+///   (head, arms, legs) that gameplay addresses by name. Empty by default.
+/// - `animations`: per-animation hurtbox and hitbox data, keyed by animation
+///   name (`"floor_slam"`). An entry overrides the static bbox for that
+///   animation.
 ///
-/// `body_pixel_parts` is the multi-rect representation for
-/// disjointed-piece characters — giant bosses with head + body
-/// + arms + legs that the gameplay code wants to address
-/// individually. Each part carries a `name` so consumers can target
-/// "head" vs "left_hand" by string. Defaults to empty.
-///
-/// `animations` carries per-animation hurtbox + hitbox data
-/// keyed by animation name (e.g. `"floor_slam"`, `"side_sweep"`).
-/// Each entry overrides the static body bbox for that animation
-/// so a boss whose arms extend out only during attack frames gets
-/// the right hurtbox during those frames, and so attack
-/// hitboxes are positioned where the sprite author intended.
-///
-/// Consumer rule (hurtbox): when the current animation has a
-/// `AnimationMetrics::hurtbox`, use it. Else when
-/// `body_pixel_parts` is non-empty, prefer it. Else fall back to a
-/// single-element list built from `body_pixel_bbox`. See
-/// the host crate's boss attack-geometry derivation (`world_space_body_aabbs_from_metrics`)
-/// for the canonical derivation.
+/// Hurtbox rule: use the current animation's `AnimationMetrics::hurtbox` if
+/// present, else `body_pixel_parts` if non-empty, else `body_pixel_bbox`. The
+/// host crate's `world_space_body_aabbs_from_metrics` is the canonical use.
 #[derive(Debug, Clone, Deserialize)]
 pub struct BodyMetrics {
     #[serde(default)]
@@ -282,25 +235,19 @@ pub struct BodyMetrics {
     /// entry per animation in the sheet; consumers look up by the
     /// boss's currently-playing animation name.
     #[serde(default)]
-    /// ⛔⛔ **A `BTreeMap`, AND THE ORDER IS A SIMULATION FACT.** This map feeds
-    /// [`BodyMetrics::pose_body_bbox`], whose result BECOMES A COLLISION BOX —
-    /// and several authored row names alias to one `CharacterAnim`, so a sheet
-    /// can offer two candidate rectangles for one pose. Under a `HashMap` the
-    /// winner was whichever the hasher yielded first, which is per-process
-    /// state in a rollback game; the tie-break was patched at that ONE call
-    /// site. A sorted container answers it for every reader instead, including
-    /// the ones nobody has written yet.
+    /// A `BTreeMap` because iteration order is simulation state. Several row
+    /// names alias to one `CharacterAnim`, and [`BodyMetrics::pose_body_bbox`]
+    /// picks among them to make a collision box. Sorted order makes that choice
+    /// the same in every process, which rollback requires.
     pub animations: std::collections::BTreeMap<String, AnimationMetrics>,
     #[serde(default)]
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
     pub feet_anchor_norm: Option<NormPoint>,
-    /// `body_pixel_bbox` is this character's GAMEPLAY BODY, not the extent of
-    /// its art.
-    ///
-    /// The two rectangles were sharing one field. Nothing distinguished them, so a consumer asking
-    /// "how big is this character's body" could be handed a drawing, and the only way to scale a
-    /// character correctly was a hand-tuned [`SheetTuning::collision_scale`] that nothing checked.
+    /// `true` when `body_pixel_bbox` is the authored gameplay body, not the
+    /// extent of the art. Without this flag a consumer cannot tell the two
+    /// apart, and correct scale depends on an unchecked
+    /// [`SheetTuning::collision_scale`].
     #[serde(default)]
     pub authored_body: bool,
 }
@@ -396,38 +343,22 @@ impl AnimationBoxFrame {
 }
 
 impl BodyMetrics {
-    /// The pose's body rectangle, in sheet-frame pixels — the sprite
-    /// author's answer to "where is this character, in the frame, right now".
+    /// The body rectangle for a pose, in sheet-frame pixels.
     ///
-    /// A body whose silhouette changes shape between poses (a snake that
-    /// withdraws into a cardboard box, a boss that unfolds its arms) has no
-    /// single honest collision rectangle: the idle-frame bbox is wrong for
-    /// every pose that is not idle. When the sheet publishes per-animation
-    /// hurtboxes this returns the one for `anim`; otherwise it falls back to
-    /// the static [`Self::body_pixel_bbox`], which is the whole answer for the
-    /// (common) characters whose silhouette barely moves.
+    /// A body whose silhouette changes between poses has no single correct
+    /// collision rectangle. If the sheet publishes a hurtbox for `anim`, return
+    /// it; else fall back to [`Self::body_pixel_bbox`].
     ///
-    /// The `animations` map is keyed by the GENERATOR's row/gameplay key, so
-    /// the match runs through [`CharacterAnim::from_name`] — the same alias
-    /// table the sheet spec uses to bind rows. That keeps ONE naming authority:
-    /// a generator that renames `boxed_idle` cannot silently desync the
-    /// hurtbox from the row it belongs to without also losing the row.
+    /// The `animations` map uses the generator's row names, so matching goes
+    /// through [`CharacterAnim::from_name`], the same alias table that binds
+    /// rows. A rename then cannot desync the hurtbox from its row.
     ///
-    /// ⛔⛔ **THE TIE-BREAK IS SIM STATE AND IT IS NOW GUARANTEED BY THE
-    /// CONTAINER.** Several row names alias to one `CharacterAnim` (`rest` /
-    /// `front_idle` / `side_idle` all mean `Idle`), so a sheet carrying two of
-    /// them offers two candidate rectangles — and this result BECOMES A
-    /// COLLISION BOX. While `animations` was a `HashMap` the winner was
-    /// whichever the hasher yielded first, which is per-process state in a
-    /// rollback game, and the defence was this one `min_by` at this one call
-    /// site. `animations` is a `BTreeMap` now, so iteration IS lexicographic for
-    /// every reader, including ones nobody has written yet.
-    ///
-    /// ⚠ THE `min_by` STAYS, AND DELETING IT WOULD BE A REGRESSION IN MEANING
-    /// RATHER THAN A SIMPLIFICATION. "The lexicographically first key wins" is a
-    /// RULING about aliased poses; leaving it implicit in the container makes a
-    /// future reader infer it from `BTreeMap` rather than read it, and makes a
-    /// container change silently change the answer.
+    /// The tie-break is simulation state. Several row names alias to one
+    /// `CharacterAnim` (`rest`, `front_idle`, `side_idle` all mean `Idle`), and
+    /// the result becomes a collision box. The lexicographically first key
+    /// wins. `animations` is a `BTreeMap`, so iteration is already sorted, but
+    /// keep the explicit `min_by`: it states the rule, and a container change
+    /// must not change the answer.
     pub fn pose_body_bbox(&self, anim: character::CharacterAnim) -> Option<PixelRect> {
         self.animations
             .iter()
@@ -495,14 +426,12 @@ pub struct NamedPixelRect {
     pub y: i32,
     pub w: i32,
     pub h: i32,
-    /// Convex polygon for THIS part, in the same frame-pixel space as the rect,
-    /// which stays as its bounds and its fallback.
+    /// Convex polygon for this part, in the same frame-pixel space as the rect.
+    /// The rect stays as its bounds and fallback.
     ///
-    /// Multi-part and SHAPED are different axes and a silhouette wants both. A
-    /// single hull cannot describe disjoint pieces — one hull over a head, a
-    /// torso and an outstretched arm fills every gap between them — and a rect
-    /// per piece cannot describe a piece that is not a rectangle. A hooded head
-    /// and a flaring cloak are neither.
+    /// Parts and shape are separate axes. One hull over disjoint pieces fills
+    /// the gaps between them, and a rect cannot describe a non-rectangular
+    /// piece such as a hooded head.
     #[serde(default)]
     pub poly: Vec<(f32, f32)>,
 }
@@ -573,9 +502,8 @@ pub struct FrameRect {
     /// `hand_anchor`, `muzzle_anchor`). Generators that don't use
     /// `frame_meta_fn` leave this empty.
     #[serde(default)]
-    /// ⚠ A `BTreeMap` for the same reason as [`BodyMetrics::animations`], even
-    /// though every production read today is a keyed `.get`. The cost is nil at
-    /// these sizes and the property is one a future iterator gets for free.
+    /// A `BTreeMap` for the same reason as [`BodyMetrics::animations`]:
+    /// deterministic iteration order.
     pub anchors: std::collections::BTreeMap<String, NormPoint>,
 }
 
@@ -594,12 +522,9 @@ pub struct SheetRegistry {
     ambiguous_roots: Vec<AmbiguousFileRoot>,
 }
 
-/// One `*_spritesheet.ron` holding SEVERAL records, seen through a file-root
-/// key that can only name one of them.
-///
-/// the file root stops identifying a sheet the moment the file holds two. `creator_lab_props`
-/// packs 8 props into one PNG, so `creator_lab_props` names eight records and no single one of
-/// them.
+/// A `*_spritesheet.ron` that holds several records, so its file root cannot
+/// name one of them. For example, `creator_lab_props` packs 8 props into one
+/// PNG.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AmbiguousFileRoot {
     pub file_root: String,
@@ -621,14 +546,11 @@ impl std::fmt::Display for AmbiguousFileRoot {
     }
 }
 
-/// One target claimed twice with different frame geometry: the winner crops the
-/// loser's image with the wrong grid, IF anything resolves art by that target.
-///
-/// A rig name like `toon` is shared by 17 characters legitimately and nothing looks it up; a
-/// character id like `pirate_heavy_broadside_bess` is looked up, and a stale manifest winning that
-/// key cost a day and a bisect through the asset tree. The collision is visible only HERE, where
-/// both records pass through; which keys are resolvable is visible only to a caller that owns a
-/// catalog. So this type carries the fact across that gap instead of guessing at it.
+/// One target claimed twice with different frame geometry. The winner crops
+/// the loser's image with the wrong grid, if anything resolves art by that
+/// target. This crate sees the collision, but only a caller with a catalog
+/// knows which targets are resolved (a rig name like `toon` is not; a
+/// character id is). This type carries the fact to that caller.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShadowedTarget {
     pub target: String,
@@ -662,12 +584,8 @@ impl SheetRegistry {
     }
 
     /// Every target a later manifest took from an earlier one with a different
-    /// grid, in insertion order.
-    ///
-    /// the caller decides which of these MATTER, because only it knows
-    /// which targets something resolves art by — see [`ShadowedTarget`]. A
-    /// consumer that reports all of them reproduces the ~30-per-boot Android
-    /// noise this replaced; one that reports none re-opens the day-long bisect.
+    /// grid, in insertion order. The caller decides which ones matter, because
+    /// only it knows which targets resolve art. See [`ShadowedTarget`].
     pub fn shadowed_targets(&self) -> &[ShadowedTarget] {
         &self.shadowed
     }
@@ -706,13 +624,11 @@ impl SheetRegistry {
         Some((metrics, record.frame_width, record.frame_height))
     }
 
-    /// Build a fully-populated registry from a baked `(file_root, ron_text)`
-    /// table — the `*_spritesheet.ron` manifests the game bakes at build time.
+    /// Build a registry from a baked `(file_root, ron_text)` table of
+    /// `*_spritesheet.ron` manifests, keyed by [the one rule](index_baked_table).
     ///
-    /// Keyed by [the one rule](index_baked_table). Pure (no Bevy `App` /
-    /// `Startup` schedule): the host crate owns the baked table — it knows where
-    /// its sprite assets live — and passes it in, so this crate stays a
-    /// content-free, reusable sprite-sheet vocabulary.
+    /// Pure (no Bevy `App`). The host crate owns the baked table and passes it
+    /// in, so this crate stays content-free.
     pub fn from_baked_table(table: &[(&str, &str)]) -> Self {
         let index = index_baked_table(table);
         let registry = Self {
@@ -729,9 +645,8 @@ impl SheetRegistry {
         for (file, err) in index.failed {
             warn!("SheetRegistry: failed to parse baked {file}: {err}");
         }
-        // DEBUG, not WARN, for both summaries: a packed prop atlas is a
-        // legitimate authoring choice, and a boot-time warning that ends by
-        // explaining itself away trains people to skim the channel.
+        // Log at debug, not warn: a packed prop atlas is a valid authoring
+        // choice, and noisy boot warnings teach people to ignore the channel.
         if !registry.ambiguous_roots.is_empty() {
             debug!(
                 "SheetRegistry: {} packed file root(s) index their records by \
@@ -768,10 +683,8 @@ pub(crate) struct BakedIndex {
 impl BakedIndex {
     /// A record enters under `key`, which becomes its [`SheetRecord::key`].
     ///
-    /// ⛔ the record's authored `target` is LEFT ALONE. It used to be rewritten
-    /// to the key, which answered *"how do I ask for this sheet"* by destroying
-    /// *"which rig adapter drew it"* — one field cannot hold both, and the
-    /// record now carries them separately.
+    /// The authored `target` is not changed, so the record keeps both its
+    /// lookup key and the rig adapter that drew it.
     fn insert(&mut self, key: String, mut record: SheetRecord) {
         if let Some(prior) = self.sheets.get(&key) {
             if prior.frame_width != record.frame_width || prior.frame_height != record.frame_height
@@ -790,32 +703,22 @@ impl BakedIndex {
     }
 }
 
-/// ⭐⭐ **THE ONE KEYING RULE for a baked sheet table, and it is a RULING:** a
-/// sheet is named by its **FILE ROOT**, because a file root names a PRODUCT —
-/// one published page — and a product lookup is what this registry serves.
-/// (Jon, 2026-08-22, `docs/planning/awaiting-maintainer-decision.md` §19.)
+/// The keying rule for a baked sheet table: key a sheet by its file root,
+/// because a file root names a product (one published page), and this
+/// registry serves product lookups. See
+/// `docs/planning/awaiting-maintainer-decision.md` §19.
 ///
-/// ⛔⛔ **never by `record.target`.** A renderer target is an AUTHORING choice —
-/// which rig adapter drew the sheet — and 48 sheets share five of them
-/// (`robot` x18, `toon` x16, `goblin` x9, `sandbag` x3, `ninja` x2). Keyed by
-/// target, *"give me sheet X"* is answered by whichever manifest happened to
-/// load last: `robot` lost its own 256x256 page to `tech_bro_disruptor`.
-/// The standing principle, from the 2026-08-18 review: *"Do not let a
-/// sprite-renderer target string accidentally become the durable identity of a
-/// character package."*
+/// Never key by `record.target`. A renderer target is an authoring choice (the
+/// rig adapter that drew the sheet), and many sheets share one (`robot`,
+/// `toon`, `goblin`). Keyed by target, the last manifest loaded wins. A
+/// renderer target string must not become a character package's identity.
 ///
-/// The ONE exception is [`AmbiguousFileRoot`]'s: **a file root stops
-/// identifying a sheet the moment the file holds two.** A packed atlas
-/// (`creator_lab_props`, 8 props in one PNG) therefore keys each record by its
-/// own target — the root would name all eight and so name none. Those roots are
-/// reported so a catalog-aware caller can notice one it expected to resolve.
+/// Exception: a file that holds several records ([`AmbiguousFileRoot`]) keys
+/// each record by its own target. Those roots are reported so a catalog-aware
+/// caller can notice one it expected to resolve.
 ///
-/// ⚠ quality variants are NOT skipped, and must not be: `build.rs` bakes them
-/// as `<root>.0_5x` / `.0_25x` / `.potato`, which are distinct keys. The old
-/// target-keyed build had to skip them because every variant of `robot_slash`
-/// carries the identical `target: "robot_slash"` and the potato 8px grid would
-/// clobber the full-res base. That hazard is a property of target keying and
-/// leaves with it.
+/// Do not skip quality variants. `build.rs` bakes them as `<root>.0_5x`,
+/// `.0_25x`, and `.potato`, which are distinct keys.
 pub(crate) fn index_baked_table(table: &[(&str, &str)]) -> BakedIndex {
     let mut index = BakedIndex::default();
     for (file_root, text) in table {
@@ -873,13 +776,10 @@ pub struct SheetRegistryPlugin;
 struct SheetRegistryInstalled;
 
 impl Plugin for SheetRegistryPlugin {
-    /// Idempotent, because more than one plugin legitimately NEEDS this.
-    /// Sprite metadata is not a game's choice — a render system that draws from
-    /// a sheet cannot run without it — so any plugin that installs such a system
-    /// installs this too, and the composition that already had it must not
-    /// panic. `WorldLabelLayoutPlugin` carries the same pair for the same
-    /// reason; a marker resource rather than `is_plugin_added` because the
-    /// answer has to survive being asked by a plugin group mid-build.
+    /// Idempotent, because several plugins need this: a render system that
+    /// draws from a sheet cannot run without it. `WorldLabelLayoutPlugin` does
+    /// the same. A marker resource is used, not `is_plugin_added`, because a
+    /// plugin group can ask during its build.
     fn is_unique(&self) -> bool {
         false
     }
@@ -890,11 +790,9 @@ impl Plugin for SheetRegistryPlugin {
         }
         app.insert_resource(SheetRegistryInstalled);
         app.init_resource::<SheetRegistry>()
-            // The provider-authored half (U1). Initialised here so a provider
-            // can register its sheets in ANY plugin-build order, and never
-            // repopulated from the baked table: authored records are content,
-            // not cache, and a Startup system that rebuilt them would erase
-            // whatever a consumer declared before the app first ran.
+            // Provider-authored sheets. Initialized here so a provider can
+            // register in any plugin order. Never rebuilt from the baked table:
+            // authored records are content, not cache.
             .init_resource::<crate::character::sheets::AuthoredSheets>()
             .add_systems(Startup, init_sheet_registry);
     }
@@ -905,22 +803,12 @@ fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
     warm_baked_indexes();
 }
 
-/// Force every process-global index derived from a BAKED table, at `Startup`.
+/// Build every process-global index over a baked table at `Startup`, so that
+/// no frame pays for the build later.
 ///
-/// ⛔⛔ ONE PLACE, BECAUSE THERE WERE THREE INDEXES OVER ONE TABLE AND ONLY THIS
-/// ONE RAN AT STARTUP. The hardware profile of 2026-08-29 caught the second being
-/// built by a punch — `advance_move_playback` logged `loaded 870 sheets` at 23.9s,
-/// twenty seconds after this system logged the same line, and Tracy priced that
-/// call at **189ms against a 21us mean**. The third
-/// (`character::sheets::record_index`) is reached from the sim schedule's
-/// `sync_sprite_posed_bodies` and from actor animation, and nothing warmed it
-/// either.
-///
-/// ⭐ EVERY MEMBER OF THIS LIST IS A PURE CACHE OF A COMPILE-TIME TABLE — no
-/// content, no overrides, nothing a provider can have registered yet — which is
-/// exactly why forcing them early is safe and why authored/provider state
-/// (`AuthoredSheets`) must NOT join them.
-/// ⇒ a new `OnceLock` over a baked table belongs here, or a frame will build it.
+/// Every member is a pure cache of a compile-time table, so an early build is
+/// safe. Provider state (`AuthoredSheets`) must not join this list. Add any new
+/// `OnceLock` over a baked table here.
 pub fn warm_baked_indexes() {
     crate::character::sheets::warm_record_index();
     let _ = crate::fx::authored_effects();
@@ -929,19 +817,16 @@ pub fn warm_baked_indexes() {
     let _ = crate::sprite_packs::catalog_for_tier("full");
 }
 
-/// Register a sheet a PROVIDER authored, keyed by the file root a catalog row
-/// names (`manifest: "outlander_spritesheet.ron"` is file root `outlander`).
+/// Register a sheet that a provider authored, keyed by the file root a catalog
+/// row names (`manifest: "outlander_spritesheet.ron"` is file root `outlander`).
 ///
-/// The character-catalog seam's twin: a provider says who its characters are
-/// through `CharacterCatalogFragment`, and says what their sheets look like
-/// through this. Before it existed, the second half was only expressible by
-/// putting a RON in the ENGINE's asset tree and rebuilding the engine — which a
-/// third party cannot do.
+/// This pairs with `CharacterCatalogFragment`: the fragment says who the
+/// characters are, and this says what their sheets look like. A third party
+/// can add sheets without a change to the engine's asset tree.
 pub trait AuthoredSheetAppExt {
-    /// Panics on malformed RON, deliberately and with the file root in the
-    /// message: a provider registering a broken sheet at plugin-build time has
-    /// shipped a broken character, and discovering that as a placeholder
-    /// rectangle three screens later is how the whole class of art bug hides.
+    /// Panics on malformed RON, with the file root in the message. A broken
+    /// sheet at plugin build is a broken character. Fail early, not as a
+    /// placeholder rectangle later.
     fn register_character_sheet_ron(&mut self, file_root: &str, ron: &str) -> &mut Self;
 }
 

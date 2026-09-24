@@ -13,9 +13,8 @@ use ambition_platformer2d_core::AabbExt;
 
 /// Sweep span used when an author places a platform and states no motion.
 ///
-///  the engine owns its own defaults. These lived in the LDtk converter,
-/// which made "what does an empty field mean" a question you answered by
-/// reading the adapter rather than the capability.
+/// The engine owns its defaults, so an empty field has one meaning that does
+/// not depend on the adapter.
 pub const DEFAULT_SWEEP_DX: f32 = 240.0;
 /// Travel speed used when an author states none.
 pub const DEFAULT_PLATFORM_SPEED: f32 = 130.0;
@@ -23,14 +22,10 @@ pub const DEFAULT_PLATFORM_SPEED: f32 = 130.0;
 /// How an authored platform moves — exactly one motion, decided when the room
 /// is authored.
 ///
-///  this replaced a bag of optional fields whose meaning was a PRECEDENCE
-/// (a path beat a loop beat a sweep). Precedence makes every wrong combination
-/// SILENT, and silence is the worst outcome for an editor field: a platform
-/// authoring both a path and a loop ran the path and never said so, and a
-/// `loop_min_y` written without `loop_dy` anchored a shaft that no motion ever
-/// consulted. An author cannot see a precedence rule from inside LDtk, so the
-/// ambiguous combinations are now REFUSED by [`AuthoredPlatformMotion::classify`]
-/// with the offending field names in the message.
+/// Motion is one variant, not a set of optional fields with a precedence
+/// rule. A precedence rule makes every wrong combination silent, and an author
+/// cannot see it from inside LDtk. [`AuthoredPlatformMotion::classify`]
+/// refuses ambiguous combinations and names the fields in the message.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum MovingPlatformMotionSpec {
     /// Horizontal ping-pong across `dx` from the authored position. Sign is the
@@ -40,15 +35,13 @@ pub enum MovingPlatformMotionSpec {
     Path { path_id: String },
     /// A wrapping vertical loop — the paternoster / "infinite elevator".
     ///
-    /// `dy` mirrors a sweep's span: magnitude is the shaft, sign is the
-    /// direction of travel.  positive travels DOWN — world y is
-    /// down-positive here and the LDtk conversion preserves it, so a descending
-    /// elevator is a POSITIVE `dy`.  a loop is not a vertical sweep: it
-    /// never reverses, which is what makes a run of them read as one elevator
-    /// instead of a row of lifts.
+    /// `dy` works like a sweep's span: magnitude is the shaft, sign is the
+    /// direction of travel. World y is down-positive (the LDtk conversion keeps
+    /// it), so a descending elevator has a positive `dy`. A loop never
+    /// reverses, so a run of them reads as one elevator.
     ///
-    /// Anchored, the authored position becomes a PHASE within a shared shaft. `None` anchors the
-    /// shaft at the platform, which is right for a lone lift and keeps that authoring to one field.
+    /// When anchored, the authored position is a phase within a shared shaft.
+    /// `None` anchors the shaft at the platform, which suits a lone lift.
     VerticalLoop {
         dy: f32,
         anchor_y: Option<f32>,
@@ -126,7 +119,7 @@ impl AuthoredPlatformMotion {
         }
 
         if let Some(path_id) = path_id {
-            //  the path owns its speed, so a `speed` written here does nothing.
+            // The path owns its speed, so a `speed` written here does nothing.
             if self.speed.is_some() {
                 return Err(format!(
                     "follows path '{path_id}' and also authors speed, but a \
@@ -257,22 +250,18 @@ enum MovingPlatformMotion {
     /// Moves continuously in one vertical direction and wraps to the opposite
     /// end instead of reversing.
     ///
-    ///  it WRAPS where the other two REVERSE, and that is the whole reason
-    /// it is a third variant rather than a `Sweep` with the axis swapped. A
-    /// reversing platform is a lift; a wrapping one is a conveyor of lifts, and
-    /// the player experience — step off the top, another arrives from below —
-    /// only exists if the platform never turns around.
+    /// It wraps where the other variants reverse. A reversing platform is a
+    /// lift; a wrapping one is a conveyor of lifts (step off the top, another
+    /// arrives from below).
     Loop {
         min_y: f32,
         max_y: f32,
         speed: f32,
         /// `+1` travels toward +y, `-1` toward -y. Constant for the lifetime of
-        /// the platform: this motion has no reversal, which is the point.
+        /// the platform: this motion never reverses.
         ///
-        ///  +y is DOWN here. The LDtk conversion does not flip the axis, so
-        /// world y increases downward — a falling body's y grows. `+1` therefore
-        /// DESCENDS on screen, which is the opposite of what "positive" reads
-        /// like and is worth stating wherever the sign is chosen.
+        /// +y is down. The LDtk conversion does not flip the axis, so `+1`
+        /// descends on screen.
         dir: f32,
     },
 }
@@ -328,10 +317,7 @@ impl MovingPlatformState {
     /// `speed` is magnitude; `downward` picks the direction. A run of these with
     /// staggered `start_pos` values along the same span is the elevator shaft.
     ///
-    ///  `downward` rather than `rising`, because +y is DOWN. The first
-    /// version of this signature said `rising` and set `dir = +1` for it, which
-    /// would have had every authored elevator travel the opposite way to its
-    /// field's name — silent, and only visible by watching the game.
+    /// The parameter is `downward`, not `rising`, because +y is down.
     pub fn from_vertical_loop(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -394,12 +380,11 @@ impl MovingPlatformState {
     /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;
-        //  a WRAP is a position change that is not a MOVEMENT, and
-        // `last_delta` is the quantity a rider is carried by. An arm that
-        // teleports must say what it actually travelled, or `pos - old` hands the
-        // rider the whole span in one frame — in the direction opposite to
-        // travel. Only the wrapping arm needs this; the reversing ones move
-        // continuously, so their position difference IS their travel.
+        // A wrap is a position change that is not movement, and `last_delta`
+        // carries the rider. The wrapping arm must report its real travel, or
+        // `pos - old` gives the rider the whole span in one frame, in the
+        // wrong direction. Reversing arms move continuously, so their position
+        // difference is their travel.
         let mut carried: Option<ae::Vec2> = None;
         match &mut self.motion {
             MovingPlatformMotion::Sweep {
@@ -604,9 +589,8 @@ fn advance_path_position(
 /// `Loop` closes the circuit: a path of `n` points has `n` segments, including
 /// the closing leg `p[n-1] → p[0]`.
 ///
-///  reverse (`dir < 0`) is left un-wrapped deliberately: nothing sets a
-/// backwards direction under `Loop` — only `PingPong` flips `dir` — so a modulo
-/// there would be untested code serving no caller.
+/// Reverse (`dir < 0`) is not wrapped: under `Loop` nothing sets a backwards
+/// direction (only `PingPong` flips `dir`).
 fn path_target_index(
     path: &ambition_platformer2d_core::KinematicPath,
     segment: usize,

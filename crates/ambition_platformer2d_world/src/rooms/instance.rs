@@ -1,14 +1,10 @@
-//! WHICH LIVE ROOM THIS IS, which is not which room DEFINITION is selected.
+//! Which live room this is, which is not which room definition is selected.
 //!
-//! ⛔⛤ **THE WORKSPACE HAD NO ANSWER TO THIS QUESTION BEFORE 2026-09-20.**
-//! `RoomSet` answers *"which of my definitions is live"* with an index, and
-//! that index is the same number every time the session stands in that room.
-//! `RoomConstructionPlanId` answers *"which prepared artifact is this"* and is
-//! a CONTENT hash whose own doc excludes commit-time facts on purpose, so two
-//! constructions of one room share it. Neither can say *"this live room is not
-//! the one you were standing in a minute ago"*, and OW1 in
-//! `docs/planning/engine/open-world-runtime-and-residency.md` cannot start
-//! until something can.
+//! `RoomSet` answers "which definition is live" with an index that is the
+//! same every time the session stands in that room. `RoomConstructionPlanId`
+//! is a content hash that excludes commit-time facts, so two constructions of
+//! one room share it. Neither can tell two visits apart. OW1 in
+//! `docs/planning/engine/open-world-runtime-and-residency.md` needs that.
 
 use bevy_ecs::prelude::Component;
 
@@ -22,15 +18,14 @@ use bevy_ecs::prelude::Component;
 /// definitions, and `RoomSet` alone reports the same index for the first and
 /// the third.
 ///
-/// ⚠ **THIS IS A ONE-LIVE-ROOM IDENTITY AND SAYS SO.** It lives on the session
-/// root because that is where the one live room lives. Two simultaneous
-/// instances — OW1's actual proof — would carry one of these each, on whatever
-/// entity comes to own an instance; the ordinal does not have to move, only its
-/// carrier. What it must never become is a second way to select a DEFINITION.
+/// This identity assumes one live room, so it lives on the session root. With
+/// simultaneous instances (OW1), each instance's owner carries one; the
+/// ordinal stays the same, only its carrier moves. It must never become a way
+/// to select a definition.
 ///
-/// ⛔ It is rollback state (`root.live_room_instance`), because a rewind across
-/// a room publication puts the session back in the previous live room, and an
-/// identity that survived that rewind would name a room that no longer exists.
+/// It is rollback state (`root.live_room_instance`). A rewind across a room
+/// publication returns to the previous live room, so the identity must rewind
+/// too.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct LiveRoomInstance(u32);
 
@@ -44,10 +39,8 @@ impl LiveRoomInstance {
         self.0
     }
 
-    /// Rebuild from an ordinal — the snapshot decode side, and the only other
-    /// way to obtain one. ⚠ NOT a way to CHOOSE an instance: the rollback codec
-    /// is restoring an identity this session already minted, not naming a new
-    /// one.
+    /// Rebuild from an ordinal, for snapshot decode only. It restores an
+    /// identity this session already minted; it does not choose a new one.
     pub fn from_ordinal(ordinal: u32) -> Self {
         Self(ordinal)
     }
@@ -55,13 +48,10 @@ impl LiveRoomInstance {
     /// Mint the next instance, because a room was just published into this
     /// session.
     ///
-    /// ⚠ Saturating rather than wrapping: at `u32::MAX` publications the
-    /// honest failure is *"two live rooms now share an identity"* and the
-    /// honest one is *"the counter stopped"*. A wrap would silently reuse the
-    /// identity of a room 4 billion publications ago; a stop is visible in the
-    /// census as an ordinal that will not move. Neither is reachable at 60Hz
-    /// (a publication per tick for two years), which is why this is a comment
-    /// and not a refusal.
+    /// Saturates instead of wrapping. A wrap would silently reuse an old
+    /// room's identity; a stuck ordinal is visible in the census. Neither is
+    /// reachable at 60Hz (a publication per tick for two years), so there is
+    /// no refusal.
     pub fn advance(&mut self) {
         self.0 = self.0.saturating_add(1);
     }
@@ -77,12 +67,11 @@ impl std::fmt::Display for LiveRoomInstance {
 mod tests {
     use super::*;
 
-    /// ⭐ THE PROPERTY OW1 NEEDS: RE-ENTERING A ROOM IS NOT RE-ENTERING THE SAME
-    /// LIVE ROOM.
+    /// Re-entering a room is not re-entering the same live room.
     ///
-    /// The unit half. The composed half — that a real crossing back into the
-    /// room you came from mints a third instance while `RoomSet` reports the
-    /// first room's index again — lives with the crossing.
+    /// This is the unit half. The composed half (a crossing back mints a
+    /// third instance while `RoomSet` reports the first index again) is
+    /// tested with the crossing.
     #[test]
     fn every_publication_is_a_different_live_room() {
         let mut instance = LiveRoomInstance::ACTIVATION;

@@ -10,17 +10,14 @@
 //! read a manifest; none owns it, and consumers can use the manifest without
 //! depending on a particular world backend.
 //!
-//! There is no install seam and no process global. A manifest is an
-//! ordinary owned value that boot preparation constructs and hands to every
-//! reader: the asset-catalog rows, a backend loader's disk/embedded fallback
-//! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
-//! watcher, the tile-render spine, and room-set composition's entry room.
-//! Readers that run inside a Bevy schedule take it as a `Res` ([`WorldManifest`]
-//! is a `Resource`, inserted by the same preparation that threaded it
-//! everywhere else); readers that run pre-`App`, at plugin-build time, or as
-//! pure functions take `&WorldManifest` directly. Both routes carry the SAME
-//! value, so two providers can prepare two different manifests in one process —
-//! which the `OnceLock` this replaced made impossible.
+//! There is no install seam and no process global. A manifest is an ordinary
+//! owned value that boot preparation constructs and passes to every reader:
+//! the asset-catalog rows, a backend loader's disk/embedded fallback chain,
+//! the Bevy `EmbeddedAssetRegistry` registration, the hot-reload watcher, the
+//! tile-render spine, and room-set composition's entry room. In-schedule
+//! readers take it as a `Res`; pre-`App`, plugin-build and pure readers take
+//! `&WorldManifest`. Both routes carry the same value, so two providers can
+//! prepare two different manifests in one process.
 
 use std::path::PathBuf;
 
@@ -158,12 +155,9 @@ mod tests {
     /// A manifest row's embedded copy WINS over its authored asset path.
     ///
     /// The bundled/web profiles register the embedded bytes under
-    /// `embedded_bevy_path` and the loader must reach those rather than the
-    /// `game://` source that only exists on a loose desktop checkout. Both
-    /// halves are observed: the same row with no embedded copy resolves to the
-    /// authored path, so a reader that ignored the embedding entirely would
-    /// fail the first assertion and one that always embedded would fail the
-    /// second.
+    /// `embedded_bevy_path`; the `game://` source exists only on a loose
+    /// desktop checkout. The same row with no embedded copy must resolve to
+    /// the authored path, so a reader that always or never embeds fails.
     #[test]
     fn embedded_rows_resolve_to_the_embedded_path_and_loose_rows_do_not() {
         let mut source = WorldSource {

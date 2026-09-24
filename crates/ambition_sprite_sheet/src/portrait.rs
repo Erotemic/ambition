@@ -1,9 +1,8 @@
 //! Runtime vocabulary for separately published dialogue portrait sheets.
 //!
-//! Portrait sheets are presentation products rather than gameplay animation
-//! sheets: they have named clips, a required default clip, and no collision or
-//! actor geometry. The authoring implementation that produced the raster is
-//! intentionally outside this schema.
+//! Portrait sheets are presentation products, not gameplay animation sheets:
+//! they have named clips, a required default clip, and no collision or actor
+//! geometry. The tool that produced the raster is outside this schema.
 
 use bevy::prelude::{App, Plugin, Rect, ResMut, Resource, Startup};
 use serde::{Deserialize, Serialize};
@@ -20,9 +19,8 @@ pub struct PortraitFrameRect {
 }
 
 impl From<PortraitFrameRect> for Rect {
-    /// The sub-rectangle an `ImageNode` draws. Every still consumer needs this
-    /// and none of them should spell it out; a hand-written conversion is where
-    /// an off-by-a-width creeps in.
+    /// The sub-rectangle an `ImageNode` draws. Use this instead of a
+    /// hand-written conversion, which can be off by a width.
     fn from(frame: PortraitFrameRect) -> Self {
         Rect::new(
             frame.x as f32,
@@ -53,12 +51,11 @@ pub struct PortraitSheetManifest {
     pub frame_width: u32,
     pub frame_height: u32,
     pub default_clip: String,
-    /// The clip a STILL consumer should draw, when this target names one.
+    /// The clip a still consumer draws, if this target names one.
     ///
-    /// A UI box wants a chosen pose; `default_clip` is the clip that PLAYS, and
-    /// for a target whose default is a looping idle its first frame is wherever
-    /// the loop happens to start. Empty means this target names no separate
-    /// still, and a still request falls through to `default_clip`'s first frame.
+    /// `default_clip` is the clip that plays; for a looping idle its first frame
+    /// is wherever the loop starts. Empty means no separate still, and a still
+    /// request uses `default_clip`'s first frame.
     #[serde(default)]
     pub still_clip: String,
     pub clips: BTreeMap<String, PortraitClipRecord>,
@@ -136,13 +133,11 @@ impl PortraitSheetManifest {
 
 /// Runtime index of baked portrait manifests, keyed by the same asset-relative
 /// manifest path stored in character-catalog rows.
-///
-/// Both roads end at the same manifest; only one of them was addressable.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct PortraitSheetRegistry {
     manifests: HashMap<String, PortraitSheetManifest>,
-    /// `target` → the manifest path it was indexed under. A second map rather
-    /// than a second copy: the manifest itself is owned once.
+    /// `target` → the manifest path it is indexed under. A second map, not a
+    /// second copy: the manifest is owned once.
     by_target: BTreeMap<String, String>,
 }
 
@@ -156,7 +151,7 @@ impl PortraitSheetRegistry {
                     let path = normalize_manifest_path(asset_path);
                     let target = manifest.target.trim().to_string();
                     if !target.is_empty() {
-                        // REFUSED rather than last-writer-wins, exactly like
+                        // Refused, not last-writer-wins, like
                         // `AuthoredSheets::insert_ron`.
                         if let Some(existing) = registry.by_target.get(&target) {
                             warn!(
@@ -183,35 +178,29 @@ impl PortraitSheetRegistry {
         self.manifests.get(&normalize_manifest_path(manifest_path))
     }
 
-    /// A portrait TARGET's manifest, and the path it lives at.
+    /// A portrait target's manifest, and its path.
     ///
-    /// The path comes back with it because a manifest's own `image` field is a
-    /// bare filename (`"alice_portraits.png"`) while everything that loads one
-    /// speaks asset-relative paths (`"sprites/alice_portraits.png"`). a
-    /// resolver that returned the manifest alone would hand its caller a
-    /// filename that resolves to nothing, silently — which is the exact failure
-    /// `declared_art_resolves.rs` exists for.
+    /// The manifest's `image` field is a bare filename
+    /// (`"alice_portraits.png"`), but loaders use asset-relative paths
+    /// (`"sprites/alice_portraits.png"`). Without the path, the caller gets a
+    /// filename that resolves to nothing (see `declared_art_resolves.rs`).
     pub fn manifest_for_target(&self, target: &str) -> Option<(&str, &PortraitSheetManifest)> {
         let path = self.by_target.get(target.trim())?;
         Some((path.as_str(), self.manifests.get(path)?))
     }
 
     /// Every portrait target this registry can name, in stable order.
-    ///
-    /// `BTreeMap`, so a preparation-time "did you mean" list is the same on
-    /// every machine.
+    /// `BTreeMap`, so a "did you mean" list is the same on every machine.
     pub fn available_targets(&self) -> impl Iterator<Item = &str> {
         self.by_target.keys().map(String::as_str)
     }
 
-    /// ONE frame to draw, for a consumer that wants a still portrait.
+    /// One frame to draw, for a consumer that wants a still portrait.
     ///
-    /// A still and an animation are different requests, and a portrait sheet can
-    /// answer either — so the caller says which. Selection walks requested key,
-    /// the catalog's still override, the manifest's `still_clip`, its
-    /// `default_clip`, then the conventional `default`; the chosen clip's FIRST
-    /// frame is the still. Reducing an animated clip that way is the sanctioned
-    /// degradation, not a guess: a target that wants a different still names one.
+    /// The caller says whether it wants a still or an animation. Selection
+    /// order: requested key, the catalog's still override, the manifest's
+    /// `still_clip`, its `default_clip`, then `default`. The chosen clip's first
+    /// frame is the still. A target that wants a different still names one.
     pub fn resolve_still(
         &self,
         manifest_path: &str,
@@ -232,12 +221,11 @@ impl PortraitSheetRegistry {
         Some((name, *clip.frames.first()?))
     }
 
-    /// A clip to PLAY, for a consumer that animates.
+    /// A clip to play, for a consumer that animates.
     ///
-    /// Selection walks requested key, the catalog's declared default, the
-    /// manifest default, then the conventional `default`. A one-frame clip comes
-    /// back unchanged — a held still is a valid animation, and it is what a
-    /// character who never authored motion has to give.
+    /// Selection order: requested key, the catalog's declared default, the
+    /// manifest default, then `default`. A one-frame clip is returned unchanged:
+    /// a held still is a valid animation for a character with no motion.
     pub fn resolve_animated<'a>(
         &'a self,
         manifest_path: &str,
@@ -268,9 +256,8 @@ impl PortraitSheetRegistry {
 
 /// First candidate naming a clip this manifest actually carries, with its key.
 ///
-/// Blank candidates are skipped rather than matched: an unset override and an
-/// empty string mean the same thing to every caller, and a clip name is never
-/// empty (`validate` refuses one).
+/// Blank candidates are skipped: an unset override and an empty string mean
+/// the same thing, and a clip name is never empty (`validate` refuses one).
 fn select_clip<'a>(
     manifest: &'a PortraitSheetManifest,
     candidates: [Option<&str>; 5],
@@ -295,22 +282,15 @@ pub fn baked_portrait_registry() -> PortraitSheetRegistry {
     PortraitSheetRegistry::from_baked_table(crate::baked_portrait_rons::BAKED_PORTRAIT_RONS)
 }
 
-/// Every baked portrait target, sorted — the vocabulary a character's
-/// `portrait` reference resolves against at preparation.
+/// Every baked portrait target, sorted: the vocabulary a character's
+/// `portrait` reference resolves against at preparation. The twin of
+/// `character::sheets::available_targets`. The vocabulary is baked, so a
+/// provider need not supply it to get a typo caught.
 ///
-/// the exact twin of `character::sheets::available_targets`, and it exists for
-/// the reason that one does: the engine always knows this vocabulary because it
-/// is baked, so a provider should never have to hand it over just to have its
-/// typo caught. [`PortraitSheetRegistry::available_targets`] already carried the
-/// note *"so a preparation-time did-you-mean list is the same on every
-/// machine"* — a doc naming the use nothing was connected to.
-///
-/// `OnceLock`, because [`baked_portrait_registry`] PARSES. Preparation
-/// runs per character, and calling the registry constructor there would re-parse
-/// every baked portrait manifest once per registered character — the startup
-/// decode storm §7.1 deleted, rebuilt from the other end. The sheet index is a
-/// process-global `OnceLock` for the same reason and classifies itself as an
-/// immutable asset cache; this is that.
+/// `OnceLock`, because [`baked_portrait_registry`] parses. Preparation runs per
+/// character, and building the registry there would parse every baked portrait
+/// manifest once per character. The sheet index uses a process-global
+/// `OnceLock` for the same reason, as an immutable asset cache.
 pub fn available_portrait_targets() -> Vec<&'static str> {
     static INDEX: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
     INDEX
@@ -380,7 +360,7 @@ mod tests {
         assert_eq!(manifest.clips["default"].frames[0].h, 320);
     }
 
-    /// A target whose default MOVES and which names its own still.
+    /// A target whose default moves and which names its own still.
     fn animated_registry() -> PortraitSheetRegistry {
         PortraitSheetRegistry::from_baked_table(&[(
             "sprites/alice_portraits.ron",
@@ -443,7 +423,7 @@ mod tests {
         assert_eq!(name, "calm");
     }
 
-    /// The whole point of the split: one sheet, two questions, two answers.
+    /// One sheet, two requests, two answers.
     #[test]
     fn a_still_request_and_an_animated_request_disagree_on_purpose() {
         let registry = animated_registry();
@@ -461,7 +441,7 @@ mod tests {
         assert_eq!(clip.frames.len(), 2, "the animated road keeps every frame");
     }
 
-    /// Jon's stated fallback: ask for a still, get the first frame of what moves.
+    /// A still request gets the first frame of the moving clip.
     #[test]
     fn a_still_of_an_animated_clip_is_its_first_frame() {
         let registry = animated_registry();
@@ -472,7 +452,7 @@ mod tests {
         assert_eq!(frame.x, 768);
     }
 
-    /// And the other direction: a character who authored no motion still answers.
+    /// A character with no authored motion still answers a play request.
     #[test]
     fn an_animated_request_holds_a_one_frame_clip() {
         let registry = animated_registry();

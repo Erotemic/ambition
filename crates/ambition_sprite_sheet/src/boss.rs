@@ -3,11 +3,8 @@
 //! spike_halo / dash_echo / hit / death) instead of the standard 8-row
 //! `CharacterAnim` grid.
 //!
-//! Bosses don't walk/run/jump like a platforming character, so reusing the
-//! `CharacterAnim` enum would either force the boss generator to emit
-//! placeholder rows or force the gameplay layer to mis-label its
-//! animations. The split keeps both clean and makes it obvious which sheet
-//! a given pipeline expects.
+//! Bosses do not walk, run, or jump like a platforming character. Reusing
+//! `CharacterAnim` would force placeholder rows or wrong labels.
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -18,12 +15,10 @@ use ambition_persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
 ///
-/// E6(b) policy: keep this boss-domain vocabulary for authored boss sheets
-/// instead of forcing non-GNU-ton rows through
-/// [`CharacterAnim`](crate::character::CharacterAnim). Boss rows name
-/// attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`,
-/// `dash_echo`) that are also keys into hurtbox/hitbox metadata; mapping them to
-/// character locomotion/melee rows would be an adapter, not canonicalization.
+/// Boss sheets keep this vocabulary instead of
+/// [`CharacterAnim`](crate::character::CharacterAnim). Boss rows name attack
+/// verbs (`floor_slam`, `side_sweep`, `spike_halo`, `dash_echo`) that are also
+/// keys into hurtbox/hitbox metadata.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossAnim {
     Rest = 0,
@@ -41,64 +36,47 @@ pub struct AnimRow {
     pub duration_secs: f32,
 }
 
-/// Frame layout for a boss sheet. Mirror of `character_sprites::CharacterSheetSpec`
-/// with sparse rows so different boss generators can emit different
-/// row subsets (e.g. the gradient sentinel ships 7 rows; the mockingbird
-/// ships 6 with no `FloorSlam`/`SideSweep`). Per-target anchor/scale
-/// tuning keeps bosses rendered at the right scale relative to playable
-/// characters.
+/// Frame layout for a boss sheet. Like `character_sprites::CharacterSheetSpec`,
+/// but rows are sparse, so each boss generator can emit a different row subset
+/// (for example, the mockingbird has no `FloorSlam`/`SideSweep`). Per-target
+/// anchor and scale keep bosses at the right size relative to characters.
 ///
-/// Owned + serde-authorable (C6): `rows` is an owned `Vec` and the whole
-/// spec is `serde`-round-trippable, so a provider can author its sheet layout
-/// as data. App-local provider composition lives above this crate; this module
-/// supplies only the generic schema and built-in fallback sheets.
+/// The spec is owned and serde round-trippable, so a provider can author its
+/// layout as data. Provider composition lives above this crate; this module
+/// supplies only the schema and built-in fallback sheets.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BossSheetSpec {
     pub label_width: u32,
-    /// Per-frame size in source-image pixels after the gen2d union-bbox
-    /// crop. Each generator picks its own canvas; resync after a sheet
-    /// regen by checking the manifest's `frame_size` block.
+    /// Per-frame size in source-image pixels after the union-bbox crop. After
+    /// a regen, resync with the manifest's `frame_size` block.
     pub frame_width: u32,
     pub frame_height: u32,
     /// Animation rows in the order the generator emits them in the PNG.
     /// Sparse: a sheet may omit any row except `Rest` (the fallback).
     pub rows: Vec<(BossAnim, AnimRow)>,
-    /// Multiplier applied to an entity's collision-box max dimension to
-    /// derive the rendered sprite's height. Width is derived from the
-    /// cropped frame's aspect ratio so the boss isn't squashed.
+    /// Multiplier on the collision box's max dimension that gives the rendered
+    /// height. Width follows the frame's aspect ratio.
     pub collision_scale: f32,
-    /// Custom sprite anchor on the y axis. Tuned per sheet because each
-    /// generator's character takes different vertical space within the
-    /// frame.
+    /// Sprite anchor on the y axis, tuned per sheet.
     pub feet_anchor_y: f32,
-    /// Sample inset (pixels) on every URect to prevent bilinear filtering
-    /// from sampling neighboring frames.
+    /// Sample inset (pixels) on each URect, so bilinear filtering does not
+    /// sample neighbouring frames.
     pub frame_sample_inset: u32,
-    /// True for flying / floating bosses whose body should be centered
-    /// in the collision box rather than anchored to its bottom (the
-    /// default for ground-locked humanoid bosses). When set,
-    /// `collision_anchor` short-circuits and treats `feet_anchor_y` as
-    /// the body's normalized vertical offset within the sprite quad
-    /// (Bevy +Y-up; 0 = sprite center). The gradient sentinel is
-    /// ground-locked so it stays `false`; the mockingbird is airborne
-    /// so it sets this `true` and the sprite quad sits centered on
-    /// the AABB instead of hanging below it.
+    /// True for flying bosses whose body is centred in the collision box, not
+    /// anchored to its bottom. Then `collision_anchor` uses `feet_anchor_y` as
+    /// the body's normalized vertical offset in the sprite quad (Bevy +Y-up;
+    /// 0 = sprite centre).
     pub body_centered: bool,
-    /// True when the generator drew this sheet's neutral pose facing
-    /// left, the opposite of the renderer's default assumption
-    /// (art faces +x / right). The flip is computed as
-    /// `flip_x = (facing < 0) XOR authored_faces_left`, so a
-    /// left-authored sheet renders correctly facing the player instead
-    /// of always facing away. Only the mockingbird needs this today —
-    /// its sheet was generated in a left-facing profile, which is why
-    /// it always faced away from the player.
+    /// True when the generator drew the neutral pose facing left. The renderer
+    /// computes `flip_x = (facing < 0) XOR authored_faces_left`, so a
+    /// left-drawn sheet faces the correct way.
     pub authored_faces_left: bool,
 }
 
 /// Parsed boss-sheet data used by provider catalog builders and tests.
 ///
-/// Runtime authority is the App-local `ambition_boss_encounter::BossCatalog`;
-/// this low-level crate deliberately owns no process-global override.
+/// The App-local `ambition_boss_encounter::BossCatalog` is the runtime
+/// authority. This crate owns no process-global override.
 #[derive(Clone, Debug, Default)]
 pub struct BossSheetRegistry {
     by_key: std::collections::HashMap<String, BossSheetSpec>,
@@ -118,9 +96,8 @@ impl BossSheetRegistry {
     }
 }
 
-// `feet_anchor_y` matches the body-metrics measurement for the current
-// generator output. Resync after regenerating the boss sheet by checking
-// the manifest's `body_metrics.feet_anchor_norm.y`.
+// `feet_anchor_y` matches the body-metrics measurement. After a regen, resync
+// with the manifest's `body_metrics.feet_anchor_norm.y`.
 pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 100,
@@ -177,8 +154,7 @@ pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
                 },
             ),
         ],
-        // Bosses are visually larger than goblins; a slightly smaller scale
-        // factor stops them from overpowering the rendered scene.
+        // A slightly smaller scale keeps bosses from overpowering the scene.
         collision_scale: 1.6,
         feet_anchor_y: -0.336,
         frame_sample_inset: 1,
@@ -188,34 +164,26 @@ pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
 
 /// The Mockingbird boss sheet from a standalone Python generator
 /// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`, <!-- cite-ok: quotes the dead name this correction is about -->
-/// installed via that script's `install` command). ⚠ THAT SCRIPT IS NOT IN THE
-/// TREE — checked 2026-09-17, no tracked file by that name — so the sheet is
-/// authored art now and the row order below is its only description. The name is
-/// kept because it is where the sheet CAME FROM.
+/// installed by that script's `install` command). That script is no longer in
+/// the tree, so the row order below is the only description of the sheet.
 ///
-/// Rows in PNG order:
-/// hover, thrust, bite, slash, hit, death. Mapped onto the existing
-/// `BossAnim` vocabulary so the gameplay layer can issue the same
-/// verbs across both bosses:
-/// - `hover`  → `Rest`      (the long idle / hover-in-place pose)
-/// - `thrust` → `DashEcho`  (the swoop / dive attack)
-/// - `bite`   → `FloorSlam` (close-range commit attack)
-/// - `slash`  → `SpikeHalo` (used for the ranged Hadouken / fireball
-///   beat — the slash pose telegraphs an outward strike that the
-///   sandbox controller pairs with a projectile spawn)
+/// Rows in PNG order map to `BossAnim`, so gameplay uses the same verbs for
+/// every boss:
+/// - `hover`  → `Rest`
+/// - `thrust` → `DashEcho`  (swoop / dive)
+/// - `bite`   → `FloorSlam` (close-range attack)
+/// - `slash`  → `SpikeHalo` (telegraphs the ranged fireball; the controller
+///   spawns the projectile)
 /// - `hit`/`death` keep their meanings.
 ///
 /// `SideSweep` is unmapped; `BossAnimator::request` falls back to
 /// `Rest` if the schedule asks for a row this sheet doesn't ship.
 pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-        // The mockingbird sheet has no per-row label strip — frame 0
-        // sits at x=0 — so label_width is zero.
+        // No label strip: frame 0 is at x=0.
         label_width: 0,
-        // 576×216 wide frames straight from the manifest. The extra edge
-        // margin keeps the pointed nose/flame silhouettes safely inside each
-        // atlas rect while still spending native pixels on the bird instead of
-        // packing a short/wide silhouette into a mostly-empty square canvas.
+        // 576×216 wide frames from the manifest. The edge margin keeps the
+        // nose and flame tips inside each atlas rect.
         frame_width: 576,
         frame_height: 216,
         rows: vec![
@@ -262,20 +230,15 @@ pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
                 },
             ),
         ],
-        // The 576×216 generator output now fits the wide silhouette a bit more conservatively
-        // (roughly y≈34..194 on the hover row) so the beak / tail / flame tips keep safer atlas
-        // margins during in-game animation. 1.25 keeps the visible body close to the authored
-        // 185px tall combat box while using much denser native source pixels.
+        // 1.25 keeps the visible body close to the 185px combat box.
         collision_scale: 1.25,
-        // `body_centered: true` below makes this read as the body's
-        // normalized vertical offset within the sprite quad rather than
-        // a feet-on-floor delta. Texture bbox-center sits near y=101 of
-        // 216 → (108-114)/108 ≈ -0.05 in Bevy +Y-up.
+        // With `body_centered: true`, this is the body's normalized vertical
+        // offset in the sprite quad: bbox centre y≈101 of 216 gives
+        // (108-114)/108 ≈ -0.05 in Bevy +Y-up.
         feet_anchor_y: -0.055,
         frame_sample_inset: 1,
         body_centered: true,
-        // The mockingbird sheet is drawn in a left-facing profile, so it must
-        // invert the renderer's faces-right assumption or it always faces away.
+        // Drawn facing left; invert the faces-right assumption.
         authored_faces_left: true,
     });
 
@@ -327,10 +290,8 @@ pub static SMIRKING_BEHEMOTH_SHEET: std::sync::LazyLock<BossSheetSpec> =
                 },
             ),
         ],
-        // The generator now emits a tight 208×288 monolith body with no
-        // transparent floor gutter. collision_scale=1.0 makes the rendered
-        // sprite, derived combat box, and authored LDtk BossSpawn box line
-        // up exactly.
+        // A tight 208×288 body with no floor gutter. collision_scale=1.0 makes
+        // the sprite, combat box, and LDtk BossSpawn box match.
         collision_scale: 1.0,
         feet_anchor_y: -0.5,
         frame_sample_inset: 1,
@@ -343,22 +304,16 @@ impl BossSheetSpec {
         self.rows.iter().position(|(row_anim, _)| *row_anim == anim)
     }
 
-    /// Whether the sprite should be horizontally flipped to face `facing`.
-    /// Single source of truth for the renderer's `Sprite::flip_x`: the default
-    /// art faces +x (right), so a leftward `facing` flips it — unless the sheet
-    /// was authored facing left (`authored_faces_left`), which inverts the rule
-    /// (the mockingbird, otherwise always facing away from the player).
+    /// Whether the sprite is flipped to face `facing`. This is the one source
+    /// for the renderer's `Sprite::flip_x`: art faces +x, so a leftward
+    /// `facing` flips it, unless `authored_faces_left` inverts the rule.
     pub fn flip_x(&self, facing: f32) -> bool {
         (facing < 0.0) ^ self.authored_faces_left
     }
 
-    /// Resolve a requested animation against this sheet's row set.
-    /// Falls back to `Rest` if the requested row isn't shipped (e.g.
-    /// the mockingbird sheet has no `SideSweep`). Bosses without a
-    /// `Rest` row would crash the indexer; the static `BOSS_SHEET` /
-    /// `MOCKINGBIRD_SHEET` constants both ship one. Future sheets that
-    /// omit `Rest` should fail loudly, not silently — change this if
-    /// the contract changes.
+    /// Resolve a requested animation against this sheet's rows. Falls back to
+    /// `Rest` if the row is not shipped. A sheet without `Rest` would crash the
+    /// indexer; if a future sheet omits `Rest`, make it fail with an error.
     pub fn resolve_anim(&self, anim: BossAnim) -> BossAnim {
         if self.row_index(anim).is_some() {
             anim
@@ -370,9 +325,9 @@ impl BossSheetSpec {
     /// The `Hit` row cell to draw for a hit reaction with `remaining_secs` of
     /// flash left, or `None` when this sheet ships no `Hit` row.
     ///
-    /// Presentation only: the sim cursor never selects `Hit`, so the frame the
-    /// boss GEOMETRY samples does not depend on how long a flash is drawn. The
-    /// row plays forward and ends on its last frame as the flash runs out.
+    /// Presentation only: the sim cursor never selects `Hit`, so boss geometry
+    /// does not depend on flash length. The row plays forward and stops on its
+    /// last frame.
     pub fn hit_reaction_frame(&self, remaining_secs: f32) -> Option<(BossAnim, usize)> {
         let (_, row) = self.rows.iter().find(|(anim, _)| *anim == BossAnim::Hit)?;
         if row.frame_count == 0 || remaining_secs <= 0.0 {
@@ -396,20 +351,17 @@ impl BossSheetSpec {
     }
 
     /// Index into the backing [`SheetRecord`]'s rows for `anim` (after `Rest`
-    /// fallback). The boss const lists its rows in the exact PNG order the
-    /// generator emits, so a row's position in `self.rows` IS its record-row
-    /// index — the single key the shared frame algebra addresses pages, flat
-    /// indices, and trim by.
+    /// fallback). The const lists rows in PNG order, so a row's position in
+    /// `self.rows` is its record-row index.
     pub fn record_row(&self, anim: BossAnim) -> usize {
         let resolved = self.resolve_anim(anim);
         self.row_index(resolved)
             .expect("boss sprite sheet must define a Rest row")
     }
 
-    /// A [`SheetRecord`] view of this const grid, for the fallback path where no
-    /// published sheet RON exists (subdir bosses, headless/tests). Rows carry no
-    /// rects, so the shared frame algebra derives every cell from grid stride —
-    /// exactly the old `build_atlas` math, now through the one implementation.
+    /// A [`SheetRecord`] view of this const grid, for when no published sheet
+    /// RON exists (subdir bosses, headless, tests). Rows carry no rects, so the
+    /// shared frame algebra derives each cell from the grid stride.
     pub fn synth_record(&self, image: &str) -> SheetRecord {
         let rows = self
             .rows
@@ -426,7 +378,7 @@ impl BossSheetSpec {
             })
             .collect();
         SheetRecord {
-            // A synthesized record is asked for by nothing and drew from no rig.
+            // A synthesized record has no key and no rig target.
             key: String::new(),
             target: String::new(),
             image: image.to_string(),
@@ -437,10 +389,7 @@ impl BossSheetSpec {
             y_offset: 0,
             body_metrics: None,
             tuning: None,
-            // The boss spec has carried this same art fact since the
-            // mockingbird; the synthesized record republishes it so a boss
-            // that falls back to the const grid keeps the drawn facing it
-            // would have read from a published sheet RON.
+            // Keep the drawn facing, as a published sheet RON would.
             authored_faces_left: self.authored_faces_left,
             rows,
         }
@@ -451,8 +400,7 @@ impl BossSheetSpec {
     }
 
     pub fn render_size(&self, collision: Vec2) -> Vec2 {
-        // Height collision-driven; width preserves the cropped frame's
-        // aspect ratio so the boss isn't squashed when frames are non-square.
+        // Height from collision; width keeps the frame's aspect ratio.
         let height = collision.x.max(collision.y).max(8.0) * self.collision_scale;
         let width = height * (self.frame_width as f32 / self.frame_height as f32);
         Vec2::new(width, height)
@@ -462,16 +410,12 @@ impl BossSheetSpec {
         Anchor(Vec2::new(0.0, self.feet_anchor_y))
     }
 
-    /// Collision-aware anchor that places the rendered boss's feet on the
-    /// bottom of the collision box rather than at its centre. Mirrors
-    /// `character_sprites::feet_anchor_for` — see that function for the
-    /// derivation.
+    /// Anchor that places the boss's feet on the bottom of the collision box.
+    /// See `character_sprites::feet_anchor_for` for the derivation.
     ///
-    /// For `body_centered` sheets (flying bosses) we skip the feet-delta
-    /// term and use `feet_anchor_y` directly as the body-center offset.
-    /// Otherwise the sprite quad would hang below the AABB the same way
-    /// a humanoid sheet hangs below its waist when the anchor is at
-    /// "feet" — wrong silhouette for an airborne creature.
+    /// For `body_centered` sheets (flying bosses), skip the feet term and use
+    /// `feet_anchor_y` as the body-centre offset, so the quad does not hang
+    /// below the AABB.
     pub fn collision_anchor(&self, collision: Vec2) -> Anchor {
         if self.body_centered {
             return Anchor(Vec2::new(0.0, self.feet_anchor_y));
@@ -497,9 +441,9 @@ pub struct BossSpriteAsset {
     /// Per-page texture + layout. `pages[0]` is the primary image; the renderer
     /// swaps to the active frame's page for split sheets.
     pub pages: Vec<BossSpritePage>,
-    /// The backing sheet record (published RON, or a grid-only synthetic view
-    /// of the const) — the single source the shared frame algebra reads pages,
-    /// flat indices, and trim from.
+    /// The backing sheet record (published RON, or a grid-only view of the
+    /// const). The shared frame algebra reads pages, flat indices, and trim
+    /// from it.
     pub record: SheetRecord,
     pub spec: BossSheetSpec,
 }
@@ -584,14 +528,13 @@ pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
         authored_faces_left: false,
     });
 
-/// GNU-ton scholar RIDER sheet (ADR 0020 mount/rider split, G1).
+/// GNU-ton scholar rider sheet (ADR 0020 mount/rider split).
 ///
-/// The scholar drawn ALONE + centered, packed on its OWN tight trim (NOT
-/// lockstep with the giant) — so it carries the same 6 animation rows but a much
-/// smaller silhouette. `frame_width`/`frame_height` mirror the generator's
-/// logical draw canvas (768×576); the live atlas + tight rects come from the
-/// published RON. `collision_scale` is a small first-pass value (the scholar is
-/// tiny vs. the giant); G2 tunes the real rider render/placement.
+/// The scholar is drawn alone and centred, on its own tight trim. It has the
+/// same 6 rows as the giant but a much smaller silhouette.
+/// `frame_width`/`frame_height` match the generator's canvas (768×576); the
+/// atlas and rects come from the published RON. `collision_scale` is a
+/// first-pass value.
 pub static GNU_TON_RIDER_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 0,
@@ -648,18 +591,14 @@ pub static GNU_TON_RIDER_SHEET: std::sync::LazyLock<BossSheetSpec> =
         authored_faces_left: false,
     });
 
-/// Flying Spaghetti Monster boss sheet (7 rows). The sheet ships its own attack
-/// rows, so unlike the old generic fallback this renders the noodly appendages
-/// instead of the gradient-sentinel body. Rows in PNG order map onto the
-/// gameplay vocabulary as: idle→Rest, drift→DashEcho, noodle_whip→SideSweep,
-/// meatball_volley→FloorSlam, eye_beam→SpikeHalo, hurt→Hit, death→Death (every
-/// BossAnim used exactly once). Floating boss, so `body_centered`.
+/// Flying Spaghetti Monster boss sheet (7 rows). Rows in PNG order map as:
+/// idle→Rest, drift→DashEcho, noodle_whip→SideSweep, meatball_volley→FloorSlam,
+/// eye_beam→SpikeHalo, hurt→Hit, death→Death. Floating, so `body_centered`.
 ///
-/// `frame_width`/`frame_height`/`label_width` here are a FALLBACK only — the
-/// live atlas + render aspect are driven by the published sheet RON (see
-/// `load_named_boss_sprite_via_catalog`), so a generator resolution change no
-/// longer desyncs the in-game indexing. The values mirror the current generated
-/// crop so headless/no-asset renders still get the right aspect.
+/// `frame_width`/`frame_height`/`label_width` are a fallback only. The
+/// published sheet RON drives the live atlas and aspect (see
+/// `load_named_boss_sprite_via_catalog`). The values match the current crop so
+/// headless and no-asset renders get the right aspect.
 pub static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 100,
@@ -723,14 +662,13 @@ pub static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
         authored_faces_left: false,
     });
 
-/// T-Rex boss sheet (398×320 frames, 9 rows; reuses the trex *enemy* PNG). The
-/// sheet has more rows than the 7-variant `BossAnim`, so `tail_swipe` and
-/// `stomp` reuse `SideSweep`/`FloorSlam` labels — every physical row is still
-/// listed in PNG order (so `build_atlas` y-offsets stay correct), the duplicate
-/// labels just aren't separately selectable. Mapping: idle→Rest, walk→DashEcho,
-/// charge→FloorSlam, bite→SideSweep, roar→SpikeHalo, tail_swipe→(SideSweep,
-/// atlas-only), stomp→(FloorSlam, atlas-only), hurt→Hit, death→Death. Grounded
-/// bipedal, so NOT `body_centered`. _Render scale / anchor are first-pass._
+/// T-Rex boss sheet (398×320 frames, 9 rows; reuses the trex enemy PNG). The
+/// sheet has more rows than `BossAnim`, so `tail_swipe` and `stomp` reuse the
+/// `SideSweep`/`FloorSlam` labels. Every row is still listed in PNG order so
+/// atlas y-offsets are correct; the duplicates are not selectable. Mapping:
+/// idle→Rest, walk→DashEcho, charge→FloorSlam, bite→SideSweep, roar→SpikeHalo,
+/// tail_swipe→(SideSweep), stomp→(FloorSlam), hurt→Hit, death→Death. Grounded,
+/// so not `body_centered`. Render scale and anchor are first-pass.
 pub static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 100,
@@ -832,11 +770,10 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m
 }
 
-/// Build the boss sprite asset for the gradient sentinel sheet.
-/// Returns `None` if the catalog reports the asset disabled or the
-/// active profile's optional-image gate skips it — callers fall back
-/// to the static `EntitySprite::BossCore` image, which in turn falls
-/// back to the colored rectangle.
+/// Build the boss sprite asset for the gradient sentinel sheet. Returns `None`
+/// if the catalog disables the asset or the profile skips optional images.
+/// Callers then use the static `EntitySprite::BossCore` image, or a coloured
+/// rectangle.
 pub fn load_boss_sprite_in(
     catalog: &ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog,
     asset_server: &AssetServer,
@@ -855,11 +792,9 @@ pub fn load_boss_sprite_in(
 /// indexes baked sheets by.
 pub fn boss_ron_target(path: &str) -> Option<&str> {
     let stem = path.rsplit('/').next()?.strip_suffix("_spritesheet.png")?;
-    // GNU-ton renders a split body/hands pair whose two textures share ONE
-    // packed atlas layout (the generator emits them in lockstep). Both layer
-    // filenames (`..._body`, `..._hands`) resolve back to the single published
-    // `gnu_ton_boss` record, so the shared frame algebra addresses both
-    // textures with the same flat index + trim.
+    // GNU-ton's body and hands textures share one packed atlas layout. Both
+    // filenames resolve to the `gnu_ton_boss` record, so both use the same flat
+    // index and trim.
     Some(
         stem.strip_suffix("_body")
             .or_else(|| stem.strip_suffix("_hands"))
@@ -886,11 +821,11 @@ fn boss_record_key(path: &str) -> Option<String> {
     })
 }
 
-/// True when a published sheet record lines up 1:1 with the const's row set, so
-/// it can drive the pixels: the const owns the [`BossAnim`] row order + frame
-/// counts the shared frame algebra addresses by position, so each const row
-/// must have a matching record row with enough frames + rects. Otherwise the
-/// boss renders from the const's grid (via [`BossSheetSpec::synth_record`]).
+/// True when a published sheet record matches the const's row set, so it can
+/// drive the pixels. The const owns the [`BossAnim`] row order and frame
+/// counts, so each const row needs a matching record row with enough frames
+/// and rects. Otherwise the boss renders from the const grid (see
+/// [`BossSheetSpec::synth_record`]).
 pub fn record_aligns_with_const(record: &SheetRecord, spec: &BossSheetSpec) -> bool {
     if record.rows.len() < spec.rows.len() {
         return false;
@@ -910,12 +845,10 @@ pub fn load_named_boss_sprite_via_catalog(
     quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
     let id = ambition_asset_manager::platformer_assets::ids::boss_sprite(label);
-    // Prefer a scaled variant PNG, but only when its matching variant record was
-    // also baked AND aligns with the const — so the atlas rects address the
-    // resolution that actually loads. Otherwise use the base PNG + base record.
-    // (Atomic pairing; gameplay geometry is unaffected — it reads the base
-    // record.) `boss_record_key` carries the scale suffix when `path` is a
-    // variant folder, so the record derivation below resolves the right record.
+    // Use a scaled variant PNG only when its variant record was also baked and
+    // matches the const, so the atlas rects address the resolution that loads.
+    // Otherwise use the base PNG and record. Gameplay geometry reads the base
+    // record. `boss_record_key` carries the scale suffix for a variant folder.
     let variant_path = quality
         .filter(|q| q.sprites.prefer_scaled_variants)
         .map(|q| q.sprites.resolution_scale)
@@ -936,13 +869,10 @@ pub fn load_named_boss_sprite_via_catalog(
         );
         return None;
     };
-    // Data-driven geometry: prefer the published sheet RON so the atlas, page
-    // splits, trim, and render aspect track the regenerated texture (resolution
-    // / crop / packing) instead of the const's first-pass dims. The const still
-    // owns the gameplay row mapping + tuning; the pixels come from the record,
-    // read through the ONE shared frame algebra. When no baked record exists
-    // (subdir bosses, headless/tests) or it doesn't line up with the const, we
-    // synthesize a grid-only record from the const — still the same algebra.
+    // Prefer the published sheet RON, so atlas, page splits, trim, and aspect
+    // follow the texture. The const still owns the row mapping and tuning.
+    // Without a matching baked record (subdir bosses, headless, tests), build a
+    // grid-only record from the const. Both use the same frame algebra.
     let mut spec = spec;
     let record = boss_record_key(&path)
         .as_deref()
@@ -1006,27 +936,23 @@ fn build_boss_pages(
         .collect()
 }
 
-/// Render-side boss texture addresser. STATELESS w.r.t. the animation cursor:
-/// the cursor is SIM-owned ([`BossAnimFrame`], advanced by `drive_boss_animators`
-/// and published in `BossFrameIndex`), and this type only turns a published
-/// `(anim, frame)` into an atlas cell / page / trimmed size. That is why the boss
-/// frame the sprite draws and the frame-tied strike geometry are always the ONE
-/// sim frame — unlike `CharacterAnimator`, which the render advances locally
-/// because character hitboxes are not frame-tied. Holds only the GPU-side binding
-/// (sheet record, atlas pages, render basis), set once at sprite-upgrade time.
+/// Render-side boss texture addresser. It does not own the animation cursor:
+/// the sim owns it ([`BossAnimFrame`], advanced by `drive_boss_animators` and
+/// published in `BossFrameIndex`). This type only turns a published
+/// `(anim, frame)` into an atlas cell, page, and trimmed size. So the drawn
+/// frame and the frame-tied strike geometry are always the same sim frame.
+/// (`CharacterAnimator` advances locally because character hitboxes are not
+/// frame-tied.) It holds only the GPU binding, set once at sprite upgrade.
 #[derive(Component)]
 pub struct BossAnimator {
     pub spec: BossSheetSpec,
-    /// Backing sheet record — the single source the shared frame algebra reads
-    /// flat indices, per-frame pages, and trim from. Cloned from the asset.
+    /// Backing sheet record, cloned from the asset.
     pub record: SheetRecord,
-    /// Per-page texture + layout handles, so the renderer can swap the sprite's
-    /// image + atlas layout when the playing frame lives on a different page of
-    /// a split sheet. Length 1 (no swap) for the common single-PNG boss.
+    /// Per-page texture and layout handles, so the renderer can swap them when
+    /// the frame is on another page. Length 1 for a single-PNG boss.
     pub pages: Vec<BossSpritePage>,
-    /// Base render size + feet anchor set at spawn, so a trimmed (alpha-packed)
-    /// boss sheet can recompute the per-frame `custom_size` + anchor that keeps
-    /// the logical frame fixed. `None` until provided.
+    /// Base render size and feet anchor set at spawn, so a trimmed sheet can
+    /// compute the per-frame `custom_size` and anchor. `None` until set.
     pub render_basis: Option<RenderBasis>,
 }
 
@@ -1048,10 +974,8 @@ impl BossAnimator {
         self
     }
 
-    /// Page-local flat atlas index of the published `(anim, frame)` via the shared
-    /// algebra. The cursor is sim-owned (`BossAnimFrame` → `BossFrameIndex`); this
-    /// is a pure lookup, so the drawn cell and the frame-tied strike geometry are
-    /// always the one sim frame.
+    /// Page-local flat atlas index of the published `(anim, frame)`. A pure
+    /// lookup; the sim owns the cursor.
     pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
         self.record
             .flat_index_in_page(self.spec.record_row(anim), frame)
@@ -1100,11 +1024,9 @@ fn non_looping(anim: BossAnim) -> bool {
 
 /// Gameplay phase currently driving a boss animation row.
 ///
-/// This is deliberately separate from [`BossAnim`]. A single authored row
-/// can be reused for both telegraph and strike; those are separate plays of
-/// the clip, not one long held animation. Keeping the phase in the animator
-/// identity makes sprite frames, authored boxes, and debug overlays advance
-/// together across phase boundaries.
+/// Separate from [`BossAnim`]: one row can serve both telegraph and strike, as
+/// separate plays of the clip. Keeping the phase in the animator identity makes
+/// frames, authored boxes, and debug overlays advance together.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BossAnimDrivePhase {
     Rest,
@@ -1225,8 +1147,7 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
         if let Some(anim) = state.active_anim {
             return anim;
         }
-        // Rotate active-attack clips so the boss reads with variety even
-        // though the gameplay AI is currently a single pattern.
+        // Rotate attack clips for variety; the AI uses one pattern today.
         let bucket = (state.pattern_timer.abs() as i32) % 3;
         return match bucket {
             0 => BossAnim::FloorSlam,
@@ -1236,9 +1157,6 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
     }
     BossAnim::Rest
 }
-
-// Adding sprite_sheet-local boss coverage is a separate opportunity
-// (dev/journals/code_smells.md).
 
 #[cfg(test)]
 mod hit_reaction_tests {

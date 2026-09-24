@@ -98,9 +98,7 @@ pub(in super::super) fn extend_with_character_entries(
     {
         let id = ids::character_sprite(&name);
         // `qualified` carries the authored path when the catalog named its own
-        // source; the helper is the ONE place that decides whether to join.
-        // This was an inline branch here and inline `format!`s in three other
-        // seams, which is how the same mistake got made three times.
+        // source. `logical_asset_path` alone decides whether to join.
         let authored = qualified.as_deref().unwrap_or(filename.as_str());
         let logical_path = super::super::logical_asset_path(sprite_folder, authored);
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)

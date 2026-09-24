@@ -1,4 +1,4 @@
-//! Sprite RESOLVERS: map sim/world entities (hazards, pickups, chests,
+//! Sprite resolvers: map sim and world entities (hazards, pickups, chests,
 //! breakables, enemies, blocks, loading zones) to an `EntitySprite`.
 
 use ambition_platformer2d_core as ae;
@@ -23,10 +23,9 @@ pub fn entity_sprite(
     }
 }
 
-/// Same as [`entity_sprite`] but `kind` is optional — `None` always falls
-/// through to the colored rectangle. Useful for call sites that map a
-/// runtime kind (e.g. `BlockKind`) to an `Option<EntitySprite>` because
-/// some variants don't have a dedicated sprite.
+/// Like [`entity_sprite`], but `kind` is optional; `None` gives the colored
+/// rectangle. Use it when some runtime kinds (for example `BlockKind`) have no
+/// dedicated sprite.
 pub fn entity_sprite_or_color(
     assets: &GameAssets,
     key: Option<EntitySprite>,
@@ -43,9 +42,9 @@ pub fn entity_sprite_or_color(
     }
 }
 
-/// Per-family entity-sprite resolvers. Stateless choices — the
-/// runtime sync system swaps the sprite later for state-driven kinds
-/// (chest open, breakable cracked).
+/// Per-family entity-sprite resolvers. These are stateless; the runtime sync
+/// system swaps the sprite later for state-driven kinds (chest open,
+/// breakable cracked).
 pub fn entity_sprite_for_hazard(
     _volume: &ambition_platformer2d_world::rooms::HazardVolumeSpec,
 ) -> Option<EntitySprite> {
@@ -58,12 +57,10 @@ pub fn entity_sprite_for_pickup(
     Some(pickup_sprite(&pickup.kind))
 }
 
-/// Runtime pickup resolver used by sim-view facts for a pickup the SIMULATION
-/// minted — an enemy's bounty coin, a boss's heart, a scattered ring. Twin of
-/// [`entity_sprite_for_pickup`], which reads the authored spec, and it exists
-/// for the reason [`entity_sprite_for_runtime_chest`] does: a dropped pickup
-/// has no authored spec behind it, and sim-view must not fabricate one just to
-/// pick the same art.
+/// Pickup resolver for a pickup the simulation created (a bounty coin, a
+/// boss heart, a scattered ring). A dropped pickup has no authored spec, and
+/// sim-view must not invent one, so this is the runtime twin of
+/// [`entity_sprite_for_pickup`] (as with [`entity_sprite_for_runtime_chest`]).
 pub fn entity_sprite_for_runtime_pickup(
     kind: &ambition_interaction::PickupKind,
 ) -> Option<EntitySprite> {
@@ -72,8 +69,8 @@ pub fn entity_sprite_for_runtime_pickup(
         K::Health { .. } => EntitySprite::PickupHealth,
         K::Currency { .. } => EntitySprite::PickupCurrency,
         K::Ability { .. } => EntitySprite::PickupAbility,
-        // StoryFlag and Custom fall back to the ability look until they get
-        // dedicated art — the same fallback the authored twin takes.
+        // StoryFlag and Custom use the ability look until they get their own
+        // art, as the authored twin does.
         K::StoryFlag { .. } | K::Custom(_) => EntitySprite::PickupAbility,
     })
 }
@@ -84,10 +81,9 @@ pub fn entity_sprite_for_chest(
     Some(EntitySprite::ChestClosed)
 }
 
-/// Runtime chest resolver used by sim-view facts after authored room specs
-/// have been lowered into interaction components. Keep this in the sprite
-/// resolver layer so sim-view does not rebuild fake world specs just to pick
-/// the same entity art.
+/// Chest resolver for sim-view after room specs are lowered into interaction
+/// components. It lives here so sim-view does not rebuild world specs to pick
+/// the art.
 pub fn entity_sprite_for_runtime_chest(
     _chest: &ambition_interaction::Chest,
 ) -> Option<EntitySprite> {
@@ -113,10 +109,9 @@ pub fn entity_sprite_for_interactable(
     }
 }
 
-/// Runtime interactable resolver used by sim-view facts after authored room
-/// specs have been lowered into interaction components. This mirrors
-/// [`entity_sprite_for_interactable`] without forcing sim-view to depend on
-/// authored-spec reconstruction.
+/// Interactable resolver for sim-view after room specs are lowered into
+/// interaction components. It mirrors [`entity_sprite_for_interactable`]
+/// without rebuilding authored specs.
 pub fn entity_sprite_for_runtime_interactable(
     interactable: &ambition_interaction::Interactable,
 ) -> Option<EntitySprite> {
@@ -133,11 +128,10 @@ pub fn entity_sprite_for_runtime_interactable(
 pub fn entity_sprite_for_enemy(
     brain: &ambition_entity_catalog::placements::CharacterBrain,
 ) -> Option<EntitySprite> {
-    // Training dummies use a dedicated static sprite; other actors use animated
-    // spritesheets, not a static entity sprite — `upgrade_actor_sprites` handles
-    // them. At this lower layer we only know the authored placement vocabulary,
-    // so this follows the stable catalog-key convention used by the shipped
-    // training-dummy rows.
+    // Training dummies use a static sprite. Other actors use animated sheets
+    // through `upgrade_actor_sprites`. This layer knows only the authored
+    // placement vocabulary, so it uses the catalog-key convention of the
+    // shipped training-dummy rows.
     if character_brain_is_sandbag(brain) {
         Some(EntitySprite::SandbagDummy)
     } else {
@@ -195,29 +189,26 @@ pub fn chest_state_sprite(opened: bool) -> EntitySprite {
     }
 }
 
-/// Art for a block that is a POINT, not a surface — one whose box is its
-/// art's own shape, so drawing the art across the box distorts nothing.
+/// Art for a block that is a point, not a surface: its box is the art's own
+/// shape, so drawing the art across the box does not distort it.
 ///
-/// Stretched across an authored surface — Smash's 420×32 stage — the border stretches too, so the
-/// platform collides about 18px further than it can be seen at each end: an invisible floor you
-/// stand on and an invisible wall you hit. A surface's art has to REPEAT, and [`block_tile_sprite`]
-/// is the one that repeats, so the renderer asks that first and only lands here for a kind with no
-/// tile texture at all.
+/// Art stretched across a surface stretches its transparent border too, so the
+/// block collides past its visible ends. Surface art must repeat, and
+/// [`block_tile_sprite`] gives the repeating texture. The renderer asks that
+/// first and comes here only for a kind with no tile texture.
 ///
-/// so a new surface kind must bring a tile texture, not a prop. The
-/// contract is pinned by `every_surface_kind_has_a_tile_texture`; adding a kind
-/// here instead is how the invisible edge comes back.
+/// So a new surface kind must add a tile texture, not a prop.
+/// `every_surface_kind_has_a_tile_texture` guards this.
 pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
         ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),
-        // `None`, and that is the kind's whole point. A bonk-only block is
-        // hidden until it has been struck; whatever a game wants it to look like
-        // once found is that game's own dresser's decision, and a default here
-        // would draw the secret.
+        // `None` on purpose: a bonk-only block stays hidden until struck. Its
+        // found look belongs to the game's dresser; a default here would show
+        // the secret.
         ae::BlockKind::BonkOnly => None,
-        // Every remaining kind is a SURFACE and is drawn by repeating its tile
-        // texture. Listed rather than wildcarded so a new kind has to choose.
+        // Every other kind is a surface and repeats its tile texture. The kinds
+        // are listed, not wildcarded, so a new kind must choose.
         ae::BlockKind::Solid
         | ae::BlockKind::OneWay
         | ae::BlockKind::Hazard
@@ -225,11 +216,10 @@ pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     }
 }
 
-/// The seamless texture a SURFACE repeats — the one the renderer asks for
-/// first, whatever the block's provenance, because repeating at native pixel
-/// scale is the only way art of one size honestly covers a box of another.
-/// Returns `None` for the point-shaped kinds, which have no surface to tile
-/// (PogoOrb / Rebound) and fall through to [`point_block_sprite`].
+/// The seamless texture a surface repeats. The renderer asks for it first,
+/// because repeating at native pixel scale is the only correct way to cover a
+/// box of a different size. `None` for point kinds (PogoOrb, Rebound), which
+/// use [`point_block_sprite`].
 pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::Solid => Some(EntitySprite::SolidTile),
@@ -241,17 +231,16 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         ae::BlockKind::BlinkWall {
             tier: ae::BlinkWallTier::Hard,
         } => Some(EntitySprite::HardBlinkTile),
-        // Listed rather than wildcarded so a new kind has to answer this question.
+        // Listed, not wildcarded, so a new kind must answer.
         ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => None,
     }
 }
 
-/// Is this kind a POINT rather than a surface — its box IS its art's shape,
-/// so nothing about it can be stretched into a lie?
+/// True if this kind is a point, not a surface: its box is its art's shape,
+/// so nothing stretches.
 ///
-/// The list exists to be short. Everything else is a shape an author drags to
-/// whatever size the level wants, and art that does not repeat cannot honestly
-/// cover it.
+/// Keep the list short. Every other kind is a shape an author sizes freely,
+/// and art that does not repeat cannot cover it.
 pub fn is_point_block_kind(kind: ae::BlockKind) -> bool {
     matches!(
         kind,
@@ -265,22 +254,17 @@ pub fn loading_zone_sprite(activation: LoadingZoneActivation) -> EntitySprite {
     match activation {
         LoadingZoneActivation::Door => EntitySprite::DoorZone,
         LoadingZoneActivation::EdgeExit => EntitySprite::EdgeExit,
-        // `Walk` zones (mid-room walk-through portals) reuse the
-        // EdgeExit sprite for now — both are overlap-triggered, no
-        // interact prompt. A dedicated portal-glow sprite can land
-        // when art does.
+        // `Walk` zones (mid-room portals) reuse the EdgeExit sprite for now:
+        // both trigger on overlap with no interact prompt.
         LoadingZoneActivation::Walk => EntitySprite::EdgeExit,
     }
 }
 
-/// Map a `FeatureVisualKind` to a default entity sprite, ignoring per-
-/// instance state. Used as a backstop when the engine kind isn't known
-/// in detail (e.g. inside `sync_visuals`).
+/// Map a `FeatureVisualKind` to a default entity sprite, ignoring instance
+/// state. A backstop when the engine kind is not known in detail.
 ///
-/// Today only the tests use this; production sprite resolution goes
-/// through the per-state helpers (`pickup_sprite`, `chest_state_sprite`,
-/// etc.). Kept pub so a future "kind is the only signal" call site can
-/// adopt it without re-deriving the mapping.
+/// Only tests use this now; production goes through the per-state helpers
+/// (`pickup_sprite`, `chest_state_sprite`, and so on).
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
     match kind {
@@ -288,9 +272,8 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
         FeatureVisualKind::Breakable => Some(EntitySprite::BreakableIntact),
         FeatureVisualKind::Chest => Some(EntitySprite::ChestClosed),
         FeatureVisualKind::Pickup => Some(EntitySprite::PickupHealth),
-        // Actors are animated (or resolve a state-keyed fallback sheet); rendering
-        // handles them through `upgrade_actor_sprites`, not a static entity sprite.
-        // The sandbag/boss/NPC static-sprite arms died with the actor variants.
+        // Actors are animated; `upgrade_actor_sprites` renders them, not a
+        // static entity sprite.
         FeatureVisualKind::Actor => None,
         // Switches render as a colored block (red / green) rather
         // than a static entity sprite — see `feature_color` and
@@ -303,15 +286,11 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
 mod tests {
     use super::*;
 
-    /// Every kind an author can DRAG has art that repeats.
+    /// Every kind an author can drag has art that repeats.
     ///
-    /// the invariant a stretched prop broke: art of one size covers a box of
-    /// another only by repeating. When it stretches instead, the transparent
-    /// border every prop is generated with stretches too, and the block collides
-    /// where nothing is drawn — Smash's stage was solid about 18px past each
-    /// visible end. A new surface kind that arrives with a prop and no tile
-    /// texture brings that back, silently, so the contract is stated here rather
-    /// than in a comment somebody has to find.
+    /// Stretched art also stretches its transparent border, so the block
+    /// collides where nothing is drawn. A new surface kind with a prop and no
+    /// tile texture would bring that back silently.
     #[test]
     fn every_surface_kind_has_a_tile_texture() {
         let kinds = [
@@ -343,8 +322,8 @@ mod tests {
         }
     }
 
-    /// The prop path is now reachable ONLY for points — which is what stops a
-    /// surface from ever being drawn by stretching again.
+    /// The prop path is reachable only for points, so a surface is never
+    /// drawn by stretching.
     #[test]
     fn only_point_kinds_answer_with_prop_art() {
         assert!(point_block_sprite(ae::BlockKind::Solid).is_none());

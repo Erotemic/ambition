@@ -1,54 +1,48 @@
-//! WHERE A SESSION'S LOCAL SEATS COME FROM, and whose answer that is.
+//! Where a session's local seats come from, and who decides.
 //!
-//! HOW MANY PEOPLE ARE PLAYING IS A FACT ABOUT INPUT, decided by a
-//! lobby, a roster, or an experience that simply is two-player — never by a
-//! backend. This declaration lived inside `ambition_platformer2d_rollback_ggrs`,
-//! so only a rollback host could hear one and every other surface was silently
-//! seated from connected DEVICES. A composition could then declare two seats,
-//! receive its second `InputParticipant`, receive the pad — and still not move
-//! the second body, because the session had opened one handle from the device
-//! count and is never resized.
+//! The number of players is an input fact. A lobby, a roster, or a
+//! fixed two-player experience decides it; a backend never does. This
+//! declaration lives here, not in the rollback backend, so every surface can
+//! read it. If a session opens its handles from the device count, a declared
+//! second seat gets a participant and a pad but its body does not move,
+//! because the session is never resized.
 //!
-//! a ROSTER is one decider among several, which is why the variants are
-//! not named for one: a plaza with no roster can still be two-player by
-//! construction. What this type means is *somebody has claimed local seating,
-//! and here is their answer*.
+//! A roster is one possible decider. A plaza with no roster can also be
+//! two-player. The type means: a decider claimed local seating, and this is
+//! its answer.
 
 use bevy::prelude::Resource;
 
 /// Where this session's seats come from, whether they are decided yet, and
 /// whose answer it is.
 ///
-/// One value for the whole chain: an experience CLAIMS local seating, its answer
-/// becomes DECIDED, the participant topology is frozen from that answer, the
-/// session is built from that topology, and the claim is released when the
-/// experience ends. A roster is the usual decider and not the only one — a
-/// two-observer plaza declares its two channels with no lobby at all.
+/// One value covers the whole chain: an experience claims local seating, its
+/// answer becomes decided, the participant topology freezes from that answer,
+/// the session builds from that topology, and the claim is released when the
+/// experience ends. A roster is the usual decider but not the only one; a
+/// two-observer plaza declares two channels with no lobby.
 ///
-/// [`Self::Devices`] is a real answer, not a missing one. A single-player
-/// game, a headless oracle, a demo with no match — none of them declares seating
-/// and all of them are correct to seat from what is plugged in. Declared seating
-/// is opt-IN, which is what keeps the gate from stalling every composition that
-/// never intended to publish anything.
+/// [`Self::Devices`] is a real answer. Single-player games, headless oracles,
+/// and demos declare nothing and seat from connected devices. Declared seating
+/// is opt-in, so compositions that never declare do not stall on the gate.
 #[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
 pub enum SessionSeatingSource {
     /// Nobody claimed local seating: freeze from connected devices.
     #[default]
     Devices,
     /// `owner` will publish its answer and has not yet. The session does not
-    /// start yet — a topology frozen from devices here is one the answer is
-    /// about to contradict, and the session is never resized afterwards.
+    /// start: a topology frozen from devices now could disagree with the
+    /// answer, and the session is never resized.
     Pending { owner: String },
-    /// `owner` decided `channels`. `frozen_topology` is stamped by
-    /// the maintainer with the generation it actually captured, so the roster,
-    /// the handle count and the per-seat latches cite one number rather than
-    /// agreeing by coincidence.
+    /// `owner` decided `channels`. The maintainer stamps `frozen_topology` with
+    /// the generation it captured, so the roster, the handle count, and the
+    /// per-seat latches all cite one number.
     ///
-    /// `seat_count: usize` was not enough, and this is the same lesson one layer up from
-    /// [`crate:LocalSeatTopology`]. A count opens the right number of GGRS handles and says
-    /// nothing about whose controller feeds each one, so every consumer re-derived the missing
-    /// half from the roster's SPARSE source numbers — and a lobby that seats a CPU before a
-    /// human produced a fighter on a channel the session never opened.
+    /// A seat count is not enough (see `LocalSeatTopology`). A count opens the
+    /// right number of GGRS handles but does not say which controller feeds
+    /// each. Consumers that derived that from the roster's sparse source
+    /// numbers put a fighter on an unopened channel when a CPU was seated
+    /// before a human.
     Decided {
         owner: String,
         channels: crate::LocalChannelPlan,
@@ -148,20 +142,18 @@ impl LocalSeatOffer {
         }
     }
 
-    /// How many local seats are on offer. `0` — the default — means nothing
-    /// is offering any, which is every single-participant route.
+    /// How many local seats are on offer. `0` (the default) means no offer,
+    /// which is every single-participant route.
     ///
-    /// it is a COUNT, and a count can only say "seats 0..n, densely". A
-    /// session whose people are not on the first n sources — somebody on the
-    /// keyboard below somebody on a pad — needs a [`crate::LocalChannelPlan`],
-    /// which this cannot express and must not be stretched to.
+    /// A count only means "seats 0..n, dense". When players are not on the
+    /// first n sources (keyboard below a pad), use a
+    /// [`crate::LocalChannelPlan`]; do not extend this field.
     pub fn seats(&self) -> u8 {
         self.seats
     }
 
     /// How local sources become participants while this offer stands. An
-    /// unclaimed offer answers with the default, which is today's solo
-    /// behaviour exactly.
+    /// unclaimed offer gives the default, which is solo behaviour.
     pub fn policy(&self) -> crate::sources::InputAssignmentPolicy {
         self.policy
     }

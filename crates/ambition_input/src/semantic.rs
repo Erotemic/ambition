@@ -1,13 +1,14 @@
 //! Open semantic action vocabulary between physical bindings and consumers.
 //!
-//! [`SemanticActionId`] lets capabilities register actions without extending the
-//! closed leafwing device-action enum. [`ActionRegistry`] is authoritative for
-//! each id and its control kind, and mints the [`ProviderAction`] key that binds
-//! one — so a registered action is now describable AND bindable without touching
-//! the device enum.
+//! [`SemanticActionId`] lets capabilities register actions without extending
+//! the closed leafwing device-action enum. [`ActionRegistry`] owns each id and
+//! its control kind, and mints the [`ProviderAction`] key that binds it. A
+//! registered action is thus describable and bindable without a change to the
+//! device enum.
 //!
-//! ⚠ Not yet ROUTED: nothing installs an `InputMap<ProviderAction>` in production,
-//! because two maps means two reader paths and a rule for which wins a conflict.
+//! Not yet routed: nothing installs an `InputMap<ProviderAction>` in
+//! production. Two maps need two reader paths and a rule for which one wins a
+//! conflict.
 
 use std::collections::BTreeMap;
 
@@ -24,15 +25,13 @@ impl std::fmt::Display for SemanticActionId {
     }
 }
 
-/// What SHAPE of input an action carries. Mirrors leafwing's control kinds,
-/// because a binding UI and a prompt both need to know whether they are drawing
-/// a button or a stick.
+/// The shape of input an action carries. Mirrors leafwing's control kinds, so
+/// a binding UI or a prompt knows whether it draws a button or a stick.
 ///
-/// ⭐ `Hash` and `Reflect` are here for [`ProviderAction`], which carries this as
-/// a FIELD because leafwing's `input_control_kind` takes `&self` — the key has to
-/// know its own shape rather than look it up. They cost nothing on a fieldless
-/// enum, and they are what keeps the provider key from needing a second copy of
-/// this vocabulary beside it.
+/// `Hash` and `Reflect` are for [`ProviderAction`], which carries this as a
+/// field because leafwing's `input_control_kind` takes `&self`. They cost
+/// nothing on a fieldless enum, and the provider key needs no second copy of
+/// this vocabulary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bevy::prelude::Reflect)]
 pub enum ActionControlKind {
     Button,
@@ -51,8 +50,8 @@ pub struct SemanticActionDef {
     /// The contexts it is meaningful in. A prompt asks this to decide what to
     /// show; a router asks it to decide whether a press means anything here.
     pub contexts: &'static [InputContextId],
-    /// One line, for a help screen or a rebind UI. Documentation metadata
-    /// belongs with the registration or it is not documentation.
+    /// One line, for a help screen or a rebind UI. Keep it with the
+    /// registration.
     pub doc: &'static str,
 }
 
@@ -94,9 +93,8 @@ impl ActionRegistry {
 
     /// Install one action.
     ///
-    /// Two owners for one id is refused HERE rather than at use, for the same
-    /// reason the content compiler refuses an ambiguous schema: letting it
-    /// through means the winner is decided by map iteration order.
+    /// Refuse two owners for one id here, not at use. Otherwise map iteration
+    /// order would decide the winner.
     pub fn register(&mut self, def: SemanticActionDef) -> Result<(), ActionConflict> {
         if let Some(existing) = self.actions.get(&def.id) {
             return Err(ActionConflict {
@@ -118,8 +116,8 @@ impl ActionRegistry {
         self.actions.values()
     }
 
-    /// What can be pressed in this context? The question a prompt, a help
-    /// screen and a rebind UI all ask, answered once.
+    /// The actions that can be pressed in this context. Prompts, help screens and
+    /// rebind UIs all use this.
     pub fn for_context(
         &self,
         context: InputContextId,
@@ -147,16 +145,16 @@ impl ActionRegistry {
         self.actions.is_empty()
     }
 
-    /// Mint the leafwing key for a registered action — the ONLY way to get one.
+    /// Mint the leafwing key for a registered action. This is the only way to get
+    /// one.
     ///
-    /// ⭐ THE REGISTRY MINTS IT BECAUSE THE REGISTRY OWNS THE KIND. `ProviderAction`
-    /// hashes on both id and kind, so two keys built by hand for one action could
-    /// disagree about its shape and silently miss each other in an `InputMap`. The
-    /// registry already enforces one kind per id ([`ActionRegistry::register`]),
-    /// and routing every key through it is what extends that rule to the bindings.
+    /// The registry mints it because the registry owns the kind. `ProviderAction`
+    /// hashes on id and kind, so two hand-built keys for one action could disagree
+    /// on shape and miss each other in an `InputMap`. [`ActionRegistry::register`]
+    /// enforces one kind per id; this extends that rule to the bindings.
     ///
-    /// `None` for an unregistered id: a key for an action nobody declared is a
-    /// binding to nothing, and the honest place to notice is here.
+    /// `None` for an unregistered id: a key for an undeclared action binds to
+    /// nothing.
     #[cfg(feature = "input")]
     pub fn key(&self, id: SemanticActionId) -> Option<ProviderAction> {
         self.get(id).map(|def| ProviderAction {
@@ -166,29 +164,28 @@ impl ActionRegistry {
     }
 }
 
-/// A registered action AS A LEAFWING KEY — the second map's keyspace.
+/// A registered action as a leafwing key: the keyspace of the second map.
 ///
-/// ⭐⭐ THE POINT IS THAT IT IS NOT AN ENUM. `InputMap<A: Actionlike>` is already
-/// generic, so a composition installs one of these beside the engine's map and a
-/// capability binds an action the engine has never heard of — with no `Any`, no
-/// `TypeId`, no service locator, and no edit to the 35-variant device enum. Every
-/// previous escape from that enum reached for erasure and was refused twice.
+/// It is not an enum. `InputMap<A: Actionlike>` is already generic, so a
+/// composition installs one of these beside the engine's map. A capability can
+/// then bind an action the engine does not know, with no `Any`, no `TypeId`,
+/// no service locator, and no change to the device enum.
 ///
-/// ⛔ MINT IT WITH [`ActionRegistry::key`], never by hand. The kind is part of the
-/// hash, so a hand-built key that guesses wrong binds into a slot nothing reads.
+/// Mint it with [`ActionRegistry::key`], not by hand. The kind is part of the
+/// hash, so a hand-built key with the wrong kind binds into a slot nothing
+/// reads.
 ///
-/// ⚠ WHAT THIS DOES NOT YET DO: nothing installs a map over it in production, so
-/// a provider action is bindable and not yet routed. Two maps means two reader
-/// paths and a rule for which wins a conflict, and that rule is the next slice —
-/// see `docs/planning/engine/participant-action-system.md`.
+/// Not yet routed in production: two maps need two reader paths and a rule for
+/// which one wins a conflict. See
+/// `docs/planning/engine/participant-action-system.md`.
 #[cfg(feature = "input")]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, bevy::prelude::Reflect)]
 pub struct ProviderAction {
-    /// The registered [`SemanticActionId`], owned because a key must outlive the
+    /// The registered [`SemanticActionId`]. Owned, because a key must outlive the
     /// registration's `&'static str` in a reflected, serialisable map.
     pub id: String,
     /// Carried, not looked up: leafwing's `input_control_kind` takes `&self`, so
-    /// the key has to know its own shape with no registry in hand.
+    /// the key must know its shape with no registry.
     pub kind: ActionControlKind,
 }
 
@@ -205,28 +202,25 @@ impl leafwing_input_manager::Actionlike for ProviderAction {
 
 /// The physical bindings a composition gives its provider actions.
 ///
-/// ⭐ SEPARATE FROM [`ActionRegistry`] ON PURPOSE. The registry DESCRIBES an
-/// action — id, kind, contexts, doc — and describing is what a capability can do
-/// alone. What key it sits on is the COMPOSITION's answer, the same split the
-/// engine's own vocabulary already has between the registry and `BindingRecipe`.
-/// A capability that shipped its own key would be deciding a thing the game it is
-/// installed into owns.
+/// Kept separate from [`ActionRegistry`]. The registry describes an action
+/// (id, kind, contexts, doc), which a capability can do alone. The key it sits
+/// on is the composition's choice, the same split the engine vocabulary has
+/// between the registry and `BindingRecipe`.
 ///
-/// Empty is the honest default: a composition that binds nothing routes nothing,
-/// and every action stays reachable by whoever writes its message directly.
+/// Empty by default: a composition that binds nothing routes nothing, and each
+/// action stays reachable by writing its message directly.
 #[cfg(feature = "input")]
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct ProviderBindings(pub leafwing_input_manager::prelude::InputMap<ProviderAction>);
 
 /// A registered provider action was pressed by a seat this frame.
 ///
-/// ⛔ AN EDGE, NOT A LEVEL. `just_pressed`, so a held key is one message and not
-/// one per frame — the same rule the menu and pointer channels beside it keep.
+/// An edge, not a level: `just_pressed`, so a held key gives one message. The
+/// menu and pointer channels use the same rule.
 ///
-/// The consumer is the capability that registered the action: it reads this and
-/// writes whatever its own request message is. That indirection is the point —
-/// `ambition_input` never learns what a pulse is, and the capability never learns
-/// what a keyboard is.
+/// The capability that registered the action reads this and writes its own
+/// request message. So `ambition_input` does not know what the action does,
+/// and the capability does not know what a keyboard is.
 #[cfg(feature = "input")]
 #[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SemanticActionPressed {
@@ -236,11 +230,10 @@ pub struct SemanticActionPressed {
 
 /// Give every seat the composition's provider map, and keep it current.
 ///
-/// ⭐ A SYNC RATHER THAN A SPAWN EDIT, because a capability may be installed after
-/// the seats exist and a binding change must reach seats that are already sitting
-/// there. The two spawn sites in `input_systems.rs` build their tuples from the
-/// engine's `BindingRecipe`, which knows nothing about provider actions; making
-/// them know would put a capability's concern in the seat constructor.
+/// A sync, not a spawn edit: a capability can be installed after the seats
+/// exist, and a binding change must reach existing seats. The two spawn sites
+/// in `input_systems.rs` build from the engine's `BindingRecipe`, which does
+/// not know provider actions, and should stay that way.
 #[cfg(feature = "input")]
 pub fn install_provider_bindings_on_seats(
     mut commands: bevy::prelude::Commands,
@@ -270,27 +263,18 @@ pub fn install_provider_bindings_on_seats(
 
 /// Publish this frame's provider-action presses as semantic edges.
 ///
-/// ⛔ THE REGISTRY IS THE FILTER, and that is what makes the id in the message a
-/// `&'static str` rather than the key's owned `String`. A key whose id no longer
-/// resolves is an action the composition stopped installing, and routing it would
-/// deliver a press to a capability that is no longer there.
+/// The registry is the filter, so the message id is a `&'static str` and not
+/// the key's `String`. A key whose id no longer resolves is an action the
+/// composition no longer installs; do not route it.
 #[cfg(feature = "input")]
 pub fn publish_provider_action_edges(
     registry: Option<bevy::prelude::Res<InstalledActions>>,
-    // ⛔⛔ THE CONTEXT IS NOT ADVICE, AND THIS SYSTEM USED TO IGNORE IT.
-    // `SemanticActionDef::contexts` says in its own doc that *"a router asks it
-    // to decide whether a press means anything here"* — and this router, the
-    // only one a provider's action has, checked that the action existed and that
-    // its key went down and published. So a gameplay action minted by a
-    // capability fired while its seat was in the pause menu, in dialogue, at the
-    // launcher or in a cutscene: a different authority model from every built-in
-    // control, granted by being new rather than by anyone deciding it.
+    // Check the seat's context, as `SemanticActionDef::contexts` requires.
+    // Without this check, a capability's gameplay action fires in the pause
+    // menu, dialogue, the launcher or a cutscene, unlike every built-in control.
     //
-    // ⛔ NOT `Option`. `ambition_input`'s own plugin inits this resource, so an
-    // absent one means the input plugin is not mounted — and refusing every
-    // provider edge in silence is exactly how a missing wire becomes the rule
-    // nobody wrote. A composition that publishes provider edges without a
-    // context authority should fail where it is assembled, not go quiet in play.
+    // Not `Option`: the input plugin inits this resource. If it is absent, the
+    // composition must fail at assembly, not drop every provider edge silently.
     contexts: bevy::prelude::Res<crate::participant::SeatInputContexts>,
     seats: bevy::prelude::Query<(
         &crate::participant::InputParticipant,
@@ -301,16 +285,14 @@ pub fn publish_provider_action_edges(
     let Some(registry) = registry else {
         return;
     };
-    // ⛔ SEAT ORDER IS NOT QUERY ORDER. Two seats pressing the same action on one
-    // frame must publish in the same order every run, and Bevy's iteration order
-    // is not a promise. Sorted by the seat's own id, which is the only stable
-    // name a participant has.
+    // Sort by seat id, not query order. Two seats that press one action on the
+    // same frame must publish in the same order every run, and Bevy's iteration
+    // order is not stable.
     let mut rows: Vec<_> = seats.iter().collect();
     rows.sort_by_key(|(participant, _)| participant.id.0);
     for (participant, actions) in rows {
-        // An UNRESOLVED seat owns nothing, which is the ordinary state of a
-        // couch slot with no pad — so this is the same answer as "captured by a
-        // menu", and both are the absence of permission rather than an error.
+        // An unresolved seat (a couch slot with no pad) owns no context. That is the
+        // same answer as "captured by a menu": no permission, not an error.
         let seat = contexts.for_seat(participant.id.slot());
         for key in actions.get_just_pressed() {
             let Some(def) = registry
@@ -332,10 +314,9 @@ pub fn publish_provider_action_edges(
 
 /// The composition's action vocabulary, as a resource.
 ///
-/// A registry is a value; this is where the running app keeps one. Built by the
-/// facade's assembly pass from the engine's actions plus whatever the mounted
-/// modules declared, so a prompt, a help screen or a rebind UI asks ONE
-/// question and gets the game's actions beside the engine's.
+/// The running app's registry. The facade's assembly pass builds it from the
+/// engine actions plus the actions the mounted modules declare, so prompts,
+/// help screens and rebind UIs get game and engine actions from one place.
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct InstalledActions(pub ActionRegistry);
 
@@ -374,9 +355,8 @@ const fn engine(
 
 /// The engine's vocabulary, and the whole of it.
 ///
-/// One entry per `Platformer2dInputActionMonolith`. `every_device_action_is_registered` fails when
-/// a variant is added without one, so this cannot quietly fall behind the enum —
-/// which is the difference between a registry and a description of a registry.
+/// One entry per `Platformer2dInputActionMonolith` variant.
+/// `every_device_action_is_registered` fails when a variant has no entry.
 pub static ENGINE_ACTIONS: &[SemanticActionDef] = &[
     engine(
         "move",
@@ -609,8 +589,8 @@ mod tests {
 
     /// A capability adds an action without editing the engine.
     ///
-    /// The whole point of the row: `Platformer2dInputActionMonolith` is a closed enum a capability
-    /// cannot extend, and this is the half that is open.
+    /// `Platformer2dInputActionMonolith` is a closed enum that a capability cannot
+    /// extend; the registry is the open half.
     #[test]
     fn a_capability_registers_its_own_action_without_touching_the_engine_enum() {
         const GRAPPLE: SemanticActionDef = SemanticActionDef {
@@ -663,12 +643,8 @@ mod tests {
         );
     }
 
-    ///  The registry must not fall behind the enum.
-    ///
-    /// This is what makes it the vocabulary rather than a description of one. A
-    /// `Platformer2dInputActionMonolith` added without a semantic entry would be invisible to
-    /// every prompt, help screen and rebind UI that asks the registry — and
-    /// invisible is exactly how a parallel list rots.
+    /// The registry must not fall behind the enum. A variant without a semantic
+    /// entry would be invisible to every prompt, help screen and rebind UI.
     #[cfg(feature = "input")]
     #[test]
     fn every_device_action_is_registered() {
@@ -676,8 +652,7 @@ mod tests {
         use bevy::reflect::{TypeInfo, Typed};
 
         // `Actionlike` has no `variants()` in leafwing 0.20, but it requires
-        // `Reflect + Typed` — so the enum's own type info is the honest list,
-        // and it cannot go stale the way a hand-written one would.
+        // `Reflect + Typed`, so the enum's type info gives a list that cannot go stale.
         let TypeInfo::Enum(info) = Platformer2dInputActionMonolith::type_info() else {
             panic!("Platformer2dInputActionMonolith is an enum");
         };
@@ -710,25 +685,21 @@ mod tests {
         out
     }
 
-    /// The registry is keyed by `&'static str`; a test-built name is not one.
-    /// Leaking a handful of short strings inside one test is cheaper than
-    /// widening the key type for it.
+    /// The registry is keyed by `&'static str`. Leak a few short test names
+    /// instead of widening the key type.
     #[cfg(feature = "input")]
     fn leak(name: &str) -> &'static str {
         Box::leak(name.to_string().into_boxed_str())
     }
 
-    /// A REGISTERED ACTION REACHES A SEAT'S PRESS — the whole road, in one app.
+    /// A registered action reaches a seat's press, end to end in one app.
     ///
-    /// ⭐⭐ WHAT THIS PINS is the claim the plan could previously only argue:
-    /// register an action the engine has never heard of, bind it to a key, press
-    /// the key, and get a semantic edge back — with no `Any`, no `TypeId`, and no
-    /// variant added to the 35-variant device enum. The capability demo's module
-    /// doc named the missing half of exactly this.
+    /// Register an action the engine does not know, bind it to a key, press the
+    /// key, and get a semantic edge back, with no `Any`, no `TypeId`, and no new
+    /// device-enum variant.
     ///
-    /// ⛔ THE PRESS IS HELD ACROSS TWO FRAMES on purpose. A one-frame press cannot
-    /// tell an edge channel from a level one, and this channel owes the edge rule:
-    /// a held key is one message, not one per frame.
+    /// The press is held across two frames: a one-frame press cannot tell an edge
+    /// channel from a level channel. A held key must give one message.
     #[cfg(feature = "input")]
     #[test]
     fn a_registered_action_bound_to_a_key_comes_back_as_a_seat_press() {
@@ -762,10 +733,7 @@ mod tests {
                     .before(leafwing_input_manager::plugin::InputManagerSystem::Update),
             )
             .add_systems(Update, publish_provider_action_edges);
-        // ⛔ THE SEAT CLAIMS GAMEPLAY, through the real resolver. Before the
-        // router consulted the context this test constructed none at all and
-        // still expected an edge, so the bypass was locked into the suite rather
-        // than caught by it.
+        // The seat claims gameplay through the real resolver.
         app.init_resource::<crate::participant::SeatInputContexts>()
             .add_systems(
                 bevy::app::PreUpdate,
@@ -800,8 +768,8 @@ mod tests {
             "a key bound to a provider-minted action did not reach the seat"
         );
 
-        // Still held. `Bevy`'s `ButtonInput` keeps it pressed across the frame,
-        // so this is the level-vs-edge question asked honestly.
+        // Still held. Bevy's `ButtonInput` keeps it pressed across the frame, so this
+        // checks edge against level.
         app.update();
         assert!(
             drain_presses(&mut app).is_empty(),
@@ -809,14 +777,12 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A CAPTURED SEAT DOES NOT FIRE A GAMEPLAY ACTION, and the same press
-    /// that DOES fire one is used to say so.
+    /// A captured seat does not fire a gameplay action.
     ///
-    /// A refusal arm that never establishes the permitted case proves only that
-    /// something is off — it cannot tell "the context refused" from "the binding
-    /// never worked". So this presses `KeyG` in gameplay, proves the edge, opens
-    /// the pause context over the same seat, presses again and proves silence,
-    /// then hands gameplay back and proves it resumes.
+    /// The test first proves the same press fires in gameplay, so a failure means
+    /// the context refused, not that the binding is broken. It presses `KeyG` in
+    /// gameplay, opens the pause context and presses again, then returns to
+    /// gameplay and checks that presses resume.
     #[cfg(feature = "input")]
     #[test]
     fn a_seat_captured_by_a_menu_publishes_no_gameplay_edge() {
@@ -862,8 +828,8 @@ mod tests {
             ))
             .id();
 
-        // Through the REAL resolver: a surface declares a capturing claim and
-        // retracts it, which is what a pause menu does.
+        // Through the real resolver: a surface declares a capturing claim and
+        // retracts it, as a pause menu does.
         let own = |app: &mut App, context: InputContextId| {
             let mut claims = app
                 .world_mut()
@@ -928,27 +894,19 @@ mod tests {
             .collect()
     }
 
-    /// A PROVIDER'S ACTION CAN BE A LEAFWING KEY — checked, not argued.
+    /// A provider's action can be a leafwing key.
     ///
-    /// ⭐⭐ THE OPEN QUESTION THIS ANSWERS is why a registered action is
-    /// describable and neither bindable nor readable: `InputMap` and
-    /// `ActionState` are keyed by the engine's CLOSED enum, and every previous
-    /// escape reached for erasure (`Any`, `TypeId`, a service locator), which the
-    /// reviews refused twice. ⛔ this is not that. `InputMap<A: Actionlike>` is
-    /// already generic, so a composition may install a SECOND map beside the
-    /// engine's — and the only question is whether a key a provider can MINT can
-    /// satisfy `Actionlike`.
+    /// `InputMap` and `ActionState` are keyed by the engine's closed enum, but
+    /// `InputMap<A: Actionlike>` is generic. So a composition can install a
+    /// second map, if a key that a provider mints satisfies `Actionlike`, without
+    /// erasure (`Any`, `TypeId`, a service locator).
     ///
-    /// ⭐ IT CAN, and the one part that is not derivable is what shapes the type:
-    /// `input_control_kind(&self)` takes `&self`, so the key must CARRY its kind
-    /// rather than look it up. `SemanticActionDef` already holds that kind, so
-    /// the registry mints the key and its own one-kind-per-id rule keeps `Hash`
-    /// and `Eq` from ever disagreeing about the same action.
+    /// `input_control_kind(&self)` takes `&self`, so the key carries its kind.
+    /// The registry mints the key, and its one-kind-per-id rule keeps `Hash` and
+    /// `Eq` consistent for one action.
     ///
-    /// ⚠ this test compiles the KEY and one map entry. It does not claim the
-    /// carve is done — two maps means two reader paths and a rule for which wins
-    /// — only that the bound is satisfiable without erasure, which is the thing
-    /// that had never been checked.
+    /// This test checks the key and one map entry only. It does not check routing
+    /// between two maps.
     #[cfg(feature = "input")]
     #[test]
     fn a_registry_minted_key_satisfies_leafwing_without_erasure() {
@@ -976,8 +934,8 @@ mod tests {
             "a provider-minted key bound nothing, so the second-map route does \
              not reach `InputMap` after all"
         );
-        // An id nobody registered mints nothing: a key for an undeclared action
-        // is a binding to a slot no reader will ever poll.
+        // An unregistered id mints nothing: its key would bind to a slot no reader
+        // polls.
         assert!(registry.key(SemanticActionId("nonesuch")).is_none());
         assert_eq!(key.input_control_kind(), InputControlKind::Button);
     }

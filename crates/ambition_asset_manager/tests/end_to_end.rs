@@ -20,13 +20,9 @@ fn ambition_manifest() -> AssetManifest {
             )
             .with_missing_policy(MissingAssetPolicy::Error)
             .with_preload_group(PreloadGroup::Bootstrap)
-            // Mirror the real sandbox catalog (see
-            // `crate::platformer_assets::extend_with_world_entries` in
-            // the sandbox crate): both an authored LocalPath for
-            // desktop hot reload AND an authored Embedded for
-            // bundled / web profiles. The two-pass resolver picks
-            // whichever source matches the active profile's
-            // preferred-source order.
+            // Mirror the real sandbox catalog: an authored LocalPath for
+            // desktop hot reload and an authored Embedded for bundled and web
+            // profiles. The resolver picks by the profile's source order.
             .with_location(
                 AssetSourceProfile::LooseFilesystem,
                 AssetLocation::LocalPath(std::path::PathBuf::from(
@@ -100,11 +96,9 @@ fn bootstrap_required_assets_resolve_under_every_real_profile() {
             "{} should resolve world.sandbox_ldtk to a real location, got Disabled",
             profile.label(),
         );
-        // Either a Bevy-pathable location (Embedded / BevyPath via
-        // Bevy's AssetReader) OR a LocalPath the sandbox's LDtk loader
-        // reads synchronously. DesktopDevLoose picks the authored
-        // LocalPath; static profiles pick the authored Embedded.
-        // Anything that produces neither would be a misconfiguration.
+        // Either a Bevy-pathable location (Embedded or BevyPath) or a
+        // LocalPath the sandbox's LDtk loader reads directly. Anything else
+        // is a misconfiguration.
         assert!(
             r.bevy_asset_path().is_some() || r.location.as_local_path().is_some(),
             "{} produced neither a Bevy AssetPath nor a LocalPath for world.sandbox_ldtk \

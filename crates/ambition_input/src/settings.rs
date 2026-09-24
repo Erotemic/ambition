@@ -33,15 +33,10 @@ pub enum MenuTapMode {
 
 impl Default for MenuTapMode {
     fn default() -> Self {
-        // The stated reason for it was accidental activation when a press turns
-        // into a small drag. That is a real hazard and it is not what a
-        // whole-menu confirmation policy is for: `SingleTapWithDestructiveGuard`
-        // already keeps the two-step for exactly the presses worth guarding (a
-        // stray touch on Quit), and drag-cancellation belongs to the gesture
-        // layer, where a press that moves past the drag threshold is a scroll.
-        //
-        // So every platform now shares one default, which also removes a
-        // behaviour that could only be discovered by owning the device.
+        // One default on every platform. `SingleTapWithDestructiveGuard` already
+        // guards the presses that need it, such as a stray touch on Quit. A press
+        // that turns into a drag belongs to the gesture layer, which reads it as a
+        // scroll.
         Self::SingleTapWithDestructiveGuard
     }
 }
@@ -85,12 +80,10 @@ impl MenuTapMode {
     /// Decide what a pointer press on `target` should do, given the current
     /// selection and whether the target is destructive.
     ///
-    /// `Row` is an opaque identity, never an ordinate: nothing here compares or
-    /// orders rows, it only asks whether two presses landed on the SAME one. An
-    /// index-addressed menu passes `usize`; the pointer bridge, which knows a row
-    /// by its action rather than its position, passes that instead. One policy,
-    /// both call shapes — the alternative was a second implementation of the
-    /// destructive guard for whichever caller did not fit.
+    /// `Row` is an opaque identity, not an ordinate: this only asks whether two
+    /// presses hit the same row. An index-addressed menu passes `usize`; the
+    /// pointer bridge passes the row's action. Both callers share one
+    /// destructive guard.
     ///
     /// `armed` tracks "this destructive row was selected by a prior
     /// press and is awaiting a confirm tap". The function may clear or
@@ -131,11 +124,10 @@ impl MenuTapMode {
     }
 }
 
-/// Whether the BURST press — the shared dodge/dash button — should fire from
-/// the right trigger only, the right shoulder button only, or both.
+/// Whether the burst press (the shared dodge/dash button) fires from the
+/// right trigger, the right shoulder button, or both.
 ///
-/// The field that DOES carry it is [`ControlSettings::burst_input_mode`], and that one is
-/// pinned.
+/// Stored in [`ControlSettings::burst_input_mode`], whose serde name is pinned.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BurstInputMode {
     /// Right trigger 2 (RT/R2). Default; matches prior behavior.
@@ -147,27 +139,23 @@ pub enum BurstInputMode {
     Both,
 }
 
-/// What the RIGHT STICK does during gameplay.
+/// What the right stick does during gameplay.
 ///
-/// ⭐⭐ THE GENRE'S C-STICK, and the reason it is a MODE rather than a second
-/// reader of the same stick: the right stick already aims the blink, and a
-/// deflection cannot mean "aim there" and "attack that way" at once. A player
-/// picks which one their right stick is.
+/// This is a mode, not a second reader, because the right stick also aims the
+/// blink. One deflection cannot both aim and attack.
 ///
-/// ⛔ THE TWO ATTACK MODES ARE NOT COSMETIC VARIANTS OF EACH OTHER. A tilt stick
-/// exists so a full deflection throws a TILT — the flick that a movement stick
-/// would read as a smash — and a smash stick exists so a gentle push still
-/// throws a SMASH. Each forces the strength the other cannot reach, which is why
-/// [`ambition_platformer2d_core::AttackStrengthHint`] had to stop being a
-/// one-way bool before either could exist.
+/// The two attack modes are not cosmetic. A tilt stick throws a tilt at full
+/// deflection, where a movement stick reads a smash. A smash stick throws a
+/// smash at a gentle push. Each mode forces a strength the other cannot give,
+/// so [`ambition_platformer2d_core::AttackStrengthHint`] carries both.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum RightStickMode {
     /// Aim the blink. Default, and what the stick has always done.
     #[default]
     Aim,
-    /// Flicking the stick throws a TILT in that direction, at any deflection.
+    /// Flicking the stick throws a tilt in that direction, at any deflection.
     TiltAttack,
-    /// Flicking the stick throws a SMASH in that direction, at any deflection.
+    /// Flicking the stick throws a smash in that direction, at any deflection.
     SmashAttack,
 }
 
@@ -339,20 +327,20 @@ impl ControllerProfileId {
     }
 }
 
-/// The values the DEVICE READER filters with.
+/// The values the device reader filters with.
 ///
-/// A deadzone is a fact about the stick in somebody's hands, not about the person holding it.
+/// A deadzone is a property of the stick, not of the player.
 ///
-/// `Copy` on purpose: this is rebuilt per seat per frame, and cloning
-/// `ControlSettings` would allocate its binding-override `Vec` every time.
+/// `Copy` because it is rebuilt per seat per frame. Cloning `ControlSettings`
+/// would allocate its binding-override `Vec` each time.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ControlFilters {
     pub left_stick_deadzone: f32,
     pub right_stick_deadzone: f32,
     pub trigger_release_threshold: f32,
     pub trigger_press_threshold: f32,
-    /// a PREFERENCE, not a calibration — which trigger or button means BURST
-    /// is a choice about the person, so it stays machine-wide even per pad.
+    /// A preference, not a calibration. Which control means burst is a choice of
+    /// the player, so it stays machine-wide even per pad.
     pub burst_input_mode: BurstInputMode,
     /// What the right stick is for — see [`RightStickMode`].
     pub right_stick_mode: RightStickMode,
@@ -361,8 +349,8 @@ pub struct ControlFilters {
 }
 
 impl ControlFilters {
-    /// The machine-wide values, exactly as the settings screen tuned them. What
-    /// the PRIMARY seat uses — those sliders are theirs.
+    /// The machine-wide values from the settings screen. The primary seat uses
+    /// these.
     pub fn from_settings(settings: &ControlSettings) -> Self {
         Self {
             left_stick_deadzone: settings.left_stick_deadzone,
@@ -376,13 +364,10 @@ impl ControlFilters {
     }
 
     /// Calibrated for a pad of this vendor style, keeping the machine-wide
-    /// PREFERENCES.
+    /// preferences.
     ///
-    /// an explicit profile choice still wins. If somebody picked a
-    /// controller profile in the settings, that is a decision and detection does
-    /// not get to overrule it; only `Default` — "nobody said" — defers to the
-    /// pad. That keeps the settings screen meaningful instead of making it a
-    /// value the game silently rewrites.
+    /// An explicit profile choice in settings wins over detection. Only
+    /// `Default` ("nobody chose") defers to the pad.
     pub fn for_pad(settings: &ControlSettings, style: crate::GamepadStyle) -> Self {
         let mut filters = Self::from_settings(settings);
         if settings.controller_profile != ControllerProfileId::Default {
@@ -397,14 +382,12 @@ impl ControlFilters {
     }
 }
 
-/// Which calibration table a DETECTED pad style gets.
+/// Which calibration table a detected pad style gets.
 ///
-/// `Xbox360` is deliberately unreachable from detection. Its table is the
-/// drifty-stick / worn-trigger one, and `gamepad_style_of` reads Microsoft's
-/// vendor id — which a 360 pad and a Series controller share. Guessing "old and
-/// worn" from a vendor id would widen the deadzone on a brand-new pad. That
-/// table stays available as an explicit settings choice, which is the only place
-/// the information exists.
+/// Detection never gives `Xbox360`. `gamepad_style_of` reads Microsoft's
+/// vendor id, which 360 and Series pads share. The 360 table (drifty sticks,
+/// worn triggers) would widen the deadzone on a new pad. It stays available
+/// as an explicit settings choice.
 fn profile_for_pad(style: crate::GamepadStyle) -> ControllerProfileId {
     match style {
         crate::GamepadStyle::PlayStation => ControllerProfileId::PlayStation,
@@ -413,14 +396,11 @@ fn profile_for_pad(style: crate::GamepadStyle) -> ControllerProfileId {
     }
 }
 
-/// A control an override can NAME.
+/// A control an override can name.
 ///
-/// deliberately not `PhysicalControl`, which the binding projection uses,
-/// and the difference is the direction of travel. That type reads OUT of a live
-/// `InputMap` and so must be total — it carries an `Other(String)` arm rather
-/// than dropping a binding it cannot classify. This one is authored INTO a map
-/// and so must be constructible: there is no honest `Other` here, because a
-/// settings file cannot ask for a control the binding layer cannot bind.
+/// This is not `PhysicalControl`. That type reads out of a live `InputMap`,
+/// so it must be total and has an `Other(String)` arm. This type is written
+/// into a map, so every value must be bindable, and it has no `Other` arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OverrideControl {
     Key(KeyCode),
@@ -428,9 +408,9 @@ pub enum OverrideControl {
 }
 
 impl OverrideControl {
-    /// Which half of a preset this override REPLACES. A preset binds most
-    /// actions on both a key and a pad button, and remapping Jump to `J` must
-    /// not silently unbind the controller.
+    /// Which half of a preset this override replaces. A preset binds most
+    /// actions on a key and a pad button. Remapping Jump to `J` must not unbind
+    /// the controller.
     pub fn device_class(self) -> OverrideDeviceClass {
         match self {
             Self::Key(_) => OverrideDeviceClass::Keyboard,
@@ -446,19 +426,16 @@ pub enum OverrideDeviceClass {
     Gamepad,
 }
 
-/// One persisted "this action is on THIS control instead".
+/// One persisted override: "this action is on this control instead".
 ///
-/// The action is named by the string [`crate::ActionBindings`] already
-/// publishes (the `Debug` spelling of the action), because a settings file, a
-/// trace line and a rebind row have to agree on one id and that is the one
-/// already in use. It is a `String` rather than the action type itself for a
-/// mechanical reason: this module compiles WITHOUT the `input` feature, where
-/// the leafwing action enum does not exist — while the settings file must
-/// deserialize identically in both builds.
+/// The action is the `Debug` spelling that [`crate::ActionBindings`]
+/// publishes, so settings files, trace lines and rebind rows share one id.
+/// It is a `String` because this module compiles without the `input`
+/// feature, where the leafwing action enum does not exist. The settings file
+/// must deserialize the same in both builds.
 ///
-/// An override naming an action this build does not have is IGNORED, not an
-/// error: settings outlive the binary that wrote them, and a file from a build
-/// with one more action must still load.
+/// An override that names an unknown action is ignored, not an error, so a
+/// file from a newer build still loads.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BindingOverride {
     pub action: String,
@@ -481,9 +458,7 @@ impl BindingOverride {
     }
 }
 
-/// not `Copy`. It holds the binding overrides, which are a `Vec`. The
-/// handful of sites that took a copy take a `.clone()`; every other reader
-/// already went through a reference.
+/// Not `Copy`: it holds the binding overrides in a `Vec`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ControlSettings {
     /// Active keyboard preset index (matches `KeyboardPreset::presets()`).
@@ -505,59 +480,45 @@ pub struct ControlSettings {
     pub dpad_menu_navigation: bool,
     /// Invert vertical aim (right stick / aim binding).
     pub invert_aim_y: bool,
-    /// Which control fires the shared dodge/dash BURST press.
+    /// Which control fires the shared dodge/dash burst press.
     ///
-    /// the SERDE NAME IS THE WIRE, and it stays `dash_input_mode`.
-    /// This field has no `#[serde(default)]` and `ControlSettings` has no
-    /// container default, so a missing key is not "fall back to the default for
-    /// this one knob" — it is a deserialize error for the whole struct, and
-    /// `load_settings` answers a parse error by discarding the ENTIRE settings
-    /// file (video, audio, gameplay, presets and every binding override with
-    /// it) and returning `UserSettings::default()`. Renaming the key without
-    /// pinning it would have silently wiped every existing player's settings on
-    /// the first launch after the rename.
+    /// The serde name is pinned to `dash_input_mode`. This field has no
+    /// `#[serde(default)]` and the struct has no container default, so a missing
+    /// key fails the whole struct. `load_settings` then discards the entire
+    /// settings file and returns `UserSettings::default()`. Renaming the key
+    /// would wipe the settings of every existing player.
     #[serde(rename = "dash_input_mode")]
     pub burst_input_mode: BurstInputMode,
-    /// What the right stick is for — see [`RightStickMode`].
+    /// What the right stick is for; see [`RightStickMode`].
     ///
-    /// ⛔⛔ `#[serde(default)]`, AND THE FIELD ABOVE EXPLAINS WHY IT IS NOT
-    /// OPTIONAL. `ControlSettings` has no container default, so a key missing
-    /// from a saved file is a deserialize error for the WHOLE struct — and
-    /// `load_settings` answers a parse error by discarding the entire settings
-    /// file, bindings and all. Every settings file written before 2026-08-31
-    /// lacks this key, so without this attribute adding a right-stick mode would
-    /// have wiped every existing player's settings on their next launch.
+    /// `#[serde(default)]` is required. Older settings files do not have this
+    /// key, and a missing key without a default discards the whole settings file
+    /// (see `burst_input_mode`).
     #[serde(default)]
     pub right_stick_mode: RightStickMode,
     /// Initial repeat delay for held menu directions, in seconds.
     pub menu_repeat_initial_delay: f32,
     /// Repeat interval after the initial delay.
     pub menu_repeat_interval: f32,
-    /// Whether the on-screen touch overlay (joystick + action buttons)
-    /// is VISIBLE. Mirrors into the `TouchControlsVisible` resource from
-    /// the `TouchControlsPlugin`. This controls only the overlay's
-    /// visibility, NOT whether touch input is enabled — touch enablement
-    /// is owned by the plugin (installed = enabled). Default true so the
-    /// overlay shows whenever the plugin is installed; toggle off via the
-    /// controls settings page to hide it while testing keyboard-only on
-    /// desktop (touch input stays live, just invisible).
+    /// Whether the on-screen touch overlay (joystick and action buttons) is
+    /// visible. Mirrors into the `TouchControlsVisible` resource from
+    /// `TouchControlsPlugin`. This does not enable touch input; the plugin owns
+    /// that (installed means enabled). Default true. Turn it off to test
+    /// keyboard-only on desktop; touch input stays live.
     #[serde(default = "default_touch_controls_visible")]
     pub touch_controls_visible: bool,
     /// How a tap or mouse click on a menu item should behave. See
     /// [`MenuTapMode`] for semantics.
     #[serde(default)]
     pub menu_tap_mode: MenuTapMode,
-    /// Per-action binding overrides layered ON TOP of
+    /// Per-action binding overrides on top of
     /// [`Self::keyboard_preset_index`]'s preset.
     ///
-    /// A preset and an override are not rivals: the preset says what every
-    /// action starts on, the override says which single action moved. Storing
-    /// the whole rebuilt map instead would freeze a player's controls at the
-    /// preset they were authored against, so a later preset revision could
-    /// never reach anybody who had ever touched a binding.
+    /// The preset gives the start binding of every action; an override moves one
+    /// action. Storing the whole rebuilt map would freeze a player at the preset
+    /// they edited, so later preset changes could not reach them.
     ///
-    /// `serde(default)` because every settings file written before this field
-    /// existed must keep loading — an empty list is exactly "no overrides".
+    /// `serde(default)` so older files load. An empty list means no overrides.
     #[serde(default)]
     pub binding_overrides: Vec<BindingOverride>,
 }
@@ -589,10 +550,8 @@ impl Default for ControlSettings {
 }
 
 impl ControlSettings {
-    /// Apply the active controller profile's filter defaults
-    /// (deadzones + trigger thresholds) over whatever is currently
-    /// stored. Useful when the user changes the profile dropdown
-    /// and wants the per-pad calibration to take effect immediately.
+    /// Apply the active controller profile's deadzones and trigger thresholds
+    /// over the stored values, so a profile change takes effect at once.
     pub fn apply_profile_defaults(&mut self) {
         let p = self.controller_profile.filter_defaults();
         self.left_stick_deadzone = p.left_stick_deadzone;
@@ -601,12 +560,11 @@ impl ControlSettings {
         self.trigger_press_threshold = p.trigger_press_threshold;
     }
 
-    /// Set a per-action binding override, replacing any previous override for
-    /// the SAME action and device class.
+    /// Set a per-action binding override. Replace any earlier override for the
+    /// same action and device class.
     ///
-    /// One authority per (action, class): a list that accumulated two keyboard
-    /// overrides for Jump would make "which one wins" a question about
-    /// insertion order, and the answer would be invisible in the settings file.
+    /// Keep one override per (action, class), so the winner never depends on
+    /// insertion order.
     pub fn set_binding_override(&mut self, over: BindingOverride) {
         let class = over.control.device_class();
         self.binding_overrides
@@ -626,13 +584,11 @@ impl ControlSettings {
         self.binding_overrides.clear();
     }
 
-    /// Restore the deadzone / trigger / repeat values to their defaults
-    /// without disturbing controller/keyboard profile selection.
+    /// Restore the deadzone, trigger and repeat values to their defaults. Keep
+    /// the controller and keyboard profile selection.
     ///
-    /// filtering only — it is what the `ResetControlFiltering` row calls,
-    /// and it leaves both the preset and the binding overrides alone. Forgetting
-    /// a remap is [`Self::reset_binding_overrides`]; a row that did both would
-    /// wipe a player's controls when they only wanted their deadzone back.
+    /// The `ResetControlFiltering` row calls this. It keeps the preset and the
+    /// binding overrides; [`Self::reset_binding_overrides`] forgets a remap.
     pub fn reset_filtering_to_defaults(&mut self) {
         let defaults = Self::default();
         self.left_stick_deadzone = defaults.left_stick_deadzone;
@@ -658,20 +614,15 @@ impl ControlSettings {
         self.menu_repeat_interval = self.menu_repeat_interval.clamp(0.02, 1.0);
     }
 
-    /// Carry a stored remap across an action RENAME.
+    /// Carry a stored remap across an action rename.
     ///
-    /// a rename silently deletes a player's remap, and nothing reports it.
     /// [`BindingOverride::action`] is the action's `Debug` spelling, and
-    /// `apply_override` deliberately ignores a name this build does not have —
-    /// that tolerance is what lets a settings file from a newer build load at all
-    /// (see `bindings::apply_override`). The same tolerance means a renamed
-    /// action's override just stops applying: the player's shield goes back to
-    /// the preset key and no log line says why.
+    /// `bindings::apply_override` ignores names this build does not have, so
+    /// files from newer builds load. Thus a renamed action's override stops
+    /// applying, with no log. Add each rename to this table.
     ///
-    /// So a rename owes this table an entry. Run from [`Self::clamp_all`], which
-    /// every load path already calls right after reading the file, so the stored
-    /// name is HEALED rather than merely tolerated — a second rename later cannot
-    /// then need a two-step chain.
+    /// [`Self::clamp_all`] runs this on every load, so the stored name is
+    /// rewritten and a later rename needs no two-step chain.
     fn migrate_renamed_actions(&mut self) {
         const RENAMED_ACTIONS: &[(&str, &str)] = &[("QuickAction", "Shield"), ("Dash", "Burst")];
 
@@ -683,10 +634,8 @@ impl ControlSettings {
                 (*now).clone_into(&mut over.action);
             }
         }
-        // A file that already carried BOTH names for one action (written either
-        // side of the rename) would now hold two rows the override layer applies
-        // in order; keep the last one per (action, device class), which is the
-        // same precedence `set_binding_override` enforces on a fresh remap.
+        // A file can hold both names for one action. Keep the last row per
+        // (action, device class), as `set_binding_override` does.
         let mut seen = Vec::new();
         self.binding_overrides.reverse();
         self.binding_overrides.retain(|over| {
@@ -716,10 +665,9 @@ impl ControlSettings {
     }
 }
 
-/// State machine for a single analog input that should produce edge
-/// events ("just pressed") with hysteresis. Independent of Bevy types
-/// so it can be shared between keyboard scaffolding, gamepad triggers,
-/// and tests.
+/// Edge state for one analog input that gives "just pressed" events with
+/// hysteresis. It has no Bevy types, so keyboard code, gamepad triggers and
+/// tests can share it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TriggerEdgeState {
     #[default]
@@ -727,29 +675,27 @@ pub enum TriggerEdgeState {
     Pressed,
 }
 
-/// The per-device analog edges a gameplay frame has to remember between ticks.
+/// The per-device analog edges a gameplay frame remembers between ticks.
 ///
-/// ⭐ ONE CARRIER, because the caller stores exactly one value back into its
-/// resource. The burst trigger was the only member until the right stick became
-/// an attack stick, and a C-STICK FLICK IS THE SAME MECHANISM — an analog value
-/// crossing a press threshold from rest, with hysteresis so a stick held out
-/// does not re-fire every frame.
+/// One carrier, because the caller stores one value back into its resource.
+/// A C-stick flick uses the same mechanism as the burst trigger: an analog
+/// value crosses a press threshold from rest, with hysteresis so a held
+/// stick does not re-fire.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct GameplayEdgeState {
     /// The burst trigger's hysteretic press.
     pub burst: TriggerEdgeState,
-    /// The aim stick's DEFLECTION, when the stick is an attack stick. Idle in
-    /// [`RightStickMode::Aim`], which is what the stick does by default.
+    /// The aim stick's deflection when it is an attack stick. Idle in
+    /// [`RightStickMode::Aim`], the default.
     pub aim_stick: TriggerEdgeState,
 }
 
 /// How far the aim stick must be pushed to throw a C-stick attack.
 ///
-/// ⭐ ABOVE THE DEADZONE AND BELOW A FULL DEFLECTION. The point of an attack
-/// stick is that ANY deflection past this throws the authored strength — a tilt
-/// stick's full push is still a tilt — so this is a "did you mean it" gate, not
-/// a strength threshold. The release side is the stick's own deadzone, so the
-/// gesture re-arms exactly when the stick reads as centred.
+/// Above the deadzone and below full deflection. Any deflection past this
+/// throws the mode's strength, so this is an intent gate, not a strength
+/// threshold. Release uses the stick deadzone, so the gesture re-arms when
+/// the stick reads as centred.
 pub const AIM_STICK_ATTACK_THRESHOLD: f32 = 0.5;
 
 /// Update a hysteretic trigger edge.
@@ -887,8 +833,6 @@ mod tests {
     }
 
     /// A seat's deadzone follows the pad in its hands, not the machine.
-    ///
-    /// So player two's pad ran on player one's calibration.
     #[test]
     fn a_seats_filtering_follows_its_own_pad() {
         let mut settings = ControlSettings::default();
@@ -921,7 +865,7 @@ mod tests {
         );
     }
 
-    /// a profile somebody CHOSE outranks one the game detected.
+    /// A profile somebody chose outranks one the game detected.
     #[test]
     fn an_explicit_controller_profile_is_not_overruled_by_detection() {
         let mut settings = ControlSettings::default();
@@ -950,8 +894,7 @@ mod tests {
     fn apply_profile_defaults_writes_filter_values() {
         let mut s = ControlSettings::default();
         s.controller_profile = ControllerProfileId::Xbox360;
-        // Stomp existing values with random nonsense so the apply
-        // is observably an overwrite, not a no-op.
+        // Overwrite with other values so the apply is observable.
         s.left_stick_deadzone = 0.99;
         s.trigger_press_threshold = 0.10;
         s.apply_profile_defaults();
@@ -963,9 +906,7 @@ mod tests {
         assert!(s.trigger_press_threshold > s.trigger_release_threshold);
     }
 
-    /// A PLAYER'S REMAP SURVIVES THE ACTION BEING RENAMED.
-    ///
-    /// this is the one failure mode a rename has that a compiler cannot see.
+    /// A player's remap survives an action rename. The compiler cannot catch this.
     #[test]
     fn a_stored_remap_survives_the_shield_action_rename() {
         use bevy::prelude::KeyCode;
@@ -988,9 +929,8 @@ mod tests {
         );
     }
 
-    /// A file written either side of the rename can hold BOTH spellings for one
-    /// action and device class. Migration collapses them the way a fresh remap
-    /// would: last write wins.
+    /// A file can hold both spellings for one action and device class.
+    /// Migration keeps the last one, as a fresh remap does.
     #[test]
     fn both_spellings_of_one_action_collapse_to_the_latest() {
         use bevy::prelude::KeyCode;

@@ -87,9 +87,7 @@ impl MotionInputBuffer {
     pub fn push(&mut self, dir: MotionDirection, now: f32) {
         match self.samples.back() {
             Some(prev) if prev.dir == dir => {
-                // Same direction continues — update only the time of
-                // the most recent occurrence so the window math sees
-                // a fresh sample.
+                // Same direction: refresh only the time of the last sample.
                 let last = self.samples.back_mut().unwrap();
                 last.time = now;
             }
@@ -107,13 +105,9 @@ impl MotionInputBuffer {
         }
     }
 
-    /// Iterator over recent (oldest-first) directions, ignoring time.
-    /// Exposed as part of the public motion-input API even though the
-    /// in-tree QCF recognizer reaches into `samples` directly; future
-    /// gesture matchers (e.g. half-circle, dragon-punch) are expected
-    /// to consume this iterator. Tested in the bottom-of-file
-    /// `tests` mod so the API stays callable even though no
-    /// production code calls it today.
+    /// Iterator over recent directions, oldest first, ignoring time.
+    /// Public API for gesture matchers; no production code calls it yet.
+    /// The `tests` module keeps it callable.
     #[allow(dead_code)]
     pub fn directions(&self) -> impl Iterator<Item = MotionDirection> + '_ {
         self.samples.iter().map(|s| s.dir)
@@ -127,11 +121,9 @@ impl MotionInputBuffer {
     /// `Some(facing)` based on the final direction (`+1.0` for right,
     /// `-1.0` for left, `+1.0` for up/down ambiguity).
     ///
-    /// We don't require strict adjacency; intermediate Neutral or extra cardinal
-    /// samples are tolerated as long as the expected directions appear in order
-    /// within the buffer window. This is the generic substrate every named
-    /// [`MotionTechnique`] is built from — the reusable input crate names no
-    /// specific gesture.
+    /// Strict adjacency is not required: Neutral or extra samples between the
+    /// expected directions are allowed if the order holds within the window.
+    /// Every named [`MotionTechnique`] builds on this.
     pub fn detect_sequence(&self, expected: &[MotionDirection]) -> Option<f32> {
         if expected.is_empty() {
             return None;

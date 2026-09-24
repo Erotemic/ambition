@@ -1,12 +1,12 @@
 //! LDtk authoring adapter for the platformer world IR.
 //!
-//! Gameplay/world concepts remain typed in Rust; LDtk is one backend that validates
-//! authored entities and lowers them into `ambition_platformer2d_world`. Format-
-//! independent world manifests stay in the world crate.
+//! Gameplay and world concepts stay typed in Rust. LDtk is one backend that
+//! validates authored entities and lowers them into
+//! `ambition_platformer2d_world`. Format-independent world manifests stay in
+//! the world crate.
 //!
-//! `bevy_ecs_ldtk` integration is available only with the `ldtk_runtime` feature;
-//! pure project parsing, validation, conversion, fields, and surfaces do not require
-//! that runtime feature.
+//! `bevy_ecs_ldtk` integration needs the `ldtk_runtime` feature. Project
+//! parsing, validation, conversion, fields, and surfaces do not.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -25,14 +25,14 @@ mod surfaces;
 
 #[cfg(feature = "ldtk_runtime")]
 pub use bevy_runtime::*;
-// The LDtk entity-converter registry (ADR 0009): content registers
-// game-specific entity converters at plugin-build time; the engine's
-// standard vocabulary enters through the same registry.
+// The LDtk entity-converter registry (ADR 0009): content registers game
+// converters at plugin-build time; the engine's standard vocabulary uses the
+// same registry.
 pub use conversion::{
     kinematic_path_lookup_id, LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission,
 };
-// World manifests are format-independent and are intentionally not re-exported
-// from the LDtk adapter; callers name `ambition_platformer2d_world` directly.
+// World manifests are format-independent and are not re-exported here;
+// callers name `ambition_platformer2d_world` directly.
 pub use ambition_platformer2d_world::ron_room::{
     load_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc,
 };
@@ -92,9 +92,8 @@ impl LdtkProject {
         let mut level_ids = BTreeSet::new();
         let mut player_starts_by_area: BTreeMap<String, usize> = BTreeMap::new();
         let mut level_count_by_area: BTreeMap<String, usize> = BTreeMap::new();
-        // Zones that name NO target: the landing pad half of a one-way trip.
-        // `(area, zone id, iid)` — see the `LoadingZone` arm for why they are
-        // legal and what still has to hold for them.
+        // Zones that name no target: the landing-pad end of a one-way trip.
+        // `(area, zone id, iid)`. See the `LoadingZone` arm.
         let mut landing_pads: Vec<(String, String, String)> = Vec::new();
 
         for level in &self.levels {
@@ -191,16 +190,13 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        // Conversion has always had both shapes — a zone with no target contributes
-                        // no `RoomLink`, and `transition_from_zone` only fires on a zone with an
-                        // outgoing edge — so the arrival end of a one-way trip was expressible at
-                        // runtime and unauthorable in a file.
+                        // A zone with no target is legal: it adds no `RoomLink`, and
+                        // `transition_from_zone` fires only on a zone with an outgoing edge. It is the
+                        // arrival end of a one-way trip.
                         //
-                        //  a landing pad that names a target is a BOUNCE.
-                        // The body arrives standing inside the zone it arrived
-                        // through (`door_arrival` = zone centre, 26px off its
-                        // floor), so the moment the transition cooldown lapses
-                        // that zone fires and sends it straight back.
+                        // A landing pad must not name a target. The body arrives inside the zone
+                        // (`door_arrival` = zone centre, 26px off its floor), so when the transition
+                        // cooldown ends the zone fires and sends it back.
                         let has_target_room = field_string(entity, "target_room")
                             .is_some_and(|value| !value.trim().is_empty());
                         let has_target_zone = field_string(entity, "target_zone")
@@ -218,11 +214,8 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        //  ONE parse, not a second copy of the token set.
-                        // This read `== "EdgeExit"` while the converter matched
-                        // its own list — two spellings of one vocabulary, free
-                        // to disagree. An unrecognised value is reported below
-                        // rather than silently becoming a Door.
+                        // Parse with `LoadingZoneActivation::from_authored`, the same parser the
+                        // converter uses. An unknown value is reported below, not treated as a Door.
                         let authored = field_string(entity, "activation")
                             .unwrap_or_else(|| "Door".to_string());
                         let activation =
@@ -256,27 +249,15 @@ impl LdtkProject {
                                     ));
                                 }
                             }
-                            //  AND THE COLLISION GRID, which is what a body
-                            // actually collides with. The rule above scans
-                            // entities named `Solid`; these levels paint their
-                            // floors and walls into the Collision IntGrid, so the
-                            // reachability rule could not fire on the case it was
-                            // written for. Five of twenty-four authored EdgeExits
+                            // Also check the Collision IntGrid, which is what a body collides with. The
+                            // rule above scans only `Solid` entities, but these levels paint floors and
+                            // walls into the IntGrid.
                             //
-                            //  AND THE FIRST REPLACEMENT ASKED A PROXY
-                            // TOO. It counted solid cells inside the zone and
-                            // warned on any, which flagged five of twenty-four
-                            // exits — and three of those five were correct
-                            // authoring: their bottom row is solid because that
-                            // row IS THE FLOOR, unbroken across the level, and a
-                            // zone stopping above the floor could never be
-                            // touched by a body standing on it.
-                            //
-                            //  the question is whether the ground INSIDE is
-                            // higher than the ground you walk in from. See
-                            // `edge_exit_step_up_px`. It answers 0 for every
-                            // authored EdgeExit now that the hub's two sills are
-                            // cleared, so this is ready to be an error.
+                            // Do not warn on any solid cell inside the zone: the zone's bottom row is
+                            // often the floor itself, and that is correct authoring. The question is
+                            // whether the ground inside is higher than the ground you walk in from (see
+                            // `edge_exit_step_up_px`). It is 0 for every authored EdgeExit, so this can
+                            // become an error.
                             let step = edge_exit_step_up_px(level, entity_rect(entity));
                             if step > 0 {
                                 report.warnings.push(format!(
@@ -293,12 +274,9 @@ impl LdtkProject {
                     }
                     _ => {}
                 }
-                // Surface-shaped entities are validated by parsing into the
-                // typed `LdtkSurfaceSpec` and running the same compile path
-                // that produces runtime data. This is the single source of
-                // truth for collision/breakability/contact/respawn field
-                // combinations across the canonical `Surface` and its legacy
-                // identifier aliases.
+                // Validate Surface-shaped entities by parsing into `LdtkSurfaceSpec` and
+                // running the compile path that makes runtime data. This is the single source
+                // of truth for field combinations of `Surface` and its legacy aliases.
                 if is_surface_like_identifier(&entity.identifier)
                     && entity.width > 0
                     && entity.height > 0
@@ -316,18 +294,14 @@ impl LdtkProject {
                             .push(format!("{} {}: {error}", entity.identifier, entity.iid)),
                     }
                 }
-                // Note: we deliberately do NOT warn on empty `realEditorValues`
-                // here. LDtk 1.5.3 emits that shape natively for fields that
-                // inherit their value from the entity-def `defaultOverride`,
-                // so flagging it would treat the editor's own output as a
-                // problem and break the contract that a file the LDtk editor
-                // writes must run unchanged.
+                // Do not warn on empty `realEditorValues`. LDtk 1.5.3 writes that shape for
+                // fields that inherit from the entity-def `defaultOverride`, and a file the
+                // LDtk editor writes must run unchanged.
             }
         }
 
-        //  the typo the blanket rule used to catch, kept. A landing pad
-        // nothing arrives through is dead geometry, and an exit whose target
-        // fields were never filled in reads exactly like one.
+        // A landing pad that nothing arrives through is dead geometry, and it looks
+        // the same as an exit whose target fields were never filled in.
         if !landing_pads.is_empty() {
             let arrivals: BTreeSet<(String, String)> = self
                 .collect_room_links()
@@ -363,15 +337,14 @@ impl LdtkProject {
         report
     }
 
-    /// Cross-validate level `music_track` fields against the catalog of
-    /// audio-side track ids loaded from `Platformer2dGameplayDefaults`. Returns one
-    /// warning per (level, unknown_id) pair so the user can see all
-    /// typos in a single startup pass instead of debugging room-by-room.
+    /// Check level `music_track` fields against the audio track ids from
+    /// `Platformer2dGameplayDefaults`. Returns one warning per (level, unknown_id)
+    /// pair, so all typos show in one startup pass.
     ///
-    /// Lives here (not on `validate()`) because the LDtk validator must
-    /// stay self-contained — the audio catalog is only known once
-    /// `Platformer2dGameplayDefaults` is loaded. Callers (visible binary's
-    /// `init_sandbox_resources`, headless tests) wire both halves.
+    /// Not part of `validate()`: the LDtk validator must stay self-contained, and
+    /// the audio catalog is known only after `Platformer2dGameplayDefaults` loads.
+    /// Callers (the visible binary's `init_sandbox_resources`, headless tests)
+    /// connect both.
     pub fn music_track_warnings<'a, I>(&self, valid_track_ids: I) -> Vec<String>
     where
         I: IntoIterator<Item = &'a str>,

@@ -7,11 +7,10 @@ use ambition_platformer2d_core as ae;
 /// Sheet lookup goes through the prop registry in `crate::character_sprites::sheets`, keyed by
 /// `kind`.
 ///
-/// Props are kept OUT OF THE ENGINE `World` entirely. Its authored collections
-/// (`blocks`, `water_regions`, `climbable_regions`, `chains`) each grow runtime
-/// behaviour for every entry, and a decoration should grow none. They live on
-/// `RoomSpec.props` instead, so the sandbox can iterate them once at room load
-/// to spawn presentation entities without the engine ever seeing them.
+/// Props are not in the engine `World`. Its authored collections (`blocks`,
+/// `water_regions`, `climbable_regions`, `chains`) add runtime behaviour per
+/// entry, and a decoration needs none. Props live on `RoomSpec.props`; the
+/// sandbox spawns presentation entities from them at room load.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PropSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -31,10 +30,8 @@ pub struct PropSpec {
     pub size: ae::Vec2,
     /// Mirror the sprite vertically when it is drawn.
     ///
-    /// Which way a prop POINTS is authored data, not a second asset: a warp
-    /// pipe hanging from a ceiling is the same pipe head as one standing on the
-    /// ground, upside down. Defaults to `false`, so existing authored data (and
-    /// every LDtk prop) is unchanged.
+    /// Orientation is authored data, not a second asset: a pipe that hangs
+    /// from a ceiling is the same art upside down. Defaults to `false`.
     #[serde(default)]
     pub flip_y: bool,
     /// Whether this prop is scenery or part of the built world. See [`PropDraw`].
@@ -42,12 +39,10 @@ pub struct PropSpec {
     pub draw: PropDraw,
 }
 
-/// What KIND of thing a prop is, which decides how it is drawn.
+/// What kind of thing a prop is, which decides how it is drawn.
 ///
-/// The two cases pull in opposite directions, and conflating them is what makes
-/// a pipe look wrong: a character's art deliberately overflows its collision box
-/// (a 30×48 body wears a much larger sprite) and hangs off a FEET anchor, while a
-/// piece of built world has to line up with the geometry a body stands on, to the
+/// Character art overflows its collision box and hangs from a feet anchor.
+/// Built-world art must align with the geometry a body stands on, to the
 /// pixel.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PropDraw {
@@ -56,10 +51,9 @@ pub enum PropDraw {
     #[default]
     Decoration,
     /// Part of the built world: a flagpole shaft, a girder, a fixture. The art
-    /// fills the authored box EXACTLY — that box is the collider a body stands
-    /// on or climbs, so art that overflows it puts the world's surface somewhere
-    /// the body cannot be — and it still draws BEHIND the cast, because a body
-    /// on it must stay visible.
+    /// fills the authored box exactly, because that box is the collider a body
+    /// stands on or climbs. It draws behind the cast, so a body on it stays
+    /// visible.
     Structure,
     /// Built world a body goes INSIDE: a warp pipe. Fills its box like
     /// [`Self::Structure`], but draws in FRONT of the cast, so a body within it
@@ -115,13 +109,11 @@ pub struct PortalGunSpawnSpec {
     pub pos: ae::Vec2,
     /// Pickup half-extent, taken from the LDtk entity's box size.
     pub half_extent: ae::Vec2,
-    /// Which portal pair the gun from this pickup owns. `0` — the default, and
-    /// what every room authored before this field existed gets — is the classic
-    /// blue/orange gun. A room places a SECOND, independently coloured gun by
-    /// giving it a different pair.
+    /// Which portal pair the gun from this pickup owns. `0` (the default) is
+    /// the classic blue/orange gun. A different pair gives a second,
+    /// independently coloured gun.
     ///
-    /// ⚠ `serde(default)`: a room file written before this field must still
-    /// load. Without it every existing room JSON becomes a parse error.
+    /// `serde(default)` lets room files written before this field load.
     #[serde(default)]
     pub pair: u8,
 }
@@ -144,9 +136,9 @@ pub struct PortalSpec {
     /// Outward surface normal (axis-aligned), pointing into the room.
     pub normal: ae::Vec2,
     /// Explicit link id (LDtk `link` field). When set, the portal pairs with
-    /// the OTHER portal carrying the same link — overriding the complementary-
-    /// color pairing — and a link that is not exactly two members is closed.
-    /// `None`  legacy color pairing.
+    /// the other portal that has the same link, instead of the
+    /// complementary-color pairing. A link without exactly two members is
+    /// closed. `None` uses legacy color pairing.
     pub link: Option<String>,
     /// Authored along-surface half-length (opening size) from the LDtk box. Both ends of a pair
     /// shrink to the minimum.
@@ -291,29 +283,21 @@ impl SpawnFacing {
     }
 }
 
-/// An authored enemy's BEHAVIOUR and its ART are two different identities.
+/// An authored enemy's behaviour and its art are two different identities.
 ///
 /// `brain` selects behavior while `character_id` selects the body. Gameplay
 /// identity never depends on the editor-facing display name.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnemySpawnSpec {
-    /// What it DOES: which driver policy plays this placement of the character.
-    ///  it selects nothing about the BODY — that is [`Self::character_id`]'s
-    /// job, and was the archetype road's confusion.
+    /// What it does: which driver policy plays this placement of the character.
+    /// It selects nothing about the body; that is [`Self::character_id`].
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// Which `CharacterDefinition` this spawn instantiates — the body's
-    /// gameplay identity.
+    /// Which `CharacterDefinition` this spawn instantiates: the body's
+    /// gameplay identity. The sprite a body wears never determines which
+    /// character it is.
     ///
-    /// A character is a reusable authored template (body, vitals, movement,
-    /// repertoire) and presentation is a projection of it. Which sprite a body
-    /// wears therefore never determines which character it is.
-    ///
-    /// Required: every enemy placement names the character it instantiates.
-    ///
-    ///  the lowering REFUSES an authored entity with no id rather than
-    /// defaulting one. Defaulting is what made "which character is this" a
-    /// question with two answers, and the point of the type is that absence
-    /// stops being representable.
+    /// Required. The lowering refuses an authored entity with no id; it does
+    /// not supply a default.
     pub character_id: ambition_entity_catalog::CharacterId,
     /// Which way this occurrence initially faces.
     ///
@@ -331,27 +315,21 @@ pub struct EnemySpawnSpec {
     /// this occurrence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
-    /// WHO DRIVES THIS ONE — the shared controller policy this placement
-    /// wants, by provider-relative name.
+    /// The shared controller policy this placement wants, by
+    /// provider-relative name. The same character can use different profiles
+    /// at different placements, and one profile can drive different
+    /// characters.
     ///
-    /// This separates body identity from controller policy: the same character
-    /// can use different profiles at different placements, and one profile can
-    /// drive different characters.
-    ///
-    /// `None` = the character's own profile, which is every level authored so
-    /// far.  a name that resolves to nothing is a construction ERROR, the same
-    /// contract `CharacterDefinition::autonomous_policy` carries — an
-    /// explicit reference that misses must never read as silence.
+    /// `None` uses the character's own profile. A name that resolves to
+    /// nothing is a construction error, the same contract as
+    /// `CharacterDefinition::autonomous_policy`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub brain_profile: Option<ambition_entity_catalog::BrainProfileRef>,
 }
 
 impl EnemySpawnSpec {
-    ///  the character is a CONSTRUCTOR argument, not something added later.
-    /// This took only a brain and left `character_id: None`, so every call site
-    /// was one `.with_character_id(..)` away from a placement that names no
-    /// creature — and forgetting it compiled. Taking it here is what makes the
-    /// required field mean anything.
+    /// The character is a constructor argument, so a placement that names no
+    /// creature does not compile.
     pub fn new(
         brain: ambition_entity_catalog::placements::CharacterBrain,
         character_id: impl Into<ambition_entity_catalog::CharacterId>,
@@ -366,15 +344,12 @@ impl EnemySpawnSpec {
         }
     }
 
-    /// The PRESENTATION identity this spawn wears — which sheet, portrait
-    /// and animation set the renderer should bind.
+    /// The presentation identity this spawn wears: which sheet, portrait
+    /// and animation set the renderer binds.
     ///
-    /// Presentation resolves from the required character id; display names are
-    /// not identity fallbacks.
-    ///
-    /// Kept as a named accessor rather than inlined because presentation and
-    /// gameplay asking the same question through two names is what made the
-    /// divergence expressible in the first place; now they demonstrably agree.
+    /// Resolves from the required character id; display names are not
+    /// identity fallbacks. This accessor keeps presentation and gameplay on
+    /// one name for the same question.
     pub fn presentation_identity(&self) -> &str {
         self.character_id.as_str()
     }

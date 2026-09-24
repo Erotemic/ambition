@@ -223,10 +223,9 @@ mod kinematic_path_lookup_tests {
         )
     }
 
-    /// THE INVARIANT: the runtime lookup table accepts exactly what
-    /// `matches_id` accepts. Validation resolves through `matches_id`, the
-    /// body rides through this table, and any spelling only one of them knows
-    /// is a reference reported healthy that does not move anything.
+    /// Invariant: the runtime lookup table accepts exactly what `matches_id`
+    /// accepts. Validation uses `matches_id` and the body uses this table, so
+    /// a spelling known to only one is reported healthy but moves nothing.
     ///
     /// Covers a path whose id is derived from a spaced authored name and referenced by slug.
     #[test]
@@ -318,10 +317,9 @@ mod scroll_policy_tests {
         assert_eq!(apply_forward_only_x(20.0, &mut w), 20.0);
     }
 
-    /// A non-finite target must not poison the watermark for the rest of the visit.
-    /// One `NaN` frame — a degenerate viewport, a divide by a zero zoom — would
-    /// otherwise freeze the camera permanently, and `NaN.max(x)` is not the safe
-    /// direction.
+    /// A non-finite target must not poison the watermark for the rest of the
+    /// visit. One `NaN` frame (degenerate viewport, zero zoom) would otherwise
+    /// freeze the camera, because `NaN.max(x)` is not safe.
     #[test]
     fn a_non_finite_target_never_reaches_the_watermark() {
         let mut w = Some(50.0);

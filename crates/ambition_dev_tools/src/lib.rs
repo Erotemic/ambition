@@ -12,9 +12,8 @@
 //! - [`runtime_census`] — the profiling-only workload censuses (off unless
 //!   `AMBITION_PROFILE_CENSUS` is set) and the clock every census samples on.
 //! - [`persistence`] — `DeveloperTools` disk persistence (developer.ron).
-//! - [`project_editable_abilities`] — the host-scheduled system that applies
-//!   live ability/tuning edits to the player each frame, via the
-//!   [`dev_tools::sync_live_ability_edits_clusters`] helper it calls.
+//! - [`contribute_editable_ability_mask`] — the simulation system that offers the
+//!   admitted ability mask to the primary player as a ceiling contribution.
 //!
 //! Presentation UI remains in `ambition_app`; gameplay tracing remains with the
 //! simulation state it samples.
@@ -38,10 +37,6 @@ pub use sim_plugin::{DevInspectorMirrorSet, DevToolsSimPlugin};
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{
-    AbilityBase, ActiveMovementTuning, AuthoredMovementTuning, BodyAbilities, BodyDashState,
-    BodyFlightState, BodyJumpState, MotionModel,
-};
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use dev_tools::EditableAbilitySet;
 
@@ -106,7 +101,7 @@ pub fn propose_editable_abilities(
 ///
 /// ⇒ Admission belongs to the host frame and the rollback mutation boundary;
 /// PROJECTION belongs wherever bodies come into existence. See
-/// [`project_editable_abilities`].
+/// [`contribute_editable_ability_mask`].
 pub fn admit_editable_abilities(
     editable_abilities: Res<EditableAbilitySet>,
     mut active_mask: ResMut<dev_tools::ActiveEditableAbilityMask>,
@@ -135,76 +130,38 @@ pub fn admit_editable_abilities(
     }
 }
 
-/// Project the ADMITTED mask onto whatever primary player exists.
+/// This crate's key in the primary player's [`AbilityContributions`].
 ///
-/// ⛔ **A PROJECTION, NOT A PUBLICATION**, and it runs where bodies are built so
-/// a body constructed during the simulation wears its admitted abilities on the
-/// same tick rather than a frame later. It reads the MASK, never the editor
-/// resource — see [`dev_tools::ActiveEditableAbilityMask`].
-pub fn project_editable_abilities(
-    // The neutral authority, NOT the inspector mirror: `publish_editable_movement_tuning`
-    // runs earlier in the same `MechanicalEditSet::Publish` chain, so an F3 edit
-    // is already here — and a body whose tuning came from content rather than the
-    // inspector now resolves correctly too.
-    active_tuning: Res<ActiveMovementTuning>,
+/// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
+pub const EDITABLE_ABILITY_MASK: &str = "dev.editable_ability_mask";
+
+/// Contribute the ADMITTED mask to whatever primary player exists, as a ceiling
+/// over its verbs. `project_body_abilities` turns it into the effective set.
+///
+/// It runs in the simulation, where bodies are built, so a body constructed
+/// during the simulation wears its admitted abilities on the same tick. It reads
+/// the MASK, never the editor resource — see
+/// [`dev_tools::ActiveEditableAbilityMask`]. While an ability edit awaits
+/// admission the previous contribution stands, so a refused edit reaches no
+/// body.
+pub fn contribute_editable_ability_mask(
     active_mask: Res<dev_tools::ActiveEditableAbilityMask>,
     pending: Res<ambition_platformer2d_core::PendingMechanicalEdits>,
-    mut player_q: Query<
-        (
-            &mut BodyAbilities,
-            &AbilityBase,
-            &mut BodyFlightState,
-            &mut MotionModel,
-            &mut BodyDashState,
-            &mut BodyJumpState,
-            // Presence means the body's feel is authored (a demo protagonist),
-            // so the resource-refresh below uses THAT tuning's air-jump count,
-            // never the shared editable's — the same rule the live integrator
-            // applies. Absent for the sandbox protagonist, which tracks F3.
-            Option<&AuthoredMovementTuning>,
-        ),
-        PrimaryPlayerOnly,
-    >,
+    mut player_q: Query<&mut ambition_platformer2d_core::AbilityContributions, PrimaryPlayerOnly>,
 ) {
-    // ⛔⛤ **THE RECONCILIATION IS NOT A MECHANICAL EDIT AND MUST KEEP WORKING.**
-    // Beside publishing an admitted selection, this road RECONCILES the body's
-    // abilities back to `base ∩ mask` whenever gameplay has moved them. A naive
-    // "only run when proposed" gate broke it — a fixture that diverged
-    // `BodyAbilities` directly stopped getting its cluster refresh, and that is a
-    // real consequence rather than a fixture artifact.
-    //
-    // ⭐ **SO IT RUNS ONLY WHEN NOTHING IS AWAITING ADMISSION.** A refused edit
-    // keeps the domain pending and therefore disables this road too — otherwise
-    // the refusal would be a front door the unadmitted value walks through.
     if pending.is_pending(ability_set_domain()) {
         return;
     }
     let Some(mask) = active_mask.0 else {
         return;
     };
-    let Ok((mut abilities, base, mut flight, mut model, mut dash, mut jump, authored_tuning)) =
-        player_q.single_mut()
-    else {
+    let Ok(mut contributions) = player_q.single_mut() else {
         return;
     };
-    let desired_abilities = base.abilities.intersect(mask);
-    let effective_tuning = authored_tuning.map(|t| t.0).unwrap_or(active_tuning.0);
-    // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
-    // not. Keep the equality guard here, before the helper call, so an
-    // unchanged inspector resource does not mark `BodyAbilities` changed every
-    // frame and spuriously refresh every downstream derived persona system.
-    if abilities.abilities == desired_abilities {
-        return;
+    let ceiling = ambition_platformer2d_core::AbilityContribution::Ceiling(mask);
+    if contributions.get(EDITABLE_ABILITY_MASK) != Some(ceiling) {
+        contributions.set(EDITABLE_ABILITY_MASK, ceiling);
     }
-    dev_tools::sync_live_ability_edits_clusters(
-        &mut abilities,
-        &mut flight,
-        &mut model,
-        &mut dash,
-        &mut jump,
-        desired_abilities,
-        effective_tuning,
-    );
 }
 
 /// Developer/debug state: debug flags and the HUD flash timer. Keyboard preset
@@ -386,12 +343,11 @@ mod ability_admission_tests {
     #[test]
     fn an_ability_edit_is_admitted_with_no_player_to_project_onto() {
         let mut app = App::new();
-        app.init_resource::<ActiveMovementTuning>();
         app.init_resource::<EditableAbilitySet>();
         app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.init_resource::<ambition_platformer2d_core::MechanicalEditAdmission>();
-        app.add_systems(Update, (admit_editable_abilities, project_editable_abilities).chain());
+        app.add_systems(Update, (admit_editable_abilities, contribute_editable_ability_mask).chain());
 
         // A mask that differs from the default, so "it arrived" is a real
         // difference rather than two defaults agreeing.
@@ -436,12 +392,11 @@ mod ability_admission_tests {
     #[test]
     fn a_refused_ability_edit_stays_pending_and_admits_nothing() {
         let mut app = App::new();
-        app.init_resource::<ActiveMovementTuning>();
         app.init_resource::<EditableAbilitySet>();
         app.init_resource::<dev_tools::ActiveEditableAbilityMask>();
         app.init_resource::<ambition_platformer2d_core::PendingMechanicalEdits>();
         app.insert_resource(ambition_platformer2d_core::MechanicalEditAdmission::Refuse);
-        app.add_systems(Update, (admit_editable_abilities, project_editable_abilities).chain());
+        app.add_systems(Update, (admit_editable_abilities, contribute_editable_ability_mask).chain());
         app.world_mut()
             .resource_mut::<ambition_platformer2d_core::PendingMechanicalEdits>()
             .propose(ability_set_domain());

@@ -85,7 +85,8 @@ fn a_body_built_after_admission_is_projected_onto_in_the_same_tick() {
         Update,
         (
             build_the_body_mid_tick,
-            ambition_dev_tools::project_editable_abilities,
+            ambition_dev_tools::contribute_editable_ability_mask,
+            ambition_platformer2d_core::project_body_abilities,
         )
             .chain(),
     );
@@ -148,7 +149,8 @@ fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
         (
             ambition_dev_tools::propose_editable_abilities,
             ambition_dev_tools::admit_editable_abilities,
-            ambition_dev_tools::project_editable_abilities,
+            ambition_dev_tools::contribute_editable_ability_mask,
+            ambition_platformer2d_core::project_body_abilities,
         )
             .chain(),
     );
@@ -252,7 +254,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `project_editable_abilities` reads (K1a).
+    // The neutral authority `project_body_abilities` reads for air-jump counts.
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
@@ -269,7 +271,8 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
         (
             ambition_dev_tools::propose_editable_abilities,
             ambition_dev_tools::admit_editable_abilities,
-            ambition_dev_tools::project_editable_abilities,
+            ambition_dev_tools::contribute_editable_ability_mask,
+            ambition_platformer2d_core::project_body_abilities,
             super::super::apply_worn_character_gameplay,
             observe_body_ability_changes,
         )
@@ -345,7 +348,7 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `project_editable_abilities` reads (K1a).
+    // The neutral authority `project_body_abilities` reads for air-jump counts.
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
@@ -361,7 +364,8 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
         (
             ambition_dev_tools::propose_editable_abilities,
             ambition_dev_tools::admit_editable_abilities,
-            ambition_dev_tools::project_editable_abilities,
+            ambition_dev_tools::contribute_editable_ability_mask,
+            ambition_platformer2d_core::project_body_abilities,
         )
             .chain(),
     );
@@ -433,7 +437,7 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
-    // The neutral authority `project_editable_abilities` reads (K1a).
+    // The neutral authority `project_body_abilities` reads for air-jump counts.
     app.init_resource::<ambition_platformer2d_core::ActiveMovementTuning>();
     // ⛔⛤ **THE EDIT IS A PROPOSAL NOW (`Q120`), SO THE FIXTURE DRIVES THE
     // PROPOSER TOO.** Inserting only the editable and expecting the sync to apply
@@ -449,7 +453,8 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
         (
             ambition_dev_tools::propose_editable_abilities,
             ambition_dev_tools::admit_editable_abilities,
-            ambition_dev_tools::project_editable_abilities,
+            ambition_dev_tools::contribute_editable_ability_mask,
+            ambition_platformer2d_core::project_body_abilities,
         )
             .chain(),
     );

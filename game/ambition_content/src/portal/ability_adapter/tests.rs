@@ -22,9 +22,7 @@ use ambition_portal2d::{
     PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
-use super::{
-    restore_wall_abilities_after_transit, suppress_ledge_grab_during_transit, warp_portal_input,
-};
+use super::{warp_portal_input, withhold_wall_verbs_during_transit};
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 
@@ -88,98 +86,44 @@ fn portal_input_warp_transforms_held_input_then_clears() {
     );
 }
 
-#[test]
-fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-    use ambition_platformer2d_core::BodyAbilities;
-    let mut app = App::new();
-    app.init_resource::<PortalTuning>();
-    fn reenable_ledge_grab(mut q: Query<&mut BodyAbilities>) {
-        for mut a in &mut q {
-            a.abilities.ledge_grab = true;
-        }
-    }
-    app.add_systems(
-        Update,
-        (reenable_ledge_grab, suppress_ledge_grab_during_transit).chain(),
-    );
-    let player = app
-        .world_mut()
-        .spawn((PlayerEntity, PrimaryPlayer, BodyAbilities::default()))
-        .id();
-    app.world_mut()
-        .get_mut::<BodyAbilities>(player)
-        .unwrap()
-        .abilities
-        .ledge_grab = true;
-
-    // Not transiting: the reset wins, ledge_grab stays enabled.
-    app.update();
-    assert!(
-        app.world()
-            .get::<BodyAbilities>(player)
-            .unwrap()
-            .abilities
-            .ledge_grab
-    );
-
-    // Transiting: even though the reset re-enables it first, the suppressor
-    // re-applies every frame, so it stays disabled across MANY frames.
-    app.world_mut().entity_mut(player).insert(PortalTransit {
-        straddling: BLUE,
-        crossed: false,
-    });
-    for _ in 0..5 {
-        app.update();
-        assert!(
-            !app.world()
-                .get::<BodyAbilities>(player)
-                .unwrap()
-                .abilities
-                .ledge_grab,
-            "ledge_grab must stay suppressed every frame while transiting"
-        );
-    }
-
-    // Transit ends: the per-frame reset restores it (no save/restore needed).
-    app.world_mut().entity_mut(player).remove::<PortalTransit>();
-    app.update();
-    assert!(
-        app.world()
-            .get::<BodyAbilities>(player)
-            .unwrap()
-            .abilities
-            .ledge_grab
-    );
-}
-
-/// The aperture-edge hazard is a property of TRANSITING, not of being the
-/// primary player: a plain actor (no player markers) mid-transit has its wall
-/// verbs suppressed, and — because no per-frame F3 re-sync covers it — the
-/// paired restore must put them back from its authored `AbilityBase` when the
-/// latch is removed. Without the restore the actor stays stripped forever.
-#[test]
-fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
-    use ambition_platformer2d_core::BodyAbilities;
+fn abilities_app() -> App {
     let mut app = App::new();
     app.init_resource::<PortalTuning>();
     app.add_systems(
         Update,
         (
-            suppress_ledge_grab_during_transit,
-            restore_wall_abilities_after_transit,
+            withhold_wall_verbs_during_transit,
+            ambition_platformer2d_core::project_body_abilities,
         )
             .chain(),
     );
-    // An actor: NO PlayerEntity/PrimaryPlayer. Authored with ledge_grab +
-    // wall_jump (its base), currently transiting.
-    let mut authored = BodyAbilities::default();
-    authored.abilities.ledge_grab = true;
-    authored.abilities.wall_jump = true;
+    app
+}
+
+fn effective(app: &App, body: Entity) -> ambition_platformer2d_core::AbilitySet {
+    app.world()
+        .get::<ambition_platformer2d_core::BodyAbilities>(body)
+        .unwrap()
+        .abilities
+}
+
+/// The aperture-edge hazard is a property of TRANSITING, not of being the
+/// primary player: a plain actor (no player markers) mid-transit loses its wall
+/// verbs, and gets back exactly what its base grants when the latch goes.
+#[test]
+fn wall_verbs_are_withheld_for_any_transiting_body_and_come_back_from_its_base() {
+    use ambition_platformer2d_core::{AbilityBase, AbilitySet, BodyAbilities};
+    let mut app = abilities_app();
+    let authored = AbilitySet {
+        ledge_grab: true,
+        wall_jump: true,
+        ..AbilitySet::NONE
+    };
     let actor = app
         .world_mut()
         .spawn((
-            authored.clone(),
-            ambition_platformer2d_core::AbilityBase::new(authored.abilities),
+            BodyAbilities::new(authored),
+            AbilityBase::new(authored),
             PortalTransit {
                 straddling: BLUE,
                 crossed: false,
@@ -188,25 +132,66 @@ fn wall_ability_suppression_is_body_generic_and_restores_from_the_base() {
         .id();
 
     app.update();
-    let a = &app.world().get::<BodyAbilities>(actor).unwrap().abilities;
+    let a = effective(&app, actor);
     assert!(
         !a.ledge_grab && !a.wall_jump,
-        "a transiting ACTOR has its wall verbs suppressed too"
+        "a transiting ACTOR has its wall verbs withheld too"
     );
 
-    // Transit ends: the verbs come back from the authored base (no F3 re-sync
-    // exists for this body).
     app.world_mut().entity_mut(actor).remove::<PortalTransit>();
     app.update();
-    let a = &app.world().get::<BodyAbilities>(actor).unwrap().abilities;
-    assert!(
-        a.ledge_grab && a.wall_jump,
-        "transit end restores the actor's wall verbs from its AbilityBase"
+    assert_eq!(
+        effective(&app, actor),
+        authored,
+        "transit end gives back exactly the base: its wall verbs, and nothing it never had"
     );
-    assert!(
-        !a.wall_cling && !a.wall_climb,
-        "verbs the base never granted stay off"
+}
+
+/// A crossing ends by WITHDRAWING its ceiling, not by restoring verbs, so a
+/// verb another source withholds stays withheld. Restoring the four wall verbs
+/// from the base handed back a verb the session mask had taken away.
+#[test]
+fn a_transit_ending_does_not_hand_back_a_verb_another_source_withholds() {
+    use ambition_platformer2d_core::{
+        AbilityBase, AbilityContribution, AbilityContributions, AbilitySet, BodyAbilities,
+    };
+    let mut app = abilities_app();
+    let authored = AbilitySet {
+        ledge_grab: true,
+        wall_jump: true,
+        ..AbilitySet::NONE
+    };
+    let mut contributions = AbilityContributions::default();
+    contributions.set(
+        "session.mask",
+        AbilityContribution::Ceiling(AbilitySet {
+            wall_jump: false,
+            ..AbilitySet::ALL
+        }),
     );
+    let body = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            BodyAbilities::new(authored),
+            AbilityBase::new(authored),
+            contributions,
+            PortalTransit {
+                straddling: BLUE,
+                crossed: false,
+            },
+        ))
+        .id();
+
+    app.update();
+    assert!(!effective(&app, body).ledge_grab, "the crossing withholds ledge-grab");
+
+    app.world_mut().entity_mut(body).remove::<PortalTransit>();
+    app.update();
+    let a = effective(&app, body);
+    assert!(a.ledge_grab, "the crossing's own withholding ended");
+    assert!(!a.wall_jump, "the transit end handed back a verb the session mask withholds");
 }
 
 /// The emergence guard follows the DRIVEN body: possess an actor, send it through a portal, and

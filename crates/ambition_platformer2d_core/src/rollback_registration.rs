@@ -73,6 +73,11 @@ where
             "derived.body_motion_facts",
             "republished from MotionModel every movement step",
         )
+        .declare_rollback_derived_component::<crate::ability_projection::AbilityContributions>(
+            OWNER,
+            "derived.ability_contributions",
+            "each source rewrites its own key from its own state before integration every tick",
+        )
         .declare_rollback_derived_resource::<crate::control_frame::ControlFrame>(
             OWNER,
             "derived.control_frame",

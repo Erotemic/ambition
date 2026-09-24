@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v215
+ggrs-rollback-schema-v217
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -148,6 +148,7 @@ content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone sn
 content.seismic_stomp_state	component-canonical	SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+derived.ability_contributions	derived	AbilityContributions	each source rewrites its own key from its own state before integration every tick
 derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities, moveset, and action set
 derived.actor_decision_facts	derived	ActorDecisionFacts	rebuilt from authoritative body state before every autonomous decision phase
 derived.actor_decision_frames	derived	ActorDecisionFrames	rebuilt by autonomous decision and consumed by same-tick control publication

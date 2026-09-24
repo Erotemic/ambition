@@ -710,7 +710,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 214 -> 215: `AbilitySet` encodes `crouch`, `climb` and `morph`, and
 /// `derived.body_mode_capabilities` LEFT. The posture driver reads the body's
 /// ability set; Morph Ball is a game's grant to its home body.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 215;
+/// ⛔⛤ 215 -> 217: `derived.ability_contributions` ENTERED. `BodyAbilities` is
+/// projected every tick from `AbilityBase` and each source's keyed contribution
+/// (the developer mask, a room's lent swim, a portal crossing's withheld wall
+/// verbs); no source writes the effective set. 216 is AP11's.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 217;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

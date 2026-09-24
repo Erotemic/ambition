@@ -16,7 +16,7 @@ use ambition_portal2d::{
 };
 
 use super::ability_adapter::{
-    restore_wall_abilities_after_transit, suppress_ledge_grab_during_transit, warp_portal_input,
+    warp_portal_input, withhold_wall_verbs_during_transit,
 };
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
 use super::fire_adapter::resolve_portal_fire_intent;
@@ -68,15 +68,12 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .after(portal_transit),
         );
 
-        // Mutates `BodyAbilities`, so it is Ambition ability glue (Stage 19 Phase 5a),
-        // registered in the same `PortalSet::TransitGuards` slot the core used.
+        // An ability contribution, so it is Ambition ability glue, registered in
+        // `PortalSet::TransitGuards` (before integration, where the projection
+        // folds it in).
         app.add_systems(
             sim,
-            (
-                suppress_ledge_grab_during_transit,
-                restore_wall_abilities_after_transit,
-            )
-                .in_set(PortalSet::TransitGuards),
+            withhold_wall_verbs_during_transit.in_set(PortalSet::TransitGuards),
         );
 
         // CC6 host attachment: attribute placed portals to the identified

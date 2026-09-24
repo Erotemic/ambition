@@ -5,6 +5,7 @@
 //! [`body_clusters::BodyClusterScratch`] as the non-ECS form of that same state.
 
 pub mod abilities;
+pub mod ability_projection;
 pub mod body_clusters;
 pub mod cast;
 pub mod collision_semantics;
@@ -39,6 +40,7 @@ pub(crate) fn default_true() -> bool {
 }
 
 pub use abilities::{AbilityGrant, AbilitySet, MatchAbilities, MatchBody};
+pub use ability_projection::{project_body_abilities, AbilityContribution, AbilityContributions};
 pub use bevy_math::Vec2;
 pub use body_clusters::{
     announce_body_restarts, refresh_movement_resources_clusters, reset_body_clusters, AbilityBase,

@@ -165,7 +165,7 @@ impl Plugin for DevToolsSimPlugin {
         // ⛔⛤ **THE PROJECTION STAYS IN THE SIM SCHEDULE AND THAT IS CORRECT.** It
         // writes no mechanical DECISION — it copies an already-admitted value onto
         // a body — so it is reconciliation, the same class as
-        // `project_editable_abilities`'s ability refresh. What had to leave
+        // `contribute_editable_ability_mask`. What had to leave
         // `GgrsSchedule` was the read of a live EDITOR resource, and that is now
         // upstream in `MechanicalEditSet::Publish`.
         //
@@ -174,12 +174,15 @@ impl Plugin for DevToolsSimPlugin {
         // that only ran before the advance would leave it wearing engine defaults
         // for a frame.
         app.add_systems(sim, crate::dev_tools::project_developer_body_profile);
-        // ⭐ AND THE ABILITY PROJECTION BESIDE IT, 2026-09-14, for the reason the
-        // body-profile one is here: a body REBUILT by mechanical lifecycle code
-        // during the simulation must wear its admitted abilities on the same tick,
-        // not a render frame later. Admission stays in `PreUpdate`; only the
-        // projection follows body existence.
-        app.add_systems(sim, crate::project_editable_abilities);
+        // The ability mask's contribution sits beside it for the same reason: a
+        // body REBUILT during the simulation must wear its admitted abilities on
+        // the same tick. It is written before integration, where
+        // `project_body_abilities` folds every source into the effective set.
+        app.add_systems(
+            sim,
+            crate::contribute_editable_ability_mask
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
+        );
         app.add_systems(sim, crate::decay_developer_presentation_flash);
         // ⭐ AND THE SLOW-MOTION REQUEST, for the same reason: the toggle is this
         // crate's, so the ASK is this crate's. It was rung 4 of the actor

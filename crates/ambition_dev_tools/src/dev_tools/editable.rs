@@ -683,8 +683,8 @@ pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 /// onto whatever entities exist.
 ///
 /// ⚠ **WHAT THE COLLAPSE COST IS SUBTLER HERE THAN IT WAS FOR THE BODY PROFILE,
-/// WHICH IS WHY IT SURVIVED.** `project_editable_abilities` reads
-/// `EditableAbilitySet` directly and treats it as the last admitted value
+/// WHICH IS WHY IT SURVIVED.** The mask's projection read
+/// `EditableAbilitySet` directly and treated it as the last admitted value
 /// *"whenever nothing is pending"* — sound, but it means ADMISSION and
 /// PROJECTION are both gated on a primary player EXISTING. With a live locally
 /// maintained timeline and a momentarily absent player, a still-pending proposal
@@ -696,9 +696,8 @@ pub struct ActivePlayerBodyProfile(pub Option<PlayerBodyProfile>);
 /// happens to hold then.
 ///
 /// ⚠ `None` means no admission has happened YET — the first publish seeds it from
-/// the editable, so the continuous `base ∩ mask` reconciliation this domain also
-/// performs keeps working unchanged. That reconciliation is NOT a mechanical edit
-/// and breaking it is a real consequence; see the system's own comment.
+/// the editable, so the primary player carries the mask's ceiling contribution
+/// from the first tick.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct ActiveEditableAbilityMask(pub Option<ae::AbilitySet>);
 
@@ -810,41 +809,6 @@ pub fn apply_movement_profile(
             ae::RecoveryRefresh::Answered,
         );
     }
-}
-
-/// Apply live ability-flag edits without rebuilding the player every frame.
-///
-/// Mutates `BodyAbilities` + side-effects on `BodyFlightState`,
-/// `MotionModel`, `BodyDashState`, and `BodyJumpState` directly.
-pub fn sync_live_ability_edits_clusters(
-    abilities: &mut ambition_platformer2d_core::BodyAbilities,
-    flight: &mut ambition_platformer2d_core::BodyFlightState,
-    model: &mut ambition_platformer2d_core::MotionModel,
-    dash: &mut ambition_platformer2d_core::BodyDashState,
-    jump: &mut ambition_platformer2d_core::BodyJumpState,
-    desired: ae::AbilitySet,
-    tuning: ae::MovementTuning,
-) {
-    if abilities.abilities == desired {
-        return;
-    }
-    abilities.abilities = desired;
-    if !desired.fly {
-        flight.fly_enabled = false;
-    }
-    if !desired.blink {
-        // Cancel any in-flight blink telegraph: hold/aim state is the axis
-        // policy's private maneuver state (ADR 0024), so this deliberate
-        // dev-tools poke goes through the model variant.
-        if let ambition_platformer2d_core::MotionModel::AxisSwept(axis) = model {
-            axis.state.blink_hold_active = false;
-            axis.state.blink_hold_timer = 0.0;
-            axis.state.blink_aiming = false;
-        }
-    }
-    // Inline `refresh_movement_resources(tuning)` for the cluster path.
-    dash.charges_available = desired.dash_charge_count();
-    jump.air_jumps_available = desired.air_jump_count(tuning.air_jumps);
 }
 
 /// Reflected, debug-editable player gameplay stats. Surfaced through the

@@ -159,6 +159,16 @@ pub fn configure_platformer2d_simulation_phases(app: &mut App) {
             .chain()
             .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
     );
+    // Every body's effective verbs, from its base and this tick's contributions.
+    // Sources write their contribution in `BeforeIntegrate`; movement reads the
+    // result in `Integrate`.
+    app.add_systems(
+        sim,
+        ambition_platformer2d_core::project_body_abilities
+            .after(WorldPrepSet::BeforeIntegrate)
+            .before(WorldPrepSet::Integrate)
+            .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep),
+    );
     // A LABEL, not a chain position: see `WorldPrepSet::ContactDamage` for why
     // chaining it would add edges nobody chose.
     //

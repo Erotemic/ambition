@@ -2160,6 +2160,7 @@ fn build_enemy_brain_snapshot(
     // See `WornMoves`.
     worn: Option<WornMoves>,
 ) -> ambition_characters::brain::BrainSnapshot {
+    let swing = ambition_combat::moveset::melee_swing_of(playback, moveset);
     ambition_characters::brain::BrainSnapshot {
         actor_pos: body.kin.pos,
         actor_vel: body.kin.vel,
@@ -2261,8 +2262,9 @@ fn build_enemy_brain_snapshot(
         // kernel gates every air jump, wall grab and glide on this.
         abilities: Some(body.abilities.abilities),
         attack_cooldown_remaining: body.attack.cooldown,
-        attack_windup_remaining: body.attack.windup_remaining(),
-        attack_active_remaining: body.attack.active_remaining(),
+        // The swing phase, from the live move and not from a mirror of it.
+        attack_windup_remaining: swing.as_ref().map_or(0.0, |swing| swing.windup_remaining()),
+        attack_active_remaining: swing.as_ref().map_or(0.0, |swing| swing.active_remaining()),
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         // BossPattern-only inputs — inert for actor bodies.

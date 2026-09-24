@@ -271,52 +271,17 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
             }
             None => put_bool(out, false),
         }
+        // ⛔ THE SWING'S DIRECTION IS STATE, and this is now its only hash. It
+        // was checksummed inside `BodyMelee::swing`'s spec until that copy was
+        // deleted; the anim picker, the HUD and the brain read it through the
+        // derived swing view, so two peers disagreeing about it have diverged.
+        put_attack_intent(out, self.attack_intent);
     }
 }
 
-impl SnapshotState for crate::components::BodyMelee {
-    fn encode(&self, out: &mut Vec<u8>) {
-        match &self.swing {
-            Some(swing) => {
-                put_bool(out, true);
-                put_attack_spec(out, swing.spec);
-                put_f32(out, swing.elapsed);
-                put_u32(out, swing.hit_targets.len() as u32);
-                for target in &swing.hit_targets {
-                    put_str(out, target);
-                }
-                put_bool(out, swing.active_started);
-                put_bool(out, swing.pogo_applied);
-            }
-            None => put_bool(out, false),
-        }
-        put_f32(out, self.cooldown);
-    }
-
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        let swing = if r.bool()? {
-            let spec = read_attack_spec(r)?;
-            let elapsed = r.f32()?;
-            let hit_count = r.u32()?;
-            let hit_targets = (0..hit_count)
-                .map(|_| Some(r.str()?.to_string()))
-                .collect::<Option<Vec<_>>>()?;
-            Some(crate::components::MeleeSwing {
-                spec,
-                elapsed,
-                hit_targets,
-                active_started: r.bool()?,
-                pogo_applied: r.bool()?,
-            })
-        } else {
-            None
-        };
-        Some(Self {
-            swing,
-            cooldown: r.f32()?,
-        })
-    }
-}
+snapshot_pod!(crate::components::BodyMelee {
+    cooldown: f32,
+});
 
 snapshot_pod!(crate::components::RangedRefire {
     remaining: f32,
@@ -393,47 +358,6 @@ fn put_attack_intent(out: &mut Vec<u8>, intent: crate::AttackIntent) {
     );
 }
 
-fn read_attack_intent(r: &mut Reader<'_>) -> Option<crate::AttackIntent> {
-    use crate::AttackIntent;
-    match r.u8()? {
-        0 => Some(AttackIntent::Neutral),
-        1 => Some(AttackIntent::Forward),
-        2 => Some(AttackIntent::Back),
-        3 => Some(AttackIntent::Up),
-        4 => Some(AttackIntent::Down),
-        5 => Some(AttackIntent::DashForward),
-        6 => Some(AttackIntent::AirForward),
-        7 => Some(AttackIntent::AirBack),
-        8 => Some(AttackIntent::AirUp),
-        9 => Some(AttackIntent::AirDown),
-        10 => Some(AttackIntent::WallOut),
-        _ => None,
-    }
-}
-
-fn put_attack_spec(out: &mut Vec<u8>, spec: crate::AttackSpec) {
-    put_attack_intent(out, spec.intent);
-    put_f32(out, spec.startup_seconds);
-    put_f32(out, spec.active_seconds);
-    put_f32(out, spec.recovery_seconds);
-    put_vec2(out, spec.hitbox_offset);
-    put_vec2(out, spec.hitbox_half_size);
-    put_vec2(out, spec.self_impulse);
-    put_vec2(out, spec.knockback);
-}
-
-fn read_attack_spec(r: &mut Reader<'_>) -> Option<crate::AttackSpec> {
-    Some(crate::AttackSpec {
-        intent: read_attack_intent(r)?,
-        startup_seconds: r.f32()?,
-        active_seconds: r.f32()?,
-        recovery_seconds: r.f32()?,
-        hitbox_offset: r.vec2()?,
-        hitbox_half_size: r.vec2()?,
-        self_impulse: r.vec2()?,
-        knockback: r.vec2()?,
-    })
-}
 
 /// The stale ring, by hand, because `snapshot_pod!` cannot spell an array.
 ///

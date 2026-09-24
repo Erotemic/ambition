@@ -537,7 +537,6 @@ pub fn process_new_game_reset_request(
                 &mut ambition_characters::actor::BodyAnimFacts,
                 &mut ambition_characters::actor::BodyCombat,
                 &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
-                &mut ambition_combat::BodyMelee,
                 &mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState,
             ),
             ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -548,7 +547,6 @@ pub fn process_new_game_reset_request(
             mut anim,
             mut combat,
             mut blink_cam,
-            mut attack,
             mut safety,
         )) = player.single_mut(world)
         {
@@ -568,7 +566,6 @@ pub fn process_new_game_reset_request(
             // together, so the ordering hazard that produced Jon's 440px pan is
             // unspellable here.
             blink_cam.reset_to_spawn(crate::ROOM_DOOR_CAMERA_SNAP_TIME);
-            attack.clear();
             // ⛔ THE PLAN'S SPAWN, NOT THE LIVE GEOMETRY'S — the same value
             // `reset_body_clusters` above already read, named at its source.
             safety.last_safe_pos = spawn;

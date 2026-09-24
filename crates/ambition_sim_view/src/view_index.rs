@@ -11,7 +11,6 @@ use ambition_combat::actor_tuning::ActorConfig;
 use ambition_combat::components::ActorDisposition;
 use ambition_combat::components::ActorIdentity;
 use ambition_combat::components::ActorRenderSize;
-use ambition_combat::components::BodyMelee;
 use ambition_combat::components::BossDeathAnimation;
 use ambition_combat::components::BossPhase;
 use ambition_combat::components::BreakableFeature;
@@ -268,7 +267,8 @@ pub fn rebuild_feature_view_index(
             &ActorDisposition,
             Option<&ambition_characters::actor::BodyCombat>,
             Option<&ambition_characters::actor::BodyHealth>,
-            Option<&BodyMelee>,
+            // With the playback, it gives the swing (`melee_swing_of`).
+            Option<&ambition_combat::moveset::ActorMoveset>,
             Option<&ActorConfig>,
             Option<&ActorSurfaceState>,
             // The two clusters the damage rule reads that this pass did not
@@ -458,7 +458,7 @@ pub fn rebuild_feature_view_index(
         disposition,
         combat,
         health,
-        attack,
+        moveset,
         config,
         surface,
         motion,
@@ -490,7 +490,9 @@ pub fn rebuild_feature_view_index(
         let submerged = body_mode.is_some_and(|m| m.body_mode.hides_the_body());
         let visible = (!hostile || alive) && !submerged;
         let flash = combat.is_some_and(|c| c.hit_flash > 0.0)
-            || (hostile && attack.is_some_and(|a| a.is_winding_up() || a.is_active()));
+            || (hostile
+                && ambition_combat::moveset::melee_swing_of(playback, moveset)
+                    .is_some_and(|a| a.is_winding_up() || a.is_active()));
         // Sprite rotation. A *surface-walker* (PuppySlug) orients to the surface it
         // clings to (its `surface_normal` encodes floor/wall/ceiling + gravity
         // flips). EVERY OTHER actor rights to gravity via `roll_rad` — the SAME

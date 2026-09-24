@@ -34,7 +34,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_time::ProperTimeScale;
 
-use super::components::{ActorFaction, BodyMelee, MeleeSwing, RangedRefire};
+use super::components::{ActorFaction, MeleeSwing, RangedRefire};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::actor::attack_gesture::{
@@ -105,8 +105,8 @@ pub use ambition_characters::moveset_prefabs::*;
 pub use prefab_registry::*;
 
 /// Whether this moveset answers the melee family: a body whose moveset does
-/// is the one whose `BodyMelee` read-model [`project_moveset_melee_to_body_melee`]
-/// publishes, so a body with no attack move publishes no phantom swing.
+/// is the one [`melee_swing_of`] can report a swing for, so a body with no
+/// attack move reports no phantom swing.
 ///
 /// Asked of the live moveset every time rather than stored beside it: a kit swap
 /// replaces `ActorMoveset` wholesale, and a stored answer would be the previous
@@ -4494,42 +4494,38 @@ pub fn dispatch_move_events(
     }
 }
 
-/// Project a melee-routing body's live [`MovePlayback`] into its [`BodyMelee`] read-model so every
-/// existing consumer — the actor anim index, the view/telegraph index, the HUD, the melee
-/// integration tests — keeps working unchanged after melee moved onto the moveset. In particular,
-/// damage resolution must never consult this projection as an authority gate: the live strike
-/// volume is the authority. A body with no live move has its projected swing cleared (its cooldown
-/// floors still tick in `tick_body_melee_cooldowns`).
+/// The melee swing a body is performing now, derived from its live move.
 ///
-/// Runs AFTER `advance_move_playback` (so `t` is current). It is the sole writer
-/// of a melee-routing body's swing DURING LIVE SIMULATION — there is no flat
-/// melee driver competing for it anymore.
+/// ⭐ DERIVED AT THE READ, NOT PROJECTED INTO STATE. This was
+/// `project_moveset_melee_to_body_melee`, which rewrote `BodyMelee::swing` every
+/// tick from this same playback. That copy was also a rollback row, so it had
+/// two writers (the projection and the codec), and readers that ran before the
+/// projector saw last tick's value. Every reader now asks here.
 ///
-/// ⚠ "SOLE WRITER" USED TO BE UNQUALIFIED HERE AND WAS FALSE — corrected
-/// 2026-09-05. `BodyMelee` is rollback-registered (`actor.body_melee`) and its
-/// `SnapshotState::decode` rebuilds `swing` wholesale from the wire, so the
-/// CODEC writes it on every rewind. A codec assembles a struct literal, which is
-/// why no grep for `swing =` can see it and why the original claim survived
-/// review. ⇒ The honest scope is "on a live entity"; the restore is the other
-/// writer and it is meant to be.
-pub fn project_moveset_melee_to_body_melee(
-    mut bodies: Query<(Option<&MovePlayback>, &ActorMoveset, &mut BodyMelee)>,
-) {
-    for (playback, moveset, mut melee) in &mut bodies {
-        if !routes_melee(moveset) {
-            continue;
-        }
-        // Only a MELEE swing move projects a swing. A body's ranged shot
-        // (`"ranged"`) or a special as a moveset move ALSO routes melee, and
-        // those are NOT swings — projecting one would publish a phantom
-        // `BodyMelee.swing` the movement pipeline reads as "mid-attack", freezing
-        // a firing/special-ing body.
-        match playback {
-            Some(pb) if is_melee_swing_move(Some(&moveset.0), &pb.spec.id) => {
-                melee.swing = Some(synth_swing_from_move(pb))
-            }
-            _ => melee.swing = None,
-        }
+/// Only a MELEE swing move is a swing. A body's ranged shot or a special that
+/// the moveset also routes is not, and treating one as a swing would publish a
+/// phantom "mid-attack" to the anim picker and the brain.
+pub fn melee_swing_of(
+    playback: Option<&MovePlayback>,
+    moveset: Option<&ActorMoveset>,
+) -> Option<MeleeSwing> {
+    let moveset = moveset.filter(|moveset| routes_melee(moveset))?;
+    let playback = playback?;
+    is_melee_swing_move(Some(&moveset.0), &playback.spec.id)
+        .then(|| synth_swing_from_move(playback))
+}
+
+/// The two components [`melee_swing_of`] reads, for a reader's query.
+#[derive(bevy::ecs::query::QueryData)]
+pub struct MeleeSwingQuery {
+    pub playback: Option<&'static MovePlayback>,
+    pub moveset: Option<&'static ActorMoveset>,
+}
+
+impl MeleeSwingQueryItem<'_, '_> {
+    /// The body's current melee swing, if it is performing one.
+    pub fn swing(&self) -> Option<MeleeSwing> {
+        melee_swing_of(self.playback, self.moveset)
     }
 }
 

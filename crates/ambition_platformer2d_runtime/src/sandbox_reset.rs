@@ -59,7 +59,6 @@ pub fn reset_sandbox(
     sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
-    attack: &mut Option<ambition_combat::components::MeleeSwing>,
     anim: &mut ambition_characters::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     health: Option<&mut ambition_characters::actor::BodyHealth>,
@@ -86,7 +85,6 @@ pub fn reset_sandbox(
         "sandbox_reset",
     ));
     sim_state.remaining = 0.0;
-    *attack = None;
     anim.reset();
     combat.reset();
     if let Some(health) = health {
@@ -262,7 +260,6 @@ pub fn return_the_replay_subject_to_spawn(
         // the body playing the room and carries neither of these; requiring them
         // made the reset silently skip it entirely.
         Option<&mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
-        &mut ambition_combat::BodyMelee,
         Option<&mut ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState>,
         // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
         // because a scratch body without a meter is a valid thing to reset.
@@ -284,7 +281,6 @@ pub fn return_the_replay_subject_to_spawn(
         mut anim,
         mut combat,
         blink_cam,
-        mut attack,
         safety,
         health,
     )) = bodies.iter_mut().find(|(id, ..)| **id == subject)
@@ -302,7 +298,6 @@ pub fn return_the_replay_subject_to_spawn(
         &mut sim_state,
         &mut clock_resets,
         safety.map(|s| s.into_inner()),
-        &mut attack.swing,
         &mut anim,
         &mut combat,
         health.map(|h| h.into_inner()),
@@ -452,7 +447,6 @@ mod tests {
             ambition_platformer2d_shared_tangle::safe_position::RoomTransitionCooldown::default();
         let mut safety =
             ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState::default();
-        let mut attack: Option<ambition_combat::components::MeleeSwing> = None;
         let mut anim = ambition_characters::actor::BodyAnimFacts::default();
         let mut combat = ambition_characters::actor::BodyCombat::default();
         let mut gestures = ambition_characters::control::SlotGestures::default();
@@ -468,7 +462,6 @@ mod tests {
                 &mut sim_state,
                 &mut clock_resets,
                 Some(&mut safety),
-                &mut attack,
                 &mut anim,
                 &mut combat,
                 None,

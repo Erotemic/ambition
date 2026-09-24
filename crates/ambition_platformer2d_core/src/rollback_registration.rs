@@ -56,8 +56,7 @@ where
         .rollback_component_canonical::<crate::geometry::CenteredAabb>(OWNER, "actor.centered_aabb")
         .rollback_component_canonical::<bc::BodyModeState>(OWNER, "actor.body_mode")
         .rollback_component_canonical::<bc::BodyLedgeState>(OWNER, "actor.ledge")
-        .rollback_component_canonical::<crate::MotionModel>(OWNER, "actor.motion_model")
-        .rollback_component_canonical::<bc::BodyComboTrace>(OWNER, "actor.combo_trace");
+        .rollback_component_canonical::<crate::MotionModel>(OWNER, "actor.motion_model");
 
     // Value-bearing bookkeeping a recreated entity cannot re-derive.
     registrar.rollback_component_clone::<bc::AbilityBase>(OWNER, "body.ability_base");

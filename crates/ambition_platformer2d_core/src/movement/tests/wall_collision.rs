@@ -191,7 +191,6 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
             clusters.ground,
             clusters.wall,
             clusters.jump,
-            clusters.combo_trace,
             InputState::default(),
             1.0 / 60.0,
             tuning.frame(),

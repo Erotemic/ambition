@@ -288,7 +288,6 @@ pub struct AncillaryMovementBundle {
     pub restart: BodyRestartLatch,
     /// Diagnostics only; not a cluster member and not rollback state.
     pub life_stats: BodyLifeStats,
-    pub combo_trace: BodyComboTrace,
     /// The per-tick environment-resolved frame artifact (ADR 0024): spawned at
     /// its default and published by the frame resolution phase each sim tick.
     pub frame: crate::frame_env::ResolvedMotionFrame,
@@ -339,7 +338,6 @@ impl AncillaryMovementBundle {
             offense,
             action_buffer,
             restart,
-            combo_trace,
         } = scratch;
         // A scratch body is an explicit state fixture, but an ECS spawn has no
         // prior world-contact sample. The movement kernel will establish the
@@ -366,7 +364,6 @@ impl AncillaryMovementBundle {
             action_buffer,
             restart,
             life_stats: Default::default(),
-            combo_trace,
             frame: Default::default(),
             motion_facts: Default::default(),
         };

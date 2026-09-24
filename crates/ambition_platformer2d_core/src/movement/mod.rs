@@ -89,7 +89,7 @@ pub use model::{
     AxisManeuverState, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
     PhasedJumpState, SurfaceMomentumMotion, WireState,
 };
-pub use ops::{ComboMark, MovementOp};
+pub use ops::MovementOp;
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
     ActiveMovementTuning, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisSweptParams,
@@ -145,7 +145,6 @@ pub(crate) fn update_body_control_in_frame(
         state,
         clusters.ground,
         clusters.wall,
-        clusters.combo_trace,
         input,
         control_dt,
         frame,
@@ -181,7 +180,6 @@ pub(crate) fn update_body_control_in_frame(
         clusters.flight,
         state,
         clusters.abilities,
-        clusters.combo_trace,
         input,
         &mut events,
     );
@@ -193,7 +191,6 @@ pub(crate) fn update_body_control_in_frame(
         clusters.abilities,
         clusters.blink,
         state,
-        clusters.combo_trace,
         input,
         control_dt,
         frame,
@@ -203,7 +200,6 @@ pub(crate) fn update_body_control_in_frame(
     control::handle_attacks_clusters(
         clusters.kinematics,
         clusters.abilities,
-        clusters.combo_trace,
         input,
         frame,
         tuning,
@@ -237,7 +233,6 @@ pub(crate) fn update_body_control_in_frame(
             state,
             clusters.ground,
             clusters.abilities,
-            clusters.combo_trace,
             input,
             frame,
             tuning,
@@ -249,7 +244,6 @@ pub(crate) fn update_body_control_in_frame(
             clusters.dash,
             state,
             clusters.abilities,
-            clusters.combo_trace,
             input,
             frame,
             tuning,
@@ -262,7 +256,6 @@ pub(crate) fn update_body_control_in_frame(
         state,
         clusters.ground,
         clusters.abilities,
-        clusters.combo_trace,
         input,
         tuning,
         &mut events,
@@ -493,16 +486,8 @@ fn update_body_simulation_inner(
         return (events, SimPhaseReach::ShortCircuited);
     }
 
-    // Age timers + combo trace — cluster + maneuver-state inline.
+    // Age maneuver-state timers inline.
     {
-        for mark in clusters.combo_trace.combo.iter_mut() {
-            mark.age += dt;
-        }
-        clusters
-            .combo_trace
-            .combo
-            .retain(|m| m.age < 4.0 || m.op == ops::MovementOp::Reset);
-
         let dec = |v: f32| (v - dt).max(0.0);
         state.buffer_jump = dec(state.buffer_jump);
         state.buffer_burst = dec(state.buffer_burst);
@@ -628,7 +613,7 @@ fn update_body_simulation_inner(
         clusters.shield.drop_lag_timer = dec(clusters.shield.drop_lag_timer);
         if crate::body_clusters::tick_shield_resource(clusters.shield, tuning.abilities.shield, dt)
         {
-            events.op_clusters(clusters.combo_trace, ops::MovementOp::ShieldBreak);
+            events.operations.push(ops::MovementOp::ShieldBreak);
         }
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
         if state.wall_clinging || clusters.ground.on_ground {
@@ -699,7 +684,6 @@ fn update_body_simulation_inner(
         clusters.ground,
         clusters.wall,
         clusters.jump,
-        clusters.combo_trace,
         input,
         dt,
         frame,

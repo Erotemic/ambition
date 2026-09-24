@@ -7,7 +7,7 @@ use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
 use crate::body_clusters::{
-    BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState,
+    BodyAbilities, BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState,
     BodyKinematics, BodyShieldState,
 };
 use crate::MotionFrame;
@@ -437,7 +437,6 @@ pub(super) fn apply_fly_toggle(
     flight: &mut BodyFlightState,
     state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
-    combo_trace: &mut BodyComboTrace,
     input: InputState,
     events: &mut FrameEvents,
 ) {
@@ -451,7 +450,7 @@ pub(super) fn apply_fly_toggle(
             state.blink_grace_timer = 0.0;
             state.phased_jump.clear();
         }
-        events.op_clusters(combo_trace, MovementOp::FlyToggle);
+        events.operations.push(MovementOp::FlyToggle);
     }
 }
 
@@ -480,7 +479,6 @@ pub(super) fn apply_dodge(
     state: &mut AxisManeuverState,
     ground: &BodyGroundState,
     abilities: &BodyAbilities,
-    combo_trace: &mut BodyComboTrace,
     input: InputState,
     frame: MotionFrame,
     tuning: AxisSweptParams,
@@ -539,7 +537,7 @@ pub(super) fn apply_dodge(
             state.phased_jump.clear();
             dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
             state.buffer_burst = 0.0;
-            events.op_clusters(combo_trace, MovementOp::SpotDodge);
+            events.operations.push(MovementOp::SpotDodge);
             return;
         }
         let dir = if local_stick.x.abs() > 0.1 {
@@ -559,7 +557,7 @@ pub(super) fn apply_dodge(
         state.phased_jump.clear();
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
         state.buffer_burst = 0.0;
-        events.op_clusters(combo_trace, MovementOp::DodgeRoll);
+        events.operations.push(MovementOp::DodgeRoll);
         return;
     }
     // ── airborne ────────────────────────────────────────────────────────────
@@ -584,7 +582,7 @@ pub(super) fn apply_dodge(
     state.phased_jump.clear();
     dodge.air_dodge_spent = true;
     state.buffer_burst = 0.0;
-    events.op_clusters(combo_trace, MovementOp::AirDodge);
+    events.operations.push(MovementOp::AirDodge);
 }
 
 /// The ONE shield-activation rule, shared by the player body and every actor body
@@ -666,7 +664,6 @@ pub(super) fn apply_shield(
     // WHERE the body is, because a ruleset may refuse an airborne guard.
     ground: &BodyGroundState,
     abilities: &BodyAbilities,
-    combo_trace: &mut BodyComboTrace,
     input: InputState,
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
@@ -691,7 +688,7 @@ pub(super) fn apply_shield(
         ground.on_ground || tuning.abilities.shield.air_guard,
     );
     if fresh {
-        events.op_clusters(combo_trace, MovementOp::ShieldUp);
+        events.operations.push(MovementOp::ShieldUp);
     }
     // SHIELD DROP LAG — the cost of lowering a guard by ITSELF. An
     // out-of-shield action already took the guard down through
@@ -799,7 +796,6 @@ pub(super) fn apply_dash(
     dash: &mut BodyDashState,
     state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
-    combo_trace: &mut BodyComboTrace,
     input: InputState,
     frame: MotionFrame,
     tuning: AxisSweptParams,
@@ -821,7 +817,7 @@ pub(super) fn apply_dash(
         } else {
             MovementOp::Dash
         };
-        events.op_clusters(combo_trace, op);
+        events.operations.push(op);
     }
 }
 
@@ -829,7 +825,7 @@ pub(super) fn apply_dash(
 mod burst_maneuver_tests {
     use super::*;
     use crate::body_clusters::{
-        BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyGroundState,
+        BodyAbilities, BodyDashState, BodyDodgeState, BodyGroundState,
         BodyKinematics,
     };
     use crate::movement::events::FrameEvents;
@@ -889,7 +885,6 @@ mod burst_maneuver_tests {
         for (label, abilities, expected) in cases {
             let mut kinematics = BodyKinematics::default();
             let mut state = AxisManeuverState::default();
-            let mut combo_trace = BodyComboTrace::default();
             let flight = crate::body_clusters::BodyFlightState::default();
             apply_intent(
                 &mut kinematics,
@@ -936,7 +931,6 @@ mod burst_maneuver_tests {
                     &mut run_state,
                     &grounded,
                     &abilities,
-                    &mut combo_trace,
                     input,
                     frame,
                     tuning,
@@ -948,7 +942,6 @@ mod burst_maneuver_tests {
                     &mut dash,
                     &mut run_state,
                     &abilities,
-                    &mut combo_trace,
                     input,
                     frame,
                     tuning,
@@ -981,7 +974,6 @@ mod burst_maneuver_tests {
         let mut kinematics = BodyKinematics::default();
         let mut state = AxisManeuverState::default();
         state.buffer_burst = 0.1;
-        let mut combo_trace = BodyComboTrace::default();
         let mut events = FrameEvents::default();
         let frame = MotionFrame::from_direction(bevy_math::Vec2::new(0.0, 1.0), 900.0);
         let input = InputState::default();
@@ -992,7 +984,6 @@ mod burst_maneuver_tests {
             &mut state,
             ground,
             abilities,
-            &mut combo_trace,
             input,
             frame,
             tuning,
@@ -1010,7 +1001,6 @@ mod burst_maneuver_tests {
             dash,
             &mut state,
             abilities,
-            &mut combo_trace,
             input,
             frame,
             tuning,

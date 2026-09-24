@@ -395,8 +395,8 @@ pub fn sync_riders_to_mounts(
             //
             // ⛔ IT ALSO WIDENS THE POPULATION, deliberately. The optional view
             // dropped a body that was missing ANY of the twenty-six — a rider
-            // lacking, say, `BodyComboTrace` silently got no saddle pin. Nothing
-            // about carrying a rider depends on a combo trace.
+            // lacking, say, `BodyOffense` silently got no saddle pin. Nothing
+            // about carrying a rider depends on a damage multiplier.
             &mut ae::BodyKinematics,
             &mut ae::ActorSurfaceState,
             &mut ae::BodyGroundState,

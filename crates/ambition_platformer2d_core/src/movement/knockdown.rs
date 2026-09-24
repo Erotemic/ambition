@@ -8,7 +8,7 @@ use super::input::InputState;
 use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
-use crate::body_clusters::{BodyComboTrace, BodyGroundState, BodyKinematics};
+use crate::body_clusters::{BodyGroundState, BodyKinematics};
 use crate::MotionFrame;
 
 /// How long a body stays in tumble after a launch, per unit of launch speed
@@ -182,7 +182,6 @@ pub(super) fn tick_knockdown(
     // contact pass. A body slammed into a wall is against it for several ticks,
     // so the frame of latency costs the read nothing.
     wall: &crate::body_clusters::BodyWallState,
-    combo_trace: &mut BodyComboTrace,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -198,13 +197,13 @@ pub(super) fn tick_knockdown(
         // press that happened while it was in the air.
         state.buffer_burst = 0.0;
         state.buffer_jump = 0.0;
-        resolve_getup(kinematics, state, input, frame, combo_trace, events);
+        resolve_getup(kinematics, state, input, frame, events);
         return InputState::default();
     }
 
     if state.tumble_unannounced {
         state.tumble_unannounced = false;
-        events.op_clusters(combo_trace, MovementOp::Tumble);
+        events.operations.push(MovementOp::Tumble);
     }
 
     if !state.tumble_until_landing {
@@ -275,7 +274,7 @@ pub(super) fn tick_knockdown(
             // POSITION is untouched, and this is an impulse a timed press
             // earned.
             kinematics.vel = frame.side() * (wall.wall_normal_x * WALL_TECH_SPEED);
-            events.op_clusters(combo_trace, MovementOp::Tech);
+            events.operations.push(MovementOp::Tech);
             return without_evade(input);
         }
         // ⭐ THE CEILING TECH — the last surface a launch can end on, and until
@@ -295,7 +294,7 @@ pub(super) fn tick_knockdown(
             // ceiling the way the wall tech pushes away from the wall, into a
             // fall it now controls.
             kinematics.vel = frame.down() * CEILING_TECH_SPEED;
-            events.op_clusters(combo_trace, MovementOp::Tech);
+            events.operations.push(MovementOp::Tech);
             return without_evade(input);
         }
         // control comes back before the tumble does. Once the helpless
@@ -340,7 +339,7 @@ pub(super) fn tick_knockdown(
         } else {
             crate::Vec2::ZERO
         };
-        events.op_clusters(combo_trace, MovementOp::Tech);
+        events.operations.push(MovementOp::Tech);
         return without_evade(input);
     }
     state.knockdown_timer = KNOCKDOWN_TIME;
@@ -348,7 +347,7 @@ pub(super) fn tick_knockdown(
     // trip through the floor game, not a whole stock.
     state.jab_locks = 0;
     kinematics.vel = crate::Vec2::ZERO;
-    events.op_clusters(combo_trace, MovementOp::Knockdown);
+    events.operations.push(MovementOp::Knockdown);
     InputState::default()
 }
 
@@ -367,7 +366,6 @@ fn resolve_getup(
     state: &mut AxisManeuverState,
     input: InputState,
     frame: MotionFrame,
-    combo_trace: &mut BodyComboTrace,
     events: &mut super::events::FrameEvents,
 ) {
     let local_stick = input.local_axis();
@@ -378,18 +376,18 @@ fn resolve_getup(
     if local_stick.x.abs() > 0.5 {
         kinematics.vel = frame.side() * (local_stick.x.signum() * GETUP_ROLL_SPEED);
         stand(state);
-        events.op_clusters(combo_trace, MovementOp::GetupRoll);
+        events.operations.push(MovementOp::GetupRoll);
         return;
     }
     if input.attack_pressed {
         stand(state);
         // The kernel does not swing — it publishes the option, and the combat
         // side answers it, exactly as it does for the ledge getup attack.
-        events.op_clusters(combo_trace, MovementOp::GetupAttack);
+        events.operations.push(MovementOp::GetupAttack);
         return;
     }
     if input.jump_pressed() || state.knockdown_timer <= 0.0 {
         stand(state);
-        events.op_clusters(combo_trace, MovementOp::Getup);
+        events.operations.push(MovementOp::Getup);
     }
 }

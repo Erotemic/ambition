@@ -34,7 +34,8 @@ pub(super) struct HudCameraParams<'w, 's> {
             // deliberately reads the policy's internals (ADR 0024).
             &'static ae::MotionModel,
             &'static ambition_platformer2d::engine_core::BodyFlightState,
-            &'static ambition_platformer2d::engine_core::BodyComboTrace,
+            // Optional: the readout is inserted on the first tick with an op.
+            Option<&'static super::combo_trace::ComboTrace>,
             &'static ambition_platformer2d::characters::actor::BodyHealth,
             &'static ambition_platformer2d::characters::actor::BodyCombat,
             &'static ambition_platformer2d::combat::BodyMelee,
@@ -289,7 +290,7 @@ pub(super) fn update_hud(
         let room_count = room_set.rooms.len();
         let vx = player_vel.x;
         let vy = player_vel.y;
-        let combo_symbols = hud_combo.symbols();
+        let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
         let preset_name = &preset.name;
         **text = format!(
             "{world_name} | {mode_label} | room {room_index}/{room_count} | \
@@ -324,7 +325,7 @@ pub(super) fn update_hud(
     let mode_label = mode.get().label();
     let room_index = room_set.active() + 1;
     let room_count = room_set.rooms.len();
-    let combo_symbols = hud_combo.symbols();
+    let combo_symbols = hud_combo.map_or_else(|| "-".to_string(), |c| c.symbols());
     let preset_name = &preset.name;
     **text = format!(
         "{world_name}  mode: {mode_label}  room {room_index}/{room_count}\n\

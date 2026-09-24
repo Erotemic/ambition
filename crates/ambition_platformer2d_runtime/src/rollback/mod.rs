@@ -152,9 +152,8 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
     // Elimination is the same fact one step later, and a rewind that restores a fighter while
     // leaving it eliminated is a body standing in a match nothing will ever let it play. The
     // "already announced" latch for a stocks match's outcome.
-    // ⭐ the five rows this comment used to introduce — `actor.centered_aabb`,
-    // `actor.body_mode`, `actor.ledge`, `actor.motion_model`, `actor.combo_trace`
-    // — are `ambition_platformer2d_core`'s and are declared there.
+    // ⭐ the rows `actor.centered_aabb`, `actor.body_mode`, `actor.ledge` and
+    // `actor.motion_model` are `ambition_platformer2d_core`'s and are declared there.
 
     // Register values a recreated rollback entity cannot safely reconstruct from another
     // authoritative source. This includes identity/projection memos, rig/custody maps, authored

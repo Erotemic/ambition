@@ -290,7 +290,6 @@ pub(super) fn integrate_velocity_clusters(
         clusters.wall,
         state,
         clusters.abilities,
-        clusters.combo_trace,
         input,
         frame,
         tuning,
@@ -401,7 +400,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.ground.on_ground = false;
             state.phased_jump.clear();
             state.rebound_cooldown = 0.18;
-            events.op_clusters(clusters.combo_trace, MovementOp::Rebound);
+            events.operations.push(MovementOp::Rebound);
         }
     }
 
@@ -1613,7 +1612,6 @@ pub(super) fn apply_wall_abilities_clusters(
     wall: &crate::body_clusters::BodyWallState,
     state: &mut AxisManeuverState,
     abilities: &crate::body_clusters::BodyAbilities,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     frame: MotionFrame,
     tuning: AxisSweptParams,
@@ -1637,7 +1635,7 @@ pub(super) fn apply_wall_abilities_clusters(
         kinematics.vel +=
             basis.down * (local_stick.y * tuning.locomotion.wall_climb_speed - along_down);
         if !was_clinging {
-            events.op_clusters(combo_trace, MovementOp::WallClimb);
+            events.operations.push(MovementOp::WallClimb);
         }
     } else {
         let descend = kinematics.vel.dot(basis.down);
@@ -1645,7 +1643,7 @@ pub(super) fn apply_wall_abilities_clusters(
             kinematics.vel -= basis.down * (descend - tuning.locomotion.wall_slide_speed);
         }
         if !was_clinging {
-            events.op_clusters(combo_trace, MovementOp::WallCling);
+            events.operations.push(MovementOp::WallCling);
         }
     }
 }

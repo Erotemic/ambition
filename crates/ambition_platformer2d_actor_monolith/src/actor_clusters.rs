@@ -19,7 +19,7 @@ use ambition_platformer2d_core::body_clusters::ActorSurfaceState;
 use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 
 use ambition_platformer2d_core::{
-    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyComboTrace, BodyDashState,
+    BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
     BodyLedgeState, BodyRestartLatch, BodyModeState, BodyOffense, BodyShieldState,
     BodyWallState,
@@ -73,7 +73,6 @@ pub struct ActorMut<'a> {
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
-    pub combo_trace: &'a mut BodyComboTrace,
 }
 
 impl<'a> ActorMut<'a> {
@@ -101,7 +100,6 @@ impl<'a> ActorMut<'a> {
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
-            combo_trace: &mut *self.combo_trace,
         }
     }
 }
@@ -157,7 +155,6 @@ pub struct ActorClusterQueryData {
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
-    pub combo_trace: &'static mut BodyComboTrace,
 }
 
 impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
@@ -197,7 +194,6 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
-            combo_trace: &mut self.combo_trace,
         }
     }
 }
@@ -252,7 +248,6 @@ impl SeedActorMut for ActorClusterSeed {
             offense: &mut body.offense,
             action_buffer: &mut body.action_buffer,
             restart: &mut body.restart,
-            combo_trace: &mut body.combo_trace,
         }
     }
 }

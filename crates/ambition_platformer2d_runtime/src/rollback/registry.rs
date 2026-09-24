@@ -683,7 +683,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// announcement latch is the only body-lifetime fact the sim owns; the
 /// `time_alive` / `resets` diagnostics left the wire (`BodyLifeStats`,
 /// unregistered) and `max_speed`, read by nothing, is deleted.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 208;
+/// ⛔⛤ 209 -> 210: `actor.combo_trace` LEFT. The HUD's movement readout is
+/// app presentation state fed from `FrameEvents` after the kernel ran; no
+/// simulation system read it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 210;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

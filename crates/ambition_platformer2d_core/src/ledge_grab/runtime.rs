@@ -342,7 +342,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.wall.on_wall = false;
         axis_state.ledge_grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeDrop);
+        events.operations.push(MovementOp::LedgeDrop);
         return true;
     }
 
@@ -370,7 +370,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             axis_state.wall_climbing = false;
             clusters.wall.on_wall = false;
             axis_state.ledge_grab = None;
-            events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbFinish);
+            events.operations.push(MovementOp::LedgeClimbFinish);
         } else {
             axis_state.ledge_grab = Some(state);
         }
@@ -422,7 +422,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.wall.on_wall = false;
         axis_state.ledge_invuln_timer = LEDGE_ROLL_TIME + 0.10;
         axis_state.ledge_grab = Some(state);
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeRoll);
+        events.operations.push(MovementOp::LedgeRoll);
         return true;
     }
     if want_ledge_release {
@@ -435,7 +435,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         clusters.kinematics.vel =
             launch_away_from_feet(frame, tuning, away_x, tuning.locomotion.wall_jump_x);
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
+        events.operations.push(MovementOp::LedgeJump);
         return true;
     }
     if want_ledge_jump {
@@ -450,7 +450,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             launch_away_from_feet(frame, tuning, into_x, tuning.locomotion.jump_speed * 0.35);
         launch += ledge_boost_for_state_in_frame(state, frame, &tuning);
         clusters.kinematics.vel = launch;
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
+        events.operations.push(MovementOp::LedgeJump);
         return true;
     }
     if want_drop && !want_climb && !want_getup_attack {
@@ -459,7 +459,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.wall.on_wall = false;
         axis_state.ledge_grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeDrop);
+        events.operations.push(MovementOp::LedgeDrop);
         return true;
     }
     if want_getup_attack {
@@ -476,8 +476,8 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         // than an inheritance now — see `LEDGE_GETUP_ATTACK_INVULN`.
         axis_state.ledge_invuln_timer = super::LEDGE_GETUP_ATTACK_INVULN;
         axis_state.ledge_grab = Some(state);
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeGetupAttack);
-        events.op_clusters(clusters.combo_trace, MovementOp::Slash);
+        events.operations.push(MovementOp::LedgeGetupAttack);
+        events.operations.push(MovementOp::Slash);
         return true;
     }
     if want_climb {
@@ -491,7 +491,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
         axis_state.ledge_grab = Some(state);
-        events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbStart);
+        events.operations.push(MovementOp::LedgeClimbStart);
         return true;
     }
 
@@ -823,6 +823,6 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         // to the latch. It answers for the recovery outright.
         crate::body_clusters::RecoveryRefresh::Answered,
     );
-    events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
+    events.operations.push(MovementOp::LedgeGrab);
     true
 }

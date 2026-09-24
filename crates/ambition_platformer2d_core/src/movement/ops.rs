@@ -151,10 +151,3 @@ impl fmt::Display for MovementOp {
         f.write_str(self.symbol())
     }
 }
-
-/// A timestamped combo entry for debug display and future scoring/teaching.
-#[derive(Clone, Debug)]
-pub struct ComboMark {
-    pub op: MovementOp,
-    pub age: f32,
-}

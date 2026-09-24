@@ -23,6 +23,7 @@
 // `crate::headless` installs the same log plugin under `--features profile`,
 // because Tracy records through a layer on the tracing subscriber.
 pub(crate) mod cli;
+mod combo_trace;
 mod dev_runtime;
 mod feedback;
 mod hud;

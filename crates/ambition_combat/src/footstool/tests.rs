@@ -65,7 +65,6 @@ fn fighter_on_team(
             BodyHealth::new(Health::new(100)),
             ActorControl(control),
             BodyCombat::default(),
-            ae::BodyComboTrace::default(),
         ))
         .id()
 }

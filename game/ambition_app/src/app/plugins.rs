@@ -214,12 +214,15 @@ fn register_app_local_sim_systems(app: &mut App) {
             // HOME PRESENTATION — screen shake + landing SFX + the per-op
             // anim/SFX/VFX — reads the movement phase's hand-off. Moves no body.
             sync_player_presentation.in_set(GameplayGated),
+            // The HUD's combo readout, fed from the same hand-off.
+            super::combo_trace::record_combo_trace.in_set(GameplayGated),
         )
             .chain()
             .in_set(
                 ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession,
             ),
     );
+    app.add_observer(super::combo_trace::restart_combo_trace);
 
     // The RoomTransition gap — readiness transaction + authorized commit — is
     // filled by the ENGINE now (`ambition_platformer2d::runtime::room_transition`), carried

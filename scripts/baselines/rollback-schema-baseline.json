@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v208",
+    "version": "ggrs-rollback-schema-v210",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -15,7 +15,6 @@
       "actor.brain\tcomponent-clone-cursor\tBrain",
       "actor.brain_binding\tcomponent-canonical\tBrainBinding",
       "actor.centered_aabb\tcomponent-canonical\tCenteredAabb",
-      "actor.combo_trace\tcomponent-canonical\tBodyComboTrace",
       "actor.control\tcomponent-canonical\tActorControl",
       "actor.control_claims\tcomponent-canonical\tControlClaims",
       "actor.death_interlude\tcomponent-canonical\tDeathInterlude",
@@ -220,7 +219,6 @@
     "ambition_platformer2d_core::body_clusters::BodyActionBuffer",
     "ambition_platformer2d_core::body_clusters::BodyBaseSize",
     "ambition_platformer2d_core::body_clusters::BodyBlinkState",
-    "ambition_platformer2d_core::body_clusters::BodyComboTrace",
     "ambition_platformer2d_core::body_clusters::BodyDashState",
     "ambition_platformer2d_core::body_clusters::BodyDodgeState",
     "ambition_platformer2d_core::body_clusters::BodyFlightState",

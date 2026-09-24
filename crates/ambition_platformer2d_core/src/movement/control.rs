@@ -19,7 +19,6 @@ pub fn handle_blink_clusters(
     abilities: &crate::body_clusters::BodyAbilities,
     blink: &mut crate::body_clusters::BodyBlinkState,
     state: &mut crate::movement::AxisManeuverState,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -99,7 +98,6 @@ pub fn handle_blink_clusters(
             kinematics,
             blink,
             state,
-            combo_trace,
             from,
             to,
             precision,
@@ -126,7 +124,6 @@ pub fn handle_blink_clusters(
 pub fn handle_attacks_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     abilities: &crate::body_clusters::BodyAbilities,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     frame: MotionFrame,
     tuning: AxisSweptParams,
@@ -137,6 +134,6 @@ pub fn handle_attacks_clusters(
     }
     if input.attack_pressed {
         kinematics.vel -= frame.side() * (kinematics.facing * tuning.abilities.slash_recoil);
-        events.op_clusters(combo_trace, MovementOp::Slash);
+        events.operations.push(MovementOp::Slash);
     }
 }

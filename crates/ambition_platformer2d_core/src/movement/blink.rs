@@ -18,7 +18,6 @@ pub fn complete_blink_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     blink: &mut crate::body_clusters::BodyBlinkState,
     state: &mut crate::movement::AxisManeuverState,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     from: Vec2,
     to: Vec2,
     precision: bool,
@@ -66,7 +65,7 @@ pub fn complete_blink_clusters(
     } else {
         MovementOp::Blink
     };
-    events.op_clusters(combo_trace, op);
+    events.operations.push(op);
     events.blinks.push(BlinkEvent {
         from,
         to,

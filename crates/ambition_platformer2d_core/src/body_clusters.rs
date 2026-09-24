@@ -6,7 +6,6 @@
 //! points, while [`BodyClusterScratch`] provides the same shape for tests.
 
 use crate::abilities::AbilitySet;
-use crate::movement::ComboMark;
 use crate::player_state::BodyMode;
 use crate::world::{ClimbableContact, WaterContact};
 use crate::Vec2;
@@ -38,7 +37,6 @@ pub struct BodyClustersMut<'a> {
     pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
-    pub combo_trace: &'a mut BodyComboTrace,
 }
 
 /// Bevy query data that matches [`BodyClustersMut`]. Use in a system
@@ -66,7 +64,6 @@ pub struct BodyClusterQueryData {
     pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
-    pub combo_trace: &'static mut BodyComboTrace,
 }
 
 impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
@@ -96,7 +93,6 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
-            combo_trace: &mut *self.combo_trace,
         }
     }
 }
@@ -876,8 +872,7 @@ pub fn announce_body_restarts(
 }
 
 /// Reset a live player back to spawn while preserving the
-/// `BodyAbilities` and raising the [`BodyRestartLatch`]. The
-/// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
+/// `BodyAbilities` and raising the [`BodyRestartLatch`].
 ///
 /// The pose snap is a discrete TRANSIT ([`crate::movement::transit_body`], the
 /// ADR 0024 authority): it also reconciles model-private attachment, so a
@@ -956,8 +951,6 @@ pub fn reset_body_clusters(
     facing: ResetFacing,
     air_jumps_default: u8,
 ) {
-    use crate::movement::{ComboMark, MovementOp};
-
     let abilities = clusters.abilities.abilities;
     // A reset restores the body to its BASE size; it does not redefine what the
     // base IS. `base_size` is IDENTITY-derived — a worn form, a mount, a boss
@@ -1020,11 +1013,6 @@ pub fn reset_body_clusters(
     // this function already owns cannot be forgotten by a caller that does not know it
     // exists.
     clusters.restart.pending = true;
-    clusters.combo_trace.combo.clear();
-    clusters.combo_trace.combo.push(ComboMark {
-        op: MovementOp::Reset,
-        age: 0.0,
-    });
 }
 
 /// Refresh every AERIAL resource — dash charges, air jumps, and the air dodge —
@@ -1247,27 +1235,6 @@ pub struct BodyLifeStats {
     pub resets: u32,
 }
 
-/// Symbolic operation trace ("J o D o D"), preserved across the
-/// engine-Player tick scratchpad so the HUD combo readout doesn't
-/// blank every frame.
-#[derive(bevy_ecs::component::Component, Clone, Debug, Default)]
-pub struct BodyComboTrace {
-    pub combo: Vec<ComboMark>,
-}
-
-impl BodyComboTrace {
-    pub fn symbols(&self) -> String {
-        if self.combo.is_empty() {
-            return "-".to_string();
-        }
-        self.combo
-            .iter()
-            .map(|m| m.op.symbol())
-            .collect::<Vec<_>>()
-            .join(" o ")
-    }
-}
-
 /// Owned bag of all 18 player cluster components PLUS the body's
 /// [`MotionModel`], used by unit tests and the non-ECS call sites that need
 /// to assemble a whole body without a Bevy entity (a body without a policy is
@@ -1300,7 +1267,6 @@ pub struct BodyClusterScratch {
     pub offense: BodyOffense,
     pub action_buffer: BodyActionBuffer,
     pub restart: BodyRestartLatch,
-    pub combo_trace: BodyComboTrace,
 }
 
 impl BodyClusterScratch {
@@ -1343,7 +1309,6 @@ impl BodyClusterScratch {
             },
             action_buffer: BodyActionBuffer::default(),
             restart: BodyRestartLatch::default(),
-            combo_trace: BodyComboTrace::default(),
         }
     }
 
@@ -1395,7 +1360,6 @@ impl BodyClusterScratch {
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
-            combo_trace: &mut self.combo_trace,
         };
         (&mut self.model, clusters)
     }
@@ -1442,7 +1406,6 @@ impl BodyClusterScratch {
             offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
-            combo_trace: &mut self.combo_trace,
         }
     }
 }

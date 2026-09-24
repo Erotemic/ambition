@@ -285,31 +285,6 @@ snapshot_pod!(crate::body_clusters::BodyLedgeState {
     release_cooldown: f32,
 });
 
-/// The recent-movement trace a combo/chain rule reads. A `Vec`, so its order IS its
-/// meaning: the ops go out in the order they went in.
-impl SnapshotState for crate::body_clusters::BodyComboTrace {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_u32(out, self.combo.len() as u32);
-        for mark in &self.combo {
-            mark.op.encode(out);
-            put_f32(out, mark.age);
-        }
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        use crate::movement::{ComboMark, MovementOp};
-        let n = r.u32()?;
-        let combo = (0..n)
-            .map(|_| {
-                Some(ComboMark {
-                    op: MovementOp::decode(r)?,
-                    age: r.f32()?,
-                })
-            })
-            .collect::<Option<Vec<_>>>()?;
-        Some(crate::body_clusters::BodyComboTrace { combo })
-    }
-}
-
 snapshot_pod!(crate::body_clusters::SweepSample {
     prev: vec2,
     curr: vec2,

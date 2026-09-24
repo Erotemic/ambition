@@ -20,7 +20,6 @@ fn launch_ground_jump(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     jump_state: &mut crate::body_clusters::BodyJumpState,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     frame: MotionFrame,
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
@@ -41,7 +40,7 @@ fn launch_ground_jump(
     jump_state.air_jumps_available = abilities
         .abilities
         .air_jump_count(tuning.locomotion.air_jumps);
-    events.op_clusters(combo_trace, MovementOp::Jump);
+    events.operations.push(MovementOp::Jump);
 }
 
 /// Age one frame of a committed jump-squat and, if the crouch has finished,
@@ -54,7 +53,6 @@ fn tick_jump_squat(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &mut crate::body_clusters::BodyGroundState,
     jump_state: &mut crate::body_clusters::BodyJumpState,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -82,7 +80,6 @@ fn tick_jump_squat(
         kinematics,
         ground,
         jump_state,
-        combo_trace,
         frame,
         tuning,
         events,
@@ -135,7 +132,6 @@ pub fn handle_jump_buffer_clusters(
     ground: &mut crate::body_clusters::BodyGroundState,
     wall: &mut crate::body_clusters::BodyWallState,
     jump_state: &mut crate::body_clusters::BodyJumpState,
-    combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -153,7 +149,6 @@ pub fn handle_jump_buffer_clusters(
             kinematics,
             ground,
             jump_state,
-            combo_trace,
             input,
             dt,
             frame,
@@ -194,7 +189,7 @@ pub fn handle_jump_buffer_clusters(
             }
             state.buffer_jump = 0.0;
             state.coyote_timer = 0.0;
-            events.op_clusters(combo_trace, MovementOp::SwimStroke);
+            events.operations.push(MovementOp::SwimStroke);
             return;
         }
     }
@@ -221,7 +216,7 @@ pub fn handle_jump_buffer_clusters(
         // input-mode-relative via the resolved descend).
         if abilities.abilities.jump && input.local_axis().y < -0.1 {
             jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;
-            events.op_clusters(combo_trace, MovementOp::Jump);
+            events.operations.push(MovementOp::Jump);
         }
         state.buffer_jump = 0.0;
         state.coyote_timer = 0.0;
@@ -257,7 +252,7 @@ pub fn handle_jump_buffer_clusters(
         state.wall_climbing = false;
         state.buffer_jump = 0.0;
         state.coyote_timer = 0.0;
-        events.op_clusters(combo_trace, MovementOp::WallJump);
+        events.operations.push(MovementOp::WallJump);
     } else if abilities.abilities.jump
         && !flying
         && (ground.on_ground || state.coyote_timer > 0.0 || can_ladder_jump)
@@ -279,7 +274,6 @@ pub fn handle_jump_buffer_clusters(
                 kinematics,
                 ground,
                 jump_state,
-                combo_trace,
                 input,
                 dt,
                 frame,
@@ -293,7 +287,6 @@ pub fn handle_jump_buffer_clusters(
                 kinematics,
                 ground,
                 jump_state,
-                combo_trace,
                 frame,
                 tuning,
                 events,
@@ -328,7 +321,7 @@ pub fn handle_jump_buffer_clusters(
         state.wall_clinging = false;
         state.wall_climbing = false;
         state.buffer_jump = 0.0;
-        events.op_clusters(combo_trace, MovementOp::Footstool);
+        events.operations.push(MovementOp::Footstool);
     } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
@@ -356,6 +349,6 @@ pub fn handle_jump_buffer_clusters(
         state.wall_climbing = false;
         state.buffer_jump = 0.0;
         jump_state.air_jumps_available -= 1;
-        events.op_clusters(combo_trace, MovementOp::DoubleJump);
+        events.operations.push(MovementOp::DoubleJump);
     }
 }

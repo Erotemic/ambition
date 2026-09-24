@@ -41,6 +41,10 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_core::body_clusters::BodyLifeStats",
         "diagnostic counters: no sim system reads them, and a rewind that replays a restart counts it again",
     ),
+    (
+        "ambition_app::app::combo_trace::ComboTrace",
+        "HUD readout fed from the movement step's published ops; no sim system reads it, and replayed ticks are skipped",
+    ),
     // Presentation / observation: derived from sim facts, never authoritative.
     (
         "ambition_sim_view::",

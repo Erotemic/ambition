@@ -193,7 +193,6 @@ fn spawn_teleporting_body(app: &mut bevy::prelude::App, pos: ae::Vec2) -> bevy::
             ae::BodyOffense::default(),
             ae::BodyActionBuffer::default(),
             ae::BodyRestartLatch::default(),
-            ae::BodyComboTrace::default(),
         ))
         .insert((
             ae::movement::MotionModel::default(),

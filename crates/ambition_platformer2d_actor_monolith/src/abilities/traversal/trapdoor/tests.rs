@@ -86,7 +86,6 @@ fn app_with_body_in_posture(pos: ae::Vec2) -> (bevy::prelude::App, bevy::prelude
             ae::BodyOffense::default(),
             ae::BodyActionBuffer::default(),
             ae::BodyRestartLatch::default(),
-            ae::BodyComboTrace::default(),
         ))
         .insert((
             ae::movement::MotionModel::default(),

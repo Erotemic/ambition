@@ -131,6 +131,41 @@ impl HomeBodyResources {
     }
 }
 
+/// What the experience GRANTS and PERMITS its home body, over the verbs the worn
+/// character authors: `effective = (authored ∪ granted) ∩ permitted`, the rule
+/// a match applies to its seats ([`ambition_platformer2d_core::MatchAbilities`]).
+///
+/// This is where a progression verb such as Morph Ball comes from: the
+/// Ambition experience grants it to its home body, so the same character
+/// seated in another experience does not have it. The default grants nothing
+/// and permits everything — the character's own kit, unchanged. Read once, when
+/// setup builds the home body.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct HomeBodyAbilities(pub ambition_platformer2d_core::MatchAbilities);
+
+impl Default for HomeBodyAbilities {
+    fn default() -> Self {
+        Self(ambition_platformer2d_core::MatchAbilities::at_most(
+            ambition_platformer2d_core::AbilitySet::sandbox_all(),
+        ))
+    }
+}
+
+impl HomeBodyAbilities {
+    /// Grant `kit` on top of whatever the worn character authors.
+    pub const fn granting(kit: ambition_platformer2d_core::AbilitySet) -> Self {
+        Self(ambition_platformer2d_core::MatchAbilities {
+            granted: kit,
+            permitted: ambition_platformer2d_core::AbilitySet::sandbox_all(),
+        })
+    }
+
+    /// The home body's intrinsic set for a character that authors `authored`.
+    pub fn apply(&self, authored: ambition_platformer2d_core::AbilitySet) -> ambition_platformer2d_core::AbilitySet {
+        self.0.apply(Some(authored))
+    }
+}
+
 impl Default for InitialBodyPolicy {
     fn default() -> Self {
         Self::SpawnCharacter(StartingCharacter::default())

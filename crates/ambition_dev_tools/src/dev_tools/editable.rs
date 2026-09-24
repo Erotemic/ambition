@@ -40,6 +40,9 @@ pub struct EditableAbilitySet {
     /// World interaction (talk / open). A dev toggle over the same ability the
     /// character's grant list decides — see `AbilitySet::interact`.
     pub interact: bool,
+    pub crouch: bool,
+    pub climb: bool,
+    pub morph: bool,
 }
 
 impl EditableAbilitySet {
@@ -74,6 +77,9 @@ impl EditableAbilitySet {
             shield: self.shield,
             grab: self.grab,
             interact: self.interact,
+            crouch: self.crouch,
+            climb: self.climb,
+            morph: self.morph,
         }
     }
 }
@@ -87,8 +93,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
     /// struct.
     ///
     /// ⇒ Binding every field by name with no `..` makes that an E0027 here instead.
-    /// Measured 2026-09-06: both structs carry the same 29 fields today, so this is
-    /// prevention, not a repair.
+    /// Both structs carry the same fields, so this is prevention, not a repair.
     fn from(value: ae::AbilitySet) -> Self {
         let ae::AbilitySet {
             move_horizontal,
@@ -120,6 +125,9 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             shield,
             grab,
             interact,
+            crouch,
+            climb,
+            morph,
         } = value;
         Self {
             move_horizontal,
@@ -151,6 +159,9 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             shield,
             grab,
             interact,
+            crouch,
+            climb,
+            morph,
         }
     }
 }

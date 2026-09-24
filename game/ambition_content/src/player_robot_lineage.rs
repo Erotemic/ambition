@@ -183,6 +183,11 @@ fn definition_from(
             interact: true,
             fly: true,
             fly_toggle: true,
+            crouch: true,
+            climb: true,
+            // Morph Ball is NOT the robot's to author: the Ambition experience
+            // grants it to its home body, so the robot seated anywhere else
+            // (Versus, another game) does not curl.
             ..ambition_platformer2d_core::AbilitySet::NONE
         });
     // Character-owned ranged presentation.

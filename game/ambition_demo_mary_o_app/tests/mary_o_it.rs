@@ -38,6 +38,7 @@ mod two_rooms;
 mod weaker_form_refusal;
 mod an_attempt_and_its_powers;
 mod crouch_clearance_probe;
+mod morph_ball_is_not_hers;
 mod the_player_is_built_whole;
 mod one_tick_one_clock;
 mod a_pose_says_whose_geometry_it_carries;

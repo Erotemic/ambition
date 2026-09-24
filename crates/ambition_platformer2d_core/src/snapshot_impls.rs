@@ -43,6 +43,9 @@ impl SnapshotState for crate::AbilitySet {
         put_bool(out, self.shield);
         put_bool(out, self.grab);
         put_bool(out, self.interact);
+        put_bool(out, self.crouch);
+        put_bool(out, self.climb);
+        put_bool(out, self.morph);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -76,6 +79,9 @@ impl SnapshotState for crate::AbilitySet {
             shield: r.bool()?,
             grab: r.bool()?,
             interact: r.bool()?,
+            crouch: r.bool()?,
+            climb: r.bool()?,
+            morph: r.bool()?,
         })
     }
 }

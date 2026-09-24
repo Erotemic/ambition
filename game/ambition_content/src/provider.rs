@@ -56,6 +56,13 @@ impl AmbitionPreparedWorld {
                 ])
                 .expect("one declared pool is a valid layout"),
             )
+            // Morph Ball is this game's progression, granted to its home body;
+            // the character seated anywhere else does not curl.
+            .with_home_body_abilities(
+                ambition_platformer2d_runtime::demo_fixture::HomeBodyAbilities::granting(
+                    ambition_platformer2d::engine_core::AbilityGrant::MorphBall.to_set(),
+                ),
+            )
             .with_installed_ldtk_index(self.ldtk_index.clone())
         } else {
             PreparedPlatformerSource::for_match(

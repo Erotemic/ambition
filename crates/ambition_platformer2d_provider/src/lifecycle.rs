@@ -2264,6 +2264,7 @@ impl PlatformerSessionBuilder<'_, '_> {
         let room_set = live_world.room_set.clone();
         let initial_body = live_world.initial_body.clone();
         let home_body_resources = live_world.home_body_resources.clone();
+        let home_body_abilities = live_world.home_body_abilities;
         // ⛔ THE CANDIDATE'S OWN ROOT, spawned through the candidate ownership
         // context so it and everything built under it are hidden together.
         //
@@ -2346,6 +2347,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 tuning: &self.tuning,
                 initial_body: &initial_body,
                 home_body_resources: &home_body_resources,
+                home_body_abilities: &home_body_abilities,
                 prepared_characters: mechanical.characters.as_ref(),
                 placement_lowering: &self.placement_lowering,
                 content_staging: &self.content_staging,

@@ -31,6 +31,9 @@
         dodge: true,
         shield: true,
         interact: true,
+        crouch: true,
+        climb: true,
+        morph: true,
     ),
     tuning: (
         gravity: 2250.0,

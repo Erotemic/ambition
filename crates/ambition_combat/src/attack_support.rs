@@ -247,7 +247,7 @@ pub fn tick_body_melee_cooldowns(
     }
 }
 
-/// Tick every body's [`RangedRefire`] floor on simulation time.
+/// Tick every body's [`crate::components::RangedRefire`] floor on simulation time.
 pub fn tick_ranged_refire(
     world_time: Res<ambition_time::WorldTime>,
     mut bodies: Query<&mut crate::components::RangedRefire>,

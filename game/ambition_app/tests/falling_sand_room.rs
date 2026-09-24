@@ -152,12 +152,13 @@ fn the_sand_switch_pours_settles_and_becomes_persistent_ground() {
 /// The room kept its own spout copy and wrote the save from it after the
 /// switch drain had already toggled the same flag, and a presentation system
 /// forced the sprite's `SwitchOn` from that copy because the interaction had
-/// latched it on. Now the save is the one answer: the drain toggles it,
-/// `SwitchOn` projects it, and the spouts read it. A second press must turn
+/// latched it on. Now the save is the one answer: the drain toggles it, and
+/// the switch view and the spouts read it. A second press must turn
 /// all three OFF — a latch, or a double toggle, leaves one of them on.
 #[test]
 fn a_spout_switch_toggles_once_per_press_and_the_switch_shows_it() {
-    use ambition_platformer2d::encounter::switches::{SwitchFeature, SwitchOn};
+    use ambition_platformer2d::combat::components::FeatureId;
+    use ambition_platformer2d::encounter::switches::SwitchFeature;
 
     let mut sim = fixed_60hz_room_sim(ROOM_ID);
     for _ in 0..10 {
@@ -170,12 +171,17 @@ fn a_spout_switch_toggles_once_per_press_and_the_switch_shows_it() {
             .resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>()
             .data()
             .switch(SAND_SWITCH);
-        let shown = world
-            .query::<(&SwitchFeature, &SwitchOn)>()
+        let feature_id = world
+            .query::<(&SwitchFeature, &FeatureId)>()
             .iter(world)
             .find(|(feature, _)| feature.activation.id == SAND_SWITCH)
-            .map(|(_, on)| on.0)
+            .map(|(_, id)| id.0.clone())
             .expect("the authored sand switch exists");
+        let shown = world
+            .resource::<ambition_platformer2d::sim_view::FeatureViewIndex>()
+            .get(&feature_id)
+            .expect("the sand switch publishes a view")
+            .switch_on;
         (saved, shown)
     };
     assert_eq!(observe(&mut sim), (false, false), "the spout starts closed");

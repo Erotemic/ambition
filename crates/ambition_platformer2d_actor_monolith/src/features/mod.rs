@@ -134,7 +134,6 @@ pub use ecs::{
     route_boss_strikes_to_limbs, select_actor_targets, serve_encounter_spawn_commands,
     snapshot_body_contact, spawn_encounter_mob, spawn_projectiles_from_brain_actions,
     sync_boss_encounter_phase,
-    sync_ecs_switches_from_save,
     sync_encounter_reward_chests_ecs, tick_actor_brains, tick_and_despawn_hitboxes,
     tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks, tick_pending_challenges,
     trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests,
@@ -1445,7 +1444,6 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 open_ecs_chests,
                 update_ecs_breakables,
                 update_ecs_falling_chests,
-                sync_ecs_switches_from_save,
             )
                 .chain()
                 .in_set(FeatureInteractionSet::WorldObjects),

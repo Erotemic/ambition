@@ -693,6 +693,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 210 -> 211: `actor.ranged_refire` ENTERED and `BodyMelee` no longer
 /// encodes `ranged_cooldown`. The ranged fire-rate floor (invariant I3) is its
 /// own component, `RangedRefire`, not melee state.
+/// ⛔⛤ 211 -> 212: `feature.switch_on` LEFT.
+/// `SwitchOn` mirrored the save's switch map every tick and was spawned `false`
+/// until the first mirror; readers take the save by the activation id.
 /// ⛔⛤ 212 -> 213: `BodyCombat` encodes `struck_recently`, the gameplay
 /// recent-strike window bark dedup and chatter suppression read instead of the
 /// presentation flash; and `BossAnimFrame` lost its `Hit` drive phase (the sim

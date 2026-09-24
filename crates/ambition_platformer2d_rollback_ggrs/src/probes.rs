@@ -30,7 +30,7 @@ pub enum ProbeStrength {
     ///
     /// Mechanically distinguished (`size_of::<T>() == 0`) rather than listed, and
     /// that distinction carries most of the weight: a marker like `Collected`,
-    /// `PrimaryPlayer`, or `SwitchOn` has no state a value projection could examine,
+    /// or `PrimaryPlayer` has no state a value projection could examine,
     /// so a carrier count is not a weaker measurement of it — it is the measurement.
     /// Filing those under "presence-only, reason unstated" would have buried the
     /// handful of genuinely under-probed types in eighty-odd markers.

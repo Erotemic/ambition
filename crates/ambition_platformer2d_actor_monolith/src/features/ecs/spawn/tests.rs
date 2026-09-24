@@ -248,6 +248,51 @@ fn encounter_mob_brain_comes_from_its_characters_profile() {
     );
 }
 
+/// A wave mob is not a placement: its id is minted per run, so a death flag
+/// written under it is read by nothing and only grows the save.
+#[test]
+fn an_encounter_mob_persists_no_death() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
+    app.add_systems(
+        Update,
+        |mut commands: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >| {
+            spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &Default::default(),
+                &smash_fixture_cast(),
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "test_encounter",
+                ambition_encounter::mob_seed::EncounterMobSeed {
+                    id: "encounter:test_encounter:w0:1".to_string(),
+                    character: Some("fixture_striker"),
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "fixture_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    size: ae::Vec2::new(20.0, 30.0),
+                },
+            );
+        },
+    );
+    app.update();
+    let mut q = app
+        .world_mut()
+        .query::<(&ambition_combat::components::ActorIdentity, &ambition_combat::actor_tuning::ActorConfig)>();
+    let (identity, config) = q.iter(app.world()).next().expect("encounter mob exists");
+    assert_eq!(
+        crate::fate_flags::enemy_death_flag(config.tuning.respawn, &identity.id),
+        None,
+        "a wave mob's death writes a permanent save flag under a per-run id: {:?}",
+        config.tuning.respawn
+    );
+}
+
 /// A body-complete fixture character that declares a SMASH controller policy —
 /// the shape the deleted `medium_striker` row carried.
 fn smash_fixture_cast() -> ambition_characters::prepared::PreparedCharacterRegistry {

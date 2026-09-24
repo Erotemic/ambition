@@ -1,6 +1,6 @@
 use super::*;
 use ambition_combat::components::{CenteredAabb, FeatureId, FeatureName};
-use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, NextState, Update};
@@ -84,7 +84,6 @@ fn buffered_interact_toggles_an_adjacent_switch() {
                 action: "open".into(),
                 target_encounter: String::new(),
             }),
-            SwitchOn(false),
         ))
         .id();
 
@@ -169,7 +168,6 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
                 action: "open".into(),
                 target_encounter: String::new(),
             }),
-            SwitchOn(false),
         ))
         .id();
 
@@ -186,7 +184,6 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
                 action: "open".into(),
                 target_encounter: String::new(),
             }),
-            SwitchOn(false),
         ))
         .id();
 
@@ -460,7 +457,6 @@ fn spawn_switch(app: &mut App, id: &str, pos: ae::Vec2) -> Entity {
                 action: "open".into(),
                 target_encounter: String::new(),
             }),
-            SwitchOn(false),
         ))
         .id()
 }

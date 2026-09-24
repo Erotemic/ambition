@@ -157,9 +157,14 @@ fn calibrate_targets(sim: &mut Platformer2dSimHarness) -> OracleTargets {
     let switches: Vec<(String, bool)> = {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::encounter::switches::SwitchOn,
+            &ambition_platformer2d::encounter::switches::SwitchFeature,
         )>();
-        q.iter(world).map(|(id, on)| (id.0.clone(), on.0)).collect()
+        let rows: Vec<_> = q
+            .iter(world)
+            .map(|(id, switch)| (id.0.clone(), switch.activation.id.clone()))
+            .collect();
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data();
+        rows.into_iter().map(|(id, key)| (id, save.switch(&key))).collect()
     };
 
     let (brick, _, already_broken) = bricks
@@ -242,9 +247,13 @@ fn observe(
     {
         let mut q = world.query::<(
             &ambition_platformer2d::combat::components::FeatureId,
-            &ambition_platformer2d::encounter::switches::SwitchOn,
+            &ambition_platformer2d::encounter::switches::SwitchFeature,
         )>();
-        if q.iter(world).any(|(id, on)| id.0 == targets.switch && on.0) {
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data();
+        if q
+            .iter(world)
+            .any(|(id, switch)| id.0 == targets.switch && save.switch(&switch.activation.id))
+        {
             events.switch_flipped = true;
         }
     }

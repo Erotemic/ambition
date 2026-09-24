@@ -37,7 +37,7 @@ const PHASES: [FeatureInteractionSet; 7] = [
 
 /// Every system the phase schedules, and the phase it must belong to. Four
 /// domains: `conversation`, `features::ecs`, `features::npcs`, `encounter`.
-const MEMBERSHIP: [(&str, FeatureInteractionSet); 10] = [
+const MEMBERSHIP: [(&str, FeatureInteractionSet); 9] = [
     (
         "close_conversation_on_narrative_end",
         FeatureInteractionSet::NarrativeIntake,
@@ -62,10 +62,6 @@ const MEMBERSHIP: [(&str, FeatureInteractionSet); 10] = [
     ("update_ecs_breakables", FeatureInteractionSet::WorldObjects),
     (
         "update_ecs_falling_chests",
-        FeatureInteractionSet::WorldObjects,
-    ),
-    (
-        "sync_ecs_switches_from_save",
         FeatureInteractionSet::WorldObjects,
     ),
     (

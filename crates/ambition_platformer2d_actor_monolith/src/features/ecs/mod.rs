@@ -13,7 +13,7 @@
 //!   one cluster; bosses are their own);
 //! - `damage*` / `aggression` / `interact` — hit routing, provocation, and
 //!   player interactions;
-//! - `encounter_rewards` / `reset` / `save_sync` — reward chests, room reset,
+//! - `encounter_rewards` / `reset` — reward chests, room reset,
 //!   and save-state mirroring;
 //! - `view_index` / `anim_helpers` / `target_volumes` — per-frame read models
 //!   and overlays consumed by presentation, engine, and combat code.
@@ -66,7 +66,6 @@ mod fighter_harness;
 mod interact;
 pub mod perception;
 pub mod pickups;
-mod save_sync;
 pub(crate) mod spawn;
 mod summon;
 pub mod spawn_static;
@@ -143,7 +142,6 @@ pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize,
 };
-pub use save_sync::sync_ecs_switches_from_save;
 pub use spawn::{
     serve_encounter_spawn_commands, spawn_encounter_mob,
     ActorConstructionContext,

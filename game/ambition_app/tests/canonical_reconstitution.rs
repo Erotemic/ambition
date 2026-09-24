@@ -209,12 +209,16 @@ fn census(sim: &mut Platformer2dSimHarness) -> Census {
     {
         let mut q = sim.world_mut().query::<(
             &SimId,
-            &ambition_platformer2d::encounter::switches::SwitchOn,
+            &ambition_platformer2d::encounter::switches::SwitchFeature,
         )>();
         let world = sim.world();
+        let save = world.resource::<ambition_platformer2d::persistence::save::AmbitionGameSave>().data();
         let rows: Vec<_> = q
             .iter(world)
-            .map(|(id, on)| (id.as_str().to_string(), format!("switch_on={}", on.0)))
+            .map(|(id, switch)| {
+                let on = save.switch(&switch.activation.id);
+                (id.as_str().to_string(), format!("switch_on={on}"))
+            })
             .collect();
         for (id, fact) in rows {
             if let Some(facts) = out.get_mut(&id) {
@@ -378,8 +382,9 @@ fn player_pos(sim: &mut Platformer2dSimHarness) -> Vec2 {
 }
 
 /// Disturb the room the way a failed attempt does: break what breaks, hurt what
-/// can be hurt, flip what flips, collect what can be collected, and move the
-/// body off spawn. Returns the number of facts it actually changed.
+/// can be hurt, collect what can be collected, and move the body off spawn.
+/// Returns the number of facts it actually changed. Switches are not flipped: a
+/// switch's state is saved progress, which a replay keeps.
 ///
 /// ⭐ It mutates the world DIRECTLY rather than playing the game, because the
 /// question is what a rebuild restores, not whether a fight is winnable. Every
@@ -414,17 +419,6 @@ fn disturb_the_room(sim: &mut Platformer2dSimHarness) -> usize {
             let hp = breakable.breakable.health.max;
             // Fixture setup: the break itself is the point, not its consequences.
             let _broke = breakable.breakable.apply_damage(hp);
-            changed += 1;
-        }
-    }
-    // Flip every switch.
-    {
-        let mut q = sim
-            .world_mut()
-            .query::<&mut ambition_platformer2d::encounter::switches::SwitchOn>();
-        let world = sim.world_mut();
-        for mut on in q.iter_mut(world) {
-            on.0 = true;
             changed += 1;
         }
     }

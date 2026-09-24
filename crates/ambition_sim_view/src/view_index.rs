@@ -20,7 +20,7 @@ use ambition_combat::components::Collected;
 use ambition_combat::components::FeatureId;
 use ambition_combat::components::Opened;
 use ambition_combat::components::PickupFeature;
-use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_encounter::switches::SwitchFeature;
 use ambition_combat::hazard_runtime::HazardFeature;
 use ambition_platformer2d_core::ActorSurfaceState;
 use ambition_platformer2d_core::CenteredAabb;
@@ -259,7 +259,8 @@ pub fn rebuild_feature_view_index(
     pickups: Query<(&FeatureId, &CenteredAabb, Option<&Collected>), With<PickupFeature>>,
     chests: Query<(&FeatureId, &CenteredAabb, Option<&Opened>), With<ChestFeature>>,
     breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature)>,
-    switches: Query<(&FeatureId, &CenteredAabb, &SwitchOn), With<SwitchFeature>>,
+    save: Res<ambition_persistence::save::AmbitionGameSave>,
+    switches: Query<(&FeatureId, &CenteredAabb, &SwitchFeature)>,
     actors: Query<
         (
             &FeatureId,
@@ -420,7 +421,7 @@ pub fn rebuild_feature_view_index(
             },
         );
     }
-    for (id, aabb, switch_on) in &switches {
+    for (id, aabb, switch) in &switches {
         index.insert_if_absent(
             id.as_str(),
             FeatureView {
@@ -436,7 +437,7 @@ pub fn rebuild_feature_view_index(
                 breakable_state: None,
                 chest_opened: false,
                 fighting: false,
-                switch_on: switch_on.0,
+                switch_on: save.data().switch(&switch.activation.id),
                 rotation_rad: 0.0,
                 alive: true,
                 hit_flash_secs: 0.0,
@@ -1109,6 +1110,7 @@ mod view_index_tests {
                 ActorDisposition::Hostile,
                 shield,
             ));
+            app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
             app.add_systems(bevy::prelude::Update, rebuild_feature_view_index);
             app.update();
             app.world()

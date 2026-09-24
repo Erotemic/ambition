@@ -68,7 +68,7 @@ use ambition_combat::components::{
     ActorAggression, BossDeathAnimation, BossPhase, CenteredAabb,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
 };
-use ambition_encounter::switches::{SwitchFeature, SwitchOn};
+use ambition_encounter::switches::SwitchFeature;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -2012,7 +2012,6 @@ pub fn spawn_interactable_into(
                     FeatureName::new(authored_name.to_string()),
                     feature_aabb,
                     SwitchFeature::new(activation),
-                    SwitchOn(false),
             ));
         } else {
             bevy::log::error!(
@@ -2098,7 +2097,7 @@ pub fn spawn_encounter_mob(
     // Nothing failed, because a fallback IS a body.
     //
     //  AC6 removed the fallback rather than the silence.
-    let enemy = match definition {
+    let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
                 authored_sheets,
@@ -2135,6 +2134,10 @@ pub fn spawn_encounter_mob(
     ) {
         return;
     }
+    // A wave mob is not a placement: its id is minted per run, so a persisted
+    // death would be a save flag nothing reads. As for summons, `OnRoomReenter`
+    // is the policy that keeps no record.
+    enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
     // Read before the seed is moved into the plan: the geometry this body was
     // BUILT from, so the components it is spawned with come from that one

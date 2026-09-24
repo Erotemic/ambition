@@ -166,7 +166,7 @@ derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick
 derived.encounter_progress	derived	EncounterProgress	recomputed from lifecycle and participant health every tick
-derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature + SwitchOn components each frame
+derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature and the save's switch map each frame
 derived.encounter_view	derived	EncounterView	presentation-intent read model republished each tick
 derived.feature_ecs_world_overlay	derived	FeatureEcsWorldOverlay	collision contributions rebuilt from ECS feature state every tick
 derived.force_zones	derived	ForceZones	per-tick zone snapshot rebuilt by collect_force_zones
@@ -252,7 +252,6 @@ feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone sn
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; not in the session checksum
-feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.oscillating_zone	component-clone	OscillatingZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.temporary_zone	component-clone	TemporaryZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.zone	component-clone	GravityZone	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

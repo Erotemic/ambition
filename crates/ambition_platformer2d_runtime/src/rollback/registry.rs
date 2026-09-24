@@ -725,6 +725,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// empty custody relation when the composition had no lifecycle horizon, so
 /// "not participating" hashed as "nothing ever occurred". It now pins `None`,
 /// as the item half does, and the tag byte is peer-visible.
+/// ⛔⛤ 219 -> 220: `AttackSpec` (inside `actor.body_melee`'s swing) no longer
+/// encodes `damage_kind`, `can_pogo` or `damage_override`. All three were
+/// written and snapshotted and read by nothing; the damage a swing deals is the
+/// moveset's.
 /// ⛔⛤ 220 -> 221: `resource.gravity_field` is DERIVED, not canonical. It
 /// mirrors the primary body's resolved frame, and its sim readers (the
 /// zone-less `GravityCtx` arm, the posed-body resize, the pose view's facing

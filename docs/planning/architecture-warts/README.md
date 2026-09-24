@@ -29,7 +29,7 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W011, W012, W022 and W023 on 2026-09-24. The remaining rows it owns carry their AP number there.
+Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W010, W011, W012, W021, W022 and W023 on 2026-09-24. The remaining rows it owns carry their AP number there.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
@@ -41,9 +41,7 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 | W007 | CONFIRMED | Smash AI | `DifficultyProfile::mash_speed_hz` is authored and documented as a downstream cooldown input, but no production consumer exists. | Wire it to an explicit mechanic or delete it from difficulty and character authoring. |
 | W008 | CONFIRMED | Smash observation | `CrowdingSignal` supports `other_faction_count`, and `compute_pressure` has behavior for it, but the shipped crowd producer always writes `other_faction_count: 0`. | Either observe other factions or delete the unreachable branch and field. |
 | W009 | CONFIRMED | combat damage | `BodyOffense::damage_multiplier` is mandatory body state and rollback state. Outside developer editing, gameplay does not read the value. Hitbox completeness still uses `With<BodyOffense>` as part of the victim shape. | Identify the real damage authority, remove the dead value if it has no owner, and use an explicit damageable/victim capability instead of offense presence. |
-| W010 | CONFIRMED | combat attack spec | `AttackSpec::damage_kind`, `can_pogo`, and `damage_override` are authored, copied, tested, and snapshotted, but production gameplay does not read them. The `damage_override` comment still promises a fallback to `BodyOffense::damage_multiplier`. | Restore the intended semantics or delete the dead fields and their snapshot surface. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
-| W021 | CONFIRMED | encounter music | `EncounterMusicRequest::last_applied` is written by the music-intent adapter for diagnostics/tests. Its accessor has no production caller, but the field lives inside gameplay encounter state. | Delete the field if transition detection does not need it, or move adapter history to presentation/audio state. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
 | W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyOffense` part of what structurally counts as a complete body. (Mana left the shape 2026-09-23: it is a declared resource in the optional bank. The `BodyLifetime` diagnostics and `BodyComboTrace` left it 2026-09-24; the restart latch that stays is a mechanical fact.) | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
 

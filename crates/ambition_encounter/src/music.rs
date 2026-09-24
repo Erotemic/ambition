@@ -48,7 +48,8 @@
 //! component and it is the largest multi-writer population in the session-world
 //! census. MEASURED with comments stripped before the change: six of the nine
 //! touched `claim_priority`/`release_priority` and NOTHING else, one wrote only
-//! the base tier, one wrote only `last_applied`, and one is the session reset
+//! the base tier, one wrote only `last_applied` (the presentation adapter's
+//! mirror, which nothing read; deleted 2026-09-24), and one is the session reset
 //! clearing it at a boundary — a perfect separation held entirely by convention
 //! over `pub` fields. ⚠ THIS SAID EIGHT UNTIL 2026-09-18 and the number was a
 //! receipt from a blind instrument: the reset writes through
@@ -61,8 +62,7 @@ use bevy::prelude::Component;
 
 /// Music request from the encounter layer to the audio backend. Each source
 /// writes its OWN priority tier; the music-intent adapter reads
-/// [`Self::desired_track`] (priority beats base) and mirrors the winner into
-/// [`Self::last_applied`].
+/// [`Self::desired_track`] (priority beats base) and writes nothing back.
 #[derive(Component, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
     /// Higher-priority encounter track (a focused fight — e.g. a boss).
@@ -75,9 +75,6 @@ pub struct EncounterMusicRequest {
     /// Who claimed [`Self::priority_track`], so a source can release only its
     /// own claim without cancelling another writer's higher-priority request.
     priority_owner: Option<&'static str>,
-    /// The track id last applied by the music-intent adapter, so it can detect
-    /// transitions (None ↔ Some(other) ↔ Some(other2)) and for tests.
-    last_applied: Option<String>,
 }
 
 impl EncounterMusicRequest {
@@ -128,15 +125,5 @@ impl EncounterMusicRequest {
 
     pub fn base_track(&self) -> Option<&str> {
         self.base_track.as_deref()
-    }
-
-    /// The music-intent adapter's mirror of the winner it actually applied.
-    /// Diagnostics and transition detection read it; nothing else writes it.
-    pub fn mark_applied(&mut self, track: Option<String>) {
-        self.last_applied = track;
-    }
-
-    pub fn last_applied(&self) -> Option<&str> {
-        self.last_applied.as_deref()
     }
 }

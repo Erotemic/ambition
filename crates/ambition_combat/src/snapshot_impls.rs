@@ -413,36 +413,6 @@ fn read_attack_intent(r: &mut Reader<'_>) -> Option<crate::AttackIntent> {
     }
 }
 
-fn put_damage_kind(out: &mut Vec<u8>, kind: crate::DamageKind) {
-    use crate::DamageKind;
-    put_u8(
-        out,
-        match kind {
-            DamageKind::Slash => 0,
-            DamageKind::Pogo => 1,
-            DamageKind::Contact => 2,
-            DamageKind::Hazard => 3,
-            DamageKind::Projectile => 4,
-            DamageKind::Environmental => 5,
-            DamageKind::Custom => 6,
-        },
-    );
-}
-
-fn read_damage_kind(r: &mut Reader<'_>) -> Option<crate::DamageKind> {
-    use crate::DamageKind;
-    match r.u8()? {
-        0 => Some(DamageKind::Slash),
-        1 => Some(DamageKind::Pogo),
-        2 => Some(DamageKind::Contact),
-        3 => Some(DamageKind::Hazard),
-        4 => Some(DamageKind::Projectile),
-        5 => Some(DamageKind::Environmental),
-        6 => Some(DamageKind::Custom),
-        _ => None,
-    }
-}
-
 fn put_attack_spec(out: &mut Vec<u8>, spec: crate::AttackSpec) {
     put_attack_intent(out, spec.intent);
     put_f32(out, spec.startup_seconds);
@@ -452,15 +422,6 @@ fn put_attack_spec(out: &mut Vec<u8>, spec: crate::AttackSpec) {
     put_vec2(out, spec.hitbox_half_size);
     put_vec2(out, spec.self_impulse);
     put_vec2(out, spec.knockback);
-    put_damage_kind(out, spec.damage_kind);
-    put_bool(out, spec.can_pogo);
-    match spec.damage_override {
-        Some(value) => {
-            put_bool(out, true);
-            put_i32(out, value);
-        }
-        None => put_bool(out, false),
-    }
 }
 
 fn read_attack_spec(r: &mut Reader<'_>) -> Option<crate::AttackSpec> {
@@ -473,9 +434,6 @@ fn read_attack_spec(r: &mut Reader<'_>) -> Option<crate::AttackSpec> {
         hitbox_half_size: r.vec2()?,
         self_impulse: r.vec2()?,
         knockback: r.vec2()?,
-        damage_kind: read_damage_kind(r)?,
-        can_pogo: r.bool()?,
-        damage_override: if r.bool()? { Some(r.i32()?) } else { None },
     })
 }
 

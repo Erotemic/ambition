@@ -56,7 +56,7 @@ pub fn compute_music_intent(
     catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
     encounters: Query<(&Encounter, &EncounterLifecycle, &EncounterWaves)>,
-    mut encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldMut<
+    encounter_music: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         EncounterMusicRequest,
     >,
     rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
@@ -89,13 +89,6 @@ pub fn compute_music_intent(
         &audio_selection,
         &encounter_music,
     );
-
-    // Mirror the resolved priority winner back into the request resource's
-    // `last_applied` for diagnostics and tests. The director itself never
-    // touches this gameplay resource.
-    if let Some(top) = candidates.first().cloned() {
-        encounter_music.mark_applied(Some(top));
-    }
 
     intent.provider_id = audio_selection.provider_id().map(str::to_owned);
     intent.adaptive = adaptive;

@@ -354,3 +354,140 @@ fn cross_into_a_cached_neighbour(as_checkpoint_restore: bool) -> bool {
     )
 }
 
+
+/// ⛔ **A CHECKPOINT RESTORE WITH NO LIFECYCLE HALF LEAVES THE LIVE LEDGER IN
+/// CHARGE OF THE ROOM IT REBUILDS.**
+///
+/// The occurrence ledger belongs to the held-item domain and exists without the
+/// lifecycle horizon, so a restore that pinned `lifecycle: None` did not rewind
+/// it. Room preparation once built such a restore's room from NO ledger, and an
+/// authored occurrence the live ledger said was lying in another room was built
+/// again in its authoring room: one identity, two places.
+///
+/// Two arms, one crossing each. Without the relocation the room's own ground
+/// item is built, which proves the room authors it. With the relocation it is
+/// not built.
+#[test]
+fn a_restore_with_no_lifecycle_half_rebuilds_its_room_from_the_live_ledger() {
+    assert!(
+        rebuilt_room_holds_its_ground_item(false),
+        "the target room did not build its own ground item on an ordinary \
+         checkpoint crossing, so the relocated arm below proves nothing",
+    );
+    assert!(
+        !rebuilt_room_holds_its_ground_item(true),
+        "the live ledger puts this ground item in another room, and a checkpoint \
+         restore that pinned no lifecycle half built it again in its authoring \
+         room: room preparation read no ledger instead of the live one",
+    );
+}
+
+/// Cross into a room that authors a ground item, as a checkpoint restore whose
+/// lifecycle half is `None`. With `relocated`, the LIVE ledger first says the
+/// item lies in another room. Answers whether the rebuilt room holds the item.
+fn rebuilt_room_holds_its_ground_item(relocated: bool) -> bool {
+    use ambition_platformer2d::actors::session::checkpoint::{
+        AcceptedCheckpointRestore, AcceptedRestore, SessionCheckpointOperations,
+    };
+    use ambition_platformer2d::actors::session::lifecycle_commit::{
+        LifecycleIntent, PendingLifecycleCommit, RoomTransitionIntent,
+    };
+    use ambition_platformer2d::platformer::lifecycle::{AuthoredOccurrences, OccurrenceWhereabouts};
+    use ambition_platformer2d::platformer::sim_id::SimId;
+    use ambition_platformer2d::runtime::room_transition::RoomTransitionLoadState;
+
+    let mut app = gameplay_after_startup();
+    let (target, elsewhere, item) = {
+        let room_set = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .expect("a direct-gameplay session installs one live room set");
+        let active = room_set.active_spec().id.clone();
+        let room = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id != active && !room.ground_items.is_empty())
+            .expect("no room other than the starting room authors a ground item");
+        (
+            room.id.clone(),
+            active,
+            SimId::placement(&room.ground_items[0].id),
+        )
+    };
+
+    if relocated {
+        let mut ledger = app.world_mut().resource_mut::<AuthoredOccurrences>();
+        let mut rows: std::collections::BTreeMap<_, _> = ledger
+            .rows()
+            .map(|(id, whereabouts)| (id.clone(), whereabouts.clone()))
+            .collect();
+        rows.insert(
+            item.clone(),
+            OccurrenceWhereabouts::Placed {
+                room: elsewhere,
+                at: ambition_platformer2d::engine_core::Vec2::ZERO,
+            },
+        );
+        ledger.adopt_rows(rows);
+    }
+
+    let subject = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<&SimId, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.single(world).expect("one primary player").clone()
+    };
+    let intent = LifecycleIntent::Transition(RoomTransitionIntent {
+        subject,
+        target_room: target.clone(),
+        arrival: ambition_platformer2d::engine_core::Vec2::ZERO,
+        edge_exit: false,
+        zone_sfx: None,
+    });
+    {
+        let world = app.world_mut();
+        let scope = world
+            .get_resource::<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>()
+            .and_then(|scope| scope.current());
+        let key = world
+            .resource_mut::<SessionCheckpointOperations>()
+            .admit(scope)
+            .expect("a live session can still mint an operation key");
+        world
+            .resource_mut::<AcceptedCheckpointRestore>()
+            .accept(AcceptedRestore {
+                key,
+                frame: 0,
+                intent: intent.clone(),
+                lifecycle: None,
+                item: None,
+            });
+    }
+    assert!(
+        app.world_mut()
+            .resource_mut::<PendingLifecycleCommit>()
+            .record(0, intent)
+            .admitted(),
+        "the lifecycle slot refused the staged crossing, so no transaction opens"
+    );
+
+    let mut opened = false;
+    for _ in 0..240 {
+        app.update();
+        let loading = app
+            .world()
+            .resource::<RoomTransitionLoadState>()
+            .active
+            .is_some();
+        opened |= loading;
+        let arrived = ambition_platformer2d::platformer::lifecycle::session_world_component::<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >(app.world())
+        .is_some_and(|rooms| rooms.active_spec().id == target);
+        if opened && arrived && !loading {
+            let world = app.world_mut();
+            let mut ids = world.query::<&SimId>();
+            return ids.iter(world).any(|id| *id == item);
+        }
+    }
+    panic!("the checkpoint crossing into '{target}' did not complete in 240 frames");
+}

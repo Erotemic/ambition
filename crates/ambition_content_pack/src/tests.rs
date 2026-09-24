@@ -817,16 +817,12 @@ fn a_runtime_schema_that_lowers_nothing_is_refused() {
     );
 }
 
-///  Two sources lowering one schema is REFUSED, never last-wins — unless
-/// the schema has SAID how they combine.
+/// Two sources lowering one schema are refused, not last-wins, unless the
+/// schema defines how they combine. Otherwise the content index knows both
+/// sources while the runtime artifact holds only the last.
 ///
-/// Silently overwriting means the content INDEX knows about both sources while
-/// the runtime artifact holds only the last — validation and the running game
-/// seeing different content. Only the HANDLER knows whether two of its artifacts
-/// union, override or conflict, so a generic merge here would be the compiler
-/// guessing.
-///
-/// `habitat` never said, so it is still refused; the refusal now names BOTH
+/// `habitat` defines no combination, so it is refused. The refusal names both
+/// files.
 /// files, because "which two" is the first thing a reader asks.
 #[test]
 fn two_sources_lowering_one_schema_is_refused_rather_than_silently_last_wins() {

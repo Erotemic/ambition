@@ -9,9 +9,8 @@ use std::sync::Arc;
 
 /// A schema that defines one row per source and lowers its text verbatim.
 ///
-/// ⛔ IT DEFINES AS WELL AS LOWERING. A schema whose authored values reach the
-/// game without reaching the pack's IDENTITY is exactly the thing every arm here
-/// would then be blind to, and this crate's lower-must-define rule refuses it.
+/// It defines as well as lowers; the lower-must-define rule refuses a schema
+/// whose values reach the game but not the pack's identity.
 struct EchoSchema {
     name: &'static str,
 }
@@ -56,9 +55,8 @@ fn registry() -> SchemaRegistry {
 
 /// Two sections, so a test can change ONE and ask what the whole says.
 ///
-/// ⛔ TWO IS THE MINIMUM THAT CAN EXPRESS THE DEFECT. A one-section pack makes
-/// "the section changed" and "the pack changed" the same statement, so every arm
-/// below would pass against exactly the reasoning this module exists to refuse.
+/// Two is the minimum: with one section, "the section changed" and "the pack
+/// changed" mean the same thing.
 fn pack_of(alpha: &str, beta: &str) -> Arc<PreparedContentPack> {
     let draft = ContentPackDraft::from_sources(
         ContentPackManifest {
@@ -113,8 +111,7 @@ const A2: &str = "alpha-two";
 const B: &str = "beta-one";
 const B2: &str = "beta-two";
 
-/// ⭐ THE PREMISE. Without it every arm below compares two packs that are the
-/// same pack, and "changing a section changes the identity" is vacuous.
+/// Premise: changing a section changes the identity.
 #[test]
 fn changing_either_section_changes_the_whole_packs_fingerprint() {
     let base = pack_of(A, B).fingerprint;
@@ -123,10 +120,8 @@ fn changing_either_section_changes_the_whole_packs_fingerprint() {
     assert_eq!(base, pack_of(A, B).fingerprint, "it is not deterministic");
 }
 
-/// ⛔⛔ **THE DEFECT THIS MODULE EXISTS FOR.** One family's section is identical
-/// and another's is not; the verdict must be `Publish`, because the WHOLE pack
-/// changed. Inferring "unchanged" from the family that triggered the reload is
-/// what let a candidate be selected while a subsystem believed nothing moved.
+/// One family's section is identical and another's is not. The verdict is
+/// `Publish`, because the whole pack changed.
 #[test]
 fn an_identical_section_does_not_make_a_changed_pack_a_no_op() {
     let live = pack_of(A, B);
@@ -145,7 +140,7 @@ fn an_identical_section_does_not_make_a_changed_pack_a_no_op() {
     );
 }
 
-/// ⛔ A COMPLETE no-op: every section identical.
+/// A complete no-op: every section identical.
 #[test]
 fn a_mechanically_identical_candidate_is_a_complete_no_op() {
     let live = pack_of(A, B);
@@ -158,10 +153,8 @@ fn a_mechanically_identical_candidate_is_a_complete_no_op() {
     );
 }
 
-/// ⛔ STALENESS IS ASKED FIRST, and this is the arm that proves the ORDER rather
-/// than the rule. The candidate is mechanically identical to what is live, and
-/// it is still refused — because the base it was prepared against is gone, so
-/// the caller's premise is false even though its bytes happen to match.
+/// Staleness is checked first: a candidate identical to what is live is still
+/// refused when its base is gone.
 #[test]
 fn a_stale_candidate_is_refused_even_when_it_is_mechanically_identical() {
     let older = pack_of(A2, B2);
@@ -177,9 +170,8 @@ fn a_stale_candidate_is_refused_even_when_it_is_mechanically_identical() {
     );
 }
 
-/// ⚠ `None` IS "NO CLAIM", not "against nothing". A caller that compiled and
-/// published without yielding has nothing to be stale against, and treating a
-/// missing base as a mismatch would refuse every such reload.
+/// `None` means "no claim", not "against nothing". Treating it as a mismatch
+/// would refuse every reload that did not yield.
 #[test]
 fn a_candidate_that_makes_no_base_claim_is_not_stale() {
     let live = pack_of(A, B);
@@ -190,7 +182,7 @@ fn a_candidate_that_makes_no_base_claim_is_not_stale() {
     ));
 }
 
-/// ⚠ AND A HOST THAT HAS SELECTED NOTHING IS A FIRST PUBLICATION, not a no-op.
+/// A host that has selected nothing gets a first publication, not a no-op.
 #[test]
 fn a_candidate_against_no_active_generation_publishes() {
     let candidate = CandidateGeneration::prepared_against(pack_of(A, B), None);
@@ -200,8 +192,8 @@ fn a_candidate_against_no_active_generation_publishes() {
     ));
 }
 
-/// ⭐ THE PREMISE FOR EVERY DOMAIN ARM: editing one family's source moves ONLY
-/// that family.
+/// Premise for the domain tests: editing one family's source moves only that
+/// family.
 #[test]
 fn editing_one_domain_changes_only_that_domain() {
     let base = pack_of(A, B);
@@ -218,15 +210,13 @@ fn editing_one_domain_changes_only_that_domain() {
     );
 }
 
-/// ⛔ AND AN IDENTICAL PACK CHANGES NO DOMAIN — without this, "only that domain"
-/// is satisfied by a diff that reports everything.
+/// An identical pack changes no domain.
 #[test]
 fn an_identical_pack_changes_no_domain() {
     assert!(changed_domains(&pack_of(A, B), &pack_of(A, B)).is_empty());
 }
 
-/// ⛔ BOTH AT ONCE, because a diff that stopped at the first difference would
-/// pass both arms above and refuse for the wrong reason.
+/// Both changes at once: the diff must not stop at the first difference.
 #[test]
 fn editing_two_domains_reports_both() {
     let changed = changed_domains(&pack_of(A, B), &pack_of(A2, B2));
@@ -236,16 +226,11 @@ fn editing_two_domains_reports_both() {
     );
 }
 
-/// ⛔⛤ **A DOMAIN PRESENT IN ONE PACK AND ABSENT FROM THE OTHER IS CHANGED, AND
-/// A POISON FOUND THAT NOTHING CHECKED IT.** Dropping `.chain(candidate.keys())`
-/// — so only domains the BASE declares are compared — left every arm in this
-/// file and every arm in `ambition_content` green. Adding or removing a whole
-/// family is the LARGEST change a pack can make, and a diff that compares only
-/// shared keys reports it as nothing.
+/// A domain present in only one pack counts as changed. This test guards
+/// `.chain(candidate.keys())` in `changed_domains`.
 ///
-/// ⚠ Both directions, because the two are different bugs: iterating only the
-/// base misses an ADDED family, iterating only the candidate misses a REMOVED
-/// one, and either alone passes half of this.
+/// Test both directions: iterating only the base misses an added family, and
+/// iterating only the candidate misses a removed one.
 #[test]
 fn a_domain_added_or_removed_is_a_changed_domain() {
     let two = pack_of(A, B);

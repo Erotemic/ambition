@@ -29,12 +29,11 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W010, W011, W012, W021, W022 and W023 on 2026-09-24. The remaining rows it owns carry their AP number there.
+Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W010, W011, W012, W021, W022 and W023 on 2026-09-24. W003 closed 2026-09-24 by deletion: the four fields left the schema and the nine shipped files; no intrinsic trigger enters `BossEncounterPhase::Stagger` (reachable only through `extra_phase_triggers`, which no shipped boss authors). The remaining rows it owns carry their AP number there.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
 | W002 | CONFIRMED | boss behavior | `BossPatternCfg::self_dodge_amp` and `self_dodge_freq` are authored for GNU-ton, but the active self-dodge branch in `ambition_boss_encounter::pattern::tick` only reads `movement_timer` and applies no movement. | Implement the advertised dodge or delete the authoring fields and content value. Add a behavior witness. |
-| W003 | CONFIRMED | boss encounter schema | `transition_to_phase2_hp`, `stagger_seconds`, `stagger_threshold`, and `stagger_window_seconds` are authored in all shipped boss encounter RON files, but production Rust has no consumer for the four values. | Implement the encounter semantics or delete the fields from the schema and shipped data. |
 | W004 | CONFIRMED | melee authoring | `LungeSpec::step_px` and `SlamSpec::hop_height_px` are authored fields, but `MeleeActionSpec::timeline` explicitly drops them when it builds the current moveset path. | Carry the self-motion data into the move runtime or delete the unsupported controls. |
 | W005 | CONFIRMED | interaction | `ActorInteraction::talk_radius` is populated by spawn roads and described as the range that stops a patrol for dialogue, but production code has no field read. | Either make interaction or patrol logic consume the range, or delete it and state the real geometry rule. |
 | W006 | CONFIRMED | Smash AI | `SmashCfg::aerial_foray_cadence_s`, `aerial_foray_duration_s`, and `SmashState::foray_timer` describe proactive flight behavior, but production code does not read the two settings or operate the timer. | Implement the advertised hybrid-flyer cadence or remove the dormant API/state. |
@@ -56,14 +55,6 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 `crates/ambition_boss_encounter/src/pattern/tick.rs`, the active branch only
 executes `let _ = state.movement_timer;`. It does not use the frequency and does
 not change the target or body motion.
-
-### W003 — boss encounter controls have no runtime customer
-
-`BossEncounterSpec` declares the four fields and the shipped boss encounter RON
-files provide values for them. At this verified commit, production Rust references
-for these names are limited to schema/default/test construction. Phase trigger
-construction uses `phase1_to_transition_hp`, `transition_seconds`, and
-`phase2_to_enrage_hp`, not `transition_to_phase2_hp` or the stagger fields.
 
 ### W009 and W010 — the old offense/damage vocabulary is still in the type system
 

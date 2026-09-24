@@ -1,33 +1,21 @@
-//! Seat a real smash match, press up-B, and let the ENGINE'S OWN LOG say what
+//! Seat a real smash match, press up-B, and let the engine's own log say what
 //! happened.
 //!
-//! ⛔⛔ THE INSTRUMENT THAT DID NOT EXIST, and its absence cost a day. The
-//! integration suite can seat a match and drive a press, but `build_visible_app`
-//! drops `LogPlugin` from every windowless mode — *"tests build several Apps per
-//! process; the tracing subscriber is process-global"* — so every diagnostic the
-//! engine emits is invisible there. Meanwhile `capture_scene`, which DOES keep
-//! the log, cannot seat anybody: its own notes record `--route smash_gameplay`
-//! photographing an empty stage.
-//!
-//! So a real bug lived in the gap: the suite could reach the behaviour and not
-//! see the log; the capture could see the log and not reach the behaviour. Four
-//! wrong hypotheses were argued across that gap before a player's log settled it.
-//!
-//! ⭐ THIS BINARY IS THE OVERLAP. One App, so the process-global subscriber is
-//! safe — the same reasoning `capture_scene` already writes down — plus the
-//! demo's own roster builder and a driven control frame.
+//! The integration suite can seat a match and drive a press, but
+//! `build_visible_app` drops `LogPlugin` from windowless modes (tests build
+//! several Apps per process, and the tracing subscriber is process-global),
+//! so engine diagnostics are invisible there. `capture_scene` keeps the log
+//! but cannot seat anybody. This binary does both: one App (so the global
+//! subscriber is safe), the demo's roster builder, and a driven control frame.
 
 use bevy::prelude::*;
 
 fn main() {
-    // ⛔ THE LOG PLUGIN GOES IN THE COMPOSE HOOK, NOT AFTER. A `NoWindow` build
-    // finishes and cleans up its plugins before returning (so `Plugin::finish`
-    // runs, which `App::update()` never does), and Bevy 0.19 PANICS on
-    // `add_plugins` after that: "Plugins cannot be added after App::cleanup()
-    // or App::finish() has been called." This binary did exactly that and died
-    // on its third line.
-    // ⭐ ONE APP, ONE PROCESS: the exact condition that makes a global tracing
-    // subscriber safe here and unsafe in the test binary.
+    // Add the log plugin in the compose hook. A `NoWindow` build finishes and
+    // cleans up its plugins before returning, and Bevy 0.19 panics on
+    // `add_plugins` after that ("Plugins cannot be added after
+    // App::cleanup() or App::finish() has been called"). One App, one
+    // process, so the global subscriber is safe.
     let mut app = ambition_app::app::build_visible_app_with(
         ambition_app::app::VisibleRenderMode::NoWindow,
         true,
@@ -50,11 +38,10 @@ fn main() {
                 ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
             ),
         ));
-    // ⛔⛔ WAIT FOR THE ROUND, NOT FOR A NUMBER. 240 was a count a little longer
-    // than the 3-second opening ceremony, so it silently encoded the ceremony's
-    // LENGTH — and D248's dev mode runs that ceremony 10x fast, which has now
-    // broken four fixture families the same way. The condition is observable: a
-    // cast exists, and nothing in it is still held by `ControlHolds`.
+    // Wait for the round, not for a frame count. A count encodes the
+    // ceremony's length, and dev mode (D248) runs it 10x fast. The condition
+    // is observable: a cast exists, and nothing in it is held by
+    // `ControlHolds`.
     {
         let mut live = false;
         for _ in 0..900 {
@@ -77,8 +64,8 @@ fn main() {
         assert!(live, "the opening ceremony never released the cast");
     }
 
-    // ⛔ ONE press FRAME, then HELD. `special_pressed` is a rising EDGE: holding
-    // it true would be a press every tick.
+    // One press frame, then held. `special_pressed` is a rising edge; holding
+    // it true would press every tick.
     let up_special = ambition_platformer2d::engine_core::ControlFrame {
         axis_y: -1.0,
         special_pressed: true,
@@ -97,24 +84,15 @@ fn main() {
         );
         app.update();
     }
-    // ⛔⛔ AND SOMEBODY SWINGS. A passive match proves the ride ENDS correctly and
-    // says nothing about the failure Jon actually hit, which was a shark deleted
-    // by a hit. What lands here is the admiral's forward smash — 17 damage x
-    // `smash_charge_mult` 1.7 = 29.
+    // Someone swings. A passive match proves only that the ride ends; the
+    // failure to test is a shark deleted by a hit. This lands the admiral's
+    // forward smash: 17 damage x `smash_charge_mult` 1.7 = 29, the hardest hit
+    // the fighter under test can produce. It is not the hardest in the game
+    // (George Booul's is 21 x 1.7 = 36);
+    // `a_recovery_mount_cannot_be_deleted_by_one_hit` checks the whole cast.
     //
-    // ⚠ IT IS NOT THE WORST CONNECTION IN THE GAME, and this comment said it was
-    // until 2026-08-27. George Booul's forward smash is 21 x 1.7 = 36. The claim
-    // came from censusing the admiral's own moveset, which is the same mistake
-    // `a_recovery_mount_cannot_be_deleted_by_one_hit` was making — that test
-    // reads the whole cast now and is where the real floor is enforced. 29 is
-    // still the right thing for THIS probe to throw: it is the hardest hit the
-    // fighter under test can produce on himself, which is what a self-contained
-    // ride probe can stage.
-    //
-    // ⛔ IT WAITS FOR A RIDE RATHER THAN ASSUMING ONE. The first version swung
-    // once, immediately after the press, and the strike never landed because the
-    // board had not happened yet on that frame -- a swing at nobody, reported as
-    // a clean run.
+    // It waits for a ride instead of assuming one: a swing right after the
+    // press lands before the boarding.
     let mut struck = false;
     for _ in 0..120 {
         ambition_platformer2d::sim::drive_control_frame(
@@ -143,11 +121,11 @@ fn main() {
         world.spawn((
             ambition_platformer2d::combat::strike::Hitbox {
                 owner: rival,
-                // The HOSTILE side: a `Player`-sourced strike on a Player-faction
-                // body reads as friendly fire and is refused.
+                // The hostile side: a `Player`-sourced strike on a
+                // Player-faction body is friendly fire and is refused.
                 source: ambition_platformer2d::vfx::HitSide::Enemy,
-                // Anchored to the RIDER, which is welded to the mount, so a
-                // moving pair cannot outrun a remembered point.
+                // Anchored to the rider, which is welded to the mount, so a
+                // moving pair cannot outrun a stored point.
                 anchor: ambition_platformer2d::combat::strike::HitboxAnchor::FollowOwner {
                     local_offset: ambition_platformer2d::engine_core::Vec2::ZERO,
                 },
@@ -174,17 +152,15 @@ fn main() {
         );
         app.update();
     }
-    // ⭐ A VERDICT, NOT A PILE OF LINES. This binary exists so a person can see
-    // what the engine did; making them count `boarded:` lines to find out puts
-    // the reading back on them. ⛔ It is still not a TEST — nothing here fails a
-    // build — it just says plainly what it saw.
+    // A verdict, not a pile of lines. This is not a test (nothing fails a
+    // build); it says plainly what it saw.
     let world = app.world_mut();
     let mut mounts = world
         .query_filtered::<Entity, bevy::prelude::With<ambition_platformer2d::mount::Mountable>>();
     let all: Vec<Entity> = mounts.iter(world).collect();
     let left_over = all.len();
-    // A shark on its way out and a shark loitering look the same in a count, and
-    // "boxes piling up" was the original report. `Departing` is the difference.
+    // A departing shark and a loitering shark look the same in a count.
+    // `Departing` is the difference.
     let departing = all
         .iter()
         .filter(|e| {

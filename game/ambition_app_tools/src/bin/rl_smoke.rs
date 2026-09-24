@@ -27,9 +27,9 @@ fn smoke_room(room_id: &str, steps: u32, seed: u64) -> Result<RoomReport, String
     .map_err(|e| format!("room '{room_id}': Platformer2dSimHarness::new failed: {e}"))?;
     let initial = sim.observation();
     if initial.active_room != room_id {
-        // Reaching this line therefore means something else: the room resolved and the sim
-        // still reported a DIFFERENT active room on frame zero (an active area carrying another
-        // name in LDtk, or an immediate transition). Still a soft report — the sim ran.
+        // The room resolved, but the sim reported a different active room on
+        // frame zero (an LDtk area with another name, or an immediate
+        // transition). A soft report: the sim ran.
         eprintln!(
             "  [{room_id}] resolved, but the first observation is in '{}' (likely id-vs-active-area mismatch)",
             initial.active_room

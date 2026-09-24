@@ -74,9 +74,8 @@ impl From<RecordedControls> for AgentAction {
             attack_strength: c.attack_strength,
             attack_from_aim_stick: c.attack_from_aim_stick,
             attack_aim: (c.attack_aim_x, c.attack_aim_y),
-            // Recorded traces predate the dedicated Special slot; a replay carries
-            // no special edge, and nothing holding it: a replayed trace that
-            // charged a neutral special would have recorded the hold.
+            // Recorded traces predate the dedicated Special slot, so a replay
+            // carries no special edge and no hold.
             special: false,
             special_held: false,
             blink: c.blink_pressed,
@@ -131,8 +130,8 @@ fn parse_trace_json(text: &str) -> Result<Vec<RecordedFrame>, String> {
                 jump_pressed: bool_field(controls, "jump_pressed"),
                 jump_held: bool_field(controls, "jump_held"),
                 jump_released: bool_field(controls, "jump_released"),
-                // the RECORDED key stays `dash_pressed`: renaming the Rust channel to
-                // BURST did not rewrite traces already on disk.
+                // The recorded key stays `dash_pressed`: renaming the Rust
+                // channel to burst did not rewrite traces on disk.
                 burst_pressed: bool_field(controls, "dash_pressed"),
                 left_pressed: bool_field(controls, "left_pressed"),
                 right_pressed: bool_field(controls, "right_pressed"),
@@ -173,20 +172,12 @@ fn bool_field(value: &serde_json::Value, key: &str) -> bool {
 
 /// What strength did this recorded press ask for, across both trace generations?
 ///
-/// ⭐ TWO KEYS, ONE QUESTION. Traces recorded before 2026-08-31 carry
-/// `attack_strong_hint: bool`; the field became `attack_strength_hint`, a
-/// three-valued `AttackStrengthHint`, when a right-stick tilt mode needed a way
-/// to force a TILT at full deflection. Reading only the new key would make every
-/// archived trace replay with no smashes in it and report a clean
-/// divergence-free run, which is the worst failure this tool has.
-///
-/// ⛔⛔ `Tilt` USED TO COLLAPSE TO `false` HERE, and the note explaining that
-/// away said *"nothing records one yet — no device produces the hint"*. That
-/// stopped being true in the same 21-commit range that wrote it:
-/// `RightStickMode::TiltAttack` is a shipped device setting. A recorded `Tilt`
-/// became `Auto`, and `Auto` at full stick deflection resolves back to `Smash` —
-/// so the replay silently played a DIFFERENT MOVE than the trace recorded. The
-/// harness action is three-valued now and this returns the value itself.
+/// Two keys, one question. Older traces carry `attack_strong_hint: bool`;
+/// newer ones carry the three-valued `attack_strength_hint`
+/// (`AttackStrengthHint`), which can force a tilt at full deflection
+/// (`RightStickMode::TiltAttack`). Reading only the new key would replay every
+/// archived trace with no smashes and report no divergence. `Tilt` must stay
+/// `Tilt`: `Auto` at full deflection resolves to `Smash`, a different move.
 fn strength_hint_field(
     controls: &serde_json::Value,
 ) -> ambition_platformer2d::sim::AttackStrengthHint {
@@ -201,8 +192,7 @@ fn strength_hint_field(
             _ => Hint::Auto,
         };
     }
-    // The archived shape: one bool that could only ever mean "smash or you
-    // decide".
+    // The archived shape: one bool meaning "smash, or you decide".
     if bool_field(controls, "attack_strong_hint") {
         Hint::Smash
     } else {
@@ -239,9 +229,8 @@ fn replay(path: &PathBuf, tolerance: f32) -> Result<(), String> {
     let mut first_divergence: Option<(usize, f32, f32)> = None;
     let mut diverged_frames = 0usize;
 
-    // So the replay applies frames[i].controls and expects the post-step `live.player_pos` to
-    // match `frames[i].player_pos`. The off-by-one in the original implementation (skip(1)) was
-    // applying the wrong controls to each step.
+    // Apply frames[i].controls and expect the post-step `live.player_pos` to
+    // match `frames[i].player_pos`.
     for (i, frame) in frames.iter().enumerate() {
         let action = AgentAction::from(frame.controls);
         let live = sim.step(action);
@@ -330,15 +319,9 @@ mod tests {
     use super::*;
     use ambition_platformer2d::sim::AttackStrengthHint as Hint;
 
-    /// ⛔⛔ A RECORDED TILT MUST REPLAY AS A TILT.
-    ///
-    /// The strength travelled through a `bool`, so `Tilt` arrived as `Auto` —
-    /// and `Auto` at full stick deflection resolves to `Smash`. A replay that
-    /// plays a different move than the trace recorded is worse than no replay,
-    /// because it reports a clean run.
-    ///
-    /// ⭐ REACHABLE SINCE `RightStickMode::TiltAttack` SHIPPED. The comment that
-    /// dismissed this said "no device produces the hint"; one does.
+    /// A recorded tilt must replay as a tilt. `Auto` at full stick deflection
+    /// resolves to `Smash`, so a replay would play a different move and still
+    /// report a clean run. `RightStickMode::TiltAttack` produces the hint.
     #[test]
     fn a_recorded_tilt_replays_as_a_tilt() {
         let tilt = serde_json::json!({ "attack_strength_hint": "Tilt" });
@@ -349,18 +332,16 @@ mod tests {
         assert_eq!(strength_hint_field(&auto), Hint::Auto);
     }
 
-    /// …and an ARCHIVED trace, whose only vocabulary was one bool, still reads.
-    ///
-    /// ⛔ THE PREMISE HALF: reading only the new key would make every archived
-    /// smash replay as `Auto` and report a divergence-free run.
+    /// …and an archived trace, whose only vocabulary was one bool, still
+    /// reads. Reading only the new key would replay every archived smash as
+    /// `Auto` and report no divergence.
     #[test]
     fn an_archived_bool_trace_still_says_smash() {
         let old_smash = serde_json::json!({ "attack_strong_hint": true });
         assert_eq!(strength_hint_field(&old_smash), Hint::Smash);
         let old_plain = serde_json::json!({ "attack_strong_hint": false });
         assert_eq!(strength_hint_field(&old_plain), Hint::Auto);
-        // An old trace never recorded a tilt, so `Auto` is the honest answer —
-        // not a guess dressed up as one.
+        // An old trace never recorded a tilt, so `Auto` is correct.
         assert_eq!(strength_hint_field(&serde_json::json!({})), Hint::Auto);
     }
 
@@ -389,8 +370,8 @@ mod tests {
         assert_eq!(action.attack_strength, Hint::Tilt);
         assert!(action.attack_from_aim_stick);
         assert_eq!(action.attack_aim, (1.0, 0.0));
-        // ⛔ AND THE MOVEMENT AXIS POINTS THE OTHER WAY, which is what the
-        // direction has to beat: without it the replayed attack comes out left.
+        // The movement axis points the other way, which the direction has to
+        // beat: without it the replayed attack comes out left.
         assert!(action.move_x < 0.0);
     }
 }

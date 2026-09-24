@@ -80,17 +80,12 @@ pub struct KaleidoscopeFocusVisuals;
 /// [`fade_kaleidoscope_materials`], the [`KaleidoscopeFocusVisuals`] readers,
 /// [`project_scrollbar_tracks`], [`scrollbar_press_drag`]). The `PreUpdate`-schedule
 /// half of cube rendering (the 3D picking backend) lives in [`KaleidoscopeRenderPre`].
+/// This set runs every frame by default. A host that uses another presentation
+/// may `.run_if(...)` this set and [`KaleidoscopeRenderPre`] to render only the
+/// active backend. This only saves CPU: the cube input systems gate themselves.
 ///
-/// By default this set always runs (the demo/tests render the cube every frame).
-/// Hosts that swap the cube for another presentation may `.run_if(...)` this set (and
-/// [`KaleidoscopeRenderPre`]) to disable cube rendering when the cube is NOT the active
-/// backend — a clean "only the active backend renders" invariant. Gating the set is
-/// purely a CPU optimisation: the cube input systems already self-gate, so gating
-/// render off when no cube is shown changes nothing visible.
-///
-/// [`KaleidoscopeFocusVisuals`] is a MEMBER of this set, so gating the set also gates
-/// the focus-visual readers — while still preserving their `.after(rebuild_cube_faces)`
-/// ordering edge (membership composes with, and does not drop, ordering constraints).
+/// [`KaleidoscopeFocusVisuals`] is a member, so gating this set gates it too.
+/// Its `.after(rebuild_cube_faces)` ordering stays.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct KaleidoscopeRender;
 
@@ -190,15 +185,12 @@ pub struct CubeFace {
 /// [`rebuild_cube_faces`] can ask "would rebuilding this face draw anything
 /// different?" and leave it alone when the answer is no.
 ///
-/// The published [`ActiveMenuPages`] carries ONE `version` counter for every page,
-/// so any change anywhere — one item picked up, one System row scrolled — used to
-/// invalidate all four faces. This component is what narrows that to the faces
-/// whose own content actually moved: it holds the complete input set of a face
-/// spawn, so equality here means the respawn would be a no-op.
+/// [`ActiveMenuPages`] has one `version` counter for all pages, so any change
+/// would invalidate all four faces. This component holds the complete input of
+/// a face spawn; equality means a respawn would change nothing.
 ///
-/// The `config`-derived geometry is deliberately NOT stored: `rebuild_cube_faces`
-/// forces a full rebuild when [`KaleidoscopeMenuConfig`] changes, which is rarer
-/// and cheaper to handle than keeping a copy of it on every face.
+/// The `config`-derived geometry is not stored: `rebuild_cube_faces` forces a
+/// full rebuild when [`KaleidoscopeMenuConfig`] changes.
 #[derive(Component, PartialEq)]
 pub struct RenderedFace<PageId, Action> {
     /// The page model `render_page_model` was called with.
@@ -540,20 +532,15 @@ fn cube_3d_picking(
         ),
         With<KaleidoscopePauseCamera>,
     >,
-    // Only INTERACTIVE control planes on the ACTIVE face are pick candidates:
+    // Only interactive control planes on the active face are pick candidates:
     //
-    // * `KaleidoscopeControlStyle` — `spawn_control` puts it on every interactive
-    //   control and nothing else (the full-face background, the per-page `UiRoot3d`
-    //   face plane — which carries a face-sized `Dimension` — decorative panels, text,
-    //   and the selection corners all lack it). Without this gate those non-control
-    //   planes are valid `Dimension` candidates too; a face-spanning plane that wins
-    //   the depth sort silently swallows the click (it has no `AmbitionMenuControl`, so
-    //   the host observer's `controls.get(hit)` returns `Err` and the click is dropped).
-    // * `KaleidoscopeActiveFaceControl` — the cube spawns EVERY face's controls at once
-    //   (the side/back faces are rotated away, not hidden, so their planes are still
-    //   visible candidates). Requiring the active-face marker means a pointer can only
-    //   hover/press/drag the face turned to the camera — hovering a rotated-away
-    //   System/Items button no longer fires the move blip or moves the cursor.
+    // * `KaleidoscopeControlStyle`: only `spawn_control` adds it. Without this
+    //   gate, a non-control plane (for example, the face-sized `UiRoot3d` plane)
+    //   can win the depth sort and drop the click, because it has no
+    //   `AmbitionMenuControl`.
+    // * `KaleidoscopeActiveFaceControl`: every face's controls exist at once, and
+    //   rotated-away faces are still visible to picking. This marker limits
+    //   hover, press and drag to the face turned to the camera.
     nodes: Query<
         (
             Entity,
@@ -656,19 +643,14 @@ fn cube_3d_picking(
 /// Non-generic (keyed off [`KaleidoscopeControlStyle`]) so it doesn't need the host's
 /// `Action`.
 ///
-/// The recolor happens IN PLACE on the control's existing material. It used to
-/// `materials.add(..)` a fresh `StandardMaterial` and swap the handle, which meant
-/// every cursor step created and dropped an asset — and a GPU bind group — per
-/// control it touched. `spawn_control` gives each control its own handle, so
-/// nothing else aliases the asset being written.
+/// The recolor writes the control's existing material in place, so a cursor
+/// step does not create a new asset and bind group. `spawn_control` gives each
+/// control its own handle, so nothing else aliases the asset.
 ///
-/// Division of labour: this system owns the control's RGB, and
-/// [`fade_kaleidoscope_materials`] owns its alpha and `alpha_mode` (solid control
-/// planes end up `Opaque` at their design alpha — Fix 3's z-fight rule). So this
-/// writes RGB only and republishes `KaleidoscopeFade::base_alpha`; the fade runs
-/// later the SAME frame (PostUpdate) and lands the rest. ⚠ That handoff is why the
-/// fade's `touched` filter watches `Changed<MenuVisualState>`: with no handle swap
-/// there is no `Changed<MeshMaterial3d>` to wake it.
+/// This system owns RGB and republishes `KaleidoscopeFade::base_alpha`.
+/// [`fade_kaleidoscope_materials`] owns alpha and `alpha_mode` and runs later
+/// in the same frame (PostUpdate). Because the handle does not change, the
+/// fade's `touched` filter watches `Changed<MenuVisualState>`.
 pub fn sync_control_focus_visuals(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut controls: Query<
@@ -943,13 +925,11 @@ fn animate_cube_ring<PageId, Action>(
     let new_amount = ease_fold_amount(state.amount, state.target, rate, time.delta_secs());
     let open = smoothstep(new_amount.clamp(0.0, 1.0));
 
-    // OoT opening SPIN: while opening, start the ring rotated one page-step toward
-    // the viewer-RIGHT neighbour and spin around so the active page swings to the
-    // front, synced to the eased open `amount` (finishes aligned as the fold-in
-    // completes). The ring formula `from_rotation_y(-idx * TAU/n)` brings the
-    // viewer-LEFT neighbour (`idx+1`) to front for a positive step; the viewer-RIGHT
-    // neighbour is `idx-1`, so the spin offset starts NEGATIVE and eases to 0.
-    // (Sign note: if this spins the wrong way, flip the leading `-` below.)
+    // Opening spin: start the ring one page-step toward the viewer-right
+    // neighbour and ease to 0 with the open `amount`, so the active page swings
+    // to the front. `from_rotation_y(-idx * TAU/n)` brings the viewer-left
+    // neighbour (`idx+1`) to front for a positive step, so the offset starts
+    // negative.
     let spin_offset = if opening {
         -config.open_spin_faces * (1.0 - open)
     } else {
@@ -1028,15 +1008,12 @@ fn smoothstep(t: f32) -> f32 {
 /// One frame of the open/close fold ease: exponentially advance `amount` toward
 /// `target` at `rate` over `dt` seconds, snapping when within `0.002`.
 ///
-/// The `dt` is CLAMPED to [`MAX_FOLD_EASE_DT`]. The exponential ease `1 - exp(-rate*dt)` saturates
-/// to ~1.0 for a large `dt`, which would collapse the WHOLE fold into a single frame (`amount`
-/// jumps straight to `target`). That is exactly what an embedding host hits on CLOSE — closing the
-/// menu typically un-pauses the game and the resume frame carries a big delta (a one-frame hitch
-/// from un-suspending the sim / re-acquiring render state). Unclamped, that hitch eases `amount`
-/// 1.0 -> ~0 in one frame, so a host that gates the cube camera / visibility on `amount` (to keep
-/// the fold on-screen) cuts it the very next frame and the close reads as an instant SNAP instead
-/// of a fold. Capping `dt` keeps the ease frame-rate independent for normal frames while making one
-/// spiky frame cost at most ~2 frames of progress.
+/// `dt` is clamped to [`MAX_FOLD_EASE_DT`]. For a large `dt`,
+/// `1 - exp(-rate*dt)` is about 1, and the whole fold happens in one frame.
+/// Closing the menu often un-pauses the game, and that resume frame has a
+/// large delta, so a host that gates the cube on `amount` would show a snap
+/// instead of a fold. With the clamp, one slow frame costs at most about two
+/// frames of progress.
 fn ease_fold_amount(amount: f32, target: f32, rate: f32, dt: f32) -> f32 {
     let dt = dt.min(MAX_FOLD_EASE_DT);
     let open_step = 1.0 - (-rate * dt).exp();
@@ -1056,19 +1033,15 @@ fn fade_kaleidoscope_materials(
     state: Res<KaleidoscopeOpenState>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     faded: Query<(&KaleidoscopeFade, &MeshMaterial3d<StandardMaterial>)>,
-    // Faded planes that need this sweep THIS frame. Two causes, and they are not
-    // the same signal:
+    // Faded planes that need this sweep this frame. Two causes:
     //
-    // * `Changed<MeshMaterial3d>` — a plane `rebuild_cube_faces` just spawned.
-    //   Solid planes are born Opaque (`page::solid_plane_alpha_mode`) so this
-    //   sweep has nothing to flip on them; textured ones are born Blend at their
-    //   base alpha and only their ALPHA is brought to the current fold amount.
-    //   ⛔ A mode flip here on the spawn frame was the System-face flash under
-    //   Bevy 0.19 (2026-09-02): the plane sat in no render phase for a frame.
-    // * `Changed<MenuVisualState>` — a control `sync_control_focus_visuals` just
-    //   recolored. ⚠ It writes the material IN PLACE, so the handle does NOT change
-    //   and the first filter cannot see it. Without this arm a focus move while the
-    //   fold sits settled would leave the control at the wrong alpha/mode.
+    // * `Changed<MeshMaterial3d>`: a plane `rebuild_cube_faces` just spawned.
+    //   Solid planes are born Opaque (`page::solid_plane_alpha_mode`). Textured
+    //   planes are born Blend; only their alpha moves to the current fold amount.
+    //   Do not flip the mode on the spawn frame: the plane would sit in no render
+    //   phase for one frame and flash.
+    // * `Changed<MenuVisualState>`: `sync_control_focus_visuals` recolors in
+    //   place, so the handle does not change and the first filter cannot see it.
     touched: Query<
         (),
         (

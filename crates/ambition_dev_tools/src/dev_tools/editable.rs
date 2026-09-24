@@ -820,9 +820,6 @@ pub fn apply_movement_profile(
 ///   frame the value differs from the runtime),
 /// - toggle `invincible` to stop incoming damage entirely while testing
 ///   downstream systems (boss phase, encounter pacing, music swaps).
-///
-/// The damage multiplier scales the player's outgoing slash damage so
-/// testers can one-shot enemies / chip a boss without recompiling.
 #[derive(Resource, Reflect, Clone, Copy, Debug)]
 #[reflect(Resource)]
 pub struct EditablePlayerStats {
@@ -830,7 +827,6 @@ pub struct EditablePlayerStats {
     pub max_health: i32,
     pub mana: i32,
     pub max_mana: i32,
-    pub slash_damage: i32,
     /// True → all `HitEvent`s are ignored before they reach
     /// `handle_player_damage_events`.
     pub invincible: bool,
@@ -841,7 +837,6 @@ pub struct EditablePlayerStats {
 impl EditablePlayerStats {
     pub const DEFAULT_MAX_HEALTH: i32 = 5;
     pub const DEFAULT_MAX_MANA: i32 = 100;
-    pub const DEFAULT_SLASH_DAMAGE: i32 = 1;
 }
 
 impl Default for EditablePlayerStats {
@@ -851,7 +846,6 @@ impl Default for EditablePlayerStats {
             max_health: Self::DEFAULT_MAX_HEALTH,
             mana: Self::DEFAULT_MAX_MANA,
             max_mana: Self::DEFAULT_MAX_MANA,
-            slash_damage: Self::DEFAULT_SLASH_DAMAGE,
             invincible: false,
             refill_now: false,
         }
@@ -876,16 +870,17 @@ pub struct PlayerStatsSyncSnapshot {
     initialized: bool,
     health: i32,
     max_health: i32,
-    // ⛔⛤ **THE MANA AND OFFENSE FIELDS ARE NEW, AND THEIR ABSENCE WAS A DEFECT
+    // ⛔⛤ **THE MANA FIELDS ARE NEW, AND THEIR ABSENCE WAS A DEFECT
     // NOBODY HAD NAMED.** The combined system wrote the Mana meter and
     // `BodyOffense.damage_multiplier` from the inspector **UNCONDITIONALLY**, on
     // every run, with no change test at all — so inside `GgrsSchedule` that was a
     // per-ADVANCE write of canonical state from a live developer resource,
     // strictly worse than the health half. Snapshotting them is what lets the
     // publisher ask the same question about them that it always asked about HP.
+    // (The offense field left with `BodyOffense` itself, 2026-09-24: nothing in
+    // the game read the multiplier the inspector edited.)
     mana: i32,
     max_mana: i32,
-    slash_damage: i32,
 }
 
 /// This domain's key in [`ae::PendingMechanicalEdits`].
@@ -923,7 +918,6 @@ pub fn propose_player_stats_edits(
         || stats.max_health != snapshot.max_health
         || stats.mana != snapshot.mana
         || stats.max_mana != snapshot.max_mana
-        || stats.slash_damage != snapshot.slash_damage
     {
         pending.propose(player_stats_domain());
     }
@@ -955,10 +949,7 @@ pub fn publish_player_stats_edits(
     mut pending: ResMut<ae::PendingMechanicalEdits>,
     mut snapshot: ResMut<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
-        (
-            Option<&mut ambition_platformer2d_core::resources::ActorResources>,
-            &mut ambition_platformer2d_core::BodyOffense,
-        ),
+        Option<&mut ambition_platformer2d_core::resources::ActorResources>,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     mut health_q: Query<
@@ -973,7 +964,6 @@ pub fn publish_player_stats_edits(
         snapshot.max_health = stats.max_health;
         snapshot.mana = stats.mana;
         snapshot.max_mana = stats.max_mana;
-        snapshot.slash_damage = stats.slash_damage;
         snapshot.initialized = true;
         return;
     }
@@ -1030,9 +1020,8 @@ pub fn publish_player_stats_edits(
     // give the other two fields the same test rather than to invent a per-field
     // dirty structure. A field that did not move is not an edit.
     let user_changed_mana = stats.mana != snapshot.mana || stats.max_mana != snapshot.max_mana;
-    let user_changed_offense = stats.slash_damage != snapshot.slash_damage;
     let max_mana = stats.max_mana.max(0);
-    if let Ok((mut resources, mut offense)) = player_q.single_mut() {
+    if let Ok(mut resources) = player_q.single_mut() {
         if let Some(mana) = resources
             .as_deref_mut()
             .and_then(|bank| bank.level_of_mut(&ambition_entity_catalog::mana::MANA))
@@ -1041,16 +1030,12 @@ pub fn publish_player_stats_edits(
             mana.max = max_mana as f32;
             mana.current = stats.mana.clamp(0, max_mana) as f32;
         }
-        if user_changed_offense {
-            offense.damage_multiplier = stats.slash_damage.max(1);
-        }
     }
 
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;
     snapshot.mana = stats.mana;
     snapshot.max_mana = stats.max_mana;
-    snapshot.slash_damage = stats.slash_damage;
     pending.take(player_stats_domain());
 }
 
@@ -1074,10 +1059,7 @@ pub fn mirror_player_stats_into_the_inspector(
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
     live_q: Query<
-        (
-            Option<&ambition_platformer2d_core::resources::ActorResources>,
-            &ambition_platformer2d_core::BodyOffense,
-        ),
+        Option<&ambition_platformer2d_core::resources::ActorResources>,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
@@ -1091,22 +1073,20 @@ pub fn mirror_player_stats_into_the_inspector(
     stats.max_health = health.health.max;
     snapshot.health = stats.health;
     snapshot.max_health = stats.max_health;
-    // ⭐⭐ **AND MANA AND OFFENSE, BECAUSE A HALF-MIRROR IS THE DANGEROUS STATE.**
+    // ⭐⭐ **AND MANA, BECAUSE A HALF-MIRROR IS THE DANGEROUS STATE.**
     // Mirroring only health left the panel showing a mana the body had long since
     // spent, and that stale number was what the publisher wrote back on the next
     // unrelated edit. Mirroring the live values keeps "what the developer last
     // saw" true for every field this domain publishes — and updating `stats` and
     // `snapshot` TOGETHER is what stops ordinary gameplay mana consumption from
     // looking like a proposal.
-    if let Ok((resources, offense)) = live_q.single() {
+    if let Ok(resources) = live_q.single() {
         // A body without Mana reads 0/0 — the panel's i32 fields have no absent.
         let mana = resources.and_then(|bank| bank.level_of(&ambition_entity_catalog::mana::MANA));
         stats.mana = mana.map_or(0, |mana| mana.current.round() as i32);
         stats.max_mana = mana.map_or(0, |mana| mana.max.round() as i32);
-        stats.slash_damage = offense.damage_multiplier;
         snapshot.mana = stats.mana;
         snapshot.max_mana = stats.max_mana;
-        snapshot.slash_damage = stats.slash_damage;
     }
 }
 
@@ -1465,7 +1445,6 @@ mod player_stats_domain_tests {
             ])
             .expect("valid")
             .expect("declared"),
-            ambition_platformer2d_core::BodyOffense::default(),
         ));
         // The first update establishes the baseline and must change nothing.
         app.update();
@@ -1487,15 +1466,14 @@ mod player_stats_domain_tests {
         (health.health.current, health.health.max)
     }
 
-    fn live_mana_and_offense(app: &mut App) -> (f32, i32) {
+    fn live_mana(app: &mut App) -> f32 {
         let world = app.world_mut();
-        let mut query = world.query_filtered::<(
+        let mut query = world.query_filtered::<
             &ambition_platformer2d_core::resources::ActorResources,
-            &ambition_platformer2d_core::BodyOffense,
-        ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
-        let (bank, offense) = query.single(world).expect("the fixture has a player body");
-        let mana = bank.level_of(&ambition_entity_catalog::mana::MANA).expect("the fixture holds Mana");
-        (mana.current, offense.damage_multiplier)
+            ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+        >();
+        let bank = query.single(world).expect("the fixture has a player body");
+        bank.level_of(&ambition_entity_catalog::mana::MANA).expect("the fixture holds Mana").current
     }
 
     /// ⛔⛤ **EDITING ONE FIELD MUST NOT REPUBLISH THE OTHERS — FOUND BY THE GPT
@@ -1522,29 +1500,27 @@ mod player_stats_domain_tests {
     fn editing_one_stat_leaves_the_others_where_gameplay_put_them() {
         let mut app = app_with_the_stats_domain();
 
-        // GAMEPLAY spends mana and buffs offense — neither is a developer edit.
+        // GAMEPLAY spends mana — not a developer edit.
         {
             let world = app.world_mut();
-            let mut query = world.query_filtered::<(
+            let mut query = world.query_filtered::<
                 &mut ambition_platformer2d_core::resources::ActorResources,
-                &mut ambition_platformer2d_core::BodyOffense,
-            ), ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly>();
-            let (mut bank, mut offense) = query.single_mut(world).expect("player body");
+                ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
+            >();
+            let mut bank = query.single_mut(world).expect("player body");
             let mana = bank
                 .level_of_mut(&ambition_entity_catalog::mana::MANA)
                 .expect("the fixture holds Mana");
             mana.max = 100.0;
             mana.current = 31.0;
-            offense.damage_multiplier = 7;
         }
         // Let the mirror carry that into the panel, so the inspector is telling
         // the truth before the edit rather than after it.
         app.update();
-        let (mana_before, offense_before) = live_mana_and_offense(&mut app);
+        let mana_before = live_mana(&mut app);
         assert_eq!(
-            (mana_before, offense_before),
-            (31.0, 7),
-            "gameplay's own writes did not survive a frame, so this fixture is \
+            mana_before, 31.0,
+            "gameplay's own write did not survive a frame, so this fixture is \
              not exercising the case at all",
         );
 
@@ -1555,15 +1531,14 @@ mod player_stats_domain_tests {
         // invisible and this arm would pass on the defect.
         let defaults = EditablePlayerStats::default();
         assert!(
-            defaults.mana as f32 != mana_before && defaults.slash_damage != offense_before,
-            "the editor's defaults ({}, {}) already equal what gameplay wrote \
-             ({mana_before}, {offense_before}), so writing the panel back over \
-             the body would change nothing and this arm cannot see the defect",
+            defaults.mana as f32 != mana_before,
+            "the editor's default mana ({}) already equals what gameplay wrote \
+             ({mana_before}), so writing the panel back over the body would \
+             change nothing and this arm cannot see the defect",
             defaults.mana,
-            defaults.slash_damage,
         );
 
-        // Edit ONLY max health. Nothing touches the panel's mana or offense.
+        // Edit ONLY max health. Nothing touches the panel's mana.
         let seen_before = app.world().resource::<ProposalsSeen>().0;
         app.world_mut()
             .resource_mut::<EditablePlayerStats>()
@@ -1577,16 +1552,12 @@ mod player_stats_domain_tests {
         );
         let (_, max_health) = live_health(&mut app);
         assert_eq!(max_health, 9, "the developer's max-health edit was not applied");
-        let (mana_after, offense_after) = live_mana_and_offense(&mut app);
+        let mana_after = live_mana(&mut app);
         assert_eq!(
             mana_after, 31.0,
             "a HEALTH edit refilled mana: the publisher writes this domain's \
              every field on any admitted proposal, and the panel's value was \
              stale because the mirror never read mana back",
-        );
-        assert_eq!(
-            offense_after, 7,
-            "a HEALTH edit overwrote the damage multiplier for the same reason",
         );
     }
 
@@ -1666,7 +1637,7 @@ mod player_stats_domain_tests {
             "the staged max-health edit never landed once the refusal lifted, \
              which is the whole point of staging it",
         );
-        let (mana_after, _) = live_mana_and_offense(&mut app);
+        let mana_after = live_mana(&mut app);
         assert_eq!(
             mana_after, 31.0,
             "publishing a staged HEALTH edit wrote the panel's frozen mana back \
@@ -1675,10 +1646,10 @@ mod player_stats_domain_tests {
         );
     }
 
-    /// AND THE FIELDS THE DEVELOPER DOES MOVE STILL LAND. The falsifier for a
-    /// repair that simply stopped publishing mana and offense at all.
+    /// AND THE FIELD THE DEVELOPER DOES MOVE STILL LANDS. The falsifier for a
+    /// repair that simply stopped publishing mana at all.
     #[test]
-    fn editing_mana_or_offense_alone_still_publishes_that_field() {
+    fn editing_mana_alone_still_publishes_it() {
         let mut app = app_with_the_stats_domain();
         {
             let mut stats = app.world_mut().resource_mut::<EditablePlayerStats>();
@@ -1686,16 +1657,8 @@ mod player_stats_domain_tests {
             stats.mana = 55;
         }
         app.update();
-        let (mana, _) = live_mana_and_offense(&mut app);
+        let mana = live_mana(&mut app);
         assert_eq!(mana, 55.0, "an explicit mana edit did not reach the body");
-
-        {
-            let mut stats = app.world_mut().resource_mut::<EditablePlayerStats>();
-            stats.slash_damage = 4;
-        }
-        app.update();
-        let (_, offense) = live_mana_and_offense(&mut app);
-        assert_eq!(offense, 4, "an explicit offense edit did not reach the body");
     }
 
     /// ⛔⛤ **GAMEPLAY DAMAGE MUST NOT LOOK LIKE A DEVELOPER EDIT — `Q120`,

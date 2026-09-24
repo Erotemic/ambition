@@ -29,7 +29,7 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W010, W011, W012, W021, W022 and W023 on 2026-09-24. W003 closed 2026-09-24 by deletion: the four fields left the schema and the nine shipped files; no intrinsic trigger enters `BossEncounterPhase::Stagger` (reachable only through `extra_phase_triggers`, which no shipped boss authors). The remaining rows it owns carry their AP number there.
+Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W009, W010, W011, W012, W021, W022, W023 and W028 on 2026-09-24. W003 closed 2026-09-24 by deletion: the four fields left the schema and the nine shipped files; no intrinsic trigger enters `BossEncounterPhase::Stagger` (reachable only through `extra_phase_triggers`, which no shipped boss authors). The remaining rows it owns carry their AP number there.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
@@ -39,10 +39,8 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 | W006 | CONFIRMED | Smash AI | `SmashCfg::aerial_foray_cadence_s`, `aerial_foray_duration_s`, and `SmashState::foray_timer` describe proactive flight behavior, but production code does not read the two settings or operate the timer. | Implement the advertised hybrid-flyer cadence or remove the dormant API/state. |
 | W007 | CONFIRMED | Smash AI | `DifficultyProfile::mash_speed_hz` is authored and documented as a downstream cooldown input, but no production consumer exists. | Wire it to an explicit mechanic or delete it from difficulty and character authoring. |
 | W008 | CONFIRMED | Smash observation | `CrowdingSignal` supports `other_faction_count`, and `compute_pressure` has behavior for it, but the shipped crowd producer always writes `other_faction_count: 0`. | Either observe other factions or delete the unreachable branch and field. |
-| W009 | CONFIRMED | combat damage | `BodyOffense::damage_multiplier` is mandatory body state and rollback state. Outside developer editing, gameplay does not read the value. Hitbox completeness still uses `With<BodyOffense>` as part of the victim shape. | Identify the real damage authority, remove the dead value if it has no owner, and use an explicit damageable/victim capability instead of offense presence. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
-| W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyOffense` part of what structurally counts as a complete body. (Mana left the shape 2026-09-23: it is a declared resource in the optional bank. The `BodyLifetime` diagnostics and `BodyComboTrace` left it 2026-09-24; the restart latch that stays is a mechanical fact.) | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
 
 ## Detailed evidence notes
 
@@ -56,37 +54,12 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 executes `let _ = state.movement_timer;`. It does not use the frequency and does
 not change the target or body motion.
 
-### W009 and W010 — the old offense/damage vocabulary is still in the type system
-
-`BodyOffense` is in the shared body bundle and rollback registry. Production
-combat uses its component presence in the hitbox query, but there is no gameplay
-read of `offense.damage_multiplier`. `AttackSpec` still stores three fields that
-look like the consumer side of the same older design, but current production
-search finds no read of those fields either. Before deletion, re-check authored
-item/move adapters so the cleanup does not remove a hidden translation seam.
-
-### W011 — a HUD trace changes movement-kernel signatures
-
-`BodyComboTrace` says its purpose is to preserve the symbolic operation trace for
-the HUD. It is part of body scratch state, body ECS queries, rollback encoding,
-and many movement function signatures. The production reader outside the write
-path is `game/ambition_app/src/app/hud.rs`. This is more than an unused field: a
-diagnostic feature changes the required shape of every body.
-
 ### W017 — actor tuning has become an authority container
 
 `ActorTuning` is broad. Its exhaustive test groups fields into reusable
 character facts, controller policy, placement/session facts, presentation facts,
 and mutable runtime state. That test is useful as a census, but it also shows
 that the type does not have one semantic owner.
-
-### W023 — a presentation timer is also a gameplay signal
-
-Damage systems arm `BodyCombat::hit_flash`, render/view code consumes it as a
-visual flash, and gameplay code also checks it in boss banter and actor bark /
-hostility paths. A visual duration therefore controls semantic behavior. A
-future visual-timing adjustment can change AI/dialogue behavior without an
-explicit gameplay policy change.
 
 ### W026 — missing authoring can grant behavior
 

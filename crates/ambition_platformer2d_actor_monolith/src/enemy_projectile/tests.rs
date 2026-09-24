@@ -1020,7 +1020,7 @@ fn spawn_owned_glider(app: &mut App, pos: ae::Vec2, firer: Entity) {
 fn parry_ready_player_app() -> (App, Entity) {
     use ambition_characters::actor::BodyCombat;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_core::{BodyBaseSize, BodyShieldState};
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
@@ -1063,7 +1063,6 @@ fn parry_ready_player_app() -> (App, Entity) {
             BodyBaseSize {
                 base_size: ae::Vec2::new(24.0, 40.0),
             },
-            BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             // Parry window OPEN.
             BodyShieldState {
@@ -1223,7 +1222,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
 fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     use ambition_characters::actor::BodyCombat;
     use ambition_platformer2d_core::BodyKinematics;
-    use ambition_platformer2d_core::{BodyBaseSize, BodyOffense, BodyShieldState};
+    use ambition_platformer2d_core::{BodyBaseSize, BodyShieldState};
     use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
     let mut app = App::new();
     insert_projectile_authority(&mut app);
@@ -1279,7 +1278,6 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         BodyBaseSize {
             base_size: ae::Vec2::new(24.0, 40.0),
         },
-        BodyOffense::default(),
         ambition_platformer2d_core::BodyMotionFacts::default(),
         BodyShieldState::default(),
         BodyCombat::default(),

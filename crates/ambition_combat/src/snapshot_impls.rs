@@ -291,7 +291,6 @@ impl SnapshotState for crate::components::BodyMelee {
             None => put_bool(out, false),
         }
         put_f32(out, self.cooldown);
-        put_vec2(out, self.pending_axis);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -315,7 +314,6 @@ impl SnapshotState for crate::components::BodyMelee {
         Some(Self {
             swing,
             cooldown: r.f32()?,
-            pending_axis: r.vec2()?,
         })
     }
 }

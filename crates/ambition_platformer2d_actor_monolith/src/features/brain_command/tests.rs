@@ -6,7 +6,6 @@ use ambition_characters::actor::character_catalog::{
     parse_catalog, AuthoredBrainContext, AutonomousSource, BrainBinding, BrainPresetId,
     CharacterCatalog,
 };
-use ambition_characters::actor::ActorPose;
 use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_characters::control::{DrivingParticipant, PlayerSlot};
 use ambition_platformer2d_core as ae;
@@ -76,7 +75,10 @@ fn spawn_npc(app: &mut App, sim: &str, character_id: &str, anchor_x: f32) -> Ent
             brain,
             binding,
             AuthoredBrainContext::from_placement(anchor_x, 0.0),
-            ActorPose::from_parts(ae::Vec2::new(anchor_x, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(anchor_x, 0.0),
+                ..Default::default()
+            },
         ))
         .id()
 }
@@ -135,7 +137,7 @@ fn restore_default_uses_the_authored_home_not_the_current_pose() {
     let mut app = app();
     let e = spawn_npc(&mut app, "wanderer", "npc_patroller", 100.0);
     // The patroller wandered far from home.
-    app.world_mut().get_mut::<ActorPose>(e).unwrap().center.x = 900.0;
+    app.world_mut().get_mut::<ae::BodyKinematics>(e).unwrap().pos.x = 900.0;
 
     send(
         &mut app,
@@ -235,7 +237,10 @@ fn a_driven_body_applies_a_brain_command_live_because_nothing_displaced_its_poli
             DrivingParticipant(PlayerSlot::PRIMARY),
             binding,
             AuthoredBrainContext::from_placement(100.0, 0.0),
-            ActorPose::from_parts(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(8.0, 8.0), 1.0),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 0.0),
+                ..Default::default()
+            },
         ))
         .id();
 
@@ -550,7 +555,10 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
             ),
             binding,
             AuthoredBrainContext::from_placement(0.0, 0.0),
-            ActorPose::from_parts(ae::Vec2::ZERO, ae::Vec2::splat(8.0), 1.0),
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                ..Default::default()
+            },
             character_first_config(provoked_policy()),
             villager(),
             ambition_characters::actor::WornCharacter::new("npc_villager"),

@@ -36,7 +36,6 @@ fn realize_seat(
         &seat.definition.death_traits.clone().unwrap_or_default(),
     );
     let at = seed.kin.pos;
-    let facing = seed.kin.facing;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
     // the seed's model, which `grant_prepared_character_body` then switches to
     // the CHARACTER's below. Switching rather than replacing is ADR 0024: a
@@ -118,11 +117,6 @@ fn realize_seat(
                     ),
                     disposition,
                     seat.faction,
-                    ambition_combat::components::ActorPose::from_parts(
-                        at,
-                        seat.body_px / 2.0,
-                        facing,
-                    ),
                     identity_kit,
                     ambition_combat::components::ActorAggression::hostile(),
                     combat,

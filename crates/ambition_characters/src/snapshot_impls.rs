@@ -125,12 +125,6 @@ impl ambition_platformer2d_core::snapshot::PasteEncode for crate::actor::ArmorPo
     }
 }
 
-snapshot_pod!(crate::actor::pose::ActorPose {
-    center: vec2,
-    feet: vec2,
-    facing: f32,
-});
-
 snapshot_unit_enum!(crate::actor::DeathPolicy {
     HpDepleted = 0,
     Unbounded = 1,

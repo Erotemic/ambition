@@ -18,7 +18,7 @@ use ambition_characters::control::ActorControl;
 use ambition_characters::control::DrivingParticipant;
 use ambition_characters::control::PlayerSlot;
 use ambition_combat::components::{
-    ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
+    ActorFaction, DamageableVolumes, PogoPolicy, PogoTargetVolumes,
 };
 use ambition_combat::BodyMelee;
 use ambition_platformer2d_core::BodyKinematics;
@@ -131,10 +131,6 @@ pub struct PlayerSimulationBundle {
     /// than "is a participant driving it", so possession of this body keeps the
     /// charge mechanic. Pay-for-use: actors without it never enter the charge stream.
     pub charges_projectiles: ambition_characters::brain::ChargesProjectiles,
-    /// Gameplay-space action origin / facing read model shared with
-    /// non-player actors. Synced from `BodyKinematics`, not from any
-    /// presentation `Transform`.
-    pub actor_pose: ActorPose,
     // The authoritative movement-cluster components. `kinematics` is the
     // shared kinematic truth (its own component); the other 18 ancillary
     // clusters spawn through the shared `AncillaryMovementBundle` — the SAME
@@ -225,11 +221,6 @@ impl PlayerSimulationBundle {
             moveset_melee: ambition_combat::moveset::MovesetMelee,
             actor_control: ActorControl::default(),
             charges_projectiles: ambition_characters::brain::ChargesProjectiles,
-            actor_pose: ActorPose::from_parts(
-                kinematics.pos,
-                kinematics.size * 0.5,
-                kinematics.facing,
-            ),
             kinematics,
             motion_model: ambition_platformer2d_core::movement::MotionModel::default(),
             hurtbox,

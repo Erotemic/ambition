@@ -388,7 +388,6 @@ fn out_of_range_actors_are_not_possessed() {
 /// `ActorActionMessage` for the TARGET, and the vacated home avatar emits nothing.
 #[test]
 fn attack_while_controlling_target_emits_only_for_the_target() {
-    use ambition_characters::actor::ActorPose;
     use ambition_characters::brain::{
         emit_brain_action_messages, ActionSet, ActorActionMessage, MeleeActionSpec, SwipeSpec,
     };
@@ -403,7 +402,7 @@ fn attack_while_controlling_target_emits_only_for_the_target() {
     // but it still owns a melee ActionSet + a pose.
     let home = app
         .world_mut()
-        .spawn((ActorControl::default(), kit.clone(), ActorPose::default()))
+        .spawn((ActorControl::default(), kit.clone(), ambition_platformer2d_core::BodyKinematics::default()))
         .id();
     // Possessed target: its seat produced a melee-pressed frame.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -411,7 +410,7 @@ fn attack_while_controlling_target_emits_only_for_the_target() {
     frame.facing = 1.0;
     let target = app
         .world_mut()
-        .spawn((ActorControl(frame), kit, ActorPose::default()))
+        .spawn((ActorControl(frame), kit, ambition_platformer2d_core::BodyKinematics::default()))
         .id();
 
     app.add_systems(Update, emit_brain_action_messages);

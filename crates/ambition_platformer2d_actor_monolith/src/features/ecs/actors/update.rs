@@ -12,33 +12,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 
 /// Keep actor-like gameplay poses in sync with the authoritative [`CenteredAabb`].
 ///
-/// `ActorPose` is the gameplay action-origin read model used by the universal
-/// brain/action resolver. Presentation `Transform`s are intentionally not the
-/// source of truth for sim entities; they belong to rendered visual entities and
-/// may have sprite anchors, scale, parent transforms, or cached bindings applied.
-pub fn sync_actor_poses_from_feature_aabbs(
-    mut actors: Query<
-        (
-            &CenteredAabb,
-            &mut ambition_combat::components::ActorPose,
-            Option<&ambition_platformer2d_core::BodyKinematics>,
-            Option<ambition_boss_encounter::BossClusterRef>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-) {
-    for (aabb, mut pose, kin, boss) in &mut actors {
-        // Facing source: the unified actor cluster (BodyKinematics) for every
-        // actor, or the boss runtime; default to the current pose facing.
-        let facing = kin
-            .map(|k| k.facing)
-            .or_else(|| boss.map(|feature| feature.kin.facing))
-            .unwrap_or(pose.facing);
-        *pose =
-            ambition_combat::components::ActorPose::from_parts(aabb.center, aabb.half_size, facing);
-    }
-}
-
 /// Per-frame steering context handed from observation to the movement phase:
 /// each actor's nearest same-kind neighbor, keyed by actor id. Computed
 /// once by [`observe_actor_decision_inputs`] and read by `integrate_sim_bodies`

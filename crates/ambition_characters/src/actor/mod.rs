@@ -4,11 +4,11 @@
 //! and other authored entities. Owns [`ActorKind`]/[`DamageTeam`] identity,
 //! the [`control`] `ActorControl`/`ActorControlFrame` contract that brains
 //! write and simulation consumes, the [`ai`] intent layer
-//! (`CharacterAiIntent`), [`pose`] (`ActorPose`/`ActorFaction`), and the
+//! (`CharacterAiIntent`), [`pose`] (`ActorFaction`), and the
 //! [`character_catalog`] cast data.
 
 pub mod pose;
-pub use pose::{ActorFaction, ActorPose};
+pub use pose::ActorFaction;
 pub mod population_cap;
 pub use population_cap::{ActorAdmission, AuthoredPopulationCap};
 pub mod ai;

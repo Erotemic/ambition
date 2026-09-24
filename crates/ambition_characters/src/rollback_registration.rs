@@ -14,7 +14,6 @@ where
     R: RollbackRegistrar,
 {
     registrar.rollback_component_canonical::<crate::actor::BodyHealth>(OWNER, "body.health");
-    registrar.rollback_component_canonical::<crate::actor::pose::ActorPose>(OWNER, "actor.pose");
     registrar
         .rollback_component_canonical::<crate::actor::WornCharacter>(OWNER, "actor.worn_character");
     registrar

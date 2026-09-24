@@ -190,7 +190,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // slash/recoil, and charge-projectile paths still read raw control.
                 // Sanitize those direct verbs from the same worn kit before any
                 // simulation/effects phase consumes them.
-                ambition_platformer2d_actor_monolith::avatar::gate_worn_player_control
+                ambition_platformer2d_actor_monolith::avatar::gate_body_control
                     .in_set(ambition_platformer2d_actor_monolith::avatar::WornControlGateSet),
                 // A folded `bubble_shield` special MOVE forces `shield_held` for
                 // its duration, so pressing Special raises the ONE shield through

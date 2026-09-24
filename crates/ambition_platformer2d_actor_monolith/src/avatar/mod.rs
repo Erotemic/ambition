@@ -19,7 +19,7 @@ pub use body_integration::{
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
 pub use starting_character::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
-    gate_worn_player_control, motion_model_spec_for_character, motion_model_spec_for_character_id,
+    gate_body_control, motion_model_spec_for_character, motion_model_spec_for_character_id,
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
     HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter, WornControlGateSet,
 };

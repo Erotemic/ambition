@@ -11,7 +11,7 @@
 //! tick, then stays up while the move plays:
 //!
 //!   AgentAction{special} -> ControlFrame -> ActorControl.special_pressed
-//!     -> gate_worn_player_control (keeps the `Move("special")` press)
+//!     -> gate_body_control (keeps the `Move("special")` press)
 //!     -> sustain_bubble_shield (press-tick + duration => shield_held)
 //!     -> resolve_shield (kernel) -> BodyShieldState.active
 //!

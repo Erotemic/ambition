@@ -229,7 +229,7 @@ pub struct ControlPromptRebuilt;
 ///
 /// The scheme is resolved HERE from the subject's live authorities via the shared
 /// [`derive_action_scheme`] — the SAME function, on the SAME immediate
-/// authorities, that the gameplay persona gate (`gate_worn_player_control`) calls
+/// authorities, that the gameplay persona gate (`gate_body_control`) calls
 /// to gate/route behavior. Because both consumers re-derive from the body's
 /// current `AbilitySet` / moveset / `ActionSet` / techniques each tick, a button's
 /// label and what it fires cannot drift — not even for one frame across a kit
@@ -1142,7 +1142,7 @@ mod tests {
 
     /// Gate 4: the VISIBLE slot and the EXECUTABLE behavior
     /// cannot disagree for one frame across a kit swap. The real gameplay gate
-    /// (`gate_worn_player_control`) and the real prompt (`rebuild_control_prompt`)
+    /// (`gate_body_control`) and the real prompt (`rebuild_control_prompt`)
     /// both re-derive from the body's IMMEDIATE `ActionSet` each tick via the
     /// shared `derive_action_scheme`, so on the very tick the kit changes, the
     /// button's presence and whether the verb fires flip TOGETHER — there is no
@@ -1166,7 +1166,7 @@ mod tests {
         app.add_systems(
             Update,
             (
-                ambition_platformer2d_actor_monolith::avatar::gate_worn_player_control,
+                ambition_platformer2d_actor_monolith::avatar::gate_body_control,
                 rebuild_control_prompt,
             )
                 .chain(),

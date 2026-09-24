@@ -94,7 +94,7 @@ could disagree with what actually fired.
    Two pure functions: `derive_action_scheme` builds the ordered
    `control slot → concrete action gate` scheme from the body's IMMEDIATE
    authorities, and is called at BOTH the persona gate
-   (`gate_worn_player_control`) and the `ControlPrompt` producer — same function,
+   (`gate_body_control`) and the `ControlPrompt` producer — same function,
    same authorities, same tick, so the on-screen buttons and gameplay **cannot
    drift** (a same-tick kit-swap test runs both). The gate then APPLIES the scheme
    through `resolve_control_slots`, the per-slot dispatch: for EVERY combat slot
@@ -104,7 +104,7 @@ could disagree with what actually fired.
    missing) and clears the raw verb, keeps `Move`s, and strips the verbs the scheme
    doesn't own. A technique on a movement/Interact slot is **rejected** (surfaced
    for a debug-assert, never silently dropped) — those cannot fire until the kernel
-   consumes actions (a per-mechanic follow-up, Decision 5). **`gate_worn_player_control`
+   consumes actions (a per-mechanic follow-up, Decision 5). **`gate_body_control`
    is therefore NOT retired**: it is the dispatcher's consumer and remains until
    that kernel re-key. `special_pressed = blink_pressed` is retired: the `Special`
    slot drives `special_pressed`; blink drives blink.

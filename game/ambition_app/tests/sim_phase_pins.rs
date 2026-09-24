@@ -136,7 +136,7 @@ fn each_restriction_over_published_control_is_registered_exactly_once() {
                     [
                         "sample_capture_escape",
                         "blank_scripted_control_frames",
-                        "gate_worn_player_control",
+                        "gate_body_control",
                         "sustain_bubble_shield",
                         "update_body_mode",
                     ]

@@ -209,7 +209,7 @@ pub struct ResetPlayState<'w, 's> {
     generation: Option<Res<'w, crate::session::mechanics::SessionMechanics>>,
     /// The installed placement-lowering authority — reset re-stages the start
     /// room's placements through the SAME registry setup/transition/restore use.
-    placement_lowering: Res<'w, crate::world::placements::PlacementLoweringRegistry>,
+    placement_lowering: Res<'w, crate::construction::placements::PlacementLoweringRegistry>,
     /// The installed room-content staging seam — same rule as the placement
     /// registry: reset re-stages content-staged occupants, one authority.
     content_staging: Res<'w, crate::features::RoomContentStagingRegistry>,

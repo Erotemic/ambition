@@ -149,7 +149,7 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics;
     // A direct-entry demo drops the first room's receipt, so it says so.
     pub use ambition_platformer2d_actor_monolith::rooms::PublicationRetention;
-    pub use ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry;
+    pub use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;
     pub use ambition_platformer2d_world::rooms::{RoomSet, RoomSpec};
     // Demo simulation reads the neutral movement-tuning authority, not dev-tools mirror state.
     pub use ambition_platformer2d_core::ActiveMovementTuning;

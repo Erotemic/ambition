@@ -720,7 +720,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 217 -> 218: `actor.moveset_melee` and `actor.moveset_ranged` LEFT.
 /// Routing is read from `ActorMoveset` (`routes_melee` / `routes_ranged`); the
 /// markers were a second copy reconciled every tick.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 218;
+/// ⛔⛤ 218 -> 219: `resource.accepted_checkpoint_restore` hashes whether the
+/// lifecycle half is PRESENT. An accepted restore pinned an empty ledger and an
+/// empty custody relation when the composition had no lifecycle horizon, so
+/// "not participating" hashed as "nothing ever occurred". It now pins `None`,
+/// as the item half does, and the tag byte is peer-visible.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 219;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

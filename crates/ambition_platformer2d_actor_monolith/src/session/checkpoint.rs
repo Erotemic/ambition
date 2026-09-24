@@ -312,8 +312,7 @@ pub fn restore_checkpoint_on_session_start(
             key,
             frame,
             intent,
-            occurrences: occurrences.map(|b| b.clone()).unwrap_or_default(),
-            custody: custody.map(|b| b.clone()).unwrap_or_default(),
+            lifecycle: pin_lifecycle_inputs(occurrences, custody),
             item: minted.zip(owned).map(|(minted, owned)| {
                 crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                     minted: minted.clone(),
@@ -504,8 +503,7 @@ pub fn resume_at_checkpoint_on_reset(
         key,
         frame,
         intent,
-        occurrences: occurrences.map(|b| b.clone()).unwrap_or_default(),
-        custody: custody.map(|b| b.clone()).unwrap_or_default(),
+        lifecycle: pin_lifecycle_inputs(occurrences, custody),
         item: minted.zip(owned).map(|(minted, owned)| {
             crate::items::pickup::minted_horizon::ItemCheckpointRestoreInputs {
                 minted: minted.clone(),
@@ -700,6 +698,30 @@ impl SessionCheckpointOperations {
     }
 }
 
+/// Pin the lifecycle half of a restore from the live baselines.
+///
+/// ⛔ BOTH OR NEITHER. `LifecycleCheckpointHorizonPlugin` installs the two
+/// baselines together, so one without the other is a composition error. It pins
+/// `None` and logs it, and does not fill the missing half with an empty one.
+fn pin_lifecycle_inputs(
+    occurrences: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline>>,
+    custody: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline>>,
+) -> Option<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs> {
+    if occurrences.is_some() != custody.is_some() {
+        bevy::log::error!(
+            target: "ambition_platformer2d::session",
+            "a composition installs one lifecycle baseline without the other; \
+             this restore pins no lifecycle inputs",
+        );
+    }
+    occurrences.zip(custody).map(|(occurrences, custody)| {
+        ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+            occurrences: occurrences.clone(),
+            custody: custody.clone(),
+        }
+    })
+}
+
 /// One accepted restore and the reconstruction inputs it was accepted with.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AcceptedRestore {
@@ -717,11 +739,16 @@ pub struct AcceptedRestore {
     /// names the intent it owns rather than letting preparation guess from the
     /// destination.
     pub intent: crate::session::lifecycle_commit::LifecycleIntent,
-    /// The occurrence population this operation reconstructs, as it stood when
-    /// the slot accepted it.
-    pub occurrences: ambition_platformer2d_shared_tangle::lifecycle::OccurrenceBaseline,
-    /// The custody relation it restores.
-    pub custody: ambition_platformer2d_shared_tangle::lifecycle::CustodyBaseline,
+    /// The lifecycle domain's half: the occurrence population this operation
+    /// reconstructs and the custody relation it restores, as they stood when the
+    /// slot accepted it. `None` in a composition with no lifecycle horizon.
+    ///
+    /// ⛔ ABSENT IS NOT EMPTY. An empty baseline says "nothing ever occurred and
+    /// nobody holds anything": the custody restore would take every carried
+    /// object from its holder, and room preparation would build from that
+    /// ledger instead of the live one. A composition that does not take part
+    /// pins `None`, as the item half does.
+    pub lifecycle: Option<ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs>,
     /// The item domain's half: how to rebuild the runtime mints those custody
     /// rows name, and the entitlement quantities. `None` in a composition with
     /// no item domain, which is "not participating" and not "erase the bag".
@@ -813,8 +840,7 @@ impl AcceptedRestore {
             key,
             frame,
             intent,
-            occurrences,
-            custody,
+            lifecycle,
             item,
         } = self;
         let mut bytes = Vec::new();
@@ -823,12 +849,19 @@ impl AcceptedRestore {
         key.write_peer_stable_into(&mut bytes);
         put_i32(&mut bytes, *frame);
         put_u64(&mut bytes, intent.checksum());
-        put_u64(&mut bytes, occurrences.checksum());
-        // ⚠ ABSENT AND EMPTY ARE DIFFERENT ANSWERS. "No mint baseline installed"
-        // is a composition without the item domain; "installed and empty" is a
-        // checkpoint that saw no runtime mints. Folding them together would let
-        // a peer with no item domain agree with one that has an empty baseline.
-        put_u64(&mut bytes, custody.checksum());
+        // ⚠ ABSENT AND EMPTY ARE DIFFERENT ANSWERS, for both halves. "No
+        // baseline installed" is a composition without that domain; "installed
+        // and empty" is a checkpoint that saw nothing. Folding them together
+        // would let a peer with no domain agree with one that has an empty
+        // baseline.
+        match lifecycle {
+            None => put_u8(&mut bytes, 0),
+            Some(lifecycle) => {
+                put_u8(&mut bytes, 1);
+                put_u64(&mut bytes, lifecycle.occurrences.checksum());
+                put_u64(&mut bytes, lifecycle.custody.checksum());
+            }
+        }
         match item {
             None => put_u8(&mut bytes, 0),
             Some(item) => {
@@ -917,10 +950,9 @@ pub fn apply_committed_checkpoint_restore(
         return false;
     };
 
-    world.insert_resource(CheckpointRestoreInputs {
-        occurrences: accepted.occurrences.clone(),
-        custody: accepted.custody.clone(),
-    });
+    if let Some(lifecycle) = accepted.lifecycle.clone() {
+        world.insert_resource(lifecycle);
+    }
     if let Some(item) = accepted.item.clone() {
         world.insert_resource(item);
     }
@@ -1241,8 +1273,9 @@ fn verify_restored_domains(
 ) -> Result<(), RestoreVerificationFailure> {
     use ambition_platformer2d_shared_tangle::lifecycle::AuthoredOccurrences;
 
-    if let Some(live) = world.get_resource::<AuthoredOccurrences>() {
-        if live != accepted.occurrences.remembered() {
+    let lifecycle = accepted.lifecycle.as_ref();
+    if let (Some(live), Some(lifecycle)) = (world.get_resource::<AuthoredOccurrences>(), lifecycle) {
+        if live != lifecycle.occurrences.remembered() {
             return Err(RestoreVerificationFailure {
                 failure: RestoreFailure::OccurrenceLedger,
                 detail: "the applied ledger does not match the population this \
@@ -1347,7 +1380,7 @@ fn verify_restored_domains(
                     .push(named.get(&custody.custodian).cloned());
             }
         }
-        for (occurrence, custodian) in accepted.custody.rows() {
+        for (occurrence, custodian) in lifecycle.iter().flat_map(|lifecycle| lifecycle.custody.rows()) {
             match custodians.get(occurrence) {
                 None => unmet.push(format!(
                     "{} is in nobody's custody",
@@ -1386,10 +1419,9 @@ fn verify_restored_domains(
             let mut ids = world.query::<&SimId>();
             ids.iter(world).cloned().collect()
         };
-        let missing: Vec<&str> = accepted
-            .occurrences
-            .remembered()
-            .rows()
+        let missing: Vec<&str> = lifecycle
+            .iter()
+            .flat_map(|lifecycle| lifecycle.occurrences.remembered().rows())
             .filter(|(_, whereabouts)| {
                 matches!(
                     whereabouts,

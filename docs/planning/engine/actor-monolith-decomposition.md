@@ -24,7 +24,7 @@ an expected SCC size is reached.
 The measured nontrivial SCCs are:
 
 ```text
-largest cyclic component    7 modules  (2026-09-24)
+largest cyclic component    6 modules  (2026-09-24)
 second                      2 modules
 ```
 

@@ -102,7 +102,7 @@ impl RoomTransitionContentEpoch {
 pub fn advance_room_transition_content_epoch_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     placement_lowering: Res<
-        ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry,
+        ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry,
     >,
     content_staging: Res<
         ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
@@ -550,7 +550,7 @@ pub fn begin_room_transition_load_system(
     >,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<world_rooms::RoomSet>,
     construction_services: (
-        Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
+        Res<ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry>,
         Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
         Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
         Res<ambition_boss_encounter::BossCatalog>,
@@ -1138,9 +1138,16 @@ pub fn begin_room_transition_load_system(
                 .as_deref()
                 .and_then(|accepted| accepted.inputs_for_key(key))
         });
-        let selected_ledger = selected_restore
-            .map(|accepted| accepted.occurrences.remembered())
-            .or(construction_services.6.as_deref());
+        // ⛔ A SELECTED RESTORE ANSWERS FOR ITS LEDGER EVEN WHEN IT PINNED NONE,
+        // as it does for its mints: falling back to the live ledger would build
+        // a checkpoint's room from state the operation was not accepted with.
+        let selected_ledger = match selected_restore {
+            Some(accepted) => accepted
+                .lifecycle
+                .as_ref()
+                .map(|lifecycle| lifecycle.occurrences.remembered()),
+            None => construction_services.6.as_deref(),
+        };
         let selected_minted = match selected_restore {
             Some(accepted) => accepted.item.as_ref().map(|item| &item.minted),
             None => construction_services.7.as_deref(),
@@ -1753,8 +1760,10 @@ mod checkpoint_failure_tests {
                 key,
                 frame: 0,
                 intent: crossing(),
-                occurrences: Default::default(),
-                custody: Default::default(),
+                lifecycle: Some(ambition_platformer2d_shared_tangle::lifecycle::CheckpointRestoreInputs {
+                    occurrences: Default::default(),
+                    custody: Default::default(),
+                }),
                 item: None,
             });
         assert!(app

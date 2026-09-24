@@ -100,3 +100,58 @@ fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
             .is_none()
     );
 }
+
+/// The Attack and Special a possessed boss DECLARES are the moves its neutral
+/// presses FIRE, for a boss with a verb map and for one without.
+///
+/// The scheme reads the declaration and the boss tick reads the press, so a
+/// second resolution that drifted from `possessed_attack_choice` would label a
+/// button with a move it does not start.
+#[test]
+fn the_declared_possessed_actions_are_the_moves_the_presses_fire() {
+    use ambition_entity_catalog::action_scheme::{ActionGate, ControlSlot};
+    let rider = rider_behavior();
+    let rider_cap = BossCapability {
+        specials: vec![
+            (BossAttackProfile::Strike("hand_slam".to_string()), 0.3),
+            (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
+        ],
+    };
+    let warden = crate::pattern::profile::BossBehaviorProfile::clockwork_warden();
+    let warden_cap = BossCapability {
+        specials: vec![
+            (BossAttackProfile::Strike("floor_slam".to_string()), 0.3),
+            (
+                BossAttackProfile::Special("overfit_volley".to_string()),
+                2.0,
+            ),
+        ],
+    };
+    let mut special = ActorControlFrame::neutral();
+    special.special_pressed = true;
+    for (behavior, cap, attack, signature) in [
+        (&rider, &rider_cap, "hand_sweep", "apple_rain"),
+        (&warden, &warden_cap, "floor_slam", "overfit_volley"),
+    ] {
+        let declared = possessed_boss_techniques(behavior, cap);
+        let declared_on = |slot: ControlSlot| {
+            declared
+                .iter()
+                .find(|action| action.slot == slot)
+                .map(|action| match &action.gate {
+                    ActionGate::Technique(id) => id.clone(),
+                    other => panic!("{slot:?} must be a technique gate, got {other:?}"),
+                })
+        };
+        let fired = |frame: &ActorControlFrame| {
+            possessed_attack_choice(frame, behavior, Some(cap), 1.0).map(|p| p.move_id())
+        };
+        assert_eq!(declared_on(ControlSlot::Attack).as_deref(), Some(attack));
+        assert_eq!(
+            declared_on(ControlSlot::Attack),
+            fired(&melee_frame(ae::LocalAxes::ZERO))
+        );
+        assert_eq!(declared_on(ControlSlot::Special).as_deref(), Some(signature));
+        assert_eq!(declared_on(ControlSlot::Special), fired(&special));
+    }
+}

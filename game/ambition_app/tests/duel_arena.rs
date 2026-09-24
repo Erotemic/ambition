@@ -294,8 +294,8 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
 
     let mut pca = AbilityLog::default();
     let mut robot = AbilityLog::default();
-    // ~30s — long enough to observe the slower abilities (dash-to-close, a fly
-    // foray) on top of the frequent block.
+    // ~30s — long enough to observe the slower abilities (dash-to-close, taking
+    // flight) on top of the frequent block.
     for _ in 0..1800 {
         sim.step(AgentAction::default());
         observe_abilities(sim.world_mut(), DUEL_PCA_ID, &mut pca);

@@ -999,7 +999,6 @@ fn put_smash_state(out: &mut Vec<u8>, state: &crate::brain::smash::SmashState) {
     put_f32(out, state.spacing_phase);
     put_f32(out, state.neutral_jump_cooldown);
     put_f32(out, state.blink_cooldown);
-    put_f32(out, state.foray_timer);
     put_f32(out, state.shield_hold_timer);
     put_f32(out, state.neutral_reset_timer);
     put_bool(out, state.was_attacking);

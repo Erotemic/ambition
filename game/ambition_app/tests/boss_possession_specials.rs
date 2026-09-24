@@ -230,3 +230,37 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
         "release restores the boss's autonomous BossPattern brain"
     );
 }
+
+/// A possessed boss's prompt names the Attack and Special it fires.
+///
+/// The boss's `ActionSet` and its profile-keyed moveset declare no `attack` or
+/// `special` verb, so before `possessed_boss_techniques` its scheme had no such
+/// slots: the prompt showed Jump, Ranged and Interact only, and the control gate
+/// treated both presses as verbs the body does not own. The labels are the moves
+/// the presses resolve to: the rider's `possessed_verbs` map `attack` to
+/// `hand_sweep`, and its signature special is `apple_rain`.
+#[test]
+fn a_possessed_boss_prompt_shows_the_attack_and_special_it_fires() {
+    use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
+    use ambition_platformer2d::sim_view::ControlPrompt;
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    spawn_and_possess_boss(&mut sim);
+    sim.step(AgentAction::default());
+    let prompt = sim.world_mut().resource::<ControlPrompt>().clone();
+    let labels: Vec<_> = prompt
+        .entries
+        .iter()
+        .map(|entry| (entry.slot, entry.label.clone()))
+        .collect();
+    assert_eq!(
+        prompt.label_for(ControlSlot::Attack),
+        Some("Hand Sweep"),
+        "the Attack button names the move the press fires: {labels:?}"
+    );
+    assert_eq!(
+        prompt.label_for(ControlSlot::Special),
+        Some("Apple Rain"),
+        "the Special button names the signature special: {labels:?}"
+    );
+}

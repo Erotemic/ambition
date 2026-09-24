@@ -944,7 +944,7 @@ pub fn apply_feature_hit_events(
                         pb.landed_hit = true;
                         // Persist one-hit-per-target dedup on the MOVE itself. The
                         // per-swing accumulator below lives on `BodyMelee.swing`, which
-                        // a `MovesetMelee` body rebuilds every frame — so without this
+                        // a melee-routing body rebuilds every frame — so without this
                         // the strike re-hit + re-fired the hit SFX every active tick.
                         // `MovePlayback` is the persistent per-strike home.
                         if record_dedup {

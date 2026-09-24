@@ -134,7 +134,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // the player brain translate that canonical slot (production order).
             crate::schedule::publish_seat_controls_when_nobody_else_does,
             crate::avatar::tick_controlled_brains,
-            ambition_characters::brain::emit_player_projectile_tick_messages,
+            ambition_combat::action_emission::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the delayed request materializer runs (so a
             // shot fired this frame first ticks next frame), then feature hits.

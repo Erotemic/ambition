@@ -64,7 +64,7 @@ impl FighterHarness {
             Update,
             (
                 tick_body_cooldowns,
-                ambition_characters::brain::emit_brain_action_messages,
+                ambition_combat::action_emission::emit_brain_action_messages,
                 spawn_projectiles_from_brain_actions,
                 ambition_projectiles::materialize_projectiles_for_this_tick,
             )

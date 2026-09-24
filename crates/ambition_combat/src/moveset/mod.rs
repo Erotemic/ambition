@@ -105,73 +105,22 @@ mod prefab_registry;
 pub use ambition_characters::moveset_prefabs::*;
 pub use prefab_registry::*;
 
-/// Marker: this body has a melee swing as a data-driven moveset `"attack"` move
-/// (the ONLY melee path — the flat `BodyMelee` driver is gone). The swing is
-/// triggered by [`trigger_moveset_moves`], run by [`advance_move_playback`], and
-/// its `BodyMelee` read-model is projected from the live [`MovePlayback`] by
-/// [`project_moveset_melee_to_body_melee`] so every consumer (actor anim index,
-/// view/telegraph index, HUD) keeps reading the same shape. Every body whose
-/// `ActionSet.melee` is `Some` carries this marker; it gates the projection
-/// query so a body with no attack move publishes no phantom swing.
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct MovesetMelee;
+/// Whether this moveset answers the melee family: a body whose moveset does
+/// is the one whose `BodyMelee` read-model [`project_moveset_melee_to_body_melee`]
+/// publishes, so a body with no attack move publishes no phantom swing.
+///
+/// Asked of the live moveset every time rather than stored beside it: a kit swap
+/// replaces `ActorMoveset` wholesale, and a stored answer would be the previous
+/// kit's until something re-derived it.
+pub fn routes_melee(moveset: &ActorMoveset) -> bool {
+    moveset.0.verbs.keys().any(|verb| is_melee_verb(verb))
+}
 
-/// Keep the routing markers agreeing with the moveset they route into.
-///
-/// `MovesetMelee` and [`MovesetRanged`](ambition_characters::brain::MovesetRanged)
-/// are not independent state — they are a projection of "does this moveset author
-/// an `attack` / `ranged` verb". They were nonetheless written by hand at three
-/// unrelated places (the actor cluster seed, the prepared-character projection)
-/// and by NOBODY on the catalog persona path, which replaces `ActorMoveset`
-/// wholesale on a kit swap and never touched them. The consequences are all
-/// silent:
-///
-/// * a stale `MovesetMelee` diverts an attack into a timeline the new moveset
-///   does not contain — the input is consumed and nothing happens;
-/// * a missing `MovesetRanged` on a form that DOES author a ranged move routes it
-///   back to the flat emitter, so the move's aim sampling never runs;
-/// * a swap to a form with no routed moves keeps both.
-///
-/// So they are derived here, from the one authority, whenever it changes. Deriving
-/// beats synchronizing: a third writer of `ActorMoveset` added tomorrow gets the
-/// markers right without knowing they exist.
-///
-/// Spawn is still seeded by `ActorClusterSeed::into_components`, which is correct
-/// and one tick earlier than this system could be — this reconciles CHANGES.
-pub fn reconcile_moveset_routing_markers(
-    mut commands: Commands,
-    bodies: Query<
-        (
-            Entity,
-            &ActorMoveset,
-            bevy::prelude::Has<MovesetMelee>,
-            bevy::prelude::Has<ambition_characters::brain::MovesetRanged>,
-        ),
-        bevy::prelude::Changed<ActorMoveset>,
-    >,
-) {
-    for (entity, moveset, has_melee_marker, has_ranged_marker) in &bodies {
-        let routes_melee = moveset.0.verbs.keys().any(|verb| is_melee_verb(verb));
-        let routes_ranged = moveset.0.verbs.contains_key(RANGED_VERB);
-        if routes_melee != has_melee_marker {
-            if routes_melee {
-                commands.entity(entity).insert(MovesetMelee);
-            } else {
-                commands.entity(entity).remove::<MovesetMelee>();
-            }
-        }
-        if routes_ranged != has_ranged_marker {
-            if routes_ranged {
-                commands
-                    .entity(entity)
-                    .insert(ambition_characters::brain::MovesetRanged);
-            } else {
-                commands
-                    .entity(entity)
-                    .remove::<ambition_characters::brain::MovesetRanged>();
-            }
-        }
-    }
+/// Whether this moveset authors the `ranged` verb, in which case the move owns
+/// the ranged press (its timed event samples live aim and re-emits the request)
+/// and the flat emitter and the charge stream stand aside.
+pub fn routes_ranged(moveset: &ActorMoveset) -> bool {
+    moveset.0.verbs.contains_key(RANGED_VERB)
 }
 
 /// A timed move event fired by [`advance_move_playback`]. The move runtime
@@ -4554,7 +4503,7 @@ pub fn dispatch_move_events(
     }
 }
 
-/// Project a `MovesetMelee` body's live [`MovePlayback`] into its [`BodyMelee`] read-model so every
+/// Project a melee-routing body's live [`MovePlayback`] into its [`BodyMelee`] read-model so every
 /// existing consumer — the actor anim index, the view/telegraph index, the HUD, the melee
 /// integration tests — keeps working unchanged after melee moved onto the moveset. In particular,
 /// damage resolution must never consult this projection as an authority gate: the live strike
@@ -4562,7 +4511,7 @@ pub fn dispatch_move_events(
 /// floors still tick in `tick_body_melee_cooldowns`).
 ///
 /// Runs AFTER `advance_move_playback` (so `t` is current). It is the sole writer
-/// of a `MovesetMelee` body's swing DURING LIVE SIMULATION — there is no flat
+/// of a melee-routing body's swing DURING LIVE SIMULATION — there is no flat
 /// melee driver competing for it anymore.
 ///
 /// ⚠ "SOLE WRITER" USED TO BE UNQUALIFIED HERE AND WAS FALSE — corrected
@@ -4573,19 +4522,19 @@ pub fn dispatch_move_events(
 /// review. ⇒ The honest scope is "on a live entity"; the restore is the other
 /// writer and it is meant to be.
 pub fn project_moveset_melee_to_body_melee(
-    mut bodies: Query<
-        (Option<&MovePlayback>, Option<&ActorMoveset>, &mut BodyMelee),
-        With<MovesetMelee>,
-    >,
+    mut bodies: Query<(Option<&MovePlayback>, &ActorMoveset, &mut BodyMelee)>,
 ) {
     for (playback, moveset, mut melee) in &mut bodies {
+        if !routes_melee(moveset) {
+            continue;
+        }
         // Only a MELEE swing move projects a swing. A body's ranged shot
-        // (`"ranged"`) or a special as a moveset move is ALSO `MovesetMelee`, and
+        // (`"ranged"`) or a special as a moveset move ALSO routes melee, and
         // those are NOT swings — projecting one would publish a phantom
         // `BodyMelee.swing` the movement pipeline reads as "mid-attack", freezing
         // a firing/special-ing body.
         match playback {
-            Some(pb) if is_melee_swing_move(moveset.map(|m| &m.0), &pb.spec.id) => {
+            Some(pb) if is_melee_swing_move(Some(&moveset.0), &pb.spec.id) => {
                 melee.swing = Some(synth_swing_from_move(pb))
             }
             _ => melee.swing = None,
@@ -4609,7 +4558,7 @@ fn verb_for_move<'a>(moveset: &'a MovesetContract, id: &str) -> Option<&'a str> 
 
 /// Whether an input verb belongs to the melee family.
 ///
-/// Kept as one predicate for both routing-marker derivation and live playback
+/// Kept as one predicate for both [`routes_melee`] and live playback
 /// projection so a directional-only or smash-only moveset cannot be routed one
 /// way and presented another.
 use ambition_entity_catalog::is_melee_verb;

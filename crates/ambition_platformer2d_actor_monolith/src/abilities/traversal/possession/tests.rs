@@ -388,9 +388,8 @@ fn out_of_range_actors_are_not_possessed() {
 /// `ActorActionMessage` for the TARGET, and the vacated home avatar emits nothing.
 #[test]
 fn attack_while_controlling_target_emits_only_for_the_target() {
-    use ambition_characters::brain::{
-        emit_brain_action_messages, ActionSet, ActorActionMessage, MeleeActionSpec, SwipeSpec,
-    };
+    use ambition_characters::brain::{ActionSet, ActorActionMessage, MeleeActionSpec, SwipeSpec};
+    use ambition_combat::action_emission::emit_brain_action_messages;
 
     let mut app = App::new();
     app.add_message::<ActorActionMessage>();

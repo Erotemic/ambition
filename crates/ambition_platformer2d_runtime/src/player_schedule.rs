@@ -218,8 +218,8 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_characters::brain::emit_brain_action_messages,
-                ambition_characters::brain::emit_player_projectile_tick_messages,
+                ambition_combat::action_emission::emit_brain_action_messages,
+                ambition_combat::action_emission::emit_player_projectile_tick_messages,
                 ambition_characters::brain::observe_brain_action_counter,
             )
                 .chain()

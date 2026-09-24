@@ -17,8 +17,6 @@ use ambition_sfx::PresentationSourceId;
 fn session_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
-    // The routing markers (`MovesetMelee` / `MovesetRanged`) are DERIVED from the live
-    // `ActorMoveset` by a system this plugin owns.
     app.add_plugins(crate::action_scheme::ActionSchemePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
@@ -452,11 +450,12 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
          the player and nothing else in the room"
     );
     assert!(
-        app.world()
-            .get::<ambition_combat::moveset::MovesetMelee>(actor)
-            .is_some(),
-        "and the `attack` verb routes its melee through the move timeline, the same \
-         marker `ActorClusterSeed` derives from an authored moveset"
+        ambition_combat::moveset::routes_melee(
+            app.world()
+                .get::<ambition_combat::moveset::ActorMoveset>(actor)
+                .unwrap()
+        ),
+        "and the `attack` verb routes its melee through the move timeline"
     );
 }
 
@@ -536,9 +535,11 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     );
 
     assert!(
-        app.world()
-            .get::<ambition_combat::moveset::MovesetMelee>(body)
-            .is_some(),
+        ambition_combat::moveset::routes_melee(
+            app.world()
+                .get::<ambition_combat::moveset::ActorMoveset>(body)
+                .unwrap()
+        ),
         "a moveset authoring `attack` routes melee through the move timeline"
     );
 
@@ -558,8 +559,7 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     // Replacing the VALUE on a swap belongs to the persona derive, which is the
     // single writer for a worn body; that half is pinned in
     // `wearing_a_quieter_character_replaces_the_previous_moveset` beside it, and
-    // the routing that follows the value is pinned by
-    // `routing_markers_are_derived_from_whatever_wrote_the_moveset`.
+    // routing is read from the value itself (`routes_melee` / `routes_ranged`).
     assert!(
         app.world()
             .get::<ambition_combat::moveset::ActorMoveset>(body)
@@ -577,16 +577,15 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
     );
 }
 
-/// The routing markers follow the moveset, whoever wrote it.
-///
-/// Driven by writing the moveset directly, which is exactly what an unknown
-/// third writer would do.
+/// Routing is read from the moveset VALUE, so a swap moves it both ways in one
+/// step — the case a one-directional "insert if present" marker missed.
 #[test]
-fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
+fn routing_follows_the_moveset_value() {
+    use ambition_combat::moveset::{routes_melee, routes_ranged, ActorMoveset};
     use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
 
-    fn contract(verb: &str) -> MovesetContract {
-        MovesetContract {
+    fn contract(verb: &str) -> ActorMoveset {
+        ActorMoveset(MovesetContract {
             verbs: std::collections::BTreeMap::from([(verb.to_string(), "m".to_string())]),
             moves: vec![MoveSpec {
                 display_name: None,
@@ -610,47 +609,19 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
                 repeat: None,
                 flow: None,
             }],
-        }
+        })
     }
 
-    let mut app = App::new();
-    app.add_systems(
-        bevy::app::Update,
-        ambition_combat::moveset::reconcile_moveset_routing_markers,
-    );
-    let body = app
-        .world_mut()
-        .spawn(ambition_combat::moveset::ActorMoveset(contract(
-            ambition_combat::moveset::ATTACK_VERB,
-        )))
-        .id();
-    finalize_and_update(&mut app);
-    assert!(app
-        .world()
-        .get::<ambition_combat::moveset::MovesetMelee>(body)
-        .is_some());
-    assert!(app
-        .world()
-        .get::<ambition_characters::brain::MovesetRanged>(body)
-        .is_none());
-
-    // A swap to a ranged-only moveset must move the routing with it — both ways
-    // in one step, which is the case a one-directional "insert if present" misses.
-    *app.world_mut()
-        .get_mut::<ambition_combat::moveset::ActorMoveset>(body)
-        .unwrap() =
-        ambition_combat::moveset::ActorMoveset(contract(ambition_combat::moveset::RANGED_VERB));
-    finalize_and_update(&mut app);
+    let melee = contract(ambition_combat::moveset::ATTACK_VERB);
+    assert!(routes_melee(&melee));
+    assert!(!routes_ranged(&melee));
+    let ranged = contract(ambition_combat::moveset::RANGED_VERB);
     assert!(
-        app.world()
-            .get::<ambition_combat::moveset::MovesetMelee>(body)
-            .is_none(),
+        !routes_melee(&ranged),
         "melee routing outlived a moveset with no `attack` verb"
     );
     assert!(
-        app.world()
-            .get::<ambition_characters::brain::MovesetRanged>(body)
-            .is_some(),
+        routes_ranged(&ranged),
         "a moveset authoring `ranged` was not routed through the move timeline, so \
          the shot falls back to the flat emitter and never samples live aim"
     );

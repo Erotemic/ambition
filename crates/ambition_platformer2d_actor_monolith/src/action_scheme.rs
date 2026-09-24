@@ -107,12 +107,6 @@ impl Plugin for ActionSchemePlugin {
                 ambition_combat::hand::reconcile_effective_repertoire
                     .in_set(ambition_combat::hand::EffectiveRepertoireReconciled)
                     .after(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Persona),
-                // The routing markers follow whatever the moveset finally IS —
-                // after identity derived it and the overlay folded in — so a
-                // ranged move granted by a row routes through the move timeline
-                // on the same tick it is granted.
-                ambition_combat::moveset::reconcile_moveset_routing_markers
-                    .after(ambition_combat::hand::EffectiveRepertoireReconciled),
                 reconcile_action_schemes
                     .after(ambition_combat::hand::EffectiveRepertoireReconciled),
             )

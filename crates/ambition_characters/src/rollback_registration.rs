@@ -109,8 +109,6 @@ where
         "actor.identity_kit",
     );
     registrar.rollback_component_clone::<crate::brain::BossCapability>(OWNER, "boss.capability");
-    registrar
-        .rollback_component_clone::<crate::brain::MovesetRanged>(OWNER, "actor.moveset_ranged");
     registrar.declare_rollback_derived_component::<crate::action_scheme::ActorActionScheme>(
         OWNER,
         "derived.actor_action_scheme",

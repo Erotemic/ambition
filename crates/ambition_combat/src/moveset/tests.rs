@@ -2586,7 +2586,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     let firing = app
         .world_mut()
         .spawn((
-            MovesetMelee,
+            ActorMoveset(contract.clone()),
             BodyMelee::default(),
             MovePlayback::new(fire, 1.0),
         ))
@@ -2595,7 +2595,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     let swinging = app
         .world_mut()
         .spawn((
-            MovesetMelee,
+            ActorMoveset(contract.clone()),
             BodyMelee::default(),
             MovePlayback::new(attack, 1.0),
         ))
@@ -2604,7 +2604,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     let specialing = app
         .world_mut()
         .spawn((
-            MovesetMelee,
+            ActorMoveset(contract.clone()),
             BodyMelee::default(),
             MovePlayback::new(special, 1.0),
         ))
@@ -2640,21 +2640,17 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
 
 /// Routing derives from the melee VERB family, not from requiring a base
 /// `attack` entry. A directional-only fighter is a valid moveset and must still
-/// receive the presentation marker.
+/// route through the melee read-model.
 #[test]
-fn a_directional_only_smash_route_derives_the_melee_marker() {
+fn a_directional_only_smash_route_routes_melee() {
     let smash = gesture_test_move("forward_smash");
     let contract = MovesetContract {
         verbs: std::collections::BTreeMap::from([("smash_forward".to_string(), smash.id.clone())]),
         moves: vec![smash],
     };
 
-    let mut app = App::new();
-    app.add_systems(Update, reconcile_moveset_routing_markers);
-    let body = app.world_mut().spawn(ActorMoveset(contract)).id();
-    app.update();
     assert!(
-        app.world().get::<MovesetMelee>(body).is_some(),
+        routes_melee(&ActorMoveset(contract)),
         "any attack/smash verb family routes through the melee read-model"
     );
 }
@@ -2678,7 +2674,6 @@ fn a_smash_verb_projects_the_melee_read_model() {
     let body = app
         .world_mut()
         .spawn((
-            MovesetMelee,
             BodyMelee::default(),
             ActorMoveset(contract),
             MovePlayback::new(smash, 1.0),
@@ -3782,11 +3777,16 @@ fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() 
 #[test]
 fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
     let mut app = App::new();
-    let mut playback = MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0);
+    let swing = simple_melee(&SimpleMeleeParams::default());
+    let moveset = ActorMoveset(MovesetContract {
+        verbs: std::collections::BTreeMap::from([(ATTACK_VERB.to_string(), swing.id.clone())]),
+        moves: vec![swing.clone()],
+    });
+    let mut playback = MovePlayback::new(swing, 1.0);
     playback.hit_targets = vec!["enemy:already_struck".to_string()];
     let body = app
         .world_mut()
-        .spawn((playback, BodyMelee::default(), MovesetMelee))
+        .spawn((playback, BodyMelee::default(), moveset))
         .id();
     app.add_systems(Update, project_moveset_melee_to_body_melee);
     app.update();
@@ -8734,7 +8734,7 @@ fn the_read_model_swing_takes_its_direction_from_the_gesture_not_the_move_id() {
         // spelling out the move id — which is exactly what it was doing.
         app.world_mut()
             .entity_mut(body)
-            .insert((MovesetMelee, BodyMelee::default()));
+            .insert(BodyMelee::default());
         app.add_systems(Update, project_moveset_melee_to_body_melee);
         set_frame(&mut app, body, |f| {
             f.attack_axis = dir;

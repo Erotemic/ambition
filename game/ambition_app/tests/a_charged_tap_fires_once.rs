@@ -63,7 +63,7 @@ fn hold_the_gun_sword(
 ///
 /// Charge ownership is a CHARACTER fact (`ChargesProjectiles`), and the hand
 /// replaces the ranged slot after it: a charger holding a gun-sword carries the
-/// item's `ranged` move (`MovesetRanged`) AND the charge marker, and one press
+/// item's `ranged` move AND the charge marker, and one press
 /// reached both the move and the charge path.
 #[test]
 fn a_charger_holding_a_ranged_item_fires_the_item_once_per_tap() {
@@ -81,9 +81,13 @@ fn a_charger_holding_a_ranged_item_fires_the_item_once_per_tap() {
     let (charges, moveset_ranged) = {
         let mut q = sim.world_mut().query_filtered::<(
             Has<ambition_platformer2d::characters::brain::ChargesProjectiles>,
-            Has<ambition_platformer2d::characters::brain::MovesetRanged>,
+            Option<&ambition_platformer2d::combat::moveset::ActorMoveset>,
         ), With<ambition_platformer2d::platformer::body::PrimaryBody>>();
-        q.single(sim.world()).expect("one primary body")
+        let (charges, moveset) = q.single(sim.world()).expect("one primary body");
+        (
+            charges,
+            moveset.is_some_and(ambition_platformer2d::combat::moveset::routes_ranged),
+        )
     };
     assert!(charges, "the protagonist no longer charges, so this measures nothing");
     assert!(

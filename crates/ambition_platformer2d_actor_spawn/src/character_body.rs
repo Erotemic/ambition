@@ -285,8 +285,6 @@ pub fn grant_prepared_character_body(
             let identity =
                 ambition_characters::brain::action_set::IdentityKit::of(action_set, moveset);
             let live = ambition_characters::repertoire::effective_repertoire(&identity, None, hand);
-            // The routing markers are NOT set here. They are derived from
-            // the live `ActorMoveset` by `reconcile_moveset_routing_markers`.
             scope.insert((
                 identity,
                 live.action_set,

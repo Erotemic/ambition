@@ -250,8 +250,6 @@ where
         crate::moveset::stored_move_charge_probe,
     );
     registrar.rollback_component_clone::<crate::moveset::ActorMoveset>(OWNER, "actor.moveset");
-    registrar
-        .rollback_component_clone::<crate::moveset::MovesetMelee>(OWNER, "actor.moveset_melee");
     registrar.rollback_component_clone::<crate::components::PickupFeature>(OWNER, "feature.pickup");
     registrar.rollback_component_clone::<crate::components::Collected>(OWNER, "feature.collected");
     registrar.rollback_component_clone::<crate::components::RuntimeStagedActor>(

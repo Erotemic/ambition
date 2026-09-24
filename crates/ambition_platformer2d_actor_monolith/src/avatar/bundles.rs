@@ -110,14 +110,12 @@ pub struct PlayerSimulationBundle {
     /// from `action_set.melee`, so whatever character the player wears defines the
     /// melee — the non-player-centric / relativity principle: human, brain, or RL
     /// all attach to the same character behavior. Ranged stays on the player's
-    /// charge system (`None` here), specials on the `Special` channel —
-    /// `MovesetMelee` marks the melee-swing move.
+    /// charge system (`None` here), specials on the `Special` channel.
     pub moveset: ambition_combat::moveset::ActorMoveset,
     /// The kit this body's IDENTITY derived, before equipment. Written at spawn by
     /// the same overlay the runtime re-wear uses, so the equipment reconcile has a
     /// correct baseline from the body's very first tick.
     pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
-    pub moveset_melee: ambition_combat::moveset::MovesetMelee,
     pub actor_control: ActorControl,
     /// Capability marker: this body uses the chargeable-projectile (Fireball)
     /// ability. Gates `emit_player_projectile_tick_messages` by CAPABILITY rather
@@ -210,7 +208,6 @@ impl PlayerSimulationBundle {
             // default fires only for actual player entities.
             action_set,
             moveset,
-            moveset_melee: ambition_combat::moveset::MovesetMelee,
             actor_control: ActorControl::default(),
             charges_projectiles: ambition_characters::brain::ChargesProjectiles,
             kinematics,

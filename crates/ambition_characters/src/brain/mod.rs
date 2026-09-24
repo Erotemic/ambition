@@ -344,62 +344,6 @@ impl ActorActionMessage {
     }
 }
 
-/// Bevy system: walk every actor entity that has a Brain +
-/// ActionSet + crate::control::ActorControl + BodyKinematics and emit one
-/// `ActorActionMessage` per resolved action request. Runs after the
-/// brain-driver systems (tick_controlled_brains, update_ecs_actors's
-/// runtime tick) so the frame is current.
-///
-/// The origin is the body's own position (`BodyKinematics`), never Bevy
-/// `Transform`, which belongs to presentation.
-pub fn emit_brain_action_messages(
-    actors: Query<(
-        Entity,
-        &crate::control::ActorControl,
-        &ActionSet,
-        &ambition_platformer2d_core::BodyKinematics,
-        bevy::prelude::Has<MovesetRanged>,
-        bevy::prelude::Has<ChargesProjectiles>,
-    )>,
-    mut writer: MessageWriter<ActorActionMessage>,
-) {
-    for (entity, control, action_set, kin, moveset_ranged, charges) in &actors {
-        for request in action_set::resolve(action_set, &control.0, kin.pos) {
-            // A body whose ranged shot is a moveset `"ranged"` move fires through the
-            // move's timed event (`MoveEventKind::Ranged`), not this flat
-            // `frame.fire → Ranged` path — skip the flat emission so it doesn't fire
-            // TWICE (the moveset subsumes ranged just as it did melee/specials). The
-            // move's fire event re-emits an identical `Ranged` request downstream.
-            //
-            // A CHARGE body's ranged intent belongs to the charge path
-            // (`emit_player_projectile_tick_messages` hands it over as a press,
-            // a release, or an autonomous tap), so it is skipped here for the
-            // same reason: one intent, one owner.
-            if (moveset_ranged || charges)
-                && matches!(request, action_set::ActionRequest::Ranged { .. })
-            {
-                continue;
-            }
-            writer.write(ActorActionMessage {
-                actor: entity,
-                request,
-                move_instance: None,
-            });
-        }
-    }
-}
-
-/// Marker: this body's ranged shot is a data-driven moveset `"ranged"` move (built
-/// by `build_actor_moveset` from `ActionSet.ranged`), not the flat
-/// `frame.fire → ActionRequest::Ranged` path. `emit_brain_action_messages` skips the
-/// flat ranged emission for a body carrying this, so the shot fires once — through
-/// the move's timed [`MoveEventKind::Ranged`](ambition_entity_catalog::MoveEventKind)
-/// event, which samples live aim and re-emits the same `Ranged` request. The ranged
-/// analogue of `MovesetMelee`. `ActionSet.ranged` stays populated (the move dispatch
-/// reads the spec + the projectile consumer is unchanged).
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct MovesetRanged;
-
 /// Capability marker: this actor uses the chargeable-projectile ability — the
 /// hold-to-charge / motion-gesture Fireball with its per-frame axis buffer. The
 /// projectile-tick stream (`emit_player_projectile_tick_messages`) fires for any
@@ -410,68 +354,10 @@ pub struct MovesetRanged;
 /// enemy/boss uses for its OWN (non-chargeable) projectiles.
 ///
 /// ⚠ A CAPABILITY, NOT THE ROUTE: while the effective moveset carries a
-/// [`MovesetRanged`] move (a held ranged item), that move owns the press and
-/// the charge stream is not emitted.
+/// `ranged` move (a held ranged item), that move owns the press and the charge
+/// stream is not emitted.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ChargesProjectiles;
-
-/// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
-/// per charge-capable actor per tick. The charge-projectile input
-/// consumer (`charge_projectile_input` in `ambition_platformer2d_actor_monolith`) drives its
-/// motion-recognition buffer + Fireball charge state machine from
-/// this stream from the already translated `crate::control::ActorControl` rather than raw slot input.
-///
-/// Emitted every tick — even on neutral input — because the
-/// motion-recognition buffer needs continuous axis samples to detect
-/// QCF / half-circle gestures (a "down → down-right → right → press"
-/// sequence needs samples from every frame of the rotation, not just
-/// the press frame). The consumer cheaply pushes the axis sample
-/// into the buffer on idle ticks.
-pub fn emit_player_projectile_tick_messages(
-    actors: Query<(
-        Entity,
-        &crate::control::ActorControl,
-        Option<&ChargesProjectiles>,
-        bevy::prelude::Has<MovesetRanged>,
-    )>,
-    mut writer: MessageWriter<ActorActionMessage>,
-) {
-    for (entity, control, charges, moveset_ranged) in &actors {
-        // Capability gate, not an identity gate: emit the charge-tick stream for
-        // any actor that carries the chargeable-projectile ability — the player
-        // today, a possessed body that adopts the player's kit tomorrow. (Was
-        // `brain.is_player()`; bosses/enemies carry a `ranged` ActionSet for their
-        // OWN projectiles, so this stays a dedicated opt-in marker, pay-for-use.)
-        if charges.is_none() {
-            continue;
-        }
-        // ⛔ ONE PRESS, ONE OWNER, DECIDED ON THE EFFECTIVE REPERTOIRE. Charging
-        // is a CHARACTER fact, but the hand replaces the ranged slot after it:
-        // preparation revokes a charger's own `ranged` verb, so a `ranged` move
-        // in the live moveset is the held item's — and a held item is the whole
-        // ranged vocabulary. The move answers the press; the charge path does
-        // not hear it until the hand lets go.
-        if moveset_ranged {
-            continue;
-        }
-        let frame = &control.0;
-        writer.write(ActorActionMessage {
-            actor: entity,
-            request: action_set::ActionRequest::PlayerProjectileTick {
-                axis: frame.locomotion.vec(),
-                aim: frame.aim.vec(),
-                press: frame.projectile_pressed,
-                held: frame.projectile_held,
-                released: frame.projectile_released,
-                intent: frame.fire.is_some()
-                    && !frame.projectile_pressed
-                    && !frame.projectile_held
-                    && !frame.projectile_released,
-            },
-            move_instance: None,
-        });
-    }
-}
 
 /// Resource: per-frame counter of `ActorActionMessage`s observed.
 /// EFFECTS consumers uses this to confirm the resolver is

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v216
+ggrs-rollback-schema-v218
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -47,8 +47,6 @@ actor.move_brandished_item	component-clone	MoveBrandishedItem	bevy_ggrs clone sn
 actor.move_occurrence	component-canonical	MoveOccurrence	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
 actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; not in the session checksum
-actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; not in the session checksum
-actor.moveset_ranged	component-clone	MovesetRanged	bevy_ggrs clone snapshot; not in the session checksum
 actor.out_of_play	component-canonical	OutOfPlay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 actor.perception	component-canonical	Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

@@ -2138,8 +2138,8 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     use ambition_combat::moveset::{
-        project_moveset_melee_to_body_melee, simple_melee, MovePlayback, MovesetMelee,
-        SimpleMeleeParams,
+        project_moveset_melee_to_body_melee, simple_melee, ActorMoveset, MovePlayback,
+        SimpleMeleeParams, ATTACK_VERB,
     };
     use bevy::prelude::IntoScheduleConfigs;
     fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
@@ -2164,11 +2164,16 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
             .chain(),
     );
 
+    let swing = simple_melee(&SimpleMeleeParams::default());
+    let moveset = ActorMoveset(ambition_entity_catalog::MovesetContract {
+        verbs: std::collections::BTreeMap::from([(ATTACK_VERB.to_string(), swing.id.clone())]),
+        moves: vec![swing.clone()],
+    });
     let player = app
         .world_mut()
         .spawn((
-            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
-            MovesetMelee,
+            MovePlayback::new(swing, 1.0),
+            moveset,
             ambition_combat::components::BodyMelee::default(),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::ZERO,

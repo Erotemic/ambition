@@ -193,9 +193,8 @@ fn player_action_set_has_full_moveset_with_sandbox_all_abilities() {
 /// protagonist's two-projectiles-per-tap defect.
 #[test]
 fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
-    use ambition_characters::brain::{
-        emit_brain_action_messages, ActionRequest, ActorActionMessage,
-    };
+    use ambition_characters::brain::{ActionRequest, ActorActionMessage};
+    use ambition_combat::action_emission::emit_brain_action_messages;
     use bevy::transform::components::Transform;
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();
@@ -285,9 +284,8 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
 /// concrete action.
 #[test]
 fn player_attack_press_emits_swipe_action_message_end_to_end() {
-    use ambition_characters::brain::{
-        emit_brain_action_messages, ActionRequest, ActorActionMessage, MeleeActionSpec,
-    };
+    use ambition_characters::brain::{ActionRequest, ActorActionMessage, MeleeActionSpec};
+    use ambition_combat::action_emission::emit_brain_action_messages;
     use bevy::transform::components::Transform;
     let mut app = App::new();
     app.init_resource::<SeatRawFrames>();

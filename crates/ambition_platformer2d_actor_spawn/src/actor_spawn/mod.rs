@@ -577,25 +577,7 @@ impl EnemyActorSpawnPlan {
         {
             // Every repertoire-bearing body carries its moveset, empty or not.
             let moveset = self.moveset.unwrap_or_default();
-            // A body whose moveset carries the `"attack"` verb melees through the
-            // moveset (the only melee path): mark it `MovesetMelee` so its
-            // `BodyMelee` read-model is projected from the live move.
-            let has_attack = moveset
-                .verbs
-                .contains_key(ambition_combat::moveset::ATTACK_VERB);
-            // Likewise a body whose moveset carries the `"ranged"` verb has its shot
-            // subsumed: mark it so the flat `frame.fire → Ranged` emission is skipped
-            // (the move's fire event spawns the shot instead — no double-fire).
-            let has_ranged = moveset
-                .verbs
-                .contains_key(ambition_combat::moveset::RANGED_VERB);
             scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
-            if has_attack {
-                scope.insert(ambition_combat::moveset::MovesetMelee);
-            }
-            if has_ranged {
-                scope.insert(ambition_characters::brain::MovesetRanged);
-            }
         }
     }
 }
@@ -875,19 +857,7 @@ impl NpcActorSpawnPlan {
         }
         {
             let moveset = npc_moveset.unwrap_or_default();
-            let has_attack = moveset
-                .verbs
-                .contains_key(ambition_combat::moveset::ATTACK_VERB);
-            let has_ranged = moveset
-                .verbs
-                .contains_key(ambition_combat::moveset::RANGED_VERB);
             scope.insert(ambition_combat::moveset::ActorMoveset(moveset));
-            if has_attack {
-                scope.insert(ambition_combat::moveset::MovesetMelee);
-            }
-            if has_ranged {
-                scope.insert(ambition_characters::brain::MovesetRanged);
-            }
         }
         if let Some(size) = render_size {
             scope.insert(ambition_combat::components::ActorRenderSize(size));

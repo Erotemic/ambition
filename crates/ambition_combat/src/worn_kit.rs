@@ -159,6 +159,11 @@ pub fn resolve_playable_action_set(authored: Option<ActionSet>) -> (ActionSet, R
 ///
 /// The resolver emits no request for a capability the body lacks, so effects
 /// consumers can read the set as "what this body can actually do right now".
+///
+/// ⚠ A FIXTURE KIT. No shipped body is built with it: every body wears its
+/// character's prepared kit. It stays public because other crates' tests build
+/// the from-scratch home body with it; a runtime caller would be a fallback
+/// inventing a kit the character never authored.
 pub fn default_player_action_set(abilities: ambition_platformer2d_core::AbilitySet) -> ActionSet {
     use ambition_characters::brain::{
         MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,

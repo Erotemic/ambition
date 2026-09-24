@@ -51,7 +51,13 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
         scratch,
         ambition_characters::actor::Health::new(10),
     );
-    app.world_mut().spawn(bundle);
+    // A charger: the capability the bundle does not carry, installed as the
+    // session installs it for a `ChargedProjectile` character.
+    app.world_mut().spawn((
+        bundle,
+        ambition_characters::brain::ChargesProjectiles,
+        ambition_projectiles::PlayerProjectileState::default(),
+    ));
 }
 
 /// Register the player-kit motion techniques the fire policy expects (qcf /

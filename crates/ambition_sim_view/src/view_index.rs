@@ -675,6 +675,10 @@ pub struct ActorRenderView {
     pub is_sandbag: bool,
     pub render_size: Option<ae::Vec2>,
     pub dream_seed: Option<f32>,
+    /// Whether the body's box and quad are its worn identity's yet — the rule
+    /// `BodyPoseView::geometry` states for a player body, asked of an actor.
+    /// A binder must not finalize an actor's art while this is `Pending`.
+    pub geometry: crate::PoseGeometry,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -730,6 +734,7 @@ impl ActorRenderIndex {
         is_sandbag: bool,
         render_size: Option<ae::Vec2>,
         dream_seed: Option<f32>,
+        geometry: crate::PoseGeometry,
     ) {
         let gen = self.generation;
         if let Some(slot) = self.views.get_mut(id) {
@@ -738,20 +743,12 @@ impl ActorRenderIndex {
                 && v.sprite_character_id.as_deref() == sprite_character_id
                 && v.is_sandbag == is_sandbag
                 && v.render_size == render_size
-                && v.dream_seed == dream_seed;
+                && v.dream_seed == dream_seed
+                && v.geometry == geometry;
             if unchanged {
                 slot.1 = gen;
                 return;
             }
-            slot.0 = ActorRenderView {
-                name: name.to_string(),
-                sprite_character_id: sprite_character_id.map(str::to_string),
-                is_sandbag,
-                render_size,
-                dream_seed,
-            };
-            slot.1 = gen;
-            return;
         }
         self.views.insert(
             id.to_string(),
@@ -759,9 +756,10 @@ impl ActorRenderIndex {
                 ActorRenderView {
                     name: name.to_string(),
                     sprite_character_id: sprite_character_id.map(str::to_string),
-                        is_sandbag,
+                    is_sandbag,
                     render_size,
                     dream_seed,
+                    geometry,
                 },
                 gen,
             ),
@@ -777,10 +775,15 @@ impl ActorRenderIndex {
 /// (`upgrade_boss_sprites`) and props aren't actors, so neither appears here.
 pub fn rebuild_actor_render_index(
     mut index: ResMut<ActorRenderIndex>,
-    actors: Query<(ActorSpriteData, Option<&ActorRenderSize>)>,
+    actors: Query<(
+        ActorSpriteData,
+        Option<&ActorRenderSize>,
+        Option<&ambition_platformer2d_actor_spawn::ProjectedCharacterKit>,
+    )>,
+    registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
 ) {
     index.begin_rebuild();
-    for (a, render_size) in &actors {
+    for (a, render_size, granted) in &actors {
         index.upsert(
             a.feature_id.as_str(),
             &a.identity.name,
@@ -788,6 +791,7 @@ pub fn rebuild_actor_render_index(
             a.combat.training_dummy,
             render_size.map(|s| s.0),
             a.config.tuning.dream_seed,
+            crate::PoseGeometry::of(a.worn, granted, registry.as_deref()),
         );
     }
     index.end_rebuild();
@@ -1217,8 +1221,9 @@ mod view_index_tests {
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
             None,
+            crate::PoseGeometry::Settled,
         );
-        idx.upsert("b", "Dummy", None, true, None, None);
+        idx.upsert("b", "Dummy", None, true, None, None, crate::PoseGeometry::Settled);
         idx.end_rebuild();
         assert_eq!(idx.len(), 2);
         let a = idx.get("a").expect("a present");
@@ -1238,6 +1243,7 @@ mod view_index_tests {
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
             None,
+            crate::PoseGeometry::Settled,
         );
         idx.end_rebuild();
         assert_eq!(idx.len(), 1, "the despawned 'b' is swept");
@@ -1253,6 +1259,7 @@ mod view_index_tests {
             false,
             Some(ae::Vec2::new(30.0, 40.0)),
             None,
+            crate::PoseGeometry::Settled,
         );
         idx.end_rebuild();
         assert_eq!(

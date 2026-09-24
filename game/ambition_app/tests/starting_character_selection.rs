@@ -133,8 +133,11 @@ fn an_unselected_start_is_built_with_the_default_characters_authored_kit() {
         "the premise: `{worn}`'s authored abilities differ from the host baseline, \
          or this arm cannot tell the two roads apart",
     );
+    // Plus the one verb this game grants its home body.
+    let ambition_grant = ambition_platformer2d::engine_core::AbilityGrant::MorphBall.to_set();
     assert_eq!(
-        abilities, authored_abilities,
+        abilities,
+        authored_abilities.union(ambition_grant),
         "the unselected start wears `{worn}` but its body has the host baseline's \
          abilities rather than the ones it authored",
     );

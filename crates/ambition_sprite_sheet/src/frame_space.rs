@@ -1,50 +1,39 @@
-//! ART SPACE → BODY SPACE: the one legal crossing, and the sheet fact that
-//! makes it legal.
+//! Art space to body space: the one legal conversion, and the sheet fact it
+//! needs.
 //!
-//! Every gameplay rectangle a generator publishes — a hurtbox, an attack
-//! hitbox, a body box — is a **frame pixel**: a coordinate in the sheet's own
-//! artwork. Artwork has a handedness. [`SheetRecord::authored_faces_left`] is
-//! the sheet's record of which way its drawing points, and a frame pixel cannot
-//! be turned into a gameplay offset without it: a blade drawn to the left of
-//! the feet is *forward* for a left-drawn sheet and *backward* for a
-//! right-drawn one, and the pixels are identical either way.
+//! Every gameplay rectangle a generator publishes (hurtbox, hitbox, body box)
+//! is in frame pixels, a coordinate in the sheet's artwork. Artwork has a
+//! handedness, recorded in [`SheetRecord::authored_faces_left`]. A blade drawn
+//! left of the feet is forward for a left-drawn sheet and backward for a
+//! right-drawn one, with identical pixels. So `facing` alone cannot convert a
+//! frame pixel to a gameplay offset.
 //!
-//! The renderer had that term (`flip_x = (facing < 0) XOR authored_faces_left`)
-//! and the geometry paths did not, because each one re-derived the mirror from
-//! `facing` alone. That is why Pointed Polygon's jab came out behind her: her
-//! art is drawn facing left, her jab poly sits at `x < feet_x` as *forward*,
-//! and a consumer reading `facing` by itself has no way to know that.
+//! This module owns both parts, and callers cannot skip either:
 //!
-//! So this module owns both halves and hands out no way to skip either:
+//! - [`SheetRecord::art_is_mirrored`] is the one mirror decision. The
+//!   renderer's `flip_x` and every geometry path read it.
+//! - [`FrameToBody`] is the only public frame-pixel to body-local map. It is
+//!   built from a `&SheetRecord`; no constructor takes or omits a handedness,
+//!   so a caller with only `facing` cannot build one.
 //!
-//! - [`SheetRecord::art_is_mirrored`] is the single mirror decision. The
-//!   renderer's `flip_x` and every geometry path read it, so a sheet cannot be
-//!   mirrored by one and not the other.
-//! - [`FrameToBody`] is the only public frame-pixel → body-local map, and it is
-//!   constructed from a `&SheetRecord`. There is no constructor that takes a
-//!   handedness (so none can be passed wrong) and none that omits one (so none
-//!   can be forgotten). A caller holding only a `facing` cannot build one.
-//!
-//! **Body-local** is the frame the rest of combat already speaks
-//! (`VolumeShape::place_at`): origin at the body centre, `+x` toward the body's
-//! committed facing, `+y` toward its feet. Facing and gravity are applied by
-//! whoever places the result — never here, and never twice.
+//! Body-local is the frame combat already uses (`VolumeShape::place_at`):
+//! origin at the body centre, `+x` toward the body's facing, `+y` toward its
+//! feet. The caller that places the result applies facing and gravity, once.
 
 use crate::{AnimationBox, AnimationMetrics, NamedPixelRect, PixelRect, SheetRecord};
 use ambition_platformer2d_core as ae;
 
-/// THE mirror decision: whether art drawn facing `authored_faces_left` is drawn
+/// The mirror decision: whether art drawn facing `authored_faces_left` is
 /// mirrored for a body facing `facing`.
 ///
-/// `flip_x` for the renderer, the `+x` sign for every pixel→geometry map. It
-/// asks *"does the requested facing differ from the facing this art was drawn
-/// in"*, which is the only form that stays right for a sheet whose neutral pose
-/// points `-x`.
+/// This gives the renderer's `flip_x` and the `+x` sign for every
+/// pixel-to-geometry map. It asks whether the requested facing differs from
+/// the drawn facing, which stays correct for a sheet whose neutral pose points
+/// `-x`.
 ///
-/// It takes the flag rather than a record because the drawn facing reaches the
-/// renderer through a `CharacterSheetSpec` and reaches geometry through a
-/// `SheetRecord` — two carriers, one decision. Splitting the decision to match
-/// the carriers is exactly how the geometry half came to be missing it.
+/// It takes the flag, not a record, because the renderer gets the drawn facing
+/// from a `CharacterSheetSpec` and geometry gets it from a `SheetRecord`. Both
+/// must use this one decision.
 pub fn art_is_mirrored(authored_faces_left: bool, facing: f32, gravity_dir: ae::Vec2) -> bool {
     ambition_platformer2d_shared_tangle::gravity::gravity_aware_flip_x(facing, gravity_dir)
         ^ authored_faces_left
@@ -56,11 +45,9 @@ impl SheetRecord {
         art_is_mirrored(self.authored_faces_left, facing, gravity_dir)
     }
 
-    /// The sign that carries an art-space `+x` offset into body-space FORWARD.
+    /// The sign that maps an art-space `+x` offset to body-space forward.
     ///
-    /// `-1` for a left-drawn sheet: its art's `+x` runs toward the body's back.
-    /// This is the whole of the handedness, and [`FrameToBody`] is the only
-    /// thing that should ever apply it.
+    /// `-1` for a left-drawn sheet. Only [`FrameToBody`] should apply it.
     pub fn art_forward_x(&self) -> f32 {
         if self.authored_faces_left {
             -1.0
@@ -72,11 +59,10 @@ impl SheetRecord {
 
 /// Which authored geometry a consumer should read for the frame being shown.
 ///
-/// The precedence, in one place: a per-frame sample outranks the coarse
-/// per-animation box (so a moving part tracks the drawn pose), and within
-/// either, an authored hull outranks rectangles (so a blade arc stays an arc).
-/// Both the character attack path and the boss volume path resolve through
-/// this, which is what stops them drifting apart.
+/// Precedence: a per-frame sample outranks the per-animation box (so a moving
+/// part tracks the pose), and an authored hull outranks rectangles (so a blade
+/// arc stays an arc). The character attack path and the boss volume path both
+/// use this, so they agree.
 #[derive(Debug, Clone, Copy)]
 pub enum SampledBox<'a> {
     /// An authored convex hull, in frame pixels.
@@ -87,7 +73,7 @@ pub enum SampledBox<'a> {
 }
 
 impl<'a> SampledBox<'a> {
-    /// [`sample`], as a constructor — the spelling a consumer reads best.
+    /// [`sample`] as a constructor.
     pub fn sample(box_: &'a AnimationBox, frame: Option<usize>) -> Option<Self> {
         sample(box_, frame)
     }
@@ -119,11 +105,9 @@ pub fn sample(box_: &AnimationBox, frame: Option<usize>) -> Option<SampledBox<'_
 
 /// Which frame of `metrics` is drawn at `elapsed_s` seconds into the row.
 ///
-/// `None` when the row publishes no `frame_duration_secs`, which is every sheet
-/// that authors one shape for the whole animation — a caller then takes the
-/// coarse box, unchanged. Clamping to the authored samples is
-/// [`FrameToBody::volume`]'s job, so a row may legitimately return an index
-/// past its own data.
+/// `None` when the row publishes no `frame_duration_secs` (one shape for the
+/// whole animation); the caller then uses the coarse box. The index may be past
+/// the authored samples; [`FrameToBody::volume`] clamps it.
 pub fn frame_at(metrics: &AnimationMetrics, elapsed_s: f32) -> Option<usize> {
     let duration = metrics.frame_duration_secs?;
     if duration <= 0.0 {
@@ -134,8 +118,8 @@ pub fn frame_at(metrics: &AnimationMetrics, elapsed_s: f32) -> Option<usize> {
 
 /// A sheet's frame pixels, as body-local offsets for one body.
 ///
-/// Built from the record, so the handedness is not a parameter anyone can get
-/// wrong. Cheap and `Copy` — build one per query.
+/// Built from the record, so the handedness is not a parameter. Cheap and
+/// `Copy`; build one per query.
 #[derive(Debug, Clone, Copy)]
 pub struct FrameToBody {
     /// `+1` when the art is drawn facing `+x`, `-1` when it is drawn facing
@@ -151,13 +135,13 @@ pub struct FrameToBody {
 }
 
 impl FrameToBody {
-    /// A sheet whose `feet_pixel` plants at the body's toward-gravity face —
-    /// the anchor the character renderer uses, so the box lands on the drawn
+    /// A sheet whose `feet_pixel` plants at the body's toward-gravity face.
+    /// This is the character renderer's anchor, so the box lands on the drawn
     /// blade.
     ///
     /// `render_size` is the drawn sprite quad in world units; `collision` is
-    /// the body's collision box. Falls back to bottom-centre when the sheet
-    /// published no `feet_pixel`, which is what the renderer assumes too.
+    /// the body's collision box. Without `feet_pixel`, use bottom-centre, as
+    /// the renderer does.
     pub fn planting_feet(
         record: &SheetRecord,
         render_size: ae::Vec2,
@@ -202,9 +186,9 @@ impl FrameToBody {
         )
     }
 
-    /// Every body-local volume `box_` authors for `frame`. Multi-part
-    /// silhouettes stay several volumes; a part that authored its own hull IS
-    /// that hull.
+    /// Every body-local volume `box_` authors for `frame`. A multi-part
+    /// silhouette gives several volumes; a part with its own hull gives that
+    /// hull.
     pub fn volumes(&self, box_: &AnimationBox, frame: Option<usize>) -> Vec<ae::CombatVolume> {
         let hull = |poly: &[(f32, f32)]| {
             ae::CombatVolume::convex(poly.iter().map(|(x, y)| self.point(*x, *y)).collect())
@@ -232,9 +216,8 @@ impl FrameToBody {
         }
     }
 
-    /// The single body-local volume for a consumer that carries one shape —
-    /// the character attack path. A multi-part box collapses to the union of
-    /// its pieces, which is the honest reading of "one volume for all of this".
+    /// One body-local volume, for a consumer that uses one shape (the
+    /// character attack path). A multi-part box becomes the union of its parts.
     pub fn volume(&self, box_: &AnimationBox, frame: Option<usize>) -> Option<ae::CombatVolume> {
         let mut volumes = self.volumes(box_, frame).into_iter();
         let first = volumes.next()?;

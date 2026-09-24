@@ -1,11 +1,9 @@
 //! Character sprite-sheet vocabulary and Bevy-side animation helpers.
 //!
-//! This is the content-free layer of the former gameplay-core
-//! `character_sprites` module: animation row ids, generated sheet manifests,
+//! The content-free layer: animation row ids, generated sheet manifests,
 //! atlas geometry, and the per-entity animator component. Asset-profile policy
-//! stays in the host crate.
-//!
-//! The line the join must not cross is OWNING a catalog, and it does not: it reads one it is given.
+//! stays in the host crate. The catalog join reads a catalog it is given; it
+//! does not own one.
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
@@ -76,18 +74,16 @@ pub struct CharacterSpriteAsset {
 
 /// Build a character presentation that is valid on the same frame it becomes drawable.
 ///
-/// A packed/trimmed character atlas stores only the opaque sub-rectangle of each
-/// logical frame. [`build_character_sprite_with_render_size`] deliberately builds
-/// the logical frame size, while [`CharacterAnimator`] owns the per-frame trim
-/// algebra. Those two facts must be composed before the entity can be rendered:
-/// otherwise a freshly bound trimmed frame is briefly drawn as though its packed
-/// pixels filled the whole logical frame, then snaps to the right size when the
-/// animation system first runs.
+/// A packed or trimmed atlas stores only the opaque sub-rectangle of each
+/// logical frame. [`build_character_sprite_with_render_size`] builds the
+/// logical frame size, and [`CharacterAnimator`] owns the per-frame trim. Both
+/// must apply before the first render. Otherwise a new trimmed frame draws for
+/// one frame as if its pixels filled the logical frame, then changes size.
 ///
-/// This helper is the construction seam for ordinary character sprites. It seeds
-/// the animator's logical render basis, applies frame zero's trim immediately,
-/// and selects frame zero's physical page on split sheets. Later animation ticks
-/// use the same animator state and therefore continue from exactly this geometry.
+/// This is the construction point for ordinary character sprites. It seeds the
+/// animator's logical render basis, applies frame zero's trim, and selects
+/// frame zero's page on split sheets. Later animation ticks continue from this
+/// geometry.
 pub fn build_character_presentation_with_render_size(
     asset: &CharacterSpriteAsset,
     render_size: Vec2,

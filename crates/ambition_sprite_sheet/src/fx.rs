@@ -1,26 +1,19 @@
-//! The effect sheets the ENGINE ships, and the one mapping it owes them.
+//! The effect sheets the engine ships, and the mapping from effect name to
+//! sheet row.
 //!
-//! Twelve FX spritesheets are published beside the character art, and the
-//! packed SFX bank carries one `vfx.<family>.<row>` cue for every one of their
-//! 189 rows. So an effect NAME already addresses a clip and its paired sound
-//! together, in the data. What the engine owes is a single mapping — *which
-//! sheet holds the row called `sonic_boom`* — and [`authored_effect`] is it.
+//! The packed SFX bank has one `vfx.<family>.<row>` cue for each FX sheet row,
+//! so an effect name addresses a clip and its sound together. The engine owns
+//! one mapping, from a row name (for example `sonic_boom`) to its sheet:
+//! [`authored_effect`].
 //!
-//! the engine could not ship the art it draws. `spawn_explosion` reached
-//! for `GameAssets.characters.props["generic_explosions"]` — a map keyed by the
-//! LDtk `Prop.kind` field — and the only things that ever populated it were
-//! *game* systems (Ambition's intro table, Sanic's one ring sheet). An FX sheet
-//! is neither a character nor an LDtk prop; it was squatting there, and in the
-//! Smash / Sanic / Mary-O apps nothing registered it at all, so every effect in
-//! every one of those apps degraded to the same particle burst. The sheets are
-//! declared HERE, loaded by the engine's own `load_game_assets`, and stored in
-//! their own [`GameAssets`](crate::game_assets::GameAssets) slot.
+//! An FX sheet is neither a character nor an LDtk prop. The sheets are declared
+//! here, loaded by the engine's `load_game_assets`, and stored in their own
+//! [`GameAssets`](crate::game_assets::GameAssets) slot, so every app gets them.
 //!
-//! the index is built from the BAKED records, not from loaded assets.
-//! `build.rs` embeds every `*_spritesheet.ron` into the binary, so "which
-//! effects exist" is answerable with no Bevy world, no asset server and no
-//! decode — which is what lets a roster validator that runs at install time ask
-//! the same question the renderer asks at draw time, and get the same answer.
+//! The index is built from the baked records, not from loaded assets.
+//! `build.rs` embeds every `*_spritesheet.ron`, so the set of effects is known
+//! with no Bevy world, asset server, or decode. An install-time roster
+//! validator and the renderer therefore get the same answer.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
@@ -30,20 +23,18 @@ use crate::character::sheets::{record_for_sheet_key, CharacterSheetSpec, SheetTu
 /// One published FX spritesheet: its manifest target, and the SFX cue family
 /// its rows' sounds were packed under.
 ///
-/// the family is NOT always the target minus a suffix (`generic_explosions`
-/// packs under `vfx.explosion.*`), which is exactly why it is declared beside
-/// the target instead of derived by string surgery.
+/// The family is not always the target minus a suffix (`generic_explosions`
+/// packs under `vfx.explosion.*`), so it is declared, not derived.
 pub struct FxSheet {
     /// Sheet manifest target — `<target>_spritesheet.ron` / `.png`.
     pub target: &'static str,
     /// Cue-name family: this sheet's row `r` sounds like `vfx.<family>.<r>`.
     pub cue_family: &'static str,
-    /// Whether the sheet is decoded at boot and kept for the whole process
-    /// (the generic vocabulary any effect may name) or decoded when a
-    /// CHARACTER whose moveset names one of its rows is realized — a fighter's own effect art cannot fire before the fighter
-    /// exists, so it rides the character's demand and the same reveal barrier.
-    /// Measured 2026-09-02: all thirteen sheets (9.4 MP) were resident in
-    /// every room, and a scripted capture drew a handful at most.
+    /// Whether the sheet is decoded at boot and kept (the generic vocabulary
+    /// any effect may use), or decoded when a character whose moveset names
+    /// one of its rows is realized. A fighter's own effects cannot fire before
+    /// the fighter exists, so they use the character's demand and reveal
+    /// barrier.
     pub residency: FxResidency,
 }
 
@@ -59,11 +50,10 @@ pub enum FxResidency {
 /// The effect art the engine ships. Four generic sheets plus the per-
 /// character effect sheets, in the order they are searched.
 ///
-/// generic first: a name that appears on a generic sheet and on a character
-/// sheet resolves to the generic one. No such collision exists today (all 196
-/// row names are distinct across all thirteen sheets, pinned by
-/// `every_authored_effect_row_is_reachable_by_name`), so the order is a
-/// tie-break rule that has never had to fire, not a policy anyone depends on.
+/// Generic sheets come first, so a name on both a generic and a character
+/// sheet resolves to the generic one. Today all row names are distinct
+/// (`every_authored_effect_row_is_reachable_by_name`), so this is only a
+/// tie-break.
 pub const FX_SHEETS: &[FxSheet] = &[
     FxSheet {
         target: "generic_action_fx",
@@ -145,11 +135,10 @@ pub fn core_fx_targets() -> impl Iterator<Item = &'static str> {
         .map(|sheet| sheet.target)
 }
 
-/// The character-owned sheets a set of effect names lives on — what a realized
-/// character's moveset makes the engine owe. Effects on core sheets are
-/// already resident and are not returned; unknown names are not an error
-/// here (`MoveSpec::presentation_problems` reports them where they are
-/// authored).
+/// The character-owned sheets that hold a set of effect names: what a realized
+/// character's moveset requires. Effects on core sheets are already resident
+/// and are not returned. Unknown names are not an error here;
+/// `MoveSpec::presentation_problems` reports them.
 pub fn owned_fx_sheets_named_by<'a>(
     effects: impl IntoIterator<Item = &'a str>,
 ) -> BTreeSet<&'static str> {
@@ -175,10 +164,9 @@ pub struct AuthoredEffect {
     pub name: &'static str,
     /// The sheet manifest target holding it.
     pub sheet: &'static str,
-    /// Its index in that sheet's rows — resolved through
-    /// [`SheetRecord::first_bound_row`](crate::SheetRecord::first_bound_row),
-    /// the seam built so an authored clip can be drawn without an engine enum
-    /// variant. never `unwrap_or(0)`: a name with no row answers `None`.
+    /// Its index in that sheet's rows, from
+    /// [`SheetRecord::first_bound_row`](crate::SheetRecord::first_bound_row).
+    /// Never `unwrap_or(0)`: a name with no row gives `None`.
     pub slot: usize,
     /// The packed-bank cue name paired with this row, `vfx.<family>.<name>`.
     pub cue: String,
@@ -200,16 +188,14 @@ pub fn authored_effects() -> &'static BTreeMap<&'static str, AuthoredEffect> {
     INDEX.get_or_init(|| {
         let mut index = BTreeMap::new();
         for sheet in FX_SHEETS {
-            // A sheet the build did not bake is simply absent — the same
-            // degradation as any other missing manifest target, and the pin
-            // test below is what says it should never happen for these thirteen.
+            // A sheet the build did not bake is absent, like any missing
+            // manifest target. The pin test below says it must not happen.
             let Some(record) = record_for_sheet_key(sheet.target) else {
                 continue;
             };
             for row in &record.rows {
                 let name = row.animation.as_str();
-                // The seam, used the way it was built to be used: ask the sheet
-                // for the row, take the slot it proves, never index 0.
+                // Ask the sheet for the row by name; never fall back to index 0.
                 let Some(bound) = record.first_bound_row([name]) else {
                     continue;
                 };
@@ -233,23 +219,20 @@ pub fn authored_effect(name: &str) -> Option<&'static AuthoredEffect> {
 }
 
 /// Is `name` an effect the shipped art can draw?
-///
-/// The oracle a content validator wants: pure, world-free, and answered by the
-/// sheets themselves rather than by a Rust table transcribed from them.
+/// A pure, world-free check for content validators, answered by the sheets
+/// themselves.
 pub fn is_authored_effect(name: &str) -> bool {
     authored_effects().contains_key(name)
 }
 
 /// The sheet spec for an FX target, addressed by ROW rather than by pose.
 ///
-/// not [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target),
-/// which refuses a sheet with no `idle` row — correctly, because the character
-/// path indexes by [`CharacterAnim`](crate::character::CharacterAnim) and a
-/// sheet it cannot ask for an idle pose is one it cannot draw. Twelve of the
-/// thirteen FX sheets have no `idle`, and the odd one only appeared to: five
-/// aliases inside `CharacterAnim::from_name` spelled `classic_burst` as *Idle*,
-/// `burst_round` as *Walk*, `shockwave` as *Run*. Those are gone. An effect row
-/// is addressed by its name, so this loads the spec without asking for a pose.
+/// Do not use [`try_load_spec_for_target`](crate::character::sheets::try_load_spec_for_target)
+/// here. It refuses a sheet with no `idle` row, which is correct for the
+/// character path that indexes by
+/// [`CharacterAnim`](crate::character::CharacterAnim). Most FX sheets have no
+/// `idle`. An effect row is addressed by name, so this loads the spec without
+/// a pose.
 pub fn fx_sheet_spec(target: &str) -> Option<CharacterSheetSpec> {
     crate::character::sheets::try_load_row_addressed_spec(target, &FX_TUNING)
 }
@@ -289,10 +272,9 @@ mod tests {
     /// Every row of every shipped FX sheet is reachable by its own name, and
     /// nothing else is.
     ///
-    /// Set equality BOTH ways against the baked records: a row the index cannot
-    /// reach is art that ships and cannot be drawn (the defect this module
-    /// exists to end), and an index entry with no row is a name that resolves to
-    /// nothing at draw time.
+    /// Set equality both ways against the baked records. A row the index cannot
+    /// reach is art that cannot be drawn. An index entry with no row resolves
+    /// to nothing at draw time.
     #[test]
     fn every_authored_effect_row_is_reachable_by_name() {
         let mut from_sheets: Vec<(&str, &str)> = Vec::new();
@@ -305,11 +287,10 @@ mod tests {
         }
         assert_eq!(
             from_sheets.len(),
-            // 189 + the Projectile Polygon's six charge rows. His neutral
-            // special charges at the MUZZLE, which cannot be baked into a
-            // character row: it follows his cannon as he aims and it lasts as
-            // long as the button is down. + the trapdoor's, which arrived with
-            // the renderer that draws one.
+            // 189, plus the Projectile Polygon's six charge rows (his neutral
+            // special charges at the muzzle, which follows his aim and lasts
+            // while the button is held, so it cannot be a character row), plus
+            // the trapdoor rows.
             196,
             "the shipped FX vocabulary changed size; if that is intended, say so here"
         );
@@ -333,8 +314,8 @@ mod tests {
         );
     }
 
-    /// The name addresses the sound too. One example spelled out, because
-    /// the pairing is the whole reason the vocabulary can be a single string.
+    /// The name addresses the sound too; that pairing lets the vocabulary be
+    /// one string.
     #[test]
     fn an_effect_name_addresses_its_paired_cue() {
         let boom = authored_effect("sonic_boom").expect("generic_exotic_fx ships it");
@@ -351,8 +332,8 @@ mod tests {
         assert!(!is_authored_effect("sonik_boom"), "a typo names nothing");
     }
 
-    /// The FX specs load without an `idle` row — the property that made the
-    /// other eleven sheets unloadable through the character path.
+    /// The FX specs load without an `idle` row, which the character path
+    /// requires.
     #[test]
     fn an_fx_sheet_loads_without_a_pose_row() {
         let spec = fx_sheet_spec("generic_exotic_fx").expect("baked");

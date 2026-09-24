@@ -22,22 +22,17 @@ pub struct RenderBasis {
 #[derive(Component)]
 pub struct CharacterAnimator {
     pub spec: CharacterSheetSpec,
-    /// Per-page texture + layout handles, cloned from the source asset so the
-    /// renderer can swap the `Sprite`'s image + atlas layout when the playing
-    /// animation lives on a different page of a split sheet. Length 1 for the
-    /// common single-PNG sheet (the renderer then never swaps).
+    /// Per-page texture and layout handles, cloned from the source asset. The
+    /// renderer swaps the `Sprite` image and layout when the animation is on
+    /// another page of a split sheet. Length is 1 for a single-PNG sheet.
     pub pages: Vec<CharacterSpritePage>,
     pub current: CharacterAnim,
-    /// An authored CLIP the sheet actually has, when one was requested.
+    /// The authored clip row slot, when a requested clip exists on this sheet.
     ///
-    /// sprite redirect P0. `current` is a [`CharacterAnim`] — 56 semantic body
-    /// states — and the new fighter sheets carry rows it has no variant for
-    /// (`smash_forward`, `air_dodge`, `tumble`). A move names its clip; when this
-    /// sheet has it, the drawing is keyed by ROW and `current` stops deciding.
-    ///
-    /// `None` is the ordinary case and means *draw the semantic pose* — every
-    /// character without an authored move playing, and every sheet that has none
-    /// of a move's chain.
+    /// `current` has only the semantic body states. Fighter sheets also have
+    /// rows with no variant (`smash_forward`, `air_dodge`, `tumble`). When this
+    /// is `Some`, the row decides the drawing and `current` does not.
+    /// `None` means draw the semantic pose.
     clip_slot: Option<usize>,
     pub frame: usize,
     pub elapsed: f32,
@@ -65,12 +60,10 @@ impl CharacterAnimator {
 
     /// Initialize the full-logical trim basis once.
     ///
-    /// Ordinary character construction seeds this before the sprite becomes
-    /// drawable so frame zero already has correct packed/trimmed geometry. The
-    /// animation chokepoint keeps a compatibility fallback that can self-capture
-    /// the basis for specialized/legacy construction paths. Once initialized the
-    /// basis is immutable: later trimmed frames are all projections of this same
-    /// logical size + anchor.
+    /// Ordinary construction sets this before the sprite is drawable, so frame
+    /// zero has correct trimmed geometry. The animation chokepoint keeps a
+    /// fallback that captures the basis for specialized or legacy paths. After
+    /// it is set, the basis does not change: all trimmed frames project from it.
     pub fn ensure_render_basis(&mut self, render_size: Vec2, feet_anchor: Vec2) {
         if self.render_basis.is_none() {
             self.render_basis = Some(RenderBasis {
@@ -80,7 +73,7 @@ impl CharacterAnimator {
         }
     }
 
-    /// Both lookups clamp their row/frame, so nothing failed; the art just sat in the wrong place.
+    /// The trimmed render size and anchor for the current frame.
     /// Same rule as [`Self::tick`]: if a clip is playing, the slot decides.
     pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
         if !self.spec.is_trimmed() {
@@ -94,9 +87,8 @@ impl CharacterAnimator {
         Some(trimmed_render(&trim, basis.render_size, basis.feet_anchor))
     }
 
-    /// True when the sheet is split across more than one page image, so the
-    /// renderer must select the active animation's page each frame. Single-page
-    /// sheets (the common case) skip the swap entirely.
+    /// True when the sheet has more than one page image, so the renderer must
+    /// select the page each frame.
     pub fn is_paged(&self) -> bool {
         self.pages.len() > 1
     }
@@ -104,15 +96,12 @@ impl CharacterAnimator {
     /// The sheet ROW this frame is being drawn from, as an index into
     /// `record.rows`.
     ///
-    /// ⭐ THE ROW, NOT THE POSE. `current` is one of 56 semantic body states and
-    /// a sheet may draw it from a row whose name is nothing like it — or, while a
-    /// clip is playing, from a row `current` does not name at all. Anything that
-    /// wants to REPRODUCE what is on screen (the moveset inspector blitting the
-    /// same sub-rect) needs the row that was chosen, which is the same question
-    /// `current_page` already answers for pages.
+    /// This is the row, not the pose. A sheet can draw `current` from a row with
+    /// a different name, and a playing clip uses a row `current` does not name.
+    /// Code that reproduces the screen (the moveset inspector) needs this row.
     ///
-    /// `None` when the sheet has no row for the current pose, which is the case a
-    /// caller must draw nothing for rather than guess a row number.
+    /// `None` when the sheet has no row for the current pose. The caller must
+    /// then draw nothing, not guess a row.
     pub fn drawn_row(&self) -> Option<usize> {
         match self.clip_slot {
             Some(slot) => Some(slot),
@@ -124,10 +113,7 @@ impl CharacterAnimator {
     /// packed animation can span pages).
     pub fn current_page(&self) -> u32 {
         match self.clip_slot {
-            // Same rule as `current_render`: a packed clip row can live on a
-            // different page than the semantic pose, and swapping to the pose's
-            // page draws the clip's flat index out of a texture that does not
-            // contain it.
+            // A clip row can be on a different page than the semantic pose.
             Some(slot) => self.spec.page_of_at(slot, self.frame),
             None => self.spec.page_of(self.current, self.frame),
         }
@@ -138,8 +124,8 @@ impl CharacterAnimator {
         if self.current == anim && self.clip_slot.is_none() {
             return;
         }
-        // leaving a stale clip here would pin the body to one authored row
-        // forever: a semantic request is also a statement that no clip is playing.
+        // A semantic request also clears the clip. A stale clip would pin the
+        // body to one authored row.
         let had_clip = self.clip_slot.take().is_some();
         if self.current == anim && !had_clip {
             return;
@@ -153,12 +139,10 @@ impl CharacterAnimator {
     /// Play an authored CLIP if this sheet has one of `chain`; otherwise the
     /// semantic pose.
     ///
-    /// the whole of P0's preference rule in one call: the exact row, then the author's
-    /// fallbacks, then [`Self::request`]'s structural pose ladder.
-    ///
-    /// no `unwrap_or(0)`. An unresolvable chain must fall to the SEMANTIC
-    /// ladder, never to row zero — drawing idle for a missing attack row looks
-    /// like a character that does not swing.
+    /// Order: the exact row, then the author's fallbacks, then the structural
+    /// pose ladder of [`Self::request`]. An unresolvable chain goes to the
+    /// semantic ladder, not to row zero, so a missing attack row does not draw
+    /// idle.
     pub fn request_clip<'a>(
         &mut self,
         chain: impl IntoIterator<Item = &'a str>,
@@ -179,7 +163,7 @@ impl CharacterAnimator {
 
     /// Advance the animation. Returns the flat atlas index for the current frame.
     pub fn tick(&mut self, dt: f32) -> usize {
-        // an authored clip is keyed by ROW; everything else by pose.
+        // An authored clip is keyed by row; all else by pose.
         if let Some(slot) = self.clip_slot {
             return self.tick_slot(slot, dt);
         }
@@ -210,10 +194,8 @@ impl CharacterAnimator {
 
     /// [`Self::tick`] for an authored clip, keyed by its resolved row slot.
     ///
-    /// an authored clip never loops. A move's timeline owns how long it
-    /// runs; the drawing holds its last frame rather than restarting, which is
-    /// what `non_looping` says about every attack pose in the semantic
-    /// vocabulary too.
+    /// An authored clip does not loop. The move's timeline owns its length, so
+    /// the drawing holds the last frame, as `non_looping` does for attack poses.
     fn tick_slot(&mut self, slot: usize, dt: f32) -> usize {
         let row = self.spec.row_at(slot);
         if row.frame_count == 0 || row.duration_secs <= 0.0 || self.clip_held {

@@ -67,33 +67,24 @@ pub struct CharacterSheetSpec {
     /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
     /// one implementation with the boss, prop, and projectile readers.
     record: SheetRecord,
-    /// Vestigial for any sheet that publishes a body (181 of 183 baked),
-    /// and read only by the fallback in [`sprite_render_size_scaled`].
+    /// Used only by the fallback in [`sprite_render_size_scaled`], for a sheet
+    /// that publishes no body (almost every sheet publishes one).
     ///
-    /// It multiplied the collision box's max dimension to get the rendered
-    /// sprite's height, with the width taken from the padded frame's aspect — so
-    /// it was a per-sheet correction for how much empty space the generator's
-    /// crop happened to leave, and the 180 baked sheets spanned 10.9x in how
-    /// big a character was drawn against its own box. The quad now comes from the
-    /// sheet's own body rectangle, which makes that ratio 1.0 by construction.
+    /// It scales the collision box's largest dimension to the rendered sprite
+    /// height. The normal path sizes the quad from the sheet's body rectangle
+    /// instead, which needs no per-sheet correction.
     pub collision_scale: f32,
     /// Sprite anchor y (normalized; negative shifts the sprite up so feet
     /// land near the collision-box bottom). Authoritative value lives in
     /// the RON's `body_metrics.feet_anchor_norm.y`.
     pub feet_anchor_y: f32,
-    /// Sprite anchor x (normalized; the body's own centre as a fraction of the
+    /// Sprite anchor x (normalized: the body's centre as a fraction of the
     /// frame, measured from the frame's centre). Authoritative value lives in
     /// the RON's `body_metrics.feet_anchor_norm.x`.
     ///
-    /// ⛔⛔ THIS WAS A HARD-CODED `0.0` AT THE ANCHOR, and the sheets have carried
-    /// the right number all along. `0.0` means "centre the art on the FRAME",
-    /// and a frame is not a character: the art sits wherever the packer's crop
-    /// left it, so a body drawn `0.0` is drawn off its own collision box by
-    /// exactly how far off-centre it was packed. Invisible for the population
-    /// that happens to sit near the middle (the other polygons are within 4%)
-    /// and unmissable for the ones that do not — `projectile_polygon` is 17%
-    /// of a 377px frame and `officer` is 25% of a 326px one, which is a box
-    /// standing beside its own fighter.
+    /// Do not hard-code `0.0`. That centres the art on the frame, but the
+    /// packer's crop can leave the body off-centre (up to 25% of the frame),
+    /// and the art then draws beside its own collision box.
     pub feet_anchor_x: f32,
     /// Pixel inset on every URect to prevent bilinear filtering from
     /// pulling neighboring frame pixels at the seam.
@@ -131,17 +122,14 @@ impl SheetTuning {
 }
 
 impl CharacterSheetSpec {
-    /// Which `record.rows` index draws this semantic pose, if any.
-    ///
-    /// The mapping is built once at spec load (`anim_rows`); this is the read of
-    /// it, so a consumer outside this module does not need the field public.
-    /// The sheet KEY this spec was loaded from — how the record is asked for
-    /// again, and the id a consumer outside the engine (the moveset inspector's
-    /// atlas table) joins its own copy of the sheet on.
+    /// The sheet key this spec was loaded from. Use it to ask for the record
+    /// again. Outside consumers (the moveset inspector's atlas table) join on it.
     pub fn sheet_key(&self) -> &str {
         &self.record.key
     }
 
+    /// Which `record.rows` index draws this pose, if any. The mapping is built
+    /// once at spec load (`anim_rows`).
     pub fn row_for_anim(&self, anim: CharacterAnim) -> Option<usize> {
         self.anim_rows
             .iter()
@@ -159,15 +147,12 @@ impl CharacterSheetSpec {
             .with_feet_anchor_y(self.feet_anchor_y)
     }
 
-    /// Which way this sheet's art was DRAWN — see
-    /// [`SheetRecord::authored_faces_left`]. Read straight off the published
-    /// record rather than copied into a field, so the spec cannot disagree with
-    /// the manifest it was built from.
+    /// Which way this sheet's art was drawn. See
+    /// [`SheetRecord::authored_faces_left`]. It is read from the record, not
+    /// copied, so the spec cannot disagree with its manifest.
     ///
-    /// The renderer XORs this into the gravity-aware facing flip, exactly as
-    /// the boss path has done with [`crate::boss::BossSheetSpec::flip_x`] since
-    /// the mockingbird: the mirror asks *"does the requested facing differ from
-    /// the drawn facing"*, not *"is facing negative"*.
+    /// The renderer XORs this into the facing flip, as the boss path does with
+    /// [`crate::boss::BossSheetSpec::flip_x`].
     pub fn authored_faces_left(&self) -> bool {
         self.record.authored_faces_left
     }
@@ -188,19 +173,16 @@ impl SheetTuning {
     }
 }
 
-/// The baked index below is an immutable asset CACHE, and its doc comment says so — "not a
-/// content registry, so it has no `install_*` seam". Its character resolved no spec and drew
-/// the placeholder rectangle, whatever art it shipped .
+/// Sheets that providers author at plugin build.
 ///
-/// So the content registry is a separate, ordinary resource. A provider fills it
-/// from its own RON at plugin-build time, exactly as it registers a character
-/// catalog fragment, and the engine's baked sheets stay a cache that nothing has
-/// to mutate. Being a RESOURCE rather than a second global is the point: two
-/// Apps in one process (which is every test run in this repo) do not share it.
+/// The baked index is an immutable cache with no install seam, so this is a
+/// separate resource. A provider fills it from its own RON, as it registers a
+/// catalog fragment. It is a resource, not a global, so two Apps in one
+/// process (every test run) do not share it.
 ///
-/// Consumer records take precedence over baked ones with the same target, and a
-/// collision between two AUTHORED records for one target is REFUSED — see
-/// [`AuthoredSheets::insert_ron`] for why refusing beats last-writer-wins.
+/// Authored records take precedence over baked ones with the same target. Two
+/// authored records for one target are refused; see
+/// [`AuthoredSheets::insert_ron`].
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct AuthoredSheets {
     by_target: std::collections::BTreeMap<String, AuthoredRecord>,
@@ -220,46 +202,32 @@ struct AuthoredRecord {
 impl AuthoredSheets {
     /// Canonical generation material for every authored sheet this App holds.
     ///
-    /// ⛔⛤ **AUTHORED SHEETS ARE MECHANICAL AND REACHED NO FINGERPRINT.** A
-    /// sheet record carries BODY METRICS used to build the collision body and
-    /// the authored ATTACK GEOMETRY the character-sprite road resolves, so a
-    /// provider calling `register_character_sheet_ron` changes what the game
-    /// simulates. `PreparedContentIdentity` did not bind any of it, and the
-    /// rollback timeline contract compares exactly that identity.
+    /// Authored sheets are mechanical: a record carries body metrics for the
+    /// collision body and attack geometry, so `register_character_sheet_ron`
+    /// changes the simulation. This dump feeds `PreparedContentIdentity`, which
+    /// the rollback timeline contract compares.
     ///
-    /// ⚠ **THE DECLARATION TEXT, NOT THE PARSED RECORD.** It is what the
-    /// provider actually said, it is already retained for collision reporting,
-    /// and it needs no serialization contract of its own — two Apps that were
-    /// told the same thing produce the same bytes.
+    /// It uses the declaration text, not the parsed record. That text is what
+    /// the provider said, it is already kept for collision reports, and it
+    /// needs no separate serialization contract.
     ///
-    /// ⛔⛤ **`origin` WAS IN HERE AND IS OUT, 2026-09-12.** I included the
-    /// declaring FILE because *"the same records from a different file is a real
-    /// difference a reader of this fingerprint would want to see"* — true of a
-    /// collision report, and wrong here. This feeds MECHANICAL identity, which
-    /// `RollbackTimelineContract` compares to decide whether two worlds are the
-    /// same generation. **Moving a declaration between files changes nothing a
-    /// body simulates**, and making it move the identity refuses snapshots and
-    /// reloads for a provenance edit.
+    /// `origin` is not included. Moving a declaration to another file changes
+    /// nothing a body simulates, so it must not change mechanical identity.
     ///
-    /// ⚠ **THE DECLARATION TEXT IS STILL OVER-SENSITIVE AND THAT IS RECORDED
-    /// RATHER THAN FIXED** — reformatting a sheet RON moves the identity. The
-    /// fail-safe direction is over- rather than under-sensitivity (a false
-    /// difference refuses; a false sameness restores a snapshot into the wrong
-    /// world), so this is a real defect with a safe failure mode. Fixing it
-    /// properly means hashing the PARSED mechanical fields, which is a design
-    /// pass over what in a `SheetRecord` is mechanical — see `Q122`.
+    /// Known defect: reformatting a sheet RON changes the identity. This fails
+    /// safe (a false difference refuses a snapshot; a false match would restore
+    /// into the wrong world). The fix is to hash the parsed mechanical fields;
+    /// see `Q122`.
     ///
-    /// ⚠ Ordered by TARGET, which is the map's own key order, so the dump is a
-    /// function of the content rather than of registration order.
+    /// Ordered by target (the map key), so the dump does not depend on
+    /// registration order.
     pub fn deterministic_dump(&self) -> String {
         let mut out = String::new();
         for (target, record) in &self.by_target {
             out.push_str(target);
             out.push('\t');
-            // The declaration is RON with newlines in it, so it is length-
-            // prefixed rather than newline-terminated: a declaration containing
-            // a line that looks like the next row's header must not be able to
-            // forge one.
+            // The declaration contains newlines, so length-prefix it. A line
+            // in it that looks like a row header then cannot forge a row.
             out.push_str(&record.declaration.len().to_string());
             out.push('\t');
             out.push_str(&record.declaration);
@@ -281,10 +249,9 @@ impl AuthoredSheets {
             return Err(format!("authored sheet '{file_root}' declares no records"));
         }
         let declaration: std::sync::Arc<str> = std::sync::Arc::from(ron);
-        // ⛔ THE SAME KEYING RULE THE BAKED INDEX USES, and it assigns
-        // `SheetRecord::key` rather than overwriting the record's authored
-        // `target`: a single-record file is named by its ROOT (one product, one
-        // page), a packed one by each member's own name.
+        // The same keying rule as the baked index: a single-record file is
+        // keyed by its root, a packed file by each member's target. Set
+        // `SheetRecord::key`; do not overwrite the authored `target`.
         let single = records.len() == 1;
         let mut records: Vec<SheetRecord> = records;
         for record in records.iter_mut() {
@@ -342,12 +309,9 @@ impl AuthoredSheets {
     }
 }
 
-/// A spec for `target` from the AUTHORED registry first, the baked cache second.
-///
-/// The order is the whole point: a provider that authored a sheet gets its own,
-/// and everything else resolves exactly as it always did — engine characters
-/// take the identical path they took before this existed, which is what makes
-/// this safe to put in front of every lookup.
+/// A spec for `target` from the authored registry first, then the baked cache.
+/// Engine characters take the same path as before, so this is safe in front
+/// of every lookup.
 pub fn try_load_spec_for_target_authored(
     authored: &AuthoredSheets,
     target: &str,
@@ -367,49 +331,33 @@ pub fn try_load_spec_for_target_authored(
     try_load_spec_for_target(target, tuning)
 }
 
-/// Process-wide index of every baked [`SheetRecord`], keyed by
-/// [`crate::index_baked_table`]'s one rule — file root, except that a packed
-/// atlas keys each record by its own target.
+/// Build the baked record index now, so a gameplay frame does not.
 ///
-/// §5 classification (per the old restructuring blueprint, folded into
-/// `docs/architecture/engine-architecture.md`): immutable asset cache — derived once
-/// from the compile-time `BAKED_SHEET_RONS` table, pure and override-free.
-/// Correctly a process-global `OnceLock`; not a content registry, so it has no
-/// `install_*` seam.
-///
-/// ⛔ it holds the SAME keying rule as [`crate::SheetRegistry`] because it calls
-/// it. The two used to hand-roll it separately and disagreed: the registry keyed
-/// by the record's authored `target` and this one by file root, so one shared engine resource
-/// answered "give me sheet `robot`" with `tech_bro_disruptor`'s page while this
-/// index answered correctly.
-/// Build the baked record index NOW, so a gameplay frame does not.
-///
-/// ⛔⛔ THE SAME 870-ENTRY TABLE AS `init_sheet_registry`, PARSED AGAIN, AND ITS
-/// FIRST CALLER IS A FRAME. Measured on hardware 2026-08-29, the sibling index in
-/// `attack_hitbox` cost **189ms** the first time a punch asked for it. This one is
-/// reached from `posed_body::{42,68}` — which `sync_sprite_posed_bodies` runs in
-/// the SIM schedule every frame — and from `rendering/actors/animation.rs`.
-/// Nothing warmed it, so the first frame to pose or draw a character paid the
-/// parse.
-///
-/// ⭐ The `OnceLock` is not the defect. "Lazily" is: it means *on whichever frame
-/// first asks*. Warming keeps the cache and moves the cost to `Startup`.
+/// Its first callers run per frame: `sync_sprite_posed_bodies` (sim schedule)
+/// and `rendering/actors/animation.rs`. Warming moves the parse cost to
+/// `Startup`.
 pub fn warm_record_index() {
     let _ = record_index();
 }
 
+/// Process-wide index of every baked [`SheetRecord`], keyed by
+/// [`crate::index_baked_table`]'s rule (file root; a packed atlas keys each
+/// record by its own target). [`crate::SheetRegistry`] calls the same rule, so
+/// the two cannot disagree.
+///
+/// An immutable asset cache derived once from the compile-time
+/// `BAKED_SHEET_RONS` table, so a process-global `OnceLock` is correct. It is
+/// not a content registry, so it has no `install_*` seam (see
+/// `docs/architecture/engine-architecture.md`).
 fn record_index() -> &'static HashMap<String, SheetRecord> {
     static INDEX: OnceLock<HashMap<String, SheetRecord>> = OnceLock::new();
     INDEX.get_or_init(|| crate::index_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS).sheets)
 }
 
-/// Every baked SHEET KEY, sorted — the vocabulary a character's `sheet`
-/// reference resolves against.
-///
-/// ⛔ these are keys ([`SheetRecord::key`]), never rig targets: a rig target is
-/// which adapter DREW a sheet and 48 sheets share five of them. The engine
-/// always knows this list — it is baked — so a provider should never have to
-/// hand it over just to have its typo caught.
+/// Every baked sheet key ([`SheetRecord::key`]), sorted: the names a
+/// character's `sheet` reference resolves against. These are keys, never rig
+/// targets (many sheets share one rig). The list is baked, so a provider does
+/// not need to supply it to catch a typo.
 pub fn available_sheet_keys() -> Vec<&'static str> {
     let mut out: Vec<&'static str> = record_index().keys().map(String::as_str).collect();
     out.sort_unstable();
@@ -425,25 +373,18 @@ pub fn record_for_sheet_key(key: &str) -> Option<&'static SheetRecord> {
     record_index().get(key)
 }
 
-/// This body's geometry is authored by its spritesheet, per pose.
+/// This body's geometry comes from its spritesheet, per pose.
 ///
-/// Presence is the opt-in: a body without it keeps whatever collision box its
-/// spawn authored, exactly as before. Opting in hands the box to the art, which
-/// is only meaningful for a sheet that publishes per-animation body metrics —
-/// for one that doesn't, every pose resolves to the same static idle bbox and
-/// this degenerates to "size the body to its art", which is still an improvement
-/// on a hand-guessed rectangle but is not why the seam exists.
+/// Presence is the opt-in. A body without it keeps the collision box its
+/// spawn authored. The opt-in matters for a sheet with per-animation body
+/// metrics; on other sheets every pose resolves to the static idle bbox.
 ///
-///  the DECLARATION lives here and the per-tick derivation does not. This
-/// is two facts about a sheet — which [`record_for_sheet_key`] key the boxes come
-/// from, and how many world units one of its pixels covers — so it belongs to
-/// the crate that owns sheet targets. The pass that resolves the pose and writes
-/// the collision box, sprite quad and quad offset (`sync_sprite_posed_bodies`)
-/// is an ECS system over components this crate does not own, and stays above.
-///
-/// That split is what lets the writer sit BESIDE the actor crate rather than
-/// under it: the actor crate's character projection declares a posed body by
-/// naming this type, the derivation reads it, and neither has to name the other.
+/// Only the declaration lives here: which [`record_for_sheet_key`] key the
+/// boxes come from, and the world size of one pixel. The per-tick system that
+/// writes the collision box, sprite quad, and offset
+/// (`sync_sprite_posed_bodies`) works on components this crate does not own,
+/// so it lives above. The actor crate declares a posed body by naming this
+/// type, and neither crate has to name the other.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct SpritePosedBody {
     /// The sheet manifest target the boxes are read from (`"solid_snake"`).
@@ -480,16 +421,12 @@ pub fn try_load_spec_for_target(target: &str, tuning: &SheetTuning) -> Option<Ch
     }
 }
 
-/// A spec for a sheet whose rows are addressed by NAME rather than by pose.
+/// A spec for a sheet whose rows are addressed by name, not by pose.
 ///
-///  the difference from [`try_load_spec_for_target`] is the `idle` refusal,
-/// and it is deliberate on both sides. That one refuses a sheet with no idle
-/// row because the character path indexes through [`CharacterAnim`] and would
-/// panic asking such a sheet for a pose. A sheet of EFFECTS has no poses at all
-/// — eleven of the twelve shipped FX sheets have no row `CharacterAnim` names —
-/// and its consumer resolves rows through
-/// [`CharacterSheetSpec::clip_slot`], which needs no pose. See
-/// [`crate::fx`].
+/// Unlike [`try_load_spec_for_target`], this does not refuse a sheet with no
+/// idle row. The character path indexes through [`CharacterAnim`] and would
+/// panic on such a sheet. An effects sheet has no poses, and its consumer
+/// resolves rows through [`CharacterSheetSpec::clip_slot`]. See [`crate::fx`].
 pub fn try_load_row_addressed_spec(
     target: &str,
     tuning: &SheetTuning,
@@ -539,15 +476,10 @@ pub fn try_load_pack_spec_for_target(
 ) -> Option<(CharacterSheetSpec, &'static str)> {
     let (tier, catalog) = crate::sprite_packs::catalog_for_scale(scale)?;
     let mut record = catalog.to_sheet_record(target)?;
-    // A pack is STORAGE for the same drawing, so the drawing's own facing
-    // rides along. The synthesized record describes where the pixels sit in
-    // the atlas; it cannot know which way the body in them points, and
-    // repacking a sheet does not redraw it. Inherited from the base manifest
-    // for exactly the reason the caller inherits `tuning` from the base spec.
-    //
-    //  without this the Patent Clerk faced the right way from his own sheet
-    // and backwards again from the ultrapack — and he is packed at all four
-    // tiers, so that is the path most devices actually take.
+    // A pack is storage for the same drawing, so inherit the drawing's facing
+    // from the base manifest, as the caller inherits `tuning`. The synthesized
+    // record cannot know it. Without this, a left-drawn sheet (Patent Clerk)
+    // faces backward on the ultrapack path, which most devices use.
     record.authored_faces_left = record_for_sheet_key(target)
         .map(|base| base.authored_faces_left)
         .unwrap_or(false);
@@ -563,10 +495,9 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
             .and_then(|stripped| index.get(stripped))
     })?;
     let spec = spec_from_record(record, &DEFAULT_TUNING);
-    // The runtime atlas indexer (`flat_index`) falls back to `Idle` for any animation that
-    // doesn't have its own row. Without at least an Idle row, the actor renderer panics on the
-    // very first frame. Better to skip these manifests here — caller falls back to the
-    // colored-rectangle visual.
+    // `flat_index` falls back to `Idle` for an animation with no row, and the
+    // actor renderer panics without an Idle row. Skip such manifests; the
+    // caller falls back to a colored rectangle.
     if spec.maps(CharacterAnim::Idle) {
         Some(spec)
     } else {
@@ -580,12 +511,9 @@ pub fn try_load_spec_for_character_id(character_id: &str) -> Option<CharacterShe
     }
 }
 
-/// Fallback tuning for catalog entries that don't have a hardcoded
-/// `SheetTuning`. The values are middle-of-the-road — `collision_scale
-/// = 1.5` keeps the sprite from being microscopic or overscaled, and
-/// `frame_sample_inset = 1` is the same value most existing tunings
-/// use. Catalog entries that need different visuals can graduate to
-/// a hardcoded const + an explicit `SheetTuning::new(...)` later.
+/// Fallback tuning for catalog entries with no hardcoded `SheetTuning`.
+/// `collision_scale = 1.5` keeps the sprite neither tiny nor oversized, and
+/// `frame_sample_inset = 1` matches most tunings.
 const DEFAULT_TUNING: SheetTuning = SheetTuning::new(1.5, 1);
 
 fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterSheetSpec {
@@ -594,22 +522,18 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
         Some(t) => (t.collision_scale, t.frame_sample_inset),
         None => (tuning.collision_scale, tuning.frame_sample_inset),
     };
-    // Map the rows this enum names to their `record.rows` index. Rows the enum
-    // doesn't recognize stay in `record` (and still occupy atlas cells via the
-    // shared frame algebra) but aren't selectable through `CharacterAnim`. The
-    // per-frame rect / trim / page handling all lives in the algebra now, so
-    // there is nothing to copy here.
+    // Map the rows this enum names to their `record.rows` index. Other rows
+    // stay in `record` and still occupy atlas cells, but `CharacterAnim`
+    // cannot select them.
     let anim_rows: Vec<(CharacterAnim, usize)> = record
         .rows
         .iter()
         .enumerate()
         .filter_map(|(idx, row)| CharacterAnim::from_name(&row.animation).map(|anim| (anim, idx)))
         .collect();
-    // ⭐ THE SAME FACT AS `feet_anchor_y`, off the same authored point, and it
-    // needs no override: a `y` override exists because a character may want its
-    // feet planted somewhere other than where the art puts them, which is a
-    // GAMEPLAY choice. There is no equivalent for `x` — the body's horizontal
-    // centre is a measurement of the art, not a decision about it.
+    // The same authored point as `feet_anchor_y`, but with no override. A `y`
+    // override is a gameplay choice about where feet plant; the horizontal
+    // centre is a measurement of the art.
     let feet_anchor_x = record
         .body_metrics
         .as_ref()
@@ -659,18 +583,16 @@ pub struct PosedBodyGeometry {
     pub collision: Vec2,
     /// Sprite quad extents (the whole sheet frame).
     pub render: Vec2,
-    /// Where to draw the quad's centre, relative to the body's centre. Non-zero
-    /// whenever the art does not sit dead-centre in its frame — which is the
-    /// normal case, and exactly the placement a hand-authored box gets wrong.
+    /// Where to draw the quad's centre, relative to the body's centre. It is
+    /// non-zero whenever the art is not centred in its frame, which is normal.
     pub sprite_offset: Vec2,
 }
 
 /// Resolve one pose's geometry from the baked sheet registry.
 ///
-/// `None` when the target has no manifest record or the record publishes no
-/// usable body metrics — the caller then leaves the body exactly as authored,
-/// because a silent fallback to "the whole frame is the body" would inflate
-/// every collision box on a sheet that simply forgot to publish.
+/// `None` when the target has no record or no usable body metrics. The caller
+/// then leaves the body as authored; a fallback to "the whole frame is the
+/// body" would inflate every collision box on such a sheet.
 pub fn posed_body_geometry(
     target: &str,
     anim: CharacterAnim,
@@ -685,31 +607,26 @@ pub fn posed_body_geometry(
     Some(PosedBodyGeometry {
         collision: Vec2::new(bbox.w as f32, bbox.h as f32) * world_per_pixel,
         render: Vec2::new(frame_w, frame_h) * world_per_pixel,
-        // Sheet pixel space and world space share the same handedness (both run
-        // +y downward — see the `coordinate_system` block every actor sidecar
-        // emits), so this is a plain scale with no axis flip. Drawing the frame
-        // centre HERE puts the art's rectangle on the collision box.
+        // Sheet pixel space and world space both run +y downward (see the
+        // `coordinate_system` block in each actor sidecar), so this is a plain
+        // scale. It puts the art's body rectangle on the collision box.
         sprite_offset: Vec2::new(frame_w * 0.5 - cx, frame_h * 0.5 - cy) * world_per_pixel,
     })
 }
 
-/// The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
-/// measured one.
+/// The sheet's authored gameplay body, in sheet pixels. `None` when the sheet
+/// only measured one (`BodyMetrics::authored_body` is false).
 ///
-/// So this refuses rather than returning a number that looks usable (`BodyMetrics::authored_body`
-/// is the sheet's own claim, emitted only when a target authored the box).
-///
-/// The `Idle` pose is the standing body — the same rectangle
-/// `sync_sprite_posed_bodies` restores `base_size` to.
+/// Uses the `Idle` pose, the standing body that `sync_sprite_posed_bodies`
+/// restores `base_size` to.
 pub fn authored_body_pixel_size(target: &str) -> Option<Vec2> {
     let record = record_for_sheet_key(target)?;
     let metrics = record.body_metrics.as_ref()?;
     if !metrics.authored_body {
         return None;
     }
-    // Asked of the same function the per-tick sync asks, at a scale of 1.0 so
-    // the answer is in pixels — so the two cannot disagree about what the sheet
-    // says.
+    // Use the same function as the per-tick sync, at scale 1.0 (pixels), so
+    // the two cannot disagree.
     posed_body_geometry(target, CharacterAnim::Idle, 1.0)
         .map(|geometry| geometry.collision)
         .filter(|size| size.x > 0.0 && size.y > 0.0)

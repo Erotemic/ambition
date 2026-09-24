@@ -234,8 +234,8 @@ pub fn simulation_world(
     // `ambition_dev_tools` to the caller; it did not remove it.
     //
     // ⇒ **SO THE PARAMETER IS GONE.** A developer's ability selection is a MASK
-    // over this base (`ActiveEditableAbilityMask`, projected by
-    // `project_editable_abilities` as `base ∩ mask`), never the base
+    // over this base (`ActiveEditableAbilityMask`, contributed as a ceiling and
+    // folded in by `project_body_abilities`), never the base
     // itself. While the editor WAS the base, a value the rollback timeline had
     // REFUSED still entered simulation through construction — and an ability the
     // developer had switched off was absent from the base a later edit is

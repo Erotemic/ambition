@@ -51,36 +51,34 @@ The current body capability layers are:
 | authored defaults | character/gameplay authoring | source used to construct the body |
 | `AbilityBase` | body component | intrinsic authored capability set |
 | `BodyAbilities` | body component | effective set read by movement/gameplay |
-| admitted developer mask | mechanical edit domain | session/developer restriction |
+| `AbilityContributions` | body component | keyed lends and ceilings, one key per source |
+| admitted developer mask | mechanical edit domain | a ceiling contribution on the primary player |
 | participant progression | none | not currently a separate authority |
 
 `AbilityBase` exists so restrictions do not destroy the body's authored identity.
-`BodyAbilities` is the runtime projection. New capability contributors should
-compose into that projection; they should not become independent answers to
-"what can this body do?".
-
-The source documentation currently states the intended algebra as roughly:
+`BodyAbilities` is the runtime projection, recomputed every tick by
+`ambition_platformer2d_core::project_body_abilities`:
 
 ```text
-effective = base ∩ admitted restrictions ∪ grants
+effective = (base ∪ every lend) ∩ every ceiling
 ```
 
-The exact grant representation is not yet a general engine mechanism. Do not add
-one until a real game mechanic needs it, but do not implement new grants by saving
-and restoring arbitrary previous `BodyAbilities` values.
+A source owns one key in the body's `AbilityContributions` and never writes
+`BodyAbilities`. The current sources:
 
-### Existing transitional grant: falling-sand swim
+| key | source | contribution | lifetime |
+|---|---|---|---|
+| `dev.editable_ability_mask` | `ambition_dev_tools::contribute_editable_ability_mask` | ceiling | while an admitted mask exists |
+| `falling_sand.room_swim` | `falling_sand_sim::lend_room_swim` | lend `swim` | while the falling-sand room is active |
+| `portal.transit` | `portal::withhold_wall_verbs_during_transit` | ceiling without the four wall verbs | while `PortalTransit` |
 
-`game/ambition_content/src/falling_sand_sim.rs::grant_room_swim_controls`
-currently writes `BodyAbilities.swim` directly and keeps the previous value in
-`FallingSandRoomState`. This is a concrete example of why a future contribution
-model may be useful: the effective ability is rollback state while the saved
-previous value is a separate process resource.
+Sources write in `WorldPrepSet::BeforeIntegrate`; the projection runs between it
+and `Integrate`. The contributions are declared rollback-derived: each source
+rewrites its key from its own state every tick.
 
-Do not generalize this one content road into a new abstraction during unrelated
-work. When another real grant/upgrade customer appears, use both customers to
-design one contribution/projection mechanism and remove save/restore writers of
-the effective set.
+A grant that belongs to an activation rather than a live situation (Morph Ball,
+the Ambition game's grant to its home body) is folded into `AbilityBase` when the
+session is set up, through `HomeBodyAbilities`, and is not a contribution.
 
 ## Body gate semantics
 

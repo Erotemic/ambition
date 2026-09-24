@@ -713,9 +713,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 215 -> 216: `root.active_room_metadata` and `root.room_music_request`
 /// LEFT. Both copied `RoomSet`'s active entry onto the session root once per
 /// tick; readers take `RoomSet::active_metadata()`.
-/// ⛔⛤ 216 -> 218: `actor.moveset_melee` and `actor.moveset_ranged` LEFT.
+/// ⛔⛤ 216 -> 217: `derived.ability_contributions` ENTERED. `BodyAbilities` is
+/// projected every tick from `AbilityBase` and each source's keyed contribution
+/// (the developer mask, a room's lent swim, a portal crossing's withheld wall
+/// verbs); no source writes the effective set.
+/// ⛔⛤ 217 -> 218: `actor.moveset_melee` and `actor.moveset_ranged` LEFT.
 /// Routing is read from `ActorMoveset` (`routes_melee` / `routes_ranged`); the
-/// markers were a second copy reconciled every tick. 217 is AP16's.
+/// markers were a second copy reconciled every tick.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 218;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and

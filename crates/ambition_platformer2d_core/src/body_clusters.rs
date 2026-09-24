@@ -113,14 +113,15 @@ impl BodyAbilities {
 /// authored with, captured at spawn and held constant.
 ///
 /// [`BodyAbilities`] is the *effective* set (what the movement kernel actually
-/// reads). This is the *base* it derives from: `effective = base ∩ session_mask`
-/// (∪ gear/upgrades once those land). Keeping the base separate is what lets a
+/// reads). This is the *base* it derives from:
+/// `effective = (base ∪ lends) ∩ ceilings`, the lends and ceilings being the
+/// body's [`AbilityContributions`](crate::ability_projection::AbilityContributions),
+/// which it therefore requires. Keeping the base separate is what lets a
 /// session-level restriction (the dev editable mask, a story lockout) gate a
-/// verb OFF without destroying the character's authored identity — mask it back
-/// open and the base is still there. Without this, the only place a body's
-/// intrinsic kit lived was the effective set, so anything that wrote the
-/// effective set (the F3 dev sync) erased the authored kit permanently.
+/// verb OFF without destroying the character's authored identity — withdraw the
+/// restriction and the base is still there.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default)]
+#[require(crate::ability_projection::AbilityContributions)]
 pub struct AbilityBase {
     pub abilities: AbilitySet,
 }

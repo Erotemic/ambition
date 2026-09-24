@@ -63,26 +63,7 @@ pub const MAX_SAND_EMISSION: u64 = 120_000;
 pub struct FallingSandRoomState {
     pub active_room: bool,
     pub last_room_id: Option<String>,
-    /// Snapshot of the active player's swim ability at the moment the
-    /// room was entered. Restored on exit so the room's forced-swim
-    /// effect doesn't leak into other rooms.
-    ///
-    /// Stored as a single value (not keyed by `Entity`) because the
-    /// sandbox is single-player; an Entity-keyed map would leak
-    /// entries every time the player respawned with a new Entity id
-    /// while still inside the room.
-    pub swim_snapshot: Option<SwimSnapshot>,
     pub seeded_boundaries: bool,
-}
-
-/// Stored player swim state plus a marker so we can tell whether the
-/// snapshot belongs to the currently spawned player entity. If the
-/// player respawns inside the room, the previous snapshot becomes
-/// stale and we re-capture from the new entity's current swim state.
-#[derive(Clone, Copy, Debug)]
-pub struct SwimSnapshot {
-    pub player_entity: Entity,
-    pub previous_swim: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -221,7 +202,6 @@ impl Plugin for FallingSandSimPlugin {
                     // current ledger. That keeps ordinary composition intact;
                     // it does not reconstruct historical sand state.
                     project_settled_sand,
-                    grant_room_swim_controls,
                 )
                     .chain()
                     // The projection contributes settled sand to the collision
@@ -230,6 +210,11 @@ impl Plugin for FallingSandSimPlugin {
                     .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                     .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
                     .in_set(FallingSandSimSet),
+            )
+            .add_systems(
+                sim,
+                lend_room_swim
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
             );
     }
 }
@@ -412,36 +397,35 @@ pub fn project_settled_sand(
     overlay.gate_solids.extend(sand.ledger.blocks());
 }
 
-pub fn grant_room_swim_controls(
+/// This room's key in a body's [`AbilityContributions`].
+///
+/// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
+pub const ROOM_SWIM: &str = "falling_sand.room_swim";
+
+/// Players in the falling-sand room can swim. The room lends the verb while it
+/// is the active room and withdraws its loan anywhere else, so whatever else
+/// grants or withholds swim is untouched.
+pub fn lend_room_swim(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::world::rooms::RoomSet,
     >,
-    mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut ambition_platformer2d_core::BodyAbilities)>,
+    mut players: Query<
+        &mut ambition_platformer2d_core::AbilityContributions,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
 ) {
-    if room_set.active_spec().id == ROOM_ID {
-        for (entity, mut abilities) in &mut players {
-            let needs_capture = state
-                .swim_snapshot
-                .map(|snap| snap.player_entity != entity)
-                .unwrap_or(true);
-            if needs_capture {
-                state.swim_snapshot = Some(SwimSnapshot {
-                    player_entity: entity,
-                    previous_swim: abilities.abilities.swim,
-                });
-            }
-            abilities.abilities.swim = true;
-        }
-        return;
-    }
-
-    let Some(snapshot) = state.swim_snapshot.take() else {
-        return;
-    };
-    for (entity, mut abilities) in &mut players {
-        if entity == snapshot.player_entity {
-            abilities.abilities.swim = snapshot.previous_swim;
+    let in_room = room_set.active_spec().id == ROOM_ID;
+    let swim = ambition_platformer2d_core::AbilityContribution::Lend(
+        ambition_platformer2d_core::AbilitySet {
+            swim: true,
+            ..ambition_platformer2d_core::AbilitySet::NONE
+        },
+    );
+    for mut contributions in &mut players {
+        match (in_room, contributions.get(ROOM_SWIM).is_some()) {
+            (true, false) => contributions.set(ROOM_SWIM, swim),
+            (false, true) => contributions.clear(ROOM_SWIM),
+            _ => {}
         }
     }
 }

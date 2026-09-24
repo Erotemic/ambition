@@ -5,11 +5,11 @@
 //! abilities*), driven off the portal-owned components the crate sets during a
 //! crossing:
 //!
-//! - [`suppress_ledge_grab_during_transit`] — while a body carries the
-//!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
+//! - [`withhold_wall_verbs_during_transit`] — while a body carries the
+//!   portal-owned [`PortalTransit`] latch, withhold its wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_platformer2d_core::BodyAbilities`, so it is Ambition
-//!   glue, not crate core.
+//!   aperture edges. It contributes to the body's ability projection, so it is
+//!   Ambition glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
 //!   [`portal_player_input_adapter`](super::transit_body_adapter::portal_player_input_adapter)
@@ -25,7 +25,7 @@ use bevy::prelude::*;
 use ambition_portal2d::pieces::portal_map_vec;
 use ambition_portal2d::{PortalEmission, PortalInputWarp, PortalTransit, PortalTuning};
 
-/// Runtime toggle for [`suppress_ledge_grab_during_transit`]. Default ON; flip it
+/// Runtime toggle for [`withhold_wall_verbs_during_transit`]. Default ON; flip it
 /// off to play with ledge-grab / wall-movement INTO portals enabled (the
 /// "ledge-grab through a portal" experiment — see TODO.md). Toggleable at runtime
 /// (e.g. via the inspector) so both behaviors can be tried without a recompile.
@@ -41,65 +41,48 @@ impl Default for SuppressWallAbilitiesInPortal {
     }
 }
 
-/// While a body is mid-transit, suppress its wall abilities (ledge-grab,
-/// cling, wall-jump, wall-climb) so it doesn't latch onto the carved aperture
-/// EDGES — the carve splits the host block, and those new edges read as grabbable
+/// The portal crossing's key in a body's [`AbilityContributions`].
+///
+/// [`AbilityContributions`]: ambition_platformer2d_core::AbilityContributions
+pub const PORTAL_TRANSIT: &str = "portal.transit";
+
+/// Every verb except the four that grab a wall.
+const NO_WALL_VERBS: ambition_platformer2d_core::AbilitySet = ambition_platformer2d_core::AbilitySet {
+    ledge_grab: false,
+    wall_cling: false,
+    wall_jump: false,
+    wall_climb: false,
+    ..ambition_platformer2d_core::AbilitySet::ALL
+};
+
+/// While a body is mid-transit, withhold its wall verbs (ledge-grab, cling,
+/// wall-jump, wall-climb) so it doesn't latch onto the carved aperture EDGES —
+/// the carve splits the host block, and those new edges read as grabbable
 /// ledges / climbable walls, so a body would cling "into" a portal and pop back
 /// out the entry instead of sinking through and crossing.
 ///
-/// BODY-GENERIC (relativity): the aperture-edge hazard is a property of transiting, not of
-/// being the primary player — a possessed actor (or any wall-able actor) crossing a portal
-/// needs the same guard. Gated on [`PortalTuning::suppress_wall_abilities`].
-pub fn suppress_ledge_grab_during_transit(
+/// A ceiling contribution, not an edit of the effective set: when the transit
+/// ends the portal withdraws it, and the body's verbs are whatever its base and
+/// its other contributions make them. BODY-GENERIC: the hazard is a property of
+/// transiting, not of being the primary player. Gated on
+/// [`PortalTuning::suppress_wall_abilities`].
+pub fn withhold_wall_verbs_during_transit(
     tuning: Res<PortalTuning>,
-    mut bodies: Query<&mut ambition_platformer2d_core::BodyAbilities, With<PortalTransit>>,
-) {
-    if !tuning.suppress_wall_abilities {
-        return;
-    }
-    for mut abilities in &mut bodies {
-        // Equality-guard through `Mut` so an already-suppressed body doesn't
-        // trip change detection every frame of a transit.
-        let a = abilities.abilities;
-        if a.ledge_grab || a.wall_cling || a.wall_jump || a.wall_climb {
-            let a = &mut abilities.abilities;
-            a.ledge_grab = false;
-            a.wall_cling = false;
-            a.wall_jump = false;
-            a.wall_climb = false;
-        }
-    }
-}
-
-/// When a body's [`PortalTransit`] latch is removed (transit finished or
-/// aborted), restore the four wall verbs from its authored
-/// [`AbilityBase`](ambition_platformer2d_core::AbilityBase). The primary player gets
-/// this for free from the per-frame F3 ability re-sync, but that sync is
-/// primary-only — for every other body (a possessed actor, a wall-able enemy)
-/// the suppression in [`suppress_ledge_grab_during_transit`] would otherwise be
-/// permanent. Restoring from the BASE (not a saved copy) keeps this stateless;
-/// if a session mask also gates one of these verbs off for the primary, the F3
-/// re-sync re-applies the mask on the next frame.
-pub fn restore_wall_abilities_after_transit(
-    tuning: Res<PortalTuning>,
-    mut removed: RemovedComponents<PortalTransit>,
     mut bodies: Query<(
-        &mut ambition_platformer2d_core::BodyAbilities,
-        &ambition_platformer2d_core::AbilityBase,
+        &mut ambition_platformer2d_core::AbilityContributions,
+        Has<PortalTransit>,
     )>,
 ) {
-    if !tuning.suppress_wall_abilities {
-        return;
-    }
-    for entity in removed.read() {
-        let Ok((mut abilities, base)) = bodies.get_mut(entity) else {
-            continue;
-        };
-        let a = &mut abilities.abilities;
-        a.ledge_grab = base.abilities.ledge_grab;
-        a.wall_cling = base.abilities.wall_cling;
-        a.wall_jump = base.abilities.wall_jump;
-        a.wall_climb = base.abilities.wall_climb;
+    for (mut contributions, transiting) in &mut bodies {
+        let withhold = transiting && tuning.suppress_wall_abilities;
+        match (withhold, contributions.get(PORTAL_TRANSIT).is_some()) {
+            (true, false) => contributions.set(
+                PORTAL_TRANSIT,
+                ambition_platformer2d_core::AbilityContribution::Ceiling(NO_WALL_VERBS),
+            ),
+            (false, true) => contributions.clear(PORTAL_TRANSIT),
+            _ => {}
+        }
     }
 }
 

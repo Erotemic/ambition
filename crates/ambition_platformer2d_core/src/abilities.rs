@@ -455,6 +455,45 @@ impl AbilitySet {
         morph: false,
     };
 
+    /// Every verb granted. Identity element for [`intersect`], so a ceiling
+    /// that denies a few verbs is those verbs cleared from this.
+    ///
+    /// [`intersect`]: AbilitySet::intersect
+    pub const ALL: Self = Self {
+        move_horizontal: true,
+        jump: true,
+        variable_jump: true,
+        double_jump: true,
+        fast_fall: true,
+        wall_jump: true,
+        wall_cling: true,
+        wall_climb: true,
+        dash: true,
+        double_dash: true,
+        fly: true,
+        fly_toggle: true,
+        blink: true,
+        precision_blink: true,
+        blink_through_soft_walls: true,
+        blink_through_hard_walls: true,
+        attack: true,
+        pogo: true,
+        directional_primary: true,
+        directional_special: true,
+        rebound: true,
+        reset: true,
+        ledge_grab: true,
+        swim: true,
+        glide: true,
+        dodge: true,
+        shield: true,
+        grab: true,
+        interact: true,
+        crouch: true,
+        climb: true,
+        morph: true,
+    };
+
     /// Field-wise OR: a verb is granted if *either* set grants it.
     ///
     /// This is the composition operator. A character is not a frozen preset; it

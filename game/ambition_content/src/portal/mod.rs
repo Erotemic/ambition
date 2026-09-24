@@ -25,8 +25,8 @@ mod transit_adapter;
 mod transit_body_adapter;
 
 pub use ability_adapter::{
-    restore_wall_abilities_after_transit, suppress_ledge_grab_during_transit, warp_portal_input,
-    SuppressWallAbilitiesInPortal,
+    warp_portal_input, withhold_wall_verbs_during_transit, SuppressWallAbilitiesInPortal,
+    PORTAL_TRANSIT,
 };
 pub use carve_adapter::bridge_portal_carves;
 pub use fire_adapter::resolve_portal_fire_intent;

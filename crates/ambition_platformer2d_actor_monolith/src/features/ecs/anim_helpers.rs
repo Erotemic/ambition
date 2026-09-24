@@ -212,7 +212,12 @@ mod every_player_slot_gets_its_overlays_ticked {
             ))
             .id();
 
-        app.add_systems(Update, crate::control::cleanup_timers_system);
+        app.init_resource::<ambition_time::ClockState>();
+        app.init_resource::<ambition_time::WorldTime>();
+        app.add_systems(
+            Update,
+            (ambition_time::refresh_world_time, crate::control::cleanup_timers_system).chain(),
+        );
         app.update();
 
         let blink = app

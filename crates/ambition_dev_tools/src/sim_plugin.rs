@@ -183,7 +183,7 @@ impl Plugin for DevToolsSimPlugin {
             crate::contribute_editable_ability_mask
                 .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
         );
-        app.add_systems(sim, crate::decay_developer_presentation_flash);
+        app.add_systems(bevy::app::Update, crate::decay_developer_presentation_flash);
         // ⭐ AND THE SLOW-MOTION REQUEST, for the same reason: the toggle is this
         // crate's, so the ASK is this crate's. It was rung 4 of the actor
         // kernel's time-scale ladder, which made a simulation package read

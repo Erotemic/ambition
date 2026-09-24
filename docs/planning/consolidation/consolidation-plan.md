@@ -196,11 +196,11 @@ population's total and prints four methods beside it. This table carries only
 the SHAPE — the per-spelling split and the two semantics — re-measured
 2026-09-19 under that row's method so the two cannot disagree.
 
-<!-- alias-split: SessionWorldRef=166/91 SessionWorldMut=13/12 live_session_world_root=3/1 session_root_for_scope=2/2 -->
+<!-- alias-split: SessionWorldRef=167/91 SessionWorldMut=12/11 live_session_world_root=3/1 session_root_for_scope=2/2 -->
 | spelling | what it is | production uses |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 166, in 91 files |
-| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 16, in 13 files |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 167, in 91 files |
+| `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 12, in 11 files (a `Mut` became a `Ref` in `dbffb1a76`, AP12/W021: the music adapter only reads encounter state now; the total is unchanged) |
 | `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 3, in 1 file |
 | `session_root_for_scope` | finds a named scope's root, through the disabling marker | 2, in 2 files |
 
@@ -499,7 +499,7 @@ WAS NOT CORRECT — REVIEWED AND REPAIRED 2026-09-20.** The claim was that
 `game/ambition_app/src/app/dev_runtime.rs`'s HOT RELOAD is *"BUILDING the
 generation that replaces the live one, so the registries it was handed are the
 candidate's"*, and it said so by calling
-`GenerationMechanics::for_the_generation_being_built`.
+`GenerationMechanics::for_the_generation_being_built`. <!-- cite-ok: deleted in a49ae6654; this paragraph records why -->
 
 That is true of a MECHANICAL replacement and false of the only caller there was.
 `reload_ldtk_world_from_disk` builds its candidate with

@@ -485,7 +485,7 @@ author nothing.
 ⛔⛔ **AND THE DELETION STILL DOES NOT LAND. SIX TESTS WENT RED ACROSS THREE
 FILES.** Removing both fall-backs and the parameters they left dead broke
 `a_definition_authored_motion_model_beats_the_catalog_row`,
-`a_worn_body_carrying_no_moveset_is_still_given_its_persona`,
+`a_worn_body_carrying_no_moveset_is_still_given_its_persona`, <!-- cite-ok: a test deleted in 4da38d309 with the mint it pinned; this paragraph records what went red at the time -->
 `gameplay_derives_from_worn_identity_at_add_and_on_change`,
 `live_refresh::cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state`,
 `live_refresh::live_ability_sync_does_not_rederive_authored_movement_identity` and

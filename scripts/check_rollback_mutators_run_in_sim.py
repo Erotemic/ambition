@@ -361,7 +361,9 @@ _SYSTEM_PARAM_STRUCT = re.compile(
 ACKNOWLEDGED: dict[str, str] = {
     "adopt_occurrence_checkpoint_from_save": "ROLLBACK-MUTATOR-POPULATION",
     "complete_durable_restore": "ROLLBACK-MUTATOR-POPULATION",
-    "compute_music_intent": "ROLLBACK-MUTATOR-POPULATION",
+    # ✅ `compute_music_intent` left because it was FIXED: it still runs, and
+    # now binds `EncounterMusicRequest` as a `SessionWorldRef`. Its one write was
+    # the `last_applied` mirror that AP12/W021 deleted (dbffb1a76).
     # ✅ `dispatch_pending_dialog_requests` was banked here and is GONE because
     # it was FIXED, and the distinction was checked rather than assumed: the
     # system still exists (`ambition_dialog/src/bridge.rs`), so the scan did not

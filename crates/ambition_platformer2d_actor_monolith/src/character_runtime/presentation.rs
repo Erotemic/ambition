@@ -266,11 +266,9 @@ pub fn project_prepared_character_definitions(
     )>,
     // The hand a re-granted kit is folded with.
     held: Query<&ambition_combat::held_items::HeldItem>,
-    // Where a retracted sprite body's feet are, for standing it back in the
-    // box it displaced — the body's local gravity, as the pose pass reads it.
-    kinematics: Query<&ambition_platformer2d_core::BodyKinematics>,
-    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
-    zones: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityZones>>,
+    // Which way a retracted sprite body's feet face, for standing it back in
+    // the box it displaced — the body's own frame, as the pose pass reads it.
+    frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     #[cfg(feature = "portal")] guns: Query<&ambition_portal2d::PortalGun>,
 ) {
     let Some(registry) = registry else {
@@ -296,17 +294,9 @@ pub fn project_prepared_character_definitions(
         // Do not retract `ActorMoveset`: every repertoire-bearing body carries one,
         // and the repertoire fold replaces its value wholesale.
         if let Some(previous) = projected {
-            let gravity_dir = match (gravity.as_deref(), zones.as_deref(), kinematics.get(entity)) {
-                (Some(field), Some(zones), Ok(kin)) => {
-                    ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
-                        ambition_platformer2d_core::Aabb::new(kin.pos, kin.size * 0.5),
-                        zones,
-                        field.dir,
-                    )
-                }
-                (Some(field), _, _) => field.dir,
-                _ => ambition_platformer2d_core::DEFAULT_GRAVITY_DIR,
-            };
+            let gravity_dir = frames
+                .get(entity)
+                .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |frame| frame.down());
             previous
                 .granted
                 .retract(&mut EntityScope::new(&mut commands, entity), gravity_dir);

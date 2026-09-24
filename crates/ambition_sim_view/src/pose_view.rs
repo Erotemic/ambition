@@ -262,7 +262,6 @@ impl Default for BodyPoseView {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_body_pose_views(
     mut commands: Commands,
-    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
     // The reference the hitlag law scales from, so the published strength is a
     // fraction rather than a raw freeze presentation would have to interpret.
     feel: Option<Res<ambition_combat::feel::Platformer2dFeelTuningMonolith>>,
@@ -279,10 +278,9 @@ pub fn rebuild_body_pose_views(
                 Option<&BodyCombat>,
                 Option<&ambition_characters::actor::BodyAnimFacts>,
                 Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
-                // This body's own resolved basis, so the locomotion metric is
-                // measured along ITS run axis.  deliberately not the global
-                // `GravityField` read below: that one drives the facing flip and
-                // is a mirror of the PRIMARY body's frame.
+                // This body's own resolved basis: the locomotion metric is
+                // measured along ITS run axis and the facing flip follows ITS
+                // gravity. Not `GravityField`, which mirrors the PRIMARY body.
                 Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
             ),
             (
@@ -355,11 +353,6 @@ pub fn rebuild_body_pose_views(
         Or<(With<PlayerVisual>, With<PosedBody>)>,
     >,
 ) {
-    // The player path has always read the GLOBAL gravity field for its facing
-    // flip (localized zone gravity is the actor path's read) — preserved.
-    let gravity_dir = gravity
-        .as_deref()
-        .map_or(ambition_platformer2d_core::Vec2::Y, |g| g.dir);
     // No feel tuning means no hitlag law to measure against: every body reports
     // no strength rather than a number derived from a reference nobody set.
     let hitlag_reference = feel.as_deref().map_or(0.0, |feel| feel.hitlag_time);
@@ -400,6 +393,7 @@ pub fn rebuild_body_pose_views(
         ),
     ) in &mut bodies
     {
+        let gravity_dir = body_down(body_frame);
         let base = base_size.map_or(kinematics.size, |b| b.base_size);
         let stance_ratio_y = base_size
             .map(|b| (kinematics.size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
@@ -871,6 +865,33 @@ mod pose_view_tests {
     ///
     /// ⛔ SO THE ASSERTION IS A PAIR OF READINGS OF THE SAME FRAME — the pose
     /// disagrees with the body, and the body is unchanged.
+    #[test]
+    fn a_posed_body_publishes_its_own_gravity_not_the_primary_bodys() {
+        use ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame;
+        let mut app = bevy::prelude::App::new();
+        // The primary body's mirror: straight down.
+        app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField::default());
+        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+        let sideways = ambition_platformer2d_core::Vec2::new(1.0, 0.0);
+        let mut frame = ResolvedMotionFrame::default();
+        frame.publish_resolved_frame(ambition_platformer2d_core::MotionFrame::from_direction(
+            sideways, 0.0,
+        ));
+        let kin = ambition_platformer2d_core::BodyKinematics {
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        };
+        let seat = app.world_mut().spawn((PosedBody, kin, frame)).id();
+        app.update();
+        assert_eq!(
+            app.world().get::<BodyPoseView>(seat).map(|p| p.gravity_dir),
+            Some(sideways),
+            "a second fighter under its own zone was drawn against the primary body's gravity"
+        );
+    }
+
     #[test]
     fn a_spinning_move_mirrors_the_drawn_pose_and_leaves_the_body_facing_alone() {
         use ambition_combat::moveset::MovePlayback;

@@ -309,13 +309,15 @@ pub fn interaction_input_system(
 /// same schedule. `hit_flash` had already left for
 /// `tick_home_body_reaction_timers` (AC3.3).
 pub fn cleanup_timers_system(
-    time: Res<Time>,
+    world_time: Res<ambition_time::WorldTime>,
     mut player_q: Query<
         &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
 ) {
-    let frame_dt = time.delta_secs();
+    // Unscaled, so the camera ease keeps winding down while gameplay is
+    // suspended (suspension zeroes the scale, not the step).
+    let frame_dt = world_time.wall_dt();
     let Ok(mut blink_cam) = player_q.single_mut() else {
         return;
     };

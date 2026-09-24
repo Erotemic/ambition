@@ -375,13 +375,13 @@ pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
 /// One bundled system param for the world's gravity, so the many actor
 /// integrators read gravity through a single argument (Bevy caps systems at 16
 /// params) and resolve it by position — `sign_at`/`dir_at` give a body its
-/// own localized gravity. All three resources are `Option` so headless/test apps
+/// own localized gravity. Both resources are `Option` so headless/test apps
 /// that don't insert them still get a sensible default (down).
+///
+/// ⛔ NOT `GravityField`: that is the PRIMARY body's frame, and a body with no
+/// zone snapshot to consult stands under the ambient, not under somebody else.
 #[derive(SystemParam)]
 pub struct GravityCtx<'w> {
-    /// The primary player's resolved gravity (used as the fallback when there
-    /// are no zones, e.g. in tests).
-    pub field: Option<Res<'w, GravityField>>,
     /// Snapshot of all gravity zones, for per-position resolution.
     pub zones: Option<Res<'w, GravityZones>>,
     /// Room ambient gravity (flipped by the global switch).
@@ -395,35 +395,29 @@ impl GravityCtx<'_> {
             .map_or(ambition_platformer2d_core::DEFAULT_GRAVITY_DIR, |b| b.dir)
     }
 
-    /// The player's gravity direction (fallback when a body has no position).
-    pub fn field_dir(&self) -> Vec2 {
-        gravity_dir_or_default(self.field.as_deref())
-    }
-
-    /// Localized gravity direction at `pos` (zone-or-ambient); falls back to the
-    /// player's field if no zone snapshot is present.
+    /// Localized gravity direction at `pos` (zone-or-ambient).
     pub fn dir_at(&self, pos: Vec2) -> Vec2 {
         match self.zones.as_deref() {
             Some(zones) => gravity_dir_at(pos, zones, self.base_dir()),
-            None => self.field_dir(),
+            None => self.base_dir().normalize_or_zero(),
         }
     }
 
     /// Localized gravity direction for a body AABB (zone grabs on OVERLAP —
-    /// the same rule [`resolve_active_gravity`] applies to the primary body);
-    /// falls back to the player's field if no zone snapshot is present.
+    /// the same rule [`resolve_active_gravity`] applies to the primary body).
     pub fn dir_for(&self, body: ambition_platformer2d_core::Aabb) -> Vec2 {
         match self.zones.as_deref() {
             Some(zones) => gravity_dir_for(body, zones, self.base_dir()),
-            None => self.field_dir(),
+            None => self.base_dir().normalize_or_zero(),
         }
     }
 
     /// Localized gravity sign at `pos` (`+1` down / `-1` up).
     pub fn sign_at(&self, pos: Vec2) -> f32 {
-        match self.zones.as_deref() {
-            Some(zones) => local_gravity_sign(pos, zones, self.base_dir()),
-            None => self.field.as_deref().map_or(1.0, |g| g.vertical_sign()),
+        if self.dir_at(pos).y >= 0.0 {
+            1.0
+        } else {
+            -1.0
         }
     }
 }
@@ -488,6 +482,28 @@ pub fn gravity_aware_flip_x(facing: f32, _gravity_dir: Vec2) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// With no zone snapshot a body stands under the AMBIENT, not under the
+    /// primary body's resolved gravity: `GravityField` here says up (the player
+    /// is in a flip zone) while the ambient says down.
+    #[test]
+    fn with_no_zones_a_body_takes_the_ambient_not_the_primary_bodys_gravity() {
+        use bevy::ecs::system::RunSystemOnce;
+        let mut app = App::new();
+        app.insert_resource(GravityField { dir: Vec2::new(0.0, -1.0) });
+        app.insert_resource(BaseGravity { dir: Vec2::new(0.0, 1.0) });
+        let (dir, sign) = app
+            .world_mut()
+            .run_system_once(|ctx: GravityCtx| {
+                (
+                    ctx.dir_for(ambition_platformer2d_core::Aabb::new(Vec2::ZERO, Vec2::ONE)),
+                    ctx.sign_at(Vec2::ZERO),
+                )
+            })
+            .expect("the system runs");
+        assert_eq!(dir, Vec2::new(0.0, 1.0), "the body was handed the player's gravity");
+        assert_eq!(sign, 1.0);
+    }
 
     #[test]
     fn gravity_aware_flip_tracks_local_facing_under_every_gravity() {

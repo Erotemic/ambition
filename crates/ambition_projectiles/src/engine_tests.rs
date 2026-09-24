@@ -506,25 +506,20 @@ fn from_spec_lowers_kind_data_onto_body() {
     assert_eq!(body.kin.pos, Vec2::ZERO);
 }
 
-/// ⭐ THE BOOMERANG GOES OUT, STOPS, AND COMES HOME, and each of those three is
-/// asserted separately — a shot that merely decelerated would pass a test that
-/// only checked "it is not as far as it should be".
+/// The boomerang goes out, stops, and comes home. Each phase is asserted
+/// separately, so a shot that only slows down fails.
 #[test]
 fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
     const OUT_S: f32 = 0.34;
     const DT: f32 = 1.0 / 60.0;
     let mut spec = ProjectileKind::Hadouken.spec(Vec2::ZERO, Vec2::new(1.0, 0.0), 1.0);
     spec.boomerang_return_s = Some(OUT_S);
-    // The ROUND TRIP, which is what `ProjectileFlight::boomerang` authors — the
-    // return acceleration is `-v0 / out_s`, so the shot is back at the throw
-    // point at exactly `2 * out_s`. ⛔ This used to restate the old `+ 0.15`
-    // and so agreed with a tail that expired 79px behind the hand.
-    //
-    // ⛔⛔ AND IT IS A RESTATEMENT, WHICH THIS TEST CANNOT FIX. This crate does
-    // not depend on `ambition_characters`, so the production constructor is out
-    // of reach here and everything below would stay green if somebody put the
-    // old term back. `the_boomerang_constructor_authors_exactly_the_round_trip`
-    // is the arm that fails then; this one owns the PHYSICS.
+    // The round trip that `ProjectileFlight::boomerang` authors: the return
+    // acceleration is `-v0 / out_s`, so the shot is back at the throw point at
+    // `2 * out_s`. This restates the production value, because this crate does
+    // not depend on `ambition_characters`;
+    // `the_boomerang_constructor_authors_exactly_the_round_trip` guards the
+    // constructor. This test owns the physics.
     spec.max_lifetime = OUT_S * 2.0;
     let mut body = ProjectileBody::from_spec(spec);
 
@@ -570,10 +565,8 @@ fn a_boomerang_turns_around_and_returns_to_where_it_was_thrown() {
     );
     assert!(body.kin.vel.x < 0.0, "…still travelling homeward");
 
-    // ⛔⛔ AND IT IS CAUGHT, NOT MERELY PASSING. "Eventually crossed zero" is
-    // satisfied by a tail that sails on through and expires as a fast rearward
-    // projectile — which is exactly what it did: 79.2px behind the hand at
-    // 603 px/s. Run it to despawn and BOUND the overshoot.
+    // The shot must be caught, not just cross zero. A tail that flies on past
+    // the hand also crosses zero, so run to despawn and bound the overshoot.
     let mut last = body.kin.pos.x;
     while body.tick(DT, Vec2::new(0.0, 1.0)) {
         last = body.kin.pos.x;

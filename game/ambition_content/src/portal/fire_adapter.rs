@@ -1,11 +1,10 @@
 //! Ambition fire-intent resolver: gesture → generic portal fire intent.
 //!
-//! The input adapter recognizes the *gesture* and emits a [`FirePortalGun`] (implying "the
-//! primary player, holding the gun, aiming this way"). This resolver bridges the two: it reads
-//! `FirePortalGun`, resolves the origin (the primary player's body position), the direction
-//! (the gesture's aim), and the channel (the held gun's current color), and emits the generic
-//! intent — behavior identical to the old in-core `portal_fire_system`, but now anything (a
-//! replay, an AI) can place a portal by emitting `PortalFireIntent` directly.
+//! The input adapter recognizes the gesture and emits a [`FirePortalGun`] naming
+//! its body. This resolver reads `FirePortalGun`, resolves the origin (that
+//! body's position), the direction (the gesture's aim) and the channel (the
+//! held gun's current color), and emits the generic intent. Anything (a replay,
+//! an AI) can also place a portal by emitting `PortalFireIntent` directly.
 
 use bevy::prelude::*;
 
@@ -13,49 +12,42 @@ use ambition_platformer2d_core::BodyKinematics;
 use ambition_portal2d::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
-/// from the body HOLDING the gun — the controlled subject.
+/// from the body holding the gun.
 ///
-/// ⭐⭐ THE GESTURE NAMES ITS BODY, so this resolver has nothing to re-derive.
-/// It used to read `ControlledSubject` — one entity by construction — while
-/// `FirePortalGun` carried an aim and nothing else, so a second seat holding a
-/// gun made a press that reached nothing. Looping driven bodies here would have
-/// been the WRONG fix: with a seatless gesture the resolver would have had to
-/// guess whose press it was, and would have fired one shot per body for one
-/// press. The change belonged to the gesture (D-PORTAL-GESTURE-SEAT).
+/// The gesture names its body, so this resolver re-derives nothing. With a
+/// seatless gesture, a resolver that looped driven bodies would have to guess
+/// whose press it was, and would fire one shot per body for one press
+/// (D-PORTAL-GESTURE-SEAT).
 ///
-/// ⭐ THE OTHER TWO PORTAL READERS ARE CORRECTLY SINGULAR and stay that way:
+/// The other two portal readers are correctly singular:
 /// `sync_portal_viewer`'s eye and `tag_portal_affordance_body`'s drawn gun are
-/// PRESENTATION, and a view has one viewpoint. Origin = that body's
-/// position, dir = the gesture's aim, channel = the held gun's `next_color`. If the
-/// controlled body isn't holding a `PortalGun`, no intent is emitted (no fallback to
-/// the home avatar). Gun-active gating lives here so the generic intent is only
-/// emitted for a genuine, armed fire. A zero aim is dropped by the core fire system.
+/// presentation, and a view has one viewpoint. Origin = the body's position,
+/// dir = the gesture's aim, channel = the held gun's `next_color`. If the body
+/// is not holding a `PortalGun`, no intent is emitted (no fallback to the home
+/// avatar). Gun-active gating lives here, so the generic intent is emitted only
+/// for an armed fire. The core fire system drops a zero aim.
 pub fn resolve_portal_fire_intent(
     mut fires: MessageReader<FirePortalGun>,
     mut holders: Query<(
         &BodyKinematics,
         &PortalGun,
         &mut ambition_characters::control::ActorControl,
-        // ⛔⛔ THE SHOT'S IDENTITY IS MINTED HERE, because this is the only place
-        // that knows WHO fired. A portal shot is a rollback anchor
-        // (`require_rollback::<PortalShot>`) and shipped anonymous: it rewound
-        // by entity index while deciding where a portal opens. Every other
-        // mid-match spawner already mints from its spawner's own counter, and
-        // this is that road for the gun.
+        // The shot's identity is minted here, the only place that knows who fired.
+        // A portal shot is a rollback anchor (`require_rollback::<PortalShot>`), so
+        // it must not rewind by entity index. Every other mid-match spawner mints
+        // from its own counter; this is the gun's road.
         //
-        // ⚠ `Option`, so a body with no identity still fires. A gun in a hand
-        // that has no `SimId` is a fixture, not a session — and the populated
-        // timeline's identity census is what refuses the anonymous shot rather
-        // than this query silently dropping the press.
+        // `Option`, so a body with no identity still reaches the refusal below. A
+        // gun in a hand with no `SimId` is a fixture, not a session, and the
+        // timeline's identity census refuses the anonymous shot instead of this
+        // query silently dropping the press.
         Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
         Option<&mut ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>,
     )>,
     mut intents: MessageWriter<PortalFireIntent>,
 ) {
-    // ⭐ EVERY GESTURE, EACH FROM ITS OWN BODY. This read `.last()` — one
-    // gesture per tick — and then re-derived the firer from `ControlledSubject`.
-    // Two seats each holding a gun made two presses and one shot came out, from
-    // whichever body the singular resolver happened to name.
+    // Every gesture, each from its own body, so two seats each holding a gun
+    // get two shots.
     for fire in fires.read() {
         let Ok((kin, gun, mut actor_control, firer, counter)) = holders.get_mut(fire.body) else {
             continue;
@@ -63,13 +55,12 @@ pub fn resolve_portal_fire_intent(
         if !gun.active {
             continue;
         }
-        // ⛔ REFUSE RATHER THAN FIRE AN UNNAMEABLE SHOT — ADR 0030.
+        // Refuse instead of firing a shot that cannot be named (ADR 0030).
         //
-        // ⚠ AND THE REFUSAL MUST NOT SWALLOW THE PRESS. `melee_pressed` is
-        // cleared at the bottom of this loop so the wearer's jab does not answer
-        // the same press; a refusal that skipped the whole arm would leave the
-        // press set and the body would jab instead of nothing happening. So the
-        // press is consumed here, before the `continue`.
+        // The refusal must not swallow the press. `melee_pressed` is cleared at the
+        // bottom of this loop so the wearer's jab does not answer the same press; a
+        // refusal that skipped the arm would leave it set and the body would jab.
+        // So the press is consumed here, before the `continue`.
         let (Some(firer), Some(mut counter)) = (firer, counter) else {
             warn!(
                 "a portal shot was refused: the firer carries no SimId or no \
@@ -78,9 +69,9 @@ pub fn resolve_portal_fire_intent(
             actor_control.0.melee_pressed = false;
             continue;
         };
-        // Minted from the FIRER's own counter, the way every production spawner
-        // mints — so a resimulated tick re-mints the same id from the same
-        // inputs, and two seats firing on one tick cannot collide.
+        // Minted from the firer's own counter, like every production spawner, so a
+        // resimulated tick re-mints the same id and two seats firing on one tick
+        // cannot collide.
         let id = Some(
             ambition_platformer2d_shared_tangle::sim_id::SimId::spawned(firer, counter.next()),
         );
@@ -113,9 +104,9 @@ mod tests {
         }
     }
 
-    /// The portal fire originates from the body HOLDING the gun — the controlled
-    /// subject — not the vacated home avatar. Give the gun to a non-home controlled
-    /// body and assert the fire origin is that body's position.
+    /// The portal fire originates from the body holding the gun, not the vacated
+    /// home avatar. Give the gun to a non-home controlled body and assert the fire
+    /// origin is that body's position.
     #[test]
     fn portal_fire_origin_comes_from_the_holding_controlled_body() {
         let home_pos = Vec2::new(0.0, 0.0);
@@ -158,10 +149,9 @@ mod tests {
                 // Every production body carries an intent frame, and this system
                 // spends the Attack press on it when the gun answers.
                 ambition_characters::control::ActorControl::default(),
-                // ⛔ AND AN IDENTITY AND ITS MINT STREAM, because a production
-                // body carries both and the shot mints under the FIRER. A fixture
-                // without them exercised the `_ => None` road that ADR 0030
-                // replaced with a refusal.
+                // An identity and its mint stream, as a production body has: the shot
+                // mints under the firer. Without them the fixture would hit the refusal
+                // (ADR 0030).
                 ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_holder"),
                 ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
             ))
@@ -183,7 +173,7 @@ mod tests {
         );
     }
 
-    /// THE FIRE SPENDS THE ATTACK PRESS — HERE, WHERE IT IS ACCEPTED.
+    /// The fire spends the Attack press where it is accepted.
     #[test]
     fn an_accepted_fire_spends_the_press_and_a_refused_one_does_not() {
         use ambition_characters::control::ActorControl;

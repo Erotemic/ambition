@@ -6,30 +6,23 @@ use super::simple::resume_simple_music;
 use super::timing::{seconds_until_next_bar, seconds_until_next_phrase_marker};
 use super::*;
 
-/// Decide whether `drive_adaptive_cue_state` should stop the base
-/// (simple-track) channel and (re)start the adaptive cue from its
-/// intro.
+/// Whether `drive_adaptive_cue_state` should stop the base (simple-track)
+/// channel and restart the adaptive cue from its intro.
 ///
-/// Three conditions trigger a restart, all preserving the invariant
-/// that simple base track and adaptive layers cannot remain
-/// audible at the same time:
+/// Three cases restart it. In all of them the simple base track and the
+/// adaptive layers must not play at the same time:
 ///
-/// 1. A different cue is taking over (the obvious case).
-/// 2. The director's mode says a simple base track is playing
-///    (`SimpleTrack`, `Idle`, `AdaptiveFinished`). Defensive: the
-///    primary `resume_simple_music(set_mode = false)` fix prevents
-///    this state from coexisting with `Some(active_cue_id)`, but
-///    if anything leaves the director in that shape we still need
-///    to stop the base channel before the adaptive layers ramp up.
-/// 3. The cue is in `AdaptiveOutro` and the new directive points
-///    back to a non-outro state — i.e. the encounter restarted
-///    during the outro tail. `drive_outro_tail` had already started
-///    the base lofi channel for the overlap; we must stop it
-///    before the adaptive layers come back.
+/// 1. A different cue takes over.
+/// 2. The director's mode says a simple base track is playing (`SimpleTrack`,
+///    `Idle`, `AdaptiveFinished`). Defensive: `resume_simple_music(set_mode =
+///    false)` prevents this with `Some(active_cue_id)`, but if it happens, the
+///    base channel must stop before the adaptive layers ramp up.
+/// 3. The cue is in `AdaptiveOutro` and the new directive is a non-outro
+///    state: the encounter restarted during the outro tail.
+///    `drive_outro_tail` already started the base channel for the overlap, so
+///    it must stop.
 ///
-/// Captured as a free function so the decision can be unit-tested
-/// without spinning up Bevy resources (audio channels, asset
-/// servers, etc.).
+/// A free function, so it can be unit-tested without Bevy resources.
 pub(in crate::music) fn should_restart_adaptive(
     director_active_cue: Option<&str>,
     director_mode: MusicDirectorMode,
@@ -51,11 +44,10 @@ pub(in crate::music) fn should_restart_adaptive(
 /// Decide whether a newly started adaptive bank should begin at its
 /// target gain instead of ramping up from silence.
 ///
-/// Intro-to-loop full-mix handoffs need to feel like one continuous
-/// cue. If the loop bank starts silent and ramps up while the intro
-/// bank fades down, players hear a brief hole and become aware that
-/// the engine switched files. Loop-to-loop transitions still use the
-/// normal gain smoothing so wave changes can blend rather than pop.
+/// Intro-to-loop full-mix handoffs must sound like one continuous cue. A loop
+/// bank that ramps up from silence while the intro fades leaves an audible
+/// gap. Loop-to-loop transitions still use normal gain smoothing, so wave
+/// changes blend.
 pub(super) fn should_start_new_bank_at_target_gain(
     previous_mode: MusicDirectorMode,
     target_section_looped: bool,
@@ -168,13 +160,11 @@ pub(super) fn drive_adaptive_cue_state(
         pending.delay_seconds -= dt;
         if pending.delay_seconds <= 0.0 {
             director.pending_state = None;
-            // intro→loop transitions get a tighter crossfade than
-            // loop↔loop section swaps. The intro's last bar already
-            // signals the change melodically; a longer fade just
-            // smears the downbeat of the loop. The longer
-            // LOOP_SECTION_CROSSFADE_SECONDS still applies when
-            // moving between loop sections (wave1↔wave2 etc.), where
-            // we want the overlap to mask the section boundary.
+            // Intro-to-loop transitions use a shorter crossfade than
+            // loop-to-loop section swaps: the intro's last bar already
+            // signals the change, and a longer fade smears the loop's
+            // downbeat. LOOP_SECTION_CROSSFADE_SECONDS still applies between
+            // loop sections, where the overlap hides the boundary.
             let crossfade = if director.mode == MusicDirectorMode::AdaptiveIntro {
                 INTRO_TO_LOOP_CROSSFADE_SECONDS
             } else {
@@ -414,13 +404,11 @@ pub(super) fn drive_outro_tail(
     if !director.default_resume_started
         && director.seconds_in_mode >= (duration - DEFAULT_RETURN_OVERLAP_SECONDS).max(0.0)
     {
-        // Overlap: start the base lofi track UNDER the still-tailing
-        // adaptive outro. Mode stays AdaptiveOutro until the outro
-        // duration completes (block below); only then do we
-        // transition to AdaptiveFinished + clear the adaptive cue
-        // identity. Setting `mode = SimpleTrack` here would break
-        // the same-cue restart invariant — see the
-        // `resume_simple_music` doc.
+        // Start the base track under the adaptive outro tail. The mode stays
+        // AdaptiveOutro until the outro ends (below); only then does it become
+        // AdaptiveFinished and the cue identity clear. Setting
+        // `mode = SimpleTrack` here would break the same-cue restart rule; see
+        // `resume_simple_music`.
         resume_simple_music(
             director,
             library,
@@ -474,8 +462,8 @@ pub(super) fn shutdown_adaptive_cue(
     director.mode = MusicDirectorMode::Idle;
     director.pending_state = None;
     zero_all_current_and_targets(director);
-    // Adaptive cue identity is fully cleared here, so it's safe for
-    // resume_simple_music to flip the mode to SimpleTrack.
+    // The adaptive cue identity is cleared here, so resume_simple_music may
+    // set the mode to SimpleTrack.
     resume_simple_music(
         director,
         library,

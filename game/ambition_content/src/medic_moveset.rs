@@ -1,22 +1,17 @@
-//! The Medic — the brawler archetype's normals, under her own name, and four
-//! specials that are hers.
+//! The Medic: the brawler archetype's normals under her own name, and four
+//! specials of her own.
 //!
-//! Unarmed for every normal, on the Pugnacious Polygon's skeleton and its clip
-//! vocabulary. She throws the archetype's punches at the archetype's timings
-//! because they are literally the archetype's punches; what differs is who is
-//! throwing them and what the air does about it, which is the sprite sheet's
-//! business and not this table's.
+//! Unarmed for every normal, on the Pugnacious Polygon's skeleton and clip
+//! vocabulary. She uses the archetype's punches and timings; the difference is
+//! in the sprite sheet, not this table.
 //!
-//! ⭐⭐ HER SPECIALS ARE A KIT, NOT FOUR MOVES. Every one of them trades in the
-//! same currency: ADRENALINE buys tempo with health, FIELD DRESSING buys health
-//! back with frames, TOURNIQUET drags a fighter into the range where her
-//! archetype's punches are worth something, and RESCUE LIFT is the only one that
-//! spends nothing — because a recovery a character has to pay for is a character
-//! who dies at the ledge.
+//! Her specials are one kit with one currency: Adrenaline buys tempo with
+//! health, Field Dressing buys health back with frames, Tourniquet drags a
+//! fighter into punching range, and Rescue Lift costs nothing, because a
+//! recovery she has to pay for kills her at the ledge.
 //!
-//! ⛔ THE TIMINGS ARE READ OFF THE CLIPS. `medic_triage_v1` has carried all four
-//! since it was forked, captioned with what each one is; the frame each effect
-//! lands on is the frame the art draws it on, and the constants below say which.
+//! The timings come from the clips in `medic_triage_v1`: each effect lands on
+//! the frame the art draws it, as the constants below state.
 //!
 //! See [`crate::archetype_moveset`] for why the normals' ids are renamed rather
 //! than shared or copied.
@@ -27,38 +22,36 @@ use ambition_entity_catalog::authoring::{
 use ambition_entity_catalog::smash_vitality::{author_vitality, VitalityParams};
 use ambition_entity_catalog::{ImpulseMode, MoveSpec, MovesetContract};
 
-/// ADRENALINE, from `special.clip.json`: 10 frames at 70ms, and the injector
-/// goes into her thigh on frame 5.
+/// Adrenaline, from `special.clip.json`: 10 frames at 70ms; the injector goes
+/// into her thigh on frame 5.
 const INJECT_AT_S: f32 = 0.35;
 const INJECT_ENDS_S: f32 = 0.70;
 
-/// FIELD DRESSING, from `charge.clip.json`: 8 frames at 110ms, with the mend
-/// plume rising from frame 1 through frame 7. The dressing takes hold in the
-/// middle of that, not at its first frame — she has to get her hands on it.
+/// Field Dressing, from `charge.clip.json`: 8 frames at 110ms, with the mend
+/// plume from frame 1 to frame 7. The dressing takes hold in the middle, not
+/// on the first frame.
 const DRESS_AT_S: f32 = 0.44;
 const DRESS_ENDS_S: f32 = 0.88;
 
-/// TOURNIQUET, from `shoot.clip.json`: 8 frames at 60ms, strap live on frames
+/// Tourniquet, from `shoot.clip.json`: 8 frames at 60ms, strap live on frames
 /// 3 and 4.
 const STRAP_STARTUP_S: f32 = 0.18;
 const STRAP_ACTIVE_S: f32 = 0.12;
 const STRAP_RECOVER_S: f32 = 0.18;
 
-/// RESCUE LIFT, from `fly.clip.json`: 8 frames at 60ms. She drops, then goes.
+/// Rescue Lift, from `fly.clip.json`: 8 frames at 60ms. She drops, then goes.
 const LIFT_AT_S: f32 = 0.12;
 const LIFT_ENDS_S: f32 = 0.48;
 
-/// What one press of ADRENALINE costs, and the margin it will not spend.
+/// What one press of Adrenaline costs, and the margin it will not spend.
 ///
-/// ⛔ THE FLOOR IS THE WHOLE SAFETY OF THE MOVE. A neutral special that can
-/// finish a stock by being pressed is not a cost, and a Medic mashing it at low
-/// percent must find it free rather than fatal — see
-/// `BodyHealth::spend`, which states why free is the right failure.
+/// The floor is the move's safety: pressing it must never end a stock, so at
+/// low health it is free, not fatal. See `BodyHealth::spend`.
 const ADRENALINE_COST: i32 = 1;
 const ADRENALINE_FLOOR: i32 = 1;
 
-/// What FIELD DRESSING gives back. More than one press of ADRENALINE costs, and
-/// it takes nearly three times as long: the exchange rate is the character.
+/// What Field Dressing gives back: more than one Adrenaline press costs, for
+/// nearly three times as long. The exchange rate is the character.
 const DRESSING_HEAL: i32 = 2;
 
 /// Complete brawler-fundamentals repertoire, attributed to the Medic, with her
@@ -79,30 +72,15 @@ pub fn medic_moveset() -> MovesetContract {
 
 /// Neutral special: she spends her own margin to buy tempo.
 ///
-/// ⭐⭐ THE TEMPO IS THE CANCEL, and it is made of things the engine already
-/// has. There is no stat-buff system in this repository — no haste, no damage
-/// multiplier, nothing a "+20% speed for four seconds" could be written against
-/// — and inventing one to give a neutral-B a payoff would have been a whole
-/// mechanic bolted to one move. What she actually buys is FRAME ADVANTAGE: the
-/// tail of this move cancels into a smash, a special or a jab, so a point of
-/// health converts directly into acting first.
+/// The tempo is the cancel. There is no stat-buff system (no haste, no damage
+/// multiplier), so what she buys is frame advantage: the tail cancels into a
+/// smash, a special or a jab, so a point of health becomes acting first.
 ///
-/// ⛔ THE CANCEL IS `Always`, NOT `OnHit`. The move touches nobody — an
-/// on-connect condition would never be satisfied and the window would be
-/// decoration.
+/// The cancel is `Always`, not `OnHit`: the move touches nobody.
 ///
-/// ⛔⛔ AND ONE OF ITS THREE TARGETS NAMED NOTHING UNTIL 2026-09-05. The list
-/// read `["smash", "special", "jab"]`, and **there is no `jab` verb** — the jab
-/// SLOT binds to the verb `attack` (`smash_repertoire`: `("attack", jab, …)`).
-/// So a player cancelling the injection into a jab pressed a button the window
-/// had never heard of, silently, and it looked exactly like a move whose author
-/// never offered that escape.
-///
-/// ⚠ THE OTHER TWO WERE FINE, INCLUDING THE ONE THAT LOOKS WRONG. `smash` is not
-/// in `CANCEL_CLASS_NAMES` and resolves anyway, because `cancel_names_for` hands
-/// a smash press `["smash", "attack", "any_attack"]` — which is why the guard
-/// that found this had to derive its namespace from that function rather than
-/// from the const, and reported a false positive on `smash` until it did.
+/// The targets use the cancel namespace. The jab slot binds the verb `attack`
+/// (there is no `jab` verb). `smash` resolves because `cancel_names_for` gives
+/// a smash press `["smash", "attack", "any_attack"]`.
 fn adrenaline() -> MoveSpec {
     let mut spec = hitless_special("medic_adrenaline", "special", INJECT_AT_S, INJECT_ENDS_S);
     spec.display_name = Some("Adrenaline".to_string());
@@ -129,16 +107,13 @@ fn adrenaline() -> MoveSpec {
 /// Side special: a strap comes off her belt and goes out flat; what it catches,
 /// it drags back.
 ///
-/// ⭐⭐ THE PULL IS `launch_dir`, NOT A NEW MECHANIC. A hit's launch direction
-/// is already authored per move and already mirrors with facing, so aiming it
-/// back along her own axis is a drag — the victim is launched TOWARD her instead
-/// of away. That is the whole move, and it needs nothing the engine did not
-/// already do for every other strike.
+/// The pull is `launch_dir`, not a new mechanic. A launch direction is
+/// authored per move and mirrors with facing, so aiming it back along her
+/// axis launches the victim toward her.
 ///
-/// ⛔ AND ITS DAMAGE IS SMALL ON PURPOSE. The payoff is the position, not the
-/// number: an unarmed brawler's punches are only worth something in a range her
-/// opponent chooses to stay out of, and this is how she takes that choice away.
-/// A drag that also hurt would be a command grab with no commitment.
+/// Small damage on purpose: the payoff is position. An unarmed brawler's
+/// punches only matter in a range the opponent avoids; this takes that choice
+/// away. A drag that also hurt would be a command grab with no commitment.
 fn tourniquet() -> MoveSpec {
     let mut spec = strike(Strike {
         id: "medic_tourniquet",
@@ -146,34 +121,23 @@ fn tourniquet() -> MoveSpec {
         startup_s: STRAP_STARTUP_S,
         active_s: STRAP_ACTIVE_S,
         recover_s: STRAP_RECOVER_S,
-        // Out flat and a long way — the reach IS the move.
+        // Out flat and far: the reach is the move.
         offset: (46.0, -4.0),
         half_extents: (34.0, 12.0),
         damage: 4,
         knockback: 96.0,
-        // ⛔ IT DOES NOT GROW WITH DAMAGE. Every other knockback in the game
-        // launches a hurt fighter FARTHER, which for a drag would mean the more
-        // she has softened someone up the less she can pull them in — the move
-        // getting worse exactly as it starts to matter.
-        //
-        // ⛔⛔ AND THIS LINE DID NOT ACHIEVE THAT, 2026-09-05 to 2026-09-06.
-        // `strike` stores the builder's growth as
-        // `(knockback_growth > 0.0).then_some(knockback_growth)`, so a ZERO here
-        // becomes `None`, and `None` on a volume means *"this stage decides"* —
-        // the ruleset's growth, applied. ⇒ The drag has been getting weaker with
-        // the victim's damage this whole time, which is the exact failure the
-        // paragraph above says it prevents. `fixed_knockback` below is what
-        // actually says it, and the builder's own comment points there.
+        // It must not grow with damage: a growing drag would pull a softened
+        // fighter in less. The builder stores zero as `None` ("the stage decides"),
+        // so `fixed_knockback` below is what actually fixes it.
         knockback_growth: 0.0,
-        // Back along her own axis and slightly down: toward her, and onto the
-        // ground where her normals live.
+        // Back along her axis and slightly down: toward her, and onto the ground
+        // where her normals work.
         launch_dir: Some((-1.0, 0.22)),
         on_hit: None,
     });
     spec.display_name = Some("Tourniquet".to_string());
-    // ⭐ THE DRAG IS FLAT, AND THIS IS THE LINE THAT MAKES IT SO. See the note on
-    // `knockback_growth` above: the builder's zero means "the stage decides", and
-    // only a volume carrying `Some(0.0)` is actually fixed.
+    // This makes the drag flat: only a volume carrying `Some(0.0)` is fixed.
+    // See `knockback_growth` above.
     let spec = fixed_knockback(spec);
     let spec = sfx(spec, STRAP_STARTUP_S, "player.slash");
     ambition_entity_catalog::authoring::on_contact(spec, "player.hit")
@@ -181,28 +145,21 @@ fn tourniquet() -> MoveSpec {
 
 /// Down special: she goes to one knee and holds pressure on her own ribs.
 ///
-/// ⭐⭐ JON, 2026-08-26: *"the medic could have a self healing move."* This is
-/// it, and it is the reason `smash.vitality` exists at all — `BodyHealth::heal`
-/// was reachable by a pickup and by a shrine and by nothing a fighter could
-/// press.
+/// The maintainer asked for a self-healing move for the Medic; this is it,
+/// and it is why `smash.vitality` exists (`BodyHealth::heal` was otherwise
+/// reachable only from pickups and shrines).
 ///
-/// ⛔ IT HEALS THE METER, WHICH IS THE PART THAT MATTERS IN A MATCH. Refilling
-/// the pool alone would be a heal she could not feel: the accumulated-damage
-/// meter is what decides how far the next hit sends her, and `BodyHealth::heal`
-/// repays both. That is stated where it lives rather than here.
+/// It also heals the damage meter, which decides how far the next hit sends
+/// her. `BodyHealth::heal` repays both.
 ///
-/// ⛔⛔ AND IT IS SLOW ENOUGH TO PUNISH. 0.88s rooted, hitting nobody, is most
-/// of a second of standing still in front of somebody who wants to hit you —
-/// which is what stops two points of health from being free.
+/// Slow enough to punish: 0.88s rooted and hitting nobody.
 fn field_dressing() -> MoveSpec {
     dressing("medic_field_dressing")
 }
 
-/// ⛔ TWO IDS FOR ONE MOVE, because the archetype's down special is a
-/// `DownSpecial::ByPosture` pair and a slot left half-replaced is a press that
-/// falls through to the neutral special. Holding pressure on your own ribs means
-/// the same thing in the air as on the ground — it is just a worse idea — so
-/// both forms are the same authoring under different ids.
+/// Two ids for one move: the archetype's down special is a
+/// `DownSpecial::ByPosture` pair, and a half-replaced slot falls through to
+/// the neutral special. Both forms use the same authoring.
 fn field_dressing_airborne() -> MoveSpec {
     dressing("medic_field_dressing_air")
 }
@@ -225,20 +182,16 @@ fn dressing(id: &str) -> MoveSpec {
 
 /// Up special: she drops, then goes straight up under whatever is above her.
 ///
-/// ⛔⛔ THROUGH THE SLOT, so it costs what an up-B costs. Inserted after
-/// `SmashRepertoire::into_contract` has lowered the table it joins, nothing else
-/// will stamp `gates.recovery` on it — and an up-B that spends nothing is
+/// Wrap through the slot so `gates.recovery` is stamped: this is inserted
+/// after `SmashRepertoire::into_contract`, and an up-B that costs nothing is
 /// flight.
 ///
-/// ⛔ AND IT IS THE ONE SPECIAL THAT CHARGES HER NOTHING. Every other move in
-/// this kit trades health for something; a recovery she has to pay for is a
-/// character who cannot come back from the ledge at the moment she most needs
-/// to, which is a cost that only ever lands when it is fatal.
+/// It is the one special that charges her no health: a recovery with a
+/// health price would only collect it at the ledge, when it is fatal.
 fn rescue_lift() -> MoveSpec {
     let mut spec = hitless_special("medic_rescue_lift", "fly", LIFT_AT_S, LIFT_ENDS_S);
     spec.display_name = Some("Rescue Lift".to_string());
-    // Mostly vertical, with just enough drift to correct a bad angle — arms
-    // locked overhead is not a pose you steer with.
+    // Mostly vertical, with a little drift to correct a bad angle.
     let spec = impulse(spec, LIFT_AT_S, (34.0, -905.0), ImpulseMode::Set);
     let spec = sfx(spec, 0.0, "player.attack.charge");
     let spec = vfx(spec, LIFT_AT_S, "classic_burst");
@@ -249,19 +202,11 @@ fn rescue_lift() -> MoveSpec {
 mod tourniquet_tests {
     use super::*;
 
-    /// ⭐⭐ THE DRAG DOES NOT WEAKEN AS THE VICTIM SOFTENS — WHICH IT DID, SILENTLY,
-    /// FOR AS LONG AS THE MOVE HAS EXISTED.
+    /// The drag does not weaken as the victim takes damage.
     ///
-    /// The spec authored `knockback_growth: 0.0` under a bold paragraph saying
-    /// the move must not grow with damage. `strike` stores that as
-    /// `(g > 0.0).then_some(g)`, so the zero became `None`, and `None` on a hit
-    /// volume means the RULESET's growth applies. ⇒ The comment and the data said
-    /// opposite things and the data won, so a pull that exists to take away an
-    /// opponent's spacing got worse exactly as it started to matter.
-    ///
-    /// ⛔ ASSERTS `Some(0.0)`, NOT "small". `None` is the bug and `None` is not a
-    /// number — a test comparing magnitudes would have to unwrap it first and
-    /// would pass the moment somebody wrote a plausible small growth instead.
+    /// `strike` stores a builder growth of zero as `None`, and `None` means the
+    /// ruleset's growth applies. This asserts `Some(0.0)`, not "small": a
+    /// magnitude check would pass a plausible small growth.
     #[test]
     fn the_tourniquet_pulls_the_same_at_every_percent() {
         let strap = medic_moveset()
@@ -303,10 +248,9 @@ mod tests {
             .unwrap_or_else(|| panic!("`{id}` authors a health change"))
     }
 
-    /// ⛔⛔ ALL FIVE SPECIAL VERBS ARE HERS. `special_air_down` sits AHEAD of
-    /// `special_down` in the brawler's chain, so replacing only the grounded
-    /// half would leave an airborne press falling through to the archetype's
-    /// falling edge — the exact half-replacement the Performer's trap had to learn.
+    /// All five special verbs are hers. `special_air_down` comes before
+    /// `special_down` in the brawler's chain, so replacing only the grounded half
+    /// would send an airborne press to the archetype's move.
     #[test]
     fn every_special_slot_answers_to_a_move_of_her_own() {
         let set = medic_moveset();
@@ -331,10 +275,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ SHE PAYS FOR ONE AND IS PAID BY THE OTHER, AND THE SIGNS ARE
-    /// OPPOSITE. A single technique serves both, so the one thing that could go
-    /// wrong silently is a sign — an Adrenaline that healed would be a free
-    /// press with a cancel window, which is the strongest move in the game.
+    /// She pays for one and is paid by the other. One technique serves both, so
+    /// the risk is a sign error: an Adrenaline that healed would be a free press
+    /// with a cancel window.
     #[test]
     fn adrenaline_costs_and_the_dressing_gives_back() {
         let set = medic_moveset();
@@ -355,8 +298,8 @@ mod tests {
             heal.change,
             "both halves of the down slot mend the same amount"
         );
-        // ⭐ AND THE EXCHANGE RATE IS THE CHARACTER: one press back costs more
-        // frames than the presses it repays.
+        // The exchange rate: one heal costs more frames than the presses it
+        // repays.
         assert!(
             heal.change > -cost.change,
             "a dressing that gave back less than one adrenaline costs makes the \
@@ -364,11 +307,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE FLOOR IS NEVER ZERO ON A PRICE. `VitalityParams::floor` defaults
-    /// to `0` and the engine clamps it up to `1`, but a table that authored `0`
-    /// would be saying "this may take her last point" — and relying on a clamp
-    /// somewhere else to disagree with what the content says is how the two
-    /// drift apart.
+    /// The floor is never zero on a price. `VitalityParams::floor` defaults to
+    /// `0` and the engine clamps it to `1`, but content should not rely on a clamp
+    /// elsewhere to disagree with it.
     #[test]
     fn her_price_names_a_floor_that_cannot_kill_her() {
         let set = medic_moveset();
@@ -379,9 +320,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE STRAP PULLS. A drag authored with the default launch direction
-    /// is an ordinary poke that sends its victim AWAY — the exact opposite of
-    /// the move — and nothing about the timings or the reach would look wrong.
+    /// The strap pulls. With the default launch direction it would send the
+    /// victim away, and nothing else would look wrong.
     #[test]
     fn the_tourniquet_launches_its_victim_toward_her() {
         let set = medic_moveset();
@@ -405,8 +345,8 @@ mod tests {
         }
     }
 
-    /// ⛔ AND THE RECOVERY IS FREE. Every other special she has charges her
-    /// something; a recovery with a price only ever collects it at the ledge.
+    /// The recovery is free: a price on a recovery is only collected at the
+    /// ledge.
     #[test]
     fn the_rescue_lift_costs_her_nothing() {
         let set = medic_moveset();

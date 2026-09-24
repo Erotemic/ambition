@@ -1,22 +1,20 @@
-//! FORCE A PUPPY SLUG INTO SMASH AND YOU GET A PUPPY SLUG — the real
+//! Force a Puppy Slug into Smash and you get a Puppy Slug: the real
 //! creature, not a fixture shaped like the answer.
 //!
-//! Smash … movement input → uses Puppy Slug's actual authored locomotion. Jump →
-//! no jump if its body cannot jump. Smash must not silently give it a generic
-//! swipe, a generic humanoid jump, a generic dash."*
+//! In Smash, movement uses the Puppy Slug's authored locomotion, and it has no
+//! jump if its body cannot jump. Smash must not silently give it a generic
+//! swipe, humanoid jump or dash.
 //!
-//! the seam version of this exists and is not this test.
-//! `a_crawler_seated_as_a_fighter_keeps_its_own_locomotion` (in the monolith)
-//! registers a definition it names "crawler" and authors 36px/s and Slither on.
-//! It proves the SEAM carries authored locomotion; it cannot prove that the
-//! creature in the shipped game authors any, because the fixture and the
-//! assertion were written together.
+//! The seam version is
+//! `a_crawler_seated_as_a_fighter_keeps_its_own_locomotion` (in the monolith).
+//! It proves the seam carries authored locomotion, but its fixture and
+//! assertion were written together, so it cannot prove that the shipped
+//! creature authors any.
 
 use bevy::prelude::*;
 
 use ambition_combat::actor_tuning::ActorConfig;
-// ⛔ `PreparedCharacterRegistry` LEFT THIS GROUP 2026-08-28: it is
-// `ambition_characters::prepared`'s and the monolith stopped republishing it.
+// `PreparedCharacterRegistry` belongs to `ambition_characters::prepared`.
 use ambition_characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::versus_match::{
     ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeat,
@@ -30,17 +28,15 @@ use ambition_platformer2d_actor_monolith::character_runtime::{
 fn seating_app_with_the_real_cast() -> App {
     let mut app = App::new();
     app.init_resource::<PreparedCharacterRegistry>();
-    // Registering the real catalog is what the shipped app does, and it publishes the policy
-    // authority with it.
+    // Registering the real catalog is what the shipped app does; it also
+    // publishes the policy authority.
     ambition_content::character_catalog::register(&mut app);
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
-    // ⛔⛤ A HAND-BUILT APP IS ITS OWN PLUGIN, AND THIS ONE WAS MISSING A MINT.
-    // `activate_the_prepared_match` takes `ResMut<SessionMatchOrdinal>` — NOT
-    // `Option`, deliberately, because a composition that activates matches with
-    // no ordinal authority draws every match's items identically. The monolith's
-    // plugin installs it; this fixture composes the three systems by hand and
-    // therefore installs nothing, so all three arms died in bevy parameter
-    // validation with "Resource does not exist" and no system name.
+    // A hand-built app installs no plugin, so it must add the ordinal itself.
+    // `activate_the_prepared_match` takes `ResMut<SessionMatchOrdinal>`, not
+    // `Option`, on purpose: a composition with no ordinal authority would draw
+    // every match's items identically. Without it, bevy parameter validation
+    // fails with "Resource does not exist" and no system name.
     app.init_resource::<ambition_platformer2d::versus_match::seating::SessionMatchOrdinal>();
 
     let world = ambition_platformer2d_core::World::new(
@@ -73,8 +69,8 @@ fn seating_app_with_the_real_cast() -> App {
 
 fn cpu(character: &str) -> MatchParticipant {
     MatchParticipant::new(character).driven_by(ControllerBinding::Cpu {
-        // `medium_striker` is Ambition's own PUBLISHED policy, from the catalog this fixture
-        // registers, which is what a shipped CPU seat names.
+        // `medium_striker` is Ambition's own published policy, from the catalog this
+        // fixture registers, which is what a shipped CPU seat names.
         brain_profile: Some("medium_striker".into()),
     })
 }
@@ -87,27 +83,19 @@ struct Seat {
     abilities: ambition_platformer2d_core::AbilitySet,
 }
 
-/// Say WHY a roster seated nothing, if the composition refused it.
+/// Say why a roster seated nothing, if the composition refused it.
 ///
-/// ⛔⛔ A ROSTER THAT SEATS ZERO BODIES MUST SAY WHY, AND UNTIL NOW IT DID NOT.
-/// `prepare_match` refuses a roster that it cannot resolve, and it refuses the
-/// WHOLE roster: one participant that it cannot resolve gives zero seats, not
-/// one seat. It records each reason in `MatchPreparationProblems`, and it
-/// writes nothing to the log.
+/// `prepare_match` refuses a whole roster it cannot resolve: one unresolved
+/// participant gives zero seats. It records each reason in
+/// `MatchPreparationProblems` and writes nothing to the log.
 ///
-/// ⚠ THE SEAT-COUNT ASSERTIONS THEN READ `0` AND REPORT ONLY `left: 0`. That
-/// message sends a reader to look for a seating defect. The cause can be in the
-/// CONTENT instead. An admission barrier withholds a character, so nothing
-/// registers it, so the same `0` also means "this composition declined to offer
-/// this cast". The two causes need different repairs.
+/// A seat-count assertion then reports only `left: 0`, which points at
+/// seating. The cause can be content instead: an admission barrier withholds a
+/// character, so the same `0` also means "this composition declined this
+/// cast". The two causes need different repairs.
 ///
-/// ⭐ MEASURED 2026-09-10 on this fixture: the refusal named
-/// `npc_carl_stargan`, which the A11 admission pass withholds. The seat count
-/// alone named nobody.
-///
-/// ⇒ Call this before each seat-count assertion. It keeps those assertions
-/// honest, because it stops them from reporting a content refusal as a seating
-/// count.
+/// Call this before each seat-count assertion, so a content refusal is not
+/// reported as a seat count.
 fn say_why_if_the_cast_was_withheld(app: &App) {
     if let Some(problems) = app
         .world()
@@ -126,20 +114,16 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
         participants,
         ..Default::default()
     });
-    // ⛔ A SEATING FIXTURE, NOT AN ADMISSION ONE. This app installs no technique
-    // handlers, so real admission correctly refuses every character naming a
-    // native effect. The raw road is named explicitly so it cannot be reached by
-    // accident; see its doc for why the implicit escape was removed.
+    // A seating fixture, not an admission one. This app installs no technique
+    // handlers, so real admission refuses every character that names a native
+    // effect. The raw road is named explicitly so it cannot be reached by
+    // accident; see its doc.
     //
-    // ⚠ WITHOUT THIS CALL THE ROSTER SEATS ZERO, AND THE ZERO COMES FROM THE
-    // SEAT ROAD RATHER THAN FROM ADMISSION. Measured 2026-09-10 on the unfixed
-    // fixture: 182 refusals over 32 characters, and the barrier still PUBLISHED
-    // 8 definitions including `npc_puppy_slug` — admission withholds per
-    // definition, exactly as it says. What empties the match is
-    // `ambition_match::prepared`: an unresolvable participant records a problem
-    // and the run continues, then a non-empty problem list fails the WHOLE
-    // preparation. `npc_carl_stargan` is refused, so BOTH seats are lost.
-    // ⇒ A roster is all-or-nothing; a half-seated match is never published.
+    // Without this call the roster seats zero, and the zero comes from the seat
+    // road, not from admission. Admission withholds per definition and still
+    // publishes `npc_puppy_slug`. But in `ambition_match::prepared` one
+    // unresolvable participant (`npc_carl_stargan`) fails the whole preparation,
+    // so both seats are lost. A roster is all-or-nothing.
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
     app.update();
@@ -166,13 +150,11 @@ fn seat_the_cast(participants: Vec<MatchParticipant>) -> Vec<Seat> {
     rows
 }
 
-/// THE CREATURE THE GAME SHIPS KEEPS ITS OWN BODY IN A FIGHTER SEAT.
+/// The creature the game ships keeps its own body in a fighter seat.
 ///
-/// the control is the point of the pair: `npc_carl_stargan` is registered and
-/// authors no body at all, so he receives whatever the stage gives an unmigrated
-/// fighter. If the slug and Stargan came out identical, the seat would be
-/// ignoring authoring and this test would be measuring the stage's defaults
-/// twice.
+/// The control is the point: `npc_carl_stargan` is registered and authors no
+/// body, so he gets the stage's defaults for an unmigrated fighter. If the slug
+/// and Stargan came out identical, the seat would be ignoring authoring.
 #[test]
 fn the_shipped_puppy_slug_is_seated_as_itself() {
     let seats = seat_the_cast(vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")]);
@@ -201,8 +183,8 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
         "its authored contact damage did not survive the seat"
     );
 
-    // THE CONTROL. Without this the assertions above pass on a stage that
-    // gives every fighter 80.0 and a cling.
+    // The control. Without it the assertions above pass on a stage that gives
+    // every fighter 80.0 and a cling.
     assert!(
         stargan.run_speed != slug.run_speed,
         "the character that authors NO body was seated identically to the one \
@@ -221,31 +203,25 @@ fn the_shipped_puppy_slug_is_seated_as_itself() {
     );
 }
 
-/// JUMP → NO JUMP, BECAUSE ITS BODY CANNOT JUMP.
-///
-/// Smash must not silently give it a generic swipe, a generic humanoid jump, a generic dash"* — and
-/// it FAILED when this file was written.
+/// Jump → no jump, because its body cannot jump. Smash must not give it a
+/// generic swipe, humanoid jump or dash.
 ///
 /// ```text
 ///   npc_carl_stargan  jump=true double_jump=true attack=true  (authors nothing)
 ///   npc_puppy_slug    jump=true double_jump=true attack=true  (authors a body)
 /// ```
 ///
-/// Identical, because the slug authored locomotion and contact damage but no
-/// `AbilitySet`, and a seat INTERSECTS the stage's fighter mask against the
-/// character's — against nothing, the stage's wins whole. A slithering
-/// wall-crawler double-jumped on the Smash stage.
+/// Without authored verbs they are identical: a seat intersects the stage's
+/// fighter mask with the character's, and against no `AbilitySet` the stage's
+/// mask wins whole. A slithering wall-crawler would double-jump.
 ///
-/// should not be able to double jump. The point of a slug is that it shows that
-/// it is spawned happily even though it basically has no moves."* So the slug
-/// authors `move_horizontal` and nothing else, and the intersection — which
-/// already refused to GRANT a verb a character lacks — now has something to
-/// intersect.
+/// The slug should be spawnable even though it has almost no moves. So it
+/// authors `move_horizontal` and nothing else, and the intersection (which
+/// never grants a verb the character lacks) has something to intersect.
 ///
-/// the control is doing double duty. Stargan still comes out with the stage's humanoid mask,
-/// which is correct: he authors no body, and an unmigrated fighter must still be given something or
-/// every one of them is a statue. This one says the shipped slug asks for no jump; that one says
-/// asking is what decides.
+/// The control still gets the stage's humanoid mask, which is correct: he
+/// authors no body, and an unmigrated fighter must get something. This test
+/// shows that what the character asks for decides.
 #[test]
 fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
     let seats = seat_the_cast(vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")]);
@@ -276,8 +252,8 @@ fn a_body_that_cannot_jump_is_not_given_a_jump_by_the_stage() {
          assertion above while being a rock, which is not what was asked for"
     );
 
-    // THE CONTROL, and the reason the four assertions above are about
-    // authoring rather than about the stage being empty.
+    // The control: the assertions above are about authoring, not about an
+    // empty stage.
     assert!(
         stargan.abilities.jump && stargan.abilities.double_jump,
         "the character that authors NO mask stopped receiving the stage's — an \
@@ -295,20 +271,16 @@ fn a_creature_with_one_verb_still_seats_and_simulates() {
         participants: vec![cpu("npc_puppy_slug"), cpu("npc_carl_stargan")],
         ..Default::default()
     });
-    // ⛔ A SEATING FIXTURE, NOT AN ADMISSION ONE. This app installs no technique
-    // handlers, so real admission correctly refuses every character naming a
-    // native effect. The raw road is named explicitly so it cannot be reached by
-    // accident; see its doc for why the implicit escape was removed.
+    // A seating fixture, not an admission one. This app installs no technique
+    // handlers, so real admission refuses every character that names a native
+    // effect. The raw road is named explicitly so it cannot be reached by
+    // accident; see its doc.
     //
-    // ⚠ WITHOUT THIS CALL THE ROSTER SEATS ZERO, AND THE ZERO COMES FROM THE
-    // SEAT ROAD RATHER THAN FROM ADMISSION. Measured 2026-09-10 on the unfixed
-    // fixture: 182 refusals over 32 characters, and the barrier still PUBLISHED
-    // 8 definitions including `npc_puppy_slug` — admission withholds per
-    // definition, exactly as it says. What empties the match is
-    // `ambition_match::prepared`: an unresolvable participant records a problem
-    // and the run continues, then a non-empty problem list fails the WHOLE
-    // preparation. `npc_carl_stargan` is refused, so BOTH seats are lost.
-    // ⇒ A roster is all-or-nothing; a half-seated match is never published.
+    // Without this call the roster seats zero, and the zero comes from the seat
+    // road, not from admission. Admission withholds per definition and still
+    // publishes `npc_puppy_slug`. But in `ambition_match::prepared` one
+    // unresolvable participant (`npc_carl_stargan`) fails the whole preparation,
+    // so both seats are lost. A roster is all-or-nothing.
     ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
     ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
     // Many ticks, not one: a body that seats and then divides by zero on its

@@ -1205,6 +1205,16 @@ pub fn spawn_boss_with_overrides_into(
         boss_attack_combat_size,
         &boss_telegraph_windows,
     );
+    // The Attack and Special a possessor fires, declared so that the boss's scheme,
+    // its prompt and its control gate know the verbs it owns. See
+    // `possessed_boss_techniques`.
+    let possessed_techniques = ambition_boss_encounter::ecs::possessed_boss_techniques(
+        &boss_attack_behavior,
+        &boss_capability,
+    );
+    scope.insert(ambition_characters::action_scheme::ActorTechniques(
+        possessed_techniques,
+    ));
     scope.insert((
         // The brain bundle stays grouped because each piece is required
         // for the boss tick chain.

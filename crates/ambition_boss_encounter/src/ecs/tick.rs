@@ -37,13 +37,6 @@ fn possessed_attack_choice(
     facing: f32,
 ) -> Option<ambition_characters::brain::BossAttackProfile> {
     use ambition_characters::brain::BossAttackProfile;
-    let verb_move = |verb: &str| -> Option<&String> {
-        behavior
-            .possessed_verbs
-            .iter()
-            .find(|(v, _)| v == verb)
-            .map(|(_, move_key)| move_key)
-    };
     if frame.melee_pressed || frame.pogo_pressed {
         // A dedicated pogo press aims Down (mirrors `trigger_moveset_moves`);
         // a plain melee press resolves by the body-local aim axis.
@@ -59,21 +52,81 @@ fn possessed_attack_choice(
             true,
         )
         .into_iter()
-        .find_map(|verb| verb_move(&verb));
+        .find_map(|verb| possessed_verb_move(behavior, &verb));
         if let Some(move_key) = authored {
             return Some(BossAttackProfile::from_move_id(move_key));
         }
         return capability.and_then(|c| c.slot(0)).map(|(p, _)| p.clone());
     }
     if frame.special_pressed || frame.projectile_pressed {
-        if let Some(move_key) = verb_move("special") {
-            return Some(BossAttackProfile::from_move_id(move_key));
-        }
-        return capability
-            .and_then(|c| c.signature_special().or_else(|| c.slot(1)))
-            .map(|(p, _)| p.clone());
+        return possessed_special(behavior, capability);
     }
     None
+}
+
+/// The move key that the profile's `possessed_verbs` map gives to `verb`.
+fn possessed_verb_move<'a>(
+    behavior: &'a crate::pattern::profile::BossBehaviorProfile,
+    verb: &str,
+) -> Option<&'a String> {
+    behavior
+        .possessed_verbs
+        .iter()
+        .find(|(v, _)| v == verb)
+        .map(|(_, move_key)| move_key)
+}
+
+/// What the Special button fires on a possessed boss: the `"special"` verb,
+/// else the signature content special, else `slot(1)`.
+fn possessed_special(
+    behavior: &crate::pattern::profile::BossBehaviorProfile,
+    capability: Option<&ambition_characters::brain::BossCapability>,
+) -> Option<ambition_characters::brain::BossAttackProfile> {
+    if let Some(move_key) = possessed_verb_move(behavior, "special") {
+        return Some(ambition_characters::brain::BossAttackProfile::from_move_id(
+            move_key,
+        ));
+    }
+    capability
+        .and_then(|c| c.signature_special().or_else(|| c.slot(1)))
+        .map(|(p, _)| p.clone())
+}
+
+/// The Attack and Special actions a possessed boss owns, for its action scheme.
+///
+/// [`possessed_attack_choice`] reads the raw press in the boss tick, which runs
+/// before the control gate. The boss's `ActionSet` and its profile-keyed moveset
+/// declare no `attack` or `special` verb, so without these the scheme has no
+/// Attack or Special slot: the prompt shows neither, and the gate treats the
+/// press as a verb the body does not own.
+///
+/// Each action is a `Technique` gate, so the gate clears the raw press after the
+/// boss tick has read it. A `Move` gate would keep the press alive for
+/// `trigger_moveset_moves`, which would start a second move for one press. Each
+/// id is the move that the neutral press resolves to (`attack` or slot 0, and
+/// the Special resolution above), so the prompt names what the button does.
+pub fn possessed_boss_techniques(
+    behavior: &crate::pattern::profile::BossBehaviorProfile,
+    capability: &ambition_characters::brain::BossCapability,
+) -> Vec<ambition_entity_catalog::action_scheme::ActionSpec> {
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    let attack = possessed_verb_move(behavior, ambition_combat::moveset::ATTACK_VERB)
+        .cloned()
+        .or_else(|| capability.slot(0).map(|(p, _)| p.move_id()));
+    let special = possessed_special(behavior, Some(capability)).map(|p| p.move_id());
+    [(ControlSlot::Attack, attack), (ControlSlot::Special, special)]
+        .into_iter()
+        .filter_map(|(slot, move_id)| {
+            let move_id = move_id?;
+            Some(ActionSpec {
+                id: ActionId::new(&move_id),
+                slot,
+                display_name: None,
+                visual: None,
+                gate: ActionGate::Technique(move_id),
+            })
+        })
+        .collect()
 }
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local

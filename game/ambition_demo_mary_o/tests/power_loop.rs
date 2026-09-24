@@ -821,7 +821,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
-    use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+    use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWithdrawn};
     use ambition_platformer2d::combat::components::ActorIdentity;
     use ambition_platformer2d::combat::events::{GameplayBanner, HitEvent};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -940,7 +940,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         let e = app.world().entity(snake);
         assert!(e.get::<BodyHealth>().unwrap().alive(), "starts alive");
         assert!(
-            e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+            e.get::<ActorConfig>().unwrap().tuning.body_contact_damage
+                && !e.get::<ContactThreatWithdrawn>().unwrap().0,
             "a walker is a contact threat before the stomp"
         );
     }
@@ -965,8 +966,14 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         "the shelled snake is frozen in place (movement input hard-zeroed)"
     );
     assert!(
-        !e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+        e.get::<ContactThreatWithdrawn>().unwrap().0,
         "and inert — a resting shell is safe to walk up to and kick"
+    );
+    // The shell is a STATE, not a new body: its authored contact tuning is
+    // construction input and nothing rewrites it while the phase runs.
+    assert!(
+        e.get::<ActorConfig>().unwrap().tuning.body_contact_damage,
+        "the shell rewrote the snake's authored contact tuning"
     );
 }
 

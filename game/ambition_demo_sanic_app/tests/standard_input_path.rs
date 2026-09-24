@@ -265,14 +265,14 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
             let mut q = app.world_mut().query_filtered::<(
                 &ActorControl,
                 &ambition_platformer2d::engine_core::BodyShieldState,
-                &ambition_platformer2d::combat::BodyMelee,
+                ambition_platformer2d::combat::moveset::MeleeSwingQuery,
             ), With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>(
             );
             let (control, shield, melee) = q
                 .iter(app.world())
                 .next()
                 .expect("the demo spawned its primary body");
-            (control.0, shield.active, melee.is_swinging())
+            (control.0, shield.active, melee.swing().is_some())
         };
         control_ever_meleed |= control.melee_pressed;
         control_ever_pogoed |= control.pogo_pressed;

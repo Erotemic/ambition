@@ -32,8 +32,8 @@ fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
     app.update();
     let bodies = live_projectile_bodies(&mut app);
     assert_eq!(bodies.len(), VOLLEY_SHOT_COUNT, "one bolt per fan slot");
-    // Every bolt is owned by the firing player entity, so a kill attributes
-    // back to them (the executor stamps `ProjectileOwner` from the request).
+    // Every bolt is owned by the firing entity, so a kill is credited to it
+    // (the executor stamps `ProjectileOwner` from the request).
     let owners: Vec<_> = app
         .world_mut()
         .query::<&ambition_projectiles::ProjectileOwner>()
@@ -49,7 +49,7 @@ fn attack_with_the_volley_spawns_a_fan_of_player_faction_bolts() {
         owners.iter().all(|&o| o == player),
         "bolts are owned by the firing player, got {owners:?} (player {player:?})"
     );
-    // The bolts fan out — not all the same direction.
+    // The bolts fan out in different directions.
     let dirs: Vec<f32> = bodies
         .iter()
         .map(|b| b.body.kin.vel.y.atan2(b.body.kin.vel.x))
@@ -99,16 +99,10 @@ fn volley_origin_is_c4_equivariant_for_local_aim() {
     }
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY FIRES ITS OWN VOLLEY.
-///
-/// ⛔⛔ THIS ABILITY READ `ControlledSubject`, WHICH IS ONE ENTITY. On a couch
-/// stage the second seat's gauntlet did nothing at all, and with nobody
-/// possessing anything (`ControlledSubject(None)`) NEITHER seat fired — the same
-/// singular-subject defect `fire_held_ranged_system` was already fixed for.
-///
-/// The assertion is ATTRIBUTION, not a count: each seat's bolts must be owned by
-/// the body that fired them, because ownership is what a kill is credited
-/// through.
+/// A second driven body fires its own volley, also with
+/// `ControlledSubject(None)`. Checks attribution, not a count: each seat's
+/// bolts must be owned by the body that fired them, because kills are
+/// credited through ownership.
 #[test]
 fn two_driven_bodies_each_fire_their_own_volley() {
     use crate::test_support::spawn_seated_body_holding;

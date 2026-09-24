@@ -33,15 +33,9 @@ pub struct YarnBridgePlugin;
 
 impl Plugin for YarnBridgePlugin {
     fn build(&self, app: &mut App) {
-        // `resource_added` only fires the single frame a resource
-        // is inserted. If our spawn system runs BEFORE
-        // `compile_loaded_yarn_files` (Bevy's per-frame system
-        // ordering inside `Update` is non-deterministic without
-        // explicit `.after(...)` constraints), we'd miss the
-        // signal forever and the runner would never spawn. Use
-        // `resource_exists` + a one-shot guard inside the system
-        // so we spawn the first frame YarnProject is alive,
-        // regardless of relative ordering.
+        // `resource_added` fires only on the insert frame, and this system has no
+        // order against `compile_loaded_yarn_files`. Use `resource_exists` and a
+        // one-shot guard so the runner spawns on the first frame `YarnProject` exists.
         // The compiled project's node names, published for the SIMULATION to
         // ask "did content author a self branch?" without a Yarn dependency.
         app.init_resource::<DialogueNodeIndex>();
@@ -115,7 +109,7 @@ fn register_presentation_commands(commands: &mut Commands, runner: &mut Dialogue
 }
 
 /// Drain `DialogState.pending_*` fields each frame, translate them
-/// into runner calls. ⭐ It writes NOTHING to the save — see the visit-count
+/// into runner calls. It writes nothing to the save; see the visit-count
 /// note inside.
 ///
 /// Order matters: `pending_start` is processed before
@@ -157,12 +151,8 @@ fn dispatch_pending_dialog_requests(
         // WHO is talking to WHOM, published before the node begins so content's
         // very first `<<if $speaker_is_self>>` reads a live value.
         publish_dialogue_context(&mut runner, &pending.context);
-        // ⛔⛤ THE VISIT COUNT USED TO BE INCREMENTED HERE, AND THIS IS
-        // PRESENTATION. `AmbitionGameSave` is rollback-snapshotted, this system
-        // is top-level `Update`, and the request that got us here was taken from
-        // a `DialogState` on no rollback road — so a rewind restored the
-        // pre-increment save, the request did not come back, and the visit was
-        // LOST. It is now counted by
+        // Do not count the visit here. This system is outside rollback, so a rewind
+        // would lose the increment. The visit is counted by
         // `ambition_platformer2d_actor_monolith::session::durable_horizon::count_the_dialogue_visit_when_a_conversation_opens`,
         // on the tick `ActiveConversation` says the conversation opened.
         if !runner.node_exists(&dialogue_id) {
@@ -236,17 +226,15 @@ fn dispatch_pending_dialog_requests(
         if runner.is_running() {
             runner.stop();
         }
-        // ⭐ ONE DESCRIPTION OF A CLOSED DIALOGUE, on `DialogState`. This block
-        // used to spell out its own eleven fields, a DIFFERENT eleven from
-        // `close`'s, and neither list contained the other.
+        // The one description of a closed dialogue lives on `DialogState`.
         state.clear_conversation_presentation();
         state.runner_done_pending_close = false;
     }
 }
 
 /// Write the conversation's identity context into the runner's variable storage.
-///
-/// This is the ONLY place the engine writes a Yarn `$variable`; everything else content reads
+/// This is the only place the engine writes a Yarn `$variable`. Everything else
+/// that content reads is a library function over the state mirror.
 /// is a library FUNCTION over the state mirror.
 fn publish_dialogue_context(runner: &mut DialogueRunner, context: &DialogueContext) {
     let storage = runner.variable_storage_mut();

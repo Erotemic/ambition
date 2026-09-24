@@ -1,11 +1,11 @@
 //! Flat `bevy_ui` renderer for [`MenuPageModel`].
 //!
-//! This module owns model-to-entity presentation only. It spawns tabs, panels,
-//! labels, focusable controls, grids, and scrollbars, tagging interactive
-//! entities with [`AmbitionMenuControl`] and visual focus/selection state. Hosts
-//! perform navigation and action dispatch separately. The renderer is generic
-//! over page/action ids and shares the backend-agnostic model with other menu
-//! presentations.
+//! This module owns model-to-entity presentation only. It spawns tabs,
+//! panels, labels, focusable controls, grids, and scrollbars, and tags
+//! interactive entities with [`AmbitionMenuControl`] and focus/selection
+//! state. Hosts do navigation and action dispatch separately. The renderer is
+//! generic over page/action ids and shares the backend-agnostic model with
+//! other menu presentations.
 
 use crate::MenuFocusKey;
 use bevy::ecs::relationship::RelatedSpawnerCommands;
@@ -38,23 +38,21 @@ pub struct BevyUiMenuBody;
 
 /// One tab button in the tab bar.
 ///
-/// `index` is the tab's position in the ordered tab set; `active` mirrors the
-/// view's active tab so a host picking system can map a clicked tab → its index
-/// without re-deriving it. The active tab is additionally highlighted visually.
+/// `index` is the tab's position in the ordered tab set. `active` mirrors the
+/// view's active tab, so a host can map a clicked tab to its index directly.
 #[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BevyUiMenuTab {
     pub index: usize,
     pub active: bool,
-    /// Fix 4: keyboard focus is currently on THIS tab (the tab bar has focus and the
-    /// cursor is on it). Drawn with a focus ring distinct from the active highlight.
+    /// Keyboard focus is on this tab (the tab bar has focus and the cursor is
+    /// on it). Drawn with a focus ring distinct from the active highlight.
     pub focused: bool,
 }
 
 /// Flag on the single focused control entity (the cursor).
 ///
-/// Mirrors the cube's selection intent flat: the focused control also carries
-/// `MenuVisualState { focused: true, .. }`; this marker lets the host find the
-/// cursor entity directly.
+/// The focused control also carries `MenuVisualState { focused: true, .. }`.
+/// This marker lets the host find the cursor entity directly.
 #[derive(Component, Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct BevyUiMenuFocused;
 
@@ -95,26 +93,25 @@ impl<PageId> BevyUiMenuTabSpec<PageId> {
 
 /// Everything the renderer needs to draw one frame of the flat menu.
 ///
-/// This is the renderer's single input. The host builds it from its own state:
-/// the ordered tab set, which tab is active, the active page's already-built
-/// [`MenuPageModel`], and the focused control key (the cursor). The renderer is a
-/// pure function of this view — it spawns the entity tree and nothing else.
+/// This is the renderer's single input, built by the host: the ordered tab
+/// set, the active tab, the active page's [`MenuPageModel`], and the focused
+/// control key. The renderer is a pure function of this view; it only spawns
+/// the entity tree.
 pub struct BevyUiMenuView<'a, PageId, Action> {
     /// The ordered tab set (page id + label), drawn left→right in the tab bar.
     pub tabs: &'a [BevyUiMenuTabSpec<PageId>],
     /// Index into `tabs` of the active tab (clamped on use).
     pub active_tab: usize,
-    /// The active page's model — the body the renderer draws.
+    /// The active page's model: the body the renderer draws.
     pub page: &'a MenuPageModel<PageId, Action>,
     /// The focused control's focus key (cursor), if any control is focused.
     ///
-    /// A control whose derived [`MenuFocusKey`](crate::MenuFocusKey) equals this is
-    /// drawn focused + flagged with [`BevyUiMenuFocused`]. `None` focuses nothing.
+    /// A control whose [`MenuFocusKey`](crate::MenuFocusKey) equals this is
+    /// drawn focused and flagged with [`BevyUiMenuFocused`].
     pub focused: Option<crate::MenuFocusKey>,
-    /// Fix 4: when keyboard focus is on the TAB BAR (not the body), the index of the
-    /// tab the cursor is on. Drawn with a distinct focus ring so the user can see which
-    /// tab UP/LEFT/RIGHT will act on. `None` = focus is in the body (the normal case);
-    /// the active tab is still highlighted via [`BevyUiMenuTab::active`].
+    /// When keyboard focus is on the tab bar, the index of the tab under the
+    /// cursor, drawn with a focus ring. `None` means focus is in the body; the
+    /// active tab is still highlighted via [`BevyUiMenuTab::active`].
     pub focused_tab: Option<usize>,
 }
 
@@ -132,10 +129,9 @@ fn to_justify(align: MenuTextAlign) -> Justify {
     }
 }
 
-/// Derive a control's stable [`MenuFocusKey`] from its rect, the SAME way the cube
-/// renderer does (see ambition_menu_kaleidoscope). Keeping this identical means a
-/// `focused` key computed against one renderer addresses the same control in the
-/// other — the cross-backend nav contract.
+/// Derive a control's stable [`MenuFocusKey`] from its rect, the same way the
+/// cube renderer does (ambition_menu_kaleidoscope). A key computed against
+/// one renderer then addresses the same control in the other.
 fn focus_key_for(rect: MenuRect) -> crate::MenuFocusKey {
     crate::MenuFocusKey {
         row: (rect.y * 10.0).round() as i32,
@@ -158,27 +154,23 @@ fn node_from_rect(rect: MenuRect) -> Node {
     }
 }
 
-/// Background tint for a control, mirroring the cube's intent flat: focused/
-/// selected reads bright-gold, important reads accented, disabled reads dim, the
-/// scrollbar track reads dim, plain controls read a neutral blue.
+/// Background tint for a control: focused/selected is gold, important is
+/// accented, disabled and the scrollbar track are dim, plain controls are
+/// neutral blue.
 fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: bool) -> Color {
     if matches!(kind, MenuControlKind::Scrollbar) {
         return Color::srgba(0.10, 0.11, 0.16, 0.92);
     }
-    // Fix 2: HIGHLIGHTED (cursor/hover) and SELECTED (equipped/active setting) must
-    // read DISTINCT, mirroring the cube's `control_color(kind, selected, important)`
-    // intent: selected is a warm accent, highlighted is the bright cursor color, and
-    // the two together are the brightest. The cube distinguishes selected by color;
-    // the flat backend additionally distinguishes the cursor (the cube does that with
-    // a separate focus-ring system, which the flat renderer folds into the bg here).
+    // Highlighted (cursor/hover) and selected (equipped/active setting) must
+    // look different; both together are brightest. The cube shows the cursor
+    // with a separate focus ring; the flat backend folds it into the
+    // background.
     match (focused, selected) {
-        // Highlighted AND selected → the brightest warm gold (the cursor sits on the
-        // active item/setting).
+        // Highlighted and selected: brightest gold.
         (true, true) => Color::srgba(0.99, 0.82, 0.34, 0.98),
-        // Highlighted only (cursor/hover) → warm gold cursor color.
+        // Highlighted only: gold cursor color.
         (true, false) => Color::srgba(0.85, 0.70, 0.20, 0.96),
-        // Selected only (equipped item / active setting, cursor elsewhere) → a muted
-        // teal/blue accent, clearly different from the gold cursor.
+        // Selected only: muted teal, distinct from the gold cursor.
         (false, true) => Color::srgba(0.16, 0.42, 0.46, 0.96),
         // Plain.
         (false, false) => {
@@ -191,28 +183,23 @@ fn control_bg(kind: MenuControlKind, focused: bool, selected: bool, important: b
     }
 }
 
-/// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its entity.
+/// The font source for all menu surfaces.
 ///
-/// The panel is roughly where/size the kaleidoscope cube renders — a window in the middle of
-/// the screen, NOT a full-screen layout. The body draws the page's nodes by absolute percent
-/// rect (percent of the PANEL) so it matches the model's authored layout, while the tab bar
-/// uses flex so tabs share the panel width evenly. Font handle used by all menu surfaces. The
-/// renderer-agnostic menu crate does not own an asset path; the host supplies the resolved
-/// handle. `None` uses Bevy's default font.
-/// ⭐ A SOURCE, NOT A FACE. This carried a `Handle<Font>` until Bevy 0.19, which
-/// meant the menu crate was handed ONE FILE — so "the menu font" and "the regular
-/// weight" were the same fact and a menu could not ask for semibold at all. A
-/// [`FontSource`](bevy::text::FontSource) is a family (or a generic category),
-/// and the weight rides on the `TextFont` beside it, so the host publishes a
-/// TYPEFACE and the menu chooses within it.
-///
-/// The renderer-agnostic menu crate still owns no path, no filename and now no
-/// family name either: the host resolves it through
-/// `ambition_render::ui_fonts::UiFonts`. `None` means nothing was resolved and
-/// Bevy's built-in font is used — see the module note on why that is a decision.
+/// A [`FontSource`](bevy::text::FontSource) is a family (or generic
+/// category); the weight is on the `TextFont`, so a menu can choose a weight
+/// within the host's typeface. The menu crate owns no path, file, or family
+/// name: the host resolves it through `ambition_render::ui_fonts::UiFonts`.
+/// `None` means nothing was resolved and Bevy's built-in font is used.
 #[derive(bevy::prelude::Resource, Default, Clone, Debug)]
 pub struct MenuFont(pub Option<bevy::text::FontSource>);
 
+/// Spawn the flat tabbed menu under a fresh [`BevyUiMenuRoot`] and return its
+/// entity.
+///
+/// The panel is a centered window about the size of the kaleidoscope cube,
+/// not a full-screen layout. The body draws page nodes by absolute percent
+/// rect (percent of the panel), matching the model's layout. The tab bar uses
+/// flex so tabs share the panel width.
 pub fn spawn_bevy_ui_menu<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
@@ -224,11 +211,10 @@ where
     spawn_bevy_ui_menu_with_assets(commands, view, None)
 }
 
-/// Like [`spawn_bevy_ui_menu`], but with an optional [`AssetServer`] so item cells
-/// can render their ICON image (Fix 3). When `assets` is `None` (e.g. a headless
-/// test on `MinimalPlugins` with no `AssetPlugin`), icons fall back to the label —
-/// the cube renderer is unaffected. The host (which always has an `AssetServer`)
-/// calls this so the Grid's Items tab shows the same sprite icons the cube does.
+/// Like [`spawn_bevy_ui_menu`], with an optional [`AssetServer`] so item cells
+/// can draw their icon image. With `None` (for example a headless test with
+/// no `AssetPlugin`), icons fall back to the label. The host always passes
+/// one, so the Items tab shows the same icons as the cube.
 pub fn spawn_bevy_ui_menu_with_assets<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
@@ -242,7 +228,7 @@ where
 }
 
 /// [`spawn_bevy_ui_menu_with_assets`], plus the font the host wants menus drawn
-/// in. See [`MenuFont`] for why passing `None` is a decision and not a default.
+/// in. See [`MenuFont`].
 pub fn spawn_bevy_ui_menu_with_font<PageId, Action>(
     commands: &mut Commands,
     view: &BevyUiMenuView<PageId, Action>,
@@ -265,8 +251,8 @@ where
                 align_items: AlignItems::Center,
                 ..default()
             },
-            // A 0.55 alpha black darkens the gameplay enough to read the panel while keeping
-            // the scene visible.
+            // 0.55 black dims gameplay enough to read the panel and keeps the
+            // scene visible.
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
             // On top of the gameplay HUD so the menu's buttons get the pointer.
             GlobalZIndex(1000),
@@ -284,11 +270,10 @@ where
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
-            // Fix 1: TRANSLUCENT dark window. A near-opaque (0.90) dark panel keeps the
-            // body content crisply readable while letting a hint of the dimmed world
-            // bleed through the window — the "translucent dark window" look. (The model's
-            // own `page.background` is near-transparent for the cube's opaque 3D face;
-            // the flat renderer supplies this panel so content has a backing.)
+            // Translucent dark window (0.90), so content reads clearly with a
+            // hint of the world behind. The model's `page.background` is
+            // near-transparent for the cube's opaque face, so the flat renderer
+            // supplies this backing.
             BackgroundColor(Color::srgba(0.07, 0.09, 0.14, 0.90)),
             BevyUiMenuPanel,
             Name::new("menu panel"),
@@ -320,9 +305,8 @@ where
                         } else {
                             Color::srgba(0.85, 0.90, 0.98, 0.98)
                         };
-                        // Fix 4: a tab the keyboard cursor sits on gets a bright focus
-                        // ring (a border) so the user sees which tab UP/LEFT/RIGHT acts
-                        // on, distinct from the active tab's filled highlight.
+                        // A tab under the keyboard cursor gets a border focus
+                        // ring, distinct from the active tab's fill.
                         let (border, border_color) = if tab_focused {
                             (
                                 UiRect::all(Val::Px(3.0)),
@@ -353,10 +337,10 @@ where
                         .with_children(|btn| {
                             btn.spawn((
                                 Text::new(tab.label.clone()),
-                                // Tab labels are game-authored strings too — see
-                                // the row-label note in `spawn.rs`. A `Text` with
-                                // no `TextFont` still GETS one (required
-                                // component), and that one is the ASCII subset.
+                                // Tab labels are game-authored strings (see the
+                                // row-label note in `spawn.rs`). A `Text`
+                                // without `TextFont` gets the default one,
+                                // which is the ASCII subset.
                                 TextFont {
                                     font: font.cloned().unwrap_or_default().into(),
                                     ..default()
@@ -376,13 +360,10 @@ where
                         position_type: PositionType::Relative,
                         ..default()
                     },
-                    // NOTE: deliberately NOT tagged `AmbitionMenuPage`. That marker
-                    // is the CUBE's face marker, and the cube's `rebuild_cube_faces`
-                    // system despawns every `AmbitionMenuPage` entity whenever the
-                    // shared `ActiveMenuPages` changes — which was despawning THIS
-                    // flat body (and all its content children) out from under us,
-                    // leaving an empty panel that only flashed content on respawn.
-                    // The flat renderer uses its own `BevyUiMenuBody` marker only.
+                    // Not tagged `AmbitionMenuPage`: that is the cube's face
+                    // marker, and `rebuild_cube_faces` despawns every
+                    // `AmbitionMenuPage` when `ActiveMenuPages` changes, which
+                    // would empty this panel.
                     BevyUiMenuBody,
                     Name::new("menu body"),
                 ))
@@ -397,21 +378,16 @@ where
     root
 }
 
-// Draw-order layers mirroring the cube's depth bands. The flat renderer uses
-// bevy_ui sibling order otherwise, which paints a later background Panel ON TOP of
-// earlier text/controls (the model relies on the cube's depth field to sort). A
-// per-node `ZIndex` restores back-to-front order: panels behind, controls above,
-// text/labels on top.
+// Draw-order layers that mirror the cube's depth bands. Without them, bevy_ui
+// sibling order paints a later background panel over earlier text. A per-node
+// `ZIndex` gives back-to-front order: panels, then controls, then text.
 const LAYER_CONTROL: i32 = 10;
 const LAYER_TEXT: i32 = 20;
 
-/// Feature C (flat backend): map a pointer's vertical SCREEN position over a scrollbar track's
-/// screen rect into the neutral `0..=1` drag fraction (0 = top, 1 = bottom). Mirrors the cube's
-/// the `ambition_menu_kaleidoscope` cube renderer `scrollbar_fraction`, but reads the track
-/// rect from `bevy_ui`'s `ComputedNode`/`GlobalTransform` (2D, no camera projection). The
-/// track's screen rect `(top_y, height)` in logical pixels from its `bevy_ui` layout. Scale
-/// both to LOGICAL px via the node's `inverse_scale_factor` so they line up with the pointer
-/// location, which the picking core reports in logical/window px.
+/// The scrollbar track's screen rect `(top_y, height)` in logical pixels,
+/// from its `bevy_ui` layout. Scaled by `inverse_scale_factor` to match the
+/// pointer location, which picking reports in logical pixels. The flat
+/// counterpart of the kaleidoscope cube's `scrollbar_fraction`.
 fn bevy_ui_track_rect(computed: &ComputedNode, transform: &UiGlobalTransform) -> (f32, f32) {
     let inv = computed.inverse_scale_factor();
     let height = computed.size().y * inv;
@@ -428,10 +404,9 @@ fn bevy_ui_scrollbar_fraction(
     scrollbar_fraction_from_rect(top_y, height, pointer_y)
 }
 
-/// Feature C: a press that lands on the `bevy_ui` scrollbar marks the track held by
-/// that pointer (so [`bevy_ui_scrollbar_press_drag`] tracks the live position) and
-/// immediately jumps the scroll to the pressed position (emits the neutral
-/// fraction). Mirrors the cube's `scrollbar_press`.
+/// A press on the scrollbar marks the track held by that pointer (so
+/// [`bevy_ui_scrollbar_press_drag`] tracks it) and jumps the scroll to the
+/// pressed position. Mirrors the cube's `scrollbar_press`.
 fn bevy_ui_scrollbar_press(
     press: On<Pointer<Press>>,
     bars: Query<&BevyUiMenuScrollbar>,
@@ -439,9 +414,9 @@ fn bevy_ui_scrollbar_press(
     mut out: MessageWriter<crate::MenuScrollDragged>,
 ) {
     if bars.get(press.entity).is_ok() {
-        // Mark the held pointer; geometry is the LAST KNOWN GOOD rect maintained by
-        // `bevy_ui_maintain_track_rect` (a freshly-respawned node's ComputedNode is
-        // zero on the press frame, so reading it directly here would jump nowhere).
+        // Geometry comes from the last good rect kept by
+        // `bevy_ui_maintain_track_rect`: a respawned node's `ComputedNode` is
+        // zero on the press frame.
         drag.pressed_by = Some(press.pointer_id);
         if let Some(fraction) = crate::scrollbar_fraction_from_rect(
             drag.track_top_y,
@@ -453,10 +428,9 @@ fn bevy_ui_scrollbar_press(
     }
 }
 
-/// Keep the shared [`ScrollbarDragState`](crate::ScrollbarDragState)
-/// track rect refreshed with the grid scrollbar's LAST KNOWN GOOD screen rect — never
-/// overwriting it with the zero a fresh node reports the frame it is respawned. The
-/// press jump + the manual drag tracker both map against this always-valid rect.
+/// Keep the [`ScrollbarDragState`](crate::ScrollbarDragState) track rect at
+/// the grid scrollbar's last good screen rect. Never overwrite it with the
+/// zero a node reports on the frame it respawns.
 fn bevy_ui_maintain_track_rect(
     bars: Query<(&ComputedNode, &UiGlobalTransform), With<BevyUiMenuScrollbar>>,
     mut drag: ResMut<crate::ScrollbarDragState>,
@@ -470,10 +444,9 @@ fn bevy_ui_maintain_track_rect(
     }
 }
 
-/// Feature C: while dragging on the `bevy_ui` scrollbar, emit the neutral fraction
-/// for the pointer's current position. `bevy_ui` picking drives `Pointer<Drag>`
-/// reliably (unlike the cube's custom 3D backend), so this is the primary path; the
-/// press+move tracker below is belt-and-braces.
+/// While dragging on the scrollbar, emit the fraction for the pointer's
+/// position. `bevy_ui` picking drives `Pointer<Drag>` reliably, so this is
+/// the primary path; the press-drag tracker is a backup.
 fn bevy_ui_scrollbar_drag(
     drag: On<Pointer<Drag>>,
     bars: Query<(&BevyUiMenuScrollbar, &ComputedNode, &UiGlobalTransform)>,
@@ -488,9 +461,8 @@ fn bevy_ui_scrollbar_drag(
     }
 }
 
-/// Feature C: releasing the pointer ends the manual scrollbar drag on every track
-/// held by that pointer (a release can land off the thumb). Mirrors the cube's
-/// `scrollbar_release`.
+/// Releasing the pointer ends the drag on every track it held (a release can
+/// land off the thumb). Mirrors the cube's `scrollbar_release`.
 fn bevy_ui_scrollbar_release(
     release: On<Pointer<Release>>,
     mut drag: ResMut<crate::ScrollbarDragState>,
@@ -500,11 +472,10 @@ fn bevy_ui_scrollbar_release(
     }
 }
 
-/// Feature C: while a pointer is held on a `bevy_ui` scrollbar
-/// ([`ScrollbarDragState`](crate::ScrollbarDragState)), emit
-/// the neutral fraction for its LIVE position each frame against the CURRENT track
-/// — re-found by component, so the drag survives the per-step republish that
-/// respawns the track entity.
+/// While a pointer is held on a scrollbar
+/// ([`ScrollbarDragState`](crate::ScrollbarDragState)), emit the fraction for
+/// its live position each frame. The track is found by component, so the drag
+/// survives the republish that respawns it.
 fn bevy_ui_scrollbar_press_drag(
     pointers: Query<(
         &bevy::picking::pointer::PointerId,
@@ -523,8 +494,8 @@ fn bevy_ui_scrollbar_press_drag(
     else {
         return;
     };
-    // Map the live pointer onto the CACHED track rect — valid across the respawn
-    // that zeroes the fresh node's `ComputedNode`/`GlobalTransform`.
+    // Use the cached track rect: it stays valid across the respawn that zeroes
+    // the new node's layout.
     if let Some(fraction) =
         scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
     {
@@ -535,54 +506,36 @@ fn bevy_ui_scrollbar_press_drag(
 /// Translate Bevy [`Interaction`] state into semantic menu activation.
 ///
 /// Controls activate on release (`Pressed` -> `Hovered`), not on press. A
-/// transition to `None` on the same entity cancels the press. If a page rebuild
-/// replaces the entity for the same action, keep the action armed through the
-/// rebuild frame because the new node remains `Interaction::None` until the next
-/// `PreUpdate` focus pass.
+/// change to `None` on the same entity cancels. If a rebuild replaces the
+/// entity for the same action, the arm holds through the rebuild frame,
+/// because the new node stays `Interaction::None` until the next `PreUpdate`
+/// focus pass.
 fn publish_bevy_ui_menu_actions<Action>(
     rows: Query<(Entity, &Interaction, &AmbitionMenuControl<Action>), With<Button>>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
-    // ⛔⛔ KEYED BY THE CONTROL, NOT BY WHAT IT DOES — and it took two goes.
-    // This first held a `PressArm<String>` filled with `format!("{action:?}")`,
-    // which made a DEBUGGING PRESENTATION part of a row's identity. Replacing
-    // that with `Action` removed the `Debug` dependency and was still one layer
-    // too coarse: an ACTION says what a row DOES and two rows may do the same
-    // thing. Tap destructive row A once to arm it, tap destructive row B once,
-    // and B — carrying an equal action — reads as already armed and fires on the
-    // first tap.
-    //
-    // ⭐ `MenuFocusKey` IS THE IDENTITY THE MENU ALREADY HAS: *"stable
-    // navigation identity for focusable controls"*, on the control component,
-    // and stable across the republishes that move entities. `PressArm`'s own doc
-    // asks flat lists to key by control identity; this is a flat menu.
+    // Keyed by the control (`MenuFocusKey`), not by its action. Two rows can
+    // do the same thing; keyed by action, tapping destructive row A then row
+    // B would fire B on its first tap. `MenuFocusKey` is stable across the
+    // republishes that move entities.
     mut arm: Local<ambition_ui_nav::PressArm<MenuFocusKey>>,
-    // The action and the entity behind the armed key. The ACTION is a payload
-    // emitted on activation, not a name — it rides beside the arm rather than
-    // inside it for the same reason the entity does.
+    // The action and entity behind the armed key. The action is a payload
+    // emitted on activation.
     mut armed: Local<Option<(Action, Entity)>>,
     risk: Option<Res<crate::MenuDestructiveActions<Action>>>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    // The SECOND arm, and it is a different question from `arm` above. That one
-    // asks "is a finger still down on this control"; this one asks "has this
-    // destructive row already been tapped once". A gesture ends every frame the
-    // pointer lifts; a confirm arm has to outlive that, or the guard would be
-    // spent before the user could answer it.
+    // A second arm with a different question: `arm` asks whether a finger is
+    // still down; this asks whether a destructive row was already tapped once.
+    // It must outlive the gesture so the user can answer the confirm.
     mut confirm_armed: Local<Option<MenuFocusKey>>,
 ) where
     Action: Clone + Send + Sync + 'static,
 {
-    // The pointer position, for the drag test. Multi-touch is approximated by
-    // the first located pointer: `PressArm` treats a missing position as "no
-    // evidence of a drag" and still activates, which is the safe direction —
-    // an unreported drag costs a stray activation, a phantom drag costs every
-    // tap on a device that reports no position at all.
-    // ⛔ SCANNED ONLY WHEN SOMETHING IS PRESSED. This ran above the rows loop,
-    // so every frame of every match paid a `PointerLocation` scan to answer a
-    // question only the `Some(pressed)` arm below ever asks — and during
-    // gameplay there are no menu rows and nothing is ever pressed. `at` is read
-    // in exactly two places, both inside that arm, so deferring it changes
-    // nothing except when the scan happens.
+    // Pointer position for the drag test. Multi-touch uses the first located
+    // pointer. `PressArm` treats a missing position as no drag and still
+    // activates: a missed drag costs a stray activation, but a phantom drag
+    // would block every tap on a device with no position. Scanned only when
+    // something is pressed, because there are usually no menu rows.
     let locate = || {
         pointers
             .iter()
@@ -605,21 +558,18 @@ fn publish_bevy_ui_menu_actions<Action>(
     }
 
     match pressed {
-        // Still (or newly) held. A press on a DIFFERENT control replaces the
-        // arm: two fingers on two rows is one gesture as far as this bridge is
-        // concerned, and the later one is the live one.
+        // Held. A press on a different control replaces the arm; the later
+        // finger is the live one.
         Some((focus, action, entity)) => {
             if arm.armed() == Some(&focus) {
                 arm.moved(locate());
-                // Re-anchor: a rebuild WHILE held moves the control, and the
-                // leave test below compares against where it is now.
+                // Re-anchor: a rebuild while held moves the control, and the
+                // leave test compares against its current place.
                 *armed = Some((action, entity));
             } else {
-                // Pressing a DIFFERENT row abandons any pending confirm: an
-                // armed *Quit to Desktop* must not still be armed after the
-                // user has gone and touched something else. ⛔ compared by
-                // CONTROL, so a second row that happens to do the same thing is
-                // a different row.
+                // Pressing a different row cancels a pending confirm. Compared
+                // by control, so a row with the same action is still a
+                // different row.
                 if confirm_armed.as_ref() != Some(&focus) {
                     *confirm_armed = None;
                 }
@@ -634,11 +584,9 @@ fn publish_bevy_ui_menu_actions<Action>(
                 Some((_, Interaction::Hovered)) => {
                     let released = arm.release_anywhere();
                     if let (Some(focus), Some((action, _))) = (released, armed.take()) {
-                        // The release landed on the row. Whether it ACTIVATES is
-                        // the user's configured tap policy, and the policy is
-                        // `ambition_input`'s — this bridge only supplies the two
-                        // facts it is the one that knows: which row was released
-                        // on, and whether that row is destructive.
+                        // Whether a release activates is the tap policy in
+                        // `ambition_input`. This bridge supplies only which row
+                        // was released on and whether it is destructive.
                         let destructive = risk
                             .as_deref()
                             .is_some_and(|risk| (risk.is_destructive)(&action));
@@ -646,9 +594,8 @@ fn publish_bevy_ui_menu_actions<Action>(
                             .as_deref()
                             .map(|settings| settings.controls.menu_tap_mode)
                             .unwrap_or_default();
-                        // A pointer release IS the selection here, so target and
-                        // selection are the same row by construction; the guard
-                        // reduces to "was this row already armed".
+                        // A release is the selection here, so the guard only
+                        // asks whether this row was already armed.
                         let press =
                             tap_mode.resolve_press(focus, &focus, destructive, &mut confirm_armed);
                         if press == ambition_input::settings::MenuPointerPress::Confirm {
@@ -661,8 +608,8 @@ fn publish_bevy_ui_menu_actions<Action>(
                     arm.clear();
                     *armed = None;
                 }
-                // Absent, or present at a NEW entity: mid-rebuild. Hold the
-                // arm — the release will find the control again.
+                // Absent, or at a new entity: mid-rebuild. Hold the arm; the
+                // release finds the control again.
                 _ => {}
             }
         }
@@ -685,12 +632,9 @@ fn publish_bevy_ui_menu_previews<Action>(
         .find(|(interaction, _)| **interaction == Interaction::Hovered)
         .and_then(|(_, control)| control.action.clone());
 
-    // Edge-triggered. A pointer resting on a row holds `Hovered` every frame,
-    // and a message per frame would turn "the mouse is here" into a stream the
-    // host has to debounce — the same shape as the press latch above.
-    // ⛔ THE ACTION, not its `Debug` text — same rule as the press arm above: a
-    // hover edge is a claim about WHICH ROW, and two rows whose debugging
-    // presentation agrees are still two rows.
+    // Edge-triggered: a pointer resting on a row stays `Hovered`, and a
+    // message per frame would force the host to debounce. Compared by action
+    // value, not its `Debug` text.
     if hovered == *last {
         return;
     }
@@ -702,16 +646,12 @@ fn publish_bevy_ui_menu_previews<Action>(
 
 /// Translate flat-menu tab taps into a renderer-neutral tab message.
 ///
-/// Same rule as [`publish_bevy_ui_menu_actions`], for the same reason: a tab bar
-/// is a strip of touch targets along the top of a scrollable page, so a finger
-/// that lands on one and slides is trying to move the page, not change tabs.
-/// Leaving this one activating on the way down while its neighbour in the same
-/// file activated on the way up is exactly the drift a shared renderer exists to
-/// prevent.
+/// Same release rule as [`publish_bevy_ui_menu_actions`]: a tab bar sits on a
+/// scrollable page, so a finger that lands and slides is scrolling, not
+/// changing tabs.
 ///
-/// The identity here IS a row index — [`ambition_ui_nav::RowPress`] in its
-/// original shape — because a tab bar's `index` is stable across the republishes
-/// that move its entities.
+/// Keyed by row index ([`ambition_ui_nav::RowPress`]), because a tab's
+/// `index` is stable across the republishes that move its entities.
 fn publish_bevy_ui_menu_tabs(
     tabs: Query<(Entity, &Interaction, &BevyUiMenuTab), With<Button>>,
     pointers: Query<&bevy::picking::pointer::PointerLocation>,
@@ -752,8 +692,8 @@ fn publish_bevy_ui_menu_tabs(
                 }
                 *armed_entity = None;
             }
-            // A DIFFERENT entity (or none) is the tab bar mid-republish, whose fresh nodes read
-            // `None` until the next frame's focus pass.
+            // A different entity (or none) means the tab bar is mid-republish;
+            // new nodes read `None` until the next focus pass.
             Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
                 arm.clear();
                 *armed_entity = None;
@@ -774,11 +714,8 @@ pub fn install_bevy_ui_menu_actions<Action>(app: &mut App)
 where
     Action: Clone + PartialEq + Send + Sync + 'static,
 {
-    // ⭐ NO TEXT-SIZE INSTALLER. Menu text sizes are authored as a percentage
-    // of viewport height and spawned as `FontSize::Vh`, which the engine
-    // resolves against the live UI render target; the seam a host used to have
-    // to remember (and whose omission was invisible until somebody resized a
-    // window) no longer exists.
+    // No text-size installer: menu text is spawned as `FontSize::Vh`, which the
+    // engine resolves against the live UI target.
     install_bevy_ui_menu_restyle(app);
     app.add_message::<crate::MenuActionActivated<Action>>()
         .add_message::<crate::MenuActionPreviewed<Action>>()
@@ -792,17 +729,12 @@ where
         );
 }
 
-/// Recolour a control when its runtime state changes, WITHOUT respawning it.
+/// Recolor a control when its runtime state changes, without respawning it.
 ///
-/// The colour was baked at spawn by `control_bg`, so the only way to change it
-/// WAS to spawn again. Now [`MenuVisualState`] carries everything that function
-/// needs — including the authored `important`, which is not runtime state and is
-/// there precisely so a restyle never has to reach back into the page data.
-///
-///  `Changed<MenuVisualState>` — a quiet menu costs one empty query. Bevy sets
-/// the change tick on any `&mut` deref, so a host that writes the same value
-/// every frame pays for a colour write; write only on change, as the launcher's
-/// own declarer does.
+/// [`MenuVisualState`] carries everything `control_bg` needs, including the
+/// authored `important`, so a restyle never reads page data. Filtered on
+/// `Changed<MenuVisualState>`, so a quiet menu costs one empty query. Any
+/// `&mut` deref marks a change, so hosts should write only on change.
 pub fn restyle_bevy_ui_menu_controls(
     mut controls: Query<
         (
@@ -825,11 +757,10 @@ pub fn restyle_bevy_ui_menu_controls(
     }
 }
 
-/// The control's KIND, on the entity.
+/// The control's kind, on the entity.
 ///
-/// `AmbitionMenuControl<Action>` already carries it, but that type is generic
-/// over the host's action and a restyle system must not be — one restyle for
-/// every menu in the app, whatever each one's actions are.
+/// `AmbitionMenuControl<Action>` also has it, but it is generic over the
+/// host's action. One restyle system serves every menu in the app.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AmbitionMenuControlKind(pub MenuControlKind);
 
@@ -861,20 +792,11 @@ impl bevy::prelude::Plugin for BevyUiMenuRestylePlugin {
 /// render several action types, while the shared tab component/message must be
 /// installed exactly once.
 pub fn install_bevy_ui_menu_tabs(app: &mut App) {
-    // ⭐⭐ IDEMPOTENT, BECAUSE "INSTALLED EXACTLY ONCE" WAS A RULE THE CALLER HAD
-    // TO OBEY. The doc above states the requirement; nothing enforced it, and a
-    // second call would have added `publish_bevy_ui_menu_tabs` TWICE — two
-    // publications per press, so one click changes tab and changes back.
-    //
-    // ⇒ That is not hypothetical now. This was called by exactly ONE composition
-    // (the kaleidoscope menu), which is why the shell's title screen had no
-    // pointer road to its tabs at all — its buttons were drawn and no system
-    // published their presses. Adding the shell as a second caller is what makes
-    // the "exactly once" rule reachable, so the rule stops being prose here.
-    //
-    // ⚠ The MESSAGE alone is not the witness: `add_message` is already idempotent,
-    // so keying off it would be a check that cannot fail. The SYSTEM is what must
-    // not double-register, so the marker states that directly.
+    // Idempotent: a second call would add `publish_bevy_ui_menu_tabs` twice,
+    // so one click would change tab and change back. Several compositions
+    // call this (kaleidoscope menu, shell title screen). Keyed on a marker
+    // for the system, because `add_message` is already idempotent and cannot
+    // show whether the system was added.
     if app.world().contains_resource::<BevyUiMenuTabsInstalled>() {
         return;
     }
@@ -889,18 +811,18 @@ pub fn install_bevy_ui_menu_tabs(app: &mut App) {
 #[derive(bevy::prelude::Resource, Default)]
 struct BevyUiMenuTabsInstalled;
 
-/// Install the flat `bevy_ui` scrollbar drag handling (Feature C): registers the
-/// neutral [`MenuScrollDragged`](crate::MenuScrollDragged)
-/// message (idempotent if already added by the cube) and the press/drag/release
-/// observers + press-drag tracker. The HOST applies the emitted fraction to its own
-/// scroll window (mirroring the cube's `kaleidoscope_apply_scroll_drag`).
+/// Install flat scrollbar drag handling: registers the
+/// [`MenuScrollDragged`](crate::MenuScrollDragged) message (idempotent if the
+/// cube added it) and the press/drag/release observers and tracker. The host
+/// applies the emitted fraction to its scroll window (like the cube's
+/// `kaleidoscope_apply_scroll_drag`).
 pub fn install_bevy_ui_menu_scroll(app: &mut App) {
     app.add_message::<crate::MenuScrollDragged>();
     app.init_resource::<crate::ScrollbarDragState>();
     app.add_observer(bevy_ui_scrollbar_press);
     app.add_observer(bevy_ui_scrollbar_drag);
     app.add_observer(bevy_ui_scrollbar_release);
-    // Maintain the last-known-good rect BEFORE the tracker reads it each frame.
+    // Maintain the last good rect before the tracker reads it each frame.
     app.add_systems(
         Update,
         (bevy_ui_maintain_track_rect, bevy_ui_scrollbar_press_drag).chain(),

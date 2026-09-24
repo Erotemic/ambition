@@ -174,6 +174,31 @@ fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
 /// Canonical transform pair for the demo's semantic Utility action (D in the
 /// classic arrows+Z/X/C preset).
 pub const SANIC_CHARACTER_ID: &str = "sanic";
+
+/// How tall Sanic stands, in world units: the height the speedway (loops,
+/// monitors, spike gaps) was built around.
+pub const SANIC_STANDING_HEIGHT: f32 = 48.0;
+
+/// World units per sheet pixel for both of Sanic's forms, asked of his art
+/// rather than remembered — the same `posed_body_geometry` query the pose pass
+/// makes, so construction and the live box cannot disagree. One scale for both
+/// forms: they differ in size because their art does.
+pub fn sanic_world_per_pixel() -> f32 {
+    world_per_pixel_for_height("sanic", SANIC_STANDING_HEIGHT)
+}
+
+/// `height / <sheet's standing pixel height>`, or 1.0 when no art is baked (a
+/// headless fixture, where nothing resolves a body from it anyway).
+pub(crate) fn world_per_pixel_for_height(sheet: &str, height: f32) -> f32 {
+    ambition_platformer2d::character_sprites::posed_body_geometry(
+        sheet,
+        ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
+        1.0,
+    )
+    .map(|geometry| geometry.collision.y)
+    .filter(|pixels| *pixels > 0.0)
+    .map_or(1.0, |pixels| height / pixels)
+}
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
 /// The super form, composed from engine traits: he cannot be hurt, and what
@@ -669,6 +694,12 @@ pub fn install_sanic_content(app: &mut App) {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
                     .with_sheet(sheet)
+                    // THE ART IS THE BODY, as it is for Mary-O: the box, the quad
+                    // and the quad's offset all follow from the sheet at ONE
+                    // scale. Without it he stood in the engine's default 30x48
+                    // box with his 128x128 frame squeezed into it (x 0.23, y 0.38)
+                    // and his feet ~3.75 units above the floor.
+                    .with_sprite_authored_body(sanic_world_per_pixel())
                     .with_voice(voice)
                     .with_moveset(smash_moveset::sanic_moveset()),
             );

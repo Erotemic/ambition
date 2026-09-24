@@ -272,6 +272,24 @@ impl BodyMotionFacts {
                 ..Self::default()
             };
         }
+        // A MOMENTUM RIDER RUNS TOO. Its gait is its own: riding a surface
+        // at least `RUN_COMMIT_FRAC` of its top speed, the same fraction an
+        // axis body commits at. Without this arm every surface-momentum body
+        // (Sanic) published `running: false` at any speed, and the animation
+        // ladder drew `walk` at 780 px/s.
+        if let MotionModel::SurfaceMomentum(momentum) = model {
+            let running = match momentum.state {
+                crate::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => {
+                    v_t.abs()
+                        >= crate::movement::tuning::RUN_COMMIT_FRAC * momentum.params.top_speed
+                }
+                crate::movement::surface_momentum::SurfaceMotion::Airborne => false,
+            };
+            return Self {
+                running,
+                ..Self::default()
+            };
+        }
         let MotionModel::AxisSwept(axis) = model else {
             return Self::default();
         };
@@ -353,6 +371,34 @@ mod tests {
         assert_eq!(
             BodyMotionFacts::from_model(&model),
             BodyMotionFacts::default()
+        );
+    }
+
+    /// A surface-momentum body RUNS when it rides at its commit fraction of
+    /// its own top speed. It reported `running: false` at any speed, so Sanic
+    /// drew `walk` at 780 px/s.
+    #[test]
+    fn a_momentum_rider_at_speed_is_running_and_a_slow_or_airborne_one_is_not() {
+        use crate::movement::surface_momentum::{SurfaceMotion, SurfaceRef};
+        let params = MomentumParams::default();
+        let riding_at = |v_t: f32| {
+            let mut model = MotionModel::surface_momentum(params);
+            let MotionModel::SurfaceMomentum(momentum) = &mut model else {
+                unreachable!();
+            };
+            momentum.state = SurfaceMotion::Riding {
+                on: SurfaceRef::Block(0),
+                s: 0.0,
+                v_t,
+            };
+            BodyMotionFacts::from_model(&model).running
+        };
+        assert!(riding_at(params.top_speed), "full speed along the tangent is a run");
+        assert!(riding_at(-params.top_speed), "either direction along the tangent");
+        assert!(!riding_at(params.top_speed * 0.25), "a quarter of top speed is a walk");
+        assert!(
+            !BodyMotionFacts::from_model(&MotionModel::surface_momentum(params)).running,
+            "an airborne body is not running"
         );
     }
 }

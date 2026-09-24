@@ -133,10 +133,8 @@ fn a_different_held_item_never_marks() {
     );
 }
 
-/// ⭐⭐ EACH DRIVEN BODY MARKS AND RECALLS TO ITS OWN MARK.
-/// Same singular-`ControlledSubject` defect as the blink; and the mark is
-/// per-body state, so a shared road that acted on one subject also meant one
-/// seat's recall could never find the other's mark.
+/// Each driven body marks and recalls to its own mark. The mark is per-body
+/// state, so one seat's recall must not find the other's mark.
 #[test]
 fn two_driven_bodies_each_recall_to_their_own_mark() {
     use crate::test_support::spawn_seated_body_holding;

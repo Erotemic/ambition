@@ -1,8 +1,7 @@
-//! Adaptive music core: cue catalog, layered Kira channels, the
-//! director (simple + adaptive cue playback), and its tuning. The
-//! HOST supplies a [`crate::mix::MusicMix`] (synced from its settings)
-//! and a [`state::MusicIntent`] (mapped from its game state) —
-//! this module never reads game state directly.
+//! Adaptive music core: cue catalog, layered Kira channels, the director
+//! (simple and adaptive cue playback), and its tuning. The host supplies a
+//! [`crate::mix::MusicMix`] (from its settings) and a [`state::MusicIntent`]
+//! (from its game state); this module never reads game state directly.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -24,16 +23,15 @@ const MAX_LAYERS: usize = 6;
 
 /// Runtime gain smoothing for adaptive layer targets.
 ///
-/// Keep this short enough that an intro-to-wave handoff reads as one continuous
-/// cue instead of "intro ended, then another track faded in." Long musical
-/// overlap is still controlled by the section crossfade constants below.
+/// Short enough that an intro-to-wave handoff sounds like one cue, not an
+/// intro followed by a fade-in. Long overlap is set by the section crossfade
+/// constants below.
 const STEM_GAIN_BLEND_SECONDS: f32 = 0.18;
 const LOOP_SECTION_CROSSFADE_SECONDS: f32 = 1.70;
 
-/// Intro -> first loop should feel like a continuous handoff rather than a
-/// hard file switch. Transition-lab audits showed that the source material is
-/// level-matched around a ~0.65s seam; shorter overlaps leave a measurable dip
-/// before wave1 establishes its first-bar bed.
+/// Intro to first loop should sound continuous, not like a file switch. The
+/// source material is level-matched around a ~0.65s seam; shorter overlaps
+/// leave a measurable dip before wave1's first bar.
 const INTRO_TO_LOOP_CROSSFADE_SECONDS: f32 = 0.65;
 const OUTRO_CROSSFADE_SECONDS: f32 = 1.65;
 
@@ -72,12 +70,12 @@ use channels::{LayerGains, MusicBank};
 
 /// Hard-stop all music playback and reset the director to its idle state.
 ///
-/// Stops the base [`MusicChannel`] and every adaptive layer channel, resets the
-/// [`MusicDirectorState`] to `Default` (mode `Idle`, no active cue, no
-/// last-simple track), and clears the [`MusicPlaybackState`] active track. Used
-/// by a host to enforce deterministic silence when leaving gameplay for a
-/// frontend/title route — cached assets stay resident, but nothing is playing
-/// and no stale director state can resurrect a previous session's music.
+/// Stops the base [`MusicChannel`] and every adaptive layer channel, resets
+/// [`MusicDirectorState`] to `Default` (mode `Idle`, no active cue, no last
+/// simple track), and clears the [`MusicPlaybackState`] active track. A host
+/// uses it for deterministic silence when leaving gameplay for a frontend
+/// route: cached assets stay resident, and no stale state can bring back a
+/// previous session's music.
 pub fn silence_music_backend(
     base_music_channel: &AudioChannel<MusicChannel>,
     layer_channels: &MusicLayerChannels,

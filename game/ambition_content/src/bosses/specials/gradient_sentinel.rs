@@ -57,14 +57,8 @@ pub struct AppleRainSpawnState {
     pub spawn_index: u32,
 }
 
-/// Apple cosmetic / collision constants.
-///
-/// ⚠ **THIS SAID THEY WERE "reused from `content/features/bosses.rs`" AND STAYED <!-- cite-ok: quotes the dead name this correction is about -->
-/// "co-authored with the legacy path" UNTIL 2026-09-17.** That file is gone and
-/// these four are the only definitions in the tree, so the sentence described a
-/// co-authorship with nothing — the shape a carve leaves behind when it moves the
-/// other half away. They are authored here now, and a second boss adopting the
-/// consumer pattern shares THESE.
+/// Apple cosmetic / collision constants. These are the only definitions; a
+/// second boss that adopts the consumer pattern shares them.
 const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(14.0, 16.0);
 const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;
@@ -429,15 +423,11 @@ pub fn spawn_overfit_volley_from_special_messages(
 
 const MINIMA_TRAP_OWNER_PREFIX: &str = "gradient_sentinel_minima";
 const MINIMA_TRAP_KNOCKBACK: f32 = 1.4;
-/// The CHARACTER the trap summons — the pacifist crawler.
+/// The character the trap summons: the pacifist crawler.
 ///
-/// A summon whose id resolves nothing lands on the generic `combatant` fallback, so every
-/// minion this boss cast was silently the wrong body — wrong health, wrong speed, no crawl, no
-/// cling — from the moment the row went. Nothing failed, because a fallback is a real body; the
-/// only tell was on screen.
-///
-/// the name is unchanged in spirit and now names a CHARACTER: the summon road
-/// resolves the prepared cast first and builds from the definition.
+/// The summon road resolves the prepared cast first and builds from the
+/// definition. An id that resolves nothing falls back to the generic
+/// `combatant` body silently, so this must name a real character.
 const MINIMA_TRAP_MINION_CHARACTER: &str = "npc_puppy_slug";
 const MINIMA_TRAP_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(24.0, 11.0);
 /// Horizontal offset (px) from the pit center where the minion
@@ -539,13 +529,10 @@ pub fn spawn_minima_trap_from_special_messages(
             // "System Boss" — the minion's encounter scope still
             // matches the parent encounter even though name != id.
             let encounter_id = boss.config.behavior.id.clone();
-            // Don't spawn the slug right on top of the player —
-            // the user reported the slug appearing under them with
-            // no dodge window. Offset the slug horizontally toward
-            // the BOSS so the player sees it appear from the
-            // boss-side of the pit and has time to retreat. Half
-            // the spawn offset distance is the slug's half-width
-            // plus a comfortable read margin.
+            // Do not spawn the slug on top of the player. Offset it horizontally
+            // toward the boss, so it appears on the boss side of the pit and the player
+            // has time to retreat. Half the offset covers the slug's half-width plus a
+            // read margin.
             let player_to_boss = boss.kin.pos - pit_center;
             let toward_boss_x = if player_to_boss.x.abs() < f32::EPSILON {
                 // Player directly aligned with boss — spawn left
@@ -727,17 +714,12 @@ pub fn spawn_saddle_point_from_special_messages(
     }
 }
 
-/// THE CASCADE'S MINIONS ARE THE AI SLOP.
-/// This pointed at `small_lurker`, a name whose archetype row a census had
-/// deleted, left dangling on purpose while "what IS a small lurker?" waited for
-/// this technique's own design note has always read *"spawn N \"slop\"
-/// minions"*, `npc_ai_slop` is the registered, body-complete character of that
-/// exact name, and the sibling constant above (`MINIMA_TRAP_MINION_CHARACTER`)
-/// was already cast the same way.
+/// The cascade's minions are the AI slop, as the technique's design says
+/// ("spawn N slop minions"). `npc_ai_slop` is a registered, body-complete
+/// character, cast the same way as `MINIMA_TRAP_MINION_CHARACTER`.
 ///
-/// provisional means the reversal is THIS ONE STRING — a casting choice in
-/// turns out to be its own creature, author the character and point this at it;
-/// nothing else in the game names one.
+/// Provisional: to recast, author the new character and change this string;
+/// nothing else names it.
 const GRADIENT_CASCADE_MINION_CHARACTER: &str = "npc_ai_slop";
 const GRADIENT_CASCADE_MINION_HALF_SIZE: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// Vertical y where slop minions spawn (top of the arena, just below

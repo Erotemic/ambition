@@ -52,14 +52,11 @@ pub fn install_game_bindings(
 
 /// Run condition: a conversation is live, so the Yarn mirror has a reader.
 ///
-/// ⭐⭐ DEFINED ONCE ON PURPOSE. Two systems feed this mirror and both used to
-/// run every frame of every room; the shape this campaign keeps finding is a
-/// predicate hand-copied into three files and consulted by nobody, so this one
-/// gets written down once and imported.
+/// Defined once and shared by both systems that feed the mirror.
 ///
-/// ⛔ IT IS CONVERSATION LIVENESS, NOT DIALOG-BOX PRESENCE. The mirror must be
-/// fresh on the frame a Yarn `<<if>>` evaluates; a presentation-shaped gate is
-/// one frame late and would feed the script a stale snapshot.
+/// It checks conversation liveness, not dialog-box presence. The mirror must
+/// be fresh on the frame a Yarn `<<if>>` evaluates; a presentation-shaped gate
+/// is one frame late.
 pub fn a_conversation_is_live(
     conversation: Option<bevy::prelude::Res<ambition_conversation::ActiveConversation>>,
 ) -> bool {
@@ -69,48 +66,28 @@ pub fn a_conversation_is_live(
 /// Refresh the mirror so Yarn functions read consistent values for the duration
 /// of a single tick.
 ///
-/// ⛔⛔ IT NO LONGER RUNS UNCONDITIONALLY, and the claim it used to carry —
-/// *"cheap because the data is small"* — had gone stale. Every frame of every
-/// room, in a Smash match as much as in a conversation, this took a WRITE guard
-/// on the mirror's `RwLock` and rebuilt three collections with a `String` clone
-/// per element. Two of them are bounded by content (`bosses`, `quests`); the
-/// third is not: `dialog_visits` GROWS MONOTONICALLY WITH PLAYTIME, so the
-/// per-frame cost of a save's dialogue history rises for as long as somebody
-/// keeps playing.
+/// Gated on a live conversation, the only time a Yarn `<<if>>` reads it. The
+/// refresh takes a write lock and rebuilds collections with a `String` clone
+/// per element, and `dialog_visits` grows with playtime, so running it every
+/// frame is unbounded work for a reader that is usually absent.
 ///
-/// ⭐ The only reader is a live Yarn `<<if>>`, so the gate is exactly
-/// "a conversation is live". ⚠ AND IT MUST BE THAT, not "a dialog box is
-/// drawn": the mirror has to be fresh on the frame the `<<if>>` evaluates, and a
-/// presentation-shaped gate would hand it a one-frame-stale snapshot.
-///
-/// ⚠ NOT MEASURED. The cost tracks save-data size, not frame count, so on a
-/// fresh match it is small and on a long save it is not — and this machine's
-/// noise floor could not resolve either. It is fixed because unbounded per-frame
-/// work for a reader that is usually absent is wrong at any size.
+/// The gate is conversation liveness, not "a dialog box is drawn", so the
+/// mirror is fresh on the frame the `<<if>>` evaluates.
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
-    //  the inventory slice is GONE — a whole second copy of `OwnedItems`,
-    // rebuilt every frame under both a catalog id and a legacy alias, so that a
-    // synchronous `<<if>>` could read it. `inventory.holds` is published, so the
+    // No inventory slice: `inventory.holds` is a published condition, so the
     // `<<if>>` asks the bag.
     let Some(save) = save else {
         return;
     };
     let data = save.data();
-    //  the flag slice is GONE. It existed so `flag(id)` could read a save
-    // flag synchronously; that question is the condition catalog's
-    // `world.flag_set`, asked live.  what is left in this function is the
-    // remainder the catalog cannot answer yet — see this module's header on why
-    // the mirror is now a projection rather than a peer.
-    // ⭐ THE BOSS SLICE IS GONE TOO, for the same reason the flag slice above
-    // it went: `boss.cleared` answers it live from the catalog, so a projection
-    // here would be a second authority with a one-frame lag.
-    // ⭐ AND THE QUEST SLICE IS GONE, third after the flag and boss slices:
-    // `quest.active` answers it live, so a projection here would be a second
-    // authority with a one-frame lag.
+    // No flag, boss or quest slices: `world.flag_set`, `boss.cleared` and
+    // `quest.active` answer live from the condition catalog. A projection here
+    // would be a second authority with a one-frame lag. What remains is what
+    // the catalog cannot answer yet.
     snap.visit_counts.clear();
     for visit in data.dialog_visits() {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
@@ -124,19 +101,12 @@ pub fn refresh_yarn_state_mirror(
 // at runner-build time. Each takes ownership of its args and writes
 // to a typed message channel.
 
-//  `cmd_set_flag` AND `cmd_clear_flag` USED TO BE HERE, and their deletion
-// is what the COMMAND half of the authored-logic contract cost. Two
-// hand-written Bevy systems differing by one bool, each registered by name below,
-// each with its own conversion from Yarn's untyped text — for a verb the
-// world-fact domain is perfectly able to describe itself.
-//
-// The world-fact domain publishes `world.set_flag(flag, on)` into the command
-// catalog (`ambition_platformer2d_actor_monolith::world_facts`), and authored
-// dialogue asks for it through the engine's generic
-// `<<command "world.set_flag" "<id>" true>>` verb — the same road, pointed the
-// other way, that `condition("world.flag_set", "<id>")` already takes. Two
-// mechanisms for one verb is the second authority this project refuses
-// elsewhere. See `ambition_conversation::dialog::authored_commands`.
+// Setting and clearing flags is not a command here. The world-fact domain
+// publishes `world.set_flag(flag, on)` into the command catalog
+// (`ambition_platformer2d_actor_monolith::world_facts`), and dialogue uses
+// the generic `<<command "world.set_flag" "<id>" true>>` verb, mirroring
+// `condition("world.flag_set", "<id>")`. See
+// `ambition_conversation::dialog::authored_commands`.
 
 /// `<<challenge>>` — provoke the NPC the player is currently talking to into
 /// a fight. The generic dialogue-gated combat trigger: it emits an
@@ -147,9 +117,8 @@ pub fn refresh_yarn_state_mirror(
 /// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
 pub fn cmd_challenge(
-    //  the AUTHORITY, not `DialogState`. This command provokes a fight, so
-    // it is a simulation effect; keying it off the UI read-model meant a
-    // gameplay consequence read a resource that rollback does not rewind.
+    // Read the authority, not `DialogState`: this is a simulation effect, and
+    // the UI read-model is not rewound by rollback.
     conversation: Res<ambition_conversation::ActiveConversation>,
     player: Query<Entity, With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
     sim_ids: Query<&SimId>,
@@ -265,9 +234,8 @@ pub fn cmd_buy_item(
         warn!(target: "ambition_conversation::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
-    // ⛔ ONE READING OF THE PRICE, SHARED WITH `wallet.can_afford`. This was
-    // `price.max(0.0) as i32`, which turned an authored `-5` into a free
-    // purchase and `25.7` into a 25-coin charge the guard had just refused.
+    // One reading of the price, shared with `wallet.can_afford`. A plain cast
+    // would make `-5` free and charge 25 for `25.7`.
     let coins = match ambition_items::shop::authored_price(f64::from(price)) {
         Ok(coins) => coins,
         Err(problem) => {
@@ -297,9 +265,8 @@ pub fn cmd_sell_item(
         warn!(target: "ambition_conversation::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
-    // ⛔ ONE READING OF THE PRICE, SHARED WITH `wallet.can_afford`. This was
-    // `price.max(0.0) as i32`, which turned an authored `-5` into a free
-    // purchase and `25.7` into a 25-coin charge the guard had just refused.
+    // One reading of the price, shared with `wallet.can_afford`. A plain cast
+    // would make `-5` free and charge 25 for `25.7`.
     let coins = match ambition_items::shop::authored_price(f64::from(price)) {
         Ok(coins) => coins,
         Err(problem) => {
@@ -323,10 +290,9 @@ pub fn cmd_sell_item(
 /// `f32` count into the grant the simulation should apply, or `None` when the
 /// kind is unknown or the count is non-positive.
 ///
-///  the flooring lives here, not at the applier. Yarn arithmetic is
-/// `f32`-typed, so "1.9 potions" is a parsing question and belongs on the side
-/// that speaks Yarn. An applier that re-decided it would be a second place for
-/// the rule to live and drift.
+/// Flooring lives here, not in the applier: Yarn arithmetic is `f32`, so
+/// "1.9 potions" is a parsing question for the Yarn side. A second rule in the
+/// applier could drift.
 fn item_grant(kind: &str, count: f32) -> Option<ambition_items::ItemGrantRequested> {
     if count <= 0.0 {
         return None;
@@ -372,8 +338,8 @@ pub fn cmd_music(
 /// can verify the explosion pipeline without entering a boss room.
 pub fn cmd_spawn_fireworks(
     mut fireworks: MessageWriter<ambition_vfx::vfx::FireworksRequest>,
-    // SLOT-0 BY DESIGN: Yarn's `$player_x`/`$player_y` are authored against the
-    // local player's position — dialogue is told to a human, not to a body.
+    // Slot 0 by design: Yarn's `$player_x`/`$player_y` refer to the local
+    // player; dialogue is told to a human, not to a body.
     player_q: Query<
         &ambition_platformer2d_core::BodyKinematics,
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
@@ -411,12 +377,10 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 
 /// Which authored thing is asking, for the three Yarn functions below.
 ///
-/// ⭐ **THE NODE, READ FROM THE LIVE CONVERSATION.** The verdict ring records
-/// who asked, and *"a Yarn function"* is not a source an author can find in a
-/// script — `kernel.yarn`'s shop menu alone calls `can_afford` ten times.
-/// ⚠ A Yarn function running with no live conversation is a fixture, not a
-/// shipped road, and it gets a subject that SAYS so rather than a
-/// plausible-looking blank.
+/// The node, read from the live conversation. The verdict ring records who
+/// asked, and "a Yarn function" is not a source an author can find
+/// (`kernel.yarn`'s shop menu alone calls `can_afford` ten times). With no
+/// live conversation (a fixture), the subject says so.
 fn asking_node(
     world: &bevy::prelude::World,
 ) -> ambition_platformer2d_shared_tangle::authored_logic::AuthoredAsk {
@@ -431,10 +395,9 @@ fn asking_node(
 
 /// `boss_cleared(id)` — ask the boss domain's published condition.
 ///
-/// ⛔ THE THIRD ANSWER COLLAPSES THE WAY THE CATALOG SPECIFIES. Yarn's `<<if>>`
-/// needs a bool, and `unanswerable is not satisfied` leaves a branch CLOSED —
-/// the other direction would open a door in exactly the world where the
-/// question is least understood. Same rule as `condition(id, arg)`.
+/// The third answer collapses as the catalog specifies: Yarn's `<<if>>` needs
+/// a bool, and "unanswerable" is not satisfied, so the branch stays closed.
+/// Same rule as `condition(id, arg)`.
 fn ask_boss_cleared(In(id): In<String>, world: &mut World) -> bool {
     use ambition_platformer2d_shared_tangle::authored_logic::{
         AuthoredArg, ConditionCatalog, ConditionId,
@@ -483,23 +446,14 @@ fn ask_quest_active(In(id): In<String>, world: &mut World) -> bool {
 
 /// `can_afford(price)` — ask the wallet domain's published condition.
 ///
-/// ⛔⛔ THIS WAS THE MIRROR'S LARGEST CUSTOMER AND THE RULING MISSED IT.
-/// `world-facts-observations-and-memory.md` declared the mirror migration
-/// finished by enumerating its STRUCT FIELDS: `wallet_balance` is a NUMBER the
-/// boolean catalog cannot return, so the field was exempted. But one field
-/// carries two verbs of different shapes — `wallet_balance()` returns the value
-/// and is genuinely exempt; this one returns a BOOLEAN over the same `i32` and
-/// is not. ⇒ `kernel.yarn`'s shop menu calls it TEN times, more than any
-/// published condition had.
+/// `can_afford` returns a boolean, so it belongs in the condition catalog
+/// (unlike `wallet_balance`, which returns a number).
 ///
-/// ⚠ TWO BEHAVIOURS CHANGE, both toward the simulation, and neither is
-/// incidental:
-/// - the closure did `balance >= price.max(0.0) as i32`, so a FRACTIONAL price
-///   truncated — a player holding 25 could buy a 25.7 item. `wallet.can_afford`
-///   compares in `f64` and refuses;
-/// - `price.max(0.0)` also made `can_afford(-5)` answer TRUE. A negative price
-///   is an authoring slip, and the condition reports it as unanswerable rather
-///   than opening a door that always opens.
+/// Behaviour follows the simulation:
+/// - a fractional price is compared in `f64`, so 25 coins cannot buy a 25.7
+///   item;
+/// - a negative price is an authoring slip, reported as unanswerable (so the
+///   branch stays closed).
 fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
     use ambition_platformer2d_shared_tangle::authored_logic::{
         AuthoredArg, ConditionCatalog, ConditionId,
@@ -528,23 +482,13 @@ fn ask_can_afford(In(price): In<f32>, world: &mut World) -> bool {
 
 /// `wallet_balance()` — the player's coins, read from the wallet itself.
 ///
-/// ⛔⛔ THIS WAS A SNAPSHOT, AND THE NOTE SAYING IT HAD TO BE WAS MY OWN FALSE
-/// INFERENCE. `wallet_conditions.rs` and this file both recorded that the
-/// mirror's `wallet_balance` field *"stays, because that verb really is a value
-/// the catalog cannot return"*. The first half is true — a boolean-outcome
-/// catalog cannot hand back a number — and the conclusion does not follow: the
-/// catalog is not the only alternative to a mirror. A REGISTERED SYSTEM returns
-/// whatever it likes, and `ask_can_afford` beside it already proved the shape.
+/// A registered system, not a mirror snapshot: the catalog cannot return a
+/// number, but a registered system can. The live `BodyWallet` is the one
+/// authority.
 ///
-/// ⇒ So the live `BodyWallet` was projected into TWO places every frame — this
-/// mirror field and `AmbitionGameSaveData::wallet` (`items/persist.rs`) — for a
-/// verb no authored `.yarn` line calls. One fact, two copies, and the copy that
-/// existed for a reader that does not exist yet.
-///
-/// ⚠ EXACTLY ONE WALLET, matching `wallet.can_afford` and
+/// Exactly one wallet, as in `wallet.can_afford` and
 /// `apply_shop_transactions`. A world with two primary purses has no single
-/// balance to report, and answering from the first would make three readers of
-/// one fact disagree about which body owns it.
+/// balance to report.
 fn ask_wallet_balance(In(()): In<()>, world: &mut World) -> f32 {
     let mut wallets = world.query_filtered::<
         &ambition_characters::actor::BodyWallet,
@@ -566,47 +510,31 @@ pub fn register_functions(
     runner: &mut DialogueRunner,
     mirror: &YarnStateMirror,
 ) {
-    // ⭐⭐ `boss_cleared` NO LONGER READS THE MIRROR — it asks the condition
-    // catalog, live, and the mirror's `bosses_cleared` slice is GONE.
+    // `boss_cleared` asks the condition catalog live (`boss.cleared`), also
+    // reachable from a `gated_by` line and from `condition("boss.cleared", id)`.
+    // The name is kept so existing `.yarn` content works.
     //
-    // The comment that used to sit here said *"Two mechanisms answering one
-    // question is exactly the second authority this project refuses
-    // elsewhere"*, and it was describing this function. It is now one authority
-    // with two spellings: `boss.cleared` in the catalog, reachable from an
-    // authored `gated_by` line and from `condition("boss.cleared", id)`, and
-    // this name kept so existing `.yarn` content is not rewritten.
-    //
-    // ⭐ SAME MOVE THE FLAG SLICE ALREADY MADE. `flag(id)` went when
-    // `world.flag_set` landed; this is the next fact, and the precedent is
-    // three lines up in `refresh_yarn_state_mirror`.
-    //
-    // ⚠ A REGISTERED SYSTEM, not a closure, because the catalog needs `&World`
-    // — the same reason `install_condition_binding` registers one. It runs
-    // inside `continue_runtime`, already exclusive, so no sync point is added.
+    // A registered system, not a closure, because the catalog needs `&World`
+    // (as in `install_condition_binding`). It runs inside `continue_runtime`,
+    // already exclusive, so no sync point is added.
     let boss_cleared = commands.register_system(ask_boss_cleared);
     runner.library_mut().add_function("boss_cleared", boss_cleared);
-    // ⭐ AND `quest_active` THE SAME WAY, over `quest.active` — published by the
-    // GAME's own quest plugin (`crate::quests::conditions`) rather than by an
-    // engine crate, because the engine has no quest domain. Third slice to
-    // leave the mirror, after `flag` and `bosses_cleared`.
+    // `quest_active` the same way, over `quest.active`, published by the game's
+    // quest plugin (`crate::quests::conditions`); the engine has no quest
+    // domain.
     let quest_active = commands.register_system(ask_quest_active);
     runner.library_mut().add_function("quest_active", quest_active);
-    // ⭐ THE FOURTH SLICE, and the biggest by authored demand: `can_afford`
-    // asked a per-frame snapshot of a fact the wallet domain now publishes.
+    // `can_afford` asks the wallet domain's published condition.
     let can_afford = commands.register_system(ask_can_afford);
     runner.library_mut().add_function("can_afford", can_afford);
-    // ⭐ AND THE FIFTH TAKES THE WALLET SLICE WITH IT. This said the mirror's
-    // `wallet_balance` field had to stay because the catalog cannot return a
-    // number — true about the CATALOG, and it does not follow: a registered
-    // system returns whatever it likes. The field and its per-frame write are
-    // gone, and the live `BodyWallet` is the one authority again.
+    // `wallet_balance` reads the live `BodyWallet` through a registered system.
     let wallet_balance = commands.register_system(ask_wallet_balance);
     runner.library_mut().add_function("wallet_balance", wallet_balance);
 
     let lib = runner.library_mut();
     // visit_count(id) -> f32:
-    // how many times the named dialogue node has been entered. Returns f32 because Yarn arithmetic
-    // is f32-typed (`<<if visit_count("oiler") == 1>>` etc.).
+    // How many times the named dialogue node has been entered. Returns f32
+    // because Yarn arithmetic is f32 (`<<if visit_count("oiler") == 1>>`).
     let m = Arc::clone(&mirror.0);
     lib.add_function("visit_count", move |id: String| -> f32 {
         m.read()
@@ -614,17 +542,12 @@ pub fn register_functions(
             .unwrap_or(0.0)
     });
 
-    // The inventory domain publishes `inventory.holds` into the condition catalog, so authored
-    // dialogue asks `condition("inventory.holds", "<item>")` and reads the live `OwnedItems` — with
-    // `Item::from_dialog_id` as the single owner of loose spelling. See
-    // `ambition_platformer2d_actor_monolith::items::conditions`. wallet_balance() -> number: the
-    // player's current money, so a merchant node can show it ("You have {wallet_balance()}g").
+    // Inventory checks use `condition("inventory.holds", "<item>")`, which reads
+    // the live `OwnedItems`; `Item::from_dialog_id` owns loose spelling. See
+    // `ambition_platformer2d_actor_monolith::items::conditions`.
     }
 
-//  `mirror_inventory_has` and `normalize_item_id` lived here and are gone
-// with the function they served. `normalize_item_id` was a second copy of the
-// normalisation inside `Item::from_dialog_id` — the two agreed, which is the
-// only reason nobody noticed there were two.
+// Loose item spelling has one implementation: `Item::from_dialog_id`.
 
 /// Register the generic custom dialogue commands on the runner. Called
 /// from `spawn_dialogue_runner`; content commands are installed right
@@ -661,11 +584,7 @@ mod tests {
     use super::*;
     use ambition_items::Item;
 
-    //  two tests died with the functions they pinned
-    // (`normalize_item_id_collapses_spelling_variants`,
-    // `mirror_inventory_has_reads_counts_with_loose_spelling`). Their subject —
-    // loose item spelling — is now pinned once, in the item domain's own
-    // condition, where the single implementation of it lives.
+    // Loose item spelling is tested in the item domain's own condition.
 
     #[test]
     fn item_grant_resolves_known_kinds_and_ignores_bad_input() {
@@ -677,8 +596,8 @@ mod tests {
                 count: 2
             })
         );
-        // Loose spelling resolves, and the count is FLOORED — Yarn arithmetic is
-        // f32-typed, so "1.9 potions" is a real thing an author can write.
+        // Loose spelling resolves, and the count is floored: Yarn arithmetic is
+        // f32, so "1.9 potions" is valid input.
         assert_eq!(
             item_grant("HealthPotion", 1.9),
             Some(ambition_items::ItemGrantRequested {
@@ -694,12 +613,8 @@ mod tests {
         assert_eq!(item_grant("DataChip", -3.0), None);
     }
 
-    //  `refresh_mirrors_player_inventory_into_the_snapshot` died too, and
-    // its most interesting assertion — that inventory survives a save-less
-    // sandbox, because the slice was filled before the save early-return — is
-    // now structural rather than tested: there is no slice, and
-    // `inventory.holds` reads `OwnedItems` directly whether a save exists or not.
-    // `a_composition_with_no_inventory_cannot_answer` in
-    // `ambition_platformer2d_actor_monolith::items::conditions` pins the other
-    // half.
+    // Inventory does not depend on a save: `inventory.holds` reads `OwnedItems`
+    // directly. `a_composition_with_no_inventory_cannot_answer` in
+    // `ambition_platformer2d_actor_monolith::items::conditions` covers the
+    // other half.
 }

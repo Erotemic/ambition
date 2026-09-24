@@ -1,13 +1,12 @@
-//! Shockwave Slam — a boss-style ground-slam AOE the player can wield.
+//! Shockwave Slam: a boss-style ground-slam AOE the player can wield.
 //!
-//! The first "player wields a boss attack" slice, now expressed on the effect
-//! seam: `Attack` while holding the shockwave gauntlet emits a generic
-//! [`ambition_vfx::EffectRequest`] carrying a `DamageBox` effect anchored at
-//! the emitter. The generic [`ambition_combat::strike::apply_effects`] consumer spawns
-//! the World-anchored, faction-tagged AOE — so the SAME path serves the player
-//! (Player faction → damages enemies) and a boss (Boss faction → damages the
-//! player, see `boss_encounter::systems` phase-transition slam). No bespoke
-//! per-attack consumer: the technique just emits an effect.
+//! `Attack` while holding the shockwave gauntlet emits an
+//! [`ambition_vfx::EffectRequest`] with a `DamageBox` effect anchored at the
+//! emitter. [`ambition_combat::strike::apply_effects`] spawns the
+//! world-anchored, faction-tagged AOE, so the same path serves the player
+//! (Player faction damages enemies) and a boss (Boss faction damages the
+//! player; see the phase-transition slam in `boss_encounter::systems`). The
+//! technique only emits an effect.
 
 use bevy::prelude::*;
 
@@ -19,28 +18,24 @@ use ambition_platformer2d_core::BodyKinematics;
 /// Held-item id of the shockwave gauntlet.
 pub const SHOCKWAVE_ID: &str = "shockwave";
 
-/// Mana the shockwave slam spends per use (out of 100). With the sandbox's fast
-/// regen this is feedback (the bar visibly drops), not a hard gate — feel-tune.
+/// Mana per use (out of 100).
 const SHOCKWAVE_MANA_COST: f32 = 25.0;
 
-/// Player-wielded shockwave tunings. (A boss authors its own `DamageBox` values
-/// at its emit site; these are the player gauntlet's.)
+/// Player gauntlet tuning. A boss authors its own `DamageBox` values where it
+/// emits.
 const SHOCKWAVE_HALF: ae::Vec2 = ae::Vec2::new(120.0, 52.0);
 const SHOCKWAVE_DAMAGE: i32 = 4;
 const SHOCKWAVE_LIFETIME_S: f32 = 0.18;
 const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 
-/// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect from
-/// the wielding body. Plain Attack only — `Shield + Attack` is the throw/drop
-/// gesture (handled by `item_pickup::throw_held_item_system`, which excludes
-/// this id from throw-on-plain-Attack).
+/// `Attack` while holding the shockwave gauntlet emits a `DamageBox` effect
+/// from the wielding body. Plain Attack only; `Shield + Attack` is the
+/// throw/drop gesture (`item_pickup::throw_held_item_system` excludes this id
+/// from throw-on-plain-Attack).
 ///
-/// Body-generic: the trigger reads the body's own resolved intent
-/// ([`ActorControl`], the same frame an NPC brain writes) rather than the
-/// player's raw input, and iterates every wielder. Mana is the gate, and a
-/// body holds Mana only when its experience declared the pool, so any body that
-/// holds Mana and this gauntlet slams through this exact path — no
-/// player-casing.
+/// Body-generic: reads the body's resolved intent ([`ActorControl`], the same
+/// frame an NPC brain writes), not raw input, for every wielder. Mana is the
+/// gate, and a body has Mana only when its experience declared the pool.
 pub fn fire_shockwave_system(
     mut wielders: Query<(
         Entity,
@@ -60,7 +55,7 @@ pub fn fire_shockwave_system(
         if held.spec.id != SHOCKWAVE_ID {
             continue;
         }
-        // Costs mana — out of mana, no slam (the sandbox's fast regen tops it back up).
+        // Costs mana; with too little, no slam.
         if !crate::mana::spend(mana.as_deref_mut(), SHOCKWAVE_MANA_COST) {
             continue;
         }

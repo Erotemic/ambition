@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v224
+ggrs-rollback-schema-v226
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -158,6 +158,7 @@ derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tic
 derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
 derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
 derived.cleared_encounters	derived	ClearedEncounters	which encounters are cleared this tick; rebuilt from the lifecycles after the reducer
+derived.contact_threat_withdrawn	derived	ContactThreatWithdrawn	re-derived every tick, before the contact pass, by the system owning the body's canonical state
 derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
 derived.controlled_subject	derived	ControlledSubject	resolved from the entity holding DrivingParticipant for the active slot
 derived.custody_residency	derived	InCustodyOf	room residency reprojected from ItemCustody every tick

@@ -1,4 +1,4 @@
-//! Pugnacious Polygon — brawler archetype repertoire.
+//! Pugnacious Polygon: brawler archetype repertoire.
 //!
 //! A complete fundamentals brawler table. It mirrors the sword reference's typed
 //! vocabulary but expresses every slot with close-range body mechanics: punches,
@@ -31,26 +31,17 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         launch_dir: Some((1.0, -0.18)),
         on_hit: None,
     });
-    // ⭐⭐ THE SECOND PUNCH OF THE STRING, AND THE ROSTER'S FIRST HIT-CONFIRM.
-    // Bound to no verb: it is reached only by re-pressing attack inside the
-    // first jab's cancel window, and only when that jab CONNECTED.
+    // The second punch of the string, a hit-confirm. It is bound to no verb:
+    // it is reached only by pressing attack again inside the first jab's cancel
+    // window, and only when that jab connected (`CancelCondition::OnHit`).
     //
-    // ⛔⛔ `CancelCondition::OnHit` HAD ZERO CUSTOMERS UNTIL THIS — measured
-    // 2026-09-05, along with `OnWhiff` and `OnBlock`. The condition's own doc
-    // describes exactly this move ("combo confirm — jab chains into jab2 on
-    // hit") and nothing in the roster had ever asked for it, so the genre's
-    // most-pressed sequence was shipped as a capability nobody used.
+    // The blocked case is the point. A string that continued on `Always` would
+    // swing the second punch into a raised shield and give the defender a free
+    // punish. Confirmed, the string continues; blocked, she pays the jab's
+    // recovery. That is shield pressure.
     //
-    // ⭐ AND THE BLOCKED CASE IS THE POINT, not a side effect. A string that
-    // continued on `Always` would swing the second punch into a raised shield,
-    // which hands the defender a free punish and takes the read out of the
-    // exchange. Confirmed, the string continues; blocked, she owes the jab's
-    // recovery. That is shield pressure, and it is the whole reason the
-    // condition exists.
-    //
-    // ⚠ TWO PUNCHES, NOT A LADDER. The bound is visible in the data — jab2
-    // authors no cancel window of its own — so nobody has to read the runtime to
-    // learn where the string ends.
+    // Two punches, not a ladder: jab2 authors no cancel window of its own, so
+    // the data shows where the string ends.
     let jab2 = strike(Strike {
         id: "polygon_brawler_jab2",
         clip: "attack_side",
@@ -60,18 +51,16 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         offset: (24.0, -2.0),
         half_extents: (19.0, 15.0),
         // Bigger than the opener and smaller than her forward tilt: a confirm
-        // should beat repeating the jab and should not beat committing to a
-        // real button.
+        // should beat repeating the jab, not beat committing to a real button.
         damage: 5,
         knockback: 78.0,
         knockback_growth: 1.30,
         launch_dir: Some((1.0, -0.30)),
         on_hit: None,
     });
-    // ⛔ THE WINDOW OPENS WHERE THE ACTIVE FRAMES CLOSE (0.04 + 0.05) and runs to
-    // the end of the move (0.19). Opened earlier it would let her cancel the jab
-    // before it could connect, which is a cancel out of STARTUP — the thing that
-    // makes a move safe on whiff and is not what a confirm is for.
+    // The window opens where the active frames close (0.04 + 0.05) and runs to
+    // the end of the move (0.19). Opened earlier, it would allow a cancel out of
+    // startup, which is what makes a move safe on whiff.
     let jab = ambition_entity_catalog::authoring::cancelable(
         jab,
         0.09,
@@ -240,34 +229,25 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     });
     down_air.landing_lag_s = Some(0.25);
 
-    // NEUTRAL — `polygon_brawler_haymaker`. A CHARGED PUNCH.
+    // Neutral: `polygon_brawler_haymaker`, a charged punch.
     //
-    // ⭐⭐ IT WAS ONE OF FIVE SPECIALS IN THE WHOLE ROSTER WITH NOTHING ON IT.
-    // `the_census_of_specials_that_carry_no_technique` reports what a special
-    // carries BESIDES a technique — extra windows, a charge, an impulse, events
-    // — and this move had none of them: a single hitbox on its own button, on
-    // the fighter whose entire identity is the size of one punch.
+    // Before the charge it had nothing but one hitbox
+    // (`the_census_of_specials_that_carry_no_technique`).
     //
-    // ⛔ A CHARGE IS NOT A TECHNIQUE AND DOES NOT WANT TO BE. `smash_charge` is
-    // engine-shipped timeline machinery: the move freezes at `hold_at_s` while
-    // Attack is held and `smash_charge_mult` interpolates damage AND knockback
-    // by how far the clock got. Nothing new is owed for this — which is the
-    // point of authoring it here rather than inventing a technique for it.
+    // A charge is not a technique. `smash_charge` is engine timeline machinery:
+    // the move freezes at `hold_at_s` while Attack is held, and
+    // `smash_charge_mult` scales damage and knockback by how far the clock got.
     //
-    // ⚠ IT DOES NOT STORE, and that is the deliberate contrast with the
-    // Projectile Polygon's neutral-B, which IS authored to store — the
-    // maintainer's request and his words for it live in
-    // `projectile_polygon_moveset.rs`, where the fighter he spoke about is.
-    // A ranged fighter banks a shot and picks its moment; a brawler commits in
-    // front of you and either lands it or wears the recovery. Storing would turn
-    // the read into a resource.
+    // It does not store, in contrast with the Projectile Polygon's neutral-B,
+    // which does (the maintainer's request is in
+    // `projectile_polygon_moveset.rs`). A ranged fighter banks a shot and picks
+    // its moment; a brawler commits in front of you and lands it or pays the
+    // recovery.
     //
-    // ⛔ AND HIS NAME STAYS OUT OF THIS FILE ON PURPOSE.
+    // The maintainer's name stays out of this file on purpose.
     // `test_the_reviews_page_agrees_with_the_code_about_whose_moves_these_are`
-    // reads the maintainer's NAME in a moveset file as "he has spoken about this
-    // fighter", and this brawler is on the free-to-change list. Quoting him here
-    // about ANOTHER fighter's move would tell a future polish pass that these
-    // moves are his. It caught me doing exactly that.
+    // reads his name in a moveset file as "he has spoken about this fighter",
+    // and this brawler is on the free-to-change list.
     let haymaker = strike(Strike {
         id: "polygon_brawler_haymaker",
         clip: "attack_side",
@@ -285,19 +265,15 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     let haymaker = ambition_entity_catalog::authoring::charge(
         haymaker,
         ambition_entity_catalog::authoring::Charge {
-            // Early in the 0.16s startup: the wind-up is visible before the
-            // freeze, so the opponent sees it begin rather than a statue appear.
+            // Early in the 0.16s startup, so the opponent sees the wind-up begin
+            // before the freeze.
             hold_at_s: 0.06,
-            // A LONG hold, because the whole move is the threat of it. 1.2s is
-            // far longer than the Polygon's fill per tier and it is meant to be:
-            // this is a punch you have to be made to respect, not one you sneak
-            // out.
+            // A long hold: the move is the threat of it. 1.2s is far longer than the
+            // Polygon's fill per tier, on purpose.
             max_hold_s: 1.2,
             stores: false,
-            // ⭐ ROOTED, which is the rule every smash in the game follows and
-            // doubly right here: a brawler planting his feet to wind up is the
-            // tell the opponent is reading, and a charge you could walk around
-            // with would be a threat with no commitment behind it.
+            // Rooted, like every smash: planting the feet is the tell the opponent
+            // reads. A charge you could walk around with has no commitment.
             roots: true,
             sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
             // The button that charges it is the SPECIAL, not a smash gesture.
@@ -307,42 +283,32 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         },
     );
     let neutral_special = committed_tail(haymaker, 0.58, 0.18);
-    // SIDE — `polygon_brawler_collar`. A COMMAND GRAB, replacing a shoulder rush
-    // that was a dash with a hitbox on it.
+    // Side: `polygon_brawler_collar`, a command grab.
     //
-    // ⭐⭐ IT IS THE ARCHETYPE'S MISSING VERB. A brawler's identity in this genre
-    // is that blocking is not safe against them: the grab that travels is what
-    // makes shielding a decision instead of a default, and this table had five
-    // specials that were all hitboxes — every one of them answerable by holding
-    // shield. ⇒ The census (`the_census_of_specials_that_carry_no_technique`)
-    // named this fighter as five-for-five bare, which is what sent me here.
+    // A brawler must make blocking unsafe. The travelling grab makes shielding
+    // a decision; hitbox-only specials are all answered by holding shield.
     //
-    // ⛔ IT COSTS NOTHING NEW. `smash.capture_attempt` is shipped, the stand-in's
-    // `lunge_grab` already authors a travelling one, and this fighter already has
-    // a pummel and all four throws — so the follow-ups exist the moment the grab
-    // does. That is the whole ease-of-authoring claim in one move: name the key,
-    // fill three fields, keep the hold.
+    // It needs no new engine work: `smash.capture_attempt` exists, the
+    // stand-in's `lunge_grab` already travels, and this fighter already has a
+    // pummel and four throws.
     //
-    // ⚠ THE HOLD MATCHES HIS STANDING GRAB, deliberately and for the reason the
-    // stand-in's does: the throws are SHARED, so a captive held somewhere else
-    // would make them read differently depending on which grab caught them.
+    // The hold matches his standing grab because the throws are shared: a
+    // captive held elsewhere would make them read differently per grab.
     //
-    // ⛔ THE PRICE IS THE RECOVERY, at 0.42s against a 0.07s catch. A command
-    // grab that is safe on whiff removes the shield mixup it exists to create,
-    // because there is then no reason to ever not throw it.
+    // The price is the recovery: 0.42s against a 0.07s catch. A command grab
+    // that is safe on whiff would remove the shield mix-up it exists to make.
     let mut side_special = author_standing_grab(
         grab_shell("polygon_brawler_collar", "attack_side", 0.16, 0.07, 0.42),
         CaptureAttemptParams {
-            // 58px of reach against his standing grab's 34: it has to catch
-            // somebody the lunge is arriving at, not somebody already in range.
+            // 58px of reach against his standing grab's 34: it must catch someone the
+            // lunge is arriving at, not someone already in range.
             offset: (32.0, 0.0),
             half_extents: (26.0, 20.0),
             hold_offset: (14.0, 3.0),
         },
     );
-    // ⛔ ADDITIVE, for the reason the stand-in's carries: a grab that deleted
-    // your run would make dashing into it worse than walking, and a
-    // dash-cancelled command grab covering more ground is correct.
+    // Additive, like the stand-in's: a grab that deleted your run would make
+    // dashing into it worse than walking.
     side_special.start_impulse = Some((360.0, 0.0));
     let mut uppercut = strike(Strike {
         id: "polygon_brawler_uppercut",
@@ -360,28 +326,17 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     });
     uppercut.landing_lag_s = Some(0.25);
     let up_special = impulse(uppercut, 0.08, (0.0, -745.0), ImpulseMode::Set);
-    // ⭐⭐ AND THEN HE HANGS THERE. The rise is unchanged; what is new is the
-    // DESCENT, and it is the first authored customer for
+    // Then he hangs there. The rise is unchanged; the descent is new, through
     // `MoveEventKind::GravityModifier`.
     //
-    // ⛔ THIS FIGHTER WAS PICKED BY MEASUREMENT, NOT BY TASTE. The
-    // comment-vs-mechanics sweep scored every moveset in this crate, and his was
-    // the only one with ZERO claim markers across ten comment lines — five
-    // specials that are a haymaker, a shoulder rush, an uppercut, a ground slam
-    // and a body drop. Entirely honest and entirely dull, which is a different
-    // defect from the five that lied and the one the goal names in as many
-    // words: *"many have boring specials."*
+    // The float starts after the hit, not at the press: the uppercut is still
+    // a committal rising attack that can be beaten. 0.35 gravity for 1.1s is
+    // about a doubled descent: long enough to change a ledge read, short enough
+    // that it cannot stall a whole stock.
     //
-    // ⭐ THE FLOAT STARTS AFTER THE HIT, not at the press: the uppercut is still
-    // a committal rising attack that can be beaten, and the reward for landing
-    // it — or for surviving it — is the way home. 0.35 gravity for 1.1s is
-    // roughly a doubled descent, long enough to change a ledge read and short
-    // enough that it cannot stall out a whole stock.
-    //
-    // ⛔ IT OUTLIVES THE MOVE, WHICH IS THE POINT AND IS WHY IT IS AN EVENT. The
-    // uppercut's own timeline ends at 0.39s; the parasol is still running for
-    // nearly a second after that. A `WindowTag` could not say this, and the
-    // movement domain — not this move — is what ends it.
+    // It outlives the move, so it is an event. The uppercut ends at 0.39s; the
+    // parasol runs for nearly a second after that. A `WindowTag` cannot say this,
+    // and the movement domain ends it.
     let up_special = gravity_modifier(up_special, 0.20, 0.35, 1.1);
 
     let grounded_down_special = committed_tail(
@@ -402,51 +357,37 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
         0.54,
         0.05,
     );
-    // ⭐⭐ AND THE SLAM SENDS A SHOCK ALONG THE GROUND. The fists were the whole
-    // move: one box under him, on the fighter whose archetype is the size of an
-    // impact. `the_census_of_specials_that_carry_no_technique` named this as one
-    // of only four specials in the roster carrying no technique AND no other
-    // authoring — a hitbox on a different button.
+    // The slam sends a shock along the ground.
     //
-    // ⛔ IT COSTS NO NEW ENGINE. `smash.riposte_strike` spawns an ordinary body
-    // strike at an authored reach, and its own module says it is not limited to
-    // counters: a counter reaches it as a `response`, a MOVE reaches it from its
-    // timeline, and both arrive as the same `ActorActionMessage`. This is that
-    // second road's first customer.
+    // No new engine: `smash.riposte_strike` spawns an ordinary body strike at
+    // an authored reach. A counter reaches it as a `response`, a move reaches it
+    // from its timeline, and both arrive as the same `ActorActionMessage`.
     //
-    // ⛔ AND `multihit` COULD NOT SAY THIS. Its pulses are a LEAD-IN — it shifts
-    // the finisher back by the pulse train's length, because a multi-hit is a
-    // wind-up into a finisher. A shock that follows the impact is the other
-    // direction.
+    // `multihit` cannot say this: its pulses are a lead-in that shifts the
+    // finisher later. A shock that follows the impact goes the other way.
     //
-    // ⚠ THE SHOCK RUNS THE WAY HE FACES, not both ways, because the technique
-    // places one box at a facing-relative reach. That is a real limitation and
-    // it is also the right move here: a directional slam that covered both sides
-    // would beat a shield in front AND punish a wake-up behind, which is two
-    // options on one button.
+    // The shock runs the way he faces, not both ways, because the technique
+    // places one box at a facing-relative reach. A slam covering both sides
+    // would beat a shield in front and punish a wake-up behind: two options on
+    // one button.
     let grounded_down_special = ambition_entity_catalog::smash_riposte::author_cut(
         grounded_down_special,
-        // Just after the fists land (startup 0.13 + the tail's shift): the shock
-        // is a consequence of the impact and must read as one.
+        // Just after the fists land (startup 0.13 plus the tail's shift): the
+        // shock must read as a result of the impact.
         0.24,
         ambition_entity_catalog::smash_riposte::RiposteStrikeParams {
-            // Weaker than the 11 the slam itself deals: the shock is the reach,
-            // not the payoff.
+            // Weaker than the slam's 11: the shock is the reach, not the payoff.
             damage: 6,
-            // ⛔ A FEEL MULTIPLIER, NOT A LAUNCH SPEED. The slam above authors
-            // `knockback: 105.0` on a `Strike`, where that field IS a speed;
-            // copying it here is the units error three shipped moves made.
+            // A feel multiplier, not a launch speed. The slam's `knockback: 105.0` on a
+            // `Strike` is a speed; do not copy it here.
             knockback: 1.15,
-            // Out in front, spanning x 16..104 body-local: it covers the ground
-            // a shielding opponent was standing on, which is what a brawler's
-            // slam is for.
+            // Out in front, spanning x 16..104 body-local: it covers the ground a
+            // shielding opponent stood on.
             reach: 60.0,
             half_extents: (44.0, 10.0),
-            // ⭐ BLUNT, and it is the other half of the same fix: this shock and
-            // the swordfighter's riposte are the SAME mechanic — a technique-
-            // spawned body strike — so the only thing that makes them different
-            // events to a player is this string. The floor answering a slam is
-            // not a blade.
+            // Blunt. This shock and the swordfighter's riposte are the same mechanic (a
+            // technique-spawned body strike), so this string is the only difference a
+            // player hears.
             hit_sfx: Some("world.rock.hit".to_string()),
             lifetime_s: 0.10,
         },
@@ -524,11 +465,9 @@ pub fn pugnacious_polygon_moveset() -> MovesetContract {
     );
 
     let mut contract = SmashRepertoire {
-        // the genre shapes, deliberately. This is the unarmed half of the
-        // REFERENCE pair, so its taunt and dash attack are the ones a new
-        // humanoid should copy before it has a reason to differ. Five fighters
-        // own a `DashAttackShape` because their own laws refused the generic
-        // one; a reference rig has no such law to refuse it.
+        // The genre shapes, on purpose. This is the unarmed half of the reference
+        // pair, so a new humanoid should copy its taunt and dash attack until it has
+        // a reason to differ.
         taunt: ambition_entity_catalog::authoring::taunt("pugnacious_polygon_taunt", 0.9),
         dash_attack: ambition_entity_catalog::authoring::dash_attack(
             "pugnacious_polygon_dash_attack",
@@ -577,30 +516,24 @@ mod tests {
     /// The launch conditions a CONTENT claim is about: a fresh reference body
     /// under the undeclared ruleset.
     ///
-    /// ⚠ **NAMED RATHER THAN IMPLIED.** `LaunchEnvelope::at` used to take a
-    /// bare damage number and silently assume weight `1.0`, no percent scale,
-    /// the identity growth curve and no rage — which is how the fighter brain
-    /// came to rank its finishers under a law the hit resolver does not use.
-    /// An authoring claim IS about that world; a scorer is not, and now both
-    /// have to say which.
+    /// Named, not implied: an authoring claim is about this world, and a scorer
+    /// is not, so each must say which conditions it uses.
     fn fresh(victim_damage: i32) -> ambition_entity_catalog::launch::LaunchConditions {
         ambition_entity_catalog::launch::LaunchConditions::AGAINST_A_FRESH_REFERENCE_BODY
             .at_damage(victim_damage)
     }
 
-    /// ⛔⛤ **HIS TWO SMASHES CROSS, WHICH IS WHY A KILL QUESTION MAY NOT READ
-    /// BASE KNOCKBACK.**
+    /// His two smashes cross, so a kill question must not read base knockback.
     ///
-    /// Forward smash is `(162, 3.25)` and up smash is `(158, 5.83)`. The bigger
-    /// BASE belongs to the forward smash and the bigger LAUNCH, everywhere past
-    /// a couple of points of damage, belongs to the up smash. A brain feature
-    /// folded to `max(base)` ranks his finisher backwards for the whole match.
+    /// Forward smash is `(162, 3.25)` and up smash is `(158, 5.83)`. The forward
+    /// smash has the bigger base; past a few points of damage the up smash has
+    /// the bigger launch. A brain feature folded to `max(base)` ranks his
+    /// finisher backwards.
     ///
-    /// ⚠ **THE ARM IS ABOUT THE ORDER, NOT THE NUMBERS.** It asserts the two
-    /// lines actually cross and which side wins on each side of the crossing,
-    /// so re-tuning either smash keeps it green as long as the roster still
-    /// authors a base/growth tradeoff at all — and turns it red the moment the
-    /// derivation goes back to throwing growth away.
+    /// The test is about the order, not the numbers: it asserts that the lines
+    /// cross and which side wins on each side. Retuning either smash keeps it
+    /// green while the roster still has a base/growth tradeoff; it fails if the
+    /// derivation discards growth.
     #[test]
     fn his_up_smash_out_launches_his_forward_smash_once_the_opponent_is_worn() {
         let set = super::pugnacious_polygon_moveset();
@@ -629,14 +562,11 @@ mod tests {
         assert!(up.grows_under(fresh(0)) && forward.grows_under(fresh(0)));
     }
 
-    /// ⭐⭐ THE SLAM'S SHOCK REACHES GROUND THE SLAM ITSELF CANNOT, which is the
-    /// entire reason it exists — and the pair of numbers that says so is split
-    /// across two different authoring vocabularies, so nothing but a test holds
-    /// them together.
+    /// The slam's shock reaches ground the slam cannot. The two numbers are in
+    /// two authoring vocabularies, so only this test holds them together.
     ///
-    /// ⛔ AND IT MUST STAY THE WEAKER HALF. A follow-up that hit harder than the
-    /// impact it follows would make the slam a delivery mechanism for its own
-    /// tail, and the fists are the move.
+    /// It must stay the weaker half: a follow-up that hit harder would make the
+    /// slam a delivery mechanism for its own tail.
     #[test]
     fn his_ground_slam_sends_a_shock_that_outreaches_the_fists_and_hits_softer() {
         use ambition_entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
@@ -666,11 +596,9 @@ mod tests {
             .windows
             .iter()
             .flat_map(|window| window.volumes.iter())
-            // ⛔ `leading_edge_x`, NOT THE SUM. This spelled
-            // `offset.0 + half_extents.0` and `test_the_grab_reach_is_one_formula`
-            // caught it: the same arithmetic on a different type is the same
-            // duplication, and this file names `CaptureAttemptParams` elsewhere
-            // so it is squarely in that guard's population.
+            // `leading_edge_x`, not `offset.0 + half_extents.0`:
+            // `test_the_grab_reach_is_one_formula` requires the one formula, and this
+            // file names `CaptureAttemptParams`, so that guard covers it.
             .map(|volume| volume.shape.leading_edge_x())
             .fold(f32::MIN, f32::max);
         assert!(
@@ -705,16 +633,11 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ HIS PUNCH CHARGES, AND IT DOES NOT STORE — the second half is the
-    /// design claim, and it is about TWO fighters at once.
+    /// His punch charges and does not store.
     ///
-    /// The Projectile Polygon's neutral-B is authored to STORE, at the
-    /// maintainer's request (his words are in that fighter's own file). A
-    /// ranged fighter banks a shot and picks its moment. A brawler commits in
-    /// front of you and either lands it or wears the recovery — storing would
-    /// turn the read into a resource. ⇒ Prose in two files cannot hold that
-    /// apart; this can, and it fails if either fighter is retuned toward the
-    /// other.
+    /// The Projectile Polygon's neutral-B is authored to store, at the
+    /// maintainer's request. A ranged fighter banks a shot; a brawler commits.
+    /// This test fails if either fighter is retuned toward the other.
     #[test]
     fn his_haymaker_charges_and_deliberately_does_not_store() {
         let set = pugnacious_polygon_moveset();
@@ -772,14 +695,10 @@ mod tests {
             .unwrap_or_else(|| panic!("`{id}` carries no capture attempt"))
     }
 
-    /// ⭐⭐ HIS SIDE-B IS A COMMAND GRAB, WHICH IS THE POINT OF THIS FIGHTER.
-    /// Five specials that are all hitboxes are five specials answerable by
-    /// holding shield; the grab that travels is what makes shielding a decision.
+    /// His side-B is a command grab.
     ///
-    /// ⛔ AND THE HOLD IS THE ASSERTION THAT WAS ONLY PROSE. Both grabs feed the
-    /// SAME four throws, so a captive held somewhere else would make the throws
-    /// read differently depending on which grab caught them. That sentence is in
-    /// the stand-in's comment, in this move's comment, and until now in no test.
+    /// Both grabs feed the same four throws, so the hold must match: a captive
+    /// held elsewhere would make the throws read differently per grab.
     #[test]
     fn his_side_b_is_a_command_grab_that_shares_the_hold_with_his_standing_one() {
         let set = pugnacious_polygon_moveset();
@@ -812,18 +731,14 @@ mod tests {
         );
     }
 
-    /// ⛔⛤ **AND THE BRAIN CAN SEE HOW FAR IT REACHES, WHICH IT COULD NOT.**
-    /// A capture rides an Active window's `sustain_effect`, not its volume
-    /// list, so `frame_data` folded over `volumes` alone called every grab a
-    /// move with no region at all. The actor layer patched that in for exactly
-    /// ONE move — the neutral grab it reaches through `GRAB_VERB` — and this
-    /// one is bound to `attack_side`, so it got nothing: offered at every gap
-    /// on the stage and priced at zero, which on the 2026-09-20 grid sweep is
-    /// what he threw 38 times in 66 starts.
+    /// The brain can see how far the command grab reaches. A capture rides an
+    /// Active window's `sustain_effect`, not its volume list, so `frame_data`
+    /// folded over `volumes` alone gave every grab no region. Only the neutral
+    /// grab (through `GRAB_VERB`) was patched; this one is bound to `attack_side`,
+    /// so it was offered at every gap and priced at zero.
     ///
-    /// ⚠ THE STANDING GRAB IS THE CONTROL. It is the move that was already
-    /// right, and a derivation that answers only the one that was broken is a
-    /// second special case rather than the removal of one.
+    /// The standing grab is the control: a derivation that fixes only the broken
+    /// move is another special case.
     #[test]
     fn both_of_his_grabs_tell_the_brain_the_distance_they_close() {
         let set = pugnacious_polygon_moveset();
@@ -852,13 +767,11 @@ mod tests {
     }
     use super::*;
 
-    /// ⭐⭐ HIS UP-B OPENS A PARASOL THAT OUTLIVES IT, and the DURATION is the
-    /// assertion rather than the presence.
+    /// His up-B opens a parasol that outlives it; the duration is the assertion,
+    /// not the presence.
     ///
-    /// ⛔ A `WindowTag` would satisfy "the move slows his fall" and fail this,
-    /// which is exactly the simplification a later reader will reach for. The
-    /// regime has to still be running after the move's own timeline ends, or the
-    /// descent it exists to give him is over before he starts falling.
+    /// A `WindowTag` would satisfy "the move slows his fall" and fail this. The
+    /// regime must still run after the move's timeline ends.
     #[test]
     fn the_uppercut_leaves_him_floating_for_longer_than_the_move_lasts() {
         use ambition_entity_catalog::MoveEventKind;

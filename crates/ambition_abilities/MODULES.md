@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_abilities** — The WIELDED ability kit, carved out of the actor kernel (D33, 2026-09-03).
+**ambition_abilities** — The wielded ability kit, split from the actor kernel (D33).
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

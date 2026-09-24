@@ -1,15 +1,15 @@
 //! Grapple — a held item that yanks the player toward a grappled surface.
 //!
-//! Canon ability ([`ambition_items::Item::Grapple`]): a traversal pull. Implemented
-//! as a wired ability (a held item) like Blink / Mark/Recall / Fireball, so it
-//! reuses the equip / OoT-menu / throw plumbing. While holding it, `Attack`
-//! casts a line along the aim direction; if it lands on a solid wall within
-//! [`GRAPPLE_RANGE`], the player is yanked toward the hit at [`GRAPPLE_PULL_SPEED`]
-//! (a burst impulse — collision resolution then settles them at the surface).
-//! A grapple into empty space fizzles.
+//! Canon ability ([`ambition_items::Item::Grapple`]): a traversal pull. A
+//! held-item ability like Blink, Mark/Recall, and Fireball, so it reuses the
+//! equip, menu, and throw plumbing. While it is held, `Attack` casts a line
+//! along the aim; if it hits a solid wall within [`GRAPPLE_RANGE`], the
+//! player is pulled toward the hit at [`GRAPPLE_PULL_SPEED`] (a burst
+//! impulse; collision settles them at the surface). A grapple into empty
+//! space fizzles.
 //!
-//! Stateless, so nothing to clear on reset; opts out of throw-on-attack like the
-//! other pure-use abilities.
+//! Stateless, so nothing to clear on reset. Opts out of throw-on-attack like
+//! the other pure-use abilities.
 
 use bevy::prelude::*;
 
@@ -27,7 +27,7 @@ const GRAPPLE_RANGE: f32 = 300.0;
 /// Speed of the burst yank toward a grappled surface.
 const GRAPPLE_PULL_SPEED: f32 = 620.0;
 
-/// Cooldown between successful yanks, so grappling reads as deliberate.
+/// Cooldown between successful pulls, so grappling is deliberate.
 const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 
 /// `Attack` while holding the Grapple ability casts along the aim direction; on
@@ -35,9 +35,8 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 pub fn grapple_system(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     mut commands: Commands,
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same item simply never acted.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can use it.
     driven: ambition_held_items::DrivenBodies,
     mut bodies: Query<(
         Entity,
@@ -71,12 +70,12 @@ pub fn grapple_system(
             continue;
         }
         let from = kin.pos;
-        // Raycast against the composited collision world so the grapple can latch a
-        // moving platform / ECS solid, not just the bare authored room.
+        // Raycast against the composited collision world, so the grapple can
+        // latch a moving platform or ECS solid.
         let Some((hit, _normal)) = world.solids().and_then(|w| {
             ambition_platformer2d_core::cast::raycast_solids(&*w, from, dir, GRAPPLE_RANGE, false)
         }) else {
-            // Grapple into empty space: a dry fizzle, no pull (and no cooldown burned).
+            // Grapple into empty space: a fizzle, no pull, no cooldown used.
             sfx.write_for(
                 player,
                 ambition_sfx::SfxMessage::Play {
@@ -86,7 +85,7 @@ pub fn grapple_system(
             );
             continue;
         };
-        // Only a successful latch is on cooldown — a miss above costs nothing.
+        // Only a successful latch uses the cooldown; a miss costs nothing.
         if !crate::ability_cooldown::try_use_ability(
             &mut cooldown,
             &mut commands,
@@ -95,8 +94,8 @@ pub fn grapple_system(
         ) {
             continue;
         }
-        // Yank toward the latched surface (collision resolution settles the player at
-        // it). A burst velocity, not a teleport, so the movement reads as a pull.
+        // Pull toward the latched surface (collision settles the player
+        // there). A burst velocity, not a teleport, so it reads as a pull.
         let pull = (hit - from).normalize_or_zero();
         kin.vel = pull * GRAPPLE_PULL_SPEED;
         sfx.write_for(
@@ -106,9 +105,8 @@ pub fn grapple_system(
                 pos: from,
             },
         );
-        // Draw the grapple LINE as a tan spark trail from the player to the latch
-        // point, so the ability READS as a grapple rope being thrown and reeling you
-        // in — not just a mysterious sudden yank (#53 "not sure what it does").
+        // Draw the grapple line as a tan spark trail from the player to the
+        // latch point, so the ability reads as a rope pulling you in (#53).
         const GRAPPLE_LINE_SEGMENTS: i32 = 8;
         for i in 1..GRAPPLE_LINE_SEGMENTS {
             let p = from.lerp(hit, i as f32 / GRAPPLE_LINE_SEGMENTS as f32);

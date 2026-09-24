@@ -24,14 +24,13 @@ const STAMP_FX: f32 = 0.55;
 const SWING_FX: f32 = 0.80;
 const PROOF_FX: f32 = 1.35;
 
-/// The rise `elevator_thought` commands — the equivalence principle as a
-/// recovery. A SPEED applied with [`ImpulseMode::Set`], for the reason every
-/// recovery here is: a clerk pressing this at terminal velocity gets the climb a
-/// standing one does.
+/// The rise `elevator_thought` commands: the equivalence principle as a
+/// recovery. A speed applied with [`ImpulseMode::Set`], so a falling clerk
+/// climbs as far as a standing one.
 pub const ELEVATOR_SPEED: f32 = 920.0;
 pub const ELEVATOR_AT_S: f32 = 0.22;
-/// not a feel number: the tail must outlast the arc or repeated presses gain
-/// height, which is flight. `the_elevator_is_a_save_and_not_a_flight` holds it.
+/// Not a feel number: the tail must outlast the arc, or repeated presses gain
+/// height (flight). `the_elevator_is_a_save_and_not_a_flight` checks it.
 pub const ELEVATOR_ENDS_S: f32 = 1.18;
 
 /// The least steering any window of a move leaves its owner.
@@ -46,9 +45,8 @@ pub fn tightest_lock(spec: &MoveSpec) -> f32 {
 pub fn patent_clerk_moveset() -> MovesetContract {
     // ── grounded ─────────────────────────────────────────────────────────────
     //
-    // the slowest jab in the game, and it is supposed to be. A heavyweight's
-    // fast option is still a decision — 0.08s is long enough that a goblin can
-    // walk into it, hit twice and leave.
+    // The slowest jab in the game, on purpose. 0.08s is long enough that a
+    // goblin can walk in, hit twice and leave.
     let jab = strike(Strike {
         id: "jab",
         clip: "jab",
@@ -65,9 +63,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     });
     let jab = vfx_at(jab, 0.08, "stamp_at_rest", (28.0, 0.0), STAMP_FX);
 
-    // CONTROLLER, not killer: it pops them straight up, at a launch too weak to
-    // finish anybody. What it buys is the next four moves happening above a body
-    // that cannot walk away.
+    // A controller, not a killer: it pops them straight up, too weak to finish
+    // anyone, so the next moves happen above a body that cannot walk away.
     let up_tilt = strike(Strike {
         id: "tilt_up",
         clip: "attack_up",
@@ -92,8 +89,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let up_tilt = on_contact(up_tilt, "player.hit");
 
-    // The other half of the setup: along the floor, almost no vertical. They end
-    // up at the ledge, which is where the clerk wants everybody.
+    // The other half of the setup: along the floor, almost no vertical, toward
+    // the ledge where he wants everyone.
     let down_tilt = strike(Strike {
         id: "tilt_down",
         clip: "attack_down",
@@ -120,9 +117,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 
     // ── smashes: the FINISHERS ───────────────────────────────────────────────
     //
-    // the hardest hits in the game, on the longest commitments in the game. A
-    // body this slow gets one of these per stock if it is playing well, so it has
-    // to be the one that ends things.
+    // The hardest hits in the game on the longest commitments. A body this slow
+    // gets about one per stock, so it must end things.
     let mut f_smash = strike(Strike {
         id: "smash_forward",
         clip: "smash_forward",
@@ -262,8 +258,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let u_air = vfx_at(u_air, 0.10, "light_cone", (2.0, -32.0), SWING_FX);
     let u_air = on_contact(u_air, "player.hit");
 
-    // the exception, and the one place *AT REST* shows up as a swing: it stops
-    // dead and drops. Straight down, no drift, the heaviest spike in the game.
+    // The exception, and where "at rest" shows up as a swing: it stops dead and
+    // drops. Straight down, no drift, the heaviest spike in the game.
     let d_air = strike(Strike {
         id: "air_down",
         clip: "air_down",
@@ -281,10 +277,9 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let d_air = vfx_at(d_air, 0.16, "mass_energy_exchange", (4.0, 30.0), SWING_FX);
     let d_air = on_contact(d_air, "player.hit");
 
-    // a forward tilt, because without one the commonest press in the genre
-    // falls down the directional chain to the jab. The same hole George Booul
-    // and Oiler both had. A margin correction: he reaches out and rewrites what
-    // you just did.
+    // A forward tilt, so the most common press does not fall down the chain to
+    // the jab. A margin correction: he reaches out and rewrites what you just
+    // did.
     let f_tilt = strike(Strike {
         id: "tilt_forward",
         clip: "margin_correction",
@@ -319,34 +314,23 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         launch_dir: Some((0.9, -0.45)),
         on_hit: None,
     });
-    // ⭐⭐ SET KNOCKBACK, BECAUSE THE COMMENT ABOVE ALREADY PROMISED IT AND THE
-    // NUMBERS SAID OTHERWISE. "The speed of light is the same in every frame"
-    // was authored against `knockback_growth: 2.05` — a launch that depends
-    // entirely on how damaged the observer is, which is the one thing the
-    // postulate says cannot happen. It was one of the roster's specials carrying
-    // no mechanic at all, and the mechanic it was missing was the one written
-    // above it.
+    // Set knockback: "the same in every frame". `fixed_knockback` zeroes the
+    // growth on every volume, so the launch is the same at 0% and 150%.
     //
-    // ⇒ `fixed_knockback` zeroes the growth on every volume: the same launch at
-    // 0% and at 150%. That makes this his SET-UP rather than his finisher — it
-    // will never kill, and it sends them exactly where he wants at any percent,
-    // which is what a man who argues from invariants should have in his hand.
-    //
-    // ⛔ AND IT IS A REAL TRADE. He loses a neutral-B that scaled into a kill
-    // move; a clerk who can no longer finish with his best-reaching special has
-    // to earn the stock somewhere else in the kit.
+    // That makes it his set-up, not his finisher: it never kills, but it sends
+    // them where he wants at any percent. The trade is real: he gives up a
+    // neutral-B that scaled into a kill move.
     let n_b = fixed_knockback(n_b);
     let n_b = committed_tail(n_b, 0.66, 0.0);
     let n_b = vfx_at(n_b, 0.22, "light_cone", (36.0, -6.0), PROOF_FX);
     let n_b = on_contact(n_b, "player.hit");
 
-    // SIDE — `reference_frame`. He declares a frame and moves in it. the
-    // impulse fires on the ACTIVE frame rather than the press, and the tail is
-    // fully locked, so the pass goes exactly as far as it was going to — which
-    // is the heavyweight's version of a dash: no take-backs.
+    // Side: `reference_frame`. He declares a frame and moves in it. The impulse
+    // fires on the active frame, not the press, and the tail is fully locked, so
+    // the pass goes as far as it was going: no take-backs.
     //
-    // it displaces HIM and says nothing about anybody else's motion. The
-    // reference-frame MECHANIC the module header keeps out stays out.
+    // It displaces him only. The reference-frame mechanic the module header
+    // excludes stays out.
     let side_b = strike(Strike {
         id: "reference_frame",
         clip: "reference_frame",
@@ -362,29 +346,19 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         on_hit: None,
     });
     let side_b = impulse(side_b, 0.20, (640.0, 0.0), ImpulseMode::Set);
-    // ⭐⭐ AND HE GOES THROUGH YOU. `WindowTag::Armor` is consumed end to end —
-    // `MovePlayback` republishes `BodyCombat::armored` from the live window every <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
-    // tick and `hit_reaction` gates the launch on `!combat.armored` — and until
-    // now NO AUTHORED MOVE IN THE TREE HAD EVER OPENED ONE. Measured 2026-09-05:
-    // the engine has had super armour for a while and the roster had no way to
-    // ask for it.
+    // Super armour: he goes through you. `MovePlayback` republishes <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
+    // `BodyCombat::armored` from the live window each tick, and `hit_reaction`
+    // gates the launch on `!combat.armored`.
     //
-    // ⭐ IT BELONGS ON THIS MOVE AND ON THIS FIGHTER RATHER THAN ANYWHERE ELSE.
-    // The comment above already calls the pass *"no take-backs"* — a commitment
-    // that any jab could cancel, which is the one thing a commitment must not be.
-    // And the module's own theme is MASS and AT REST: a body in motion staying in
-    // motion is not a metaphor here, it is the character.
+    // It fits: a pass with "no take-backs" should not be cancelled by any jab,
+    // and his theme is mass in motion.
     //
-    // ⛔ IT IS NOT INVULNERABILITY. He takes every point of the damage; what he
-    // does not take is the launch, the hitstun and the recoil lock. ⇒ So the
-    // counterplay is real and is the genre's: chip him out of it, or grab him,
-    // which armour does nothing about at all.
+    // It is not invulnerability. He takes all the damage but not the launch,
+    // hitstun or recoil lock. Counterplay: chip him out of it, or grab him.
     //
-    // ⚠ THE PASS ONLY — `0.20..0.31` is the impulse through the end of the active
-    // window. His 0.20s of startup is still punishable and his locked tail is
-    // still a free hit, so armour buys the crossing and nothing on either side of
-    // it. ⇒ Every number on the move is otherwise unchanged: this is a window
-    // ADDED, not a rebalance.
+    // The pass only: `0.20..0.31`, from the impulse to the end of the active
+    // window. His startup and locked tail stay punishable. This adds a window;
+    // nothing else changes.
     let side_b = ambition_entity_catalog::authoring::armor(side_b, 0.20, 0.31);
     let side_b = committed_tail(side_b, 0.66, 0.0);
     let side_b = vfx_cued(
@@ -404,9 +378,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     );
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `elevator_thought`. THE RECOVERY, and it is the equivalence
-    // principle: a man in a rising lift cannot tell it from gravity. He does
-    // not jump; his frame accelerates and he is in it.
+    // Up: `elevator_thought`, the recovery: a man in a rising lift cannot tell
+    // it from gravity. He does not jump; his frame accelerates.
     let mut up_b = strike(Strike {
         id: "elevator_thought",
         clip: "elevator_thought",
@@ -421,8 +394,8 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         launch_dir: Some((0.0, -1.0)),
         on_hit: None,
     });
-    // A heavyweight who lands out of the lift owes for it. Offstage that costs
-    // nothing, which is the right shape for a way home.
+    // A heavyweight landing out of the lift pays for it. Offstage it costs
+    // nothing.
     up_b.landing_lag_s = Some(0.34);
     let up_b = impulse(
         up_b,
@@ -463,30 +436,21 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.26, "clock_desync", (30.0, 18.0), SWING_FX);
     let down_b = vfx_at(down_b, 0.33, "known_result_stamp", (0.0, 4.0), STAMP_FX);
     let down_b = on_contact(down_b, "player.hit");
-    // ⭐⭐ AND THE TWO CLOCKS FINALLY DISAGREE — the third counter `smash_counter`
-    // names, and the first thing on this fighter that its own art already drew.
+    // A counter that desyncs the attacker's clock: the art has always drawn
+    // `clock_sync` on one side and `clock_desync` on the other.
     //
-    // ⛔⛔ THE MOVE HAS DRAWN `clock_desync` SINCE THE DAY IT WAS WRITTEN. Its
-    // comment says *"Two clocks, one slice"* and it paints `clock_sync` on one
-    // side and `clock_desync` on the other — over a plain strike where both
-    // clocks ran at exactly the same rate. ⇒ Sixth on this roster where the art
-    // asserted a mechanic the code did not have, and the only one whose fix was
-    // a technique that did not exist yet.
+    // The stance rides the windup, not the whole move. `live_counter_stance`
+    // asks which window is live, so a stance over `0.0..0.20` is open while he
+    // draws the slice, and the strike after is unchanged. Swinging into the
+    // windup desyncs you; waiting gets an ordinary down-special.
     //
-    // ⭐ THE STANCE RIDES THE WINDUP, NOT THE WHOLE MOVE. `live_counter_stance`
-    // asks which window is under the clock, so a stance over `0.0..0.20` is open
-    // exactly while he is drawing the slice — and the strike that follows is
-    // unchanged. A fighter who swings into the windup has their clock desynced;
-    // one who waits eats an ordinary down-special.
+    // `Attacker`: this counter acts on the body that swung (`ParriedBodyHit`
+    // carries it). Every other counter on the roster acts on its owner.
     //
-    // ⛔ `Attacker`, WHICH IS THE WHOLE REASON THE FIELD EXISTS. Every other
-    // counter on this roster answers on its owner; a Witch-Time answers on the
-    // body that swung, and `ParriedBodyHit` has carried that entity all along.
-    //
-    // ⚠ ROSTER DECISION #19, Jon's to overrule: 0.35 for 0.45s. Long enough that
-    // the punish is real, short enough that it is a read rather than a stun —
-    // and it slows their MOVES, their hurtbox resolution and their animation,
-    // not their walking, which `smash_time_dilation`'s header states.
+    // Roster decision #19, Jon's to overrule: 0.35 for 0.45s. Long enough to
+    // punish, short enough to be a read, not a stun. It slows their moves,
+    // hurtbox resolution and animation, not their walking (see
+    // `smash_time_dilation`).
     let down_b = {
         let mut spec = down_b;
         spec.windows.push(ambition_entity_catalog::MoveWindow {
@@ -519,19 +483,15 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         spec
     };
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR — `falling_simultaneity`. Two clocks still slice one
-    // moment with no floor between them; he brings the slice down.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: `falling_simultaneity`. He brings the slice down with
+    // him.
     let mut air_down_b = strike(Strike {
         id: "falling_simultaneity",
         clip: "air_down",
@@ -551,11 +511,9 @@ pub fn patent_clerk_moveset() -> MovesetContract {
     let air_down_b = vfx_at(air_down_b, 0.12, "clock_sync", (0.0, 20.0), SWING_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
 
-    // CLERK'S CAPTURE KIT. Unassuming and competent, which is the character.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Clerk's capture kit: unassuming and competent, which is the character.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's clip guard refuses unpublished rows.
     let grab = author_standing_grab(
         grab_shell("clerk_grab", "attack", 0.07, 0.05, 0.21),
         CaptureAttemptParams {
@@ -635,12 +593,7 @@ pub fn patent_clerk_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -661,17 +614,11 @@ pub fn patent_clerk_moveset() -> MovesetContract {
 #[cfg(test)]
 mod tests {
 
-    /// ⭐⭐ THE SAME LAUNCH FOR EVERY OBSERVER, AS AN ASSERTION.
+    /// The same launch for every observer. `fixed_knockback` zeroes the growth on
+    /// every volume of `light_argument`.
     ///
-    /// `light_argument`'s comment says "the speed of light is the same in every
-    /// frame" and the move was authored with `knockback_growth: 2.05`, which is
-    /// a launch that depends entirely on how damaged the victim is. The
-    /// postulate is now the mechanic: `fixed_knockback` zeroes the growth on
-    /// every volume the move lands.
-    ///
-    /// ⛔ ASSERTS ZERO, NOT "SMALL". A guard reading `growth < 1.0` passes
-    /// against a move that still scales, which is the whole defect it exists to
-    /// prevent — invariance is not a low number, it is no number.
+    /// Asserts zero, not "small": `growth < 1.0` would pass a move that still
+    /// scales.
     #[test]
     fn the_light_argument_launches_the_same_at_every_percent() {
         let set = patent_clerk_moveset();
@@ -692,19 +639,10 @@ mod tests {
             );
         }
     }
-    /// ⭐⭐ THE CLERK'S TWO CLOCKS FINALLY DISAGREE — the third counter
-    /// `smash_counter` names, and the sixth move on this roster whose ART
-    /// asserted a mechanic the code did not have.
+    /// The clerk's counter desyncs the attacker's clock.
     ///
-    /// `synchronize_clocks` has drawn `clock_sync` on one side and `clock_desync`
-    /// on the other since the day it was written, over a plain strike where both
-    /// clocks ran at exactly the same rate. ⇒ Now a fighter who swings into his
-    /// windup has theirs desynced.
-    ///
-    /// ⛔ THE `answers_the_attacker` ASSERTION IS THE WHOLE POINT. Every other
-    /// counter on this roster answers on its owner; a Witch-Time that slowed its
-    /// own caster would be a self-inflicted stun, and it is the failure the flag
-    /// exists to make impossible to author by accident.
+    /// The `answers_the_attacker` assertion is the key: a Witch-Time that slowed
+    /// its own caster would be a self-inflicted stun.
     #[test]
     fn the_clerks_windup_desyncs_the_clock_of_whoever_swings_into_it() {
         use ambition_entity_catalog::smash_counter::{CounterParams, COUNTER};
@@ -746,8 +684,8 @@ mod tests {
             "the authored dilation is not one: {:?}",
             dilation.problems()
         );
-        // ⛔ A READ, NOT A STUN. Long enough to punish, short enough that the
-        // slowed fighter is still playing.
+        // A read, not a stun: long enough to punish, short enough that the slowed
+        // fighter is still playing.
         assert!(
             dilation.seconds > 0.2 && dilation.seconds < 1.0,
             "a {}s slow is not a read", dilation.seconds
@@ -790,17 +728,13 @@ mod tests {
             .fold(0.0f32, f32::max)
     }
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
-    /// The row said HEAVYWEIGHT and FINISHERS, and the table has to mean it.
+    /// Heavyweight with finishers: the table must mean it.
     #[test]
     fn the_clerk_is_slower_and_hits_harder_than_the_admiral() {
         let clerk = patent_clerk_moveset();
@@ -820,12 +754,8 @@ mod tests {
         );
     }
 
-    /// CONTROLLER: the tilts set up, they do not finish.
-    ///
-    /// the word in the row that is easiest to lose while writing numbers. A
-    /// tilt that launches as hard as a smash makes the smash pointless and the
-    /// character a brawler — so the gap between them IS the design, and it is
-    /// asserted rather than remembered.
+    /// Controller: the tilts set up and do not finish. A tilt as strong as a
+    /// smash would make the smash pointless, so the gap is asserted.
     #[test]
     fn the_tilts_set_up_and_the_smashes_finish() {
         let clerk = patent_clerk_moveset();
@@ -844,11 +774,9 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ ARMOUR BUYS THE CROSSING AND NOTHING ON EITHER SIDE OF IT. A test that
-    /// only found an `Armor` window would pass against a window covering the whole
-    /// move — which is a different and much stronger move: his startup would stop
-    /// being punishable and his locked tail would stop being a free hit, and both
-    /// of those are the price the pass is supposed to pay.
+    /// Armour covers the crossing and nothing on either side. Armour over the
+    /// whole move would make his startup and locked tail unpunishable, which is
+    /// the price the pass must pay.
     #[test]
     fn his_pass_is_armoured_only_while_he_is_crossing() {
         let set = patent_clerk_moveset();
@@ -867,11 +795,10 @@ mod tests {
             (start - 0.20).abs() < 1e-4 && (end - 0.31).abs() < 1e-4,
             "armour runs {start}s..{end}s, not the pass"
         );
-        // ⛔ THE STARTUP IS STILL PUNISHABLE.
+        // The startup is still punishable.
         assert!(start > 0.0, "armour covers his wind-up");
-        // ⛔ AND THE LOCKED TAIL IS STILL A FREE HIT. `committed_tail` runs the
-        // move to 0.66s, so armour ending at 0.31 leaves a third of a second in
-        // which he can be launched — which is what makes the pass a commitment.
+        // The locked tail is still a free hit: `committed_tail` runs the move to
+        // 0.66s, so armour ending at 0.31 leaves a third of a second.
         assert!(
             end < pass.duration_s,
             "armour runs to {end}s on a {}s move, so his recovery is covered too",
@@ -879,9 +806,8 @@ mod tests {
         );
     }
 
-    /// ⭐ AND HE IS STILL HIT. Armour is not i-frames: a move that quietly gained
-    /// an `Invuln` window beside the armour would pass the test above and be a
-    /// completely different fighter.
+    /// He is still hit: armour is not i-frames. An added `Invuln` window would
+    /// pass the test above.
     #[test]
     fn the_armoured_pass_grants_no_invulnerability() {
         let set = patent_clerk_moveset();

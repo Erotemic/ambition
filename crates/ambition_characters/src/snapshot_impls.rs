@@ -707,7 +707,6 @@ impl SnapshotState for crate::control::ActorControl {
             f.jump_released,
             f.burst_pressed,
             f.interact_pressed,
-            f.body_contact_damage_enabled,
             f.shield_held,
             f.special_pressed,
             // The special SUSTAIN, and it is rollback state for the same reason
@@ -772,7 +771,7 @@ impl SnapshotState for crate::control::ActorControl {
             None
         };
         let attack_axis = ae::LocalAxes::from_vec(r.vec2()?);
-        let mut flags = [false; 22];
+        let mut flags = [false; 21];
         for f in flags.iter_mut() {
             *f = r.bool()?;
         }
@@ -796,23 +795,22 @@ impl SnapshotState for crate::control::ActorControl {
             jump_released: flags[2],
             burst_pressed: flags[3],
             interact_pressed: flags[4],
-            body_contact_damage_enabled: flags[5],
-            shield_held: flags[6],
-            special_pressed: flags[7],
-            special_held: flags[8],
-            pogo_pressed: flags[9],
-            fast_fall_pressed: flags[10],
-            fly_toggle_pressed: flags[11],
-            projectile_pressed: flags[12],
-            projectile_held: flags[13],
-            projectile_released: flags[14],
-            blink_pressed: flags[15],
-            blink_held: flags[16],
-            blink_released: flags[17],
-            modifier_held: flags[18],
-            modifier_pressed: flags[19],
-            grab_pressed: flags[20],
-            taunt_pressed: flags[21],
+            shield_held: flags[5],
+            special_pressed: flags[6],
+            special_held: flags[7],
+            pogo_pressed: flags[8],
+            fast_fall_pressed: flags[9],
+            fly_toggle_pressed: flags[10],
+            projectile_pressed: flags[11],
+            projectile_held: flags[12],
+            projectile_released: flags[13],
+            blink_pressed: flags[14],
+            blink_held: flags[15],
+            blink_released: flags[16],
+            modifier_held: flags[17],
+            modifier_pressed: flags[18],
+            grab_pressed: flags[19],
+            taunt_pressed: flags[20],
             blink_quick_dir: ae::WorldVec2(r.vec2()?),
             blink_aim_step: ae::WorldVec2(r.vec2()?),
             aim: ae::LocalAxes::from_vec(r.vec2()?),
@@ -1001,7 +999,6 @@ fn put_smash_state(out: &mut Vec<u8>, state: &crate::brain::smash::SmashState) {
     put_f32(out, state.spacing_phase);
     put_f32(out, state.neutral_jump_cooldown);
     put_f32(out, state.blink_cooldown);
-    put_f32(out, state.foray_timer);
     put_f32(out, state.shield_hold_timer);
     put_f32(out, state.neutral_reset_timer);
     put_bool(out, state.was_attacking);

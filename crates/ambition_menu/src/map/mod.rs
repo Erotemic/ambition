@@ -2,8 +2,8 @@
 //!
 //! `MapMenuState` holds the visited-room set, per-room geometry
 //! (`MapRoomNode`), open/minimap toggles, and the clamped zoom level
-//! (`MAP_ZOOM_MIN`..`MAP_ZOOM_MAX`). `summary_lines` produces the text the HUD
-//! shows; a host-owned UI adapter can render it as a full map, minimap, or menu tab.
+//! (`MAP_ZOOM_MIN`..`MAP_ZOOM_MAX`). `summary_lines` produces the HUD text; a
+//! host-owned UI adapter can render it as a full map, minimap, or menu tab.
 
 use std::collections::BTreeSet;
 
@@ -86,91 +86,50 @@ impl MapMenuState {
     }
 }
 
-/// The map-menu DOMAIN's sim-state plugin (track 6, decision #9): the crate
-/// owns its own visited-rooms/map state; the sim assembly only adds the
-/// plugin. Deliberately a bare resource init — the menu-host reusable/product
-/// line is drawn by the second consumer (decision #7), not in advance.
-/// The set [`populate_map_rooms`] runs in — **published so a composition can
-/// bracket it by PHASE instead of by naming the function.**
-///
-/// ⭐ THE PATTERN IS THE ONE `ambition_app` ALREADY USES NEXT DOOR: *"the plugin
-/// publishes `AudioInitSet` and the host brackets it here, beside every other
-/// `phase_mark`."* The app's startup profile has a mark named
-/// `after_map_menu_spawn` whose whole job is to time this system, so the mark
-/// needs something to order against once the system stops being written inline.
+/// The set [`populate_map_rooms`] runs in, published so a composition can
+/// order against the phase instead of naming the function. Same pattern as
+/// `AudioInitSet` in `ambition_app`; the app's `after_map_menu_spawn` profile
+/// mark orders after this set.
 #[cfg(feature = "ldtk")]
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MapMenuSpawnSet;
 
+/// The map-menu domain's sim-state plugin (track 6, decision #9): the crate
+/// owns its visited-rooms/map state, and the sim assembly only adds the
+/// plugin.
 pub struct MapStatePlugin;
 
 impl bevy::prelude::Plugin for MapStatePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<MapMenuState>();
-        // ⭐⭐ AND THE TWO SYSTEMS THIS DOMAIN OWNS, because the SECOND consumer
-        // the note above waits for has arrived: the app's shell host and the
-        // runtime's progression schedule both reach into this crate and name
-        // these functions themselves.
-        //
-        // ⛔ `handle_map_menu_hotkeys` WAS A PASSENGER IN SOMEBODY ELSE'S CHAIN.
-        // The host registered it `.chain()`ed behind `handle_ldtk_hot_reload` and
-        // `handle_trace_hotkey` — three crates in one sequence — and that chain
-        // exists for a reason that is not this system's: the two ahead of it were
-        // ordered because `handle_debug_hotkeys` and `handle_ldtk_hot_reload` both
-        // write `DeveloperRuntimeState`. ⇒ MEASURED: the three write DISJOINT
-        // resources (`DeveloperRuntimeState`, `GameplayTraceBuffer`,
-        // `MapMenuState`), so the order was grouping, not a dependency.
-        //
-        // ⭐ WHAT IT ACTUALLY NEEDS is expressible in vocabulary this crate
-        // already depends on: after the simulation phase, while a session world
-        // exists. No new dependency edge — `Platformer2dSimulationPhaseMonolith`
-        // and `session_world_exists` both live in `shared_tangle`.
 
-        // ⛔⛔ VOCABULARY ONLY. The systems live in
-        // [`install_map_menu_systems`], and that is a FUNCTION on purpose:
-        // a `Plugin` inside a plugin group answers "does this composition
-        // run these?" for everybody. When this plugin added them, the
-        // runtime group carried them into EVERY composition and
-        // `handle_map_menu_hotkeys` panicked in headless apps with no
-        // `ButtonInput` -- six unrelated tests, from a population nobody
-        // enumerated.
+        // Vocabulary only. The systems are in [`install_map_menu_systems`],
+        // a function, because a plugin in a plugin group runs in every
+        // composition, and `handle_map_menu_hotkeys` panics in headless apps
+        // with no `ButtonInput`.
     }
 }
 
 /// Install the map menu's systems.
 ///
-/// ⭐⭐ A FUNCTION, NOT A PLUGIN, AND THE DISTINCTION IS THE POINT. The
-/// capability declares its own vocabulary unconditionally ([`MapStatePlugin`]
-/// owns [`MapMenuState`]); WHETHER a composition runs these systems is the
-/// composition's to answer. ⇒ The caller names ONE function instead of three
-/// private systems -- the whole benefit of the carve -- without deciding for
-/// hosts that never wanted a map.
+/// A function, not a plugin. [`MapStatePlugin`] declares the vocabulary
+/// ([`MapMenuState`]) unconditionally; whether a composition runs these
+/// systems is the composition's choice. The caller names one function
+/// instead of three private systems.
 ///
-/// ⛔⛔ **THE CONTRACT: CALL THIS FROM A COMPOSITION THAT HAS INPUT.** These systems
-/// take `Res<ButtonInput<KeyCode>>` and `Res<MenuControlFrame>` STRICTLY, and both
-/// come from the windowed host's input plugins. ⇒ There is deliberately NO
-/// `resource_exists` guard: one was added after this carve panicked headless apps,
-/// and a review named it correctly as runtime feature-detection standing in for a
-/// composition contract. ⚠ **It was also only half a guard** — it tested
-/// `ButtonInput` while `MenuControlFrame` comes from `HostInputBindingsPlugin`, so
-/// a composition with Bevy's `InputPlugin` and without the host would have passed
-/// the condition and still failed the parameter.
+/// Contract: call this only from a composition that has input. These systems
+/// take `Res<ButtonInput<KeyCode>>` and `Res<MenuControlFrame>` (from
+/// `HostInputBindingsPlugin`) strictly. There is no `resource_exists` guard:
+/// that would be runtime feature detection in place of a composition
+/// contract. Calling this without input is a composition error and panics.
 ///
-/// ⇒ Calling this from a host with no input is a COMPOSITION ERROR and crashes rather
-/// than being silently skipped for the process's life.
-///
-/// ⚠ **BUT NOT "AT STARTUP", AND NOT UNCONDITIONALLY — the earlier wording overstated
-/// it and a test written against that wording failed.** These systems also carry
-/// `.run_if(session_world_exists)`, so a composition with no session world never runs
-/// them and never crashes, however little input it has. The crash arrives on the first
-/// update where a SESSION WORLD EXISTS and the input resources do not. ⇒ A host that
-/// installs this and never opens a session is not proven correct by staying quiet.
+/// The systems also `.run_if(session_world_exists)`, so the panic comes on the
+/// first update where a session world exists without the input resources. A
+/// host that never opens a session is not proven correct by staying quiet.
 pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
-    // ⭐ THE STARTUP HALF. `populate_map_rooms` reads `Res<ActiveLdtkProject>` and
-    // writes the room list once; the app had it inline in a Startup chain ordered
-    // `.after(setup_simulation_system)` — a system that is never registered, so
-    // that edge was a no-op (removed 2026-09-06). ⇒ ITS REAL PREREQUISITE IS THE
-    // RESOURCE, which is a `run_if` and needs no host anchor at all.
+    // Startup half. `populate_map_rooms` reads `Res<ActiveLdtkProject>` and
+    // writes the room list once. Its real prerequisite is that resource, so a
+    // `run_if` is enough.
     #[cfg(feature = "ldtk")]
     app.add_systems(
         bevy::prelude::Startup,
@@ -178,60 +137,18 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
             bevy::prelude::resource_exists::<ambition_platformer2d_ldtk::ActiveLdtkProject>,
         ),
     );
-    // ⛔ ONE SYSTEM OF THIS DOMAIN IS STILL INSTALLED BY THE HOST, and the
-    // reason is a real prerequisite rather than an oversight.
-    // `populate_map_rooms` sits in the app's STARTUP chain, bracketed by
-    // profiling marks (`after_map_menu_spawn` exists to time it) and ordered
-    // `.after(setup_simulation_system)` — a host FUNCTION, which this crate
-    // cannot name and should not.
-    //
-    // ⭐ THE PATTERN TO FOLLOW IS THREE LINES ABOVE IT IN THAT FILE: *"the
-    // plugin publishes `AudioInitSet` and the host brackets it here"*. ⇒ The
-    // carve wants this plugin to publish a `MapMenuSpawnSet`, install
-    // `populate_map_rooms` into it, and the host to order its phase mark
-    // `.after(MapMenuSpawnSet)` — plus a published set standing where the
-    // host's own simulation-setup slot does, which is the host's to make.
-    // ⚠ That sentence named `setup_simulation_system` until 2026-09-19; the
-    // system was deleted in `d3135def0` and the slot is `SimulationSetupSet`.
-    // ⚠ It is also `#[cfg(feature = "ldtk")]`, so the install carries the gate.
     app.add_systems(
             bevy::prelude::Update,
             (
-                // ⛔⛔ GATED ON THE INPUT RESOURCE, and the carve is why. While the
-                // SHELL registered this, its population was "compositions with a
-                // shell", which always carry `bevy_input`. `MapStatePlugin` is
-                // installed by the runtime plugin group, so moving the install
-                // here widened the population to EVERY composition -- including
-                // headless test apps with no `ButtonInput<KeyCode>`, where a
-                // missing `Res` is a validation PANIC rather than a skip. Six
-                // unrelated app tests died on it at once.
-                //
-                // ⇒ MOVING AN INSTALL MOVES ITS POPULATION, and a system's params
-                // are a claim about the composition it runs in.
-                //
-                // ✔ THE OTHER TWO WERE CHECKED THE SAME WAY rather than trusted to
-                // a green suite: `map_menu_pointer_dismiss` and `sync_map_menu`
-                // need only `MapMenuState` -- which this plugin supplies itself --
-                // plus queries, and a query that matches nothing is an empty
-                // iteration rather than a panic. The hotkey was the only one
-                // reaching outside the plugin's own resources.
-                // ⛔⛔ NO `run_if` HERE, and the absence is the contract. A
-                // `resource_exists::<ButtonInput>` guard stood on this line while the
-                // docstring above said it had been removed -- the doc described the
-                // decision and the code kept the sniff, so the two disagreed and a
-                // review had to find it. ⚠ It was also only HALF a guard: it tested
-                // `ButtonInput` while this system equally requires `MenuControlFrame`
-                // from `HostInputBindingsPlugin`, so a composition with Bevy's
-                // `InputPlugin` and no host passed the condition and then failed the
-                // parameter anyway. ⇒ Calling this installer without input is a
-                // COMPOSITION ERROR and crashes loudly, which is the point.
+                // No `run_if` for input: calling this installer without
+                // `ButtonInput` and `MenuControlFrame` is a composition error
+                // (see the doc above). `map_menu_pointer_dismiss` and
+                // `sync_map_menu` need only `MapMenuState` and queries, so
+                // only the hotkey system reaches outside this plugin.
                 input::handle_map_menu_hotkeys,
                 pointer::map_menu_pointer_dismiss,
-                // ⭐ THE VIEW JOINS ITS OWN DOMAIN. The host registered this with
-                // the IDENTICAL ordering the hotkey needed -- after the simulation
-                // phase, while a session world exists -- in a separate
-                // `add_systems` call thirty lines away. One group says once what
-                // three registrations said three times.
+                // The view uses the same ordering as the hotkey: after the
+                // simulation phase, while a session world exists.
                 ui::sync_map_menu,
             )
                 .after(
@@ -241,8 +158,8 @@ pub fn install_map_menu_systems(app: &mut bevy::prelude::App) {
         );
 }
 
-// Nothing in the simulation ever called them: their only consumers are the runtime's progression
-// schedule and the app's shell host, both of which reach this crate directly.
+// Nothing in the simulation calls these; only the runtime's progression
+// schedule and the app's shell host use them.
 mod input;
 mod pointer;
 mod systems;
@@ -264,24 +181,16 @@ pub use ui::{spawn_map_menu_with_scope, sync_map_menu, MapMenuRoot};
 #[cfg(test)]
 use ui::short_room_label;
 
-/// Install the map's SIMULATION half: the two systems that keep it true.
+/// Install the map's simulation half: `track_room_visits` records where the
+/// player has been, and `sync_map_from_save` reconciles that with the save.
 ///
-/// ⭐ THE OTHER HALF OF THE MAP CARVE. `install_map_menu_systems` took the map's INPUT
-/// and VIEW systems out of the composition; these two are its simulation side —
-/// `track_room_visits` records where the player has been, `sync_map_from_save`
-/// reconciles that against the save — and the composition was still naming both.
+/// Separate from [`install_map_menu_systems`] on purpose: that half needs a
+/// windowed host with `ButtonInput` and `MenuControlFrame`, and this half
+/// needs neither. A headless simulation still records map facts.
 ///
-/// ⚠ SEPARATE FROM THE MENU INSTALLER ON PURPOSE, and the split is not cosmetic. The
-/// input/view half needs a windowed host with `ButtonInput` and `MenuControlFrame`; this
-/// half needs neither. A headless simulation still wants its map facts recorded, and
-/// folding the two would force every such composition to supply an input stack it has no
-/// use for — which is the failure the input half's own contract warns about from the
-/// other direction.
-///
-/// ⛔ THE SCHEDULE IS AN ARGUMENT because the map does not get to choose it: the caller
-/// owns which schedule its simulation runs in. `ProgressionSet::Map` is
-/// `shared_tangle`'s, which this crate already depends on, so naming the phase inverts
-/// nothing.
+/// The caller passes the schedule, because the caller owns where its
+/// simulation runs. `ProgressionSet::Map` is from `shared_tangle`, which this
+/// crate already depends on.
 pub fn install_map_simulation_systems(
     app: &mut bevy::prelude::App,
     schedule: impl bevy::ecs::schedule::ScheduleLabel,

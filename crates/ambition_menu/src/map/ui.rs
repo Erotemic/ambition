@@ -42,10 +42,8 @@ pub enum MapRoomBoxKind {
 ///
 /// One [`MapRoomBox`] per `(MapRoomBoxKind, room_id)` pair lives as long
 /// as the room is in [`MapMenuState::rooms`] and its canvas is enabled.
-/// `sync_map_menu` mutates this entity's `Node` and color components in
-/// place when zoom / visit / active state changes, rather than the
-/// pre-refactor pattern of despawning + respawning the whole subtree
-/// every frame the state mutated.
+/// `sync_map_menu` updates this entity's `Node` and colors in place when zoom,
+/// visit, or active state changes, instead of respawning the subtree.
 #[derive(Component)]
 pub struct MapRoomBox {
     pub room_id: String,

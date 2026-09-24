@@ -12,9 +12,9 @@
 | [`binding`](src/binding.rs) | Typed animation-row binding for one sprite sheet. |
 | [`boss`](src/boss.rs) | Boss spritesheet animation, parallel to `character_sprites` but with the boss generator's own animation rows (rest / floor_slam / side_sweep / spike_halo / dash_echo / hit / death) instead of the standard 8-row `CharacterAnim` grid. |
 | [`character`](src/character/mod.rs) | Character sprite-sheet vocabulary and Bevy-side animation helpers. |
-| [`frame_space`](src/frame_space.rs) | ART SPACE → BODY SPACE: the one legal crossing, and the sheet fact that makes it legal. |
+| [`frame_space`](src/frame_space.rs) | Art space to body space: the one legal conversion, and the sheet fact it needs. |
 | [`frames`](src/frames.rs) | The single frame-addressing algebra for every sprite sheet. |
-| [`fx`](src/fx.rs) | The effect sheets the ENGINE ships, and the one mapping it owes them. |
+| [`fx`](src/fx.rs) | The effect sheets the engine ships, and the mapping from effect name to sheet row. |
 | [`game_assets`](src/game_assets/mod.rs) | Game asset wiring for character sheets, entity sprites, and parallax art. |
 | [`pack`](src/pack.rs) | [`SpritePackCatalog`]: the runtime schema for a cross-target *ultrapack*. |
 | [`portrait`](src/portrait.rs) | Runtime vocabulary for separately published dialogue portrait sheets. |

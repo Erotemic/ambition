@@ -61,14 +61,14 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
-    // THE PROJECTILE POLYGON'S CHARGE SHOT, in five tiers.
+    // The Projectile Polygon's charge shot, in five tiers.
     //
-    // ⭐ FIVE LOOKS AND NOT ONE SCALED. A shot the player held for a second has
-    // to be readable as different from a tap the instant it leaves the barrel,
-    // and scale alone does not survive being small on a busy stage — so the
-    // sheet tells the tiers apart by SHAPE: tier 1 is a bare pellet, tier 3
-    // gains an orbiting arc, tier 5 gains a compression ring and reads as a
-    // different object. `RangedCharge::visuals` steps between them by charge
+    // Five looks, not one scaled. A held shot must read as different from a tap
+    // as it leaves the barrel, and scale alone fails when small on a busy stage.
+    // So the sheet tells tiers apart by shape: tier 1 is a bare pellet, tier 3
+    // adds an orbiting arc, tier 5 adds a compression ring. `RangedCharge::visuals`
+    // steps between them by charge fraction while damage and speed climb
+    // smoothly.
     // fraction while damage and speed climb smoothly underneath.
     //
     // `Body` sizing, so the drawn ball follows the half-extent the charge
@@ -144,20 +144,16 @@ pub(super) fn register(app: &mut App) {
         },
     );
 
-    // THE OFFICER'S SERVICE ROUND — his sidearm's shot, with his own art.
+    // The Officer's service round: his sidearm's shot, with his own art.
     //
-    // ⭐⭐ REGISTERED BECAUSE IT WAS NOT. `RangedActionSpec::pistol` authored no
-    // `visual` and the Officer's `CharacterDefinition` sets no `ranged_vfx`, so
-    // his shot resolved through an EMPTY id to `ProjectileArt::generic()` — the
-    // engine's content-free orange-red quad. His sheet draws a drawn pistol and
-    // a muzzle flare, and what came out of it was the debug placeholder.
+    // `RangedActionSpec::pistol` authors no `visual` and the Officer sets no
+    // `ranged_vfx`, so without this his shot would resolve an empty id to
+    // `ProjectileArt::generic()`, the engine's placeholder quad.
     //
-    // ⛔ AND THE PLACEHOLDER IS WHY THE FLIP LOOKED INNOCENT. `FlipToTravel`
-    // mirrors the sprite with `flip_x = vel.x < 0.0`, which assumes art drawn
-    // pointing +x. A SOLID-COLOUR QUAD IS SYMMETRIC, so that flip was a no-op
-    // and the axis could not be seen to be right or wrong from the picture. The
-    // sheet is authored nose-+x (`targets/projectiles/pistol_round.py` states
-    // it), which is what makes the rotation axis meaningful here.
+    // `FlipToTravel` mirrors the sprite with `flip_x = vel.x < 0.0`, which
+    // assumes art drawn pointing +x. A solid quad is symmetric, so the flip is
+    // invisible on it. This sheet is authored nose-+x
+    // (`targets/projectiles/pistol_round.py` states it).
     //
     // `FixedWidth`, not `Body`: the round's hitbox is the shared pistol
     // envelope and a bullet drawn to it would be a fat lozenge. A slug reads by

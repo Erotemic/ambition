@@ -1,19 +1,16 @@
-//! Can a loadable artifact carry the SHIPPED roster's move tables, exactly?
+//! Can a loadable artifact carry the shipped roster's move tables exactly?
 //!
-//! ⭐⭐ **THIS IS I2'S PRECONDITION, AND IT IS THE ONLY QUESTION A CODEC CAN
-//! ANSWER ON ITS OWN.** Steps 4 and 5 remove the compiled move table as the
-//! host's authoritative input; before that is worth attempting, the artifact has
-//! to be shown to carry what the compiled table currently says — every
-//! character, every verb binding, every window, every volume — with nothing
-//! normalized away.
+//! This is I2's precondition, and the only question a codec can answer alone.
+//! Before the compiled move table stops being the host's authoritative input,
+//! the artifact must carry everything the compiled table says (every
+//! character, verb binding, window and volume) with nothing normalized away.
 //!
-//! ⛔⛔ **THE SUBJECT IS `authored_movesets::tables()`, THE WHOLE SHIPPED SET,
-//! NOT ONE CHARACTER.** A single fighter exercises whatever that fighter's author
-//! happened to use. The roster is what actually has to survive, and it is the
-//! population that grows when somebody adds a move nobody wrote a codec arm for.
+//! The subject is `authored_movesets::tables()`, the whole shipped set, not
+//! one character: one fighter exercises only what its author used, and the
+//! roster grows when someone adds a move with no codec arm.
 //!
-//! ⚠ **AND A ROUND TRIP IS NOT ADMISSION.** Whether the host can honour the
-//! techniques these tables reference is a different question, asked by the host.
+//! A round trip is not admission. Whether the host can honour the techniques
+//! these tables reference is a separate question, asked by the host.
 
 #![cfg(test)]
 
@@ -39,12 +36,11 @@ fn shipped_artifact() -> ContentArtifact {
     }])
 }
 
-/// ⛔ THE WHOLE ROSTER SURVIVES, COMPARED STRUCTURALLY.
+/// The whole roster survives, compared structurally.
 ///
-/// ⚠ THE FLOOR IS FIRST. An empty `tables()` — a provider list that stopped
-/// being registered, a feature that gated the roster out — makes every
-/// comparison below trivially true over nothing, which is this repository's most
-/// repeated instrument failure.
+/// The floor is first. An empty `tables()` (a provider list no longer
+/// registered, a feature that gated the roster out) would make every
+/// comparison below trivially true.
 #[test]
 fn every_shipped_move_table_survives_the_artifact_exactly() {
     let before = shipped_section();
@@ -81,7 +77,7 @@ fn every_shipped_move_table_survives_the_artifact_exactly() {
         .expect("the move section is there");
     let after = decode(&section.payload).expect("the payload decodes");
 
-    // ⛔ PER CHARACTER, so a failure names WHO rather than printing the roster.
+    // Per character, so a failure names who instead of printing the roster.
     assert_eq!(
         before.keys().collect::<Vec<_>>(),
         after.keys().collect::<Vec<_>>(),
@@ -95,10 +91,9 @@ fn every_shipped_move_table_survives_the_artifact_exactly() {
     }
 }
 
-/// ⭐ THE ARM THAT MAKES THE ONE ABOVE MEAN SOMETHING. A codec that returned its
-/// input unchanged — or a comparison that compared a value with itself — passes
-/// a round trip. This one edits a real shipped move and asserts the artifact
-/// carries the EDIT, which is the whole promise of a loadable move.
+/// This makes the test above meaningful. A codec that returned its input
+/// unchanged, or a comparison of a value with itself, passes a round trip.
+/// This edits a real shipped move and asserts the artifact carries the edit.
 #[test]
 fn editing_a_shipped_move_changes_what_the_artifact_says() {
     let mut edited = shipped_section();

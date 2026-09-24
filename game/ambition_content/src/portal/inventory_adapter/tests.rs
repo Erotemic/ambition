@@ -79,23 +79,17 @@ fn picking_up_the_portal_gun_activates_it() {
     assert_eq!(remaining, 0, "the pickup is consumed");
 }
 
-/// ⛔⛔ `PortalGunEquipped` HAS NO READER ANYWHERE IN THIS TREE, which is exactly
-/// why its EMISSION is asserted here.
+/// `PortalGunEquipped` has no reader in this tree, so its emission is
+/// asserted here.
 ///
-/// Measured 2026-09-06 (`scripts/messages_nothing_reads.py`): no
-/// `MessageReader<PortalGunEquipped>` and no direct `Messages<..>` drain, in
-/// production or test — the five other mentions in this file are all
-/// `add_message` REGISTRATION. It is a published notification, like
-/// `PulseFired`'s "for anyone who wants to react to it", and it carries a
-/// rollback schema row (`message.portal_gun_equipped`), so it is not free.
+/// It is a published notification ("for anyone who wants to react to it",
+/// like `PulseFired`) with a rollback schema row
+/// (`message.portal_gun_equipped`), so it has a cost. With no in-tree reader,
+/// only this test stops the write in `inventory_adapter.rs` from being removed
+/// silently.
 ///
-/// ⇒ A channel with no in-tree reader cannot regress downstream in a way anything
-/// here would notice. Nothing but this test stands between the write at
-/// `inventory_adapter.rs:219` and its silent removal.
-///
-/// ⚠ The `player` field is asserted, not just the count: a notification that
-/// names the wrong body is worse than none, and an emission test that only counts
-/// would pass on it.
+/// The `player` field is asserted, not only the count: a notification that
+/// names the wrong body is worse than none.
 #[test]
 fn picking_up_the_gun_announces_who_equipped_it() {
     let mut app = App::new();
@@ -145,9 +139,8 @@ fn picking_up_the_gun_announces_who_equipped_it() {
     app.world_mut()
         .write_message(PickUpPortalGun { body: player });
     app.update();
-    // ⚠ Compared by FIELD, not by value: `PortalGunEquipped` derives no
-    // `PartialEq`, and adding one to a rollback-registered message to satisfy a
-    // test would be the test changing the wire type to suit itself.
+    // Compared by field: `PortalGunEquipped` derives no `PartialEq`, and a test
+    // must not change a rollback-registered wire type to suit itself.
     let announced: Vec<Entity> = app
         .world_mut()
         .resource_mut::<bevy::ecs::message::Messages<PortalGunEquipped>>()
@@ -161,17 +154,14 @@ fn picking_up_the_gun_announces_who_equipped_it() {
     );
 }
 
-/// Holding it and the catalog saying so are ONE fact, so they move together.
+/// Holding it and the catalog saying so are one fact, so they move together,
+/// as in `throw_held_item_system`.
 ///
-/// `throw_held_item_system` cleared its slot on the equivalent release; this hand-written copy
-/// of the same operation did not, and nothing could tell them apart because each caller kept
-/// its own copy.
-///
-/// Both ends are asserted at BOTH moments deliberately: a release that cleared
-/// the slot unconditionally would satisfy the drop half and fail the pickup half,
-/// and the release that shipped (component only) fails the drop half. The third
-/// assertion is the poison for over-correcting — releasing custody must not also
-/// take the item away, because owning a gun and holding one are different facts.
+/// Both ends are asserted at both moments. A release that cleared the slot
+/// unconditionally would pass the drop half and fail the pickup half; a
+/// release that removed only the component fails the drop half. The third
+/// assertion catches over-correction: releasing custody must not remove the
+/// item, because owning a gun and holding one are different facts.
 #[test]
 fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     let mut app = App::new();
@@ -179,8 +169,8 @@ fn dropping_the_gun_clears_the_catalog_slot_that_picking_it_up_set() {
     app.add_message::<DropPortalGun>();
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
-    // The catalog the two systems keep in step. Absent in the sibling tests, so
-    // this is the only one that can see the slot at all.
+    // The catalog the two systems keep in step. The sibling tests omit it, so
+    // only this one can see the slot.
     app.insert_resource(OwnedItems::default());
     app.add_systems(
         Update,
@@ -297,8 +287,8 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
         .unwrap()
         .pos = pickup_pos;
 
-    // Immediately a pickup intent while overlapping — the freshly-dropped
-    // pickup is still arming, so it must NOT be re-grabbed (the bug).
+    // A pickup intent right away while overlapping: the fresh pickup is still
+    // arming, so it must not be re-grabbed.
     app.world_mut()
         .write_message(PickUpPortalGun { body: player });
     app.update();
@@ -320,13 +310,11 @@ fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     );
 }
 
-/// A GUN'S PAIR SURVIVES THE FLOOR.
+/// A gun's colour pair survives the floor.
 ///
-/// ⛔ The pair is what makes one gun orange/blue and another red/yellow, and a
-/// gun spends part of its life as a world pickup. If the pickup did not carry
-/// the pair, every drop would quietly reset a non-default gun to the classic
-/// one — the colours would look right until the first time the player fumbled
-/// it, which is the worst possible moment to find out.
+/// The pair makes one gun orange/blue and another red/yellow, and a gun spends
+/// part of its life as a world pickup. If the pickup lost the pair, every drop
+/// would reset a non-default gun to the classic one.
 #[test]
 fn a_dropped_gun_keeps_its_own_pair_when_picked_back_up() {
     const PAIR: u8 = 5;
@@ -351,7 +339,7 @@ fn a_dropped_gun_keeps_its_own_pair_when_picked_back_up() {
         .entity_mut(player)
         .insert(PortalGun::for_pair(PAIR));
     // Toggle it to the B end first, so the test also pins that the pickup
-    // carries the PAIR rather than the exact end the holder happened to be on.
+    // carries the pair, not the end the holder was on.
     app.world_mut().get_mut::<PortalGun>(player).unwrap().next_color =
         PortalGunColor::for_pair(PAIR).other();
 
@@ -392,13 +380,11 @@ fn a_dropped_gun_keeps_its_own_pair_when_picked_back_up() {
     assert_eq!(regrabbed.next_color.other().pair(), PAIR);
 }
 
-/// TWO SEATS ACT ON ONE TICK, and both are answered.
+/// Two seats act on one tick, and both are answered.
 ///
-/// ⛔⛔ `read().next()` SERVED ONE INTENT AND LEFT THE REST. The intents already
-/// name their bodies — that was fixed when a second seat's drop dropped the
-/// FIRST seat's gun — but taking only the head of the queue meant two seats
-/// acting on the same tick were SERIALIZED ACROSS UPDATES, the second landing in
-/// a world the first had already changed. Found by the 2026-08-31 GPT review.
+/// Taking only the head of the queue (`read().next()`) would serialize two
+/// seats across updates, so the second would land in a world the first had
+/// already changed.
 #[test]
 fn two_seats_dropping_on_one_tick_both_drop() {
     let mut app = App::new();
@@ -427,12 +413,11 @@ fn two_seats_dropping_on_one_tick_both_drop() {
     assert_eq!(pickups.iter(world).count(), 2);
 }
 
-/// TWO SEATS REACH FOR ONE GUN, and exactly one gets it.
+/// Two seats reach for one gun, and exactly one gets it.
 ///
-/// ⭐ THE WINNER IS MESSAGE ORDER, and it is definite: the first intent that
-/// overlaps an ARMED pickup despawns it, so the second finds nothing. There is
-/// one portal gun in the world and there is one after two people grab for it —
-/// serving every intent must not mint a second.
+/// Message order decides: the first intent that overlaps an armed pickup
+/// despawns it, so the second finds nothing. Serving every intent must not
+/// mint a second gun.
 #[test]
 fn two_seats_grabbing_one_gun_produce_exactly_one_gun() {
     let mut app = App::new();

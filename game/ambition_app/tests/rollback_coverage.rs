@@ -36,6 +36,15 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::world::rooms::transaction::ActiveContentBinding",
         "the session's content generation: written only by a content authority in `Update` (activation, hot reload), never by the simulation; the hot reload restarts the local session and refuses an external one, so no rewind crosses a change",
     ),
+    // A body's technique DECLARATIONS, which the action scheme reads. The boss
+    // road writes them once at construction (`possessed_boss_techniques`). The
+    // two runtime writers, Mary-O's run slot and Sanic's techniques, re-declare
+    // them from worn equipment and the controlled subject, which are rewound.
+    // The edges the gate routes are a separate, derived row.
+    (
+        "ambition_characters::action_scheme::ActorTechniques",
+        "technique declarations: written at construction (bosses) or re-declared from rewound state (Mary-O, Sanic); the routed edges are the derived row",
+    ),
     // Diagnostics beside a body, read by traces and the agent harness only.
     (
         "ambition_platformer2d_core::body_clusters::BodyLifeStats",

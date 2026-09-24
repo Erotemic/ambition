@@ -443,13 +443,9 @@ impl DevSnapshot {
     }
     /// `(cycle, value_label)` for a cycle.
     ///
-    /// ⚠ `Cow`, not `String`, and the whole point is the BORROWED arm: every
-    /// caller passes a `&'static str` (`"ON"`, `"OFF"`, a `label()` constant),
-    /// and this snapshot is rebuilt EVERY FRAME on EVERY face because the cube's
-    /// rebuild key carries it. Taking `impl Into<String>` heap-allocated all 22
-    /// entries per frame to answer "did anything change?" — the answer being
-    /// "no" almost every time. `Into<Cow>` keeps a static label free while an
-    /// owned label still works.
+    /// `Cow`, not `String`: callers pass `&'static str` labels, and this snapshot
+    /// is rebuilt every frame on every face because the cube's rebuild key
+    /// carries it. A borrowed label costs no allocation; an owned label still works.
     pub fn cycle(
         id: DevToggleId,
         value_label: impl Into<Cow<'static, str>>,
@@ -534,20 +530,13 @@ fn curated_options(id: SystemMenuEntryId) -> &'static [SettingsOptionId] {
 }
 
 impl SystemMenuModel {
-    /// Build the live SYSTEM menu. `radio` / `dev` are host snapshots (see their
-    /// docs); pass defaults where those subsystems are absent (audio-less / non-dev
-    /// builds). Developer + Reset Sandbox are included only in dev builds
-    /// ([`DEV_BUILD`]).
-    /// Attach the per-action REBIND screen, built from a seat's live bindings.
+    /// Attach the per-action rebind screen, built from a seat's live bindings.
     ///
-    ///  attached rather than a fourth `build` parameter, and the reason is
-    /// not churn. `build` has forty-odd call sites and every one of them would
-    /// have had to name a snapshot it does not have — but more than that, a
-    /// composition with no input stack has no bindings to rebind and should show
-    /// no row rather than an empty screen. Attaching makes the screen's presence
-    /// FOLLOW the capability instead of being asserted beside it.
+    /// This is a separate step, not a `build` parameter. A composition with no
+    /// input stack has no bindings, so it shows no row rather than an empty screen.
     ///
     /// Placed immediately after `Controls`, because that is where a player looks
+    /// for it; appended if this build has no Controls entry.
     /// for it; appended if this build has no Controls entry.
     pub fn with_rebind(mut self, rows: Vec<RebindRow>) -> Self {
         if rows.is_empty() {
@@ -570,6 +559,9 @@ impl SystemMenuModel {
         self
     }
 
+    /// Build the live system menu. `radio` and `dev` are host snapshots; pass
+    /// defaults where those subsystems are absent. Developer and Reset Sandbox
+    /// appear only in dev builds ([`DEV_BUILD`]).
     pub fn build(settings: &UserSettings, radio: &RadioSnapshot, dev: &DevSnapshot) -> Self {
         let model = settings_menu_model(settings);
         let settings_entry = |id: SystemMenuEntryId| -> SystemMenuEntry {

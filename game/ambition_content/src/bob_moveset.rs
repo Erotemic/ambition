@@ -1,13 +1,12 @@
-//! Bob's repertoire — the engineer, and the one who RECEIVES.
+//! Bob's repertoire: the engineer, and the one who receives.
 //!
 //! ## The character, from his own name
 //!
-//! Alice sends and Bob receives, and the pair's split is the design. Where hers
-//! is about getting something across, his is about what happens when it ARRIVES:
-//! he is slower to start than anybody on the grid bar the automaton, he commits
-//! for longer, and when he connects it is the hardest single hit among the
-//! Hall's people. An engineer does not fence. He assembles, and then it is
-//! assembled.
+//! Alice sends and Bob receives. Hers is about getting something across; his
+//! is about what happens when it arrives: he is slower to start than anyone
+//! on the grid except the automaton, he commits longer, and his connect is
+//! the hardest single hit among the Hall's people. An engineer does not
+//! fence; he assembles.
 //!
 //! ```text
 //!            reach   jab startup   f-smash damage   the trade
@@ -276,44 +275,30 @@ pub fn bob_moveset() -> MovesetContract {
         launch_dir: Some((0.92, -0.44)),
         on_hit: None,
     });
-    // ⭐⭐ AND NOW IT ACTUALLY RUNS. The comment above has always said "it is not
-    // one hit, it is the tool running" — and the move was ONE `strike` with a
-    // single 0.14s Active window, which the runtime's re-hit rule lands EXACTLY
-    // ONCE. ⇒ The `Pulse` doc says so in as many words: "a multi-hit that
-    // authored one long window, or windows that touch, lands exactly once." So
-    // the comment named the precise property the engine refuses.
+    // It is a real multi-hit: "not one hit, the tool running". One long window
+    // or touching windows land once (see `Pulse`), so `multihit` builds
+    // separated windows, like Oiler's `convergence`.
     //
-    // ⭐ THE FIX IS THE ONE THE ENGINE ASKS FOR: separated windows, which is what
-    // `multihit` builds. Oiler's `convergence` carries the same explanation
-    // beside it — that move genuinely multi-hits BECAUSE of the gap — so the
-    // vocabulary and the precedent were both already here.
+    // The finisher is unchanged. The pulses go in front at 2 chip each: a
+    // multi-hit's pulses should not hurt more than its finisher.
     //
-    // ⛔ THE FINISHER IS UNTOUCHED. Every number on the strike above is as it
-    // was; the pulses go IN FRONT at 2 chip each, which is the shape a multi-hit
-    // has in this repository — "the move is paid for by its finisher, and a
-    // multi-hit whose pulses hurt is a better move than its own ending."
-    //
-    // ⛔ THE ANCHOR'S x IS ZERO. `autolink_anchor_world` mirrors it with his
-    // facing, so a non-zero x makes the hold point depend on which way he is
-    // looking. A tool that pulls its work toward the man holding it does not
-    // care which way he turned.
+    // The anchor's x is zero: `autolink_anchor_world` mirrors it with facing,
+    // and a non-zero x would move the hold point with his facing.
     let n_b = multihit(
         n_b,
         3,
         Pulse {
-            // A little tighter than the finisher: the work is held where the
-            // tool is, not where the swing ends.
+            // Slightly tighter than the finisher: the work is held where the tool is.
             offset: (26.0, -2.0),
             half_extents: (22.0, 16.0),
             damage: 2,
-            // Separated, because touching windows are one hit wearing three
-            // windows' timing.
+            // Separated: touching windows land once.
             active_s: 0.030,
             gap_s: 0.028,
             autolink: AutolinkVolume {
                 anchor: (0.0, -4.0),
-                // He is planted while it runs — there is no motion of his own to
-                // hand on, so the hold is entirely the correction's.
+                // He is planted, so he has no motion to pass on; the hold is all
+                // correction.
                 carry: 0.0,
                 pull: 19.0,
                 max_speed: 900.0,
@@ -347,9 +332,8 @@ pub fn bob_moveset() -> MovesetContract {
     let side_b = sfx(side_b, 0.16, "player.dash");
     let side_b = on_contact(side_b, "player.hit");
 
-    // UP — `steam_lift`. THE RECOVERY. Boiler pressure, spent all at once.
-    // It goes higher than Alice's curve and costs more to land, which is the
-    // same bargain his whole kit makes.
+    // Up: `steam_lift`, the recovery. Boiler pressure, spent at once. Higher
+    // than Alice's and costlier to land, the same bargain as his whole kit.
     let mut up_b = strike(Strike {
         id: "steam_lift",
         clip: "attack_up",
@@ -387,51 +371,34 @@ pub fn bob_moveset() -> MovesetContract {
         launch_dir: Some((0.7, -0.66)),
         on_hit: None,
     });
-    // ⭐⭐ AND THE PLATE STAYS. His comment has always said "he DROPS a plate" and
-    // "the move is that there is a floor to drop it ONTO" — an object, described
-    // in a move that only ever slammed. ⇒ Unlike the ninja's counter ring, that
-    // was not a LIE: `shockwave` and `landing_puff` are honest cues for a slam,
-    // and the sentence reads as an animation. But it is the sentence a launch pad
-    // was already waiting inside.
+    // The plate stays: the slam also places a launch pad.
     //
-    // ⭐ THE SLAM IS UNTOUCHED — every number above is as it was, and the plate is
-    // an event ADDED to the move. Same shape as the mine on the Polygon's
-    // down-smash: the swing still pays for itself and the object is the bonus.
+    // The slam is unchanged; the plate is an added event, like the mine on the
+    // Polygon's down smash.
     //
-    // ⭐⭐ IT THROWS ANYBODY, AND THAT IS THE ROW IT PROVES. The campaign asks for
-    // "a fighter can create a persistent world actuator ANOTHER fighter interacts
-    // with" — so a plate that served only Bob would be a second recovery wearing
-    // an object's clothes. ⇒ Three uses, eight seconds, and whoever steps on it
-    // goes up: his opponent gets it too, and an engineer who leaves a hazard on
-    // the floor and forgets about it is the joke landing correctly.
+    // It throws anybody: a persistent actuator another fighter can use. Three
+    // uses, eight seconds, and whoever steps on it goes up, including his
+    // opponent.
     let down_b = ambition_entity_catalog::smash_spring::author_place_spring(
         down_b,
-        // The frame the plate meets the floor — the same instant the slam's
-        // shockwave and landing puff fire, so the object appears where the
-        // impact was drawn.
+        // The frame the plate meets the floor: the same instant as the slam's
+        // shockwave and landing puff, so it appears where the impact is drawn.
         0.18,
         ambition_entity_catalog::smash_spring::PlaceSpringParams {
-            // Up is NEGATIVE y. Hard enough to be a real reposition and short of
-            // his own `steam_lift`, so the plate is a tool rather than a better
-            // recovery than his recovery.
-            //
-            // ⛔ I WROTE THAT SENTENCE AND THEN AUTHORED 860 AGAINST HIS 800, and
-            // the guard below caught it in the same commit — which is the ideal
-            // case and worth leaving visible. ⇒ The number is not the point; the
-            // RELATIONSHIP is, so the guard asserts it against `steam_lift`'s
-            // impulse rather than against a constant nobody would re-derive.
+            // Up is negative y. A real reposition, but below his own `steam_lift`, so
+            // the plate does not beat his recovery. The guard below checks this
+            // relationship against `steam_lift`'s impulse.
             launch: (0.0, -720.0),
-            // A plate, not a platform: wide enough to step on and thin enough to
-            // miss.
+            // A plate, not a platform: wide enough to step on, thin enough to miss.
             half_extents: (26.0, 6.0),
-            // ⚠ SHORT. A plate that outlived the exchange it was dropped in would
-            // be terrain he authored, and terrain is somebody else's authority.
+            // Short: a plate that outlived its exchange would be terrain he authored,
+            // and terrain belongs to another authority.
             lifetime_s: 8.0,
             uses: 3,
             // At his feet, where the slam landed.
             offset: (0.0, 20.0),
-            // ⛔ SO THE OTHER PLAYER SEES THE PLATE ARRIVE. It draws nothing of
-            // its own — see `PlaceSpringParams::vfx`.
+            // So the other player sees it arrive. It draws nothing of its own (see
+            // `PlaceSpringParams::vfx`).
             vfx: "steam_vent".to_string(),
         },
     );
@@ -440,19 +407,14 @@ pub fn bob_moveset() -> MovesetContract {
     let down_b = vfx_at(down_b, 0.18, "landing_puff", (0.0, 22.0), SHOP_FX);
     let down_b = on_contact(down_b, "player.hit");
 
-    // effect on ground. Think of bowser down b. In the air he just does a
-    // downward slam, but on the ground, it causes him to jump in an arc and then
-    // slam. Specials can have different effects in different contexts that
-    // should be ok, and makes for a richer smash game, although in most cases
-    // they shouldn't be context dependent."*
+    // Down-B has two forms, like Bowser's: a slam in the air, an arc and slam
+    // on the ground. Context-dependent specials are acceptable, though most
+    // should not be.
     //
-    // a special gated to ONE posture is not answered in the other — the
-    // directional chain walks straight past it to the NEUTRAL special, so a
-    // player pressing down-B in the air got the neutral-B. `special_air_down`
-    // sits ahead of `special_down` in that chain and has the whole time; this is
-    // the two-form move it exists for.
-    // DOWN, IN THE AIR — `bulkhead_dive`. He does not drop the plate; he
-    // rides it down.
+    // A special gated to one posture is not answered in the other: the
+    // directional chain falls through to the neutral special.
+    // `special_air_down` comes before `special_down` in that chain.
+    // Down, in the air: `bulkhead_dive`. He rides the plate down.
     let mut air_down_b = strike(Strike {
         id: "bulkhead_dive",
         clip: "air_down",
@@ -471,12 +433,10 @@ pub fn bob_moveset() -> MovesetContract {
     let air_down_b = impulse(air_down_b, 0.12, (0.0, 1300.0), ImpulseMode::Set);
     let air_down_b = vfx_at(air_down_b, 0.12, "shockwave", (0.0, 22.0), SHOP_FX);
     let air_down_b = on_contact(air_down_b, "player.hit");
-    // BOB'S CAPTURE KIT. Heavy and slow: the longest reach and the hardest single
-    // pummel, paid for with the worst startup and recovery. One beat, and it hurts.
-    // the grab draws `attack`, not `grab`: these sheets publish no `grab` row,
-    // and each table's own `every_clip_names_a_row_..._sheet_carries` guard says
-    // so. `ClipBinding`'s fallbacks would have covered it at runtime, but a move
-    // that NAMES a row nobody publishes is a lie the guard is right to refuse.
+    // Bob's capture kit: heavy and slow. The longest reach and the hardest
+    // single pummel, paid for with the worst startup and recovery.
+    // The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+    // and each table's clip guard refuses unpublished rows.
     let grab = author_standing_grab(
         grab_shell("bob_grab", "attack", 0.09, 0.06, 0.24),
         CaptureAttemptParams {
@@ -557,12 +517,7 @@ pub fn bob_moveset() -> MovesetContract {
         neutral_special: NeutralSpecial::Authored(n_b),
         side_special: side_b,
         up_special: UpSpecial::Standard(up_b),
-        // AUTHORED, at the rule that every fighter in the smash roster have a grab. The
-        // transitional `None` is gone: capture was proven on George and the Pirate Admiral, and
-        // the whole point of proving it was to stop being the only two.
-        //
-        // the VALUES are per character on purpose. A roster whose grabs are
-        // twelve copies of one number set is one grab wearing twelve names.
+        // Every smash fighter has a grab. The values are per character on purpose.
         capture: SmashCaptureRepertoire {
             cues: CaptureCues::GENERIC,
             grab,
@@ -584,14 +539,10 @@ pub fn bob_moveset() -> MovesetContract {
 mod tests {
     use super::*;
 
-    // Fourteen fighters each carried a copy of it: every bound verb names a move
-    // this table defines, and the table binds the whole vocabulary. Both are now
-    // unwritable defects rather than tested ones. `SmashRepertoire` owns the verb
-    // strings, so there is no string in this file to misspell; it is a struct
-    // with no `Default` and no private fields, so a missing or renamed slot is a
-    // COMPILE error here. What the fourteen copies stood for — that every press
-    // is answered, in every posture it is asked in — is checked once, by
-    // `ambition_entity_catalog::smash_repertoire`, and by the host ratchet
+    // Verb binding is checked by construction: `SmashRepertoire` owns the verb
+    // strings and is a struct with no `Default`, so a missing slot is a compile
+    // error. Coverage in every posture is checked by
+    // `ambition_entity_catalog::smash_repertoire` and by
     // `smash_roster_movesets::report_the_smash_kit_every_selectable_fighter_has`.
 
     /// He commits for longer than she does, on every press they both have.
@@ -624,13 +575,8 @@ mod tests {
         }
     }
 
-    /// ⛔⛔ "IT IS NOT ONE HIT, IT IS THE TOOL RUNNING" — the comment on his
-    /// neutral, and for a long time it was false in the most specific way
-    /// possible: the move was ONE `strike` with a single contiguous active
-    /// window, which is exactly what the runtime's re-hit rule lands ONCE.
-    /// `Pulse`'s own doc says so — *"a multi-hit that authored one long window,
-    /// or windows that touch, lands exactly once."* ⇒ The sentence named the
-    /// property the engine refuses.
+    /// "Not one hit, the tool running": the neutral multi-hits. One contiguous
+    /// window lands once (see `Pulse`).
     #[test]
     fn his_rivet_gun_runs_rather_than_landing_once() {
         let set = bob_moveset();
@@ -653,10 +599,8 @@ mod tests {
             hitting.len()
         );
 
-        // ⛔⛔ THE GAPS ARE THE MOVE, NOT THE COUNT. Three windows that TOUCH
-        // land once, exactly as one long window does — so this asserts the
-        // separation rather than the number of windows, which is the thing the
-        // runtime actually reads.
+        // The gaps are the move, not the count: touching windows land once, so
+        // assert the separation.
         for pair in hitting.windows(2) {
             let gap = pair[1].0 - pair[0].1;
             assert!(
@@ -668,8 +612,8 @@ mod tests {
             );
         }
 
-        // ⭐ AND THE PULSES HOLD. A multi-hit whose intermediate hits launch is
-        // a move that throws its victim out of its own later windows.
+        // The pulses hold: an intermediate hit that launches throws the victim out
+        // of the later windows.
         let holding = gun
             .windows
             .iter()
@@ -678,7 +622,7 @@ mod tests {
             .count();
         assert!(holding >= 3, "only {holding} of the pulses hold their victim");
 
-        // ⛔ THE FINISHER IS UNTOUCHED — this was an addition, not a rebalance.
+        // The finisher is unchanged: an addition, not a rebalance.
         assert!(
             gun.windows
                 .iter()
@@ -688,10 +632,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ THE PLATE IS AN ADDITION AND THE SLAM IS UNTOUCHED — both halves in one
-    /// test, because they are one claim. A guard that only found the plate would
-    /// pass against a down-B that had quietly lost its hitbox to make room, which
-    /// is the change this move was authored to avoid.
+    /// The plate is an addition and the slam is unchanged. Both in one test: a
+    /// check for the plate alone would pass a down-B that lost its hitbox.
     #[test]
     fn his_bulkhead_drop_still_slams_and_now_leaves_the_plate_it_names() {
         let set = bob_moveset();
@@ -724,22 +666,18 @@ mod tests {
             })
             .expect("he drops a plate, which his comment has always said");
 
-        // ⭐ IT THROWS, AND UPWARD. Up is NEGATIVE y everywhere in this codebase,
-        // and a plate that launched DOWN would be a hole.
+        // It throws upward. Up is negative y.
         assert!(plate.launch.1 < 0.0, "the plate throws downward: {:?}", plate.launch);
         assert!(plate.uses > 0, "a plate nobody can use is an invisible object");
 
-        // ⛔ SHORT-LIVED, and the bound is the point rather than the number: a
-        // plate that outlived the exchange it was dropped in would be TERRAIN a
-        // fighter authored, and terrain is somebody else's authority.
+        // Short-lived: a plate that outlived its exchange would be terrain.
         assert!(
             plate.lifetime_s <= 12.0,
             "the plate lasts {}s, which is stage geometry rather than a move",
             plate.lifetime_s
         );
 
-        // ⚠ AND IT MUST NOT OUT-LAUNCH HIS OWN RECOVERY, or the down-B is a
-        // better `steam_lift` that also hits.
+        // It must not out-launch his own recovery.
         let lift = set
             .moves
             .iter()

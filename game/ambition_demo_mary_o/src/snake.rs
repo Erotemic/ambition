@@ -10,7 +10,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::characters::actor::BodyCombat;
-use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ContactThreatWithdrawn};
 use ambition_platformer2d::combat::components::FeatureId;
 use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::engine_core as ae;
@@ -72,7 +72,12 @@ const SHELL_FREEZE_LOCK: f32 = 1.0;
 /// A Solid Snake's shell lifecycle. `Walking` is the ordinary patroller; the rest
 /// are the withdraw cycle, driven by [`step_snake_shell`]. Each timed stage's `f32`
 /// is the time it has left.
+///
+/// It requires [`ContactThreatWithdrawn`], the read model `run_snake_shells`
+/// re-derives from it, so every road that makes a snake (the tag pass, a
+/// fixture, a rollback restore) gives the writer something to write.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[require(ContactThreatWithdrawn)]
 pub enum SnakeShell {
     Walking,
     Retreating(f32),
@@ -302,8 +307,9 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 
 // Demo-owned hostile roster: ONE 1-HP `Wanderer` archetype. It walks forward and reverses at
 // walls; `aggro_radius`/`attack_range` are ignored by that template. It carries no `melee`, so its
-// only offense is the default-on body contact — which the shell state turns off (via its
-// `body_contact_damage` tuning) while withdrawn, then back on when it walks again.
+// only offense is the default-on body contact — which the shell state withdraws (via
+// `ContactThreatWithdrawn`, never its authored tuning) while shelled, then restores when it
+// walks again.
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.
@@ -609,7 +615,7 @@ pub fn run_snake_shells(
             &ambition_platformer2d::characters::actor::BodyHealth,
             &mut ae::BodyKinematics,
             &mut BodyCombat,
-            &mut ActorConfig,
+            &mut ContactThreatWithdrawn,
             &mut SnakeShell,
         ),
         (Without<PrimaryPlayer>, Without<PlayerEntity>),
@@ -628,7 +634,7 @@ pub fn run_snake_shells(
     // side-hitting the player) so the shared-pipeline hits below retain causal
     // attribution after the mutable query borrow ends.
     let mut sliding: Vec<(Entity, ae::Aabb, String, bool)> = Vec::new();
-    for (entity, feature_id, health, mut kin, mut combat, mut config, mut shell) in &mut snakes {
+    for (entity, feature_id, health, mut kin, mut combat, mut withdrawn, mut shell) in &mut snakes {
         if !health.alive() {
             // A corpse is out of the mechanic: it stops sliding, advances no phase,
             // and deals no hits. Its shell state is left as-is so a respawned body
@@ -693,13 +699,14 @@ pub fn run_snake_shells(
         // A stomp changes the snake's STATE, it does not hurt it: the body stays
         // alive (never hidden as a dead hostile actor) while these two levers make
         // it a shell. A walker clears both — back to a moving, touchable threat.
+        // The threat is a read of the shell phase, so it is written every tick
+        // and the authored tuning is never touched.
+        withdrawn.0 = !fx.alive;
         if fx.alive {
             combat.recoil_lock_timer = 0.0;
-            config.tuning.body_contact_damage = true;
         } else {
             // Frozen in place (movement input hard-zeroed) and harmless to touch.
             combat.recoil_lock_timer = SHELL_FREEZE_LOCK;
-            config.tuning.body_contact_damage = false;
         }
 
         // Command horizontal velocity for the shell stages; leave a walker's own

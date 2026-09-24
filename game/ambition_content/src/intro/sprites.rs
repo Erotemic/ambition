@@ -25,31 +25,14 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
     try_load_spec_for_target(target, tuning)
 }
 
-// ⛔⛔ THE INTRO NPC SPRITE TABLE IS GONE, and it was decoding art for nobody.
+// There is no intro NPC sprite table. Every `NpcSpawn` in `intro.ldtk`
+// carries a `character_id`, `convert_npc_spawn` puts it into
+// `InteractionKindSpec::Npc.character_id`, and `demand_worn_character_sheets`
+// raises that sheet on room entry. A table keyed by display name would decode
+// art that no lookup reaches, and would add a second preload road.
 //
-// It listed eleven `(display name, filename, sheet spec)` rows, preloaded them at
-// boot in whatever room, and published each under its DISPLAY NAME
-// ("Creator", "Manifest Clerk", …). Measured 2026-09-02: the intro world authors
-// no such names. Every `NpcSpawn` in `intro.ldtk` carries a `character_id` and
-// `name: None` — npc_creator, npc_alice, npc_bob, npc_oiler, npc_news_board,
-// npc_gate_janitor, npc_manifest_clerk — and `convert_npc_spawn` puts that id
-// into `InteractionKindSpec::Npc.character_id`, which is what
-// `demand_worn_character_sheets` raises on room entry. No road ever set a
-// sprite override (the field is gone), so NOTHING ever looked a sheet up by
-// the display name this table published under.
-//
-// ⇒ every row was a decode whose result no lookup could reach. The `[image-dropped]`
-// line named them: architect, bob, erdish, goblin, alice, oiler and two more.
-// Two rows (Lab Raider, Salvage Guard) were doubly dead — both are `EnemySpawn`s
-// with their own ids since 2026-08-12 — and Erdish had no placement at all, as
-// its own comment said ("pre-registered for later LDtk authoring").
-//
-// ⚠ The rows also fed `extend_with_intro_sprite_entries`, which put each sheet in
-// the manifest under `PreloadGroup::SandboxCore` — a SECOND preload road off the
-// same table. Deleting the table closes both.
-//
-// Props are a different question and keep their table below: a `Prop` is keyed by
-// `Prop.kind`, which the world does author.
+// Props keep their table below: a `Prop` is keyed by `Prop.kind`, which the
+// world authors.
 
 /// Prop tuning: props render at their authored AABB size.
 const PROP_TUNING: SheetTuning = SheetTuning::new(1.00, 2);
@@ -123,9 +106,9 @@ pub fn intro_prop_sprite_rows() -> Vec<(
             intro_sheet("cut_rope_piano", t),
             None,
         ),
-        // The engine ships its own effect sheets now (`ambition_sprite_sheet::fx::FX_SHEETS`); a
-        // story's prop table is not the place to declare them. Interdimensional gate ring + portal
-        // surface.
+        // The engine ships its own effect sheets (`ambition_sprite_sheet::fx::FX_SHEETS`);
+        // a story's prop table does not declare them. Interdimensional gate ring and
+        // portal surface.
         (
             "gate_ring",
             "interdimensional_gate_ring_spritesheet.png",
@@ -166,10 +149,8 @@ use ambition_asset_manager::{
 /// `sprite.character.intro_prop_<kind_snake>` for props. Both use
 /// `SilentPlaceholder` because missing intro art falls back to colored
 /// rectangles per the existing contract.
-/// ⚠ TAKES NO CAST ANY MORE. It needed `AuthoredSheets` + `CharacterCatalog` to
-/// resolve the intro NPC rows; those are gone (see the note above), and a `Prop`
-/// row resolves from its own table. Kept narrow rather than kept compatible — a
-/// parameter nobody reads is a claim that this still knows about characters.
+/// It takes no cast: `Prop` rows resolve from their own table. A parameter
+/// nobody reads would claim that this still knows about characters.
 pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
     for (kind, filename, _spec, _pack) in intro_prop_sprite_rows() {
         let id = intro_prop_asset_id(kind);

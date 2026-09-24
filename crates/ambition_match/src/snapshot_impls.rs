@@ -3,15 +3,12 @@
 
 use ambition_platformer2d_core::snapshot::{put_bool, put_str, put_u64, put_u8, Reader, SnapshotState};
 
-// ── A live MATCH's per-body state (AA2 / AC2) ────────────────────────────────
+// ── A live match's per-body state (AA2 / AC2) ────────────────────────────────
 //
-// Which seat a body is, which team it fights for, and who owns its death. All
-// three are decided at match activation, all three are read by the rules every
-// tick, and none of them was rollback state — because no swept population had
-// a match in it until `every_component_in_a_live_match_is_registered_derived_or_waived`
-// existed. A rewind across activation restored the fighters and left these
-// behind, which is a body that comes back with no seat, no team, and the
-// exploration death policy in the middle of a round.
+// Which seat a body is, its team, and who owns its death. All three are set at
+// match activation and read by the rules every tick. A rewind across
+// activation must restore them with the fighters. Guarded by
+// `every_component_in_a_live_match_is_registered_derived_or_waived`.
 impl SnapshotState for crate::MatchSeat {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.0 as u64);
@@ -21,9 +18,9 @@ impl SnapshotState for crate::MatchSeat {
     }
 }
 
-/// The activation latch itself. Plain data with no identity in it — a seat count
-/// and the frozen topology that decided it — which is what makes it snapshotable
-/// at all: the BODIES are derived from `MatchSeat` and rewind on their own.
+/// The activation latch. Plain data with no identity (a seat count and the
+/// frozen topology), so it can be snapshotted. The bodies derive from
+/// `MatchSeat` and rewind on their own.
 impl SnapshotState for crate::ActiveMatch {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.seats() as u64);
@@ -34,9 +31,8 @@ impl SnapshotState for crate::ActiveMatch {
                 put_u64(out, generation);
             }
         }
-        // The activation's IDENTITY travels with it. A rewind restores the
-        // receipt, so it must restore WHICH match the receipt is for — the
-        // whole point of the field is that activation compares it.
+        // The activation's identity travels with it, so a rewind restores
+        // which match the receipt is for.
         match self.session() {
             None => put_bool(out, false),
             Some(session) => {
@@ -51,9 +47,8 @@ impl SnapshotState for crate::ActiveMatch {
                 put_u64(out, tick);
             }
         }
-        // ⭐ AND THE ORDINAL, which is what the draws are actually keyed on. A
-        // rewind that restored the receipt without it would resume a match whose
-        // item table starts over.
+        // The ordinal keys the draws. Without it, a rewind would restart the
+        // match's item table.
         match self.ordinal() {
             None => put_bool(out, false),
             Some(ordinal) => {
@@ -82,9 +77,9 @@ impl SnapshotState for crate::ActiveMatch {
     }
 }
 
-/// The ordinal MINT. It rewinds because it is a counter: a resimulated
-/// activation must draw the same ordinal it drew the first time, or the match
-/// re-rolls its item table on every rollback.
+/// The ordinal mint rewinds because it is a counter: a resimulated
+/// activation must draw the same ordinal, or the match re-rolls its item table
+/// on every rollback.
 impl SnapshotState for crate::seating::SessionMatchOrdinal {
     fn encode(&self, out: &mut Vec<u8>) {
         let (session, next) = self.parts();
@@ -110,9 +105,9 @@ impl SnapshotState for crate::seating::SessionMatchOrdinal {
     }
 }
 
-/// WHICH MATCH is in sudden death — the same shape as the verdict below, and
-/// registered for the same reason: a rewind that restored one and not the other
-/// would restore a continuation belonging to a match that is not running.
+/// Which match is in sudden death. Same shape and reason as the verdict below:
+/// restoring one without the other would restore a state for a match that is
+/// not running.
 impl SnapshotState for crate::SuddenDeathEntered {
     fn encode(&self, out: &mut Vec<u8>) {
         match self.entered_match() {
@@ -134,9 +129,8 @@ impl SnapshotState for crate::SuddenDeathEntered {
                         put_u64(out, tick);
                     }
                 }
-                // ⭐ THE PEER HALF TRAVELS TOO. A rewind that restored the local
-                // stamp without it would restore a value that no longer names
-                // which match of the agreed session it describes.
+                // The peer half travels too, so the value still names which
+                // match of the agreed session it describes.
                 match ordinal {
                     None => put_bool(out, false),
                     Some(ordinal) => {
@@ -169,7 +163,7 @@ impl SnapshotState for crate::SuddenDeathEntered {
 }
 
 
-/// The stocks ruleset's verdict, and WHICH MATCH it is about.
+/// The stocks ruleset's verdict, and which match it is about.
 /// One byte of tag plus the winning side's label when there is one.
 fn encode_match_verdict(out: &mut Vec<u8>, verdict: &ambition_combat::stocks::MatchVerdict) {
     use ambition_combat::stocks::MatchVerdict;
@@ -214,9 +208,8 @@ impl SnapshotState for crate::StocksMatchSettled {
                         put_u64(out, tick);
                     }
                 }
-                // ⭐ THE PEER HALF TRAVELS TOO. A rewind that restored the local
-                // stamp without it would restore a value that no longer names
-                // which match of the agreed session it describes.
+                // The peer half travels too, so the value still names which
+                // match of the agreed session it describes.
                 match ordinal {
                     None => put_bool(out, false),
                     Some(ordinal) => {
@@ -224,8 +217,8 @@ impl SnapshotState for crate::StocksMatchSettled {
                         put_u64(out, ordinal);
                     }
                 }
-                // The VERDICT rides beside the match it is about, so a restore
-                // hands presentation the same outcome it was showing.
+                // The verdict travels with its match, so a restore gives
+                // presentation the same outcome.
                 encode_match_verdict(
                     out,
                     self.decided_verdict()
@@ -251,9 +244,9 @@ impl SnapshotState for crate::StocksMatchSettled {
         } else {
             None
         };
-        // The VERDICT rides beside the match it is about — presentation reads
-        // it as state rather than as a message, so a speculative outcome cannot
-        // reach the winner card. See `StocksMatchSettled::settle`.
+        // The verdict travels with its match. Presentation reads it as state,
+        // not a message, so a speculative outcome cannot reach the winner
+        // card. See `StocksMatchSettled::settle`.
         let decided = match decided {
             None => None,
             Some(instance) => Some((instance, decode_match_verdict(r)?)),

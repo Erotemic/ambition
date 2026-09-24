@@ -1,9 +1,9 @@
-//! The Officer — easter-egg brawler humanoid.
+//! The Officer: easter-egg brawler humanoid.
 //!
 //! A state trooper who wandered into a fighting game: out of uniform from the
-//! neck down, entirely in character from the neck up. He is the Pugnacious
-//! Polygon's archetype wearing a different person — unarmed, close-range, and
-//! on the same skeleton and clip vocabulary.
+//! neck down, in character from the neck up. He is the Pugnacious Polygon's
+//! archetype as a different person: unarmed, close-range, on the same
+//! skeleton and clip vocabulary.
 //!
 //! Nothing may depend on him being selectable. He is meant to be found.
 
@@ -12,98 +12,76 @@ use ambition_platformer2d::character::CharacterDefinition;
 pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDefinition {
     let mut definition = definition
         .with_locomotion(ambition_characters::actor::CharacterLocomotion {
-            // The brawler archetype's own number, for the reason his moveset is
-            // the brawler's: he is that archetype.
+            // The brawler archetype's number: he is that archetype.
             run_speed: 230.0,
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         })
-        // ⭐⭐ HE CARRIES A SIDEARM, AND THAT IS THE CHARACTER'S FACT. His rig
-        // has a `holster` on his back and a `sidearm` his `shoot` clip puts in
-        // his hand; the gun being drawn is art, and the gun being able to fire
-        // is this. `MoveEventKind::Ranged` on his side special asks the body
-        // what its ranged action is, and with nothing brandished the answer is
-        // the one stated here — the same division `npc_pirate_raider` makes one
-        // file over: *a character states what it DOES and the item states what
-        // it HOLDS*.
+        // He carries a sidearm. His rig has a `holster` and a `sidearm` that his
+        // `shoot` clip puts in his hand; drawing the gun is art, firing it is this.
+        // `MoveEventKind::Ranged` on his side special asks the body for its ranged
+        // action, and with nothing brandished the answer is stated here. As in
+        // `npc_pirate_raider`: a character states what it does and an item states
+        // what it holds.
         //
-        // ⛔ NOT AN `equips` ITEM, WHICH IS HOW THE ADMIRAL'S GUN-SWORD WORKS.
-        // A held item is a PROP: a second sprite drawn in the hand. The
-        // Officer's gun is already on his own sheet, so equipping one would put
-        // two guns in one fist. See `crate::officer_moveset`.
+        // Not an `equips` item (the Admiral's gun-sword). A held item is a prop, a
+        // second sprite in the hand. The Officer's gun is on his own sheet, so an
+        // item would put two guns in one fist. See `crate::officer_moveset`.
         .with_action_set(ambition_characters::brain::ActionSet {
             ranged: Some(
                 ambition_characters::brain::RangedActionSpec::pistol(560.0, 7)
-                    // ⭐ THE HALF-PLANE IS JON'S RULE, and it is the weapon's
-                    // rule rather than this fighter's: the player picks a side
-                    // and the gun picks the angle within it. Shorter than the
-                    // admiral's 360 because a service pistol is not a
-                    // gun-sword — it reaches a spacing exchange, not the stage.
+                    // The half-plane is Jon's rule, and it belongs to the weapon: the player
+                    // picks a side and the gun picks the angle within it. Shorter than the
+                    // admiral's 360: a service pistol reaches a spacing exchange, not the
+                    // stage.
                     .with_aim_assist(ambition_characters::brain::action_set::AimAssist::half_plane(280.0))
-                    // ⭐⭐ HIS SHOT LEAVES THE BARREL, NOT HIS MIDRIFF. Without a
-                    // `Discharge` this defaulted to `Muzzle::BodyOrigin`, whose
-                    // spawn is `origin + (0, -8)` — a purely VERTICAL offset, so
-                    // the round was born at his centre while the gun and its
-                    // flare are drawn out at his hand. `Muzzle::Hand`'s own doc
-                    // says it exists for exactly this: *"so the shot leaves the
-                    // barrel the player can see rather than the fighter's
-                    // midriff."* The hand is mirrored by `facing_sign`, so this
-                    // is correct in both directions.
+                    // His shot leaves the barrel, not his midriff. The default
+                    // `Muzzle::BodyOrigin` spawns at `origin + (0, -8)`, a vertical offset only,
+                    // so the round would appear at his centre while the gun and flare are drawn
+                    // at his hand. `Muzzle::Hand` is for this case; `facing_sign` mirrors the
+                    // hand, so it is correct in both directions.
                     //
-                    // ⛔⛔ AND THIS IS WHAT "STILL FIRING BACKWARDS" WAS. The
-                    // velocity was never wrong — `officer_probe` proves vel.x
-                    // agrees with facing both ways. A round that is born behind
-                    // the visible muzzle and then travels forward reads as
-                    // coming out of the wrong place however the velocity is
-                    // signed, which is the complaint a sign check cannot see.
+                    // The velocity was always correct (`officer_probe` shows vel.x agrees
+                    // with facing). A round born behind the visible muzzle still reads as
+                    // coming out of the wrong place, which a sign check cannot see.
                     //
-                    // ⚠ THE PROBE'S OWN "+9.3 AHEAD" WAS NOT A MUZZLE OFFSET.
-                    // It samples the first tick the round is VISIBLE, one tick
-                    // after spawn: 560 px/s ÷ 60 Hz = 9.33. It was reading one
-                    // tick of travel and reporting it as the spawn offset, so
-                    // the instrument called `BodyOrigin` "ahead of him".
+                    // `officer_probe` samples the first visible tick, one tick after spawn, so
+                    // its offset includes one tick of travel (560 px/s ÷ 60 Hz = 9.33 px). It
+                    // is not the spawn offset.
                     .with_discharge(ambition_characters::brain::action_set::Discharge {
                         muzzle: ambition_characters::brain::action_set::Muzzle::Hand {
                             ahead: 10.0,
                         },
-                        // No cue of its own: `officer_the_draw` already plays
-                        // the draw at 0.116s, and naming a second one here
-                        // would be a cue this table has to keep in step with a
-                        // weapon it does not own.
+                        // No cue of its own: `officer_the_draw` already plays the draw at
+                        // 0.116s, and a second cue here would have to stay in step with a weapon
+                        // this table does not own.
                         ..Default::default()
                     })
-                    // ⭐ AND IT LOOKS LIKE A BULLET. Registered in
-                    // `crate::projectiles`; without this the id is empty and
-                    // resolves to the engine's generic quad.
+                    // It looks like a bullet. Registered in `crate::projectiles`; without
+                    // this the id is empty and resolves to the engine's generic quad.
                     .with_visual(ambition_characters::brain::action_set::PISTOL_ROUND_VISUAL)
-                    // ⛔⛔ THE MOVE'S OWN RECOVERY IS THE CADENCE. `refire_s` is
-                    // checked where the move is ACCEPTED, so a recharge on top
-                    // of a 0.7s special would refuse a shot the move had already
-                    // been accepted to fire: the animation plays, the flash
-                    // plays, and nothing comes out. The admiral's gun-sword
-                    // states the same 0.0 for the same reason.
+                    // The move's own recovery is the cadence. `refire_s` is checked where
+                    // the move is accepted, so a recharge on a 0.7s special would refuse a
+                    // shot the move was already accepted to fire: animation and flash play,
+                    // and nothing comes out. The admiral's gun-sword also uses 0.0.
                     .with_refire(0.0),
             ),
-            // ⛔ HIS WALK, RESTATED. `ActionSet` is a whole authority and its
-            // default `move_style` is not his — leaving it out would quietly
-            // overwrite the locomotion two lines up.
+            // His walk, restated. `ActionSet` is a whole authority and its default
+            // `move_style` is not his; omitting it would overwrite the locomotion above.
             move_style: ambition_characters::brain::MoveStyleSpec::Walk,
             ..Default::default()
         });
-    // ⭐⭐ **HIS MOVE TABLE IS NOT COMPILED IN ANY MORE** (fast-iteration I2,
-    // step 5). It was `.with_moveset(crate::officer_moveset::officer_moveset())`
-    // here; it is now `assets/data/movesets/officer.ron`, declared in `pack.ron`,
-    // validated by the `moveset` schema and applied in
-    // `crate::character_catalog::authored_intrinsics` — the one seam every
+    // His move table is not compiled in. It is
+    // `assets/data/movesets/officer.ron`, declared in `pack.ron`, validated by
+    // the `moveset` schema and applied in
+    // `crate::character_catalog::authored_intrinsics`, the one seam every
     // buildable character passes through.
     //
-    // ⛔ THE RUST TABLE STILL EXISTS AND IS NOT AN INPUT OF THE HOST. It is the
-    // EXPORTER's source and the PARITY ORACLE's subject
-    // (`the_officers_content_table_is_the_table_he_used_to_compile_with`), which
-    // is what step 5 permits in its own words: *"a test-only old table may be a
-    // temporary parity oracle, not a runtime fallback."* ⇒ Editing it changes
-    // nothing until it is re-exported, which is the point — the file is the
-    // authority now, and a fallback would give the fighter two.
+    // The Rust table is not a host input. It is the exporter's source and the
+    // parity oracle's subject
+    // (`the_officers_content_table_is_the_table_he_used_to_compile_with`).
+    // Editing it changes nothing until it is re-exported: the file is the
+    // authority, and a fallback would give the fighter two.
     definition.vitals.max_health = Some(6);
     definition
 }
@@ -112,22 +90,20 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
 mod tests {
     use ambition_characters::brain::action_set::{Muzzle, PISTOL_ROUND_VISUAL};
 
-    /// ⭐⭐ THE SHOT LEAVES THE BARREL, AND IT LOOKS LIKE A BULLET.
+    /// The shot leaves the barrel, and it looks like a bullet.
     ///
-    /// Jon, 2026-08-30: *"the officer is still firing backwards."* His round's
-    /// VELOCITY was never wrong — `officer_probe` shows `vel.x` agreeing with
-    /// facing in both directions. Two presentation facts were:
+    /// The round's velocity is correct (`officer_probe` shows `vel.x` agreeing
+    /// with facing both ways). Two presentation facts are checked:
     ///
-    /// * no `Discharge`, so the shot defaulted to [`Muzzle::BodyOrigin`], whose
-    ///   spawn offset is purely VERTICAL — the round was born at his sternum
-    ///   while the gun and its muzzle flare are drawn out at his hand;
-    /// * no `visual`, so an empty id resolved to `ProjectileArt::generic()`, the
-    ///   engine's orange-red QUAD. A symmetric quad also makes `FlipToTravel` a
-    ///   no-op, which is why the flip looked innocent under inspection.
+    /// * a `Discharge`: without it the shot defaults to [`Muzzle::BodyOrigin`],
+    ///   whose spawn offset is vertical only, so the round appears at his sternum
+    ///   while the gun and flare are drawn at his hand;
+    /// * a `visual`: an empty id resolves to `ProjectileArt::generic()`, the
+    ///   engine's quad. A symmetric quad also makes `FlipToTravel` a no-op.
     ///
-    /// ⛔ THIS GOES THROUGH `author_for`, not `author`, for the reason Emmy's
-    /// test does: authoring a weapon on a character no table reaches would be
-    /// indistinguishable from authoring nothing.
+    /// This goes through `author_for`, not `author`, like Emmy's test: authoring
+    /// a weapon on a character no table reaches would look like authoring
+    /// nothing.
     #[test]
     fn the_officers_round_leaves_his_hand_and_carries_his_own_art() {
         let author = super::super::author_for("officer")

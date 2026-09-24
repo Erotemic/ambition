@@ -1,87 +1,56 @@
-//! Reload every move table from disk into a RUNNING host.
+//! Reload every move table from disk into a running host.
 //!
-//! ⭐⭐ **THIS IS THE CUSTOMER THE REVISION ROAD DID NOT HAVE.** MEASURED
-//! 2026-09-11 before writing it: `activate_staged_revision` and
-//! `stage_character_revision` had ZERO callers outside `prepared.rs` and its own
-//! tests. A transactional cast revision — staged, admitted against installed
-//! technique support, published under a new generation, refused without touching
-//! the last-good cast, and now refused when it was prepared against a cast that
-//! has since moved — existed complete and was reached by nothing. Same shape as
-//! `EntityCatalogDoc`: the road was built and the traffic never arrived.
+//! This is the production caller of the staged cast revision road
+//! (`stage_move_section`, admission, publication).
 //!
-//! ⛔⛔ **IT DOES NOT USE `pack::prepared()`, AND THAT IS THE POINT.** That
-//! function is a `OnceLock`: the first caller compiles the pack and every later
-//! caller gets the same value forever, which is correct for a process that reads
-//! its content once and wrong for one that re-reads it. Reload compiles a FRESH
-//! pack off disk, and the `OnceLock` keeps serving the boot-time value to
-//! everything that has not been migrated to a generation-aware read — which is
-//! fast-iteration I3 step 1's *"replace process-global mutable-generation
-//! assumptions from the OnceLock content route for migrated families with
-//! App-scoped selection"*, and is NOT done here.
+//! It does not use `pack::prepared()`. That function is a `OnceLock` that
+//! serves the boot-time pack forever. Reload compiles a fresh pack from disk.
+//! Readers that still use the `OnceLock` keep the boot-time value; moving them
+//! to an App-scoped selection is fast-iteration I3 step 1 and is not done here.
 //!
-//! ⚠ **A RELOAD MOVES THE PARTICIPATING DOMAINS AND THE SELECTION — AND THIS
-//! PARAGRAPH USED TO SAY *"a reload moves the cast and not the pack"*, which was
-//! true when written and is not now (re-derived 2026-09-12).** [`participates`]
-//! is the authority: the moveset schema plus every [`PACK_DERIVED_FAMILIES`]
-//! domain, which today is `fighter_brain_ladder` and `encounter_waves`. The
-//! transaction publishes those together with the selected pack, atomically.
-//!
-//! ⛔ EVERY OTHER DOMAIN IS REFUSED, NOT SILENTLY SKIPPED — items, audio, boss
-//! profiles, the character catalog. A candidate that changes one of them is
-//! turned away by [`ReloadRequest`] rather than published, because publishing it
-//! would leave the canonical identity naming generation N+1 while the live
-//! catalog served N. **The rule fails safe: a family added later is refused by
-//! DEFAULT rather than forgotten into silent falsity.**
+//! A reload publishes the selected pack together with every participating
+//! domain: see [`participates`] (the moveset schema plus
+//! [`PACK_DERIVED_FAMILIES`]). [`ReloadRequest`] refuses a candidate that
+//! changes any other domain (items, audio, boss profiles, character catalog),
+//! because the canonical identity would then name generation N+1 while that
+//! catalog still serves N. A family added later is refused by default.
 
 use ambition_characters::prepared::{stage_move_section, MovesetRevisionError};
-// ⚠ THE FIXTURE ROAD PUBLISHES DIRECTLY; THE PRODUCTION ROAD NEVER DOES. The
-// transaction's commit path holds an already-admitted value and calls
-// `publish_admitted_revision`, which has no refusal in it — so the combined
-// admit-and-publish entry point is reachable from tests only.
+// Only tests use the combined admit-and-publish entry point. The production
+// commit path holds an already-admitted value and calls
+// `publish_admitted_revision`.
 #[cfg(test)]
 use ambition_characters::prepared::{activate_staged_revision, RevisionOutcome};
 
 /// What a reload attempt did.
 ///
-/// ⭐ EVERY VARIANT NAMES A STATE THE ROAD CAN ACTUALLY REACH, and each one that
-/// is not `Activated` states what happened to the LIVE cast — because "the
-/// reload failed" and "the reload failed and took the running game's fighters
-/// with it" are the two outcomes a caller has to tell apart.
+/// Each variant is a reachable state. Each non-`Activated` variant also says
+/// what happened to the live cast.
 #[derive(Debug, Clone, PartialEq)]
-/// ⛔⛤ **FOUR OF THESE ARE `#[cfg(test)]`, WHICH IS A STATEMENT ABOUT PRODUCTION
-/// RATHER THAN ABOUT TESTS.** `PackRefused`, `NoMoveSection`, `Activated` and
-/// `Unchanged` are produced ONLY by the fixture road — `publish_candidate` and
-/// the `reload_move_tables*` helpers — which became `#[cfg(test)]` when the
-/// direct publication road stopped being a production authority. Left visible in
-/// a shipped build they would hand every production consumer four states it can
-/// never be given, and the consumer that matters is
-/// [`ReloadRequest::Refused`]: it would be able to spell `Refused(Activated)`,
-/// which is not a refusal at all.
+/// `PackRefused`, `NoMoveSection`, `Activated` and `Unchanged` are
+/// `#[cfg(test)]` because only the test-only fixture road (`publish_candidate`,
+/// `reload_move_tables*`) produces them. In a shipped build they would let
+/// [`ReloadRequest::Refused`] carry states such as `Activated` that are not
+/// refusals.
 ///
-/// ⚠ THE REST ARE ALL REACHABLE FROM `request_reload`, several of them through
-/// the shared [`admit_candidate`] rather than from its own body — a variant's
-/// producer being one call away is not the same as it being unreachable.
+/// The other variants come from `request_reload`, some through
+/// [`admit_candidate`].
 pub enum MoveReload {
-    /// The pack on disk does not compile. **Nothing was staged and the live cast
-    /// is untouched** — the refusal carries the content compiler's own
-    /// diagnostic, which names every problem rather than the first.
+    /// The pack on disk does not compile. Nothing was staged and the live cast
+    /// is not changed. The string is the content compiler's full diagnostic.
     #[cfg(test)]
     PackRefused(String),
     /// The pack compiled and carries no move section at all.
     ///
-    /// ⛔ NOT an error and NOT silence: a pack whose `moveset` sources were all
-    /// removed is a legitimate edit, and replacing the live cast's movesets with
-    /// nothing is not what it asks for. It is reported so a caller can tell it
-    /// from a successful reload of zero changes.
+    /// Not an error: removing all `moveset` sources is a valid edit, and it
+    /// does not ask to clear the live cast's movesets. Reported so a caller can
+    /// tell it from a reload with zero changes.
     #[cfg(test)]
     NoMoveSection,
     /// The preparation barrier has not run, so there is no cast to revise.
     ///
-    /// ⛔⛤ **SEPARATE FROM `UnknownCharacters`, AND MY FIRST DRAFT MERGED
-    /// THEM.** `stage_move_section` returns one error list, and mapping all of it
-    /// to "unknown characters" would report a host that has not booted its cast
-    /// as a CONTENT problem — sending an author to edit files over a lifecycle
-    /// fact about the caller.
+    /// Kept separate from `UnknownCharacters`: a host that has not booted its
+    /// cast has a lifecycle problem, not a content problem.
     NoCast,
     /// The section names characters this build did not prepare. Nothing was
     /// staged — `stage_move_section` is all-or-nothing.
@@ -91,120 +60,80 @@ pub enum MoveReload {
     Activated { generation: u64, changed: usize },
     /// Every table on disk is what the live cast was already built from.
     ///
-    /// ⭐ A FILE WATCHER FIRES ON A SAVE, NOT ON A CHANGE, so this is the
-    /// COMMON case in the loop this exists for, not an edge one.
+    /// A file watcher fires on a save, not on a change, so this is the common
+    /// case.
     #[cfg(test)]
     Unchanged { generation: u64 },
     /// The revision was refused at admission: an authored effect names a
     /// technique this composition did not install. The previous cast is still
     /// the published one.
     Refused(Vec<String>),
-    /// The CANDIDATE was prepared against a content generation that is no longer
-    /// selected. **Nothing was published** — not the cast, not the selection.
+    /// The candidate was prepared against a content generation that is no
+    /// longer selected. Nothing was published (not the cast, not the
+    /// selection).
     ///
-    /// ⭐⭐ **THE ONLY STALENESS REFUSAL, AS OF 2026-09-12.** There used to be a
-    /// second one — `Stale`, in cast-generation units — and the two variants were
-    /// described here as "the honest report of a real defect in the
-    /// architecture". MEASURED before deleting it: it could not fire on this
-    /// road. `admit_candidate` refuses on the pack fingerprint BEFORE anything is
-    /// staged, and the cast stamp was read out of the live world one line before
-    /// it was compared, in the same synchronous call.
-    ///
-    /// ⇒ ONE RECORDER FOR ONE FACT. The scenario is unchanged — somebody
-    /// published between the caller's read and its apply — and this variant is
-    /// where it is reported.
+    /// This is the only staleness refusal. `admit_candidate` compares the pack
+    /// fingerprint before anything is staged, so a separate cast-generation
+    /// check could not fire.
     StaleGeneration {
         prepared_against: String,
         active: String,
     },
-    /// A rollback timeline is LIVE over this world, so a content generation may
-    /// not be published into it.
+    /// A rollback timeline is live over this world, so a content generation
+    /// may not be published into it.
     ///
-    /// ⭐⭐ **THE REFUSAL IS DERIVED, NOT INVENTED — and that is the whole point
-    /// of it being a refusal rather than a new rule.** MEASURED 2026-09-11:
-    /// `ambition_platformer2d_rollback_ggrs`'s per-frame contract check already
-    /// INVALIDATES a live GGRS timeline when the prepared content identity
-    /// changes under it (*"prepared content changed while the GGRS session was
-    /// active"*), because a timeline promised the identity it rewinds. ⇒ Publish
-    /// anyway and the architecture's own answer is a desync diagnosis; refusing
-    /// is strictly better than publishing and being invalidated, and it is the
-    /// explicit contract a remote session needs rather than behaviour that
-    /// "mostly works locally".
+    /// This follows from an existing rule: the GGRS per-frame contract check in
+    /// `ambition_platformer2d_rollback_ggrs` invalidates a live timeline when
+    /// the prepared content identity changes under it. Refusing is better than
+    /// publishing and then reporting a desync.
     RefusedDuringLiveTimeline,
-    /// The rollback authority governing this world is UNHEALTHY.
+    /// The rollback authority for this world is unhealthy.
     ///
-    /// ⛔⛔ **AND PUBLISHING MUST NOT HEAL IT.** `RollbackTimelineStatus::carried_from`
-    /// hands an unhealthy timeline's reason to the timeline that replaces it, and
-    /// the only sanctioned way to clear one is `acknowledge_and_clear` — *"a tool
-    /// that has shown the divergence to a human and been told to carry on"*. A
-    /// content publication that established a fresh timeline would otherwise
-    /// launder a desync into health by a side door.
+    /// Publishing must not heal it. `RollbackTimelineStatus::carried_from`
+    /// passes an unhealthy reason to the replacement timeline, and only
+    /// `acknowledge_and_clear` may clear it. A content publication that made a
+    /// fresh timeline would otherwise hide a desync.
     RefusedWhileRollbackUnhealthy(String),
-    /// The candidate changes a mechanical domain that does NOT participate in
-    /// the generation transaction, so publishing it would make the engine's
-    /// content identity a lie.
+    /// The candidate changes a mechanical domain that does not participate in
+    /// the generation transaction. Publishing it would make the content
+    /// identity false.
     ///
-    /// ⛔⛤ **THIS CENSUS SAID "ELEVEN OF TWELVE DO NOT PARTICIPATE" AND IS
-    /// SUPERSEDED (re-derived 2026-09-12): THREE PARTICIPATE NOW.** `moveset`,
-    /// plus `fighter_brain_ladder` and `encounter_waves` as
-    /// [`PACK_DERIVED_FAMILIES`] — the second and third families joined after
-    /// that count was taken. ⚠ **DO NOT RE-COUNT FROM THIS COMMENT.**
-    /// [`participates`] is the authority and is one `match` precisely so a prose
-    /// list cannot drift from it again; this paragraph exists to say the drift
-    /// happened, not to be the list.
+    /// [`participates`] is the authority for which domains participate. Do not
+    /// keep a list here. Domains installed in `AmbitionContentPlugin::build`
+    /// from `pack::prepared()` (`item_catalog`, `character_catalog`, the audio
+    /// registries, the boss families) do not participate, because no reload
+    /// road replaces them. An items-only candidate would make
+    /// `PreparedContentIdentity` name N+1 while the item catalog serves N.
     ///
-    /// ⇒ What still does NOT participate is everything installed in
-    /// `AmbitionContentPlugin::build` from the process-global `pack::prepared()`
-    /// — `item_catalog`, `character_catalog`, the two audio registries, the four
-    /// boss families — because no reload road replaces any of them.
+    /// The rule fails safe: every non-participating domain is refused. When a
+    /// domain joins the transaction, flip the test that pins its refusal to
+    /// pin its publication.
     ///
-    /// ⇒ Publishing an items-only candidate would leave
-    /// `PreparedContentIdentity` and the selected pack naming generation N+1
-    /// while the live item catalog served N. That is WORSE than not supporting
-    /// item reload: the canonical identity would claim mechanical content is
-    /// active when it is not.
-    ///
-    /// ⭐ THE RULE FAILS SAFE. Everything except the participating domain is
-    /// refused, so a family added later is refused by DEFAULT rather than
-    /// forgotten into silent falsity. When a domain joins the transaction, the
-    /// test that pins its refusal flips to pinning its publication — which is a
-    /// much stronger validation of the abstraction than either arm alone.
-    ///
-    /// ⚠ SOUND ABOUT DOMAINS, NOT ABOUT FIELDS. The per-source digest this is
-    /// built on is live for every domain (the compiler refuses a schema that
-    /// lowers and defines nothing), but a handler can still define a row whose
-    /// canonical string omits a field it lowered, and no compiler check sees
-    /// that.
+    /// The check is sound per domain, not per field. A handler can define a
+    /// row whose canonical string omits a field it lowered, and no compiler
+    /// check sees that.
     RefusedUnsupportedChangedDomain(Vec<String>),
     /// The candidate stops naming characters whose authored moveset the live
-    /// cast is playing. **Nothing was staged and nothing was published.**
+    /// cast plays. Nothing was staged or published.
     ///
-    /// ⛔ THE PARTICIPATING DOMAIN CHANGED IN A WAY THE PARTICIPANT CANNOT APPLY.
-    /// See [`dropped_moveset_entities`]: staging is per-entity over the
-    /// CANDIDATE's keys, so a character the candidate stops naming keeps the old
-    /// generation's moves and is re-published under the new one — the pack says
-    /// one thing and the cast plays another, silently, from deleting one entity.
+    /// Staging iterates the candidate's keys, so a dropped character would
+    /// keep its old moves under the new generation. See
+    /// [`dropped_moveset_entities`].
     RefusedDroppedMovesetEntities(Vec<String>),
-    /// This world installs no technique table at all.
+    /// This world installs no technique table.
     ///
-    /// ⛔⛤ **ABSENT IS NOT EMPTY, AND MY FIRST VERSION CONFLATED THEM.** An
-    /// EMPTY `TechniqueSupport` is a legitimate value — `activate_staged_revision`
-    /// says so in its own signature — meaning *"this host installs nothing"*, and
-    /// admitting against it correctly refuses every authored effect. A world with
-    /// no `InstalledTechniques` resource has not installed the combat capability
-    /// at all, and `unwrap_or_default()` there would report a roster-wide
-    /// technique refusal for a composition that was never asked the question.
+    /// Absent is not empty. An empty `TechniqueSupport` means "this host
+    /// installs nothing" and admission then refuses every authored effect. No
+    /// `InstalledTechniques` resource means the combat capability is not
+    /// installed, so `unwrap_or_default()` would report a false roster-wide
+    /// refusal.
     NoTechniqueSupport,
 }
 
-/// Republish the cast's move tables from an ALREADY-COMPILED pack.
+/// Republish the cast's move tables from an already-compiled pack.
 ///
-/// ⭐⭐ **SPLIT OUT SO THE WITNESS DOES NOT HAVE TO EDIT THE REPOSITORY.**
-/// [`reload_move_tables`] reads the shipped asset tree, so a test of "an edited
-/// file changes what the host plays" would have to write into
-/// `game/ambition_content/assets` and put it back — a guard whose subject
-/// MUTATES THE TREE, which this repository has already been bitten by. A caller
-/// that can build a pack can build an EDITED one.
+/// Split from [`reload_move_tables`] so a test can use an edited pack instead
+/// of writing into `game/ambition_content/assets`.
 #[cfg(test)]
 pub(crate) fn reload_move_tables_from(
     world: &mut bevy::ecs::world::World,
@@ -225,8 +154,8 @@ pub(crate) fn reload_move_tables_from(
         return MoveReload::UnknownCharacters(problems.iter().map(ToString::to_string).collect());
     }
 
-    // ⚠ THE COMPOSITION OWNS THE SUPPORT TABLE. See `MoveReload::NoTechniqueSupport`
-    // for why an absent resource is reported rather than defaulted.
+    // See `MoveReload::NoTechniqueSupport` for why an absent resource is
+    // reported and not defaulted.
     let Some(support) = world
         .get_resource::<ambition_combat::technique::InstalledTechniques>()
         .map(|installed| installed.0.clone())
@@ -247,67 +176,49 @@ pub(crate) fn reload_move_tables_from(
         RevisionOutcome::Refused { refusals } => {
             MoveReload::Refused(refusals.iter().map(|r| r.detail.clone()).collect())
         }
-        // ⚠ UNREACHABLE BY CONSTRUCTION rather than by assertion: the section is
-        // non-empty (it lowered) and staging reported no problem, so something
-        // is staged. Reported rather than panicked — a reload loop must not take
-        // the game down over a shape it did not expect.
+        // Unreachable: the section lowered and staging reported no problem, so
+        // something is staged. Reported, not panicked, so a reload loop cannot
+        // crash the game.
         RevisionOutcome::NothingStaged => MoveReload::NoMoveSection,
     }
 }
 
-/// Reload from a CONTENT DIRECTORY rather than from this build's own sources.
+/// Reload from a content directory, not from this build's own sources.
 ///
-/// ⭐⭐ **THE FAST-ITERATION LOOP, END TO END, WITH NO COMPILER IN IT.** Edit a
-/// `.ron` under `root`, call this, and the running host's cast plays the edit —
-/// which is fast-iteration I2's acceptance in its own words: *"a prebuilt host
-/// plays the edited artifact without invoking Cargo or its linker."*
+/// This is the fast-iteration loop with no compiler: edit a `.ron` under
+/// `root`, call this, and the running cast plays the edit (fast-iteration I2).
 ///
-/// ⛔ A ROOT SUPPLIES THE WHOLE PACK OR NONE OF IT. See
-/// [`crate::pack::compile_pack_from`]: a per-file fallback to the binary's own
-/// text would compile a mixed pack out of a directory and a build, and
-/// [`crate::pack::export_sources_to`] is how a caller starts from a complete one.
+/// The root must supply the whole pack. See [`crate::pack::compile_pack_from`]
+/// and [`crate::pack::export_sources_to`].
 #[cfg(test)]
 pub(crate) fn reload_move_tables_from_dir(
     world: &mut bevy::ecs::world::World,
     root: &std::path::Path,
 ) -> MoveReload {
-    // ⚠ IT MAKES NO BASE CLAIM, AND THAT IS NOW THE HONEST SHAPE. A caller that
-    // reads a directory and applies minutes later needs one — but the base is
-    // the PACK FINGERPRINT, and this convenience form cannot know it before the
-    // compile that produces it. A caller that needs staleness protection builds
-    // its own `CandidateGeneration::prepared_against(pack, Some(base))`.
+    // No base claim: the base is the pack fingerprint, which is not known
+    // before this compile. A caller that needs staleness protection builds its
+    // own `CandidateGeneration::prepared_against(pack, Some(base))`.
     match crate::pack::compile_pack_from(root) {
         Ok(pack) => reload_move_tables_selecting(world, std::sync::Arc::new(pack)),
         Err(refusal) => MoveReload::PackRefused(refusal),
     }
 }
 
-/// **May this candidate generation proceed at all?** — asked ONCE, for both
-/// roads.
+/// Decide if a candidate generation may proceed. Both roads use this one
+/// function, so one rule is tested for both.
 ///
-/// ⛔⛤ **THIS WAS SPELLED TWICE AND THAT WAS THE SECOND AUTHORITY.** The verdict,
-/// the unsupported-domain diff and the publication boundary were written out in
-/// `publish_candidate` and again in `request_reload`, in the same order, with
-/// two different wrappers around the same answers. Two copies of a rule make
-/// each other untestable: a change to one leaves the other green, and the road a
-/// test takes decides which rule it certifies.
-///
-/// ⛔ **THE ORDER IS THE CONTRACT, AND IT IS THE HALF THAT WAS A DEFECT.** The
-/// VERDICT comes first: a mechanically identical candidate publishes nothing,
-/// allocates nothing and reconstructs nothing, so it cannot invalidate a
-/// timeline — asking the boundary first reported a no-op as
-/// `RefusedDuringLiveTimeline`, and a watcher fires on every SAVE, which makes
-/// the no-op the common case. `Stale` does not need the boundary either: it is a
-/// refusal about the candidate's own base, true whatever the timeline is doing.
-/// Only `Publish` needs permission.
+/// The order is part of the contract. The verdict comes first: a mechanically
+/// identical candidate publishes nothing and so cannot invalidate a timeline.
+/// Asking the boundary first would report a no-op save as
+/// `RefusedDuringLiveTimeline`. `Stale` also does not need the boundary. Only
+/// `Publish` asks for permission.
 enum CandidateAdmission {
     /// It may not, and this is the answer BOTH roads report.
     Refused(MoveReload),
     /// There is nothing to do. Not a refusal — a real mechanical no-op.
     ///
-    /// ⚠ IT CARRIES NOTHING. The cast generation a no-op reports is the DIRECT
-    /// road's answer, read from the registry there; a request road that returns
-    /// `Unchanged` requested nothing and has no generation to name.
+    /// Carries nothing. The direct road reads the cast generation from the
+    /// registry; the request road requested nothing and has no generation.
     Unchanged,
     /// It may.
     Proceed,
@@ -334,9 +245,8 @@ fn admit_candidate(
         ambition_content_pack::CandidateVerdict::Publish { .. } => {}
     }
 
-    // ⛔ READ AGAINST THE ACTIVE PACK, WHICH IS WHY IT RUNS BEFORE ANYTHING IS
-    // STAGED OR SELECTED: diffing after the candidate became the selection would
-    // be diffing it against itself.
+    // Diff against the active pack before anything is staged or selected;
+    // after selection it would diff the candidate against itself.
     let unsupported = unsupported_changed_domains(world, candidate.pack());
     if !unsupported.is_empty() {
         return CandidateAdmission::Refused(MoveReload::RefusedUnsupportedChangedDomain(
@@ -344,16 +254,11 @@ fn admit_candidate(
         ));
     }
 
-    // ⛔ AND THE PARTICIPATING DOMAIN HAS TO BE APPLICABLE, not merely permitted.
-    // Asked here rather than at staging because staging cannot SEE it: it
-    // iterates the candidate's keys, so a dropped entity is not a thing it fails
-    // to do — it is a thing it is never asked to do.
+    // The participating domain must also be applicable. Check here, because
+    // staging iterates the candidate's keys and never sees a dropped entity.
     if let Some(active) = crate::pack::selected(world) {
-        // ⭐ ONE AUTHORITY, AND IT IS NOT THIS CRATE'S. The predicate lives beside
-        // the section it reads (`ambition_characters::moveset_content_schema`),
-        // published by YardratAmbition at `c7a895c41`; the copy that used to sit
-        // in this file was a second definition of one fact. Verified at
-        // `origin/main` before deleting mine, not taken from the handoff message.
+        // The predicate lives beside the section it reads, in
+        // `ambition_characters::moveset_content_schema`.
         let dropped =
             ambition_characters::moveset_content_schema::dropped_moveset_entities(
                 active,
@@ -366,29 +271,16 @@ fn admit_candidate(
 
     match publication_boundary(world) {
         PublicationBoundary::Legal => CandidateAdmission::Proceed,
-        // ⛔⛤ **A LIVE TIMELINE THIS HOST CAN REBASE IS NOT A REFUSAL — `Q118`'s
-        // OPEN HALF, ANSWERED 2026-09-13 BY REUSING A PROTOCOL THAT ALREADY
-        // SHIPS.** Refusing every healthy timeline is what the first version of
-        // the publication breaker did, and the measurement said what it cost:
-        // *"a reload re-prepares the route the shell is already on, and by the
-        // time the transaction reaches its boundary the session it is replacing
-        // owns a HEALTHY, speculating GGRS timeline. A cancel there is not a
-        // seal; it is the removal of hot reload."*
+        // A live timeline that this host may rebase is not a refusal. This
+        // reuses the LDtk reload protocol: `restart_local_ggrs_after_hot_reload`
+        // stops the session and releases ownership, and
+        // `maintain_local_session` rebuilds it next frame with the same policy
+        // and seating. Per `RollbackSessionOwnership`, local sync-test sessions
+        // may be recreated around a content reload; external/P2P sessions may
+        // not.
         //
-        // ⭐⭐ **THE LDtk RELOAD ROAD ALREADY SOLVED THIS AND NOBODY REUSED IT.**
-        // `restart_local_ggrs_after_hot_reload` stops the session and RELEASES
-        // ownership so `maintain_local_session` rebases it on the next frame —
-        // *"with the SAME policy and the SAME frozen seating, because neither of
-        // those is what a content reload changed"*. `RollbackSessionOwnership`'s
-        // own doc states the rule this reads: *"Local sync-test sessions may be
-        // stopped and recreated around a developer content reload. External/P2P
-        // sessions require a coordinated peer barrier and must never be replaced
-        // unilaterally by the local host."*
-        //
-        // ⇒ So the question is not *"is a timeline live"* but *"may this host
-        // rebase it"*, and the answer is asked against the live world at BOTH
-        // ends — here, and again at the commit — rather than decided once and
-        // carried, which is the fingerprint/consumption gap in another costume.
+        // The question is "may this host rebase it", and it is asked against
+        // the live world here and again at the commit.
         PublicationBoundary::RebasableTimeline => CandidateAdmission::Proceed,
         PublicationBoundary::ForeignTimeline => {
             CandidateAdmission::Refused(MoveReload::RefusedDuringLiveTimeline)
@@ -399,18 +291,14 @@ fn admit_candidate(
     }
 }
 
-/// Publish a COMPLETE candidate generation, or refuse it, as one act.
+/// Publish a complete candidate generation, or refuse it, as one act.
 ///
-/// ⭐⭐ **THE DECISION IS MADE ON THE WHOLE PACK'S IDENTITY, NOT ON THE MOVE
-/// FAMILY'S.** [`ambition_content_pack::CandidateGeneration::verdict`] answers
-/// stale / complete-no-op / publish from the pack's own `ContentFingerprint`,
-/// which covers every content id, schema, capability, asset and reference. The
-/// move family's own outcome is then a CONSEQUENCE of that decision rather than
-/// an input to it.
-///
-/// ⛔⛤ **AND THAT IS THE FIX FOR A DEFECT I SHIPPED HOURS EARLIER.** This
-/// function used to conclude `Unchanged` from the MOVE material and install the
-/// whole newly-loaded pack anyway:
+/// The decision uses the whole pack's identity, not the move family's.
+/// [`ambition_content_pack::CandidateGeneration::verdict`] answers stale /
+/// no-op / publish from the pack's `ContentFingerprint`, which covers every
+/// content id, schema, capability, asset and reference. The move outcome
+/// follows from that decision. Deciding from the moves alone would report
+/// this as unchanged while installing new items:
 ///
 /// ```text
 /// generation N   moves = A   items = X
@@ -418,21 +306,12 @@ fn admit_candidate(
 /// → "Unchanged", and the whole candidate pack became the App's selection.
 /// ```
 ///
-/// One subsystem believing nothing changed while another can observe new
-/// mechanical content. ⇒ It is NOT fixed by special-casing `Unchanged` — that
-/// hides the missing abstraction. The complete identity is the abstraction.
+/// A changed pack with identical moves publishes the selection and leaves the
+/// cast generation alone.
 ///
-/// ⚠ **A CHANGED PACK WHOSE MOVES ARE IDENTICAL NOW PUBLISHES THE SELECTION AND
-/// LEAVES THE CAST GENERATION ALONE**, which is the correct pair of answers and
-/// was not expressible before: the pack really did change, and the cast really
-/// did not.
-///
-/// ⛔ **WHAT THIS STILL DOES NOT DO** (fast-iteration I3's remaining half): it
-/// establishes no `ContentEpoch`, no `PreparedContentIdentity` and no rollback
-/// timeline boundary. ⭐ IT NO LONGER CARRIES TWO BASE CLOCKS: the cast
-/// generation stopped being a staleness authority on 2026-09-12 and the pack
-/// fingerprint is the only one, so the remaining additions are the epoch and the
-/// rollback boundary at this one seam rather than a rewrite.
+/// Not done yet (fast-iteration I3): this sets no `ContentEpoch`, no
+/// `PreparedContentIdentity` and no rollback timeline boundary. The pack
+/// fingerprint is the only base clock.
 #[cfg(test)]
 pub(crate) fn publish_candidate(
     world: &mut bevy::ecs::world::World,
@@ -452,9 +331,8 @@ pub(crate) fn publish_candidate(
     }
     let pack = candidate.into_pack();
     let outcome = reload_move_tables_from(world, &pack);
-    // ⛔ THE SELECTION FOLLOWS THE CAST'S ADMISSION, not the compile. A refused
-    // or stale revision must leave the App reading the pack its cast was
-    // actually built from.
+    // The selection follows the cast's admission, not the compile. A refused
+    // or stale revision leaves the App on the pack its cast was built from.
     if matches!(
         outcome,
         MoveReload::Activated { .. } | MoveReload::Unchanged { .. }
@@ -466,24 +344,15 @@ pub(crate) fn publish_candidate(
 
 /// Does this schema id name a family the generation transaction can carry?
 ///
-/// ⛔ A `match`, NOT A TABLE. A table of participating ids is wrong the moment
-/// somebody adds a family and forgets the row; this refuses everything it does
-/// not name, so the failure of forgetting is a REFUSED reload rather than a
-/// family that promotes and never lands.
+/// A `match`, not a table of ids: a forgotten family is refused instead of
+/// promoted and never published.
 ///
-/// ⭐⭐ **TWO FAMILIES, AND THE SECOND ONE IS THE POINT.** The architecture
-/// review's gate was *"the SECOND mechanical content family — as validation that
-/// the transaction absorbs it with no new authority"*. `fighter_brain_ladder` is
-/// what the census picked, and it absorbed with NO new resource, NO new ordering
-/// edge and NO new refusal: see [`publish_participant_families`].
+/// `fighter_brain_ladder` was the second family and needed no new resource,
+/// ordering edge or refusal; see [`publish_participant_families`].
 ///
-/// ⚠ AND IT IS NOT ITEMS, which is what the fixtures assume. MEASURED
-/// 2026-09-12: `install_item_catalog` writes a second process-global `OnceLock`
-/// whose own comment reports that a different second catalog *"was IGNORED"*,
-/// and the read side returns `&'static str` across ~80 external uses. A borrow
-/// whose lifetime is the `OnceLock` is a structural claim that there is one
-/// generation forever — the signature cannot express N+1, so no ordering can
-/// make it participate.
+/// Items cannot participate. `install_item_catalog` writes a process-global
+/// `OnceLock`, and its readers return `&'static str`, so the type cannot
+/// express a generation N+1.
 fn participates(domain: &str) -> bool {
     domain == ambition_characters::moveset_content_schema::MOVESET_SCHEMA
         || PACK_DERIVED_FAMILIES
@@ -494,19 +363,11 @@ fn participates(domain: &str) -> bool {
 /// One mechanical family whose whole publication is a function of the candidate
 /// pack.
 ///
-/// ⛔⛔ **THE SCHEMA ID AND THE PUBLICATION ARE ONE DECLARATION, AND THAT IS THE
-/// POINT.** [`PARTICIPATING_DOMAIN`] was a bare const, and the shape it would
-/// have grown into — a LIST of permitted ids, with the publications somewhere
-/// else — is the drift this type exists to make impossible. A family named on a
-/// list of ids but missing from the publication is a family whose domain passes
-/// [`unsupported_changed_domains`], whose pack promotes, and which then stays at
-/// generation N forever: the first row of `dropped_moveset_entities`'s own
-/// transition table, reintroduced for a new family.
-///
-/// ⇒ A row cannot name a domain it cannot publish, because the publisher IS the
-/// row. And a family added to NEITHER is refused rather than silently dropped:
-/// [`participates`] scans this table, so an unlisted domain is an unsupported
-/// changed domain and the reload says no.
+/// The schema id and its publisher are one declaration. A separate list of
+/// ids could name a domain that passes [`unsupported_changed_domains`] but is
+/// never published, so the family stays at generation N. Here the publisher is
+/// the row, and [`participates`] scans this table, so an unlisted domain is
+/// refused.
 struct PackDerivedFamily {
     domain: &'static str,
     publish: fn(&mut bevy::ecs::world::World, &ambition_content_pack::PreparedContentPack),
@@ -514,12 +375,10 @@ struct PackDerivedFamily {
 
 /// Every family the transaction publishes from the pack alone.
 ///
-/// ⚠ `moveset` IS DELIBERATELY ABSENT. Its publication is not a function of the
-/// pack: the cast revision is ADMITTED against world state — the installed
-/// technique table and the live cast generation — and [`PendingGeneration`]
-/// carries that admitted value precisely because an answer computed against the
-/// world goes stale when the world moves. A row here would have to re-derive it
-/// at the boundary, which is the defect the review's item 1 named.
+/// `moveset` is not here. Its publication is admitted against world state
+/// (the installed technique table and live cast generation), so
+/// [`PendingGeneration`] carries the admitted value instead of re-deriving it
+/// at the boundary.
 const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
     PackDerivedFamily {
         domain: ambition_combat::brain::fighter::content_schema::FIGHTER_BRAIN_LADDER_SCHEMA,
@@ -531,9 +390,9 @@ const PACK_DERIVED_FAMILIES: &[PackDerivedFamily] = &[
     },
 ];
 
-/// ⛔ ABSENT IN THE CANDIDATE MEANS REMOVE, NOT KEEP — see
-/// [`publish_participant_families`]. `profile_for_level` reads an `Option` and
-/// states that absent means the engine floor.
+/// Absent in the candidate means remove, not keep. See
+/// [`publish_participant_families`]; `profile_for_level` treats absent as the
+/// engine floor.
 fn publish_fighter_ladder(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
@@ -547,11 +406,8 @@ fn publish_fighter_ladder(
     }
 }
 
-/// ⛔ SAME RULE, AND THE RUNTIME ALREADY STATES IT: `authored_encounter_waves`
-/// takes `Option<&EncounterWaveBook>` and says *"`None` means the adapter should
-/// fall back to one wave assembled from the level's own spawn markers"*. A
-/// candidate that declares no waves is asking for that fallback, so keeping
-/// generation N's book would answer a question the candidate stopped asking.
+/// Absent in the candidate means remove. `authored_encounter_waves` treats
+/// `None` as "fall back to one wave from the level's spawn markers".
 fn publish_encounter_waves(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
@@ -568,39 +424,21 @@ fn publish_encounter_waves(
 /// Publish every participating family that is a pure function of the candidate
 /// pack — the whole of [`PACK_DERIVED_FAMILIES`], in one act.
 ///
-/// ⭐⭐ **DERIVED AT THE BOUNDARY RATHER THAN CARRIED, AND THE DIFFERENCE FROM
-/// `admitted_cast` IS THE WHOLE ARGUMENT.** [`PendingGeneration`] carries the
-/// admitted cast because admission asked the WORLD a question — which techniques
-/// this composition installed, which generation the cast is on — and an answer
-/// computed against world state goes stale when the world moves. The fighter
-/// ladder asks the world nothing: it is `lowered_fighter_brain_ladder(pack)`, a
-/// total function of a value this generation already owns. Re-deriving it here
-/// cannot disagree with anything, so carrying a second copy would be a second
-/// authority for one fact.
+/// These are derived at the boundary, not carried like `admitted_cast`.
+/// [`PendingGeneration`] carries the admitted cast because admission asked
+/// the world a question that can go stale. These families are total functions
+/// of the pack, so re-deriving cannot disagree, and a carried copy would be a
+/// second authority.
 ///
-/// ⛔ **ABSENT IN THE CANDIDATE MEANS REMOVE, NOT KEEP.** A candidate that drops
-/// the `fighter_brain_ladder` section is asking for the engine floor —
-/// `profile_for_level` states that rule and reads `Option` for exactly this
-/// reason. Leaving generation N's resource behind is the defect the moveset
-/// family's own transition table records in its first row: the pack promotes and
-/// the family silently stays at N. The ladder can express its own removal, and
-/// that is why it was the clean second family to take.
+/// Absent in the candidate means remove. Keeping generation N's resource would
+/// promote the pack while the family stays at N.
 ///
-/// ⛔ NOTHING HERE CAN SAY NO. The commit path is infallible by construction and
-/// this does not change that: a resource write and a resource removal are both
-/// unconditional.
+/// Nothing here can refuse; the commit path stays infallible.
 ///
-/// ⚠ **AND NO NEW ORDERING EDGE, THOUGH THE REASON CHANGED UNDER IT.** This
-/// used to say the projection runs on `Added<Brain>` and that a reload
-/// reconstructs the session, so the fighters reading this are spawned by
-/// `GameplaySessionSet::Providers` — which [`register`] already orders this
-/// system before, for the cast's sake. A10.5 moved construction earlier and
-/// that sentence stopped describing the runtime: a candidate session's brains
-/// exist, hidden, long before adoption. `project_authored_fighter_ladder` no
-/// longer filters on `Added` at all — it re-reads every fighter and rewrites
-/// only when the rung differs — so this publication owes no ordering edge for
-/// a reason that no longer depends on when brains appear. The `Providers` edge
-/// stays, for the cast.
+/// No new ordering edge is needed. `project_authored_fighter_ladder` re-reads
+/// every fighter and rewrites when the rung differs, so it does not depend on
+/// when brains spawn. The `GameplaySessionSet::Providers` edge in [`register`]
+/// is for the cast.
 fn publish_participant_families(
     world: &mut bevy::ecs::world::World,
     pack: &ambition_content_pack::PreparedContentPack,
@@ -611,29 +449,15 @@ fn publish_participant_families(
 }
 
 
-/// Does this candidate change the family the STAGED road publishes?
+/// Does this candidate change the family the staged road publishes?
 ///
-/// ⛔⛤ **THE TRANSACTION USED TO REQUIRE MOVESET ADMISSION WHATEVER CHANGED,
-/// AND THAT MADE IT A MOVE RELOAD WITH OTHER FAMILIES PUBLISHED BESIDE IT.**
-/// `request_reload` staged the move section, demanded `InstalledTechniques` and
-/// admitted a revision even when `changed_domains` was exactly
-/// `{"fighter_brain_ladder"}` or `{"encounter_waves"}`. Two consequences, both
-/// wrong:
+/// Only participants that changed prepare. A waves-only or ladder-only edit
+/// must not stage and admit every move table, and must not need
+/// `InstalledTechniques` (a composition without combat can still reload its
+/// waves). This uses the same `changed_domains` as the unsupported-domain
+/// diff, so there is one source for "what changed".
 ///
-/// * a composition with legitimate encounter-wave content and NO combat
-///   capability could not reload its own family — it was refused
-///   `NoTechniqueSupport` for a family that has nothing to do with techniques;
-/// * an unrelated family's edit re-staged and re-admitted every unchanged move
-///   table, so the cost and the refusal surface of a waves edit were the
-///   moveset's.
-///
-/// ⇒ **ONLY PARTICIPANTS THAT CHANGED PREPARE.** This is the read that decides
-/// it, and it is the same `changed_domains` the unsupported-domain diff already
-/// asks — so the generation plan has ONE source for "what moved".
-///
-/// ⚠ NO ACTIVE PACK MEANS CHANGED. A first publication has no generation to
-/// diff against, and declining to stage there would silently skip the cast on
-/// the one road that has never published it.
+/// No active pack means changed: a first publication must stage the cast.
 fn moveset_changed(
     world: &bevy::ecs::world::World,
     candidate: &ambition_content_pack::PreparedContentPack,
@@ -648,16 +472,14 @@ fn moveset_changed(
 
 /// Domains this candidate changes that nothing can publish.
 ///
-/// ⚠ READ AGAINST THE ACTIVE PACK, WHICH IS WHY IT MUST RUN BEFORE ANYTHING IS
-/// STAGED OR SELECTED. Diffing after the candidate became the selection would be
-/// diffing it against itself.
+/// Read against the active pack, so it must run before anything is staged or
+/// selected.
 fn unsupported_changed_domains(
     world: &bevy::ecs::world::World,
     candidate: &ambition_content_pack::PreparedContentPack,
 ) -> Vec<String> {
     let Some(active) = crate::pack::selected(world) else {
-        // ⚠ NO ACTIVE PACK IS A FIRST PUBLICATION, not a change: there is no
-        // generation for a domain to disagree with.
+        // No active pack is a first publication, not a change.
         return Vec::new();
     };
     ambition_content_pack::changed_domains(active, candidate)
@@ -669,47 +491,24 @@ fn unsupported_changed_domains(
 
 /// May a content generation be published into this world right now?
 ///
-/// ⛔⛤ **COMPUTED HERE RATHER THAN TAKEN AS A PARAMETER, AND I CHANGED MY MIND
-/// ABOUT THAT.** A `legality: PublicationBoundary` argument would have been a
-/// precondition every caller could answer wrongly — and a reload road that grew
-/// a second caller would grow a second opinion about when publishing is legal.
-/// The authority is a resource; reading it is not a dependency the composition
-/// has to thread.
+/// Computed here, not passed as a parameter, so no caller can supply a wrong
+/// answer and a second caller cannot grow a second opinion.
 ///
-/// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
-/// composition that installs no rollback has no timeline to invalidate. A stood-
-/// down timeline is legal for the same reason — it is not speculating.
-/// ⛔⛤ **THIS IS A PROJECTION OF THE ROLLBACK SUBSYSTEM'S OWN ANSWER NOW, NOT A
-/// SECOND CLASSIFICATION — REVIEW, 2026-09-13.**
+/// This is a total mapping of
+/// `ambition_platformer2d::rollback::mechanical_mutation_boundary`, the single
+/// authority for "mechanical mutation is legal around rollback" (used by both
+/// `Q118` and `Q120`). Ownership is part of it, so the lease that re-asks this
+/// during the pending interval checks ownership as well as health.
 ///
-/// It was `Legal | LiveTimeline | Unhealthy`, with `rebasable_local_timeline`
-/// asked SEPARATELY at the admission site. Admission therefore required BOTH
-/// *healthy* and *this host may rebase it*, while the lease that re-asks the
-/// boundary during the pending interval re-asked only the health half — so a
-/// generation admitted against a locally maintained timeline stayed admitted
-/// after a peer-owned one replaced it. Folding ownership in fixed that.
+/// The callers differ only in lifetime: `Q120` asks once before the next GGRS
+/// advance; `Q118` holds the answer as a lease for the pending generation.
 ///
-/// ⇒ **AND THE REVIEW'S NEXT POINT IS THE ONE THIS TYPE NOW ANSWERS:** `Q118`
-/// and `Q120` were independently defining what *"mechanical mutation is legal
-/// around rollback"* means, in two subsystems, and the divergence above is what
-/// that costs. `ambition_platformer2d::rollback::mechanical_mutation_boundary`
-/// is the single authority; this enum is `ambition_content`'s reading of it in
-/// its own vocabulary, and it is a TOTAL mapping so a new rollback state cannot
-/// be silently absorbed.
-///
-/// ⚠ THE TWO CALLERS DIFFER IN TRANSACTION SEMANTICS, NOT IN POLICY. `Q120`
-/// consumes the answer instantaneously — *may this editor proposal publish
-/// before the next GGRS advance?* — and `Q118` holds it as a transaction-lifetime
-/// LEASE — *has the condition that authorized this pending generation remained
-/// valid?*
-///
-/// ⚠ NO AUTHORITY MEANS LEGAL, which is the right answer and not a hole: a
-/// composition that installs no rollback has no timeline to invalidate. A stood-
-/// down timeline is legal for the same reason — it is not speculating.
+/// No authority means legal: with no rollback there is no timeline to
+/// invalidate. A stood-down timeline is legal because it is not speculating.
 #[derive(Debug)]
 enum PublicationBoundary {
     Legal,
-    /// Live, healthy, and THIS host started it and may stop it.
+    /// Live, healthy, and this host started it and may stop it.
     RebasableTimeline,
     /// Live and healthy, but owned by peers (`External`) or by a caller that did
     /// not ask for a content rebase.
@@ -717,20 +516,12 @@ enum PublicationBoundary {
     Unhealthy(String),
 }
 
-/// May THIS host stop and rebuild the live rollback timeline for a content
-/// publication?
+/// May this host stop and rebuild the live rollback timeline for a content
+/// publication? Forwards to the rollback subsystem's own predicate.
 ///
-/// ⛔⛤ **THIS CRATE HELD ITS OWN COPY OF THE PREDICATE AND NOW FORWARDS.** The
-/// copy was a `matches!` over `RollbackSessionOwnership` identical to the
-/// rollback subsystem's own — which is how `Q118` and `Q120` came to define
-/// *"mechanical mutation is legal around rollback"* independently, and how this
-/// crate's lease came to re-ask half of it. The answer lives with the timeline.
-///
-/// ⭐ **OWNERSHIP, NOT LIVENESS.** A locally maintained sync-test session is one
-/// this process started and may stop; an `External` session belongs to peers, and
-/// a `Caller`-owned one to a match activation or a harness that did not ask for a
-/// rebase. Only the first may be rebased unilaterally — the other two are exactly
-/// what `RollbackSessionOwnership`'s doc says must never be replaced.
+/// This is about ownership, not liveness. Only a locally maintained sync-test
+/// session may be rebased. `External` (peer-owned) and `Caller`-owned sessions
+/// must never be replaced; see `RollbackSessionOwnership`.
 pub(crate) fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool {
     ambition_platformer2d::rollback::locally_rebasable_timeline(world)
 }
@@ -738,11 +529,10 @@ pub(crate) fn rebasable_local_timeline(world: &bevy::ecs::world::World) -> bool 
 /// Stop the local timeline so the session owner rebases it onto the generation
 /// just published.
 ///
-/// ⛔⛔ **AT THE PUBLICATION, IN THE SAME EXCLUSIVE STEP — a frame between the two
-/// is a frame of NEW CONTENT RESIMULATED ON THE OLD TIMELINE**, which is the
-/// desync `Q118`'s canary measured. Releasing ownership is the whole of what this
-/// owes: `maintain_local_session` sees no session next frame and starts one with
-/// the same policy and the same frozen seating.
+/// Call this in the same exclusive step as the publication. A frame between
+/// them would resimulate new content on the old timeline (the `Q118` desync).
+/// Releasing ownership is enough: `maintain_local_session` starts a new
+/// session next frame with the same policy and seating.
 fn rebase_local_timeline_onto_the_new_generation(world: &mut bevy::ecs::world::World) {
     if !rebasable_local_timeline(world) || !ambition_platformer2d::rollback::session_is_active(world)
     {
@@ -772,10 +562,9 @@ fn publication_boundary(world: &bevy::ecs::world::World) -> PublicationBoundary 
 
 /// Publish a freshly compiled pack as a candidate prepared against what is live.
 ///
-/// ⚠ THE CONVENIENCE FORM, for a caller that compiled and published without
-/// yielding. A caller that did file I/O in between must build the candidate
-/// itself with the identity it READ, or its base claim is a fiction — and that
-/// identity is the PACK FINGERPRINT, which is the only base clock there is.
+/// Convenience form for a caller that compiles and publishes without
+/// yielding. A caller that does file I/O between must build the candidate with
+/// the pack fingerprint it read.
 #[cfg(test)]
 pub(crate) fn reload_move_tables_selecting(
     world: &mut bevy::ecs::world::World,
@@ -785,27 +574,21 @@ pub(crate) fn reload_move_tables_selecting(
     publish_candidate(world, candidate)
 }
 
-/// What a reload REQUEST did — the road that reuses the engine's own lifecycle.
+/// What a reload request did.
 ///
-/// ⭐⭐ **A REQUEST, NOT A PUBLICATION, AND THAT IS THE WHOLE DIFFERENCE FROM
-/// [`publish_candidate`].** Fast-iteration I3 step 4 says *"file watching calls
-/// the same request path"*, and MEASURED 2026-09-11 that path exists:
-/// `ShellEvent::PreparationRequested` → `prepare_requested_sessions` →
-/// `prepare_platformer_content`, which allocates the `ContentEpoch` as its final
-/// non-fallible step and fingerprints the whole content — including the
-/// `content.pack` section — before publishing at the activation boundary.
-///
-/// ⇒ **SO A RELOAD NEEDS NO SECOND LIFECYCLE.** Re-requesting the route the shell
-/// is already ACTIVE on mints a fresh transaction (`start_route` has no same-route
-/// guard; witnessed in `ambition_game_shell`), and the old generation stays
-/// authoritative until the new one activates — which is the model the
-/// architecture review asks for, in the existing lifecycle's own terms.
+/// A request, not a publication (unlike [`publish_candidate`]). It reuses the
+/// shell lifecycle: `ShellEvent::PreparationRequested` →
+/// `prepare_requested_sessions` → `prepare_platformer_content`, which
+/// allocates the `ContentEpoch` and fingerprints the whole content before it
+/// publishes at activation. Re-requesting the active route starts a fresh
+/// transaction (`start_route` has no same-route guard), and the old
+/// generation stays authoritative until the new one activates.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ReloadRequest {
     /// The pack on disk does not compile. Nothing was selected and nothing was
     /// requested.
     PackRefused(String),
-    /// The candidate is mechanically identical to the selected pack, WHOLE PACK.
+    /// The candidate is mechanically identical to the selected pack (whole pack).
     /// Nothing was requested: a re-preparation would consume an epoch, a
     /// publication and a reconstruction for content that did not change.
     Unchanged,
@@ -814,86 +597,57 @@ pub enum ReloadRequest {
     /// The active route declares no preparation plan, so re-requesting it would
     /// never reach `prepare_platformer_content`.
     ///
-    /// ⛔ THE SAME PRECONDITION THE RETRY ROAD ALREADY CHECKS
-    /// (`ambition_load_presentation::shell_adapter`), and for the same reason:
-    /// a route with no plan is not a route a preparation can be asked of.
+    /// Same precondition as the retry road
+    /// (`ambition_load_presentation::shell_adapter`).
     RouteHasNoPreparation(String),
     /// A rollback timeline is speculating, or its authority is unhealthy. See
     /// [`MoveReload::RefusedDuringLiveTimeline`].
     Refused(MoveReload),
-    /// A generation is ALREADY in flight, so this one was refused.
+    /// A generation is already in flight, so this one was refused.
     ///
-    /// ⛔⛤ **AN EXPLICIT REFUSAL RATHER THAN ACCIDENTAL LAST-WRITE-WINS.** The
-    /// three resources this replaced were singletons: a second request
-    /// overwrote the first's pack and its (still unadopted) transaction, so when
-    /// the router announced the FIRST request's `LoadId` the SECOND generation
-    /// adopted it — two generations coordinating by overwriting each other, and
-    /// a file watcher makes closely spaced saves entirely ordinary.
-    ///
-    /// ⚠ REFUSING IS NOT THE ONLY DEFENSIBLE POLICY — supersession through a
-    /// real cancellation transaction is better — but it is the only one that is
-    /// STATED. An accidental coalescing nobody chose is not a policy.
+    /// Stated refusal, not last-write-wins. Overwriting the in-flight state let
+    /// a second generation adopt the first request's `LoadId`, and a file
+    /// watcher makes close saves common. Supersession through a real
+    /// cancellation would also be valid, but is not implemented.
     AlreadyPending { route: String },
-    /// The request was issued. **Nothing is published yet** — the new generation
-    /// appears when the shell activates it, and the current one is authoritative
-    /// until then.
+    /// The request was issued. Nothing is published yet; the new generation
+    /// appears when the shell activates it.
     Requested {
         route: String,
-        /// ⭐ **THE IDENTITY THIS CALL MINTED**, handed back so the caller can
-        /// correlate the transaction it just started. Without it the caller owns
-        /// an identity it cannot see, and correlating means guessing the ordinal
-        /// or reading a private resource — which is the inference
-        /// `ShellRequestId` exists to remove, one layer up.
+        /// The identity this call minted, so the caller can correlate the
+        /// transaction it started.
         request: ambition_platformer2d::game_shell::ShellRequestId,
     },
 }
 
 /// Ask the running host to re-prepare its session against `candidate`.
 ///
-/// ⛔⛤ **THIS PARAGRAPH USED TO SAY "THE SELECTION IS INSTALLED BEFORE THE
-/// REQUEST, AND THAT ORDER IS FORCED", AND IT IS NO LONGER TRUE.** It described
-/// a window in which the App's selected pack was N+1 while the live cast was
-/// still N. The pending-generation work closed that: nothing is selected at
-/// request time. [`stage_pending_generation`] stores the candidate in
-/// `PendingGeneration` and TOUCHES NOTHING ELSE, and
-/// `crate::pack::install_selection` runs only inside
-/// [`commit_content_generation`], at the activation.
+/// Nothing is selected at request time. [`stage_pending_generation`] stores
+/// the candidate in `PendingGeneration` and changes nothing else;
+/// `crate::pack::install_selection` runs only in
+/// [`commit_content_generation`], at activation. The preparation reads its
+/// identity from the transaction-local claim (`PendingGenerationInputs`,
+/// set at adoption), not from the App-wide selection.
 ///
-/// ⚠ CORRECTED RATHER THAN DELETED, because a weaker reader arriving at this
-/// function needs to know that the old sentence was load-bearing and is gone:
-/// the preparation reads its identity from the TRANSACTION-LOCAL claim
-/// (`PendingGenerationInputs`, staked at adoption) rather than from the App-wide
-/// selection, which is why the selection no longer has to move first.
-///
-/// ✅ **AND THE REQUEST'S OWN IDENTITY IS CLOSED — this paragraph described the
-/// defect as OPEN and it is fixed (re-derived 2026-09-12).** It said
-/// `ShellCommand::ReplaceWith` carries no correlator and that the reload adopts
-/// the first `PreparationRequested` for its route, so a second command for the
-/// same route in one frame could hand it a transaction it did not issue.
-///
-/// ⇒ `ShellCommand::ReplaceWith { route, request: Option<ShellRequestId> }` now
-/// carries the slot, the CALLER mints the id before issuing the command, and it
-/// threads through `PendingShellRoute` → `ProviderLoadTransaction` →
-/// `ShellEvent::TransactionEnded`. **A route name is not a transaction identity,
-/// and this road no longer uses one.**
+/// The caller mints a `ShellRequestId` before it issues
+/// `ShellCommand::ReplaceWith { route, request }`. The id travels through
+/// `PendingShellRoute` → `ProviderLoadTransaction` →
+/// `ShellEvent::TransactionEnded`. A route name is not a transaction identity.
 pub fn request_reload(
     world: &mut bevy::ecs::world::World,
     candidate: ambition_content_pack::CandidateGeneration,
 ) -> ReloadRequest {
     use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouter};
 
-    // ⛔ ONE GENERATION IN FLIGHT AT A TIME, and this is asked FIRST. A second
-    // request that got as far as staging would have overwritten the first's
-    // candidate before anything noticed.
+    // One generation in flight at a time. Check first, before staging can
+    // overwrite the first candidate.
     if let Some(pending) = world.get_resource::<PendingGeneration>() {
         return ReloadRequest::AlreadyPending {
             route: pending.route.clone(),
         };
     }
 
-    // ⛔ ONE PREFLIGHT, SHARED. See [`admit_candidate`] — this was spelled out
-    // here a second time, in the same order, and two copies of a rule make each
-    // other untestable.
+    // Shared preflight; see [`admit_candidate`].
     match admit_candidate(world, &candidate) {
         CandidateAdmission::Refused(answer) => return ReloadRequest::Refused(answer),
         CandidateAdmission::Unchanged => return ReloadRequest::Unchanged,
@@ -915,30 +669,21 @@ pub fn request_reload(
         return ReloadRequest::RouteHasNoPreparation(route.as_str().to_string());
     }
 
-    // ⛔⛔ **THE CAST REVISION IS STAGED HERE AND PUBLISHED AT THE ACTIVATION, NOT
-    // BEFORE IT.** MEASURED 2026-09-11: `register_declared_cast` runs in
-    // `Plugin::build`, ONCE, so a session re-preparation moves the `ContentEpoch`,
-    // the content fingerprint and the rollback contract and changes NOT ONE move
-    // table the live cast plays. Re-preparing is necessary and not sufficient;
-    // the two roads are different mechanisms by necessity, because nothing can
-    // re-run `Plugin::build`.
+    // Stage the cast revision here and publish it at activation.
+    // `register_declared_cast` runs once in `Plugin::build`, so re-preparing a
+    // session alone changes no move table. The transaction stages the cast
+    // and requests the re-preparation, and
+    // [`publish_staged_reload_on_activation`] lands both together.
     //
-    // ⇒ So the transaction stages one and requests the other, and
-    // [`publish_staged_reload_on_activation`] lands them together.
-    // ⛔⛔ **ONLY PARTICIPANTS THAT CHANGED PREPARE.** See [`moveset_changed`]: a
-    // ladder-only or waves-only generation must not require the combat
-    // capability, and must not re-stage every unchanged move table to publish
-    // somebody else's family.
+    // Only participants that changed prepare; see [`moveset_changed`].
     let pack = candidate.into_pack();
     let stages_cast = moveset_changed(world, &pack);
     let section = stages_cast
         .then(|| ambition_characters::moveset_content_schema::lowered_movesets(&pack))
         .flatten();
     if let Some(section) = section {
-        // ⚠ NO BASE IS PASSED, AND THERE IS NOTHING TO PASS. `admit_candidate`
-        // above already refused a candidate whose base is no longer the
-        // selection; a cast-generation stamp read from the world HERE could only
-        // agree with it. See `MoveReload::StaleGeneration`.
+        // No base is passed: `admit_candidate` already refused a stale base.
+        // See `MoveReload::StaleGeneration`.
         let problems = stage_move_section(world, section);
         if problems
             .iter()
@@ -952,38 +697,21 @@ pub fn request_reload(
             ));
         }
     }
-    // ⛔⛤ **STAGED AS PENDING, NOT INSTALLED AS THE SELECTION.** Installing it
-    // here is what let a FAILED preparation leave the App selecting a pack whose
-    // cast it never built — after which the next save of the same file compared
-    // against that selection, reported `Unchanged`, and requested nothing. The
-    // game stayed split for the session while the reload said all was well.
-    // ⛔⛤ **ADMISSION FINISHES BEFORE THE REQUEST IS ISSUED, NOT AT THE COMMIT
-    // BOUNDARY.** `admit_staged_revision` takes `&World` and mutates nothing, so
-    // this asks "would this publish?" and is free to answer no. Without it, an
-    // authored effect naming a technique this composition never installed would
-    // be discovered by `RouteActivated` — at which point the shell has already
-    // committed the new route and prepared session, the engine's half of the
-    // generation is N+1, and the cast's half refuses. That half-transaction is
-    // the thing I3 exists to prevent, and a commit path is not where a candidate
-    // may learn it is invalid.
+    // Stage as pending; do not install as the selection. Installing here let a
+    // failed preparation leave the App on a pack whose cast it never built,
+    // and the next save then compared equal and requested nothing.
     //
-    // ⚠ `Unchanged` AND `NothingStaged` BOTH PROCEED. The move material being
-    // identical does not mean the pack is: the participating domain can change in
-    // a character no buildable cast member wears, and the engine's generation
-    // still has to move.
+    // Admission finishes here, before the request, not at the commit. By
+    // `RouteActivated` the shell has committed the new route and session, so a
+    // refusal there would leave half a transaction. `admit_staged_revision`
+    // takes `&World` and mutates nothing.
     //
-    // ⛔⛤ **AND A COMPOSITION WITH NO TECHNIQUE TABLE REFUSES HERE RATHER THAN AT
-    // THE BOUNDARY.** `InstalledTechniques` ABSENT is not an empty table — an
-    // empty one is a legitimate value meaning "this host installs nothing", and
-    // admitting against it correctly refuses every authored effect. An absent
-    // resource means the composition never installed the combat capability, so
-    // nothing here can admit the revision at all. Letting the request through
-    // meant the activation reached a branch with no answer, returned, and left
-    // the pending pack staged forever while the engine's half had moved.
-    // ⚠ AND THE TECHNIQUE TABLE IS ONLY REQUIRED BY THE FAMILY THAT USES IT.
-    // A generation that stages no cast asks the combat capability nothing, so
-    // demanding it would refuse a waves edit for the absence of something it
-    // never consults.
+    // `Unchanged` and `NothingStaged` both proceed: the pack can change while
+    // the move material does not.
+    //
+    // A missing technique table refuses here (see
+    // `MoveReload::NoTechniqueSupport`), but only when this generation stages a
+    // cast. A generation that stages no cast does not consult techniques.
     let support = if stages_cast {
         match world
             .get_resource::<ambition_combat::technique::InstalledTechniques>()
@@ -998,19 +726,12 @@ pub fn request_reload(
     } else {
         None
     };
-    // ⛔⛤ **THE ADMITTED VALUE IS KEPT, AND THROWING IT AWAY WAS THE DEFECT.**
-    // This used to admit, discard the `AdmittedRevision`, and let the ACTIVATION
-    // admit all over again against whatever the world held by then — so
-    // "admission finishes before activation is authorized" was really only
-    // "admission succeeded once before activation was requested". Those are
-    // different sentences, and the gap between them is a commit path that can
-    // still refuse.
+    // Keep the admitted value. Re-admitting at activation could still refuse
+    // on the commit path.
     //
-    // ⚠ AND IT IS *TAKEN*, NOT BORROWED. `admit_staged_revision` deliberately
-    // mutates nothing, which also leaves the edits staged for whoever activates
-    // next: measured 2026-09-11, an unrelated publication DRAINED a pending
-    // reload's staged revision and the reload's own boundary then found
-    // `NothingStaged`. A generation that owns its edit cannot have it absorbed.
+    // Take it, do not borrow it: `admit_staged_revision` leaves edits staged,
+    // and an unrelated publication could otherwise drain this reload's staged
+    // revision.
     let admitted_cast = match support
         .map(|support| ambition_characters::prepared::take_admitted_revision(world, &support))
         .unwrap_or(ambition_characters::prepared::RevisionAdmission::NothingStaged)
@@ -1022,22 +743,15 @@ pub fn request_reload(
             ));
         }
         ambition_characters::prepared::RevisionAdmission::Admitted(admitted) => Some(admitted),
-        // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL. The move
-        // material being identical does not mean the pack is, and the engine's
+        // Nothing to publish for the cast is not a refusal: the move material
+        // was identical, or this generation changes no moveset. The engine's
         // generation still has to move.
-        // ⚠ NOTHING TO PUBLISH ON THE CAST'S SIDE IS NOT A REFUSAL, and it is
-        // now reached two ways: the move material was identical, OR this
-        // generation changes no moveset at all and never staged one.
         ambition_characters::prepared::RevisionAdmission::NothingStaged
         | ambition_characters::prepared::RevisionAdmission::Unchanged { .. } => None,
     };
-    // ⭐⭐ **THE IDENTITY IS MINTED BEFORE THE COMMAND IS WRITTEN**, which is the
-    // whole point: the generation owns it from birth rather than adopting
-    // whatever the router announces for its route.
-    //
-    // ⚠ SEEDED FROM THE ROUTE AND A PROCESS-UNIQUE COUNTER. The route makes it
-    // readable in a log; the counter is what makes it an identity, because the
-    // route alone is exactly the thing that was not unique.
+    // Mint the identity before writing the command, so the generation owns it
+    // and does not adopt whatever the router announces for its route. The
+    // route makes it readable in logs; the counter makes it unique.
     let request = ambition_platformer2d::game_shell::ShellRequestId::new(format!(
         "reload.{}.{}",
         route.as_str(),
@@ -1053,9 +767,8 @@ pub fn request_reload(
             admitted_cast,
         },
     );
-    // ⛔ `ReplaceWith`, NEVER `GoTo`. A reload is not navigation and must not push
-    // a history entry: a player who reloaded three times and pressed back would
-    // otherwise walk back through three copies of the room they are standing in.
+    // `ReplaceWith`, not `GoTo`: a reload is not navigation and must not push
+    // a history entry.
     world.write_message(ShellCommand::ReplaceWith {
         route: route.clone(),
         request: Some(request.clone()),
@@ -1066,81 +779,48 @@ pub fn request_reload(
     }
 }
 
-/// **ONE PENDING GENERATION: the transaction, the candidate, and the ADMITTED
-/// cast.**
+/// One pending generation: the transaction, the candidate, and the admitted
+/// cast.
 ///
-/// ⛔⛤ **THIS WAS THREE COOPERATING RESOURCES AND THE COOPERATION WAS THE BUG.**
-/// `PendingContentPack`, `StagedCastRevision` and `PendingReloadTransaction`
-/// were separate world state expected to stay mutually coherent, and four
-/// distinct defects came out of that expectation:
+/// One resource, not several cooperating ones. A generation that owns its
+/// admitted value cannot have it re-derived at the boundary, stranded when
+/// `InstalledTechniques` is absent, overwritten by a second request, or
+/// drained by an unrelated publication.
 ///
-/// 1. The admitted value was computed at request time and THROWN AWAY, so the
-///    commit boundary re-admitted against whatever the world held by then — and
-///    could still refuse after the engine's half was committed.
-/// 2. A world with no `InstalledTechniques` let the request through and then
-///    found no answer at the boundary, stranding all three.
-/// 3. A SECOND request overwrote the first's pack and transaction singletons
-///    while the first was still in flight, so the second could adopt the first's
-///    `LoadId` — accidental last-write-wins coordination between two generations.
-/// 4. An unrelated publication DRAINED the shared `StagedCastRevision`, silently
-///    absorbing the reload's edit; the boundary then found `NothingStaged`.
+/// So the commit path cannot fail: publishing is
+/// [`publish_admitted_revision`] plus an install. The only branch at the
+/// boundary is "is this my transaction".
 ///
-/// ⇒ **ALL FOUR ARE THE SAME MISSING VALUE.** A generation that OWNS what was
-/// admitted cannot have it re-derived, stranded, overwritten or absorbed.
-///
-/// ⛔ **AND THE COMMIT PATH IS THEREFORE INFALLIBLE BY CONSTRUCTION.** Publishing
-/// one of these is [`publish_admitted_revision`] plus an install; neither can
-/// say no. The only branch left at the boundary is "is this my transaction",
-/// which is a question about identity, not about content.
-///
-/// ⚠ `load_id` IS STILL `None` UNTIL THE ROUTER MINTS IT — that half stands.
-/// `ShellRouter::next_load_transaction` is private and the id is minted in a
-/// LATER system than the request, so the requester cannot predict it and adopts
-/// it from `ShellEvent::PreparationRequested`.
-///
-/// ⛔⛤ **BUT THE REASON THIS COMMENT GAVE IS NO LONGER TRUE, AND THE STRUCT
-/// THREE LINES DOWN CONTRADICTS IT.** It said `ShellCommand::ReplaceWith`
-/// *"carries no slot for a correlator"*. It carries one —
-/// `request: Option<ShellRequestId>` — and `request` below is the caller-minted
-/// id that fills it. ⇒ **A route name is not a transaction identity, and the
-/// window before adoption is covered by the request id rather than by the route**
-/// — which is exactly why `ShellRequestId` exists. `load_id` is the ROUTER's name
-/// for the same transaction, adopted later; two names, one transaction, and only
-/// one of them is knowable at request time.
+/// There are two names for one transaction. `request` is minted by the caller
+/// before the command and covers the window before adoption. `load_id` is the
+/// router's name; `ShellRouter::next_load_transaction` is private and mints it
+/// in a later system, so it stays `None` until it is adopted from
+/// `ShellEvent::PreparationRequested`.
 #[derive(bevy::prelude::Resource)]
 pub struct PendingGeneration {
     /// `None` until the router mints the transaction this reload asked for.
     load_id: Option<ambition_platformer2d::load::LoadId>,
-    /// The route the request named — for reporting, and for
-    /// `ReloadRequest::AlreadyPending`. **Not the correlator any more.**
+    /// The route the request named, for reporting and for
+    /// `ReloadRequest::AlreadyPending`. Not the correlator.
     route: String,
-    /// ⭐⭐ **THIS GENERATION'S OWN REQUEST IDENTITY, MINTED BEFORE THE COMMAND
-    /// WAS WRITTEN.** See [`ambition_platformer2d::game_shell::ShellRequestId`].
+    /// This generation's request identity, minted before the command was
+    /// written. See [`ambition_platformer2d::game_shell::ShellRequestId`].
     ///
-    /// ⛔⛤ **ADOPTION USED TO MATCH ON THE ROUTE NAME, AND THE COMMENT BESIDE IT
-    /// SAID THAT WAS WRONG.** It read *"a route name is not that identity: two
-    /// generations can target one route, which is exactly what a reload does"* —
-    /// and then matched on the route. Two `ReplaceWith("game")` queued in one
-    /// frame mint `shell.game.N` and `shell.game.N+1`, the second SUPERSEDING
-    /// the first, so a route-matching reload could adopt a transaction it did
-    /// not issue or one already cancelled, and then wait forever for an
-    /// activation that cannot come.
+    /// Adoption matches on this, not on the route: two `ReplaceWith("game")`
+    /// in one frame mint two transactions and the second supersedes the
+    /// first, so a route match could adopt the wrong or a cancelled one.
     request: ambition_platformer2d::game_shell::ShellRequestId,
-    /// The candidate pack. **Not the App's selection** — it becomes that only at
-    /// the activation, and a failed preparation must leave every reader
-    /// answering with the content the live cast was actually built from.
+    /// The candidate pack. Not the App's selection until activation, so a
+    /// failed preparation leaves readers on the content the live cast uses.
     pack: std::sync::Arc<ambition_content_pack::PreparedContentPack>,
-    /// ⭐⭐ **THE VALUE ADMISSION ALREADY COMPUTED.** `None` means the candidate
-    /// changed no move material — a legitimate pending generation, since the
-    /// participating domain can change in a character no buildable cast member
-    /// wears and the engine's generation still has to move.
+    /// The value admission computed. `None` means the candidate changed no
+    /// move material; the engine's generation still has to move.
     admitted_cast: Option<ambition_characters::prepared::AdmittedRevision>,
 }
 
 impl PendingGeneration {
-    /// This transaction's request identity — the key its activation hold is
-    /// named by. Test-facing so an arm can assert the HOLD carries the same id
-    /// rather than a constant it hand-wrote.
+    /// This transaction's request identity, which names its activation hold.
+    /// Lets a test assert the hold carries this id.
     #[doc(hidden)]
     pub fn request_for_tests(&self) -> ambition_platformer2d::game_shell::ShellRequestId {
         self.request.clone()
@@ -1149,9 +829,8 @@ impl PendingGeneration {
 
 /// End a pending generation the way every content-side terminal path does.
 ///
-/// ⚠ Test-facing, and deliberately the SAME function the production paths call:
-/// an arm that reimplemented the discard would not witness the hold release that
-/// discard is responsible for.
+/// Test-facing, and the same function the production paths call, so a test
+/// also covers the hold release.
 #[doc(hidden)]
 pub fn take_pending_generation_for_tests(world: &mut bevy::ecs::world::World) {
     take_pending_generation(world);
@@ -1159,10 +838,8 @@ pub fn take_pending_generation_for_tests(world: &mut bevy::ecs::world::World) {
 
 /// A process-unique ordinal for a reload's request identity.
 ///
-/// ⛔ NOT A ROUTE NAME AND NOT A CLOCK. The route is what was ambiguous; a clock
-/// can repeat under a coarse timer and is not reproducible in a test. A counter
-/// is unique for the life of the process, which is exactly as long as a pending
-/// generation can live.
+/// A counter, not a route name (ambiguous) or a clock (can repeat, not
+/// reproducible). It is unique for the life of the process.
 fn next_request_ordinal() -> u64 {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -1177,45 +854,33 @@ pub fn pending_pack(
         .map(|generation| generation.pack.as_ref())
 }
 
-/// Stage a pending generation. **The App's selection is untouched.**
+/// Stage a pending generation. The App's selection is not changed.
 ///
-/// ⛔⛤ **THIS USED TO OVERWRITE `SelectedContentIdentity` AND THAT WAS A CRITICAL
-/// SCOPE ERROR** (2026-09-11 review item 3). `prepare_platformer_content` reads
-/// an identity to fingerprint the generation it is preparing, and the only road
-/// to it was the App-wide selection — so a pending generation reported
-/// `SelectedContentPack = N` with `SelectedContentIdentity = N+1`, and every
-/// UNRELATED route preparation running in that window inherited a candidate
-/// stamp for content it never prepared. The identity is exactly what the
-/// rollback timeline contract compares.
-///
-/// ⇒ The claim is made at ADOPTION instead, keyed on the `LoadId`, because that
-/// is the first moment the transaction has a name. Between the request and the
-/// router's announcement there is no claim at all — and that is correct: a
-/// preparation nobody has correlated to this generation must not use it.
+/// Do not write `SelectedContentIdentity` here: unrelated route preparations
+/// in the pending window would fingerprint against the candidate, and the
+/// rollback timeline contract compares that identity. The claim is made at
+/// adoption, keyed on the `LoadId`. Before adoption there is no claim, which
+/// is correct.
 fn stage_pending_generation(world: &mut bevy::ecs::world::World, generation: PendingGeneration) {
     world.insert_resource(generation);
 }
 
 /// Take the pending generation away, and its identity claim with it.
 ///
-/// ⛔ THE CLAIM GOES TOO, ALWAYS. A claim left behind names a `LoadId` whose
-/// generation no longer exists, and the next transaction to reuse that id —
-/// or a retry of the same one — would be fingerprinted against a candidate this
-/// App threw away.
+/// The claim is always removed too. A left-over claim would make a later
+/// transaction with the same `LoadId` fingerprint against a discarded
+/// candidate.
 fn take_pending_generation(world: &mut bevy::ecs::world::World) -> Option<PendingGeneration> {
     let generation = world.remove_resource::<PendingGeneration>()?;
     world.remove_resource::<ambition_platformer2d_runtime::PendingGenerationInputs>();
-    // ⛔⛤ **EVERY TERMINAL PATH RELEASES THIS TRANSACTION'S HOLD, AND ONLY ITS
-    // OWN.** This is the one place a pending generation ends for a content-side
-    // reason — cancelled, superseded, refused, discarded — and a hold left behind
-    // blocks EVERY future reload of that route forever. Releasing by the
-    // transaction-specific id is what keeps it from freeing a successor's block
-    // instead: `ShellRouteHolds` is keyed `route → set<hold id>`, and a reload
-    // re-prepares the route the shell is already on.
+    // Every content-side terminal path (cancel, supersede, refuse, discard)
+    // ends here, so release this transaction's hold. A left-over hold blocks
+    // every future reload of the route. Release by the transaction's own id so
+    // a successor's hold on the same route (`ShellRouteHolds` is
+    // `route → set<hold id>`) stays.
     //
-    // ⚠ The ACTIVATION path releases in the shell, inside the same exclusive
-    // operation that consumes the gate — so a successful publication does not
-    // arrive here holding anything.
+    // The activation path releases in the shell, in the exclusive operation
+    // that consumes the gate.
     release_the_publication_hold(world, &generation.request, &generation.route);
     Some(generation)
 }
@@ -1244,162 +909,79 @@ fn release_the_publication_hold(
 
 /// Install the reload transaction's publication half.
 ///
-/// ⭐⭐ **ONE STATEMENT OF HOW THIS SYSTEM IS INSTALLED, because the condition is
-/// half of the installation.** A composition without a game shell never registers
-/// `ShellEvent`, and a `MessageReader` for an unregistered message does not read
-/// nothing — it FAILS PARAMETER VALIDATION and panics the schedule. If the
-/// plugin spelled the condition and a test spelled it again, the plugin could
-/// drop it and the test would stay green.
-///
-/// ⛔⛤ **THE WORKSPACE LANE IS WHAT TAUGHT ME THAT, one commit after registering
-/// the system.** Every test in this crate registers `ShellEvent` itself, so the
-/// whole crate was green while the shipped default-feature run panicked.
-///
-/// ⇒ A RUN CONDITION RATHER THAN AN `Option` PARAMETER: a host with no shell has
-/// no activation boundary, so the right behaviour is NOT TO RUN — not to run and
-/// find nothing.
+/// The run condition is part of the installation, so it is stated here once.
+/// A composition without a game shell never registers `ShellEvent`, and a
+/// `MessageReader` for an unregistered message fails parameter validation and
+/// panics the schedule. The tests in this crate all register `ShellEvent`, so
+/// only the default-feature run shows a missing condition. A host with no shell
+/// has no activation boundary, so these systems do not run there.
 pub fn register(app: &mut bevy::prelude::App) {
     use bevy::prelude::IntoScheduleConfigs;
-    // ⛔⛤ **THE ACTIVATION GATE'S EVALUATOR, REGISTERED ONCE.** The shell runs it
-    // inside the exclusive operation that emits `RouteActivated`; see
-    // [`answer_the_publication_gate`]. The HOLD is taken per transaction at
-    // adoption, against this one evaluator.
+    // Register the activation gate's evaluator once. The shell runs it in the
+    // exclusive operation that emits `RouteActivated`; see
+    // [`answer_the_publication_gate`]. Each transaction takes its hold at
+    // adoption, against this evaluator.
     let evaluator = app.world_mut().register_system(answer_the_publication_gate);
     app.insert_resource(PublicationGateEvaluator(evaluator));
-    // ⛔ ONE CONDITION, SPELLED ONCE, FOR BOTH HALVES. A composition without a
-    // game shell registers no `ShellEvent`, and a `MessageReader` for an
-    // unregistered message FAILS PARAMETER VALIDATION and panics the schedule.
-    // Two systems must not grow two opinions about whether the shell exists.
+    // One condition for all systems here, so they cannot disagree about
+    // whether the shell exists.
     let shell_is_installed = bevy::prelude::resource_exists::<
         bevy::ecs::message::Messages<ambition_platformer2d::game_shell::ShellEvent>,
     >;
     app.add_systems(
         bevy::prelude::Update,
         adopt_preparation_transaction
-            // ⛔⛔ **BEFORE THE PREPARATION THAT READS ITS IDENTITY CLAIM.** This
-            // half stakes the claim from `ShellEvent::PreparationRequested`;
-            // `prepare_requested_sessions` reads the SAME message and
-            // fingerprints against that claim. With no edge between them the
-            // claim could arrive a frame late — and a preparation that missed it
-            // silently falls back to the App's active identity, stamping
-            // generation N+1's session with N's content. A wrong answer, not a
-            // missing one, which is why it is an edge and not a retry.
+            // Before the preparation that reads the identity claim. This
+            // system sets the claim from `ShellEvent::PreparationRequested`, and
+            // `prepare_requested_sessions` reads the same message and
+            // fingerprints against it. A late claim makes the preparation fall
+            // back to the App's identity and stamp N+1's session with N.
             .before(ambition_platformer2d::provider::PlatformerPreparationSet)
             .run_if(shell_is_installed),
     )
     .add_systems(
         bevy::prelude::Update,
         commit_content_generation
-            // ⛔⛔⛔ **AFTER THE SET THAT PRODUCES `RouteActivated`.** Without this
-            // edge the commit runs BEFORE the activation exists and reads it a
-            // FRAME LATE — see [`commit_content_generation`] for the measurement.
-            // This is the end of the relationship the old graph test could not
-            // see, because an edge to a late set says nothing about a message
-            // produced in a set before it.
+            // After the set that produces `RouteActivated`; otherwise the commit
+            // reads the activation a frame late. See
+            // [`commit_content_generation`].
             .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Pending)
-            // ⛔⛔ **AND BEFORE THE PROVIDER SET — BUT THAT NO LONGER MEANS
-            // "BEFORE THE WORLD IS BUILT FROM THE CAST".**
-            //
-            // This edge was written when `activate_prepared_platformer_sessions`
-            // sat in `GameplaySessionSet::Providers` and built the world there,
-            // reading the cast off `PreparedCharacterRegistry`. A10.5 moved
-            // construction to `prepare_candidate_platformer_session`, which is
-            // `.before(AmbitionGameShellSet::Pending)` — EARLIER than this
-            // commit, which must run `.after` it to see `RouteActivated` at all.
-            // What remains in `Providers` is `adopt_candidate_platformer_session`,
-            // which adopts an already-built world and panics rather than
-            // building one; and the builder no longer holds the registry, since
-            // the cast arrives as a `PreparedContent` argument.
-            //
-            // ⇒ The edge is kept because it still orders the commit against
-            // adoption, which is real. ⛔ The guarantee it USED to carry cannot
-            // be restored by an edge at all: the two constraints are opposite
-            // ends of `Pending`, so a candidate is necessarily prepared from the
-            // generation that was current before its activation committed.
-            // Whether that is correct or a frame-late read on the candidate road
-            // is an open question — see `docs/planning/queue.md`.
+            // Before `Providers`, which orders the commit against
+            // `adopt_candidate_platformer_session`. This edge no longer means
+            // "before the world is built from the cast": construction happens
+            // in `prepare_candidate_platformer_session`, before `Pending`, and
+            // the commit must run after `Pending`. So a candidate is prepared
+            // from the generation current before its activation commits. If
+            // that is correct is an open question in `docs/planning/queue.md`.
             .before(ambition_platformer2d::game_shell::GameplaySessionSet::Providers)
             .run_if(shell_is_installed),
     )
     .add_systems(
         bevy::prelude::Update,
         break_the_publication_lease_when_the_boundary_closes
-            // ⛔⛔ **BEFORE THE COMMIT IT EXISTS TO PREVENT.** A lease checked
-            // after the publication is a post-mortem, not an authorization. This
-            // edge is what makes the CONTENT half unconditional: the pending
-            // generation is already gone by the time `commit_content_generation`
-            // looks for one.
+            // Before the commit it prevents: the pending generation is already
+            // gone when `commit_content_generation` looks for it.
             .before(commit_content_generation)
-            // ⛔⛤ **AND BEFORE THE PHASE THAT READS WHAT IT WRITES — THIS EDGE
-            // WAS MISSING, AND THE COMMENT HERE USED TO ASSERT WHAT THE SCHEDULE
-            // DID NOT SAY.** It read *"the router applies it in its own set later
-            // in the frame"*. MEASURED 2026-09-13 against the shipped `Update`
-            // graph: `breaker` and `AmbitionGameShellSet::Commands` were
-            // UNORDERED IN BOTH DIRECTIONS. The only edge the breaker had put it
-            // before `commit_content_generation`, which is itself `.after(Pending)`
-            // — a set the router has already finished with — so it constrained
-            // nothing with respect to `Commands`, where `process_shell_commands`
-            // reads `ShellCommand::CancelPending`.
+            // Before `AmbitionGameShellSet::Commands`, where
+            // `process_shell_commands` reads `ShellCommand::CancelPending`.
+            // Without this edge the router can run first and the route
+            // activates at N+1 while the content stays at N.
             //
-            // ⇒ A legal ordering ran the router first, and the cancel sat in the
-            // channel until the next frame while the route activated: the SHELL
-            // at generation N+1 and content publication at N. The split this
-            // reload architecture exists to remove.
-            //
-            // ⚠ **THE EDGE IS NOT THE GUARANTEE, AND `Q118` SAYS SO.** A boundary
-            // that closes after this frame's breaker still activates; the real
-            // answer is one transaction-lifetime authority that decides shell
-            // activation and content activation together. What this removes is
-            // narrower and worth removing on its own: the cancel can no longer
-            // miss the phase that reads it.
+            // This edge is not the full guarantee (see `Q118`): a boundary that
+            // closes after this frame's breaker still activates. It only makes
+            // sure the cancel does not miss the phase that reads it.
             .before(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands)
             .run_if(shell_is_installed),
     );
 }
 
-/// Break the publication authorization the moment the boundary that granted it
-/// closes.
+/// The hold id that blocks this transaction's route until publication is
+/// legal.
 ///
-/// ⛔⛤ **`Q118`: THE LEGALITY WAS CHECKED AT THE INSTANT SOMEBODY ASKED, AND THE
-/// TRANSACTION LIVES FOR AN INTERVAL.** `admit_candidate` asks
-/// [`publication_boundary`] and refuses a live rollback timeline or an unhealthy
-/// authority. The generation then sits in [`PendingGeneration`] — through shell
-/// preparation to `RouteActivated` — and `commit_content_generation` asks
-/// NOTHING, deliberately: *"there is nothing in it that can say no."*
-///
-/// ⇒ That carried an unstated assumption: **that nothing can establish or
-/// invalidate a rollback authority between the request and the activation.**
-/// MEASURED 2026-09-12 and the assumption is FALSE IN THE SHIPPED SCHEDULE:
-/// `nothing_orders_the_rollback_session_start_against_the_generation_commit`
-/// walks the `Update` dependency graph and finds NO path in either direction
-/// between `LocalSessionSet::Maintain` — where `maintain_local_session` starts a
-/// GGRS session — and `commit_content_generation`. Unordered, so *"the
-/// transition is impossible"* was never available as an answer.
-///
-/// ⛔⛔ **AND THE UNHEALTHY CASE IS THE WORSE ONE.** An unhealthy authority is a
-/// RECORDED DIVERGENCE. `publishing_does_not_heal_an_unhealthy_rollback_authority`
-/// exists precisely because content publication must not launder a desync — and
-/// a generation admitted while the boundary was legal would have published
-/// straight through one.
-///
-/// ⭐⭐ **IT CANCELS THE WHOLE SHELL TRANSACTION RATHER THAN REFUSING AT THE
-/// COMMIT, AND THAT IS THE DESIGN RATHER THAN A CONVENIENCE.** By commit time the
-/// shell's engine half is already at ITS boundary; a fallible content half there
-/// recreates the exact split this road exists to prevent — a route activated at
-/// N+1 with a cast still at N. Breaking the authorization EARLY ends both halves,
-/// so neither activates and the live cast is the one the game keeps playing.
-///
-/// ⚠ **A LEASE IS NOT A SECOND `publication_boundary` AUTHORITY.** It re-asks the
-/// SAME function admission asked; what is new is WHEN, not what.
-/// The hold id that blocks THIS transaction's route until publication is legal.
-///
-/// ⛔⛤ **TRANSACTION-SPECIFIC, AND A CONSTANT WOULD BE UNSAFE.**
-/// `ShellRouteHolds` is keyed `route → set<hold id>` and a content reload
-/// re-prepares the route the shell is already on — commonly `game`. With a
-/// constant `"content-publication"`, transaction A and its successor B are
-/// indistinguishable to cleanup: A's delayed terminal event frees B's block, or a
-/// leaked A hold blocks every future reload of that route. The request id is the
-/// identity the transaction already has.
+/// It must be specific to the transaction. `ShellRouteHolds` is keyed
+/// `route → set<hold id>`, and a reload re-prepares the current route. With a
+/// constant id, a late terminal event from transaction A could free successor
+/// B's hold, or a leaked A hold could block every later reload.
 fn publication_hold_for(
     request: &ambition_platformer2d::game_shell::ShellRequestId,
 ) -> ambition_platformer2d::game_shell::ShellHoldId {
@@ -1409,21 +991,16 @@ fn publication_hold_for(
     ))
 }
 
-/// ⛔⛤ **THE ACTIVATION GATE — `Q118`'s ANSWER, ASKED AT THE ACTIVATION.**
+/// The activation gate (`Q118`).
 ///
-/// The shell runs this inside the same exclusive operation that emits
-/// `RouteActivated`, so the boundary this reads is the boundary the activation
-/// happens under. That is the whole difference from a system that checks early
-/// and releases a hold: **a block released on an earlier check is that check with
-/// extra steps**, and the interval between them is measured and real.
+/// The shell runs this in the same exclusive operation that emits
+/// `RouteActivated`, so it reads the boundary the activation happens under. A
+/// hold released on an earlier check would leave a gap.
 ///
-/// ⚠ **THE MAPPING IS `publication_boundary`'S, NOT A SECOND OPINION.**
-/// `Legal` and `RebasableTimeline` are the states `admit_candidate` already
-/// admits — a healthy timeline this host maintains is what the stop-and-rebase
-/// lifecycle exists for. `Unhealthy` must never be published across (publication
-/// would launder a recorded desync) and `ForeignTimeline` must not either (the
-/// rebase that makes publication safe cannot touch a timeline this host does not
-/// own).
+/// The mapping is `publication_boundary`'s. `Legal` and `RebasableTimeline`
+/// are admitted, as in `admit_candidate`. `Unhealthy` is refused (publishing
+/// would hide a recorded desync). `ForeignTimeline` is refused (this host
+/// cannot rebase a timeline it does not own).
 pub fn answer_the_publication_gate(
     world: &mut bevy::ecs::world::World,
 ) -> ambition_platformer2d::game_shell::ShellGateVerdict {
@@ -1455,88 +1032,69 @@ pub fn answer_the_publication_gate(
 
 /// The one registered evaluator, reused for every transaction's hold id.
 ///
-/// ⚠ ONE SYSTEM, MANY HOLD IDS. `ShellActivationGates` maps a hold id to an
-/// evaluator; registering the SAME id for each transaction's hold keeps the
-/// answer in one place while the BLOCK stays transaction-specific.
+/// `ShellActivationGates` maps a hold id to an evaluator. Every
+/// transaction's hold uses this one system, so the answer lives in one place
+/// and each block stays transaction-specific.
 #[derive(bevy::prelude::Resource, Clone, Copy)]
 pub struct PublicationGateEvaluator(
     pub  bevy::ecs::system::SystemId<(), ambition_platformer2d::game_shell::ShellGateVerdict>,
 );
 
+/// Break the publication authorization when the boundary that granted it
+/// closes (`Q118`).
+///
+/// `admit_candidate` checks [`publication_boundary`] once, but the generation
+/// then waits in [`PendingGeneration`] until `RouteActivated`, and
+/// `commit_content_generation` asks nothing. The shipped schedule does not
+/// order `LocalSessionSet::Maintain` against the commit
+/// (`nothing_orders_the_rollback_session_start_against_the_generation_commit`),
+/// so the boundary can change in between.
+///
+/// This cancels the whole shell transaction instead of refusing at the commit.
+/// A fallible content half at the commit would activate the route at N+1 with
+/// the cast at N. Cancelling early ends both halves.
+///
+/// It re-asks the same `publication_boundary` function; only the time is new.
 pub fn break_the_publication_lease_when_the_boundary_closes(
     world: &mut bevy::ecs::world::World,
 ) {
     let Some(pending) = world.get_resource::<PendingGeneration>() else {
         return;
     };
-    // ⛔ ONLY A TRANSACTION THE ROUTER HAS ACTUALLY MINTED. Before adoption there
-    // is nothing to cancel, and the generation is discarded by its own request
-    // road if the transaction never arrives.
+    // Only a transaction the router has minted. Before adoption there is
+    // nothing to cancel.
     if pending.load_id.is_none() {
         return;
     }
     let request = pending.request.clone();
     let boundary = publication_boundary(world);
-    // ⛔⛤ **ONLY THE UNHEALTHY HALF, AND THE SPLIT IS MEASURED RATHER THAN
-    // CAUTIOUS.** The first version broke the lease on ANY closed boundary, and
-    // the shipped composition then refused every reload it has:
+    // Break only on `Unhealthy` or `ForeignTimeline`. A healthy, speculating
+    // timeline this host may rebase is the normal state of the running game
+    // (a reload re-prepares the current route), and the stop-and-rebase
+    // lifecycle handles it. Breaking on it would disable hot reload.
     //
-    // ```text
-    // [probe] lease boundary=LiveTimeline authority_present=true owner=SessionScopeId(0)
-    // ```
-    //
-    // ⇒ **`Q118`'s unstated assumption is FALSE IN THE SHIPPED GAME, not only in
-    // a hand-built fixture** — a reload re-prepares the route the shell is
-    // already on, and by the time the transaction reaches its boundary the
-    // session it is replacing owns a HEALTHY, speculating GGRS timeline. A cancel
-    // there is not a seal; it is the removal of hot reload.
-    //
-    // ⛔⛔ **BUT THE TWO HALVES ARE NOT THE SAME FACT.** `LiveTimeline` says a
-    // timeline is SPECULATING, which is the ordinary state of the running game
-    // and is what a stop-and-rebase lifecycle exists to handle. `Unhealthy` says
-    // a divergence has been RECORDED — and
-    // `publishing_does_not_heal_an_unhealthy_rollback_authority` exists because
-    // content publication must never launder a desync. Publishing across THAT is
-    // wrong under every model `Q118` lists, so it is sealed now rather than
-    // waiting for the model to be chosen.
-    //
-    // ⚠ **AND THE OTHER HALF IS LEFT OPEN ON PURPOSE, with its measurement in
-    // `Q118`.** Sealing it needs the lifecycle that stops and rebases rollback
-    // inside the transaction; a cancel cannot express that, and pretending
-    // otherwise would trade a working feature for the appearance of a guarantee.
+    // `Unhealthy` means a divergence was recorded, and publishing must not
+    // hide it (`publishing_does_not_heal_an_unhealthy_rollback_authority`).
     let detail = match &boundary {
-        // ⭐ THE ORDINARY FRAME. A healthy timeline this host may stop is the
-        // state the whole stop-and-rebase lifecycle exists to handle; the lease
-        // has nothing to do.
+        // The normal frame: nothing to do.
         PublicationBoundary::Legal | PublicationBoundary::RebasableTimeline => return,
         PublicationBoundary::Unhealthy(detail) => format!(
             "the rollback authority recorded a divergence while its shell \
              transaction was in flight ({detail})"
         ),
-        // ⛔⛤ **THE PERMISSION THAT MADE THIS ADMISSIBLE IS GONE — FOUND BY
-        // REVIEW, 2026-09-13.** `admit_candidate` lets a generation past a
-        // HEALTHY live timeline only because this host owns it and will rebase it
-        // at the commit. This lease re-asked the boundary and, for a day, re-asked
-        // only the HEALTH half of it.
-        //
-        // ⇒ So a generation admitted against a locally maintained session stayed
-        // admitted after that session was replaced by an `External`/P2P or
-        // `Caller`-owned one, and `rebase_local_timeline_onto_the_new_generation`
-        // then returns early — correctly, it may not touch a foreign timeline —
-        // leaving the new content published onto a timeline nobody rebased. That
-        // is the desync `Q118` measured, arrived at from the other side.
-        //
-        // ⚠ It is now ONE enum value rather than two facts read together, so a
-        // future caller cannot consult half of it either.
+        // Admission let the generation past a healthy timeline only because
+        // this host may rebase it. If an `External`/P2P or `Caller`-owned
+        // session replaced it, `rebase_local_timeline_onto_the_new_generation`
+        // correctly does nothing, and publishing would desync. Ownership and
+        // health are one enum value, so no caller can check only half.
         PublicationBoundary::ForeignTimeline => {
             "the rollback timeline stopped being one this host may rebase while \
              the transaction was in flight"
                 .to_string()
         }
     };
-    // ⛔ THE CONTENT HALF GOES FIRST AND UNCONDITIONALLY. The shell's answer to
-    // the cancel is a race (the transaction may have ended on this very frame);
-    // this generation's illegality is not.
+    // Drop the content half first and unconditionally. The shell's response
+    // to the cancel can race with the transaction ending this frame.
     take_pending_generation(world);
     bevy::log::warn!(
         target: "ambition_content::reload",
@@ -1552,15 +1110,12 @@ pub fn break_the_publication_lease_when_the_boundary_closes(
 
 /// Adopt the transaction the router mints for this reload's request.
 ///
-/// ⭐⭐ **THE FIRST MOMENT THE IDENTITY EXISTS AND IS OBSERVABLE.** MEASURED
-/// 2026-09-11: `ShellRouter::next_load_transaction` is private, the id is minted
-/// in a LATER system than the request, and `ShellCommand::ReplaceWith` carries no
-/// slot for a correlator — so the requester can neither read nor predict its own
-/// transaction and must ADOPT the one the router announces.
+/// This is the first moment the transaction id exists and can be observed:
+/// `ShellRouter::next_load_transaction` is private and mints the id in a later
+/// system than the request.
 ///
-/// ⛔ IT DOES NOT PUBLISH. [`commit_content_generation`] does, at the OTHER end
-/// of the frame, and the two were one system until a measured one-frame split
-/// forced them apart.
+/// This does not publish. [`commit_content_generation`] does, at the other end
+/// of the frame; see its doc for why they are separate systems.
 pub fn adopt_preparation_transaction(
     mut events: bevy::ecs::message::MessageReader<ambition_platformer2d::game_shell::ShellEvent>,
     mut commands: bevy::prelude::Commands,
@@ -1568,15 +1123,10 @@ pub fn adopt_preparation_transaction(
     use ambition_platformer2d::game_shell::ShellEvent;
     for event in events.read() {
         match event {
-            // ⭐⭐ **ADOPT THE TRANSACTION THE ROUTER JUST MINTED.** This is the
-            // first moment the identity exists and is observable, and the only
-            // one before the activation that carries it. A pending reload with
-            // no adopted id yet takes the first request for ITS route.
+            // Adopt the transaction the router just minted.
             ShellEvent::PreparationRequested(transaction) => {
-                // ⛔⛔ **MATCHED ON THE REQUEST IDENTITY, NOT ON THE ROUTE.** A
-                // transaction carrying no request id belongs to nobody who is
-                // correlating, and `None` is NOT a wildcard — treating it as one
-                // is the inference this field exists to remove.
+                // Match on the request identity, not the route. A transaction
+                // with no request id is not ours; `None` is not a wildcard.
                 let Some(requested_by) = transaction.request.clone() else {
                     continue;
                 };
@@ -1591,18 +1141,13 @@ pub fn adopt_preparation_transaction(
                             return;
                         }
                         pending.load_id = Some(load_id.clone());
-                        // ⛔⛤ **THE CANDIDATE CAST IS STAKED WITH THE IDENTITY,
-                        // IN ONE CLAIM, BECAUSE THEY DESCRIBE ONE GENERATION.**
-                        // `admitted_cast` already holds the N+1 registry —
-                        // admitted at REQUEST time and deliberately withheld
-                        // from the App until the commit boundary. Staking only
-                        // the identity told the preparation *"you are N+1"* and
-                        // left it to find its fighters in an App that still
-                        // published N.
+                        // Stake the candidate cast with the identity in one
+                        // claim. `admitted_cast` holds the N+1 registry, which
+                        // the App does not see until the commit, so the
+                        // preparation needs it here to find its fighters.
                         //
-                        // ⚠ CLONED, NOT MOVED. The commit boundary consumes
-                        // `admitted_cast` to publish it; a claim that took it
-                        // would leave the transaction with nothing to commit.
+                        // Clone, do not move: the commit consumes
+                        // `admitted_cast`.
                         (
                             crate::pack::identity_line(&pending.pack),
                             pending
@@ -1611,10 +1156,8 @@ pub fn adopt_preparation_transaction(
                                 .map(|admitted| admitted.candidate().clone()),
                         )
                     };
-                    // ⛔⛤ **HOLD THE ROUTE FROM ADOPTION, AND NEVER RELEASE IT
-                    // ON AN EARLIER CHECK.** The hold is what makes the
-                    // activation ask; the gate's answer at the activation is what
-                    // releases it. See [`publication_hold_for`].
+                    // Hold the route from adoption. Only the gate's answer at
+                    // activation releases it. See [`publication_hold_for`].
                     if let Some(evaluator) = world
                         .get_resource::<PublicationGateEvaluator>()
                         .map(|evaluator| evaluator.0)
@@ -1639,8 +1182,8 @@ pub fn adopt_preparation_transaction(
                         }
                     }
                     let (claim, characters) = claim;
-                    // ⭐ THE CLAIM IS MADE HERE AND NOWHERE ELSE, because this is
-                    // the first moment the transaction has a name to claim.
+                    // The only place the claim is made: the transaction first
+                    // has a name here.
                     world.insert_resource(ambition_platformer2d_runtime::PendingGenerationInputs {
                         load_id: load_id.to_string(),
                         identity: claim,
@@ -1648,10 +1191,8 @@ pub fn adopt_preparation_transaction(
                     });
                 });
             }
-            // ⛔ EVERY OTHER EVENT BELONGS TO THE COMMIT HALF, which runs at the
-            // OTHER end of the frame. Listed rather than wildcarded so a new
-            // terminal event is a compile error in one of the two systems rather
-            // than silence in both.
+            // All other events belong to the commit system. They are listed,
+            // not wildcarded, so a new event is a compile error.
             ShellEvent::RouteActivated(_)
             | ShellEvent::ExperienceFailed { .. }
             | ShellEvent::CommandRejected(_)
@@ -1667,35 +1208,21 @@ pub fn adopt_preparation_transaction(
 /// Commit the generation when the shell activates the transaction it was
 /// requested for — and discard it if that transaction failed instead.
 ///
-/// ⛔⛔⛔ **THIS AND [`adopt_preparation_transaction`] WERE ONE SYSTEM, AND THAT
-/// WAS A PRODUCTION BUG.** MEASURED 2026-09-12 in the shipped composition, by
-/// driving `build_visible_app` with nothing injected: the activation landed on
-/// frame 2, `activate_prepared_platformer_sessions` built the new world on frame
-/// 2, and the family published on frame **3**. One frame late, every time.
+/// This is a separate system from [`adopt_preparation_transaction`] because
+/// the two need opposite ends of the frame. Adoption must run before
+/// `PlatformerPreparationSet` (in `AmbitionLoadSet::Contributors`), but
+/// `advance_pending_route` emits `RouteActivated` later, in
+/// `AmbitionGameShellSet::Pending`. One system could only see the activation
+/// on the next frame, after N+1's world was built from N's
+/// `PreparedCharacterRegistry`. The needed order is
+/// `Pending → commit → Providers`; see [`register`].
 ///
-/// ⇒ The cause is that the two jobs want OPPOSITE ends of the frame. Adoption
-/// must precede `PlatformerPreparationSet`, which is
-/// `in_set(AmbitionLoadSet::Contributors)`; the shell chain is `Contributors →
-/// Commands → AmbitionGameShellSet::{Commands, Pending}`, and
-/// `advance_pending_route` pushes `RouteActivated` in `Pending`. A system early
-/// enough to adopt therefore CANNOT see the activation on the frame it happens —
-/// it reads the message next frame, by which time N+1's world has been built out
-/// of N's `PreparedCharacterRegistry`. That is exactly the N/N+1 split this road
-/// exists to prevent.
+/// This is the boundary the two halves share. The shell's activation publishes
+/// the engine's generation (epoch, content fingerprint, rollback contract);
+/// this publishes the cast and every pack-derived family.
 ///
-/// ⛔⛤ **AND THE GRAPH TEST WAS SATISFIED VACUOUSLY.** It asked for `publisher →
-/// Providers` and got it — because the publisher ran far EARLIER than both ends.
-/// The relationship that matters is `Pending → commit → Providers`, and only
-/// naming BOTH ends says so.
-///
-/// ⭐⭐ **THIS IS THE BOUNDARY THE TWO HALVES SHARE.** The shell's activation
-/// publishes the engine's new generation (epoch, content fingerprint, rollback
-/// contract); this publishes the cast's and every pack-derived family's. Landing
-/// them anywhere else is a half-transaction.
-///
-/// ⛔ A FAILED PREPARATION DISCARDS THE STAGED REVISION RATHER THAN LEAVING IT.
-/// A revision that stayed staged would be applied by whatever activation came
-/// next — the content nobody asked for, at a boundary nobody connected it to.
+/// A failed preparation discards the staged revision, so the next activation
+/// does not apply it.
 pub fn commit_content_generation(
     mut events: bevy::ecs::message::MessageReader<ambition_platformer2d::game_shell::ShellEvent>,
     mut commands: bevy::prelude::Commands,
@@ -1703,14 +1230,13 @@ pub fn commit_content_generation(
     use ambition_platformer2d::game_shell::ShellEvent;
     for event in events.read() {
         match event {
-            // ⛔ ADOPTION IS THE OTHER SYSTEM'S JOB and happens EARLIER in the
-            // same frame — see [`adopt_preparation_transaction`].
+            // Adoption runs earlier in the frame; see
+            // [`adopt_preparation_transaction`].
             ShellEvent::PreparationRequested(_) => {}
             ShellEvent::RouteActivated(active) => {
-                // ⛔ ONLY THE ACTIVATION OF THE TRANSACTION THIS RELOAD ASKED
-                // FOR. `load_authorization` is the barrier the router authorized
-                // this activation against; an unrelated route's activation
-                // carries a different one (or none) and must be irrelevant here.
+                // Only the activation of this reload's transaction.
+                // `load_authorization` is the barrier the router authorized it
+                // against; an unrelated activation carries another one or none.
                 let authorized = active
                     .load_authorization
                     .as_ref()
@@ -1719,18 +1245,11 @@ pub fn commit_content_generation(
                     if !reload_owns(world, authorized.as_ref()) {
                         return;
                     }
-                    // ⭐⭐ **THE COMMIT PATH, AND THERE IS NOTHING IN IT THAT CAN
-                    // SAY NO.** Every question that could refuse — the verdict,
-                    // the changed domains, the rollback boundary, the authored
-                    // effects, the cast base — was asked and answered at request
-                    // time, and the ANSWERS are what this value carries.
-                    //
-                    // ⛔ IT USED TO RE-ADMIT HERE, against whatever the world
-                    // held by then, with the pack PROMOTED FIRST. A composition
-                    // that changed in flight therefore left the App selecting
-                    // N+1, the engine prepared at N+1 and the cast at N — the
-                    // exact half-transaction this whole road exists to prevent,
-                    // written down as a logged error.
+                    // Nothing on the commit path can refuse. The verdict,
+                    // changed domains, rollback boundary, authored effects and
+                    // cast base were all answered at request time; this value
+                    // carries the answers. Re-admitting here could leave the App
+                    // and engine at N+1 with the cast at N.
                     let Some(generation) = take_pending_generation(world) else {
                         return;
                     };
@@ -1740,70 +1259,38 @@ pub fn commit_content_generation(
                         );
                         bevy::log::info!("a reloaded cast was published: {outcome:?}");
                     }
-                    // ⛔ EVERY OTHER PARTICIPATING FAMILY LANDS HERE TOO, from the
-                    // SAME pack value, in the same queued command. A family
-                    // published one boundary later is a half-transaction wearing
-                    // a different hat.
+                    // Every other participating family lands here too, from
+                    // the same pack, in the same command.
                     publish_participant_families(world, &generation.pack);
-                    // ⛔ AND THE PACK LANDS AT THE SAME BOUNDARY, unconditionally,
-                    // because nothing above it could have failed.
+                    // The pack lands at the same boundary, unconditionally.
                     crate::pack::install_selection(world, generation.pack);
-                    // ⛔⛤ **AND THE TIMELINE REBASES IN THE SAME STEP.** `Q118`
-                    // measured that publishing changed mechanics across a healthy
-                    // speculating timeline DESYNCS the sync-test canary. The
-                    // answer is not to refuse the publication — that deletes hot
-                    // reload — but to stop the baseline the moment the content
-                    // changes, so the next frame's session is started against the
-                    // generation that is now live. See
+                    // Rebase the timeline in the same step. Publishing across
+                    // a speculating timeline desyncs the sync-test canary
+                    // (`Q118`); stopping the baseline makes the next session
+                    // start on the live generation. See
                     // `rebase_local_timeline_onto_the_new_generation`.
                     rebase_local_timeline_onto_the_new_generation(world);
                 });
             }
-            // ⛔ EVERY WAY THE REQUEST CAN END WITHOUT ACTIVATING, and they are
-            // listed rather than caught by a wildcard: a new terminal event must
-            // be a compile error here, not a staged revision nobody discards.
+            // Every way the request can end without activating. Listed, not
+            // wildcarded, so a new terminal event is a compile error here.
             //
-            // ⛔⛤ **AND THIS HALF CANNOT BE CORRELATED THE WAY THE OTHER ONE IS,
-            // WHICH IS A FACT ABOUT THE SHELL'S EVENTS AND NOT A SHORTCUT.**
-            // MEASURED 2026-09-11: `CommandRejected::LoadFailed` and
-            // `LoadCommitRejected` carry NO barrier at all, and
-            // `ExperienceFailed` carries an activation id rather than one — so a
-            // `load_id`-stamped reload has nothing to match on for the two most
-            // likely REAL failures. Requiring a match would leak the pending
-            // generation forever, staged, with the next save comparing against
-            // it.
-            //
-            // ⇒ The router's own `pending` is the correlator instead: on a
-            // terminal barrier it sets `terminal_reported` and KEEPS the pending
-            // route, so at the moment a rejection is observed its `barrier` still
-            // names the load that failed. A reload discards only when that load
-            // is ITS load, or when nothing is pending at all.
-            // ⭐⭐ **THE TERMINAL SIGNAL THAT NAMES ITS OWNER**, which is the one
-            // the vocabulary did not have. A superseded transaction used to emit
-            // nothing at all, so a pending generation was stranded with no
-            // signal and every later save answered `AlreadyPending`.
+            // `TransactionEnded` names its owner, so supersession and failure
+            // do not strand a pending generation.
             ShellEvent::TransactionEnded {
                 barrier, request, ..
             } => {
                 let load_id = barrier.load_id.clone();
                 let request = request.clone();
                 commands.queue(move |world: &mut bevy::ecs::world::World| {
-                    // ⛔ THE `reason` IS DELIBERATELY NOT CONSULTED, and the
-                    // pattern says so by binding only the identities. The rule
-                    // here is *any* end of MY transaction discards MY generation
-                    // — superseded, failed or cancelled, the load will never
-                    // activate and a generation waiting on it would be stranded
-                    // while `AlreadyPending` refused every later save. ⇒ A NEW
-                    // `TransactionEnd` VARIANT IS HANDLED CORRECTLY THE DAY IT IS
-                    // ADDED, which is why this is not a match on the reason. A
-                    // caller that must distinguish them (retry on `Failed`, never
-                    // on `Superseded`) reads it; this one must not.
+                    // `reason` is not read: any end of this transaction means
+                    // it will never activate, so discard. A new `TransactionEnd`
+                    // variant is then handled correctly. A caller that must
+                    // tell them apart (retry on `Failed`, not on `Superseded`)
+                    // reads it.
                     //
-                    // ⛔ EITHER IDENTITY IS PROOF, AND NEITHER IS INFERRED.
-                    // `request` matches a transaction this reload ISSUED even
-                    // before the router announced a load for it; `load_id`
-                    // matches one it has already adopted. A transaction carrying
-                    // neither belongs to somebody else.
+                    // Either identity proves ownership: `request` matches before
+                    // adoption, `load_id` after.
                     if !reload_issued(world, request.as_ref())
                         && !reload_owns(world, Some(&load_id))
                     {
@@ -1812,10 +1299,9 @@ pub fn commit_content_generation(
                     discard_staged_reload(world);
                 });
             }
-            // ⭐ **THE ONE REJECTION THAT NAMES A BARRIER.** The barrier went
-            // Ready and the commit succeeded, but no prepared session existed to
-            // consume — so this transaction will never activate, and it says
-            // exactly which transaction.
+            // The one rejection that names a barrier: the commit succeeded but
+            // no prepared session existed, so this transaction will never
+            // activate.
             ShellEvent::CommandRejected(
                 ambition_platformer2d::game_shell::ShellCommandRejection::PreparedSessionUnavailable(
                     barrier,
@@ -1829,21 +1315,12 @@ pub fn commit_content_generation(
                     discard_staged_reload(world);
                 });
             }
-            // ⛔⛔ **IGNORED, AND THE OLD CODE HERE WAS THE REVIEW'S FINDING 3.**
-            // It asked `ShellRouter.pending` which load was failing and
-            // discarded the staged generation whenever that load was ours —
-            // which makes an UNRELATED rejection (`HostNotConfigured`,
-            // `UnknownRoute`, a stale activation, a commit rejection) throw away
-            // an edit it has nothing to do with, purely because our load
-            // happened to be the one in flight. `LoadFailed` carries no load id
-            // and `ExperienceFailed` carries an activation id, so neither can be
-            // correlated from the event.
-            //
-            // ⇒ AND NEITHER NEEDS TO BE: every way this transaction actually
-            // dies now emits `TransactionEnded` above — supersession and an
-            // already-terminal barrier from `start_route`, a barrier that goes
-            // terminal while the shell waits from `advance_pending`. An
-            // uncorrelatable rejection is somebody else's.
+            // Ignored. `LoadFailed` carries no load id and `ExperienceFailed`
+            // carries an activation id, so they cannot be matched to this
+            // reload. Discarding when our load happens to be in flight would
+            // drop an edit over an unrelated rejection. Every way this
+            // transaction dies emits `TransactionEnded` (from `start_route`
+            // or `advance_pending`).
             ShellEvent::ExperienceFailed { .. } | ShellEvent::CommandRejected(_) => {}
             ShellEvent::WaitingForLoad { .. }
             | ShellEvent::RouteDeactivated(_)
@@ -1853,16 +1330,12 @@ pub fn commit_content_generation(
 }
 
 
-/// Did this reload ISSUE the request `request` names?
+/// Did this reload issue the request `request` names?
 ///
-/// ⭐ **ANSWERABLE BEFORE THE ROUTER HAS MINTED A LOAD**, which is what
-/// [`reload_owns`] cannot do: between the command and the announcement a reload
-/// has no `LoadId` to compare, and that window is exactly where a superseding
-/// command lands.
+/// This works before the router has minted a load, which [`reload_owns`]
+/// cannot do. A superseding command lands in that window.
 ///
-/// ⚠ `None` IS NOT A MATCH. A transaction carrying no request id belongs to
-/// nobody who is correlating, and treating it as ours is the inference
-/// `ShellRequestId` exists to remove.
+/// `None` is not a match.
 fn reload_issued(
     world: &bevy::ecs::world::World,
     request: Option<&ambition_platformer2d::game_shell::ShellRequestId>,
@@ -1875,14 +1348,10 @@ fn reload_issued(
 
 /// Does the pending reload own the transaction `load_id` names?
 ///
-/// ⚠ **AN UNADOPTED PENDING RELOAD OWNS NOTHING YET.** Between the request and
-/// the router's `PreparationRequested`, a reload has no id to compare — so an
-/// activation arriving in that window belongs to something else and must be
-/// ignored rather than allowed to publish it.
-///
-/// ⚠ AND A WORLD WITH NO PENDING RELOAD OWNS NOTHING EITHER, which is what makes
-/// `publish_candidate`'s direct road and this one able to share a system without
-/// stealing each other's boundaries.
+/// An unadopted pending reload owns nothing yet, so an activation before
+/// `PreparationRequested` is ignored. A world with no pending reload also owns
+/// nothing, so the direct `publish_candidate` road does not take this road's
+/// boundaries.
 fn reload_owns(
     world: &bevy::ecs::world::World,
     load_id: Option<&ambition_platformer2d::load::LoadId>,
@@ -1898,11 +1367,8 @@ fn reload_owns(
 
 /// Throw away a staged cast revision whose preparation never activated.
 fn discard_staged_reload(world: &mut bevy::ecs::world::World) {
-    // ⛔⛤ **THE PENDING PACK GOES WITH IT, AND THAT HALF WAS MISSING.** Discarding
-    // only the cast revision left the App selecting a candidate whose cast it
-    // never built, and the next identical save then compared against that
-    // selection, reported `Unchanged` and requested nothing — the game split for
-    // the rest of the session while the reload said all was well.
+    // Discard the pending pack as well. If only the cast revision is dropped,
+    // the next identical save compares equal and requests nothing.
     let had_pending = take_pending_generation(world).is_some();
     if world
         .remove_resource::<ambition_characters::prepared::StagedCastRevision>()

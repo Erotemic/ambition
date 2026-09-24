@@ -743,7 +743,15 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// a copy of the live `MovePlayback`, and readers now derive it from the move
 /// (`melee_swing_of`). The `MovePlayback` checksum now also hashes
 /// `attack_intent`, which the swing bytes used to carry.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 224;
+/// ⛔⛤ 224 -> 225: the Smash brain projection no longer encodes `foray_timer`.
+/// The proactive aerial-foray cadence it drove was never implemented; the
+/// timer and its two `SmashCfg` settings are deleted (W006).
+/// ⛔⛤ 225 -> 226: `actor.control` no longer encodes
+/// `body_contact_damage_enabled` (the player brain wrote it `false`, nothing
+/// read it; contact harm is the body's tuning plus "no driver"), and
+/// `derived.contact_threat_withdrawn` joins: the Mary-O shell's contact threat
+/// is a read of `SnakeShell` rather than a per-tick write into `actor.config`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 226;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

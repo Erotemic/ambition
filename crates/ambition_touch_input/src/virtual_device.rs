@@ -1,22 +1,22 @@
-//! The touch overlay as a VIRTUAL DEVICE: leafwing input kinds computed from
+//! The touch overlay as a virtual device: leafwing input kinds computed from
 //! [`MobileTouchState`], so touch resolves through the participant's
-//! `InputMap` bindings and the active input context exactly like a keyboard
-//! or gamepad — never as a second system writing gameplay/menu resources
-//! directly.
+//! `InputMap` bindings and the active input context like a keyboard or
+//! gamepad, never as a second system that writes gameplay or menu resources.
 //!
 //! Three input kinds over one source:
 //!
-//! - [`TouchVirtualButton`] — one on-screen action button, held-state
-//!   semantics identical to a physical button;
-//! - [`TouchVirtualStick`] — the move stick as a dual-axis (published in
-//!   leafwing's +Y-up convention; the gameplay reader flips to the sim's
-//!   +Y-down exactly as it does for a gamepad stick);
-//! - [`TouchStickDirection`] — the stick as four threshold buttons, the
-//!   `GamepadControlDirection`-with-threshold analog for the discrete
-//!   `MoveLeft/Right/Up/Down` gesture edges (double-tap-down morph, etc.).
+//! - [`TouchVirtualButton`]: one on-screen action button, with the same
+//!   held-state behavior as a physical button;
+//! - [`TouchVirtualStick`]: the move stick as a dual axis (published +Y-up
+//!   like leafwing; the gameplay reader flips to the sim's +Y-down as for a
+//!   gamepad stick);
+//! - [`TouchStickDirection`]: the stick as four threshold buttons, like
+//!   `GamepadControlDirection` with a threshold, for the discrete
+//!   `MoveLeft/Right/Up/Down` edges (double-tap-down morph, etc.).
 //!
-//! [`bind_touch_virtual_inputs`] adds the bindings to the PRIMARY participant's `InputMap` — the
-//! overlay is the machine's own screen, not a couch seat's.
+//! [`bind_touch_virtual_inputs`] adds the bindings to the primary
+//! participant's `InputMap`: the overlay is the machine's own screen, not a
+//! couch seat's.
 
 use bevy::ecs::system::lifetimeless::SRes;
 use bevy::ecs::system::StaticSystemParam;
@@ -32,10 +32,9 @@ use super::bevy_plugin::MobileTouchState;
 use super::layout::TouchActionButton;
 use super::state::TouchButton;
 
-/// Raw stick deflection past this magnitude counts as a held direction —
-/// the same threshold the gamepad's `GamepadControlDirection` bindings use
-/// (`STICK_DIRECTION_THRESHOLD` in the presets), so a touch flick and a pad
-/// flick produce identical `MoveLeft/Right/Up/Down` press edges.
+/// Stick deflection past this magnitude is a held direction. Same threshold as
+/// the gamepad's `GamepadControlDirection` bindings (`STICK_DIRECTION_THRESHOLD`
+/// in the presets), so touch and pad flicks give the same press edges.
 const DIRECTION_THRESHOLD: f32 = 0.5;
 
 /// One on-screen touch button as a bindable virtual button.
@@ -132,10 +131,10 @@ impl DualAxislike for TouchVirtualStick {
     }
 }
 
-/// The touch stick's cardinal directions as threshold buttons — the source
-/// for the discrete `MoveLeft/Right/Up/Down` press edges (leafwing derives
-/// the edge from the held transition, exactly like a pad stick direction).
-/// Directions are in leafwing's convention: `Up` = stick pushed up.
+/// The touch stick's cardinal directions as threshold buttons: the source of
+/// the discrete `MoveLeft/Right/Up/Down` edges (leafwing derives the edge from
+/// the held transition, as for a pad stick). Leafwing convention: `Up` means
+/// the stick is pushed up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 pub enum TouchStickDirection {
     Up,
@@ -162,7 +161,7 @@ impl UpdatableInput for TouchStickDirection {
         source_data: StaticSystemParam<Self::SourceData>,
     ) {
         let state = source_data.0;
-        // Touch state is +Y-down: pushing the stick UP is negative move_y.
+        // Touch state is +Y-down: pushing the stick up is negative move_y.
         let held = [
             (
                 TouchStickDirection::Up,
@@ -289,16 +288,15 @@ pub fn touch_bindings() -> Vec<(
         (A::Interact, TouchVirtualButton(B::Interact)),
         (A::MenuSelect, TouchVirtualButton(B::Interact)),
         (A::Projectile, TouchVirtualButton(B::Projectile)),
-        // The overlay's Fly button is the Utility slot (fly toggle), and the
-        // Shield button is the Shield action — the same actions the
-        // keyboard/gamepad bindings feed.
+        // The Fly button is the Utility slot (fly toggle); Shield is the
+        // Shield action. Same actions as the keyboard and gamepad bindings.
         (A::Utility, TouchVirtualButton(B::FlyToggle)),
         (A::Shield, TouchVirtualButton(B::Shield)),
-        // The overlay's Grab button sends the same Grab action the Smash pad's North button and
-        // every keyboard preset's grab key send.
+        // Grab sends the same Grab action as the Smash pad's North button and
+        // every keyboard preset's grab key.
         (A::Grab, TouchVirtualButton(B::Grab)),
-        // Modifier is a gameplay slot exposed by the touch overlay, so it must
-        // have a virtual-device binding just like keyboard and gamepad input.
+        // Modifier is a gameplay slot on the overlay, so it needs a
+        // virtual-device binding like keyboard and gamepad input.
         (A::Modifier, TouchVirtualButton(B::Modifier)),
         (A::Start, TouchVirtualButton(B::Start)),
         (A::Reset, TouchVirtualButton(B::Reset)),
@@ -306,18 +304,16 @@ pub fn touch_bindings() -> Vec<(
     ]
 }
 
-/// Add the touch virtual-device bindings to the PRIMARY participant's
+/// Add the touch virtual-device bindings to the primary participant's
 /// `InputMap`.
 ///
-/// Runs on `Added`/`Changed` so a preset swap (which REPLACES the map
-/// wholesale) re-binds touch; our own insertion bypasses change detection so
-/// the write does not re-trigger this system into duplicate bindings.
+/// Runs on `Added`/`Changed`, so a preset swap (which replaces the whole map)
+/// re-binds touch. The insertion bypasses change detection, so it does not
+/// re-trigger this system and duplicate bindings.
 ///
-/// Primary only. The overlay is ONE virtual device on the machine's own
-/// screen, so it belongs to the primary seat — the same attribution the raw
-/// screen devices get everywhere else in this crate ("one device on one
-/// screen: the local primary seat"). Binding it into EVERY seat's map is
-/// what let one screen tap press a button on a gamepad-only couch seat.
+/// Primary only: the overlay is one device on the machine's own screen.
+/// Binding it into every seat's map would let a screen tap press a button on
+/// a gamepad-only couch seat.
 pub fn bind_touch_virtual_inputs(
     mut maps: Query<
         (

@@ -2,7 +2,7 @@
 //!
 //! Wraps [`crate::manifest::AssetManifest`] + [`crate::profile::AssetProfile`]
 //! in two Bevy resources and adds load helpers that route through
-//! Bevy's `AssetServer` and `AssetPath` machinery. The crate does NOT
+//! Bevy's `AssetServer` and `AssetPath` machinery. The crate does not
 //! re-implement async loading, handles, dependencies, or hot reload —
 //! those live in Bevy itself.
 //!

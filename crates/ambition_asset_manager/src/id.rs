@@ -5,7 +5,7 @@
 //! `audio.sfx_bank`. The string is the canonical id: equality, hashing,
 //! manifest lookup, and serialization all key off the string.
 //!
-//! The id intentionally does NOT encode the location, profile, file
+//! The id intentionally does not encode the location, profile, file
 //! extension, or whether the asset is required. Those are properties of
 //! the [`crate::manifest::AssetEntry`] keyed by id.
 //!

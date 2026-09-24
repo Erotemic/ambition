@@ -1,69 +1,16 @@
-//! `EncounterRegistry` resource: the `id -> Entity` INDEX into the live
-//! encounter entities (E1 — the live state lives on the entity's
-//! [`EncounterState`](crate::EncounterState) component, not here). Keyed by id
-//! (matching LDtk `EncounterTrigger.id`) so consumers resolve an id to its
-//! entity in one hop. Also `SwitchActivation` — the typed
+//! `EncounterRegistry` resource: the populate latch (the live encounter state
+//! lives on each encounter entity). Also `SwitchActivation` — the typed
 //! `switch:<id>:<action>:<target>` payload parsed once at LDtk→ECS spawn and
 //! consumed by the switch-arming gate (`switches.rs`) and the encounter tick.
 
-use std::collections::BTreeMap;
-
 use bevy::prelude::*;
 
-/// Index from encounter id → the live encounter entity that owns its
-/// [`EncounterState`](crate::EncounterState). Reduced from the old
-/// state-holding map to a pure index at E1: the entity is the sole live-state
-/// authority, so nothing is duplicated here.
+/// Whether the current LDtk file has been scanned for encounter triggers yet.
+/// Reset by hot reload and by session teardown so the populate pass runs again.
+/// The live encounter state is each encounter entity's own components.
 #[derive(Resource, Default, Clone)]
 pub struct EncounterRegistry {
-    /// Encounter id → live encounter entity.
-    pub ids: BTreeMap<String, Entity>,
-    /// Tracks whether the current LDtk file has been scanned for
-    /// encounter triggers yet. Reset by hot reload so an edited LDtk
-    /// re-populates the specs.
     pub specs_loaded: bool,
-}
-
-impl bevy::ecs::entity::MapEntities for EncounterRegistry {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        for entity in self.ids.values_mut() {
-            *entity = mapper.get_mapped(*entity);
-        }
-    }
-}
-
-impl EncounterRegistry {
-    /// The live entity for an encounter id, if one is spawned.
-    pub fn entity(&self, id: &str) -> Option<Entity> {
-        self.ids.get(id).copied()
-    }
-
-    /// Point an encounter id at its live entity, REPLACING any previous one.
-    ///
-    /// ⭐⭐ REPLACEMENT IS THE POLICY, ON PURPOSE, and this registry is named in
-    /// the 2026-09-02 registry inventory as one of seven whose second
-    /// registration overwrites silently. Six of those want refusal. This one
-    /// does NOT: it is an INDEX from id to a live `Entity`, not an authored
-    /// table, and an encounter that despawns and respawns legitimately gets a
-    /// new entity. Refusing the second write would pin the index to a dead
-    /// entity — the opposite of the defect the inventory is about.
-    ///
-    /// ⇒ So it says so here rather than adopting
-    /// `ambition_registry_core::classify`, which is exactly what that function
-    /// asks of a registry whose policy is genuinely different: `classify` has no
-    /// "replace" answer so that a silent overwrite can never be an ACCIDENTAL
-    /// default — but a deliberate one, stated, is a legitimate choice.
-    ///
-    /// ⚠ The name carries the policy. It used to be `insert`, which reads like a
-    /// map operation and says nothing about what a second call means.
-    pub fn point_at_live_entity(&mut self, id: impl Into<String>, entity: Entity) {
-        self.ids.insert(id.into(), entity);
-    }
-
-    /// Forget an encounter id (its entity despawned / room changed).
-    pub fn remove(&mut self, id: &str) -> Option<Entity> {
-        self.ids.remove(id)
-    }
 }
 
 /// One activation request from a switch interaction.

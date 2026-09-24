@@ -9,7 +9,6 @@ use bevy::prelude::*;
 // `shared_tangle::markers`; naming the re-export would leave the `avatar ->
 // control` edge intact while looking like the move had worked, which is the
 // same trap that hid four "dependencies" in the F1 packet today.
-use ambition_platformer2d_shared_tangle::markers::LocalPlayer;
 use ambition_characters::actor::BodyAnimFacts;
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, Brain};
@@ -38,7 +37,6 @@ use ambition_platformer2d_shared_tangle::safe_position::PlayerSafetyState;
 #[derive(Bundle)]
 pub struct PlayerIdentityBundle {
     pub marker: PlayerEntity,
-    pub slot: PlayerSlot,
     /// ⛔⛤ **THE CANONICAL IDENTITY IS MINTED HERE, AT CONSTRUCTION, AND FOR A
     /// LONG TIME THE ONLY ROAD TO IT WAS A BACKFILL ONE FRAME LATER.**
     /// `ensure_sim_id` gives a `PrimaryPlayer` body `SimId::player_slot(0)` at
@@ -67,7 +65,6 @@ impl PlayerIdentityBundle {
     pub fn new(slot: PlayerSlot) -> Self {
         Self {
             marker: PlayerEntity,
-            slot,
             sim_id: ambition_platformer2d_shared_tangle::sim_id::SimId::player_slot(slot.0),
         }
     }
@@ -82,7 +79,6 @@ pub struct PlayerSimulationBundle {
     /// queries `With<PrimaryBody>` instead of the sandbox's player markers, so
     /// the gravity layer stays content-free.
     pub primary_body: ambition_platformer2d_shared_tangle::body::PrimaryBody,
-    pub local: LocalPlayer,
     pub health: BodyHealth,
     pub wallet: BodyWallet,
     pub combat: BodyCombat,
@@ -193,7 +189,6 @@ impl PlayerSimulationBundle {
             identity: PlayerIdentityBundle::new(PlayerSlot::PRIMARY),
             primary: PrimaryPlayer,
             primary_body: ambition_platformer2d_shared_tangle::body::PrimaryBody,
-            local: LocalPlayer,
             health: BodyHealth::new(health),
             wallet: BodyWallet::default(),
             combat: BodyCombat::default(),

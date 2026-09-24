@@ -103,7 +103,6 @@ where
         OWNER,
         "actor.charges_projectiles",
     );
-    registrar.rollback_component_clone::<crate::control::PlayerSlot>(OWNER, "actor.player_slot");
     registrar.rollback_component_clone::<crate::brain::ActionSet>(OWNER, "actor.action_set");
     registrar.rollback_component_clone::<crate::brain::action_set::IdentityKit>(
         OWNER,

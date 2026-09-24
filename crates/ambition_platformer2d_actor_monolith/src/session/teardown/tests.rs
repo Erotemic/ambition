@@ -92,10 +92,7 @@ fn app_with_populated_mirrors() -> App {
     );
     let ghost = app.world_mut().spawn_empty().id();
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(ghost);
-    app.world_mut()
-        .resource_mut::<EncounterRegistry>()
-        .ids
-        .insert("wave_a".to_owned(), ghost);
+    app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut()
         .resource_mut::<RoomTransitionCooldown>()
         .remaining = 5.0;
@@ -256,7 +253,7 @@ fn retirement_clears_every_session_scoped_mirror() {
         .resource::<PossessionState>()
         .possessed
         .is_some());
-    assert!(!app.world().resource::<EncounterRegistry>().ids.is_empty());
+    assert!(app.world().resource::<EncounterRegistry>().specs_loaded);
     assert!(app
         .world()
         .resource::<SlotInteractionState>()
@@ -284,8 +281,8 @@ fn retirement_clears_every_session_scoped_mirror() {
         "possession still points at a despawned session-A body after teardown"
     );
     assert!(
-        app.world().resource::<EncounterRegistry>().ids.is_empty(),
-        "encounter index still maps ids to dead session-A entities after teardown"
+        !app.world().resource::<EncounterRegistry>().specs_loaded,
+        "the encounter populate latch survived teardown, so session B never loads its encounters"
     );
     assert_eq!(
         app.world().resource::<RoomTransitionCooldown>().remaining,
@@ -387,11 +384,6 @@ fn activating_a_session_clears_what_a_skipped_teardown_left_behind() {
             .primary()
             .buffered(),
         "session B started with a buffered interact nobody pressed in it"
-    );
-    assert!(
-        app.world().resource::<EncounterRegistry>().ids.is_empty(),
-        "session B inherited A's encounter index, and its `specs_loaded` latch \
-         would then suppress B's own repopulation"
     );
     assert_eq!(
         app.world().resource::<RoomTransitionCooldown>().remaining,

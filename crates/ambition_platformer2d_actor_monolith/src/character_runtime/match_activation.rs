@@ -217,12 +217,11 @@ fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlA
             // through the one correspondence, not `PlayerSlot(raw)`: the
             // seat the simulation reads is a projection of the participant
             // channel, and `participant_seat` is where that projection lives.
-            commands.entity(body).insert((
-                ambition_platformer2d_shared_tangle::markers::LocalPlayer,
-                ambition_characters::control::DrivingParticipant(
+            commands
+                .entity(body)
+                .insert(ambition_characters::control::DrivingParticipant(
                     crate::participant_seat::player_slot_of(*channel),
-                ),
-            ));
+                ));
         }
         // The seed already carries the archetype's brain, derived in
         // `realize_seat` exactly as the enemy spawner derives it, and nobody

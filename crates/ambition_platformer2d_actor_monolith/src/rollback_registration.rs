@@ -229,7 +229,6 @@ where
         OWNER,
         "actor.surface_state",
     );
-    registrar.rollback_component_clone::<crate::control::LocalPlayer>(OWNER, "player.local_marker");
     // The body a reset hands back, split out of `actor.config` (2026-08-26) so a
     // mount dismount can restore a rider without naming the monolith's authored
     // actor definition. Same shape as the row above: authored, immutable after

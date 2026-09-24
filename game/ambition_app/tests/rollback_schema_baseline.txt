@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v213
+ggrs-rollback-schema-v214
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -54,7 +54,6 @@ actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapsho
 actor.perception	component-canonical	Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.player_slot	component-clone	PlayerSlot	bevy_ggrs clone snapshot; not in the session checksum
 actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.ranged_refire	component-canonical	RangedRefire	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -287,7 +286,6 @@ map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity
 map.projectile_hits	entity-mapping	ProjectileHits	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
-map.resource.encounter_registry	resource-entity-mapping	EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
 map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
@@ -389,7 +387,6 @@ mount.ride_lease	component-clone	RideLease	bevy_ggrs clone snapshot; value-probe
 mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; not in the session checksum
-player.local_marker	component-clone	LocalPlayer	bevy_ggrs clone snapshot; not in the session checksum
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 portal.body	component-clone	PortalBody	bevy_ggrs clone snapshot; not in the session checksum
@@ -421,7 +418,7 @@ resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec s
 resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.custody_baseline	resource-clone-custom-checksum	CustodyBaseline	bevy_ggrs clone snapshot + entity-free remembered-custody checksum projection
-resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+resource.encounter_registry	resource-clone-custom-checksum	EncounterRegistry	bevy_ggrs clone snapshot + whether this session's encounter triggers have been populated
 resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; not in the session checksum
 resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; not in the session checksum
 resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

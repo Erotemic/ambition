@@ -3,7 +3,6 @@
 //! generic simulation should operate on bodies or control authority instead.
 
 use ambition_platformer2d_shared_tangle::markers::{PrimaryPlayerOnly};
-use bevy::ecs::query::{QueryData, QueryFilter};
 use bevy::prelude::*;
 
 use ambition_characters::control::PlayerSlot;
@@ -17,24 +16,6 @@ pub fn primary_player_entity(primary: &Query<Entity, PrimaryPlayerOnly>) -> Opti
         .iter()
         .next()
         .filter(|_| primary.iter().count() == 1)
-}
-
-/// Collect every player entity + slot ordered by `PlayerSlot`. Use
-/// when a system intentionally iterates over all players (HUD widgets
-/// that show every slot's status, debug overlays, etc.). Cheap today
-/// because there's exactly one player; the explicit sort keeps the
-/// order deterministic once a second player is added.
-pub fn sort_players_by_slot<D, F>(
-    players: &Query<(Entity, &PlayerSlot, D), F>,
-) -> Vec<(Entity, PlayerSlot)>
-where
-    D: QueryData,
-    F: QueryFilter,
-{
-    let mut out: Vec<(Entity, PlayerSlot)> =
-        players.iter().map(|(e, slot, _)| (e, *slot)).collect();
-    out.sort_by_key(|(_, slot)| *slot);
-    out
 }
 
 /// Resolve the unique body carrying `DrivingParticipant(slot)`.

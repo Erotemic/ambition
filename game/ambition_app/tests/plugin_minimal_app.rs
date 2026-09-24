@@ -22,7 +22,7 @@
 
 use ambition_platformer2d::actors::avatar::PlayerIdentityBundle;
 use ambition_platformer2d::sim::PlayerSlot;
-use ambition_platformer2d::actors::control::{LocalPlayer};
+use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::characters::actor::BodyAnimFacts;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::engine_core::BodyKinematics;
@@ -151,24 +151,21 @@ fn player_entity_carries_canonical_sim_components() {
     );
 }
 
-/// Multiplayer-readiness canary: the default player must spawn with
-/// `PlayerSlot::PRIMARY` + `PrimaryPlayer` + `LocalPlayer` so that
-/// future code which filters on those identity components doesn't
-/// silently miss the lone player. Pins the identity-tag contract on
-/// `PlayerSimulationBundle::new`.
+/// Multiplayer-readiness canary: the default player must spawn as
+/// `PrimaryPlayer` with the slot-0 identity `SimId::player_slot(0)`, minted at
+/// construction. Pins the identity contract on `PlayerSimulationBundle::new`.
 #[test]
 fn default_player_carries_identity_components() {
     let mut app = minimal_sim_app();
     let mut q = app.world_mut().query_filtered::<
-        (&PlayerSlot, Option<&PrimaryPlayer>, Option<&LocalPlayer>),
+        (&SimId, Option<&PrimaryPlayer>),
         With<PlayerEntity>,
     >();
-    let (slot, primary, local) = q
+    let (id, primary) = q
         .single(app.world())
         .expect("the single default player should exist");
-    assert_eq!(*slot, PlayerSlot::PRIMARY);
+    assert_eq!(*id, SimId::player_slot(PlayerSlot::PRIMARY.0));
     assert!(primary.is_some(), "default player must be PrimaryPlayer");
-    assert!(local.is_some(), "default player must be LocalPlayer");
 
     let mut primary_q = app
         .world_mut()
@@ -181,7 +178,7 @@ fn default_player_carries_identity_components() {
 }
 
 /// Multiplayer-readiness canary: spawning a second player entity with
-/// `PlayerSlot(1)` (but without `PrimaryPlayer` / `LocalPlayer`) must
+/// `PlayerSlot(1)` (but without `PrimaryPlayer`) must
 /// coexist with the default player without panicking and without
 /// breaking the "exactly one PrimaryPlayer" invariant.
 ///
@@ -197,7 +194,7 @@ fn second_player_entity_spawns_with_unique_slot_and_no_extra_primary() {
     let mut app = minimal_sim_app();
 
     // Spawn a "guest" player with just the identity tags. No
-    // PrimaryPlayer, no LocalPlayer, no simulation components — those
+    // PrimaryPlayer, no simulation components — those
     // are deliberately omitted because the full chain still assumes
     // exactly one moving player.
     app.world_mut()
@@ -206,10 +203,15 @@ fn second_player_entity_spawns_with_unique_slot_and_no_extra_primary() {
     // Two PlayerEntity entities now exist; they must have distinct slots.
     let mut q = app
         .world_mut()
-        .query_filtered::<&PlayerSlot, With<PlayerEntity>>();
-    let mut slots: Vec<u8> = q.iter(app.world()).map(|s| s.index()).collect();
-    slots.sort();
-    assert_eq!(slots, vec![0, 1], "expected slots [0, 1], got {slots:?}");
+        .query_filtered::<&SimId, With<PlayerEntity>>();
+    let mut ids: Vec<String> = q.iter(app.world()).map(|id| id.as_str().to_string()).collect();
+    ids.sort();
+    let mut expected = vec![
+        SimId::player_slot(0).as_str().to_string(),
+        SimId::player_slot(1).as_str().to_string(),
+    ];
+    expected.sort();
+    assert_eq!(ids, expected, "each player carries its own slot identity");
 
     // Exactly one PrimaryPlayer must remain.
     let mut primary_q = app

@@ -701,7 +701,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// presentation flash; and `BossAnimFrame` lost its `Hit` drive phase (the sim
 /// cursor never enters the hit row, so boss geometry does not follow a flash),
 /// which renumbers the `Death` phase byte.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 213;
+/// ⛔⛤ 213 -> 214: three dead rows LEFT.
+/// `player.local_marker` (`LocalPlayer`, a per-peer fact nothing read),
+/// `actor.player_slot` (the `PlayerSlot` component, read only by a function
+/// nobody called; slot identity is the `SimId`), and the encounter registry's
+/// `id -> Entity` index (written, never read), so `resource.encounter_registry`
+/// is a checksummed clone of the populate latch and its entity map is gone.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 214;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

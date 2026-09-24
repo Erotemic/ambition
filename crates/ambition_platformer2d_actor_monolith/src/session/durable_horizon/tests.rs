@@ -15,6 +15,12 @@ use crate::items::pickup::minted_horizon::{
     MintedItemBaseline, MintedItemDescription, OwnedItemsBaseline,
 };
 
+/// The session's chain plus the item domain's adapters, as the runtime composes them.
+fn install_horizon(app: &mut App) {
+    install_durable_save_horizon(app);
+    crate::items::persist::install_item_durable_horizon(app);
+}
+
 fn horizon_app() -> App {
     let mut app = App::new();
     app.add_message::<ResetToCheckpoint>()
@@ -65,7 +71,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
             .collect(),
         );
     }
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
 
     let written = app.world().resource::<AmbitionGameSave>().data().clone();
@@ -73,7 +79,7 @@ fn every_whereabouts_survives_the_write_and_the_read() {
 
     let mut reloaded = horizon_app();
     reloaded.world_mut().resource_mut::<AmbitionGameSave>().0 = written;
-    install_durable_save_horizon(&mut reloaded);
+    install_horizon(&mut reloaded);
     reloaded.update();
 
     let ledger = reloaded.world().resource::<AuthoredOccurrences>();
@@ -132,7 +138,7 @@ fn an_in_custody_row_with_no_restorable_hand_behind_it_stays_out_of_the_file() {
             .collect(),
         );
     }
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
 
     let written = app.world().resource::<AmbitionGameSave>().data().clone();
@@ -178,7 +184,7 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
         }]);
         app.world_mut().resource_mut::<AmbitionGameSave>().0 = data;
     }
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
 
     assert_eq!(
@@ -222,7 +228,7 @@ fn a_load_seeds_every_domain_baseline_and_requests_the_resume() {
 fn an_untouched_world_writes_no_occurrence_rows() {
     let mut app = horizon_app();
     app.world_mut().resource_mut::<SaveRestored>().0 = true;
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
     let data = app.world().resource::<AmbitionGameSave>().data();
     assert!(data.occurrences().is_empty());
@@ -233,7 +239,7 @@ fn an_untouched_world_writes_no_occurrence_rows() {
 #[test]
 fn a_load_with_nothing_remembered_asks_for_no_resume() {
     let mut app = horizon_app();
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
     let mut resets = app
         .world_mut()
@@ -282,7 +288,7 @@ fn only_a_restored_custody_row_crosses_the_save_boundary() {
         ));
     }
 
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
 
     let written = app.world().resource::<AmbitionGameSave>().data().clone();
@@ -338,7 +344,7 @@ fn a_population_the_restore_cannot_complete_on_is_written_to_by_nobody() {
          world that never starts a timeline",
     );
 
-    install_durable_save_horizon(&mut app);
+    install_horizon(&mut app);
     app.update();
 
     assert_eq!(

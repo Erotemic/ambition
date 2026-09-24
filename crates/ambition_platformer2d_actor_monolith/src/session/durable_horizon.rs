@@ -364,10 +364,34 @@ pub fn reset_occurrence_horizon_on_new_game(
     }
 }
 
-/// Install the complete durable-save application/mirroring chain owned by the
-/// actor integration layer.
-///
-/// The generic runtime calls this one domain offer.
+/// Where a domain's durable adapters run in the simulation. A domain installs
+/// its own systems here; this module orders the slots.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DurableHorizonSet {
+    /// Fresh-run reducers of `NewGameResetCommitted`, one per domain. They write
+    /// disjoint state and are unordered against each other.
+    NewGameReset,
+    /// Other domains' live → save mirrors. Each domain chains its own members:
+    /// they all take `ResMut<AmbitionGameSave>`.
+    DomainMirror,
+    /// This module's live → save mirrors, after every domain's.
+    SessionMirror,
+}
+
+/// Where a loaded file is applied, in top-level `Update`.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DurableRestoreSet {
+    /// The lifecycle/occurrence baseline, which the domains' restores build on.
+    Lifecycle,
+    /// Each domain applies its half of the file and adopts its own baselines.
+    Domains,
+    /// The file is fully applied; a checkpoint resume may now be requested.
+    Complete,
+}
+
+/// Install the session's durable-save application/mirroring chain and the
+/// slots other domains' adapters join. The generic runtime composes this with
+/// each domain's own installation.
 pub fn install_durable_save_horizon(app: &mut App) {
     // ⛔⛔ **THE CHANNEL BESIDE THE SYSTEM THAT READS IT.** A `MessageReader` for
     // an unregistered message fails PARAMETER VALIDATION at runtime, not at
@@ -403,13 +427,13 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // They are unordered against each other on purpose: they write disjoint
     // resources, so an edge between them would assert a dependency that does not
     // exist. Both take the same `.after` edge to the producer's flush.
+    app.configure_sets(
+        sim,
+        DurableHorizonSet::NewGameReset.after(crate::session::reset::clear_transient_on_sandbox_reset),
+    );
     app.add_systems(
         sim,
-        (
-            crate::items::persist::reset_inventory_on_new_game,
-            reset_occurrence_horizon_on_new_game,
-        )
-            .after(crate::session::reset::clear_transient_on_sandbox_reset),
+        reset_occurrence_horizon_on_new_game.in_set(DurableHorizonSet::NewGameReset),
     );
     // ⛔⛤ **THE LIVE→SAVE MIRRORS CROSS THE SAME ROLLBACK BOUNDARY AS THE STATE
     // THEY MIRROR.** They ran in top-level `Update` — once per FRAME — while
@@ -434,22 +458,27 @@ pub fn install_durable_save_horizon(app: &mut App) {
     // it needs beyond theirs: it fires on the tick a conversation OPENED, so
     // running before the opening would mean the edge is gone by the next tick and
     // the visit is never counted at all.
+    app.configure_sets(
+        sim,
+        (DurableHorizonSet::DomainMirror, DurableHorizonSet::SessionMirror)
+            .chain()
+            .after(DurableHorizonSet::NewGameReset),
+    );
     app.add_systems(
         sim,
         (
-            crate::items::persist::persist_inventory_to_save,
             persist_occurrence_horizon_to_save,
-            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
             count_the_dialogue_visit_when_a_conversation_opens
                 .after(crate::features::interact_ecs_actors_and_switches),
         )
             .chain()
-            .after(crate::items::persist::reset_inventory_on_new_game),
+            .in_set(DurableHorizonSet::SessionMirror),
     );
     app.init_resource::<SaveRestored>()
         // ⭐ `Update` IS A WINDOW HERE, NOT A WAIVER, AND THE ARGUMENT HAS
-        // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. All three
-        // write only while `SaveRestored` is false; the latch rises once and
+        // THREE PARTS BECAUSE ANY ONE OF THEM ALONE IS INSUFFICIENT. The three
+        // restores (one per `DurableRestoreSet` slot, the item domain's among
+        // them) write only while `SaveRestored` is false; the latch rises once and
         // has no `true -> false` transition left in the workspace
         // (`debug_assert!(restored.0)` in `reset_inventory_on_new_game` is what
         // keeps that true); and `maintain_local_session` refuses to start a
@@ -462,18 +491,24 @@ pub fn install_durable_save_horizon(app: &mut App) {
         // one primary body and the adopter accepted any non-empty set, so two
         // primary bodies let the session start over a chain that could never
         // finish. Do not widen one of the four without widening all of them.
+        .configure_sets(
+            Update,
+            (
+                DurableRestoreSet::Lifecycle,
+                DurableRestoreSet::Domains,
+                DurableRestoreSet::Complete,
+            )
+                .chain(),
+        )
         .add_systems(
             Update,
             (
                 // Lifecycle state first: the room/custody baseline must be present
                 // before the load asks the ordinary checkpoint-resume road to act.
-                adopt_occurrence_checkpoint_from_save,
-                // Item state second. This applies the saved bag and adopts BOTH
-                // item checkpoint baselines from the post-load values.
-                crate::items::persist::restore_inventory_from_save,
+                adopt_occurrence_checkpoint_from_save.in_set(DurableRestoreSet::Lifecycle),
                 // The host-level completion point comes last: only now is the file
                 // fully applied, and only now may a checkpoint resume be requested.
-                complete_durable_restore,
+                complete_durable_restore.in_set(DurableRestoreSet::Complete),
                 // ⚠ THE MIRRORS USED TO CHAIN HERE AND ARE NOW IN THE SIM SCHEDULE
                 // ABOVE. Their "only after the latch is true" guard is unchanged and
                 // still theirs: each returns early on `!restored.0`. What changed is

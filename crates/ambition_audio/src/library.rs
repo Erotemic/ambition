@@ -22,11 +22,10 @@ pub struct MusicChannel;
 #[derive(Resource)]
 pub struct SfxChannel;
 
-/// Maps the typed [`SfxMessage`] variants to the sandbox's [`SoundCue`]
-/// table. `SfxMessage` now lives in the `ambition_sfx` crate (so reusable
-/// mechanics can request sound without naming a sandbox module), but
-/// `SoundCue` is a sandbox-internal mapping — hence this consumer-side
-/// extension trait rather than an inherent method on the foreign type.
+/// Maps the typed [`SfxMessage`] variants to the [`SoundCue`] table.
+/// `SfxMessage` lives in `ambition_sfx` so mechanics can request sound without
+/// naming this crate, and `SoundCue` is this crate's mapping, so this is an
+/// extension trait.
 pub trait SfxMessageCue {
     /// The typed cue this message maps to, or `None` for the open-ended
     /// `Play { id }` variant (handled directly via its `SfxId`).
@@ -56,10 +55,10 @@ impl SfxMessageCue for SfxMessage {
     }
 }
 
-/// The [`SfxId`] a message resolves to for provider-authority checks: the id of
-/// its typed cue, or the open-ended `Play { id }`'s id. The gate uses the id the
-/// emitter *requested* — before the `Play`→cue rescue in the consumer — so a
-/// provider is judged on what it actually authored.
+/// The [`SfxId`] a message resolves to for provider-authority checks: its typed
+/// cue's id, or the `Play { id }` id. The gate uses the id the emitter
+/// requested (before the consumer maps `Play` to a cue), so a provider is
+/// judged on what it authored.
 pub fn sfx_message_target_id(message: SfxMessage) -> SfxId {
     match message.cue() {
         Some(cue) => cue.sfx_id(),
@@ -112,18 +111,16 @@ impl SoundCue {
     ];
 
     /// Reverse of [`Self::sfx_id`]: the procedural cue an [`SfxId`] names, if
-    /// any. Lets the open-ended `SfxMessage::Play { id }` path (used by the
-    /// data-driven moveset, whose events carry a string cue) resolve to a
-    /// guaranteed procedural cue when the string names one — instead of only
-    /// ever hitting the packed bank and silently no-op-ing on a bank miss.
+    /// any. Lets `SfxMessage::Play { id }` (used by the data-driven moveset,
+    /// whose events carry a string cue) reach a procedural cue instead of
+    /// doing nothing on a bank miss.
     pub fn from_sfx_id(id: SfxId) -> Option<Self> {
         Self::ALL.into_iter().find(|cue| cue.sfx_id() == id)
     }
 
     pub fn sfx_id(self) -> SfxId {
-        // Delegate to the kira-free [`SoundCueKey::sfx_id`] table so the
-        // authority projection (used to gate provider-relative playback) and
-        // the playback handle lookup can never drift out of sync.
+        // Use the kira-free [`SoundCueKey::sfx_id`] table, so the authority
+        // projection and the playback lookup stay in sync.
         SoundCueKey::from(self).sfx_id()
     }
 }
@@ -158,16 +155,15 @@ struct TrackSource {
 pub struct MusicTrackRuntime {
     pub id: String,
     pub display_name: String,
-    /// This cue plays once and stops rather than looping — see
+    /// Plays once and stops instead of looping; see
     /// [`crate::spec::MusicTrack::one_shot`].
     pub one_shot: bool,
     source: TrackSource,
 }
 
 impl MusicTrackRuntime {
-    /// Logical asset path the AssetServer was (or will be) asked to
-    /// load. Used in diagnostics / log lines; the live handle lives
-    /// behind the lazy `resolve_track_handle` call.
+    /// Logical asset path for diagnostics. The live handle comes from
+    /// `resolve_track_handle`.
     pub fn asset_path(&self) -> &str {
         &self.source.asset_path
     }
@@ -180,10 +176,9 @@ pub struct AudioLibrary {
     music_tracks: Vec<MusicTrackRuntime>,
 }
 
-/// Player-selected simple music track. The music director treats this as the
-/// sandbox radio station: rooms can still provide a default when no station is
-/// set, and adaptive encounter cues can temporarily take over, but the chosen
-/// radio track resumes afterward.
+/// Player-selected simple music track: the radio station. Rooms provide a
+/// default when no station is set, and adaptive encounter cues can take over
+/// for a while; the chosen track then resumes.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct RadioStationState {
     selected_track: Option<String>,
@@ -230,14 +225,13 @@ impl AudioLibrary {
 
     /// Build the audio library + music track table.
     ///
-    /// `resolve_track_path` (when `Some`) resolves each music track id
-    /// through the host's asset catalog so the runtime stores the
-    /// catalog-blessed path instead of the track's conventional
-    /// `audio/music/generated/{id}/full.ogg`. A genuinely missing OGG
-    /// surfaces as a load warning later — there is no procedural fallback.
+    /// `resolve_track_path` (when `Some`) resolves each track id through the
+    /// host's asset catalog, instead of the conventional
+    /// `audio/music/generated/{id}/full.ogg`. A missing OGG shows up later as a
+    /// load warning; there is no procedural fallback.
     ///
-    /// `resolve_track_path = None` is the test-fixture / pre-catalog seam: the
-    /// library reads each track's [`MusicTrack::resolved_asset_path`] directly.
+    /// `None` is the test-fixture / pre-catalog path: each track's
+    /// [`MusicTrack::resolved_asset_path`] is used directly.
     pub fn new(
         audio_sources: &mut Assets<KiraAudioSource>,
         sfx_registry: &SfxRegistry,
@@ -254,10 +248,9 @@ impl AudioLibrary {
         }
         let sample_rate = sfx_registry.sample_rate.max(8_000);
 
-        // SFX: every cue tries the bank; missing entries get a short
-        // silent stub so the playback path stays uniform without
-        // surfacing per-call warnings (the bank-cache layer logs once
-        // when it sees the gap).
+        // SFX: every cue tries the bank. Missing entries get a short silent
+        // stub, so playback stays uniform; the bank-cache layer logs the gap
+        // once.
         let silent_handle = audio_sources.add(silent_audio_source(sample_rate));
         let mut sfx_handles = HashMap::default();
         let mut missing_cues: Vec<SoundCue> = Vec::new();
@@ -290,11 +283,9 @@ impl AudioLibrary {
         }
         let fallback_sfx = silent_handle;
 
-        // Music: each track resolves to a pre-rendered OGG path — the
-        // catalog-blessed path when a resolver is supplied, otherwise the
-        // track's conventional `audio/music/generated/{id}/full.ogg`
-        // (see `MusicTrack::resolved_asset_path`). A genuinely missing OGG
-        // surfaces later as a load warning; there is no fundsp fallback.
+        // Music: each track resolves to a pre-rendered OGG path (the catalog
+        // path with a resolver, else `MusicTrack::resolved_asset_path`). A
+        // missing OGG shows up later as a load warning; no fundsp fallback.
         let mut music_tracks = Vec::with_capacity(music_registry.tracks.len());
         for track in &music_registry.tracks {
             let asset_path = resolve_track_path
@@ -331,9 +322,8 @@ impl AudioLibrary {
 
     /// Return an already-resolved playable handle without starting a load.
     ///
-    /// Hosts that explicitly preload a track can use this to include the exact
-    /// handle in a broader activation-readiness manifest without taking mutable
-    /// ownership of the audio library every frame.
+    /// A host that preloads a track can put the exact handle in an
+    /// activation-readiness manifest without mutable access to the library.
     pub fn resolved_track_handle(&self, id: &str) -> Option<Handle<KiraAudioSource>> {
         self.track(id).and_then(|track| track.source.handle.clone())
     }
@@ -423,8 +413,8 @@ impl AudioLibrary {
         Some(self.resolve_track(track_id, asset_server)?.0)
     }
 
-    /// The handle plus whether this cue loops. A sting must not repeat, and the
-    /// spec is the only thing that knows which cues are stings.
+    /// The handle, plus whether this cue loops. Stings must not repeat, and
+    /// only the spec knows which cues are stings.
     pub fn resolve_track(
         &mut self,
         track_id: &str,
@@ -440,29 +430,24 @@ impl AudioLibrary {
         Some((track.source.handle.clone()?, track.one_shot))
     }
 
-    /// Warm a file-backed track's handle ahead of likely use (e.g. when
+    /// Warm a file-backed track's handle before likely use (for example when
     /// the radio menu highlights it).
     pub fn preload_track(&mut self, track_id: &str, asset_server: &AssetServer) {
         let _ = self.resolve_track_handle(track_id, asset_server);
     }
 }
 
-/// What the base music channel is playing, and WHICH PLAY it is.
+/// What the base music channel is playing, and which play it is.
 ///
-/// the generation is the difference between "still playing" and "started again". The track
-/// name alone cannot tell those apart — a screen transition that stops the title theme and
-/// immediately restarts the identical file leaves exactly the state it found.
+/// The generation tells "still playing" from "started again": a transition
+/// that stops and immediately restarts the same file leaves the same track
+/// name.
 ///
-/// This is deliberately NOT an event log. Wwise and FMOD ship capture logs and
-/// Unreal has trace channels, but that is a debugging surface for a whole audio
-/// department; the question here — *did this song restart?* — is a fact about
-/// the state, and the state should be able to answer it. If audio ever earns a
-/// timeline it belongs in `ambition_causal` as a domain, not in a second
-/// observability authority.
+/// This is state, not an event log. If audio ever needs a timeline, it goes
+/// in `ambition_causal` as a domain.
 ///
-/// The fields are private so the counter cannot be forgotten: starting a track
-/// and recording that it started are ONE operation ([`Self::begin_track`]), not
-/// a write plus a follow-up call somebody remembers.
+/// Fields are private: starting a track and recording the start are one
+/// operation ([`Self::begin_track`]).
 #[derive(Resource, Clone, Debug)]
 pub struct MusicPlaybackState {
     active_track: String,
@@ -486,22 +471,21 @@ impl MusicPlaybackState {
         &self.active_track
     }
 
-    /// How many times the base channel has been started. Only equality across
-    /// two observations is meaningful — same generation means the same
+    /// How many times the base channel was started. Only equality between two
+    /// readings is meaningful: the same generation means the same
     /// uninterrupted play.
     pub fn play_generation(&self) -> u64 {
         self.play_generation
     }
 
-    /// A track STARTED on the base channel. Bumps the generation even when the
-    /// track id is unchanged, because restarting the same song is precisely the
-    /// event this records.
+    /// A track started on the base channel. Bumps the generation even for the
+    /// same track id, because a restart is the event this records.
     pub fn begin_track(&mut self, track_id: impl Into<String>) {
         self.active_track = track_id.into();
         self.play_generation = self.play_generation.wrapping_add(1);
     }
 
-    /// The base channel stopped. A later play of the same track is a NEW play,
+    /// The base channel stopped. A later play of the same track is a new play,
     /// so the generation moves here too.
     pub fn silence(&mut self) {
         self.active_track.clear();
@@ -513,34 +497,30 @@ impl MusicPlaybackState {
     }
 }
 
-/// Tracks whether [`start_default_music_when_ready`] has actually
-/// kicked off the music playback. Inserted at startup, flipped to
-/// `true` the frame the deferred play call lands. Exposed so other
-/// systems / overlays can show "audio: waiting for asset…" instead
-/// of "audio: silent".
+/// Whether [`start_default_music_when_ready`] has started music. Set `true`
+/// on the frame the deferred play call lands, so overlays can show
+/// "waiting for asset" instead of "silent".
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct DefaultMusicStarted(pub bool);
 
 /// The set [`start_default_music_when_ready`] runs in.
 ///
-/// Startup loading must settle before the default track is allowed to begin, so
-/// the loader pins `.before` this.
+/// Startup loading must finish before the default track starts, so the loader
+/// runs `.before` this set.
 ///
-/// ONE member. The system is already gated by a run condition
-/// (`music_auto_start_when_ungated`); a run condition on the only member does
-/// NOT propagate to the set, so `.before` this set holds whether or not the
-/// music actually starts — which is the behaviour the pin wants.
+/// One member. The system's run condition (`music_auto_start_when_ungated`)
+/// does not propagate to the set, so `.before` this set holds whether or not
+/// music starts.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct DefaultMusicStart;
 
-/// Important on web, where the music OGG is fetched over HTTP and may not be ready until
-/// several frames after startup — calling `play(handle)` on a not-yet-loaded handle either
-/// drops the request silently or fires a soft warning, depending on bevy_kira_audio's internal
-/// state, and the music never starts.
+/// Start the default music once its handle is loaded. On web the OGG arrives
+/// over HTTP several frames after startup, and `play(handle)` on an unloaded
+/// handle can drop the request, so music never starts.
 ///
-/// Also gated by [`AudioUnlockState::unlocked`]: on web the AudioContext is `suspended` until a
-/// user gesture, and Kira's `play()` call on a suspended context schedules sounds that never
-/// audibly play.
+/// Also gated by [`AudioUnlockState::unlocked`]: on web the AudioContext is
+/// suspended until a user gesture, and Kira schedules sounds on a suspended
+/// context that never play.
 pub fn start_default_music_when_ready(
     mut started: ResMut<DefaultMusicStarted>,
     unlock: Res<AudioUnlockState>,
@@ -559,9 +539,9 @@ pub fn start_default_music_when_ready(
     }
     let track_id = state.active_track.clone();
     let Some(_track) = library.track(&track_id) else {
-        // No track at all in the library (e.g. all music tracks
-        // missing asset_path); nothing to do, but log once so the
-        // browser console / log shows why music never starts.
+        // No track in the library (for example every track lacks
+        // `asset_path`). Log once, so the console shows why music never
+        // starts.
         if !*waiting_logged {
             warn!(
                 "default music: track '{}' not present in AudioLibrary; \
@@ -664,8 +644,8 @@ fn play_music_track(
     };
     if output.emits_to_device() {
         let fade = AudioTween::new(Duration::from_millis(220), AudioEasing::InPowi(2));
-        // A sting ends. Looping one turns a three-second fanfare into a nag that
-        // runs until whatever ends the sequence gets round to it.
+        // A sting ends. Looping a three-second fanfare would repeat it until
+        // the sequence ends.
         if one_shot {
             music_channel.play(handle).fade_in(fade);
         } else {

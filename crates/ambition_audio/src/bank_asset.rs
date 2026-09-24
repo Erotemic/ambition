@@ -140,13 +140,11 @@ impl SfxBankResource {
             .map(|provider| provider.as_ref() as &dyn SfxProvider)
     }
 
-    /// The authored spelling of `id` according to ANY loaded bank.
+    /// The authored name of `id` in any loaded bank.
     ///
-    /// Deliberately not scoped to one provider: the caller asking is the one
-    /// reporting that a cue is missing HERE, so the only banks that can name it
-    /// are the ones that do have it. "Sanic has no clip for `boss.shatter`" is
-    /// the sentence worth printing, and only Ambition's bank can supply the
-    /// `boss.shatter` half of it.
+    /// Not scoped to one provider: the caller reports that a cue is missing
+    /// for its provider, so only another provider's bank can name it (for
+    /// example, "Sanic has no clip for `boss.shatter`").
     pub fn name_anywhere(&self, id: SfxId) -> Option<&str> {
         self.providers
             .values()
@@ -247,9 +245,8 @@ pub struct PendingSfxBankHandles {
 }
 
 impl PendingSfxBankHandles {
-    /// This provider's bank is still in flight, so a cue that misses right now
-    /// may well play a moment later. The difference between "not yet" and
-    /// "never" is the whole value of the miss diagnostic.
+    /// This provider's bank is still loading, so a cue that misses now may
+    /// play soon. The miss diagnostic depends on "not yet" versus "never".
     pub fn is_loading(&self, provider_id: &str, asset_server: &AssetServer) -> bool {
         self.handles
             .get(provider_id)
@@ -259,8 +256,8 @@ impl PendingSfxBankHandles {
 
 /// Provider bank assets that reached a terminal load failure.
 ///
-/// Kept after the pending handle is removed so later cue diagnostics can say
-/// "the bank failed" instead of regressing to "no bank is registered yet".
+/// Kept after the pending handle is removed, so later diagnostics say "the
+/// bank failed", not "no bank is registered yet".
 #[derive(Resource, Default)]
 pub struct FailedSfxBankLoads {
     errors: BTreeMap<String, String>,
@@ -289,10 +286,8 @@ impl Plugin for SfxBankAssetPlugin {
 const SFX_SPAM_WARN_PER_SECOND: f32 = 25.0;
 
 /// Once-per-second watchdog over [`SfxPlaybackState::accepted_playbacks`]:
-/// when the accepted rate is abnormal, log it with the most recent record —
-/// resolved to its bank name — so a runaway emitter names itself in the log
-/// instead of being an audible mystery ("walking into the boss room fires
-/// insane SFX", desktop-lifecycle-3, no trace in any log).
+/// when the accepted rate is abnormal, log it with the most recent record
+/// (resolved to its bank name), so a runaway emitter shows in the log.
 fn warn_on_sfx_playback_spam(
     state: Res<SfxPlaybackState>,
     banks: Res<SfxBankResource>,
@@ -446,13 +441,11 @@ fn promote_loaded_sfx_bank(
 
 /// Name a cue for a human, from whatever authority can still spell it.
 ///
-/// An [`SfxId`] is a one-way hash, so a diagnostic holding only the id prints
-/// `SfxId(0x…)` — which names nothing an author can grep for. Three authorities
-/// between them know almost every spelling in the game: the engine's `ids` table
-/// (every typed cue), the active procedural registry (open ids authored in RON),
-/// and the name section of every loaded bank (open ids some OTHER provider
-/// packs). A cue none of them knows is genuinely anonymous, and the message says
-/// so rather than pretending the hash is an answer.
+/// An [`SfxId`] is a one-way hash, so an id alone names nothing an author can
+/// search for. Three sources know almost every name: the engine's `ids` table
+/// (typed cues), the active procedural registry (open ids in RON), and every
+/// loaded bank's name section (open ids another provider packs). A cue none of
+/// them knows is reported as anonymous.
 fn describe_sfx_id(id: SfxId, procedural: Option<&SfxRegistry>, banks: &SfxBankResource) -> String {
     let name = ambition_sfx::ids::name_of(id)
         .or_else(|| banks.name_anywhere(id))
@@ -530,11 +523,9 @@ pub fn audio_play_sfx_messages(
         let resolved = match resolved {
             Ok(resolved) => resolved,
             Err(miss) => {
-                // Name it, and say WHY, once per (provider, cue, diagnosis). The
-                // counter said a cue went silent and never which one; the first
-                // version of this warning named the cue but asserted one cause
-                // for four different failures, including a cue that was merely
-                // early. A wrong diagnosis costs more than no diagnosis.
+                // Name the cue and the cause, once per (provider, cue,
+                // diagnosis). The causes are different failures, including a
+                // cue that is only early.
                 let first_word = playback.note_missing_source(provider_id, id, miss);
                 if first_word {
                     let cue = describe_sfx_id(id, source_registry, &banks);
@@ -665,11 +656,9 @@ mod tests {
         assert!(!selection.accepts_request_owner(stale.owner));
     }
 
-    /// The suppression key is the fact, and the fact has three parts: which
-    /// provider, which cue, and what went wrong. Keyed on the cue alone (as it
-    /// first shipped), the second provider's identical silence was invisible,
-    /// and a cue that missed because its bank had not loaded yet stayed
-    /// diagnosed that way after the bank arrived and proved it truly absent.
+    /// The suppression key is (provider, cue, diagnosis). Keyed on the cue
+    /// alone, a second provider's identical miss would be hidden, and an
+    /// early miss would keep its diagnosis after the bank proved it absent.
     #[test]
     fn a_miss_speaks_once_per_provider_and_again_when_the_diagnosis_changes() {
         use crate::render::{SfxPlaybackState, SfxSourceMiss};
@@ -689,9 +678,8 @@ mod tests {
         assert_eq!(playback.missing_source, 4, "every miss still counts");
     }
 
-    /// A hash names nothing. The engine's id table is the authority for typed
-    /// cues; the loaded banks' name sections cover open provider-local ids that
-    /// some OTHER provider packs — which is exactly the case being reported.
+    /// A hash names nothing. The engine's id table names typed cues; loaded
+    /// banks' name sections cover open ids another provider packs.
     #[test]
     fn a_missing_cue_is_named_not_hashed() {
         let banks = SfxBankResource::default();

@@ -66,22 +66,14 @@ impl ContentSchemaHandler for MusicRegistrySchema {
             );
         }
 
-        // REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT. The pack
-        // fingerprint is taken over `out.define(...)` entries only — not the
-        // lowered artifact, not the source bytes. Defining one entry per TRACK
-        // therefore left `default_track` and the track ORDER contributing
-        // nothing: two packs that start on different music, or sequence the
-        // radio differently, fingerprinted identically. Both are runtime-real
+        // Registry-level state must reach the fingerprint, which covers only
+        // `out.define(...)` entries. Per-track entries alone would leave
+        // `default_track` and track order out, and both matter at runtime
         // (`AudioLibrary` resolves the default at startup and indexes
         // `music_tracks[next]` for next/prev).
         out.define(facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"), {
-            // serialized, not `join(",")`. A track id is only required
-            // to be non-empty and unique — commas are legal — so an
-            // unescaped delimiter let two different orders encode
-            // identically: `["a", "b,c", "a,b", "c"]` and
-            // `["a,b", "c", "a", "b,c"]` both flatten to `a,b,c,a,b,c`, with
-            // the per-track entries unchanged, so the whole fingerprint
-            // held still while the order moved.
+            // Serialized, not `join(",")`: track ids may contain commas, so an
+            // unescaped delimiter lets two different orders encode the same.
             let order: Vec<&str> = registry.tracks.iter().map(|t| t.id.as_str()).collect();
             format!(
                 "default_track={}\norder={}",
@@ -94,9 +86,8 @@ impl ContentSchemaHandler for MusicRegistrySchema {
         for track in &registry.tracks {
             let id = facet.content_id_in(MUSIC_TRACK_SCHEMA, &track.id);
             out.define(id.clone(), canonical(track));
-            // The asset half nothing checked before: `AudioCatalogFragment`
-            // validates the registry's SHAPE and never asks whether the OGG it
-            // points at is there.
+            // The asset check: `AudioCatalogFragment` validates the registry's
+            // shape but not whether the OGG exists.
             out.need_asset(AssetRequirement::new(
                 track.resolved_asset_path(),
                 id,
@@ -132,24 +123,20 @@ impl ContentSchemaHandler for SfxRegistrySchema {
             out.report(facet.diagnostic(DiagnosticCode::MalformedProviderBinding, message));
         }
 
-        // The same fingerprint gap as the music registry: `sample_rate` is
-        // registry-level, changes procedural synthesis for every cue, and would
-        // otherwise contribute nothing to the pack's identity.
+        // Same fingerprint gap as music: `sample_rate` is registry-level and
+        // changes synthesis for every cue.
         out.define(
             facet.content_id_in(SFX_REGISTRY_SCHEMA, "registry"),
             format!("sample_rate={}", registry.sample_rate),
         );
 
-        // A procedural cue has no asset — it IS the synthesis spec. Identities
-        // still matter so a caller can name what a provider authorized.
+        // A procedural cue has no asset; it is the synthesis spec. Identities
+        // still let a caller name what a provider authorized.
         for spec in &registry.sfx {
-            // Named by what the AUTHOR wrote — the open `id` string, or the
-            // typed cue — not by the hashed `SfxId`, which is an opaque u64 and
-            // would make every identity unreadable in a diagnostic.
-            //
-            // A spec whose id does not resolve is already reported by
-            // `validate()` above; minting an identity for it would invent a name
-            // the registry does not actually authorize.
+            // Named by what the author wrote (the open `id` or the typed cue),
+            // not the hashed `SfxId`, which is unreadable in a diagnostic.
+            // A spec whose id does not resolve is reported by `validate()`;
+            // do not mint an identity for it.
             if spec.sfx_id().is_err() {
                 continue;
             }

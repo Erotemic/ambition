@@ -26,9 +26,33 @@
 use bevy::prelude::*;
 
 use ambition_items::OwnedItems;
-use crate::session::durable_horizon::SaveRestored;
+use crate::session::durable_horizon::{DurableHorizonSet, DurableRestoreSet, SaveRestored};
 use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::AmbitionGameSave;
+
+/// Install the item domain's durable adapters into the session's slots: the
+/// fresh-run reset, the live → save mirrors, and the file's restore.
+pub fn install_item_durable_horizon(app: &mut App) {
+    use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
+    let sim = app.sim_schedule();
+    app.add_systems(
+        sim,
+        reset_inventory_on_new_game.in_set(DurableHorizonSet::NewGameReset),
+    );
+    app.add_systems(
+        sim,
+        (
+            persist_inventory_to_save,
+            crate::items::pickup::minted_horizon::persist_minted_item_horizon_to_save,
+        )
+            .chain()
+            .in_set(DurableHorizonSet::DomainMirror),
+    );
+    app.add_systems(
+        Update,
+        restore_inventory_from_save.in_set(DurableRestoreSet::Domains),
+    );
+}
 
 /// ⛔⛤ **RESET NEW GAME WIPED THE SAVE AND THE NEXT PERSISTENCE PASS PUT THE OLD
 /// RUN BACK — MEASURED BY A 2026-09-13 REVIEW.**

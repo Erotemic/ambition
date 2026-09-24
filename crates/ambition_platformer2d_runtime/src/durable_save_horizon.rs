@@ -20,5 +20,6 @@ impl Plugin for DurableSaveHorizonPlugin {
         ambition_platformer2d_actor_monolith::session::durable_horizon::install_durable_save_horizon(
             app,
         );
+        ambition_platformer2d_actor_monolith::items::persist::install_item_durable_horizon(app);
     }
 }

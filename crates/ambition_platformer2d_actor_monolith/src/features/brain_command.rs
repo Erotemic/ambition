@@ -360,19 +360,17 @@ pub fn apply_brain_commands(
             );
         }
         if changed {
-            apply_catalog_mode(&brain, config, character_profile);
+            apply_catalog_mode(config, character_profile);
         }
     }
 }
 
 /// Restore the peaceful MIND after a live autonomous switch (`UsePreset` /
-/// `RestoreDefault`): the policy value and the `config.brain` read-model a
-/// provocation replaced. Nothing else: provocation changes who is deciding and
+/// `RestoreDefault`): the policy value a provocation replaced. Nothing else: provocation changes who is deciding and
 /// no body fact, so tuning and capabilities are exactly as construction built
 /// them and a re-derivation here could only overwrite them (it did — see
 /// [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)).
 fn apply_catalog_mode(
-    brain: &Brain,
     config: Option<Mut<ActorConfig>>,
     // See the `Some` arm below: a character that states its own policy is
     // restored to THAT policy, not to the generic peaceful one.
@@ -383,12 +381,10 @@ fn apply_catalog_mode(
     };
     if let Some(profile) = character_profile {
         config.brain_profile = profile;
-        config.brain = ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain);
         return;
     }
-    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config(brain);
+    let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config();
     config.brain_profile = peaceful.brain_profile;
-    config.brain = peaceful.config_brain;
     // THE REPERTOIRE IS NOT RESTORED HERE, because nothing took it away. What a
     // body can do is the projection of its identity, its worn equipment and its
     // hand, and neither a provocation nor a catalog switch moves any of them.

@@ -262,6 +262,9 @@ pub struct ActorConfig {
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
     pub brain_profile: BrainProfile,
+    /// The placement's AUTHORED brain key (`Custom("snake")`, `Guard`, …), a
+    /// content label read by the tag and sprite passes. Written at construction
+    /// and never changed: the live mind is `Brain`'s, not this field's.
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
     /// Sprite-catalog identity: the catalog `character_id` this actor's sprite
     /// resolves to. `Some` for catalog characters (player, named NPCs/enemies,

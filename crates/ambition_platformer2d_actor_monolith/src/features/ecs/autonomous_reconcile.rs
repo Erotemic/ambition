@@ -13,9 +13,7 @@
 //! [`peaceful_config`] (the peaceful mind a catalog switch restores),
 //! both applied by `provoke_actor_in_place` and `brain_command`.
 
-use ambition_characters::brain::Brain;
 use ambition_combat::actor_tuning::BrainProfile;
-use ambition_entity_catalog::placements::CharacterBrain;
 
 
 
@@ -32,19 +30,11 @@ use ambition_entity_catalog::placements::CharacterBrain;
 /// release has only the mind to undo and writes nothing else.
 pub(crate) struct PeacefulConfig {
     pub(crate) brain_profile: BrainProfile,
-    pub(crate) config_brain: CharacterBrain,
 }
 
-pub(crate) fn peaceful_config(resolved_brain: &Brain) -> PeacefulConfig {
+pub(crate) fn peaceful_config() -> PeacefulConfig {
     PeacefulConfig {
         brain_profile: BrainProfile::default(),
-        // `config.brain` (the integrator read-model) is DERIVED from the
-        // resolved autonomous brain through the SHARED helper the spawn plan and
-        // runtime switch both use, so the classification can never disagree with
-        // the actual brain.
-        config_brain: ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(
-            resolved_brain,
-        ),
     }
 }
 
@@ -58,6 +48,7 @@ mod tests {
     // when `provoked_projection` moved to `actor_spawn::conversion`, so importing
     // it at file scope is an unused import in a release build.
     use ambition_combat::actor_tuning::{ActorConfig, ActorTuning};
+    use ambition_entity_catalog::placements::CharacterBrain;
 
     fn config_fixture() -> ActorConfig {
         ActorConfig {
@@ -119,28 +110,6 @@ mod tests {
             "the provoked POLICY is the engine's default — that is the one thing \
              a generic provocation is for"
         );
-        //  both of those branches read the `BrainProfile` now, so `Passive` is
-        // the CORRECT read-model for a provoked wanderer: hostility is
-        // `ActorDisposition`'s and the policy is the profile's, and the
-        // integrator-facing silhouette is neither. What must hold is that the
-        // value is DERIVED rather than authored — no roster key may reappear here.
-        assert!(
-            !matches!(
-                proj.config_brain,
-                ambition_entity_catalog::placements::CharacterBrain::Custom(_)
-            ),
-            "a provoked body's read-model names an archetype ({:?}) — provocation \
-             is spelling a roster key again, which is the whole of what P2.20 \
-             deleted",
-            proj.config_brain
-        );
-        assert_eq!(
-            proj.config_brain,
-            ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(&proj.brain),
-            "the read-model disagrees with what deriving it from the actual brain \
-             gives, so provocation has a second answer to a question one function \
-             owns"
-        );
         // The endpoint is that there is no such field, so the claim worth pinning is the SHAPE:
         // every field on this projection is a mind or a kit. A new body fact cannot be added
         // without editing this list, which is the point.
@@ -150,7 +119,6 @@ mod tests {
         // fifth.
         let ambition_platformer2d_actor_spawn::brain_builders::ProvokedArchetype {
             brain_profile: _,
-            config_brain: _,
             brain: _,
         } = proj;
     }
@@ -165,9 +133,6 @@ mod peaceful_shape_tests {
     /// editing this line — the provoke side pins the same shape.
     #[test]
     fn releasing_restores_a_mind_and_no_body_fact() {
-        let PeacefulConfig {
-            brain_profile: _,
-            config_brain: _,
-        } = peaceful_config(&Brain::stand_still());
+        let PeacefulConfig { brain_profile: _ } = peaceful_config();
     }
 }

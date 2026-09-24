@@ -711,7 +711,7 @@ impl NpcActorSpawnPlan {
         let provoked_baseline = authored_kit
             .cloned()
             .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
-        let (mut seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+        let (seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,
             Some(prepared),
@@ -739,27 +739,6 @@ impl NpcActorSpawnPlan {
             seed.body.0.abilities.abilities,
             forced_brains,
         );
-        // Derive the `CharacterBrain` read-model (patrol-stall intent) from the
-        // RESOLVED autonomous brain, not from `patrol_radius`: a body patrol-stalls
-        // iff its actual brain is a Patrol brain. Any other resolved brain (wanderer,
-        // stand_still, hostile default) is `Passive` — a wanderer reverses at walls
-        // through the integrator's own wall-stop, not this read-model.
-        seed.config.brain = if matches!(
-            brain,
-            ambition_characters::brain::Brain::StateMachine(
-                ambition_characters::brain::StateMachineCfg::Patrol { .. }
-            )
-        ) {
-            let path_id = match &interactable.kind {
-                ambition_interaction::InteractionKind::Npc { patrol_path_id, .. } => {
-                    patrol_path_id.clone()
-                }
-                _ => None,
-            };
-            ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id }
-        } else {
-            ambition_entity_catalog::placements::CharacterBrain::Passive
-        };
         Self {
             entity_name: entity_name.into(),
             feature_id: id,
@@ -806,7 +785,6 @@ impl NpcActorSpawnPlan {
             self.seed.body.0.abilities.abilities,
         );
         self.seed.config.brain_profile = mind.projection.brain_profile;
-        self.seed.config.brain = mind.projection.config_brain;
         self.brain = mind.projection.brain;
         if let Some((binding, _)) = self.brain_binding.as_mut() {
             binding.source = mind.source;

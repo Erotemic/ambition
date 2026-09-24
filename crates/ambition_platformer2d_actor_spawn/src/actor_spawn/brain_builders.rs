@@ -645,8 +645,6 @@ pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile 
 /// is identical whether it was just challenged or rebuilt by a room replay.
 pub struct ProvokedArchetype {
     pub brain_profile: BrainProfile,
-    /// The `ActorConfig.brain` read-model marker for a provoked actor.
-    pub config_brain: ambition_entity_catalog::placements::CharacterBrain,
     pub brain: Brain,
 }
 
@@ -698,20 +696,6 @@ pub fn provoked_mind(
     }
 }
 
-/// The `ActorConfig.brain` read-model derived from a live autonomous brain, shared
-/// by the spawn plan, the runtime switch and provocation so the classification
-/// can never disagree with the actual brain.
-pub fn config_brain_for(brain: &Brain) -> ambition_entity_catalog::placements::CharacterBrain {
-    use ambition_characters::brain::StateMachineCfg;
-    if matches!(brain, Brain::StateMachine(StateMachineCfg::Patrol { .. })) {
-        // The `path_id` is cosmetic in the read-model (no read site inspects it —
-        // the real path is a separate `ActorMotionPath`), so a derived one is None.
-        ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id: None }
-    } else {
-        ambition_entity_catalog::placements::CharacterBrain::Passive
-    }
-}
-
 /// The projection itself, from a POLICY rather than from a row.
 ///
 /// the policy is pinned equal to the `combatant` row while that row survives
@@ -733,20 +717,7 @@ pub fn provoked_projection(
         repertoire,
         body,
     );
-    // that read-model is a SILHOUETTE, and it was being used as a hostility
-    // flag. `evaluate_enemy_ai_output` branched `Passive => aggro 0.0` and
-    // `patrol_enabled = !Passive`, so a provoked body needed a NON-`Passive`
-    // value to read correctly — and the only one to hand was an archetype name.
-    // Both branches ask their `BrainProfile` now, so nothing needs the name.
-    //
-    //  derived like every other road derives it (`config_brain_for`), which
-    // answers `Patrol` for a patrol brain and `Passive` otherwise. The live
-    // provoke and the reconstruction agreed on `Custom("combatant")` before and
-    // agree on the derived value now, which is this module's central claim.
-    let config_brain = config_brain_for(&brain);
-
     ProvokedArchetype {
-        config_brain,
         brain,
         brain_profile,
     }

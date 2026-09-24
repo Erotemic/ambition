@@ -80,7 +80,6 @@ pub fn provoke_actor_in_place(
         // A body's pool is settled at construction and provocation has no
         // opinion about it.
         em.config.brain_profile = mind.projection.brain_profile;
-        em.config.brain = mind.projection.config_brain;
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE

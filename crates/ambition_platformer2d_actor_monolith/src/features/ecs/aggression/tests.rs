@@ -852,11 +852,6 @@ fn an_authored_provocation_installs_the_characters_policy_and_records_it() {
         "the engine default was installed over the character's own answer"
     );
     assert_eq!(
-        config.brain,
-        ambition_platformer2d_actor_spawn::brain_builders::config_brain_for(brain),
-        "the read-model disagrees with the mind it describes"
-    );
-    assert_eq!(
         world.get::<BrainBinding>(npc).unwrap().source,
         AutonomousSource::ProvokedProfile { profile: id },
     );
@@ -912,5 +907,45 @@ fn an_already_hostile_body_records_no_policy_it_was_not_given() {
         world.get::<BrainBinding>(npc).unwrap().source,
         AutonomousSource::CharacterProfile,
         "the binding claims a provoked policy the body is not running"
+    );
+}
+
+/// A PROVOCATION CHANGES THE MIND AND NOT THE PLACEMENT'S AUTHORED BRAIN KEY.
+///
+/// `ActorConfig.brain` is the content label the tag and sprite passes read
+/// (`Custom("sandbag")`, a Mary-O snake). Provocation used to overwrite it with
+/// a two-value projection of the new `Brain`, erasing the label every reader
+/// wanted; the mind is `Brain`'s alone.
+#[test]
+fn a_provocation_keeps_the_placements_authored_brain_key() {
+    let mut app = App::new();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_systems(Update, apply_actor_stimuli);
+    let npc = spawn_npc_with_strikes(&mut app, 0);
+    let label = ambition_entity_catalog::placements::CharacterBrain::Custom("sandbag".into());
+    app.world_mut()
+        .get_mut::<ambition_combat::actor_tuning::ActorConfig>(npc)
+        .unwrap()
+        .brain = label.clone();
+
+    app.world_mut().write_message(ActorStimulus::Challenged {
+        actor: npc,
+        challenger: None,
+    });
+    app.update();
+
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Hostile,
+        "premise: the provocation landed"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ambition_combat::actor_tuning::ActorConfig>(npc)
+            .unwrap()
+            .brain,
+        label,
+        "provocation rewrote the placement's authored brain key"
     );
 }

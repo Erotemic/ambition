@@ -5,9 +5,10 @@ use bevy::prelude::*;
 
 pub fn boss_anim_state_for(
     boss: crate::BossRef<'_>,
-    // Liveness + damage-blink from the boss's shared body components (§A1).
+    // Liveness from the boss's shared body components (§A1). The damage flash
+    // is deliberately NOT an input: the sim cursor this state drives feeds the
+    // boss geometry, and a presentation duration must not move it.
     alive: bool,
-    hit_flash: f32,
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
 ) -> crate::sprites::BossAnimState {
@@ -23,7 +24,6 @@ pub fn boss_anim_state_for(
         alive,
         attack_active: attack_state.active_profile.is_some(),
         attack_windup: attack_state.telegraph_profile.is_some(),
-        hit_flash: hit_flash > 0.0,
         windup_anim: attack_state
             .telegraph_profile
             .as_ref()
@@ -45,7 +45,6 @@ pub fn ecs_boss_anim_state_and_entity(
         &FeatureId,
         crate::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
@@ -54,7 +53,7 @@ pub fn ecs_boss_anim_state_and_entity(
     crate::sprites::BossAnimState,
 )> {
     bosses.iter().find_map(
-        |(entity, feature_id, boss, health, combat, attack_state, brain)| {
+        |(entity, feature_id, boss, health, attack_state, brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -63,7 +62,6 @@ pub fn ecs_boss_anim_state_and_entity(
                 boss_anim_state_for(
                     boss.as_boss_ref(),
                     health.alive(),
-                    combat.hit_flash,
                     attack_state,
                     brain,
                 ),
@@ -76,9 +74,10 @@ pub fn ecs_boss_anim_state_and_entity(
 /// but only when the chosen visual row is directly driven by the
 /// boss attack profile.
 ///
-/// Hit/death/rest overrides deliberately return `None`; geometry
-/// callers then fall back to elapsed-time sampling instead of using a
-/// frame from the wrong visual row.
+/// The death override deliberately returns `None`; geometry callers then
+/// fall back to elapsed-time sampling instead of using a frame from the wrong
+/// visual row. A hit reaction never reaches here: the sim cursor does not
+/// enter the `Hit` row (see `boss_anim_state_for`).
 pub fn ecs_boss_animation_frame_sample(
     catalog: &crate::BossCatalog,
     id: &str,
@@ -87,7 +86,6 @@ pub fn ecs_boss_animation_frame_sample(
         &FeatureId,
         crate::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
@@ -98,7 +96,7 @@ pub fn ecs_boss_animation_frame_sample(
     crate::attack_geometry::BossAnimationFrameSample,
 )> {
     bosses.iter().find_map(
-        |(entity, feature_id, _boss, _health, _combat, attack_state, _brain)| {
+        |(entity, feature_id, _boss, _health, attack_state, _brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -141,7 +139,7 @@ pub fn ecs_boss_animation_frame_sample(
             }
             // Idle/rest: not driven by any attack profile, but still emit
             // a sample so the rest-pose hurtbox bobs with the breathing
-            // animation instead of locking to frame 0. Hit/Death rows are
+            // animation instead of locking to frame 0. The Death row is
             // deliberately left as `None` — geometry should stay on the
             // rest-pose shape rather than chase a recoil/death frame.
             if result.is_none() && anim == crate::sprites::BossAnim::Rest {
@@ -165,21 +163,19 @@ pub fn ecs_boss_anim_state(
         &FeatureId,
         crate::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
         &ambition_characters::brain::Brain,
     )>,
 ) -> Option<crate::sprites::BossAnimState> {
     bosses
         .iter()
-        .find_map(|(feature_id, boss, health, combat, attack_state, brain)| {
+        .find_map(|(feature_id, boss, health, attack_state, brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
             Some(boss_anim_state_for(
                 boss.as_boss_ref(),
                 health.alive(),
-                combat.hit_flash,
                 attack_state,
                 brain,
             ))

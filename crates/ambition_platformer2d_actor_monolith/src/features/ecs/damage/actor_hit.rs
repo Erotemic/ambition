@@ -175,6 +175,7 @@ pub(crate) fn apply_actor_hit(
         let pos = em.kin.pos;
         let bark_anchor = em.bark_anchor();
         combat.hit_flash = 0.18;
+        combat.note_struck();
         combat.damage_invuln_timer = crate::actor_clusters::ACTOR_DAMAGE_IFRAME_S;
         let impact = midpoint(event.volume.center(), pos);
         // A13: the authored strike sound is the ATTACKER's cue; the hurt fallback is
@@ -241,13 +242,13 @@ pub(crate) fn apply_actor_hit(
         true
     } else {
         // Combat banter — decided BEFORE the resolver mutates state: the bark
-        // dedups on a near-zero hit_flash (first non-overlapping hit) and its
-        // line index reads pre-damage HP. A blocked hit barks too (the body
+        // dedups on the recent-strike window (first non-overlapping hit) and
+        // its line index reads pre-damage HP. A blocked hit barks too (the body
         // was struck), matching the resolver's "registered hit" notion.
-        // ⭐ TWO CONDITIONS, AND THEY ANSWER DIFFERENT QUESTIONS. The flash is
+        // ⭐ TWO CONDITIONS, AND THEY ANSWER DIFFERENT QUESTIONS. The window is
         // DEDUP — is this the first non-overlapping hit — and the draw is RATE.
         // Folding them together would make a rare bark also a broken dedup.
-        let should_bark = combat.hit_flash < 0.05 && bark_allowed;
+        let should_bark = !combat.recently_struck() && bark_allowed;
         // G1: resolved once for the whole branch, because every reaction below is
         // one of the two bodies' own — this actor's block clang, its hurt spray, its
         // death — and each was previously attributed to whoever owned the session.

@@ -161,9 +161,9 @@ pub fn tick_boss_idle_barks(
         ) {
             continue;
         }
-        // Suppress idle barks while the hit-flash bubble is still on
-        // screen so we don't talk over a hit bark.
-        if combat.hit_flash > 0.0 {
+        // Suppress idle barks right after a strike so we don't talk over a
+        // hit bark.
+        if combat.recently_struck() {
             continue;
         }
         let key = boss.config.id.clone();

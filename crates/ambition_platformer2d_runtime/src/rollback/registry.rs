@@ -693,7 +693,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 210 -> 211: `actor.ranged_refire` ENTERED and `BodyMelee` no longer
 /// encodes `ranged_cooldown`. The ranged fire-rate floor (invariant I3) is its
 /// own component, `RangedRefire`, not melee state.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 211;
+/// ⛔⛤ 212 -> 213: `BodyCombat` encodes `struck_recently`, the gameplay
+/// recent-strike window bark dedup and chatter suppression read instead of the
+/// presentation flash; and `BossAnimFrame` lost its `Hit` drive phase (the sim
+/// cursor never enters the hit row, so boss geometry does not follow a flash),
+/// which renumbers the `Death` phase byte.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 213;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -47,6 +47,9 @@ snapshot_pod!(crate::smash_hold_state::SmashHoldState {
 
 snapshot_pod!(crate::actor::body::BodyCombat {
     hit_flash: f32,
+    // Gameplay: bark dedup and chatter suppression read it, so a rewind that
+    // lost it would let a resimulated hit bark where the original did not.
+    struck_recently: f32,
     hitstop_timer: f32,
     asdi_owed: bool,
     landing_lag_timer: f32,

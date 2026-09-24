@@ -314,6 +314,9 @@ pub fn resolve_body_hit(
             return BodyHitResolution::Ignored;
         }
     }
+    // Every road below is a registered strike: blocked, armored, shielded or
+    // damaged.
+    combat.note_struck();
     // a spent guard covers less of the body, so "is the guard up" and
     // "does the guard reach this hit" are two questions and a poke answers the
     // second one no. A body whose shield is not a resource covers everything,

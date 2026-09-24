@@ -146,6 +146,7 @@ pub(crate) fn apply_boss_hit(
             .find(|part| event.volume.intersects(part))
         {
             combat.hit_flash = 0.18;
+            combat.note_struck();
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             // CM8: an honest strike clang + spark even though this puzzle boss
             // takes no HP from the hit.
@@ -180,8 +181,10 @@ pub(crate) fn apply_boss_hit(
     else {
         return false;
     };
-    // Speech bubble bark when player lands a hit, debounced by hit_flash.
-    let should_bark = combat.hit_flash < 0.05;
+    // Speech bubble bark when player lands a hit, debounced by the
+    // recent-strike window (not by the flash, whose length is presentation).
+    let should_bark = !combat.recently_struck();
+    combat.note_struck();
     combat.hit_flash = 0.18;
     if should_bark {
         if let Some(reg) = combat_banter {

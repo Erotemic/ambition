@@ -154,7 +154,14 @@ pub fn animate_bosses(
         // advanced it this tick; the render only addresses the atlas cell for that
         // `(anim, frame)`, so the drawn sprite and the strike geometry share the ONE
         // sim frame.
-        let (cursor_anim, cursor_frame) = (view.cursor_anim, view.cursor_frame);
+        //
+        // A hit reaction is PRESENTATION: the `Hit` row is drawn over the cursor
+        // while the flash runs, and the cursor (and the geometry it feeds) carries
+        // on underneath, so the attack resumes on the frame the strike is at.
+        let (cursor_anim, cursor_frame) = animator
+            .spec
+            .hit_reaction_frame(view.hit_flash_secs)
+            .unwrap_or((view.cursor_anim, view.cursor_frame));
         let index = animator.flat_index(cursor_anim, cursor_frame);
         // Split sheets: select the page image the active frame draws from
         // before setting the (page-local) index. Single-page bosses skip this.

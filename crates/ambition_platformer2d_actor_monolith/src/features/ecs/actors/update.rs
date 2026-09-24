@@ -2362,7 +2362,7 @@ pub fn tick_npc_idle_barks(
     for (kin, identity, combat, interaction, disposition, health) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
-        if disposition.is_hostile() || combat.hit_flash > 0.0 || !health.alive() {
+        if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
             continue;
         }
         // ⛔⛔ THE TIMER DECIDES FIRST, AND IT USED TO DECIDE LAST. Resolving the
@@ -2441,6 +2441,7 @@ mod body_combat_rebuild_contract {
             // ── Reaction history the body owns. Never disturbed by the sync.
             damage_invuln_timer: _,
             hit_flash: _,
+            struck_recently: _,
             hitstun_timer: _,
             recoil_lock_timer: _,
             hitstop_timer: _,

@@ -1,47 +1,32 @@
-//! The WIELDED ability kit, carved out of the actor kernel (D33, 2026-09-03).
+//! The wielded ability kit, split from the actor kernel (D33).
 //!
-//! * [`ranged`] — beam, meteor, shockwave, volley, vortex, sentry, bomb
-//! * [`thrown`] — the gravity grenade
-//! * [`traversal`] — blink, dive, grapple, mark/recall
-//! * [`ability_cooldown`] — the cooldown every one of them shares
+//! * [`ranged`]: beam, meteor, shockwave, volley, vortex, sentry, bomb
+//! * [`thrown`]: the gravity grenade
+//! * [`traversal`]: blink, dive, grapple, mark/recall
+//! * [`ability_cooldown`]: the shared cooldown
 //!
-//! ⛔⛔ WHAT IS DELIBERATELY NOT HERE, and the reason is the whole shape of the
-//! carve. `possession`, `teleport`, `trapdoor` and `flyline` live in a directory
-//! called `abilities/` in the kernel and are NOT abilities: their systems are
-//! registered by `ambition_platformer2d_runtime`, not by the item-pickup family,
-//! and `possession` is named 87 times outside that directory (`teleport` 61) by (counted
-//! within the actor monolith, minus its own `abilities/`; the same grep across
-//! `crates` and `game` gives 256 and 603, so the scope is part of the figure)
-//! `body_custody`, `control::authority`, `features::ecs::dormancy` and
-//! `control::input_systems`. That is control authority. Moving it here would
-//! give this crate a home the RUNTIME registers systems out of and the KERNEL
-//! depends on for `PossessionState` — the coupling renamed rather than reduced,
-//! which is exactly what a carve must not do.
-//! `docs/planning/engine/actor-monolith-decomposition.md` carries the argument
-//! and the numbers so nobody carves them by line count later.
+//! Not here on purpose: `possession`, `teleport`, `trapdoor`, and `flyline`.
+//! They sit in the kernel's `abilities/` directory, but they are control
+//! authority: `ambition_platformer2d_runtime` registers their systems, and
+//! `body_custody`, `control::authority`, `features::ecs::dormancy`, and
+//! `control::input_systems` use them. Moving them here would rename the
+//! coupling, not reduce it. See
+//! `docs/planning/engine/actor-monolith-decomposition.md`.
 //!
-//! ⚠ `thrown::puppy_slug_gun` is also NOT here, for a different and more
-//! interesting reason: it SPAWNS A BODY, through the kernel-private
-//! `features::spawn_runtime_minion`. The cross-crate seam for that already
-//! exists — `ambition_vfx::Effect::Summon` carrying a `SummonSpec`, which
-//! `ambition_combat` emits and the kernel's actor-construction executor
-//! materialises into `ActorConstructionParams::SummonedMinion` — so the gun is
-//! the one caller BYPASSING the canonical construction model rather than a
-//! caller missing an abstraction. Routing it through needs two additions to
-//! `SummonSpec` (the summon's `ActorAggression`, and the ally marker the gun
-//! inserts after the spawn), which is a behaviour change and not a file move.
-//! It stays until that is done deliberately.
+//! `thrown::puppy_slug_gun` is also not here: it spawns a body through the
+//! kernel-private `features::spawn_runtime_minion`. The canonical seam is
+//! `ambition_vfx::Effect::Summon` with a `SummonSpec`, materialized by the
+//! kernel into `ActorConstructionParams::SummonedMinion`. Using it needs two
+//! `SummonSpec` additions (the summon's `ActorAggression`, and the ally
+//! marker), which is a behavior change, not a file move.
 //!
-//! ⭐ THE SCHEDULE, END TO END, WHICH IS D33'S ACTUAL REQUIREMENT.
-//! [`AbilitySimulationPlugin`] configures `ItemPickupSet::ThrownItemEffects` and
-//! `ItemPickupSet::WieldedAbilities` — their nesting in `PlayerSimulation` — AND
-//! registers every one of their members. It does NOT configure
-//! `ItemPickupSet::CoreHeldItems` (that belongs to `ambition_held_items`) and it
-//! does NOT declare the three-variant `.chain()`: that edge orders sets owned by
-//! two other crates, so only the kernel can name both sides, and the kernel
-//! keeps it. A composition that installs this plugin alone gets both variants
-//! correctly nested and no chain to `CoreHeldItems`, which is right for a unit
-//! fixture and wrong for the game — the game installs the kernel too.
+//! Schedule: [`AbilitySimulationPlugin`] configures
+//! `ItemPickupSet::ThrownItemEffects` and `ItemPickupSet::WieldedAbilities`
+//! (nested in `PlayerSimulation`) and registers all their members. It does
+//! not configure `ItemPickupSet::CoreHeldItems` (owned by
+//! `ambition_held_items`) or the three-set `.chain()`, which orders sets from
+//! two other crates and so belongs to the kernel. This plugin alone is right
+//! for a unit fixture; the game also installs the kernel.
 
 pub mod ability_cooldown;
 pub mod mana;
@@ -50,23 +35,11 @@ pub mod thrown;
 pub mod traversal;
 
 #[cfg(any(test, feature = "test-support"))]
-// ⛔⛔ THE FEATURE EXISTED AND THE GATE DID NOT. `test-support = []` has been in
-// this crate's manifest, and `ambition_platformer2d_actor_monolith` already asks
-// for it in its DEV-dependencies — so the whole wiring was in place and the
-// module shipped in every build anyway, because nothing conditioned it. Its own
-// first line says "Test-only fixtures for ability modules".
-//
-// ⚠ IT IS NOT DEAD WEIGHT ALONE: it writes `ControlledSubject`, a control
-// authority, so a census of "who decides which body a participant controls"
-// counted a fixture among the answers. That is the cost of an ungated
-// test-support module — it is indistinguishable from production authority.
-// ⚠ `any(test, feature)` AND NOT THE FEATURE ALONE, which is the idiom and the
-// mistake I made first: this crate's OWN tests use `crate::test_support`, so
-// gating on the feature alone breaks `cargo test -p ambition_abilities` while
-// leaving `cargo check --workspace --tests` GREEN — workspace feature
-// unification turns the feature on for everybody, so the single-crate build is
-// the only one that sees it. A workspace check is not evidence a crate builds
-// alone.
+// Test-only. `any(test, feature)`, not the feature alone: this crate's own
+// tests use `crate::test_support`, so feature-only gating breaks
+// `cargo test -p ambition_abilities`, while workspace feature unification
+// hides that. It writes `ControlledSubject`, so ungated it would look like a
+// production control authority.
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
 
@@ -79,8 +52,8 @@ pub struct AbilitySimulationPlugin;
 impl Plugin for AbilitySimulationPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Both variants nest in the player phase. The ORDER between them and
-        // `CoreHeldItems` is the kernel's to declare — see the module header.
+        // Both variants nest in the player phase. Their order relative to
+        // `CoreHeldItems` is the kernel's; see the module header.
         app.configure_sets(
             sim,
             (ItemPickupSet::ThrownItemEffects, ItemPickupSet::WieldedAbilities).in_set(
@@ -103,8 +76,8 @@ impl Plugin for AbilitySimulationPlugin {
                 .in_set(ItemPickupSet::ThrownItemEffects),
         );
 
-        // Wielded movement/combat items live in their own group to avoid the
-        // chained tuple arity cap in the core held-item group.
+        // Wielded movement/combat items have their own group, to stay under
+        // the chained tuple arity cap of the core held-item group.
         app.add_systems(
             sim,
             (

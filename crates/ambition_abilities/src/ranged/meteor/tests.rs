@@ -136,9 +136,8 @@ fn meteor_aims_with_the_left_stick_facing_on_a_null_aim() {
     );
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY RAINS ITS OWN METEORS.
-/// Same singular-`ControlledSubject` defect as the volley — see
-/// `crate::ranged::volley`'s twin of this test for the why.
+/// A second driven body drops its own meteors (see the volley's version of
+/// this test).
 #[test]
 fn two_driven_bodies_each_rain_their_own_meteors() {
     use crate::test_support::spawn_seated_body_holding;

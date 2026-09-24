@@ -1,22 +1,16 @@
-//! Focus Beam — a player-wielded directional line attack: a long, thin,
-//! aimed [`Hitbox`] that damages every enemy along its length.
+//! Focus Beam: a player-wielded directional line attack. A long, thin, aimed
+//! [`Hitbox`] damages every enemy along its length.
 //!
-//! This is the third wielded boss-style attack, alongside [`crate::ranged::shockwave`]
-//! (a centered AOE) and [`crate::ranged::volley`] (a ranged fan). Where the shockwave
-//! slams a compact box at the player's feet, the beam reaches *forward* along
-//! the aim as a long thin box — a single readable lance that skewers a line of
-//! enemies. It is the smirking_behemoth (the eye-beam boss) signature
-//! gauntlet: defeat the boss whose tell is a focused eye beam, wield the beam
-//! yourself ("every boss a failed objective function, learn its attack").
+//! Beside [`crate::ranged::shockwave`] (a centered AOE) and
+//! [`crate::ranged::volley`] (a ranged fan), the beam reaches forward along
+//! the aim as one long box. It is the smirking_behemoth's signature (its tell
+//! is an eye beam): defeat it and wield the beam.
 //!
-//! Mechanically it rides the same faction-tagged [`Hitbox`] primitive the
-//! shockwave uses — a `Player`-faction box damages enemies/bosses through the
-//! `apply_hitbox_damage` player branch, not the player. The box is axis-aligned
-//! (the `Hitbox` primitive carries no rotation), so the aim snaps to its
-//! dominant axis: a mostly-horizontal aim fires a wide horizontal lance, a
-//! mostly-vertical aim fires a tall vertical one. Diagonal aim resolves to
-//! whichever axis dominates — good enough for a first pass; a rotated beam is a
-//! feel/visual follow-up.
+//! It uses the same faction-tagged [`Hitbox`] as the shockwave: a
+//! `Player`-faction box damages enemies and bosses through
+//! `apply_hitbox_damage`, not the player. `Hitbox` has no rotation, so the
+//! aim snaps to its dominant axis: mostly horizontal fires a horizontal lance,
+//! mostly vertical a vertical one.
 
 use ambition_characters::control::ActorControl;
 use bevy::prelude::*;
@@ -28,11 +22,11 @@ use ambition_platformer2d_core::BodyKinematics;
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";
 
-/// Mana the beam spends per zap (out of 100). The priciest of the three wielded
-/// attacks — it's a strong, long-reach, line-clearing hit, so it's gated harder.
+/// Mana per zap (out of 100). Expensive, because it is a strong,
+/// long-reach, line-clearing hit.
 const BEAM_MANA_COST: f32 = 30.0;
 
-/// Beam length (px) along the aim axis — how far forward it reaches.
+/// Beam length (px) along the aim axis: how far forward it reaches.
 const BEAM_LENGTH: f32 = 300.0;
 /// Beam thickness (px) across the aim axis.
 const BEAM_WIDTH: f32 = 30.0;
@@ -40,11 +34,10 @@ const BEAM_DAMAGE: i32 = 5;
 const BEAM_LIFETIME_S: f32 = 0.12;
 const BEAM_KNOCKBACK: f32 = 1.1;
 
-/// Resolve the beam's axis-aligned geometry from an aim vector. Snaps to the
-/// dominant axis and returns `(center_offset_from_player, half_extent)` so the
-/// box reaches `BEAM_LENGTH` forward along that axis. A zero aim falls back to
-/// `facing` (a forward horizontal lance), so a plain Attack with no directional
-/// hold still fires.
+/// The beam's axis-aligned geometry from an aim vector. Snaps to the dominant
+/// axis and returns `(center_offset_from_player, half_extent)`, reaching
+/// `BEAM_LENGTH` forward. A zero aim uses `facing` (a forward horizontal
+/// lance), so a plain Attack still fires.
 fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
     let half_len = BEAM_LENGTH * 0.5;
     let half_wid = BEAM_WIDTH * 0.5;
@@ -73,14 +66,13 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
     }
 }
 
-/// `Attack` while holding the beam gauntlet fires an aimed line [`Hitbox`] of
-/// Player faction along the dominant aim axis. Plain Attack only —
+/// `Attack` while holding the beam gauntlet fires an aimed `Player`-faction
+/// line [`Hitbox`] along the dominant aim axis. Plain Attack only;
 /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same item simply never fired.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can use it.
     driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
@@ -105,7 +97,7 @@ pub fn fire_beam_system(
         if held.spec.id != BEAM_ID {
             continue;
         }
-        // Costs mana — out of mana, no beam (the sandbox's fast regen tops it back up).
+        // Costs mana; with too little, no beam.
         if !crate::mana::spend(mana.as_deref_mut(), BEAM_MANA_COST) {
             continue;
         }

@@ -32,7 +32,7 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
         .0
         .melee_pressed = true;
     app.update();
-    // No world → no walls → full lunge along facing (+x).
+    // No world, no walls: full lunge along facing (+x).
     let pos = app.world().get::<BodyKinematics>(player).unwrap().pos;
     assert!(
         (pos.x - (100.0 + DIVE_LUNGE)).abs() < 0.01,
@@ -45,8 +45,8 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
         matches!(hits[0].source, ambition_combat::events::HitSource::Melee),
         "player-side source so it spares the player",
     );
-    // The authored shove lives on the hit event at its authored magnitude. Assert
-    // the magnitude, not merely the presence of a knockback payload.
+    // The authored push is on the hit event at its authored magnitude. Check
+    // the magnitude, not only that a knockback exists.
     let knockback = hits[0]
         .knockback
         .as_ref()
@@ -68,8 +68,8 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
 
 #[test]
 fn downward_dive_does_not_embed_in_the_floor() {
-    // Regression (same class as the blink fix): a vertical lunge must clamp by
-    // the body's half-HEIGHT, not half-width, or a down dive embeds in the floor.
+    // Like the blink: a vertical lunge clamps by half-height, not half-width,
+    // or a downward dive embeds in the floor.
     let mut app = test_app();
     let player = spawn_primary_player_holding(&mut app, DIVE_ID); // (100,100), 24x40
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
@@ -184,8 +184,7 @@ fn dive_corridor_is_a_thin_rectangle_spanning_the_dash() {
     );
 }
 
-/// ⭐⭐ A SECOND DRIVEN BODY DIVES TOO — same singular-`ControlledSubject`
-/// defect as the blink; see its twin of this test.
+/// A second driven body dives too (see the blink's version of this test).
 #[test]
 fn two_driven_bodies_each_dive_from_their_own_position() {
     use crate::test_support::spawn_seated_body_holding;

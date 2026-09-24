@@ -1,11 +1,10 @@
-//! Volley — a player-wielded ranged boss attack: a fan of bolts that damage
-//! enemies, fired through the shared projectile request/materialization road.
+//! Volley: a player-wielded ranged boss attack. A fan of bolts that damage
+//! enemies, fired through the shared projectile request/materialization path.
 //!
-//! This is the ranged counterpart to `crate::ranged::shockwave` (the wielded AOE). Now
-//! damage routes off the FIRER's real `ActorFaction` (looked up from the projectile's owner
-//! entity): a player-owned shot damages enemies/bosses and expires on contact, an enemy-owned shot
-//! still hits the player. Same pool, same step system — the projectile analog of the shockwave's
-//! faction-tagged `Hitbox`.
+//! The ranged counterpart to `crate::ranged::shockwave`. Damage follows the
+//! firer's real `ActorFaction` (from the projectile's owner): a player-owned
+//! shot damages enemies and bosses and expires on contact; an enemy-owned shot
+//! hits the player.
 
 use bevy::prelude::*;
 
@@ -18,7 +17,7 @@ use ambition_projectiles::{ProjectileSpawn, ProjectileSpawnRequest, ProjectileSt
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";
 
-/// Mana the volley spends per fan (out of 100). Cheaper than the shockwave slam.
+/// Mana per fan (out of 100). Cheaper than the shockwave slam.
 const VOLLEY_MANA_COST: f32 = 18.0;
 
 /// Bolts per volley.
@@ -49,23 +48,14 @@ fn volley_origin_world(
     player_pos + frame.to_world(volley_origin_local_offset(aim_local, body_size))
 }
 
-/// `Attack` while holding the volley gauntlet fires a fan of player-faction
-/// bolts along the body-semantic aim direction (`ActorControl` aim / locomotion /
-/// facing). Plain Attack only — `Shield + Attack` drops the item
-/// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
-/// The volley's own authored bolt, for a harness that needs a REAL shot in the
-/// air rather than a fabricated one.
+/// The volley's own authored bolt, for a harness that needs a real shot in
+/// the air.
 ///
-/// ⭐ Exported because the alternative is worse. A fixture that wants "an
-/// opponent at range with a shot in the air" can either fire this — the spec the
-/// game actually fires, damage and speed and lifetime included — or invent a
-/// `ProjectileSpawn` with numbers copied out of the fixture, which stages a
-/// projectile no ability authors. The rig maps fixture POSITIONS onto the real
-/// stage for the same reason (`starting_positions_on`: pasting the fixture's own
-/// numbers put every recovery quadrant outside any platform).
+/// Exported so fixtures fire the spec the game fires (damage, speed,
+/// lifetime) instead of inventing a `ProjectileSpawn` with copied numbers.
 ///
-/// ⚠ It is one bolt, not the spread: `fire_volley_system` emits several across
-/// `VOLLEY_SPREAD` and a harness wanting the fan should call this per angle.
+/// One bolt, not the spread: `fire_volley_system` fires several across
+/// `VOLLEY_SPREAD`; a harness that wants the fan calls this per angle.
 pub fn authored_bolt(origin: ae::Vec2, dir: ae::Vec2) -> ProjectileSpawn {
     ProjectileSpawn {
         origin,
@@ -83,10 +73,13 @@ pub fn authored_bolt(origin: ae::Vec2, dir: ae::Vec2) -> ProjectileSpawn {
     }
 }
 
+/// `Attack` while holding the volley gauntlet fires a fan of player-faction
+/// bolts along the body's aim direction (`ActorControl` aim, locomotion, or
+/// facing). Plain Attack only; `Shield + Attack` drops the item (the id is
+/// excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
-    // ⭐ EVERY DRIVEN BODY, not the one the primary seat happens to hold.
-    // `ControlledSubject` is singular by construction, so a possessed body or a
-    // second seat holding the same gauntlet simply never fired.
+    // Every driven body, not only the primary seat's `ControlledSubject`, so
+    // a possessed body or a second seat can use it.
     driven: ambition_held_items::DrivenBodies,
     mut players: Query<(
         Entity,
@@ -111,7 +104,7 @@ pub fn fire_volley_system(
         if held.spec.id != VOLLEY_ID {
             continue;
         }
-        // Costs mana — out of mana, no volley.
+        // Costs mana; with too little, no volley.
         if !crate::mana::spend(mana.as_deref_mut(), VOLLEY_MANA_COST) {
             continue;
         }
@@ -135,8 +128,8 @@ pub fn fire_volley_system(
             let angle = base_angle + t * spread;
             let dir = ae::Vec2::new(angle.cos(), angle.sin());
             projectiles.write(ProjectileSpawnRequest::open(
-                // The firing actor owns every bolt, so a kill attributes back to the
-                // player (materialization stamps `ProjectileOwner` from this entity).
+                // The firing actor owns every bolt, so a kill is credited to it
+                // (materialization stamps `ProjectileOwner` from this).
                 entity,
                 ProjectileSpawn {
                     origin,

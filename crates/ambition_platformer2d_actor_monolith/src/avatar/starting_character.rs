@@ -624,16 +624,22 @@ pub fn apply_worn_character_gameplay(
     }
 }
 
-/// Gate the raw player-control frame by the effective worn kit before direct body/effect
+/// Gate every body's raw control frame by its own action scheme before direct body/effect
 /// consumers read it. `sustain_bubble_shield` must run after this gate.
+///
+/// The population is every body, not the player population: whoever writes the frame (a
+/// local seat, a possession, a brain), what the body may do is the body's own scheme, so
+/// a possessed or seat-driven actor gets the same technique routing and verb stripping as
+/// the home avatar. An autonomous brain only presses verbs its body owns, so the gate
+/// leaves its frame as it is.
 ///
 /// TODO(compat-remove): migrate the remaining direct `ActorControl` consumers to the
 /// `ActionSet`-gated semantic path, then remove this raw-frame compatibility gate.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct WornControlGateSet;
 
-pub fn gate_worn_player_control(
-    mut players: Query<
+pub fn gate_body_control(
+    mut bodies: Query<
         (
             &ActionSet,
             // The body's live combat/ability authorities — the SAME inputs the
@@ -656,10 +662,6 @@ pub fn gate_worn_player_control(
             // by IDENTITY, not by racing the item systems in schedule order.
             Has<ambition_combat::held_items::HeldItem>,
         ),
-        (
-            With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            With<WornCharacter>,
-        ),
     >,
 ) {
     use ambition_characters::action_scheme::{derive_action_scheme, resolve_control_slots};
@@ -673,7 +675,7 @@ pub fn gate_worn_player_control(
         mut tech_edges,
         has_charge_marker,
         holds_item,
-    ) in &mut players
+    ) in &mut bodies
     {
         // THE shared resolver — byte-identical to the call the ControlPrompt
         // producer makes on the same immediate authorities.
@@ -740,7 +742,7 @@ pub fn gate_worn_player_control(
 /// shield the body won't raise. Forcing `shield_held` (rather than poking
 /// [`ambition_platformer2d_core::body_clusters::BodyShieldState`] directly) keeps the
 /// kernel's parry-window / dash-gating rules uniform — the special is just another
-/// way to raise the ONE shield. Runs after [`gate_worn_player_control`], which
+/// way to raise the ONE shield. Runs after [`gate_body_control`], which
 /// keeps the persona's shield verb and (as a `Move`) its `special_pressed` alive.
 pub fn sustain_bubble_shield(
     mut bodies: Query<(

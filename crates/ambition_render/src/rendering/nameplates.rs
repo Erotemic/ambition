@@ -1,11 +1,9 @@
 //! Nameplates: presentation-only world-space labels above actors and doors.
 //!
-//! This intentionally lives in `ambition_render` rather than gameplay. Actor
-//! identity, door names, and bounds are simulation/content state, but deciding
-//! whether / how a human-facing label is drawn is view policy. The system keeps
-//! one ECS visual entity per labeled source and only toggles visibility,
-//! transform, and opacity each frame, so the rules can grow without becoming a
-//! debug-overlay respawn loop.
+//! This lives in `ambition_render`, not gameplay. Actor identity, door names,
+//! and bounds are simulation state; how a label is drawn is view policy. The
+//! system keeps one entity per labeled source and per view, and only changes
+//! visibility, transform, and opacity each frame.
 
 use std::collections::{HashMap, HashSet};
 
@@ -25,12 +23,11 @@ use super::primitives::RoomVisual;
 
 /// Presentation policy for world nameplates.
 ///
-/// The default policy ranks all eligible labels by distance to
+/// The default ranks eligible labels by distance to
 /// [`CameraViewState::target_world`], draws the first five at full opacity,
-/// fades the sixth label, and reaches zero opacity at the seventh. Later
-/// candidates are hidden. Active-room metadata may override the rank thresholds
-/// from LDtk level fields. This keeps the selection rule local and
-/// easy to tune without changing the actor/door collection code.
+/// fades the sixth, and reaches zero opacity at the seventh. Later candidates
+/// are hidden. Active-room metadata (LDtk level fields) can override the rank
+/// thresholds.
 #[derive(Resource, Clone, Debug)]
 pub struct ActorNameplateSettings {
     /// Global off-switch for the presentation surface.
@@ -73,12 +70,11 @@ impl Default for ActorNameplateSettings {
     }
 }
 
-/// Marker on any room visual that should participate in the nameplate policy.
+/// Marker on a room visual that takes part in the nameplate policy.
 ///
-/// Actor labels are collected directly from actor ECS components because their
-/// render bounds are dynamic. Static door visuals carry this source component so
-/// they can share the same ranking/fade/render machinery without adding door
-/// special cases to gameplay.
+/// Actor labels come from the nameplate read model because their bounds are
+/// dynamic. Static door visuals carry this component so they share the same
+/// ranking, fade, and render path.
 #[derive(Component, Clone, Debug)]
 pub struct DoorNameplateSource {
     pub id: String,
@@ -98,34 +94,30 @@ impl DoorNameplateSource {
     }
 }
 
-/// Marker on the root `Text2d` entity for a nameplate. `owner_id` is the
-/// labeled source's STABLE id (an actor's feature id / a door's zone id) —
-/// the view identity, never a sim `Entity` (E4 slice 16).
+/// Marker on the root `Text2d` entity of a nameplate. `owner_id` is the
+/// source's stable id (an actor's feature id or a door's zone id), never a sim
+/// `Entity`.
 #[derive(Component, Clone, Debug)]
 pub struct ActorNameplateVisual {
     pub owner_id: String,
     pub label: String,
 }
 
-/// Marker on outline child text entities. Kept separate so future style systems
-/// can adjust only the shadow pass without inspecting hierarchy.
+/// Marker on outline child text entities, so style systems can change only
+/// the shadow pass.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ActorNameplateOutlineVisual;
 
-/// System set for nameplates. Downstream presentation code can order
-/// before/after this set without naming the concrete sync system.
+/// System set for nameplates, so other code can order against it.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ActorNameplateSet;
 
-/// Render-layer plugin for player-facing actor/door labels.
+/// Render-layer plugin for player-facing actor and door labels.
 ///
-/// It publishes candidates into the shared world-label placement pass; it
-/// does not own that pass. The pass is
-/// [`WorldLabelLayoutPlugin`](super::label_layout::WorldLabelLayoutPlugin),
-/// which this plugin composes so a game that wants nameplates gets placement
-/// without knowing the split — and which the generic room-visuals plugin adds
-/// too, because signage is a world label whether or not anything in the
-/// composition draws nameplates.
+/// It publishes candidates into the shared world-label placement pass,
+/// [`WorldLabelLayoutPlugin`](super::label_layout::WorldLabelLayoutPlugin).
+/// It adds that plugin, and so does the generic room-visuals plugin, because
+/// signage is a world label even without nameplates.
 pub struct ActorNameplatePresentationPlugin;
 
 impl Plugin for ActorNameplatePresentationPlugin {
@@ -138,13 +130,9 @@ impl Plugin for ActorNameplatePresentationPlugin {
                     .after(super::actors::sync_visuals)
                     .after(super::camera::camera_follow),
             )
-            // The placement pass runs AFTER every family has published its
-            // anchor for the frame. It is a hard ordering, not a preference:
-            // placing before the plates move is placing against last frame.
-            //
-            // Configured HERE rather than in the layout plugin because it is a
-            // fact about this family: only a composition that publishes actor
-            // plates has an `ActorNameplateSet` for the pass to wait on.
+            // The placement pass must run after every family publishes its anchor,
+            // or it places against last frame. This is configured here because
+            // only a composition with actor plates has `ActorNameplateSet`.
             .configure_sets(
                 Update,
                 super::label_layout::WorldLabelLayoutSet.after(ActorNameplateSet),
@@ -162,9 +150,9 @@ impl Plugin for ActorNameplatePresentationPlugin {
 struct NameplateCandidate {
     owner_id: String,
     label: String,
-    /// Which placement family this plate belongs to. A door plate names a
-    /// STATIC fixture, so it yields only to authored signage; an actor plate
-    /// is already in motion and is the family that absorbs displacement.
+    /// Placement family. A door plate names a static fixture and yields
+    /// only to authored signage. An actor plate moves and absorbs
+    /// displacement.
     family: WorldLabelFamily,
     anchor_world: ae::Vec2,
     distance_sq: f32,
@@ -175,9 +163,9 @@ struct NameplateCandidate {
 struct ResolvedNameplateRankPolicy {
     full_opacity_count: usize,
     fade_out_count: usize,
-    /// Does a body somebody is driving get a plate? See
-    /// [`RoomNameplatePolicy::label_driven_bodies`] — the default is the
-    /// exploration answer, and a room with a CAST overrides it.
+    /// Does a driven body get a plate? See
+    /// [`RoomNameplatePolicy::label_driven_bodies`]. A room with a cast
+    /// overrides the exploration default.
     label_driven_bodies: bool,
 }
 
@@ -193,9 +181,8 @@ impl ActorNameplateSettings {
             fade_out_count: room_policy
                 .and_then(|policy| policy.fade_out_count)
                 .unwrap_or(self.fade_out_count),
-            // ⛔ THE DEFAULT IS `false` — a driven body gets no plate — and that
-            // is an EXPLORATION rule, right only while a room holds one driven
-            // body. A room with a cast says so.
+            // Default `false` (no plate on a driven body) is the exploration rule,
+            // correct only with one driven body. A room with a cast overrides it.
             label_driven_bodies: room_policy
                 .and_then(|policy| policy.label_driven_bodies)
                 .unwrap_or(false),
@@ -203,24 +190,15 @@ impl ActorNameplateSettings {
     }
 }
 
-/// ONE SET OF PLATES PER VIEW.
+/// One set of plates per view.
 ///
-/// WHICH PLATES ARE ON SCREEN IS A PROPERTY OF THE VIEW, NOT OF THE
-/// ROOM. The policy ranks every candidate by distance to the camera's focus,
-/// draws the nearest few, fades the next and hides the rest — so two views
-/// looking at opposite ends of one room legitimately want two disjoint sets of
-/// plates, at two different opacities, anchored by two different rankings. One
-/// entity per labelled source could not express that; a second view would have
-/// silently re-ranked the first view's plates out from under it.
+/// Which plates are on screen depends on the view. The policy ranks
+/// candidates by distance to the camera focus, so two views at opposite ends
+/// of a room want different plates and opacities. So plates are keyed by
+/// view. A one-view game builds the same plates as before.
 ///
-/// so the plates are keyed by view, and a second view is a COUNT. A
-/// one-view game builds exactly the plates it built before — same candidates,
-/// same ranking, same anchors, same entity per visible source.
-///
-/// what is duplicated is the PLATE, never the thing it names. The
-/// `NameplateIndex` row and the `DoorNameplateSource` on a room visual stay
-/// singular — one authoritative source, N projections of it. Two views produce
-/// two pictures of one door, never two doors.
+/// Only the plate is duplicated, not its source. The `NameplateIndex` row and
+/// the `DoorNameplateSource` stay singular; each view gets a projection.
 #[allow(clippy::type_complexity)]
 pub fn sync_actor_nameplates(
     mut commands: Commands,
@@ -232,13 +210,12 @@ pub fn sync_actor_nameplates(
     rooms: Option<
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomSet>,
     >,
-    // A draw system owes every view a picture, so it iterates them; `PresentedViewState`
-    // answers the different question of which single view one camera shows, and refuses when
-    // there are several.
+    // A draw system draws every view, so it iterates them.
+    // `PresentedViewState` answers a different question (which one view a
+    // camera shows) and refuses when there are several.
     views: Query<(Entity, &ambition_sim_view::CameraViewState), With<ambition_sim_view::LocalView>>,
-    // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
-    // liveness / controlled-body facts per actor id. Doors stay render-side
-    // sources below.
+    // Sim-built nameplate read model: label, geometry, liveness, and
+    // controlled-body facts per actor id. Doors are render-side sources.
     nameplate_index: Option<Res<NameplateIndex>>,
     ui_fonts: Option<Res<UiFonts>>,
     mut nameplate_queries: ParamSet<(
@@ -270,17 +247,16 @@ pub fn sync_actor_nameplates(
             .map(|rooms| &rooms.active_metadata().nameplate_policy),
     );
 
-    // Every id that HAS a source this frame, across all views. It is what
-    // separates "this plate's owner went away" (despawn it) from "this view
-    // ranked it out" (hide it), and neither of those is a per-view question.
+    // Every id with a source this frame, across all views. It separates
+    // "owner went away" (despawn) from "this view ranked it out" (hide).
     let mut source_ids = HashSet::new();
     if let Some(index) = nameplate_index.as_deref() {
         for (id, _) in index.iter() {
             source_ids.insert(id.to_string());
         }
     }
-    // Doors, snapshotted ONCE: every view needs them, and the `ParamSet` lends
-    // out one of its queries at a time.
+    // Snapshot doors once: every view needs them, and the `ParamSet` lends
+    // one query at a time.
     let doors: Vec<DoorNameplateSource> = {
         let door_sources = nameplate_queries.p0();
         let mut doors = Vec::new();
@@ -297,7 +273,7 @@ pub fn sync_actor_nameplates(
         doors
     };
 
-    // What each view wants on screen, ranked against ITS OWN focus.
+    // What each view wants on screen, ranked against its own focus.
     let mut wanted: HashMap<Entity, HashMap<String, NameplateCandidate>> = HashMap::new();
     for (view_entity, view_state) in &views {
         let focus_world = view_state.target_world;
@@ -324,10 +300,9 @@ pub fn sync_actor_nameplates(
         );
     }
 
-    // This system publishes each plate's WANTED anchor and opacity; the shared
-    // placement pass (`label_layout`) owns the transform, visibility and
-    // colour, because a plate has to be ranked against authored signage and
-    // door plates too — not only against other actor plates (AC12).
+    // This system publishes each plate's wanted anchor and opacity. The shared
+    // placement pass (`label_layout`) owns transform, visibility, and colour,
+    // because plates are ranked against signage and door plates too (AC12).
     let mut existing_visible: HashSet<(Entity, String)> = HashSet::new();
     {
         let mut nameplates = nameplate_queries.p1();
@@ -385,13 +360,9 @@ fn collect_actor_candidates(
     candidates: &mut Vec<NameplateCandidate>,
 ) {
     for (id, fact) in index.iter() {
-        // ⭐⭐ WHETHER A DRIVEN BODY IS LABELLED IS THE ROOM'S CALL, not a
-        // constant. Suppressing it is the exploration answer — a plate names a
-        // body you are not inhabiting, so hiding it over the one you are is
-        // honest with ONE driven body in the room. With a cast it renders as
-        // "everyone is labelled except the human", and Jon named that on
-        // 2026-08-24: *"This is player 1 centric behavior, and we should have
-        // none of it."*
+        // The room decides whether a driven body is labelled. Hiding it is
+        // correct with one driven body. With a cast it would label everyone
+        // except the human, which is player-1-centric.
         if fact.driven && !rank_policy.label_driven_bodies {
             continue;
         }
@@ -477,8 +448,8 @@ fn rank_opacity(rank_index: usize, full_opacity_count: usize, fade_out_count: us
 }
 
 fn nameplate_anchor(center: ae::Vec2, size: ae::Vec2, vertical_gap_px: f32) -> ae::Vec2 {
-    // Ambition world coordinates are +Y down. The label's anchor sits above the
-    // rendered source box, so subtract half-height and the configured gap.
+    // World +Y is down. The anchor sits above the source box, so subtract
+    // half the height and the gap.
     ae::Vec2::new(center.x, center.y - size.y * 0.5 - vertical_gap_px.max(0.0))
 }
 
@@ -491,16 +462,12 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
         })
 }
 
-/// Build one plate, for ONE view.
+/// Build one plate for one view.
 ///
-/// it carries no `Name`, and that is deliberate. `entity.name` is
-/// registered for rollback, and the coverage contract derives its swept
-/// population from *"an entity carrying even one type the rollback knows about
-/// participates in rollback"* — so a debug label here would enlist every plate of
-/// every view in the sim sweep. That has already happened once to the view entity
-/// itself, where the ease state was immediately reported as an unrewound desync
-/// risk. `ActorNameplateVisual::owner_id` plus `PresentedForView` is the
-/// identity; the label is not worth the enlistment.
+/// It has no `Name` on purpose. `entity.name` is registered for rollback, and
+/// the coverage contract includes any entity with a rollback-known type in the
+/// sim sweep. A `Name` would enlist every plate of every view. The identity is
+/// `ActorNameplateVisual::owner_id` plus `PresentedForView`.
 #[allow(clippy::too_many_arguments)]
 fn spawn_actor_nameplate(
     commands: &mut Commands,
@@ -612,18 +579,14 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ A ROOM WITH A CAST LABELS EVERY FIGHTER THE SAME WAY.
+    /// A room with a cast labels every fighter the same way.
     ///
-    /// ⛔⛔ THE DEFECT THIS PINS, Jon 2026-08-24: *"it looks like non-player 1
-    /// gets a name over their head, whereas player 1 does not. This is player 1
-    /// centric behavior, and we should have none of it."* The suppression was a
-    /// CONSTANT — a driven body never got a plate — which reads as an honest
-    /// relative rule with one driven body in the room and as pure
-    /// player-centrism with four.
+    /// A constant suppression gave every body except player 1 a plate, which is
+    /// player-1-centric with more than one driven body.
     #[test]
     fn a_room_with_a_cast_can_label_the_body_you_are_driving() {
         let settings = ActorNameplateSettings::default();
-        // The default is the exploration answer, and it is still the default.
+        // The exploration answer is still the default.
         assert!(!settings.resolve_rank_policy(None).label_driven_bodies);
 
         let cast = RoomNameplatePolicy {
@@ -639,8 +602,8 @@ mod tests {
              hides the plate over whoever is playing"
         );
 
-        // ⛔ AND THE OTHER UNIFORM ANSWER IS ONE VALUE AWAY — no plates at all —
-        // which is the point of it being a knob rather than a second rule.
+        // The other uniform answer (no plates at all) is one value away. That is
+        // why it is a knob, not a second rule.
         let bare = RoomNameplatePolicy {
             full_opacity_count: None,
             fade_out_count: None,
@@ -659,10 +622,10 @@ mod tests {
         assert_eq!(anchor, ae::Vec2::new(20.0, 70.0));
     }
 
-    /// TWO VIEWS, ONE ROOM, ONE SIMULATION — TWO SETS OF PLATES.
+    /// Two views, one room, one simulation: two sets of plates.
     ///
-    /// the two-view split below is a FIXTURE, not a policy. It is the smallest world that
-    /// can tell a per-view projection from a shared one.
+    /// The two-view split is a fixture, not a policy. It is the smallest world
+    /// that can tell a per-view projection from a shared one.
     mod two_views_one_room_tests {
         use super::*;
         use ambition_sim_view::{CameraViewState, LocalView, LocalViewId, PresentedForView};
@@ -680,8 +643,8 @@ mod tests {
             ))
         }
 
-        /// ONE door entity per door. The authoritative object stays
-        /// singular; what the views get is one PROJECTION of it each.
+        /// One door entity per door. The source stays singular; each view gets
+        /// its own projection.
         fn spawn_door(world: &mut World, id: &str, center: ae::Vec2) {
             world.spawn(DoorNameplateSource::new(
                 id,
@@ -711,9 +674,8 @@ mod tests {
                 &mut world,
                 room(),
             );
-            // One plate at full opacity, the next at exactly zero: the sharpest
-            // ranking this policy can express, so the assertion is on values a
-            // reader can derive rather than on a fade curve.
+            // One plate at full opacity and the next at zero: the sharpest ranking
+            // the policy allows, so the expected values are easy to derive.
             world.insert_resource(ActorNameplateSettings {
                 full_opacity_count: 1,
                 fade_out_count: 2,
@@ -755,20 +717,13 @@ mod tests {
             })
         }
 
-        /// EACH VIEW RANKS THE ROOM AGAINST ITS OWN FOCUS.
+        /// Each view ranks the room against its own focus.
         ///
-        /// The policy draws the nearest few plates and fades the rest, ranked by distance to the
-        /// camera's focus — so two views at opposite ends of one room want opposite answers.
+        /// The test checks values, not only that the views differ. Each view is
+        /// compared with the opacity the rank policy gives the door it looks at.
         ///
-        /// the assertion is on VALUES, not on inequality. "the two views
-        /// differ" would pass for a pair that differ and are both wrong. Each view
-        /// is checked against the opacity the rank policy gives the door it is
-        /// actually looking at.
-        ///
-        /// and the falsifier is inside the test. The second run swaps only
-        /// the two views' camera targets — same doors, same spawn order, same
-        /// settings — and the two answers must swap with them. A sync that keys
-        /// off view or door iteration order passes the first run and fails this.
+        /// The second run swaps only the camera targets, and the answers must
+        /// swap too. A sync that keys off iteration order fails that run.
         #[test]
         fn each_view_ranks_the_room_against_its_own_focus() {
             let looking_at_first = [1.0, 0.0];
@@ -796,7 +751,7 @@ mod tests {
             );
         }
 
-        /// A RETIRED VIEW TAKES ITS PLATES WITH IT — DESPAWNED AS A SET.
+        /// A retired view takes its plates with it.
         #[test]
         fn a_retired_view_takes_its_plates_with_it() {
             let mut world = World::new();

@@ -2,7 +2,7 @@
 //! refill rate.
 //!
 //! Beside [`crate::smash_limit::LIMIT`] for the same reason: a resource is a
-//! content declaration, and the crates that READ it (the dev inspector, the
+//! content declaration, and the crates that read it (the dev inspector, the
 //! harness observation, the HUD) must be able to name it without linking the
 //! abilities that spend it. What spends Mana is `ambition_abilities::mana`.
 

@@ -4,14 +4,12 @@
 
 use super::*;
 
-/// Minimum magnitude on a stick axis before a
-/// `GamepadControlDirection` binding registers as "pressed." Suppresses
-/// spring-return overshoot — releasing the left stick from a deep
-/// downward push bounces briefly positive on the Y axis; without this
-/// threshold leafwing fires a `MoveUp` press the same frame and any
-/// downstream double-tap-down → MorphBall flow exits the moment it
-/// entered. 0.5 is comfortably past the typical overshoot (~0.1) while
-/// still triggering on a deliberate stick push at half-deflection.
+/// Minimum stick-axis magnitude before a `GamepadControlDirection` binding
+/// reads as pressed. This suppresses spring-return overshoot: a stick released
+/// from a deep down push bounces briefly positive on Y. Without the threshold,
+/// leafwing fires `MoveUp` on that frame and a double-tap-down MorphBall exits
+/// at once. 0.5 is well past typical overshoot (about 0.1) and still triggers
+/// at half deflection.
 #[cfg(feature = "input")]
 const STICK_DIRECTION_THRESHOLD: f32 = 0.5;
 
@@ -35,27 +33,23 @@ pub struct MovementKeys {
 pub struct ActionKeys {
     pub jump: KeyCode,
     pub attack: KeyCode,
-    /// The shared dodge/dash BURST press.
+    /// The shared dodge/dash burst press.
     pub burst: KeyCode,
     pub secondary: KeyCode,
     /// Dedicated signature-special key (distinct from `secondary`/Blink).
     pub special: KeyCode,
     pub shield: KeyCode,
-    /// Capture attempt. Chosen per preset from that preset's UNUSED letters and
-    /// placed next to its existing action cluster, so no preset gained a second
-    /// meaning on a key it already spends.
+    /// Capture attempt. Each preset uses one of its unused letters, next to its
+    /// action cluster, so no key gets a second meaning.
     pub grab: KeyCode,
-    /// Taunt. Chosen per preset from that preset's UNUSED letters, for the same
-    /// reason and by the same rule as `grab`.
+    /// Taunt. Chosen by the same rule as `grab`.
     pub taunt: KeyCode,
     pub interact: KeyCode,
-    /// WALK — hold to cap movement into the walk band.
+    /// Walk: hold to cap movement into the walk band.
     ///
-    /// ⛔ `ShiftRight`, and the SAME key in every preset, unlike `grab`/`taunt`
-    /// which are chosen per preset from that preset's unused letters. Walk is a
-    /// modifier a hand rests on, not a verb it reaches for, so it belongs under
-    /// the little finger wherever the movement keys are — and `ShiftLeft` is
-    /// already `modifier` in three of the four.
+    /// `ShiftRight` in every preset, unlike `grab` and `taunt`. Walk is a
+    /// modifier the hand rests on, so it goes under the little finger. `ShiftLeft`
+    /// is already `modifier` in three of the four presets.
     pub walk: KeyCode,
     pub modifier: KeyCode,
     pub utility: KeyCode,
@@ -88,10 +82,10 @@ impl KeyboardPreset {
         ]
     }
 
-    /// Resolve the preset at `index` (the value stored in
-    /// `settings.controls.keyboard_preset_index`). Out-of-range
-    /// indices fall back to the first preset (`arrows_zxc`) so a stale
-    /// or corrupt setting can never panic a HUD/glyph system.
+    /// Resolve the preset at `index` (the value in
+    /// `settings.controls.keyboard_preset_index`). An out-of-range index falls
+    /// back to the first preset (`arrows_zxc`), so a stale or corrupt setting
+    /// cannot panic a HUD or glyph system.
     pub fn by_index(index: usize) -> Self {
         let presets = Self::presets();
         presets.get(index).copied().unwrap_or(presets[0])
@@ -127,25 +121,16 @@ impl KeyboardPreset {
                 taunt: KeyCode::KeyT,
                 interact: KeyCode::KeyF,
                 walk: KeyCode::ShiftRight,
-                // How it actually works, since the obvious explanation is wrong:
-                // the run/fire pair is delivered ENTIRELY by the modifier slot —
-                // `modifier_held` is her run, `modifier_pressed` is her spark
-                // (see `mary_o::movement`). The `attack` binding on the same key
-                // is a SEPARATE semantic action that is simply inert for her.
-                // What makes it inert is the ATTACK side: `resolve_control_slots`
-                // calls `clear_attack` on a body that declares no melee verb, so
-                // `melee_pressed` never survives to a consumer. (A previous
-                // version of this comment credited the modifier slot for that
-                // gating. It does not gate: its arm has no `None` case and
-                // clears nothing.) For Sanic, X resolves to his `spin_dash`
-                // technique and his modifier goes unread.
+                // The modifier slot gives Mary-O both run and fire: `modifier_held` is her
+                // run, `modifier_pressed` is her spark (see `mary_o::movement`). The
+                // `attack` binding on the same key is a separate action that is inert for
+                // her, because `resolve_control_slots` calls `clear_attack` on a body with
+                // no melee verb. For Sanic, X resolves to his `spin_dash` technique and his
+                // modifier is not read.
                 //
-                // The note about gamepad-Special below refuses double-binding
-                // for a DIFFERENT reason — an unclaimed slot with no contextual
-                // meaning — and does not contradict this. The one composition
-                // that would genuinely fire two actions is an actor carrying
-                // both a melee verb and a modifier technique; no such actor
-                // exists, and that, not the binding, is what would need guarding.
+                // The gamepad-Special note below refuses a double binding for a different
+                // reason. Only an actor with both a melee verb and a modifier technique
+                // would fire two actions here; none exists.
                 modifier: KeyCode::KeyX,
                 utility: KeyCode::KeyD,
                 map: KeyCode::Tab,
@@ -261,24 +246,21 @@ impl KeyboardPreset {
         }
     }
 
-    /// Build a fresh Leafwing `InputMap` for this preset.
+    /// Build a fresh leafwing `InputMap` for this preset.
     ///
-    /// Preset cycling swaps this component on the player entity. Keeping the
-    /// preset as data means later TOML/RON keybinding config can deserialize
-    /// into the same shape instead of rewriting gameplay systems. Gated
-    /// behind `input` because the return type is leafwing-owned.
+    /// Preset cycling swaps this component on the player entity. The preset is
+    /// data, so a later TOML/RON keybinding config can deserialize into the same
+    /// shape. Gated behind `input` because the return type is leafwing's.
     #[cfg(feature = "input")]
     pub fn input_map(&self) -> InputMap<Platformer2dInputActionMonolith> {
         self.map_for(crate::BindingSources::Unified)
     }
 
-    /// A map holding only the halves a seat is ELIGIBLE for.
+    /// A map with only the halves a seat is eligible for.
     ///
-    /// ⭐⭐ ONE BUILDER FOR EVERY SEAT SHAPE. It replaced `input_map()` +
-    /// `gamepad_only_map()`, a pair that encoded "primary = keyboard and pad,
-    /// everyone else = pad" in its very shape — which is the assumption that
-    /// gave a keyboard player in seat 2 no controls at all while the keyboard
-    /// silently drove seat 1 as well.
+    /// One builder for every seat shape. A split into "primary gets keyboard and
+    /// pad, others get pad" gave a keyboard player in seat 2 no controls, while
+    /// the keyboard also drove seat 1.
     #[cfg(feature = "input")]
     pub fn map_for(
         &self,
@@ -330,19 +312,15 @@ impl KeyboardPreset {
             Platformer2dInputActionMonolith::Blink,
             self.actions.secondary,
         );
-        // Special is a FIRST-CLASS slot with its OWN dedicated key on every
-        // preset — no longer aliasing Blink. Dynamic-slot policy for the gamepad:
-        // every face/shoulder/trigger/stick button is already assigned (see
-        // `insert_gamepad_bindings`), so rather than double-bind a button (which
-        // would fire TWO actions at once), gamepad-Special is intentionally left
-        // to the remap UX (P5) and to a game's `BindingLayout`. Keyboard (this
-        // key) and the touch overlay's dedicated Special button cover it in
-        // Ambition. that is a claim about THIS DEFAULT, not about pads — a
-        // layout permutes an already-full pad and so can free a button for
-        // Special, which is what the smash profile does (X).
+        // Special has its own key on every preset; it does not alias Blink. The
+        // default pad has no free button (see `insert_gamepad_bindings`), and a
+        // double binding fires two actions, so gamepad Special is left to the remap
+        // UX and to a game's `BindingLayout`. The keyboard and the touch overlay's
+        // Special button cover it in Ambition. This applies to the default only: a
+        // layout can free a button for Special, as the smash profile does (X).
         // `special_is_a_dedicated_slot_...` and
         // `the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it`
-        // pin the two halves.
+        // guard the two halves.
         map.insert(
             Platformer2dInputActionMonolith::Special,
             self.actions.special,
@@ -382,9 +360,9 @@ impl KeyboardPreset {
             self.actions.dedicated_pogo,
         );
 
-        // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
-        // same MenuNavigate* actions; the analog stick provides MenuStick
-        // for repeat handling, and Enter/Space/South map to MenuSelect.
+        // Menu navigation. D-pad and arrow keys hit the same MenuNavigate* actions;
+        // the analog stick gives MenuStick for repeat handling; Enter, Space and
+        // South map to MenuSelect.
         map.insert(
             Platformer2dInputActionMonolith::MenuNavigateUp,
             KeyCode::ArrowUp,
@@ -424,9 +402,8 @@ impl KeyboardPreset {
             KeyCode::NumpadEnter,
         );
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);
-        // Also accept the player's configured Jump and Interact keys as
-        // confirm so existing dialogue/cutscene muscle memory survives the
-        // participant migration. Enter remains the canonical menu confirmation.
+        // Also accept the configured Jump and Interact keys as confirm, so dialogue
+        // and cutscene habits still work. Enter is the canonical menu confirm.
         map.insert(
             Platformer2dInputActionMonolith::MenuSelect,
             self.actions.jump,
@@ -454,9 +431,8 @@ impl KeyboardPreset {
 
 /// The gamepad half, identical for every preset and every seat.
 ///
-/// Free-standing rather than a method because it depends on nothing about the
-/// preset — the preset chooses KEYS. A second local seat has no preset (it does
-/// not use the keyboard at all) and needs exactly this.
+/// Free-standing because it does not depend on the preset; the preset chooses
+/// keys. A second local seat has no preset and uses exactly this.
 ///
 /// Every action has a button so both input modes are fully playable:
 ///   South        Jump, MenuSelect
@@ -477,22 +453,15 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     map.insert_dual_axis(Platformer2dInputActionMonolith::Move, VirtualDPad::dpad());
     map.insert_dual_axis(Platformer2dInputActionMonolith::Move, GamepadStick::LEFT);
 
-    // Gamepad bindings for the discrete `MoveX` actions. Without
-    // these, `actions.just_pressed(&Platformer2dInputActionMonolith::MoveDown)`
-    // never fires on a controller — the double-tap-down gesture
-    // that enters MorphBall was keyboard-only as a result. Both
-    // the DPad and a stick-direction cross past the deadzone
-    // generate the same press edge, so DPad → MorphBall feels
-    // the same as Down-Arrow → MorphBall.
+    // Gamepad bindings for the discrete `MoveX` actions. Without them,
+    // `just_pressed(&Platformer2dInputActionMonolith::MoveDown)` never fires on a
+    // controller, and double-tap-down into MorphBall is keyboard-only. The D-pad
+    // and a stick direction past the threshold give the same press edge.
     //
-    // `STICK_DIRECTION_THRESHOLD` keeps spring-return overshoot
-    // from registering as a press in the *opposite* direction.
-    // After pushing the left stick down and releasing, real
-    // hardware briefly snaps positive on the Y axis; without a
-    // threshold leafwing's `LEFT_UP` direction (which defaults
-    // to `threshold = 0.0`) fires a `MoveUp` press edge, and
-    // that edge exits MorphBall the same frame the player
-    // entered it.
+    // `STICK_DIRECTION_THRESHOLD` stops spring-return overshoot from pressing
+    // the opposite direction. Leafwing's `LEFT_UP` defaults to threshold 0.0,
+    // so a released down push would fire `MoveUp` and exit MorphBall on the
+    // frame the player entered it.
     map.insert(
         Platformer2dInputActionMonolith::MoveLeft,
         GamepadButton::DPadLeft,
@@ -547,15 +516,12 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         Platformer2dInputActionMonolith::Interact,
         GamepadButton::RightTrigger,
     );
-    // ⚠ NO GAMEPAD `Walk` BINDING, deliberately. A pad's left stick is ANALOG
-    // and has always been able to walk — the defect this action exists for is
-    // digital-only. Every gamepad button is already spent, and stealing one to
-    // duplicate something the stick does would be a worse trade.
+    // No gamepad `Walk` binding. The analog left stick can already walk, and
+    // every button is in use.
     //
-    // ⛔ A D-PAD-ONLY PAD PLAYER STILL CANNOT WALK, and that is a real gap
-    // rather than a decision: `Move` binds both the D-pad and the left stick, so
-    // the D-pad half has the same 1.0-or-nothing problem the keyboard had. It
-    // needs a free button or a chord, and there is no free button.
+    // Known gap: a D-pad-only player cannot walk. `Move` binds the D-pad too,
+    // and the D-pad gives only 0 or 1.0, like the keyboard. A fix needs a free
+    // button or a chord.
     map.insert(
         Platformer2dInputActionMonolith::Modifier,
         GamepadButton::LeftTrigger2,
@@ -602,9 +568,8 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         GamepadButton::East,
     );
 
-    // The bumpers double as gameplay Utility/Shield, but menu page actions
-    // are only read while a paged menu is open, so the physical button is shared
-    // safely.
+    // The bumpers are also gameplay Utility and Shield. Menu page actions are
+    // read only while a paged menu is open, so sharing the button is safe.
     map.insert(
         Platformer2dInputActionMonolith::MenuPageLeft,
         GamepadButton::LeftTrigger,
@@ -622,9 +587,8 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         Platformer2dInputActionMonolith::AimStick,
         GamepadStick::RIGHT,
     );
-    // RIGHT_Z is the analog right-trigger axis on most pads.
-    // Reading it as an axis lets us apply hysteresis ourselves
-    // instead of relying on the binary just_pressed edge.
+    // RIGHT_Z is the analog right-trigger axis on most pads. Read it as an axis
+    // so hysteresis is applied here, not by the binary just_pressed edge.
     map.insert_axis(
         Platformer2dInputActionMonolith::BurstAnalog,
         GamepadControlAxis::RIGHT_Z,
@@ -642,11 +606,10 @@ fn insert_optional(
     }
 }
 
-/// The label a HUD should print for a key.
+/// The label a HUD prints for a key.
 ///
-/// public so a GAME's on-screen legend can read the same table the BINDINGS do. Sanic's
-/// speedway printed a hardcoded `"START Z: JUMP DOWN+X: REV RELEASE DOWN: DASH D: SUPER"` — and
-/// the preset binds no `D` at all.
+/// Public so a game's on-screen legend reads the same table as the bindings.
+/// A hardcoded legend can name keys the preset does not bind.
 pub fn key_name(key: KeyCode) -> &'static str {
     match key {
         KeyCode::KeyA => "A",
@@ -695,28 +658,23 @@ mod tests {
 
     #[test]
     fn by_index_resolves_each_preset_and_clamps_out_of_range() {
-        // Each in-range index returns the matching preset (order must
-        // stay aligned with `settings.controls.keyboard_preset_index`).
+        // Each in-range index returns the matching preset. The order must match
+        // `settings.controls.keyboard_preset_index`.
         assert_eq!(KeyboardPreset::by_index(0).id, PresetId::ArrowsZxc);
         assert_eq!(KeyboardPreset::by_index(1).id, PresetId::WasdJkl);
         assert_eq!(KeyboardPreset::by_index(2).id, PresetId::ArrowsQwer);
         assert_eq!(KeyboardPreset::by_index(3).id, PresetId::WasdUipo);
-        // A stale / corrupt index falls back to the first preset
-        // rather than panicking a HUD glyph system.
+        // A stale or corrupt index falls back to the first preset; it does not panic.
         assert_eq!(KeyboardPreset::by_index(4).id, PresetId::ArrowsZxc);
         assert_eq!(KeyboardPreset::by_index(usize::MAX).id, PresetId::ArrowsZxc);
     }
 
-    /// Gate 5 — the dynamic-slot policy for Special, pinned.
+    /// The dynamic-slot policy for Special, keyboard half: Special has its own
+    /// key and does not alias Blink.
     ///
-    /// the gamepad half of this policy is a claim about the DEFAULT preset, and made that
-    /// distinction load-bearing. The reason there is no gamepad Special here has never been
-    /// "Special does not deserve a button" — it is that THIS pad is fully assigned, so adding
-    /// one would double-bind a button and fire two actions at once.
-    ///
-    /// So the policy is now stated with its scope attached, and the test asserts
-    /// BOTH halves — the default still declines the button, and a mode layout
-    /// may claim one. Neither half is weakened by the other's existence.
+    /// The default pad has no gamepad Special because it is fully assigned, and a
+    /// new button would fire two actions. The next test checks that half, and
+    /// that a layout can still claim a button.
     #[test]
     fn special_is_a_dedicated_slot_distinct_from_blink_on_every_preset() {
         for preset in KeyboardPreset::presets() {
@@ -728,7 +686,7 @@ mod tests {
         }
     }
 
-    /// The gamepad half of the dedicated-slot policy, and its SCOPE.
+    /// The gamepad half of the dedicated-slot policy, and its scope.
     #[cfg(feature = "input")]
     #[test]
     fn the_default_pad_leaves_special_to_a_profile_and_a_profile_can_take_it() {
@@ -755,20 +713,16 @@ mod tests {
         );
     }
 
-    /// EVERY SLOT A BODY CAN CARRY IS ON THE KEYBOARD, ON EVERY PRESET.
+    /// Every slot a body can carry has a key on every preset.
     ///
-    /// The existing tests pin the first two ONE CASE AT A TIME, which is a list that grows only
-    /// after each new verb has already shipped broken.
+    /// The keyboard is the right subject: a pad can decline a slot (the default
+    /// pad leaves `Special` to a layout, as the test above checks), but every
+    /// composition has a keyboard. A slot with no key is a verb no keyboard
+    /// player can reach.
     ///
-    /// the keyboard is the right subject and the pad is not: a pad may
-    /// legitimately decline a slot (the default pad is fully assigned and leaves
-    /// `Special` to a game's layout — the test above pins exactly that), while
-    /// the keyboard is the device every composition always has. A slot with no
-    /// key anywhere is a verb no keyboard player can reach.
-    ///
-    /// this guards the BINDING, which is one link. The two below it are
-    /// guarded by the compiler: `ControlFrame`'s literal in `control.rs` has no
-    /// rest pattern, and `brain/player.rs` destructures exhaustively.
+    /// This guards the binding only. The compiler guards the next two links:
+    /// `ControlFrame`'s literal in `control.rs` has no rest pattern, and
+    /// `brain/player.rs` destructures exhaustively.
     #[cfg(feature = "input")]
     #[test]
     fn every_control_slot_reaches_a_key_on_every_preset() {
@@ -797,12 +751,8 @@ mod tests {
         }
     }
 
-    /// A second local seat's map must touch NO key.
-    ///
-    /// Partitioning the controllers between two seats accomplishes nothing if
-    /// the keyboard still drives both of them: player one types on the same
-    /// keyboard player two would be bound to, so every WASD press would move
-    /// both fighters.
+    /// A second local seat's map must bind no key. Otherwise the keyboard drives
+    /// both seats, and every WASD press moves both fighters.
     #[cfg(feature = "input")]
     #[test]
     fn a_second_seats_map_binds_no_key() {
@@ -815,10 +765,9 @@ mod tests {
                  keyboard belongs to player one"
             );
         }
-        // The dual-axis half is where this would slip in unnoticed: a
-        // `VirtualDPad` of arrow keys and a `VirtualDPad` of D-pad buttons are
-        // the same type, so the count is the only thing that distinguishes
-        // them. The full preset binds Move three ways (keys, D-pad, stick).
+        // Check the dual-axis half: a `VirtualDPad` of arrow keys and one of D-pad
+        // buttons have the same type, so only the count tells them apart. The full
+        // preset binds Move three ways (keys, D-pad, stick).
         assert_eq!(
             map.get_dual_axislike(&Platformer2dInputActionMonolith::Move)
                 .map(Vec::len),

@@ -4,40 +4,16 @@
 > to carry a leafwing fork right now. Everything Ambition-side is already
 > landed and inert until the dependency changes.
 
-> ⛔⛔ **RE-CHECKED against `8bb0dd5a7` (2026-09-03): THE DEPENDENCY ALREADY CHANGED, AND THIS PAGE'S
-> OWN ESCAPE HATCH WAS TAKEN WITHOUT THE RE-MEASURE IT ASKS FOR.** The last
-> line below says *"bumping to a newer leafwing … may obsolete this —
-> re-measure before carrying anything."* The bump happened:
-> `leafwing-input-manager = "0.21"` in both `game/ambition_app/Cargo.toml` and
-> `crates/ambition_platformer2d_host/Cargo.toml`, while the patch on disk is
-> still named for 0.20. Here is that re-measure.
->
-> **The defect SURVIVES in 0.21, unchanged in shape.** `handle_clashes` still
-> calls `get_clashes(...)` and only then hands each pair to `resolve_clash`,
-> so `ClashStrategy` is still consulted *after* the scan, and `PressAll` still
-> nulls each clash afterwards. The two-line fast path is still applicable.
->
-> ⚠ **AND UPSTREAM'S OWN COMMENT WILL TELL A CHECKER OTHERWISE.** `get_clashes`
-> in 0.21 says *"We can limit our search to the cached set of possibly clashing
-> actions"* — but `possible_clashes()` is a method that builds a fresh `Vec`
-> with the full nested `buttonlike_actions()` loop on every call, and there is
-> no cache field to read. So "rebuilt from scratch every frame" is still true,
-> and anyone who checks by reading that comment will conclude the opposite.
->
-> ⭐ **THE COST GREW, AND THE 1–3.1% BELOW IS NOW A FLOOR.** That number was
-> measured against a *"single ~20-action"* map. `presets.rs` binds **35 of the
-> enum's 36 variants** today, and 4 are declared axis-like
-> (`#[actionlike(DualAxis)]` ×3, `#[actionlike(Axis)]` ×1), so roughly **31
-> buttonlike actions** feed the O(n²) pair scan — about **2.4× the pairs** the
-> percentage was taken at. ⚠ The percentage itself has NOT been re-measured; a
-> `timeline-run` capture is what would replace it, and until then treat 1–3.1%
-> as the low end rather than the current figure.
->
-> Still in place and still correct: `tune_clash_strategy_to_bindings`
-> (`crates/ambition_platformer2d_host/src/lib.rs:344`) and the patch file. ⇒ The
-> "When picked up" steps below need one edit before use — fork at **0.21**, not
-> 0.20 — and the patch should be re-checked against 0.21's `clashing_inputs.rs`
-> rather than assumed to apply.
+> **Re-checked 2026-09-03 against leafwing-input-manager 0.21** (the version in
+> `game/ambition_app/Cargo.toml` and `crates/ambition_platformer2d_host/Cargo.toml`).
+> The defect is unchanged: `handle_clashes` calls `get_clashes(...)` before it
+> consults `ClashStrategy`, and `possible_clashes()` rebuilds its `Vec` on each
+> call. The upstream comment about a "cached set" is not correct; there is no
+> cache field. The bindings now have about 31 buttonlike actions (35 of 36
+> variants bound, 4 axis-like), about 2.4 times the pairs of the measured map,
+> so read 1–3.1% below as a lower bound until a `timeline-run` capture replaces
+> it. If you pick this up, fork at 0.21, not 0.20, and re-check the patch against
+> 0.21's `clashing_inputs.rs`.
 
 ## The cost
 

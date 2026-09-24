@@ -1,24 +1,15 @@
-//! THE BOSS PATTERN'S THINKING, which is this domain's own business.
+//! The boss pattern's thinking: tick, control flow, validator, seeds and
+//! profile.
 //!
-//! ⭐⭐ D168: a floor crate owns what a character IS; the layer above owns how it
-//! THINKS. `ambition_characters` kept `brain/boss_pattern/mod.rs` — the pattern
-//! vocabulary, the cfg and the state, everything `Brain`'s snapshot encoder reads
-//! and everything `BrainSnapshot` names — and the tick, the control flow, the
-//! validator, the seeds and the profile came here.
+//! `ambition_characters` owns what a character is: `brain/boss_pattern/mod.rs`
+//! has the pattern vocabulary, the cfg and the state (everything `Brain`'s
+//! snapshot encoder reads and `BrainSnapshot` names). This crate owns how a
+//! boss thinks.
 //!
-//! ⭐ THIS CRATE WAS ALREADY THE OWNER IN EVERYTHING BUT ADDRESS: `behavior.rs`
-//! re-exported `boss_pattern::profile` and `anim.rs` reads `boss_pattern_state()`.
-//!
-//! ⛔ `content_schema.rs` CAME TOO, and it is the one real cost of the move —
-//! priced on D168 before it was taken. It reads
-//! `ambition_content_pack::PreparedContentPack`, so this crate gains an OPTIONAL
-//! `content_pack` dependency behind a feature of the same name. That is the shape
-//! `ambition_characters` and `ambition_combat` already use, not a new pattern:
-//! a game that never validates its content must not link a compiler.
-//!
-//! ⚠ IT HAD NO CHOICE. `content_schema` names `profile`, `seeds` and `validator`,
-//! all three of which moved here — leaving it behind would have been a floor
-//! crate reaching upward.
+//! `content_schema.rs` reads `ambition_content_pack::PreparedContentPack`, so
+//! this crate has an optional `content_pack` dependency behind a feature of
+//! the same name (as `ambition_characters` and `ambition_combat` do): a game
+//! that never validates its content must not link a compiler.
 
 /// The `boss_seed_library` and `boss_validator_bands` authored-content schemas
 /// this capability owns. Behind `content_pack`: a game that never validates its
@@ -33,17 +24,7 @@ pub mod validator;
 
 pub use tick::{tick_boss_pattern, tick_boss_pattern_via_state_machine};
 
-// ⛔⛤ **`tests.rs` SAT BESIDE THIS FILE FOR THREE WEEKS WITH NO `mod` LINE
-// NAMING IT, SO ITS 36 ARMS HAD NEVER RUN.** Every sibling declares its own
-// (`control_flow.rs` declares `control_flow/tests.rs`, and so on); this one was
-// declared by nobody. A file nothing declares is not a build error — the
-// compiler never hears of it — so `cargo test` reported those arms as neither
-// passed nor failed, and `ambition_characters::brain::boss_pattern`, where the
-// types they exercise now live, has zero test arms of its own.
-//
-// ⚠ A NAME RULE CANNOT SEE THIS. What removes a file from a build is the
-// `#[cfg(test)]` on its `mod` line, which lives in the PARENT — so a scanner
-// that classifies `tests.rs` by its name calls it test-only either way, whether
-// or not anything compiles it.
+// Every submodule's tests need a `mod` line in its parent. A file that nothing
+// declares is not a build error; its tests simply never run.
 #[cfg(test)]
 mod tests;

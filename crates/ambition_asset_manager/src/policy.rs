@@ -58,7 +58,7 @@ impl Default for MissingAssetPolicy {
     }
 }
 
-/// Cache policy hint for the asset. The resolver does NOT enforce this;
+/// Cache policy hint for the asset. The resolver does not enforce this;
 /// it surfaces the value so a future Bevy asset-server tuning pass (or a
 /// custom byte adapter) can respect it. Bevy already caches handles by
 /// reference count; this is for the consumer.

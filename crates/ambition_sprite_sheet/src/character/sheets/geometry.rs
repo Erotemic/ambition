@@ -4,21 +4,19 @@
 use super::*;
 
 impl CharacterSheetSpec {
-    /// Where this sheet's character actually is inside its frame, in frame
-    /// pixels — the rectangle the generator measured (or the target authored)
-    /// for `anim`, `None` for a sheet that publishes no body at all.
+    /// Where the character is inside its frame, in frame pixels: the rectangle
+    /// the generator measured (or the target authored) for `anim`. `None` for a
+    /// sheet that publishes no body.
     ///
-    /// Asked of the one reader ([`crate::BodyMetrics::body_pixel_extent`]), so
-    /// the quad, the collision box and the sheet-authored actor route cannot
-    /// disagree about what the sheet says.
+    /// Uses the one reader ([`crate::BodyMetrics::body_pixel_extent`]), so the
+    /// quad, the collision box, and the sheet-authored actor route agree.
     pub fn body_pixel_extent(&self, anim: CharacterAnim) -> Option<Vec2> {
         let (w, h) = self.record.body_metrics.as_ref()?.body_pixel_extent(anim)?;
         let extent = Vec2::new(w, h);
         (extent.x > 0.0 && extent.y > 0.0).then_some(extent)
     }
 
-    /// The sheet's frame, in pixels, floored at 1 so it is never a divisor of
-    /// zero.
+    /// The sheet's frame in pixels, floored at 1 so it is never a zero divisor.
     pub fn frame_pixels(&self) -> Vec2 {
         Vec2::new(
             self.frame_width.max(1) as f32,
@@ -75,16 +73,10 @@ pub fn feet_anchor_for_render_size(
     let render_height = render_size.y.max(1.0);
     let half_collision_y = collision.y * 0.5;
     let ay = spec.feet_anchor_y + half_collision_y / render_height;
-    // ⛔⛔ THE X WAS `0.0`, AND `0.0` IS A CLAIM ABOUT THE FRAME rather than about
-    // the character: it centres the art on the packed cell, and the art sits
-    // wherever the crop left it inside that cell. Every sheet already measures
-    // the difference — `body_metrics.feet_anchor_norm.x` IS the body's centre as
-    // a fraction of the frame — and it was read for `y` and dropped for `x`.
-    //
-    // ⭐ SO A BODY IS DRAWN ON ITS OWN BOX NOW. `projectile_polygon` is packed
-    // 17% of a 377px frame left of centre and `officer` 25% of a 326px one, which
-    // is why they read as a collision box standing NEXT TO a fighter; a sheet
-    // that authors no body metrics still answers `0.0` and is byte-identical.
+    // The x anchor uses `body_metrics.feet_anchor_norm.x` (the body centre as a
+    // fraction of the frame), so the body is drawn on its own box, not on the
+    // centre of the packed cell. The crop can leave the art off-centre in its
+    // cell. A sheet with no body metrics still gives `0.0`.
     Anchor(Vec2::new(spec.feet_anchor_x, ay))
 }
 

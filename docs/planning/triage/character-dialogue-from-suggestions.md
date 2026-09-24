@@ -4,74 +4,28 @@
 wiring nine generated characters into the Hall and finding two channels reading
 two different sources.
 
-> **RE-MEASURED 2026-09-17 (and against `7ca4f1df6` on 2026-09-02 before that).
-> ⭐ STILL UNBUILT AS DESIGNED — AND THE RESIDUAL IS TWO ORDERS OF MAGNITUDE
-> SMALLER THAN THIS BANNER USED TO SAY.**
->
-> - The generation is **not** built. `fallback_dialogue` still feeds only barks
->   — its only consumers are `CharacterCatalogEntry::bark`'s fallthrough and the
->   catalog accessor beside it — and `npc_dialogue_request`
->   (`features/npcs.rs`) still reads only the LDtk `Interactable`'s
->   `dialogue_id`, falling through to `"generic_npc"` when it is absent, blank
->   or whitespace. It never consults the catalog, although the same
->   `InteractionKind::Npc` carries the `character_id` that would let it. The
->   two-channel table below is an accurate description of that code path today.
-> - ⭐ **The Hall was covered by authoring instead.** The catalog gained a
->   per-character `hall_dialogue_id`, and `known_dialogue_ids`
->   (`ambition_content/src/dialogue/yarn.rs`) folds those ids into the
->   validator's accepted set so authored `hall_<id>` nodes need no second
->   hand-maintained list. That is exactly the escape the 2026-07-26 decision
->   left open — *"a hand-authored node of the same title overrides it by
->   existing … so writing real dialogue is never blocked."* Somebody wrote the
->   dialogue.
->
-> ⛔⛤ **AND THE POPULATION WAS WRONG, WHICH IS WHY THE RESIDUAL LOOKED BIG.**
-> This banner said *"149 catalog rows, 124 declaring a `hall_dialogue_id` (8
-> explicitly `None`)"* and concluded that *"~25 catalog rows"* had none. 149 is
-> every `"key": (` in `character_catalog.ron`, which counts the 17 brain
-> presets, action-set presets and controller profiles authored **before**
-> `characters: {`. Inside that block there are **132 character rows, and every
-> one of them declares the field** — 124 `Some`, 8 `None`. ⇒ Residual (a) is
-> **8 rows**, not ~25. Re-derived by taking the `characters:` block by brace
-> depth and matching `^        "<id>": ($` inside it, rather than grepping the
-> file.
->
-> ⭐⭐ **AND RESIDUAL (b) — "every room that is NOT the Hall" — IS TWO
-> PLACEMENTS.** Measured over the six distinct `.ldtk` projects (the two demo
-> `assets/worlds/` paths are symlinks into `ambition_map_assets`, so resolve
-> before counting); three of the six author an `NpcSpawn` at all —
-> `hall_of_characters` 129, `sandbox` 26, `intro` 8. **163 placements, 161 with a
-> non-blank `dialogue_id` and 2 without** — `npc_puppy_slug` in `gravity_lab` and `npc_viking_warrior` in
-> `sanic_sandbox`. Both of those characters already have an authored Hall node
-> (`hall_npc_puppy_slug`, `hall_npc_viking_warrior`); the id is simply not
-> carried into the LDtk placement. Neither has a `fallback_dialogue` either —
-> only **24 of the 132 rows** declare one at all, so *"a character with a real
-> `fallback_dialogue` voice"* describes 24 rows and not the cast.
->
-> ⚠ **THE HALL'S FOUR NUMBERS RECONCILE EXACTLY, WHICH IS WHY THEY LOOK
-> DIFFERENT.** 129 Hall placements, 124 catalog rows declaring an id, 131
-> authored `title: hall_*` Yarn nodes: 6 of the 129 placements name a
-> `character_id` that is not a catalog row at all (`sanic`, `super_sanic`,
-> `mary_o`, `mary_o_tall`, and the two snakes-on-a-plane exhibits), leaving 123
-> placed catalog characters; `sandbag_infinite` declares an id with no
-> placement, giving 124; and the 131 nodes are those 124 plus those 6 plus
-> `hall_player__self`. **Zero** placements disagree with their row, and **zero**
-> declared ids lack a node.
->
-> ⇒ **SO THE GENERATOR HAS ALMOST NO REMAINING CONSUMER IN SHIPPED CONTENT.**
-> What is left is 8 catalog rows with `hall_dialogue_id: None` and 2 LDtk
-> placements missing an id — each of which is one line of authoring, not a
-> generation pipeline. ⛔ Re-scope against those two numbers before implementing
-> anything here; a generator written to the original framing would be generating
-> over 161 placements that already resolve.
->
-> ⚠ **THE TWO PLACEMENTS ARE NOT CLOSED HERE BECAUSE THEY ARE NOT IN THIS
-> REPO.** `game/ambition_map_assets` is a submodule
-> (`github.com/Erotemic/ambition_map_assets`, at `cb7062a95`), so setting
-> `dialogue_id` on the `gravity_lab` and `sanic_sandbox` exhibits is a commit in
-> that repository. Both target nodes already exist and read fine outside a
-> pedestal — `hall_npc_puppy_slug` is four lines of blorbing with no reference
-> to the Hall.
+## Remaining scope (measured 2026-09-17)
+
+The generator is not built. `fallback_dialogue` feeds only barks, and
+`npc_dialogue_request` (`features/npcs.rs`) reads only the LDtk `dialogue_id`
+and falls through to `"generic_npc"`; it does not consult the catalog.
+
+The Hall was covered by authoring instead: catalog rows have a
+`hall_dialogue_id`, and `known_dialogue_ids`
+(`ambition_content/src/dialogue/yarn.rs`) adds those ids to the validator's
+accepted set. The residual is small:
+
+- 8 of the 132 character rows in `character_catalog.ron` have
+  `hall_dialogue_id: None`. Count rows inside the `characters:` block only; the
+  presets before it are not characters.
+- 2 of 163 `NpcSpawn` placements have no `dialogue_id`: `npc_puppy_slug` in
+  `gravity_lab` and `npc_viking_warrior` in `sanic_sandbox`. Both nodes exist
+  (`hall_npc_puppy_slug`, `hall_npc_viking_warrior`). The fix is a commit in the
+  `game/ambition_map_assets` submodule.
+- Only 24 of the 132 rows declare a `fallback_dialogue`.
+
+Each residual item is one line of authoring, not a generation pipeline.
+Re-scope against these numbers before you implement anything here.
 
 ## The state today
 

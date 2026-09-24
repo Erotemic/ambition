@@ -45,10 +45,8 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
-            // The contributed-row channel. Registered by the CORE plugin, not by
-            // the pause menu that writes it: an experience must be able to
-            // install its reader in a composition that draws no menu at all, and
-            // a reader whose channel does not exist fails parameter validation.
+            // Registered here, not by the pause menu that writes it, so an
+            // experience can install its reader in a composition with no menu.
             .add_message::<crate::abandon::ShellAbandonRequested>()
             .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
             )
@@ -80,11 +78,9 @@ impl Plugin for AmbitionGameShellPlugin {
                 Update,
                 (
                     cleanup_scoped_entities,
-                    // The RESOURCE half of the same rule the line above is the
-                    // entity half of: state a provider published lives exactly
-                    // as long as its stay on its own routes. In `Cleanup`
-                    // because `active` and `pending` are both settled for this
-                    // frame by the end of `Pending`.
+                    // The resource form of the rule above: provider state lives
+                    // only while the provider's routes are active. In `Cleanup`
+                    // because `active` and `pending` are settled by then.
                     crate::scope::release_departed_experience_state,
                     log_shell_routing_failures,
                 )
@@ -96,8 +92,7 @@ impl Plugin for AmbitionGameShellPlugin {
 
 impl Plugin for ShellSequencePlugin {
     fn build(&self, app: &mut App) {
-        // Idempotent: a windowed host's DefaultPlugins already own Time; a bare
-        // headless host needs one so drive_sequence can tick.
+        // Idempotent: a headless host needs `Time` so `drive_sequence` ticks.
         app.init_resource::<bevy::prelude::Time>()
             .init_resource::<ShellSequenceCatalog>()
             .init_resource::<ActiveShellSequence>()
@@ -115,18 +110,15 @@ impl Plugin for ShellSequencePlugin {
                     .after(AmbitionGameShellSet::Pending)
                     .before(AmbitionGameShellSet::Cleanup),
             )
-            // A confirm edge or card tap consumed THIS frame is applied to
-            // the sequence THIS frame — command processing never trails the
-            // input consumers by a frame.
+            // Apply confirm and card taps in the same frame as the input.
             .configure_sets(Update, ShellSequenceSet::Commands.after(InputSet::Consume))
             .add_systems(
                 Update,
                 start_or_stop_sequence.in_set(ShellSequenceSet::Sync),
             )
-            // The sequence surface OWNS the startup-acknowledge input
-            // context: it declares the claim while a card sequence is
-            // active and retracts it when the sequence ends. Ownership is
-            // declared, never inferred from GameMode or actor presence.
+            // The sequence surface claims the startup-acknowledge context
+            // while a card sequence is active. The claim is declared, not
+            // inferred from `GameMode` or actor presence.
             .add_systems(
                 Update,
                 declare_startup_acknowledge_context
@@ -157,15 +149,13 @@ impl Plugin for ShellLauncherPlugin {
                 (
                     crate::experience::sync_registry_into_launch_catalog,
                     sync_launcher_activation,
-                    // A nav/confirm edge consumed this frame moves the cursor
-                    // or launches THIS frame — never a frame later.
+                    // Apply navigation in the same frame as the input.
                     process_launcher_commands.after(InputSet::Consume),
                 )
                     .chain()
                     .after(AmbitionGameShellSet::Pending),
             )
-            // The launcher surface OWNS the launcher input context: claimed
-            // while the launcher route is active, retracted when it is not.
+            // The launcher claims its input context while its route is active.
             .add_systems(
                 Update,
                 declare_launcher_context
@@ -195,9 +185,8 @@ fn declare_startup_acknowledge_context(
     }
 }
 
-/// While the launcher route is active, the launcher context owns the
-/// participant's actions — capturing, so gameplay actions cannot route
-/// underneath the title menu.
+/// While the launcher route is active, the launcher context captures the
+/// participant's actions, so gameplay does not act under the title menu.
 fn declare_launcher_context(
     state: Res<ShellLauncherState>,
     mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
@@ -258,25 +247,17 @@ fn process_shell_commands(
     }
 }
 
-/// Ask this route's activation gates, then activate — in ONE exclusive operation.
+/// Ask this route's activation gates, then activate, in one exclusive
+/// operation.
 ///
-/// ⛔⛤ **EXCLUSIVE BECAUSE ATOMICITY IS THE WHOLE REQUIREMENT (`Q118`).** This was
-/// an ordinary system reading `Res<ShellRouteHolds>`, and the design that was
-/// about to be built had each participant CHECK its condition in an earlier
-/// system and RELEASE its hold when the condition held. Measured, that interval
-/// is real: a rollback ownership change landing between the check and
-/// `RouteActivated` publishes a generation against a timeline that no longer
-/// permits it. A block released on an earlier check is that check with extra
-/// steps.
+/// Exclusive for atomicity (`Q118`): if a gate were checked in an earlier
+/// system, a rollback ownership change could land between the check and
+/// `RouteActivated`. Each registered evaluator runs here, in the same world
+/// access that emits `RouteActivated`.
 ///
-/// ⇒ So a gate never releases itself. Each registered evaluator runs HERE,
-/// inside the same exclusive world access that then emits `RouteActivated`, and
-/// nothing can run in between.
-///
-/// ⚠ **A HOLD WITH NO REGISTERED GATE IS AN ORDINARY HOLD** and still blocks —
-/// `ambition_load_presentation`'s loading-screen hold is one, and it releases
-/// itself on its own schedule because it is a PRESENTATION beat, not an
-/// authorization. Only a hold whose owner registered an evaluator is asked.
+/// A hold with no registered gate is an ordinary hold and still blocks (e.g.
+/// the loading-screen hold in `ambition_load_presentation`, which releases
+/// itself).
 fn advance_pending_route(world: &mut bevy::prelude::World) {
     let pending_route = world
         .resource::<ShellRouter>()
@@ -284,11 +265,8 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
         .as_ref()
         .map(|pending| pending.route_id.clone());
     if let Some(route_id) = pending_route {
-        // ⛔ ONLY WHEN THE ROUTE WOULD OTHERWISE ACTIVATE. `Admit` CONSUMES a
-        // hold, so asking on a frame where the barrier is not ready would
-        // consume it early and leave the route unheld until readiness arrives —
-        // the exact window this machinery exists to close, reopened by it. See
-        // `ShellRouter::ready_but_for_holds`.
+        // Ask only when the route would otherwise activate: `Admit` consumes
+        // a hold. See `ShellRouter::ready_but_for_holds`.
         let ready = {
             let router = world.resource::<ShellRouter>();
             let loads = world.resource::<LoadCoordinator>();
@@ -307,9 +285,8 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
                 .collect()
         };
         for (hold, evaluator) in gated {
-            // ⛔ THE ANSWER IS TAKEN NOW. `run_system` executes inside this
-            // exclusive access, so the world the gate inspected is the world the
-            // activation below happens in.
+            // `run_system` runs inside this exclusive access, so the gate sees
+            // the same world the activation uses.
             let verdict = world
                 .run_system(evaluator)
                 .unwrap_or(crate::router::ShellGateVerdict::Hold);
@@ -321,17 +298,10 @@ fn advance_pending_route(world: &mut bevy::prelude::World) {
                         .release(&route_id, &hold);
                 }
                 crate::router::ShellGateVerdict::Refuse => {
-                    // ⛔⛤ **CANCEL FIRST, THEN RELEASE — AND MY FIRST VERSION DID
-                    // IT THE OTHER WAY AND LET A REFUSED ROUTE THROUGH.** It
-                    // released the hold and wrote `ShellCommand::CancelPending`,
-                    // which is correlated by REQUEST ID: a transaction started by
-                    // `GoTo` carries `None`, so nothing cancelled it and the very
-                    // next frame activated the route the gate had just refused.
-                    // The refusal arm is what caught it.
-                    //
-                    // ⇒ The router cancels the pending transaction DIRECTLY here,
-                    // inside the same exclusive access, so there is no frame in
-                    // which the route is both unheld and still pending.
+                    // Cancel first, then release. Cancel directly on the
+                    // router, not through `ShellCommand::CancelPending`: a
+                    // `GoTo` transaction has no request id, so that command
+                    // would not match it and the route would activate.
                     let cancelled = world.resource_scope(
                         |world, mut router: bevy::prelude::Mut<ShellRouter>| {
                             world.resource_scope(
@@ -388,25 +358,13 @@ fn cleanup_scoped_entities(
     }
 }
 
-/// Surface every terminal shell-routing failure to the log, in ANY host.
+/// The reasons routing has refused this host, kept where a consumer can read
+/// them.
 ///
-/// A windowed shell renders load failures through `ambition_load_presentation`, but a headless
-/// host — a scripted test, a CI gate, an out-of-tree consumer's binary — has no presentation
-/// layer. The router now carries the coordinator's well-worded [`LoadFailure`] reasons through
-/// [`ShellCommandRejection::LoadFailed`]; this system is what makes them observable. Logging is
-/// purely additive: it never suppresses the user-facing presentation, it only guarantees the
-/// developer detail reaches the log wherever the sim runs. The reasons routing has refused this
-/// host, kept where a consumer can READ them.
-///
-/// These reasons already existed and already reached the log. That was not enough, and slice
-/// B paid for finding out. A movement-only game composed, booted, and sat in `Activating` for
-/// 600 ticks: preparation had refused it over a missing audio fragment, `log_shell_rejection`
-/// said so at `error!`, and the consumer — a headless test with no log subscriber — saw a host
-/// that simply never started. `ShellCommandRejection::LoadFailed`'s own doc comment already
-/// recorded the shape of this: without the carried failures "the route appeared to stall
-/// forever with no diagnosable cause".
-///
-/// A log line is an operator affordance. This is the API one.
+/// A headless host (a scripted test, a CI gate, an external binary) has no load
+/// presentation and may have no log subscriber. Without this record, a refused
+/// route (e.g. a missing audio fragment in [`LoadFailure`] reasons from
+/// [`ShellCommandRejection::LoadFailed`]) looks like a host that never starts.
 #[derive(bevy::prelude::Resource, Default, Debug, Clone)]
 pub struct ShellFailureLog {
     reasons: Vec<String>,
@@ -432,9 +390,7 @@ impl ShellFailureLog {
     }
 }
 
-/// One reader of `ShellEvent` for failures, recording AND logging.
-///
-/// Deliberately not two systems.
+/// Record and log routing failures from `ShellEvent`, in one reader.
 fn log_shell_routing_failures(
     mut events: MessageReader<ShellEvent>,
     mut failures: ResMut<ShellFailureLog>,
@@ -454,13 +410,9 @@ fn log_shell_routing_failures(
                 error!("shell experience {activation_id:?} failed: {message}");
                 failures.record(format!("experience failed: {message}"));
             }
-            // ⛔ `TransactionEnded` IS DELIBERATELY NOT RECORDED HERE, and the
-            // reason is already written below: cancellation and supersession are
-            // terminal without being wrong. The `Failed` reason is not silence
-            // either — `advance_pending` emits `CommandRejected(LoadFailed { .. })`
-            // alongside it, carrying the provider's per-failure detail, and that
-            // arm above logs it. Recording the identity event too would double
-            // every real failure and add a line for every ordinary navigation.
+            // `TransactionEnded` is not recorded. Cancellation and supersession
+            // are not faults, and a `Failed` end always comes with
+            // `CommandRejected(LoadFailed { .. })`, which the arm above logs.
             _ => {}
         }
     }
@@ -469,9 +421,8 @@ fn log_shell_routing_failures(
 /// A refusal as one line a consumer can act on, or `None` for the routine
 /// non-faults.
 ///
-/// Cancellation and supersession are terminal without being wrong — they are
-/// ordinary navigation — so recording them would fill the log with noise and
-/// teach readers to ignore it, which is how a guard becomes decoration.
+/// Cancellation and supersession are ordinary navigation, so they are not
+/// recorded.
 fn describe_rejection(rejection: &ShellCommandRejection) -> Option<String> {
     match rejection {
         ShellCommandRejection::LoadFailed {
@@ -516,8 +467,7 @@ fn log_shell_rejection(rejection: &ShellCommandRejection) {
             failures,
         } => {
             if failures.is_empty() {
-                // Cancellation / supersession are terminal but carry no per-work
-                // failure — routine navigation, not a fault worth an error line.
+                // Cancellation or supersession: routine navigation, not a fault.
                 debug!("shell route load ended {readiness:?} with no per-work failure");
             } else {
                 for failure in failures {
@@ -535,13 +485,11 @@ fn log_shell_rejection(rejection: &ShellCommandRejection) {
                 }
             }
         }
-        // A command that targeted an activation the router already superseded is
-        // a benign navigation race, not a misconfiguration.
+        // A command for an already-superseded activation is a benign race.
         ShellCommandRejection::StaleActivation(activation_id) => {
             debug!("shell command rejected — stale activation {activation_id:?}");
         }
-        // Host misconfiguration or a load-commit contract violation: an author or
-        // integrator error the external consumer needs to see loudly.
+        // Host misconfiguration or a load-commit contract violation.
         other => error!("shell command rejected: {other:?}"),
     }
 }
@@ -708,17 +656,10 @@ fn sync_launcher_activation(
 }
 
 /// Apply a settings-tab row activation: move the cursor there and step the
-/// control in the POSITIVE direction.
+/// control in the positive direction, as the pause menu does. The adjust rule
+/// lives in `ShellAudioControl`.
 ///
-/// ⭐ THE SAME CONVENTION THE PAUSE MENU ALREADY STATES -- *"Confirm on an audio
-/// row is the positive direction: mute toggles and volume sliders step up."* Two
-/// surfaces offering the same four controls must answer a confirm the same way,
-/// and the only way to guarantee that is one implementation: the adjust LAW stays
-/// in `ShellAudioControl`, exactly as `AdjustSetting` already uses it.
-///
-/// ⚠ CLAMPED TO THE CONTROL LIST, not to the game list. The row index arriving
-/// here is a position in the settings rows, and clamping it to the number of
-/// games is how a hover on the last control lands on the wrong one.
+/// The index is clamped to the settings rows, not the game list.
 fn adjust_settings_row(
     index: usize,
     state: &mut crate::launcher::ShellLauncherState,
@@ -737,9 +678,8 @@ fn process_launcher_commands(
     presentation: Res<ShellLauncherPresentation>,
     mut state: ResMut<ShellLauncherState>,
     mut shell: MessageWriter<ShellCommand>,
-    // ⚠ `Option`: a thin composition may not carry user settings, and a title
-    // screen that refuses to open because nobody registered a volume would be a
-    // worse failure than a settings tab that cannot change one.
+    // `Option`: a thin composition may have no user settings. The title screen
+    // must still open.
     mut settings: Option<ResMut<ambition_persistence::settings::UserSettings>>,
 ) {
     if !state.active {
@@ -753,40 +693,17 @@ fn process_launcher_commands(
     // The Exit row sits after the last available experience.
     let exit_index = presentation.exit_label.is_some().then_some(available.len());
     let selectable = available.len() + usize::from(exit_index.is_some());
-    // ⛔ NOT AN EARLY RETURN ANY MORE. With no launchable row this bailed before
-    // reading a single command -- which was fine when every command was about
-    // the game list, and silently disables the SETTINGS tab now that one exists.
-    // A build with an empty catalog is exactly where a player still wants the
-    // volume controls.
+    // Not an early return: the settings tab must work with an empty catalog.
     let has_launchable = selectable > 0;
     for command in commands.read() {
         match command {
-            // ⛔ THE SECOND COPY OF THE SAME ARITHMETIC. This wrote
-            // `checked_sub(1).unwrap_or(len - 1)` and `(selected + 1) % len`
-            // by hand, which is exactly `ListCursor`'s wrap — the pause menu
-            // hand-rolled its own answer to the same question and DISAGREED
-            // (it clamped), which is why that crate exists. Two menus agreeing
-            // by coincidence is one edit away from two menus disagreeing.
-            //
-            // ⭐ AND IT CLAMPS FIRST NOW, which the old `Previous` did not: a
-            // `selected` left over from a longer roster (an experience became
-            // unavailable) walked from a stale index. `LaunchSelected` below
-            // already defended against exactly that with `.min(selectable - 1)`.
-            // ⭐ The tab strip cycles with wraparound, and the arithmetic lives
-            // on `LauncherTab` rather than here -- the comment below is about a
-            // second copy of cursor arithmetic, and a second copy of TAB
-            // arithmetic would be the same mistake one strip over.
+            // Tab arithmetic (with wraparound) lives on `LauncherTab`.
             ShellLauncherCommand::CycleTab(bump) => {
                 state.tab = state.tab.cycled(*bump);
-                // ⚠ The row cursor is per-tab in meaning but shared in storage,
-                // so a stale index from the longer tab would land somewhere
-                // arbitrary. Home re-clamps below on every move; Settings starts
-                // at its first row.
+                // Both tabs share one row cursor, so reset it on a tab change.
                 state.selected = 0;
             }
-            // The pointer's answer to the same question `CycleTab` answers for a
-            // gesture. Both clear the row cursor for the same reason, stated
-            // above: the cursor is per-tab in meaning but shared in storage.
+            // The pointer form of `CycleTab`. It also resets the shared cursor.
             ShellLauncherCommand::SelectTab(index) => {
                 state.tab = crate::launcher::LauncherTab::at_index(*index);
                 state.selected = 0;
@@ -794,10 +711,8 @@ fn process_launcher_commands(
             ShellLauncherCommand::SelectRow(row) => {
                 state.selected = *row;
             }
-            // ⭐ The adjust LAW stays in `ShellAudioControl`, which the pause
-            // menu already uses. Two surfaces offering the same four controls
-            // must change them the same way, and the only way to guarantee that
-            // is for there to be one implementation.
+            // The adjust rule lives in `ShellAudioControl`, shared with the
+            // pause menu.
             ShellLauncherCommand::AdjustSetting(direction) => {
                 if let Some(control) = ShellAudioControl::ALL.get(state.selected) {
                     if let Some(settings) = settings.as_mut() {
@@ -805,16 +720,12 @@ fn process_launcher_commands(
                     }
                 }
             }
-            // ⚠ The list arms are the ones that needed the old early return, and
-            // they keep it -- as a GUARD on themselves rather than on the whole
-            // command loop, so a tab or a volume still works with no games.
+            // Game-list arms guard themselves, so tab and volume commands still
+            // work with no games. Uses `ListCursor` (wraps), like the other
+            // menus, and clamps a stale `selected` first.
             ShellLauncherCommand::Previous | ShellLauncherCommand::Next => {
-                // ⚠ Guarded INSIDE the arm, not as a match guard: a guard clause
-                // makes this `match` non-exhaustive, and the only way back is a
-                // catch-all -- which would silently swallow the next command
-                // somebody adds. The exhaustive destructure is the thing that
-                // caught `CycleTab`, `SelectRow` and `AdjustSetting` on the way
-                // in, and it is worth more than the tidier syntax.
+                // Guard inside the arm, not as a match guard, so the match stays
+                // exhaustive with no catch-all.
                 if !has_launchable {
                     continue;
                 }
@@ -826,20 +737,15 @@ fn process_launcher_commands(
                 state.selected = cursor.selected();
             }
             ShellLauncherCommand::LaunchSelected => {
-                // Same rule as `Activate`: confirming on the settings tab is a
-                // settings gesture, not a launch. Reached by keyboard/controller
-                // confirm, so leaving it out would fix the pointer alone.
+                // Same rule as `Activate`: confirm on the settings tab is not a
+                // launch. This path is keyboard and controller confirm.
                 if state.tab == crate::launcher::LauncherTab::Settings {
                     adjust_settings_row(state.selected, &mut state, settings.as_mut());
                     continue;
                 }
-                // ⛔ ZERO ROWS UNDERFLOWS `selectable - 1`. An empty catalog with no
-                // exit label is a SUPPORTED state -- `basic_presentation` has an
-                // explicit empty-page branch for it -- so this is reachable, not
-                // theoretical. `Previous`/`Next` already return early on
-                // `!has_launchable`; these three did the arithmetic first.
-                // ⚠ AFTER the Settings check on purpose: settings rows have their own
-                // count and must keep working on an empty Home list.
+                // Zero rows would underflow `selectable - 1`; an empty catalog
+                // with no exit label is supported. After the Settings check, so
+                // settings rows still work on an empty Home list.
                 if !has_launchable {
                     continue;
                 }
@@ -853,46 +759,30 @@ fn process_launcher_commands(
             ShellLauncherCommand::Focus(index)
                 if state.tab == crate::launcher::LauncherTab::Settings =>
             {
-                // The settings tab has its OWN row count; clamping a hover to the
-                // number of GAMES puts the cursor on the wrong row whenever the
-                // two lists differ in length.
+                // Clamp to the settings row count, not the game count.
                 state.selected = (*index).min(ShellAudioControl::ALL.len() - 1);
             }
             ShellLauncherCommand::Focus(index) if !has_launchable => {
-                // Same zero-row rule as the confirm arms; a hover on an empty Home
-                // list has no row to settle on. Settings `Focus` is matched above.
+                // Same zero-row rule as the confirm arms. Settings `Focus` is
+                // matched above.
                 let _ = index;
             }
             ShellLauncherCommand::Focus(index) => {
-                // Clamped, not ignored: the row count can shrink between the
-                // frame a pointer hovered and the frame this runs (an
-                // experience becoming unavailable), and a hover that lands out
-                // of range should settle on the last row rather than leave the
-                // cursor somewhere the pointer is not.
+                // Clamp: the row count can shrink between the hover and this
+                // frame.
                 state.selected = (*index).min(selectable - 1);
             }
             ShellLauncherCommand::Activate(index) => {
-                // ⛔⛔ A ROW INDEX MEANS NOTHING WITHOUT ITS TAB, and this arm used
-                // to read it as a game every time. The settings rows carry
-                // `BasicLauncherAction(index)` -- deliberately, "the same contract
-                // the game rows use" -- so activating Master Volume sent
-                // `Activate(0)` here and LAUNCHED THE FIRST GAME. Jon, 2026-09-06:
-                // *"Double clicking master volume launches sanic. Double clicking
-                // music volume launches maryo."* Row 0 -> game 0, row 1 -> game 1;
-                // the positional correspondence IS the bug's signature.
-                //
-                // ⇒ The index is a position in WHICHEVER LIST THE TAB IS SHOWING.
+                // The index is a position in the list the current tab shows.
+                // Settings rows also use `BasicLauncherAction(index)`, so on
+                // the settings tab this must adjust, not launch a game.
                 if state.tab == crate::launcher::LauncherTab::Settings {
                     adjust_settings_row(*index, &mut state, settings.as_mut());
                     continue;
                 }
-                // ⛔ ZERO ROWS UNDERFLOWS `selectable - 1`. An empty catalog with no
-                // exit label is a SUPPORTED state -- `basic_presentation` has an
-                // explicit empty-page branch for it -- so this is reachable, not
-                // theoretical. `Previous`/`Next` already return early on
-                // `!has_launchable`; these three did the arithmetic first.
-                // ⚠ AFTER the Settings check on purpose: settings rows have their own
-                // count and must keep working on an empty Home list.
+                // Zero rows would underflow `selectable - 1`; an empty catalog
+                // with no exit label is supported. After the Settings check, so
+                // settings rows still work on an empty Home list.
                 if !has_launchable {
                     continue;
                 }

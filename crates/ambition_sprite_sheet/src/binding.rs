@@ -9,9 +9,9 @@ use crate::{SheetRecord, SheetRow};
 
 /// The animation rows of one sprite sheet.
 ///
-/// Scoped to a sheet, not global: two sheets legitimately have different rows,
-/// and "row `death` exists" is only ever a question about a particular sheet.
-/// Build the resolver from the sheet you are about to draw.
+/// Scoped to one sheet: two sheets have different rows, so "row `death`
+/// exists" is a question about one sheet. Build the resolver from the sheet
+/// you will draw.
 pub struct AnimRow;
 
 impl Namespace for AnimRow {
@@ -25,11 +25,12 @@ pub type AnimRowRef = Ref<AnimRow>;
 pub type BoundAnimRow = Bound<AnimRow>;
 
 impl SheetRecord {
-    /// The rows this sheet actually has, as the only thing that can resolve a
-    /// row name against it.
+    /// The rows this sheet has. Only this resolves a row name against the
+    /// sheet.
     ///
-    /// `Bound::slot()` is the row's index in [`SheetRecord::rows`], so a resolved
-    /// reference indexes the authored data directly — see [`Self::row`].
+    /// `Bound::slot()` is the row's index in [`SheetRecord::rows`], so a
+    /// resolved reference indexes the authored data directly (see
+    /// [`Self::row`]).
     pub fn anim_rows(&self) -> Resolver<AnimRow> {
         Resolver::new(self.rows.iter().map(|row| row.animation.as_str()))
     }
@@ -101,10 +102,9 @@ mod tests {
         }
     }
 
-    /// The Mary-O bug, as a fact about the engine rather than a playtest note:
-    /// the sheet spells the row `death`, the policy asks for `dead`, and what
-    /// comes back is a report naming the sheet's real rows — not row 0, not
-    /// `None`, and not a silently substituted idle.
+    /// The sheet names the row `death` and the policy asks for `dead`. The
+    /// result is a report that names the sheet's real rows: not row 0, not
+    /// `None`, and not a substituted idle.
     #[test]
     fn a_misnamed_anim_row_is_reported_not_degraded() {
         let sheet = sheet_with_rows(&["idle", "walk", "run", "jump", "death"]);
@@ -128,9 +128,9 @@ mod tests {
         );
     }
 
-    /// A `Bound` from another sheet is caught rather than silently returning
-    /// whatever sits at the same index. The namespace marker cannot distinguish
-    /// two sheets, so this is the check that makes `row` honest in release.
+    /// A `Bound` from another sheet is caught, not used to return the row at
+    /// the same index. The namespace marker cannot tell two sheets apart, so
+    /// this check keeps `row` correct in release builds.
     #[test]
     #[should_panic(expected = "resolved against a different sheet")]
     fn a_binding_from_another_sheet_is_refused() {
@@ -140,13 +140,12 @@ mod tests {
             .anim_rows()
             .resolve(&AnimRowRef::new("death"), "sheet a")
             .expect("sheet a has it");
-        // Same slot exists in b, holding an unrelated row — the case that used
-        // to return `run` and draw the wrong animation.
+        // The same slot exists in b with an unrelated row.
         let _ = b.row(&bound);
     }
 
-    /// A resolved row indexes the authored rows directly, in sheet order — the
-    /// property that lets the name lookup disappear from every consumer.
+    /// A resolved row indexes the authored rows directly, in sheet order, so
+    /// consumers need no name lookup.
     #[test]
     fn a_resolved_row_indexes_the_sheet_in_authored_order() {
         let sheet = sheet_with_rows(&["idle", "walk", "death"]);
@@ -169,12 +168,11 @@ mod tests {
         assert_eq!(bound.id(), "smash_forward");
     }
 
-    /// A lean sheet falls through the AUTHORED chain, in order.
+    /// A lean sheet falls through the authored chain, in order.
     ///
-    /// two terms: the chain is tried left to right (so `attack_side` wins over
-    /// `slash` when both exist), and a sheet with NONE of them answers `None`
-    /// rather than index 0 — the `unwrap_or(0)` habit draws idle for a missing
-    /// attack row, which looks like a character that does not swing.
+    /// The chain is tried left to right (`attack_side` wins over `slash` when
+    /// both exist). A sheet with none of them gives `None`, not index 0, which
+    /// would draw idle for a missing attack row.
     #[test]
     fn a_lean_sheet_falls_through_the_authored_chain() {
         let lean = sheet_with_rows(&["idle", "walk", "attack_side", "slash"]);

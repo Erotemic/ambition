@@ -18,11 +18,9 @@ pub enum ShellSegmentRole {
 
 /// One picture in an image sequence, held for its own duration.
 ///
-/// Per-frame holds rather than a single frame rate: authored card animations are
-/// beat-based (a pose held while a caption reads, then a fast run of frames),
-/// and a uniform rate can only approximate that by repeating frames. Carrying
-/// the hold means a two-second pause costs ONE image, so a sequence ships only
-/// its distinct pictures.
+/// Per-frame holds, not one frame rate: card animations hold some poses and
+/// run others fast. A long hold costs one image, so a sequence ships only its
+/// distinct pictures.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ShellSequenceFrame {
     pub asset_path: String,
@@ -40,19 +38,16 @@ impl ShellSequenceFrame {
 
 /// Total time an image sequence occupies — the sum of its frame holds.
 ///
-/// The single authority for a sequence's length: the segment policy derives
-/// `auto_advance_after` from this so the animation cannot outlive or undershoot
-/// the card that hosts it.
+/// The segment policy derives `auto_advance_after` from this, so the card and
+/// its animation have the same length.
 pub fn image_sequence_total(frames: &[ShellSequenceFrame]) -> Duration {
     frames
         .iter()
         .fold(Duration::ZERO, |total, frame| total + frame.hold)
 }
 
-/// Index of the frame showing at `elapsed`, played ONCE and holding the last.
-///
-/// A vanity card is not a loop: past the end it stays on the final picture so
-/// the segment's fade-out lands on the punchline rather than a wrapped frame.
+/// Index of the frame showing at `elapsed`. Plays once and holds the last
+/// frame, so the fade-out shows the final picture.
 pub fn image_sequence_frame_at(frames: &[ShellSequenceFrame], elapsed: Duration) -> usize {
     let mut boundary = Duration::ZERO;
     for (index, frame) in frames.iter().enumerate() {
@@ -142,8 +137,8 @@ impl ShellSegmentSpec {
         }
     }
 
-    /// A sequence played at one uniform rate — the degenerate case of
-    /// [`Self::image_sequence_timed`], which every frame holding equally.
+    /// A sequence played at one uniform rate: [`Self::image_sequence_timed`]
+    /// with equal holds.
     pub fn image_sequence<I, S>(
         id: impl Into<ShellSegmentId>,
         frames: I,
@@ -170,8 +165,7 @@ impl ShellSegmentSpec {
 
     /// A sequence whose frames each carry their own hold.
     ///
-    /// The segment's `auto_advance_after` is DERIVED from the frame holds, so
-    /// the card lives exactly as long as its animation.
+    /// The segment's `auto_advance_after` is derived from the frame holds.
     pub fn image_sequence_timed<I>(
         id: impl Into<ShellSegmentId>,
         frames: I,
@@ -392,8 +386,7 @@ mod image_sequence_tests {
     fn frame_lookup_respects_each_frames_own_hold() {
         let frames = frames();
         let at = |ms| image_sequence_frame_at(&frames, Duration::from_millis(ms));
-        // A short lead-in frame must not swallow the long one after it, which is
-        // exactly what a uniform frame rate would get wrong.
+        // A short lead-in frame must not swallow the long one after it.
         assert_eq!(at(0), 0);
         assert_eq!(at(49), 0);
         assert_eq!(at(50), 1);
@@ -404,8 +397,7 @@ mod image_sequence_tests {
     #[test]
     fn the_sequence_plays_once_and_holds_the_last_frame() {
         let frames = frames();
-        // Past the end it must NOT wrap to frame 0 — the card's fade-out has to
-        // land on the punchline.
+        // Past the end it must not wrap to frame 0.
         assert_eq!(
             image_sequence_frame_at(&frames, Duration::from_millis(1000)),
             2
@@ -420,8 +412,7 @@ mod image_sequence_tests {
 
     #[test]
     fn segment_duration_is_derived_from_the_frames_not_hand_set() {
-        // The animation and the card lifetime cannot drift: the policy's
-        // auto-advance is the frame total.
+        // The policy's auto-advance is the frame total.
         let spec = ShellSegmentSpec::image_sequence_timed("card", frames(), "alt");
         assert_eq!(
             spec.policy.auto_advance_after,

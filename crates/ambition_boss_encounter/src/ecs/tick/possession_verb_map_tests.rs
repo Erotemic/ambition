@@ -18,11 +18,10 @@ fn melee_frame(axis: ae::LocalAxes) -> ActorControlFrame {
     f
 }
 
-/// G5: the possessed controller's aim resolves through the directional-verb
-/// chain over the profile's authored `possessed_verbs` — neutral sweeps,
-/// down slams, up raises the shockwave, special rains apples. The resolved
-/// ids are exactly the `limb_routing` keys, so aboard the giant these ARE
-/// the limb verbs.
+/// The possessed controller's aim resolves through the directional-verb chain
+/// over the profile's authored `possessed_verbs`: neutral sweeps, down slams,
+/// up raises the shockwave, special rains apples. The resolved ids are the
+/// `limb_routing` keys, so aboard the giant these are the limb verbs.
 #[test]
 fn possessed_verbs_resolve_directionally() {
     let behavior = rider_behavior();
@@ -59,10 +58,9 @@ fn possessed_verbs_resolve_directionally() {
     assert_eq!(got, BossAttackProfile::Special("apple_rain".to_string()));
 }
 
-/// A boss that authors NO possessed verbs keeps the legacy deterministic
-/// mapping byte-for-byte: melee → the primary authored strike (`slot(0)`),
-/// special → the signature content special. No behavior change for every
-/// existing possessable boss.
+/// A boss with no possessed verbs keeps the fixed mapping: melee → the
+/// primary authored strike (`slot(0)`), special → the signature content
+/// special.
 #[test]
 fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
     let behavior = crate::pattern::profile::BossBehaviorProfile::clockwork_warden();

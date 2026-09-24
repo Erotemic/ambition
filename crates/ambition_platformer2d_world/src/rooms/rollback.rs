@@ -20,10 +20,9 @@ const OWNER: &str = "ambition_platformer2d_world";
 /// The active/start room identity, which is what a desync check needs from the
 /// graph.
 ///
-/// ⭐ THE IDENTITY, NOT THE GRAPH. Rewinding into a different ROOM is the
-/// divergence worth catching; the specs themselves are authored content and do
-/// not change under simulation, so hashing them would cost a walk of the whole
-/// world every checksum to detect nothing.
+/// Hash the identity, not the graph. Rewinding into a different room is the
+/// divergence to catch. Room specs are authored content that simulation does
+/// not change, so hashing them would cost a full walk and detect nothing.
 fn room_set_checksum(rooms: &super::RoomSet) -> u64 {
     let mut bytes = Vec::new();
     put_u64(&mut bytes, rooms.active as u64);
@@ -44,12 +43,9 @@ where
         "active/start room identity checksum",
         room_set_checksum,
     );
-    // ⭐ **WHICH LIVE ROOM, WHICH `root.room_set` CANNOT SAY.** The room-set
-    // checksum above folds the active INDEX and the active room's id, and both
-    // read the same after a session leaves a room and comes back — so a rewind
-    // past the second publication restores a world the checksum above cannot
-    // distinguish from the one before it. This row is the distinction, and it
-    // is canonical rather than clone because the whole value is the identity.
+    // The room-set checksum cannot tell a revisit from the earlier visit:
+    // index and id are the same. This row makes that distinction. It is
+    // canonical rather than clone because the whole value is the identity.
     registrar.rollback_component_canonical::<super::LiveRoomInstance>(
         OWNER,
         "root.live_room_instance",

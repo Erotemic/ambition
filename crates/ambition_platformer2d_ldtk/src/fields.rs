@@ -278,22 +278,17 @@ pub(super) fn edge_exit_step_up_px(level: &LdtkLevel, rect: (i32, i32, i32, i32)
     ((outside - inside) * grid).max(0)
 }
 
-/// The id an authored `BossSpawn` placement is known by — **the durable
-/// progress key**.
+/// The id an authored `BossSpawn` placement is known by: the durable progress
+/// key.
 ///
-/// ⭐⭐ ONE DEFINITION, because two readers need it and they must not disagree:
-/// `convert_boss_spawn` stamps it onto the placement, and the authored-integrity
-/// guard resolves the same set to check that every `boss_cleared("…")` an
-/// author typed names a placement that exists.
+/// One definition for two readers that must agree: `convert_boss_spawn` stamps
+/// it onto the placement, and the authored-integrity guard checks that every
+/// `boss_cleared("…")` names a placement that exists.
 ///
-/// Jon's ruling on decision 57 (2026-09-05): *"Boss progress is keyed only by
-/// stable authored encounter/placement IDs."* An authored `encounter_id` IS that
-/// id; the LDtk iid is the fallback for a placement nobody has named yet.
-///
-/// ⛔⛔ THE FALLBACK IS A LEGACY ROAD, NOT A DESIGN. An iid is a name no author
-/// can know, so a placement gated by dialogue MUST carry an `encounter_id` —
-/// that is exactly how `boss_cleared("mockingbird")` came to ask the BEHAVIOUR
-/// id of a save keyed `BossSpawn-4308` and could never be true.
+/// Boss progress is keyed only by stable authored ids (decision 57). An
+/// authored `encounter_id` is that id; the LDtk iid is a fallback for an
+/// unnamed placement. An author cannot know an iid, so a placement gated by
+/// dialogue must carry an `encounter_id`.
 pub fn boss_placement_id(entity: &LdtkEntityInstance) -> String {
     field_string(entity, "encounter_id")
         .map(|authored| authored.trim().to_string())

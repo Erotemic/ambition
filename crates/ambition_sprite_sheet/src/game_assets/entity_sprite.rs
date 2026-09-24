@@ -13,9 +13,8 @@ use ambition_persistence::settings::TextureResolutionScale;
 
 /// Single-frame entity sprites keyed off the gen2d manifest.
 ///
-/// Every variant maps to `entities/<lower_snake_case>.png` under the
-/// configured sprite folder. Adding a new entry here only requires a path
-/// in `relative_path` — loading is data-driven.
+/// Each variant maps to `entities/<lower_snake_case>.png` under the configured
+/// sprite folder. A new entry needs only a path in `relative_path`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EntitySprite {
     // Features
@@ -31,8 +30,8 @@ pub enum EntitySprite {
     NpcTerminal,
     BossCore,
     SandbagDummy,
-    // Switch on/off — chosen state-aware in `state_aware_entity_sprite` by the
-    // `FeatureView::switch_on` flag (armed = on, disabled = off).
+    // Switch on/off: `state_aware_entity_sprite` chooses by
+    // `FeatureView::switch_on` (armed = on, disabled = off).
     SwitchArmed,
     SwitchDisabled,
     // Blocks / surfaces
@@ -44,34 +43,27 @@ pub enum EntitySprite {
     EdgeExit,
     // Player projectiles (Fireball + Hadouken share the same sprite)
     ProjectileEnergy,
-    // 32×32 tile sprites for IntGrid-derived block surfaces. Rendered
-    // via `Sprite::image_mode = Tiled` so they REPEAT across the
-    // arbitrary aspect ratios that long floors / tall walls produce,
-    // instead of stretching one sprite across the whole footprint.
-    /// A LIVE bonus block — warm plate, rivets, interrobang glyph.
+    // 32×32 tile sprites for IntGrid block surfaces. Rendered with
+    // `Sprite::image_mode = Tiled` so they repeat across long floors and tall
+    // walls instead of stretching.
+    /// A live bonus block: warm plate, rivets, interrobang glyph.
     ///
-    /// not reachable from `BlockKind`, and that is the point. Bonus blocks
-    /// are `BlockKind::Solid` like every wall, so no kind-derived lookup can
-    /// tell them apart; a game names this through the `BlockArt` component
-    ///. The USED state needs no art of its own — a spent block drops
-    /// the override and falls back to `SolidTile`, which is exactly the plain
-    /// block it becomes.
+    /// Not reachable from `BlockKind`: bonus blocks are `BlockKind::Solid` like
+    /// every wall, so a game names this through the `BlockArt` component.
     BonusBlockTile,
-    /// A USED bonus block — the same plate and rivets, drained and glyphless.
+    /// A used bonus block: the same plate and rivets, drained and glyphless.
     ///
-    /// a spent block does NOT fall back to `SolidTile`, which was the first design. A used
-    /// block that looks like a wall hides its own history: a player deciding whether a block is
-    /// worth hitting cannot tell it from masonry.
+    /// A spent block does not use `SolidTile`. A used block that looks like a
+    /// wall would hide its history from a player deciding whether to hit it.
     SpentBlockTile,
     SolidTile,
     OneWayTile,
     HazardTile,
     SoftBlinkTile,
     HardBlinkTile,
-    /// Visual for the encounter-driven "lock wall" block that
-    /// `sync_lock_walls` inserts into `world.blocks` while an
-    /// encounter is in flight. Uses a dedicated tile so it reads as
-    /// "this just appeared" rather than blending into adjacent walls.
+    /// The encounter "lock wall" block that `sync_lock_walls` inserts into
+    /// `world.blocks` during an encounter. It has its own tile so it looks new,
+    /// not like the adjacent walls.
     LockWallTile,
 }
 
@@ -144,11 +136,10 @@ impl EntitySprite {
 
 /// Stable [`AssetId`] for an [`EntitySprite`].
 ///
-/// The id namespace is `sprite.entity.<lower_snake>` — part of the
-/// public asset-catalog contract. Changing the format silently would
-/// invalidate authored manifests, so the per-variant suffix mapping is
-/// pinned by the test
-/// [`tests::every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace`].
+/// The namespace `sprite.entity.<lower_snake>` is part of the public
+/// asset-catalog contract; authored manifests depend on it.
+/// [`tests::every_entity_sprite_has_a_unique_asset_id_in_sprite_entity_namespace`]
+/// guards the mapping.
 pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
     let suffix = match key {
         EntitySprite::ChestClosed => "chest_closed",
@@ -183,11 +174,9 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
     AssetId::new(format!("sprite.entity.{suffix}"))
 }
 
-/// Stable [`AssetId`] for a parallax background layer.
-///
-/// Namespace: `background.parallax.<theme>.<layer>` — same shape as
-/// the existing relative path `backgrounds/parallax_layers/{theme}_{layer}.png`
-/// but flattened into a dotted logical id.
+/// Stable [`AssetId`] for a parallax background layer:
+/// `background.parallax.<theme>.<layer>`, the dotted form of
+/// `backgrounds/parallax_layers/{theme}_{layer}.png`.
 pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) -> AssetId {
     AssetId::new(format!(
         "background.parallax.{}.{}",
@@ -196,22 +185,19 @@ pub fn parallax_layer_asset_id(theme: ParallaxTheme, layer: ParallaxLayerAsset) 
     ))
 }
 
-/// Build the sandbox's optional-image manifest: every [`EntitySprite`]
-/// plus every `(ParallaxTheme, ParallaxLayerAsset)` pair, keyed by
-/// stable logical ids and pointed at the configured `sprite_folder` /
-/// the canonical `backgrounds/parallax_layers/` tree.
+/// Build the sandbox's optional-image manifest: every [`EntitySprite`] and
+/// every `(ParallaxTheme, ParallaxLayerAsset)` pair, keyed by stable logical
+/// ids, under `sprite_folder` and `backgrounds/parallax_layers/`.
 ///
-/// All entries are optional — [`MissingAssetPolicy::SilentPlaceholder`]
-/// so the rendering layer's colored-rectangle fallback fires for any
-/// asset Bevy fails to locate. Preload groups:
+/// All entries use [`MissingAssetPolicy::SilentPlaceholder`], so the
+/// colored-rectangle fallback shows for any missing asset. Preload groups:
 ///
 /// - Entity sprites → [`PreloadGroup::SandboxCore`] (used everywhere)
 /// - Parallax layers → [`PreloadGroup::Zone`] (per-room art)
 ///
-/// The function is `pub` so tests + future tools (e.g. a content
-/// validator) can introspect the registered ids without going through
-/// Bevy. Live image loading consumes it through
-/// [`load_game_assets`] / [`load_entity_sprites`] / [`load_parallax_layers`].
+/// It is `pub` so tests and tools can list the ids without Bevy. Live loading
+/// uses it through [`load_game_assets`] / [`load_entity_sprites`] /
+/// [`load_parallax_layers`].
 pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
     let mut manifest = AssetManifest::new();
     for &sprite in EntitySprite::ALL {
@@ -220,10 +206,9 @@ pub fn sandbox_image_manifest(sprite_folder: &str) -> AssetManifest {
         let entry = AssetEntry::new(id, AssetKind::Image, logical_path)
             .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
             .with_preload_group(PreloadGroup::SandboxCore);
-        // Only author the Embedded candidate when the
-        // `static_core_assets` feature is on. Without the feature,
-        // `AmbitionAssetSourcePlugin` doesn't insert the bytes — the
-        // candidate would resolve to a 404 on WebStatic.
+        // Add the Embedded candidate only with `static_core_assets`. Without
+        // it, `AmbitionAssetSourcePlugin` does not insert the bytes and the
+        // candidate gives a 404 on WebStatic.
         #[cfg(feature = "static_core_assets")]
         let entry = if let Some(embedded_url) = entity_sprite_embedded_core_url(sprite) {
             entry.with_location(
@@ -297,16 +282,14 @@ pub(crate) fn insert_scaled_image_entry(
     );
 }
 
-/// Return the embedded-core URL for an [`EntitySprite`] when that
-/// sprite is part of the bounded "core visual" set the
-/// `static_core_assets` feature packages. The URL pairs with the
-/// `EmbeddedAssetRegistry::insert_asset` call inside
+/// The embedded-core URL for an [`EntitySprite`] in the "core visual" set that
+/// `static_core_assets` packages. It pairs with the
+/// `EmbeddedAssetRegistry::insert_asset` call in
 /// `crate::assets::platformer_assets::register_embedded_core_assets`.
 ///
-/// Out-of-set sprites (parallax layers, breakables, boss variants,
-/// LDtk debug tiles) return `None` — they keep the colored-rectangle
-/// fallback on `WebStatic` / `BundledStatic` until a follow-up slice
-/// packages them.
+/// Other sprites (parallax layers, breakables, boss variants, LDtk debug tiles)
+/// return `None` and use the colored-rectangle fallback on `WebStatic` /
+/// `BundledStatic`.
 #[cfg_attr(not(feature = "static_core_assets"), allow(dead_code))]
 pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static str> {
     use ambition_asset_manager::platformer_assets::embedded_core;
@@ -327,22 +310,18 @@ pub fn entity_sprite_embedded_core_url(sprite: EntitySprite) -> Option<&'static 
     }
 }
 
-/// Convenience: wrap [`sandbox_image_manifest`] in a Bevy-side catalog
-/// resource. Constructed per [`load_game_assets`] call so a future
-/// `--sprite-folder` toggle re-resolves cleanly.
+/// Wrap [`sandbox_image_manifest`] in a Bevy-side catalog resource.
 ///
-/// Only the tests in this file build the catalog this way today;
-/// production startup uses `build_platformer2d_asset_catalog` instead. Kept
-/// pub so future `--sprite-folder` toggles can adopt it without a
-/// visibility change.
+/// Only tests in this file use this; production startup uses
+/// `build_platformer2d_asset_catalog`.
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn build_sandbox_image_catalog(sprite_folder: &str) -> AmbitionAssetCatalog {
     AmbitionAssetCatalog::new(sandbox_image_manifest(sprite_folder))
 }
 
-/// Map from `EntitySprite` to its loaded `Handle<Image>`. Missing handles
-/// (file absent on disk OR no-asset mode) simply aren't keyed, so callers
-/// just consult `get(...) -> Option<&Handle<Image>>`.
+/// Map from `EntitySprite` to its loaded `Handle<Image>`. A missing file or
+/// no-asset mode leaves the key absent, so callers use
+/// `get(...) -> Option<&Handle<Image>>`.
 #[derive(Default, Clone)]
 pub struct EntitySpriteSet {
     pub(super) handles: HashMap<EntitySprite, Handle<Image>>,

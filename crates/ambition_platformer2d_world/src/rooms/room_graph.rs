@@ -84,13 +84,9 @@ impl RoomSpec {
 
 /// Why a room set could not be built.
 ///
-/// ⛔⛤ **BOTH VARIANTS WERE SILENT UNTIL 2026-09-20 — ONE A FALLBACK AND ONE
-/// A TIME BOMB.** An unresolvable start room selected room 0, so a caller
-/// asking for room X ran a different one; an empty `rooms` produced
-/// `active = start = 0` indexing nothing, which makes [`RoomSet::active_spec`]
-/// and the room-set rollback checksum panic at whatever unrelated moment first
-/// reads them. Neither is a state the type can represent, so neither is a
-/// state it will build.
+/// An unresolvable start room refuses; there is no fallback to room 0. An empty
+/// `rooms` refuses, because `active = start = 0` would index nothing and make
+/// [`RoomSet::active_spec`] and the room-set rollback checksum panic later.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RoomSetRefused {
     /// No rooms at all, so no index can name a live one.
@@ -105,19 +101,14 @@ pub enum RoomSetRefused {
     /// Two rooms answer to one id, so the set holds two answers to *"which
     /// room is this"*.
     ///
-    /// ⛔⛤ **IT WAS ACCEPTED, AND THE TWO ANSWERS DISAGREED — REVIEW
-    /// 2026-09-21.** The constructor's `by_id` is a `HashMap`, so a duplicate
-    /// insert keeps the LAST room; [`RoomSet::room_index_by_id`] is a linear
-    /// `position()`, so it returns the FIRST. Given `rooms[0].id ==
-    /// rooms[1].id == "lab"`, `try_from_parts("lab", ..)` starts in room 1 and
-    /// every authored link naming `"lab"` resolves to room 1, while
-    /// `set_active_by_id("lab")` moves the session to room 0. One `RoomSet`
-    /// then means two different rooms depending on which road asked.
+    /// The constructor's `by_id` is a `HashMap`, so a duplicate insert keeps
+    /// the last room; [`RoomSet::room_index_by_id`] is a linear `position()`,
+    /// so it returns the first. With two rooms named `"lab"`, start and
+    /// authored links would resolve to room 1 while `set_active_by_id("lab")`
+    /// would go to room 0.
     ///
-    /// ⚠ NOT REPRODUCED IN SHIPPED CONTENT — no authored set holds a duplicate
-    /// today. It is refused because definition identity is about to carry more
-    /// weight rather than less: OW1 separates *"which room DEFINITION"* from
-    /// *"which live occurrence"*, and a definition id that names two
+    /// No shipped content has a duplicate. OW1 separates the room definition
+    /// from the live occurrence, and a definition id that names two
     /// definitions cannot be the stable half of that pair.
     DuplicateRoomId {
         id: String,
@@ -206,42 +197,29 @@ pub struct RoomLoaded {
 /// Small room graph for early loading-zone tests.
 #[derive(Component, Clone, Debug)]
 pub struct RoomSet {
-    /// ⚠ **STILL PUBLIC, AND THAT IS THE LIMIT OF THE INVARIANT BELOW.** Both
-    /// indices are now private and can only be written to a room that exists,
-    /// but a caller holding `&mut RoomSet` can still shorten this vector out
-    /// from under them. Closing it would move 94 read sites (`rooms.len()`,
-    /// `rooms.get(i)`, `rooms.iter()`) for a hole nothing in the workspace
-    /// reaches through: no caller mutates this vector after construction (the
-    /// one `rooms.push` in the workspace belongs to the menu map, a different
-    /// type).
+    /// Still public, which limits the invariant below: a caller with
+    /// `&mut RoomSet` can shorten this vector under the private indices. No
+    /// caller mutates it after construction. Making it private would move 94
+    /// read sites.
     pub rooms: Vec<RoomSpec>,
     /// Which room of [`Self::rooms`] is live, read through [`RoomSet::active`]
     /// and written through [`RoomSet::set_active`] / [`RoomSet::set_active_by_id`].
     ///
-    /// ⛔⛤ **NOT PUBLIC, BECAUSE IT IS AN INVARIANT RATHER THAN A VALUE.** It
-    /// must index `rooms`, and nothing outside this type was checking: three
-    /// callers assigned it directly and `set_active` CLAMPED an out-of-range
-    /// index instead of refusing, so a session told to build room 7 of a set of
-    /// two woke up in room 1 wearing room 7's geometry. That was measured by
-    /// accident on 2026-09-14 and guarded on exactly ONE road
-    /// (`StagedWorldViolation::TargetRoomOutOfRange`), which left every other
-    /// writer holding the old silent rule.
+    /// Private because it is an invariant, not a free value: it must index
+    /// `rooms`. All writes go through the setters, which refuse an
+    /// out-of-range index instead of clamping.
     ///
-    /// ⚠ It answers *which DEFINITION is live*, and that is not the same
-    /// question as *which live INSTANCE this is* — with two instances of one
-    /// room both would carry this index. Splitting the second question out is
-    /// OW1 in `docs/planning/engine/open-world-runtime-and-residency.md`; this
-    /// field being trustworthy is its precondition, not its answer.
+    /// It answers which definition is live, not which live instance this is;
+    /// two instances of one room would share this index. OW1 in
+    /// `docs/planning/engine/open-world-runtime-and-residency.md` separates
+    /// those questions and needs this field to be trustworthy.
     pub(crate) active: usize,
     /// Index of the room the player starts in on a fresh sandbox, read through
     /// [`RoomSet::start`] and written through [`RoomSet::set_start_by_id`].
     /// Captured at `from_parts` time so the "reset sandbox" flow can
     /// warp the player back without round-tripping through LDtk.
     ///
-    /// Private for the same reason as [`Self::active`]: it must index `rooms`,
-    /// and a type that enforces that invariant on one of its two indices
-    /// enforces nothing. Nothing outside this crate ever wrote it — which is
-    /// what makes closing it cost four call sites instead of thirty.
+    /// Private for the same reason as [`Self::active`]: it must index `rooms`.
     pub(crate) start: usize,
     pub(crate) graph: Graph<String, TransitionEdge>,
     pub(crate) room_nodes: Vec<NodeIndex>,

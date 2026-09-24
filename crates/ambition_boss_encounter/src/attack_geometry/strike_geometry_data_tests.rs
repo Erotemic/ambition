@@ -2,8 +2,8 @@ use super::*;
 use ambition_characters::brain::BossAttackProfile;
 use crate::behavior::BossBehaviorProfileExt;
 
-/// The ORIGINAL hardcoded `volumes_for_profile` arms, verbatim — the reference the
-/// `StrikeRect` DATA table (fable §C6) must reproduce byte-for-byte.
+/// The original hardcoded `volumes_for_profile` arms, verbatim — the reference the
+/// `StrikeRect` data table (fable §C6) must reproduce byte-for-byte.
 fn reference(attack: &BossAttackProfile, origin: ae::Vec2, size: ae::Vec2) -> Vec<ae::Aabb> {
     match attack.move_id().as_str() {
         "floor_slam" => vec![ae::Aabb::new(
@@ -86,9 +86,9 @@ fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
         BossAttackProfile::Strike("hazard_column".to_string()),
         BossAttackProfile::Special("overfit_volley".to_string()),
     ];
-    // Sweep a couple of origins + body sizes so the affine `factor*size + const`
-    // resolve is checked across scales (FloorSlam's fixed 22/18 px terms must NOT
-    // scale; every other factor must).
+    // Sweep several origins and body sizes, so the affine `factor*size + const`
+    // resolve is checked across scales (FloorSlam's fixed 22/18 px terms must
+    // not scale; every other factor must).
     for origin in [ae::Vec2::ZERO, ae::Vec2::new(120.0, -40.0)] {
         for size in [ae::Vec2::new(30.0, 48.0), ae::Vec2::new(64.0, 96.0)] {
             for p in &profiles {
@@ -107,11 +107,11 @@ fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
     }
 }
 
-/// §C6 "out of core": a boss AUTHORS its own strike rects in its behavior profile
-/// (RON-loaded here from the fixture), and that override REPLACES the built-in
-/// geometry for exactly that move — while every other profile keeps the built-in
-/// table. This is the seam a second game's boss uses to supply strike shapes with
-/// no edit to core's `strike_geometry`.
+/// A boss authors its own strike rects in its behavior profile (RON-loaded
+/// here from the fixture), and that override replaces the built-in geometry
+/// for that move only; every other profile keeps the built-in table. A second
+/// game's boss uses this to supply strike shapes without editing core's
+/// `strike_geometry`.
 #[test]
 fn an_authored_override_replaces_the_built_in_geometry_for_that_move() {
     use crate::behavior::BossBehaviorProfile;
@@ -131,7 +131,7 @@ fn an_authored_override_replaces_the_built_in_geometry_for_that_move() {
         .strike_geometry
         .insert("floor_slam".to_string(), vec![authored]);
 
-    // FloorSlam now resolves to the AUTHORED rect, not the built-in slab.
+    // FloorSlam now resolves to the authored rect, not the built-in slab.
     let slam = volumes_for_profile(
         &BossAttackProfile::Strike("floor_slam".to_string()),
         pos,

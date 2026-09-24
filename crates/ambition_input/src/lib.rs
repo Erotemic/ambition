@@ -4,21 +4,16 @@
 //! The engine-owned compact `ControlFrame` keeps movement physics independent
 //! from keyboards, gamepads, UI rebinding, or replay input.
 //!
-//! This is the upper-sibling input abstraction (ADR 0019): it depends DOWN on
-//! `ambition_platformer2d_core` for the `ControlFrame` vocabulary and on the
-//! input-domain `settings` (deadzones / trigger hysteresis / burst mode), but
-//! NEVER on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
+//! This is the upper-sibling input abstraction (ADR 0019). It depends on
+//! `ambition_platformer2d_core` for `ControlFrame` and on the input-domain
+//! `settings` (deadzones, trigger hysteresis, burst mode). It never depends
+//! on `ambition_platformer2d_actor_monolith` or `ambition_characters`.
 //!
-//! TODO(compat-remove): migrate remaining `crate::ControlFrame` callers to
+//! TODO(compat-remove): migrate the remaining `crate::ControlFrame` caller
+//! (`ambition_touch_input::bevy_plugin`) to
 //! `ambition_platformer2d_core::ControlFrame`, then remove the re-export.
-//! Down to 1 real caller (2026-09-18): `ambition_touch_input::bevy_plugin`,
-//! which would need a new direct manifest edge onto a crate this crate's own
-//! doc calls "app-thinness" (ADR 0019) — possibly not a compat leftover at
-//! all, so that needs a maintainer or architecture call, not a mechanical
-//! rename. `ambition_platformer2d::lib::world`'s prelude, the other candidate,
-//! turned out to be an accidental inconsistency rather than a deliberate
-//! surface — its sibling export, `ControlFrameModes`, already sourced the
-//! owner directly two lines below — and is migrated.
+//! That caller would need a new manifest edge onto an "app-thinness" crate
+//! (ADR 0019), so it needs an architecture decision, not a rename.
 
 use bevy::prelude::*;
 #[cfg(feature = "input")]
@@ -51,10 +46,9 @@ pub mod sources;
 #[cfg(test)]
 mod tests;
 
-/// Directional motion recognition (a rolling input buffer + a generic
-/// subsequence matcher) and the open, content-owned technique registry. Pure +
-/// headless; a game registers its own named gestures and the special-move gate
-/// consumes them.
+/// Directional motion recognition (a rolling input buffer and a subsequence
+/// matcher) and the content-owned technique registry. Pure and headless. A
+/// game registers its own gestures, and the special-move gate reads them.
 pub use motion_input::{
     MotionDirection, MotionInputBuffer, MotionSample, MotionTechnique, MotionTechniqueAppExt,
     MotionTechniqueCatalog,
@@ -67,8 +61,8 @@ pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
 pub use ambition_platformer2d_core::AttackStrengthHint;
 pub use ambition_platformer2d_core::ControlFrame;
-/// Which local source drives which control channel — the map that keeps a
-/// lobby's sparse source numbers out of the rollback host's dense handles.
+/// Maps each local source to a control channel, so a lobby's sparse source
+/// numbers stay out of the rollback host's dense handles.
 pub use channels::{LocalChannelPlan, LocalInputSource};
 #[cfg(feature = "input")]
 pub use control::{
@@ -125,45 +119,36 @@ pub use participant::{
 #[cfg(feature = "input")]
 pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
-/// HOW LOCAL SOURCES BECOME PARTICIPANTS, and who owns the keyboard when
-/// that is a question.
+/// How local sources become participants, and who owns the keyboard.
 pub use sources::{InputAssignmentPolicy, KeyboardOwner};
-// `key_name` joins this list rather than the module being opened: the crate
-// exposes a chosen surface, and a HUD legend needs exactly one function from it.
+// Export only `key_name`, not the whole module: a HUD legend needs only it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};
 pub use semantic::{
     ActionConflict, ActionControlKind, ActionRegistry, InstalledActions, SemanticActionDef,
     SemanticActionId, ENGINE_ACTIONS, ENGINE_CAPABILITY,
 };
-// The provider-action road: a registered action reaching a device binding and a
-// press coming back out. Gated with the rest of the leafwing surface.
+// The provider-action road: a registered action reaches a device binding and
+// a press comes back out. Gated with the rest of the leafwing surface.
 #[cfg(feature = "input")]
 pub use semantic::{
     install_provider_bindings_on_seats, publish_provider_action_edges, ProviderAction,
     ProviderBindings, SemanticActionPressed,
 };
 
-/// Install the input pipeline's own SET ORDER and device-ownership systems.
+/// Install the input pipeline's set order and device-ownership systems.
 ///
-/// ⭐ THE CAPABILITY OWNS ITS OWN PIPELINE SHAPE. `HostInputBindingsPlugin` declared
-/// `InputSet`'s six-phase chain and registered `track_local_device_order` /
-/// `assign_local_seat_devices` itself — so a composition that wanted the input stack
-/// had to restate the ordering this crate defines. Both move here, where the sets and
-/// the systems live.
+/// This crate owns the `InputSet` chain and the systems, so compositions do
+/// not restate the order.
 ///
-/// ⛔⛔ THE `configure_sets` TRAVELS WITH THE SYSTEMS, deliberately. Carving systems out
-/// of a plugin and leaving their set declaration behind is the half that gets forgotten,
-/// and it fails silently: the systems register, the sets exist unordered, and the
-/// pipeline's "an edge produced this frame is consumed this frame" guarantee quietly
-/// becomes "may arrive one frame later".
+/// Keep `configure_sets` with the systems. Without it the sets are unordered
+/// and fail silently: an edge produced this frame may be consumed a frame
+/// late. The order is the contract: device adapters complete before routing,
+/// and routed semantics before shell/menu consumers.
 ///
-/// ⚠ THE ORDER IS THE CONTRACT: device adapters complete before routing, routed
-/// semantics before shell/menu consumers.
-///
-/// ⚠ AND `PreUpdate` + `.before(InputManagerSystem::Update)` IS NOT DECORATION. The
-/// seat/device association is an INPUT to leafwing's action resolution — made after it,
-/// a seat that joins reads its controller a frame late and the join press itself lands
-/// on nobody.
+/// The device systems run in `PreUpdate` before
+/// `InputManagerSystem::Update`, because the seat/device association is an
+/// input to leafwing's action resolution. After it, a joining seat reads its
+/// controller a frame late and the join press reaches no seat.
 #[cfg(feature = "input")]
 pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
     use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate, Update};
@@ -181,9 +166,8 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
             .chain(),
     );
     app.init_resource::<LocalDeviceOrder>();
-    // Which pad each seat is HOLDING, remembered across disconnects. Without it
-    // `assign_local_seat_devices` panics on a missing resource; with it, a seat keeps
-    // its controller when somebody else unplugs theirs.
+    // Which pad each seat holds, kept across disconnects.
+    // `assign_local_seat_devices` panics without it.
     app.init_resource::<LocalSeatDeviceOwnership>();
     app.add_systems(
         PreUpdate,
@@ -193,36 +177,26 @@ pub fn install_input_pipeline(app: &mut bevy::prelude::App) {
     );
 }
 
-/// Install the PROVIDER action road: seat bindings in, semantic edges out.
+/// Install the provider action road: seat bindings in, semantic edges out.
 ///
-/// ⭐ ONE CALL FOR A TWO-SCHEDULE RULE the composition had to know. Both systems are
-/// this crate's, and so is the reason they are split:
-///
-/// ⛔⛔ TWO SCHEDULES, AND THE SPLIT IS THE POINT. The provider's map has to be on the
-/// seat BEFORE leafwing resolves this frame, which happens in `PreUpdate`; the edge it
-/// produces is a routed semantic and belongs in `InputSet::Route` — and those sets are
-/// configured in `Update`, so an `in_set` on the `PreUpdate` half would have ordered
-/// NOTHING AT ALL. Measured: with both in `PreUpdate` the press published on no frame.
-///
-/// ⚠ That is a fact about this crate's own set layout, which is why it belongs beside
-/// the sets rather than in whichever composition happens to install the road.
+/// It uses two schedules. The provider map must be on the seat before
+/// leafwing resolves in `PreUpdate`. The edge is a routed semantic, so it
+/// goes in `InputSet::Route`, which is configured in `Update`. An `in_set` on
+/// the `PreUpdate` half would order nothing; with both in `PreUpdate` the
+/// press never publishes.
 #[cfg(feature = "input")]
 pub fn install_provider_action_road(app: &mut bevy::prelude::App) {
     use bevy::prelude::{IntoScheduleConfigs as _, PostUpdate, PreUpdate, Update};
 
-    // ⛔⛔ THE PER-ACTION SYSTEMS, NOT THE PLUGIN, and the reason is a live defect this
-    // shape avoids. `InputManagerPlugin::<A>::build` adds `clear_central_input_store`
-    // and `filter_captured_input` UNCONDITIONALLY — it guards only
-    // `CentralInputStorePlugin` — so a SECOND action type registers both TWICE, and
-    // `clear_central_input_store` DRAINS the store. Caught by
-    // `no_system_is_registered_twice_in_one_schedule`, whose own words are the general
-    // rule: a doubled system that drains or decays is a rate bug that reads as bad
-    // tuning. ⇒ These are exactly the generic half of that plugin, in the sets it puts
-    // them in.
+    // Add the per-action systems, not `InputManagerPlugin::<ProviderAction>`.
+    // That plugin adds `clear_central_input_store` and `filter_captured_input`
+    // without a guard, so a second action type registers them twice, and the
+    // doubled clear drains the store. Guarded by
+    // `no_system_is_registered_twice_in_one_schedule`. These are the generic
+    // half of that plugin, in the same sets.
     //
-    // ⚠ `ProviderAction` is the SECOND map, over a keyspace a capability can mint. It is
-    // a second component on the same participant entity, not a second road: the seats,
-    // the resolve pass and the readers are the ones already here.
+    // `ProviderAction` is a second map component on the same participant
+    // entity. The seats, resolve pass, and readers are shared.
     app.add_systems(
         PreUpdate,
         (
@@ -253,10 +227,8 @@ pub fn install_provider_action_road(app: &mut bevy::prelude::App) {
 
 /// Publish which physical device each seat is currently driving.
 ///
-/// ⭐ In `InputSet::Route` because "which device is this seat on" is a routed fact, not
-/// a device reading — the same phase the provider edge above lands in. One system, kept
-/// as its own installer so a composition names the FACT it wants rather than the
-/// function that computes it.
+/// It runs in `InputSet::Route` because the seat's device is a routed fact,
+/// not a device reading.
 #[cfg(feature = "input")]
 pub fn install_seat_device_tracking(app: &mut bevy::prelude::App) {
     use bevy::prelude::{IntoScheduleConfigs as _, Update};
@@ -266,16 +238,13 @@ pub fn install_seat_device_tracking(app: &mut bevy::prelude::App) {
 
 /// Swallow the edges a REBIND itself produced, one frame later.
 ///
-/// ⭐ THE PLACEMENT IS THE MECHANIC, and it is a fact about this crate's rebuild rather
-/// than about any host. `rebuild_maps_from_recipes` clears the seat's `ActionState` so
-/// no press latches across a rebind; leafwing then re-reads the devices in the NEXT
-/// `PreUpdate` and would call a control that never moved a fresh press. This runs in
-/// leafwing's `ManualControl` — its own name for "after Update, on purpose" — to eat
-/// exactly those edges.
+/// `rebuild_maps_from_recipes` clears the seat's `ActionState` so no press
+/// latches across a rebind. Leafwing re-reads the devices in the next
+/// `PreUpdate` and would report an unmoved control as a fresh press. This
+/// system runs in leafwing's `ManualControl` set to remove those edges.
 ///
-/// ⚠ ONE FRAME LATER AND ONE SCHEDULE EARLIER than the rebuild that causes it. That
-/// asymmetry is why it cannot simply be chained onto the rebuild: the edges it swallows
-/// do not exist until leafwing has re-read the devices.
+/// It cannot chain onto the rebuild: the edges do not exist until leafwing
+/// re-reads the devices.
 #[cfg(feature = "input")]
 pub fn install_rebind_edge_swallow(app: &mut bevy::prelude::App) {
     use bevy::prelude::{IntoScheduleConfigs as _, PreUpdate};

@@ -1055,7 +1055,7 @@ pub fn record_census_after_the_advance(world: &mut World) {
 ///
 /// ⚠ **IT NAMES A POPULATION, NOT A DEFECT.** Presentation state is legitimately
 /// written there, and a type that is rollback-registered AND presentation-written
-/// is what `Q131` is about. What makes an entry dangerous is that it ALSO feeds
+/// is what `Q139` (ruled 2026-09-19) is about. What makes an entry dangerous is that it ALSO feeds
 /// the peer checksum, which the registry knows and this does not; the JOIN is the
 /// finding.
 ///

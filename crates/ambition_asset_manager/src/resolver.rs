@@ -34,17 +34,13 @@ pub struct ResolvedAsset {
     /// Source kind that produced `location`. `None` when the profile
     /// has no enabled sources (resolved to `Disabled`).
     pub source_used: Option<AssetSourceProfile>,
-    /// `true` when the resolved location came from an authored
+    /// `true` when the location came from an authored
     /// [`crate::manifest::LocationCandidate`] for [`Self::source_used`];
-    /// `false` when the resolver *synthesized* a default location from
-    /// the entry's `logical_path` because no candidate was authored
-    /// for that source.
+    /// `false` when the resolver synthesized it from `logical_path`.
     ///
-    /// This is the seam consumers use to decide whether a synthesized
-    /// `embedded://` / bundle path is *speculative* (packaging hasn't
-    /// happened yet → skip the load and rely on the fallback) versus
-    /// an explicit promise that the bytes are actually packaged
-    /// (proceed with `AssetServer::load`).
+    /// Consumers use this to tell a speculative synthesized `embedded://` or
+    /// bundle path (skip the load, use the fallback) from a promise that the
+    /// bytes are packaged (call `AssetServer::load`).
     pub authored_candidate: bool,
 }
 
@@ -62,10 +58,7 @@ impl ResolvedAsset {
         self.location.bevy_asset_path()
     }
 
-    /// Whether the asset is missing under the active profile (i.e. the
-    /// resolver returned `Disabled`). Equivalent to
-    /// `self.location.is_disabled()`; here as an explicit accessor for
-    /// call sites that read like English.
+    /// Whether the resolver returned `Disabled` for the active profile.
     pub fn is_disabled(&self) -> bool {
         self.location.is_disabled()
     }
@@ -102,20 +95,13 @@ pub fn resolve(
     let mut authored_candidate = false;
 
     if !profile.preferred_sources().is_empty() {
-        // Two-pass resolution so authored candidates always beat
-        // synthesized defaults, regardless of source order. Otherwise
-        // an entry with no authored EmbeddedBinary candidate would
-        // synthesize an `embedded://...` URL from `logical_path` and
-        // shadow a perfectly good InstalledFilesystem BevyPath later
-        // in the source list — that breaks `WebServedAssets`, where
-        // we want the synthesized BevyPath (HTTP-fetched) for
-        // out-of-set art.
+        // Two passes, so authored candidates always beat synthesized
+        // defaults. Otherwise a synthesized `embedded://` URL could shadow an
+        // `InstalledFilesystem` `BevyPath` later in the list, which breaks
+        // `WebServedAssets`.
         //
-        // Pass 1: pick the first authored candidate whose source is
-        // in the profile's preferred order. Walk preferred_sources to
-        // preserve the priority between authored candidates (e.g.
-        // `[HttpRemote, EmbeddedBinary]` should prefer an authored
-        // HttpRemote when both exist).
+        // Pass 1: the first authored candidate in the profile's preferred
+        // source order.
         'outer: for &source in profile.preferred_sources() {
             if let Some(candidate) = entry.locations.iter().find(|c| c.source == source) {
                 if !candidate.location.is_disabled() {
@@ -126,11 +112,10 @@ pub fn resolve(
                 }
             }
         }
-        // Pass 2: nothing authored matched — synthesize a default in
-        // preferred-source order. Synthesized defaults are flagged
-        // `authored_candidate = false` so the per-profile load gate
-        // can choose to skip them (e.g. WebStatic skips speculative
-        // embedded URLs whose bytes aren't actually packaged).
+        // Pass 2: nothing authored matched, so synthesize a default in
+        // preferred-source order. These have `authored_candidate = false`, so
+        // the load gate can skip them (WebStatic skips unpackaged embedded
+        // URLs).
         if chosen_source.is_none() {
             for &source in profile.preferred_sources() {
                 if let Some(loc) = synthesize_default_location(source, &entry.logical_path) {
@@ -180,20 +165,16 @@ fn synthesize_default_location(
         | AssetSourceProfile::InstalledFilesystem
         | AssetSourceProfile::AndroidApk
         | AssetSourceProfile::IosBundle => {
-            // Bevy's default `AssetSource` resolves these against its
-            // own root (host filesystem on desktop, app bundle on
-            // Android/iOS). The catalog hands Bevy the relative path
-            // and lets each platform's AssetReader do the work.
+            // Bevy's default `AssetSource` resolves this relative path against
+            // its own root on each platform.
             Some(AssetLocation::BevyPath(logical_path.to_string()))
         }
         AssetSourceProfile::EmbeddedBinary => {
             Some(AssetLocation::embedded(logical_path.to_string()))
         }
         AssetSourceProfile::HttpRemote | AssetSourceProfile::IpfsGateway => {
-            // Synthesizing an HTTP URL or an IPFS gateway URL without
-            // an explicit candidate is ambiguous — neither has a known
-            // base. Skip; entries that target these sources must
-            // author an explicit `LocationCandidate`.
+            // HTTP and IPFS have no known base URL. Entries for these sources
+            // must author an explicit `LocationCandidate`.
             None
         }
     }

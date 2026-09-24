@@ -2,13 +2,11 @@
 // Morph ball sprite (procedural)
 // ---------------------------------------------------------------------------
 //
-// The shipped player spritesheet has no `MorphBall` row, but we still want
-// the morph ball to look distinct from a crouched robot mid-game. Generating
-// a small RGBA circle at startup avoids a parallel "render Morph row" task
-// in the gen2d toolchain and keeps the mechanic playable today. Future art
-// can replace this with a real spritesheet row by setting the
-// `MorphBallSprite` handle to a loaded asset and the same toggle logic
-// applies.
+// The shipped player spritesheet has no `MorphBall` row. A small procedural
+// RGBA circle, generated at startup, makes the morph ball look different
+// from a crouched robot. Real art can replace it by pointing the
+// `MorphBallSprite` handle at a loaded asset; the toggle logic stays the
+// same.
 
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
@@ -32,11 +30,10 @@ pub struct MorphBallVisual;
 
 const MORPH_BALL_TEXTURE_SIZE: u32 = 64;
 
-/// Generate a 64x64 RGBA circle with a soft anti-aliased rim and a
-/// top-left highlight so the ball reads as a sphere even at small render
-/// sizes. Color matches the steel-blue palette of the player robot's
-/// fallback rectangle (`Color::srgba(0.80, 0.95, 1.0, 1.0)`) so the
-/// visual ties back to the standing body.
+/// Generate a 64x64 RGBA circle with a soft anti-aliased rim and a top-left
+/// highlight, so it reads as a sphere at small sizes. The colour matches the
+/// player robot's steel-blue fallback rectangle
+/// (`Color::srgba(0.80, 0.95, 1.0, 1.0)`).
 pub fn build_morph_ball_image() -> Image {
     let size = MORPH_BALL_TEXTURE_SIZE;
     let mut data = vec![0u8; (size * size * 4) as usize];
@@ -95,10 +92,10 @@ pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets
 
 /// Give every morphed drawn body its own ball, the first frame it is morphed.
 ///
-/// The ball names its body at spawn (`PresentationOf`), so what draws a morphed
-/// body is answerable from the ball alone — portal composition asks exactly
-/// that. Chained before [`sync_morph_ball_visual`], so a body is never hidden on
-/// a frame its ball does not yet exist.
+/// The ball names its body at spawn (`PresentationOf`), so portal composition
+/// can find what draws a morphed body. Chained before
+/// [`sync_morph_ball_visual`], so a body is never hidden before its ball
+/// exists.
 pub fn spawn_morph_ball_visual(
     mut commands: Commands,
     sprite: Option<Res<MorphBallSprite>>,
@@ -153,9 +150,8 @@ pub fn spawn_morph_ball_visual(
 /// and hide each morphed body's standing sprite so the rig does not show
 /// through. A ball whose body is gone is despawned.
 ///
-/// ⛔ Every drawn body answers from its OWN `BodyPoseView`, never "the primary
-/// player": a match or a possession has bodies that are not the session's home
-/// avatar, and a hide keyed on one singleton skipped them in silence.
+/// Every drawn body uses its own `BodyPoseView`, not "the primary player":
+/// a match or a possession has bodies that are not the home avatar.
 pub fn sync_morph_ball_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -191,13 +187,13 @@ pub fn sync_morph_ball_visual(
         if pose.morph_ball {
             transform.translation = ambition_platformer2d_core::config::world_to_bevy(
                 &world.0,
-                // The sphere IS the body while morphed, so it draws where the
-                // body is presented — not where its last tick left it.
+                // The sphere is the body while morphed, so it draws at the presented
+                // position, not the last tick's.
                 ambition_sim_view::presented_pose::draw_pos(pose, presented),
                 ambition_platformer2d_core::config::WORLD_Z_PLAYER + 0.05,
             );
-            // Slightly larger than the AABB so the soft anti-aliased rim
-            // reads as the ball's outline rather than as background.
+            // Slightly larger than the AABB, so the soft rim reads as the ball's
+            // outline.
             sprite.custom_size = Some(bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10));
             *ball_visibility = Visibility::Visible;
         } else {
@@ -210,8 +206,8 @@ pub fn sync_morph_ball_visual(
                 *body_visibility = Visibility::Hidden;
             }
         } else if matches!(*body_visibility, Visibility::Hidden) {
-            // Back to `Inherited`, never a hard `Visible`, so the death overlay
-            // and the room-transition fade keep their authority over the body.
+            // Back to `Inherited`, not `Visible`, so the death overlay and the
+            // room-transition fade still control the body.
             *body_visibility = Visibility::Inherited;
         }
     }
@@ -232,9 +228,9 @@ mod tests {
         }
     }
 
-    /// Drawn bodies as a match spawns them — the first is the session's own
-    /// avatar, the rest are fighters with no `PrimaryPlayer` — run through the
-    /// shipped spawn → sync chain.
+    /// Drawn bodies as a match spawns them (the first is the session's avatar;
+    /// the rest are fighters with no `PrimaryPlayer`), run through the shipped
+    /// spawn and sync chain.
     fn rig(bodies: &[bool]) -> (App, Vec<Entity>) {
         let mut app = App::new();
         app.init_resource::<Assets<Image>>();
@@ -284,9 +280,9 @@ mod tests {
         app.world_mut().get_mut::<BodyPoseView>(body).unwrap().morph_ball = morph;
     }
 
-    /// In morph the ball shows and the body's sprite is hidden, on the same
-    /// frame — otherwise the standing rig draws through the ball, or the body
-    /// is invisible for a frame.
+    /// In morph the ball shows and the body sprite is hidden on the same frame.
+    /// Otherwise the rig draws through the ball, or the body vanishes for a
+    /// frame.
     #[test]
     fn entering_morph_hides_the_body_sprite_and_shows_its_ball() {
         let (mut app, bodies) = rig(&[true]);
@@ -296,10 +292,9 @@ mod tests {
         assert_eq!(vis(&app, bodies[0]), Visibility::Hidden, "the rig does not draw through it");
     }
 
-    /// ⛔⛔ A MORPHED FIGHTER THAT IS NOT THE PRIMARY PLAYER GETS ITS OWN BALL.
-    /// The ball was one session singleton that followed the primary player while
-    /// the hide was per body, so any other morphed body was hidden and drawn by
-    /// nothing at all.
+    /// A morphed fighter that is not the primary player gets its own ball. With
+    /// a single ball that follows the primary player, any other morphed body
+    /// would be hidden and drawn by nothing.
     #[test]
     fn a_morphed_body_that_is_not_the_primary_player_is_drawn_by_its_own_ball() {
         let (mut app, bodies) = rig(&[false, true]);
@@ -312,8 +307,8 @@ mod tests {
         assert_eq!(vis(&app, bodies[0]), Visibility::Inherited, "and keeps drawing");
     }
 
-    /// Two morphed bodies are two balls, each naming its own body — which is
-    /// what portal composition asks (`PresentationOf`).
+    /// Two morphed bodies are two balls, each naming its own body
+    /// (`PresentationOf`), which portal composition reads.
     #[test]
     fn two_morphed_bodies_are_two_balls() {
         let (mut app, bodies) = rig(&[true, true]);
@@ -326,8 +321,8 @@ mod tests {
         assert_eq!(q.iter(app.world()).count(), 2, "a ball is spawned once per body, not per frame");
     }
 
-    /// Leaving morph restores the body to `Inherited` — never a hard `Visible`,
-    /// so the death overlay and the room-transition fade keep their authority.
+    /// Leaving morph restores the body to `Inherited`, not `Visible`, so the
+    /// death overlay and the room-transition fade still control it.
     #[test]
     fn leaving_morph_returns_the_body_to_inherited_not_visible() {
         let (mut app, bodies) = rig(&[true]);

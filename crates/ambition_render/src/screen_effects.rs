@@ -1,10 +1,10 @@
 //! Whole-screen post-processing effects for presentation cameras.
 //!
-//! This is intentionally not a sprite overlay. The pass runs after the 2D main
-//! pass, samples the already-rendered view texture, and writes a fullscreen
-//! filtered result back into Bevy's post-process destination. That lets shader
-//! toggles distort scene UVs, split color channels, apply scanlines, and
-//! modulate luminance in ways an overlay cannot.
+//! Not a sprite overlay. The pass runs after the 2D main pass, samples the
+//! rendered view texture, and writes a filtered fullscreen result to Bevy's
+//! post-process destination. So the filters can distort scene UVs, split
+//! colour channels, add scanlines, and change luminance, which an overlay
+//! cannot.
 
 use bevy::{
     core_pipeline::{
@@ -43,14 +43,9 @@ impl FullscreenMaterial for ScreenEffectSettings {
         Core2d
     }
 
-    /// AFTER tonemapping, and inside `PostProcess` so upscaling still follows.
-    ///
-    /// This is the same slot the hand-written render-graph node occupied under
-    /// Bevy 0.18, where the edges read
-    /// `Tonemapping -> ScreenEffects -> EndMainPassPostProcessing`. The order
-    /// matters to the look: these filters are authored against tonemapped,
-    /// display-referred color, so running them before tonemapping would change
-    /// what every strength value means.
+    /// After tonemapping, inside `PostProcess`, so upscaling still follows. The
+    /// filters are authored against tonemapped, display-referred colour; running
+    /// them earlier would change what every strength value means.
     fn schedule_configs(system: ScheduleConfigs<BoxedSystem>) -> ScheduleConfigs<BoxedSystem> {
         system.in_set(Core2dSystems::PostProcess).after(tonemapping)
     }
@@ -86,27 +81,22 @@ impl Default for ScreenEffectSettings {
     }
 }
 
-/// Marks a camera that MAY receive the screen filter.
+/// Marks a camera that may receive the screen filter.
 ///
-/// ⛔⛔ ELIGIBILITY AND ENROLMENT ARE NOW TWO DIFFERENT FACTS, and this is the
-/// one that never moves. Bevy's `FullscreenMaterialPlugin` uses the PRESENCE of
-/// [`ScreenEffectSettings`] as the enable — with it absent,
-/// `prepare_fullscreen_material_pipelines` drops the pipeline id and the bind
-/// group, and `fullscreen_material_system`'s view query does not match, so
-/// there is no pass and no `post_process_write` ping-pong at all. That is the
-/// mechanism this marker exists to let us use: [`sync_screen_effect_settings`]
-/// adds and removes the settings component, and this marker is how it knows
-/// which cameras to add it BACK to. Retracting a component is safe here
-/// precisely because the fact it would otherwise destroy lives in this one.
+/// Eligibility (this marker) and enrolment ([`ScreenEffectSettings`]) are
+/// separate. Bevy's `FullscreenMaterialPlugin` uses the presence of
+/// [`ScreenEffectSettings`] as the enable: without it there is no pipeline,
+/// no bind group, no pass, and no `post_process_write` ping-pong.
+/// [`sync_screen_effect_settings`] adds and removes the settings component,
+/// and uses this marker to know which cameras to add it back to. Nothing
+/// removes this marker, so removing the settings is safe.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct ScreenEffectCamera;
 
 /// Whether this configuration would draw anything at all.
 ///
-/// ⭐ ONE DEFINITION, TWO READERS: the packing below zeroes every strength when
-/// it is false, and [`sync_screen_effect_settings`] declines to enrol the camera
-/// at all. Two copies of this predicate would be two constants with one value —
-/// unattributable the moment they disagreed.
+/// One definition, two readers: the packing below zeroes every strength when
+/// it is false, and [`sync_screen_effect_settings`] does not enrol the camera.
 fn draws_anything(shaders: &ScreenShaderSettings) -> bool {
     shaders.any_effect_enabled() && shaders.strength.clamp(0.0, 1.0) > 0.001
 }
@@ -167,21 +157,14 @@ impl ScreenEffectSettings {
 /// Enrol every eligible camera in the filter while it draws something, and
 /// take them back out when it does not.
 ///
-/// ⭐⭐ THE DEFAULT CONFIGURATION IS "EVERY EFFECT OFF", and until now that
-/// configuration still paid for a fullscreen pass every frame: a read of the
-/// whole view texture and a write of the whole view texture, running a shader
-/// whose first statement returns the source pixel. Removing
-/// [`ScreenEffectSettings`] is Bevy's OWN way to say "this camera does not need
-/// the material" — `prepare_fullscreen_material_pipelines` drops the pipeline
-/// id, the bind-group preparation drops the bind group, and the pass system's
-/// view query stops matching — so the pass, and the `post_process_write`
-/// ping-pong it forces, do not happen at all.
+/// The default configuration has every effect off. Removing
+/// [`ScreenEffectSettings`] is Bevy's way to say a camera does not need the
+/// material, so no fullscreen pass (read and write of the whole view texture)
+/// runs for a filter that would return the source pixel.
 ///
-/// ⛔ AND IT IS A RETRACTION, WHICH IS THE DANGEROUS SHAPE. It is safe here only
-/// because eligibility moved to [`ScreenEffectCamera`], which nothing removes:
-/// this system can always find the cameras to enrol again. A retraction that
-/// destroyed the only record of which cameras those were would be a camera that
-/// silently loses its filter for the rest of the run.
+/// Removal is safe only because eligibility is on [`ScreenEffectCamera`],
+/// which nothing removes, so this system can always find the cameras to
+/// enrol again.
 fn sync_screen_effect_settings_from_video_settings(
     mut commands: Commands,
     settings: Res<UserSettings>,
@@ -195,9 +178,9 @@ fn sync_screen_effect_settings_from_video_settings(
             .strength
             .min(quality.budget.shaders.screen_shader_scale);
     }
-    // ⛔ THE QUALITY CLAMP IS PART OF THE QUESTION, not a later adjustment: a
-    // Potato tier scales `screen_shader_scale` to 0.0, and a camera whose
-    // effects are all scaled away needs no pass either.
+    // The quality clamp is part of the question: the Potato tier scales
+    // `screen_shader_scale` to 0.0, and a camera whose effects are all
+    // scaled away needs no pass.
     if !draws_anything(&shaders) {
         for (camera, settings) in &cameras {
             if settings.is_some() {
@@ -224,13 +207,11 @@ mod tests {
 
     /// A camera is enrolled in the filter only while something is turned up.
     ///
-    /// ⭐⭐ THIS IS THE WHOLE POINT OF THE MARKER, AND BOTH DIRECTIONS MATTER.
-    /// Bevy's `FullscreenMaterialPlugin` reads the PRESENCE of
-    /// [`ScreenEffectSettings`], so absence is what buys the saved pass — and a
-    /// system that only ever removed would be a camera that silently loses its
-    /// filter for the rest of the run. The arms are therefore off → on → off:
-    /// the last one is not a repeat of the first, it is the retraction, and the
-    /// middle one is what proves the retraction is recoverable.
+    /// Both directions matter. Bevy reads the presence of
+    /// [`ScreenEffectSettings`], so absence saves the pass, and a remove-only
+    /// system would lose the filter for the rest of the run. So the arms are
+    /// off, on, off: the last is the retraction, and the middle proves it is
+    /// recoverable.
     #[test]
     fn a_camera_is_enrolled_only_while_an_effect_is_turned_up() {
         fn enrolled(app: &mut App, camera: Entity) -> bool {
@@ -245,7 +226,7 @@ mod tests {
         app.add_systems(Update, sync_screen_effect_settings_from_video_settings);
         let camera = app.world_mut().spawn(ScreenEffectCamera).id();
 
-        // OFF is the shipped default: every strength is zero.
+        // Off is the shipped default: every strength is zero.
         app.update();
         assert!(
             !enrolled(&mut app, camera),
@@ -253,10 +234,8 @@ mod tests {
              the material component that makes Bevy run a fullscreen pass for it"
         );
 
-        // ON. ⛔ BOTH GATES, and the first draft of this test moved only one:
-        // `strength` is the settings menu's MASTER slider and its default is
-        // 0.0, so raising `crt_strength` alone leaves the configuration drawing
-        // nothing — correct behaviour, which read as a broken enrolment.
+        // On. Both gates: `strength` is the master slider and defaults to 0.0,
+        // so raising `crt_strength` alone still draws nothing.
         {
             let mut settings = app.world_mut().resource_mut::<UserSettings>();
             settings.video.shaders.strength = 1.0;
@@ -269,8 +248,8 @@ mod tests {
              turned up"
         );
 
-        // OFF again — the retraction, and the arm that a remove-only or an
-        // insert-only implementation each fails.
+        // Off again: the retraction. A remove-only or insert-only
+        // implementation fails one of these arms.
         app.world_mut()
             .resource_mut::<UserSettings>()
             .video
@@ -286,10 +265,8 @@ mod tests {
 
     /// A camera without the marker is never enrolled, however loud the settings.
     ///
-    /// Without this arm the test above would pass against a system that enrolled
-    /// EVERY camera — including the HUD camera, the cube cameras and every
-    /// portal capture — which is a far more expensive bug than the one being
-    /// fixed.
+    /// Without this, the test above would pass for a system that enrols every
+    /// camera (HUD, cube, portal captures), which is a much more expensive bug.
     #[test]
     fn an_unmarked_camera_is_never_enrolled() {
         let mut app = App::new();
@@ -302,8 +279,8 @@ mod tests {
             settings.video.shaders.strength = 1.0;
             settings.video.shaders.crt_strength = 1.0;
         }
-        // ⭐ THE PREMISE GUARD. Without it this asserts an absence the settings
-        // alone would produce, and would pass against any implementation at all.
+        // Premise guard: without it this checks an absence the settings alone
+        // would cause, and passes for any implementation.
         let marked = app.world_mut().spawn(ScreenEffectCamera).id();
         app.update();
         assert!(
@@ -321,10 +298,9 @@ mod tests {
 
     /// The quality budget is part of the question, not a later adjustment.
     ///
-    /// ⛔ THE POTATO TIER SCALES SCREEN SHADERS TO ZERO, and a camera whose
-    /// effects are all scaled away needs no pass either. Reading the settings
-    /// alone would enrol it and run a shader that returns the pixel it read —
-    /// on precisely the hardware that can least afford it.
+    /// The Potato tier scales screen shaders to zero, and a camera whose effects
+    /// are all scaled away needs no pass. Reading the settings alone would run a
+    /// no-op shader on the weakest hardware.
     #[test]
     fn a_tier_that_scales_shaders_away_leaves_the_camera_out() {
         let mut app = App::new();
@@ -337,9 +313,8 @@ mod tests {
             settings.video.shaders.strength = 1.0;
             settings.video.shaders.crt_strength = 1.0;
         }
-        // ⭐ THE PREMISE GUARD, and it is not optional: `strength` defaults to
-        // 0.0, so without turning the settings up this test would assert an
-        // absence caused by the SETTINGS and credit it to the tier.
+        // Premise guard: `strength` defaults to 0.0, so without raising the
+        // settings this would credit the settings' absence to the tier.
         app.update();
         assert!(
             app.world()

@@ -4,21 +4,18 @@
 //!
 //! This is the render-side realization of the Core invariant in
 //! [`ambition_portal2d::pieces`]: a body straddling a portal pair is ONE logical
-//! object with TWO spatial pieces. The real sprite stays hidden while a
-//! `through` piece exists, and [`crate::sync_portal_body_pieces`] draws both
-//! charts as sibling mesh quads running this material — the `here` slice clipped to the
-//! front of the entry plane, the `through` slice clipped to the front of the
-//! exit plane (plus the exit aperture span). Because the portal map is an
-//! isometry, the two slices tile continuously across the seam: nothing pops
-//! when the authoritative position snaps at the centroid crossing, and the
-//! sunk slice never draws over the far side of a thin wall.
+//! object with TWO spatial pieces. While a `through` piece exists, the real
+//! sprite is hidden and [`crate::sync_portal_body_pieces`] draws both charts as
+//! sibling mesh quads with this material: the `here` slice clipped to the front
+//! of the entry plane, the `through` slice clipped to the front of the exit
+//! plane (plus the exit aperture span). The portal map is an isometry, so the
+//! slices tile continuously across the seam: nothing pops when the position
+//! snaps at the centroid crossing, and the sunk slice never draws over the far
+//! side of a thin wall.
 //!
-//! ⚠ THAT HIDE IS NOT THIS SYSTEM'S WRITE, since 2026-09-05. The piece builder
-//! STATES a reason (`PortalTransitHidden`) and
-//! [`crate::source_visibility::resolve_portal_source_visibility`] is the only
-//! writer of a portal-presented body's `Visibility`. The observable outcome is
-//! the same; the attribution is not, and this paragraph used to name the wrong
-//! system.
+//! The piece builder only states a hide reason (`PortalTransitHidden`);
+//! [`crate::source_visibility::resolve_portal_source_visibility`] writes
+//! `Visibility`.
 //!
 //! Clipping runs in the fragment shader against final render-world positions,
 //! so it is exact for any anchor, trim rect, flip, roll, or scale — the
@@ -96,11 +93,9 @@ pub(crate) fn add_portal_clip_material_plugin(app: &mut App) {
     {
         return;
     }
-    // ⛔⛔ ENSURE, DON'T ADD. `add_plugins` PANICS on a duplicate, and this has
-    // more than one independent caller: the transit pieces and the far-side
-    // compositor each need the material and neither should have to know whether
-    // the other is enabled. Without this, turning both flags on -- the DEFAULT
-    // configuration -- crashes at startup.
+    // Ensure, do not add: `add_plugins` panics on a duplicate, and both the
+    // transit pieces and the far-side compositor call this (both on by
+    // default), without knowing about each other.
     if app.is_plugin_added::<Material2dPlugin<PortalClipMaterial>>() {
         return;
     }
@@ -117,11 +112,8 @@ pub fn clip_plane_render(frame: &PortalWorldFrame, point: Vec2, normal: Vec2) ->
     Vec4::new(p.x, p.y, normal.x, -normal.y)
 }
 
-// ⭐ `SpriteFrameBasis` / `sprite_frame_basis` MOVED DOWN to `ambition_sprite_fx`
-// and are re-exported here so this crate's callers are unchanged. They were
-// never portal concepts: "which pixels would the sprite renderer draw right
-// now" is what every mesh-drawn sprite manipulation needs, and it had already
-// been written twice — here, and in the hit-flash overlay.
+// `SpriteFrameBasis` / `sprite_frame_basis` live in `ambition_sprite_fx` (they
+// are not portal concepts) and are re-exported so callers are unchanged.
 pub use ambition_sprite_fx::{sprite_frame_basis, SpriteFrameBasis};
 
 /// Pose a piece quad so it draws exactly where the source sprite would: the
@@ -146,13 +138,9 @@ mod idempotency_tests {
     use super::*;
     use bevy::asset::AssetPlugin;
 
-    /// ⛔⛔ TWO CALLERS, ONE MATERIAL, AND `add_plugins` PANICS ON A DUPLICATE.
-    /// The transit pieces and the far-side compositor each need this material
-    /// and both flags default to ON, so without the guard the DEFAULT plugin
-    /// configuration crashes at startup. A headless app without the embedded
-    /// registry returns early and never reaches the duplicate, which is why this
-    /// test installs `AssetPlugin` -- the bug is invisible to a test that does
-    /// not.
+    /// Two callers, one material, and `add_plugins` panics on a duplicate. The test
+    /// installs `AssetPlugin`, because without the embedded registry the function
+    /// returns early and never reaches the duplicate path.
     #[test]
     fn adding_the_clip_material_twice_is_safe() {
         let mut app = App::new();

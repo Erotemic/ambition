@@ -1,17 +1,16 @@
 //! The renderer for a game's declared HUD readouts.
 //!
-//! This module draws whatever the ACTIVE ROUTE declared instead, and knows nothing about what
-//! any of it means: it spawns one text node per
-//! [`HudSlotSpec`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec) and
-//! mirrors the matching
+//! This module draws whatever the active route declared, and knows nothing
+//! about what it means. It spawns one text node per
+//! [`HudSlotSpec`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudSlotSpec)
+//! and mirrors the matching
 //! [`HudReadouts`](ambition_platformer2d_shared_tangle::gameplay_presentation::HudReadouts)
-//! entry into it every frame. "RINGS", "SCORE", "TIME" are strings a game writes; none of them
-//! appear here.
+//! entry into it every frame. Labels such as "RINGS" or "SCORE" are strings a
+//! game writes; none appear here.
 //!
-//! Placement reuses the ladder the built-in HUD already walks — ask
-//! [`hud_region`] for the region the slot asked for, take it when the active
-//! profile reserves a surround and it is big enough, otherwise overlay
-//! gameplay. No layout negotiation: a readout knows its own size.
+//! Placement uses the same ladder as the built-in HUD: ask [`hud_region`] for
+//! the slot's region, use it when the active profile reserves a surround big
+//! enough, otherwise overlay gameplay. A readout knows its own size.
 //!
 //! [`hud_region`]:
 //!     ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation::hud_region
@@ -30,30 +29,23 @@ use super::{HUD_MARGIN, OVERLAY_ANCHOR};
 
 /// Root of a game's declared HUD.
 ///
-/// Public and deliberately load-bearing: it is how a demo's OV1 guard tells
-/// "UI the engine's presentation face dragged in" (still forbidden) from "UI
-/// this game declared" (the point of the seam).
+/// Public on purpose: a demo's OV1 guard uses it to tell UI the engine
+/// dragged in (forbidden) from UI this game declared (allowed).
 #[derive(Component)]
 pub struct DeclaredHudRoot;
 
 /// Does the declared HUD own this node — as its root, or at any depth beneath?
 ///
-/// ⛔⛔ OWNERSHIP IS THE SUBTREE, AND THAT IS A FACT ABOUT THIS MARKER, so it
-/// lives beside it. `DeclaredHudRoot` sits on the panel and on the slot; the
-/// portrait, the stock row, the five pips and the count are that panel's
-/// CHILDREN and carry nothing. A guard that asks `Without<DeclaredHudRoot>`
-/// therefore reads a demo's permitted HUD as an engine violation — measured on
-/// mary_o (40 nodes) and again on sanic (16), a day apart.
+/// Ownership is the whole subtree. `DeclaredHudRoot` is on the panel and the
+/// slot; the portrait, stock row, pips, and count are unmarked children. A
+/// guard that asks only `Without<DeclaredHudRoot>` would call a demo's allowed
+/// HUD an engine violation.
 ///
-/// ⚠ IT LIVES HERE BECAUSE THE FIX TRAVELLED BY TRANSCRIPTION AND DRIFTED.
-/// `ov1_draws_the_world` exists once per demo; mary_o's copy was corrected first,
-/// sanic's was not, and the repair that made them agree wrote a THIRD copy whose
-/// signature and parent-accessor already differed from the second. A predicate
-/// about a marker's semantics belongs with the marker, so a third demo gets it
-/// right by construction.
+/// This lives beside the marker so every demo's `ov1_draws_the_world` guard
+/// uses one definition instead of copies that drift.
 ///
-/// ⚠ Walks to the top rather than checking one level: the stock pips are
-/// grandchildren (root → panel → stock row → pip).
+/// Walks to the top, not one level: the stock pips are grandchildren
+/// (root, panel, stock row, pip).
 pub fn declared_hud_owns(world: &World, entity: Entity) -> bool {
     let mut cursor = entity;
     loop {
@@ -67,13 +59,12 @@ pub fn declared_hud_owns(world: &World, entity: Entity) -> bool {
     }
 }
 
-/// One declared readout's text node, tagged with the slot it mirrors and the
-/// font size it was DECLARED at.
+/// One declared readout's text node, tagged with its slot id and its declared
+/// font size.
 ///
-/// ⛔ the size is carried rather than read back off the live `TextFont`, because
-/// the emphasis scale is applied to it every frame: scaling whatever the font
-/// happens to be NOW compounds, and a readout that is hit twice grows until it
-/// fills the panel.
+/// The declared size is stored, not read back from the live `TextFont`,
+/// because the emphasis scale is applied every frame. Scaling the current size
+/// would compound and grow the readout without limit.
 #[derive(Component)]
 pub struct DeclaredHudSlot(pub HudSlotId, pub f32);
 
@@ -88,27 +79,20 @@ const SLOT_GAP: f32 = 6.0;
 
 /// Bevy's default line height, `LineHeight::RelativeToFont(1.2)`.
 ///
-///  mirrored rather than read, because the spawned nodes take the default and
-/// nothing here sets one. If a slot ever declares its own line height, this
-/// derivation has to move to that value.
+/// Mirrored, not read: the spawned nodes use the default. If a slot ever
+/// declares its own line height, use that value instead.
 const LINE_HEIGHT_FACTOR: f32 = 1.2;
 
-/// How much vertical room one slot's PUBLISHED readout needs.
+/// How much vertical room one slot's published readout needs, including
+/// multi-line (`\n`) text.
 ///
-/// Any game that publishes a `\n` hits it.
-///
-///  a slot with NO published readout still reserves one line: a conditional
-/// card that blinks in and out would otherwise shove everything below it up and
-/// down as it appeared, and a stable HUD that reserves a little too much beats
-/// one that jumps.
+/// A slot with no published readout still reserves one line. Otherwise a
+/// conditional card would shift everything below it each time it appears.
 fn slot_extent(spec: &HudSlotSpec, readouts: &HudReadouts, measured: Option<f32>) -> f32 {
-    // `ComputedNode` carries what the layout actually produced, which is the only thing that
-    // knows where the text broke.
-    //
-    //  last frame's height, because UI layout runs in `PostUpdate` and this
-    // is an `Update` system. Moving a node's `top` does not change its height,
-    // so there is no oscillation to converge — the lag shows only on the frame a
-    // readout changes line count.
+    // `ComputedNode` has the real laid-out height, including line breaks. It
+    // is last frame's value, because UI layout runs in `PostUpdate` and this
+    // is an `Update` system. Moving `top` does not change height, so there is
+    // no oscillation; the lag shows only when the line count changes.
     if let Some(height) = measured.filter(|height| *height > 0.0) {
         return height + SLOT_GAP;
     }
@@ -127,8 +111,7 @@ fn declaration_matches_live_specs<'a>(
     let collected: Option<Vec<&HudSlotSpec>> =
         existing.map(|spec| spec.map(|spec| &spec.0)).collect();
     let Some(mut live) = collected else {
-        // A node from an older declaration renderer has no cached spec and
-        // must be rebuilt rather than silently treated as current.
+        // A node from an older renderer has no cached spec, so rebuild it.
         return false;
     };
     if live.len() != declared.len() {
@@ -169,17 +152,16 @@ fn select_hud_region(
 
 /// Spawn one text node per declared slot, once, while a session owns them.
 ///
-/// Rebuilds from scratch whenever the active declaration changes shape, so
-/// switching experiences in a shared host never leaves the previous game's
-/// readouts on screen.
+/// Rebuilds from scratch when the active declaration changes, so switching
+/// experiences in a shared host never leaves the old game's readouts.
 pub fn spawn_declared_hud(
     mut commands: Commands,
     active: Res<ActiveHudDeclaration>,
     active_session: Option<Res<ActiveSessionScope>>,
     fonts: Option<Res<crate::ui_fonts::UiFonts>>,
     existing: Query<(Entity, &DeclaredHudSlot, Option<&DeclaredHudSpec>)>,
-    // Query every root owned by this pass, including sibling gauge roots, so a
-    // declaration rebuild retires the complete previous HUD.
+    // Every root this pass owns, including sibling gauge roots, so a rebuild
+    // removes the whole previous HUD.
     owned: Query<Entity, With<DeclaredHudRoot>>,
 ) {
     let declared = active.slots();
@@ -191,9 +173,8 @@ pub fn spawn_declared_hud(
         return;
     }
 
-    // Already showing this declaration exactly — identity AND appearance.
-    // Comparing ids alone left stale font/colour/centering/placement whenever a
-    // route revised a slot without renaming it.
+    // Already showing this exact declaration, identity and appearance. An
+    // id-only check would miss a restyled slot that kept its id.
     let exact = declaration_matches_live_specs(declared, existing.iter().map(|(_, _, spec)| spec));
     if exact {
         return;
@@ -205,8 +186,8 @@ pub fn spawn_declared_hud(
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
-        // A shell host can retain a session for one deferred teardown frame.
-        // Never materialize new gameplay UI without a live session owner.
+        // A shell host can keep a session for one deferred teardown frame. Do
+        // not create gameplay UI without a live session owner.
         return;
     };
 
@@ -235,7 +216,7 @@ pub fn spawn_declared_hud(
                 DeclaredHudBar(spec.id.clone()),
                 Node {
                     position_type: PositionType::Absolute,
-                    // Under the slot's text, spanning the width it declared a minimum for.
+                    // Under the slot text, across its declared minimum width.
                     left: Val::Px(0.0),
                     top: Val::Px(spec.font_size + 2.0),
                     width: Val::Px(0.0),
@@ -246,12 +227,11 @@ pub fn spawn_declared_hud(
                 Name::new(format!("Declared HUD gauge ({})", spec.id.as_str())),
             ),
         );
-        // THE FIGHTER PANEL, spawned for every slot and shown only for one
-        // publishing a `Standing`.  spawned ONCE with a fixed number of stock
-        // icons and hidden per frame rather than spawned per stock: a family
-        // that appears and disappears with a number would churn entities every
-        // time somebody lost a life, and `DeclaredHudRoot`'s retire sweep is
-        // built around one spawn per declaration.
+        // The fighter panel: spawned for every slot, shown only for a slot
+        // that publishes a `Standing`. Spawned once with a fixed number of
+        // stock icons, hidden per frame, so losing a life does not churn
+        // entities. `DeclaredHudRoot`'s retire sweep expects one spawn per
+        // declaration.
         commands
             .spawn_session_scoped(
                 session_scope,
@@ -283,8 +263,8 @@ pub fn spawn_declared_hud(
                     Visibility::Hidden,
                     Name::new(format!("Declared HUD portrait ({})", spec.id.as_str())),
                 ));
-                // The stock row sits under the percent, which is the slot's own
-                // text node — so this row is spaced down past it.
+                // The stock row sits under the percent (the slot's own text node),
+                // so it is spaced down past it.
                 panel
                     .spawn((
                         Node {
@@ -346,9 +326,8 @@ pub fn spawn_declared_hud(
                     ..default()
                 },
                 Name::new(format!("Declared HUD slot ({})", spec.id.as_str())),
-                // Generic screen occupancy, derived from this node's own
-                // computed layout — the HUD says what it is, the host derives
-                // where it is.
+                // Generic screen occupancy from this node's computed layout: the
+                // HUD says what it is, the host derives where it is.
                 ScreenOccluder::hud(),
             ),
         );
@@ -359,13 +338,13 @@ pub fn spawn_declared_hud(
 /// Move each declared readout into the region it asked for, when the active
 /// profile leaves one big enough; otherwise leave it overlaying gameplay.
 ///
-/// The same ladder `place_player_hud` walks, per slot instead of per widget,
-/// because each slot declares its own region and minimum.
+/// Same ladder as `place_player_hud`, per slot instead of per widget, because
+/// each slot declares its own region and minimum.
 pub fn place_declared_hud(
     presentation: Res<ResolvedGameplayPresentation>,
     active: Res<ActiveHudDeclaration>,
-    // What each slot is CURRENTLY showing, because how tall a slot is depends on
-    // how many lines the game published into it this frame. See [`slot_extent`].
+    // Current readouts: a slot's height depends on how many lines the game
+    // published this frame. See [`slot_extent`].
     readouts: Res<HudReadouts>,
     mut slots: Query<(&DeclaredHudSlot, &mut Node, Option<&ComputedNode>)>,
 ) {
@@ -379,20 +358,17 @@ pub fn place_declared_hud(
         .unwrap_or_default();
 
     for spec in ordered {
-        // A centred card ignores the region ladder entirely: it belongs over
-        // the gameplay rectangle, which is the thing the player is looking at.
+        // A centred card ignores the region ladder: it goes over the gameplay
+        // rectangle.
         if spec.centered {
             let gameplay = presentation.gameplay_rect;
             for (slot, mut node, _) in &mut slots {
                 if slot.0 != spec.id {
                     continue;
                 }
-                // Span the gameplay rect and let the text centre ITSELF inside
-                // that span (the node carries `JustifyText::Center`). Setting
-                // `left: 50%` instead puts the node's LEFT EDGE at the middle,
-                // so the card starts at centre and runs off to the right — it
-                // reads as "the HUD is in the middle of the screen" rather than
-                // as a centred card, which is exactly how this shipped.
+                // Span the gameplay rect and let the text centre itself
+                // (`JustifyText::Center`). `left: 50%` would put the node's left
+                // edge at the middle, so the card would run off to the right.
                 let left = Val::Px(gameplay.min.x);
                 let width = Val::Px(gameplay.width());
                 if node.left != left {
@@ -408,16 +384,13 @@ pub fn place_declared_hud(
             }
             continue;
         }
-        // Prefer the declared region; fall back to any OTHER reserved region
-        // before giving up and overlaying.
-        //
-        // Honouring only the declared region meant its `Top` readouts found nothing on every
-        // ordinary monitor and fell through to the overlay corner — landing somewhere
-        // reasonable purely by luck rather than by placement.
+        // Prefer the declared region; fall back to any other reserved region
+        // before overlaying. Otherwise `Top` readouts find nothing on an
+        // ordinary monitor.
         let region = select_hud_region(&presentation, spec);
 
-        // What this slot's text actually occupied last frame, in LOGICAL px —
-        // `ComputedNode` is physical, and `Node::top` is not.
+        // What this slot's text used last frame, in logical px. `ComputedNode`
+        // is physical; `Node::top` is logical.
         let measured = slots
             .iter()
             .find(|(slot, ..)| slot.0 == spec.id)
@@ -426,9 +399,8 @@ pub fn place_declared_hud(
 
         let anchor = match region {
             Some((actual_region, rect)) => {
-                // Two differently authored preferences may fall back to the
-                // same physical region. Stack by the region actually chosen,
-                // or both start at its origin and overlap.
+                // Two preferences can fall back to the same region. Stack by the
+                // region chosen, or both start at its origin and overlap.
                 let stacked = offset_in_region.entry(actual_region as u8).or_insert(0.0);
                 let anchor = rect.min + Vec2::splat(HUD_MARGIN) + Vec2::new(0.0, *stacked);
                 *stacked += slot_extent(spec, &readouts, measured);
@@ -457,26 +429,21 @@ pub fn place_declared_hud(
 
 /// The gauge bar belonging to one declared slot.
 ///
-/// A SIBLING root, not a child — it is positioned against the slot's live `Node`
-/// every frame (see [`update_declared_hud_gauges`]) because the slot itself
-/// moves between regions as the active presentation profile changes.
-///
-/// Both sweeps in [`spawn_declared_hud`] now key on [`DeclaredHudRoot`], which every spawn
-/// there carries.
+/// A sibling root, not a child. It follows the slot's live `Node` every frame
+/// (see [`update_declared_hud_gauges`]), because the slot moves between
+/// regions when the presentation profile changes. Both sweeps in
+/// [`spawn_declared_hud`] key on [`DeclaredHudRoot`].
 #[derive(bevy::prelude::Component, Debug)]
 pub struct DeclaredHudBar(pub HudSlotId);
 
 /// Size each slot's gauge from its published fill.
 ///
-/// A slot whose readout has no `fill` collapses to zero size — so a game may
-/// publish a gauge conditionally (a boss bar that appears with the boss)
-/// without declaring two slots.
+/// A slot whose readout has no `fill` collapses to zero size, so a game can
+/// publish a gauge conditionally (a boss bar) without a second slot.
 pub fn update_declared_hud_gauges(
     readouts: Res<HudReadouts>,
-    // The slot's live node, so the bar FOLLOWS its placement. `place_declared_hud`
-    // moves slots between regions as the active presentation profile changes, and
-    // a bar pinned to where it spawned would drift away from the number it
-    // belongs to the first time that happened.
+    // The slot's live node, so the bar follows it when `place_declared_hud`
+    // moves the slot to another region.
     specs: Query<(&DeclaredHudSlot, &DeclaredHudSpec, &Node), Without<DeclaredHudBar>>,
     mut bars: Query<(&DeclaredHudBar, &mut Node)>,
 ) {
@@ -499,8 +466,8 @@ pub fn update_declared_hud_gauges(
         let figure = readouts.get(&bar.0).map(|readout| readout.figure.clone());
         let fill = match figure.flatten() {
             Some(HudFigure::Gauge(fill)) => fill,
-            // A standing draws a PANEL, not a bar — see `update_declared_hud_panels`.
-            // Collapsing here is what keeps a slot from wearing both.
+            // A standing draws a panel, not a bar (`update_declared_hud_panels`).
+            // Collapse here so a slot never shows both.
             Some(HudFigure::Standing(_)) | None => {
                 if node.height != Val::Px(0.0) {
                     node.height = Val::Px(0.0);
@@ -509,9 +476,8 @@ pub fn update_declared_hud_gauges(
                 continue;
             }
         };
-        // The slot's own declared minimum width is the bar's full extent, so a
-        // game sizes its gauge by declaring how much room it wants rather than
-        // by knowing anything about pixels here.
+        // The slot's declared minimum width is the bar's full extent, so a game
+        // sizes its gauge by declaring room, not pixels.
         let full = slot
             .map(|(_, spec, _)| spec.0.min_px.x.max(120.0))
             .unwrap_or(120.0);
@@ -540,23 +506,20 @@ pub fn update_declared_hud(
         if text.0 != next {
             text.0 = next;
         }
-        // ⭐ THE PUNCH. A readout that was just hit is drawn bigger for as long
-        // as the hit is being felt — the same beat the freeze lasts, because it
-        // is derived from the same number. A HUD that grew on its own schedule
-        // would read as a second, laggier hit.
+        // The punch: a readout that was just hit draws bigger for the same beat
+        // as the freeze, because both come from the same number.
         //
-        // ⛔ the BASE font size is recovered from the declaration rather than
-        // remembered: a scale applied to whatever the font is now compounds every
-        // frame, which is a readout that grows until it fills the screen.
+        // The base size comes from the declaration, not the current font, so the
+        // scale does not compound.
         let emphasis = readout
             .and_then(|readout| readout.standing_of())
             .map(|standing| standing.emphasis.clamp(0.0, 1.0))
             .unwrap_or(0.0);
         let base = slot.1;
         let wanted = base * (1.0 + emphasis * HUD_PUNCH_GAIN);
-        // Read-compare-write: a `Mut` deref marks the component changed for the
-        // frame, so the settled case must not touch it. This pass is the only
-        // writer of HUD sizes, so every value it finds is a `Px`.
+        // Read-compare-write: a `Mut` deref marks the component changed, so the
+        // settled case must not touch it. This pass is the only writer of HUD
+        // sizes, so every value is a `Px`.
         if !matches!(font.font_size, FontSize::Px(px) if (px - wanted).abs() <= 0.01) {
             font.font_size = FontSize::Px(wanted);
         }
@@ -565,9 +528,8 @@ pub fn update_declared_hud(
 
 /// How much bigger a freshly-hit readout draws, at full emphasis.
 ///
-/// A quarter again: enough that the eye catches it in peripheral vision during a
-/// fight, small enough that a 132px panel still holds the text — the constraint
-/// that already decided this panel draws no name beside its number.
+/// A quarter again: the eye catches it during a fight, and a 132px panel
+/// still holds the text.
 const HUD_PUNCH_GAIN: f32 = 0.25;
 
 // ---------------------------------------------------------------------------
@@ -576,9 +538,8 @@ const HUD_PUNCH_GAIN: f32 = 0.25;
 
 /// How many stocks are drawn one-icon-each before it becomes a count.
 ///
-/// the genre's own break point, not a guess: a platform fighter draws a row of little heads while
-/// there are few enough to read at a glance, and switches to `xN` once counting them would take
-/// longer than reading a number.
+/// A platform fighter draws a row of heads while there are few, and switches
+/// to `xN` when counting would take longer than reading a number.
 pub const MAX_DRAWN_STOCKS: u32 = 5;
 
 /// How wide one fighter panel is, and how big the pieces in it are.
@@ -589,9 +550,8 @@ const STOCK_ICON_GAP: f32 = 3.0;
 
 /// One fighter panel's root, tagged with the slot it belongs to.
 ///
-/// A SIBLING root rather than a child of the slot's text node, for the reason
-/// the gauge bar is one: the text node moves between regions as the active
-/// profile changes, and this tracks it every frame.
+/// A sibling root, not a child of the slot's text node, like the gauge bar:
+/// the text node moves between regions, and this follows it every frame.
 #[derive(Component, Debug)]
 pub struct DeclaredHudPanel(pub HudSlotId);
 
@@ -609,11 +569,9 @@ pub struct DeclaredHudStockCount(pub HudSlotId);
 
 /// Which slots are drawing a fighter panel this frame, in laid-out order.
 ///
-///  the count is what "horizontally distributed depending on the number of
-/// players" means, and it is a fact about the READOUTS rather than the
-/// declaration: the smash stage declares four slots and a 1v1 publishes two, so
-/// asking the declaration would space a two-player match as if four people were
-/// playing and leave two gaps.
+/// The count comes from the readouts, not the declaration. The smash stage
+/// declares four slots and a 1v1 publishes two; counting the declaration
+/// would space two panels as four and leave gaps.
 fn panelled_slots(active: &ActiveHudDeclaration, readouts: &HudReadouts) -> Vec<HudSlotId> {
     active
         .0
@@ -632,10 +590,9 @@ fn panelled_slots(active: &ActiveHudDeclaration, readouts: &HudReadouts) -> Vec<
 
 /// How a stock count is DRAWN: how many icons, and the count beside them.
 ///
-/// `(icons, count)` — `count` is `Some(n)` only when there are too many to draw
-/// one each, in which case exactly one icon is drawn and the number says the
-/// rest.  zero stocks draw NOTHING and that is not an error: it is a fighter
-/// who is out, and an empty row is what says so.
+/// `(icons, count)`: `count` is `Some(n)` only when there are too many to draw
+/// one each; then one icon is drawn and the number says the rest. Zero stocks
+/// draw nothing: the fighter is out.
 fn drawn_stocks(remaining: u32) -> (u32, Option<u32>) {
     if remaining > MAX_DRAWN_STOCKS {
         (1, Some(remaining))
@@ -646,13 +603,13 @@ fn drawn_stocks(remaining: u32) -> (u32, Option<u32>) {
 
 /// Width occupied by a row of player panels within the available gameplay area.
 fn panel_row_span(available: f32, count: usize) -> f32 {
-    // Base span on available screen width, but never below the total panel width
-    // needed to avoid overlap.
+    // Based on available width, but never less than the total panel width,
+    // so panels do not overlap.
     (available * ROW_FRACTION).max(PANEL_W * count.max(1) as f32)
 }
 
-/// How much of the gameplay width a full panel row occupies. Short of the edges
-/// on purpose: a host draws its own buttons in the corners.
+/// How much of the gameplay width a full panel row uses. It stops short of
+/// the edges because a host draws its own buttons in the corners.
 const ROW_FRACTION: f32 = 0.72;
 
 /// Where one panel's LEFT edge sits, given its place in the row.
@@ -666,36 +623,22 @@ fn panel_left(centre_x: f32, available: f32, index: usize, count: usize) -> f32 
     first_centre + pitch * index as f32 - PANEL_W * 0.5
 }
 
-/// Lay the fighter panels out across their region and hang each one's pieces
-/// off its slot's live text node.
+/// HUD image handles already loaded by this process, kept alive on purpose.
 ///
-///  after the placer, like the gauges: a panel tracks a position that
-/// frame settled on.
-/// HUD image handles this process has already loaded, kept alive on purpose.
+/// The HUD holds the only handle to a portrait. Without this cache, the image
+/// drops when the entity despawns and every select-screen visit decodes the
+/// same portraits again.
 ///
-/// ⛔⛔ WITHOUT THIS, EVERY SELECT-SCREEN VISIT RE-DECODES THE SAME PORTRAITS.
-/// The HUD holds the only handle to a portrait; when its entity despawns the last
-/// reference goes, Bevy drops the image, and the next visit decodes it again.
-/// Measured on hardware 2026-08-29: the select screen's set decoded TWICE in one
-/// session (56.2s and 71.9s, the same eight names), and after the phase-scoped
-/// analysis those were **15 of the 15 decodes that landed in settled play** —
-/// every other decode in the run was boot or a room still arriving.
-///
-/// ⭐ BOUNDED BY CONSTRUCTION, which is why this is a cache and not the residency
-/// service the sheet store forbids: it holds one entry per portrait ACTUALLY
-/// SHOWN (~1.3–2.0MP each), not the 163 baked portrait manifests. A cast-sized
-/// set of small images is a different object from a 470MB-per-character sheet
-/// table, and it needs no eviction policy to stay bounded.
+/// Bounded: one entry per portrait actually shown (~1.3-2.0 MP each), not
+/// every baked portrait. A cast-sized set of small images needs no eviction
+/// policy, unlike the character sheet table.
 #[derive(Resource, Default)]
 pub struct RetainedHudImages {
     by_path: std::collections::HashMap<String, Handle<Image>>,
     /// Requests answered from the cache, and requests that had to load.
     ///
-    /// ⭐ THE CAMPAIGN ROW ASKED FOR CACHE HITS, AND THIS IS THE ONLY PLACE THEY
-    /// MEAN ANYTHING HERE. A decode count says an image arrived; it cannot say
-    /// whether a screen was reopened and served without one. `loads` climbing
-    /// while `hits` stays flat is the bug this cache exists to prevent, coming
-    /// back.
+    /// Cache hits are the signal for this cache: `loads` rising while `hits`
+    /// stays flat means the re-decode bug is back.
     served: u64,
     loaded: u64,
 }
@@ -716,9 +659,8 @@ impl RetainedHudImages {
         self.by_path
             .entry(path)
             .or_insert_with_key(|path| {
-                // Stamped like every other portrait road: a bare `load` here put
-                // the image into `Assets<Image>` with no demand, so the ledger
-                // could only report it as `demand=unknown`.
+                // Stamped like every other portrait load, so the ledger records its
+                // demand (a bare `load` shows as `demand=unknown`).
                 ambition_sprite_sheet::game_assets::load_sheet_image(
                     asset_server,
                     "portrait",
@@ -729,6 +671,11 @@ impl RetainedHudImages {
     }
 }
 
+/// Lay the fighter panels out across their region and hang each one's pieces
+/// off its slot's live text node.
+///
+/// Runs after the placer, like the gauges: a panel follows the position that
+/// frame settled on.
 pub fn update_declared_hud_panels(
     readouts: Res<HudReadouts>,
     active: Res<ActiveHudDeclaration>,
@@ -764,8 +711,8 @@ pub fn update_declared_hud_panels(
 ) {
     let panelled = panelled_slots(&active, &readouts);
     let count = panelled.len();
-    // The gameplay rectangle's centre, so the row is centred on what the player
-    // is looking at rather than on the window — they differ under letterboxing.
+    // The gameplay rectangle's centre, not the window's; they differ under
+    // letterboxing.
     let centre_x = presentation.gameplay_rect.min.x + presentation.gameplay_rect.width() * 0.5;
 
     // ── the panel roots, and the slot text they carry ────────────────────
@@ -775,8 +722,8 @@ pub fn update_declared_hud_panels(
             continue;
         };
         set_shown(&mut visibility);
-        // The slot's OWN declared font size, because the percent is drawn in it
-        // and the panel's height is portrait + that line + the stock row.
+        // The slot's own declared font size: the percent uses it, and panel
+        // height is portrait + that line + the stock row.
         let panel_font = slots
             .iter()
             .find(|(slot, ..)| slot.0 == panel.0)
@@ -786,10 +733,9 @@ pub fn update_declared_hud_panels(
         set_px(&mut node.left, left);
         set_px(&mut node.width, PANEL_W);
 
-        // The slot's own text is the PERCENT, and it belongs under the
-        // portrait. `place_declared_hud` put it wherever the region stacker
-        // wanted; a panelled slot overrides that, which is the one place this
-        // renderer takes a position back from the stacker.
+        // The slot's own text is the percent, under the portrait. A panelled
+        // slot overrides `place_declared_hud`'s position; this is the only place
+        // the renderer takes a position back from the stacker.
         let top = panel_top(&presentation, panel_font);
         set_px(&mut node.top, top);
         for (slot, _, mut slot_node) in &mut slots {
@@ -808,20 +754,19 @@ pub fn update_declared_hud_panels(
             .get(&portrait.0)
             .and_then(|readout| readout.standing_of());
         match standing.and_then(|standing| standing.portrait.clone()) {
-            //  a fighter with no portrait draws none rather than a blank box:
-            // an empty rectangle reads as art that failed to load.
+            // No portrait draws nothing, not a blank box (which reads as failed
+            // art).
             None => set_hidden(&mut visibility),
             Some(path) => {
                 set_shown(&mut visibility);
-                // Through the retained cache: a second visit must not re-decode.
+                // Through the retained cache, so a second visit does not re-decode.
                 let handle = retained_hud_images.handle(&asset_server, path);
                 if image.image != handle {
                     image.image = handle;
                 }
-                // The FACE out of the page. A portrait sheet holds every clip
-                // this character can wear, so drawing the whole image squeezes
-                // the lot into this box. `None` is the whole image, which is
-                // what a single-frame portrait wants.
+                // The face out of the page. A portrait sheet holds every clip, so the
+                // whole image would squeeze them all into this box. `None` is the whole
+                // image, for a single-frame portrait.
                 let frame = standing.and_then(|standing| standing.portrait_frame);
                 if image.rect != frame {
                     image.rect = frame;
@@ -850,11 +795,7 @@ pub fn update_declared_hud_panels(
         }
         set_shown(&mut visibility);
         // Same cache as the portraits, for the same reason: the HUD holds the
-        // only handle, so despawning its entity drops the icon and the next
-        // screen decodes it again.
-        // ⚠ NOT observed in the hardware run — a stock icon is below the census's
-        // 1MP notable threshold, so it would not have appeared either way. Fixed
-        // because it is the IDENTICAL defect, not because it was measured.
+        // only handle.
         let handle = retained_hud_images.handle(&asset_server, path);
         if image.image != handle {
             image.image = handle;
@@ -887,12 +828,12 @@ fn panel_height(font_size: f32) -> f32 {
 fn panel_top(presentation: &ResolvedGameplayPresentation, font_size: f32) -> f32 {
     let height = panel_height(font_size);
     match presentation.hud_region(SurroundRegion::Bottom) {
-        // The reserved strip, sat against its top edge — and pulled up if the
+        // The reserved strip, against its top edge, and pulled up if the
         // strip is shorter than the panel, so a thin letterbox clips the
-        // BACKGROUND rather than the numbers.
+        // background rather than the numbers.
         Some(rect) => rect.min.y.min(rect.max.y - height).max(0.0) + HUD_MARGIN * 0.5,
-        // No reserved surround: overlay INSIDE the gameplay rectangle, sat on
-        // its bottom edge, which is where a fighting game's HUD belongs anyway.
+        // No reserved surround: overlay inside the gameplay rectangle, on its
+        // bottom edge.
         None => (presentation.gameplay_rect.max.y - height - HUD_MARGIN).max(0.0),
     }
 }
@@ -918,10 +859,9 @@ fn set_hidden(visibility: &mut Visibility) {
 
 /// Installs the declared-HUD surface.
 ///
-/// Belongs to the presentation face rather than any one app, because the whole
-/// point of the seam is that a game gets a HUD by DECLARING one — no app-side
-/// wiring per game. A route that declared nothing spawns nothing, so hosts
-/// whose games have no HUD are unaffected.
+/// Part of the presentation face, not any one app: a game gets a HUD by
+/// declaring one, with no per-game app wiring. A route that declares nothing
+/// spawns nothing.
 pub struct DeclaredHudPlugin;
 
 impl Plugin for DeclaredHudPlugin {
@@ -933,23 +873,22 @@ impl Plugin for DeclaredHudPlugin {
             (
                 spawn_declared_hud,
                 update_declared_hud,
-                // Consumes THIS frame's resolved HUD regions, so a profile
-                // that reserves surround actually gets the readouts put there.
+                // Uses this frame's resolved HUD regions, so a profile that reserves
+                // surround gets the readouts there.
                 place_declared_hud.after(
                     ambition_platformer2d_shared_tangle::gameplay_presentation::GameplayPresentationSet,
                 ),
-                // AFTER the placer: a gauge tracks its slot's live position, so
-                // it has to read the position this frame settled on.
+                // After the placer: a gauge follows its slot's position this frame.
                 update_declared_hud_gauges.after(place_declared_hud),
-                // AFTER the placer for the same reason, and it takes the
-                // position back for a panelled slot — see the note there.
+                // After the placer for the same reason; it also takes the position
+                // back for a panelled slot.
                 update_declared_hud_panels.after(place_declared_hud),
             )
                 .chain()
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        // Outlives any one session on purpose: the point is that leaving the
-        // select screen and coming back does not decode the portraits again.
+        // Outlives any one session, so returning to the select screen does not
+        // decode the portraits again.
         app.init_resource::<RetainedHudImages>();
     }
 }
@@ -994,9 +933,8 @@ mod punch_tests {
         for _ in 0..frames {
             app.update();
         }
-        // The assertions below are about a NUMBER of pixels, so unwrap the unit
-        // here rather than making every comparison carry it. This pass only ever
-        // writes `Px`; a different variant means the punch stopped owning the size.
+        // The assertions compare pixel counts, so unwrap the unit here. This
+        // pass only writes `Px`.
         match app
             .world()
             .get::<TextFont>(node)
@@ -1008,13 +946,11 @@ mod punch_tests {
         }
     }
 
-    /// ⛔⛔ THE PUNCH MUST NOT COMPOUND, and this is the whole reason the node
-    /// carries its DECLARED size.
+    /// The punch must not compound, which is why the node stores its declared
+    /// size.
     ///
-    /// A scale applied to whatever the font happens to be NOW multiplies every
-    /// frame: at a quarter again, a readout held under emphasis for a second is
-    /// drawn about four thousand times its size. The failure is invisible in a
-    /// single-tick test, which is why this one runs sixty.
+    /// A scale of the current size multiplies every frame. A single-tick test
+    /// cannot see that, so this one runs sixty ticks.
     #[test]
     fn a_held_punch_does_not_grow_the_readout_every_frame() {
         let one = drawn_size(1.0, 1);
@@ -1030,13 +966,11 @@ mod punch_tests {
         );
     }
 
-    /// ⭐ AND IT COMES BACK. A punch that never returns to the declared size is
-    /// a HUD that is permanently bigger after the first hit of the match.
+    /// It returns: with no emphasis, the readout draws at the declared size.
     #[test]
     fn no_emphasis_draws_exactly_the_declared_size() {
         assert!((drawn_size(0.0, 4) - 16.0).abs() < 0.01);
-        // Half a punch is half the gain — the scale is proportional rather than
-        // a latch, so a light hit reads lighter than a heavy one.
+        // Half a punch is half the gain: proportional, not a latch.
         let half = drawn_size(0.5, 2);
         assert!(
             (half - 16.0 * (1.0 + HUD_PUNCH_GAIN * 0.5)).abs() < 0.01,
@@ -1052,13 +986,9 @@ mod tests {
         HudDeclaration, HudLayoutPolicy, HudReadout, NamedScreenRect,
     };
 
-    /// THE PANELS ARE CENTRED AS A GROUP, whatever the player count.
-    ///
-    ///  this is what "horizontally distributed depending on the number of
-    /// players" has to mean: a 1v1 sits two panels either side of the middle
-    /// and a four-player match spreads four across it, and in BOTH the row's
-    /// own centre is the screen's. A layout that packed from the left would put
-    /// a 1v1 in the corner.
+    /// The panels are centred as a group for any player count: two panels sit
+    /// either side of the middle, four spread across it. Packing from the left
+    /// would put a 1v1 in the corner.
     #[test]
     fn a_panel_row_is_centred_on_the_screen_for_any_player_count() {
         let centre = 640.0;
@@ -1076,8 +1006,7 @@ mod tests {
         }
     }
 
-    /// AND THEY DO NOT OVERLAP. Two panels sharing pixels is two percents
-    /// on top of each other, which is the failure a HUD cannot have.
+    /// Panels in a row never overlap.
     #[test]
     fn panels_in_a_row_never_overlap() {
         for count in 1..=4usize {
@@ -1092,11 +1021,8 @@ mod tests {
         }
     }
 
-    /// FEW STOCKS ARE ICONS; MANY ARE A COUNT.
-    ///
-    ///  the boundary is asserted from both sides. A rule that only checked the
-    /// small case would let the threshold drift by one and nobody would see it
-    /// until a HUD tried to draw nine little heads.
+    /// Few stocks are icons; many are a count. The boundary is tested from both
+    /// sides, so the threshold cannot drift by one.
     #[test]
     fn stocks_draw_as_icons_until_there_are_too_many() {
         assert_eq!(
@@ -1162,8 +1088,7 @@ mod tests {
         };
         assert_eq!(bars(&mut app), 1, "the first build spawned no gauge at all");
 
-        // Same id, different style — the case that forces a rebuild without a
-        // route change, and the one this regressed on.
+        // Same id, different style: forces a rebuild without a route change.
         for size in [24.0_f32, 30.0, 36.0] {
             *app.world_mut().resource_mut::<ActiveHudDeclaration>() = ActiveHudDeclaration(Some(
                 HudDeclaration::new().slot(HudSlotSpec::new("health").with_font_size(size)),
@@ -1237,12 +1162,9 @@ mod tests {
         );
     }
 
-    /// A slot as tall as what it PUBLISHED, not as tall as one line.
-    ///
-    ///  the stack advanced by `font_size + gap` whatever the readout said, so
-    /// a game publishing a three-line card had the next slot drawn across its
-    /// second and third lines. TwinTrack does exactly that in four slots at
-    /// once, and its top-left corner is unreadable because of it.
+    /// A slot is as tall as what it published, not one line. Otherwise a
+    /// three-line card has the next slot drawn over its second and third lines
+    /// (TwinTrack publishes four such slots).
     #[test]
     fn a_multi_line_readout_pushes_the_next_slot_below_all_of_its_lines() {
         const SIZE: f32 = 20.0;
@@ -1251,8 +1173,8 @@ mod tests {
             .slot(HudSlotSpec::new("after").with_font_size(SIZE));
 
         let mut app = App::new();
-        // No reserved surround: both slots land in the overlay stack, which is
-        // the arrangement every ordinary window produces.
+        // No reserved surround: both slots use the overlay stack, like an
+        // ordinary window.
         app.insert_resource(ResolvedGameplayPresentation::default());
         app.insert_resource(ActiveHudDeclaration(Some(declaration)));
         let mut readouts = HudReadouts::default();
@@ -1294,10 +1216,8 @@ mod retained_hud_image_tests {
 
     fn asset_app() -> App {
         let mut app = App::new();
-        // ⚠ `TaskPoolPlugin` FIRST: `AssetServer::load` dispatches onto the IO
-        // pool, so an `App::new()` with only `AssetPlugin` panics inside
-        // `bevy_tasks`. The neighbouring asset tests do not hit this because they
-        // insert images directly and never call `load`.
+        // `TaskPoolPlugin` first: `AssetServer::load` dispatches onto the IO
+        // pool and panics without it.
         app.add_plugins((
             bevy::app::TaskPoolPlugin::default(),
             bevy::asset::AssetPlugin::default(),
@@ -1306,16 +1226,11 @@ mod retained_hud_image_tests {
         app
     }
 
-    /// ⭐ THE PROPERTY IS RETENTION, NOT HANDLE IDENTITY.
+    /// The property is retention, not handle identity.
     ///
-    /// ⛔ "asking twice returns the same handle" is a check that CANNOT FAIL:
-    /// `AssetServer::load` dedupes by path and hands back the same handle while
-    /// the asset is alive, so a cache that reloaded on every call passes it.
-    /// Poison-proven.
-    ///
-    /// What fixes the bug is that this map holds a STRONG handle of its own, so
-    /// the image survives the HUD entity despawning — which is what made the
-    /// select screen re-decode its portraits on a second visit.
+    /// "Asking twice returns the same handle" cannot fail: `AssetServer::load`
+    /// dedupes by path while the asset is alive. The fix is that this map holds
+    /// its own strong handle, so the image survives the HUD entity despawning.
     #[test]
     fn the_cache_keeps_a_handle_after_the_caller_drops_theirs() {
         let app = asset_app();
@@ -1337,7 +1252,7 @@ mod retained_hud_image_tests {
         );
     }
 
-    /// ⛔ The control: two different portraits must not collapse onto one entry.
+    /// Control: two different portraits must not share one entry.
     #[test]
     fn different_portraits_keep_separate_entries() {
         let app = asset_app();

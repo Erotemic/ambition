@@ -47,9 +47,8 @@ fn eligible<'a>(table: &'a [WeightedArm], ctx: &BossPatternContext) -> Vec<&'a W
 /// Pick one arm by weight from the eligible set, consuming one draw of `unit`
 /// (a value in `[0, 1)`).
 ///
-/// `None` when nothing is eligible — a legal, deliberate "do nothing here", and
-/// the reason an authoring agent can write a table that is silent at long range
-/// without also writing an empty arm.
+/// `None` when nothing is eligible: a deliberate "do nothing here", so a table
+/// can be silent at long range without an empty arm.
 pub fn pick_arm<'a>(
     table: &'a [WeightedArm],
     ctx: &BossPatternContext,
@@ -116,13 +115,12 @@ fn resolve_into(
 /// The rule that should fire this tick, as an index into `pattern.interrupts`.
 ///
 /// Ticks every rule's cooldown and `OnTimer` accumulator by `dt` first, so this
-/// is the single place interrupt time advances. At most one rule fires per tick —
-/// the FIRST eligible one in authored order, which makes the priority visible in
-/// the RON rather than emergent.
+/// is the single place interrupt time advances. At most one rule fires per
+/// tick: the first eligible one in authored order, so the priority is visible
+/// in the RON.
 ///
 /// `phase_entered` is the rising edge the caller detects (`state.last_phase`
-/// differs from `ctx.encounter_phase`), because by the time this runs the ticker
-/// has already had to know.
+/// differs from `ctx.encounter_phase`); the ticker has already computed it.
 pub fn tick_interrupts(
     interrupts: &[InterruptRule],
     state: &mut BossPatternState,
@@ -152,7 +150,7 @@ pub fn tick_interrupts(
         if !triggered {
             continue;
         }
-        // The timer resets on TRIGGER, not on fire: a rule whose cooldown swallows
+        // The timer resets on trigger, not on fire: a rule whose cooldown swallows
         // its own tick must not then fire immediately on the next one. Otherwise a
         // 1s timer behind a 5s cooldown would fire five times in a row at t=5.
         if let InterruptTrigger::OnTimer { every_s } = rule.on {
@@ -167,15 +165,14 @@ pub fn tick_interrupts(
     fired
 }
 
-/// Enter `stance_id`, saving where to come back to. No-op (returns `false`) when
-/// the pattern has no such stance — an authored typo must not panic mid-fight; it
-/// is BD5's job to flag it as a diagnostic finding.
+/// Enter `stance_id`, saving where to come back to. No-op (returns `false`)
+/// when the pattern has no such stance: an authored typo must not panic
+/// mid-fight; the validator flags it.
 ///
-/// `resume_at` is the step to return to. A `Stance` step passes the step AFTER
-/// itself (the marker is consumed); an INTERRUPT passes the current step and its
-/// elapsed, so a boss yanked out of a telegraph resumes that telegraph rather
-/// than restarting it — the punish window the player was already reading stays
-/// where it was.
+/// `resume_at` is the step to return to. A `Stance` step passes the step after
+/// itself (the marker is consumed). An interrupt passes the current step and
+/// its elapsed, so a boss pulled out of a telegraph resumes that telegraph and
+/// the punish window the player was reading stays where it was.
 pub fn enter_stance(
     pattern: &BossPattern,
     state: &mut BossPatternState,

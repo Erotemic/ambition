@@ -10,74 +10,27 @@
 > machinery is migration input rather than the final authority. Actor-local boss
 > behavior and fight-quality guidance remain valid.
 
-> **RE-MEASURED against `ff0e83be5` (2026-09-03), two months on. ⛔ THE "ONE
-> BOUNDED SLICE" OF RESIDUE IS TWO HALVES, AND ONE OF THEM WAS DECIDED AGAINST
-> TWO DAYS AFTER THIS PAGE LISTED IT.**
->
-> | residue | state at HEAD |
-> |---|---|
-> | `BossAnim`→`CharacterAnim` | ⛔ **not pending — rejected on purpose** |
-> | `target_pos` retirement | ▢ still open (`crates/ambition_characters/src/brain/boss_pattern/mod.rs:981`) |
->
-> ✔ **RE-DERIVED 2026-09-17 and both rows hold.** `BossAnim` is still at
-> `crates/ambition_sprite_sheet/src/boss.rs:28` with seven variants, and the
-> reference count reproduces EXACTLY at 7 files, 5 of them production.
-> ⚠ **The instrument matters and nearly cost a wrong correction:** a plain
-> `grep -rl BossAnim` answers **27**, because `BossAnimDrivePhase` and its
-> siblings contain the name. The 7 needs `grep -rlE '\bBossAnim\b'`. A number
-> that TRIPLES under a looser pattern is the reading to distrust, not the page.
->
-> `BossAnim`'s own doc comment records the decision not to fold it:
-> *"E6(b) policy: keep this boss-domain vocabulary for authored boss sheets
-> instead of forcing non-GNU-ton rows through `CharacterAnim`. Boss rows name
-> attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`, `dash_echo`)
-> that are also keys into hurtbox/hitbox metadata; mapping them to character
-> locomotion/melee rows would be an adapter, not canonicalization."*
->
-> ⭐ **AND THE DATES SETTLE WHICH ONE IS CURRENT.** The fold was written into this
-> page on **2026-07-05** (`c8de27d5a`); the keep-policy was written into the code
-> on **2026-07-07** (`cdf21e0b1`). The decision is the LATER of the two, and this
-> page was never told.
->
-> ⚠ **The decision existed in exactly one place in the repository, and it was a
-> code comment.** `BossAnim` appeared in the live docs only in the line calling
-> it residue; `E6(b)` appears nowhere in `docs/` at all, re-checked 2026-09-17. A
-> code comment is a good place for a decision to be TRUE and a bad place for it
-> to be the only copy — anyone picking up this "bounded slice" would have started
-> the fold, found the comment, and had to reconstruct a two-month-old decision
-> from it. ⇒ **Closed by writing it down as a decision rather than as evidence:
-> see "Decided" below.**
-
 ## Decided
 
-- ⛔ **`BossAnim` does NOT fold into `CharacterAnim` (2026-07-07, `cdf21e0b1`).**
-  Boss rows name attack-geometry verbs — `floor_slam`, `side_sweep`,
-  `spike_halo`, `dash_echo` — that are also keys into hurtbox/hitbox metadata, so
-  mapping them onto character locomotion/melee rows would be an ADAPTER rather
-  than canonicalization. The enum stays boss-domain vocabulary for authored boss
-  sheets. ⚠ This page listed the fold as pending residue on 2026-07-05, two days
-  BEFORE the decision; the decision is the later of the two and is the one that
-  stands. Do not reopen it as tidiness — reopen it only if a boss sheet ever
-  wants character locomotion rows, which is a content fact, not a naming one.
+- `BossAnim` does not fold into `CharacterAnim` (2026-07-07, `cdf21e0b1`). Boss
+  rows name attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`,
+  `dash_echo`) that are also keys into hurtbox and hitbox metadata. Mapping them
+  onto character locomotion or melee rows would be an adapter, not
+  canonicalization. Reopen only if a boss sheet needs character locomotion rows.
 
-Bosses are not a special simulation path — they are actors (see
-[`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)) with **entity-local phase state** and an
-**optional encounter wrapper**. The whole system is engine machinery; specific
-bosses are content.
+Bosses are not a special simulation path. They are actors (see
+[`../../concepts/one-body-one-path.md`](../../concepts/one-body-one-path.md)) with
+entity-local phase state and an optional encounter wrapper. The system is engine
+machinery; specific bosses are content.
 
-> **Status (2026-07-05, current):** the unification LANDED — boss HP/
-> liveness/hit-flash live on the shared `BodyHealth`/`BodyCombat`
-> (`BossEncounter` is encounter-state only); boss strikes run on the moveset
-> runtime (`BossAttackState` is a projection of the live `MovePlayback`);
-> gnuton is the ADR 0020 mounted pair with drivable limb actors and
-> possession verbs. The remaining residue is ONE bounded slice — the boss
-> animator fold in [`../tracks.md`](../tracks.md) Parallel maintenance
-> (`BossAnim`→`CharacterAnim` — ⛔ since DECIDED AGAINST, see "Decided" above —
-> and `target_pos` retirement, which is the one that is actually still open; the
-> old decomposition-ledger "E6" id was retired when that doc became doctrine).
-> Fight QUALITY work is
-> [`boss-design.md`](boss-design.md). Multi-limb history:
-> docs/archive/planning-superseded/multi-limb-bosses.md (removed from the checkout 2026-09-05; still in git history).
+**Status.** The unification landed: boss HP, liveness and hit-flash are on the
+shared `BodyHealth`/`BodyCombat` (`BossEncounter` is encounter state only), boss
+strikes run on the moveset runtime (`BossAttackState` is a projection of the live
+`MovePlayback`), and GNU-ton is the ADR 0020 mounted pair with drivable limb
+actors and possession verbs. One item is open: retire `target_pos` in
+`crates/ambition_characters/src/brain/boss_pattern/mod.rs` (checked 2026-09-17).
+Fight quality is in [`boss-design.md`](boss-design.md). Git history has the
+multi-limb boss record.
 
 ---
 

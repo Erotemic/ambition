@@ -37,12 +37,9 @@ pub fn flush_portal_view_cone_debug_dump(
         &crate::PortalCompositingCandidate,
         Option<&GlobalTransform>,
         Option<&RenderLayers>,
-        // ⛔⛔ THE TWO FACTS THE COMPOSITOR NOW OWNS, and without them this dump
-        // was still diagnosing the mechanism the compositor REPLACED: it passed
-        // a hardcoded `false` for transit (so it could never say `Transiting`)
-        // and derived its verdict from actor z versus the pane band. The
-        // compositor deliberately leaves z alone and hides the source instead,
-        // so a CORRECTLY composited body was reported as a violation.
+        // The two facts the compositor owns. The verdict depends on them, not on
+        // actor z versus the pane band: the compositor leaves z alone and hides
+        // the source instead.
         Option<&ambition_portal2d::PortalTransit>,
         Option<&crate::PortalFarSideHidden>,
     )>,
@@ -52,9 +49,8 @@ pub fn flush_portal_view_cone_debug_dump(
         &Projection,
         Option<&GlobalTransform>,
     )>,
-    // ⭐ EVERY camera, not just the portal rigs. Whether a pane and an actor are
-    // depth-compared at all depends on a camera rendering BOTH masks, and the
-    // rig query above cannot answer that -- it only sees the capture cameras.
+    // Every camera, not only the portal rigs. Whether a pane and an actor are
+    // depth-compared depends on a camera that renders both masks.
     all_cameras: Query<(Option<&Name>, &Camera, Option<&RenderLayers>)>,
     cone_visibility: Query<(&Visibility, Option<&GlobalTransform>), With<PortalConeMesh>>,
     screen_density: GameplayScreenDensity,
@@ -76,9 +72,8 @@ pub fn flush_portal_view_cone_debug_dump(
     request.pending = false;
     request.reason.clear();
 
-    // ⭐ The host-tagged drawables, as (name, pose, drawn z). Collected here so
-    // the text builder stays a pure function of plain data and can be tested
-    // without a `World`.
+    // The host-tagged drawables as plain data, so the text builder is a pure
+    // function that tests can call without a `World`.
     let drawables: Vec<DrawableProbe> = candidates
         .iter()
         .map(|(name, view, transform, layers, transit, hidden)| {
@@ -183,10 +178,9 @@ fn portal_view_cone_debug_dump_text(
     convention: ambition_portal2d::pieces::MapConvention,
 ) -> String {
     let mut out = String::new();
-    // ⭐ THE CAMERA STACK, ONCE. Whether a pane and an actor are depth-compared
-    // at all depends on a camera rendering BOTH masks -- the fact the compositing
-    // section used to hedge about and could not name. Printed here rather than
-    // per pane because it is a property of the session, not of a portal.
+    // The camera stack, once. Whether a pane and an actor are depth-compared
+    // depends on a camera rendering both masks. It is a property of the
+    // session, not of a portal.
     let _ = writeln!(out, "cameras: {}", cameras.len());
     for (name, order, active, layers) in cameras {
         let _ = writeln!(
@@ -678,27 +672,10 @@ fn portal_view_cone_debug_dump_text(
     out
 }
 
-/// Why a drawable appeared above or below THIS pane.
-///
-/// ⛔⛔ THE EXISTING DUMP CAN PROVE THE POLYGON IS RIGHT AND MISS THE BUG
-/// ENTIRELY. It records the entry polygon, the source rect, the capture camera,
-/// blend and LOS — everything about GEOMETRY — and says nothing about ordering.
-/// So it reports a geometrically perfect pane while an actor at `z = 11.0`
-/// necessarily punches through it at `z = 9.5`. This section is the missing
-/// half: for each candidate whose drawn bounds meet the pane, the relation it
-/// SHOULD have and whether today's z gives it.
-///
-/// ⚠ THE CANDIDATE COUNT IS PRINTED EVEN WHEN IT IS ZERO, deliberately. A host
-/// that has tagged no [`crate::PortalCompositingCandidate`] gets an empty report,
-/// and an empty report beside a screenshot showing an overlap means THE HOST HAS
-/// NOT TAGGED, not that the scene is clean. Saying `candidates: 0` distinguishes
-/// those two; printing nothing would not.
 /// One drawable as the dump sees it: name, drawn bounds, render z, layers,
 /// whether the split presentation owns it, and whether the compositor hid it.
 ///
-/// ⭐ An alias because three signatures carry this row; before the compositor
-/// existed it was four fields spelled out in each, and adding the two facts
-/// below would have been three chances to disagree.
+/// An alias because three signatures carry this row.
 type DrawableProbe = (
     String,
     crate::PortalCompositingCandidate,
@@ -708,6 +685,16 @@ type DrawableProbe = (
     bool,
 );
 
+/// Why a drawable appeared above or below this pane.
+///
+/// The geometry dump (polygon, source rect, capture camera, blend, LOS) says
+/// nothing about ordering. This section reports, for each candidate whose drawn
+/// bounds meet the pane, the relation it should have and whether it was
+/// handled.
+///
+/// The candidate count is printed even when it is zero. A host that tagged no
+/// [`crate::PortalCompositingCandidate`] gets an empty report, and
+/// `candidates: 0` separates "not tagged" from "clean".
 fn write_compositing_section(
     out: &mut String,
     portal: &PlacedPortal,
@@ -716,9 +703,8 @@ fn write_compositing_section(
     cameras: &[(String, isize, bool, RenderLayers)],
 ) {
     let _ = writeln!(out, "  compositing.pane_z: {:.3}", crate::PORTAL_WINDOW_Z);
-    // ⛔ NEAR AND FAR ARE RELATIVE TO A VIEWPOINT. With no `PortalViewer` there
-    // is no near side, so this reports that it cannot classify rather than
-    // picking a default and printing confident nonsense.
+    // Near and far need a viewpoint. With no `PortalViewer`, report that it
+    // cannot classify instead of picking a default.
     let Some(viewer_pos) = viewer_pos else {
         let _ = writeln!(out, "  compositing.viewer: ABSENT — cannot classify");
         return;
@@ -734,18 +720,16 @@ fn write_compositing_section(
     let pane_layers = crate::view_cones::portal_window_render_layers(portal.channel);
     let mut violations = 0usize;
     for (name, view, z, layers, transiting, composited) in drawables {
-        // ⚠ DRAWN bounds, not the collision box: the question is which pixels a
-        // pane should cover, and a sprite routinely overhangs the box.
+        // Drawn bounds, not the collision box: the question is which pixels a
+        // pane should cover, and a sprite often overhangs the box.
         let (min, max) = (view.drawn_centre - view.drawn_half, view.drawn_centre + view.drawn_half);
         let relation = crate::pane_relation(portal, viewer_pos, min, max, *transiting);
         if matches!(relation, crate::PaneRelation::Disjoint) {
             continue;
         }
-        // ⛔⛔ THE VERDICT IS ABOUT THE COMPOSITOR, NOT ABOUT Z. It hides the
-        // far-side source and draws the uncovered remainder; it deliberately
-        // never touches actor z. So "is this body drawn above the pane band" is
-        // no longer the question -- a correctly composited body is still above it
-        // and is fine. The question is whether anything HANDLED it.
+        // The verdict is about the compositor, not z. It hides the far-side source
+        // and never changes actor z, so a correctly composited body is still above
+        // the pane band. The question is whether anything handled it.
         let handled = match relation {
             // Nothing to do, and the split presentation owns the transiting one.
             crate::PaneRelation::Disjoint
@@ -776,37 +760,16 @@ fn write_compositing_section(
             "    render_layers: {}",
             match layers {
                 Some(l) => format!("{l:?}"),
-                // ⚠ Bevy's default is layer 0, the world layer — the same one the
-                // capture reads. Saying "default(0)" rather than "none" stops a
-                // reader concluding the actor is on no layer at all.
+                // Bevy's default is layer 0, the world layer that the capture
+                // reads. "default(0)" is clearer than "none".
                 None => "default(0)".to_string(),
             }
         );
-        // ⛔⛔ A Z COMPARISON ONLY SETTLES ORDERING IF BOTH DRAW UNDER THE SAME
-        // CAMERA ON A SHARED LAYER, and this now ANSWERS that rather than
-        // warning about it. The window mesh carries the shared window layer plus
-        // a per-portal one; an actor sprite carries none, i.e. Bevy's default
-        // layer 0. If those masks do not intersect, the two are never compared
-        // by any depth test and a `depth_says` verdict is not weak evidence --
-        // it is NO evidence.
-        // ⚠ THE PANE'S LAYERS, which the report used to tell the reader to
-        // "compare" without ever printing. Both masks are here now.
-        //
-        // ⛔⛔ AND THEY DO NOT SETTLE IT, WHICH IS WHY THE HEDGE STAYS.
-        // `RenderLayers` gates which CAMERA sees an entity; it does not group
-        // depth. Two entities on different layers rendered by the SAME camera
-        // are still depth-tested against each other, so "disjoint masks" is not
-        // "never compared" — an earlier version of this line said exactly that
-        // and was wrong. Settling it needs the camera stack (which cameras, in
-        // what order, with which masks), and that is the host's to publish.
         let _ = writeln!(out, "    pane_render_layers: {pane_layers:?}");
-        // ⛔⛔ THE QUESTION IS NOT WHETHER THE MASKS INTERSECT EACH OTHER.
-        // `RenderLayers` gates which CAMERA sees an entity; it does not group
-        // depth. Two entities on DIFFERENT layers are still depth-tested when
-        // one camera renders both. An earlier version of this line read
-        // "disjoint masks ⇒ never compared" and was simply wrong.
-        //
-        // ⇒ The honest test is whether any ACTIVE camera's mask intersects BOTH.
+        // `RenderLayers` gates which camera sees an entity; it does not group
+        // depth. Two entities on different layers are depth-tested when one camera
+        // renders both. So the test is whether any active camera's mask intersects
+        // both masks.
         let actor_layers = layers.clone().unwrap_or_default();
         let comparing: Vec<&str> = cameras
             .iter()
@@ -836,9 +799,7 @@ fn write_compositing_section(
         );
         let _ = writeln!(out, "    composited_by_far_side: {composited}");
         let _ = writeln!(out, "    legacy_z_policy_agrees: {z_policy_agrees}");
-        // ⚠ A far-covered body the compositor did not hide is the ONLY violation
-        // now. Under the old rule this line read `true` for every correctly
-        // composited body, so the red overlay flagged the repair as the bug.
+        // A far-covered body the compositor did not hide is the only violation.
         let _ = writeln!(out, "    COMPOSITE_VIOLATION: {}", !handled);
     }
     let _ = writeln!(out, "  compositing.violations: {violations}");
@@ -1224,9 +1185,7 @@ pub fn debug_portal_view_zones(
     viewer: Option<Res<PortalViewer>>,
     frame: Res<PortalWorldFrame>,
     portals: Query<&PlacedPortal>,
-    // ⚠ THE TRANSFORM COMES WITH IT: the overlay used to colour a violation
-    // without knowing the drawn z at all, which meant it was carrying the same
-    // hardcoded "actors outrank panes" assumption the dump was built to expose.
+    // The transform gives the drawn z for the overlay.
     compositing: Query<(
         &crate::PortalCompositingCandidate,
         Option<&GlobalTransform>,
@@ -1389,11 +1348,7 @@ mod compositing_report_tests {
         }
     }
 
-    /// ⛔⛔ THE DUMP MUST NAME THE VIOLATION, not merely describe geometry.
-    ///
-    /// The existing dump can prove the entry polygon is perfect while the actor
-    /// at `z = 11.0` necessarily punches through a pane at `z = 9.5`. This is the
-    /// arm that would have made the reported screenshot self-diagnosing.
+    /// The dump must name the violation, not only describe geometry.
     #[test]
     fn a_far_side_drawable_is_reported_as_a_composite_violation() {
         let mut out = String::new();
@@ -1405,7 +1360,7 @@ mod compositing_report_tests {
             11.0,
             None,
             false,
-            // NOT composited: this is the unrepaired body Jon photographed.
+            // Not composited: the unrepaired body.
             false,
         )];
         write_compositing_section(&mut out, &pane(), Some(Vec2::new(100.0, 360.0)), &drawables, &[]);
@@ -1415,9 +1370,8 @@ mod compositing_report_tests {
         assert!(out.contains("compositing.violations: 1"), "{out}");
     }
 
-    /// ⚠ THE CONTROL. A report that cried violation for every overlap would pass
-    /// the arm above and be useless: the near-side case is what today's z gets
-    /// RIGHT, and it must read as correct.
+    /// Control: the near-side case must read as correct, so a report that flags
+    /// every overlap fails.
     #[test]
     fn a_near_side_drawable_is_reported_as_correct_under_todays_z() {
         let mut out = String::new();
@@ -1428,9 +1382,8 @@ mod compositing_report_tests {
         assert!(out.contains("compositing.violations: 0"), "{out}");
     }
 
-    /// ⛔ AN EMPTY REPORT MUST BE DISTINGUISHABLE FROM A CLEAN ONE. A host that
-    /// has tagged no candidates gets `candidates: 0`, which is what tells a
-    /// reader the instrument is blind rather than the scene innocent.
+    /// An empty report must differ from a clean one: a host with no tagged
+    /// candidates gets `candidates: 0`.
     #[test]
     fn an_untagged_host_reports_zero_candidates_rather_than_silence() {
         let mut out = String::new();
@@ -1439,8 +1392,8 @@ mod compositing_report_tests {
         assert!(out.contains("compositing.violations: 0"), "{out}");
     }
 
-    /// ⛔ NEAR AND FAR NEED A VIEWPOINT. With no `PortalViewer` the section must
-    /// say it cannot classify rather than defaulting to one side.
+    /// Near and far need a viewpoint. With no `PortalViewer` the section must say
+    /// it cannot classify.
     #[test]
     fn no_viewer_reports_that_it_cannot_classify() {
         let mut out = String::new();
@@ -1449,22 +1402,10 @@ mod compositing_report_tests {
         assert!(out.contains("ABSENT — cannot classify"), "{out}");
         assert!(!out.contains("COMPOSITE_VIOLATION"), "{out}");
     }
-    /// ⛔⛔ THE REPORT MUST NOT CLAIM MORE THAN A Z CAN SETTLE. A depth comparison
-    /// only decides ordering when both drawables share a camera AND a layer, and
-    /// the window mesh uses per-portal layers. So the line is `depth_says:` and
-    /// carries its own caveat, and the layer is printed beside it.
-    ///
-    /// ⚠ This is the same over-claim as the z policy the section exists to
-    /// expose, one level up: asserting an outcome from one of the two facts that
-    /// decide it.
-    /// ⛔⛔ THE DIAGNOSTIC FLAGGED THE REPAIR AS THE BUG. Under the old rule
-    /// `COMPOSITE_VIOLATION` came from actor z versus `PORTAL_WINDOW_Z` — but the
-    /// compositor deliberately leaves actor z ALONE and hides the source instead,
-    /// so a correctly composited far-side body still reads "ABOVE_PANE" and was
-    /// reported as broken, in red, on the overlay built to find this bug.
-    ///
-    /// ⇒ The verdict now asks whether anything HANDLED the body, which is a fact
-    /// the compositor owns (`PortalFarSideHidden`).
+    /// The verdict comes from whether the compositor handled the body
+    /// (`PortalFarSideHidden`), not from actor z versus `PORTAL_WINDOW_Z`. A
+    /// correctly composited far-side body is still above the pane band, and must
+    /// not be a violation.
     #[test]
     fn a_composited_far_side_body_is_not_a_violation() {
         let mut out = String::new();
@@ -1485,15 +1426,13 @@ mod compositing_report_tests {
             "a composited body must not be flagged: {out}"
         );
         assert!(out.contains("compositing.violations: 0"), "{out}");
-        // ⚠ And the legacy reading is still PRINTED, because it is the fastest
-        // way to see which band a body is in — it just is not the verdict.
+        // The legacy z reading is still printed, as a quick view of the band; it
+        // is not the verdict.
         assert!(out.contains("legacy_z_policy_agrees: false"), "{out}");
     }
 
-    /// ⛔⛔ THE DUMP PASSED A HARDCODED `false` FOR TRANSIT, so it could never
-    /// report `Transiting` — the same defect the compositor itself shipped with.
-    /// A straddling body belongs to the split presentation and owes this path
-    /// nothing.
+    /// The dump must pass real transit state. A straddling body belongs to the
+    /// split presentation and must be reported as `Transiting`.
     #[test]
     fn a_transiting_body_is_reported_as_transiting_not_far_covered() {
         let mut out = String::new();
@@ -1517,14 +1456,9 @@ mod compositing_report_tests {
         );
     }
 
-    /// ⭐⭐ THE HALF THE REPORT COULD NOT ANSWER BEFORE. Whether a pane and an
-    /// actor are depth-compared depends on a camera rendering BOTH masks, and
-    /// naming that camera is what turns `depth_says` from a hedge into a fact.
-    ///
-    /// ⛔ It is NOT "do the two masks intersect each other". `RenderLayers`
-    /// gates which CAMERA sees an entity; it does not group depth. The actor
-    /// here is on layer 0 and the pane is not, and they ARE compared -- because
-    /// one camera renders both.
+    /// Whether a pane and an actor are depth-compared depends on a camera that
+    /// renders both masks. The masks need not intersect each other: here the
+    /// actor is on layer 0 and the pane is not, and one camera renders both.
     #[test]
     fn a_camera_rendering_both_masks_is_named_as_the_one_that_compares_them() {
         let mut out = String::new();
@@ -1549,9 +1483,7 @@ mod compositing_report_tests {
         );
     }
 
-    /// ⚠ And the other direction, which is the one that makes a `depth_says`
-    /// verdict meaningless rather than merely uncertain: an INACTIVE camera
-    /// renders nothing, so it compares nothing.
+    /// An inactive camera renders nothing, so it compares nothing.
     #[test]
     fn an_inactive_camera_does_not_compare_anything() {
         let mut out = String::new();
@@ -1573,6 +1505,9 @@ mod compositing_report_tests {
         assert!(out.contains("but nothing compares them"), "{out}");
     }
 
+    /// The report must not claim more than a z can settle. A depth comparison
+    /// decides ordering only when one camera renders both drawables, so the line
+    /// is `depth_says:` with a caveat, and both layer masks are printed.
     #[test]
     fn the_report_qualifies_what_a_depth_comparison_can_settle() {
         let mut out = String::new();
@@ -1586,8 +1521,7 @@ mod compositing_report_tests {
             out.contains("render_layers: default(0)"),
             "an absent RenderLayers is Bevy's layer 0, not 'no layer': {out}"
         );
-        // ⚠ BOTH masks, because the old report told the reader to "compare
-        // render_layers" while printing only the actor's half.
+        // Both masks are printed.
         assert!(
             out.contains("pane_render_layers:"),
             "the pane's own layers were never printed: {out}"
@@ -1601,16 +1535,13 @@ mod compositing_report_tests {
 
 /// Colour every candidate's bounds by what it is to each pane.
 ///
-/// ⛔⛔ THE SCREENSHOT THAT STARTED THIS COULD NOT DIAGNOSE ITSELF. A far-side
-/// actor drawn over a seamless window looks exactly like a near-side actor
-/// correctly occluding one — the difference is which side of a plane it stands
-/// on, which no still image shows. ⇒ These outlines say it: a body the pane
-/// SHOULD be covering is drawn RED while it is drawn on top.
+/// A far-side actor drawn over a seamless window looks the same as a near-side
+/// actor that correctly occludes it; a still image cannot show which side of
+/// the plane it is on. These outlines show it: a body the pane should cover
+/// is drawn red while it is on top.
 ///
-/// ⚠ ONE OUTLINE PER (PANE, CANDIDATE) PAIR, not one per candidate. A body is
-/// near one aperture and far of another in the same frame, and collapsing that
-/// to a single colour would reintroduce, in the diagnostic, the exact one-answer-
-/// per-actor assumption the bug is made of.
+/// One outline per (pane, candidate) pair, not per candidate: a body can be
+/// near one aperture and far of another in the same frame.
 fn draw_compositing_relations(
     gizmos: &mut Gizmos,
     panes: &[PlacedPortal],
@@ -1618,15 +1549,13 @@ fn draw_compositing_relations(
     candidates: &Query<(
         &crate::PortalCompositingCandidate,
         Option<&GlobalTransform>,
-        // Same two facts the text dump reads, for the same reason: the overlay
-        // coloured a correctly composited body RED because it judged by z.
+        // Same two facts the text dump reads: judge by compositor state, not z.
         Option<&ambition_portal2d::PortalTransit>,
         Option<&crate::PortalFarSideHidden>,
     )>,
     to_render: impl Fn(Vec2) -> Vec2,
 ) {
-    // ⛔ Near and far are relative to a viewpoint; with none there is nothing
-    // honest to colour.
+    // Near and far need a viewpoint; with none, there is nothing to colour.
     let Some(viewer) = viewer else {
         return;
     };
@@ -1643,11 +1572,9 @@ fn draw_compositing_relations(
                 crate::PaneRelation::NearOccluder => Color::srgb(0.20, 0.85, 0.30),
                 // The split presentation owns this body.
                 crate::PaneRelation::Transiting => Color::srgb(0.95, 0.85, 0.15),
-                // ⛔ Far-covered and NOBODY HANDLED IT: the compositor did not
-                // hide the source, so it is still punching through. Judged by
-                // the compositor's own state, not by z -- the old rule painted
-                // every correctly composited body red, because the repair
-                // deliberately leaves actor z alone.
+                // Far-covered and not handled: the compositor did not hide the
+                // source, so it still punches through. Judged by compositor state,
+                // not z.
                 crate::PaneRelation::FarCovered if composited.is_none() => {
                     let _ = drawn_z;
                     Color::srgb(0.95, 0.15, 0.15)

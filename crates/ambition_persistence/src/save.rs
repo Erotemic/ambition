@@ -37,18 +37,15 @@ pub struct AmbitionGameSave(pub AmbitionGameSaveData);
 impl AmbitionGameSave {
     /// Canonical projection of the whole save, for the session checksum.
     ///
-    /// ⭐ SERIALIZED RATHER THAN HAND-PROJECTED, DELIBERATELY. The save is an
-    /// open set — every collection is `#[serde(default)]` so it can grow — and a
-    /// hand-written field list would silently stop covering the field somebody
-    /// adds next. Hashing the type's own serde form is exhaustive by
-    /// construction, and it is the same form the file on disk already uses.
+    /// It hashes the serde form, not a hand-written field list. The save is an open
+    /// set (every collection is `#[serde(default)]`), and a hand list would miss
+    /// the next new field. The serde form is also the on-disk form.
     ///
-    /// Deterministic: `AmbitionGameSaveData` derives `Eq`, so it holds no
-    /// floats, and every collection in it is an ordered `Vec`.
+    /// Deterministic: `AmbitionGameSaveData` derives `Eq`, so it holds no floats,
+    /// and every collection is an ordered `Vec`.
     ///
-    /// ⛔ A FALLBACK OF `0` WOULD BE A CHECKSUM THAT CANNOT DISAGREE. RON
-    /// serialization of this type does not fail, but if it ever did, hashing the
-    /// error text keeps two peers that fail differently distinguishable.
+    /// RON serialization does not fail. If it did, hashing the error text (not a
+    /// fixed `0`) keeps peers that fail differently distinguishable.
     pub fn checksum(&self) -> u64 {
         use ambition_platformer2d_core::snapshot::checksum_bytes;
         match ron::ser::to_string(&self.0) {
@@ -79,7 +76,7 @@ pub fn save_path_under(root: &Path) -> PathBuf {
 
 /// A save read from disk, together with whether this build may write over it.
 ///
-/// The second field is the point.
+/// The second field matters most.
 #[derive(Clone, Debug)]
 pub struct LoadedSave {
     pub data: AmbitionGameSaveData,
@@ -91,12 +88,10 @@ pub struct LoadedSave {
     pub upgraded: bool,
     /// Whether the store held a document at this address at all.
     ///
-    /// ⛔⛔ THIS FIELD REPLACES A PREFLIGHT THAT ASKED THE WRONG STORE. Startup
-    /// used to run `path.exists()` and return early — the NATIVE filesystem,
-    /// which on the browser build answers "no" for a save sitting in
-    /// `localStorage`. A reload therefore started fresh and the first autosave
-    /// wrote defaults over the player's progress. The read that already
-    /// happened knows the answer; nothing needs to ask a second time.
+    /// Use this field; do not check `path.exists()` first. That checks the
+    /// native filesystem, which on the browser build says "no" for a save in
+    /// `localStorage`, so a reload starts fresh and the first autosave
+    /// overwrites the player's progress.
     pub present: bool,
 }
 
@@ -129,10 +124,9 @@ pub fn load_save(path: &Path) -> LoadedSave {
 /// [`load_save`] with the read already done, so a test can drive the KEY/VALUE
 /// road instead of a temporary directory.
 ///
-/// ⭐ THE BROWSER DEFECT WAS INVISIBLE TO EVERY FILESYSTEM TEST, because on
-/// native the two stores are the same store. Splitting the read out is what lets
-/// `a_stored_browser_save_survives_a_reload` reach the same policy code with a
-/// map underneath it.
+/// On native the two stores are the same store, so filesystem tests cannot see
+/// browser defects. `a_stored_browser_save_survives_a_reload` uses this to
+/// drive the same policy code with a map.
 pub fn interpret_save(path: &Path, read: std::io::Result<String>) -> LoadedSave {
     let bytes = match read {
         Ok(s) => s,
@@ -174,9 +168,8 @@ pub fn interpret_save(path: &Path, read: std::io::Result<String>) -> LoadedSave 
                 }
             }
             SaveCompatibility::FromTheFuture { found } => {
-                // A player who launches an older build once must not lose the
-                // save they made in the newer one. Their progress is still on
-                // disk after this session; it just is not loaded.
+                // A player who launches an older build must not lose the save
+                // from the newer one. It stays on disk; it is not loaded.
                 warn!(
                     target: "ambition_platformer2d::save",
                     "save file {} is version {found}, newer than this build's \
@@ -187,10 +180,9 @@ pub fn interpret_save(path: &Path, read: std::io::Result<String>) -> LoadedSave 
                 LoadedSave::preserve()
             }
             SaveCompatibility::Unsupported { found } => {
-                // A parsed structure is not automatically a schema we understand.
-                // In particular, historical development files can contain an
-                // explicit `version: 0`, while the first defined schema is v1.
-                // Preserve those bytes exactly as we do a future-version save.
+                // A parsed file is not always a known schema. Historical files
+                // can contain `version: 0`; the first defined schema is v1.
+                // Preserve those bytes, as for a future-version save.
                 warn!(
                     target: "ambition_platformer2d::save",
                     "save file {} declares unsupported version {found}; this build \
@@ -218,31 +210,26 @@ pub fn interpret_save(path: &Path, read: std::io::Result<String>) -> LoadedSave 
 
 /// Write the save, replacing whatever is there.
 ///
-/// ⛔⛔ A FAILED SAVE MUST LEAVE EITHER THE OLD OR THE NEW STATE INTACT, never
-/// neither. That rule is the whole point of this function; how it is KEPT
-/// differs by platform, so the two roads are whole functions rather than one
-/// function wearing `#[cfg]`s on its statements. (The first draft did the
-/// latter, and the wasm build caught it immediately: `tmp` was defined under a
-/// `cfg` and used outside one.)
+/// A failed save must leave either the old or the new state intact, never
+/// neither. Each platform keeps this rule in its own whole function, not with
+/// `#[cfg]` on single statements.
 pub fn write_save(path: &Path, save: &AmbitionGameSaveData) -> std::io::Result<()> {
     let body = ron::ser::to_string_pretty(save, ron::ser::PrettyConfig::default())
         .map_err(|error| std::io::Error::other(format!("ron serialize: {error}")))?;
     install_save(path, &body)
 }
 
-/// ⭐ THE KEY/VALUE ROAD NEEDS NO DANCE. A `localStorage` set is ONE synchronous
-/// call: it either replaced the value or it returned an error and left the old
-/// one alone. There is no half-written state to keep a backup against, and no
-/// `rename` to install one with — so the rule above is kept by the store itself.
+/// Key/value store: a `localStorage` set is one synchronous call. It replaces
+/// the value or returns an error and keeps the old one, so no backup is needed.
 #[cfg(target_arch = "wasm32")]
 fn install_save(path: &Path, body: &str) -> std::io::Result<()> {
     crate::store::write(path, body)
 }
 
-/// ⭐ THE FILESYSTEM ROAD NEEDS THE DANCE, because a write is many syscalls and a
-/// crash between them leaves a truncated file. Write to a temp name, then
-/// install by rename; if the rename cannot replace the destination, move the old
-/// file aside first and put it back if installing the new one fails.
+/// Filesystem: a write is many syscalls, and a crash between them truncates the
+/// file. Write to a temp name, then rename into place. If the rename cannot
+/// replace the destination, move the old file aside first and restore it if
+/// the install fails.
 #[cfg(not(target_arch = "wasm32"))]
 fn install_save(path: &Path, body: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
@@ -275,9 +262,9 @@ fn install_save(path: &Path, body: &str) -> std::io::Result<()> {
 
 /// Whether this session may commit its save to disk.
 ///
-/// Default TRUE, so any app that never loads a file (every test fixture, every
-/// headless harness) keeps saving exactly as it did. It is only ever cleared by
-/// [`load_save_at_startup`] finding something on disk it must not destroy.
+/// Default true, so an app that never loads a file (test fixtures, headless
+/// harnesses) keeps saving. Only [`load_save_at_startup`] clears it, when it
+/// finds something on disk that it must not destroy.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct SaveFileWritable(pub bool);
 
@@ -299,10 +286,8 @@ pub fn load_save_at_startup(
 
 /// What startup DOES with what it read.
 ///
-/// ⭐ A FREE FUNCTION SO THE REGRESSION DRIVES THE REAL DECISION. The browser
-/// bug lived in the two lines above this one; a test that re-implemented this
-/// policy beside it would have agreed with the bug. This is the same code the
-/// system runs, handed a [`LoadedSave`] that came off a key/value map.
+/// It is a free function so the regression test drives the real decision with
+/// a [`LoadedSave`] from a key/value map, not a copy of the policy.
 pub fn adopt_loaded_save(
     loaded: LoadedSave,
     path: &Path,
@@ -310,9 +295,8 @@ pub fn adopt_loaded_save(
     last: &mut LastPersistedSave,
     writable: &mut SaveFileWritable,
 ) {
-    // Nothing stored yet. Leave every resource at its default — in particular
-    // leave the shadow EMPTY, so the first autosave commits the opening state
-    // rather than deciding the (identical) default is already on disk.
+    // Nothing stored yet. Leave every resource at its default. Keep the shadow
+    // empty, so the first autosave commits the opening state.
     if !loaded.present {
         return;
     }
@@ -329,9 +313,8 @@ pub fn adopt_loaded_save(
             path.display()
         );
     } else {
-        // Said once, at the point of decision. The `warn!` inside `load_save`
-        // explains WHY; this says what it costs the player for the rest of the
-        // session, which is the part they need.
+        // The `warn!` in `load_save` says why; this says what it costs the player
+        // for the rest of the session.
         warn!(
             target: "ambition_platformer2d::save",
             "this session will not write to {} — progress made now is NOT being saved",
@@ -343,50 +326,42 @@ pub fn adopt_loaded_save(
 /// What was last committed to disk. The autosave compares against this
 /// instead of asking Bevy whether the resource was touched.
 ///
-/// Change detection is the wrong throttle under a rollback host, in both
-/// directions. It fires when nothing meaningful changed — GGRS's own restore
-/// writes `AmbitionGameSave` on every rewind, so `is_changed()` is true almost
-/// constantly — and it is consumed by a system that ran and declined to write,
-/// so a genuine change can be dropped by any guard placed in front of it. A
-/// value comparison has neither problem and is the honest question anyway:
-/// *is what is on disk still correct?*
+/// Change detection is the wrong throttle under a rollback host. GGRS restore
+/// writes `AmbitionGameSave` on every rewind, so `is_changed()` is almost always
+/// true. Also, a system that runs and declines to write consumes the change, so
+/// a real change can be lost. A value comparison asks the right question: is
+/// what is on disk still correct?
 #[derive(Resource, Clone, Debug, Default)]
 //  see `LastPersistedSettings`: the type is platform-identical because the wasm
 // no-op systems take it as a parameter; only the native writer reads the value.
 pub struct LastPersistedSave {
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     persisted: Option<AmbitionGameSaveData>,
-    /// The value whose write the store REFUSED, so it is not retried forever.
+    /// The value that the store refused, so it is not retried forever.
     ///
-    /// ⛔⛔ WITHOUT THIS THE WRITER RETRIES EVERY UPDATE. The shadow only
-    /// advances on success, so one refusal — a full disk, a browser with site
-    /// data blocked — leaves `persisted != save` permanently true and the system
-    /// re-serializes, re-writes and re-warns at frame rate for the rest of the
-    /// session. Remembering WHICH value was refused keeps that to one attempt
-    /// per distinct state, so a genuinely transient failure still retries the
-    /// moment anything changes.
+    /// The shadow advances only on success. Without this, one refusal (full
+    /// disk, blocked browser site data) makes the system re-write and re-warn
+    /// every frame. With it, there is one attempt per distinct state, and a
+    /// transient failure retries when anything changes.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     refused: Option<AmbitionGameSaveData>,
 }
 
-/// The confirmation gate is the load-bearing half. A rollback host advances
-/// frames using a guess at what a remote peer did; the world therefore holds
-/// state that may be rewound and recomputed. Writing that to disk records a
-/// guess as history — and unlike a sound, which is merely heard once and wrong,
-/// a save file outlives the session that produced it.
+/// The confirmation gate matters most. A rollback host advances frames on a
+/// guess at what a remote peer did, so the world can hold state that will be
+/// rewound. A save file outlives the session, so writing that state records a
+/// guess as history.
 ///
-/// Under a rollback session it means the autosave waits for a moment with no outstanding
-/// predictions rather than racing them; if that moment never comes, not autosaving is the
-/// correct outcome, not a missed one.
+/// Under a rollback session the autosave waits for a moment with no
+/// outstanding predictions. If that moment never comes, not saving is correct.
 pub fn autosave_sandbox_save(
     save: Res<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     writable: Res<SaveFileWritable>,
     root: Res<crate::PersistenceRoot>,
 ) {
-    // Startup found a file this build must not replace — a save from a newer
-    // build, or bytes it could not parse. Refusing to write is the whole
-    // protection; without this the first flag the player sets destroys it.
+    // Startup found a file this build must not replace (newer build, or
+    // unparseable bytes). Without this check, the first write destroys it.
     if !writable.0 {
         return;
     }
@@ -427,19 +402,14 @@ mod tests {
         p
     }
 
-    /// ⛔⛔ **A BROWSER RELOAD USED TO REPLACE THE PLAYER'S SAVE WITH DEFAULTS.**
+    /// A browser reload must not replace the player's save with defaults.
     ///
-    /// `load_save_at_startup` read the save through `store::read` — which on
-    /// wasm is `localStorage` — but kept a `path.exists()` preflight in front of
-    /// it, which is the NATIVE filesystem. On the browser build there is no such
-    /// file, so startup returned early: `AmbitionGameSave` stayed default,
-    /// `LastPersistedSave` stayed empty, `SaveFileWritable` stayed true, and the
-    /// first autosave wrote the fresh sandbox over real progress.
+    /// A `path.exists()` preflight in front of `store::read` checks the native
+    /// filesystem, which has no file on the browser build. Startup then keeps
+    /// defaults, and the first autosave overwrites real progress.
     ///
-    /// ⭐ THIS DRIVES THE KEY/VALUE ROAD, not another temp directory. Every save
-    /// test in this file is a filesystem test, and on native the preflight and
-    /// the read consult the SAME store — which is exactly why all of them stayed
-    /// green while the browser lost saves.
+    /// This drives the key/value road. On native the preflight and the read use
+    /// the same store, so filesystem tests cannot see this defect.
     #[test]
     fn a_stored_browser_save_survives_a_reload() {
         let store = crate::store::tests::MapStore::default();
@@ -470,10 +440,9 @@ mod tests {
             "the stored save must reach the live resource; a startup that cannot \
              see it starts the player over"
         );
-        // ⭐ THIS EXACT EQUALITY IS `autosave_sandbox_save`'s EARLY RETURN. The
-        // shadow being merely non-empty is not the contract; being equal to the
-        // live save is what makes the first autosave decline to write, which is
-        // the half of the defect that destroyed progress.
+        // This equality is the early return in `autosave_sandbox_save`. The
+        // shadow must equal the live save, not only be non-empty, so the first
+        // autosave does not write.
         assert_eq!(
             last.persisted.as_ref(),
             Some(&save.0),
@@ -484,9 +453,9 @@ mod tests {
 
     /// Premise guard: the arm above must not pass by loading everything always.
     ///
-    /// A first run has to keep the OPPOSITE contract — leave the shadow empty so
-    /// the first autosave actually commits. Deleting the `present` check would
-    /// pass the reload test and break this one.
+    /// A first run keeps the opposite contract: the shadow stays empty so the
+    /// first autosave commits. Deleting the `present` check passes the reload
+    /// test and fails this one.
     #[test]
     fn a_first_run_leaves_the_shadow_empty_so_the_first_autosave_commits() {
         let store = crate::store::tests::MapStore::default();
@@ -572,11 +541,9 @@ mod tests {
         app.init_resource::<AmbitionGameSave>()
             .init_resource::<crate::settings::UserSettings>()
             .add_plugins(crate::PersistenceSchedulePlugin);
-        // Run startup + the first autosave, which commits the fresh default
-        // save exactly as the shipping app does. Clearing the file afterwards
-        // leaves the shadow agreeing with an absent file, so every assertion
-        // below reads as "did THIS update write?" rather than tripping over
-        // boot behaviour.
+        // Run startup and the first autosave, which commits the default save as
+        // the shipping app does. Then clear the file, so each assertion below
+        // asks "did this update write?".
         app.update();
         let _ = fs::remove_file(save_path_under(root));
         app
@@ -617,10 +584,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// The half change detection would have lost. A guard in front of an
-    /// `is_changed()` system consumes the change: the system ran, declined to
-    /// write, and the flag is gone. Comparing values instead means the pending
-    /// write survives however long confirmation takes.
+    /// A guard in front of an `is_changed()` system consumes the change. A
+    /// value comparison keeps the pending write until confirmation arrives.
     #[test]
     fn a_change_made_while_predicting_is_written_once_it_confirms() {
         let _g = crate::lock_data_dir();
@@ -646,10 +611,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// GGRS writes `AmbitionGameSave` on every restore, so under change detection
-    /// the autosave would rewrite an identical file on every rewind. Deleting
-    /// the file and proving it does not come back is an exact "no write
-    /// happened" probe.
+    /// GGRS writes `AmbitionGameSave` on every restore. Delete the file and
+    /// check that it does not come back: an exact "no write happened" probe.
     #[test]
     fn a_restore_that_changes_nothing_does_not_rewrite_the_file() {
         let _g = crate::lock_data_dir();
@@ -731,10 +694,9 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// A syntactically valid file with an unsupported schema is no more reason
-    /// to abort startup than a corrupt file. The session gets a fresh save, the
-    /// unknown bytes stay untouched, and writes remain disabled until the user
-    /// moves the incompatible file out of the way.
+    /// A valid file with an unsupported schema must not abort startup. The
+    /// session gets a fresh save, the bytes stay untouched, and writes stay
+    /// disabled until the user moves the file.
     #[test]
     fn an_unsupported_save_never_blocks_startup_or_gets_overwritten() {
         let _g = crate::lock_data_dir();
@@ -776,9 +738,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// The same protection for bytes that are not a save at all. A corrupt file
-    /// might be recoverable by hand, or might be the only copy of something; a
-    /// session that cannot read it has no business replacing it.
+    /// The same protection for bytes that are not a save. A session that
+    /// cannot read a file must not replace it.
     #[test]
     fn an_unreadable_save_is_left_on_disk_rather_than_replaced() {
         let _g = crate::lock_data_dir();
@@ -835,9 +796,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// Saving TWICE has to work. `fs::rename` replaces the destination on Unix
-    /// and not on Windows, so a writer that only ever ran once in a test would
-    /// pass here and fail for half the players on the second save.
+    /// Saving twice must work. `fs::rename` replaces the destination on Unix
+    /// but not on Windows.
     #[test]
     fn writing_the_save_repeatedly_replaces_the_previous_file() {
         let _g = crate::lock_data_dir();
@@ -861,10 +821,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// An old file is migrated on load AND written back at the current version,
-    /// so the tag on disk describes the shape that is actually there. Without
-    /// the rewrite, a v1 file stays labelled v1 forever no matter how many
-    /// current-shape saves are committed over it.
+    /// An old file is migrated on load and written back at the current version,
+    /// so the tag on disk matches the shape on disk.
     #[test]
     fn a_migrated_save_is_written_back_at_the_current_version() {
         let _g = crate::lock_data_dir();
@@ -915,10 +873,10 @@ mod save_checksum_tests {
     use super::AmbitionGameSave;
     use crate::save_data::PersistedFlag;
 
-    /// ⭐ THE POSITIVE CONTROL FOR `track_room_visits`, whose `Local`
-    /// edge-detector does not rewind: a resimulation can skip the save write, so
-    /// a lost `room_visited_*` flag has to move the session checksum or the
-    /// sync test cannot report it.
+    /// Positive control for `track_room_visits`. Its `Local` edge detector does
+    /// not rewind, so a resimulation can skip the save write. A lost
+    /// `room_visited_*` flag must move the session checksum so the sync test
+    /// reports it.
     #[test]
     fn a_lost_room_visited_flag_moves_the_checksum() {
         let base = AmbitionGameSave::default();

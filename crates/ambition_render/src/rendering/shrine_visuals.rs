@@ -1,6 +1,6 @@
-//! Shrine visuals: the obelisk
-//! sprite sync + activation-pulse animation. Reads the sim shrine state
-//! (HealShrine plus the lower ShrineActivationPulse resource) from the sim/read-model seam.
+//! Shrine visuals: the obelisk sprite sync and activation-pulse animation.
+//! Reads the sim shrine state (`HealShrine` and the `ShrineActivationPulse`
+//! resource) from the read-model seam.
 
 use super::sheet_atlas::{atlas_layout_from_record, row_playback, RowPlayback};
 use ambition_platformer2d_shared_tangle::binding::BindingLedger;
@@ -63,10 +63,9 @@ pub enum ShrineVisualSource {
 }
 
 /// Draw each shrine as its obelisk prop sprite so the player reads it as a
-/// "rest here" landmark. The shrine now uses the authored
-/// `sprites/shrine_spritesheet.png` sheet (with a flat `sprites/props/shrine.png`
-/// fallback), and is scaled to the shrine's collision footprint so its base
-/// sits at the floor.
+/// "rest here" landmark. Uses `sprites/shrine_spritesheet.png` (with a flat
+/// `sprites/props/shrine.png` fallback), scaled to the shrine's collision
+/// footprint so its base sits at the floor.
 pub fn sync_shrine_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -165,10 +164,10 @@ pub fn sync_shrine_visual(
         .collect();
     for key in stale {
         if let Some(entity) = visual_cache.remove(&key) {
-            // The cached entity may already be gone — shrine visuals carry
-            // `RoomVisual` (=> `RoomScopedEntity`), so a room transition despawns
-            // them out from under this `Local` cache. Guard the despawn instead of
-            // commanding a stale handle (which raised the "Entity despawned" error).
+            // The cached entity may already be gone: shrine visuals carry
+            // `RoomVisual` (so `RoomScopedEntity`), and a room transition despawns
+            // them without updating this `Local` cache. Guard the despawn instead
+            // of commanding a stale handle.
             if let Ok(mut ec) = commands.get_entity(entity) {
                 ec.despawn();
             }
@@ -178,9 +177,8 @@ pub fn sync_shrine_visual(
 
 pub fn animate_shrine_visuals(
     presentation_time: ambition_time::PresentationTime,
-    // Read-only: the pulse timer ticks SIM-side now
-    // (`sim_view::tick_shrine_activation_pulse`) — E4 killed the render
-    // write.
+    // Read-only: the pulse timer ticks on the sim side
+    // (`sim_view::tick_shrine_activation_pulse`).
     activation: Res<ShrineActivationPulse>,
     mut visuals: Query<
         (&mut Sprite, &mut ShrineVisualAnim, &ShrineVisualAtlas),
@@ -273,13 +271,10 @@ fn shrine_visual_source_from_record(
     record: &SheetRecord,
 ) -> ShrineVisualSource {
     let layout = atlas_layouts.add(atlas_layout_from_record(record));
-    // ⛔⛔ THROUGH THE FUNNEL, and it took the census to notice. A bare
-    // `asset_server.load` decodes art with NO DEMAND STAMP, so this sheet showed
-    // up in the Hall's `UNROUTED(no demand)` bucket on 2026-09-02 — 0.3 MP of
-    // art the residency census could see arriving and could not attribute to
-    // anybody. `load_sheet_image` stamps the road AND takes the
-    // `RENDER_WORLD`-only path every other sheet takes, so this one stops
-    // keeping a CPU copy alive too.
+    // Load through `load_sheet_image`, not a bare `asset_server.load`. It
+    // stamps the demand road, so the residency census can attribute the
+    // sheet, and it takes the `RENDER_WORLD`-only path, so no CPU copy stays
+    // alive.
     let image = ambition_sprite_sheet::game_assets::load_sheet_image(
         asset_server,
         "shrine-sheet",
@@ -292,7 +287,7 @@ fn shrine_visual_source_from_record(
     ledger.finish().log("shrine visual");
 
     // The fallbacks stay: a shrine with an unresolvable row still draws (blind
-    // runs must never go black). The report above is what makes it not silent.
+    // runs must never go black). The report above keeps the miss visible.
     let idle = idle.unwrap_or(RowPlayback {
         start: 0,
         frames: 1,

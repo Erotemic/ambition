@@ -2,58 +2,21 @@
 
 Status: **OPEN — VC5 only**
 
-> **Re-checked 2026-09-17, and against `008b44120` (2026-09-02) before that:
-> NOTHING HAS CHANGED, VC5 is still open.** No launcher content-alpha ramp
-> exists — the only presentation fade in the shell is the vanity CARD's own
-> (`crates/ambition_game_shell/src/basic_presentation.rs`), and the other `fade`
-> hits in the workspace are audio tweens, the nameplate rank opacity, the
-> kaleidoscope menu's own `KaleidoscopeFade`, and damage-label/dizzy-star eases.
-> The "Verified landed" list below still describes the code.
->
-> ⛔⛤ **AND THERE IS A SECOND CONSUMER-LESS FADE, WHICH WHOEVER TAKES VC5 SHOULD
-> SEE BEFORE "reuse/generalize existing shell presentation fade machinery" SENDS
-> THEM LOOKING FOR IT.** `CutsceneBeat::Fade` advances its timer and draws
-> nothing — `CutscenePresentation::fade_alpha` has zero consumers outside its own
-> crate, and neither does `camera_target` beside it. Both are labelled UNFINISHED
-> at the definition, which is honest; what the labels did not say is that
-> **shipped content authors THREE**: `test_intro` (0.8 s, `central_hub_main`),
-> `intro_wake` (0.8 s, `intro_wake_room`) and `drain_market_arrival` (0.6 s,
-> `drain_alley`), the last two installed by `IntroPlugin`. Entering any of those
-> three rooms spends that long on a beat that draws nothing — 2.2 s in total, not
-> 0.8 s in one. ⚠ The first pass here said ONE because it searched the default
-> cutscene library rather than every non-test `CutsceneBeat::Fade` literal.
-> `CameraPan` has no non-test literal at all. ⇒ VC5 and the cutscene fade are the same
-> missing thing at two layers, and a screen-alpha consumer built for one is the
-> obvious owner for the other — which is an argument for building it once, not an
-> instruction to widen this card.
->
-> ⛔⛤ **AND "nothing consumes it" IS NOT THE WHOLE DIAGNOSIS — MEASURED
-> 2026-09-17.** All three of those authored fades target `to_alpha: 0.0`, and
-> `CutsceneRuntime::presentation()` returns the target unchanged, ignoring
-> `elapsed`. The projection therefore reads **0.0 at every instant of the beat**,
-> which is the number a clear screen reads. ⇒ **A consumer built for
-> `fade_alpha` would draw nothing for every fade shipped content authors**, and
-> the row would look closed while the player still waits 2.2 s for a screen that
-> never changes. The missing piece was the RAMP and the value it ramps FROM;
-> where it starts is an authored-content question that was filed as `Q143`.
->
-> ✅ **BOTH HALVES LANDED 2026-09-19.** `CutsceneBeat::Fade` gained
-> `from_alpha`, `presentation()` interpolates between the two ends over
-> `elapsed` (with a zero-length beat still reading as a cut), `standing_fade`
-> carries the last Fade's target across the beats that follow it, and the
-> render layer draws the sheet as a second root at `ZIndex(49)`. The two
-> opening fades declare `from_alpha: 1.0`. Held by
-> `a_fade_ramps_from_its_authored_start_to_its_authored_target` and
-> `a_fade_beat_draws_a_black_sheet_at_the_ramp_value`.
-> ⚠ **VC5 does not inherit that ruling.** The launcher fade knows both ends of
-> its own ramp — transparent to authored opacity — so the shared thing is the
-> screen-alpha CONSUMER, not the question of where a cutscene fade begins.
+State on 2026-09-19: VC5 is open. No launcher content-alpha ramp exists; the
+only shell presentation fade is the vanity card's own
+(`crates/ambition_game_shell/src/basic_presentation.rs`).
+
+A screen-alpha consumer now exists for cutscenes: `CutsceneBeat::Fade` has
+`from_alpha`, `presentation()` interpolates over `elapsed`, and the render layer
+draws a black sheet at `ZIndex(49)` (guards:
+`a_fade_ramps_from_its_authored_start_to_its_authored_target`,
+`a_fade_beat_draws_a_black_sheet_at_the_ramp_value`). VC5 can share that
+consumer. VC5 does not need the `Q143` ruling, because the launcher fade knows
+both ends of its ramp: transparent to authored opacity.
 
 The original shell vanity-sequence campaign is complete except for the title
-launcher fade-in. VC1–VC4 and VC6 are implemented. The full campaign history is
-archived at
-`docs/archive/planning-superseded/2026-08-13/engine/shell-vanity-sequence.md` — <!-- cite-ok: removed from the checkout 2026-09-05; naming the path is the point -->
-removed from the checkout 2026-09-05, still in git history.
+launcher fade-in. VC1–VC4 and VC6 are implemented. Git history has the full campaign
+record.
 
 ## Verified landed
 

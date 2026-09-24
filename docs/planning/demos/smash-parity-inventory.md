@@ -202,15 +202,6 @@ Product intent lives in
 lives in [`../engine/combat-model.md`](../engine/combat-model.md). Do not copy
 open rows into another standing Smash plan.
 
-⛔ **This line used to say execution order lived in
-[`campaigns/smash-fun-push-2026-08-22.md`](campaigns/smash-fun-push-2026-08-22.md)
-"for the active push". That campaign is CLOSED** — its own header says *"do not
-use this file as Smash feature status"* and names THIS file as the successor —
-and it is the only file in `campaigns/`. ⚠ So the two pages pointed at each
-other, one of them wrongly, and a reader arriving from either end could bounce
-between them without finding the live list. Read the campaign only for the
-standing lessons it deliberately retains.
-
 `✔` shipped · `~` partial · `▢` absent
 
 ⛔⛔ **RE-GREP A ROW BEFORE WORKING IT, AND DISTRUST THE DEFENSIVE AND HIT-PAYLOAD

@@ -1,7 +1,6 @@
-//! Item visuals (the item pickup presentation tail):
-//! ground-item quads, the held-item sprite, and held-projectile sprites. Pure
-//! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
-//! — no live item/body queries.
+//! Item visuals: ground-item quads, the held-item sprite, and held-projectile
+//! sprites. Pure consumers of the sim-built `sim_view` item snapshots, with no
+//! live item or body queries.
 
 use ambition_platformer2d_shared_tangle::binding::{
     log_unresolved, Namespace, ReportedOnce, Resolver, UnresolvedRef,
@@ -21,14 +20,12 @@ use bevy::prelude::*;
 /// Provider-contributed art, resolved once at startup: the ids that bound, and
 /// the loaded `(image, display size)` for each, indexed by the binding's slot.
 ///
-/// A miss now yields a diagnosis the caller can print. The placeholder still
-/// draws — that part was right, and a blind run must never go black — but the
-/// run also names what it could not find.
+/// A miss gives a diagnosis the caller can print. The placeholder still draws,
+/// so a blind run never goes black, and the run names what it could not find.
 ///
-/// It does NOT check that the images arrive. `AssetServer::load` returns a
-/// handle for a path that does not exist, so an id can bind perfectly to art
-/// that will never draw; that is the cinder beacon failure, and it belongs to
-/// [`report_unloadable_item_art`].
+/// It does not check that the images arrive. `AssetServer::load` returns a
+/// handle even for a missing path, so an id can bind to art that never draws.
+/// [`report_unloadable_item_art`] checks that.
 pub struct ArtBindings<N: Namespace> {
     ids: Resolver<N>,
     /// Parallel to the resolver's declaration slots.
@@ -45,7 +42,7 @@ impl<N: Namespace> Default for ArtBindings<N> {
 }
 
 impl<N: Namespace> ArtBindings<N> {
-    /// Pair a manifest's resolver with the handles loaded from the SAME effective
+    /// Pair a manifest's resolver with the handles loaded from the same effective
     /// entry list, so slot `i` of one addresses slot `i` of the other.
     pub fn new(ids: Resolver<N>, art: impl IntoIterator<Item = (Handle<Image>, Vec2)>) -> Self {
         let art: Vec<_> = art.into_iter().collect();
@@ -68,12 +65,11 @@ impl<N: Namespace> ArtBindings<N> {
         self.ids.explain(id, declared_by)
     }
 
-    /// Every registered id beside the image handle it loaded, for the pass that
-    /// checks the FILES arrived — see [`report_unloadable_item_art`].
+    /// Every registered id beside its loaded image handle, for the pass that
+    /// checks the files arrived (see [`report_unloadable_item_art`]).
     ///
-    /// Through `declarations`, not `ids`: the resolver is sorted for lookup and
-    /// the handles are in declaration order, so zipping the two directly would
-    /// name the wrong id for a failed image.
+    /// Uses `declarations`, not `ids`: the resolver is sorted for lookup and the
+    /// handles are in declaration order, so zipping them would name the wrong id.
     pub fn entries(&self) -> impl Iterator<Item = (&str, &Handle<Image>)> {
         self.ids
             .declarations()
@@ -83,9 +79,9 @@ impl<N: Namespace> ArtBindings<N> {
 
 /// Registered art ids whose image asset reached a terminal failed state.
 ///
-/// The binding itself remains valid — the manifest and consumer agree on the
-/// id — but renderers must use their visible placeholder instead of continuing
-/// to submit a sprite backed by a handle that can never produce an image.
+/// The binding is still valid (manifest and consumer agree on the id), but
+/// renderers must use their placeholder instead of a sprite whose handle
+/// can never produce an image.
 #[derive(Resource, Default)]
 pub struct FailedItemArt {
     world: BTreeSet<String>,
@@ -105,9 +101,8 @@ pub struct ItemArtLoadWatch {
 /// Resolve `id` through `art`, reporting a miss at most once per distinct
 /// failure and paying for the diagnostic only then.
 ///
-/// The shape every per-frame consumer of an [`ArtBindings`] wants: draw the
-/// placeholder either way, say what is wrong the first time, and stop spending
-/// anything on a defect already on the record.
+/// What every per-frame consumer of an [`ArtBindings`] wants: draw the
+/// placeholder either way, report the problem the first time, and then stop.
 fn resolve_art<N: Namespace>(
     art: Option<&ArtBindings<N>>,
     failed: Option<&BTreeSet<String>>,
@@ -130,9 +125,8 @@ fn resolve_art<N: Namespace>(
     None
 }
 
-/// Re-arm the watch because the art resource was replaced: every id is unsettled
-/// again, and a failure recorded against the OLD manifest is not evidence about
-/// the new one.
+/// Re-arm the watch because the art resource was replaced: every id is
+/// unsettled again, and failures from the old manifest do not apply.
 fn reset_art_watch<N: Namespace>(
     art: Option<&ArtBindings<N>>,
     pending: &mut BTreeMap<String, Handle<Image>>,
@@ -148,9 +142,8 @@ fn reset_art_watch<N: Namespace>(
     }
 }
 
-/// Drain the watch: anything that has settled leaves it, and anything that
-/// settled as a FAILURE is named once and remembered so the render path can
-/// choose the placeholder over a handle that will never produce a picture.
+/// Drain the watch: settled handles leave it, and each failure is reported
+/// once and recorded, so the render path uses the placeholder instead.
 fn poll_art_watch(
     assets: &AssetServer,
     context: &str,
@@ -175,25 +168,20 @@ fn poll_art_watch(
     });
 }
 
-/// Say so when a bound art id's IMAGE never arrives — and stop drawing it.
+/// Report a bound art id whose image never arrives, and stop drawing it.
 ///
-/// This is the other half of the cinder beacon, and the half a resolver cannot
-/// see. That pickup drew nothing for weeks with its id correctly registered: the
-/// manifest named `sprites/props/super_mary_o_cinder_beacon.png`, no generator
-/// produced the file, `AssetServer::load` handed back a handle regardless — a
-/// handle is a promise, not a picture — and the binding resolved perfectly into
-/// art that would never exist. An id namespace can only ever prove that content
-/// agrees with content. Whether the FILE showed up is a separate question, and
-/// this is where it gets asked.
+/// A resolver cannot see this case. The id is registered and the manifest
+/// names a path, but if no file exists, `AssetServer::load` still returns a
+/// handle. An id namespace proves only that content agrees with content;
+/// this checks that the file exists.
 ///
-/// Naming it is not enough on its own: a bound id whose image failed would still
-/// take the sprite branch and draw nothing, which is the same invisible pickup
-/// with a log line beside it. The ids that settle as failures land in
+/// Reporting alone is not enough: a bound id with a failed image would still
+/// take the sprite branch and draw nothing. Failed ids go into
 /// [`FailedItemArt`], and the render path treats them as unresolved so the
-/// placeholder quad comes back. Draw blind, but visibly.
+/// placeholder quad draws.
 ///
-/// Each entry is probed only until it settles — loaded and failed handles both
-/// leave the watch — so this costs nothing once a room's art is resolved.
+/// Each entry is probed only until it settles (loaded or failed), so this is
+/// free once a room's art is resolved.
 pub fn report_unloadable_item_art(
     assets: Res<AssetServer>,
     world_art: Option<Res<WorldItemArt>>,
@@ -228,25 +216,22 @@ pub fn report_unloadable_item_art(
 #[derive(Component)]
 pub struct GroundItemVisual;
 
-/// Loaded held/inventory item art, resolved from every provider's
+/// Loaded held and inventory item art, resolved from every provider's
 /// [`HeldItemArtManifest`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest):
-/// held-item spec id → `(image, on-screen display size)`. The engine owns the
-/// SEAM (this resource + [`build_held_item_art`] + the resolve in the sync
-/// systems); each game contributes its own props' images (axe / javelin /
-/// gun-sword / wielded-gauntlet icons) without a render dependency, keeping asset
-/// knowledge out of the reusable renderer. Absent / unmatched  the placeholder
-/// quad.
+/// held-item spec id to `(image, on-screen display size)`. The engine owns the
+/// seam (this resource, [`build_held_item_art`], and the lookup in the sync
+/// systems); each game contributes its own item images without a render
+/// dependency. Absent or unmatched ids draw the placeholder quad.
 #[derive(Resource, Default)]
 pub struct HeldItemArt(pub ArtBindings<HeldItemSprite>);
 
 /// Resolve every provider-contributed
 /// [`HeldItemArtEntry`](ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtEntry)
-/// (pure `id → path + size` data) into loaded image handles at startup, filling
-/// [`HeldItemArt`]. The render half of the contribution seam: games declare their
-/// held-item art without a render dependency; the resolution — and the
-/// `AssetServer` — lives HERE, so a multi-game host's unioned manifest binds every
-/// provider's props at once. Absent manifest  an empty map (every item draws the
-/// quad fallback).
+/// (`id -> path + size` data) into loaded image handles at startup, filling
+/// [`HeldItemArt`]. The render half of the contribution seam: games declare
+/// art without a render dependency, and the `AssetServer` work is here, so a
+/// multi-game host's merged manifest binds every provider's items. No manifest
+/// gives an empty map (every item draws the quad fallback).
 pub fn build_held_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
@@ -281,8 +266,7 @@ pub fn sync_ground_item_visuals(
     active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Res<GroundItemsView>,
-    // This system rebuilds every frame, so a missing id would otherwise be
-    // sixty identical log lines a second.
+    // This system rebuilds every frame, so report each missing id once.
     mut reported: Local<ReportedOnce>,
 ) {
     for entity in &visuals {
@@ -293,8 +277,8 @@ pub fn sync_ground_item_visuals(
     else {
         return;
     };
-    // A replaced manifest is different content, and "we already said that" about
-    // content that no longer exists would silence a live defect.
+    // A replaced manifest is new content, so earlier reports no longer
+    // apply.
     if art.as_ref().is_some_and(|art| art.is_changed()) {
         reported.clear();
     }
@@ -309,7 +293,7 @@ pub fn sync_ground_item_visuals(
             &mut reported,
             "ground item visual",
         );
-        // The placeholder still draws; the ledger is what stops it being silent.
+        // The placeholder still draws; the report makes the miss visible.
         let sprite = bound
             .map(|(image, size)| Sprite {
                 image,
@@ -335,23 +319,22 @@ pub fn sync_ground_item_visuals(
 #[derive(Component)]
 pub struct WorldItemVisual;
 
-/// Game-supplied art for walk-into world items, keyed by the presentation `sprite`
-/// id a `WorldItem` (`ambition_world_items`) carries →
-/// `(image, on-screen display size)`. The engine owns the SEAM (this resource + the
-/// resolve in [`sync_world_item_visuals`]); each game fills it at startup with its
-/// own pickups' images (e.g. Mary-O's star wand), keeping asset knowledge out of
-/// the reusable renderer. Absent / unmatched  the row-tinted placeholder quad.
+/// Game-supplied art for walk-into world items, keyed by the `sprite` id a
+/// `WorldItem` (`ambition_world_items`) carries, to `(image, on-screen display
+/// size)`. The engine owns the seam (this resource and the lookup in
+/// [`sync_world_item_visuals`]); each game fills it with its own pickup images
+/// (for example Mary-O's star wand). Absent or unmatched ids draw the
+/// row-tinted placeholder quad.
 #[derive(Resource, Default)]
 pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 
 /// Resolve the provider-contributed
 /// [`WorldItemArtManifest`](ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest)
-/// (pure `id → path + size` data every game registered at build time) into loaded
-/// image handles, filling [`WorldItemArt`]. This is the render half of the
-/// contribution seam: games declare their pickup art without a render dependency;
-/// the resolution — and the `AssetServer` — lives HERE, so a multi-game host's
-/// unioned manifest binds every provider's pickups at once. Absent manifest  an
-/// empty map (every item draws the quad fallback).
+/// (`id -> path + size` data from every game) into loaded image handles,
+/// filling [`WorldItemArt`]. The render half of the contribution seam: games
+/// declare pickup art without a render dependency, and a multi-game host's
+/// merged manifest binds every provider's pickups. No manifest gives an empty
+/// map (every item draws the quad fallback).
 pub fn build_world_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
@@ -378,11 +361,10 @@ pub fn build_world_item_art(
     commands.insert_resource(art);
 }
 
-/// A sprite per walk-into world item: the real image when the item carries a
-/// `sprite` id bound in [`WorldItemArt`], else a colored quad tinted by the row it
-/// grants (star wand = gold, cinder beacon = ember, unknown = magenta) — the
-/// draw-blind fallback. Clear-and-rebuild each frame — few items — mirroring
-/// [`sync_ground_item_visuals`].
+/// A sprite per walk-into world item: the real image when its `sprite` id is
+/// bound in [`WorldItemArt`], otherwise a quad tinted by the row it grants
+/// (star wand gold, cinder beacon ember, unknown magenta). Rebuilt each frame
+/// (there are few items), like [`sync_ground_item_visuals`].
 pub fn sync_world_item_visuals(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -407,15 +389,14 @@ pub fn sync_world_item_visuals(
         reported.clear();
     }
     for item in &items.0 {
-        // an emerging pickup draws BEHIND the world, so it reads as coming
-        // out of the block that produced it instead of being pasted whole on top
-        // of it. `WORLD_Z_BLOCK` is 0.0, so anything below it
-        // is occluded by the geometry; a free item keeps the ordinary 8.0.
+        // An emerging pickup draws behind the world, so it looks like it comes
+        // out of its block. `WORLD_Z_BLOCK` is 0.0, so anything below it is
+        // hidden by the geometry; a free item uses 8.0.
         let z = if item.emerging { -1.0 } else { 8.0 };
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, z);
-        // A real bound sprite wins; otherwise the row-tinted quad. An item that
-        // declares NO sprite id is authored that way and reports nothing; an item
-        // that declares one nobody registered is reported, once.
+        // A bound sprite wins; otherwise the row-tinted quad. An item with no
+        // sprite id is authored that way and reports nothing; an item with an
+        // unregistered id is reported once.
         let bound = item.sprite.as_deref().and_then(|id| {
             resolve_art(
                 art.as_deref().map(|art| &art.0),
@@ -457,15 +438,14 @@ pub fn sync_world_item_visuals(
 #[derive(Component)]
 pub struct HeldItemVisual;
 
-/// Draw a small quad in the CONTROLLED SUBJECT's hand for whatever they're
-/// holding, tinted per item (axe / javelin). Clear-and-rebuild each frame.
+/// Draw a small quad in the controlled subject's hand for its held item,
+/// tinted per item (axe, javelin). Rebuilt each frame.
 ///
-/// Keyed on [`ControlledSubject`] (the body holding `DrivingParticipant(PRIMARY)`),
-/// not `PrimaryPlayer`: while possessing, the held-item sprite draws on the body
-/// you are DRIVING (reading ITS own `HeldItem`), never lingering on the vacated
-/// home avatar — the same rule the blink reticle, camera, and nameplate follow.
-/// Aim comes from the subject's brain-resolved `ActorControl`, not raw device
-/// input, so a possessed body's ranged item points where THAT body aims.
+/// Keyed on [`ControlledSubject`] (the body with
+/// `DrivingParticipant(PRIMARY)`), not `PrimaryPlayer`: while possessing, the
+/// sprite draws on the driven body (its own `HeldItem`), not the vacated home
+/// avatar. The blink reticle, camera, and nameplate use the same rule. Aim
+/// comes from the subject's `ActorControl`, not raw device input.
 pub fn sync_held_item_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -486,28 +466,26 @@ pub fn sync_held_item_visual(
     else {
         return;
     };
-    // ⭐ ONE VISUAL PER DRIVEN HOLDER. This read a single `Option`, so a couch
-    // match drew seat zero's weapon and nothing else; the view is plural now and
-    // ordered by `SimId`, so the draw order is the same every run.
+    // One visual per driven holder. The view is ordered by `SimId`, so the
+    // draw order is the same every run.
     for held in &held_view.0 {
         let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
-        // In the subject's hand: just in front at hand height (y-down → small +y).
+        // In the hand: just in front, at hand height (y-down, so small +y).
         let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
         let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, hand, 12.0);
 
-        // A ranged held item (the gun-sword) points where you're AIMING — the same
-        // direction it fires — just like the pirates' wielded gun-sword. Melee /
-        // thrown items keep the simple facing flip. Aim is the subject's
-        // brain-resolved frame (screen-relative fallback to facing), so a possessed
-        // body's item tracks ITS aim, not the home avatar's device stick.
+        // A ranged held item (the gun-sword) points where the subject aims,
+        // the direction it fires. Melee and thrown items only flip with
+        // facing. Aim is the subject's resolved frame (falls back to facing),
+        // so a possessed body's item follows its own aim.
         let (rotation, flip_x, flip_y) = if held.ranged {
             let aim = if held.aim.length_squared() > 1e-4 {
                 held.aim.normalize()
             } else {
                 Vec2::new(held.facing, 0.0)
             };
-            // World is y-down, render space y-up. Aiming left flips vertically so
-            // the gun stays upright instead of rotating upside-down.
+            // World is y-down, render space y-up. Aiming left flips vertically,
+            // so the gun stays upright.
             let angle = (-aim.y).atan2(aim.x);
             (Quat::from_rotation_z(angle), false, aim.x < 0.0)
         } else {

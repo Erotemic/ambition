@@ -1,9 +1,7 @@
-//! Gate-portal presentation: sprite visibility / animation row / ring spin
-//! driven by the sim's `GatePortalPhases` phase, keyed by the zone ids in the
-//! authored `GatePortalRegistry` (E4 slices 10+20 — these
-//! systems used to live INSIDE the sim crate and matched render entities by
-//! a render-inserted sim `FeatureName`; now they are render systems matching
-//! the render-local [`PropVisual::name`]).
+//! Gate-portal presentation: sprite visibility, animation row, and ring spin,
+//! driven by the sim's `GatePortalPhases` and keyed by the zone ids in the
+//! authored `GatePortalRegistry`. These render systems match props by the
+//! render-local [`PropVisual::name`].
 
 use bevy::prelude::*;
 
@@ -12,13 +10,11 @@ use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::PresentationTime;
 use ambition_platformer2d_world::rooms::{GatePortalPhase, GatePortalPhases, GatePortalRegistry};
 
-/// Hide the debug door-zone visual that `spawn_loading_zone`
-/// spawns for any LoadingZone that's registered as a portal — the
-/// portal's gate sprites ARE the visual, the door box behind them
-/// is redundant.
+/// Hide the debug door-zone visual that `spawn_loading_zone` spawns for a
+/// LoadingZone registered as a portal. The gate sprites are the visual.
 ///
-/// Runs each frame so re-spawned visuals (after a room reload)
-/// also get hidden.
+/// Runs each frame, so visuals re-spawned after a room reload are hidden
+/// too.
 pub fn hide_portal_loading_zone_visuals(
     portals: Res<GatePortalRegistry>,
     mut visuals: Query<(&LoadingZoneVisual, &mut Visibility)>,
@@ -50,10 +46,9 @@ pub fn sync_portal_sprite_visibility(
                 continue;
             }
             if marker.is_none() {
-                // `try_insert`: these are room-scoped prop visuals, so a room
-                // teardown despawns them and this deferred marker can land on a
-                // corpse. Tagging a prop that is being destroyed has no meaning.
-                // REPRODUCED by `deferred_write_safety::production_passes`.
+                // `try_insert`: these are room-scoped prop visuals, and room
+                // teardown can despawn them before this deferred write lands.
+                // Covered by `deferred_write_safety::production_passes`.
                 commands.entity(entity).try_insert(PortalSprite);
             }
             if *vis != target_visibility {
@@ -63,9 +58,8 @@ pub fn sync_portal_sprite_visibility(
     }
 }
 
-/// Per-frame angular velocity (radians/sec) of the gate ring during the
-/// portal's `Opening` phase. 8 rad/s ≈ 1.27 revolutions/s — fast enough to
-/// read, slow enough not to disorient. Tuneable if the boot beat lengthens.
+/// Angular velocity (rad/s) of the gate ring during the portal's `Opening`
+/// phase. 8 rad/s is about 1.27 revolutions/s: readable, not disorienting.
 const RING_OPENING_SPIN_RAD_PER_SEC: f32 = 8.0;
 
 /// Drive gate-portal animation from its phase using the row mapping in
@@ -99,10 +93,9 @@ pub fn sync_portal_sprite_animation(
     }
 }
 
-/// Rotate the gate ring during the portal's `Opening` phase so the boot
-/// sequence reads as "the ring spins up to bring the portal online."
-/// During `On`, `Off`, and `Closing` the ring sits at rotation 0 and its
-/// sprite plays the idle animation.
+/// Rotate the gate ring during the portal's `Opening` phase, so the boot
+/// sequence reads as the ring spinning up. During `On`, `Off`, and `Closing`
+/// the ring is at rotation 0 and plays the idle animation.
 pub fn sync_portal_ring_rotation_system(
     mut commands: Commands,
     presentation_time: PresentationTime,
@@ -117,8 +110,8 @@ pub fn sync_portal_ring_rotation_system(
         Option<&PortalSprite>,
     )>,
 ) {
-    // Use scaled dt so the boot-spin slows during bullet time and
-    // freezes during pause — same world-clock the phase timer reads.
+    // Scaled dt, so the spin slows in bullet time and stops on pause, like
+    // the phase timer.
     let dt = presentation_time.scaled_dt();
     for (zone_id, config) in portals.iter() {
         let phase = phases.phase(zone_id);
@@ -136,10 +129,9 @@ pub fn sync_portal_ring_rotation_system(
                 continue;
             }
             if marker.is_none() {
-                // `try_insert`: these are room-scoped prop visuals, so a room
-                // teardown despawns them and this deferred marker can land on a
-                // corpse. Tagging a prop that is being destroyed has no meaning.
-                // REPRODUCED by `deferred_write_safety::production_passes`.
+                // `try_insert`: these are room-scoped prop visuals, and room
+                // teardown can despawn them before this deferred write lands.
+                // Covered by `deferred_write_safety::production_passes`.
                 commands.entity(entity).try_insert(PortalSprite);
             }
             animator.request(target_anim);
@@ -150,10 +142,9 @@ pub fn sync_portal_ring_rotation_system(
             if spinning {
                 tf.rotate_local_z(RING_OPENING_SPIN_RAD_PER_SEC * dt);
             } else if !matches!(phase, GatePortalPhase::Closing { .. }) {
-                // Snap back to upright when fully Off or On — the
-                // boot beat is the only time the ring should look
-                // physically rotated. Closing keeps the last
-                // rotation (it'll get reset when phase reaches Off).
+                // Snap upright when Off or On: only the boot beat shows the ring
+                // rotated. Closing keeps the last rotation until the phase
+                // reaches Off.
                 if tf.rotation != bevy::math::Quat::IDENTITY {
                     tf.rotation = bevy::math::Quat::IDENTITY;
                 }

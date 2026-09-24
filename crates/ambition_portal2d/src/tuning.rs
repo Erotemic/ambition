@@ -1,9 +1,8 @@
 //! Runtime-tunable portal feel and convention policy.
 //!
-//! The portal map convention is intentionally a resource-facing enum here, even
-//! though the pure math layer stores the live convention in a tiny global. That
-//! lets dev tools edit it as ordinary Bevy state while the pure helpers stay
-//! usable from tests and non-Bevy callers.
+//! The portal map convention is a field of `PortalTuning`, so dev tools edit
+//! it as ordinary Bevy state. Consumers pass `map_convention()` to the pure
+//! helpers, which also work without Bevy.
 
 use bevy::prelude::*;
 
@@ -25,14 +24,9 @@ impl PortalConvention {
         matches!(self, Self::Rotation)
     }
 
-    /// The geometry layer's convention this names.
-    ///
-    /// ⭐ ONE VALUE, THREADED. It used to be pushed into a process-global
-    /// `AtomicBool` by a system that ran once per change; every consumer then
-    /// read the global instead of the tuning that owns it. Two providers in one
-    /// process could not disagree, and a static is not rollback state, so a
-    /// convention the inspector changed mid-session did not rewind with the
-    /// world.
+    /// The geometry layer's convention this names. Consumers take it as a
+    /// parameter; do not copy it into a global. A global cannot differ between
+    /// two sessions in one process and is not rollback state.
     pub const fn map_convention(self) -> ambition_platformer2d_core::frame::MapConvention {
         match self {
             Self::Reflection => ambition_platformer2d_core::frame::MapConvention::Reflection,
@@ -75,11 +69,9 @@ pub struct PortalTuning {
     pub suppress_wall_abilities: bool,
     /// Whether a same-wall turn-around transit re-orients the body's `facing`
     /// (the `policy.reorient && facing_flip` write in [`transit`](crate::transit)).
-    /// This is a global gate ANDed with the per-body [`PortalPolicy`]'s `reorient`
-    /// flag, so it only ever suppresses the flip — bodies whose policy already
-    /// keeps facing (bosses, projectiles) are unaffected either way. The portal
-    /// crate defaults it ON to preserve standalone behavior; a host can mirror
-    /// its own gameplay setting into it.
+    /// It is ANDed with the per-body [`PortalPolicy`] `reorient` flag, so it can
+    /// only suppress the flip. On by default; a host can mirror its own
+    /// gameplay setting into it.
     ///
     /// [`PortalPolicy`]: crate::transit::PortalPolicy
     pub reorient_facing: bool,
@@ -101,37 +93,16 @@ impl Default for PortalTuning {
     }
 }
 
-// ⛔⛔ `sync_portal_tuning_convention` WAS HERE, AND IT WAS THE WHOLE DEFECT. It
-// mirrored `PortalTuning::convention` into a process-global `AtomicBool` once
-// per frame so that every consumer could read the global instead of the tuning
-// that owns it. A resource copied into a static is a resource with two
-// authorities: two providers in one process could not disagree, load order
-// decided who won, and a static is not rollback state — so a convention the
-// inspector changed mid-session did not rewind with the world. Consumers take
-// `PortalTuning::map_convention()` as a parameter now, and there is nothing to
-// mirror.
 
 /// The inspector's mirror of [`PortalTuning`].
 ///
-/// ⛔⛤ **`Q120`, 2026-09-13: THE F-KEY PANEL USED TO WRITE THE AUTHORITATIVE
-/// VALUE DIRECTLY, AND THE SIMULATION READS IT INSIDE THE ROLLBACK WINDOW.**
-/// `game/ambition_app/src/dev/portal_inspector.rs` did
-/// `world.get_resource_mut::<PortalTuning>()` from an egui pass, while
-/// `transit.rs`'s portal systems take `Res<PortalTuning>` in the sim schedule —
-/// which under the rollback host is `GgrsSchedule`. ⇒ *"What value will a replay
-/// of frame N observe?"* was answered *"whatever the panel holds now"*, and the
-/// rollback waiver that called this *"forward-only"* is the category `Q119`
-/// already ruled is not one.
+/// The sim reads `PortalTuning` inside the rollback window (`GgrsSchedule`),
+/// so the inspector panel must not write it directly (`Q120`). The panel edits
+/// this mirror; the edit is proposed, and `PortalTuning` changes only after
+/// the rollback timeline's owner admits it. Same pattern as
+/// `EditableMovementTuning` → `ActiveMovementTuning`.
 ///
-/// ⭐ **SAME SHAPE AS `EditableMovementTuning` → `ActiveMovementTuning`**, and
-/// deliberately so: the panel edits a mirror, the mirror is PROPOSED, and the
-/// authoritative value moves only once the rollback timeline's owner has
-/// admitted it. Every existing reader — two simulation systems and five
-/// presentation ones — keeps reading `PortalTuning` and is untouched.
-///
-/// ⚠ `Deref`/`DerefMut`, so the panel's several hundred `&mut tuning.field` rows
-/// did not have to change. The only edit at the call site is which resource it
-/// asks for, which is exactly the amount of change this repair should cost.
+/// `Deref`/`DerefMut` let the panel keep its `&mut tuning.field` code.
 #[derive(
     bevy::prelude::Resource,
     Clone,
@@ -143,21 +114,18 @@ impl Default for PortalTuning {
 )]
 pub struct EditablePortalTuning(pub PortalTuning);
 
-/// This domain's key in `PendingMechanicalEdits`, declared beside the value.
-/// The marker type that OWNS this domain. Identity is the type, not the label —
-/// see `MechanicalDomain`.
+/// This domain's key in `PendingMechanicalEdits`. The type is the identity,
+/// not the label; see `MechanicalDomain`.
 pub struct PortalTuningDomain;
 
 pub fn portal_tuning_domain() -> ambition_platformer2d_core::MechanicalDomain {
     ambition_platformer2d_core::MechanicalDomain::of::<PortalTuningDomain>("portal_tuning")
 }
 
-/// Raise a changed portal mechanic as a PROPOSAL.
+/// Raise a changed portal mechanic as a proposal.
 ///
-/// ⚠ **`is_added` IS EXCLUDED** for the reason every proposer excludes it: Bevy
-/// counts INSERTION as a change, and the mirror is installed before content
-/// finishes seeding — proposing that would stop the session the composition had
-/// just started, on frame one, every time.
+/// `is_added` is excluded: Bevy counts insertion as a change, and a proposal
+/// on the first frame would stop the session that just started.
 pub fn propose_editable_portal_tuning(
     editable: bevy::prelude::Res<EditablePortalTuning>,
     mut pending: bevy::prelude::ResMut<ambition_platformer2d_core::PendingMechanicalEdits>,
@@ -168,12 +136,10 @@ pub fn propose_editable_portal_tuning(
     pending.propose(portal_tuning_domain());
 }
 
-/// Copy an ADMITTED portal-mechanic edit into the value the simulation reads.
+/// Copy an admitted portal-mechanic edit into the value the simulation reads.
 ///
-/// ⛔ Deliberately NOT change-guarded: the guard lives on the PROPOSAL, so an
-/// untouched panel raises nothing and this never runs its write. Re-adding
-/// `is_changed` here would drop every edit that had to be staged behind a
-/// foreign rollback timeline for a frame, which is the whole point of staging it.
+/// Not change-guarded: the guard is on the proposal. An `is_changed` guard
+/// here would drop edits that were staged for a frame.
 pub fn publish_editable_portal_tuning(
     editable: bevy::prelude::Res<EditablePortalTuning>,
     admission: Option<bevy::prelude::Res<ambition_platformer2d_core::MechanicalEditAdmission>>,
@@ -183,8 +149,8 @@ pub fn publish_editable_portal_tuning(
     if !pending.is_pending(portal_tuning_domain()) {
         return;
     }
-    // ⛔ ABSENT ⇒ PUBLISH, matching the resource's own default: a composition
-    // with no rollback host has no history an edit could contradict.
+    // Absent means publish: without a rollback host there is no history to
+    // contradict.
     if matches!(
         admission.as_deref(),
         Some(ambition_platformer2d_core::MechanicalEditAdmission::Refuse)

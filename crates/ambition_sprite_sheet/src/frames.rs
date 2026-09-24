@@ -1,20 +1,20 @@
 //! The single frame-addressing algebra for every sprite sheet.
 //!
-//! Every runtime reader — playable characters, bosses, props, melee/effect visuals, projectiles —
-//! addresses the same [`SheetRecord`] shape. This module is that math, once, in the foundational
-//! crate both the gameplay and render layers depend on, so a single implementation drives trimming
-//! and multi-page packing for the whole cast.
+//! Every runtime reader (characters, bosses, props, melee and effect visuals,
+//! projectiles) addresses the same [`SheetRecord`] shape. This module holds
+//! that math once, in the base crate that gameplay and render layers use, so
+//! one implementation handles trimming and multi-page packing.
 //!
-//! Everything here is pure integer / `glam` geometry — no Bevy `TextureAtlasLayout`
-//! (that's a render-feature type), so this crate stays headless-reusable. A
-//! consumer turns an [`AtlasPage`]'s `rects` into a `TextureAtlasLayout` with a
-//! three-line loop (see `ambition_platformer2d_actor_monolith`'s `build_atlas_layout`).
+//! Everything here is pure integer and `glam` geometry, with no Bevy
+//! `TextureAtlasLayout` (a render-feature type), so this crate stays headless.
+//! A consumer turns an [`AtlasPage`]'s `rects` into a `TextureAtlasLayout`
+//! with a short loop (see `build_atlas_layout` in
+//! `ambition_platformer2d_actor_monolith`).
 //!
-//! The key contract: [`SheetRecord::atlas_page`] and
-//! [`SheetRecord::flat_index_in_page`] walk rows in the SAME order and assign
-//! each cell to the SAME page, so a flat index built by one exactly addresses
-//! the layout built by the other. Pinned by the tests at the bottom of this
-//! file.
+//! Key contract: [`SheetRecord::atlas_page`] and
+//! [`SheetRecord::flat_index_in_page`] walk rows in the same order and assign
+//! each cell to the same page, so a flat index from one addresses the layout
+//! from the other. The tests at the end of this file guard this.
 
 use bevy::math::{IVec2, URect, UVec2, Vec2};
 
@@ -65,14 +65,13 @@ impl FrameTrim {
     }
 }
 
-/// Given a frame's trim geometry plus the base (untrimmed) render size and
-/// anchor, return the `(custom_size, anchor)` that draws the trimmed sub-rect
-/// so the logical frame's anchor point lands at the SAME world position the
-/// untrimmed frame would have used.
+/// Given a frame's trim geometry and the untrimmed render size and anchor,
+/// return the `(custom_size, anchor)` that draws the trimmed sub-rect so the
+/// logical frame's anchor lands at the same world position as the untrimmed
+/// frame.
 ///
-/// The formula reduces to `(base_render_size, base_anchor)` for an untrimmed frame (`offset ==
-/// 0`, `trimmed == logical`), so untrimmed sheets are unchanged. Pinned by `trimmed_render_*`
-/// unit tests.
+/// For an untrimmed frame (`offset == 0`, `trimmed == logical`) this returns
+/// `(base_render_size, base_anchor)`. The `trimmed_render_*` tests guard this.
 pub fn trimmed_render(trim: &FrameTrim, base_render_size: Vec2, base_anchor: Vec2) -> (Vec2, Vec2) {
     let fw = trim.logical.x.max(1) as f32;
     let fh = trim.logical.y.max(1) as f32;
@@ -90,13 +89,12 @@ pub fn trimmed_render(trim: &FrameTrim, base_render_size: Vec2, base_anchor: Vec
 }
 
 impl SheetRow {
-    /// True when this row carries explicit, non-negative per-frame rects (the
-    /// packed / padded path). False  the caller derives cells from grid stride
-    /// (`label_width + col*frame_width`, `y_offset + row_index*frame_height`).
+    /// True when this row has explicit, non-negative per-frame rects (the
+    /// packed or padded path). If false, the caller derives cells from the grid
+    /// stride (`label_width + col*frame_width`, `y_offset + row_index*frame_height`).
     ///
-    /// A row with any negative / zero-area rect is treated as grid (the rect
-    /// vector is unusable as a `UVec2`-backed cell), matching the character
-    /// reader's historical fallback.
+    /// A row with any negative or zero-area rect is treated as grid, because
+    /// the rects cannot be `UVec2` cells. The character reader does the same.
     fn uses_explicit_rects(&self) -> bool {
         !self.rects.is_empty()
             && self

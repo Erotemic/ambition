@@ -1,23 +1,20 @@
-//! Typed `Surface` authoring primitive: parse + compile to engine collision.
+//! Typed `Surface` authoring primitive: parse, then compile to engine collision.
 //!
-//! A single rectangular `Surface` LDtk entity carries `collision`/`breakability`/
-//! `contact`/`respawn` fields instead of a zoo of one-purpose entities.
-//! `parse_surface_spec` reads the fields into `LdtkSurfaceSpec` and the
-//! `Surface*` enums; `compile_surface` lowers a spec to a `SurfaceCompiled`
-//! (typed `Block`/`Breakable`/contact data). Consumed by sibling `conversion`.
+//! `parse_surface_spec` reads a Surface-shaped entity's fields into
+//! `LdtkSurfaceSpec` and the `Surface*` enums. `compile_surface` lowers a spec
+//! to a `SurfaceCompiled` (typed `Block`/`Breakable`/contact data). Used by
+//! sibling `conversion`.
 
 use ambition_platformer2d_core as ae;
 
 use super::fields::{field_f32, field_i32, field_string};
 use super::project::LdtkEntityInstance;
 
-/// Collision behavior contributed by an LDtk-authored `Surface`.
+/// Collision behavior of an LDtk-authored `Surface`.
 ///
-/// `Surface` is the authoring-time primitive: designers place a single
-/// rectangular entity and tweak its `collision`, `breakability`, `contact`,
-/// and `respawn` fields rather than swapping between a zoo of one-purpose
-/// entities. The compile step translates this into typed engine
-/// `Block`/`Breakable`/contact data.
+/// A designer places one rectangular entity and sets its `collision`,
+/// `breakability`, `contact`, and `respawn` fields. The compile step turns this
+/// into typed engine `Block`/`Breakable`/contact data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum SurfaceCollision {
     /// Pure trigger volume; bodies pass through.
@@ -48,19 +45,13 @@ pub enum SurfaceBreakability {
 pub enum SurfaceContact {
     #[default]
     None,
-    /// Return the toucher to spawn — the pit floor (`HazardBlock`).
+    /// Return the toucher to spawn: the pit floor (`HazardBlock`). It does not
+    /// damage.
     ///
-    /// Three places downstream repeated the claim (the IntGrid lowering's *"damages the player on
-    /// contact"*, the authoring tool's *"use HazardBlock for static damage surfaces"*, and the
-    /// editor art, which draws this as SPIKES), and Sanic's speedway believed them: its mid-course
-    /// spike strip was a `HazardBlock`, so hitting it teleported a runner carrying 40 rings back to
-    /// the start line instead of costing him the rings. It should hurt him and knock out his
-    /// rings."*
-    ///
-    ///  a surface that HURTS is a `DamageVolume`, which lowers to a hazard placement,
-    /// ticks in `ambition_platformer2d::combat::hazards`, and publishes an ordinary `HitEvent` — so i-frames,
-    /// a wallet shield, knockback, and death all apply exactly as they do for any other hit.
-    /// Static or moving, either works; the motion path is optional.
+    /// A surface that hurts is a `DamageVolume`. It lowers to a hazard placement,
+    /// ticks in `ambition_platformer2d::combat::hazards`, and publishes a normal
+    /// `HitEvent`, so i-frames, wallet shield, knockback, and death all apply. It
+    /// can be static or moving; the motion path is optional.
     ResetToSpawn,
     /// Refreshes pogo / movement resources (legacy `PogoOrb`).
     PogoRefresh,
@@ -78,14 +69,13 @@ pub enum SurfaceRespawn {
     AfterSeconds(f32),
 }
 
-/// Typed intermediate representation for a single LDtk `Surface` (or legacy
+/// Typed intermediate representation for one LDtk `Surface` (or a legacy
 /// alias such as `Solid`, `OneWayPlatform`, `BlinkWall`, `HazardBlock`,
 /// `PogoOrb`, `ReboundPad`, `Breakable`).
 ///
-/// This is the authoring-side data parsed straight out of LDtk JSON. The
-/// compile step (`compile_surface`) lowers it into engine-native runtime
-/// pieces (`ae::Block`, `ae::RoomObject`) so collision/contact systems never
-/// have to reparse strings or JSON.
+/// `compile_surface` lowers it into engine runtime pieces (`ae::Block`,
+/// `ae::RoomObject`), so collision and contact systems do not parse strings or
+/// JSON.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LdtkSurfaceSpec {
     /// LDtk-stable instance id.
@@ -105,8 +95,8 @@ pub struct LdtkSurfaceSpec {
 }
 
 impl LdtkSurfaceSpec {
-    /// Build an indestructible solid wall with no contact behavior. Convenient
-    /// for tests and migration shims.
+    /// Build an indestructible solid wall with no contact behavior. For tests and
+    /// migration shims.
     pub fn solid_wall(
         iid: impl Into<String>,
         name: impl Into<String>,
@@ -138,20 +128,15 @@ pub struct SurfaceCompiled {
     >,
 }
 
-/// LDtk identifiers that lower into the typed runtime "surface" conversion
-/// pipeline.
+/// LDtk identifiers that lower through the typed surface pipeline.
 ///
-/// The LDtk editor keeps these visually/semantically distinct so designers
-/// pick the right primitive (Solid, OneWayPlatform, BlinkWall, HazardBlock,
-/// PogoOrb, ReboundPad, Breakable). Internally the parser collapses them to
-/// the same typed `LdtkSurfaceSpec` so collision/contact/breakability code
-/// has a single conversion path. There is intentionally no canonical
-/// generic `Surface` authoring entity; the editor stays differentiated.
+/// The editor keeps these as distinct entities so designers pick the right
+/// primitive. The parser collapses them to one `LdtkSurfaceSpec`, so
+/// collision, contact, and breakability have one conversion path. There is no
+/// generic `Surface` authoring entity.
 ///
-/// `HazardBlock` is the RESET volume — the pit floor — and it is the one name here that reads
-/// like something it is not. Every authored use in the tree calls it what it does (`gap`,
-/// `the_gap`, `death_floor`, `pit_floor`, `live_floor_hazard`); it damages nothing, and a surface
-/// meant to HURT is a `DamageVolume`, which is not surface-like and never reaches this pipeline.
+/// `HazardBlock` is the reset volume (the pit floor). It does no damage. A
+/// surface that hurts is a `DamageVolume`, which does not use this pipeline.
 pub(super) const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
     "Solid",
     "OneWayPlatform",
@@ -170,12 +155,11 @@ pub(super) fn is_surface_like_identifier(identifier: &str) -> bool {
 
 /// Build an `LdtkSurfaceSpec` from a Surface-shaped LDtk entity.
 ///
-/// Identifier-based dispatch:
-/// - `Surface`: parse fields directly (the canonical authoring path).
+/// Dispatch by identifier:
+/// - `Surface`: parse fields directly.
 /// - `Solid`/`OneWayPlatform`/`BlinkWall`/`HazardBlock`/`PogoOrb`/`ReboundPad`/`Breakable`:
-///   legacy aliases — fields are remapped onto the Surface model so the same
-///   compile path produces the same runtime data the old per-identifier
-///   branches did.
+///   legacy aliases. Their fields map onto the Surface model, so the same
+///   compile path gives the same runtime data.
 pub(super) fn parse_surface_spec(
     entity: &LdtkEntityInstance,
     min: ae::Vec2,
@@ -213,12 +197,8 @@ pub(super) fn parse_surface_spec(
         }
         "HazardBlock" => {
             spec.collision = SurfaceCollision::None;
-            // no `damage` field is read, and none ever mattered. This
-            // parsed `field_i32(entity, "damage")` into an amount the compile
-            // step then threw away, and `HazardBlock` carries no such field in
-            // the shared defs anyway — so the read was a promise made to an
-            // author who had no way to make it and no way to see it broken.
-            // See [`SurfaceContact::ResetToSpawn`].
+            // No `damage` field is read: `HazardBlock` does not damage, and the shared
+            // defs have no such field. See [`SurfaceContact::ResetToSpawn`].
             spec.contact = SurfaceContact::ResetToSpawn;
         }
         "PogoOrb" => {
@@ -236,10 +216,8 @@ pub(super) fn parse_surface_spec(
             };
         }
         "BreakablePlatform" => {
-            // Constrained breakable: `collision` must be Solid or OneWayUp
-            // (the LDtk enum has no None option), so the historically
-            // incoherent OnStand+None combo is unrepresentable in the
-            // editor — no degrade path needed.
+            // Constrained breakable: `collision` must be Solid or OneWayUp (the LDtk
+            // enum has no None option), so OnStand+None cannot be authored.
             spec.collision = match field_string(entity, "collision").as_deref() {
                 Some("Solid") | None => SurfaceCollision::Solid,
                 Some("OneWayUp") => SurfaceCollision::OneWayUp,
@@ -260,10 +238,9 @@ pub(super) fn parse_surface_spec(
             spec.max_hp = field_i32(entity, "max_hp").unwrap_or(3);
         }
         "BreakablePogoOrb" => {
-            // Pogo-orb-with-health. No body collision; while intact the
-            // collision world gets a `BlockKind::PogoOrb` block emitted
-            // by `world_with_sandbox_solids`, and successful pogo bounces
-            // damage the orb until it breaks.
+            // Pogo orb with health. No body collision. While intact, the collision world
+            // gets a `BlockKind::PogoOrb` block from `world_with_sandbox_solids`, and each
+            // pogo bounce damages the orb until it breaks.
             spec.collision = SurfaceCollision::None;
             spec.breakability = SurfaceBreakability::BreakOnHit;
             spec.contact = SurfaceContact::PogoRefresh;
@@ -280,13 +257,12 @@ pub(super) fn parse_surface_spec(
     Ok(spec)
 }
 
-/// Parse the `Breakable.respawn` field plus its companion `respawn_seconds`.
+/// Parse the `Breakable.respawn` field and its companion `respawn_seconds`.
 ///
 /// Accepted forms:
 /// - `"Never"` (default), `"OnRoomReload"`
-/// - `"AfterSeconds"` paired with a positive `respawn_seconds` float field
-/// - legacy inline `"AfterSeconds:<n>"` shorthand (still accepted for older
-///   instances saved before `respawn_seconds` was added)
+/// - `"AfterSeconds"` with a positive `respawn_seconds` float field
+/// - legacy inline `"AfterSeconds:<n>"` (instances saved before `respawn_seconds`)
 /// - legacy `"Persistent"`, mapped to `Never`
 fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn, String> {
     let raw = field_string(entity, "respawn").unwrap_or_else(|| "Never".to_string());
@@ -321,15 +297,14 @@ fn parse_breakable_respawn(entity: &LdtkEntityInstance) -> Result<SurfaceRespawn
 
 /// Lower a typed `LdtkSurfaceSpec` into engine runtime data.
 ///
-/// Combinations supported today:
+/// Supported combinations:
 ///
-/// - `Indestructible` + collision (or static contact) → a single `ae::Block`.
+/// - `Indestructible` + collision (or static contact) → one `ae::Block`.
 /// - Any breakable collision/`None` contact → a `RoomObjectKind::Breakable`,
 ///   whose engine `BreakableCollision` mirrors the authored `SurfaceCollision`.
 ///
-/// Combinations that are not yet wired (e.g. breakable + damage contact, or
-/// breakable + blink wall) return descriptive errors so authors hit a clear
-/// validation message rather than silent gameplay drift.
+/// Other combinations (for example breakable + damage contact, or breakable +
+/// blink wall) return an error that tells the author what is wrong.
 pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String> {
     if spec.size.x <= 0.0 || spec.size.y <= 0.0 {
         return Err(format!(
@@ -355,12 +330,10 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             }
         }
         breakable_kind => {
-            // Allow exactly one breakable+contact combo: BreakablePogoOrb,
-            // which is BreakOnHit with collision=None and PogoRefresh contact.
-            // The runtime emits a `BlockKind::PogoOrb` block in
-            // `world_with_sandbox_solids` while the orb is intact, and the
-            // sandbox damages the orb on each pogo bounce. Other
-            // breakable+contact combos remain unsupported.
+            // Only one breakable+contact combination is allowed: BreakablePogoOrb
+            // (BreakOnHit, collision=None, PogoRefresh contact). While the orb is intact,
+            // `world_with_sandbox_solids` emits a `BlockKind::PogoOrb` block, and each
+            // pogo bounce damages the orb.
             let pogo_orb_combo = matches!(spec.contact, SurfaceContact::PogoRefresh)
                 && matches!(spec.collision, SurfaceCollision::None)
                 && matches!(breakable_kind, SurfaceBreakability::BreakOnHit);
@@ -456,11 +429,9 @@ fn compile_static_surface_block(spec: &LdtkSurfaceSpec) -> Result<Option<ae::Blo
             size,
             ae::BlinkWallTier::Hard,
         ))),
-        // The reset volume, and the kernel block it becomes is named for the
-        // same thing: `BlockKind::Hazard` is documented as *"Reset surface.
-        // Hitting this returns the player to spawn."* Damage does not travel
-        // this road at all — it travels the hazard PLACEMENT road, from a
-        // `DamageVolume`. See [`SurfaceContact::ResetToSpawn`].
+        // The reset volume becomes `BlockKind::Hazard` ("Reset surface. Hitting this
+        // returns the player to spawn."). Damage does not use this path; it uses the
+        // hazard placement from a `DamageVolume`. See [`SurfaceContact::ResetToSpawn`].
         (SurfaceCollision::None, SurfaceContact::ResetToSpawn) => {
             Ok(Some(ae::Block::hazard(name, min, size)))
         }

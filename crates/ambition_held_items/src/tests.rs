@@ -1657,6 +1657,82 @@ fn a_flying_item_strikes_the_body_it_reaches_and_not_the_one_it_left() {
     );
 }
 
+/// ⛔⛔ A BLOCKED ITEM STRIKES NOTHING BEYOND WHAT STOPPED IT.
+///
+/// The strike sweep took `vel * dt` — the step the item WANTED — while the wall
+/// test parked it in place, so an item stopped by a wall swept straight through
+/// it and struck (and, for a bomb, detonated on) a body standing behind it. The
+/// traveled path of a parked item is nothing.
+#[test]
+fn an_item_stopped_by_a_wall_does_not_strike_the_body_behind_it() {
+    // 100px per tick: from x=200 the unblocked step ends at 300, whose 36px box
+    // `[282, 318]` enters the wall `[250, 288]` (so the item parks) and the body
+    // `[289, 321]` behind it (so the old sweep reached it).
+    let run = |with_wall: bool| {
+        let mut app = App::new();
+        let mut blocks = vec![ae::Block::solid(
+            "floor",
+            Vec2::new(0.0, 380.0),
+            Vec2::new(800.0, 20.0),
+        )];
+        if with_wall {
+            blocks.push(ae::Block::solid(
+                "wall",
+                Vec2::new(250.0, 100.0),
+                Vec2::new(38.0, 200.0),
+            ));
+        }
+        ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d_core::RoomGeometry(ae::World::new(
+                "phys",
+                Vec2::new(800.0, 400.0),
+                Vec2::new(200.0, 360.0),
+                blocks,
+            )),
+        );
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0 / 60.0,
+            scaled_dt: 1.0 / 60.0,
+        });
+        app.add_systems(Update, ground_item_physics);
+        app.world_mut().spawn((
+            ambition_platformer2d_core::CenteredAabb::new(
+                Vec2::new(305.0, 200.0),
+                Vec2::new(16.0, 24.0),
+            ),
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                100,
+            )),
+        ));
+        let item = app
+            .world_mut()
+            .spawn(GroundItem {
+                spec: axe_spec(),
+                pos: Vec2::new(200.0, 200.0),
+                vel: Vec2::new(6000.0, 0.0),
+                half_extent: Vec2::splat(PICKUP_HALF),
+            })
+            .id();
+        app.update();
+        (
+            app.world().get::<ItemStruckBody>(item).is_some(),
+            app.world().get::<SettledItem>(item).is_some(),
+        )
+    };
+
+    // ANTI-VACUITY: with no wall the same throw reaches the body.
+    let (struck_in_the_open, _) = run(false);
+    assert!(struck_in_the_open, "the unobstructed throw never reached the body, so the walled arm proves nothing");
+
+    let (struck_through_the_wall, parked) = run(true);
+    assert!(parked, "the wall did not stop the item, so this is not a collision-shortened move");
+    assert!(
+        !struck_through_the_wall,
+        "an item the wall stopped struck the body behind the wall"
+    );
+}
+
 /// ⭐⭐ SEAT ZERO DOING NOTHING MUST NOT SILENCE SEAT ONE.
 ///
 /// ⛔⛔ FOUR PER-BODY EXITS INSIDE `for … in driven.entities()` WERE `return`,

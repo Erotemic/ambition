@@ -44,14 +44,12 @@ pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
 impl MovingPlatformSet {
     /// Serialize the live moving-platform state to a deterministic byte string.
     ///
-    /// Moving-platform kinematics (`pos`, sweep/path cursor, `last_delta`) are
-    /// genuine mutable session state the sim advances every tick, but they live
-    /// only in this resource — the visual entities carry an index, not the state.
-    /// A within-room rollback must therefore restore the resource, so it is
-    /// registered snapshot state. `MovingPlatformState` already derives
-    /// `Serialize`/`Deserialize`; RON round-trips it exactly for the managed
-    /// same-build determinism contract, and the encoding keeps the private
-    /// `motion` cursor encapsulated in the crate that owns it.
+    /// Platform kinematics (`pos`, sweep/path cursor, `last_delta`) are mutable
+    /// session state that lives only in this resource; visual entities carry
+    /// an index. A within-room rollback must restore it, so it is registered
+    /// snapshot state. RON round-trips `MovingPlatformState` exactly for the
+    /// same-build determinism contract and keeps the private `motion` cursor
+    /// inside this crate.
     pub fn to_snapshot_ron(&self) -> String {
         ron::to_string(&self.0).expect("moving-platform state is always serializable")
     }
@@ -69,13 +67,11 @@ impl MovingPlatformSet {
 /// moving platforms, ECS-owned solids, and portal carves — into the collision
 /// world a sweep or raycast should see.
 ///
-/// The canonical room component and every dynamic process resource are optional
-/// so headless / minimal-app tests that publish only a room (or nothing) still
-/// satisfy the parameter. The composite degrades to the bare
-/// authored geometry *exactly* when there are no dynamics — which is precisely
-/// when bare and composite are identical — so routing a former `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>`
-/// reader through here changes behaviour only in production rooms that actually
-/// carry moving platforms / ECS solids / portal carves.
+/// The room component and every dynamic resource are optional, so minimal
+/// test apps still satisfy the parameter. With no dynamics the result is the
+/// bare authored geometry, so it matches a former
+/// `ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>`
+/// reader except in rooms with moving platforms, ECS solids or portal carves.
 #[derive(SystemParam)]
 pub struct CollisionWorld<'w, 's> {
     room: Option<
@@ -132,19 +128,15 @@ impl CollisionWorld<'_, '_> {
     /// The surfaces a portal may ANCHOR to: authored geometry plus moving
     /// platforms, UNCARVED.
     ///
-    /// The two differences from [`Self::solids`] are both deliberate and both
-    /// the portal's own requirement:
+    /// It differs from [`Self::solids`] in two ways, both required by portals:
     ///
-    /// * uncarved — a portal is placed ON a surface, and the aperture it
-    ///   opens is subtracted from that surface afterwards. Anchoring against the
-    ///   already-carved view would let a portal be placed in the hole another
-    ///   portal made.
-    /// * no ECS overlay — a gate's lock wall is a transient content solid,
-    ///   not a surface an aperture should be able to outlive.
+    /// * Uncarved: a portal is placed on a surface and its aperture is
+    ///   subtracted afterwards. A carved view would let a portal be placed in
+    ///   another portal's hole.
+    /// * No ECS overlay: a gate's lock wall is a transient content solid, not
+    ///   a surface an aperture should outlive.
     ///
-    ///  this exists because the portal host adapter composed `world_with_moving_platforms` by
-    /// hand, the LAST reader outside this module to do so. Now no consumer builds a collision
-    /// world itself.
+    /// No consumer outside this module builds a collision world itself.
     pub fn hostable_surfaces(&self) -> Option<Cow<'_, ae::World>> {
         let room = self.room.as_ref()?;
         let platforms = self.platforms.as_ref().map_or(&[][..], |p| &p.0);
@@ -237,16 +229,13 @@ pub fn world_with_gate_solids_and_carves<'w>(
 /// (`FeatureEcsWorldOverlay::blocks` — a solid crate, a one-way ledge an object
 /// publishes).
 ///
-/// ⭐⭐ **A SEPARATE SLICE, NOT A LONGER `gate_solids`, BECAUSE THE TWO ARE
-/// DIFFERENT KINDS OF FACT.** A gate solid is geometry a gate OPENS AND CLOSES; a
-/// contributed object surface belongs to a thing that can be damaged and can
-/// stop existing. Only the second one ever needs the coalescing rule — *"the wall
-/// that stopped this shot IS the target"* — and folding them into one argument
-/// would leave a caller unable to tell which it had.
+/// This is a separate slice from `gate_solids` because the facts differ. A
+/// gate solid is geometry a gate opens and closes. A contributed surface
+/// belongs to a thing that can be damaged and can stop existing, so only it
+/// needs the rule "the wall that stopped this shot is the target".
 ///
-/// ⛔ EACH CONTRIBUTED BLOCK CARRIES ITS OWNING OCCURRENCE in `GeoId`, which is
-/// what makes that rule askable at all. See the projectile contact protocol: *"a
-/// contributed object collider additionally identifies its owning occurrence."*
+/// Each contributed block carries its owning occurrence in `GeoId`, which
+/// makes that rule possible. See the projectile contact protocol.
 pub fn world_with_contributed_solids_and_carves<'w>(
     world: &'w ae::World,
     gate_solids: &[ae::Block],

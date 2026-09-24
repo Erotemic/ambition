@@ -1,10 +1,8 @@
 //! Rollback declaration owned by `ambition_portal2d`.
 //!
-//! Portal simulation and the optional portal-gun opener publish separate
-//! registration functions for the same reason their Bevy plugins are separate:
-//! static/scripted portal users should not inherit gun state merely by opting
-//! into portal topology and transit. [`register_rollback_state`] remains the
-//! compatibility composition and registers both surfaces.
+//! Portal simulation and the portal gun register separately, like their
+//! plugins, so portal-only users do not get gun state.
+//! [`register_rollback_state`] registers both.
 //!
 //! The host supplies the backend through [`RollbackRegistrar`]. This module has
 //! no `bevy_ggrs` dependency and no host/composition logic.
@@ -34,17 +32,13 @@ where
         |cooldown| cooldown.remaining.to_bits() as u64,
     );
     registrar.rollback_component_clone::<crate::PortalEmission>(OWNER, "portal.emission");
-    // A shot is a generic portal opener: scripts, AI, moving emitters, or a gun
-    // can all produce the same PortalFireIntent.
+    // A shot is a generic portal opener (any emitter of `PortalFireIntent`).
     //
-    // ⛔⛔ THE ANCHOR IS A SEPARATE FACT FROM THE CODEC, and this shipped with
-    // only the codec. `rollback_component_clone` says what to save IF the entity
-    // is in the rollback envelope; `require_rollback` is what PUTS it there
-    // (`register_required_components::<PortalShot, Rollback>`). A shot is spawned
-    // MID-MATCH by `portal_fire_system`, carries authoritative `pos`/`vel`/
-    // `traveled`, and decides where a portal opens — so a shot on an abandoned
-    // prediction branch could keep flying to a placement the authoritative
-    // timeline never fired. Every registry-shaped check read this as covered.
+    // The codec and the anchor are separate. `rollback_component_clone` says
+    // what to save if the entity is in the rollback set; `require_rollback`
+    // puts it there. A shot is spawned mid-match and decides where a portal
+    // opens, so it must be an anchor, or a mispredicted shot could survive a
+    // rollback.
     registrar.require_rollback::<crate::PortalShot>(OWNER, "entity:portal_shot");
     registrar.rollback_component_clone::<crate::PortalShot>(OWNER, "portal.shot");
     registrar.declare_rollback_derived_component::<crate::PortalTransitable>(
@@ -88,15 +82,9 @@ where
     registrar.require_rollback::<crate::PortalGunPickup>(OWNER, "entity:portal_gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGunPickup>(OWNER, "portal.gun_pickup");
     registrar.rollback_component_clone::<crate::PortalGun>(OWNER, "portal.gun");
-    // The pair a body owns outlives the gun in its hand, so it is state the
-    // same way the gun is: a rollback that restored the hand but not the
-    // ownership would re-equip the wrong gun after the resimulation.
-    // ⛔ PROBED, NOT PRESENCE-ONLY. A bare `rollback_component_clone` satisfies
-    // the coverage census while the checksum sees only that the component
-    // EXISTS — and the pair is the whole point of this component, so a rollback
-    // that restored the presence and not the number would be invisible to a
-    // desync check. `OwnedPortalGunPair` is one `u8`, so the projection is the
-    // value itself.
+    // The owned pair outlives the gun in hand, so it is rollback state too.
+    // Probed, so the checksum sees the pair value and not only presence. The
+    // projection is the `u8` itself.
     registrar.rollback_component_clone_probed::<crate::OwnedPortalGunPair>(
         OWNER,
         "portal.owned_gun_pair",
@@ -114,9 +102,8 @@ where
         .clear_message_on_rollback::<crate::TogglePortalGun>(OWNER, "message.toggle_portal_gun");
 }
 
-/// Backward-compatible full portal registration used by the existing runtime.
-/// New portal-only compositions may call [`register_portal_rollback_state`]
-/// without adopting the gun.
+/// Full portal registration, including the gun. Portal-only compositions call
+/// [`register_portal_rollback_state`].
 pub fn register_rollback_state<R>(registrar: &mut R)
 where
     R: RollbackRegistrar,

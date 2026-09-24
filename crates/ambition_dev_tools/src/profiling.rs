@@ -24,18 +24,13 @@ use std::time::Instant;
 
 /// Wall-clock zero for the whole startup report.
 ///
-/// ⭐ **App CONSTRUCTION is the larger half of startup, and a resource created
-/// during plugin build cannot see it.** `StartupProfiler` is initialized by
-/// `DevToolsSimPlugin::build`, which runs partway through the simulation plugin
-/// tree; anchoring deltas to that moment silently excluded every plugin built
-/// before it. A measured headless run reported `total before first frame:
-/// 120.4ms` against 2.6s of real pre-frame wall clock -- the report was not
-/// wrong about its 120ms, it was answering a much smaller question than the one
-/// its own label asked.
+/// App construction is usually the larger half of startup, and a resource
+/// created during plugin build cannot see it. `StartupProfiler` is initialized
+/// in `DevToolsSimPlugin::build`, partway through the plugin tree, so an
+/// anchor there would exclude every plugin built before it.
 ///
-/// [`note_process_start`] is called from the entry point, before any Bevy work,
-/// so the anchor precedes plugin construction. It is a `OnceLock` rather than a
-/// resource because the value has to exist before a `World` does.
+/// [`note_process_start`] is called from the entry point, before any Bevy work.
+/// It is a `OnceLock`, not a resource, because it must exist before a `World`.
 #[cfg(not(target_arch = "wasm32"))]
 static PROCESS_STARTED_AT: OnceLock<Instant> = OnceLock::new();
 
@@ -113,7 +108,7 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     let total_ms = profiler.app_constructed_at.elapsed().as_secs_f32() * 1000.0;
 
     // App construction first, because it is usually the bigger half and the
-    // phase marks below cannot reach it -- they are Startup SYSTEMS, and every
+    // phase marks below cannot reach it -- they are Startup systems, and every
     // plugin has already been built by the time the first one runs.
     if profiler.anchor_is_process_start {
         let build_ms = profiler
@@ -136,21 +131,11 @@ pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
         eprintln!("[startup] total before first frame: {total_ms:.1}ms (no phase marks)");
         return;
     }
-    // ⛔⛔ SAY WHAT A MARK INTERVAL ACTUALLY MEASURES, BECAUSE IT IS NOT WHAT THE
-    // NAME SUGGESTS. The marks chain themselves to the systems they bracket, but
-    // NOT to the rest of the schedule: `Startup` carries ~43 systems and only a
-    // handful are ordered against these marks, so the executor may run the others
-    // BETWEEN two marks and the interval is billed for them.
-    //
-    // Measured 2026-08-29: `after_load_data_handle` read +169.2ms — 28% of a
-    // 608ms startup — for an interval whose only chained system is ONE LINE
-    // (`asset_server.load(path)`, which returns a handle immediately). The
-    // interval was real and the attribution was not, and it was published as
-    // "169ms of loading" before anyone read the system.
-    //
-    // ⇒ same defect as bracketing an unordered set in `PreUpdate`. A mark chain
-    // is a well-defined interval only where the schedule is `.chain()`ed end to
-    // end. Rather than pretend otherwise, the report says so.
+    // A mark interval is where time was billed, not what spent it. The marks are
+    // chained only to the systems they bracket, not to the rest of `Startup`, so
+    // the executor can run unordered systems between two marks. An interval is
+    // exact only where the schedule is `.chain()`ed end to end. The report says
+    // so.
     eprintln!(
         "[startup] ⚠ a mark interval includes any UNORDERED system the executor \
          ran inside it — `Startup` is not chained end to end, so a phase name is \
@@ -296,16 +281,11 @@ pub fn report_frame_census(mut census: ResMut<FrameCensus>) {
 // ─────────────────────────────────────────────────────────────────────
 // Wasm (browser) implementation — no Instant::now() calls.
 // ─────────────────────────────────────────────────────────────────────
-//
-// `std::time::Instant::now()` panics on `wasm32-unknown-unknown` with
-// "time not implemented on this platform". The shapes below match the
-// native API so the call sites in `app::plugins::add_simulation_plugins`,
-// `app::setup_systems`, and `setup.rs` compile unchanged.
+// `std::time::Instant::now()` panics on `wasm32-unknown-unknown`. The shapes
+// below match the native API so call sites compile unchanged.
 
-/// Wasm-side placeholder marker. Kept as a `(&'static str, ())` so the
-/// `marks: Vec<(&'static str, _)>` field shape mirrors the native impl
-/// (only the timestamp type differs) — call sites that push into
-/// `marks` keep compiling.
+/// Wasm placeholder for the mark timestamp, so `marks` has the same shape as
+/// the native `Vec<(&'static str, Instant)>`.
 #[cfg(target_arch = "wasm32")]
 pub type Mark = ();
 
@@ -320,19 +300,13 @@ pub struct StartupProfiler {
     pub reported: bool,
 }
 
-/// No-op `phase_mark` on wasm. The native impl pushes an
-/// `Instant::now()` entry; on wasm `Instant::now()` would panic, so we
-/// hand back a system that does nothing. The Startup `.chain()` order
-/// still works because Bevy ordering is independent of the system body.
+/// No-op `phase_mark` on wasm. The Startup `.chain()` order still works,
+/// because Bevy ordering does not depend on the system body.
 #[cfg(target_arch = "wasm32")]
 pub fn phase_mark(_name: &'static str) -> impl FnMut(ResMut<StartupProfiler>) {
     move |_profiler: ResMut<StartupProfiler>| {}
 }
 
-/// Logs once that startup profiling is disabled on wasm and returns.
-/// Pairs with the native [`report_startup_phases`] so the
-/// `PostStartup` registration in `add_simulation_plugins` is identical
-/// across platforms.
 /// Wasm placeholder for [`FrameCensus`]: `Instant::now()` panics there, so the
 /// resource exists for API parity and the tick below does nothing.
 #[cfg(target_arch = "wasm32")]
@@ -342,6 +316,8 @@ pub struct FrameCensus;
 #[cfg(target_arch = "wasm32")]
 pub fn report_frame_census(_census: ResMut<FrameCensus>) {}
 
+/// Logs once that startup profiling is disabled on wasm. Same registration as
+/// the native [`report_startup_phases`].
 #[cfg(target_arch = "wasm32")]
 pub fn report_startup_phases(mut profiler: ResMut<StartupProfiler>) {
     if profiler.reported {

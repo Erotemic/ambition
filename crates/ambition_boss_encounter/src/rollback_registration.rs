@@ -21,14 +21,13 @@ where
         "derived.encounter_progress",
         "recomputed from lifecycle and participant health every tick",
     );
-    // ⛔⛔ THE SCRIPT'S TRANSIENTS, AND THEY ARE AUTHORITATIVE. Both are attached
-    // by an encounter EFFECT mid-fight, so they exist in no boot world and the
-    // coverage census — which sweeps the initial world — could never ask about
-    // them. Each one steers a body.
+    // The script's transients. Both are attached by an encounter effect
+    // mid-fight, so they are in no boot world, and the coverage census (which
+    // sweeps the initial world) cannot see them. Each one steers a body.
     //
-    // `CommandedMove` overrides the boss's own control every tick it is present:
-    // a rewind that restored the boss's position without restoring where it was
-    // being walked to would send it somewhere the resimulation never chose.
+    // `CommandedMove` overrides the boss's control every tick it is present.
+    // A rewind that restored the boss's position but not its walk target
+    // would send it where the resimulation never chose.
     registrar.rollback_component_clone_probed::<crate::encounter_script::CommandedMove>(
         OWNER,
         "encounter.commanded_move",
@@ -38,17 +37,15 @@ where
                 ^ (cmd.speed.to_bits() as u64)
         },
     );
-    // ⛔⛔ AND THE CODEC IS ONLY HALF OF IT AGAIN. A hazard is spawned MID-MATCH
-    // by `EncounterEffect::DropHazard` with a plain `spawn_session_scoped`, so
-    // the entity carried no rollback anchor and every registration below was
-    // INERT on it: the registry listed them, the coverage sweep counted them as
-    // accounted, and nothing restored them. The anchor is the fact that puts the
-    // ENTITY in the envelope; the clone is the fact about its bytes.
+    // A hazard is spawned mid-match by `EncounterEffect::DropHazard`, so it
+    // needs a rollback anchor as well as the codecs; without the anchor the
+    // registrations below are inert on it. The anchor puts the entity in the
+    // envelope; the clone covers its bytes.
     registrar
         .require_rollback::<crate::encounter_script::FallingHazard>(OWNER, "entity:falling_hazard");
-    // ⛔ AND THIS ONE NAMES AN ENTITY, so the clone is only half of it: a
-    // resimulation rebuilds the world's entities and a raw id would point at
-    // whoever landed in that slot. `vel_y` and `dropping` are the fall itself.
+    // This one names an entity, so the clone is not enough: a resimulation
+    // rebuilds entities, and a raw id would point at whatever is in that slot.
+    // `vel_y` and `dropping` are the fall itself.
     registrar.rollback_component_clone_entity_ref::<crate::encounter_script::FallingHazard>(
         OWNER,
         "encounter.falling_hazard",
@@ -59,13 +56,12 @@ where
         "map.falling_hazard",
     );
 
-    // ⛔⛤ THE LATCH AND ITS MESSAGE WERE REGISTERED ASYMMETRICALLY, WHICH IS
-    // WORSE THAN NEITHER. `release_payloads_on_death` emits `PayloadReleased`
-    // and then REMOVES this marker, so the marker's absence is the whole reason
-    // a second emission cannot happen. The message below is cleared on rollback
-    // precisely so a resimulation can emit it again — and the resimulation could
-    // not, because nothing put the marker back. A rewind across the kill frame
-    // dropped the release entirely.
+    // The latch and its message must both be registered.
+    // `release_payloads_on_death` emits `PayloadReleased` and then removes this
+    // marker, so the marker's absence stops a second emission. The message is
+    // cleared on rollback so a resimulation can emit it again, which needs the
+    // marker restored too. Otherwise a rewind across the kill frame loses the
+    // release.
     registrar.rollback_component_clone::<crate::ReleaseOnDeath>(OWNER, "encounter.release_on_death");
     registrar.clear_message_on_rollback::<crate::PayloadReleased>(
         OWNER,

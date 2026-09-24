@@ -1,11 +1,8 @@
 //! IntGrid layer decoding: grid-cell values → engine collision/water/climbable.
 //!
-//! Owns the layer-name + IntGrid-value constants (Collision/Water/Climbable/
-//! Ambition layers) and the emit helpers that merge contiguous cells into
-//! rectangles and translate them to `ae::Block`s, water regions, and climbable
-//! regions (`emit_collision_blocks_from_intgrid`, `emit_water_regions_*`,
-//! `emit_climbable_regions_*`, `merge_intgrid_rects`). All `pub(super)`;
-//! consumed by sibling `conversion`.
+//! Owns the layer-name and IntGrid-value constants and the emit helpers that
+//! merge cells into rectangles and turn them into `ae::Block`s, water regions,
+//! and climbable regions. All `pub(super)`; used by sibling `conversion`.
 
 use ambition_platformer2d_core as ae;
 
@@ -22,25 +19,19 @@ pub(super) const GRID: i32 = 16;
 pub(super) const WATER_INT_GRID_CLEAR: i32 = 1;
 pub(super) const WATER_INT_GRID_MURKY: i32 = 2;
 
-/// IntGrid Climbable layer values. Same separation rationale as
-/// Water: a dedicated layer keeps ladders / vines / climbable walls
-/// from sharing IntGrid value space with collision-affecting cells.
-/// Authors paint these on the `Climbable` layer; the runtime lowers
-/// each cell run into a `ClimbableRegion` of the matching `kind`.
+/// IntGrid Climbable layer values. A separate layer keeps ladders, vines, and
+/// climbable walls out of the collision value space. Each cell run on the
+/// `Climbable` layer becomes a `ClimbableRegion` of the matching `kind`.
 pub(super) const CLIMBABLE_INT_GRID_LADDER: i32 = 1;
 pub(super) const CLIMBABLE_INT_GRID_VINE: i32 = 2;
 pub(super) const CLIMBABLE_INT_GRID_WALL: i32 = 3;
 
 // IntGrid value → engine block kind.
 //
-// ⚠ THIS NAMED `tools/ldtk_intgrid_migration.py` AS THE SOURCE OF TRUTH UNTIL <!-- cite-ok: quotes the dead name this correction is about -->
-// 2026-09-17, and that script is not in the tree. The source of truth is the
-// authored LDtk project's own IntGrid layer definitions;
-// `tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/intgrid.py` mirrors them
-// for tooling, the same way this does for the engine. What has not changed is
-// the guarantee: a value here that the authored project does not cover fails
-// validation at compose time, so authors cannot silently introduce a mismatched
-// mapping.
+// The source of truth is the authored LDtk project's IntGrid layer
+// definitions. `tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/intgrid.py`
+// mirrors them for tooling. A value here that the project does not cover
+// fails validation at compose time.
 pub(super) const INT_GRID_SOLID: i32 = 1;
 pub(super) const INT_GRID_ONE_WAY: i32 = 2;
 pub(super) const INT_GRID_BLINK_SOFT: i32 = 3;
@@ -67,18 +58,13 @@ pub(super) fn int_grid_value_to_block(
             size,
             ae::BlinkWallTier::Hard,
         )),
-        // Reset tile: it returns the toucher to SPAWN, and it does not
-        // damage. This comment said "damages the player on contact" for as
-        // long as the value has existed, and it is the paint surface — so an
-        // author who wanted spikes painted the value the comment described and
-        // got a teleport. Nothing about the tile ever reached health, currency,
-        // or an i-frame: `BlockKind::Hazard` flags `ResetCause::Hazard` and
-        // `integrate_home_body` teleports.
+        // Reset tile: it returns the toucher to spawn and does not damage.
+        // `BlockKind::Hazard` sets `ResetCause::Hazard` and `integrate_home_body`
+        // teleports.
         //
-        //  a hazard that HURTS is a `DamageVolume` entity, and it does not
-        // need to move to be one. IntGrid genuinely cannot carry a per-cell
-        // damage amount or motion path, which is why the damage road is
-        // entity-only — not because static damage is unsupported.
+        // A hazard that hurts is a `DamageVolume` entity, static or moving. IntGrid
+        // cannot carry a per-cell damage amount or motion path, so damage is
+        // entity-only.
         INT_GRID_HAZARD => Ok(ae::Block::hazard("ldtk hazard", min, size)),
         other => Err(format!("unknown IntGrid value {other}")),
     }
@@ -179,21 +165,18 @@ pub(super) fn emit_collision_blocks_from_intgrid(
         let mut block = int_grid_value_to_block(value, min, size)
             .map_err(|message| format!("rect value={value} {size:?}: {message}"))?;
         // Durable identity (docs/concepts/movement-collision.md): the merge is
-        // deterministic (row-major coalesce, then column stack), so the
-        // ordinal is stable for a given map. `geo_layer_key` is
-        // level-scoped ("{level}/{layer}") because an active area can span
-        // multiple levels that each carry this layer.
+        // deterministic (row-major coalesce, then column stack), so the ordinal is
+        // stable for a map. `geo_layer_key` is level-scoped ("{level}/{layer}")
+        // because an active area can span many levels with this layer.
         block.id = ae::GeoId::tile_layer(geo_layer_key, ordinal as u16);
         blocks.push(block);
     }
     Ok(blocks)
 }
 
-/// Lower a Water IntGrid layer to source-agnostic `WaterRegion`
-/// rectangles. Cells with value 1 emit `WaterKind::Clear`; value 2
-/// emits `WaterKind::Murky`. Per-region tuning falls back to
-/// `WaterVolumeSpec::default()`; per-volume tuning is the entity
-/// path's job (rare, irregular pools).
+/// Lower a Water IntGrid layer to `WaterRegion` rectangles. Value 1 gives
+/// `WaterKind::Clear`; value 2 gives `WaterKind::Murky`. Tuning is
+/// `WaterVolumeSpec::default()`; per-volume tuning uses the entity path.
 pub(super) fn emit_water_regions_from_intgrid(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
@@ -215,12 +198,10 @@ pub(super) fn emit_water_regions_from_intgrid(
     Ok(regions)
 }
 
-/// Lower a Climbable IntGrid layer to source-agnostic
-/// `ClimbableRegion` rectangles. Mirrors `emit_water_regions_from_intgrid`.
-/// Cells with value 1 → Ladder, 2 → Vine, 3 → Wall. Per-region tuning
-/// falls back to `ClimbableSpec::default()` (180 px/sec climb_speed,
-/// 0.25 strafe_factor); future LDtk fields could surface per-region
-/// overrides if a particular ladder needs to feel faster/slower.
+/// Lower a Climbable IntGrid layer to `ClimbableRegion` rectangles, like
+/// `emit_water_regions_from_intgrid`. Value 1 → Ladder, 2 → Vine, 3 → Wall.
+/// Tuning is `ClimbableSpec::default()` (180 px/sec climb_speed, 0.25
+/// strafe_factor).
 pub(super) fn emit_climbable_regions_from_intgrid(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
@@ -345,9 +326,9 @@ mod intgrid_tests {
         assert!(int_grid_value_to_block(99, min, size).is_err());
     }
 
-    /// §3.6 determinism contract (restored — dropped in the carve): tile-derived geometry is
-    /// durably named by the level-scoped layer key + the row-major merge ordinal; two separated
-    /// runs get distinct, stable ids.
+    /// §3.6 determinism contract: tile geometry is named by the level-scoped layer
+    /// key and the row-major merge ordinal. Two separate runs get distinct, stable
+    /// ids.
     #[test]
     fn intgrid_blocks_carry_level_scoped_tile_layer_geo_ids() {
         let blocks = emit_collision_blocks_from_intgrid(

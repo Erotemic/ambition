@@ -1,36 +1,32 @@
 //! Does this pass survive its target being torn down?
 //!
 //! A presentation pass queues `commands.entity(body).insert(..)`. Between the
-//! query that produced `body` and the frame's command flush, another system can
-//! despawn it — session teardown on a provider switch, room teardown on a
-//! transition, an actor cleanup on death. When that happens Bevy's default error
-//! handler PANICS, and the crash names a bundle rather than a lifecycle.
+//! query that produced `body` and the command flush, another system can
+//! despawn it (session teardown on a provider switch, room teardown on a
+//! transition, actor cleanup on death). Then Bevy's default error handler
+//! panics, and the message names a bundle, not a lifecycle.
 //!
-//! This is not hypothetical and it is not rare-but-survivable: it took down the
-//! multi-provider acceptance cycle (L23), and it was surfaced by adding a system
-//! that spawns nothing to the render chain — because that moved a flush
-//! boundary. A hazard a no-op can trip is a hazard.
+//! This happened in the multi-provider acceptance cycle (L23). Adding a
+//! system that spawns nothing moved a flush boundary and exposed it.
 //!
 //! ## Why a harness instead of a rule
 //!
-//! The obvious response is "use `try_insert` everywhere", and it is wrong.
-//!
-//! Turning "I reasoned that this is safe" into "I ran it" is the whole point.
+//! "Use `try_insert` everywhere" is the wrong answer. The harness runs each
+//! pass against a real teardown instead of relying on reasoning.
 
 use bevy::ecs::schedule::ScheduleLabel;
 use bevy::prelude::*;
 
 /// Run `app` for one frame with every entity matching `Doomed` despawned
-/// AFTER `pass` has run but BEFORE the frame's commands flush.
+/// after `pass` has run but before the frame's commands flush.
 ///
-/// A pass whose deferred writes do not tolerate a vanished target fails inside
-/// Bevy's command error handler, which panics — so callers assert by *not*
-/// panicking, and a caller that wants the negative result wraps this in
+/// A pass whose deferred writes do not tolerate a missing target fails in
+/// Bevy's command error handler, which panics. Callers assert by not
+/// panicking; for the negative case, wrap this in
 /// [`std::panic::catch_unwind`].
 ///
-/// `Doomed` is a marker the caller puts on the entities it wants torn down, so
-/// a test can aim this at exactly the population a real teardown would take
-/// (room-scoped, session-scoped) rather than at everything.
+/// `Doomed` is a marker the caller puts on the entities to tear down, so a
+/// test can target exactly the population a real teardown takes.
 pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
     app: &mut App,
     schedule: impl ScheduleLabel + Clone,
@@ -38,20 +34,13 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
 ) where
     P: bevy::ecs::schedule::IntoScheduleConfigs<bevy::ecs::system::ScheduleSystem, M>,
 {
-    // The teardown is CHAINED BEFORE the pass, and that is the whole fidelity of
-    // this harness.
-    //
-    // Deferred commands apply at the sync point in the order their systems ran.
-    // For the pass's `insert` to land on a dead entity, the despawn has to be
-    // QUEUED FIRST — while the entity is still live, so the pass's query still
-    // yields it. That is exactly the production shape: one system reads an
-    // entity another system has already asked to despawn, and the flush honours
-    // the despawn first.
-    //
-    // That is how `upgrade_actor_sprites` passed this harness while holding a plain `insert`.
-    // That is the safe case, not the hazard — and it is what made the harness's own meta-test
-    // stop failing when the ordering was first corrected. Both command buffers must reach ONE
-    // flush.
+    // The teardown is chained before the pass. Deferred commands apply at the
+    // sync point in the order their systems ran. For the pass's `insert` to
+    // land on a dead entity, the despawn must be queued first, while the
+    // entity is still live and the pass's query still yields it. That matches
+    // production: one system reads an entity another system already asked to
+    // despawn, and the flush applies the despawn first. Both command buffers
+    // must reach one flush.
     app.add_systems(
         schedule,
         (despawn_doomed::<Doomed>, pass).chain_ignore_deferred(),
@@ -59,9 +48,9 @@ pub fn run_frame_despawning_targets<Doomed: Component, M, P>(
     app.update();
 }
 
-/// Run the same frame with a surviving witness that proves the pass executed.
-/// The witness belongs to the same population and names a component the pass must
-/// write, preventing an early-out fixture from passing vacuously.
+/// Run the same frame with a surviving witness that proves the pass ran. The
+/// witness is in the same population and names a component the pass must
+/// write, so an early-out fixture cannot pass vacuously.
 pub fn run_frame_despawning_targets_with_witness<Doomed, Witness, Written, M, P>(
     app: &mut App,
     schedule: impl ScheduleLabel + Clone,
@@ -102,10 +91,8 @@ mod tests {
 
     /// The harness catches an intolerant deferred write.
     ///
-    /// A meta-test, and worth the exception: this harness exists to produce
-    /// evidence, so a harness that cannot fail would launder guesses into
-    /// results. It asserts the shape it is built to detect, using a pass written
-    /// to be wrong.
+    /// A meta-test: a harness that cannot fail would turn guesses into results.
+    /// It uses a pass written to be wrong.
     #[test]
     fn an_intolerant_insert_on_a_torn_down_target_is_caught() {
         fn intolerant(mut commands: Commands, targets: Query<Entity, With<Doomed>>) {
@@ -126,8 +113,7 @@ mod tests {
         );
     }
 
-    /// And passes a tolerant one, so the harness is not simply failing at
-    /// everything.
+    /// It passes a tolerant one, so the harness does not fail everything.
     #[test]
     fn a_tolerant_insert_survives_the_same_teardown() {
         fn tolerant(mut commands: Commands, targets: Query<Entity, With<Doomed>>) {
@@ -142,16 +128,12 @@ mod tests {
     }
 }
 
-/// The harness pointed at a REAL pass.
+/// The harness pointed at real passes.
 ///
-/// `apply_placeholder_sprites_override` targets sprite entities, and sprite
-/// entities are exactly what `despawn_dead_dynamic_feature_visuals` retires when
-/// a feature's view disappears — so its deferred `SpriteOriginalState` write can
-/// land on an entity that no longer exists.
-///
-/// This is the difference between the queue row's "reasoned" and "reproduced":
-/// it runs the shipped system against a real teardown rather than arguing about
-/// whether one is possible.
+/// `apply_placeholder_sprites_override` targets sprite entities, which
+/// `despawn_dead_dynamic_feature_visuals` removes when a feature's view
+/// disappears, so its deferred `SpriteOriginalState` write can land on a
+/// missing entity. This runs the shipped system against a real teardown.
 #[cfg(test)]
 mod production_passes {
     use super::*;
@@ -171,10 +153,9 @@ mod production_passes {
         use crate::rendering::primitives::PropVisual;
 
         let mut app = App::new();
-        // A REGISTERED portal whose sprite name matches the prop below. Without
-        // this the pass's outer loop is over an empty map, it never reaches the
-        // insert, and the probe passes while proving nothing — which is exactly
-        // what it did on the first run.
+        // A registered portal whose sprite name matches the prop below.
+        // Without it the outer loop is empty, the insert is never reached, and
+        // the test proves nothing.
         let mut registry = ambition_platformer2d_world::rooms::GatePortalRegistry::default();
         registry
             .try_register("zone", "switch", "portal", "ring")
@@ -185,8 +166,7 @@ mod production_passes {
             PropVisual {
                 id: "p".into(),
                 kind: "portal".into(),
-                // The pass matches on NAME, so this has to be a name it acts on
-                // — otherwise the loop skips and the test proves nothing.
+                // The pass matches on name, so it must be a name it acts on.
                 name: "portal".into(),
                 size: Vec2::splat(16.0),
                 draw: Default::default(),
@@ -216,11 +196,10 @@ mod production_passes {
         >(&mut app, Update, sync_portal_sprite_visibility);
     }
 
-    /// The parallax root is a room presentation entity. LDtk hot reload and
-    /// ordinary room replacement may retire it in the same Update in which the
-    /// per-view mirror pass decides it needs a `PresentedForView` key. The
-    /// deferred write must tolerate that lifecycle race; a surviving root in the
-    /// same fixture proves the mirror actually reached the write path.
+    /// The parallax root is a room presentation entity. LDtk hot reload and room
+    /// replacement can remove it in the same `Update` in which the per-view
+    /// mirror decides it needs a `PresentedForView` key. The deferred write must
+    /// tolerate that; a surviving root proves the mirror reached the write path.
     #[test]
     fn parallax_view_claim_survives_room_root_retirement() {
         use crate::rendering::parallax::{
@@ -267,8 +246,8 @@ mod production_passes {
     fn the_placeholder_sprite_override_survives_its_targets_being_retired() {
         let mut app = App::new();
         app.insert_resource(ambition_dev_tools::dev_tools::DeveloperTools {
-            // The branch that writes: without this the pass takes its early-out
-            // and the test would pass without exercising anything.
+            // The branch that writes; otherwise the pass returns early and the test
+            // exercises nothing.
             placeholder_sprites: true,
             ..Default::default()
         });
@@ -345,9 +324,8 @@ mod boss_pass {
         app.init_asset::<Image>();
         app.init_asset::<bevy::image::TextureAtlasLayout>();
 
-        // A REAL page-0 texture in `Assets<Image>`. The pass skips any boss
-        // whose page-0 image has not finished loading, so without this the
-        // insert below is never reached and the probe proves nothing.
+        // A real page-0 texture in `Assets<Image>`. The pass skips any boss
+        // whose page 0 has not loaded, so without it the insert is not reached.
         let texture = app
             .world_mut()
             .resource_mut::<Assets<Image>>()
@@ -361,8 +339,8 @@ mod boss_pass {
         let spec = BOSS_SHEET.clone();
         let record = spec.synth_record("probe_boss_spritesheet.png");
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
-        // The GENERIC sheet, which is the fallback arm every boss without a
-        // dedicated sheet takes — so this probe covers the common path.
+        // The generic sheet: the fallback every boss without its own sheet uses,
+        // so this covers the common path.
         assets.boss = Some(BossSpriteAsset {
             pages: vec![BossSpritePage { texture, layout }],
             record,
@@ -370,8 +348,8 @@ mod boss_pass {
         });
         app.insert_resource(assets);
 
-        // Both read-models must carry the id: the boss identity is the GATE, and
-        // the geometry view supplies the render size.
+        // Both read models must have the id: the boss identity is the gate, and
+        // the geometry view gives the render size.
         let identity = || ambition_sim_view::BossRenderView {
             name: "Probe Boss".to_string(),
             behavior_id: "probe_boss".to_string(),
@@ -385,8 +363,8 @@ mod boss_pass {
             (WITNESS_ID.to_string(), identity()),
         ]));
 
-        // A boss visual with neither animator — the exact population the pass
-        // upgrades — that a teardown is about to take.
+        // A boss visual with neither animator (the population the pass
+        // upgrades) that a teardown is about to take.
         app.world_mut().spawn((
             FeatureVisual {
                 id: BOSS_ID.to_string(),
@@ -414,12 +392,12 @@ mod boss_pass {
     }
 }
 
-/// The character-sprite passes — the "also worth doing" half of L24.
+/// The character-sprite passes (the second half of L24).
 ///
-/// `upgrade_actor_sprites` is the boss pass's twin over the ordinary actor
-/// population, and its targets are the same `FeatureVisual` entities
-/// `despawn_dead_dynamic_feature_visuals` retires. The two player passes target
-/// `PlayerVisual`, which session teardown takes.
+/// `upgrade_actor_sprites` is the boss pass's twin for ordinary actors; its
+/// targets are `FeatureVisual` entities that
+/// `despawn_dead_dynamic_feature_visuals` removes. The two player passes
+/// target `PlayerVisual`, which session teardown removes.
 #[cfg(test)]
 mod character_sprite_passes {
     use super::*;
@@ -437,11 +415,8 @@ mod character_sprite_passes {
     #[derive(Component)]
     struct Witness;
 
-    /// A real baked sheet, resolved through the same loader production uses.
-    ///
-    /// Hand-rolling a `CharacterSheetSpec` would be a fixture agreeing with
-    /// itself; this asks the shipped record table for one, so a probe cannot
-    /// pass against geometry no sheet has.
+    /// A real baked sheet, from the same loader production uses, so the probe
+    /// cannot pass against geometry no sheet has.
     fn a_published_sheet(
         app: &mut App,
     ) -> Option<ambition_sprite_sheet::character::CharacterSpriteAsset> {
@@ -481,8 +456,8 @@ mod character_sprite_passes {
         let mut app = asset_app();
         let Some(sheet) = a_published_sheet(&mut app) else {
             // The baked record table is populated by `build.rs` from
-            // `assets/sprites`. A checkout without it cannot run this probe, and
-            // a probe that silently "passes" there would be the vacuous kind.
+            // `assets/sprites`. Without it this probe cannot run, and a silent pass
+            // would be vacuous.
             eprintln!(
                 "[deferred-write] SKIPPED: no baked `robot` sheet record, so this fixture \
                  cannot reach the insert it exists to exercise"
@@ -505,13 +480,13 @@ mod character_sprite_passes {
             (ACTOR_ID.to_string(), super::boss_pass::a_feature_view()),
             (WITNESS_ID.to_string(), super::boss_pass::a_feature_view()),
         ]));
-        // The identity read-model: without a row the pass skips a frame, and the
-        // probe would prove nothing.
+        // The identity read model: without a row the pass skips the frame and
+        // the probe proves nothing.
         app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([
             (ACTOR_ID.to_string(), identity()),
             (WITNESS_ID.to_string(), identity()),
         ]));
-        // Empty: a boss id would make the actor path YIELD rather than bind.
+        // Empty: a boss id would make the actor path yield instead of bind.
         app.insert_resource(ambition_sim_view::BossRenderIndex::default());
 
         app.world_mut().spawn((
@@ -540,11 +515,11 @@ mod character_sprite_passes {
         );
     }
 
-    /// The quality-change rebind, the last plain `insert` in the render layer.
+    /// The quality-change rebind.
     ///
-    /// Same `PlayerVisual` target as the safety net below, reached on a very
-    /// different frame: a confirmed quality-profile switch rebuilds `GameAssets`,
-    /// and a provider switch in the same frame despawns the session scope.
+    /// Same `PlayerVisual` target as the safety net below, on a different frame:
+    /// a confirmed quality-profile switch rebuilds `GameAssets`, and a provider
+    /// switch in the same frame despawns the session scope.
     #[test]
     fn the_player_sprite_quality_rebind_survives_its_target_being_retired() {
         let mut app = asset_app();
@@ -556,14 +531,13 @@ mod character_sprite_passes {
             return;
         };
         let mut assets = ambition_sprite_sheet::game_assets::GameAssets::default();
-        // `"player_robot_v3"` is the id this pass falls back to for a visual with no
-        // `PlayerSpriteCharacter` marker — publishing under any other name makes
-        // the pass skip and the probe vacuous.
+        // Published under the id the `PlayerSpriteCharacter` marker below
+        // names; another name would make the pass skip.
         assets.characters.publish("player_robot_v3", sheet);
         app.insert_resource(assets);
 
         // Marked as bound to the published sheet: the refresh rebinds the
-        // character a sprite was bound FROM, and a body with no mark has none.
+        // character a sprite was bound from.
         let bound = || crate::rendering::actors::PlayerSpriteCharacter {
             id: "player_robot_v3".to_string(),
         };

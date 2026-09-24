@@ -11,8 +11,8 @@ fn warden_behavior() -> crate::pattern::profile::BossBehaviorProfile {
 
 /// The same two-profile boss the geometry test builds, as a value.
 ///
-/// ⚠ Extracted rather than duplicated: an occurrence witness that built its own
-/// moveset could pass while the SHIPPED shape changed underneath it.
+/// Shared with the shipped moveset builder, so a test cannot pass while the
+/// shipped shape changes.
 fn boss_moveset_for_test() -> ambition_combat::moveset::ActorMoveset {
     let cap = BossCapability {
         specials: vec![
@@ -29,11 +29,11 @@ fn boss_moveset_for_test() -> ambition_combat::moveset::ActorMoveset {
     .expect("a boss with strikes -> a moveset")
 }
 
-/// Boss-fold slice (fable review §A1): EVERY boss strike runs through the SHARED
-/// moveset. `boss_attack_moveset` builds one move per profile — a GEOMETRY strike
-/// gets an Active-window hit volume (from `volumes_for_profile`), a SPECIAL gets a
-/// sustain-`Effect` move — and `trigger_boss_attack_moves` starts whichever profile
-/// is the boss's `active_profile`. This pins BOTH new links (geometry + special).
+/// Every boss strike runs through the shared moveset. `boss_attack_moveset`
+/// builds one move per profile (a geometry strike gets an Active-window hit
+/// volume from `volumes_for_profile`; a special gets a sustain-`Effect` move),
+/// and `trigger_boss_attack_moves` starts whichever profile is the boss's
+/// `active_profile`. This tests both kinds.
 #[test]
 fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
     let cap = BossCapability {
@@ -46,7 +46,7 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
     let moveset =
         crate::attack_moveset::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
             .expect("a boss with strikes → a moveset");
-    // BOTH profiles now author a move — geometry AND special.
+    // both profiles now author a move — geometry and special.
     assert_eq!(
         moveset.0.moves.len(),
         2,
@@ -72,7 +72,7 @@ fn a_boss_geometry_profile_triggers_its_hit_volume_move() {
         "the Special profile still became a sustain-move"
     );
 
-    // Trigger a geometry strike: the driver's INTENT (§A1 split) names FloorSlam
+    // Trigger a geometry strike: the driver's intent (§A1 split) names FloorSlam
     // as the active profile → the trigger starts the FloorSlam move.
     let mut app = App::new();
     app.add_systems(Update, trigger_boss_attack_moves);
@@ -146,8 +146,8 @@ fn telegraph_boss_app() -> (App, Entity) {
         )
             .chain(),
     );
-    // §A1 split: the trigger reads the INTENT (telegraph edge → play the windup);
-    // the projection WRITES the read-model `BossAttackState` from the live move.
+    // §A1 split: the trigger reads the intent (telegraph edge → play the windup);
+    // the projection writes the read-model `BossAttackState` from the live move.
     let intent = BossAttackIntent {
         telegraph_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
         ..Default::default()
@@ -171,16 +171,16 @@ fn telegraph_boss_app() -> (App, Entity) {
     (app, boss)
 }
 
-/// E53 Slice D: a Telegraph-step intent starts the move at its WINDUP (`t0 = 0`),
-/// the projection reports `telegraph_profile` while the move is in windup, then
-/// flips to `active_profile` once the move's clock reaches the strike window —
-/// `BossAttackState` is DERIVED from the live move, both halves.
+/// A Telegraph-step intent starts the move at its windup (`t0 = 0`). The
+/// projection reports `telegraph_profile` during the windup, then
+/// `active_profile` once the move's clock reaches the strike window:
+/// `BossAttackState` is derived from the live move in both halves.
 #[test]
 fn telegraph_edge_trigger_projects_windup_then_strike() {
     let (mut app, boss) = telegraph_boss_app();
 
     // Frame 1: the telegraph intent starts the move at t0=0; one advance puts it
-    // ~0.05s into the 0.2s windup — the projection reports a TELEGRAPH, no strike.
+    // ~0.05s into the 0.2s windup — the projection reports a telegraph, no strike.
     app.update();
     let st = app.world().get::<BossAttackState>(boss).unwrap();
     assert_eq!(
@@ -189,9 +189,9 @@ fn telegraph_edge_trigger_projects_windup_then_strike() {
     );
     assert_eq!(st.active_profile, None, "windup has no live strike yet");
 
-    // Advance past the 0.2s telegraph into the strike window: the projection now
-    // reports the STRIKE, telegraph cleared, and active_elapsed folds in the
-    // telegraph offset (t ≈ 0.25 > 0.2).
+    // Advance past the 0.2s telegraph into the strike window: the projection
+    // now reports the strike, the telegraph is cleared, and active_elapsed
+    // includes the telegraph offset (t ≈ 0.25 > 0.2).
     for _ in 0..4 {
         app.update();
     }
@@ -208,8 +208,8 @@ fn telegraph_edge_trigger_projects_windup_then_strike() {
     );
 }
 
-/// E53 Slice D: a windup the pattern ABANDONS (intent cleared — phase change / suppress / rest)
-/// must NOT strike.
+/// E53 Slice D: a windup the pattern abandons (intent cleared — phase change / suppress / rest)
+/// must not strike.
 #[test]
 fn interrupted_windup_is_aborted_before_the_strike() {
     let (mut app, boss) = telegraph_boss_app();
@@ -221,7 +221,7 @@ fn interrupted_windup_is_aborted_before_the_strike() {
         "the telegraph started a move"
     );
     // The pattern abandons the windup (e.g. a phase transition cleared intent):
-    // clearing the INTENT (§A1 split) is what the trigger observes to abort.
+    // clearing the intent (§A1 split) is what the trigger observes to abort.
     app.world_mut()
         .get_mut::<BossAttackIntent>(boss)
         .unwrap()
@@ -235,11 +235,10 @@ fn interrupted_windup_is_aborted_before_the_strike() {
     );
 }
 
-/// Track-5 fold: the boss's authored `strike_speed_scale` is the MOVE's motion
-/// lock — baked onto the strike's Active window as `MoveWindow::motion_scale`
-/// and read back through `MoveSpec::motion_scale_at`, so body integration damps
-/// the boss's steering exactly while the strike window is live. No brain-side
-/// speed damping remains.
+/// The boss's authored `strike_speed_scale` is the move's motion lock: baked
+/// onto the strike's Active window as `MoveWindow::motion_scale` and read back
+/// through `MoveSpec::motion_scale_at`, so body integration damps the boss's
+/// steering only while the strike window is live.
 #[test]
 fn the_strike_speed_throttle_is_baked_as_the_moves_motion_lock() {
     let cap = BossCapability {
@@ -274,10 +273,10 @@ fn the_strike_speed_throttle_is_baked_as_the_moves_motion_lock() {
     assert_eq!(slam.motion_scale_at(0.51), 1.0, "past the window");
 }
 
-/// Track-5 fold (BD3): an authored telegraph's cue/vfx are MOVE data — one-shot
-/// `MoveEvent`s on the windup's rising edge, dispatched by the SAME
-/// `dispatch_move_events` channel every actor move uses. A move with no authored
-/// spec (or no telegraph at all) authors no events.
+/// An authored telegraph's cue/vfx are move data: one-shot `MoveEvent`s on the
+/// windup's rising edge, dispatched by the same `dispatch_move_events` channel
+/// as every actor move. A move with no authored spec (or no telegraph) has no
+/// events.
 #[test]
 fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
     use ambition_characters::brain::boss_pattern::TelegraphSpec;
@@ -326,25 +325,18 @@ fn telegraph_cue_and_vfx_bake_as_rising_edge_move_events() {
     assert!(sweep.events.is_empty());
 }
 
-/// **TWO boss moves separated by idle take DIFFERENT occurrence numbers, and each
-/// playback carries the number the body reached.**
+/// Two boss moves separated by idle take different occurrence numbers, and
+/// each playback carries the number the body reached.
 ///
-/// ⛔⛔ THE SECOND ASSERTION IS THE ONE THAT WAS MISSING, AND ITS ABSENCE IS WHY
-/// A12 BLOCKER 1 SURVIVED A GREEN SUITE. The guard in `moveset/tests.rs` queries
-/// `With<MovePlayback>, Without<MoveOccurrence>` — it asserts the counter is
-/// PRESENT, never that `playback.instance == occurrence.0`. ⇒ A road that
-/// inserted a playback with `instance` left at 0 beside a `MoveOccurrence(N)`
-/// advanced by the other start road passed it every time. **A propagation check
-/// is not an identity check.**
+/// The second assertion is the identity check: the generic guard in
+/// `moveset/tests.rs` only checks that the counter is present, not that
+/// `playback.instance == occurrence.0`. `trigger_boss_attack_moves` is a
+/// second production start road (installed in `CombatSet::Trigger`), so it
+/// needs its own witness.
 ///
-/// ⚠ AND IT HAD TO BE A BOSS FIXTURE. The existing witness runs against the
-/// generic trigger, and `trigger_boss_attack_moves` is a SECOND production start
-/// road: `combat_schedule.rs` installs it in `CombatSet::Trigger`, so this was
-/// never dormant code.
-///
-/// ⚠ THE EDIT THAT MAKES THIS FALSE: drop the `.at_occurrence(occurrence)` from
-/// the boss insert, or drop the `MoveOccurrence` insert beside it. The first
-/// leaves both moves at `instance: 0`; the second restarts the body's count.
+/// This fails if the boss insert drops `.at_occurrence(occurrence)` (both
+/// moves stay at `instance: 0`) or drops the `MoveOccurrence` insert (the
+/// body's count restarts).
 #[test]
 fn two_boss_moves_separated_by_idle_take_different_occurrences() {
     use ambition_combat::moveset::{MoveOccurrence, MovePlayback};
@@ -371,7 +363,7 @@ fn two_boss_moves_separated_by_idle_take_different_occurrences() {
         ))
         .id();
 
-    // FIRST move.
+    // first move.
     app.update();
     let first = {
         let w = app.world();
@@ -392,7 +384,7 @@ fn two_boss_moves_separated_by_idle_take_different_occurrences() {
         occurrence.0
     };
 
-    // IDLE: the move is removed and no intent is standing, so nothing starts.
+    // idle: the move is removed and no intent is standing, so nothing starts.
     app.world_mut().entity_mut(boss).remove::<MovePlayback>();
     app.world_mut().entity_mut(boss).insert(BossAttackIntent::default());
     app.update();
@@ -401,7 +393,7 @@ fn two_boss_moves_separated_by_idle_take_different_occurrences() {
         "the idle tick started a move, so the gap this test needs does not exist"
     );
 
-    // SECOND move, after the gap.
+    // second move, after the gap.
     app.world_mut().entity_mut(boss).insert(BossAttackIntent {
         active_profile: Some(BossAttackProfile::Strike("floor_slam".to_string())),
         ..Default::default()

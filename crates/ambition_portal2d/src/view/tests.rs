@@ -210,11 +210,9 @@ fn visible_cone_opens_from_the_partner_side() {
     assert!(visible_cone(&enter, &exit, eye, 80.0, 400.0, MapConvention::Reflection).is_some());
 }
 
-/// Same-plane pair (two floor portals): the eye above the PARTNER is in
-/// front of BOTH ends, but the window must resolve from the nearer one —
-/// the partner-side image right above this aperture — not from the grazing
-/// 400px-away direct ray. This is the straddle case: standing on purple,
-/// yellow's window opens as if you stood on yellow.
+/// Same-plane pair (two floor portals): the eye above the partner is in
+/// front of both ends. The window must use the nearer end (the partner-side
+/// image above this aperture), not the grazing direct ray 400 px away.
 #[test]
 fn window_eye_prefers_the_nearer_end() {
     let enter = floor(Vec2::new(100.0, 300.0));
@@ -232,11 +230,9 @@ fn window_eye_prefers_the_nearer_end() {
     );
 }
 
-/// Q10.2 continuity pin: walking between a same-plane pair (in front of
-/// BOTH ends the whole way), the resolved eye must move continuously —
-/// the old hard nearest-pick jumped by the full pair separation the frame
-/// the nearer end flipped. Outside the handoff band the nearest end still
-/// wins exactly.
+/// Continuity: walking between a same-plane pair (in front of both ends the
+/// whole way), the resolved eye moves continuously. Outside the handoff band
+/// the nearest end wins exactly.
 #[test]
 fn window_eye_hands_off_continuously_between_same_plane_ends() {
     let enter = floor(Vec2::new(100.0, 300.0));
@@ -280,10 +276,9 @@ fn window_eye_hands_off_continuously_between_same_plane_ends() {
     );
 }
 
-/// Q10.2 continuity pin, thin-wall doorway (the c136/c137 shape): the eye
-/// crossing THROUGH the pair — including off-center — never jumps; the
-/// doorway lifts of the two faces nearly coincide and the handoff blends
-/// between them.
+/// Continuity through a thin-wall doorway: an eye crossing through the pair,
+/// also off-center, never jumps. The two faces' doorway lifts nearly
+/// coincide and the handoff blends them.
 #[test]
 fn window_eye_is_continuous_through_a_thin_wall_doorway() {
     let enter = PortalAperture {
@@ -443,11 +438,9 @@ fn visible_cone_head_on_is_symmetric_and_depth_clamped() {
     );
 }
 
-/// An off-axis viewer skews the wedge: through a slit you see the FAR side,
-/// away from you (looking from the left, the visible far edge shifts
-/// right). Pinned for BOTH a floor portal AND a ceiling portal (the
-/// magenta case) so the skew direction is identical regardless of which
-/// way the surface faces — a ceiling never inverts.
+/// An off-axis viewer skews the wedge: looking from the left, the far edge
+/// shifts right. Checked for a floor and a ceiling portal, so a ceiling does
+/// not invert the skew.
 #[test]
 fn visible_cone_skews_away_from_viewer_floor_and_ceiling() {
     // Floor (normal up): eye up-and-LEFT  far edge to the RIGHT.
@@ -572,9 +565,9 @@ fn multi_eye_wedge_unions_and_anchors_at_the_aperture() {
     assert!((span(&with_behind) - span(&both)).abs() < 1e-3);
 }
 
-/// Continuity across the partner plane — the reason for the eye set. As a
-/// viewpoint crosses the entry plane, swapping it for its mapped shadow on
-/// the far side leaves the far edge essentially unchanged (no abrupt flip).
+/// Continuity across the partner plane (the reason for the eye set): as a
+/// viewpoint crosses the entry plane, swapping it for its mapped shadow
+/// leaves the far edge almost unchanged.
 #[test]
 fn wedge_far_edge_is_continuous_through_the_plane() {
     let enter = floor(Vec2::new(100.0, 300.0));

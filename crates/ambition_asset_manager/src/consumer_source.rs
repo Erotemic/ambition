@@ -11,13 +11,11 @@ use bevy::asset::io::{
     file::FileAssetReader, AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader,
 };
 
-/// Reads from an AUTHORED root first and a SHARED root second.
+/// Reads from an authored root first and a shared root second.
 ///
-/// Ambition's own content crate owns `worlds/*.ldtk` while the tileset and
-/// entity-sprite paths it names (`sprites/...`) are generated into the shared
-/// engine tree. A source-level fallback preserves the game-owned root without
-/// copying generated binaries into the content crate or emitting misleading
-/// `Path not found` errors for assets that are genuinely present.
+/// Ambition's content crate owns `worlds/*.ldtk`, but the `sprites/...` paths
+/// it names are generated into the shared engine tree. The fallback keeps the
+/// game-owned root without copying generated binaries into it.
 struct LayeredAssetReader {
     authored: FileAssetReader,
     shared: FileAssetReader,
@@ -106,9 +104,8 @@ impl AssetReader for LayeredAssetReader {
         if self.authored.is_directory(path).await.unwrap_or(false) {
             return Ok(true);
         }
-        // Not a directory in the authored layer. If it is a FILE there, the
-        // authored layer owns this path and the answer is false — the same
-        // layer `read` will use.
+        // Not a directory in the authored layer. If it is a file there, the
+        // authored layer owns the path and the answer is false, as in `read`.
         match self.authored.read(path).await {
             Ok(_) => return Ok(false),
             Err(AssetReaderError::NotFound(_)) => {}
@@ -120,18 +117,13 @@ impl AssetReader for LayeredAssetReader {
 
 /// An asset source that resolves `authored_root` first and `shared_root` second.
 ///
-/// When the two roots are EQUAL this returns the platform default unchanged, and
-/// that is load-bearing rather than an optimisation. Both roots collapse to the
-/// same relative `"assets"` in a packaged build (an Android APK, a Steam Deck
-/// install, anything under `BEVY_ASSET_ROOT`) because the packager has already
-/// merged the trees. The fallback reader is built from `FileAssetReader`, so
-/// installing it there would shadow the platform's own reader with a filesystem
-/// reader resolving against the process CWD — which can never see inside an APK,
-/// and every load through this source would fail. With one root there is nothing
-/// to fall back to, so the platform default IS the correct reader.
+/// When the two roots are equal, this returns the platform default unchanged.
+/// This is required: in a packaged build (Android APK, Steam Deck install,
+/// `BEVY_ASSET_ROOT`) both roots collapse to `"assets"`. The fallback reader
+/// is a `FileAssetReader` that resolves against the CWD and cannot see inside
+/// an APK, so installing it there would break every load.
 ///
-/// The authored root keeps its ordinary watcher/writer behaviour; only the
-/// reader is layered.
+/// Only the reader is layered. The authored root keeps its watcher and writer.
 pub fn layered_asset_source(
     authored_root: impl Into<PathBuf>,
     shared_root: impl Into<PathBuf>,

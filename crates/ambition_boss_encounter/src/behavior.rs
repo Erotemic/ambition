@@ -1,22 +1,20 @@
 //! Boss behavior-profile vocabulary (data-driven).
 //!
 //! `BossBehaviorProfile` / `BarkAnchorSpec` / `BossRewardProfile` /
-//! `ActorSpriteMetrics` are the schemas every boss instance is authored INTO:
-//! the named rows live in provider `boss_profiles.ron` fragments assembled in
-//! the App-local [`super::BossCatalog`]. Owns movement/attacks/damage/hitbox
-//! tuning (the engine `BossEncounterSpec` owns phase progression + HP).
-//! `BossBehaviorProfile::from_data(catalog, "id")` clones an App-local row; the named
-//! constructors (`clockwork_warden()` etc.) are thin lookups. Also holds
-//! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
-//! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
+//! `ActorSpriteMetrics` are the schemas every boss is authored into. The named
+//! rows live in provider `boss_profiles.ron` fragments assembled in the
+//! App-local [`super::BossCatalog`]. They own movement/attacks/damage/hitbox
+//! tuning (the engine `BossEncounterSpec` owns phase progression and HP).
+//! `BossBehaviorProfile::from_data(catalog, "id")` clones an App-local row;
+//! the named constructors (`clockwork_warden()` etc.) are thin lookups. This
+//! module also has `boss_animation_keys_for_profile` (attack profile →
+//! sprite-row keys) and `canonical_boss_id_from` (the boss kind from LDtk
+//! name and brain).
 
-//! Nothing here needed this crate; the coupling was locational. They are re-exported below, so
-//! every existing path still resolves.
-//!
-//! What genuinely needs this crate stayed: the `BossCatalog` lookups (now
-//! [`BossBehaviorProfileExt`], because the orphan rule does not let an inherent
-//! `impl` follow a type across a crate boundary), [`ActorSpriteMetrics`], and
-//! the animation-key table.
+//! The profile types live in `ambition_characters` and are re-exported below.
+//! What needs this crate stays here: the `BossCatalog` lookups
+//! ([`BossBehaviorProfileExt`]), [`ActorSpriteMetrics`], and the animation-key
+//! table.
 
 pub use crate::pattern::profile::{
     BarkAnchorSpec, BossBehaviorProfile, BossProfileRegistry, BossRewardProfile, LimbMotion,
@@ -25,41 +23,38 @@ pub use crate::pattern::profile::{
 
 /// The `BossCatalog` lookups for a [`BossBehaviorProfile`].
 ///
-/// an extension TRAIT, not inherent methods, and that is the orphan rule
-/// speaking rather than a style choice. The profile type lives in
-/// `ambition_characters` now; an inherent `impl` for it can only be written
-/// there, and `BossCatalog` — which these need — lives HERE. The trait is the
-/// only shape that lets the lookup stay next to the catalog it reads.
+/// An extension trait, not inherent methods, because of the orphan rule: the
+/// profile type lives in `ambition_characters`, and `BossCatalog`, which these
+/// lookups read, lives here.
 ///
-/// Call sites are unchanged (`BossBehaviorProfile::from_data(catalog, id)`);
-/// they need this trait in scope.
+/// Call sites use `BossBehaviorProfile::from_data(catalog, id)` with this
+/// trait in scope.
 pub trait BossBehaviorProfileExt {
     /// Look up a boss profile by canonical id, cloning the parsed row from the
-    /// App-local boss catalog. Panics if the id isn't present — call sites that
-    /// need a fallback should route through `for_authored_boss` instead.
+    /// App-local boss catalog. Panics if the id is not present; call sites
+    /// that need a fallback use `for_authored_boss`.
     fn from_data(catalog: &super::BossCatalog, id: &str) -> Self;
-    /// Fallback profile for authored bosses whose canonical id isn't in
-    /// `boss_profiles.ron`. Clones the shipped default boss's tuning and
-    /// overrides the id so the encounter pipeline doesn't fault.
+    /// Fallback profile for authored bosses whose canonical id is not in
+    /// `boss_profiles.ron`. Clones the default boss's tuning and sets the id,
+    /// so the encounter pipeline does not fail.
     fn generic(catalog: &super::BossCatalog, id: impl Into<String>) -> Self;
     /// Resolve a boss profile from an authored display name or canonical id.
     ///
-    /// The slug matched nothing, `generic(slug)` cloned the warden's tuning under a bogus id, and
-    /// the render then looked up `boss_sprites["tri_slam_sweep_halo"]`, missed, and drew the
-    /// fallback body. Nothing anywhere said a word. A boss that is generic BY ACCIDENT looks
-    /// exactly like a boss that is generic by design.
+    /// An unknown slug falls back to `generic(slug)` and draws the fallback
+    /// body, which looks the same as a boss that is generic by design. So an
+    /// unknown slug is logged (see `warn_once_unregistered_boss`).
     fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self;
 
-    /// Clockwork Warden / Gradient Sentinel — the polished multi-phase Scripted
-    /// reference boss. A thin `from_data` alias so a test reads the name instead
-    /// of the stringly id; the engine ships NO named bosses, and production
+    /// Clockwork Warden / Gradient Sentinel: the multi-phase Scripted
+    /// reference boss. A thin `from_data` alias, so a test reads a name
+    /// instead of an id. The engine ships no named bosses; production
     /// resolves every boss by id.
     #[cfg(any(test, feature = "test-support"))]
     fn clockwork_warden() -> Self;
     /// Mockingbird — airborne ship/bird-like Cycle boss.
     #[cfg(any(test, feature = "test-support"))]
     fn mockingbird() -> Self;
-    /// GNU-ton's scholar RIDER — the boss half of the ADR-0020 linked pair.
+    /// GNU-ton's scholar rider — the boss half of the ADR-0020 linked pair.
     #[cfg(any(test, feature = "test-support"))]
     fn gnu_ton_rider() -> Self;
 }
@@ -82,7 +77,7 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
                 )
             });
         profile.id = id.into();
-        // A generic boss draws from ITS OWN id's sheet, not the warden's
+        // A generic boss draws from its own id's sheet, not the warden's
         // `"boss"` sheet — reset the cloned sprite target to identity.
         profile.sprite_target = None;
         profile
@@ -90,9 +85,9 @@ impl BossBehaviorProfileExt for BossBehaviorProfile {
 
     fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self {
         let key = crate::encounter_id_from_name(id_or_name);
-        // A retired id takes its successor's behaviour BEFORE the catalog is
-        // consulted, because the catalog no longer carries the old key at all.
-        // The pair itself lives in `ids::renamed_encounter_id`.
+        // A retired id takes its successor's behavior before the catalog is
+        // consulted, because the catalog no longer has the old key. The pair
+        // is in `ids::renamed_encounter_id`.
         if let Some(current) = crate::renamed_encounter_id(&key) {
             return <Self as BossBehaviorProfileExt>::from_data(catalog, current);
         }
@@ -154,26 +149,23 @@ fn warn_once_unregistered_boss(key: &str) {
     }
 }
 
-/// Resolve a boss's *canonical encounter id* from its authored
-/// LDtk name + parsed brain payload.
+/// Resolve a boss's canonical encounter id from its authored LDtk name and
+/// parsed brain payload.
 ///
-/// The room author may set the display name to something flavorful
-/// like "System Boss" while the brain points at the canonical
-/// boss kind via `PhaseScript:clockwork_warden`. Without this
-/// helper the encounter pipeline derives the id from the display
-/// name only — `encounter_id_from_name("System Boss")` =
-/// `"system_boss"` — and falls back to a generic boss profile
-/// (empty music tracks, default behavior). Use this helper any
-/// time you need the boss kind for behavior / profile / music
-/// lookup; prefer `boss.behavior.id` when you already have a live
-/// `BossRuntime`.
+/// A room author may give a flavorful display name such as "System Boss"
+/// while the brain names the boss kind via `PhaseScript:clockwork_warden`.
+/// Deriving the id from the display name alone
+/// (`encounter_id_from_name("System Boss")` = `"system_boss"`) would fall back
+/// to a generic profile (no music, default behavior). Use this whenever you
+/// need the boss kind for behavior, profile or music lookup; use
+/// `boss.behavior.id` when you already have a live boss.
 ///
 /// Resolution order:
-/// 1. `BossBrain::PhaseScript { script_id }` with non-empty
-///    `script_id` — the brain explicitly names the boss kind.
-/// 2. `BossBrain::Custom(label)` with a non-empty label — same
-///    intent, weaker contract.
-/// 3. `encounter_id_from_name(authored_name)` — legacy fallback.
+/// 1. `BossBrain::PhaseScript { script_id }` with non-empty `script_id`: the
+///    brain names the boss kind.
+/// 2. `BossBrain::Custom(label)` with a non-empty label: same intent, weaker
+///    contract.
+/// 3. `encounter_id_from_name(authored_name)`: fallback.
 pub fn canonical_boss_id_from(
     name: &str,
     brain: &ambition_entity_catalog::placements::BossBrain,
@@ -191,21 +183,12 @@ pub fn canonical_boss_id_from(
     }
 }
 
-// ⛔⛔ A DELETED STRUCT LEFT ITS DOC HERE, and it sat on the next item for long
-// enough that a reader walking back over `///` lines to find where these docs
-// begin lands in it. Six lines describing `BossRuntime` — *"live boss state owned
-// by the simulation … carries body fields only"* — were the head of
-// `ActorSpriteMetrics`'s doc block. The type is gone; it survives only in nine
-// historical comments across the workspace, which are legitimate references to
-// what a thing REPLACED. A doc block is not.
 
-/// Ordered sprite-metadata keys that may describe a boss attack
-/// profile's gameplay geometry. The first key is the canonical
-/// runtime key; later keys are row-name aliases used by generated
-/// sheets / visual review tools. Keeping the aliases here prevents
-/// GNU-ton from silently falling back to rest/static boxes when the
-/// generator names the visual row `head_down` but gameplay asks for
-/// `HeadDescent`.
+/// Ordered sprite-metadata keys that may describe a boss attack profile's
+/// gameplay geometry. The first key is the canonical runtime key; later keys
+/// are row-name aliases used by generated sheets and visual review tools. The
+/// aliases stop GNU-ton from falling back to rest/static boxes when the
+/// generator names the row `head_down` but gameplay asks for `HeadDescent`.
 pub fn boss_animation_keys_for_profile(
     catalog: &super::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
@@ -225,11 +208,10 @@ pub fn boss_animation_keys_for_profile(
         "side_sweep" => vec!["side_sweep".into()],
         "full_body_pulse" => vec!["spike_halo".into(), "eye_beam".into()],
         "hazard_column" => vec!["dash_echo".into(), "eye_beam".into()],
-        // GNU-ton profiles use gameplay-specific canonical keys in
-        // the runtime RON so one visual row can expose multiple
-        // boxes (e.g. hand_slam vs shockwave). Accept the visual row
-        // names too, so regenerated manifests and review images can
-        // stay row-oriented without disconnecting the in-game boxes.
+        // GNU-ton profiles use gameplay-specific canonical keys in the runtime
+        // RON, so one visual row can expose several boxes (e.g. hand_slam vs
+        // shockwave). The visual row names are accepted too, so regenerated
+        // manifests and review images stay row-oriented.
         "hand_slam" => vec!["gnu_hand_slam".into(), "hand_slam".into()],
         "converging_shockwave" => vec!["gnu_shockwave".into(), "hand_slam".into()],
         "hand_sweep" => vec!["gnu_hand_sweep".into(), "hand_sweep".into()],
@@ -244,11 +226,10 @@ pub fn boss_animation_keys_for_profile(
 mod pilotable_mount_tests {
     use super::*;
 
-    /// ADR 0020 field addition (fork #2): a boss authors NO
-    /// `pilotable_mount_classes` unless it really rides something, so the serde
-    /// default keeps them empty. The one boss that DOES ride is the GNU-ton
-    /// rider, and it names exactly the mount class the `giant_gnu` archetype
-    /// declares — a typo there would silently leave the scholar on foot.
+    /// A boss authors no `pilotable_mount_classes` unless it rides something,
+    /// so the serde default is empty. The GNU-ton rider names exactly the
+    /// mount class the `giant_gnu` archetype declares; a typo would leave the
+    /// scholar on foot.
     #[test]
     fn only_a_riding_boss_authors_pilotable_classes() {
         for profile in [
@@ -268,11 +249,11 @@ mod pilotable_mount_tests {
         );
     }
 
-    /// G5 field addition: `possessed_verbs` defaults empty (legacy possession
-    /// mapping) for every profile that doesn't author it, and the gnu-ton
-    /// rider's authored map is TYPO-GUARDED — every verb's move key must name a
-    /// move in the profile's own `attacks` repertoire, or the verb could never
-    /// fire (the trigger looks the move up by id in the boss's moveset).
+    /// `possessed_verbs` defaults to empty (the fallback possession mapping)
+    /// for every profile that does not author it. The gnu-ton rider's map is
+    /// typo-guarded: every verb's move key must name a move in the profile's
+    /// own `attacks`, or the verb could never fire (the trigger looks the move
+    /// up by id in the boss's moveset).
     #[test]
     fn possessed_verbs_default_empty_and_authored_keys_name_real_attacks() {
         assert!(

@@ -18,10 +18,9 @@ use super::color::PortalChannel;
 #[derive(Component, Clone, Debug)]
 pub struct PlacedPortal {
     pub channel: PortalChannel,
-    /// World-space center (on the hit surface). For a HOSTED portal this is a
-    /// per-frame derived cache — the host refresh re-derives it from
-    /// [`Self::host`] each frame (§5-P2); for an unhosted portal it is the
-    /// placement value, unchanged forever.
+    /// World-space center (on the hit surface). For a hosted portal the host
+    /// refresh re-derives it from [`Self::host`] each frame. For an unhosted
+    /// portal it is the fixed placement value.
     pub pos: Vec2,
     /// Unit surface normal, pointing out of the host surface into the room.
     /// Current collision/render helpers are cardinal-first; future APIs should
@@ -29,32 +28,27 @@ pub struct PlacedPortal {
     pub normal: Vec2,
     /// Half-extent of the portal's overlap region.
     pub half_extent: Vec2,
-    /// CC6 host attachment: the durable face this aperture rides
-    /// (`PortalHostRef = GeoFaceRef` — §3.6). `None` = an unhosted STATIC
-    /// aperture (fixtures, worlds without identified geometry): frame velocity
-    /// zero, byte-identical to the pre-CC6 portal. Attribution is lazy — the
-    /// host adapter attaches placed portals to identified faces; a hosted
-    /// portal whose face disappears from the composed world CLOSES.
+    /// The host face this aperture rides (`GeoFaceRef`). `None` is an unhosted
+    /// static aperture (fixtures, worlds without identified geometry) with zero
+    /// frame velocity. The host adapter attaches placed portals to faces later.
+    /// A hosted portal closes when its face disappears.
     pub host: Option<ae::GeoFaceRef>,
-    /// The placement's authored lift of `pos` off the host face along
-    /// `normal` (the gun places 2px proud of the wall). Recorded at
-    /// attachment so the per-frame re-derivation preserves it exactly.
+    /// The offset of `pos` off the host face along `normal` (the gun places
+    /// 2 px out from the wall). Recorded at attachment so the per-frame
+    /// re-derivation keeps it.
     pub host_lift: f32,
-    /// The aperture's own velocity in px/s (`PortalFrame::velocity` — feeds
-    /// the Galilean transfer map). ZERO for unhosted/static portals; the host
-    /// refresh derives it from the host block's authoritative velocity.
+    /// The aperture velocity in px/s (`PortalFrame::velocity`, used by the
+    /// Galilean transfer map). Zero for unhosted portals; the host refresh
+    /// derives it from the host block velocity.
     pub vel: Vec2,
-    /// `pos` at the START of this frame — the aperture's own sweep sample.
-    /// `pos - prev_pos` is the exact frame displacement the RELATIVE swept
-    /// transit trigger subtracts (§5-P2 step 5). Maintained by the host
-    /// refresh; equal to `pos` for unhosted portals.
+    /// `pos` at the start of this frame. `pos - prev_pos` is the frame
+    /// displacement that the relative swept transit trigger subtracts. Set by
+    /// the host refresh; equal to `pos` for unhosted portals.
     pub prev_pos: Vec2,
 }
 
 impl PlacedPortal {
-    /// A static (unhosted) portal — the pre-CC6 shape. Fixtures and
-    /// placement sites construct through this; the host adapter may attach
-    /// a host afterward.
+    /// A static (unhosted) portal. The host adapter may attach a host later.
     pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_extent: Vec2) -> Self {
         Self {
             channel,
@@ -68,8 +62,8 @@ impl PlacedPortal {
         }
     }
 
-    /// The aperture's own displacement THIS frame (§5-P2 relative sweep
-    /// term). Zero for unhosted portals by construction.
+    /// The aperture displacement this frame (the relative sweep term). Zero
+    /// for unhosted portals.
     pub fn frame_delta(&self) -> Vec2 {
         if self.host.is_some() {
             self.pos - self.prev_pos
@@ -80,9 +74,8 @@ impl PlacedPortal {
 }
 
 impl PlacedPortal {
-    /// The pure-geometry frame this portal presents to the portal map (the
-    /// engine-level CC5 type: origin + normal; velocity ZERO — static portals.
-    /// CC6 moving portals derive it from the host's pose + mover velocity).
+    /// The geometry frame this portal gives the portal map: origin, normal,
+    /// and velocity.
     pub fn frame(&self) -> PortalFrame {
         PortalFrame {
             origin: self.pos,
@@ -91,8 +84,8 @@ impl PlacedPortal {
         }
     }
 
-    /// Frame + opening extent — what the piece decomposition, straddle test,
-    /// carve, and (CC5) portal-aware casts consume.
+    /// Frame and opening extent, used by the piece decomposition, straddle
+    /// test, carve, and portal-aware casts.
     pub fn aperture(&self) -> PortalAperture {
         PortalAperture {
             frame: self.frame(),
@@ -106,39 +99,14 @@ pub fn find_portal<'a>(
     portals: impl IntoIterator<Item = &'a PlacedPortal>,
     channel: PortalChannel,
 ) -> Option<PlacedPortal> {
-    // ⛔⛔ THIS WAS `.find(..)` — THE FIRST MATCH IN ITERATION ORDER, AND ITS
-    // CALLERS FEED IT A BEVY QUERY. `portal_list` in
-    // `ambition_platformer2d_host::portal` is `Query<&PlacedPortal>` collected
-    // into a `Vec`, so "first" meant ARCHETYPE ORDER: not a promise, and not
-    // reproduced by a rollback resimulation.
+    // Callers pass portals collected from a `Query` (archetype order, which a
+    // rollback resimulation may not reproduce). Pick by
+    // `stable_portal_order`, not the first match. Channels are usually unique
+    // after `resolve_portal_links`, but nothing here requires it.
     //
-    // ⛔⛔ AND MY FIRST VERSION OF THIS COMMENT WAS WRONG, which is worth keeping
-    // rather than quietly deleting. It said the tie was REACHABLE IN SHIPPED
-    // CONTENT because `sandbox.ldtk`'s `portal_lab` authors SEVEN `purple`
-    // apertures against one `yellow`. That is true of the AUTHORED DATA and
-    // false at RUNTIME: all 14 of that level's portals also carry a link id, and
-    // `resolve_portal_links` — which runs FIRST in the sim chain, before transit,
-    // carve and eviction — REASSIGNS every one of them to a distinct
-    // `Indexed(base + slot)`. The authored colour is a placeholder that never
-    // survives to a lookup.
-    //
-    // ⇒ So this is PREVENTIVE, and the honest reason to keep it is that the
-    // guarantee lives in another system: nothing here requires channels to be
-    // unique, and a portal that reaches a lookup WITHOUT having been link-
-    // resolved (a fixture, a future authoring road, a host that reorders the
-    // chain) would land back on archetype order. A total order costs nothing and
-    // does not depend on a promise made three systems away.
-    //
-    // ⭐ LOWEST POSITION WINS, which is arbitrary but REPRODUCIBLE: placements
-    // are authored, so the order is identical on every run and every machine.
-    // `total_cmp` rather than `partial_cmp` so there is no `unwrap` and no NaN
-    // ordering hole.
-    //
-    // ⚠ THIS SETTLES DETERMINISM, NOT DESIGN. Which purple the yellow SHOULD
-    // lead to is an authoring question (awaiting-maintainer-decision #65); what
-    // this fixes is that the answer no longer changes between two runs of the
-    // same content. The projectile sweep learned the same lesson first — see
-    // `projectile/systems.rs`, "NEAREST FIRST, AND IT USED TO BE QUERY ORDER".
+    // This makes the choice deterministic. Which portal a shared channel
+    // should lead to is an authoring question (awaiting-maintainer-decision
+    // #65).
     portals
         .into_iter()
         .filter(|p| p.channel == channel)
@@ -146,25 +114,14 @@ pub fn find_portal<'a>(
         .cloned()
 }
 
-/// The crate's ONE tie-break between portals, for every place that has to pick
-/// among several and must pick the same one twice.
+/// The crate's one tie-break between portals, for every place that picks one
+/// of several and must pick the same one each time: [`find_portal`],
+/// `link::equalize_pair_apertures`, and the transit loops.
 ///
-/// ⛔⛔ THERE WERE THREE FIRST-MATCH SITES AND NO SHARED RULE.
-/// [`find_portal`] took the first row of a collected `Query`;
-/// `link::equalize_pair_apertures` ran its own `.find()` over another snapshot of
-/// the same query; and `transit::portal_teleport_ground_items` loops the
-/// collected portals and `break`s on the first one a moving item is entering.
-/// **Archetype order in all three**, which is not a promise and is not
-/// reproduced by a rollback resimulation — so a replayed frame could send a
-/// thrown item through a DIFFERENT aperture.
-///
-/// ⭐ LOWEST POSITION, and the point is that it is ONE rule rather than which
-/// rule it is. Placements are authored, so the order is identical on every run
-/// and every machine, and three sites that each invented their own stable rule
-/// could still disagree with each other — which is how a doorway gets sized
-/// against one aperture while the body warps to another.
-///
-/// ⚠ `total_cmp` rather than `partial_cmp`: no `unwrap`, and no NaN hole.
+/// Lowest position first. `Query` order is archetype order, which a rollback
+/// resimulation may not reproduce. One shared rule also keeps the sites from
+/// disagreeing with each other. Uses `total_cmp`, so there is no `unwrap` and
+/// no NaN gap.
 pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Ordering {
     a.pos
         .x
@@ -172,12 +129,10 @@ pub fn stable_portal_order(a: &PlacedPortal, b: &PlacedPortal) -> std::cmp::Orde
         .then_with(|| a.pos.y.total_cmp(&b.pos.y))
 }
 
-/// A portal opening is the SAME size in every orientation: a doorway
-/// `PORTAL_OPENING_HALF * 2` long along the surface, and thin perpendicular to
-/// it (we only see its side profile in 2D). Both the drawn face AND the capture
-/// box that warps the player are built from these, so the warp happens right at
-/// the visual face regardless of whether the portal is on a wall, floor, or
-/// ceiling.
+/// A portal opening is the same size in every orientation:
+/// `PORTAL_OPENING_HALF * 2` long along the surface, and thin across it. The
+/// drawn face and the capture box both use these, so the warp happens at the
+/// visible face.
 pub(crate) const PORTAL_OPENING_HALF: f32 = 46.0;
 /// Standard through-surface half-thickness, exposed so the aperture-equalizer
 /// can rebuild a half-extent from a new along-length.
@@ -186,21 +141,16 @@ pub(crate) const PORTAL_MAX_RANGE: f32 = 6000.0;
 /// PlacedPortal shot travel speed (px/s) — fast, but slow enough to see the streak.
 pub(crate) const PORTAL_SHOT_SPEED: f32 = 1900.0;
 pub(crate) const TELEPORT_COOLDOWN_S: f32 = 0.25;
-/// Floor on exit speed so a slow walk into a portal still pops you out the
-/// far side instead of stalling inside the exit portal. Public so a host's
-/// transit invariant tests can assert against the floor.
+/// Minimum exit speed, so a slow walk into a portal still comes out of the
+/// exit. Public for host transit tests.
 pub const MIN_EXIT_SPEED: f32 = 220.0;
-/// On-screen thickness of the thin portal doorway (side profile in 2D). The
-/// bar's *length* comes from the portal opening; this is its narrow dimension,
-/// matched to the capture box so the player warps right at the drawn face.
+/// On-screen thickness of the portal doorway. Matches the capture box, so
+/// the player warps at the drawn face.
 pub const PORTAL_VISUAL_THICKNESS: f32 = PORTAL_THICKNESS_HALF * 2.0;
 
 /// AABB half-extent for a portal on a surface with the given `normal`:
-/// `PORTAL_OPENING_HALF` along the surface (perpendicular to the normal) and
-/// `PORTAL_THICKNESS_HALF` through it. So the opening (face) is the same length
-/// in every orientation and the box is thin in the normal direction. An
-/// axis-aligned normal gives an exact thin box; a slanted normal gives the
-/// axis-aligned box that bounds the tilted face.
+/// `PORTAL_OPENING_HALF` along the surface and `PORTAL_THICKNESS_HALF` through
+/// it. A slanted normal gives the axis-aligned box that bounds the tilted face.
 ///
 /// FIXME(portal-api): keep this helper for Ambition's AABB world, but do not
 /// make bounding boxes the only public representation of slanted portals.
@@ -226,22 +176,18 @@ pub fn portal_opening_half(normal: Vec2, half_extent: Vec2) -> f32 {
     half_extent.dot(Vec2::new(-n.y, n.x).abs())
 }
 
-/// How far out of the exit portal (along its normal) to pop a body so it clears
-/// the thin portal face without immediately re-entering: the body's half-size
-/// projected onto the normal, plus the portal's thickness and a hair of margin.
-/// Pops the body out right next to the face — NOT the old over-large
-/// `half_extent.length()` push that included the full opening length.
+/// How far out of the exit portal (along its normal) to place a body so it
+/// clears the face and does not re-enter: the body's half-size projected on
+/// the normal, plus the portal thickness and a small margin.
 pub(crate) fn portal_exit_clearance(half_size: Vec2, exit_normal: Vec2) -> f32 {
     half_size.dot(exit_normal.abs()) + PORTAL_THICKNESS_HALF + 3.0
 }
 
-/// Per-actor, PAIR-SCOPED cooldown after a portal jump, so an actor that pops
-/// out of the exit doesn't immediately re-Begin into the pair it just crossed.
-/// Scoped to the crossed pair: entering a DIFFERENT pair immediately after a
-/// crossing is legitimate (chained-portal rooms). Inserted on teleport and
-/// ticked down by [`super::transit::tick_portal_cooldowns`]. The rescue path
-/// in `transit_step` ignores it entirely (a centroid mid-fall-through must
-/// always transfer).
+/// Per-actor cooldown after a portal jump, so the actor does not Begin into
+/// the pair it just crossed. A different pair can be entered at once
+/// (chained-portal rooms). Inserted on teleport and ticked down by
+/// [`super::transit::tick_portal_cooldowns`]. The rescue path in
+/// `transit_step` ignores it.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PortalTransitCooldown {
     /// Remaining latch time (s).
@@ -251,10 +197,9 @@ pub struct PortalTransitCooldown {
     pub pair: PortalChannel,
 }
 
-/// Consumed by the transit rescue and the carve so a portal on a THIN wall never grabs or engages a
-/// body standing in the open room BEHIND that wall: the aperture volume ends where the wall does. A
-/// channel with no entry reads as unmeasured (`f32::INFINITY` = unclipped), which callers bound by
-/// [`crate::pieces::CARVE_DEPTH`].
+/// The transit rescue and the carve use it, so a portal on a thin wall does
+/// not grab a body behind the wall. A channel with no entry is unmeasured
+/// (`f32::INFINITY`), and callers bound it by [`crate::pieces::CARVE_DEPTH`].
 #[derive(bevy::prelude::Resource, Clone, Debug, Default)]
 pub struct PortalHostDepths(pub Vec<(PortalChannel, f32)>);
 
@@ -286,16 +231,8 @@ mod find_portal_determinism_tests {
         }
     }
 
-    /// ⚠ A CONTRIVED TIE, DELIBERATELY, and the comment on `find_portal` says why
-    /// the shipped one I first cited is not real: `portal_lab`'s seven authored
-    /// `purple` apertures are all link-resolved to distinct channels before any
-    /// lookup sees them. The property is still worth pinning — nothing in this
-    /// function requires channels to be unique.
-    ///
-    /// ⭐ THE PROPERTY IS ORDER-INDEPENDENCE, so the test states it the only way
-    /// that means anything: the SAME set in a DIFFERENT order must answer the
-    /// same. A test that fed one order and asserted one answer would pass on the
-    /// `.find()` this replaced.
+    /// A contrived tie: `find_portal` does not require unique channels. The
+    /// same set in a different order must give the same answer.
     #[test]
     fn the_same_apertures_in_a_different_order_resolve_to_the_same_one() {
         let purple = PortalChannelColor::Purple.channel();
@@ -318,9 +255,8 @@ mod find_portal_determinism_tests {
         assert_eq!(rotated.pos, forward.pos, "rotating the order changed the answer");
     }
 
-    /// ⚠ The control: a channel with ONE aperture is unaffected, and a channel
-    /// with none still answers `None`. Without these the test above would pass
-    /// on a function that returned the same portal for everything.
+    /// Control: a channel with one aperture finds it, and a channel with none
+    /// gives `None`.
     #[test]
     fn a_single_aperture_and_an_absent_channel_are_unchanged() {
         let purple = PortalChannelColor::Purple.channel();
@@ -352,19 +288,9 @@ mod stable_order_tests {
         }
     }
 
-    /// ⛔⛔ THE SAME PORTALS IN ANY ORDER SORT THE SAME WAY.
-    ///
-    /// Three sites collect portals off a `Query` -- archetype order, which a
-    /// rollback resimulation does not reproduce -- and each then picks a WINNER:
-    /// the body transit path breaks on its first match, the item path breaks on
-    /// its own, and `find_portal` takes a minimum. Sorting at the collection
-    /// point is what makes all three agree with each other AND with themselves
-    /// across a replay.
-    ///
-    /// ⚠ The scene is deliberately not pre-sorted in any input order, and is
-    /// checked from three different starting permutations: a comparator that
-    /// returned `Equal` for everything would leave each input unchanged and pass
-    /// a test that only reversed once.
+    /// The same portals in any order sort the same way. Checked from three
+    /// starting permutations, so a comparator that always returns `Equal`
+    /// fails.
     #[test]
     fn any_permutation_of_the_same_portals_sorts_identically() {
         let scene = [at(300.0, 10.0), at(100.0, 50.0), at(300.0, 5.0), at(-40.0, 0.0)];
@@ -383,8 +309,7 @@ mod stable_order_tests {
         let key = |v: &Vec<PlacedPortal>| v.iter().map(|p| p.pos).collect::<Vec<_>>();
         assert_eq!(key(&forward), key(&reversed));
         assert_eq!(key(&forward), key(&rotated));
-        // ⚠ And it is a real ordering, not the identity: the leftmost is first,
-        // and the two sharing an x are split by y.
+        // A real ordering: leftmost first, and equal x is split by y.
         assert_eq!(forward[0].pos, Vec2::new(-40.0, 0.0));
         assert_eq!(forward[2].pos, Vec2::new(300.0, 5.0));
         assert_eq!(forward[3].pos, Vec2::new(300.0, 10.0));

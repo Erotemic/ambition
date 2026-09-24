@@ -1,9 +1,7 @@
 //! Compatibility lifecycle for gun-owned portals.
 //!
-//! This module keeps Ambition's current "portals opened by a gun disappear when
-//! the gun is gone" policy away from the reusable portal topology/transit core.
-//! Static authored portals, scripted emitters, and moving portals should not be
-//! forced through this ownership model.
+//! Keeps the "gun portals disappear when the gun is gone" policy out of the
+//! portal core. Authored, scripted, and moving portals do not use it.
 
 use bevy::prelude::*;
 
@@ -16,13 +14,8 @@ use super::types::PlacedPortal;
 /// gun-pair portals plus in-flight shots whose PAIR no longer has a gun in the
 /// room — neither held ([`PortalGun`]) nor lying as a [`PortalGunPickup`].
 ///
-/// ⛔ **THIS IS PER-PAIR, AND IT USED TO BE ALL-OR-NOTHING.** The old rule was
-/// *"if no gun of any kind exists, clear every gun portal"*, which was exactly
-/// right while there was one gun and silently wrong once a gun owns its own
-/// pair: taking the only red/yellow gun out of the room left its portals open
-/// forever, because a blue/orange gun elsewhere still answered "a gun exists".
-/// Portals outliving the gun that made them is the one thing this system is
-/// for, so it has to ask about the gun that made THESE.
+/// Checked per pair: another gun on a different pair does not keep these
+/// portals open.
 ///
 /// FIXME(portal-api): this should become a host-installed policy plugin or a
 /// generic "emitter owns portal set" cleanup rule. It is not part of the pure
@@ -85,9 +78,8 @@ mod tests {
         channels
     }
 
-    /// ⛔ THE BUG THE OLD ALL-OR-NOTHING RULE WOULD HAVE SHIPPED once a gun owns
-    /// one pair: removing the ONLY red/yellow gun left its portals open forever,
-    /// because a blue/orange gun elsewhere still answered "a gun exists".
+    /// Removing the only gun of one pair clears that pair's portals, even if a
+    /// gun of another pair remains.
     #[test]
     fn losing_one_guns_pair_does_not_strand_its_portals_or_touch_another_guns() {
         let mut app = app();
@@ -108,8 +100,7 @@ mod tests {
         );
     }
 
-    /// A gun lying on the FLOOR still owns its pair — a dropped gun is not a
-    /// gone gun, and its portals must survive the trip.
+    /// A gun lying on the floor still owns its pair, so its portals stay.
     #[test]
     fn a_pickup_on_the_floor_keeps_its_pairs_portals_alive() {
         let mut app = app();

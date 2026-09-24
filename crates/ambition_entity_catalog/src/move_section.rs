@@ -1,68 +1,49 @@
-//! The move family's own artifact section — fast-iteration packet I2, step 1/3.
+//! The move family's own artifact section.
 //!
-//! ⭐⭐ **THE CODEC LIVES BESIDE THE VALUE IT ENCODES, NOT BESIDE THE ENVELOPE.**
-//! `ambition_content_pack`'s envelope treats a payload as opaque text, so adding
-//! a content family is adding a section kind rather than editing the envelope.
-//! The consequence is the important half: this module needs NO dependency on the
-//! pack crate, and the pack crate needs none on this one. They meet at a
-//! `(kind, version, payload)` triple that neither owns.
+//! The codec lives beside the value it encodes, not beside the envelope.
+//! `ambition_content_pack`'s envelope treats a payload as opaque text, so a new
+//! content family is a new section kind. Neither this module nor the pack
+//! crate depends on the other; they meet at a `(kind, version, payload)`
+//! triple.
 //!
-//! ⭐ **AND THE CODEC ALREADY EXISTED — THAT WAS THE FINDING.** I2's step 1 asks
-//! for a "canonical numeric/key encoding". MEASURED 2026-09-11 before writing
-//! any of it: a `MoveSpec` built by the authoring helpers round-trips through
-//! `ron` losslessly today (2,072 bytes for a chargeable smash with a technique
-//! reference), because every type on the timeline already derives
-//! `Serialize + Deserialize` for the authored RON catalog road. What was missing
-//! was never the encoding; it was a VERSIONED, REFUSABLE envelope around it.
+//! The encoding is the existing `ron` serde road: every type on the timeline
+//! derives `Serialize + Deserialize`, so a `MoveSpec` round-trips losslessly.
+//! This module adds the versioned, refusable envelope.
 //!
-//! ⚠ **A LOSSLESS ROUND TRIP IS NOT AN ADMISSIBLE MOVE, AND THIS MODULE MUST NOT
-//! BE THE ONE THAT SAYS SO.** Whether a host can honour the techniques a section
-//! references is already answered, in production, by
-//! `ambition_characters::prepared::unsupported_authored_effects` — it walks
-//! `MoveSpec::effect_refs`, asks `TechniqueSupport::admit_at` WITH the site, and
-//! checks nested references besides.
+//! A lossless round trip is not an admissible move, and this module must not
+//! decide admission. That is answered by
+//! `ambition_characters::prepared::unsupported_authored_effects`, which walks
+//! `MoveSpec::effect_refs`, calls `TechniqueSupport::admit_at` with the site,
+//! and checks nested references. The artifact road admits by hydrating into
+//! the prepared registry and running that pass, so there is one validator.
 //!
-//! ⛔⛤ **I WROTE A SECOND ONE HERE AND DELETED IT.** It was ~40 lines, it passed
-//! its own tests, and it was a second authority on "may this move be played" —
-//! the exact thing I2's own step 4 forbids (*"it cannot justify … adding a second
-//! validator"*). ⇒ **The artifact road admits by HYDRATING into the prepared
-//! registry and running the existing pass**, which is step 2's *"domain hydration
-//! adapter that produces the same prepared move/character values used by existing
-//! consumers"* — the adapter is what makes one validator enough.
-//!
-//! ⚠ That pass needs a `PreparedCharacterRegistry`, which lives in a Bevy-linked
-//! crate, so an OUTSIDE builder cannot run it. That is correct rather than a gap:
-//! the builder emits and the host admits, which is what lets content be built on
-//! a machine that never compiled the engine.
+//! That pass needs a `PreparedCharacterRegistry` in a Bevy-linked crate, so an
+//! outside builder cannot run it. This is by design: the builder emits and the
+//! host admits, so content can be built without compiling the engine.
 
 use crate::MovesetContract;
 
 /// What a move section carries: every character's move table, by character id.
 ///
-/// ⛔⛤ **IT IS THE CONTRACT, NOT `Vec<MoveSpec>`, AND I HAD IT WRONG FIRST.**
-/// A `MovesetContract` is `(verbs, moves)`, and the verbs are the half that
-/// decides WHICH move a press plays. A section carrying only the move list would
-/// round-trip losslessly, pass every arm below, and deliver a fighter whose
-/// buttons are unbound — "the table survived" being false in exactly the half
-/// that matters. Reading a shipped table is what found it.
+/// The whole contract, not only `Vec<MoveSpec>`: the verbs decide which move a
+/// press plays, and without them a fighter's buttons would be unbound.
 ///
-/// ⭐ `BTreeMap` FOR A CANONICAL ENCODING, which step 1 asks for by name: a
-/// `HashMap` serializes in an arbitrary order, so two byte-identical packs would
-/// produce different files and nothing downstream could compare them.
+/// `BTreeMap` for a canonical encoding: a `HashMap` serializes in arbitrary
+/// order, so identical packs would produce different files.
 pub type MoveSectionData = std::collections::BTreeMap<String, MovesetContract>;
 
 /// The section kind a move table travels under.
 ///
-/// ⛔ A LOGICAL NAME, not a Rust path: renaming `MoveSpec` must not invalidate
-/// every artifact on disk.
+/// A logical name, not a Rust path: renaming `MoveSpec` must not invalidate
+/// artifacts on disk.
 pub const MOVE_SECTION_KIND: &str = "moves";
 
 /// This module's payload encoding version.
 ///
-/// ⛔ SEPARATE FROM THE ENVELOPE'S. Bump it when the payload's SHAPE changes —
-/// a new required field, a renamed variant — not when the envelope changes and
-/// not when a move's values change. A host refuses a section newer than the
-/// version it understands, which is the whole point of the number.
+/// Separate from the envelope's version. Bump it when the payload's shape
+/// changes (a new required field, a renamed variant), not when the envelope or
+/// a move's values change. A host refuses a section newer than it
+/// understands.
 pub const MOVE_SECTION_VERSION: u32 = 1;
 
 /// Encode a move section as a payload.
@@ -72,9 +53,8 @@ pub fn encode(data: &MoveSectionData) -> Result<String, ron::Error> {
 
 /// Decode a section payload back into a move table.
 ///
-/// ⚠ The CALLER checks the section version first. Handing an unversioned
-/// payload straight to this function is the silent-misread the envelope's two
-/// version numbers exist to prevent.
+/// The caller checks the section version first. Decoding an unversioned
+/// payload directly risks a silent misread.
 pub fn decode(payload: &str) -> Result<MoveSectionData, ron::error::SpannedError> {
     ron::from_str(payload)
 }
@@ -128,9 +108,8 @@ mod tests {
         out
     }
 
-    /// ⛔ THE WHOLE SECTION, NOT A FIELD SAMPLE. Comparing a handful of fields
-    /// would pass over a variant the codec silently dropped, and "the timing
-    /// survived" is exactly the claim a partial comparison makes falsely.
+    /// Compare the whole section, not a sample of fields: a sample would miss
+    /// a variant the codec silently dropped.
     #[test]
     fn a_move_section_round_trips_through_its_payload() {
         let data = a_real_section();
@@ -138,8 +117,8 @@ mod tests {
         assert_eq!(data, back);
     }
 
-    /// ⛔⛔ AND THE VERB BINDING SURVIVES, asserted separately because it is the
-    /// half a `Vec<MoveSpec>` section would have dropped in silence.
+    /// The verb binding survives. Asserted separately because a
+    /// `Vec<MoveSpec>` section would drop it silently.
     #[test]
     fn the_verbs_survive_and_not_just_the_moves() {
         let back = decode(&encode(&a_real_section()).expect("encodes")).expect("decodes");
@@ -150,9 +129,8 @@ mod tests {
         );
     }
 
-    /// ⭐ THE ANTI-VACUITY ARM. An encoder that emitted an empty map and a
-    /// decoder that returned one would pass the round trip above with nothing
-    /// in it.
+    /// Positive control: an encoder that emitted an empty map and a decoder
+    /// that returned one would pass the round trip above.
     #[test]
     fn the_payload_actually_carries_the_move() {
         let payload = encode(&a_real_section()).expect("encodes");
@@ -164,7 +142,7 @@ mod tests {
         assert_eq!(decode(&payload).expect("decodes").len(), 1);
     }
 
-    /// ⛔ AND A CHANGED TIMING CHANGES THE PAYLOAD. Without this, a codec that
+    /// A changed timing changes the payload. Without this, a codec that
     /// wrote a constant would satisfy every arm above.
     #[test]
     fn editing_a_move_changes_what_the_section_carries() {

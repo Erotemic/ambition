@@ -1,21 +1,16 @@
 //! Narrow neutral shell action adapter shared by startup, launcher, loading,
 //! and gameplay-to-home presentation.
 //!
-//! The shell reads NO raw devices. Every device — keyboard, gamepad, touch
-//! stick and buttons, mouse wheel — reaches it through [`MenuControlFrame`],
-//! the semantic menu intent populated from the persistent input participant's
+//! The shell reads no raw devices. Every device reaches it through
+//! [`MenuControlFrame`], filled from the persistent input participant's
 //! `ActionState` (see `populate_menu_control_frame_from_actions`) and the
-//! virtual-device folds. The participant exists from boot, so the frame is
-//! live at the startup cards and the launcher with no gameplay actor and no
-//! session; keyboard Enter, gamepad South, a virtual touch confirm, and a
-//! touch stick flick all arrive as the same one-frame edges.
+//! virtual-device folds. The participant exists from boot, so the frame works
+//! at the startup cards and the launcher with no session.
 //!
-//! The frame resource is OPTIONAL: an app composing `MinimalShellPlugins`
-//! without a host input stack has no participant and no frame, and its shell
-//! surfaces are inert to devices (pointer/touch row activation still works
-//! through the `MenuActionActivated` bridge). Shell consumers run in
-//! `InputSet::Consume`, after every producer — an edge produced this frame
-//! is consumed this frame.
+//! The frame resource is optional. Without a host input stack, shell surfaces
+//! ignore devices, but pointer and touch row activation still work through
+//! `MenuActionActivated`. Shell consumers run in `InputSet::Consume`, after
+//! every producer, so an edge is consumed in the frame it is produced.
 
 use ambition_input::MenuControlFrame;
 
@@ -25,16 +20,11 @@ pub struct ShellActionEdges {
     pub next: bool,
     pub confirm: bool,
     pub back: bool,
-    /// Open / toggle the in-session pause menu: the semantic Start intent
-    /// (keyboard Escape, controller Start, the touch HUD's "Menu" button).
-    /// The pause menu it opens carries "Quit to Title" and "Quit to Desktop"
-    /// entries, so Start no longer retires; quitting to home is a separate
-    /// semantic developer action.
+    /// Toggle the pause menu: the Start intent (Escape, controller Start, the
+    /// touch "Menu" button). Start does not quit; the menu has quit rows.
     pub pause: bool,
-    /// Decrease / increase the focused row's VALUE, as opposed to moving
-    /// between rows. A settings row is the first shell surface with a value
-    /// rather than only an action, and left/right is the convention every
-    /// console settings screen uses.
+    /// Decrease / increase the focused row's value (left/right), as opposed to
+    /// moving between rows.
     pub decrease: bool,
     pub increase: bool,
     pub startup_acknowledge: bool,
@@ -63,13 +53,10 @@ mod tests {
     use super::shell_action_edges;
     use ambition_input::MenuControlFrame;
 
-    /// Every shell surface is reachable through the ONE semantic frame — the
-    /// state a phone, a keyboard, and a controller all reduce to. Each
-    /// assertion names the device-neutral intent that carries it.
+    /// Every shell action is reachable through the one semantic frame.
     #[test]
     fn the_menu_frame_alone_drives_every_shell_action() {
-        // Pre-poison: with no frame, nothing may fire. A permissive adapter
-        // would make every assertion below vacuous.
+        // With no frame, nothing fires.
         let idle = shell_action_edges(None);
         assert_eq!(idle, Default::default(), "no menu frame -> no edges");
         assert_eq!(

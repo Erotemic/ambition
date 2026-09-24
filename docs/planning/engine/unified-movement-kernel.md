@@ -4,8 +4,7 @@
 > (2026-08-13).** The frame-aware movement kernel,
 > typed resolution seams, rollback registration, surface-momentum operations,
 > portal transit geometry, and the previously listed residual items 1–4 are
-> implemented or refuted. The full architecture/migration record is archived at
-> `../../archive/planning-superseded/2026-08-13/engine/unified-movement-kernel.md` (docs/archive/planning-superseded/2026-08-13/engine/unified-movement-kernel.md — removed from the checkout 2026-09-05; still in git history).
+> implemented or refuted. Git history has the full architecture and migration record.
 
 ## Remaining
 

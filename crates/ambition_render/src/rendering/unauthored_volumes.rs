@@ -1,23 +1,15 @@
-//! THE DEFAULT ATTACK VFX: what a strike looks like when its character authored
+//! The default attack VFX: what a strike looks like when its character authored
 //! no art of its own.
 //!
-//! One character in the shipped catalog authors `attack_vfx`, deliberately — the
-//! catalog's own note says the protagonist's blade is cut from the protagonist's
-//! hit polygon and must not be worn by a different swing. So this is not a rare
-//! fallback. It is what almost every strike in this engine will ever draw, and
-//! it is held to that standard rather than to a placeholder's.
+//! Only one shipped character authors `attack_vfx` (the protagonist's blade is
+//! cut from its own hit polygon and must not be reused). So this is what almost
+//! every strike draws, and it must meet that standard.
 //!
-//! What it must keep is the one property a fixed animation could not have: it is
-//! the REAL geometry, and it exists exactly while the ability to hurt exists.
-//! Everything else about it is incidental — and it used to be drawn as a flat
-//! fill of the volume's whole hull, which read as a debug box.
-//!
-//! So the volume, the position and the lifetime are unchanged, and only the FORM
-//! is different: the same hull, shaded as a sweep that is brightest along the
-//! edge doing the hitting and falls away behind it. The gradient is derived from
-//! the strike's own reach — where the volume sits relative to the body throwing
-//! it — so it cannot be wrong for a move it has never seen, which is the same
-//! reason a shared sprite could not be right for one.
+//! It draws the real volume geometry, and it exists exactly while the volume
+//! can hurt. The volume, position, and lifetime are the strike's own. The form
+//! is a sweep over the same hull: brightest along the leading edge and fading
+//! behind it. The gradient comes from the strike's reach (where the volume sits
+//! relative to its body), so it is correct for any move.
 //!
 //! The developer debug overlay is separate.
 
@@ -32,35 +24,25 @@ use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
 use bevy::sprite_render::{ColorMaterial, MeshMaterial2d};
 
-/// The swing's colour and its PEAK opacity, along the leading edge.
+/// The swing's colour and its peak opacity, along the leading edge.
 ///
-/// Unchanged from when this was a flat fill: the brightest part of the sweep is
-/// exactly as visible as the whole box used to be. This is a change of form, not
-/// a change of loudness — an unauthored attack must stay as legible as it was,
-/// and a placeholder restyled toward invisibility would hide the thing it exists
-/// to report.
+/// The peak equals the old flat fill's opacity, so an unauthored attack stays
+/// as legible as before.
 const SWING_TINT: Color = Color::srgba(1.0, 0.16, 0.22, 0.34);
 
-/// How much of the peak the TRAILING edge keeps.
+/// How much of the peak the trailing edge keeps.
 ///
-/// Not zero: the tail is still part of the hit, and a trailing edge that
-/// vanished would understate where the volume reaches. Low enough that the
-/// gradient reads as a sweep rather than as a lit box.
+/// Not zero: the tail is still part of the hit. Low enough that the gradient
+/// reads as a sweep, not a lit box.
 const SWING_TRAILING_FRACTION: f32 = 0.2;
 
-/// How wide the sweep still is at its trailing end, as a fraction of the
-/// volume's width there.
+/// How wide the sweep is at its trailing end, as a fraction of the volume's
+/// width there.
 ///
-/// THE SHAPE IS WHAT MAKES IT A SWING. Shading a rectangle brighter at one end
-/// leaves a rectangle — measured, the first attempt at this changed the pixels
-/// and not the read. So the hull is tapered: full width where the volume leads,
-/// narrowing to this behind it.
-///
-/// This is the ONE place the drawing is not the volume exactly. The leading edge
-/// is untouched, and the sweep is strictly inside the hull, so it can still
-/// never claim a hit that is not there — but it does under-draw the trailing
-/// corners, which is the trade a taper is. Raise this to 1.0 and the box is
-/// back, unchanged.
+/// The taper makes it read as a swing; shading alone leaves a rectangle. The
+/// leading edge is unchanged and the sweep stays inside the hull, so it never
+/// shows a hit that is not there. It does under-draw the trailing corners. Set
+/// this to 1.0 to get the box back.
 const SWING_TRAILING_WIDTH: f32 = 0.18;
 
 /// One live volume's stand-in, tied to the `Hitbox` entity it draws.
@@ -70,39 +52,34 @@ pub(crate) struct UnauthoredVolumeVisual {
 }
 
 /// Draw every live hit volume whose owner authored no attack VFX, and stop
-/// drawing it the moment the volume stops existing.
+/// when the volume stops existing.
 ///
-/// The lifetime is the volume's, not a timer's: a strike volume exists exactly
-/// while the owner's clock is inside its Active window, so the stand-in appears
-/// and disappears with the ability to hurt. That is the property a placeholder
-/// animation could not have.
+/// The lifetime is the volume's, not a timer's. A strike volume exists exactly
+/// while the owner's clock is in its Active window.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn draw_unauthored_attack_volumes(
     mut commands: Commands,
-    // Render assets are optional because this presentation system also runs in
-    // headless/test compositions without render plugins.
+    // Render assets are optional so this runs in headless/test apps.
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<ColorMaterial>>>,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
-    // Presentation reads the combat observation rather than live simulation
-    // strike components.
+    // Read the combat observation, not live strike components.
     combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
-    // Owner presentation facts come from the read model. PresentedPose is
-    // optional because not every strike owner has a player-specific pose view.
+    // Owner facts come from the read model. `PresentedPose` is optional
+    // because not every owner has one.
     owners: Query<(
         Option<&ambition_sim_view::presented_pose::PresentedPose>,
-        // The READ-MODEL fact, not the catalog — see the read below.
+        // The read-model fact, not the catalog. See below.
         Option<&ambition_sim_view::AttackVfxView>,
     )>,
     existing: Query<(Entity, &UnauthoredVolumeVisual)>,
     mut transforms: Query<&mut Transform, With<UnauthoredVolumeVisual>>,
 ) {
-    // Retire stand-ins whose volume is gone. Done first so a hitbox that
-    // despawned and had its index reused within a frame cannot be mistaken for
-    // the same volume still being live.
+    // Despawn stand-ins whose volume is gone. Do this first, so a reused
+    // hitbox index within a frame is not mistaken for the same live volume.
     for (visual, mark) in &existing {
         if !combat_geometry
             .strikes
@@ -125,20 +102,15 @@ pub(crate) fn draw_unauthored_attack_volumes(
     for strike in &combat_geometry.strikes {
         let hitbox_entity = strike.strike;
         // Only a body-tracking strike stands in for a character's attack. A
-        // world-anchored volume is a hazard or an arena special, and those are
-        // authored as part of a room rather than as somebody's move.
+        // world-anchored volume is a hazard or arena special, authored with the
+        // room.
         if !strike.anchored_to_body {
             continue;
         }
         let Ok((presented, attack_vfx)) = owners.get(strike.owner) else {
-            // SILENT WAS THE PROBLEM, not the skip. Skipping is right — the alternative is the
-            // world-origin draw that cost an investigation on the slash path. Two silent skips make
-            // that a decision procedure with no output: whichever one is happening, the log says
-            // nothing and the repro is spent for nothing.
-            //
-            //  `warn_once`, because this runs per strike per frame and a live
-            // swing would otherwise fill the log with the same line — which is
-            // its own way of being unreadable.
+            // Skip, but log it: a silent skip gives no signal when debugging a
+            // stray VFX, and drawing at the world origin is worse. `warn_once`
+            // because this runs per strike per frame.
             bevy::log::warn_once!(
                 target: "ambition_platformer2d::render",
                 "a live strike names owner {:?}, which is not a live entity; \
@@ -148,11 +120,9 @@ pub(crate) fn draw_unauthored_attack_volumes(
             );
             continue;
         };
-        // `engine.character-authority-is-app-local` names that shape for this reason.
-        //
-        // The read-model separates the two. No component = the resolver has not
-        // spoken, and the honest response to not knowing is to draw NOTHING —
-        // a stand-in is a positive claim that a character authored no art.
+        // See `engine.character-authority-is-app-local`. No component means the
+        // resolver has not decided yet, so draw nothing: a stand-in claims that
+        // the character authored no art.
         let Some(attack_vfx) = attack_vfx else {
             continue;
         };
@@ -160,12 +130,10 @@ pub(crate) fn draw_unauthored_attack_volumes(
             continue;
         }
 
-        // The DRAWN position, not the simulated one — the same reason the slash
-        // visual samples it. A stand-in placed on the sim pose shudders against
-        // a body drawn from the presented one. The owner's presentation delta IS
-        // that translation, and it is the same one the debug overlay applies to
-        // this strike, so the product-facing polygon and the developer's red box
-        // cannot disagree about where the attack is.
+        // Use the drawn position, not the simulated one, like the slash visual.
+        // A stand-in on the sim pose shudders against a body drawn from the
+        // presented pose. The debug overlay applies the same delta, so the two
+        // agree.
         let to_drawn = presented.map_or(ambition_platformer2d_core::Vec2::ZERO, |p| p.delta());
         let already = existing
             .iter()
@@ -181,14 +149,11 @@ pub(crate) fn draw_unauthored_attack_volumes(
             }
             continue;
         }
-        // The mesh is built in LOCAL space about the volume's own centre, so
-        // the sim-resolved volume and the drawn one differ by the translation
-        // alone — the shape is identical and only the transform moves.
+        // The mesh is local to the volume centre, so only the transform moves.
         let volume = &strike.volume;
         let centre = volume.bounds().center() + to_drawn;
-        // WHICH WAY THIS ONE GOES, from the same read-model row the volume came
-        // from: the body's own box and its locomotion facing. A strike whose
-        // owner has no body row keeps the flat fill rather than guessing.
+        // Direction, from the same read-model row: the body's box and its
+        // facing. With no body row, use the flat fill.
         let reach = combat_geometry
             .bodies
             .iter()
@@ -219,21 +184,17 @@ pub(crate) fn draw_unauthored_attack_volumes(
     }
 }
 
-/// Where this strike REACHES, as a unit vector in world space.
+/// The direction this strike reaches, as a unit vector in world space.
 ///
-/// Derived, never looked up: the vector from the body throwing the strike to the
-/// volume it put in the world is what "which way is this going" means, and it is
-/// right for an up-tilt, a spike and a jab without any of them being named. A
-/// volume centred on its own body has no reach to speak of — a body-contact box,
-/// a move that surrounds the fighter — and falls back to the locomotion facing,
-/// which is the only direction such a strike has.
+/// Derived from the body-to-volume vector, so it is correct for an up-tilt,
+/// a spike, or a jab without naming them. A volume centred on its body has no
+/// reach, so the locomotion facing is used.
 ///
-/// `None` when neither is usable, and the caller then draws the flat fill this
-/// used to be: an honest shape with no claim about direction beats a confident
-/// wrong one.
+/// `None` when neither is usable. The caller then draws a flat fill, with no
+/// claim about direction.
 fn strike_reach(owner_centre: ae::Vec2, volume_centre: ae::Vec2, facing: f32) -> Option<ae::Vec2> {
     let reach = volume_centre - owner_centre;
-    // A hair's-breadth offset is centring noise, not a direction.
+    // A very small offset is centring noise, not a direction.
     if reach.length() > 1.0 {
         return Some(reach / reach.length());
     }
@@ -243,17 +204,16 @@ fn strike_reach(owner_centre: ae::Vec2, volume_centre: ae::Vec2, facing: f32) ->
 /// Triangle-fan a convex volume about its own centre, in mesh-local space,
 /// shaded as a sweep along `reach`.
 ///
-/// The RING IS UNCHANGED by the shading — every vertex of the authored hull is
-/// still a vertex of the drawn mesh, so the shape still covers exactly the
-/// volume that can hurt you. Only the per-vertex alpha varies, ramping from
-/// [`SWING_TRAILING_FRACTION`] at the back of the volume to full at the front.
-/// `ColorMaterial` multiplies its base colour by vertex colour, so
-/// [`SWING_TINT`]'s alpha remains the peak.
+/// Every vertex of the hull stays a vertex of the mesh, so the shape covers
+/// the volume. Only per-vertex alpha changes, from
+/// [`SWING_TRAILING_FRACTION`] at the back to full at the front.
+/// `ColorMaterial` multiplies its colour by vertex colour, so
+/// [`SWING_TINT`]'s alpha is the peak.
 ///
-/// `reach` of `None` shades flat, which is what this drew before.
+/// `reach` of `None` shades flat.
 ///
-/// Convex is what makes a fan correct, and every volume that reaches here is:
-/// `CombatVolume` is an AABB, an OBB, a circle or a convex hull by construction.
+/// A fan is correct because every `CombatVolume` (AABB, OBB, circle, convex
+/// hull) is convex.
 fn fan_mesh(volume: &ae::CombatVolume, centre: ae::Vec2, reach: Option<ae::Vec2>) -> Option<Mesh> {
     let ring: Vec<ae::Vec2> = match volume {
         ae::CombatVolume::Convex { points, .. } => points.clone(),
@@ -272,8 +232,7 @@ fn fan_mesh(volume: &ae::CombatVolume, centre: ae::Vec2, reach: Option<ae::Vec2>
         return None;
     }
     let ring = taper_ring(&ring, centre, reach);
-    // World y grows downward and Bevy's grows up, so the ring is flipped here
-    // rather than at every vertex site later.
+    // World y grows down and Bevy y grows up, so flip here once.
     let mut positions: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]];
     positions.extend(
         ring.iter()
@@ -299,11 +258,11 @@ fn fan_mesh(volume: &ae::CombatVolume, centre: ae::Vec2, reach: Option<ae::Vec2>
 /// Narrow the hull behind its leading edge, so the drawn shape is a sweep and
 /// not a box.
 ///
-/// Each vertex keeps its position ALONG the reach exactly — the sweep starts and
-/// ends where the volume does — and is pulled toward the reach axis by an amount
-/// that grows the further back it sits. The leading vertices do not move at all.
+/// Each vertex keeps its position along the reach, so the sweep starts and
+/// ends where the volume does. It moves toward the reach axis more the further
+/// back it is. Leading vertices do not move.
 ///
-/// `reach` of `None` returns the hull untouched.
+/// `reach` of `None` returns the hull unchanged.
 fn taper_ring(ring: &[ae::Vec2], centre: ae::Vec2, reach: Option<ae::Vec2>) -> Vec<ae::Vec2> {
     let Some(reach) = reach else {
         return ring.to_vec();
@@ -327,11 +286,9 @@ fn taper_ring(ring: &[ae::Vec2], centre: ae::Vec2, reach: Option<ae::Vec2>) -> V
         .collect()
 }
 
-/// One `[r, g, b, a]` per mesh vertex — the fan centre first, then the ring, in
-/// the order [`fan_mesh`] builds them.
-///
-/// Pure so the gradient is asserted without a renderer: the peak, the floor and
-/// the fact that no vertex disappears are all properties of this list.
+/// One `[r, g, b, a]` per mesh vertex: the fan centre first, then the ring, in
+/// the order [`fan_mesh`] builds them. Pure, so tests check it without a
+/// renderer.
 fn swing_vertex_colors(
     ring: &[ae::Vec2],
     centre: ae::Vec2,
@@ -356,8 +313,8 @@ fn swing_vertex_colors(
             SWING_TRAILING_FRACTION + (1.0 - SWING_TRAILING_FRACTION) * t,
         ]
     };
-    // The fan centre sits at the volume's middle, so it takes the middle value
-    // — anything else creases the gradient at the hub.
+    // The fan centre is the volume's middle, so it takes the middle value.
+    // Otherwise the gradient creases at the hub.
     let mut colors = vec![shade((min + max) * 0.5)];
     colors.extend(along.into_iter().map(shade));
     colors
@@ -376,11 +333,9 @@ mod tests {
         ]
     }
 
-    /// THE PROPERTY THE OLD BOX HAD AND MUST KEEP: the sweep reaches exactly as
-    /// far as the volume does, at full width where it leads, and never once
-    /// extends past it. It may under-draw the trailing corners — that is what a
-    /// taper is, and `SWING_TRAILING_WIDTH` is the dial — but it can never claim
-    /// a hit that is not there.
+    /// The sweep reaches as far as the volume, at full width where it leads, and
+    /// never past it. It can under-draw the trailing corners
+    /// (`SWING_TRAILING_WIDTH`), but it never shows a hit that is not there.
     #[test]
     fn the_swing_reaches_the_volume_exactly_and_never_past_it() {
         // `Aabb::new` is (centre, half_size).
@@ -404,8 +359,7 @@ mod tests {
                 "vertex {v:?} escaped the authored volume (half {half:?})"
             );
         }
-        // Reach is +x here, so the two leading corners keep the volume's FULL
-        // half-height — the sweep leads exactly as wide as the hit does.
+        // Reach is +x, so the two leading corners keep the full half-height.
         let leading: Vec<&[f32; 3]> = positions[1..]
             .iter()
             .filter(|v| (v[0] - half.x).abs() < 1e-3)
@@ -417,7 +371,7 @@ mod tests {
                 "a leading vertex was narrowed: {v:?}"
             );
         }
-        // And the trailing pair IS narrowed — otherwise this is still a box.
+        // The trailing pair is narrowed; otherwise this is still a box.
         let trailing: Vec<&[f32; 3]> = positions[1..]
             .iter()
             .filter(|v| (v[0] + half.x).abs() < 1e-3)
@@ -431,9 +385,8 @@ mod tests {
         }
     }
 
-    /// It reads as a SWEEP: brightest at the leading edge, dimmer behind, and
-    /// nowhere invisible. The peak is the full authored alpha, so an unauthored
-    /// attack is exactly as legible as the flat box was.
+    /// Brightest at the leading edge, dimmer behind, and never invisible. The peak
+    /// is the full authored alpha.
     #[test]
     fn the_sweep_is_brightest_where_the_strike_reaches() {
         let ring = box_ring(10.0);
@@ -478,8 +431,7 @@ mod tests {
         assert!(down[3][3] > down[1][3], "and a spike the other way");
     }
 
-    /// No usable direction means the flat fill this used to be — an honest
-    /// shape with no claim about direction, rather than a confident wrong one.
+    /// No usable direction gives a flat fill.
     #[test]
     fn a_strike_with_no_reach_shades_flat() {
         let ring = box_ring(10.0);
@@ -495,8 +447,8 @@ mod tests {
         let by_facing = strike_reach(body, body, -1.0).expect("facing is a direction");
         assert!(by_facing.x < 0.0 && by_facing.y == 0.0);
 
-        // A real offset outranks facing: an up-tilt thrown by a right-facing
-        // body sweeps UP, not right.
+        // A real offset overrides facing: an up-tilt from a right-facing body
+        // sweeps up.
         let up = strike_reach(body, body + ae::Vec2::new(0.0, -40.0), 1.0)
             .expect("an offset volume has reach");
         assert!(

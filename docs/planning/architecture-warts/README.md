@@ -29,7 +29,11 @@ to the motivating example.
 
 ## Index
 
-Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W019, W020, W024; W009, W010, W011, W012, W021, W022, W023 and W028 on 2026-09-24. W003 closed 2026-09-24 by deletion: the four fields left the schema and the nine shipped files; no intrinsic trigger enters `BossEncounterPhase::Stagger` (reachable only through `extra_phase_triggers`, which no shipped boss authors). The remaining rows it owns carry their AP number there.
+Closed rows are removed; Git history and the
+[AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel)
+row record them. Open rows that AUTHORITY-POLISH owns carry their AP number
+there. After the W003 deletion, only `extra_phase_triggers` can enter
+`BossEncounterPhase::Stagger`, and no shipped boss authors it.
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
@@ -37,7 +41,6 @@ Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechani
 | W004 | CONFIRMED | melee authoring | `LungeSpec::step_px` and `SlamSpec::hop_height_px` are authored fields, but `MeleeActionSpec::timeline` explicitly drops them when it builds the current moveset path. | Carry the self-motion data into the move runtime or delete the unsupported controls. |
 | W005 | CONFIRMED | interaction | `ActorInteraction::talk_radius` is populated by spawn roads and described as the range that stops a patrol for dialogue, but production code has no field read. | Either make interaction or patrol logic consume the range, or delete it and state the real geometry rule. |
 | W006 | CONFIRMED | Smash AI | `SmashCfg::aerial_foray_cadence_s`, `aerial_foray_duration_s`, and `SmashState::foray_timer` describe proactive flight behavior, but production code does not read the two settings or operate the timer. | Implement the advertised hybrid-flyer cadence or remove the dormant API/state. |
-| W007 | CONFIRMED | Smash AI | `DifficultyProfile::mash_speed_hz` is authored and documented as a downstream cooldown input, but no production consumer exists. | Wire it to an explicit mechanic or delete it from difficulty and character authoring. |
 | W008 | CONFIRMED | Smash observation | `CrowdingSignal` supports `other_faction_count`, and `compute_pressure` has behavior for it, but the shipped crowd producer always writes `other_faction_count: 0`. | Either observe other factions or delete the unreachable branch and field. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |

@@ -71,13 +71,12 @@ impl FlashIntensity {
 }
 
 /// Whether presentation waits for the display's vertical blank. `On` is
-/// `PresentMode::Fifo` (Bevy's default, and what the game always had before this
-/// setting existed): a frame is never shown mid-scan, and the frame rate can
-/// never exceed the display's refresh rate — a frame that misses one refresh
-/// costs a WHOLE extra interval, so at 144 Hz an 8 ms frame shows at 72 fps.
-/// `Off` is `PresentMode::Immediate`: frames present as soon as they are done,
-/// tearing is possible, and the on-screen FPS is the frame's real cost. That
-/// is the mode a frame-time measurement wants; `frame_cap` still applies on top.
+/// `PresentMode::Fifo` (Bevy's default): no mid-scan frames, and the frame rate
+/// cannot exceed the refresh rate. A frame that misses a refresh costs a whole
+/// interval, so at 144 Hz an 8 ms frame shows at 72 fps. `Off` is
+/// `PresentMode::Immediate`: frames present when done, tearing is possible, and
+/// the FPS shows the real frame cost. Use it for frame-time measurement;
+/// `frame_cap` still applies.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VsyncMode {
     #[default]
@@ -223,18 +222,12 @@ impl ColorblindMode {
 /// override.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CameraZoomPreset {
-    /// ⭐ THE FIGHTING-GAME FRAMING, and the default since 2026-09-03.
+    /// The fighting-game framing, and the default.
     ///
-    /// Sized from a MEASURED reference rather than taste: `pointed_polygon`
-    /// (Jon's choice) is `body_kind: Standard`, which authors a standing height
-    /// of **48.0 world units**, so a 320-unit view puts a standard humanoid at
-    /// **15.0%** of screen height. That is the target for Smash-like
-    /// readability — a medium fighter in a neutral 1v1 reads at roughly 14–16%
-    /// of screen height, ~1:6.5.
-    ///
-    /// ⚠ Every `Standard` character is 48 units, so tuning to `pointed_polygon`
-    /// tunes the whole humanoid class; it is representative by construction
-    /// rather than by being measured individually.
+    /// `pointed_polygon` is `body_kind: Standard`, which authors a standing
+    /// height of 48.0 world units. A 320-unit view puts it at 15.0% of screen
+    /// height, the Smash-like target (about 14–16%, ~1:6.5). Every `Standard`
+    /// character is 48 units, so this tunes the whole humanoid class.
     #[default]
     Duel,
     Tight,
@@ -679,10 +672,9 @@ pub struct VideoSettings {
     /// on every platform — useful for diagnosing perf issues across
     /// browser and desktop. Toggle via the Video page or `F6`.
     ///
-    /// ⭐ THIS FLAG IS THE OVERLAY'S ONLY AUTHORITY. The app wires it in
-    /// `dev::fps_overlay`, which drives Bevy's own `FpsOverlayPlugin` directly
-    /// from this value; there is no second visibility flag to keep in step. The
-    /// hotkey writes HERE rather than to the overlay, so a toggle persists.
+    /// This flag is the overlay's only authority. `dev::fps_overlay` drives
+    /// Bevy's `FpsOverlayPlugin` from it. The hotkey writes here, so a toggle
+    /// persists.
     #[serde(default = "default_show_fps")]
     pub show_fps: bool,
     /// Frame-rate cap (battery saver). `Auto` paces to the display refresh; the

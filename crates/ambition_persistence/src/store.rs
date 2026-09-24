@@ -1,39 +1,31 @@
-//! Where a persisted file's BYTES actually go, per platform.
+//! Where a persisted file's bytes go, per platform.
 //!
-//! ⛔⛔ THE BROWSER HAD NO PERSISTENCE AT ALL, SILENTLY. Until 2026-08-31 the
-//! four systems that read and write settings and saves —
-//! `load_settings_at_startup`, `save_settings_on_change`, `load_save_at_startup`
-//! and `autosave_sandbox_save` — were each `#[cfg(not(target_arch = "wasm32"))]`.
-//! On the web build they did not exist, so every setting a player changed was
-//! forgotten on reload and no save was ever written. Nothing reported that,
-//! because a system that is not compiled cannot warn.
+//! The settings and save systems (`load_settings_at_startup`,
+//! `save_settings_on_change`, `load_save_at_startup`, `autosave_sandbox_save`)
+//! must compile on wasm too. If they are gated out of the web build, nothing
+//! persists and nothing warns.
 //!
-//! ⭐ THE PATH STAYS THE ADDRESS ON BOTH PLATFORMS. `PersistenceRoot` is still a
-//! `PathBuf` and every caller still hands this module a `&Path`; only the last
-//! step differs. That keeps `PersistenceRoot::isolated()` meaningful on the web
-//! — two roots are two key prefixes exactly as they are two directories — and it
-//! keeps the 60-odd call sites that treat the root as a path untouched.
+//! The path is the address on both platforms. `PersistenceRoot` stays a
+//! `PathBuf` and callers pass a `&Path`; only the last step differs. On the web,
+//! two roots are two key prefixes, so `PersistenceRoot::isolated()` still works.
 //!
-//! ⭐ POLICY AND BRIDGE ARE SPLIT, for the same reason `render_recovery` splits
-//! them: the browser call cannot run in this test binary, so everything that
-//! CAN be decided without a browser is decided in [`storage_key`] and in
-//! [`read_from`] / [`write_into`], which are tested against an in-memory map.
-//! What is left unverified is four lines of `web_sys`.
+//! Policy and bridge are split (as in `render_recovery`). The browser call
+//! cannot run in tests, so all decisions live in [`storage_key`], [`read_from`],
+//! and [`write_into`], which are tested against an in-memory map. Only the
+//! `web_sys` lines are untested.
 
 use std::path::Path;
 
 /// The key a path becomes in a flat key/value store.
 ///
-/// ⛔ A KEY/VALUE STORE HAS NO DIRECTORIES. `localStorage` is one flat namespace
-/// per origin, so the whole path — root and all — has to survive into the key,
-/// or two `PersistenceRoot`s would collide and an isolated App would read the
-/// player's settings.
+/// `localStorage` is one flat namespace per origin, so the full path, root
+/// included, goes into the key. Otherwise two `PersistenceRoot`s collide and an
+/// isolated App reads the player's settings.
 ///
-/// ⭐ THE SEPARATOR IS NORMALISED. A path built on one platform and a key read on
-/// another must agree, and `Path::display` would emit `\` on Windows for the same
-/// logical location. Everything becomes `/`.
+/// The separator is normalised to `/`, so keys agree across platforms
+/// (`Path::display` gives `\` on Windows).
 ///
-/// The `ambition:` prefix namespaces us against anything else on the origin.
+/// The `ambition:` prefix namespaces the keys on the origin.
 pub fn storage_key(path: &Path) -> String {
     let mut key = String::from("ambition:");
     let mut first = true;
@@ -53,10 +45,9 @@ pub fn storage_key(path: &Path) -> String {
 
 /// Read a persisted document, or `NotFound` when nothing is stored there.
 ///
-/// ⚠ THE `NotFound` KIND IS LOad-BEARING. Both callers distinguish "no file yet,
-/// start fresh" from "a file exists and could not be read, do NOT overwrite it"
-/// by matching on exactly this kind — see `load_save`, whose whole
-/// `LoadedSave::preserve` road hangs off it.
+/// The `NotFound` kind is required. Callers use it to tell "no file yet, start
+/// fresh" from "a file exists and could not be read, do not overwrite it". See
+/// `load_save` and `LoadedSave::preserve`.
 pub fn read(path: &Path) -> std::io::Result<String> {
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -72,9 +63,8 @@ pub fn read(path: &Path) -> std::io::Result<String> {
 pub fn write(path: &Path, body: &str) -> std::io::Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        // ⭐ THE NATIVE ROAD IS UNCHANGED, INCLUDING THE TEMP-FILE DANCE. The
-        // callers own it (they have different recovery rules for a failed
-        // rename), so this is only the plain write they build on.
+        // Native road: the callers own the temp-file dance, because their
+        // recovery rules differ. This is only the plain write.
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -101,38 +91,26 @@ pub fn remove(path: &Path) -> std::io::Result<()> {
     }
 }
 
-// ⛔⛔ THERE IS DELIBERATELY NO `exists`. The first draft had one, and both
-// callers used it as a PREFLIGHT: ask whether the document is there, then read
-// it. That shape has two defects and shipped both.
+// There is no `exists`, on purpose. A preflight check can consult the wrong
+// store (the native filesystem on the browser build), and a bool cannot tell
+// "nothing stored" from "storage is blocked". The save road needs that
+// difference: one allows a write, the other forbids it.
 //
-// The first is that a preflight is easy to write against the WRONG store —
-// `load_save_at_startup` kept `path.exists()`, the NATIVE filesystem, after its
-// read had moved to this module. On the browser that check answers "no" for a
-// save that is sitting in `localStorage`, so a reload started fresh and the
-// first autosave replaced the player's progress with defaults.
-//
-// The second is that a bool cannot carry WHY. `exists` returning `false` folded
-// "nothing stored" together with "storage is blocked", and the save road
-// distinguishes those for a living: one means write, the other means do NOT.
-//
-// ⇒ ONE READ ANSWERS BOTH QUESTIONS. `read` returns `NotFound` for absence and
-// any other kind for a refusal, and the callers carry "was a document there" in
-// the value they already return. See `LoadedSave::present`.
+// One read answers both questions. `read` returns `NotFound` for absence and
+// any other kind for a refusal. Callers carry "was a document there" in their
+// return value; see `LoadedSave::present`.
 
 // ── The key/value policy, decided without a browser ────────────────────────
 //
-// ⭐ THESE THREE ARE COMPILED ON EVERY PLATFORM so the tests below actually run.
-// A `#[cfg(target_arch = "wasm32")]` on them would make the guard vacuous on the
-// machine that runs the suite, which is the shape this repository keeps catching.
+// These are compiled on every platform so the tests below run. A wasm-only
+// gate would make the guard vacuous on the test machine.
 
 /// A flat key/value store: `localStorage`, or a map in a test.
 pub trait KeyValueStore {
     /// The value at `key`; `Ok(None)` when nothing is stored there.
     ///
-    /// ⛔ `Ok(None)` MEANS ABSENCE AND NOTHING ELSE. A browser can refuse the
-    /// read outright — site data blocked, a cross-origin frame — and that is
-    /// `Err`. Collapsing the two is how a save gets overwritten: absence is the
-    /// one answer that licenses a write.
+    /// `Ok(None)` means absence only. A browser can refuse the read (site data
+    /// blocked, cross-origin frame); that is `Err`. Only absence allows a write.
     fn get(&self, key: &str) -> Result<Option<String>, String>;
     /// Store `value` at `key`. `Err` carries a human-readable reason.
     fn set(&self, key: &str, value: &str) -> Result<(), String>;
@@ -159,10 +137,9 @@ pub fn read_from(storage: &dyn KeyValueStore, path: &Path) -> std::io::Result<St
 
 /// [`write`] against any key/value store.
 pub fn write_into(storage: &dyn KeyValueStore, path: &Path, body: &str) -> std::io::Result<()> {
-    // ⚠ A BROWSER CAN REFUSE THIS. `localStorage` has a quota (a few MB) and
-    // throws when it is exceeded or when the origin has site data blocked. That
-    // surfaces as an ordinary IO error, which every caller already handles by
-    // logging and carrying on rather than by losing the session.
+    // A browser can refuse this: `localStorage` has a quota of a few MB and
+    // throws when it is full or site data is blocked. That becomes an ordinary
+    // IO error, which callers log and continue past.
     storage
         .set(&storage_key(path), body)
         .map_err(std::io::Error::other)
@@ -199,11 +176,9 @@ impl KeyValueStore for LocalStorage {
     }
 }
 
-/// ⚠ EVERY STEP HERE IS GENUINELY FALLIBLE. There may be no `window` (a worker),
-/// and `local_storage()` itself returns `Err` when the origin has site data
-/// blocked and `Ok(None)` in contexts that have no storage — three different
-/// "no" answers, all of which must read as "cannot persist" rather than as a
-/// panic in a player's browser.
+/// Every step can fail. There may be no `window` (a worker); `local_storage()`
+/// returns `Err` when site data is blocked and `Ok(None)` where there is no
+/// storage. All must read as "cannot persist", not panic.
 #[cfg(target_arch = "wasm32")]
 fn browser_storage() -> std::io::Result<LocalStorage> {
     let window = web_sys::window()
@@ -215,10 +190,8 @@ fn browser_storage() -> std::io::Result<LocalStorage> {
     Ok(LocalStorage(storage))
 }
 
-/// ⭐ `pub(crate)` SO THE SAVE AND SETTINGS TESTS CAN DRIVE THE SAME MAP. Their
-/// browser road has to be exercised against a key/value store, not against
-/// another temporary directory — a filesystem test cannot fail the way the
-/// browser did.
+/// `pub(crate)` so the save and settings tests can drive the same map. The
+/// browser road must be tested against a key/value store, not a directory.
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -256,11 +229,9 @@ pub(crate) mod tests {
 
     /// Two roots are two key prefixes, so isolation survives the flat namespace.
     ///
-    /// ⛔⛔ THIS IS THE WHOLE REASON THE PATH STAYS THE ADDRESS. `localStorage`
-    /// has no directories; if the key were built from the FILE name the settings
-    /// of an isolated test App and of the player would be the same key, and the
-    /// F spike rejected Bevy's `SettingsStore` for exactly this — losing
-    /// `PersistenceRoot::isolated()`.
+    /// This is why the path stays the address. If the key came from the file
+    /// name only, an isolated test App and the player would share a key, and
+    /// `PersistenceRoot::isolated()` would not work.
     #[test]
     fn two_persistence_roots_are_two_keys() {
         let mine = PathBuf::from("/tmp/ambition-app-state/7-0").join("ambition/settings.ron");
@@ -288,9 +259,8 @@ pub(crate) mod tests {
 
     /// A stored document reads back; a missing one is `NotFound`, not an error.
     ///
-    /// ⛔ THE KIND IS THE CONTRACT. `load_save` reads `NotFound` as "fresh
-    /// sandbox" and every OTHER error as "a save exists and I could not read it,
-    /// so do NOT write over it". Collapsing the two loses a player's file.
+    /// The kind is the contract. `load_save` reads `NotFound` as "fresh sandbox"
+    /// and every other error as "do not write over it".
     #[test]
     fn a_missing_key_is_not_found_and_a_stored_one_round_trips() {
         let store = MapStore::default();
@@ -313,10 +283,9 @@ pub(crate) mod tests {
 
     /// A store that refuses the READ is not an absence.
     ///
-    /// ⛔⛔ THIS IS THE ARM THAT DECIDES WHETHER A PLAYER KEEPS THEIR SAVE. If a
-    /// blocked `localStorage` read came back as `NotFound`, `load_save` would
-    /// take its `fresh()` road, `SaveFileWritable` would stay true, and the
-    /// first autosave would write defaults over a save that was there all along.
+    /// If a blocked `localStorage` read returned `NotFound`, `load_save` would
+    /// start fresh, `SaveFileWritable` would stay true, and the first autosave
+    /// would overwrite an existing save.
     #[test]
     fn a_refused_read_is_not_not_found() {
         let store = MapStore {
@@ -339,9 +308,8 @@ pub(crate) mod tests {
 
     /// A browser that refuses the write is an IO error, not a panic.
     ///
-    /// Premise guard for the arm above: without this, a store that silently
-    /// dropped every write would still pass a round-trip test written against a
-    /// store that never fails.
+    /// Premise guard for the test above: a store that silently dropped every
+    /// write would still pass a round-trip test against a store that never fails.
     #[test]
     fn a_refused_write_surfaces_as_an_error() {
         let store = MapStore {

@@ -13,10 +13,8 @@ use serde::{Deserialize, Serialize};
 
 /// The suffix every `OnRest` death flag ends with.
 ///
-/// ⭐ ONE SPELLING, HERE, because the dependency already runs this way: the
-/// gameplay crate that builds these ids depends on persistence, not the other way
-/// round. It used to be a literal in this file and a `const` in that crate, with
-/// a comment asking a reader to keep them in sync.
+/// It is defined here because the gameplay crate that builds these ids depends
+/// on persistence, not the reverse.
 pub const DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
 /// One persisted encounter (e.g. goblin encounter) entry. Only the terminal /
@@ -172,48 +170,38 @@ impl PersistedItem {
 
 /// Where one runtime occurrence is, as a save file can say it.
 ///
-/// It is deliberately the same vocabulary rather than a second one, because the durable horizon
-/// is a serialization of the value the checkpoint horizon already copies — not a third
-/// description of the same fact.
+/// It uses the same vocabulary as the checkpoint horizon: the durable horizon is
+/// a serialization of the value that the checkpoint horizon copies.
 ///
-///  no components, no velocity, no archetype. A row says WHERE an
-/// occurrence is and nothing about what it is made of; what it IS comes back
-/// from the authored record (or, for a runtime mint, from
-/// [`PersistedMintedItem`]). Snapshotting components here would weld the save
-/// format to ECS layout, which is rollback's job and not this one's.
+/// It holds no components, velocity, or archetype. A row says where an
+/// occurrence is. What it is comes from the authored record, or, for a runtime
+/// mint, from [`PersistedMintedItem`]. Component snapshots would tie the save
+/// format to ECS layout; that is the job of rollback.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PersistedWhereabouts {
-    /// In somebody's hands.  this does not say WHOSE — that is
-    /// [`PersistedCustody`], for the same reason the live ledger keeps the
-    /// custodian in a separate domain projection: "somebody has it" is enough to
-    /// stop a room minting a second one and not enough to put it back.
+    /// In somebody's hands. [`PersistedCustody`] records whose. "Somebody has
+    /// it" is enough to stop a room minting a second one.
     InCustody,
     /// Lying in `room`, at integer world pixels.
     ///
-    ///  INTEGER pixels, for [`PersistedCheckpoint`]'s reasons exactly. A
-    /// float here would cost `AmbitionGameSaveData`'s `Eq` derive, and a NaN —
-    /// which compares unequal to itself — would make the value-comparing
-    /// autosave rewrite the file every frame forever. A resting object has no
-    /// use for sub-pixel precision, and the live ledger republishes the exact
-    /// position from the object itself the moment its room is loaded.
+    /// Integer pixels, for the same reason as [`PersistedCheckpoint`]: a float
+    /// removes the `Eq` derive on `AmbitionGameSaveData`, and a NaN would make
+    /// the value-comparing autosave rewrite the file every frame. The live
+    /// ledger republishes the exact position when the room loads.
     Placed { room: String, x: i32, y: i32 },
     /// Gone for good, and the world is supposed to remember that.
     ///
-    ///  the live variant has no producer yet and this one therefore has no
-    /// live writer either — but the format spells it, because a terminal
-    /// disposition that the file cannot express is a terminal disposition a save
-    /// silently undoes. `a_consumed_occurrence_is_not_resurrected_by_a_load`
-    /// drives this variant through a real load.
+    /// The live variant has no producer yet, but the format must express it:
+    /// otherwise a save silently undoes a terminal disposition.
+    /// `a_consumed_occurrence_is_not_resurrected_by_a_load` guards this.
     Consumed,
 }
 
 /// One occurrence's whereabouts, keyed by its `SimId` as a string.
 ///
-///  absence is the common case and is the DEFAULT answer. A save carries a
-/// row only for an occurrence some system had a reason to write one for; a record
-/// nobody has touched has no row, and no row means "author it from the record".
-/// A save that listed every occurrence in the world would be the universal
-/// instance registry the design explicitly refuses.
+/// Absence is the default. A save holds a row only for an occurrence that a
+/// system had a reason to write. No row means "author it from the record". The
+/// save is not a registry of every occurrence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedOccurrence {
     pub id: String,
@@ -232,11 +220,10 @@ impl PersistedOccurrence {
 /// Which body was carrying which occurrence, both sides by `SimId` string.
 ///
 /// The disk form of
-/// `ambition_platformer2d::platformer::lifecycle::CustodyBaseline`. Kept
-/// separate from [`PersistedOccurrence`] because the two answer different
-/// questions with different owners — see that type's own header — and because a
-/// save that merged them would let every reader of "was this suppressed?" reach
-/// a body's inventory.
+/// `ambition_platformer2d::platformer::lifecycle::CustodyBaseline`. It is
+/// separate from [`PersistedOccurrence`] because the two have different owners,
+/// and a merged form would let every "was this suppressed?" reader reach a
+/// body's inventory.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedCustody {
     pub occurrence: String,
@@ -261,16 +248,13 @@ impl PersistedCustody {
 /// definition   held_item       the item spec's authored id — a REFERENCE, not a copy
 /// ```
 ///
-///  the provenance is not decoration. An instance rebuilt without it cannot
-/// say which spawner it descends from, so it would be invisible to the NEXT
-/// capture — it would survive exactly one load and then become unrecoverable.
+/// The provenance lets the next capture find the instance again. Without it,
+/// the instance survives one load and is then lost.
 ///
-///  and `held_item` is a REFERENCE. Copying the resolved spec in would put a
-/// second authority for *what a javelin is* inside a save file, and a content edit
-/// would then be silently overridden by every save written before it.
+/// `held_item` is a reference, not a copy of the spec. A copy would override
+/// later content edits in every older save.
 ///
-///  no position, because the rows that reach here are the ones a hand was
-/// holding: the hand supplies the place.
+/// There is no position: these rows are held items, and the hand gives the place.
 ///
 /// See the module note on `session::durable_horizon`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -283,14 +267,10 @@ pub struct PersistedMintedItem {
 
 /// Where the player resumes: the last checkpoint they touched.
 ///
-/// Under a value-comparing autosave that marker commits nothing at all, so the claim was false
-/// twice over.
+/// It holds the room id and the position, so that the player resumes where they
+/// stood, not at the room's authored spawn.
 ///
-/// Room id AND position, not just a room: a room is where you are, a checkpoint
-/// is where you STAND, and resuming at the room's authored spawn after resting
-/// at a shrine on the far side of it is the difference players notice.
-///
-/// The position is INTEGER world pixels, and deliberately so.
+/// The position is integer world pixels, so the save keeps `Eq`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PersistedCheckpoint {
     pub room_id: String,
@@ -349,17 +329,15 @@ pub struct AmbitionGameSaveData {
     /// What became of each runtime occurrence the world remembers anything
     /// about — the durable half of the whereabouts ledger.
     ///
-    ///  sparse by construction. Only occurrences somebody moved, carried or
-    /// ended appear; everything else reconstructs from its authored record,
-    /// which is what keeps a load from resurrecting the world's entire history.
+    /// Sparse: only occurrences that were moved, carried, or ended appear.
+    /// All others reconstruct from their authored record.
     #[serde(default)]
     pub(crate) occurrences: Vec<PersistedOccurrence>,
     /// Which body was holding which occurrence when this save was written.
     /// Empty hands is a real answer and writes an empty list.
     #[serde(default)]
     pub(crate) custody: Vec<PersistedCustody>,
-    /// How to remake the runtime-minted instances that were in a hand. Never
-    /// a registry of every mint the session ever made — see
+    /// How to remake the runtime-minted instances that were in a hand. See
     /// [`PersistedMintedItem`].
     #[serde(default)]
     pub(crate) minted_items: Vec<PersistedMintedItem>,
@@ -367,15 +345,9 @@ pub struct AmbitionGameSaveData {
 
 /// v4 adds `occurrences`, `custody` and `minted_items` — the durable horizon.
 ///
-///  the bump is deliberate on an ADDITIVE change, and the reason is not
-/// ceremony. `#[serde(default)]` already makes a v3 file load with three empty
-/// lists, and empty is the correct reading: a build that did not remember
-/// occurrences had nothing to say about them, so every authored record
-/// reconstructs from itself, which is exactly the pre-v4 behaviour. What the tag
-/// buys is the other direction — a v4 file opened by a v3 build is
-/// `FromTheFuture`, so that build plays on a fresh sandbox and does NOT write
-/// its occurrence-blind understanding over a file that knows where the player
-/// left things.
+/// The bump is on an additive change. With `#[serde(default)]`, a v3 file loads
+/// with three empty lists, which is the correct reading. The bump makes a v4
+/// file `FromTheFuture` to a v3 build, so that build does not overwrite it.
 pub const CURRENT_SAVE_VERSION: u32 = 4;
 
 /// What a file with no `version` field actually is: written by a build from
@@ -388,25 +360,20 @@ fn default_save_version() -> u32 {
 
 /// What loading a file concluded about its format.
 ///
-/// Returned rather than logged because the interesting case is not "it worked":
-/// an incompatible file means the caller MUST NOT write over the bytes it could
-/// not safely interpret, and a caller that cannot see the verdict cannot honour
-/// that.
+/// It is returned, not logged: for an incompatible file the caller must not
+/// write over the bytes, and it needs the verdict to know that.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SaveCompatibility {
     /// Already at [`CURRENT_SAVE_VERSION`].
     Current,
     /// Upgraded from an older version, which is named so a log line can say it.
     Migrated { from: u32 },
-    /// Written by a NEWER build than this one. Not an error to read — the data
-    /// that parsed is still there — but writing over it destroys whatever the
-    /// newer build knew and this one does not. A player who launches an older
-    /// build once should not lose the save they made in the newer one.
+    /// Written by a newer build. The parsed data is usable, but writing over it
+    /// destroys what the newer build knew. The player must not lose that save.
     FromTheFuture { found: u32 },
-    /// The file names a schema version for which this build has no migration
-    /// path. This includes historical/accidental `version: 0` files. Parsing the
-    /// surrounding RON successfully does not make those bytes safe to adopt or
-    /// overwrite, so callers must preserve the file and continue from defaults.
+    /// The file names a schema version with no migration path, including
+    /// historical `version: 0` files. Callers must preserve the file and
+    /// continue from defaults.
     Unsupported { found: u32 },
 }
 
@@ -549,9 +516,8 @@ impl AmbitionGameSaveData {
         self.inventory_saved
     }
 
-    /// Replace the inventory triple. ONE setter for the three fields because
-    /// they are one fact: a save that records items without recording that it
-    /// recorded them reads as a fresh save on the next load.
+    /// Replace the inventory triple. The three fields are one fact: items
+    /// without `inventory_saved` read as a fresh save on the next load.
     pub fn set_inventory(&mut self, items: Vec<PersistedItem>, wallet: i32) {
         self.items = items;
         self.wallet = wallet;
@@ -578,7 +544,7 @@ impl AmbitionGameSaveData {
         &self.custody
     }
 
-    /// Replace the whereabouts ledger. ONE setter for both fields because a
+    /// Replace the whereabouts ledger. Both fields are set together because a
     /// custody row without its occurrence row names nothing.
     pub fn set_durable_horizon(
         &mut self,
@@ -601,16 +567,9 @@ impl AmbitionGameSaveData {
 
     /// Which durable fact families differ between two saves, by name.
     ///
-    /// ⛔ THE DESTRUCTURE IS THE GUARD, and it lives here BECAUSE the fields
-    /// are sealed. Do not replace it with `self.field` accesses: the compiler
-    /// is what stops a fifteenth family from being added without a decision
-    /// about whether a replay may keep it. `version` is excluded by name --
-    /// schema metadata, not a fact.
-    ///
-    /// It moved here from `canonical_reconstitution.rs` when the fields became
-    /// private, and got stronger on the way: the old copy destructured only the
-    /// BEFORE side and read the after side by field, so it was exhaustive in
-    /// one direction. Both sides are destructured now.
+    /// The exhaustive destructure of both sides is the guard. Do not replace it
+    /// with field access: it makes the compiler force a decision for each new
+    /// family. `version` is excluded because it is schema metadata.
     pub fn families_that_differ(&self, other: &Self) -> Vec<&'static str> {
         let Self {
             version: _,
@@ -690,8 +649,7 @@ impl AmbitionGameSaveData {
     pub fn set_flag(&mut self, id: impl Into<String>, on: bool) {
         let id = id.into();
         if !on {
-            // Off is the default — drop the entry to keep the save
-            // compact. Mirrors `set_encounter` with `Untouched`.
+            // Off is the default, so drop the entry. Same as `set_encounter`.
             self.flags.retain(|f| f.id != id);
             return;
         }
@@ -714,9 +672,8 @@ impl AmbitionGameSaveData {
     }
 
     /// Increment the named dialogue's visit counter (saturating at
-    /// `u32::MAX`). Called once per dialog session by the
-    /// `DialogState::start` path so `visit_count(id) == 1` reads
-    /// "this is the first visit".
+    /// `u32::MAX`). `DialogState::start` calls it once per dialog session, so
+    /// `visit_count(id) == 1` means "first visit".
     pub fn increment_dialog_visit(&mut self, id: impl Into<String>) {
         let id = id.into();
         if let Some(existing) = self.dialog_visits.iter_mut().find(|v| v.id == id) {
@@ -731,18 +688,8 @@ impl AmbitionGameSaveData {
     /// mechanic reviving the bodies whose policy is `OnRest`. Returns how many
     /// were dropped.
     ///
-    /// ⛔⛔ **IT HAD NO CALLER AT ALL, which is the defect it exists to
-    /// prevent.** Measured 2026-09-09 by `git grep`: this function's only
-    /// occurrence in the workspace was its own definition. So an `OnRest` death
-    /// wrote its flag, nothing ever cleared it, and `OnRest` behaved exactly like
-    /// `DeadStaysDead` in the shipped game — an authored policy that reads as a
-    /// mechanic and was a synonym.
-    ///
-    /// ⚠ AND THE SUFFIX WAS SPELLED TWICE. This doc used to say "keep the two in
-    /// sync" and point at `ENEMY_DEAD_UNTIL_REST_SUFFIX` in the gameplay crate. A
-    /// comment is not synchronisation, and the dependency already runs the other
-    /// way: that crate depends on this one, so the spelling lives here and is
-    /// re-exported there.
+    /// This is the rest mechanic for `OnRest`. Without a caller, `OnRest`
+    /// behaves the same as `DeadStaysDead`.
     pub fn clear_dead_until_rest_flags(&mut self) -> usize {
         let before = self.flags.len();
         self.flags
@@ -753,12 +700,8 @@ impl AmbitionGameSaveData {
     /// Bring a just-deserialized save up to [`CURRENT_SAVE_VERSION`], reporting
     /// what it found.
     ///
-    /// Steps run in sequence so each one only has to know how to get from `n` to
-    /// `n + 1`. v1 → v2 is deliberately EMPTY and deliberately present: the wire
-    /// change was additive (`#[serde(default)]` on the new collections already
-    /// fills them), so there is nothing to do — but the step has to exist, or the
-    /// first migration that does something real would also be the first one that
-    /// has to invent the mechanism, under pressure, with player data at stake.
+    /// Each step goes from `n` to `n + 1`. The v1 → v2 step is empty but kept,
+    /// so that the migration mechanism already exists when a real step is needed.
     #[must_use]
     pub fn migrate(&mut self) -> SaveCompatibility {
         if self.version > CURRENT_SAVE_VERSION {
@@ -777,26 +720,15 @@ impl AmbitionGameSaveData {
         let from = self.version;
         while self.version < CURRENT_SAVE_VERSION {
             match self.version {
-                // v1 → v2: `bosses`, `quests`, `flags`, `dialog_visits`, `items`,
-                // `wallet` and `inventory_saved` were added. Every one is
-                // `#[serde(default)]`, so deserialization already produced the
-                // right empty value; the upgrade is the version stamp itself.
+                // v1 → v2: the added fields are all `#[serde(default)]`, so the
+                // upgrade is the version stamp.
                 1 => {}
-                // Additive and `#[serde(default)]`, so a v2 file already deserialized to `None`
-                // — which is the correct answer: it was written by a build where touching a
-                // shrine saved nothing.
+                // v2 → v3: additive; `None` is correct for a v2 file.
                 2 => {}
-                // v3 → v4: `occurrences`, `custody` and `minted_items` were
-                // added. Additive and `#[serde(default)]`, so a v3 file already
-                // deserialized to three empty lists — which is the correct
-                // answer, not a lossy one: a build that remembered nothing about
-                // occurrences leaves every authored record to reconstruct from
-                // itself, exactly as it always did.
+                // v3 → v4: additive; three empty lists is correct for a v3 file.
                 3 => {}
-                // A future version bump without its migration step is an
-                // incompatibility, not a process-fatal programmer assertion.
-                // The disk caller will preserve the original bytes and continue
-                // from defaults instead of blocking startup.
+                // A version bump without a migration step is an incompatibility,
+                // not a panic. The caller preserves the bytes and uses defaults.
                 other => {
                     return SaveCompatibility::Unsupported { found: other };
                 }
@@ -845,15 +777,9 @@ impl AmbitionGameSaveData {
 mod tests {
     use super::*;
 
-    /// ⭐⭐ EVERY ARM OF `families_that_differ` IS CHECKED BY ITS OWN NAME, and
-    /// the reason is the shape of the function: thirteen hand-written
-    /// comparisons over paired bindings (`items` vs `o_items`). A mis-paired
-    /// line — `check("bosses", quests == o_quests)` — type-checks, and the
-    /// exhaustive destructure that guards against a MISSING family cannot see a
-    /// SWAPPED one.
-    ///
-    /// ⛔ The caller that motivated this only ever asserted two names (`wallet`
-    /// and `flags`), so eleven arms were live but unvalidated.
+    /// Each arm of `families_that_differ` is checked by name. The exhaustive
+    /// destructure catches a missing family but not a swapped pair, such as
+    /// `check("bosses", quests == o_quests)`.
     #[test]
     fn every_durable_family_is_reported_under_its_own_name() {
         use std::collections::BTreeSet;
@@ -882,8 +808,8 @@ mod tests {
                     held_item: "h".into(),
                 }])
             }),
-            // These setters write a PAIR / TRIPLE on purpose — the fields are
-            // one fact — so the expectation names every family they touch.
+            // These setters write fields that are one fact, so the
+            // expectation names every family they touch.
             (vec!["items", "wallet", "inventory_saved"], |d| {
                 d.set_inventory(vec![PersistedItem::new("i", 1)], 7)
             }),
@@ -922,9 +848,8 @@ mod tests {
             seen.extend(expected);
         }
 
-        // ⭐ ANTI-VACUITY: the cases above must cover every family the function
-        // reports, or an unchecked arm hides here rather than in the caller.
-        // `version` is excluded by name in the function itself.
+        // Anti-vacuity: the cases must cover every family the function reports.
+        // `version` is excluded in the function itself.
         let all: BTreeSet<&str> = [
             "encounters",
             "switches",
@@ -999,15 +924,8 @@ mod tests {
         assert_eq!(s, restored);
     }
 
-    /// EVERY whereabouts variant survives the wire, including the terminal
-    /// one.
-    ///
-    ///  the `Consumed` arm is the one worth writing down. It has no live
-    /// producer yet, so no behavioural fixture drives it from the world side —
-    /// which is exactly the condition under which a variant quietly stops being
-    /// serialized correctly and nobody notices until the producer lands. A
-    /// terminal disposition the file cannot express is a terminal disposition a
-    /// save silently undoes.
+    /// Every whereabouts variant survives the wire, including `Consumed`,
+    /// which has no live producer yet and so no world-side test.
     #[test]
     fn every_whereabouts_variant_round_trips_including_the_terminal_one() {
         let mut s = AmbitionGameSaveData::new();
@@ -1041,9 +959,7 @@ mod tests {
         );
     }
 
-    /// A v3 file — the last shape before the durable horizon — loads with three
-    /// empty lists and migrates up, which is what "additive" has to mean in
-    /// practice rather than in the comment.
+    /// A v3 file loads with three empty lists and migrates up.
     #[test]
     fn a_v3_save_migrates_up_with_no_occurrence_rows() {
         let json = r#"{"version":3,"wallet":42,"inventory_saved":true}"#;
@@ -1056,8 +972,7 @@ mod tests {
         assert!(s.minted_items.is_empty());
     }
 
-    /// That was harmless only because nothing read the tag; the moment a migration exists, it is
-    /// the difference between upgrading a file and misreading it.
+    /// Without a version field, the file is treated as v1.
     #[test]
     fn a_file_with_no_version_field_is_the_version_from_before_the_field() {
         let json = r#"{"encounters":[],"switches":[]}"#;
@@ -1087,10 +1002,8 @@ mod tests {
         );
     }
 
-    /// `version: 0` existed as an accidental/default value in historical
-    /// development saves, but there has never been a defined v0 wire schema.
-    /// Treat it as incompatible rather than guessing that it means v1, and most
-    /// importantly do not panic just because such a file exists on disk.
+    /// There has never been a defined v0 schema. Treat `version: 0` as
+    /// incompatible, not as v1, and do not panic.
     #[test]
     fn an_unsupported_old_version_is_refused_without_mutating_it() {
         let mut s = AmbitionGameSaveData::new();
@@ -1110,10 +1023,8 @@ mod tests {
         );
     }
 
-    /// The case that loses real progress if it is got wrong: a player runs a
-    /// newer build, then launches an older one. The older build cannot
-    /// understand the file, and must say so rather than quietly adopting it —
-    /// because whatever it adopts is what it will write back.
+    /// A file from a newer build must be reported, not adopted, because the
+    /// older build writes back what it adopts.
     #[test]
     fn a_save_from_a_newer_build_is_refused_rather_than_adopted() {
         let mut s = AmbitionGameSaveData::new();
@@ -1178,10 +1089,8 @@ mod tests {
 
     #[test]
     fn deserialize_v1_save_loads_with_empty_new_collections() {
-        // A v1-style save (no bosses/quests/flags fields) must still
-        // load — that's the contract of `#[serde(default)]` on each
-        // collection. Verifies the v1 → v2 schema migration is
-        // backwards-compatible at the wire level.
+        // A v1-style save (no bosses/quests/flags fields) must still load,
+        // because each collection is `#[serde(default)]`.
         let json = r#"{"version":1,"encounters":[{"id":"goblin_encounter","state":"Cleared"}],"switches":[]}"#;
         let s: AmbitionGameSaveData = serde_json::from_str(json).expect("parse");
         assert_eq!(
@@ -1241,31 +1150,23 @@ mod tests {
 
     /// No custody or minted-item row names an occurrence the save does not hold.
     ///
-    /// ⭐ THE INVARIANT IS ALREADY WRITTEN DOWN — on `set_durable_horizon`, which takes
-    /// occurrences and custody TOGETHER because *"a custody row without its occurrence
-    /// row names nothing"*. That reason applies word for word to `PersistedMintedItem`,
-    /// whose `occurrence` field is the same key.
     ///
-    /// ⛔⛔ AND MINTED ITEMS DO NOT GET THE SAME PROTECTION. They have their own setter
-    /// (`set_minted_items`) and their own production writer
-    /// (`items/pickup/minted_horizon.rs`), separate from the one that writes occurrences
-    /// and custody (`session/durable_horizon.rs`). Each side has its own idempotence
-    /// check against its own field, so nothing compares them: an occurrence dropped by
-    /// one writer leaves the other's rows pointing at nothing.
+    /// `set_durable_horizon` takes occurrences and custody together because a
+    /// custody row without its occurrence row names nothing. The same applies to
+    /// `PersistedMintedItem`, whose `occurrence` field is the same key.
     ///
-    /// ⚠ THE STRUCTURE CANNOT SAY THIS TODAY — three `Vec`s in one struct cannot express
-    /// "these ids are a subset of those" — so a guard is the honest fallback rather than
-    /// the lazy one. Folding minted items into `set_durable_horizon` would make the
-    /// WRITE atomic, which is a bigger change than this test and is the real repair if
-    /// this ever goes red.
+    /// Minted items have their own setter (`set_minted_items`) and writer
+    /// (`items/pickup/minted_horizon.rs`), separate from
+    /// `session/durable_horizon.rs`. Nothing compares the two, so this test is
+    /// the guard. The real repair, if it fails, is to fold minted items into
+    /// `set_durable_horizon`.
     #[test]
     fn no_durable_row_names_an_occurrence_the_save_does_not_hold() {
         let mut save = AmbitionGameSaveData::new();
         save.set_durable_horizon(
             vec![PersistedOccurrence::new(
                 "placement:carried",
-                // `InCustody` deliberately does NOT say whose — that is
-                // `PersistedCustody`, which is exactly why the two families must agree.
+                // `InCustody` does not say whose; `PersistedCustody` does.
                 PersistedWhereabouts::InCustody,
             )],
             vec![PersistedCustody::new("placement:carried", "player:0")],
@@ -1278,7 +1179,7 @@ mod tests {
         }]);
 
         let known: Vec<&str> = save.occurrences().iter().map(|o| o.id.as_str()).collect();
-        // ⚠ ANTI-VACUITY: an empty horizon satisfies "no orphans" trivially.
+        // Anti-vacuity: an empty horizon has no orphans trivially.
         assert!(
             !known.is_empty() && !save.custody().is_empty() && !save.minted_items().is_empty(),
             "this fixture must hold all three families, or the assertions below are \
@@ -1304,44 +1205,29 @@ mod tests {
 
     /// Every durable family states whether an admitted ROOM REPLAY retracts it.
     ///
-    /// ⛔⛔ THE REPLAY PATH HAS NO DURABLE-FACT POLICY OF ITS OWN, and that is the
-    /// gap this destructure closes. Measured: a room replay changes ZERO durable
-    /// families by itself, so every attempt-scoped retraction is a CONTENT system
-    /// naming itself — and there is exactly ONE
-    /// (`reset_cut_rope_attempt_on_replay`, which clears a persisted `cleared`
-    /// record for cut-rope placements only). A hand-kept list of one is also the
-    /// only mechanism, so a new family inherits "survives" by DEFAULT and nobody
-    /// is asked.
     ///
-    /// ⭐ THE DESTRUCTURE BELOW HAS NO `..`, so a fourteenth field does not
-    /// compile (E0027) and lands its author here. The point is not to forbid a
-    /// field: it is to make "does replaying the room take this back?" a decision
-    /// somebody wrote down rather than a default nobody noticed.
+    /// The replay path has no durable-fact policy of its own. A room replay
+    /// changes no durable family by itself; each retraction is a content system.
+    /// There is one today: `reset_cut_rope_attempt_on_replay`, which clears a
+    /// persisted `cleared` record for cut-rope placements.
     ///
-    /// ⚠ THE ANSWERS TODAY, and each is a claim about the SHIPPED tree:
-    /// * `bosses` — the ONLY family with a retraction, and it is content-scoped:
-    ///   cut-rope placements only. Every other `BossSpawn` keeps its defeat
-    ///   across a replay, which is decision 56's open question, not a defect.
+    /// The destructure has no `..`, so a new field fails to compile (E0027) here.
+    /// Its author must then decide whether a replay retracts it.
+    ///
+    /// Current answers:
+    /// * `bosses`: retracted for cut-rope placements only. Other `BossSpawn`
+    ///   defeats survive a replay (decision 56, open question).
     /// * `encounters`, `switches`, `quests`, `flags`, `dialog_visits`,
     ///   `occurrences`, `custody`, `minted_items`, `items`, `wallet`,
-    ///   `checkpoint`, `inventory_saved` — SURVIVE. A replay returns the body to
-    ///   the room spawn and rebuilds the room's scoped population; it is not a
-    ///   load, and progress the player kept outside the room stays kept.
-    /// * `version` — not a world fact at all; it is the file's own schema.
+    ///   `checkpoint`, `inventory_saved`: survive. A replay is not a load.
+    /// * `version`: schema metadata, not a world fact.
     ///
-    /// ⚠ THIS IS THE THIRD EXHAUSTIVE DESTRUCTURE OVER THIS TYPE AND THEY MUST
-    /// NOT BE MERGED. `families_that_differ` asks "is every family COMPARED",
-    /// the clearing path asks "is every family CLEARED", this one asks "does a
-    /// replay RETRACT it". Three questions, three coverages; a merged one would
-    /// answer whichever question its author had in mind and silently stop asking
-    /// the others. Adding a fourteenth field yields THREE `E0027`s, which is the
-    /// system working — verified by poisoning the struct.
+    /// This is one of three exhaustive destructures over this type
+    /// (`families_that_differ`, the clearing path, this one). Do not merge them:
+    /// each asks a different question.
     ///
-    /// ⇒ If you are adding a field, the question to answer first is not "should
-    /// this persist?" but "when the player dies and the room replays, is this
-    /// still true?" ⚠ ENTITY-shaped state needs no answer — the rebuild despawns
-    /// and respawns it. RESOURCE-shaped per-attempt state has its own seam
-    /// (`AttemptScoped`). This list is for what reaches the SAVE.
+    /// Entity-shaped state needs no answer here, because the rebuild respawns it.
+    /// Resource-shaped per-attempt state uses `AttemptScoped`.
     #[test]
     fn every_durable_family_says_whether_a_replay_retracts_it() {
         let data = AmbitionGameSaveData::new();
@@ -1363,9 +1249,7 @@ mod tests {
             minted_items,
         } = &data;
 
-        // ⚠ ANTI-VACUITY: a fresh save must hold NO durable facts, or the
-        // destructure above would be classifying a type whose emptiness is
-        // accidental rather than stated.
+        // Anti-vacuity: a fresh save must hold no durable facts.
         assert_eq!(*version, CURRENT_SAVE_VERSION);
         assert!(
             encounters.is_empty()
@@ -1383,8 +1267,7 @@ mod tests {
             checkpoint.is_none() && !*inventory_saved && *wallet == 0,
             "and no checkpoint, no saved inventory, no money"
         );
-        // `items` is deliberately NOT asserted empty: `new()` seeds a starter
-        // inventory, which the test above this one pins.
+        // `items` is not asserted empty: `new()` seeds a starter inventory.
         let _ = items;
     }
 }

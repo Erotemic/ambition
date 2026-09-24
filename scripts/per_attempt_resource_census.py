@@ -114,7 +114,7 @@ def struct_body(src: list[str], start: int) -> str:
     if src[start].rstrip().endswith(";"):       # tuple struct, one line
         return src[start]
     body: list[str] = []
-    for line in src[start : start + 60]:
+    for line in src[start:]:
         body.append(line)
         if line.startswith("}"):                # brace struct closes at column 0
             break

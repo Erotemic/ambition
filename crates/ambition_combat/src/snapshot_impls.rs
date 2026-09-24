@@ -373,15 +373,6 @@ snapshot_unit_enum!(crate::components::BossPhase {
     Defeated = 1,
 });
 
-impl SnapshotState for crate::components::BossPatternTimer {
-    fn encode(&self, out: &mut Vec<u8>) {
-        put_f32(out, self.0);
-    }
-    fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::components::BossPatternTimer(r.f32()?))
-    }
-}
-
 fn put_attack_intent(out: &mut Vec<u8>, intent: crate::AttackIntent) {
     use crate::AttackIntent;
     put_u8(

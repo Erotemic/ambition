@@ -635,7 +635,6 @@ fn boss_motion_respects_world_collision_against_a_wall() {
         // the pipeline collision-resolves against the wall.
         seed.update_for_test(
             &world,
-            player_pos,
             combat_tuning,
             dt,
             false,

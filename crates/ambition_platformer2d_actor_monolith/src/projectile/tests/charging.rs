@@ -399,7 +399,6 @@ fn an_autonomous_fire_intent_on_a_charge_body_fires_one_fireball() {
         .0
         .fire = Some(ambition_characters::actor::control::ActorFireRequest::world_space(
         bevy::prelude::Vec2::X,
-        0.0,
     ));
     advance_time(&mut app, 0.016);
     app.update();

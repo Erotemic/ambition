@@ -57,7 +57,6 @@ pub fn integrate_boss_bodies(
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut ambition_characters::actor::BodyAnimFacts>,
-            &ambition_combat::components::ActorTarget,
             &mut CenteredAabb,
             &mut ambition_characters::actor::BodyCombat,
             // The body's explicit movement policy — a boss carries one from
@@ -73,6 +72,7 @@ pub fn integrate_boss_bodies(
         ),
         (
             With<FeatureSimEntity>,
+            With<ambition_combat::components::ActorTarget>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
     >,
@@ -89,7 +89,6 @@ pub fn integrate_boss_bodies(
         envelope,
         mut control,
         mut anim,
-        target,
         mut aabb,
         mut combat,
         mut motion_model,
@@ -118,7 +117,6 @@ pub fn integrate_boss_bodies(
             // would pass `None` and publish from `kin.size`.
             Some(envelope.0),
             &mut motion_model,
-            target.pos,
             // A boss is never mounted, and nothing carries one either.
             false,
             false,

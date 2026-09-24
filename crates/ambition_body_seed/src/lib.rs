@@ -15,7 +15,7 @@
 //!   on_ground → [`ambition_platformer2d_core::BodyGroundState`], air jumps →
 //!   [`ambition_platformer2d_core::BodyJumpState`])
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
-//! - respawn/ai_mode          → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
+//! - respawn countdown        → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
 //!   damage-blink + post-hit i-frame → [`ambition_characters::actor::BodyCombat`])
 //! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
@@ -491,7 +491,6 @@ impl ActorClusterSeed {
             },
             status: ActorStatus {
                 respawn_timer: 0.0,
-                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
             // THE POOL HAS ONE OWNER (AC6.2). This read `tuning.max_health` — itself
             // introduced (P1.10) to stop a second literal `1` written beside this one from
@@ -728,7 +727,6 @@ impl ActorClusterSeed {
             },
             status: ActorStatus {
                 respawn_timer: 0.0,
-                ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(max_health.max(1)),
@@ -814,7 +812,6 @@ impl ActorClusterSeed {
         // sim-heart `ActorConfig`.
         let combat_tuning = ambition_combat::CombatTuning {
             weight: self.config.tuning.weight,
-            attack_cooldown_mult: self.config.brain_profile.attack_cooldown_mult,
             sprite_character_id: self.config.sprite_character_id.clone(),
             // CM8: an ordinary actor reacts to being hit with the plain hurt
             // profile — no red player-hurt spray. This is the per-body seam for

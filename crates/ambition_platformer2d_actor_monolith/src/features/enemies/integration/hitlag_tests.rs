@@ -75,7 +75,6 @@ fn walk_distance_with_hitstop(hitstop: f32, ticks: u32) -> f32 {
         combat.decay_reaction_timers(dt);
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             dt,
             false,

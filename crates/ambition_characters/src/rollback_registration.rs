@@ -154,10 +154,6 @@ where
         OWNER,
         "smash.hold_state",
     );
-    // ⭐ MOVED WITH ITS TYPE 2026-08-26. `ActorStatus` is one f32 and one
-    // `CharacterAiMode`, so it belongs beside the mode; its declaration belongs
-    // with it, which is the obligation nothing enforces — a declaration compiles
-    // fine in the crate its type just left. ⛔ the STABLE NAME is unchanged, so
-    // the wire did not move; only the OWNER string did.
+    // The in-place respawn countdown.
     registrar.rollback_component_canonical::<crate::actor::ai::ActorStatus>(OWNER, "actor.status");
 }

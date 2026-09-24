@@ -127,7 +127,6 @@ fn spam_fire(_tick: u32) -> ActorControlFrame {
     f.fire = Some(
         ambition_characters::actor::control::ActorFireRequest::world_space(
             ae::Vec2::new(1.0, 0.0),
-            300.0,
         ),
     );
     f

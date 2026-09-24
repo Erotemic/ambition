@@ -593,7 +593,7 @@ fn tick_skirmisher(
         // pulls speed from the actor's RangedActionSpec when it
         // builds the projectile spawn.
         out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
-            aim_dir, 0.0,
+            aim_dir,
         ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
@@ -646,7 +646,7 @@ fn tick_sniper(
     out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
     if state.cooldown_remaining <= 0.0 {
         out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
-            dir, 0.0,
+            dir,
         ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
     }

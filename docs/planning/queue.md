@@ -2484,6 +2484,49 @@ Keep the measured invariant that a body is advanced once per tick.
 second body tick or hidden writer is introduced; schedule witnesses are placed
 between actual neighboring phases rather than only `.after(...)` an abstract set.
 
+### AUTHORITY-POLISH — one owner per mechanical fact, and no mirror in the rollback kernel
+
+**Owner:** the architecture-completion campaign (opened 2026-09-23). Durable
+evidence for rows marked `W0xx` stays in
+[`architecture-warts/README.md`](architecture-warts/README.md) until the row
+closes; this row is the execution order. It does not displace the rows above
+(ID-PEER, A4, the rollback rows) or C03/C06/C07 in
+[`consolidation-plan.md`](consolidation/consolidation-plan.md); it is the
+authority-polish lane beside them.
+
+**The question every item answers:** what owns this semantic fact? Target shape:
+authoring/ruleset → preparation → one construction or transition → one
+canonical live authority → disposable read models → presentation. Prefer
+deleting the field, the writer and the reconciler over a stronger sync.
+
+**Order** (two rollback truths first, then construction repair, competing
+writers, fail-open mechanics, wrong owners, dead projections, diagnostics):
+
+| # | Item | State | Semantic fact → single authority | Evidence / next step |
+|---|---|---|---|---|
+| AP1 | `ActorConfig.brain` | OPEN, next | Two different facts share one field: an AUTHORED content label (`Custom("snake")`, `Custom("sandbag")`, `Guard{leash}`) and a two-value projection of the live `Brain` (`config_brain_for`: `Patrol`/`Passive`). The projection writers (provoke, brain command, NPC construction) destroy the label. Every production reader wants the label: `ambition_sim_view/facts.rs` sprite key, Mary-O `is_snake_brain`/`is_ai_slop_brain`, Sanic `badnik.rs`. No reader wants the projection. The field is rollback clone, unhashed, so a divergence is invisible. | Move the authored label to an immutable construction-time fact (or answer the tag passes from `WornCharacter`/character id). Delete `config_brain_for`, `PeacefulConfig::config_brain`, `ProvokedArchetype::config_brain` and every runtime writer. `Guard{leash_radius}` has no consumer since AP3 deleted its only reader: implement it or delete it. |
+| AP2 | `ActorPose` | OPEN | A checksummed canonical copy of `CenteredAabb` + facing, written by two sync systems on different schedules and seeded wrong at spawn (from the placement rect rather than `kin.pos`; the first tick corrects it — a construction repair). Its only production read is `center`, in `emit_brain_action_messages` (the flat-ranged `BodyOrigin`/`Offset` muzzle). `facing` is read only by its own writer; `feet` (W019) by nothing. | Point the one reader at the body's box and delete the component, its two writers, its spawn seeds and its rollback row. |
+| AP3 | Dead rollback projections | ✅ first four DONE (this campaign; see commit) | `BossPatternTimer` (W013; the brain's `BossPatternState.pattern_timer` owns it, anim reads the brain), `ActorStatus::ai_mode` (W014) with the evaluator that only fed it and `provoke`'s `chase` flag, `CombatTuning::attack_cooldown_mult` (W018), `ActorFireRequest::speed` (W024; the resolved `RangedActionSpec` owns launch speed). Schema v206. | Still open in the same family: `BossPhase` is rewritten every tick from `BodyHealth::alive()` and rollback-canonical — check readers. `BrainProfile::attack_cooldown_mult` is authored and read by nothing. `BodyMelee::begin(.., cooldown)` has no production caller, so the melee cooldown floor is never armed — decide whether that is intended before deleting. |
+| AP4 | Respawn sentinels | ✅ DONE | `respawn_timer = 999_999.0` on summons and wave mobs (W015) was unreachable: only `RespawnPolicy::InPlace` revives, and the death arms the timer. Deleted; the policy alone says it. | Follow-up, not verified: wave mobs keep `DeadStaysDead` and so write `enemy_<id>_dead` on death — the shape that once poisoned every later summon. Check whether a wave mob's id is stable across encounter runs. |
+| AP5 | `BodyCombat::hit_flash` (W023) | OPEN, raised | A presentation timer used as a gameplay fact. Barks dedupe on it (`boss_hit.rs`, `actor_hit.rs`, ambient barks, boss banter), and — sharper than W023 says — the boss Hit anim it selects removes `BossAnimationFrameSample`, switching boss hit/hurt geometry to the elapsed-time path. A visual duration therefore moves boss collision geometry. Durations are literals in ~12 places. | Split a semantic "recently struck" fact (with its own policy) from the flash; boss geometry must not depend on the anim row the flash picks. |
+| AP6 | Wrong-owner body state | OPEN | `BodyLifetime` (W012): `restart_pending` is the real replay latch; `time_alive`, `resets`, `max_speed` are diagnostics (dev trace, RL harness; `max_speed` read by nothing). `BodyComboTrace` (W011/W028): HUD-only history threaded through ~15 kernel signatures and mandatory in every cluster query. `BodyMelee::ranged_cooldown` (W022): the live ranged refire floor, owned by the melee type. | Move the latch to its own component and the diagnostics out of the rollback kernel; make the combo trace optional presentation state fed from `FrameEvents`; give ranged cadence its own owner. |
+| AP7 | Explicit fallback policy | OPEN | `default_provoked_policy()` (W026) and `UNDESCRIBED_BODY_RESPAWN` are ruleset choices the engine makes when composition is silent. `default_player_action_set` seeds `PlayerSimulationBundle::from_scratch` with the robot's kit and `ChargesProjectiles`, which the one production spawn overwrites in the same command batch (construction repair, unobservable today). | Move the choice into preparation as an explicit decision the engine consumes. `peaceful()` for an unknown id is an engine safety law and stays. |
+| AP8 | Bounded C07 audit | OPEN | Per-site classification of optional-authority reads: optional capability (keep), required authority absent (queue), global fallback (suspicious). Mechanical/session authorities first. | Population and method are C07's (`consolidation-plan.md` §7); record findings here. |
+| AP9 | Stale architecture docs | CONTINUOUS | W020 (`SimDt`) closed: `SimDt` is registered `declare_rollback_derived_resource`, a derived mirror rather than a second authority. | Remove closed wart rows as items land; keep one-line receipts only where another row depends on them. |
+
+**Discovered while working (record, then return to the order above):**
+
+- `CharacterBrain::Guard { leash_radius }` — authored placement control with no
+  production consumer (its one reader was the deleted `ai_mode` evaluator). See AP1.
+- `ambition_sim_view/facts.rs:673` reads `config.brain` for a provoked post-boss
+  NPC after the projection has overwritten the label, so it always resolves
+  `None`. See AP1.
+
+**Acceptance for the lane:** no mechanical fact has two mutable canonical
+owners; rollback rows are authorities, not projections; construction publishes
+no plausible-but-incomplete object; required mechanical policy does not fail
+open. Close with a fresh census rather than a checked list.
+
 ## P1 — ownership, composition and iteration
 
 ### Q132-REPRESENTATION — ✅ CLOSED 2026-09-19: a prepared candidate carries its own root identity

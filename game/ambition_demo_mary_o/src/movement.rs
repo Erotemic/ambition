@@ -198,7 +198,6 @@ pub fn fire_spark_on_run_press(
         frame.fire = Some(
             ambition_platformer2d::characters::actor::control::ActorFireRequest::controlled_body_local(
                 ae::Vec2::new(kin.facing.signum(), 0.0),
-                0.0,
             ),
         );
     }

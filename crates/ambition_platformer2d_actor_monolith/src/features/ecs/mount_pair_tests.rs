@@ -605,7 +605,6 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     rider_frame.fire = Some(
         ambition_characters::actor::control::ActorFireRequest::world_space(
             ae::Vec2::new(1.0, 0.0),
-            100.0,
         ),
     );
     let rider = app

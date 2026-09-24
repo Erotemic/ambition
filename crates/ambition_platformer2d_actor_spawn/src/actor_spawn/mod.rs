@@ -64,7 +64,6 @@ use bevy::prelude::{warn, Commands, Entity};
 use ambition_boss_encounter::{BossCatalog, BossClusterScratch, BossConfig, BossOverrides};
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::limb::LimbSlot;
-use ambition_combat::components::BossPatternTimer;
 use ambition_combat::components::{
     ActorAggression, ActorPose, BossDeathAnimation, BossPhase, CenteredAabb,
     DamageableVolumes, EncounterMob, FeatureId, FeatureName, PogoPolicy, PogoTargetVolumes,
@@ -1032,7 +1031,6 @@ fn boss_actor_cluster(
     (
         ambition_characters::actor::ai::ActorStatus {
             respawn_timer: 0.0,
-            ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
         },
         actor_config,
         // A boss FLIES, so its authored gravity scale is 0.0 — the same value
@@ -1071,7 +1069,6 @@ fn boss_actor_cluster(
             weight,
             // Bosses pace strikes via their move scripts, and carry no sprite
             // catalog id (their strike volumes are frame-authored).
-            attack_cooldown_mult: 1.0,
             sprite_character_id: None,
             // CM8: a struck boss reacts with the plain hurt profile (its death is
             // handled by the boss-death feedback, not this).
@@ -1219,11 +1216,6 @@ pub fn spawn_boss_with_overrides_into(
             FeatureId::new(authored.id.clone()),
             FeatureName::new(authored.name.clone()),
             feature_aabb,
-            // BossPatternTimer is a presentation-side mirror of the brain's
-            // `BossPatternState.pattern_timer`; updated each tick by
-            // `update_ecs_bosses`. Initial value is 0.0 because the brain
-            // state defaults to a fresh `BossPatternState`.
-            BossPatternTimer(0.0),
             boss_anim_frame,
             BossDeathAnimation::default(),
             initial_phase,
@@ -1461,9 +1453,6 @@ pub fn spawn_runtime_minion_into(
     if !keeps_contact_damage {
         enemy.config.tuning.body_contact_damage = false;
     }
-    // Boss-spawned minions shouldn't auto-respawn — they're part of
-    // the encounter, not a static sandbag.
-    enemy.status.respawn_timer = 999_999.0;
     // ⛔⛔ AND ITS DEATH IS NOT WRITTEN DOWN. A summoned body inherits its
     // character's `RespawnPolicy`, which DEFAULTS to `DeadStaysDead` — and that
     // policy means "when this body dies, set the save flag `enemy_<id>_dead`
@@ -1483,9 +1472,7 @@ pub fn spawn_runtime_minion_into(
     // perfectly, which is why every test stayed green.
     //
     // ⭐ `OnRoomReenter` IS THE POLICY THAT MEANS "NOT PERSISTED": it writes no
-    // flag on death and reads none on load. The two lines that made a summon
-    // transient are now the two lines that say so — a timer that never fires and
-    // a liveness nobody records.
+    // flag on death and reads none on load, and it never revives in place.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
     // Read before the seed is moved into the plan: the geometry this body was
@@ -2152,7 +2139,7 @@ pub fn spawn_encounter_mob(
     // Nothing failed, because a fallback IS a body.
     //
     //  AC6 removed the fallback rather than the silence.
-    let mut enemy = match definition {
+    let enemy = match definition {
         Some(definition) => {
             let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
                 authored_sheets,
@@ -2189,9 +2176,6 @@ pub fn spawn_encounter_mob(
     ) {
         return;
     }
-    // `new_character_in` already set HP from the character's own vitals.
-    // Encounter mobs should not auto-respawn like training sandbags.
-    enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
     // Read before the seed is moved into the plan: the geometry this body was
     // BUILT from, so the components it is spawned with come from that one

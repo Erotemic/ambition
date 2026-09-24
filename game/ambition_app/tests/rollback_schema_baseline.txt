@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v205
+ggrs-rollback-schema-v206
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -106,7 +106,6 @@ boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; not in the sess
 boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; not in the session checksum
 boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; not in the session checksum
-boss.pattern_timer	component-canonical	BossPatternTimer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 capture.captured_by	component-clone	CapturedBy	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; not in the session checksum

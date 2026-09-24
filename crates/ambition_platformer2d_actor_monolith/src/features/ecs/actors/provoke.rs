@@ -16,8 +16,8 @@ use ambition_combat::components::ActorDisposition;
 use ambition_platformer2d_actor_spawn::brain_builders::{authored_provoked_policy, provoked_mind};
 
 /// Flip a PEACEFUL actor hostile in place — no cluster swap, no entity churn —
-/// installing the mind [`provoked_mind`] answers; an already-hostile actor only
-/// takes the chase mode.
+/// installing the mind [`provoked_mind`] answers. An already-hostile actor is
+/// left as it is.
 #[allow(clippy::too_many_arguments)]
 pub fn provoke_actor_in_place(
     commands: &mut Commands,
@@ -39,7 +39,6 @@ pub fn provoke_actor_in_place(
     // because most compositions register no cast, and no character today states
     // one.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    chase: bool,
 ) {
     // THE CREATURE'S OWN ANSWER, when it has one.
     //
@@ -116,8 +115,5 @@ pub fn provoke_actor_in_place(
                 binding.source = source;
             }
         });
-    }
-    if chase {
-        em.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Chase;
     }
 }

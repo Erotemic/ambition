@@ -35,7 +35,6 @@ fn tick_player_brain_without_snapshot_input_falls_back_to_neutral() {
     out.melee_pressed = true; // pre-poisoned
     out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        200.0,
     ));
     tick_player_brain(PlayerSlot(0), &s, &mut out);
     assert!(!out.melee_pressed);

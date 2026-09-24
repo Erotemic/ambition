@@ -171,10 +171,6 @@ where
     registrar
         .rollback_component_resolved::<crate::moveset::MovePlayback>(OWNER, "actor.move_playback");
     registrar.rollback_map_entities::<crate::moveset::MovePlayback>(OWNER, "map.move_playback");
-    registrar.rollback_component_canonical::<crate::components::BossPatternTimer>(
-        OWNER,
-        "boss.pattern_timer",
-    );
     registrar.rollback_component_canonical::<crate::components::BossPhase>(OWNER, "boss.phase");
     registrar.rollback_component_canonical::<crate::components::BodyEnvelope>(
         OWNER,

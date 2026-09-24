@@ -793,7 +793,6 @@ mod tests {
                 control.projectile_pressed = true;
                 control.fire = Some(ActorFireRequest::world_space(
                     ambition_platformer2d_core::Vec2::X,
-                    1.0,
                 ));
             }
             ControlSlot::Shield => control.shield_held = true,

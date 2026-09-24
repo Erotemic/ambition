@@ -21,68 +21,6 @@ use ambition_combat::events::{
 /// taking a hit every i-frame window. Feel-tunable.
 const BODY_CONTACT_MIN_KNOCKBACK: f32 = 0.6;
 
-fn evaluate_enemy_ai_output(
-    pos: ae::Vec2,
-    target_pos: ae::Vec2,
-    brain: &ambition_entity_catalog::placements::CharacterBrain,
-    // Decision tuning comes from the brain profile; practice-target state is
-    // passed separately from the body's combat authority.
-    profile: &ambition_combat::actor_tuning::BrainProfile,
-    attack: &ambition_combat::components::BodyMelee,
-    alive: bool,
-    // Read from the body's `BodyCombat` authority.
-    practice_target: bool,
-) -> ambition_characters::actor::ai::CharacterAiOutput {
-    let recover_remaining =
-        if attack.on_cooldown() && !attack.is_winding_up() && !attack.is_active() {
-            attack.cooldown.min(0.30)
-        } else {
-            0.0
-        };
-    // `BrainProfile` owns aggro radius. Guard leash is a placement-specific
-    // override rather than another copy of profile policy.
-    // TODO(compat-remove): remove the `ActorStatus::ai_mode` projection once its
-    // rollback-only read-model field is retired.
-    let effective_aggro_radius = match brain {
-        ambition_entity_catalog::placements::CharacterBrain::Guard { leash_radius } => {
-            *leash_radius
-        }
-        _ => profile.aggro_radius,
-    };
-    ambition_characters::actor::ai::evaluate_character_ai_output(
-        ambition_characters::actor::ai::CharacterAiSnapshot {
-            actor_pos: pos,
-            player_pos: target_pos,
-            aggro_radius: effective_aggro_radius,
-            attack_range: profile.attack_range,
-            attack_windup_remaining: attack.windup_remaining(),
-            attack_active_remaining: attack.active_remaining(),
-            attack_recover_remaining: recover_remaining,
-            stun_remaining: 0.0,
-            alive,
-            // Does this driver wander when it has nothing to chase? The
-            // field's own doc names the fact — "has a path or a NON-ZERO PATROL
-            // SPEED" — and `BrainProfile::patrol_effort` is that speed, as a
-            // fraction of the body's top speed (§4.7).
-            //
-            // A body whose policy authors a real patrol effort read as `Idle` because its
-            // integrator read-model said `Passive`, which is every peaceful NPC in the Hall — they
-            // wander, and the HUD said they were standing still.
-            //
-            // safe to change because the mode is a READ-MODEL (see the
-            // block above): no gameplay branches on it, so this corrects what the
-            // presentation layer reports rather than what any creature does.
-            // The practice-target term stays and is not the same shape — a
-            // dummy holds still because of what its BODY is, not what its policy
-            // wants. it is NOT redundant with the effort: the infinite sandbag
-            // authors `patrol_effort: 0.6774` and is held still by its
-            // `StandStill` template, so dropping this term would report every lab
-            // dummy as patrolling.
-            patrol_enabled: !practice_target && profile.patrol_effort > 0.0,
-        },
-    )
-}
-
 /// Simulation behavior layered over the spawn crate's mutable actor view.
 ///
 /// `ActorMut` is owned by `ambition_platformer2d_actor_spawn` because that crate
@@ -95,7 +33,6 @@ pub(crate) trait ActorMutIntegrationExt {
     fn update(
         &mut self,
         world: &ae::World,
-        target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         dt: f32,
         pose_owned_externally: bool,
@@ -143,7 +80,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
     fn update(
         &mut self,
         world: &ae::World,
-        target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         dt: f32,
         // Something else owns this body's pose. Named for the FACT rather than
@@ -225,7 +161,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
                     ae::DEFAULT_TUNING.air_jumps,
                 );
             }
-            self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
             return (
                 ambition_characters::actor::control::ActorControlFrame::neutral(),
                 ae::FrameEvents::default(),
@@ -239,16 +174,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // of the previous frame's advance — a consistent one-frame view.
         let _ = tuning.enemy_attack_active;
 
-        let ai = evaluate_enemy_ai_output(
-            self.kin.pos,
-            target_pos,
-            &self.config.brain,
-            &self.config.brain_profile,
-            self.attack,
-            self.health.alive(),
-            combat.training_dummy,
-        );
-        self.status.ai_mode = ai.mode;
 
         // ONE integration arm for every actor: the kernel dispatches on the
         // body's explicit MotionModel (axis-swept, surface momentum, or the
@@ -287,9 +212,6 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // semantic contacts through body state; autonomous brains may turn on a
         // later tick, while human/fighter controllers retain their chosen facing.
 
-        if frame.fire.is_some() {
-            self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Attack;
-        }
         (frame, move_events)
     }
 
@@ -602,7 +524,6 @@ pub(crate) trait SeedActorIntegrationTestExt:
     fn update_for_test(
         &mut self,
         world: &ae::World,
-        target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
         dt: f32,
         pose_owned_externally: bool,
@@ -613,7 +534,6 @@ pub(crate) trait SeedActorIntegrationTestExt:
         self.as_actor_mut()
             .update(
                 world,
-                target_pos,
                 tuning,
                 dt,
                 pose_owned_externally,
@@ -643,94 +563,3 @@ impl SeedActorIntegrationTestExt for ambition_body_seed::ActorClusterSeed {}
 mod dash_tests;
 #[cfg(test)]
 mod hitlag_tests;
-
-#[cfg(test)]
-mod aggro_authority_tests {
-    use super::evaluate_enemy_ai_output;
-    use ambition_characters::actor::ai::CharacterAiMode;
-    use ambition_entity_catalog::placements::CharacterBrain;
-
-    fn look(brain: CharacterBrain, aggro_radius: f32) -> CharacterAiMode {
-        let profile = ambition_combat::actor_tuning::BrainProfile {
-            aggro_radius,
-            attack_range: 8.0,
-            ..Default::default()
-        };
-        evaluate_enemy_ai_output(
-            ambition_platformer2d_core::Vec2::new(0.0, 0.0),
-            // Well inside a 200px notice radius and well outside an 8px reach, so
-            // the answer is Chase or it is not noticing at all.
-            ambition_platformer2d_core::Vec2::new(100.0, 0.0),
-            &brain,
-            &profile,
-            &ambition_combat::components::BodyMelee::default(),
-            true,
-            false,
-        )
-        .mode
-    }
-
-    /// HOW FAR A BODY NOTICES FROM IS ITS PROFILE'S, AND ONLY ITS PROFILE'S.
-    ///
-    /// the first two rows are the deleted `Passive => 0.0` arm's whole
-    /// subject: a body whose read-model says `Passive` now notices exactly what
-    /// its POLICY says it notices, which for every production body that carries
-    /// that read-model is still nothing — `BrainProfile::default()` authors
-    /// `0.0` and is what the peaceful seed, the boss config and the reconcile
-    /// projection all pair it with.
-    ///
-    /// the third row is why this matters to P2.20: a hostile policy is heard
-    /// through a `Passive` read-model. That is what lets provocation stop writing
-    /// `CharacterBrain::Custom("combatant")` to be noticed — the archetype name
-    /// was standing in for "this body is hostile now".
-    #[test]
-    fn the_notice_radius_comes_from_the_policy_not_from_the_read_model() {
-        // `!= Chase`, not a named idle mode. What the body does INSTEAD of
-        // chasing is `patrol_enabled`'s answer, and that flag is still read off
-        // the read-model — a second co-authority, and the next step of this row.
-        // Asserting `Patrol` here would quietly pin the coupling this test is
-        // about removing.
-        assert_ne!(
-            look(CharacterBrain::Passive, 0.0),
-            CharacterAiMode::Chase,
-            "a body whose policy authors no notice radius chased anyway"
-        );
-        assert_ne!(
-            look(CharacterBrain::Custom("anything".into()), 0.0),
-            CharacterAiMode::Chase,
-            "the read-model, not the policy, decided this body notices — a \
-             non-`Passive` silhouette is being read as hostility again"
-        );
-        assert_eq!(
-            look(CharacterBrain::Passive, 200.0),
-            CharacterAiMode::Chase,
-            "a body carrying a hostile policy reads as not-chasing because its \
-             integrator read-model still says `Passive`, so the HUD disagrees \
-             with the brain about what this creature is doing"
-        );
-    }
-
-    /// `Guard` is NOT the same shape and does not follow the policy: its
-    /// `leash_radius` is a placement fact — this guard, at this post — so it
-    /// overrides. The poison is the same profile read through a different brain.
-    #[test]
-    fn a_guards_leash_is_the_placements_answer_and_still_overrides() {
-        assert_ne!(
-            look(CharacterBrain::Guard { leash_radius: 0.0 }, 200.0),
-            CharacterAiMode::Chase,
-            "a guard posted with a zero leash chased on its policy's radius, so \
-             the placement's answer is no longer overriding"
-        );
-        assert_eq!(
-            look(
-                CharacterBrain::Guard {
-                    leash_radius: 200.0
-                },
-                0.0
-            ),
-            CharacterAiMode::Chase,
-            "a guard with a real leash did not notice, so the override is gone \
-             in the other direction too"
-        );
-    }
-}

@@ -6,7 +6,7 @@
 // the reason a carve estimate needs more than an import count. Measured by
 // deleting it: everything it actually supplied was bevy's prelude and
 // `WorldTime`, and NO monolith vocabulary at all.
-use ambition_combat::components::{BossDeathAnimation, BossPatternTimer, BossPhase};
+use ambition_combat::components::{BossDeathAnimation, BossPhase};
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 use bevy::prelude::{Query, Res, With, Without};
@@ -700,7 +700,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 }
 
 /// Boss PRESENTATION — decay the boss's body-generic reaction timers and sync the
-/// sprite-animation mirrors (`BossPatternTimer`, `BossPhase`, death anim).
+/// sprite-animation facts (`BossPhase`, death anim).
 ///
 /// Since fable AD2 this system moves no body and emits no damage: movement is
 /// [`integrate_boss_bodies`] (the shared flight-limb arm); STRIKE damage is the
@@ -715,10 +715,8 @@ pub fn update_ecs_bosses(
         (
             &ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
-            &mut BossPatternTimer,
             &mut BossDeathAnimation,
             &mut BossPhase,
-            &Brain,
         ),
         // The player carries the unified `BodyKinematics`; exclude it so this boss
         // query is provably disjoint (boss / player are mutually exclusive archetypes).
@@ -730,22 +728,13 @@ pub fn update_ecs_bosses(
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010).
     let dt = world_time.sim_dt();
-    for (health, mut boss_combat, mut pattern_timer, mut death_anim, mut phase, brain) in
-        &mut bosses
-    {
+    for (health, mut boss_combat, mut death_anim, mut phase) in &mut bosses {
         let alive = health.alive();
         // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger set)
         // decay here for bosses through the SAME `BodyCombat` decay the actor tick
         // runs — the boss is excluded from the actor tick, so it decays its own,
         // but via the one shared method, not a hand-copy (§A1).
         boss_combat.decay_reaction_timers(dt);
-        // Mirror the brain's `pattern_timer` (living in `BossPatternState`) into the
-        // presentation-side `BossPatternTimer` for sprite-animation consumers.
-        // Defaults to 0 for a non-BossPattern brain (test fixtures).
-        pattern_timer.0 = match brain {
-            Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => state.pattern_timer,
-            _ => 0.0,
-        };
         if alive {
             death_anim.clear();
         } else if phase.is_active() && death_anim.remaining_s <= 0.0 {

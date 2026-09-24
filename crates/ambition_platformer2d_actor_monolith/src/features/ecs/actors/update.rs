@@ -882,7 +882,6 @@ pub(crate) fn integrate_actor_body(
     // surface-follower solver — a policy field on the ONE integrator, the
     // `Perception` pattern, never a parallel system.
     motion_model: &mut MotionModel,
-    target_pos: ae::Vec2,
     // Somebody is riding THIS body. Guards the charge-crash suicide.
     is_being_ridden: bool,
     // Somebody is carrying THIS body. Declines the locomotion pass.
@@ -979,7 +978,6 @@ pub(crate) fn integrate_actor_body(
     // comment recommending it is how the last one nearly got restored.
     let (frame, move_events) = em.update(
         feature_world,
-        target_pos,
         combat_tuning,
         dt,
         // ⛔ THE RIDER'S FACT, NOT THE MOUNT'S. `is_being_ridden` guards the
@@ -1224,7 +1222,6 @@ pub fn integrate_sim_bodies(
             Entity,
             &mut CenteredAabb,
             &mut BodyCombat,
-            &ambition_combat::components::ActorTarget,
             Option<&mut ambition_characters::control::ActorControl>,
             Option<&mut ambition_characters::actor::BodyAnimFacts>,
             // ⛔⛔ THE SADDLE, NOT THE RIDER'S MARKER. This row used to read
@@ -1277,6 +1274,7 @@ pub fn integrate_sim_bodies(
         ),
         (
             With<FeatureSimEntity>,
+            With<ambition_combat::components::ActorTarget>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             // POLICY (§A1/R1.1): a boss integrates through the SAME
             // `integrate_actor_body` (R1.1 dissolved its bespoke integrator), but is
@@ -1349,7 +1347,6 @@ pub fn integrate_sim_bodies(
         actor_entity,
         mut aabb,
         mut combat,
-        target,
         mut control,
         mut anim,
         mounted,
@@ -1379,7 +1376,6 @@ pub fn integrate_sim_bodies(
             // footprint, so `CenteredAabb` publishes from `kin.size` (None).
             None,
             &mut motion_model,
-            target.pos,
             // Ridden means somebody is IN the saddle, not merely that a saddle
             // exists: an empty `MountSlot` outlives its rider's dismount.
             mounted.is_some_and(|slot| slot.rider.is_some()),

@@ -106,9 +106,6 @@ pub fn emit_inputs(
                 out.fire = Some(
                     ambition_characters::actor::control::ActorFireRequest::controlled_body_local(
                         dir,
-                        // Speed routed through ActionSet at resolve time;
-                        // emit a placeholder here.
-                        0.0,
                     ),
                 );
             }

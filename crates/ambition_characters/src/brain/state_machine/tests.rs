@@ -56,7 +56,6 @@ fn dead_actor_brain_emits_neutral_regardless_of_template() {
     out.locomotion = ae::LocalAxes::new(99.0, 99.0);
     out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        100.0,
     ));
     tick_simple_state_machine(&mut sm, &s, &mut out);
     assert!(!out.melee_pressed);
@@ -569,7 +568,6 @@ fn brain_tick_overwrites_prior_frame_intent() {
     frame.melee_pressed = true;
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        200.0,
     ));
     frame.jump_pressed = true;
     let snap = crate::brain::snapshot::BrainSnapshot::idle();

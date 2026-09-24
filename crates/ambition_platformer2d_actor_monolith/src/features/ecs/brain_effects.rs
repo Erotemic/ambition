@@ -263,7 +263,6 @@ pub fn spawn_projectiles_from_brain_actions(
         let request = ambition_characters::actor::control::ActorFireRequest {
             dir,
             dir_policy,
-            speed: spec.speed(),
         };
         let commanded = request.dir_to_world(frame).normalize_or_zero();
         // ⭐ THE ONE PLACE A SHOT'S DIRECTION BECOMES WORLD-SPACE, which is the

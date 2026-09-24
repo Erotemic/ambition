@@ -706,7 +706,7 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     frame.melee_pressed = true;
     frame.pogo_pressed = true;
     frame.attack_axis = ambition_platformer2d_core::LocalAxes::new(1.0, -1.0);
-    frame.fire = Some(ActorFireRequest::world_space(Vec2::X, 123.0));
+    frame.fire = Some(ActorFireRequest::world_space(Vec2::X));
     frame.shield_held = true;
     frame.projectile_pressed = true;
     frame.projectile_held = true;

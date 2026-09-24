@@ -574,12 +574,6 @@ impl BodyMelee {
     }
 }
 
-/// ECS-visible boss pattern timer. Mirrors `BossRuntime::pattern_timer`
-/// so sprite animation systems can read it without accessing `BossFeature`.
-/// Synced from the runtime each frame by `update_ecs_bosses`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct BossPatternTimer(pub f32);
-
 /// ECS-visible boss combat phase.
 ///
 /// Synced from `BossFeature::boss.alive` each frame by `update_ecs_bosses`:

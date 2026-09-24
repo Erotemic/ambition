@@ -250,7 +250,7 @@ pub fn tick_player_brain_from_control(
             ae::Vec2::new(snapshot.actor_facing, 0.0)
         };
         let dir = local_dir.normalize_or_zero();
-        out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(dir, 0.0));
+        out.fire = Some(crate::actor::control::ActorFireRequest::controlled_body_local(dir));
     }
 
     // Jump edges + sustain.

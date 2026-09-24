@@ -2261,7 +2261,6 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     // Live aim this frame: a world-space up-right shot toward a strafing target.
     control.0.fire = Some(ActorFireRequest::world_space(
         ae::Vec2::new(0.6, -0.8),
-        240.0,
     ));
     let owner = app
         .world_mut()
@@ -2436,7 +2435,6 @@ fn a_fire_intent_triggers_the_ranged_move() {
     let mut control = ActorControl::default();
     control.0.fire = Some(ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        240.0,
     ));
     let body = app
         .world_mut()
@@ -2500,7 +2498,6 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
         if fire_intent {
             control.0.fire = Some(ActorFireRequest::world_space(
                 ae::Vec2::new(1.0, 0.0),
-                240.0,
             ));
         }
         let body = app

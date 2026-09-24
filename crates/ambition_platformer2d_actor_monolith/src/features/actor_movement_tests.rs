@@ -143,7 +143,6 @@ fn tick_peaceful(
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     seed.update_for_test(
         world,
-        target,
         FeatureCombatTuning::default(),
         dt,
         false,
@@ -315,7 +314,6 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
         &[],
     );
     enemy.attack.cooldown = 0.0;
-    let player_pos = ae::Vec2::new(500.0, 300.0);
     // Drive the enemy directly with a brain-shaped frame
     // requesting rightward motion at chase speed — the test
     // verifies the integration step blocks the body against
@@ -326,7 +324,6 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
         let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
-            player_pos,
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -382,7 +379,6 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
         &paths,
     );
     enemy.attack.cooldown = 0.0;
-    let player_pos_far = ae::Vec2::new(2000.0, 536.0);
     // Drive directly with a brain-shaped frame requesting
     // rightward patrol motion — the test verifies the
     // integration step blocks the body against the wall.
@@ -393,7 +389,6 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
         let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
             &world,
-            player_pos_far,
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -455,7 +450,6 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
     for _ in 0..240 {
         enemy.update_for_test(
             &world,
-            ae::Vec2::new(2000.0, 300.0),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -531,7 +525,6 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
     crawler.state = ae::CrawlerState::attached(ae::Vec2::new(0.0, -1.0));
     enemy.update_for_test(
         &world,
-        ae::Vec2::new(1500.0, 492.0),
         FeatureCombatTuning::default(),
         1.0 / 60.0,
         false,
@@ -588,7 +581,6 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
         // live frame for every cardinal.
         enemy.update_for_test(
             &world,
-            ae::Vec2::new(600.0, 500.0),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -643,7 +635,6 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
         body.update_for_test(
             &world,
-            ae::Vec2::new(1500.0, 476.0),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -687,7 +678,6 @@ fn stopping_in_open_space_preserves_facing() {
         frame.facing = body.kin.facing;
         body.update_for_test(
             &world,
-            ae::Vec2::new(1500.0, 476.0),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,

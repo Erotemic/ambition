@@ -21,6 +21,7 @@ A candidate can move down if a new source inspection shows that two values have 
 | 8 | C08 | Prune compatibility facades and forwarding mirrors after canonical owners settle | later cleanup; A10 no longer blocks it | medium | Do not run during a large ownership migration. ID-PEER is one; stay off session/canonical identity. |
 | 9 | C09 | Review crate boundaries by semantic ownership, not size | later structural review | medium-large | After owner consolidation, not before. |
 | 10 | C10 | Restore planning control-plane separation between current state and history | **COMPLETED 2026-09-14** | small-medium | Closed by semantic-preservation documentation cleanup. |
+| 11 | C11 | Authority polish: one owner per mechanical fact, no mirror in the rollback kernel | **ACTIVE 2026-09-23** — executed as [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel), which carries the ordered items and their state | medium, open-ended | — (runs beside C03/C06; stays off ID-PEER's identity surface) |
 
 ## 1. C01 — Finish A10 as the one live room/session replacement transaction
 

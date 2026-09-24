@@ -29,6 +29,8 @@ to the motivating example.
 
 ## Index
 
+Closed by [AUTHORITY-POLISH](../queue.md#authority-polish--one-owner-per-mechanical-fact-and-no-mirror-in-the-rollback-kernel) on 2026-09-23 and removed here: W013, W014, W015, W018, W020, W024. The remaining rows it owns carry their AP number there.
+
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
 | W002 | CONFIRMED | boss behavior | `BossPatternCfg::self_dodge_amp` and `self_dodge_freq` are authored for GNU-ton, but the active self-dodge branch in `ambition_boss_encounter::pattern::tick` only reads `movement_timer` and applies no movement. | Implement the advertised dodge or delete the authoring fields and content value. Add a behavior witness. |
@@ -42,17 +44,11 @@ to the motivating example.
 | W010 | CONFIRMED | combat attack spec | `AttackSpec::damage_kind`, `can_pogo`, and `damage_override` are authored, copied, tested, and snapshotted, but production gameplay does not read them. The `damage_override` comment still promises a fallback to `BodyOffense::damage_multiplier`. | Restore the intended semantics or delete the dead fields and their snapshot surface. |
 | W011 | CONFIRMED | movement diagnostics | `BodyComboTrace` exists so the HUD combo trace does not blank. It is mandatory on the central body shape, rollback canonical, and threaded through movement, ledge, dodge, blink, knockdown, and other kernel APIs. The visible production reader is the HUD. | Move diagnostic history out of the core body contract. Keep gameplay events or semantic state separate from the display trace. |
 | W012 | CONFIRMED | body lifecycle | `BodyLifetime` mixes diagnostic counters (`time_alive`, `resets`, `max_speed`) with the real replay latch `restart_pending`. Its comment says the latch lives there because the component was already snapshotted. | Split the replay latch from diagnostics. Then decide independently which counters need rollback semantics. |
-| W013 | CONFIRMED | boss presentation | `BossPatternTimer` is documented as a presentation-side mirror of the boss runtime timer. A sync system writes it and rollback registers it, but production code has no reader. | Delete the mirror if no consumer remains. If presentation needs it later, derive it through the view layer instead of making it gameplay rollback state. |
-| W014 | CONFIRMED | actor AI state | `ActorStatus::ai_mode` is written by enemy integration and provocation and is rollback encoded, but production code has no read of the field. The same component also owns the respawn countdown. | Delete the unused projection or give it a real owner. Keep respawn lifecycle separate from an AI read-model. |
-| W015 | CONFIRMED | respawn policy | Encounter and boss-spawn roads encode "never auto-respawn" as `respawn_timer = 999_999.0` even though `RespawnPolicy` already exists elsewhere. | Represent the lifecycle policy explicitly. Do not encode policy as a very large timer. |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. |
-| W018 | CONFIRMED | combat tuning | `CombatTuning::attack_cooldown_mult` is populated from `BrainProfile::attack_cooldown_mult`, but production combat has no read of the projection. The brain profile remains the live policy source. | Remove the duplicate field or move the consumer to one explicit owner. |
 | W019 | CONFIRMED | actor pose | `ActorPose::feet` is derived from center and half-size at construction. Production code has no `.feet` read, but snapshot code stores it. | Remove the unused field and snapshot bytes unless a real consumer is introduced. |
-| W020 | STRUCTURAL | simulation time | `SimDt` is explicitly a mirror of `WorldTime::sim_dt()`. The host copies the value every frame, and both `WorldTime` and `SimDt` are rollback resources. | Prefer one canonical mechanical clock fact. Move the neutral time primitive to a dependency-safe owner or make the mirror derived rather than a second rollback authority. |
 | W021 | CONFIRMED | encounter music | `EncounterMusicRequest::last_applied` is written by the music-intent adapter for diagnostics/tests. Its accessor has no production caller, but the field lives inside gameplay encounter state. | Delete the field if transition detection does not need it, or move adapter history to presentation/audio state. |
 | W022 | STRUCTURAL | combat component ownership | `BodyMelee::ranged_cooldown` is the live ranged fire-rate floor. It is actively used by ranged acceptance and prompts even though the owner type is `BodyMelee`. | Move ranged cooldown state to a weapon/ranged/action owner without changing the one-body fire-rate invariant. |
 | W023 | STRUCTURAL | combat/presentation boundary | `BodyCombat::hit_flash` is a visual flash timer, but gameplay and AI use it as a recent-hit signal for bark suppression and hostility/behavior gates. | Introduce a semantic recent-hit/reaction fact if gameplay needs one. Keep visual flash lifetime as presentation state. |
-| W024 | STRUCTURAL | projectile intent | `ActorFireRequest::speed` is still a live input to projectile spawn, while its own TODO says speed is redundant with resolved `RangedActionSpec`. `dir_to_world` also accepts unresolved `ScreenSpace`, logs that the result is wrong under rotated gravity, and then uses the screen vector as world space. | Make one speed authority. Make unresolved screen-space direction invalid at the gameplay seam instead of continuing with a known-wrong fallback. |
 | W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
 | W028 | STRUCTURAL | body shape | `AncillaryMovementBundle` and the central actor query make `BodyOffense`, `BodyLifetime`, and `BodyComboTrace` part of what structurally counts as a complete body. (Mana left the shape 2026-09-23: it is a declared resource in the optional bank.) | Keep hot movement state dense where that is useful, but remove non-movement and diagnostic passengers from the mandatory body shape. |
 
@@ -99,15 +95,6 @@ diagnostic feature changes the required shape of every body.
 character facts, controller policy, placement/session facts, presentation facts,
 and mutable runtime state. That test is useful as a census, but it also shows
 that the type does not have one semantic owner.
-
-### W020 — dependency inversion created a second clock fact
-
-`ambition_platformer2d_shared_tangle::time::SimDt` says it is a neutral mirror of
-`WorldTime::sim_dt()`. `mirror_sim_dt_into_runtime` copies the value after world
-time refresh. `ambition_time` registers `WorldTime` for rollback and
-`ambition_platformer2d_shared_tangle` registers `SimDt` for rollback. The
-inversion seam is useful; the open question is whether the mirror itself should
-also be authoritative state.
 
 ### W023 — a presentation timer is also a gameplay signal
 

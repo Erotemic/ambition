@@ -63,7 +63,6 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     for _ in 0..ticks {
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             dt,
             false,
@@ -128,7 +127,6 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         let mut em = seed.as_actor_mut();
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -185,7 +183,6 @@ fn walk_run_staggered(mut combat: ambition_characters::actor::BodyCombat, ticks:
     for _ in 0..ticks {
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             dt,
             false,
@@ -284,7 +281,6 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     frame.burst_pressed = true;
     em.update(
         &world,
-        ae::Vec2::new(2000.0, em.kin.pos.y),
         FeatureCombatTuning::default(),
         1.0 / 60.0,
         false,
@@ -342,7 +338,6 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     for _ in 0..60 {
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             dt,
             false,
@@ -432,7 +427,6 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
         frame.facing = 1.0;
         em.update(
             &world,
-            ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
             dt,
             false,

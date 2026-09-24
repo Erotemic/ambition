@@ -669,7 +669,13 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// `ActorAggression` encode a one-byte grudge-faction tag (`Grudge::Faction`
 /// survives a rewind; a body grudge is carried by the entity map), which moved
 /// the bytes under v204. v205 is the first version that names that encoding.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 205;
+/// ⛔⛤ 205 -> 206: FOUR DEAD PROJECTIONS LEFT THE WIRE. `boss.pattern_timer`
+/// (`BossPatternTimer`, a copy of the boss brain's own timer) is gone;
+/// `ActorStatus` no longer encodes `ai_mode` (a mode nothing read);
+/// `ActorControl`'s fire request no longer encodes a launch speed (the resolved
+/// `RangedActionSpec` owns it); and `CombatTuning` (clone, unhashed) lost
+/// `attack_cooldown_mult`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 206;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

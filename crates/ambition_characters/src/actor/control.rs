@@ -69,9 +69,7 @@ pub enum BlockReason {
 
 /// Projectile-fire intent emitted by a brain. The direction carries an explicit
 /// [`GameplayFramePolicy`] so consumers can resolve it in the active movement frame.
-///
-/// TODO(compat-remove): migrate remaining callers that author `speed` here to the resolved
-/// `RangedActionSpec`, then remove the redundant speed authority from this request.
+/// Launch speed is not the request's: the body's resolved `RangedActionSpec` owns it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ActorFireRequest {
     /// Launch direction in the frame named by [`Self::dir_policy`] (unit vector
@@ -79,30 +77,26 @@ pub struct ActorFireRequest {
     pub dir: Vec2,
     /// Frame in which [`Self::dir`] was authored/interpreted.
     pub dir_policy: GameplayFramePolicy,
-    /// Launch speed in px/s.
-    pub speed: f32,
 }
 
 impl ActorFireRequest {
     /// Fire along a controlled-body-local direction (`+x` side/right,
     /// `+y` toward feet). Use for actor-combat verbs such as Smash-style
     /// ranged attacks where "forward/up/down" should follow the actor.
-    pub fn controlled_body_local(dir: Vec2, speed: f32) -> Self {
+    pub fn controlled_body_local(dir: Vec2) -> Self {
         Self {
             dir,
             dir_policy: GameplayFramePolicy::ControlledBodyLocal,
-            speed,
         }
     }
 
     /// Fire along a world/environment-space direction. Use for direct target
     /// vectors, arena hazards, and other effects that deliberately ignore the
     /// controlled body's local side/feet axes.
-    pub fn world_space(dir: Vec2, speed: f32) -> Self {
+    pub fn world_space(dir: Vec2) -> Self {
         Self {
             dir,
             dir_policy: GameplayFramePolicy::WorldSpace,
-            speed,
         }
     }
 
@@ -733,7 +727,7 @@ mod tests {
         frame.special_pressed = true;
         frame.melee_pressed = true;
         frame.shield_held = true;
-        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0), 0.0));
+        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0)));
         // Also set a sustain that should NOT clear: jump_held + shield_held.
         frame.clear_edges();
         assert!(!frame.jump_pressed);
@@ -753,12 +747,12 @@ mod tests {
     #[test]
     fn fire_request_direction_policy_converts_through_arbitrary_acceleration_frame() {
         let frame = AccelerationFrame::new(Vec2::new(1.0, 1.0));
-        let local = ActorFireRequest::controlled_body_local(Vec2::new(1.0, 0.0), 0.0);
+        let local = ActorFireRequest::controlled_body_local(Vec2::new(1.0, 0.0));
         assert_eq!(local.dir_policy, GameplayFramePolicy::ControlledBodyLocal);
         assert_eq!(local.dir_to_world(frame), frame.side);
 
         let world_dir = Vec2::new(0.25, -0.75);
-        let world = ActorFireRequest::world_space(world_dir, 0.0);
+        let world = ActorFireRequest::world_space(world_dir);
         assert_eq!(world.dir_policy, GameplayFramePolicy::WorldSpace);
         assert_eq!(world.dir_to_world(frame), world_dir);
     }
@@ -781,7 +775,7 @@ mod tests {
         frame.jump_held = true;
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
-        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0), 0.0));
+        frame.fire = Some(ActorFireRequest::world_space(Vec2::new(1.0, 0.0)));
         assert!(frame.wants_any_action());
         let mut frame = ActorControlFrame::neutral();
         frame.burst_pressed = true;

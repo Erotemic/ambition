@@ -123,7 +123,6 @@ fn resolve_returns_predictable_request_count_per_intent_subset() {
         frame.fire = if fire {
             Some(crate::actor::control::ActorFireRequest::world_space(
                 ae::Vec2::new(1.0, 0.0),
-                0.0,
             ))
         } else {
             None
@@ -205,7 +204,6 @@ fn resolve_with_only_ranged_capability_ignores_melee_intent() {
     frame.melee_pressed = true;
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        0.0,
     ));
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 1);
@@ -247,7 +245,6 @@ fn resolve_peaceful_action_set_emits_nothing_for_full_intent() {
     frame.melee_pressed = true;
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        0.0,
     ));
     frame.special_pressed = true;
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
@@ -377,7 +374,6 @@ fn resolve_fire_pressed_emits_ranged_request() {
     let mut frame = crate::actor::control::ActorControlFrame::neutral();
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(1.0, 0.0),
-        0.0, // placeholder; speed comes from ActionSet
     ));
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     assert_eq!(reqs.len(), 1);
@@ -406,7 +402,6 @@ fn resolve_preserves_controlled_body_local_fire_policy() {
     frame.fire = Some(
         crate::actor::control::ActorFireRequest::controlled_body_local(
             ae::Vec2::new(0.0, -1.0),
-            0.0,
         ),
     );
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
@@ -611,7 +606,6 @@ fn resolve_multi_intent_emits_multi_request() {
     frame.melee_pressed = true;
     frame.fire = Some(crate::actor::control::ActorFireRequest::world_space(
         ae::Vec2::new(0.0, -1.0),
-        0.0,
     ));
     frame.special_pressed = true;
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);

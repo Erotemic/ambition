@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v205",
+    "version": "ggrs-rollback-schema-v206",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -62,7 +62,6 @@
       "boss.attack_intent\tcomponent-canonical\tBossAttackIntent",
       "boss.attack_state\tcomponent-canonical\tBossAttackState",
       "boss.encounter\tcomponent-clone-cursor\tBossEncounter",
-      "boss.pattern_timer\tcomponent-canonical\tBossPatternTimer",
       "boss.phase\tcomponent-canonical\tBossPhase",
       "combat.hitbox_on_hit\tcomponent-clone-custom-checksum\tHitboxOnHit\tbevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection",
       "combat.stale_moves\tcomponent-canonical\tBodyStaleMoves",
@@ -177,7 +176,6 @@
     "ambition_combat::components::ActorDisposition",
     "ambition_combat::components::BodyEnvelope",
     "ambition_combat::components::BodyMelee",
-    "ambition_combat::components::BossPatternTimer",
     "ambition_combat::components::BossPhase",
     "ambition_combat::components::FighterStocks",
     "ambition_combat::components::RulesetOwnsDeath",

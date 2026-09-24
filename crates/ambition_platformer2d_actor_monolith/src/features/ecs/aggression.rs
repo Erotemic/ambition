@@ -124,9 +124,6 @@ pub fn apply_actor_stimuli(
             repertoire,
             worn.map(ambition_characters::actor::WornCharacter::id),
             prepared.as_deref(),
-            // Chase immediately when challenged (the duel is on), or when a
-            // damage source is known.
-            challenged || source.is_some(),
         );
     }
 }

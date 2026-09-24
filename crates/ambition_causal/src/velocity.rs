@@ -3,19 +3,13 @@
 //! The causal log needs to identify velocity writers, not only report the
 //! resulting velocity.
 //!
-//! A velocity write OUTSIDE the integrator is the interesting kind: knockback, a
-//! move's lunge, ranged recoil, a launch, a pushout. Each one is a place where
-//! something other than the body's own motion law decided where it goes, and
-//! each is invisible unless it says so.
-//!
-//! ## Why this is a helper and not a pattern
+//! A velocity write outside the integrator matters most: knockback, a move's
+//! lunge, ranged recoil, a launch, a pushout. Each is invisible unless it
+//! records itself.
 //!
 //! Use one constructor so every velocity writer emits the same fact shape.
-//!
-//!  the caller resolves its OWN subject. Subject choice is
-//! crate-specific (seat first, actor id second — see each domain's
-//! `subject_of`), and a helper that guessed would be a second authority on
-//! identity.
+//! The caller resolves its own subject (seat first, actor id second; see each
+//! domain's `subject_of`), so the helper is not a second authority on identity.
 
 use crate::{domains, CausalFact, FactDetail, SubjectKey};
 

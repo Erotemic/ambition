@@ -16,31 +16,22 @@ crate topology.
 
 ## Engineering priority order
 
-⭐⭐ **THE PRIORITIES BELOW ARE SCORED ON TWO AXES, NOT ONE.** Authority
-decomposition — which crate owns the fact, what may mutate it, one lifecycle,
-dependency direction — and **capability composability**: can this capability be
-ABSENT, does the rest still form a coherent application, does it declare only its
-real prerequisites. **The second does not follow from the first.** A repository
-can satisfy every ownership rule on every page here and still ship an
-effectively indivisible engine.
+The priorities below are scored on two axes. The first is authority
+decomposition: which crate owns the fact, what may mutate it, one lifecycle,
+dependency direction. The second is capability composability: can this capability
+be absent, does the rest still form a coherent application, does it declare only
+its real prerequisites. The second does not follow from the first. A repository
+can satisfy every ownership rule and still ship an effectively indivisible engine.
 
-⇒ Authority comes FIRST and sequencing is permitted; a slice need not deliver
-both. What is not permitted is a run of slices that all advance the first axis
-being read as progress on the engine's decomposition. **A landed slice says which
-axis it moved.**
+Authority comes first, and sequencing is permitted; a slice need not deliver both.
+Do not read a run of authority slices as progress on decomposition. A landed slice
+says which axis it moved.
 
-ⓘ The rule, the ordering, the absence criterion and the minimum-host tests that
-would prove it live in
+The rule, the ordering, the absence criterion and the minimum-host tests live in
 [`engine/decomposition.md`](engine/decomposition.md) under "Decomposition has two
 dimensions", with the durable statement in
 [`../architecture/package-and-capability-boundaries.md`](../architecture/package-and-capability-boundaries.md).
-Deliberately not restated here: that page says in its own words that it is the
-single home, and a second copy is how the two vocabularies drifted apart in the
-first place. ⚠ **This roadmap named neither axis until 2026-09-04** — a search
-for the concept as well as the spelling (*optional*, *install*, *minimal
-consumer*, *inherit*) returned nothing on this page, while
-`engine/actor-monolith-decomposition.md` had been carrying it as exit criteria 2
-and 4 all along.
+They are not restated here.
 
 ### P0 — authoritative-state correctness and lifetime boundaries
 
@@ -50,11 +41,9 @@ semantic identity where reconstruction or peer selection depends on it,
 deterministic composition when multiple entities affect one result, and the
 correct gameplay-session/timeline owner.
 
-`26ec7b19` closed the demonstrated cross-game rollback-health leak by making
-rollback authority gameplay-session-owned while preserving same-session health
-across timeline rebases. Remaining work includes runtime-created populations,
-deterministic selection/composition, and related structural tests
-(non-rewinding memory closed 2026-09-02, S2).
+Rollback authority is gameplay-session-owned. Remaining work includes
+runtime-created populations, deterministic selection/composition, and related
+structural tests.
 
 Owner: [`engine/simulation-authority-and-determinism.md`](engine/simulation-authority-and-determinism.md).
 
@@ -65,11 +54,9 @@ checkpoint/save restoration, and persistent occurrence reconstruction should
 consume one semantic construction model rather than maintain independent reset
 or reconstruction ledgers.
 
-Prepared transactional construction, the transition readiness/authorization
-transaction, the same-room replay, and — since 2026-08-31 (`758e9df37`) — the
-durable-restore leg all run one constructor: a save load prepares its first room
-against the saved occurrence facts at the activation edge rather than building
-the room and correcting it. This item is closed; the owner doc's C3 records the
+Fresh construction, transition, same-room replay and durable restore already run
+one constructor: a save load prepares its first room against the saved occurrence
+facts at the activation edge. This item is closed; the owner doc's C3 records the
 proof.
 
 Owner: [`engine/construction-and-reconstitution.md`](engine/construction-and-reconstitution.md).
@@ -98,53 +85,26 @@ Owners:
 - [`engine/capability-progression-and-world-gating.md`](engine/capability-progression-and-world-gating.md)
 - [`engine/platformer-navigation-and-reachability.md`](engine/platformer-navigation-and-reachability.md)
 
-⭐ **WHERE P2 STANDS, 2026-09-04 — three of these four moved and the fourth is
-deliberately parked.** Recorded here because the tier's own sentence ("build
-world residency, occurrence lifetime/provenance, item custody, body/item
-capability gating…") reads as five unbuilt things and three of them are done:
+Where P2 stands:
 
-- **Body/item capability gating: the ENGINE publishes TEN conditions and every
-  one is reachable from an authored route** — `gated_by` is a condition LINE, so
-  a wall reads any of them. Re-derived 2026-09-04 evening by
-  `scripts/authored_route_gates.py`, which reads the ids out of the source
-  rather than keeping a list: `body.can`, `body.fits`, `boss.cleared`,
-  `custody.is_held`, `encounter.cleared`, `inventory.holds`, `quest.active`,
-  `wallet.can_afford`, `world.flag_set`, `world.switch_on`. ⚠ **RUN IT rather
-  than quoting this** — the figure moved 6 → 9 → 10 in a single day, and the
-  phrasing this replaced ("five of the seven gate families", itself corrected
-  from "all seven") had already been wrong twice.
-  ⛔ **What is left is FACTS, not predicates**, and it is THREE families rather
-  than two — measured 2026-09-04. Soft systemic pressure and social/knowledge
-  have nothing route-facing to read, and the world-mechanism family is only
-  half-served for the same reason: `world.switch_on` reads a durable
-  `switches` row, while a broken breakable or an opened door has none, so a
-  route can be gated on a latched switch and on nothing else in the room.
-  ⇒ `BreakableFeature` is rollback-registered and in the reconstitution census
-  as ECS state; the save has no breakables field, so a smashed wall is SESSION
-  state restored by re-authoring. ⚠ Deliberate, not an oversight — persisting it
-  would make every smashed crate save content, which the whereabouts ledger
-  declines for `SpawnOrigin::Dynamic`. Full derivation on the owner page.
-  ⇒ All three are short of the same thing:
+- **Body/item capability gating.** The engine publishes route-facing conditions,
+  and a route gate (`gated_by`) can read any of them. Run
+  `scripts/authored_route_gates.py` for the current list; do not copy it here.
+  What is missing is facts, not predicates: soft systemic pressure,
+  social/knowledge state and broken world mechanisms have no durable
+  route-facing record. A smashed breakable is session state restored by
+  re-authoring, by design (`SpawnOrigin::Dynamic` is not persisted).
   [`engine/world-facts-observations-and-memory.md`](engine/world-facts-observations-and-memory.md)
-  measures the save's fourteen durable families, and no row in it records
-  systemic pressure, what an actor knows, or a broken mechanism.
-  ⚠ **And the world does not USE the vocabulary**: the whole authored corpus of
-  route gates is THREE walls, two gated, both on the same story flag, and five
-  of the ten conditions are authored nowhere at all. Whether that is a content
-  gap worth closing is question 55, not an engine deficit.
-- **Item custody: every migration row's exploration half is closed.** The
+  owns the durable families. The authored world uses few of the conditions;
+  whether that is a content gap is question 55, not an engine deficit.
+- **Item custody.** The exploration half of every migration row is closed. The
   remainder is two maintainer decisions and one fighter-side call site.
-- **Occurrence lifetime: an occurrence enters the whereabouts ledger through
-  custody and the ledger enforces it**, so a room unload cannot silently erase a
-  persistent instance — the three classes it can destroy are carried, remembered
-  or as-authored, and the fourth (`SpawnOrigin::Dynamic`) is not a persistent
-  instance by definition.
-- ⛔ **World residency is UNBUILT and should stay so until a customer needs two
-  resident rooms.** `RoomSet.active` is a `usize`, singular by type. Its own
-  page says this is a sequencing dependency and not a licence to build a
-  universal world scheduler, and with one resident room every residency query
-  has a trivial answer. Building the vocabulary before the customer would be the
-  speculative work three of these four pages each forbid in their own words.
+- **Occurrence lifetime.** An occurrence enters the whereabouts ledger through
+  custody, and the ledger enforces it, so a room unload cannot silently erase a
+  persistent instance.
+- **World residency** is not built and stays so until a customer needs two
+  resident rooms. `RoomSet.active` is a `usize`, singular by type. With one
+  resident room every residency query has a trivial answer.
 
 ### P3 — measured runtime quality and developer iteration
 
@@ -176,13 +136,10 @@ placement bridge relocation. A4-A7 retain their packet-specific evidence gates.
 A8 now has the long-term game's two-instance proof, and A10 has I3b's bounded
 reconstruction customer. Neither is a blanket gate on pure authoring/artifact work.
 
-A11 and the frontier's A12 make authored technique admission and flow bounds
-reliable — ✔ **and A11a, A11b and the flow-bounds A12a have landed, with A12b two
-of its four items done, verified 2026-09-17; A11c, the end-to-end authoring route,
-and A12b's prepared-revision half are what is left.** The
-frontier's two packets carry the sub-packet table. ⛔ *Flow-bounds* is said out
-loud because `queue.md` has a different `A12` — move-contact attribution — which
-is open. A9 proves
+A11 and the frontier's A12 (flow bounds) make authored technique admission and
+flow bounds reliable. A11c, the end-to-end authoring route, and A12b's
+prepared-revision half remain; the frontier carries the sub-packet table. The
+frontier's A12 is not `queue.md`'s A12 (move-contact attribution). A9 proves
 compile/runtime optionality through real external profiles. These are independently
 staged work streams, not twelve sequential prerequisites for game development.
 The [queue](queue.md) selects current priority.
@@ -192,7 +149,6 @@ public programmatic engine that can be used without accidental flagship
 requirements. Preserve the corrected spawn boundary, coherent internal cycles,
 explicit composition and normal downward dependencies. Do not optimize for crate
 count, zero foreign installs, zero SCCs or a cosmetically renamed runtime.
-
 
 ### P5 — multiplayer and multiview
 

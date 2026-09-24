@@ -1,15 +1,15 @@
-//! The versus MATCH, prepared: a roster of participants, the rules of the
-//! stage, and the immutable plan a kernel activates without a lookup.
+//! The versus match, prepared: a roster of participants, the stage rules,
+//! and the immutable plan a kernel activates without a lookup.
 //!
 //! Three ways to stage a cast project into one character demand
-//! ([`staging`]); [`prepared::prepare_match`] answers every fallible question
-//! -- who is seated, what they wear, who drives them, what they may do --
-//! before a body exists; [`seating`] is the rollback-safe receipt of the match
-//! that is live. Spawning the bodies, binding their control and running the
-//! opening are the actor kernel's (its `character_runtime::match_activation`).
+//! ([`staging`]). [`prepared::prepare_match`] answers every fallible question
+//! (who is seated, what they wear, who drives them, what they may do) before
+//! a body exists. [`seating`] is the rollback-safe receipt of the live match.
+//! The actor kernel (`character_runtime::match_activation`) spawns the
+//! bodies, binds their control, and runs the opening.
 //!
-//! Carved from the actor kernel's `character_runtime` (D33, character
-//! preparation versus actor simulation, 2026-09-03).
+//! Split from the actor kernel's `character_runtime` (D33: character
+//! preparation versus actor simulation).
 
 pub mod prepared;
 

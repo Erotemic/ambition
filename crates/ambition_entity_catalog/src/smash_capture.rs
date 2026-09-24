@@ -13,43 +13,38 @@ use serde::{Deserialize, Serialize};
 ///
 /// Sustained rather than one-shot on purpose: a grab is spatially live for a
 /// window, so the handler is asked every active frame and acquires on the first
-/// frame something eligible overlaps. That gives the correct behaviour for free
-/// — frame 1 catches nobody, frame 2 catches a body that just walked in, and the
-/// remaining frames see a captor that already holds somebody and do nothing.
+/// frame something eligible overlaps. So frame 1 catches nobody, frame 2
+/// catches a body that just walked in, and later frames see a captor that
+/// already holds somebody and do nothing.
 pub const CAPTURE_ATTEMPT: &str = "smash.capture_attempt";
 /// The effect key a pummel's impact frame emits, once.
 pub const CAPTURE_PUMMEL: &str = "smash.capture_pummel";
-/// The effect key a CARRY emits, once, on the frame the captor takes the weight.
+/// The effect key a carry emits, once, on the frame the captor takes the
+/// weight.
 ///
-/// ⭐⭐ A CARRY IS ENTERED FROM A THROW-SHAPED MOVE, not from the grab, and that
-/// is the genre's shape rather than a convenience: you grab normally, and then
-/// one of the four directions puts them on your shoulders instead of launching
-/// them. ⇒ It also means the carry costs NOTHING at the grab — `CaptureAttemptParams`
-/// is constructed literally at 29 sites and every one of them would have had to
-/// declare a `carry: false` it does not care about.
+/// A carry is entered from a throw-shaped move, not from the grab: you grab
+/// normally, then one direction puts the captive on your shoulders. So the
+/// grab params (`CaptureAttemptParams`) do not need a carry field.
 ///
-/// ⛔ IT IS NOT A THROW AND MUST NOT RELEASE. `apply_capture_throws` ends the
-/// relationship; this one keeps it and changes its terms.
+/// It is not a throw and must not release. `apply_capture_throws` ends the
+/// relationship; a carry keeps it and changes its terms.
 pub const CAPTURE_CARRY: &str = "smash.capture_carry";
-/// The effect key a throw's authored RELEASE frame emits, once.
+/// The effect key a throw's authored release frame emits, once.
 pub const CAPTURE_THROW: &str = "smash.capture_throw";
 
-/// THE THREE CUES A CAPTURE SHOWS, authored per fighter.
+/// The three cues a capture shows, authored per fighter.
 ///
-///  they are not constants here, and three guards are the reason. Carl,
-/// Emmy and Oiler each assert that every effect in their kit is drawn off their
-/// OWN sheet — so a shared `classic_burst` from `generic_explosions` is a real
-/// violation of a property somebody chose, not a test being fussy. The helper
-/// owns WHEN a cue fires; the fighter owns WHICH effect it is. Same split as the
-/// repertoire: centralise the vocabulary, never the design.
+/// Not constants here: some fighters' tests require every effect in their kit
+/// to come from their own sheet. The helper owns when a cue fires; the
+/// fighter owns which effect it is.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CaptureCues {
-    /// Fires on the grab's first LIVE frame, so a whiff reads as an attempt at
+    /// Fires on the grab's first live frame, so a whiff reads as an attempt at
     /// the moment it could have caught somebody.
     pub reach: &'static str,
     /// Fires on the pummel's own `at_s`.
     pub impact: &'static str,
-    /// Fires on the throw's RELEASE frame.
+    /// Fires on the throw's release frame.
     pub release: &'static str,
 }
 
@@ -64,33 +59,27 @@ impl CaptureCues {
 
 /// Authored parameters of a grab attempt.
 ///
-///  the reach is a RECT SPELLED OUT, not a [`VolumeShape`], and that is the
-/// transport's rule rather than a preference. `ParamValue` stores authored
-/// params as a `ron::Value`, whose deserializer cannot carry an enum — the type
-/// says so in as many words (*"Enum-valued params are unsupported … model those
-/// as string tags"*). A `VolumeShape` field serialises to `Rect(offset: …)` and
-/// hydrates back as a bare map with the variant lost:
-/// `InvalidValueForType { expected: "enum VolumeShape", found: "a map" }`.
-/// Found by the round-trip assertion in this module's tests rather than by a
-/// fighter's data failing at startup.
+/// The reach is a rect spelled out, not a [`VolumeShape`]. `ParamValue` stores
+/// params as a `ron::Value`, which cannot carry an enum: a `VolumeShape`
+/// hydrates back as a bare map with the variant lost
+/// (`InvalidValueForType { expected: "enum VolumeShape", found: "a map" }`).
+/// The round-trip test in this module guards this.
 ///
-///  v1 grabs are rectangular. A circular grab is a real future want and the
-/// documented shape for it is a string tag beside these fields; inventing that
-/// tag now, for zero callers, is the generalisation nobody asked for.
-/// [`Self::volume`] rebuilds the engine type at the consumer.
+/// Grabs are rectangular for now. A circular grab would use a string tag beside
+/// these fields. [`Self::volume`] rebuilds the engine type at the consumer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaptureAttemptParams {
     /// Centre of the grab reach, body-local: `+x` = the captor's committed
-    /// facing, `+y` = gravity-down. The SAME contract an authored `HitVolume`
-    /// uses, so a grab box and an attack box rotate together under arbitrary
+    /// facing, `+y` = gravity-down. This is the contract of an authored
+    /// `HitVolume`, so a grab box and an attack box rotate together under any
     /// gravity.
     pub offset: (f32, f32),
     /// Half-extents of the grab reach, body-local.
     pub half_extents: (f32, f32),
-    /// Where a caught body is held, in the captor's body-local frame. The
-    /// simulation's anchor — NOT a sprite offset. Presentation may draw the
-    /// captive anywhere it likes relative to this; the constraint uses this.
+    /// Where a caught body is held, in the captor's body-local frame. This is
+    /// the simulation's anchor, not a sprite offset; presentation may draw the
+    /// captive anywhere relative to it.
     pub hold_offset: (f32, f32),
 }
 
@@ -103,41 +92,31 @@ impl CaptureAttemptParams {
         }
     }
 
-    /// **How far forward this grab actually reaches, body-local.** The leading
-    /// edge of the box, not its centre.
+    /// How far forward this grab reaches, body-local: the leading edge of the
+    /// box, not its center.
     ///
-    /// ⛔⛔ ONE FORMULA, BECAUSE IT WAS WRITTEN THREE TIMES AND THEY ANSWER
-    /// DIFFERENT QUESTIONS FOR THE SAME MOVE. `offset.0 + half_extents.0` fed
-    /// the BRAIN's `AttackCandidate::reach` — the distance a fighter closes to
-    /// before it will try a grab — while `offset.x + half.x` fed the tether LINE
-    /// the player sees, twice over in the view read-model. ⇒ Change one and the
-    /// line a player reads parts company with the distance the AI aims at, and
-    /// nothing fails: both numbers stay perfectly self-consistent.
+    /// Use this one formula. The brain's `AttackCandidate::reach` (the distance
+    /// a fighter closes to before it grabs) and the tether line the player sees
+    /// must agree; separate copies of the sum can drift apart silently. This
+    /// matters most for long grabs (Projectile Polygon's reaches 150 px).
     ///
-    /// ⭐ THE TETHER IS WHY THIS MATTERS NOW. Projectile Polygon's grab reaches
-    /// 150 px because that reach IS the character, so the two readings are
-    /// furthest apart on exactly the fighter built around them.
-    ///
-    /// ⚠ BODY-LOCAL AND UNSIGNED BY FACING. The caller applies the captor's
-    /// committed facing, because a move locks its facing at start and only the
-    /// caller has it.
+    /// Body-local and unsigned by facing. The caller applies the captor's
+    /// committed facing, which a move locks at start.
     pub fn reach_x(&self) -> f32 {
         self.offset.0 + self.half_extents.0
     }
 
-    /// The reach's vertical centre, body-local — the other half of where a line
+    /// The reach's vertical center, body-local: the other half of where a line
     /// to this grab is drawn.
     pub fn reach_y(&self) -> f32 {
         self.offset.1
     }
 
-    /// The grab box as `(min, max)` corners, body-local — what a planner needs
-    /// to say where this move covers.
+    /// The grab box as `(min, max)` corners, body-local: where this move
+    /// covers, for a planner.
     ///
-    /// ⚠ `max.0` IS [`Self::reach_x`] BY CONSTRUCTION, and stating it here keeps
-    /// that true: the leading edge of the box and the reach are one fact, and a
-    /// caller that computed the corners itself could drift from the reach the
-    /// same way the three copies of the sum drifted from each other.
+    /// `max.0` is [`Self::reach_x`] by construction. Callers must use this and
+    /// not compute the corners themselves.
     pub fn coverage(&self) -> ((f32, f32), (f32, f32)) {
         (
             (
@@ -153,10 +132,9 @@ impl CaptureAttemptParams {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapturePummelParams {
-    /// Damage committed to the captive. No knockback, no hitstun, no
-    /// post-hit invulnerability — the acquisition already happened, and a
-    /// pummel that armed a hit reaction would release the very grab it belongs
-    /// to.
+    /// Damage committed to the captive. No knockback, no hitstun, no post-hit
+    /// invulnerability: a pummel that armed a hit reaction would release its
+    /// own grab.
     pub damage: i32,
 }
 
@@ -165,10 +143,9 @@ pub struct CapturePummelParams {
 #[serde(deny_unknown_fields)]
 pub struct CaptureThrowParams {
     pub damage: i32,
-    /// Base knockback, before the victim's damage and weight are applied. Fed
-    /// to the SAME scaled-knockback road every authored launcher uses, so a
-    /// throw inherits weight, percent scaling, DI and arbitrary gravity rather
-    /// than growing a second launch engine.
+    /// Base knockback, before the victim's damage and weight apply. It goes
+    /// through the same scaled-knockback road as every authored launcher, so a
+    /// throw gets weight, percent scaling, DI and any gravity.
     pub knockback: f32,
     /// How much the launch grows with the victim's accumulated damage.
     pub knockback_growth: f32,
@@ -177,16 +154,15 @@ pub struct CaptureThrowParams {
     pub launch_dir: (f32, f32),
 }
 
-/// The three-window shell a grab needs, so a fighter authors TIMINGS rather
-/// than a window list.
+/// The three-window shell a grab needs, so a fighter authors timings, not a
+/// window list.
 ///
-///  it lives here rather than in either game because both providers need the
-/// identical shape and because [`author_standing_grab`] REFUSES a move with no
-/// Active window — a module that enforces a shape should be able to hand you
-/// one. A fighter still owns every number.
+/// It lives here because [`author_standing_grab`] refuses a move with no
+/// Active window, so the module that enforces the shape also provides it. The
+/// fighter owns every number.
 ///
-///  no hit volume, ever. A grab's Active window carries a capture ATTEMPT, and
-/// a volume beside it would make the same frames both grab and hit.
+/// No hit volume: the Active window carries a capture attempt, and a volume
+/// there would make the same frames both grab and hit.
 pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s: f32) -> MoveSpec {
     let active_end = startup_s + active_s;
     MoveSpec {
@@ -227,8 +203,8 @@ pub fn grab_shell(id: &str, clip: &str, startup_s: f32, active_s: f32, recover_s
 
 /// The shell a pummel or a throw needs: a timeline and nothing else.
 ///
-/// Neither reaches for anybody — the target is already established — so neither
-/// has an Active window or a volume. What each has is an INSTANT, attached by
+/// Neither reaches for anybody (the target is already established), so neither
+/// has an Active window or a volume. Each has an instant, attached by
 /// [`author_pummel`] or [`author_throw`].
 pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
     MoveSpec {
@@ -255,39 +231,31 @@ pub fn capture_beat(id: &str, clip: &str, duration_s: f32) -> MoveSpec {
     }
 }
 
-/// Extra STARTUP a running grab pays over the standing one — the wind-up of
-/// reaching out while already moving. Two frames at 60Hz.
+/// Extra startup a running grab pays over the standing one: the windup of
+/// reaching out while moving. Two frames at 60Hz.
 const RUNNING_GRAB_EXTRA_STARTUP_S: f32 = 2.0 / 60.0;
-/// Extra RECOVERY a running grab pays. **This is the whole trade** and it is
-/// why the genre's dash grab is a commitment: whiffing one out of a run is
-/// punishable in a way whiffing a standing grab is not. Twelve frames at 60Hz.
+/// Extra recovery a running grab pays. This is the trade: a whiffed grab from
+/// a run is punishable in a way a standing whiff is not. Twelve frames at
+/// 60Hz.
 const RUNNING_GRAB_EXTRA_RECOVERY_S: f32 = 12.0 / 60.0;
 
-/// **A fighter's RUNNING grab, derived from its own standing grab.**
+/// A fighter's running grab, derived from its own standing grab.
 ///
-/// ⭐ **derived rather than authored, and the genre is the reason.** A dash
-/// ATTACK is a different move — a shoulder charge where the jab was — so each
-/// fighter authors one and `SmashRepertoire` makes it a required slot. A dash
-/// GRAB is the same reach-out performed while running: same clip, same catch,
-/// slower to start and much slower to end. Deriving it means every fighter gets
-/// one in its own timing, with no per-fighter number anybody had to invent and
-/// no slot for a new fighter to forget.
+/// Derived, not authored. A dash attack is a different move, so each fighter
+/// authors one. A dash grab is the same reach-out from a run: same clip, same
+/// catch, slower to start and much slower to end. Deriving it gives every
+/// fighter one in its own timing, with no slot to forget.
 ///
-/// ⚠ **it takes the extra time in SECONDS, not as a ratio.** The genre states
-/// these as frame counts, and a multiplier would punish a fast grab less than a
-/// slow one — the opposite of a commitment that is supposed to cost the same
-/// wherever you spend it.
+/// The extra time is in seconds, not a ratio: a multiplier would punish a
+/// fast grab less than a slow one.
 ///
-/// The windows shift as a body: everything after the startup moves later by the
-/// added wind-up, and recovery alone stretches by the added endlag.
+/// The windows shift together: everything after the startup moves later by
+/// the added windup, and only recovery stretches by the added endlag.
 fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
-    // ⛔ EXHAUSTIVE on purpose. This derivation rewrites a move's TIMELINE, and
-    // every absolute time on it has to move together or the move desynchronises
-    // from itself. Destructuring means a `MoveSpec` that grows a new field
-    // stops this compiling and asks whether the new field is a POINT on the
-    // timeline (shift it) or a DURATION owed elsewhere (leave it) — rather than
-    // being silently left behind, which is how `events` and `autocancel_after_s`
-    // were missed the first time.
+    // Exhaustive on purpose. This rewrites the move's timeline, and every
+    // absolute time must move together. A new `MoveSpec` field stops this
+    // compiling, and its author must decide whether it is a point on the
+    // timeline (shift it) or a duration owed elsewhere (leave it).
     let MoveSpec {
         id,
         display_name: _,
@@ -298,38 +266,30 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         gates,
         start_impulse,
         smash_charge_mult,
-        // A charge policy carries BOTH kinds of value: `hold_at_s` is a point
-        // on the timeline and shifts with the added startup, `max_hold_s` is a
-        // duration owed at that point and does not.
+        // A charge policy has both kinds: `hold_at_s` is a point and shifts
+        // with the added startup; `max_hold_s` is a duration and does not.
         smash_charge,
-        // NEITHER a point nor a duration: which BUTTON holds the charge does
-        // not move when the timeline does.
+        // Neither: which button holds the charge does not move.
         charge_gesture,
-        // A LOOP is a stretch of the timeline, so both of its ends are points
-        // and both shift with the added startup.
+        // A loop is a stretch of the timeline: both ends are points and shift.
         repeat,
-        // A duration OWED after landing, not a point in the move. It does not
-        // move when the move gets longer.
+        // A duration owed after landing, not a point: it does not move.
         landing_lag_s,
         // A point measured from the move's start, so it moves with the rest.
         autocancel_after_s,
-        // NEITHER: a RATE. How fast the sprite mirrors while the move plays does
-        // not change because the move got a longer windup, and it is
-        // presentation besides — a derived running grab draws the way the
-        // standing one does.
+        // Neither: a rate, and presentation. The running grab spins like the
+        // standing one.
         sprite_spin_hz,
-        // NEITHER a point nor a duration: WHAT THE MOVE HOLDS while it plays.
-        // A derived running grab brandishes whatever the standing one does,
-        // for exactly as long as its own (longer) clock runs.
+        // Neither: what the move holds. The running grab brandishes the same
+        // item for as long as its own (longer) clock runs.
         equips,
-        // ⭐ INHERITED, for the same reason `windows` is. A flow is what the
-        // move DECIDES, and a running grab is the same decision reached from a
-        // run — the clock stretches, the sequence does not change.
+        // Inherited, like `windows`: a running grab makes the same decision
+        // from a run. The clock stretches; the sequence does not change.
         flow,
     } = standing.clone();
     let mut running = MoveSpec {
         // A derived move never inherits a hand-written label: the standing
-        // grab's would name the wrong beat in a prompt.
+        // grab's label would name the wrong beat.
         display_name: None,
         id: format!("{id}_dash"),
         clip,
@@ -347,8 +307,7 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         repeat: repeat.map(|l| crate::MoveLoop {
             from_s: l.from_s + RUNNING_GRAB_EXTRA_STARTUP_S,
             to_s: l.to_s + RUNNING_GRAB_EXTRA_STARTUP_S,
-            // A DURATION, not a point: how long the loop may run does not
-            // change because the move got a longer windup.
+            // A duration, not a point: the loop's maximum does not change.
             ..l
         }),
         landing_lag_s,
@@ -357,9 +316,8 @@ fn running_grab_from(standing: &MoveSpec) -> MoveSpec {
         equips,
         flow,
     };
-    // Whatever the author placed on the swing happens at the same point IN the
-    // swing, which is now later. An event left at its original time would fire
-    // during the startup this derivation added.
+    // Events happen at the same point in the swing, which is now later. An
+    // unshifted event would fire during the added startup.
     for event in &mut running.events {
         event.at_s += RUNNING_GRAB_EXTRA_STARTUP_S;
     }
@@ -398,17 +356,15 @@ fn window(
     }
 }
 
-/// Attach a grab attempt to `spec`'s ACTIVE window(s).
+/// Attach a grab attempt to `spec`'s Active window(s).
 ///
-///  it sustains rather than firing once, and it attaches to every window the
-/// move tagged `Active` rather than a hand-picked index — a fighter that authors
-/// a two-part grab gets both parts without this helper growing an argument.
+/// It sustains, not fires once, and it attaches to every window tagged
+/// `Active`, so a two-part grab gets both parts.
 ///
 /// # Panics
 ///
 /// If `spec` has no `Active` window. A grab whose attempt is never live is a
-/// recovery animation, and finding that out at authoring time is the point of
-/// the helper existing at all.
+/// recovery animation; this catches it at authoring time.
 pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) -> MoveSpec {
     let effect = EffectRef {
         key: CAPTURE_ATTEMPT.to_string(),
@@ -430,10 +386,8 @@ pub fn author_standing_grab(mut spec: MoveSpec, params: CaptureAttemptParams) ->
     spec
 }
 
-/// The cue a capture beat carries, owned here for the reason the effect keys
-/// are: a fighter authors VALUES, and the strings stay in one module.
-///
-/// Naming the effect is naming the cue.
+/// The cue a capture beat carries. Fighters author values; the strings stay
+/// in this module. Naming the effect names the cue.
 fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
     spec.events.push(crate::MoveEvent {
         at_s,
@@ -447,8 +401,8 @@ fn burst(mut spec: MoveSpec, at_s: f32, effect: &str, scale: f32) -> MoveSpec {
     spec
 }
 
-/// The cue for a beat that already carries a gameplay `Effect`: it rides the
-/// SAME instant, so retuning the beat cannot leave its flash behind.
+/// The cue for a beat that already carries a gameplay `Effect`. It uses the
+/// same instant, so retuning the beat moves its flash too.
 fn cue_at_effect(spec: MoveSpec, effect: &str, scale: f32) -> MoveSpec {
     let at = spec
         .events
@@ -459,7 +413,7 @@ fn cue_at_effect(spec: MoveSpec, effect: &str, scale: f32) -> MoveSpec {
     burst(spec, at, effect, scale)
 }
 
-/// The grab's cue, on the first LIVE frame rather than at zero.
+/// The grab's cue, on the first live frame rather than at zero.
 fn cue_at_reach(spec: MoveSpec, effect: &str) -> MoveSpec {
     let at = spec
         .windows
@@ -482,21 +436,16 @@ pub fn author_pummel(mut spec: MoveSpec, at_s: f32, params: CapturePummelParams)
     spec
 }
 
-/// Attach a throw RELEASE to `spec` at `at_s` of its own timeline.
-///
-///  the release is a timeline instant, not the button press. The captive stays
-/// constrained through the wind-up and leaves at this frame, which is what makes
-/// a throw's wind-up readable and punishable rather than instantaneous.
 /// Authored parameters of a carry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaptureCarryParams {
     /// Where the captive rides once carried, in the captor's body-local frame.
     ///
-    /// ⭐ A CARRY MOVES THEM. The grab's `hold_offset` is out in front at arm's
-    /// length, which is where you hold somebody you are about to throw; a body
-    /// you intend to WALK with goes up and over, and the difference has to be
-    /// visible or the carry looks like a grab that forgot to end.
+    /// A carry moves the captive. The grab's `hold_offset` is in front at
+    /// arm's length (for a throw); a carried body goes up and over. The
+    /// difference must be visible, or the carry looks like a grab that did
+    /// not end.
     pub hold_offset: (f32, f32),
 }
 
@@ -505,7 +454,7 @@ pub struct CaptureCarryParams {
 ///
 /// # Panics
 ///
-/// If `at_s` is past the move's own duration — the carry would never happen and
+/// If `at_s` is past the move's duration: the carry would never happen and
 /// the captor would spend the beat to keep an ordinary hold.
 pub fn author_carry(mut spec: MoveSpec, at_s: f32, params: CaptureCarryParams) -> MoveSpec {
     assert!(
@@ -525,6 +474,11 @@ pub fn author_carry(mut spec: MoveSpec, at_s: f32, params: CaptureCarryParams) -
     spec
 }
 
+/// Attach a throw release to `spec` at `at_s` of its own timeline.
+///
+/// The release is a timeline instant, not the button press. The captive stays
+/// held through the windup and leaves at this frame, so a throw's windup is
+/// readable and punishable.
 pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -> MoveSpec {
     spec.events.push(crate::MoveEvent {
         at_s,
@@ -538,18 +492,17 @@ pub fn author_throw(mut spec: MoveSpec, at_s: f32, params: CaptureThrowParams) -
 
 /// A fighter's capture kit.
 ///
-///  the three throws beyond forward are `Option` DURING THE MIGRATION. When the roster is
-/// migrated and capture is part of the required Smash contract, these lose their `Option` the
-/// same way any other slot would.
+/// The three throws beyond forward are `Option` while the roster migrates.
+/// When capture is part of the required Smash contract, they stop being
+/// `Option`.
 ///
-///  an unauthored throw does NOTHING, and deliberately does not fall back
-/// to a pummel. A player who presses up+attack and gets a pummel has been told
-/// the fighter has an up-throw that is bad; a player who gets nothing has been
-/// told it has none. The second is true.
+/// An unauthored throw does nothing; it does not fall back to a pummel. A
+/// pummel on up+attack tells the player the fighter has a bad up-throw; doing
+/// nothing tells them it has none, which is true.
 pub struct SmashCaptureRepertoire {
     /// The standing grab. Its Active window sustains the capture attempt.
     pub grab: MoveSpec,
-    /// The pummel: neutral Attack while holding somebody. Repeatable — the
+    /// The pummel: neutral Attack while holding somebody. Repeatable; the
     /// relationship outlives it.
     pub pummel: MoveSpec,
     /// Forward + Attack while holding somebody.
@@ -557,25 +510,23 @@ pub struct SmashCaptureRepertoire {
     pub back_throw: Option<MoveSpec>,
     pub up_throw: Option<MoveSpec>,
     pub down_throw: Option<MoveSpec>,
-    /// What this fighter's capture SHOWS. [`CaptureCues::GENERIC`] for a
-    /// fighter whose art is generic; its own rows for one whose kit guards that
-    /// every effect comes off its own sheet.
+    /// What this fighter's capture shows. [`CaptureCues::GENERIC`] for a
+    /// fighter with generic art; its own rows for a fighter whose tests require
+    /// every effect to come from its own sheet.
     pub cues: CaptureCues,
 }
 
-/// The verb a capture move answers to. The one place these strings exist.
+/// The verb a capture move answers to.
 ///
-///  they are not a directional family of `grab`. `capture_throw_forward` is
-/// selected by the ATTACK press inside a capture relationship, not by a
-/// directional grab press — so naming them `grab_forward` would invite the
-/// action scheme's directional-verb matcher to light the Grab slot up for a
-/// fighter that authored only throws.
+/// These are not a directional family of `grab`. `capture_throw_forward` is
+/// selected by the Attack press inside a capture, not by a directional grab
+/// press. Names such as `grab_forward` would make the action scheme's
+/// directional-verb matcher light the Grab slot for a fighter with only
+/// throws.
 pub mod verbs {
-    //!  re-exports, not a second definition. The strings live beside
-    //! `ATTACK_VERB` and `SMASH_VERB` in `ambition_entity_catalog` because the
-    //! move SELECTOR has to resolve them and that crate is the one both the
-    //! selector and this authoring module can see. Spelling them again here
-    //! would be two places for a typo to become a press that does nothing.
+    //! Re-exports, not a second definition. The strings live beside
+    //! `ATTACK_VERB` and `SMASH_VERB` in the crate root, because the move
+    //! selector must resolve them.
     pub use crate::{
         CAPTURE_PUMMEL_VERB as PUMMEL, CAPTURE_THROW_BACK_VERB as THROW_BACK,
         CAPTURE_THROW_DOWN_VERB as THROW_DOWN, CAPTURE_THROW_FORWARD_VERB as THROW_FORWARD,
@@ -583,18 +534,16 @@ pub mod verbs {
     };
 }
 
-/// The VOCABULARY's sprite row for a capture beat, asked for FIRST.
+/// The vocabulary's sprite row for a capture beat, asked for first.
 ///
-///  here rather than inside each `author_*` helper, for exactly the reason the
-/// cues are: [`SmashCaptureRepertoire::bound`] is the one place that already
-/// knows which VERB a beat answers to, so a fighter cannot author a pummel and
-/// forget to ask for the pummel row. The rows are the ones the fighter rigs
-/// draw — `grab`, `pummel`, `throw_forward`/`_back`/`_up`/`_down` — and every
-/// character asking for `attack` instead is why a throw and a jab looked the
-/// same.
+/// Applied in [`SmashCaptureRepertoire::bound`], which knows the verb of each
+/// beat, so a fighter cannot author a pummel and forget the pummel row. The
+/// rows are the ones fighter rigs draw: `grab`, `pummel`,
+/// `throw_forward`/`_back`/`_up`/`_down`.
 ///
-///  the character's own clip is KEPT, one step down the chain: a sheet with a
-/// bespoke row still draws it, and a sheet with only `attack` still lands there.
+/// The character's own clip is kept one step down the chain: a sheet with a
+/// bespoke row still draws it, and a sheet with only `attack` still lands
+/// there.
 fn row_first(mut spec: MoveSpec, rows: &[&str]) -> MoveSpec {
     let mut chain: Vec<String> = rows.iter().map(|r| (*r).to_string()).collect();
     chain.push(spec.clip.clip);
@@ -618,13 +567,11 @@ fn row_first(mut spec: MoveSpec, rows: &[&str]) -> MoveSpec {
 impl SmashCaptureRepertoire {
     /// The `(verb, spec)` rows this kit contributes to a moveset contract.
     ///
-    /// Every capture move is GROUNDED for v1: aerial and command grabs are named
-    /// future techniques, and a grab that answered an airborne press would be one
-    /// of them by accident.
-    ///  public because a contract assembled BY HAND still needs the one
-    /// verb mapping. `SmashRepertoire::into_contract` is the usual road, and a
-    /// table that builds its `MovesetContract` directly would otherwise copy the
-    /// verb names — the copy that drifts the day one is renamed.
+    /// Every capture move is grounded for now; aerial and command grabs are
+    /// future techniques.
+    ///
+    /// Public, because a contract built by hand still needs this verb mapping.
+    /// Otherwise that table would copy the verb names.
     pub fn bound(self) -> Vec<(&'static str, MoveSpec)> {
         let Self {
             grab,
@@ -635,13 +582,11 @@ impl SmashCaptureRepertoire {
             down_throw,
             cues,
         } = self;
-        //  the cues land HERE, in the one place that already walks every
-        // beat, rather than inside each `author_*` helper. A fighter cannot
-        // author a throw and forget its release flash, and there is no second
-        // site to keep in agreement.
-        // The running grab is DERIVED here, from the standing grab this fighter
-        // authored, so it picks up that fighter's own timing and — being built
-        // before the cue is applied below — its own reach flash too.
+        // The cues are applied here, where every beat is already walked, so a
+        // fighter cannot author a throw and forget its release flash.
+        // The running grab is derived here from the authored standing grab,
+        // before the cues are applied, so it gets the fighter's timing and
+        // its own reach flash.
         let running_grab = running_grab_from(&grab);
         let mut out = vec![
             (
@@ -730,11 +675,10 @@ mod tests {
         }
     }
 
-    /// THE ATTEMPT IS LIVE FOR THE WHOLE ACTIVE WINDOW, AND ONLY THERE.
+    /// The attempt is live for the whole Active window, and only there.
     ///
-    /// A grab that sustained through Startup would catch a body before the tell
-    /// finished, which is the frame data a shield read is made against; one that
-    /// sustained through Recovery would make a whiffed grab free.
+    /// Live in Startup, a grab would catch before the tell finished; live in
+    /// Recovery, a whiffed grab would be free.
     #[test]
     fn a_grab_sustains_its_attempt_on_the_active_window_alone() {
         let grab = author_standing_grab(
@@ -765,12 +709,8 @@ mod tests {
         );
     }
 
-    /// A GRAB WITH NO ACTIVE WINDOW IS CAUGHT AT AUTHORING TIME.
-    ///
-    /// It would otherwise play, cost its recovery, and be unable to catch
-    /// anybody — a fighter that looks like it has a grab and does not. The whole
-    /// reason the helper exists rather than fighters writing the `EffectRef`
-    /// themselves is that it can refuse this.
+    /// A grab with no Active window is caught at authoring time. Otherwise it
+    /// would play and cost its recovery without being able to catch anybody.
     #[test]
     #[should_panic(expected = "no Active window")]
     fn a_grab_that_is_never_live_refuses_to_be_authored() {
@@ -786,19 +726,10 @@ mod tests {
         );
     }
 
-    /// AN UNAUTHORED THROW CONTRIBUTES NO VERB.
+    /// The running grab is the fighter's own grab, later and longer.
     ///
-    /// The v1 migration rule, stated as a test: a fighter with only a forward
-    /// throw offers three capture verbs and not six. A press for a throw it does
-    /// not have must find nothing — NOT fall through to a pummel, which would
-    /// tell the player the fighter has a bad up-throw when it has none.
-    /// **The running grab is the fighter's OWN grab, later and longer.**
-    ///
-    /// ⛔ this is the assertion that makes the derivation honest rather than a
-    /// second invented move: every window keeps its shape, the catch happens at
-    /// the same point in the swing, and the ONLY additions are the wind-up and
-    /// the endlag — the endlag being the trade the genre actually charges for
-    /// grabbing out of a run.
+    /// Every window keeps its shape, the catch happens at the same point in
+    /// the swing, and the only additions are the windup and the endlag.
     #[test]
     fn a_running_grab_is_the_standing_one_later_and_longer() {
         let standing = grab_shell("grab", "grab", 0.07, 0.05, 0.2);
@@ -836,9 +767,8 @@ mod tests {
             "the wind-up did not lengthen by the stated startup"
         );
 
-        // ⛔ the ACTIVE window keeps its LENGTH — a running grab catches for just
-        // as long, it simply catches later. A derivation that stretched it would
-        // be a better grab, not a committed one.
+        // The Active window keeps its length: a running grab catches for as
+        // long, only later.
         let (a_start, a_end) = find(&standing, WindowTag::Active);
         let (ra_start, ra_end) = find(&running, WindowTag::Active);
         assert!(
@@ -868,13 +798,8 @@ mod tests {
             "the move outlives its own last window"
         );
 
-        // ⛔ **EVENTS AND AUTOCANCEL MOVE TOO**, and they are the half the
-        // derivation forgot. A grab's own effect fires at a point on its
-        // timeline; leaving that point where it was while the swing slides later
-        // fires it during the wind-up this derivation ADDED — the attempt going
-        // live before the hand has reached. Nothing ships that shape today only
-        // because the cue is applied after derivation, which makes this a trap
-        // for the next author rather than a live bug.
+        // Events and autocancel move too. A grab's effect fires at a point on
+        // its timeline; unshifted, it would fire during the added windup.
         let mut timed = grab_shell("grab", "grab", 0.07, 0.05, 0.2);
         timed.events.push(crate::MoveEvent {
             at_s: 0.09,
@@ -896,8 +821,8 @@ mod tests {
                 < 1e-6,
             "the autocancel point is measured from the move's start and did not              move with it"
         );
-        //  a move that authored NEITHER keeps neither -- the shift must not
-        // invent an autocancel out of `None`.
+        // A move that authored neither keeps neither: the shift must not
+        // create an autocancel from `None`.
         assert!(
             super::running_grab_from(&standing)
                 .autocancel_after_s
@@ -906,6 +831,9 @@ mod tests {
         );
     }
 
+    /// An unauthored throw contributes no verb. A fighter with only a forward
+    /// throw offers three capture verbs, not six. A press for a missing throw
+    /// finds nothing; it does not fall through to a pummel.
     #[test]
     fn an_unauthored_throw_is_absent_rather_than_substituted() {
         let kit = SmashCaptureRepertoire {
@@ -942,13 +870,10 @@ mod tests {
         );
     }
 
-    /// THE VERB NAMES THE ROW; THE FIGHTER'S OWN CLIP SURVIVES BEHIND IT.
+    /// The verb names the row; the fighter's own clip stays behind it.
     ///
-    ///  every shipped fighter authored `attack` for its pummel and its throws,
-    /// so a throw and a jab drew the same picture — while the sheets have carried
-    /// `pummel` and `throw_forward` the whole time.  both halves: asking for the
-    /// row is worthless if it REPLACES what a character chose, since a sheet
-    /// without the row would then fall past its own art to `idle`.
+    /// Asking for the row must not replace the character's clip, or a sheet
+    /// without the row would fall past its own art to `idle`.
     #[test]
     fn a_capture_beat_asks_for_its_verbs_row_before_the_authored_one() {
         let kit = SmashCaptureRepertoire {
@@ -983,15 +908,13 @@ mod tests {
                 .iter()
                 .map(|(head, _)| head.as_str())
                 .collect::<Vec<_>>(),
-            // ⚠ TWO "grab" heads: the running grab is derived from the standing
-            // one, so it asks the sheet for the same row — which is the point of
-            // deriving it rather than making every fighter author a second clip.
+            // Two "grab" heads: the running grab is derived from the standing
+            // one, so it asks for the same row.
             vec!["grab", "grab", "pummel", "throw_forward"],
             "a capture beat asked the sheet for a row its verb does not name"
         );
-        // ⛔ found BY NAME, not by index. This read `chains[2]` until the running
-        // grab was inserted ahead of it, at which point a positional assertion
-        // would have quietly started checking a different beat's chain.
+        // Found by name, not index, so inserting a beat cannot make the
+        // assertion check a different beat.
         let throw = chains
             .iter()
             .find(|(head, _)| head == "throw_forward")
@@ -1053,10 +976,7 @@ mod capture_cue_tests {
         }
     }
 
-    /// EVERY BEAT OF A CAPTURE SHOWS SOMETHING, AND SHOWS THE FIGHTER'S OWN.
-    ///
-    /// Capture beats carry authored cues from the fighter's own sheet so grab
-    /// state is visible without introducing shared presentation rows.
+    /// Every beat of a capture shows something, from the fighter's own sheet.
     #[test]
     fn every_capture_beat_carries_the_fighters_own_cue() {
         let bound = kit(CaptureCues {
@@ -1070,12 +990,12 @@ mod capture_cue_tests {
             effects(&bound.iter().find(|(verb, _)| *verb == v).unwrap().1)
         };
 
-        //  the grab's cue sits on the REACH — the first LIVE frame, not zero —
-        // so a whiff reads as an attempt at the moment it could have caught
-        // somebody, which is the punish window a player has to learn.
+        // The grab's cue is on the reach (the first live frame, not zero), so
+        // a whiff reads as an attempt at the moment it could have caught
+        // somebody.
         assert_eq!(by_verb(verbs::GRAB), vec![(0.07, "mine_reach".to_string())]);
-        // The pummel and the throw ride the SAME instant as their own gameplay
-        // effect, so retuning a beat cannot leave its flash behind.
+        // The pummel and the throw use the same instant as their gameplay
+        // effect, so retuning a beat moves its flash too.
         assert_eq!(
             by_verb(verbs::PUMMEL),
             vec![(0.08, "mine_impact".to_string())]
@@ -1086,8 +1006,8 @@ mod capture_cue_tests {
         );
     }
 
-    /// AND A GENERIC KIT GETS THE SHIPPED ROWS, so the eleven fighters with
-    /// no bespoke sheet are not left silent to keep the three honest.
+    /// A generic kit gets the shipped rows, so fighters without a bespoke
+    /// sheet still show their capture.
     #[test]
     fn a_generic_kit_still_shows_its_capture() {
         let bound = kit(CaptureCues::GENERIC).bound();

@@ -12,7 +12,7 @@ pub const PLACE_SPRING: &str = "smash.place_spring";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlaceSpringParams {
-    /// How hard it throws, in world px per second. UPWARD is negative `y`, and
+    /// How hard it throws, in world px per second. Upward is negative `y`, and
     /// the launch is authored as a vector so a plate can be angled.
     pub launch: (f32, f32),
     /// The plate's size on the floor.

@@ -1,92 +1,70 @@
-//! **THE LAUNCH LAW, AND THE ONLY COPY OF IT.**
+//! The launch law. This is the only copy.
 //!
-//! ⛔⛤ **IT USED TO BE TWO, AND THE SECOND ONE RANKED THE FIGHTER BRAIN'S KILL
-//! MOVES — REVIEWED 2026-09-20.** `ambition_combat` resolves a hit's launch as
+//! `ambition_combat` resolves a hit's launch as
 //! `base + growth × growth_base(base) × growth_scale × victim_damage / weight`,
-//! all folded with rage. [`crate::LaunchEnvelope::at`] evaluated
-//! `base + growth × victim_damage` and argued that the omitted factors are
-//! *"COMMON to every candidate one attacker weighs against one opponent, so
-//! none of them can reorder a kit"*.
+//! folded with rage. The fighter brain must rank moves with the same law.
 //!
-//! **That argument is wrong, and it is wrong in the one place it matters.** The
-//! omitted factors multiply the PERCENT TERM and not `base`, so they move the
-//! CROSSOVER between two candidates rather than scaling both alike. For two
-//! volumes `(b₁, g₁)` and `(b₂, g₂)` the crossover sits at
+//! The factors other than `victim_damage` multiply the percent term, not
+//! `base`, so they move the crossover between two candidates instead of
+//! scaling both alike. For two volumes `(b₁, g₁)` and `(b₂, g₂)` the crossover
+//! is at
 //!
 //! ```text
 //! d* = (b₂ − b₁) · weight / (growth_scale · growth_base · (g₁ − g₂))
 //! ```
 //!
-//! — every omitted factor is in it. George Booul's forward smash is
-//! `(185, 3.45)` and his up smash `(178, 6.28)`: at two points of victim damage
-//! the brain preferred forward (191.90 against 190.56), while the runtime
-//! against a Robot v2 (weight 0.85, the smash ruleset's percent scale 1.25)
-//! gives about 195.15 against 196.47 — up smash has already overtaken.
+//! Every factor is in it. Example: George Booul's forward smash is
+//! `(185, 3.45)` and his up smash `(178, 6.28)`. At two points of victim
+//! damage, the damage-only law prefers forward (191.90 against 190.56); the
+//! full law against a Robot v2 (weight 0.85, percent scale 1.25) gives about
+//! 195.15 against 196.47, so the up smash already wins.
 //!
-//! ⇒ One function, in the crate BOTH sides can see. `ambition_combat` owns the
-//! ruleset that RESOLVES these numbers; it does not own the arithmetic that
-//! spends them.
+//! So there is one function, in the crate both sides can see.
+//! `ambition_combat` owns the ruleset that resolves these numbers; this owns
+//! the arithmetic.
 
-/// HOW MUCH STEEPER A HEAVY HIT'S PERCENT CURVE IS THAN A LIGHT ONE'S.
+/// How much steeper a heavy hit's percent curve is than a light one's.
 ///
-/// ⭐⭐ THIS EXISTS BECAUSE THE ROSTER'S AUTHORING IS HOMOGENEOUS, and that was
-/// MEASURED rather than supposed. Across all 22 bound roles the ratio
-/// `knockback_growth / knockback` sits in 0.019-0.021 — a jab's percent curve
-/// and a forward smash's are the SAME curve, differing only by the constant
-/// `base`. So a kill move is a jab times a number, and the thing a platform
-/// fighter needs — "this one closes stocks and that one does not" — is not
-/// expressible in what the roster currently authors.
+/// The roster's authoring is homogeneous: across the bound roles,
+/// `knockback_growth / knockback` is about 0.02, so a jab's percent curve and
+/// a forward smash's differ only by `base`. This curve reads each volume's own
+/// `base`, so it can separate moves.
 ///
-/// ⛔ AND IT IS NOT `victim_percent_knockback_scale` UNDER ANOTHER NAME. That
-/// knob is base-INDEPENDENT: raising it multiplies every move's percent term by
-/// one factor, which is arithmetically identical to raising every authored
-/// growth, and leaves the roster exactly as undifferentiated as it started.
-/// This one reads the volume's own `base`, so it separates moves that knob
-/// cannot.
+/// It is not `victim_percent_knockback_scale` under another name. That knob
+/// multiplies every move's percent term by one factor, the same as raising
+/// every authored growth, so it does not separate moves.
 ///
-/// ⛔ THE PRICE, STATED HERE RATHER THAN DISCOVERED LATER: wherever this is
-/// declared, an authored `knockback_growth` stops reading as px/s-per-percent
-/// at face value, because the number an author writes is multiplied before it
-/// is spent.
+/// The cost: wherever a curve is declared, an authored `knockback_growth` is
+/// multiplied before it is used, so it no longer reads at face value.
 ///
-/// ⚠ **IT LIVES IN THE CATALOG AND IS DECLARED BY A RULESET**, which is not a
-/// contradiction: `ambition_combat::rules` owns *which* curve a stage runs
-/// under, and this owns what a curve DOES. The fighter brain has to spend the
-/// same one the hit resolver does, and it cannot see `ambition_combat`.
+/// It lives in the catalog and a ruleset declares it: `ambition_combat::rules`
+/// chooses which curve a stage uses, and this defines what a curve does. The
+/// fighter brain must use the same curve as the hit resolver and cannot see
+/// `ambition_combat`.
 ///
-/// ⛔⛤ **AND NO SHIPPED RULESET DECLARES ONE TODAY — READ THAT BEFORE CITING
-/// THIS AS THE SMASH STAGE'S LAW.** The smash demo declared
-/// `48 / 0.25 / 1.40` and then RETIRED it (`ambition_demo_smash`'s
-/// `growth_base: None`, with its reasons beside it): base knockback is not a
-/// move's role, so the curve distorted a deliberate high-base/low-growth
-/// shove, made an authored `knockback_growth` stop meaning what it says, and
-/// never reached throws at all. The homogeneous authoring it was synthesising
-/// around has since been authored explicitly. ⇒ Every live world resolves to
-/// [`Self::IDENTITY`]; this stays because the knob is still declarable and the
-/// law must be evaluable either way, not because anything spends it.
+/// No shipped ruleset declares one today. `ambition_demo_smash` sets
+/// `growth_base: None` (its reasons are beside it), so every live world
+/// resolves to [`Self::IDENTITY`]. The knob stays declarable, and the law must
+/// evaluate it either way.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GrowthBaseCurve {
     /// The base knockback at which the steepening is exactly `1.0`. Pick a
-    /// POKE-SIZED base: every volume at or below it is left untouched.
+    /// poke-sized base: every volume at or below it is unchanged.
     pub pivot: f32,
     /// How sharply the steepening climbs. `0.0` is identity at every pivot.
     pub exponent: f32,
     /// The most this curve may multiply any growth by.
     ///
-    /// ⭐ A CEILING IS NOT DECORATION HERE, and the outlier that motivates it
-    /// was measured. Three bound pulses carry a base past the largest smash
-    /// (185); the largest, `bivalence` at 367.2, authors `growth/base` =
-    /// 0.0093 — less than half the roster's 0.019-0.021. It is deliberately a
-    /// huge-base, low-growth finisher, i.e. the ONE move that most consciously
-    /// departs from the homogeneity this curve keys on. Uncapped it would
-    /// collect the largest multiplier on the roster, which is the opposite of
-    /// what its author said about it.
+    /// A ceiling is needed. The largest base on the roster (`bivalence`, 367.2)
+    /// is a deliberate huge-base, low-growth finisher (`growth/base` 0.0093).
+    /// Uncapped, it would get the largest multiplier, the opposite of its
+    /// author's intent.
     pub ceiling: f32,
 }
 
 impl GrowthBaseCurve {
-    /// The law exactly as it was first written: a no-op at every base. Every
-    /// undeclared world — which is every Ambition room — resolves to this.
+    /// The law as first written: a no-op at every base. Every undeclared world
+    /// (every Ambition room) resolves to this.
     pub const IDENTITY: Self = Self {
         pivot: 1.0,
         exponent: 0.0,
@@ -95,17 +73,13 @@ impl GrowthBaseCurve {
 
     /// What this curve multiplies a volume's authored growth by.
     ///
-    /// ⛔ IT CAN ONLY EVER STEEPEN. The `.max(1.0)` on the ratio and the
-    /// `.max(1.0)` on the ceiling each hold the factor at or above `1.0`, so a
-    /// declared curve is never a second way to nerf pokes — nothing measured
-    /// here asked for one, and a curve that could weaken a jab would otherwise
-    /// be reachable by accident from a mistyped pivot.
+    /// It can only steepen. The `.max(1.0)` on the ratio and on the ceiling
+    /// keep the factor at or above `1.0`, so a mistyped pivot cannot weaken a
+    /// jab.
     ///
-    /// ⛔ AND IT CANNOT RESURRECT A FIXED-KNOCKBACK MOVE, because [`launch_speed`]
-    /// multiplies: `growth == 0.0` times any factor is still `0.0`, and the law
-    /// short-circuits on that to return `base`. `Some(0.0)` — the documented way
-    /// to author a launch that ignores percent — stays exactly that at every
-    /// curve.
+    /// It cannot revive a fixed-knockback move: [`launch_speed`] multiplies,
+    /// so `growth == 0.0` stays `0.0`, and the law returns `base` early.
+    /// `Some(0.0)` stays fixed at every curve.
     pub fn scale(self, base: f32) -> f32 {
         if self.exponent == 0.0 || self.pivot <= 0.0 || base <= 0.0 {
             return 1.0;
@@ -123,44 +97,38 @@ impl Default for GrowthBaseCurve {
     }
 }
 
-/// Everything about the WORLD and the VICTIM that a launch depends on — the
+/// Everything about the world and the victim that a launch depends on: the
 /// half of [`launch_speed`] that is not the move.
 ///
-/// ⭐ **A VALUE RATHER THAN FIVE ARGUMENTS, because the fighter brain evaluates
-/// a whole kit against ONE opponent** and every candidate shares it. Building
-/// it once per decision is also what makes it obvious that a candidate cannot
-/// quietly be priced under different conditions than its rival.
+/// A value, not five arguments, because the fighter brain evaluates a whole
+/// kit against one opponent. Building it once per decision guarantees every
+/// candidate is priced under the same conditions.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LaunchConditions {
     /// The victim's accumulated damage — the percent axis.
     pub victim_damage: i32,
-    /// Knockback weight (CM1): heavier bodies launch less under the same growth
+    /// Knockback weight: heavier bodies launch less under the same growth
     /// term. `1.0` is the reference body; non-positive reads as `1.0`.
     pub victim_weight: f32,
-    /// The ruleset's scale on the PERCENT TERM ALONE — its
-    /// `victim_percent_knockback_scale` folded with this move's staling
-    /// influence. `1.0` is the law as first written.
+    /// The ruleset's scale on the percent term alone: its
+    /// `victim_percent_knockback_scale` folded with this move's staling. `1.0`
+    /// is the law as first written.
     pub growth_scale: f32,
     /// The ruleset's per-`base` steepening.
     pub growth_base: GrowthBaseCurve,
-    /// **THE RULESET'S FALLBACK GROWTH, AS A FRACTION OF `base`** — what a
-    /// volume that authors `knockback_growth: None` grows by.
+    /// The ruleset's fallback growth, as a fraction of `base`: what a volume
+    /// that authors `knockback_growth: None` grows by.
     ///
-    /// ⛔⛤ **`None` AND `Some(0.0)` ARE DIFFERENT AUTHORINGS AND THIS IS WHY
-    /// THE DIFFERENCE HAS TO TRAVEL — REVIEWED 2026-09-20.** `Some(0.0)` is
-    /// FIXED knockback: the author asked for a launch that ignores percent.
-    /// `None` is *"the ruleset decides"*, and on a stage that declares
-    /// `knockback_growth` it decides `base * this`. [`launch_speed`] collapses
-    /// the two roads and it is the only place that does; a caller that
-    /// collapses first has thrown the distinction away before the law sees it.
+    /// `None` and `Some(0.0)` differ. `Some(0.0)` is fixed knockback. `None`
+    /// means "the ruleset decides", which on a stage that declares
+    /// `knockback_growth` is `base * this`. Only [`launch_speed`] collapses the
+    /// two; a caller must not collapse them first.
     ///
-    /// ⚠ `0.0` IS THE UNDECLARED WORLD and is exactly what
-    /// `DeclaredCombatRules`' own default carries — *"growth has NO world
-    /// baseline to fall back to"* — so an Ambition room resolves `None` to a
-    /// set launch, which is what it has always been.
+    /// `0.0` is the undeclared world (the default of `DeclaredCombatRules`),
+    /// so an Ambition room resolves `None` to a set launch.
     pub ruleset_growth: f32,
     /// The attacker's rage multiplier, already resolved. Applied to the whole
-    /// launch, and DECLINED by a set-knockback move — see [`launch_speed`].
+    /// launch, and declined by a set-knockback move (see [`launch_speed`]).
     pub rage: f32,
 }
 
@@ -168,10 +136,9 @@ impl LaunchConditions {
     /// A fresh reference body under the undeclared ruleset: no percent, weight
     /// `1.0`, identity curve, no rage.
     ///
-    /// ⚠ **THIS IS A FIXTURE'S ANSWER, NOT A DEFAULT TO REACH FOR.** A caller
-    /// that does not know the conditions is a caller that will rank a kit
-    /// wrong; it should carry them, which is what the perception view exists
-    /// for.
+    /// This is a fixture value, not a default. A caller that does not know the
+    /// conditions will rank a kit wrong; it should carry them (the perception
+    /// view exists for that).
     pub const AGAINST_A_FRESH_REFERENCE_BODY: Self = Self {
         victim_damage: 0,
         victim_weight: 1.0,
@@ -181,7 +148,7 @@ impl LaunchConditions {
         rage: 1.0,
     };
 
-    /// The same conditions with a different victim meter — the one axis a
+    /// The same conditions with a different victim meter: the one axis a
     /// scorer sweeps.
     pub fn at_damage(self, victim_damage: i32) -> Self {
         Self {
@@ -191,44 +158,29 @@ impl LaunchConditions {
     }
 }
 
-/// **The launch speed one authored `(base, growth)` produces under `conditions`.**
+/// The launch speed one authored `(base, growth)` produces under
+/// `conditions`.
 ///
-/// ⛔ **SET KNOCKBACK IS THE FIRST BRANCH AND IT DECLINES EVERYTHING** —
-/// percent, weight, ruleset scale and rage alike. A volume or throw written
-/// with zero growth launches the same at 0% and at 150% BY CONSTRUCTION; it is
-/// the genre's combo starter and its kill set-up, and rage is a percent-derived
-/// multiplier, so folding it over a set launch reintroduces exactly the percent
-/// dependence the author wrote `0.0` to remove. Ultimate excludes set knockback
-/// from rage for the same reason.
+/// Set knockback is the first branch, and it ignores percent, weight, ruleset
+/// scale and rage. A volume or throw with zero growth launches the same at 0%
+/// and at 150%. Rage is derived from percent, so applying it to a set launch
+/// would add back the percent dependence the author removed.
 ///
-/// ⚠ **THE AUTHORED GROWTH DECIDES THAT, NOT THE SCALED ONE.** `growth_base`
-/// and `growth_scale` are knobs a ruleset turns; either could reach zero and
-/// make a percent-scaling move momentarily look set, which would silently
-/// switch rage off game-wide. The short-circuit reads what the author wrote.
+/// The authored growth decides that, not the scaled one. `growth_base` and
+/// `growth_scale` could reach zero and make a scaling move look set, which
+/// would switch rage off for it.
 ///
-/// ⛔⛤ **AND THE TWO AUTHORING ROADS ARE COLLAPSED HERE, WHICH IS THE WHOLE
-/// REASON `growth` IS AN `Option` — REVIEWED 2026-09-20.** `Some(0.0)` is a
-/// FIXED launch and `None` is *"the ruleset decides"*; they are the same
-/// number only in a world that declares no growth. Both sides of the law used
-/// to collapse them, and they collapsed them DIFFERENTLY: the hit resolver
-/// read `None` as `base * ruleset_growth` and the fighter brain's envelope
-/// read it as `0.0`. On the smash stage — `knockback_growth: 0.02`,
-/// `victim_percent_knockback_scale: 1.25` — `cellular_pulse` (base 140,
-/// `None`) resolves to **490px/s at 100%** for the hit resolver and **140** for
-/// the brain, and the brain also called it a set launch and declined its rage.
-/// ⇒ The collapse happens once, here, after the conditions are known.
+/// This is where the two authoring roads collapse, which is why `growth` is an
+/// `Option`. `Some(0.0)` is a fixed launch; `None` means "the ruleset
+/// decides". They are equal only in a world that declares no growth. (On the
+/// smash stage, `cellular_pulse`, base 140 with `None`, is 490px/s at 100%.)
 ///
-/// ⭐⭐ **THE SCALE RIDES THE PERCENT TERM AND NOTHING ELSE, which is the whole
-/// shape of this law.** `base` is what a move is worth against a FRESH
-/// opponent, and a ruleset asking for a steeper percent curve is not asking for
-/// a stronger jab — it is asking for the DIFFERENCE between a fresh opponent
-/// and a worn one to be larger. Folding the scale over the sum instead would
-/// inflate every launch in the game by the same factor and make a 0% poke
-/// lethal, which is precisely what a percent mechanic exists not to do.
+/// The scale applies to the percent term only. `base` is the value against a
+/// fresh opponent; a steeper percent curve increases the difference between a
+/// fresh and a worn opponent. Scaling the sum would make a 0% poke stronger.
 ///
-/// ⛔ AND 0% STILL CONTRIBUTES EXACTLY ZERO, AT EVERY SCALE: the
-/// `victim_damage` factor zeroes the term before the scale can touch it, so no
-/// value of `growth_scale` can move a 0% hit.
+/// At 0% the term is exactly zero at every scale: `victim_damage` zeroes it
+/// before the scale applies.
 pub fn launch_speed(base: f32, growth: Option<f32>, conditions: LaunchConditions) -> f32 {
     let authored = growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0));
     if authored == 0.0 {
@@ -263,8 +215,7 @@ mod tests {
         }
     }
 
-    /// ⛔ growth == 0 returns the flat base for ANY damage/weight — the
-    /// byte-parity pin that keeps every un-authored volume unchanged.
+    /// growth == 0 returns the flat base for any damage and weight.
     #[test]
     fn a_zero_growth_launch_is_its_base_at_every_damage_and_weight() {
         for dmg in [0, 5, 50, 999] {
@@ -274,22 +225,18 @@ mod tests {
         }
     }
 
-    /// FIXED KNOCKBACK IS FIXED AT EVERY PERCENT SCALE, and a stale fixed move
-    /// is not weakened either.
+    /// Fixed knockback is fixed at every percent scale, and staleness does not
+    /// weaken it.
     ///
-    /// ⛔ `Some(0.0)` growth is the documented way to author a move whose
-    /// launch does not care about percent — jab-lock finishers and
-    /// set-knockback throws depend on it. A percent-curve knob is exactly the
-    /// kind of change that quietly turns those into percent-scaling moves, so
-    /// the pin sweeps the SCALE as well as the damage: no value of either may
-    /// move the answer off `base`.
+    /// `Some(0.0)` growth is how a move ignores percent (jab-lock finishers and
+    /// set-knockback throws use it). The test sweeps the scale as well as the
+    /// damage: neither may move the answer off `base`.
     #[test]
     fn fixed_knockback_ignores_the_percent_scale_and_staleness_alike() {
         for dmg in [0, 5, 50, 700, 999] {
             for w in [0.5, 1.0, 4.0] {
-                // the sweep range Jon asked for, plus a fully-stale knockback
-                // scale (`0.865`) and an absurd value, so the claim is about
-                // the whole knob and not about the value we happened to choose.
+                // A typical sweep, a fully stale knockback scale (`0.865`) and
+                // an extreme value, so the claim covers the whole knob.
                 for scale in [0.0, 0.865, 1.0, 1.5, 2.0, 2.5, 100.0] {
                     assert_eq!(
                         launch_speed(46.0, Some(0.0), plain(dmg, w, scale)),
@@ -317,17 +264,15 @@ mod tests {
         assert_eq!(launch_speed(10.0, Some(2.0), plain(10, 0.0, 1.0)), 30.0);
     }
 
-    /// THE PERCENT SCALE MOVES THE PERCENT TERM AND NEVER THE BASE.
+    /// The percent scale moves the percent term and never the base.
     ///
-    /// ⭐ The distinction is the entire design, and it is the one a "just
-    /// multiply the knockback" fix gets wrong: a 0% hit must be untouched at
-    /// ANY scale, while a high-percent hit moves by the full factor. Asserting
-    /// both ends in one test is what stops the knob degenerating into a global
-    /// launch buff.
+    /// A 0% hit must be unchanged at any scale, while a high-percent hit moves
+    /// by the full factor. Both ends in one test stop the knob from becoming a
+    /// global launch buff.
     #[test]
     fn the_percent_scale_scales_the_percent_term_alone() {
         // At 0% the term is already zero, so no scale can reach it. An
-        // EQUALITY, not a tolerance.
+        // equality, not a tolerance.
         for scale in [0.0, 1.0, 1.5, 2.0, 2.5] {
             assert_eq!(
                 launch_speed(50.0, Some(1.05), plain(0, 1.0, scale)),
@@ -340,8 +285,8 @@ mod tests {
         // 50 + 1.05*100 = 155 fresh, 50 + 2*1.05*100 = 260 at 2x.
         assert_eq!(launch_speed(50.0, Some(1.05), plain(100, 1.0, 1.0)), 155.0);
         assert_eq!(launch_speed(50.0, Some(1.05), plain(100, 1.0, 2.0)), 260.0);
-        // ⛔ AND THE GAP IS THE PERCENT TERM, NOT THE LAUNCH: 260 is not 2x155.
-        // If it ever were, the scale would have swallowed the base too.
+        // The gap is the percent term, not the launch: 260 is not 2x155. If it
+        // were, the scale would have included the base.
         assert!(
             launch_speed(50.0, Some(1.05), plain(100, 1.0, 2.0))
                 < 2.0 * launch_speed(50.0, Some(1.05), plain(100, 1.0, 1.0)),
@@ -351,8 +296,7 @@ mod tests {
         assert_eq!(launch_speed(50.0, Some(1.05), plain(700, 1.0, -3.0)), 50.0);
     }
 
-    /// ⛔ AND THE GROWTH-BASE CURVE CAN ONLY STEEPEN, never nerf a poke — the
-    /// property its own doc claims and the one a mistyped pivot would reach.
+    /// The growth-base curve can only steepen; it never weakens a poke.
     #[test]
     fn the_growth_base_curve_only_ever_steepens() {
         let curve = GrowthBaseCurve {
@@ -374,11 +318,9 @@ mod tests {
 
     /// George Booul's forward smash `(185, 3.45)` and up smash `(178, 6.28)`,
     /// which is the pair the review named.
-    // `6.28` is George's AUTHORED growth, copied from
-    // `george_booul_moveset.rs` so this fixture is the shipped move and not a
-    // number that resembles it — rounding it away to satisfy the lint would
-    // silently make the test about something else. The authoring site carries
-    // the same allow for the same reason.
+    // `6.28` is George's authored growth, copied from
+    // `george_booul_moveset.rs` so the fixture is the shipped move. Do not
+    // round it to satisfy the lint; the authoring site has the same allow.
     #[allow(clippy::approx_constant)]
     fn george() -> (crate::LaunchEnvelope, crate::LaunchEnvelope) {
         (
@@ -387,47 +329,35 @@ mod tests {
         )
     }
 
-    /// The smash stage's law as it is declared TODAY, by value:
-    /// `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE` `1.25` against a Robot v2's
-    /// authored `knockback_weight` of `0.85`.
+    /// The smash stage's law by value: `SMASH_VICTIM_PERCENT_KNOCKBACK_SCALE`
+    /// `1.25` against a Robot v2's `knockback_weight` of `0.85`.
     ///
-    /// ⛔ THE CURVE IS `IDENTITY` BECAUSE THE STAGE DECLARES `growth_base:
-    /// None` — see [`GrowthBaseCurve`]. Writing the retired `48 / 0.25 / 1.40`
-    /// in here would make the arm below certify a law nothing runs, and it is
-    /// not needed: TWO of the omitted factors move the crossover on their own.
+    /// The curve is `IDENTITY` because the stage declares `growth_base: None`
+    /// (see [`GrowthBaseCurve`]). Two of the other factors move the crossover
+    /// on their own.
     ///
-    /// ⚠ **COPIED RATHER THAN IMPORTED, ON PURPOSE.** This crate is below the
-    /// demo and must not depend on it; what the arm needs is a law SHAPED like
-    /// a real one, and the citation is what ties it to the shipped numbers. If
-    /// the demo retunes, this test still asserts the same thing — that the
-    /// factors reorder a kit — which is the claim, and not the tuning.
+    /// Copied, not imported: this crate is below the demo and must not depend
+    /// on it. If the demo retunes, the claim (the factors reorder a kit)
+    /// still holds.
     fn the_smash_stage(victim_damage: i32) -> LaunchConditions {
         LaunchConditions {
             victim_damage,
             victim_weight: 0.85,
             growth_scale: 1.25,
             growth_base: GrowthBaseCurve::IDENTITY,
-            // ⭐ AND THE STAGE'S FALLBACK GROWTH, `SMASH_KNOCKBACK_GROWTH`. It
-            // moves nothing in the arms below — both smashes author their own
-            // growth — and it is stated because a `0.0` here would be the
-            // undeclared world wearing the stage's name.
+            // The stage's fallback growth, `SMASH_KNOCKBACK_GROWTH`. It does not
+            // change the arms below (both smashes author their own growth); a
+            // `0.0` here would be the undeclared world.
             ruleset_growth: 0.02,
             rage: 1.0,
         }
     }
 
-    /// ⛔⛤ **THE FACTORS THE BRAIN OMITTED MOVE THE CROSSOVER, WHICH IS THE
-    /// WHOLE OF THE REVIEW FINDING.**
+    /// The factors other than victim damage move the crossover, so they can
+    /// reorder a kit at the same victim damage.
     ///
-    /// `LaunchEnvelope::at` took only the victim's damage, and its doc argued
-    /// that `growth_scale`, the victim's weight and rage are *"COMMON to every
-    /// candidate one attacker weighs against one opponent, so none of them can
-    /// reorder a kit"*. They multiply the PERCENT TERM and not `base`, so they
-    /// reorder exactly by moving where two lines cross.
-    ///
-    /// ⭐ THE CONTROL IS THE FIRST ARM: under the identity law the OLD answer
-    /// is the right one, so this is a statement about the conditions and not
-    /// about the two numbers.
+    /// The first arm is the control: under the identity law, the damage-only
+    /// answer is right, so the difference comes from the conditions.
     #[test]
     fn the_omitted_factors_reorder_a_kit_at_the_same_victim_damage() {
         let (forward, up) = george();
@@ -453,8 +383,8 @@ mod tests {
         );
     }
 
-    /// ⛔ SET KNOCKBACK DECLINES EVERY ONE OF THEM, which is what authoring
-    /// `Some(0.0)` means and the one thing a shared law must not quietly undo.
+    /// Set knockback ignores every condition; a shared law must not undo
+    /// `Some(0.0)`.
     #[test]
     fn a_set_launch_is_the_same_under_every_condition() {
         let set = crate::LaunchEnvelope::default().with_volume(120.0, Some(0.0));
@@ -474,9 +404,9 @@ mod tests {
         );
     }
 
-    /// ⛔ AND A ZERO-PERCENT HIT IS ITS BASE AT EVERY SCALE, because the
-    /// victim's damage zeroes the term before any factor can touch it. Without
-    /// this the percent knob would be a knockback buff.
+    /// A zero-percent hit is its base at every scale: the victim's damage
+    /// zeroes the term before any factor applies. Otherwise the percent knob
+    /// would be a knockback buff.
     #[test]
     fn no_ruleset_factor_can_move_a_launch_at_zero_percent() {
         let jab = crate::LaunchEnvelope::default().with_volume(40.0, Some(0.8));

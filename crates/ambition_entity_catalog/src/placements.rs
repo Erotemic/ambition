@@ -130,7 +130,7 @@ pub enum InteractionKindSpec {
         /// Explicit initial brain preset override (a `brain_presets` key). `None`
         /// / empty means use the character's catalog `default_brain`. A non-empty
         /// value names the preset this placement's brain is instantiated from,
-        /// regardless of the character's default. The brain is NEVER selected by
+        /// regardless of the character's default. The brain is never selected by
         /// inspecting radius/path/hostility; this string is the authored choice,
         /// resolved by `ambition_characters`'s `resolve_initial_brain`.
         #[serde(default)]
@@ -144,27 +144,12 @@ pub enum InteractionKindSpec {
 
 /// Authored pickup reward, respawn policy, and optional presentation.
 ///
-/// ⛔⛤ **`collected: bool` WAS DELETED 2026-09-12, AND IT IS THE SAME DEFECT
-/// `ChestSpec.state` WAS.** It was a public, serializable, documented authoring
-/// field that the lowering faithfully copied into `Pickup::collected` — and <!-- cite-ok: records a field deleted 2026-09-12; naming it is the point -->
-/// production collection logic never read either one. The live authority is the
-/// `ambition_combat::components::Collected` MARKER, which `pickups.rs` inserts
-/// and queries (`Without<Collected>`).
-///
-/// ⇒ So `PickupSpec { collected: true, .. }` did not mean what its own schema
-/// said: the pickup still lacked the marker and was still there to be taken.
-/// That is a CORRECTNESS defect rather than a dead field — an author could state
-/// a fact the runtime contradicts, and a third-party provider had no way to
-/// infer that a documented field is deliberately ignored.
-///
-/// ⛔ **DELETED RATHER THAN WIRED, and the reason is the same standard the chest
-/// was held to:** do not make unsupported semantics expressible and then
-/// silently discard them. Wiring it would mean inserting `Collected` during
-/// construction, which is a real feature ("this pickup starts already taken")
-/// that nothing asks for — and MEASURED before deleting, **no authored content
-/// file in the tree sets it**, so nothing loses a meaning it had. If that
-/// feature is ever wanted, it arrives as an insert of the live marker and not as
-/// a second representation beside it.
+/// There is no authored "collected" flag. The live authority is the
+/// `ambition_combat::components::Collected` marker, which `pickups.rs` inserts
+/// and queries (`Without<Collected>`). A second, authored representation that
+/// the runtime ignored would let an author state a fact the runtime
+/// contradicts. If "starts already taken" is ever needed, add it as an insert
+/// of the live marker.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PickupSpec {
     pub kind: PickupKind,
@@ -198,28 +183,12 @@ impl PickupSpec {
 
 /// An authored chest's optional reward and persistence policy.
 ///
-/// ⛔⛤ **THERE IS NO AUTHORED `state`, AND ITS ABSENCE IS THE FIX FOR A LATENT
-/// DEFECT rather than a gap.** `ChestSpec` carried `state: ChestStateSpec`
-/// (`Closed` / `Opening` / `Opened`), lowered at spawn into `Chest::state` —
-/// **a component field that NO production code read.** The live authority for
-/// *"is this chest opened"* is the `ambition_combat::Opened` MARKER, written by
-/// `boss_encounter::rewards` and rollback-registered as `feature.opened`.
-///
-/// ⚠ **SO AN AUTHORED `Opened` CHEST SPAWNED WITH THE RUNTIME TREATING IT AS
-/// CLOSED — ITS REWARD WAS GRANTABLE AGAIN.** It was unreachable only because
-/// the one authoring surface that builds chests, LDtk's `ChestSpawn`, declares
-/// just `name` and `reward`, and `ChestSpec::new` hard-coded `Closed`. Measured
-/// 2026-09-12 across every `.ron`/`.json`/`.ldtk` in the tree including the map
-/// submodule: no authored file set a chest state, and `Chest` is not in the save
-/// format.
-///
-/// ⇒ **DELETED RATHER THAN GUARDED.** A warning on the non-`Closed` case would
-/// have been a check on a state that no authoring surface can reach; removing
-/// the field means the state cannot be EXPRESSED, so the second recorder cannot
-/// come back by accident. What an authored opened chest *should* do — spawn with
-/// the marker, or be refused — is a real product question, and whoever wants it
-/// adds the field and the lowering TOGETHER. A field without a lowering is the
-/// trap this removes.
+/// There is no authored chest state. The live authority for "is this chest
+/// opened" is the `ambition_combat::Opened` marker, written by
+/// `boss_encounter::rewards` and rollback-registered as `feature.opened`. An
+/// authored state that nothing lowers into the marker would let an opened
+/// chest grant its reward again. If authored opened chests are needed, add
+/// the field and its lowering together.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChestSpec {
     pub reward: Option<PickupKind>,
@@ -279,20 +248,10 @@ impl BreakableCollisionSpec {
 
 /// Authored breakable health, collision, trigger, and respawn behavior.
 ///
-/// ⛔⛤ **`debris_cue: Option<String>` IS GONE, 2026-09-17 — the LAST of the four
-/// fields the custody sweep found threaded end to end with no reader.** It was
-/// weaker than the three deleted on 2026-09-12: those were at least SET by
-/// content, while this one was never authored anywhere in the tree, in any
-/// format. What a breaking wall actually emits is fixed at the emitter —
-/// `ambition_combat::breakables::emit_breakable_destroyed` writes
-/// `PhysicsDebrisCue::Breakable` and `WORLD_CRATE_BREAK` as literals and takes no
-/// cue argument — so `debris_cue: Some("glass")` on an authored breakable named a
-/// cue that nothing could have looked up.
-///
-/// ⇒ Same argument as its siblings: **making the field impossible to misuse is a
-/// different question from deciding what per-breakable debris SHOULD do**, and
-/// only the second was ever blocked on a ruling. Whoever wants authored debris
-/// adds the field and the lookup at `emit_breakable_destroyed` together.
+/// There is no authored debris cue. What a breaking wall emits is fixed in
+/// `ambition_combat::breakables::emit_breakable_destroyed`, which takes no cue
+/// argument. To support per-breakable debris, add the field and the lookup
+/// there together.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BreakableSpec {
     pub state: BreakableStateSpec,
@@ -480,15 +439,15 @@ impl SpawnDisposition {
 /// `DeadStaysDead` is the default; respawning must be selected explicitly per archetype/placement.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum RespawnPolicy {
-    /// Dead stays dead — forever (an explicit save reset is the only
-    /// return). THE DEFAULT: named/unique actors take it implicitly.
+    /// Dead stays dead, forever (only an explicit save reset brings it back).
+    /// The default: named and unique actors get it implicitly.
     #[default]
     DeadStaysDead,
     /// Stays dead until the player rests at a save point
     /// (mini-boss-tier presences: brutes, colossi, pirate heavies).
     OnRest,
-    /// Fresh every time the player enters the room — the "Mob" choice
-    /// (trash grunts: skitters, lurkers, raiders, goblins).
+    /// Fresh every time the player enters the room: the "Mob" choice (trash
+    /// grunts: skitters, lurkers, raiders, goblins).
     OnRoomReenter,
     /// Revives in place this many seconds after death, where it stood
     /// (training sandbags). No death drops, no flag.

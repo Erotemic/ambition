@@ -611,3 +611,69 @@ fn the_summon_road_builds_an_identified_minion() {
         unidentified.len()
     );
 }
+
+/// **A summon wears its character and keeps what its summoner overrode.**
+///
+/// The minion road built its body from a prepared character but put the
+/// identity only on `ActorConfig::sprite_character_id`, so every seam that asks
+/// `WornCharacter` first fell through to the config copy for this one road.
+/// Wearing opts a body into the persona derive, which rewrites `BodyHealth`
+/// from the character; the summon's `health` override (3 against the shark's
+/// authored 6) is what a derive that ran would clobber.
+#[test]
+fn a_summoned_minion_wears_its_character_and_keeps_its_summoned_health() {
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    for _ in 0..SETTLE_FRAMES {
+        sim.step(AgentAction::default());
+    }
+    let (summoner, summoner_id) = {
+        let world = sim.world_mut();
+        let mut q = world.query_filtered::<(Entity, &SimId), (With<CenteredAabb>, With<ActorFaction>)>();
+        q.iter(world)
+            .next()
+            .map(|(entity, id)| (entity, id.as_str().to_string()))
+            .expect("the settled sandbox holds an identified damageable body to summon from")
+    };
+    sim.world_mut()
+        .write_message(ambition_platformer2d::vfx::EffectRequest {
+            owner: summoner,
+            effect: ambition_platformer2d::vfx::Effect::Summon(
+                ambition_platformer2d::vfx::SummonSpec {
+                    id: "worn_summon".to_string(),
+                    name: "Worn Summon".to_string(),
+                    pos: Vec2::new(300.0, 200.0),
+                    half_size: Vec2::new(12.0, 12.0),
+                    character_id: "npc_burning_flying_shark".to_string(),
+                    encounter_id: "worn_summon_encounter".to_string(),
+                    faction: ambition_platformer2d::vfx::HitSide::Enemy,
+                    ridden_by_summoner: None,
+                    health: Some(3),
+                    keeps_contact_damage: false,
+                },
+            ),
+        });
+    sim.step_n(AgentAction::default(), 30);
+
+    let world = sim.world_mut();
+    let mut q = world.query::<(
+        &SimId,
+        Option<&ambition_platformer2d::character::WornCharacter>,
+        &ambition_platformer2d::actor::BodyHealth,
+    )>();
+    let minions: Vec<(Option<String>, i32)> = q
+        .iter(world)
+        .filter(|(id, _, _)| id.as_str().starts_with(&format!("{summoner_id}/")))
+        .map(|(_, worn, health)| (worn.map(|w| w.id().to_string()), health.health.max))
+        .collect();
+    assert_eq!(minions.len(), 1, "one summon, one body: {minions:?}");
+    assert_eq!(
+        minions[0].0.as_deref(),
+        Some("npc_burning_flying_shark"),
+        "the summon must wear the character it was built from"
+    );
+    assert_eq!(
+        minions[0].1, 3,
+        "the summoner's health override was replaced by the character's authored vitals"
+    );
+}

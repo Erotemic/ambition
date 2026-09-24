@@ -500,32 +500,25 @@ impl DifficultyProfile {
 /// per actor and feeds it through [`BrainSnapshot`]; the brain
 /// stages just read it.
 ///
-/// Two pressure components are tracked separately so the brain can
-/// weigh same-faction crowding stronger than mixed-faction crowding
-/// (per the design: 1-2 non-faction near is tolerable; 3+ pushes).
+/// Only ALLIES crowd: the producer (`compute_crowding_by_id`) skips any
+/// other-faction body and any body this one is fighting, because an opponent
+/// is to close on, not a neighbour to spread from. So there is no
+/// other-faction term to carry.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CrowdingSignal {
     /// Count of same-faction allies within crowding radius.
     pub same_faction_count: u8,
-    /// Count of other-faction characters (including the player)
-    /// within crowding radius.
-    pub other_faction_count: u8,
     /// Unit-ish direction pointing AWAY from the centroid of
     /// nearby actors. Zero vector when nobody's around.
     pub away_dir: ae::Vec2,
     /// Aggregate pressure in `[0, 1+]`. The mode stage compares
     /// against `SmashCfg.crowding_threshold` to decide
-    /// `Reposition`. Same-faction allies contribute more weight
-    /// than non-faction characters; non-faction characters only
-    /// start contributing at count >= 3.
+    /// `Reposition`.
     pub pressure: f32,
 }
 
 impl CrowdingSignal {
-    /// Stage-aware pressure aggregation. Same-faction allies are
-    /// the dominant signal; non-faction characters only start
-    /// to pressure above a count of 2 (a single curious NPC or
-    /// the player shouldn't make a goblin sidestep).
+    /// Pressure from the nearby allies.
     ///
     /// Weight calibration: a single same-faction ally within the
     /// crowding radius already triggers `Reposition` against the
@@ -533,14 +526,8 @@ impl CrowdingSignal {
     /// — without this, the 2-goblin encounter case (each actor sees
     /// only 1 nearby ally) never trips the anti-clump pressure and
     /// the pair stacks up identically on the player.
-    pub fn compute_pressure(same: u8, other: u8) -> f32 {
-        let same_weight = same as f32 * 0.70;
-        let other_weight = if other >= 3 {
-            (other as f32 - 2.0) * 0.15
-        } else {
-            0.0
-        };
-        (same_weight + other_weight).min(2.0)
+    pub fn compute_pressure(same: u8) -> f32 {
+        (same as f32 * 0.70).min(2.0)
     }
 }
 

@@ -138,18 +138,12 @@ pub struct SmashCfg {
     pub shield_requires_ground: bool,
     /// When true, this is a hybrid flyer: a body that can both fight grounded
     /// (footsies + jump) and take flight (`fly_toggle_pressed`). The brain decides
-    /// when to be airborne — to contest an elevated target, or to mount a proactive
-    /// aerial foray — and lands again to footsie. `false` = the body never toggles
+    /// when to be airborne — to contest an elevated target — and lands again to
+    /// footsie. `false` = the body never toggles
     /// (a pure grounded brawler, or a pure flyer driven by its `actor_aerial`
     /// body state). Capability gate: the body still needs the fly ability for the
     /// toggle intent to resolve, like the player.
     pub can_fly: bool,
-    /// Hybrid flyer: seconds spent grounded between proactive aerial forays.
-    /// Ignored unless [`Self::can_fly`].
-    pub aerial_foray_cadence_s: f32,
-    /// Hybrid flyer: seconds an aerial foray lasts before landing again.
-    /// Ignored unless [`Self::can_fly`].
-    pub aerial_foray_duration_s: f32,
     /// Relentless engagement: when true, the fighter never disengages while its
     /// foe lives — beyond [`Self::aggro_radius`] it CHASES (Approach) instead of
     /// idling out. This is the committed-duelist property: a platform-fighter
@@ -200,8 +194,6 @@ impl SmashCfg {
         // Smash's rule, and the default everywhere: no blocking in mid-air.
         shield_requires_ground: true,
         can_fly: false,
-        aerial_foray_cadence_s: 0.0,
-        aerial_foray_duration_s: 0.0,
         // Ambient grunt: idles out when the player leaves; no stale-fight push.
         relentless: false,
         stale_fight_s: 0.0,
@@ -234,8 +226,6 @@ impl SmashCfg {
         // Smash's rule, and the default everywhere: no blocking in mid-air.
         shield_requires_ground: true,
         can_fly: false,
-        aerial_foray_cadence_s: 0.0,
-        aerial_foray_duration_s: 0.0,
         relentless: false,
         stale_fight_s: 0.0,
         difficulty: DifficultyProfile::MEDIUM,
@@ -280,8 +270,6 @@ impl SmashCfg {
         shield_requires_ground: true,
         // Grounded duelist by default; hybrid flight is opt-in per fighter.
         can_fly: false,
-        aerial_foray_cadence_s: 0.0,
-        aerial_foray_duration_s: 0.0,
         // A committed 1v1 fighter: chases its foe across the whole stage (never idles
         // out at distance) and, after ~2.5 s of its own inaction, forces an offensive
         // push so the bout never stalls into a passive standoff.
@@ -409,10 +397,6 @@ pub struct SmashState {
     /// Seconds until the next blink-evade is allowed. Decremented each tick;
     /// re-armed to `blink_cooldown_s` when a blink fires.
     pub blink_cooldown: f32,
-    /// Hybrid flyer: seconds left in the current ground-dwell or aerial-foray
-    /// phase. Drives the proactive take-off/land cadence with hysteresis so the
-    /// fighter doesn't chatter the fly toggle every tick.
-    pub foray_timer: f32,
     /// Seconds left holding a reactive block. Set when the fighter chooses to
     /// shield a perceived lunge; while positive it keeps `shield_held` up so the
     /// block spans the opponent's attack instead of flickering for one tick.

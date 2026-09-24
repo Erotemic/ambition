@@ -743,7 +743,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// a copy of the live `MovePlayback`, and readers now derive it from the move
 /// (`melee_swing_of`). The `MovePlayback` checksum now also hashes
 /// `attack_intent`, which the swing bytes used to carry.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 224;
+/// ⛔⛤ 224 -> 225: the Smash brain projection no longer encodes `foray_timer`.
+/// The proactive aerial-foray cadence it drove was never implemented; the
+/// timer and its two `SmashCfg` settings are deleted (W006).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 225;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

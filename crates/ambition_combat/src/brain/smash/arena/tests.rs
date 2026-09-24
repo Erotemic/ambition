@@ -86,12 +86,10 @@ fn winged_pca(name: &'static str, x: f32) -> Fighter {
 
 /// A hybrid PCA: capable of both grounded footsies and flight, with the
 /// glider poke + dive melee. The brain chooses when to take off (to contest an
-/// elevated foe or mount a proactive aerial foray) and when to land.
+/// elevated foe) and when to land.
 fn hybrid_pca(name: &'static str, x: f32) -> Fighter {
     let mut cfg = SmashCfg::DUELIST_DEFAULT;
     cfg.can_fly = true;
-    cfg.aerial_foray_cadence_s = 3.0; // ~3s grounded between forays
-    cfg.aerial_foray_duration_s = 2.5; // ~2.5s airborne per foray
     Fighter {
         cfg,
         can_fly: true,
@@ -116,8 +114,6 @@ fn player_robot_fighter(name: &'static str, x: f32) -> Fighter {
     cfg.can_shield = true;
     cfg.can_fly = true;
     cfg.sprint_to_close = true;
-    cfg.aerial_foray_cadence_s = 3.0;
-    cfg.aerial_foray_duration_s = 2.5;
     Fighter {
         cfg,
         can_fly: true,

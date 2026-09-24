@@ -3,8 +3,7 @@
 **State:** ACTIVE body-generic contract. Smash feature priority and gap status
 live in
 [`../demos/smash-parity-inventory.md`](../demos/smash-parity-inventory.md).
-The completed combat campaign record is archived at
-`../../archive/planning-superseded/2026-08-13/engine/combat-model.md` (docs/archive/planning-superseded/2026-08-13/engine/combat-model.md — removed from the checkout 2026-09-05; still in git history).
+Git history has the completed combat campaign record.
 
 ⛔⛤ **THE `CM<n>` SLICE LABELS ARE PRE-EPOCH AND RESOLVE TO NOTHING IN THIS
 CHECKOUT — MEASURED AND COLLAPSED 2026-09-17.** Seven references across

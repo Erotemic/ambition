@@ -58,11 +58,11 @@ pub struct KeyboardOwner(pub Option<ParticipantId>);
 ///
 /// With fewer than two seats, exclusivity is unnecessary and this returns `None` for every policy.
 ///
-/// ⛔ THIS IS THE FALLBACK, NOT THE AUTHORITY. Once a match freezes a
-/// `LocalChannelPlan` that plan owns the question — it knows who actually
-/// claimed the keyboard, and it may say NOBODY. This generic policy answers only
-/// where nothing has been declared (launcher, menus, a lobby still filling), and
-/// `JoinToClaim`'s "leave it with player one" is the right answer THERE.
+/// This is the fallback, not the authority. When a match freezes a
+/// `LocalChannelPlan`, that plan decides; it knows who claimed the keyboard
+/// and can say nobody did. This policy answers only where nothing is declared
+/// (launcher, menus, a lobby still filling). There, `JoinToClaim` keeps the
+/// keyboard with player one.
 pub fn keyboard_owner_for(
     policy: InputAssignmentPolicy,
     owner: KeyboardOwner,
@@ -73,9 +73,8 @@ pub fn keyboard_owner_for(
     }
     match policy {
         InputAssignmentPolicy::UnifiedPrimary => None,
-        // Nobody has claimed it yet, so it stays with the seat that has been
-        // playing — player one does not lose their keyboard because somebody
-        // else picked up a pad.
+        // Unclaimed: the keyboard stays with player one when another player
+        // picks up a pad.
         InputAssignmentPolicy::JoinToClaim => Some(owner.0.unwrap_or(ParticipantId::PRIMARY)),
         InputAssignmentPolicy::ExplicitAssignment => owner.0,
     }

@@ -7,13 +7,12 @@
 
 use std::collections::BTreeMap;
 
-/// The nine archetypes the shipped roster actually contains. Seven were named in
-/// boss-design.md §2; two — [`BodyNova`](SeedArchetype::BodyNova) and
-/// [`SpreadVolley`](SeedArchetype::SpreadVolley) — came out of the extraction and
-/// are new to the list. §2's `counter_stance`, `enrage_repeat`, and
-/// `grab_command` have no instance in the roster and are therefore NOT here: an
-/// archetype with no example teaches nothing. They arrive with the fight that
-/// first needs them.
+/// The archetypes the shipped roster contains. Seven were named in
+/// boss-design.md §2; [`BodyNova`](SeedArchetype::BodyNova) and
+/// [`SpreadVolley`](SeedArchetype::SpreadVolley) were added from the roster.
+/// §2's `counter_stance`, `enrage_repeat` and `grab_command` have no instance
+/// in the roster, so they are not here: add each with the fight that first
+/// needs it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Deserialize)]
 pub enum SeedArchetype {
     /// Horizontal denial at the boss's own height. Answered by leaving the ground.
@@ -88,7 +87,7 @@ impl DurationBand {
 }
 
 /// A named parameterization of a seed — the "2–3 param recipes" §2 asks for.
-/// A recipe is a STARTING POINT an agent tunes, not a constant.
+/// A recipe is a starting point an agent tunes, not a constant.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SeedRecipe {
@@ -109,7 +108,7 @@ pub struct MoveSeed {
     pub intent: String,
     /// The player skill this attack tests. One sentence.
     pub skill_tested: String,
-    /// The movement verbs that ANSWER it. Never empty (BD5 rule 2 errors on it),
+    /// The movement verbs that answer it. Never empty (BD5 rule 2 errors on it),
     /// and pinned by `every_seed_declares_a_fair_counter_and_a_written_intent`.
     pub fair_counters: Vec<MovementVerb>,
     pub threat: ThreatClass,
@@ -118,10 +117,10 @@ pub struct MoveSeed {
     /// The observed active-window envelope. A `ZoneDenial` seed's upper bound is
     /// long by nature — the hazard is supposed to outlive the swing.
     pub active: DurationBand,
-    /// The `BossAttackProfile` keys in the shipped roster that ARE this seed —
-    /// `Strike("side_sweep")`, `Special("overfit_volley")`, and so on. Every key
-    /// the roster uses belongs to exactly one seed, and the content test
-    /// `every_shipped_boss_attack_key_belongs_to_exactly_one_seed` is the oracle.
+    /// The `BossAttackProfile` keys in the shipped roster that are this seed
+    /// (`Strike("side_sweep")`, `Special("overfit_volley")`, and so on). Every
+    /// key the roster uses belongs to exactly one seed; the content test
+    /// `every_shipped_boss_attack_key_belongs_to_exactly_one_seed` checks it.
     pub instances: Vec<String>,
     pub recipes: Vec<SeedRecipe>,
 }

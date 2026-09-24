@@ -159,9 +159,9 @@ fn commanded_move_steers_the_boss_toward_target() {
     assert_eq!(control.0.facing, 1.0, "and faces the target");
 }
 
-/// A lured boss starts no attack: the steer clears the brain's INTENT, which is
-/// what the move trigger reads. The attack read-model is the move projection's
-/// alone to write.
+/// A lured boss starts no attack: the steer clears the brain's intent, which
+/// the move trigger reads. Only the move projection writes the attack
+/// read-model.
 #[test]
 fn commanded_move_clears_the_attack_intent_not_the_projection() {
     let mut app = App::new();
@@ -280,20 +280,16 @@ fn falling_hazard_drops_when_aligned_and_fires_impact_gate() {
 }
 
 
-/// ⛔⛔ A DESPAWNED ENCOUNTER TAKES ITS MUSIC CLAIM WITH IT — the generic twin of
-/// the bug Jon hit on 2026-09-06: "the symmetry room, where if I die or trigger
-/// something (not the pca fight) I get the grinning colossus music."
+/// A despawned encounter takes its music claim with it.
 ///
-/// `SetMusic` is an EFFECT, fired once when a beat reaches it, so
-/// `release_priority` is reachable ONLY while some live script emits
-/// `SetMusic(None)`. An encounter that ends without that beat — or simply
-/// despawns when the player leaves its room — leaves the claim standing, and
-/// `desired_track` puts the priority tier ABOVE room music, so the fight's track
-/// then wins everywhere the player goes.
+/// `SetMusic` is an effect, fired once when a beat reaches it, so
+/// `release_priority` is reached only while a live script emits
+/// `SetMusic(None)`. An encounter that ends without that beat, or despawns
+/// when the player leaves its room, would leave the claim standing, and the
+/// priority tier outranks room music everywhere.
 ///
-/// ⚠ THE PREMISE IS ASSERTED FIRST: while the script is ALIVE the claim must
-/// survive, or a release that fires unconditionally would pass this test while
-/// silencing every fight it belongs to.
+/// The premise is asserted first: while the script is alive, the claim must
+/// survive. Otherwise a release that always fires would pass this test.
 #[test]
 fn a_scripts_music_claim_does_not_outlive_the_script() {
     use ambition_platformer2d_shared_tangle::lifecycle::session_world_component_mut;

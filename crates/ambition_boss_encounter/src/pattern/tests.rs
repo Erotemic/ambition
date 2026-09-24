@@ -1,11 +1,9 @@
 use super::*;
-// ⛔ The pattern TYPES moved to `ambition_characters::brain::boss_pattern`; the
-// tick FUNCTIONS stayed here. `use super::*` reaches only the second half now,
-// which is why nothing in this file resolved.
+// The pattern types live in `ambition_characters::brain::boss_pattern`; the
+// tick functions live in this crate, so `use super::*` does not reach them.
 use ambition_characters::brain::boss_pattern::*;
-// ⚠ `ae` is this crate's local alias for the engine core, declared per-file
-// rather than crate-wide (see `attack_geometry/mod.rs`), so a file that was
-// never compiled never needed it.
+// `ae` is this crate's local alias for the engine core, declared per file
+// (see `attack_geometry/mod.rs`).
 use ambition_platformer2d_core as ae;
 
 fn scripted_two_step_phase1(strike_profile: BossAttackProfile) -> BossAttackPattern {
@@ -220,13 +218,12 @@ fn debris_rain_strike_emits_profile_intent_only() {
     );
 }
 
-/// Cycle mode is rest-then-request decision policy: the brain requests a
-/// telegraph edge when rested, SUSTAINS the request while it observes its own
-/// move winding up (a vanished intent aborts the windup at the trigger), goes
-/// quiet once the observed move is striking (committed — the Smash convention),
-/// and rests for `cycle_attack_cooldown` after the move ends. The move's own
-/// windows are the ONLY windup/active timeline; the brain runs no parallel
-/// clock.
+/// Cycle mode is rest-then-request policy: the brain requests a telegraph edge
+/// when rested, sustains the request while its own move winds up (a vanished
+/// intent aborts the windup at the trigger), goes quiet once the move strikes
+/// (committed), and rests for `cycle_attack_cooldown` after the move ends. The
+/// move's own windows are the only windup/active timeline; the brain runs no
+/// parallel clock.
 #[test]
 fn boss_pattern_cycle_requests_sustains_then_rests_off_the_observed_move() {
     let mut cfg = cfg_with(BossAttackPattern::Cycle);
@@ -251,7 +248,7 @@ fn boss_pattern_cycle_requests_sustains_then_rests_off_the_observed_move() {
     assert!(attack_intent.active_profile.is_none());
     assert!(!out.melee_pressed);
 
-    // The trigger started the move; the brain now OBSERVES it winding up and
+    // The trigger started the move; the brain now observes it winding up and
     // sustains the request (so the trigger never reads abandonment).
     let mut winding = ctx(BossEncounterPhase::Phase1, 0.05);
     winding.live_attack = Some(LiveBossAttack {
@@ -449,14 +446,13 @@ fn world_arena_lateral_boss_preserves_world_y_during_approach() {
     );
 }
 
-// NOTE: the old `strike_speed_scale` brain-damping tests are gone with the
-// mechanism: the strike-speed throttle is now the move's authored motion lock
+// The strike-speed throttle is the move's authored motion lock
 // (`MoveWindow::motion_scale` on the strike's Active window, asserted by the
-// boss moveset bake tests) and is enforced body-side at integration for every
-// controller alike.
+// boss moveset bake tests), enforced body-side for every controller. It is not
+// tested here.
 
 // -----------------------------------------------------------
-// Macro state machine tests — chase / engage / retreat
+// Macro state machine tests: chase / engage / retreat
 // -----------------------------------------------------------
 
 fn macro_cfg() -> BossPatternCfg {
@@ -532,7 +528,7 @@ fn macro_state_transitions_to_approach_when_player_too_far() {
 }
 
 /// Player very close → boss enters Retreat (anti-corner) and
-/// moves AWAY from the player on the next tick.
+/// moves away from the player on the next tick.
 #[test]
 fn macro_state_transitions_to_retreat_when_player_too_close() {
     let cfg = macro_cfg();
@@ -553,7 +549,7 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
         "expected Retreat with player too close; got {:?}",
         state.macro_state,
     );
-    // velocity_target should head AWAY from the player (-x direction).
+    // velocity_target should head away from the player (-x direction).
     assert!(
         out.velocity_target.x <= 0.0,
         "Retreat should move away from player (non-positive x); got {:?}",
@@ -561,9 +557,8 @@ fn macro_state_transitions_to_retreat_when_player_too_close() {
     );
 }
 
-/// Boss in Engage for engage_max_duration_s automatically
-/// transitions to Retreat — the "preparing something" beat
-/// the player can read as "go chase the boss now."
+/// A boss in Engage for engage_max_duration_s transitions to Retreat: the
+/// "preparing something" beat the player can read as "go chase the boss now".
 #[test]
 fn macro_state_periodically_retreats_after_engage_max_duration() {
     let cfg = macro_cfg();
@@ -713,11 +708,9 @@ fn approach_clamps_to_front_wall_standoff_before_collision() {
     state.macro_state = BossMacroState::Approach { remaining_s: 3.0 };
     let mut attack_intent = BossAttackIntent::default();
     let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
-    // Keep the player past `too_far_distance` (400) so the boss
-    // stays in Approach and actually reaches the front-wall clamp.
-    // A nearer player flips the macro state to Engage (the boss
-    // holds instead of grinding into the wall), which is correct
-    // but exercises a different path than this clamp test.
+    // Keep the player past `too_far_distance` (400) so the boss stays in
+    // Approach and reaches the front-wall clamp. A nearer player switches to
+    // Engage (the boss holds), which is a different path.
     let mut ctx = macro_ctx(
         ae::Vec2::new(640.0, 400.0),
         ae::Vec2::new(1_120.0, 400.0),
@@ -844,8 +837,8 @@ fn peaceful_brain_does_not_emit_attack_intent() {
 #[test]
 fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
     // Two phases; phase1 strikes FloorSlam, phase2 strikes a Special then
-    // FloorSlam again. The repertoire is the DISTINCT Strike profiles across all
-    // phases, first-seen order — Telegraph steps and Rests contribute nothing.
+    // FloorSlam again. The repertoire is the distinct Strike profiles across
+    // all phases, in first-seen order; Telegraph steps and Rests add nothing.
     let phase1 = BossPattern {
         steps: vec![
             BossPatternStep::Telegraph {
@@ -949,9 +942,9 @@ fn empty_repertoire_maps_to_no_move() {
 
 #[test]
 fn move_id_round_trips() {
-    // Every profile the boss can author must survive move_id -> from_move_id so a
-    // BossAttackState projection can recover which profile a live MovePlayback
-    // represents (E53: pattern-as-sequencer + projected read-model).
+    // Every profile the boss can author must survive move_id -> from_move_id,
+    // so a `BossAttackState` projection can recover which profile a live
+    // `MovePlayback` represents.
     let profiles = [
         BossAttackProfile::Strike("floor_slam".to_string()),
         BossAttackProfile::Strike("side_sweep".to_string()),
@@ -976,7 +969,7 @@ fn move_id_round_trips() {
     }
 }
 
-// ── BD1: the atoms, driven through the REAL ticker ───────────────────────────
+// ── The atoms, driven through the real ticker ───────────────────────────
 
 fn bd1_strike(id: &str, duration: f32) -> BossPatternStep {
     BossPatternStep::Strike {
@@ -1014,7 +1007,7 @@ fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
     }
 }
 
-/// `Select`, through the ticker. The player is NEAR, so only the near arm is eligible, and
+/// `Select`, through the ticker. The player is near, so only the near arm is eligible, and
 /// the boss plays it — whatever the roll.
 #[test]
 fn bd1_a_select_plays_the_only_eligible_arm_and_the_cursor_never_sees_the_select() {
@@ -1096,8 +1089,8 @@ fn bd1_moving_the_player_out_of_range_changes_the_arm_on_the_next_pass() {
 }
 
 /// `Stance`, through the ticker. A zero-duration jump is consumed as control
-/// flow, not advanced-past by time — and the stance returns to the step AFTER the
-/// marker rather than replaying it.
+/// flow, not passed by time, and the stance returns to the step after the
+/// marker without replaying it.
 #[test]
 fn bd1_a_stance_step_jumps_and_returns_to_the_beat_after_it() {
     let mut stances = std::collections::BTreeMap::new();
@@ -1134,14 +1127,14 @@ fn bd1_a_stance_step_jumps_and_returns_to_the_beat_after_it() {
         ],
         "the stance runs between the two beats, once, and control returns"
     );
-    // ...and the phase timeline then LOOPS, as it always has. The stance is not
+    // ...and the phase timeline then loops. The stance is not
     // re-entered by the loop's re-resolution — it is entered by its marker, again.
     assert_eq!(seen[3], "opener");
 }
 
-/// An interrupt, through the ticker. Hitting the boss hard enough yanks it
-/// into its panic stance mid-telegraph, and the telegraph resumes where it was —
-/// so the punish window the player was already reading survives.
+/// An interrupt, through the ticker. Hitting the boss hard enough pulls it
+/// into its panic stance mid-telegraph, and the telegraph resumes where it
+/// was, so the punish window the player was reading survives.
 #[test]
 fn bd1_an_on_hit_interrupt_steals_the_beat_and_gives_it_back() {
     let mut stances = std::collections::BTreeMap::new();
@@ -1168,7 +1161,7 @@ fn bd1_an_on_hit_interrupt_steals_the_beat_and_gives_it_back() {
     let elapsed_before = state.step_elapsed;
     assert!(elapsed_before > 0.0);
 
-    // Take 20 damage. `damage_taken` is the DROP the brain remembers.
+    // Take 20 damage. `damage_taken` is the drop the brain remembers.
     c.hp_current = 80;
     let attack = bd1_tick(&cfg, &mut state, &c);
     assert_eq!(
@@ -1234,10 +1227,9 @@ fn bd1_a_phase_change_unwinds_every_stance_and_resolves_afresh() {
     assert!(state.stance_stack.is_empty());
 }
 
-/// Byte-parity. `stances` and `interrupts` are `#[serde(default)]`, so every
-/// row that `boss_profiles.ron` already carries parses unchanged. This is BD1's
-/// stated requirement, not a nice-to-have: a vocabulary extension that forces a
-/// content migration is a different, larger slice.
+/// `stances` and `interrupts` are `#[serde(default)]`, so every existing row in
+/// `boss_profiles.ron` parses and behaves unchanged. A vocabulary extension
+/// must not force a content migration.
 #[test]
 fn bd1_a_pre_bd1_pattern_ron_still_parses_and_behaves_identically() {
     let before: BossPattern = ron::from_str(
@@ -1337,18 +1329,15 @@ fn contact_chase_cfg() -> BossPatternCfg {
     cfg
 }
 
-/// A WIDE BODY'S CONTACT IS NOT ITS CENTRE'S.
+/// A wide body's contact is not its center's.
 ///
-/// The contact-chase closure test compared a CENTRE-TO-CENTRE distance against
-/// a 4px epsilon. A 208px-wide boss can only satisfy that by standing with its
-/// centre inside the target's — which body collision prevents. So the boss sat
-/// in `Approach` forever, and `suppress_attacks_while_moving` meant forever
-/// silent: the eye beam was reachable only in the single tick per
-/// `approach_duration_s` that the Approach timeout bought, so the three-beat
-/// script needed minutes of wall-clock per shot.
+/// A center-to-center distance with a small epsilon can be met by a wide boss
+/// only if its center is inside the target's, which body collision prevents.
+/// The boss would stay in `Approach`, and with
+/// `suppress_attacks_while_moving` it would almost never attack.
 ///
-/// The condition this pins is the SEMANTIC one, not the arithmetic: a body
-/// standing against this boss's flank IS in contact, whatever the boss's size.
+/// The semantic condition: a body standing against this boss's flank is in
+/// contact, whatever the boss's size.
 #[test]
 fn a_wide_contact_chase_boss_engages_when_the_bodies_touch() {
     let cfg = contact_chase_cfg();
@@ -1356,8 +1345,8 @@ fn a_wide_contact_chase_boss_engages_when_the_bodies_touch() {
     let mut attack_intent = BossAttackIntent::default();
     let mut out = ambition_characters::actor::control::ActorControlFrame::neutral();
 
-    // An ordinary 32x64 body standing against the boss's left flank: 104 (boss
-    // half-width) + 16 (target half-width) = 120px between the centres, which
+    // An ordinary 32x64 body against the boss's left flank: 104 (boss
+    // half-width) + 16 (target half-width) = 120px between the centers, which
     // is exactly touching surfaces.
     let actor_pos = ae::Vec2::new(640.0, 400.0);
     let target_pos = ae::Vec2::new(520.0, 400.0);
@@ -1415,19 +1404,16 @@ fn a_distant_target_keeps_the_contact_chase_open_and_silent() {
     );
 }
 
-// ⛔ THIS TEST FOLLOWED BOTH FUNCTIONS IT COMPARES (D168, 2026-08-27). It asserts
-// that the state-machine-shaped entry produces exactly what a direct
-// `tick_boss_pattern` does; both live here now, and a floor-crate test cannot
-// see up into this crate.
+// This test compares the state-machine-shaped entry with a direct
+// `tick_boss_pattern` call. Both live in this crate.
 
 #[test]
 fn boss_pattern_via_state_machine_matches_the_direct_tick() {
-    // §A1 slice 3c: the BossPattern brain now ticks through the UNIVERSAL
-    // `tick_state_machine` path — it is no longer a neutral stub. The boss tick
-    // fills the BossPattern fields (`boss_encounter_phase` / `world_size` /
-    // `front_wall_clearance`) onto the shared snapshot, so the universal path must
-    // produce EXACTLY what a direct `tick_boss_pattern` call does: same frame, same
-    // profile intent. This parity is what makes the fold behavior-neutral.
+    // The BossPattern brain ticks through the universal `tick_state_machine`
+    // path. The boss tick fills the BossPattern fields
+    // (`boss_encounter_phase` / `world_size` / `front_wall_clearance`) onto
+    // the shared snapshot, so the universal path must produce exactly what a
+    // direct `tick_boss_pattern` call does: same frame, same profile intent.
     use super::tick_boss_pattern;
     use ambition_characters::brain::boss_pattern::{BossAttackIntent, BossPatternContext};
 
@@ -1459,7 +1445,7 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
         &mut direct_attack,
     );
 
-    // Universal path: the SAME cfg/state, boss fields on the shared snapshot.
+    // Universal path: the same cfg/state, boss fields on the shared snapshot.
     let mut sm = ambition_characters::brain::StateMachineCfg::BossPattern {
         cfg: cfg.clone(),
         state: ambition_characters::brain::BossPatternState::default(),
@@ -1473,12 +1459,9 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     snap.front_wall_clearance = None;
     let mut uni_frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     uni_frame.melee_pressed = true; // pre-poison — the tick starts from a neutral frame
-                                    // ⛔ THE BOSS ARM IS NOT ONE OF THE NINE. `tick_simple_state_machine`
-                                    // declines it and says so (D168's dispatcher split), so the parity this test
-                                    // is about is between the direct call and the STATE-MACHINE-SHAPED entry
-                                    // point — which is what `tick_boss_pattern_via_state_machine` is named for.
-                                    // The outer match that reaches it lives in the actor monolith now, and a
-                                    // floor crate's test cannot see up there.
+    // `tick_simple_state_machine` declines the boss arm, so the parity here is
+    // between the direct call and the state-machine-shaped entry,
+    // `tick_boss_pattern_via_state_machine`.
     assert!(
         !ambition_characters::brain::state_machine::tick_simple_state_machine(
             &mut sm,

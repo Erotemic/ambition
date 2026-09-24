@@ -1,24 +1,18 @@
-//! THE WIRE ITSELF — a rope from a point in the flies down to a body on it.
+//! The wire: a rope from a point in the flies down to a body on it.
 //!
-//! ⭐⭐ THE THIRD CUSTOMER OF THE SHAPE `submerged.rs` AND `morph_ball.rs` SHARE:
-//! a procedural, per-body visual with a lifecycle, spawned while a state holds
-//! and retired when it ends. Kept deliberately in the same shape, because
-//! `morph_ball.rs` ends with *"generalize modal body morphs — that is what this
-//! means, and it deletes this whole file"* and a generalization is better with
-//! three examples than with one.
+//! Same shape as `submerged.rs` and `morph_ball.rs`: a procedural per-body
+//! visual, spawned while a state holds and retired when it ends. Kept in that
+//! shape so the three can later be generalized together (see the note at the
+//! end of `morph_ball.rs`).
 //!
-//! ⛔⛔ AND IT IS PROCEDURAL FOR THE REASON THE TRAPDOOR IS. A rope has to be
-//! there for the whole lift and has to be a DIFFERENT LENGTH every frame — the
-//! winch is shortening it. An FX-atlas row plays once at a fixed size and ends;
-//! borrowing one to hold a wire open would be a second consumer of a system that
-//! exists to finish.
+//! Procedural, like the trapdoor: the rope must exist for the whole lift and
+//! change length every frame as the winch shortens it. An FX-atlas row plays
+//! once at a fixed size.
 //!
-//! ⛔⛔ BOTH ROADS, AND THAT IS NOT DEFENSIVE. `PlayerVisual` is inserted in
-//! exactly ONE place in the engine — the session's single exploration player —
-//! so a visual gated on it alone appears in an Ambition room and never once in a
-//! versus match. That is precisely what happened to the trapdoor, and every test
-//! it had spawned a `PlayerVisual`, so none of them could fail. Every match
-//! fighter is a `FeatureVisual` reading `FeatureViewIndex`.
+//! Both body roads are required. `PlayerVisual` is only on the session's
+//! single exploration player, so a visual gated on it never appears in a
+//! versus match. Every match fighter is a `FeatureVisual` that reads
+//! `FeatureViewIndex`.
 
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
@@ -31,9 +25,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 
 /// The wire a body is currently hanging from.
 ///
-/// ⛔ ONE PER BODY ON A WIRE, not one. A versus match has four fighters and any
-/// of them may be the Performer; a singleton would draw one rope and move it
-/// between them. The same correction `submerged.rs` records having made.
+/// One per body on a wire. A versus match has four fighters and any of them
+/// may be the Performer; a singleton would draw one rope and move it between
+/// them.
 #[derive(Component)]
 pub struct FlylineVisual {
     /// The body this wire is holding up.
@@ -49,16 +43,15 @@ pub struct FlylineSprite {
 const WIRE_TEXTURE_W: u32 = 8;
 const WIRE_TEXTURE_H: u32 = 32;
 
-/// How wide the wire is drawn, in world px. Thin: it is a stagehand's flying
-/// wire, not a ship's hawser, and a fat rope would read as a pillar.
+/// How wide the wire is drawn, in world px. Thin, so it reads as a flying
+/// wire, not a pillar.
 const WIRE_WIDTH: f32 = 3.0;
 
 /// A length of bright steel cable, tiled along its own axis.
 ///
-/// ⭐ TWO STRANDS AND A HIGHLIGHT, so it reads as twisted wire rather than a
-/// drawn line. The sprite is stretched along the rope's length, and the detail
-/// that survives that stretch is the one across its WIDTH — which is why every
-/// feature here varies with `u` and almost nothing with `v`.
+/// Two strands and a highlight, so it reads as twisted wire. The sprite is
+/// stretched along the rope, so only detail across its width survives; almost
+/// every feature varies with `u`, not `v`.
 pub fn build_flyline_image() -> Image {
     let (w, h) = (WIRE_TEXTURE_W, WIRE_TEXTURE_H);
     let mut data = vec![0u8; (w * h * 4) as usize];
@@ -66,14 +59,13 @@ pub fn build_flyline_image() -> Image {
         for x in 0..w {
             let u = x as f32 / (w - 1) as f32;
             let v = y as f32 / (h - 1) as f32;
-            // The cable's round section: bright down one side, dark down the
-            // other, so it catches the stage light from a consistent direction.
+            // The round section: bright on one side, dark on the other, so it
+            // catches light from one direction.
             let across = (u - 0.5) * 2.0;
             let shade = (1.0 - across.abs()).max(0.0).powf(0.6);
             let mut lit = 0.26 + shade * 0.42;
-            // The twist — a slow braid along its length. It is the only thing
-            // here that varies with `v`, and it is what stops a fast-moving rope
-            // reading as a static bar.
+            // The twist: a slow braid along the length. The only thing that varies
+            // with `v`, so a fast rope does not read as a static bar.
             let braid = ((v * std::f32::consts::TAU * 3.0) + across * 1.4).sin();
             lit += braid * 0.06;
             // The specular strand, off-centre so the cable has a near side.
@@ -114,13 +106,11 @@ pub fn build_flyline_sprite(mut commands: Commands, mut images: ResMut<Assets<Im
     commands.insert_resource(FlylineSprite { handle });
 }
 
-/// Give every body on a wire a wire, take it away from every body that has been
-/// let go, and keep the ones that remain stretched between the anchor and her.
+/// Give every body on a wire a wire, remove it from every body that was let
+/// go, and keep the rest stretched between the anchor and the body.
 ///
-/// ⛔ THE ROPE IS DRAWN TO HER CENTRE, not to her feet, because that is where
-/// the kernel hangs her from — `WireState`'s length is measured to the body
-/// centre. A wire ending at the ankles would swing visibly out of step with the
-/// body it is supposed to be carrying.
+/// The rope ends at the body centre, not the feet: `WireState` measures its
+/// length to the centre. A rope to the ankles would swing out of step.
 pub fn sync_flyline_visuals(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -136,20 +126,15 @@ pub fn sync_flyline_visuals(
         ),
         With<PlayerVisual>,
     >,
-    // ⛔⛔ THE OTHER ROAD, AND IT IS THE ONE A MATCH FIGHTER TAKES. See the
-    // module doc: this is the whole reason the trapdoor drew in an Ambition room
-    // and never in a versus match.
+    // The other road, used by match fighters. See the module doc.
     actors: Query<(Entity, &crate::rendering::FeatureVisual), Without<PlayerVisual>>,
-    // ⛔⛔ `Option`, AND IT IS NOT DEFENSIVE. A plain `Res` here is a HARD STOP
-    // for any composition that does not build the index, with the undebuggable
-    // *"Parameter ... failed validation: Resource does not exist"*. A projection
-    // nobody has published yet has nothing to say.
+    // `Option`: a plain `Res` stops any composition that does not build the
+    // index with "Resource does not exist". No index means nothing to draw.
     feature_views: Option<Res<ambition_sim_view::FeatureViewIndex>>,
     mut wires: Query<(Entity, &FlylineVisual, &mut Transform, &mut Sprite)>,
 ) {
-    // Both roads reduced to the only two facts a rope needs: where it hangs
-    // from, and where the body is. Retirement and spawning below read this and
-    // nothing else, so neither has to learn there are two kinds of body visual.
+    // Both roads reduced to two facts: where the rope hangs from and where the
+    // body is. The code below reads only this.
     let mut hanging: Vec<(Entity, bevy::math::Vec2, bevy::math::Vec2)> = Vec::new();
     for (body, pose, presented) in &bodies {
         if let Some(anchor) = pose.wire_anchor {
@@ -211,10 +196,8 @@ pub fn sync_flyline_visuals(
                 transform,
                 Visibility::Visible,
                 FlylineVisual { body },
-                // ⭐ THE SAME FACT THIS DRAWABLE ALREADY KNOWS, said in the ONE
-                // spelling every consumer can ask for. The field above stays --
-                // this visual needs the body to place itself -- but a consumer that
-                // knows nothing about it can now find out whose body it draws.
+                // Which body this drawable draws, in the shared spelling that any
+                // consumer can query. `FlylineVisual` above keeps it for placement.
                 ambition_platformer2d_shared_tangle::lifecycle::PresentationOf(body),
                 Name::new("Flyline Visual"),
             ),
@@ -224,10 +207,9 @@ pub fn sync_flyline_visuals(
 
 /// Stretch and rotate the rope so it runs from `anchor` to `at`.
 ///
-/// ⛔ THE SPRITE IS PLACED AT THE MIDPOINT AND ROTATED, rather than drawn as a
-/// chain of segments the way `grapple.rs` draws its line out of VFX bursts. A
-/// swinging rope changes angle every frame, and a segment chain would have to
-/// respawn its whole length each time.
+/// One sprite at the midpoint, rotated, not a chain of segments like
+/// `grapple.rs`. A swinging rope changes angle every frame, and a chain
+/// would have to respawn its whole length.
 pub(crate) fn place_wire(
     room: &ambition_platformer2d_core::World,
     transform: &mut Transform,
@@ -241,13 +223,12 @@ pub(crate) fn place_wire(
     transform.translation = ambition_platformer2d_core::config::world_to_bevy(
         room,
         ambition_platformer2d_core::Vec2::new(middle.x, middle.y),
-        // BEHIND her. She is hanging on the end of it, and a rope drawn over the
-        // body would cut her in half down the middle.
+        // Behind the body, so the rope does not cut across it.
         ambition_platformer2d_core::config::WORLD_Z_PLAYER - 0.05,
     );
-    // The texture's own axis is its HEIGHT, and world +y is DOWN while Bevy's is
-    // up — so the angle is measured from straight down in world terms, which is
-    // straight up in Bevy's, and the sign flips with it.
+    // The texture axis is its height. World +y is down and Bevy +y is up, so
+    // the angle is measured from straight down in world terms and the sign
+    // flips.
     transform.rotation = Quat::from_rotation_z(f32::atan2(-span.x, -span.y));
     art.custom_size = Some(bevy::math::Vec2::new(WIRE_WIDTH, length));
 }

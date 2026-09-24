@@ -54,12 +54,11 @@ impl PlacementRecord {
 /// The context type a caller hands its placement interpreters, and the facts a
 /// COMMIT supplies beside it.
 ///
-/// ⛔ TWO LIFETIMES, TWO FIELDS. The context is frozen with the plan (catalogs,
-/// sheets, the cast). The commit facts are read when a commit is requested,
-/// because a frozen plan is committed again — a replay, a reconstitution — after
-/// the world has moved on, and a placement must be built in the state the world
-/// is in THEN (a body the save says died starts dead). The world IR stays
-/// content-free: it names neither.
+/// The two have different lifetimes. The context is frozen with the plan
+/// (catalogs, sheets, the cast). The commit facts are read at commit time,
+/// because a frozen plan can be committed again (replay, reconstitution) after
+/// the world has changed; a placement is built in the world's current state
+/// (a body the save says died starts dead). The world IR names neither.
 pub trait LoweringContext: Send + Sync + 'static {
     type CommitFacts: Send + Sync + 'static;
 }
@@ -76,13 +75,10 @@ pub struct LoweringCtx<'w, 's, 'a, C: LoweringContext + ?Sized = ()> {
     /// executor for planned rows — so identity, provenance, and transaction
     /// ownership are stamped on the same body the interpreter builds.
     ///
-    /// ⭐⭐ **THIS WAS THREE FIELDS — `commands`, `session_scope`, `root` — AND
-    /// COLLAPSING THEM IS WHAT CLOSES THE LAST RECIPE HOLE.** A lowering holding
-    /// raw `Commands` can mint an authoritative entity the construction executor
-    /// never allocated and `commit_inactive` therefore never hides. A
-    /// [`RootScope`] cannot: it has no `spawn` of any kind, and it cannot name
-    /// an entity other than this row's root. ⇒ The placement road is now the
-    /// same shape as every other recipe.
+    /// A [`RootScope`] has no `spawn` and cannot name any entity except this
+    /// row's root. So a lowering cannot mint an authoritative entity that the
+    /// construction executor did not allocate and `commit_inactive` would not
+    /// hide. The placement road has the same shape as every other recipe.
     pub scope: RootScope<'w, 's, 'a>,
     pub room_id: &'a str,
     pub paths: &'a [(String, ae::KinematicPath)],
@@ -200,14 +196,11 @@ struct PlacementLoweringEntry<C: LoweringContext> {
     lower: LoweringFn<C>,
 }
 
-/// ⛔⛔ HAND-WRITTEN, AND THE FUNCTION ADDRESS IS PART OF IT. `derive(PartialEq)`
-/// would compare the fn pointer too — but writing it out is the point: this is
-/// the ONE registry in the workspace whose identity includes a function, and
-/// `ambition_registry_core::classify` decides New/Idempotent/Conflict from
-/// exactly this comparison. Re-registering one kind with the same
-/// owner/source/schema but a DIFFERENT lowering function is a CONFLICT, and it
-/// has to stay one: two interpreters under one `PlacementKind` is the ambiguity
-/// this registry exists to refuse.
+/// Hand-written to make clear that the function address is part of identity.
+/// `ambition_registry_core::classify` decides New/Idempotent/Conflict from this
+/// comparison. The same kind with the same owner/source/schema but a different
+/// lowering function is a conflict: two interpreters under one `PlacementKind`
+/// is the ambiguity this registry refuses.
 impl<C: LoweringContext> PartialEq for PlacementLoweringEntry<C> {
     fn eq(&self, other: &Self) -> bool {
         self.meta == other.meta && std::ptr::fn_addr_eq(self.lower, other.lower)

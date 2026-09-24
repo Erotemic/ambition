@@ -25,11 +25,8 @@
 
 /// The primitives a character's move table is written with.
 ///
-/// ⛔⛤ **IT LIVED IN `ambition_characters`, WHICH LINKS BEVY.** Nothing in it
-/// needed to: the whole module references `bevy` zero times and reached outside
-/// this crate for exactly two `&str` constants. Authoring a move is a pure value
-/// computation, and an author who wants to write one should not have to build a
-/// Bevy graph to do it (fast-iteration packet I1).
+/// This module does not link Bevy: authoring a move is a pure value
+/// computation.
 pub mod authoring;
 /// The hazard-travel family: see the module doc for why it is its own file.
 pub mod hazard;
@@ -41,30 +38,19 @@ pub mod launch;
 pub mod mana;
 pub mod move_section;
 
-// ⛔ RE-EXPORTED AT THE CRATE ROOT, because these three names were crate-root
-// names before the carve and 30-odd call sites across five crates spell them
-// that way. A move that renames every caller is a different change from a move
-// that puts a family in its own file, and mixing the two makes neither
-// reviewable.
+// Re-exported at the crate root because many call sites in other crates use
+// the crate-root names.
 pub(crate) use hazard::hazard_of;
 pub use hazard::{MoveHazard, ThreatTravel, RANGED_ACTION_REACH};
 
-/// The platform-fighter authoring vocabulary — captures, repertoires, counters,
-/// tethers, portals and the rest of the technique families, as PURE VALUE
-/// CONSTRUCTORS.
+/// The platform-fighter authoring vocabulary: captures, repertoires, counters,
+/// tethers, portals and the other technique families, as pure value
+/// constructors.
 ///
-/// ⛔⛤ **TWENTY MODULES, ~4,800 LINES, AND ALL OF IT LIVED IN
-/// `ambition_characters`, WHICH LINKS BEVY** — for the sake of ONE `#[derive(Component)]`
-/// on runtime hold state, which now lives in
-/// `ambition_characters::smash_hold_state` where it belongs. MEASURED
-/// 2026-09-11 before the move: every one of these files referenced `bevy` zero
-/// times in code and named no crate but this one outside a comment.
-///
-/// ⇒ That edge was the reason an offline builder could author a TOY move and
-/// not a SHIPPED one: every real moveset in this repository calls
-/// [`smash_repertoire`] and [`smash_capture`], so the fixture that proves
-/// "authoring needs no engine" could only ever prove it about moves nobody
-/// plays (fast-iteration packet I1, step 1).
+/// None of these modules link Bevy. Every shipped moveset calls
+/// [`smash_repertoire`] and [`smash_capture`], so an offline builder can author
+/// a real move without an engine. Runtime hold state lives in
+/// `ambition_characters::smash_hold_state`.
 pub mod smash_bolt;
 pub mod smash_bomb;
 pub mod smash_capture;
@@ -99,9 +85,8 @@ pub use brain_profile_ref::{BrainProfileId, BrainProfileRef};
 
 /// The reward/effect represented by a pickup, a chest, or a defeated boss.
 ///
-/// The type itself is a leaf noun: `i32` and `String`, no behaviour, no Bevy. It
-/// was never interaction-specific, it was merely first needed there.
-/// `ambition_interaction` re-exports it, so every existing path still resolves.
+/// A leaf noun type: `i32` and `String`, no behavior, no Bevy.
+/// `ambition_interaction` re-exports it.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum PickupKind {
     Health { amount: i32 },
@@ -112,7 +97,7 @@ pub enum PickupKind {
 }
 
 // ---------------------------------------------------------------------------
-// Ability vocabulary: the ONE effect reference + its opaque params.
+// Ability vocabulary: the one effect reference + its opaque params.
 // ---------------------------------------------------------------------------
 
 /// Opaque, structured parameters for a technique or prefab. The authored RON is byte-identical
@@ -123,23 +108,16 @@ pub enum PickupKind {
 /// hydrates cleanly into a technique's all-defaults `#[derive(Deserialize)]`
 /// param struct.
 ///
-/// ⛔⛔ A PARAMS STRUCT MAY NOT CARRY AN ENUM, AND THE FAILURE IS SILENT.
-/// This is a `ron::Value`, and a Rust enum does not survive the round trip —
-/// **including a plain unit-variant one**. `from_typed` succeeds, `hydrate`
-/// returns `InvalidValueForType { expected: "enum …", found: "a unit value" }`,
-/// and every consumer that treats a hydrate failure as "no params" stops working
-/// with nothing louder than a `warn!`.
-///
-/// ⚠ MEASURED 2026-09-05, NOT INFERRED FROM THE DOCS. A two-variant enum was
-/// added to `CounterParams` for one afternoon and **every counter in the game
-/// silently stopped answering** — five tests fell, and the cause was invisible
-/// in all five messages. ⇒ Use a `bool`, a number, or a string; if a params type
-/// genuinely needs a closed set, spell it as a string and validate it in that
+/// A params struct must not contain an enum, and the failure is silent. A
+/// Rust enum (also a unit-variant enum) does not survive the `ron::Value`
+/// round trip: `from_typed` succeeds, but `hydrate` returns
+/// `InvalidValueForType`. A consumer that treats a hydrate failure as "no
+/// params" then stops working with only a `warn!`. Use a `bool`, a number, or
+/// a string. For a closed set, use a string and validate it in the params
 /// type's own `problems()`.
 ///
-/// ⭐ AND WRITE THE ROUND-TRIP PROBE. `smash_counter::round_trip_probe` is four
-/// lines and turns this from a playtest into a compile-fast failure; every new
-/// params type is worth the same.
+/// Write a round-trip probe for each new params type (see
+/// `smash_counter::round_trip_probe`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ParamValue(pub ron::Value);
 
@@ -150,31 +128,17 @@ impl Default for ParamValue {
 }
 
 impl ParamValue {
-    /// Every authored field here holding a float that is NOT FINITE, by the
-    /// path an author would read.
+    /// Every authored float field that is not finite, by the path an author reads.
     ///
-    /// ⛔⛔ **`NaN`, `inf` AND `-inf` ARE VALID RON AND HYDRATE CLEANLY, SO
-    /// `check_hydrates::<T>` ADMITS ALL THREE.** Measured 2026-09-10:
-    /// `(amount: NaN)` parses, hydrates to `FillMeterParams { amount: NaN }`, and
-    /// is admitted by twenty of the twenty-three shipped declarations, which
-    /// check nothing but that serde could build the struct.
+    /// `NaN`, `inf` and `-inf` are valid RON and hydrate cleanly, so
+    /// `check_hydrates::<T>` admits them. A non-finite value in gameplay state
+    /// stays there: for example, `ResourceMeter::refill` clamps, and `f32::clamp`
+    /// returns `NaN` for a `NaN` input. `body.mana` is rollback-canonical, so the
+    /// bad value is also snapshotted and restored.
     ///
-    /// ⇒ What that buys is not a move that misbehaves once. A non-finite float
-    /// reaching gameplay state POISONS IT PERMANENTLY: `ResourceMeter::refill` is
-    /// `(current + amount).clamp(0.0, max)` and `f32::clamp` returns `NaN` for a
-    /// `NaN` input, so one authored fill leaves the meter `NaN` forever — every
-    /// later comparison against it is false, and `body.mana` is ROLLBACK-CANONICAL,
-    /// so the poison is snapshotted and restored. The same is true of a position,
-    /// a velocity or a radius: NaN does not stay where it lands.
-    ///
-    /// ⭐ STRUCTURAL, SO IT NEEDS NO LIST OF TECHNIQUES AND COVERS ONE ADDED
-    /// TOMORROW. It walks the `ron::Value` rather than any typed struct, so a
-    /// technique that never thought about finiteness gets the check for free —
-    /// the same reasoning as the held-item art scan, and the opposite of a
-    /// hand-kept list of keys that only ever goes stale.
-    ///
-    /// ⚠ INTEGERS CANNOT FAIL THIS. `Number::into_f64` maps every integer
-    /// variant to a finite `f64`, so an authored `damage: 4` is never a finding.
+    /// The check walks the `ron::Value`, not a typed struct, so it covers every
+    /// technique without a list of keys. Integers always map to a finite `f64`, so
+    /// they never fail.
     pub fn nonfinite_fields(&self) -> Vec<String> {
         fn walk(value: &ron::Value, path: &str, out: &mut Vec<String>) {
             match value {
@@ -206,8 +170,7 @@ impl ParamValue {
                         walk(child, &format!("{path}[{index}]"), out);
                     }
                 }
-                // ⭐ An `Option` is walked THROUGH, not skipped: an authored
-                // `Some(NaN)` is exactly as poisonous as a bare one.
+                // Walk through an `Option`: `Some(NaN)` is as bad as a bare `NaN`.
                 ron::Value::Option(Some(inner)) => walk(inner, path, out),
                 ron::Value::Bool(_)
                 | ron::Value::Char(_)
@@ -227,9 +190,8 @@ impl ParamValue {
         Ok(ParamValue(ron::from_str(ron_text)?))
     }
 
-    /// Build params FROM a technique's own typed struct — the inverse of
-    /// [`hydrate`](Self::hydrate), for the case where code composes an effect that an author
-    /// could equally have written by hand.
+    /// Build params from a technique's own typed struct. This is the inverse
+    /// of [`hydrate`](Self::hydrate).
     pub fn from_typed<T: Serialize>(value: &T) -> Result<Self, ron::Error> {
         let text = ron::ser::to_string(value)?;
         ron::from_str(&text)
@@ -238,20 +200,18 @@ impl ParamValue {
     }
 
     /// Hydrate these params into a technique/prefab's own `Deserialize` type.
-    /// The concrete type is declared AT the consumer — this crate never names
-    /// it. A missing required field or a type mismatch fails here (the basis of
-    /// the install-time param-schema check, R2.2). Enum-valued params are
-    /// unsupported by `ron::Value`'s deserializer — model those as string tags.
+    /// The consumer declares the concrete type; this crate never names it. A
+    /// missing required field or a type mismatch fails here (the install-time
+    /// param-schema check). `ron::Value` cannot deserialize enums; use string
+    /// tags.
     pub fn hydrate<T: serde::de::DeserializeOwned>(&self) -> Result<T, ron::Error> {
         self.0.clone().into_rust()
     }
     /// Did the author write no parameters at all?
     ///
-    /// ⚠ AN EMPTY MAP AND A NON-MAP ARE BOTH "nothing useful", and they are
-    /// folded here on purpose: a paramless technique's contract is that the
-    /// author supplied no fields, and a `ron::Value` that is not a map supplies
-    /// none either. The refusal names the technique, so an author who wrote
-    /// something unusable is told which key dropped it.
+    /// An empty map and a non-map both count as empty: neither supplies a
+    /// field. The refusal names the technique, so the author knows which key
+    /// dropped the value.
     pub fn is_empty(&self) -> bool {
         match &self.0 {
             ron::Value::Map(map) => map.is_empty(),
@@ -285,52 +245,34 @@ impl EffectRef {
 /// [`ParamValue`] satisfy the technique's contract?
 pub type ParamCheck = fn(&ParamValue) -> Result<(), String>;
 
-/// A check that authored params HYDRATE into the technique's own `T` — the
-/// common case. Register it as `registry.register("glider", check_hydrates::<GliderParams>)`;
-/// a missing required field or a type mismatch becomes a startup error instead
-/// of a mid-fight silent default.
+/// A check that authored params hydrate into the technique's own `T`.
+/// Register it as `registry.register("glider", check_hydrates::<GliderParams>)`.
+/// A missing field or a type mismatch then fails at startup, not mid-fight.
 pub fn check_hydrates<T: serde::de::DeserializeOwned>(params: &ParamValue) -> Result<(), String> {
     params.hydrate::<T>().map(|_| ()).map_err(|e| e.to_string())
 }
 
-/// Install-time param-schema validation registry (fable AJ1 / A1). Each
-/// content-owned technique/prefab MAY register a [`ParamCheck`] under its
-/// effect key; the content-validation pass runs every authored [`EffectRef`]
-/// through [`validate`](Self::validate), so a param typo fails at startup, not
-/// mid-fight. The engine matches no key, so an unregistered key always passes
-/// (a paramless content-const technique needs no schema).
+/// Install-time param-schema validation registry. A content-owned
+/// technique/prefab may register a [`ParamCheck`] under its effect key. The
+/// content-validation pass runs every authored [`EffectRef`] through
+/// [`validate`](Self::validate), so a param typo fails at startup. An
+/// unregistered key always passes.
 #[derive(Default)]
 pub struct ParamSchemaRegistry {
     checks: BTreeMap<String, ParamCheck>,
 }
 
 impl ParamSchemaRegistry {
-    /// Register a technique's param check. Last registration for a key wins
-    /// (a re-register overrides — content install is the single caller).
+    /// Register a technique's param check. The last registration for a key
+    /// wins; content install is the only caller.
     ///
-    /// ⭐ REPLACEMENT IS DELIBERATE, and this registry is named in the
-    /// 2026-09-02 registry inventory among those whose second registration
-    /// overwrites. Two of the seven were settled 2026-09-05 in opposite
-    /// directions; this is the third answer, and it is *"replace, because
-    /// refusal is not expressible here"*:
+    /// Replacement is deliberate. `ambition_registry_core::classify` cannot be
+    /// used: it compares entries with `PartialEq`, and a [`ParamCheck`] is a
+    /// function pointer, which must not be part of a registration's identity.
+    /// So no idempotent or conflict case can be detected.
     ///
-    /// ⛔ `ambition_registry_core::classify` CANNOT BE ADOPTED, and the reason is
-    /// structural rather than effort. It decides New / Idempotent / Conflict by
-    /// comparing entries with `PartialEq`, and a [`ParamCheck`] is a FUNCTION
-    /// POINTER. That crate's own rule is that nothing process-local may enter a
-    /// registration's identity — *"a function address, a `TypeId`, an allocation
-    /// order — none of them, because two builds of the same content must
-    /// fingerprint equal"* — so comparing two checks would be exactly the thing
-    /// it forbids. A registry keyed by behaviour it cannot compare has no
-    /// Idempotent case to detect, and therefore no honest Conflict either.
-    ///
-    /// ⚠ WHAT THE POLICY COSTS IF THE SINGLE-CALLER PREMISE EVER BREAKS: a
-    /// second install overriding a key silently REPLACES a validator, so an
-    /// authored param typo that the first check would have caught starts passing
-    /// at startup. That is a guard going quiet, not a behaviour changing, which
-    /// is the harder kind to notice. The premise is stated above rather than
-    /// enforced because the enforcement would need the comparison this type
-    /// cannot make.
+    /// If a second caller appears, an override silently replaces a validator,
+    /// and a param typo the first check caught then passes at startup.
     pub fn register(&mut self, key: impl Into<String>, check: ParamCheck) {
         self.checks.insert(key.into(), check);
     }
@@ -364,9 +306,8 @@ impl ParamSchemaRegistry {
 
 /// Where in a move an authored [`EffectRef`] was found.
 ///
-/// ⭐ THE PATH, NOT JUST THE KEY. The admission contract asks for diagnostics
-/// carrying a "field/node path", because an author with three volumes and a flow
-/// needs to know WHICH one names the technique that was refused.
+/// It records the path, not only the key, so an author knows which volume or
+/// node names the refused technique.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EffectSite {
     /// `windows[w].volumes[v].on_hit`
@@ -392,23 +333,17 @@ impl std::fmt::Display for EffectSite {
     }
 }
 
-/// WHICH ROAD a technique's handler actually listens on.
+/// The message road a technique's handler listens on.
 ///
-/// ⛔⛔ **THE EXHAUSTIVE VISITOR RETURNS THE SITE AND ADMISSION THREW IT AWAY.**
-/// `MoveSpec::effect_refs` labels every reference with its [`EffectSite`], and
-/// `admit` took only the `EffectRef` — so an author could put `pogo_bounce` in a
-/// timeline event, a window's sustain slot or a flow `Emit`, pass startup
-/// validation, and get nothing at runtime. `pogo_bounce` is consumed from
-/// `OnHitEffectMessage` ONLY; a timeline/sustain/flow effect travels through
+/// Admission must use the [`EffectSite`] that `MoveSpec::effect_refs` reports.
+/// Example: `pogo_bounce` is consumed only from `OnHitEffectMessage`. Authored
+/// at a timeline event, a sustain slot or a flow `Emit`, it goes through
 /// `MoveEventKind::Effect` into `ActorActionMessage::Special`, which the pogo
-/// handler never reads. Admission had therefore admitted exactly the "move plays
-/// and nothing answers the technique" state it exists to exclude. Found by GPT
-/// review #9.
+/// handler never reads. The move then plays and the technique does nothing.
 ///
-/// ⭐ TWO ROADS, NOT FOUR SITES. The four sites collapse into two DELIVERIES,
-/// and delivery is what a handler chooses when it picks a `MessageReader`. A
-/// declaration that listed sites would have to be re-checked every time a site
-/// is added; one that names the road it listens on stays true.
+/// The four sites collapse into two deliveries. A handler chooses its delivery
+/// when it picks a `MessageReader`, so a declaration of the road stays true
+/// when a new site is added.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TechniqueDelivery {
     /// Answered from `OnHitEffectMessage` — authored at a volume's `on_hit`.
@@ -443,41 +378,25 @@ impl TechniqueDelivery {
     }
 }
 
-/// What OTHER authored definitions a technique's params name.
+/// What other authored definitions a technique's params name.
 ///
-/// ⛔⛔ **"NAMES NOTHING" IS A CONTRACT, exactly as `Paramless` is.** Three
-/// technique params carry the id of another authored definition
-/// (`SummonRideParams::character_id`, and the two `item_id`s), and preparation
-/// checked none of them — so a summon naming an unknown character was refused at
-/// FIRE TIME by `preflight_planned_bodies`, which logs an error and returns: the
-/// move plays and nothing happens. That is the runtime failure this packet moves
-/// to preparation.
+/// "Names nothing" is a contract, the same as `Paramless`. Some technique
+/// params carry the id of another authored definition (for example
+/// `SummonRideParams::character_id` and the `item_id`s). Preparation checks
+/// them, so an unknown id fails at preparation and not at fire time (where
+/// `preflight_planned_bodies` only logs an error).
 ///
-/// ⭐ THE DECLARATION CARRIES THE EXTRACTOR, so preparation never learns a
-/// technique's NAME. A validation pass that matched on `smash.summon_ride` would
-/// be the service locator the owner document forbids; asking the offer "what do
-/// you name?" keeps this a bounded validation catalog.
-///
-/// ⚠ EVERY VARIANT HERE IS CHECKED. A domain that can be DECLARED but not
-/// verified would be a claim the tree does not honour, so the `item_id` half
-/// stays `None` until there is a site that can see the item vocabulary —
-/// `ambition_characters` cannot reach it, which is the same layering wall the
-/// support table itself had to cross.
+/// The declaration carries the extractor, so preparation never matches on a
+/// technique name. Every variant here is checked.
 #[derive(Clone, Copy)]
 pub enum NestedReferences {
     /// Names no other authored definition.
     None,
     /// The character ids this effect's params name.
     Characters(fn(&EffectRef) -> Vec<String>),
-    /// The HELD-ITEM ids this effect's params name.
-    ///
-    /// ⛔ I RECORDED THIS AS UNCHECKABLE AND IT WAS NOT. The note said the two
-    /// `item_id` references could not be verified from `ambition_characters`
-    /// because it cannot see the item vocabulary — the same layering wall the
-    /// support table had to cross. Wrong: `held_item_by_id` is a static registry
-    /// in `ambition_characters::brain::action_set`, the SAME crate as the
-    /// barrier. The wall was assumed from the shape of an earlier problem rather
-    /// than measured.
+    /// The held-item ids this effect's params name.
+    /// The held-item ids this effect's params name. They are checked against
+    /// `held_item_by_id` in `ambition_characters::brain::action_set`.
     HeldItems(fn(&EffectRef) -> Vec<String>),
 }
 
@@ -528,13 +447,13 @@ pub struct TechniqueOffer {
     /// Who claims this key — a module path, for the conflict diagnostic.
     pub owner: &'static str,
     /// Whether the key takes authored parameters at all.
+    /// Whether the key takes authored parameters at all.
     ///
-    /// ⛔ `Paramless` IS A CONTRACT, NOT AN ABSENT SCHEMA. A technique that takes
-    /// nothing must REFUSE a non-empty map rather than ignore it: an author who
-    /// wrote params for it believed they did something, and silently dropping
-    /// them is the failure this whole packet is about.
+    /// `Paramless` is a contract, not an absent schema. A technique that takes
+    /// nothing must refuse a non-empty map, because silently dropping authored
+    /// params hides an author error.
     pub params: TechniqueParams,
-    /// What OTHER authored definitions this key's params name. See
+    /// What other authored definitions this key's params name. See
     /// [`NestedReferences`]: `None` is a claim, not an omission.
     pub references: NestedReferences,
     /// Which road this technique's handler listens on. See
@@ -562,14 +481,12 @@ impl std::fmt::Debug for TechniqueParams {
 }
 
 impl PartialEq for TechniqueParams {
-    /// ⛔⛔ **TWO CHECKED DECLARATIONS ARE NEVER "THE SAME", and that is
-    /// deliberate rather than a limitation worked around.** A [`ParamCheck`] is a
-    /// function pointer, and this repository's registry rule forbids anything
-    /// process-local — an address, a `TypeId`, an allocation order — from
-    /// entering a registration's identity, because two builds of the same content
-    /// must fingerprint equal. So there is no honest Idempotent case for a
-    /// checked technique, which is exactly why [`TechniqueSupport::declare`]
-    /// reports a conflict by KEY AND CLAIMED OWNER and never by comparing checks.
+    /// Two checked declarations are never equal. A [`ParamCheck`] is a
+    /// function pointer, and a registration's identity must not contain
+    /// process-local values (addresses, `TypeId`s, allocation order): two builds
+    /// of the same content must fingerprint equal. So
+    /// [`TechniqueSupport::declare`] reports a conflict by key and owner, not by
+    /// comparing checks.
     fn eq(&self, other: &Self) -> bool {
         matches!(
             (self, other),
@@ -583,25 +500,13 @@ impl Eq for TechniqueParams {}
 /// Why an authored [`EffectRef`] is not admissible.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TechniqueRefusal {
-    // ⛔⛔ **`Disabled` LIVED HERE AND NOTHING COULD EVER CONSTRUCT IT.** It said
-    // "the key is declared, but by a capability this composition did not
-    // install", and drew a genuinely useful distinction: a typo is fixed in the
-    // move, an uninstalled capability is fixed in the composition. But
-    // `TechniqueSupport` stores ONLY installed offers, so an absent key is
-    // always `Unknown` — there was no known-but-disabled source to build it
-    // from. Vocabulary that cannot be reached is a promise the type makes and
-    // the code cannot keep, so it is gone. Removed on GPT review #9.
-    //
-    // ⚠ THE DISTINCTION IS STILL REAL AND IS NOW Q97's. Telling a typo from a
-    // technique some OTHER composition installs needs a workspace-wide registry
-    // of every declared key, which does not exist; the completeness guard
-    // enumerates them at BUILD time only. Restore this variant with that source,
-    // not before.
-    /// No installed capability declares this key.
-    ///
-    /// ⛔ THE DIAGNOSTIC THIS PACKET EXISTS FOR. `smash.teleprot` used to reach
-    /// the runtime, match no arm, and log a warning mid-fight — a move that plays
-    /// and does nothing. It is a data error and it is knowable at install time.
+    // There is no `Disabled` variant ("declared by a capability this
+    // composition did not install"). `TechniqueSupport` stores only installed
+    // offers, so nothing could construct it. Telling a typo from a key that
+    // another composition installs needs a workspace-wide registry of declared
+    // keys, which does not exist yet. Add the variant only with that source.
+    /// No installed capability declares this key (for example a typo such as
+    /// `smash.teleprot`). This is a data error, known at install time.
     Unknown { key: String },
     /// The technique takes no parameters and the author wrote some.
     UnexpectedParams { key: String, owner: &'static str },
@@ -612,10 +517,9 @@ pub enum TechniqueRefusal {
         detail: String,
     },
     /// The key is installed, but authored somewhere its handler never reads.
-    ///
-    /// ⛔ THE ACCEPTED NO-OP. `pogo_bounce` answers `OnHitEffectMessage` only;
-    /// authored at a timeline event it becomes an `ActorActionMessage::Special`
-    /// that the pogo handler never consumes. Site-blind admission passed it.
+    /// The key is installed, but authored at a site its handler never reads.
+    /// Example: `pogo_bounce` authored at a timeline event becomes an
+    /// `ActorActionMessage::Special`, which the pogo handler never consumes.
     WrongSite {
         key: String,
         owner: &'static str,
@@ -679,18 +583,12 @@ impl std::fmt::Display for TechniqueConflict {
 /// Which techniques this composition actually installed, and what each one's
 /// parameters must look like.
 ///
-/// ⛔⛔ **IT REPLACES A REGISTRY THAT ADMITTED EVERYTHING AND WAS NEVER
-/// POPULATED.** [`ParamSchemaRegistry`] let an unknown key PASS by design ("the
-/// engine matches no key, so an unregistered key always passes"), overwrote a
-/// duplicate registration silently, and — measured 2026-09-09, and said in as
-/// many words by `ambition_demo_smash`'s own source — had ZERO production
-/// callers. So a misspelled effect key was admitted by every check in the tree
-/// and surfaced as a `warn!` mid-fight, on a move that plays and does nothing.
+/// It replaces [`ParamSchemaRegistry`], which admitted unknown keys and
+/// silently overwrote duplicates.
 ///
-/// ⭐ THE DECLARATION COMES FROM WHOEVER INSTALLS THE HANDLER, which is what
-/// makes it evidence rather than metadata. A key present here means a capability
-/// said "I install the thing that answers this"; a key absent means nothing does.
-/// A test that registers a check and then validates against it proves neither.
+/// The capability that installs the handler makes the declaration. A key here
+/// means a capability installs the thing that answers it. An absent key means
+/// nothing answers it.
 #[derive(Default, Clone)]
 pub struct TechniqueSupport {
     offers: BTreeMap<String, TechniqueOffer>,
@@ -732,18 +630,14 @@ impl TechniqueSupport {
         self.admit_at(None, effect)
     }
 
-    /// The same, told WHERE the effect was authored.
+    /// The same, told where the effect was authored.
     ///
-    /// ⛔⛔ **SITE-BLIND ADMISSION ADMITS THE VERY NO-OP IT EXISTS TO EXCLUDE.**
-    /// `MoveSpec::effect_refs` labels each reference with its [`EffectSite`] and
-    /// the caller was discarding it, so `pogo_bounce` — consumed from
-    /// `OnHitEffectMessage` alone — passed validation when authored at a
-    /// timeline event, a sustain slot or a flow `Emit`, and answered nothing at
-    /// runtime. Pass the site and that becomes a refusal an author can read.
+    /// Pass the site from `MoveSpec::effect_refs`. Without it, an effect
+    /// authored at a site its handler never reads passes (see
+    /// [`TechniqueDelivery`]).
     ///
-    /// `None` means "site unknown", for a caller validating a bare `EffectRef`
-    /// out of context; delivery is then unchecked, which is strictly weaker and
-    /// says so.
+    /// `None` means "site unknown", for a caller that validates a bare
+    /// `EffectRef`. Delivery is then not checked.
     pub fn admit_at(
         &self,
         site: Option<&EffectSite>,
@@ -764,12 +658,10 @@ impl TechniqueSupport {
                 });
             }
         }
-        // ⛔⛔ BEFORE THE DECLARATION'S OWN PREDICATE, AND NOT PART OF IT. A
-        // non-finite float is not a fact about any one technique — it is a value
-        // no authored field may hold — so making each declaration remember to
-        // check it is the same mistake as making each one remember its key.
-        // Twenty of the twenty-three shipped declarations check only
-        // `check_hydrates::<T>`, and serde builds `NaN` happily.
+        // Check finiteness before the declaration's own predicate. No authored
+        // field may hold a non-finite float, so each declaration must not have
+        // to remember this. Most declarations use only `check_hydrates::<T>`,
+        // and serde builds `NaN` without error.
         let nonfinite = effect.params.nonfinite_fields();
         if !nonfinite.is_empty() {
             return Err(TechniqueRefusal::BadParams {
@@ -831,59 +723,40 @@ pub enum WindowTag {
     Recovery,
     /// The owner cannot be hit.
     Invuln,
-    /// The owner takes hits without hitstun. SUPER armor: every hit, whatever
-    /// it carries.
+    /// The owner takes hits without hitstun. Super armor: every hit.
     Armor,
-    /// THRESHOLD ARMOR: the owner takes hits DEALING LESS THAN `damage` without
-    /// hitstun; one at or above it breaks through and lands normally.
+    /// Threshold armor: the owner takes hits that deal less than `damage`
+    /// without hitstun. A hit at or above `damage` breaks through.
     ///
-    /// ⭐⭐ **A SEPARATE TAG RATHER THAN A FIELD ON [`Self::Armor`], and that is
-    /// what keeps every shipped move working unedited.** `Armor` means super
-    /// armor and always did; three production moves author it
-    /// (`alice_moveset.rs` `n_b`, `patent_clerk_moveset.rs` `side_b`,
-    /// `player_robot_moveset.rs` `down_b`). Adding a threshold field to `Armor`
-    /// would have made every one of those author a number they never chose, and
-    /// `serde(default)` would have picked it for them.
+    /// This is a separate tag, not a field on [`Self::Armor`], so shipped
+    /// super-armor moves do not get a threshold they did not choose.
     ///
-    /// ⚠ `>=` BREAKS, so a move meant to eat a 9 and answer for a 10 authors
-    /// `damage: 10`. Nothing accumulates: each hit is judged alone, so two
-    /// small hits never add up to a break.
+    /// The comparison is `>=`: to absorb 9 and break on 10, author
+    /// `damage: 10`. Each hit is judged alone; small hits do not add up.
     ArmorUnder {
         /// The damage at which a hit breaks through.
         damage: i32,
     },
-    /// The move may be canceled into the named moves (CM4). `into` entries
-    /// share one namespace: literal move ids (`"jab2"`), verbs (`"special"`,
+    /// The move may be canceled into the named moves. `into` entries share
+    /// one namespace: literal move ids (`"jab2"`), verbs (`"special"`,
     /// `"attack"`), and classes (`"any_attack"`, `"jump"`, `"dash"`). The
-    /// timeline IS the cancel table — combo/chain design is authored as
-    /// windows, like everything else about a move.
+    /// timeline is the cancel table.
     Cancelable {
         into: Vec<String>,
-        /// When the escape is legal. Default `Always` — the pre-CM4 meaning
-        /// of an authored `Cancelable` window (serde-default keeps existing
-        /// RON rows parsing unchanged).
+        /// When the escape is legal. The default is `Always`, so older RON
+        /// rows parse unchanged.
         #[serde(default)]
         condition: CancelCondition,
     },
 }
 
-/// The cancel-target CLASS namespace (CM4): names an authored `into` entry may
-/// use besides a literal move id. Verbs + classes the trigger seam resolves.
+/// The cancel-target class namespace: names an authored `into` entry may use
+/// besides a literal move id.
 ///
-/// ⛔⛤ **IT DISAGREED WITH THE RUNTIME AND SHIPPED CONTENT SAT ON THE GAP.**
-/// MEASURED 2026-09-11, the first time this validator was pointed at the shipped
-/// move tables: the medic's neutral special authors `into: ["smash", …]`, and
-/// [`cancel_names_for`] DOES produce `"smash"` for a smash press
-/// (`&[SMASH_VERB, ATTACK_VERB, "any_attack"]`) — so the runtime honours that
-/// cancel and this list called it an unknown target. Three of the names the
-/// trigger seam can produce were missing: `smash`, `grab`, `taunt`.
-///
-/// ⇒ **DERIVED FROM [`cancel_names_for`], NOT RESTATED BESIDE IT.** Two lists of
-/// "which names a cancel may target" is one list plus a bug, and this is the bug
-/// that pair produced. The locomotion escapes are added here because
-/// `trigger_moveset_moves` passes them directly rather than through
-/// `cancel_names_for` — that is the one genuine difference between what an
-/// author may WRITE and what a press RESOLVES to.
+/// Derived from [`cancel_names_for`], not restated, so the validator and the
+/// runtime accept the same names. The locomotion escapes are added here
+/// because `trigger_moveset_moves` passes them directly and not through
+/// `cancel_names_for`.
 pub fn cancel_class_names() -> Vec<&'static str> {
     let mut names: Vec<&'static str> = [
         ATTACK_VERB,
@@ -896,8 +769,8 @@ pub fn cancel_class_names() -> Vec<&'static str> {
     .iter()
     .flat_map(|verb| cancel_names_for(verb, false).iter().copied())
     .chain(cancel_names_for(ATTACK_VERB, true).iter().copied())
-    // ⛔ THE LOCOMOTION ESCAPES ARE NOT VERBS AND DO NOT COME FROM ABOVE. The
-    // trigger road asks `cancel_permits(.., &[name])` with these directly.
+    // The locomotion escapes are not verbs. The trigger road passes them
+    // directly to `cancel_permits(.., &[name])`.
     .chain(["jump", "dash"])
     .collect();
     names.sort_unstable();
@@ -905,90 +778,68 @@ pub fn cancel_class_names() -> Vec<&'static str> {
     names
 }
 
-/// What one USE of a move has done to a body so far.
+/// What one use of a move has done to a body so far.
 ///
-/// ⭐⭐ THREE FACTS, NOT ONE BOOL, because a strike has three outcomes and the
-/// old `landed_hit: bool` could only name two. It meant OVERLAP — which is what
-/// the hitbox sweep publishes — so a move an ordinary held guard blocked
-/// reported the same thing as one that connected, `OnHit` confirmed on it, and
-/// the move wore itself out on the stale queue.
+/// Three facts, because a strike has three outcomes. Overlap alone (what the
+/// hitbox sweep publishes) cannot tell a blocked hit from a connect.
 ///
-/// ⚠ `overlapped` WITHOUT either of the others is a hit still being resolved:
-/// the actor road decides on the overlap frame, the player road on the next one.
-/// A consumer that wants a decision must read `connected` or `blocked`, never
+/// `overlapped` without either of the others is a hit still being resolved:
+/// the actor road decides on the overlap frame, the player road on the next.
+/// A consumer that wants a decision must read `connected` or `blocked`, not
 /// the absence of one.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MoveContact {
     /// The move's volume overlapped a hurtbox. The staling fact — a move that
     /// hits a shield has been used.
     pub overlapped: bool,
-    /// The overlap RESOLVED to a connect: damage or knockback reached a body.
+    /// The overlap resolved to a connect: damage or knockback reached a body.
     pub connected: bool,
-    /// The overlap resolved to a BLOCK: a guard consumed it.
+    /// The overlap resolved to a block: a guard consumed it.
     pub blocked: bool,
 }
 
-/// When a [`WindowTag::Cancelable`] escape is legal (CM4).
+/// When a [`WindowTag::Cancelable`] escape is legal.
 ///
-/// ✔ `OnBlock` EXISTS AS OF 2026-08-31, and the two deferrals that held it are
-/// both spent. The first said the victim-shield-contact fact *"lands with CM6
-/// (shield-stun)"* — shield-stun shipped. The second, written this morning, said
-/// nothing tells a move it was BLOCKED: `BlockedBodyHit` does now, published by
-/// the damage resolver where the block is decided.
-///
-/// ⭐ THE FEEL RULING THE ROW ASKED FOR, made and recorded: neither *"delay the
-/// marker"* nor *"retract on block"*. The overlap marker keeps its slot and
-/// keeps STALING on the overlap — a move that hits a shield has been used — and
-/// the two RESOLVED facts arrive on their own channels, so nothing is written
-/// and then taken back. The connect-frame cancel window survives intact on the
-/// actor road every match fighter takes, because that road resolves on the
-/// overlap frame; against a player victim an `OnHit` cancel opens one frame
-/// later than it used to, and that is the whole cost.
+/// The overlap marker stales the move on overlap (a move that hits a shield
+/// has been used). The resolved facts (connect, block) arrive on their own
+/// channels, so nothing is written and then retracted. On the actor road the
+/// connect-frame cancel is unchanged, because that road resolves on the
+/// overlap frame. Against a player victim, an `OnHit` cancel opens one frame
+/// later.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CancelCondition {
     /// Any time the window is open.
     #[default]
     Always,
-    /// Only after this move CONNECTED with a victim (combo confirm — jab
+    /// Only after this move connected with a victim (combo confirm: jab
     /// chains into jab2 on hit).
     OnHit,
-    /// Only while the move touched NOTHING (whiff escape — bail out of a
-    /// missed heavy's recovery). ⚠ a BLOCKED move is not a whiff: it touched
-    /// something, and connected with nothing.
+    /// Only while the move touched nothing (whiff escape from a missed
+    /// heavy's recovery). A blocked move is not a whiff.
     OnWhiff,
-    /// Only after a GUARD ate this move (shield pressure — the safe-on-block
-    /// follow-up the genre is built around).
-    ///
-    /// ⭐ AUTHORABLE SINCE 2026-08-31, and the note this replaces was right to
-    /// refuse it before then: with only an OVERLAP fact to read, `OnHit` fired
-    /// on a blocked strike and `OnBlock` would have had nothing of its own to
-    /// ask. `BlockedBodyHit` is the positive fact the damage resolver now
-    /// publishes.
+    /// Only after a guard absorbed this move (the safe-on-block follow-up).
+    /// It reads `BlockedBodyHit`, which the damage resolver publishes.
     OnBlock,
 }
 
 impl CancelCondition {
-    /// Is this escape legal given whether the move has CONNECTED?
+    /// Is this escape legal given the move's contact so far?
     ///
-    /// One place, because [`MoveSpec::cancel_permits`] and
-    /// [`MoveSpec::cancel_successors`] both ask it, and a chain that answered
-    /// it differently from the permission would nominate a successor the
-    /// cancel then refused.
+    /// [`MoveSpec::cancel_permits`] and [`MoveSpec::cancel_successors`] both
+    /// ask this, so a chain cannot nominate a successor the cancel refuses.
     pub fn permits(self, contact: MoveContact) -> bool {
         match self {
             Self::Always => true,
             Self::OnHit => contact.connected,
-            // ⛔ THE ABSENCE OF AN OVERLAP, not the absence of a connect. A move
-            // a guard ate touched something; letting it take the whiff escape
-            // would hand the attacker a free out from the one outcome the genre
-            // punishes.
+            // Test the absence of an overlap, not of a connect. A blocked move
+            // must not get the whiff escape.
             Self::OnWhiff => !contact.overlapped,
             Self::OnBlock => contact.blocked,
         }
     }
 }
 
-/// An axis-aligned or circular hit volume in ENTITY-LOCAL logical space
+/// An axis-aligned or circular hit volume in entity-local logical space
 /// (+x = facing; the runtime mirrors x for a left-facing actor).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum VolumeShape {
@@ -1004,27 +855,17 @@ pub enum VolumeShape {
 impl VolumeShape {
     /// How far in front of the body this volume reaches, body-local.
     ///
-    /// ⭐ THE SAME REASON `CaptureAttemptParams::reach_x` EXISTS, for the other
-    /// geometry. A leading edge is `offset + half_extent` on x, and a sum spelled
-    /// at a call site is a second answer to "how far does this reach" that drifts
-    /// from the first without failing. ⇒ `test_the_grab_reach_is_one_formula`
-    /// forbids that spelling for capture params, and it caught a moveset TEST
-    /// re-inlining it for a hit volume — which is the same mistake on a
-    /// different type, so this is the same repair.
+    /// Call this; do not write `offset + half_extent` at a call site, which
+    /// can drift. `test_the_grab_reach_is_one_formula` guards the same rule
+    /// for capture params.
     pub fn leading_edge_x(&self) -> f32 {
         self.coverage_box().max.0
     }
 
     /// The body-local box this volume occupies.
     ///
-    /// ⭐ **THE ONE SPELLING OF THE SUM, AND [`leading_edge_x`] IS NOW A
-    /// PROJECTION OF IT.** Both a leading edge and a coverage box are
-    /// `offset ± half_extent`, so a file holding one of them will write the
-    /// other out by hand — `MoveFrameData::coverage` did, twice, inside the
-    /// same file that declares the edge and explains why not to. A second
-    /// spelling of a box is a second answer to *"how far does this reach"*
-    /// that agrees until somebody changes one.
-    ///
+    /// The single spelling of `offset ± half_extent`. [`leading_edge_x`] is a
+    /// projection of it; do not write the box out by hand elsewhere.
     /// [`leading_edge_x`]: VolumeShape::leading_edge_x
     pub fn coverage_box(&self) -> MoveCoverage {
         match *self {
@@ -1043,25 +884,23 @@ impl VolumeShape {
     }
 }
 
-/// A per-volume override of what a hit DOES to the body it lands on.
+/// A per-volume override of what a hit does to the body it lands on.
 ///
-/// The two arms are the two ways a volume can decline the ordinary
-/// launch-and-hurt reaction, and they are opposites: [`Self::Autolink`] pulls
-/// the victim IN, [`Self::Windbox`] pushes it AWAY. Targeting, faction and
-/// contact resolve identically for both and for an ordinary hit.
+/// The two arms are opposites: [`Self::Autolink`] pulls the victim in,
+/// [`Self::Windbox`] pushes it away. Targeting, faction and contact resolve
+/// the same for both and for an ordinary hit.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum VolumeReaction {
-    /// AUTOLINK: this volume HOLDS its victim near the attacker instead of
-    /// launching it away.
+    /// Autolink: this volume holds its victim near the attacker and does not
+    /// launch it.
     ///
-    /// The genre's multi-hit moves work because their intermediate pulses keep
-    /// the victim inside the next hitbox and only the LAST one launches, so a
-    /// move authors this on its intermediate volumes and leaves its final volume
-    /// alone. ⛔ it is not a capture: no relationship, no hold clock, no escape,
-    /// and the victim keeps every verb it has.
+    /// A multi-hit move authors this on its intermediate volumes, so the
+    /// victim stays in the next hitbox, and leaves the final volume alone. It
+    /// is not a capture: no relationship, no hold clock, no escape, and the
+    /// victim keeps every verb.
     Autolink(AutolinkVolume),
-    /// WINDBOX: this volume PUSHES its victim and does nothing else — no damage,
-    /// no hitstun, no shield.
+    /// Windbox: this volume pushes its victim and does nothing else (no
+    /// damage, no hitstun, no shield).
     Windbox(WindboxVolume),
 }
 
@@ -1078,67 +917,52 @@ pub struct HitVolume {
     /// facing + contact by the combat runtime).
     #[serde(default)]
     pub knockback: f32,
-    /// Knockback GROWTH per point of the victim's accumulated damage (CM1, the
-    /// smash-percent axis): the applied knockback becomes
+    /// Knockback growth per point of the victim's accumulated damage: the
+    /// applied knockback is
     /// `knockback + knockback_growth * victim.damage_taken() / victim.weight`.
     ///
-    /// `None` = **this stage decides** — the ruleset's own growth scales this
-    /// hit, which is what an unauthored row has always got.
+    /// `None`: the stage's ruleset growth applies.
     ///
-    /// `Some(g)` = **exactly this**, including `Some(0.0)`: FIXED KNOCKBACK, a
-    /// hit that launches the same at 0% and at 200%. That is the mechanic
-    /// multi-hit moves are built on — a pulse whose carry stops working once
-    /// the victim's percent grows is a combo that dissolves exactly when it
-    /// matters — and it was unauthorable.
+    /// `Some(g)`: exactly `g`. `Some(0.0)` is fixed knockback, the same at 0%
+    /// and at 200%, which multi-hit moves need.
     ///
-    /// ⛔ AN `f32` HERE MAKES ZERO MEAN BOTH THINGS: flat knockback to an author,
-    /// and "unspecified, use the stage's" to
-    /// `ambition_platformer2d::combat::hitbox::resolved_hitbox_knockback_magnitude`,
-    /// which substitutes — so the documented behaviour is the one you cannot get.
-    /// One value with two meanings is the shape
-    /// this repository keeps paying for; an `Option` is what tells "the author
-    /// said zero" from "the author said nothing".
+    /// An `Option`, not an `f32`, because
+    /// `ambition_platformer2d::combat::hitbox::resolved_hitbox_knockback_magnitude`
+    /// treats zero as "unspecified" and substitutes the stage's value.
     #[serde(default)]
     pub knockback_growth: Option<f32>,
-    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`. `None` =
-    /// today's facing+contact derivation. The runtime mirrors x by facing and rotates into the
-    /// owner's gravity frame (frame-correct under any gravity), then applies DI (CM2).
+    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`.
+    /// `None` uses the facing+contact derivation. The runtime mirrors x by
+    /// facing, rotates into the owner's gravity frame, then applies DI.
     #[serde(default)]
     pub launch_dir: Option<(f32, f32)>,
-    /// How this volume's REACTION differs from an ordinary hit. `None` is an
-    /// ordinary hit, which is nearly every volume in the game.
+    /// How this volume's reaction differs from an ordinary hit. `None` is an
+    /// ordinary hit.
     ///
-    /// ⛔⛔ A SUM, NOT TWO `Option`s, and that is the whole point. It was
-    /// `autolink: Option<_>` beside `windbox: Option<_>`, documented as
-    /// *"mutually exclusive in meaning, not in type"* — so a volume asking to
-    /// HOLD and to SHOVE at once was writable, and the runtime picked one and
-    /// said so in a comment. A comment is not a schema. Fixed while it was still
-    /// latent: no authored volume has ever set both.
+    /// One sum type, not two `Option`s, so a volume cannot ask to hold and to
+    /// push at once.
     #[serde(default)]
     pub reaction: Option<VolumeReaction>,
     /// Optional technique fired when this volume lands, with owner/victim/contact
     /// context. `None` is an ordinary damage-only volume.
     #[serde(default)]
     pub on_hit: Option<EffectRef>,
-    /// Presentation tag for this volume's strike (§7.1/§7.2): a bladed swing
-    /// authors `"slash_arc"` / `"slash_poke"` and the move runtime (a) draws the
-    /// slash VFX from the SAME spawned volume (hitbox and slash can never point
-    /// different ways) and (b) treats the volume as the character's BLADE —
-    /// resolving the sprite-manifest's authored per-animation hit polygon (keyed
-    /// by the move's clip name) in place of this synthetic shape when the owner
-    /// authors one. `None` = a silent, data-shaped volume (boss geometry
-    /// strikes, hazards) — no VFX, no manifest override. Unknown tags draw the
-    /// default arc; the tag set is engine presentation vocabulary, not content.
+    /// Presentation tag for this volume's strike. A bladed swing authors
+    /// `"slash_arc"` / `"slash_poke"`. The move runtime then (a) draws the
+    /// slash VFX from the same spawned volume, so hitbox and slash always
+    /// agree, and (b) treats the volume as the character's blade: it uses the
+    /// sprite manifest's per-animation hit polygon (keyed by the move's clip
+    /// name) in place of this shape when the owner authors one. `None` is a
+    /// silent volume (boss strikes, hazards): no VFX, no manifest override.
+    /// Unknown tags draw the default arc.
     #[serde(default)]
     pub vfx: Option<String>,
-    /// Authored STRIKE SOUND id (CM8): the sound THIS attack makes on contact,
-    /// e.g. `"player.slash"` for a blade or `"world.rock.hit"` for a bludgeon —
-    /// so a sword and a goblin swipe are heard apart even when they land on the
-    /// same body. The string is the `SfxId` name (lowered via `SfxId::new` at
-    /// spawn); an id the bank never rendered simply plays nothing, so authoring
-    /// one is always safe. `None` = the victim's own default hurt sound. This is
-    /// the ATTACK's contribution to hit feedback; the spray/debris a solid hit
-    /// throws are the VICTIM's, carried on its `HurtFeedback`.
+    /// Authored strike sound id: the sound this attack makes on contact, for
+    /// example `"player.slash"` or `"world.rock.hit"`. The string is the
+    /// `SfxId` name (lowered via `SfxId::new` at spawn). An id the bank does
+    /// not have plays nothing, so it is always safe. `None` uses the victim's
+    /// default hurt sound. Spray and debris belong to the victim's
+    /// `HurtFeedback`.
     #[serde(default)]
     pub hit_sfx: Option<String>,
 }
@@ -1161,33 +985,24 @@ impl HitVolume {
     }
 }
 
-/// A WINDBOX: this volume MOVES its victim without hurting it.
+/// A windbox: this volume moves its victim without hurting it.
 ///
-/// ⭐⭐ IT CARRIES NO PUSH OF ITS OWN, and that is the design. A volume already
-/// says where and how hard it throws — `knockback` and `launch_dir` — and a
-/// gust is thrown the same way a punch is. Adding a second push vector here
-/// would be a second way to author one thing, and the two would disagree the
-/// first time somebody set both.
+/// It carries no push of its own. The volume's `knockback` and `launch_dir`
+/// already say where and how hard it throws, and a second push vector would
+/// disagree with them.
 ///
-/// ⭐ HALF OF THIS MECHANIC ALREADY EXISTED. `damage: 0` is authorable and the
-/// damage floor deliberately keeps it at zero (see `damage_floor` — *"a volume
-/// that authors NO damage is a WINDBOX, and flooring it to one turned a push
-/// into a hit"*). What a damageless volume still did was STUN its victim and
-/// spend its hit-once slot, so it was a punch that dealt nothing rather than a
-/// gust. This field is the remaining difference and nothing more.
+/// `damage: 0` is authorable, and `damage_floor` keeps it at zero. Without
+/// this field, a damageless volume still stuns its victim and spends its
+/// hit-once slot. This field removes that difference.
 ///
-/// ⛔ IT IS STILL AN ORDINARY VOLUME EVERYWHERE ELSE. Targeting, faction and
-/// contact resolve exactly as they do for a hit, because "who is standing in
-/// this" is the same question whether the answer hurts or not.
+/// Targeting, faction and contact resolve the same as for a hit.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct WindboxVolume {
-    /// May this volume move the SAME body again while it stands in the gust?
+    /// May this volume move the same body again while it stays in the gust?
     ///
-    /// ⭐ A GUST PUSHES FOR AS LONG AS YOU ARE IN IT, which an ordinary strike
-    /// must not: the hit-once set exists so a long active window cannot re-hit a
-    /// stationary target every frame. `true` opts out of that set — correct for
-    /// a sustained wind, wrong for a one-shot shove, so it is authored rather
-    /// than assumed.
+    /// `true` opts out of the hit-once set, which stops a long active window
+    /// from re-hitting a target every frame. Use it for a sustained wind, not
+    /// a one-shot shove.
     #[serde(default)]
     pub repeating: bool,
 }
@@ -1195,11 +1010,11 @@ pub struct WindboxVolume {
 /// The authored half of an autolink pulse: where it holds, how hard, and how
 /// much of the attacker's own motion the victim inherits.
 ///
-/// ⚠ THE ATTACKER'S VELOCITY IS NOT AUTHORED — the runtime samples it at the
-/// pulse, because it is a fact about the moment and not about the move.
+/// The runtime samples the attacker's velocity at the pulse; it is not
+/// authored.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct AutolinkVolume {
-    /// Follow point in the ATTACKER'S local frame: `x` forward along its facing,
+    /// Follow point in the attacker's local frame: `x` forward along its facing,
     /// `y` toward its feet — the same local convention `launch_dir` uses.
     pub anchor: (f32, f32),
     /// Share of the attacker's own velocity handed to the victim, `0..=1`.
@@ -1207,7 +1022,7 @@ pub struct AutolinkVolume {
     /// fighter climbing fast outruns any gap-closing term.
     #[serde(default = "one")]
     pub carry: f32,
-    /// Spring gain on the remaining gap, in 1/s. How HARD this move grabs.
+    /// Spring gain on the remaining gap, in 1/s. How hard this move grabs.
     #[serde(default = "default_autolink_pull")]
     pub pull: f32,
     /// Ceiling on the corrective term, engine units/s. The carry is not clamped.
@@ -1522,24 +1337,20 @@ pub struct MoveWindow {
     /// Hit volumes live during this window (meaningful for `Active`).
     #[serde(default)]
     pub volumes: Vec<HitVolume>,
-    /// How much of the OWNER'S steering intent survives while its clock is
-    /// inside this window — the move's authored MOTION LOCK. `1.0` (the
-    /// default, every ordinary move) leaves steering untouched; `< 1.0` damps
-    /// it (a committed heavy strike the body mustn't outrun — the boss
-    /// strike-speed throttle authors this on its Active window); `0.0` roots
-    /// the body for the window. Enforced BODY-side at integration
-    /// ([`MoveSpec::motion_scale_at`]), so it holds for any controller —
-    /// autonomous brain or possessing player alike (controller attempts, body
-    /// enforces). Frame-agnostic: it scales intent magnitude, never a world
-    /// direction.
+    /// The move's motion lock: how much of the owner's steering intent
+    /// survives inside this window. `1.0` (the default) leaves steering
+    /// unchanged. A value below `1.0` damps it (for example a committed heavy
+    /// strike; the boss strike-speed throttle authors this on its Active
+    /// window). `0.0` roots the body. The body enforces it at integration
+    /// ([`MoveSpec::motion_scale_at`]), so it holds for a brain or a player
+    /// controller. It scales intent magnitude, never a world direction.
     #[serde(default = "default_motion_scale")]
     pub motion_scale: f32,
-    /// A SUSTAINED content effect: while this window is active, an `Effect { key }`
-    /// is emitted EVERY frame (not one-shot like a `MoveEvent`). This is how a move
-    /// expresses a HELD/continuous special — a beam that lingers, a rain that keeps
-    /// falling — where the consuming technique times its own cadence off the
-    /// per-frame "active this tick" signal (the shape the boss `apple_rain`-style
-    /// specials need; the boss fold rides this). `None` for ordinary windows.
+    /// A sustained content effect: while this window is active, an
+    /// `Effect { key }` is emitted every frame (not one-shot like a
+    /// `MoveEvent`). Use it for a held special such as a lingering beam. The
+    /// technique times its own cadence from the per-frame signal. The boss
+    /// `apple_rain`-style specials use this. `None` for ordinary windows.
     #[serde(default)]
     pub sustain_effect: Option<EffectRef>,
 }
@@ -1549,29 +1360,23 @@ pub struct MoveWindow {
 pub enum MoveEventKind {
     /// Play a sound cue by key.
     Sfx { cue: String },
-    /// Emit a purely COSMETIC visual effect by id (CM5 per-move presentation).
-    /// Unlike [`Effect`](Self::Effect) (a gameplay technique) this changes only
-    /// what the move LOOKS like — the sim emits the fact, presentation resolves
-    /// the id against the rows the shipped FX spritesheets carry
-    /// (`ambition_sprite_sheet::fx`) and draws that clip at the owner. A typo is
-    /// a validation error where a validator is available
+    /// Emit a cosmetic visual effect by id. Unlike [`Effect`](Self::Effect)
+    /// (a gameplay technique), this changes only how the move looks. The sim
+    /// emits the fact; presentation resolves the id against the rows of the
+    /// shipped FX spritesheets (`ambition_sprite_sheet::fx`) and draws that
+    /// clip at the owner. A typo is a validation error where a validator runs
     /// (`MoveSpec::presentation_problems`) and a counted miss at draw time
-    /// otherwise — never a silent no-op. This is how a jab, a smash, and a
-    /// launcher look distinct with zero code — each authors its own
-    /// `Vfx { effect }`.
+    /// otherwise.
     Vfx {
         effect: String,
-        /// WHERE, body-local — `+x` toward the facing the move committed to, `+y` gravity-down
-        /// — the same convention [`Impulse`](Self::Impulse) and every [`HitVolume`] offset use,
-        /// and mirrored and rotated by the same two steps.
-        ///
-        ///  so an effect can sit on the box that throws it. A move authors
-        /// its strike volume's offset and its burst's offset in the same numbers.
+        /// Where, body-local: `+x` toward the committed facing, `+y`
+        /// gravity-down. This is the convention of
+        /// [`Impulse`](Self::Impulse) and every [`HitVolume`] offset, so an
+        /// effect can sit on the volume that throws it.
         #[serde(default)]
         at: (f32, f32),
-        /// HOW BIG, as a multiple of the presentation's default effect size.
-        /// `1.0` is that default; a flourish asks for less and a screen-filling
-        /// super asks for more.
+        /// Size as a multiple of the presentation's default effect size
+        /// (`1.0`).
         #[serde(default = "default_vfx_scale")]
         scale: f32,
         /// Optional sound override. `None` resolves the cue addressed by the VFX
@@ -1595,26 +1400,24 @@ pub enum MoveEventKind {
         #[serde(default)]
         mode: ImpulseMode,
     },
-    /// Put the OWNER under a timed gravity multiplier: a parasol, a float, a
+    /// Put the owner under a timed gravity multiplier: a parasol, a float, a
     /// slow-fall. `scale` multiplies the body's gravity for `seconds`, after
     /// which the movement domain restores it with no second call.
     ///
-    /// ⭐⭐ THE MOVE ASKS; THE MOVEMENT DOMAIN OWNS IT. That is this campaign's
-    /// rule, and it is why this is a DURATION rather than an on/off pair: a move
-    /// that turned float on and owed a matching off would be the authority for a
-    /// locomotion regime, and would leak one every time it was interrupted,
-    /// cancelled, or rolled back mid-flight.
+    /// The move asks and the movement domain owns the regime. So this is a
+    /// duration, not an on/off pair: a move that owes an "off" leaks the regime
+    /// when it is interrupted, canceled, or rolled back.
     ///
-    /// ⛔ THE REGIME OUTLIVES THE MOVE ON PURPOSE. `seconds` runs from the beat
-    /// that fires it, not from the end of the move, so a parasol opened in a
-    /// 0.3s animation can hold a body up for two seconds afterwards. A
-    /// `WindowTag` could not say this — a window ends when its move does.
+    /// The regime outlives the move on purpose. `seconds` runs from the beat
+    /// that fires it, so a parasol opened in a 0.3s animation can hold a body
+    /// up for two seconds. A `WindowTag` cannot say this, because a window ends
+    /// with its move.
     GravityModifier {
         /// Multiplier on the body's gravity. `1.0` is no change, `0.25` is a
         /// parasol, `0.0` is a hover and is legal.
         scale: f32,
-        /// How long it lasts, from this beat. Non-positive CLEARS whatever
-        /// modifier the body is under, which is how a move ends one early.
+        /// How long it lasts, from this beat. A non-positive value clears the
+        /// body's current modifier, so a move can end one early.
         seconds: f32,
     },
 }
@@ -1622,16 +1425,14 @@ pub enum MoveEventKind {
 /// How a [`MoveEventKind::Impulse`] meets the velocity the body already had.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ImpulseMode {
-    /// ADD to the current velocity — [`MoveSpec::start_impulse`]'s meaning, and
-    /// the default so an authored impulse that says nothing behaves like the
-    /// field it grew out of. A lunge, a drift nudge.
+    /// Add to the current velocity. This is the meaning of
+    /// [`MoveSpec::start_impulse`] and the default. Use it for a lunge or a
+    /// drift nudge.
     #[default]
     Add,
-    /// REPLACE the velocity outright. The move COMMANDS a speed rather than
-    /// contributing to one, so its result does not depend on how fast the body
-    /// happened to be falling. This is what makes a recovery move a recovery
-    /// move, and it is the only mode a static reader can price
-    /// ([`MoveFrameData::lift_speed`]).
+    /// Replace the velocity. The result does not depend on how fast the body
+    /// was falling, which a recovery move needs. It is the only mode a static
+    /// reader can price ([`MoveFrameData::lift_speed`]).
     Set,
 }
 
@@ -1657,35 +1458,25 @@ pub struct ClipBinding {
 
 /// What a move does to its owner's once-per-airtime recovery.
 ///
-/// ⭐⭐ THREE STATES BECAUSE THE GENRE HAS THREE, and they were two booleans
-/// until 2026-08-26 — `spends_recovery` and `recovery_without_freefall`, the
-/// second documented as *ignored* unless the first was set. That is an invalid
-/// combination spelled in valid data: `(false, true)` is representable, means
-/// nothing, and every reader had to correlate two fields to find out which of
-/// three things an author meant.
+/// One enum and not two booleans, so no combination is meaningless.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecoveryUse {
     /// Not a recovery: costs nothing and is refused by nothing.
     #[default]
     None,
-    /// THE GENRE'S ORDINARY UP-B. Spends the airtime's one recovery and leaves
-    /// its owner helpless once the move ends — the trade is your ability to act
-    /// for height, which is what makes freefall its price rather than a penalty.
+    /// The ordinary up-B. Spends the airtime's one recovery and leaves its
+    /// owner helpless once the move ends: freefall is the price of the height.
     SpendAndFreefall,
     /// Spends the airtime's one recovery and leaves its owner able to act.
+    /// Spends the airtime's one recovery and leaves its owner able to act.
     ///
-    /// ⭐ THE DIFFERENCE IS WHAT THE RECOVERY BUYS. A recovery that hands you a
-    /// VEHICLE has already given the height and the control together, so the
-    /// price is the once-per-airtime budget alone — the pirate is aboard a shark
-    /// and can still swing from the saddle, and it would be incoherent for the
-    /// same move to also say it cannot act.
+    /// Use this when the recovery gives a vehicle: the height and control come
+    /// together, so the price is the budget alone (the pirate can still swing
+    /// from the shark's saddle).
     ///
-    /// ⛔ NOT "this move is free". The charge is still spent and still refreshes
-    /// only on a re-seating cause or a flinching hit, so its owner gets ONE of
-    /// these per airtime exactly like everybody else. What it declines is the
-    /// helpless EPISODE, not the budget — see
-    /// `BodyJumpState::post_recovery_helpless`, whose whole point is that those
-    /// are different things.
+    /// This is not free. The charge is still spent and refreshes only on a
+    /// re-seating cause or a flinching hit. It declines the helpless episode,
+    /// not the budget (see `BodyJumpState::post_recovery_helpless`).
     SpendWithoutFreefall,
 }
 
@@ -1695,54 +1486,42 @@ impl RecoveryUse {
         !matches!(self, Self::None)
     }
 
-    /// Does spending the LAST charge on this move arm the helpless episode?
+    /// Does spending the last charge on this move arm the helpless episode?
     pub const fn arms_freefall(self) -> bool {
         matches!(self, Self::SpendAndFreefall)
     }
 }
 
-/// WHAT KIND OF WAY HOME THIS MOVE OFFERS, as its author states it.
+/// The kind of way home this move offers, as its author states it.
 ///
-/// ⭐⭐ THE GENRE HAS MORE THAN ONE, AND THE PLANNER KNEW ONE. Recovery
-/// reasoning modelled every route as a `RecoveryLift`: one commanded velocity,
-/// thrown once. That is the genre's ordinary up-B and it is not the only shape —
-/// a fighter can teleport, and the pirate's up-B summons a steerable flying
-/// shark and hands its rider SECONDS OF MOVEMENT AUTHORITY. Neither is a burst,
-/// so `lift_speed` reads `0.0` for both and the CPU saw no way home at all
-/// (D250).
+/// Not every recovery is one commanded burst. A fighter can teleport, and the
+/// pirate's up-B summons a steerable shark that gives its rider seconds of
+/// movement authority. For both, `lift_speed` reads `0.0`, so the planner needs
+/// this authored statement. Do not fake a lift (the planner would certify a
+/// rise the move does not give) and do not match on names.
 ///
-/// ⛔ AND THE ANSWER IS NOT TO FAKE A LIFT. A fabricated impulse would make the
-/// planner certify a rise the move does not throw, and the search would then be
-/// wrong in the confident direction. ⛔ Nor a name check: what makes a move a
-/// recovery is what it DOES, which is the rule `RecoveryUse` already states one
-/// field up.
-///
-/// `None` here means *"whatever this move's frame data implies"*, which is a
-/// burst when it commands one and nothing when it does not — every move authored
-/// before route kinds existed still means what it meant.
+/// `None` means "what the frame data implies": a burst when the move commands
+/// one, otherwise nothing.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum AuthoredRecoveryRoute {
-    /// SECONDS OF MOVEMENT AUTHORITY, from something the move summons or mounts.
+    /// Seconds of movement authority, from something the move summons or
+    /// mounts.
     ///
-    /// ⛔ `reach` IS AUTHORED, and it is the claim the planner spends: *"this
-    /// gets you home from within this far"*. Deriving it would mean reading the
-    /// summoned body's own locomotion out of a registry the planner cannot see,
-    /// and guessing it would make the search confidently wrong.
+    /// `reach` is authored: "this gets you home from within this far". The
+    /// planner cannot see the summoned body's locomotion to derive it.
     SustainedAuthority { seconds: f32, reach: f32 },
-    /// A DISCONTINUITY: the body is somewhere else, up to `distance` away.
+    /// A discontinuity: the body is somewhere else, up to `distance` away.
     Teleport { distance: f32 },
 }
 
-/// The way home a move offers, RESOLVED — the authored statement above folded
-/// with what the move's own frame data implies. See
-/// [`MoveSpec::frame_data`], which is the only place the fold happens.
+/// The resolved way home: the authored statement folded with what the move's
+/// frame data implies. The fold happens only in [`MoveSpec::frame_data`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum RecoveryRoute {
     /// This move is no way home.
     #[default]
     None,
-    /// ONE COMMANDED VELOCITY, thrown `at_s` into the move. The genre's ordinary
-    /// up-B, and what every route was before there were kinds.
+    /// One commanded velocity, thrown `at_s` into the move. The ordinary up-B.
     Burst { speed: f32, side: f32, at_s: f32 },
     /// See [`AuthoredRecoveryRoute::SustainedAuthority`].
     SustainedAuthority { seconds: f32, reach: f32 },
@@ -1755,9 +1534,9 @@ impl RecoveryRoute {
         !matches!(self, Self::None)
     }
 
-    /// How far toward home this route CARRIES the body before it is an ordinary
-    /// falling body again. `0.0` for a burst, whose whole effect is a velocity
-    /// the kernel already simulates.
+    /// How far toward home this route carries the body before it falls
+    /// normally again. `0.0` for a burst, whose effect is a velocity the kernel
+    /// already simulates.
     pub fn carry(self) -> f32 {
         match self {
             Self::SustainedAuthority { reach, .. } => reach,
@@ -1776,65 +1555,43 @@ pub struct MoveGates {
     /// `None` = either.
     #[serde(default)]
     pub grounded: Option<bool>,
-    /// WHAT THIS MOVE COSTS THE AIRTIME'S ONE RECOVERY, and what it costs its
+    /// What this move costs the airtime's one recovery, and what it costs its
     /// owner afterwards.
     ///
-    /// ⛔⛔ WITHOUT A RECOVERY BUDGET A PLATFORM FIGHTER HAS NO BOTTOM
-    /// BLASTZONE. Nothing else limits a repeated special — there is no cooldown,
-    /// no cost and no per-airtime rule on a move — and `grounded` cannot tell the
-    /// second use in one airtime from the first. A fighter that authored a rising
-    /// special could press it forever and only die to a launch that outran it.
+    /// Without a recovery budget nothing limits a repeated rising special, and
+    /// a fighter could press it forever. `grounded` cannot tell the second use
+    /// in one airtime from the first.
     ///
-    /// ⭐ AUTHORED, not inferred from a name or an impulse. What makes a move a
-    /// recovery is that somebody said it is one — an up-special that does not
-    /// lift, or a side-special that does, are both ordinary statements this way
-    /// and neither is a special case in input code. ⚠ for a SMASH fighter the
-    /// somebody is the repertoire slot rather than the moveset: see
-    /// `SmashRepertoire`'s `UpSpecial`, which applies the genre's default so that
-    /// fourteen authors do not each have to remember it.
-    ///
-    /// `#[serde(default)]` on a `Default`-`None` enum, so authored content from
-    /// before this existed still means what it meant.
+    /// Authored, not inferred from a name or an impulse. For a smash fighter,
+    /// the repertoire slot applies the default: see `SmashRepertoire`'s
+    /// `UpSpecial`.
     #[serde(default)]
     pub recovery: RecoveryUse,
-    /// This move REFUSES TO START while something else owns the body's pose —
-    /// a saddle, a lift, a grab.
+    /// This move refuses to start while something else owns the body's pose
+    /// (a saddle, a lift, a grab).
     ///
-    /// ⛔⛔ IT IS A START CONDITION, NOT A LATE VETO, AND THAT DISTINCTION IS THE
-    /// WHOLE REASON IT EXISTS. The pirate's shark up-B first enforced "no recast
-    /// from the saddle" downstream, where the summon effect was translated: by
-    /// then the move had been accepted, the recovery use spent, and the startup
-    /// cues played, and all that happened was that no shark appeared. A mounted
-    /// pirate who got flinched — which refunds the recovery — could press up-B
-    /// and simply lose the use to nothing.
+    /// It is a start condition, not a late veto. Once a move starts, its
+    /// authored events are owed, so any refusal must happen before
+    /// `start_move` spends the costs. A downstream veto (for example in the
+    /// summon translation) lets the move start, spend the recovery and play
+    /// its cues, and then do nothing.
     ///
-    /// ⭐ ONCE A MOVE STARTS, ITS AUTHORED EVENTS ARE OWED. Anything that can
-    /// refuse the move has to say so before `start_move` spends what starting it
-    /// costs; a rule enforced after acceptance is not a rule, it is a silent
-    /// failure with a comment.
-    ///
-    /// ⚠ NOT A [`RecoveryUse`] ARM. What a move costs and whether it may begin
-    /// are different questions: this one is asked of moves that are not
-    /// recoveries at all, and a recovery can be perfectly castable from a
-    /// saddle if its author says so.
+    /// Not a [`RecoveryUse`] arm: cost and permission to begin are separate.
+    /// This applies to non-recovery moves too, and a recovery can be castable
+    /// from a saddle.
     #[serde(default)]
     pub forbidden_while_held: bool,
-    /// While this move plays, its owner has NO STEERING AUTHORITY: the
+    /// While this move plays, its owner has no steering authority: the
     /// controller's locomotion intent is zeroed and the body keeps only the
-    /// motion the move itself gives it.
+    /// motion the move gives it.
     ///
-    /// ⭐ THE GENRE'S RULE FOR A GROUNDED ATTACK, and it is a fact about the
-    /// STANCE rather than about any one move — which is why it is a gate beside
-    /// `grounded` and not a per-window number every author would have to
-    /// remember. In a platform fighter you cannot walk out of a jab, a tilt or a
-    /// smash; a dash attack slides on its own impulse and steers no more than
-    /// the rest. ⛔⛔ measured 2026-08-24: a human forward smash travelled 64
-    /// world px — more than a body width — accelerating to the full run cap
-    /// through its own startup, because nothing said this.
+    /// This is the platform-fighter rule for a grounded attack: you cannot
+    /// walk out of a jab, a tilt or a smash, and a dash attack slides only on
+    /// its own impulse. It is a gate beside `grounded`, not a per-window
+    /// number, because it is a fact about the stance.
     ///
-    /// Default FALSE, because the engine hosts more than fighters: an
-    /// action-adventure protagonist that keeps walking through a slash is a
-    /// legitimate feel, and a blanket engine rule would take it away.
+    /// Default `false`: an action-adventure protagonist that keeps walking
+    /// through a slash is a valid feel.
     #[serde(default)]
     pub roots_steering: bool,
     /// The way home this move offers, when its frame data cannot say. See
@@ -1842,61 +1599,37 @@ pub struct MoveGates {
     /// which is where every burst still comes from.
     #[serde(default)]
     pub recovery_route: Option<AuthoredRecoveryRoute>,
-    /// WHAT THIS MOVE COSTS, as terms that each NAME the resource they spend.
-    /// Empty is free, which is what every move authored before prices existed
-    /// still costs.
+    /// What this move costs, as terms that each name the resource they spend.
+    /// Empty is free.
     ///
-    /// ⭐ THE THIRD THING A MOVE CAN COST, beside [`Self::recovery`] and the
-    /// weapon recharge, and it is authored here for the same reason they are:
-    /// what a move costs is a property of the MOVE, and the only place every
-    /// ruleset already agrees to look.
+    /// This is the third cost beside [`Self::recovery`] and the weapon
+    /// recharge. Each term names its resource: a body that does not hold that
+    /// resource cannot pay, so the ruleset cannot silently choose which meter
+    /// pays.
     ///
-    /// ⛔⛔ A PRICE NAMES ITS RESOURCE. An unnamed "meter" cost was paid by
-    /// whatever meter the body happened to carry — a Limit on a match seat, a
-    /// Mana pool in exploration — so the ruleset in force silently decided what
-    /// the move meant. A body that does not hold a named resource cannot pay
-    /// for it: absence is never free.
-    ///
-    /// ⛔ THE CHECK IS NOT HERE. [`Self::permits`] is called from inside this
-    /// DATA crate, which must not read body state; refusal and payment live at
-    /// ACCEPTANCE in `ambition_combat`, beside `afford_recovery`, on both the
-    /// trigger and cancel roads, and every term is paid or none is.
+    /// The check is not here. [`Self::permits`] runs in this data crate, which
+    /// must not read body state. Refusal and payment happen at acceptance in
+    /// `ambition_combat`, beside `afford_recovery`, on both the trigger and
+    /// cancel roads. Every term is paid or none is.
     #[serde(default)]
     pub costs: Vec<ambition_resource_spec::ResourceCost>,
-    /// The move to run INSTEAD when this one is refused at acceptance — the
-    /// authored answer to a DEAD BUTTON.
+    /// The move to run in place of this one when acceptance refuses it, so a
+    /// priced press is not a dead button.
     ///
-    /// ⛔⛔ A REFUSAL IS SILENCE, AND SILENCE IS THE WORST OUTCOME A PRESS CAN
-    /// HAVE. `costs` and its siblings refuse rather than no-op, which is
-    /// right — `MoveGates`' own doc above says a rule enforced after acceptance
-    /// is "a silent failure with a comment". But a refused press with nothing
-    /// behind it is still a button that does nothing, and a player cannot tell
-    /// that from a dropped input. ⇒ An author who prices a move can name what
-    /// happens when the price is not met, and the press always produces a move.
+    /// A named move, not a fall through the directional chain: the chain is
+    /// keyed by verb, so a refused `special_down` would resolve to the neutral
+    /// `special`.
     ///
-    /// ⭐ WHY A NAMED MOVE RATHER THAN FALLING THROUGH THE DIRECTIONAL CHAIN.
-    /// The chain is keyed by VERB, so a refused `special_down` would resolve to
-    /// `special` — a fighter pressing DOWN and getting their NEUTRAL special.
-    /// The variant is a different MOVE for the same press, not a different
-    /// press, so it is named rather than derived.
+    /// One hop only. The named move's own `when_refused` is not followed. This
+    /// bounds cycles (`a -> b -> a`) without a visited set. If the named move
+    /// is also refused, the press is refused.
     ///
-    /// ⚠ ONE HOP, NEVER A SEARCH. The named move is tried once and its own
-    /// `when_refused` is NOT followed. That bounds a cycle (`a -> b -> a`)
-    /// without a visited-set, and it keeps the authored meaning legible: a move
-    /// has one fallback, not a chain of them ending somewhere its author never
-    /// looked. If the named move is itself refused, the press is refused, and
-    /// that is the dead button the author asked for.
+    /// The fallback goes through the same acceptance filters as a pressed
+    /// move; it is not a way around the gates.
     ///
-    /// ⛔ THE VARIANT IS GATED TOO. It goes through the SAME acceptance filters,
-    /// so a fallback that costs recovery a body has not got, or is forbidden
-    /// while held, is refused exactly as a directly-pressed move would be. A
-    /// fallback is not a back door around the gates.
-    ///
-    /// ⚠ NAMES A MOVE ID IN THE SAME MOVESET (`MovesetContract::move_by_id`).
-    /// An id that matches nothing refuses, which is the same outcome as no
-    /// fallback at all — so a typo degrades to today's behaviour rather than to
-    /// a crash, and `every_named_move_variant_resolves` is the guard that stops
-    /// a typo from living there quietly.
+    /// Names a move id in the same moveset (`MovesetContract::move_by_id`). An
+    /// id that matches nothing refuses, like no fallback.
+    /// `every_named_move_variant_resolves` guards against typos.
     #[serde(default)]
     pub when_refused: Option<String>,
 }
@@ -1913,33 +1646,29 @@ impl MoveGates {
     }
 }
 
-/// What a move does NEXT, based on what happened BEFORE.
+/// What a move does next, based on what happened before.
 ///
-/// ⭐⭐ THE ONE THING A `MoveSpec` TIMELINE CANNOT SAY. Windows and events state
-/// WHEN something happens on a fixed clock; neither can express "wait until the
-/// strike connects, and if it did, continue — otherwise recover". A move that
-/// needs that is not a move with more events, it is a move with a SEQUENCE.
+/// A `MoveSpec` timeline says when something happens on a fixed clock. It
+/// cannot say "wait until the strike connects; if it did, continue, else
+/// recover". A flow adds that sequence.
 ///
-/// ⛔⛔ AND IT IS DELIBERATELY NOT A LANGUAGE. There are no variables, no
-/// arithmetic, no expressions, no queries and no blackboard, and adding any of
-/// them turns a move-scoped flow into the universal sequencer that
-/// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md` spends a
-/// section refusing. Four node kinds, and transitions are indices into one list.
+/// It is deliberately not a language: no variables, arithmetic, expressions,
+/// queries or blackboard (see
+/// `docs/planning/engine/authored-gameplay-logic-and-orchestration.md`). Four
+/// node kinds; transitions are indices into one list.
 ///
-/// ⛔ THE FLOW OWNS NO STATE THAT IS NOT ITS CURSOR. Every operation it can
-/// perform belongs to some other authority — an effect key reaches a technique,
-/// a signal is read off facts the combat road already publishes. The rule, from
-/// `expressive-move-capabilities.md`: *a complex move may coordinate many
-/// authorities, but it must not become the authority for their state.*
+/// The flow owns no state except its cursor. Each operation belongs to another
+/// authority: an effect key reaches a technique, and a signal is read from
+/// facts the combat road publishes. From `expressive-move-capabilities.md`: a
+/// complex move may coordinate many authorities, but it must not become the
+/// authority for their state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TechniqueFlow {
     /// The nodes, in authored order. Execution starts at index 0.
     ///
-    /// ⛔ INDICES, NOT NAMES, and validated at authoring time by
-    /// [`TechniqueFlow::problems`]. A named-label graph would need a symbol
-    /// table and a resolution pass to say the same thing, and the authored form
-    /// is small enough that the index IS readable.
+    /// Indices, not names, validated by [`TechniqueFlow::problems`]. The
+    /// authored form is small, so indices stay readable.
     pub nodes: Vec<FlowNode>,
 }
 
@@ -1948,42 +1677,26 @@ pub struct TechniqueFlow {
 pub enum FlowNode {
     /// Fire a semantic effect and move on in the same tick.
     ///
-    /// The effect is an ordinary [`EffectRef`] — the same value a window's
-    /// `sustain_effect` or an event's `Effect` carries — so a flow can reach
-    /// every technique the game publishes and gains access to a new one the day
-    /// it is registered, with no change here.
+    /// The effect is an ordinary [`EffectRef`], the same value a window's
+    /// `sustain_effect` or an event's `Effect` carries, so a flow can reach
+    /// every technique.
     ///
-    /// ⛔⛔ THE EDGE IS A `u16` BECAUSE THE CURSOR IS, and this is the whole
-    /// reason the type is not `usize`. `MovePlayback::flow_node` is a `u16`, and
-    /// while these were `usize` the interpreter narrowed with `as u16` on every
-    /// transition — node 65,536 becoming node 0 SILENTLY, a terminating flow
-    /// turned into a loop by a cast, with every edge still in range and nothing
-    /// for the dangling-edge check to see. Authoring in the cursor's own width
-    /// CONVERTS THE EDGE ONCE, at the authoring or deserialization boundary,
-    /// where an index that does not fit is a hard error naming the field rather
-    /// than a wrap nobody observes. The 256-node bound no longer has to stand in
-    /// for this.
+    /// The edge is a `u16` because the cursor (`MovePlayback::flow_node`) is a
+    /// `u16`. An `as u16` narrowing would silently wrap node 65,536 to node 0.
+    /// With the cursor's own width, the conversion happens once, at the
+    /// authoring or deserialization boundary, where an index that does not fit
+    /// is a hard error that names the field.
     Emit { effect: EffectRef, then: u16 },
     /// Hold here until a signal arrives, or until the patience runs out.
     ///
-    /// ⭐ THE TIMEOUT IS MANDATORY, and that is a decision rather than an
-    /// oversight: there is no authored value of "wait forever" that is not a bug.
+    /// The timeout is mandatory: an authored "wait forever" is always a bug.
     ///
-    /// ⛔⛔ **AND THE REASON IS NOT THAT THE FIGHTER WOULD BE STUCK.** This doc
-    /// used to say an unbounded wait leaves "a fighter frozen mid-special ...
-    /// for the rest of the match", and that the move's own duration is not a
-    /// bound "because a flow is what decides when the move is done". Both are
-    /// false, measured at the runtime: `MovePlayback::finished()` is
-    /// `t >= spec.duration_s` — the TIMELINE ends the move, and teardown runs on
-    /// that condition whatever the flow is doing. `Finish` stops flow activity;
-    /// it does not remove the move's recovery, and an unfinished `Wait` does not
-    /// extend the move.
-    ///
-    /// ⇒ What an unbounded wait actually costs is the flow's whole remaining
-    /// window spent parked on a signal that will never arrive: every `Emit`
-    /// after it never fires, so the authored sequence silently does half its
-    /// job. That is the failure worth a validation error, and it is a smaller
-    /// and truer claim than the one this comment made.
+    /// The fighter does not get stuck. `MovePlayback::finished()` is
+    /// `t >= spec.duration_s`, so the timeline ends the move whatever the flow
+    /// is doing. `Finish` stops flow activity but does not remove the move's
+    /// recovery, and an unfinished `Wait` does not extend the move. The cost of
+    /// an unbounded wait is that every later `Emit` never fires, so the
+    /// sequence silently does half its job.
     Wait {
         on: FlowSignal,
         timeout_s: f32,
@@ -1994,9 +1707,8 @@ pub enum FlowNode {
     /// Take one road or the other, deciding immediately on a fact that is
     /// already true.
     ///
-    /// ⛔ NOT A SHORTHAND FOR `Wait`. A wait suspends and resumes; a branch
-    /// resolves within the tick it is reached. They differ in whether the
-    /// answer can still change.
+    /// Not a shorthand for `Wait`. A wait suspends and resumes; a branch
+    /// resolves in the tick it is reached.
     Branch {
         on: FlowSignal,
         /// See [`FlowNode::Emit::then`] for why the edge is the cursor's width.
@@ -2009,24 +1721,23 @@ pub enum FlowNode {
 
 /// Something a flow can wait for or branch on.
 ///
-/// ⛔⛔ EVERY VARIANT MUST BE A FACT SOME OTHER AUTHORITY ALREADY PUBLISHES.
-/// The moment a signal needs new state kept for it, the flow has become the
-/// authority for that state and the rule above is broken. ⇒ The list starts at
-/// one variant on purpose: the contact facts `MovePlayback` already carries and
-/// the damage road already decides.
+/// Every variant must be a fact that another authority already publishes. A
+/// signal that needs new state would make the flow the authority for that
+/// state. The current signals are the contact facts that `MovePlayback`
+/// carries and the damage road decides.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FlowSignal {
-    /// This move's own strike overlapped a hurtbox — the staling fact. ⚠ TRUE
-    /// FOR A BLOCKED STRIKE TOO; a flow that means "it worked" wants
+    /// This move's own strike overlapped a hurtbox (the staling fact). It is
+    /// also true for a blocked strike; to mean "it worked", use
     /// [`Self::Connected`].
     Overlapped,
     /// The overlap resolved to a connect: damage or knockback reached a body.
     Connected,
-    /// The overlap resolved to a BLOCK: a guard consumed it.
+    /// The overlap resolved to a block: a guard consumed it.
     ///
-    /// ⚠ A PARRY IS NOT ONE. A perfect shield publishes `ParriedBodyHit`, which
-    /// reaches no contact field — see the enum's own note above. A flow that
-    /// means "my attack was defended" catches a block here and misses a parry.
+    /// A parry is not a block. A perfect shield publishes `ParriedBodyHit`,
+    /// which reaches no contact field, so a flow that waits here misses a
+    /// parry.
     Blocked,
 }
 
@@ -2043,47 +1754,31 @@ impl FlowSignal {
 
 /// The widest version-1 [`TechniqueFlow`] an author may publish.
 ///
-/// ⛔ **IT IS THE VERSION'S STATED CONTRACT, AND NOTHING ELSE DEPENDS ON IT ANY
-/// MORE.** It used to be a CURSOR bound: [`FlowNode`]'s edges were `usize`,
-/// `MovePlayback::flow_node` is a `u16`, and the interpreter narrowed with
-/// `as u16` on every transition — so the real cliff was 65,536, past which a
-/// jump silently wrapped to the top and a terminating flow became a loop, with
-/// every edge still in range and nothing for the dangling-edge check to see.
-/// The edges are authored in the cursor's own width now, so that wrap is not
-/// representable and this number no longer has to sit under a cliff to be safe.
-/// It is a budget, and a wider version-2 may raise it on its own merits.
+/// This is the version's stated budget; a later version may raise it. Edges
+/// are `u16`, the cursor's own width, so a large graph cannot wrap the cursor.
 ///
-/// ⚠ IT BOUNDS DISPATCH, NOT COST. A 256-node limit says nothing about what a
-/// native handler an `Emit` reaches does; see the owner document's trust
-/// boundary before quoting this as resource isolation.
+/// It bounds dispatch, not cost. It says nothing about what a native handler
+/// reached by an `Emit` does; see the owner document's trust boundary.
 pub const MAX_TECHNIQUE_FLOW_NODES: usize = 256;
 
 impl TechniqueFlow {
     /// Everything wrong with this flow, as sentences an author can act on.
     ///
-    /// ⭐ VALIDATED WHERE IT IS AUTHORED, because every one of these failures is
-    /// SILENT at runtime. A transition past the end of the list, a flow with no
-    /// reachable `Finish`, a `Wait` that can never time out, a node nothing
-    /// arrives at — each produces a move that plays and does part of what it
-    /// says, which reads to whoever is holding the controller as a move that
-    /// "doesn't work sometimes" rather than as bad data.
+    /// Validated where it is authored, because each of these failures is
+    /// silent at runtime: an edge past the end of the list, no reachable
+    /// `Finish`, a `Wait` that never times out, a node nothing reaches. Each
+    /// gives a move that plays and does only part of what it says.
     ///
-    /// ⚠ NONE OF THEM TRAPS A FIGHTER, and this doc used to say they did. The
-    /// move ends on its own timeline (`MovePlayback::finished()` is
-    /// `t >= spec.duration_s`); a flow does not own move lifetime. The harm is
-    /// authored intent that never runs, and — for a CYCLE — an `Emit` reached
-    /// again and again inside the move's window, which is a technique fired N
+    /// None of them traps a fighter: the move ends on its own timeline
+    /// (`MovePlayback::finished()` is `t >= spec.duration_s`). The harm is
+    /// authored intent that never runs, or, for a cycle, an `Emit` fired many
     /// times where the author wrote one.
     ///
-    /// ⛔⛔ **CYCLES ARE REJECTED DELIBERATELY.** Version 1 is a bounded ACYCLIC
-    /// move-local program: a repeat belongs in the move's own timeline, where the
-    /// window structure states how often something happens and the runtime can
-    /// price it. The per-tick node budget is not a substitute — it limits how
-    /// fast a loop spins, not whether one exists — and `reaches_finish` is
-    /// existential, so it admits a graph that terminates on one branch and loops
-    /// on the other. Which road a fighter takes is decided at runtime by whether
-    /// the strike connected, so that graph is a move that terminates or does not
-    /// depending on the match.
+    /// Cycles are rejected. Version 1 is a bounded acyclic move-local program;
+    /// a repeat belongs in the move's timeline. The per-tick node budget only
+    /// limits how fast a loop spins. `reaches_finish` is existential, so it
+    /// admits a graph that ends on one branch and loops on the other, and the
+    /// branch taken depends on whether the strike connected.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if self.nodes.is_empty() {
@@ -2091,10 +1786,8 @@ impl TechniqueFlow {
             return problems;
         }
         let len = self.nodes.len();
-        // ⛔ THE GRAPH IS BOUNDED BY THE VERSION'S CONTRACT. It no longer also
-        // has to keep the cursor safe: [`FlowNode`]'s edges are the cursor's own
-        // `u16`, so there is no narrowing cast left to wrap. See
-        // [`MAX_TECHNIQUE_FLOW_NODES`] for what that used to buy.
+        // Bound the graph by the version's budget (see
+        // [`MAX_TECHNIQUE_FLOW_NODES`]).
         if len > MAX_TECHNIQUE_FLOW_NODES {
             problems.push(format!(
                 "the flow has {len} nodes; version 1 admits at most \
@@ -2106,10 +1799,8 @@ impl TechniqueFlow {
             // oversized graph buries the one problem the author has to fix.
             return problems;
         }
-        // ⛔ THE EDGES COME FROM [`Self::successors`], not from a match written
-        // here. This arm used to be its own copy of that match, so a fifth
-        // `FlowNode` variant would have been reachable by the cycle search and
-        // invisible to the dangling report.
+        // Take edges from [`Self::successors`], so every check sees the same
+        // edges for every `FlowNode` variant.
         for (index, node) in self.nodes.iter().enumerate() {
             for (what, target) in Self::successors(node).into_iter().flatten() {
                 if usize::from(target) >= len {
@@ -2119,12 +1810,10 @@ impl TechniqueFlow {
                     ));
                 }
             }
-            // ⛔ FINITE, not merely positive. `f32::INFINITY > 0.0` is TRUE, so
-            // the positive test admitted the one value that is exactly the
-            // unbounded wait the mandatory timeout exists to forbid — an authored
-            // "wait forever" wearing a number. (`NaN` fails the positive test
-            // already; it is named here so the diagnostic says which value was
-            // wrong.)
+            // Require a finite timeout, not only a positive one:
+            // `f32::INFINITY > 0.0` is true, and infinity is a "wait forever".
+            // `NaN` already fails the positive test; it is named here so the
+            // diagnostic shows the value.
             if let FlowNode::Wait { timeout_s, .. } = node {
                 if !timeout_s.is_finite() || !(*timeout_s > 0.0) {
                     problems.push(format!(
@@ -2136,9 +1825,8 @@ impl TechniqueFlow {
                 }
             }
         }
-        // ⛔ REACHABILITY, not merely presence. A `Finish` sitting in the list
-        // that no transition arrives at is the same as no `Finish` at all, and
-        // "the flow contains one" is the check that would have missed it.
+        // Check reachability, not presence: a `Finish` that no transition
+        // reaches is the same as no `Finish`.
         if !self.reaches_finish() {
             problems.push(
                 "no `Finish` is reachable from node 0, so the flow never stops stepping \
@@ -2148,13 +1836,8 @@ impl TechniqueFlow {
                     .to_string(),
             );
         }
-        // ⛔⛔ **ACYCLIC, AND `reaches_finish` IS EXISTENTIAL SO IT CANNOT SAY
-        // SO.** A branch whose `then` reaches `Finish` and whose `otherwise`
-        // loops back passes that check — one road ends, the other never does,
-        // and which one the fighter takes is decided at runtime by whether the
-        // strike connected. Version 1 is a bounded ACYCLIC program; a cycle is
-        // rejected at authoring rather than survived by the per-tick node budget,
-        // which only limits how fast a loop spins.
+        // Reject cycles. `reaches_finish` is existential, so a branch whose
+        // `then` reaches `Finish` and whose `otherwise` loops back passes it.
         if let Some(cycle) = self.first_cycle() {
             problems.push(format!(
                 "the flow loops: {} returns to node {}. Version 1 is acyclic — a \
@@ -2168,9 +1851,8 @@ impl TechniqueFlow {
                 cycle[0],
             ));
         }
-        // ⛔ A NODE NOTHING ARRIVES AT is authored intent that never runs — the
-        // silent class this validator exists for. Reported per node so the
-        // diagnostic names the site rather than the graph.
+        // A node nothing reaches is authored intent that never runs. Report
+        // each one so the diagnostic names the site.
         let reachable = self.reachable_from_start();
         for index in 0..len {
             if !reachable[index] {
@@ -2183,19 +1865,11 @@ impl TechniqueFlow {
     }
 
     /// The successors of one node, in the order the author wrote them, each
-    /// paired with the AUTHORED FIELD NAME it was written under.
+    /// paired with the authored field name it was written under.
     ///
-    /// ⭐ ONE PLACE THE EDGES ARE ENUMERATED — and the doc here USED TO CLAIM
-    /// THAT while two other copies of the same match sat in this impl:
-    /// `reaches_finish` walked its own `Emit`/`Wait`/`Branch` arms, and
-    /// `problems`' dangling-edge report walked a third. That is exactly the
-    /// failure this comment warned about, in the file that warned about it: a
-    /// fifth variant would have been checked by whichever copies somebody
-    /// remembered. Both are gone; every edge walk in this type comes through
-    /// here.
-    ///
-    /// The field name rides along because the dangling report needs it and
-    /// deriving it anywhere else would be a fourth copy of the same knowledge.
+    /// This is the only place the edges are enumerated. Every edge walk in
+    /// this type uses it, so a new `FlowNode` variant is seen by every check.
+    /// The field name is included because the dangling report needs it.
     fn successors(node: &FlowNode) -> [Option<(&'static str, u16)>; 2] {
         match node {
             FlowNode::Emit { then, .. } => [Some(("then", *then)), None],
@@ -2242,9 +1916,8 @@ impl TechniqueFlow {
         }
         let mut mark = vec![Mark::New; self.nodes.len()];
         let mut path: Vec<usize> = Vec::new();
-        // Explicit stack: `(node, which successor to try next)`. A recursive walk
-        // is the natural shape and the wrong one — the node bound is the author's
-        // and a deep chain must not decide this by overflowing.
+        // Explicit stack of `(node, which successor to try next)`, so a deep
+        // chain cannot overflow the call stack.
         let mut stack: Vec<(usize, usize)> = vec![(0, 0)];
         mark[0] = Mark::OnPath;
         path.push(0);
@@ -2334,21 +2007,19 @@ pub struct MoveSpec {
     pub events: Vec<MoveEvent>,
     #[serde(default)]
     pub gates: MoveGates,
-    /// A one-shot body-local velocity ADD applied when the move is triggered —
-    /// the move's self-motion (a jab's forward lunge, a dash-attack's slide, a
-    /// back-air's drift). `(+x = facing, +y = gravity-down)`; the runtime mirrors
-    /// x by facing and rotates it into the owner's gravity frame, so it stays
-    /// frame-correct under any gravity. `None` = no self-motion (the identity
-    /// case for every actor/boss move that doesn't lunge).
+    /// A one-shot body-local velocity add applied when the move is triggered:
+    /// the move's self-motion (a jab's lunge, a dash-attack's slide, a
+    /// back-air's drift). `(+x = facing, +y = gravity-down)`; the runtime
+    /// mirrors x by facing and rotates it into the owner's gravity frame.
+    /// `None` is no self-motion.
     #[serde(default)]
     pub start_impulse: Option<(f32, f32)>,
-    /// Smash-charge payoff (CM3): the multiplier a FULLY-charged release applies
-    /// to this move's damage and knockback. The applied scale interpolates
-    /// `1.0 → smash_charge_mult` by the charge fraction reached at release (how
-    /// far the owner's clock advanced through the leading Startup window). DEFAULT
-    /// `1.0` = no charge scaling (every non-charge move, and Ambition's charge
-    /// moves until a game opts in) — byte-parity. A smash roster authors e.g.
-    /// `2.0` so a held smash lands twice as hard as a tap.
+    /// Smash-charge payoff: the multiplier a fully charged release applies to
+    /// this move's damage and knockback. The applied scale interpolates
+    /// `1.0 → smash_charge_mult` by the charge fraction reached at release
+    /// (how far the owner's clock advanced through the leading Startup
+    /// window). The default `1.0` is no charge scaling. A smash roster authors
+    /// for example `2.0`, so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
     pub smash_charge_mult: f32,
     /// How a chargeable use of this move holds and releases its charge.
@@ -2358,102 +2029,82 @@ pub struct MoveSpec {
     /// Authoring one is how a move differs — a slower windup that pays off
     /// sooner, or a charge that cannot be held at all.
     ///
-    /// ⭐ AND AUTHORING ONE IS ALSO HOW A MOVE SAYS IT CHARGES AT ALL, which it
-    /// did not used to be. The rule was *"only a move whose
-    /// [`Self::smash_charge_mult`] pays for it"*, and that is exactly wrong for
-    /// a charged SHOT: its payoff is the projectile it releases, and it lands
-    /// no melee volume for a multiplier to scale. Either statement now counts —
-    /// see [`Self::charge_policy`].
+    /// Authoring one also declares that the move charges. A charged shot needs
+    /// this: its payoff is the projectile, and it has no melee volume for
+    /// [`Self::smash_charge_mult`] to scale. Either statement counts; see
+    /// [`Self::charge_policy`].
     ///
-    /// WHICH press holds it is [`Self::charge_gesture`], and a use reached
-    /// through any other verb is never chargeable.
+    /// [`Self::charge_gesture`] says which press holds it. A use reached
+    /// through another verb is never chargeable.
     #[serde(default)]
     pub smash_charge: Option<SmashChargeSpec>,
-    /// WHICH PRESS holds this move's charge.
+    /// Which press holds this move's charge.
     ///
-    /// The charge mechanic was built for smash attacks and hardcoded to the
-    /// smash gesture, which is right for every smash and wrong for the genre's
-    /// other chargeable move: the held neutral special. Both freeze a timeline
-    /// while a button is down and release when it comes up; they differ only in
-    /// WHICH button, so the move says which rather than the runtime assuming.
+    /// A smash attack and a held neutral special both freeze a timeline while
+    /// a button is down and release when it comes up. They differ only in the
+    /// button, so the move names it.
     ///
-    /// DEFAULT [`ChargeGesture::Smash`] — every move authored before this field
-    /// existed, and every smash after it.
+    /// The default is [`ChargeGesture::Smash`].
     #[serde(default)]
     pub charge_gesture: ChargeGesture,
-    /// The stretch of this move's timeline that REPEATS while its button is
-    /// held — the rapid jab, the drill, the flurry.
+    /// The stretch of this move's timeline that repeats while its button is
+    /// held (the rapid jab, the drill, the flurry).
     ///
-    /// `None` = a move that plays once, which is every move that has not opted
-    /// in. The loop belongs to PLAYBACK and not to a fighter: a move says which
-    /// of its own windows repeat and for how long, and the runtime does the
-    /// same thing to all of them.
+    /// `None` is a move that plays once. The loop belongs to playback: a move
+    /// says which of its windows repeat and for how long, and the runtime
+    /// treats all of them the same.
     #[serde(default)]
     pub repeat: Option<MoveLoop>,
     /// Landing lag: the recovery this move owes if the body touches down
     /// before the move ended. Seconds of the owner's proper time, spent as a
     /// hard control lock.
     ///
-    /// The platform-fighter rule this expresses: an aerial is a COMMITMENT. You
-    /// throw it knowing that landing mid-move costs you, which is what makes
-    /// spacing and timing an aerial a decision rather than a free action.
+    /// An aerial is a commitment: landing mid-move costs recovery.
     ///
-    /// `None` = an aerial that lands is an ordinary landing, which is the
-    /// behaviour of every move that has not opted in.
+    /// `None`: an aerial that lands is an ordinary landing.
     #[serde(default)]
     pub landing_lag_s: Option<f32>,
-    /// Auto-cancel: land after this point in the move and pay NO landing
-    /// lag. Seconds of proper time from the move's start.
+    /// Auto-cancel: land after this point in the move and pay no landing lag.
+    /// Seconds of proper time from the move's start.
     ///
-    /// The other half of the commitment: a move thrown early enough that its
-    /// dangerous part is over by touchdown lands clean. Authoring the pair is
-    /// how a designer says "rise with this one, do not fall with it".
+    /// A move thrown early enough that its dangerous part is over by touchdown
+    /// lands clean.
     ///
-    /// `None` = no auto-cancel window; [`Self::landing_lag_s`] applies whenever
+    /// `None`: no auto-cancel window; [`Self::landing_lag_s`] applies whenever
     /// the move is still running. Ignored if no landing lag is authored.
     #[serde(default)]
     pub autocancel_after_s: Option<f32>,
-    /// How many times a second this move MIRRORS the body's drawn sprite while
-    /// it plays — a spin, cheaply.
+    /// How many times a second this move mirrors the body's drawn sprite while
+    /// it plays: a cheap spin.
     ///
-    /// ⭐ PRESENTATION ONLY. It flips the published pose's facing and touches
-    /// nothing else: the body's own `facing` is unchanged, so its hitboxes, its
-    /// launch directions and every rule that reads which way it is looking are
-    /// exactly as they were. A spin that MOVED a hitbox would be a different
-    /// move, not a different drawing of one.
+    /// Presentation only. It flips the published pose's facing. The body's own
+    /// `facing` is unchanged, so hitboxes, launch directions and facing rules
+    /// are not affected.
     ///
-    /// ⭐ AND IT IS A CRUDE ANSWER ON PURPOSE. Jon, W8 playtest, on Pointed's
-    /// Up-B: *"it is acceptable to fake the spin by repeatedly flipping the
-    /// sprite horizontally if that gives the basic rotational read... Do not
-    /// spend a lot of time producing beautiful spin animation yet."* Real
-    /// rotation is a rig problem; this is one number an author can put on a move
-    /// today and take off when the art exists.
+    /// This is a deliberate placeholder until real rotation art exists.
     ///
-    /// `None` (and zero) = drawn the way every other move is.
+    /// `None` (and zero): drawn normally.
     #[serde(default)]
     pub sprite_spin_hz: Option<f32>,
-    /// The held item this move BRANDISHES while it plays.
+    /// The held item this move brandishes while it plays.
     ///
-    /// ⭐ THE GENRE'S DRAW-AND-SWING: a move whose whole read is "he pulls the
-    /// gun-sword out and fires it" is one move, not an equip plus a shot the
-    /// player has to sequence. The item is worn for exactly as long as the
-    /// move's own clock runs and the body's authored item comes back after —
-    /// so a fighter who carries nothing carries nothing again, and one who
-    /// carries a sword gets its sword back.
+    /// A draw-and-swing move ("he pulls the gun-sword out and fires it") is one
+    /// move, not an equip plus a shot. The item is worn for as long as the
+    /// move's clock runs. Then the body's previous item comes back.
     ///
-    /// ⛔ IT IS NOT A PICKUP. Nothing enters or leaves an inventory, the item
-    /// cannot be dropped or thrown, and a body that picked something up keeps
-    /// it: the brandish REMEMBERS what it displaced and restores exactly that.
+    /// It is not a pickup. Nothing enters or leaves an inventory, and the item
+    /// cannot be dropped or thrown. The brandish remembers what it displaced
+    /// and restores exactly that.
     ///
-    /// `None` = every move that has not opted in, which is all of them but one.
+    /// `None` for almost every move.
     #[serde(default)]
     pub equips: Option<String>,
-    /// WHAT HAPPENS NEXT, based on what happened before — see [`TechniqueFlow`].
+    /// What happens next, based on what happened before; see
+    /// [`TechniqueFlow`].
     ///
-    /// `None` for every move whose whole meaning is its timeline, which is all
-    /// of them but the ones that branch. ⛔ A flow does not replace the
-    /// timeline: windows still open, volumes still live, events still fire. It
-    /// runs BESIDE them and decides the things a fixed clock cannot.
+    /// `None` for a move whose meaning is its timeline. A flow does not replace
+    /// the timeline: windows open, volumes live and events fire as usual. The
+    /// flow runs beside them.
     #[serde(default)]
     pub flow: Option<TechniqueFlow>,
 }
@@ -2469,13 +2120,14 @@ fn default_charge_mult() -> f32 {
 /// Authored in the move's own proper time, like every other clock on a
 /// [`MoveSpec`]. The loop runs while the button stays down and ends on the
 /// release or at [`Self::max_s`], whichever comes first; what the move authors
-/// AFTER [`Self::to_s`] is the finisher the loop exits into, so a flurry that
-/// ends in a launcher is one timeline rather than two moves.
+/// release or at [`Self::max_s`], whichever comes first. What the move
+/// authors after [`Self::to_s`] is the finisher the loop exits into, so a
+/// flurry that ends in a launcher is one timeline.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MoveLoop {
-    /// Where the clock jumps BACK to.
+    /// Where the clock jumps back to.
     pub from_s: f32,
-    /// Where it jumps back FROM.
+    /// Where it jumps back from.
     pub to_s: f32,
     /// The longest the loop may run before it exits on its own, in seconds of
     /// looped time. A flurry nobody can end is a stall.
@@ -2489,113 +2141,89 @@ impl MoveLoop {
     }
 }
 
-/// How a chargeable move HOLDS: where on its own timeline the charge waits,
+/// How a chargeable move holds: where on its own timeline the charge waits,
 /// and how long it may wait before it fires itself.
 ///
-/// Both values are seconds of the OWNER'S proper time, like every other clock
-/// on a [`MoveSpec`] — a dilated fighter charges as slowly as it swings.
+/// Both values are seconds of the owner's proper time, like every clock on a
+/// [`MoveSpec`]: a dilated fighter charges as slowly as it swings.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SmashChargeSpec {
     /// The instant the timeline freezes while Attack is held.
     pub hold_at_s: f32,
     /// The longest that freeze may last. Reaching it releases the move whether
-    /// or not the button is still down — UNLESS [`Self::stores`], for which see
-    /// there. That auto-release is what stops a held smash from being a stall.
+    /// or not the button is still down, unless [`Self::stores`]. The
+    /// auto-release stops a held smash from being a stall.
     pub max_hold_s: f32,
-    /// Does a charge SURVIVE being interrupted, and resume the next use?
+    /// Does a charge survive an interruption and resume on the next use?
     ///
-    /// ⭐⭐ THE GENRE'S STORED SHOT. Jon, 2026-08-27, on the Projectile
-    /// Polygon's neutral-B: *"This should have parity with samus / mewtwo 'b',
-    /// so that means it needs to be able to store a charge and fire at different
-    /// sizes."* Firing at different sizes was already there; STORING was not —
-    /// the charge died with the move, so the only way to reach a full one was to
-    /// stand still for the whole hold with nobody hitting you.
+    /// This is the stored shot (the neutral-B charge shot of the genre).
     ///
-    /// `true` changes two things and nothing else:
+    /// `true` changes two things:
     ///
-    /// - reaching [`Self::max_hold_s`] no longer fires the move. A full charge
-    ///   is LOADED and stays loaded until the button comes up or the move is
-    ///   interrupted, which is what makes "charge it now, throw it later" a plan
-    ///   rather than a race;
-    /// - a use interrupted while still charging banks what it had, and the next
-    ///   use of the SAME move resumes from there.
+    /// - Reaching [`Self::max_hold_s`] does not fire the move. A full charge
+    ///   stays loaded until the button comes up or the move is interrupted.
+    /// - A use interrupted while still charging banks its charge, and the next
+    ///   use of the same move resumes from there.
     ///
-    /// ⛔ IT IS NOT A RESOURCE THE FIGHTER SPENDS. Firing consumes the charge
-    /// because the shot IS the payoff; nothing else refunds it, and it does not
-    /// leak between moves — the bank is keyed by move id, so a stored power ball
-    /// cannot come out of a forward smash.
+    /// Firing consumes the charge; nothing else refunds it. The bank is keyed
+    /// by move id, so a stored charge cannot come out of a different move.
     ///
-    /// DEFAULT `false` — every smash in the game, and byte-parity for each of
-    /// them.
+    /// The default is `false` (every smash).
     #[serde(default)]
     pub stores: bool,
-    /// Does the freeze ROOT the body?
+    /// Does the freeze root the body?
     ///
-    /// ⭐⭐ `true` FOR EVERY SMASH IN THE GAME, and Jon's rule is why: *"when
-    /// the character is charging their smash attack, they should not be able to
-    /// walk or move."* A windup you can stroll out of is not a commitment.
+    /// `true` for every smash: a charging fighter must not walk or move.
     ///
-    /// ⛔⛔ AND IT IS A PROPERTY OF THE POLICY, NOT OF CHARGING. The Performer's
-    /// trapdoor freezes its timeline through this exact mechanic — hold the
-    /// button, hold the beat — and the beat it holds is TRAVEL: she is under
-    /// the stage steering, and Jon asked for that in the same breath as the
-    /// move itself (*"I do want the player to be able to control where they
-    /// move"*). Rooting that freeze would delete the move. So the two uses of
-    /// one mechanic say which they are instead of the runtime guessing from
-    /// the gesture.
+    /// It is a property of the policy, not of charging. The Performer's
+    /// trapdoor freezes its timeline through this mechanic, and the held beat
+    /// is travel: she steers under the stage. Rooting that freeze would
+    /// remove the move. So each use states its choice.
     ///
-    /// DEFAULT `true`, which is byte-parity for every policy authored before
-    /// this field existed.
+    /// The default is `true`.
     #[serde(default = "charge_roots_by_default")]
     pub roots: bool,
-    /// WHAT KEEPS THE FREEZE — the button, or the move.
+    /// What keeps the freeze: the button, or the move.
     #[serde(default)]
     pub sustain: ChargeSustain,
 }
 
 /// What holds a frozen timeline frozen.
 ///
-/// ⭐⭐ ONE MECHANIC, TWO SHAPES, and the second one is not a smash. A charge is
-/// *freeze the timeline, resume it later*; what differs is what decides
-/// "later". A smash is paid for by KEEPING THE BUTTON DOWN — let go and it
-/// swings — because the hold is the commitment you are being charged for.
+/// One mechanic, two shapes. A charge freezes the timeline and resumes it
+/// later; what differs is what decides "later". A smash stays frozen while the
+/// button is held; release it and it swings.
 ///
-/// ⛔ THE ACTOR'S TRAPDOOR IS THE OTHER ONE, and authoring it as a held charge
-/// shipped a regression Jon caught in a day: *"The latest main the actor doesn't
-/// spend any time under the stage."* He is not holding B while he steers, and
-/// nobody would — the beat being held is a SECOND OF TRAVEL, which he asked for
-/// as a duration (*"Give them 1 second under the stage"*) and then asked to be
-/// able to cut short (*"she should be able to pop up at any time from it"*). A
-/// hold-to-sustain reading of that gives a fighter three ticks under the boards
-/// unless she keeps a finger down, which is the opposite of both sentences.
+/// The Performer's trapdoor is the other shape. The held beat is about one
+/// second of travel under the stage, which the player can cut short with a new
+/// press. The player does not hold the button while steering, so a
+/// hold-to-sustain freeze would end after a few ticks.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ChargeSustain {
-    /// The button stays DOWN, and releasing it resumes the move. Every smash in
-    /// the game, and the default for a policy that says nothing.
+    /// The button stays down, and releasing it resumes the move. Every smash,
+    /// and the default.
     #[default]
     WhileHeld,
-    /// The freeze holds ITSELF, up to the maximum, and a NEW press ends it.
+    /// The freeze holds itself, up to the maximum, and a new press ends it.
     UntilPressedAgain,
 }
 
 /// Which press holds a move's charge.
 ///
-/// A charge is one mechanic — freeze the timeline while a button is down,
-/// release when it comes up — and the genre binds it to two different buttons.
-/// The move says which; the runtime does the same thing to both.
+/// A charge is one mechanic (freeze the timeline while a button is down,
+/// release when it comes up) bound to two different buttons. The move says
+/// which; the runtime treats both the same.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ChargeGesture {
-    /// The SMASH gesture. Every smash attack, and the default for a move that
-    /// says nothing.
+    /// The smash gesture. Every smash attack, and the default.
     #[default]
     Smash,
-    /// The SPECIAL press that started the move — the held neutral-B.
+    /// The special press that started the move (the held neutral-B).
     Special,
 }
 
 impl SmashChargeSpec {
-    /// A full charge takes one second — the platform-fighter house number
-    /// (60 frames at 60Hz). A knob, not a measurement: a move that wants a
+    /// A full charge takes one second (60 frames at 60Hz). A move that wants a
     /// different commitment authors its own policy.
     pub const DEFAULT_MAX_HOLD_S: f32 = 1.0;
 
@@ -2636,24 +2264,19 @@ fn default_motion_scale() -> f32 {
 impl MoveSpec {
     /// Every authored [`EffectRef`] this move carries, with the path it sits on.
     ///
-    /// ⛔⛔ **EXHAUSTIVE BY DESTRUCTURE, AND THAT IS THE WHOLE MECHANISM.** A
-    /// move names techniques from FOUR unrelated places — a volume's `on_hit`, a
-    /// window's `sustain_effect`, a timeline event's `Effect`, a flow node's
-    /// `Emit` — and before this, every consumer that wanted "the techniques this
-    /// move uses" reached into whichever of the four it happened to care about.
-    /// A hand-kept list of four is a validator that silently stops covering a
-    /// fifth the day one is added, and the failure it stops covering is a
-    /// misspelled key that reaches the runtime and does nothing.
+    /// Every authored [`EffectRef`] this move carries, with the path it sits on.
     ///
-    /// ⇒ Every level here destructures WITHOUT `..`, so a new field on
-    /// [`MoveSpec`], [`MoveWindow`], [`HitVolume`] or [`MoveEventKind`] is a
-    /// compile error at this function — the moment somebody has to say whether it
-    /// can carry a technique. That is the repository's `E0027` idiom rather than
-    /// a census that has to be re-run.
+    /// A move names techniques from four places: a volume's `on_hit`, a
+    /// window's `sustain_effect`, a timeline event's `Effect`, and a flow
+    /// node's `Emit`. Validators must see all of them.
     ///
-    /// ⚠ IT IS THE EXPANDED MOVE. Prefab expansion and authoring overrides
-    /// produce a `MoveSpec`; this walks what came out, so an override that
-    /// introduces a reference is covered without prefab code knowing about it.
+    /// Every level destructures without `..`, so a new field on [`MoveSpec`],
+    /// [`MoveWindow`], [`HitVolume`] or [`MoveEventKind`] is a compile error
+    /// here. The author of the field must then decide whether it can carry a
+    /// technique.
+    ///
+    /// This walks the expanded move (after prefab expansion and authoring
+    /// overrides), so an override that adds a reference is covered.
     pub fn effect_refs(&self) -> Vec<(EffectSite, &EffectRef)> {
         let MoveSpec {
             id: _,
@@ -2706,10 +2329,8 @@ impl MoveSpec {
         }
         for (event, e) in events.iter().enumerate() {
             let MoveEvent { at_s: _, kind } = e;
-            // ⛔ EXHAUSTIVE, and the wildcard arm this replaces is the reason: a
-            // `_ => {}` over a verb family ADMITS every future variant silently,
-            // which for this enum means a new way to name a technique that no
-            // validator ever sees.
+            // Exhaustive on purpose: a `_ => {}` arm would silently admit a
+            // future variant that names a technique.
             match kind {
                 MoveEventKind::Effect(effect) => {
                     found.push((EffectSite::Event { event }, effect));
@@ -2734,25 +2355,24 @@ impl MoveSpec {
         found
     }
 
-    /// The player-facing label for this move — used by the action scheme to
-    /// name the slot this move occupies: the authored [`Self::display_name`],
-    /// else a title-cased `id` (`"sandbag_swat"` → `"Sandbag Swat"`).
+    /// The player-facing label for this move, used by the action scheme to
+    /// name the slot: the authored [`Self::display_name`], else a title-cased
+    /// `id` (`"sandbag_swat"` → `"Sandbag Swat"`).
     pub fn display(&self) -> String {
         self.display_name
             .clone()
             .unwrap_or_else(|| crate::action_scheme::title_case_id(&self.id))
     }
 
-    /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly
-    /// at load, never as a silent missing sound/effect. `vfx_known` is the
-    /// injected cosmetic-vfx vocabulary oracle — this crate does not depend on
-    /// presentation, and the honest answer lives with the ART: pass
-    /// `ambition_sprite_sheet::fx::is_authored_effect`, which reads the rows of
-    /// the shipped FX sheets out of their baked manifests (pure; no App, no
-    /// loaded assets). Returns one human-readable problem per bad id:
+    /// Validate this move's presentation event ids, so a typo fails at load
+    /// and not as a silent missing sound or effect. `vfx_known` is the
+    /// injected cosmetic-vfx vocabulary; this crate does not depend on
+    /// presentation. Pass `ambition_sprite_sheet::fx::is_authored_effect`,
+    /// which reads the shipped FX sheets' baked manifests (pure; no App, no
+    /// loaded assets). Returns one problem per bad id:
     /// - a `Vfx { effect }` whose id is not in the cosmetic vocabulary, and
     /// - a `Sfx { cue }` with an empty cue (a blank cue resolves to silence).
-    /// Empty result = the move's presentation is resolvable.
+    /// An empty result means the presentation is resolvable.
     pub fn presentation_problems(&self, vfx_known: impl Fn(&str) -> bool) -> Vec<String> {
         let mut problems = Vec::new();
         for effect in self.vfx_effects() {
@@ -2778,11 +2398,10 @@ impl MoveSpec {
         problems
     }
 
-    /// Every cosmetic effect this move can fire, by name — the one enumeration
-    /// both the install-time validator above and the runtime's FX demand read
-    /// (a character-owned FX sheet is decoded when a realized character's
-    /// moveset names one of its rows), so a new place a move names an effect
-    /// is added HERE and both see it.
+    /// Every cosmetic effect this move can fire, by name. The install-time
+    /// validator and the runtime FX demand both read this (a character-owned
+    /// FX sheet is decoded when a realized moveset names one of its rows). Add
+    /// any new place a move names an effect here.
     pub fn vfx_effects(&self) -> impl Iterator<Item = &str> {
         self.events.iter().filter_map(|ev| match &ev.kind {
             MoveEventKind::Vfx { effect, .. } => Some(effect.as_str()),
@@ -2790,31 +2409,21 @@ impl MoveSpec {
         })
     }
 
-    /// Does a window the predicate accepts COVER proper-time `t`?
+    /// Does a window the predicate accepts cover proper-time `t`?
     ///
-    /// The timeline question every defensive window asks — an authored
-    /// [`WindowTag::Invuln`] or [`WindowTag::Armor`] is in force for exactly the
-    /// span it declares, on the owner's own clock, like every other window.
+    /// Every defensive window uses this: an authored [`WindowTag::Invuln`] or
+    /// [`WindowTag::Armor`] is in force for exactly its span, on the owner's
+    /// clock.
     pub fn tagged_window_covers(&self, t: f32, want: fn(&WindowTag) -> bool) -> bool {
         self.windows
             .iter()
             .any(|w| want(&w.tag) && w.start_s <= t && t < w.end_s)
     }
 
-    /// The successors this move's live cancel window NAMES at proper-time `t`,
-    /// in authored order.
-    ///
-    /// The chain is the cancel table read forwards: a `Cancelable` window that
-    /// says `into: ["jab2"]` is not only permitting jab2, it is nominating it.
-    /// A follow-up press inside that window takes the nomination instead of
-    /// restarting the move that is playing, which is the whole of a jab chain
-    /// and needs no successor field of its own.
     /// Every window tag in force at proper-time `t`, in authored order.
     ///
-    /// ⭐ [`Self::tagged_window_covers`] answers a yes/no about one predicate,
-    /// which is all a `bool`-shaped fact ever needed. A tag that CARRIES a value
-    /// — `ArmorUnder`'s threshold — needs the tag itself, not a verdict about
-    /// it, so this returns them and the caller decides.
+    /// Use this, not [`Self::tagged_window_covers`], when the tag carries a
+    /// value the caller needs (for example `ArmorUnder`'s threshold).
     pub fn tagged_windows_covering(&self, t: f32) -> impl Iterator<Item = &WindowTag> {
         self.windows
             .iter()
@@ -2822,6 +2431,12 @@ impl MoveSpec {
             .map(|w| &w.tag)
     }
 
+    /// The successors this move's live cancel window names at proper-time `t`,
+    /// in authored order.
+    ///
+    /// A `Cancelable` window with `into: ["jab2"]` permits jab2 and also
+    /// nominates it. A follow-up press inside that window takes the
+    /// nomination and does not restart the playing move. This is a jab chain.
     pub fn cancel_successors(&self, t: f32, contact: MoveContact) -> impl Iterator<Item = &str> {
         self.windows
             .iter()
@@ -2844,11 +2459,11 @@ impl MoveSpec {
         self.windows.iter().filter(move |w| want(&w.tag))
     }
 
-    /// The steering-intent scale in force at proper-time `t` — the MOST
-    /// RESTRICTIVE (minimum) [`MoveWindow::motion_scale`] among the windows
-    /// containing `t`, `1.0` outside every window. The body integrator
-    /// multiplies the controller's steering intent by this each tick, so a
-    /// move's motion lock binds every controller of the body uniformly.
+    /// The steering-intent scale in force at proper-time `t`: the minimum
+    /// [`MoveWindow::motion_scale`] among the windows that contain `t`, and
+    /// `1.0` outside every window. The body integrator multiplies the
+    /// controller's steering intent by this each tick, so the motion lock
+    /// binds every controller of the body.
     pub fn motion_scale_at(&self, t: f32) -> f32 {
         self.windows
             .iter()
@@ -2865,8 +2480,8 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
     }
 
-    /// Normalized phase (`0..=1`) at proper-time `t` — what presentation
-    /// samples the bound clip by.
+    /// Normalized phase (`0..=1`) at proper-time `t`. Presentation samples the
+    /// bound clip by this.
     pub fn phase_at(&self, t: f32) -> f32 {
         if self.duration_s <= 0.0 {
             return 1.0;
@@ -2878,18 +2493,17 @@ impl MoveSpec {
     /// fraction into the leading Startup window, and never at or past the first
     /// Active instant.
     ///
-    /// ⛔ THE CLAMP IS NOT DEFENSIVE, it is the invariant. A move may author a
-    /// zero-width Startup, may lay Active before Startup ends, or may have no
-    /// Startup at all; in each case a fraction of the windup is the wrong answer
-    /// and the first live volume is the line that must not be crossed.
+    /// The clamp is the invariant, not a defensive check. A move may author a
+    /// zero-width Startup, lay Active before Startup ends, or have no Startup.
+    /// In each case the first live volume is the line the freeze must not
+    /// cross.
     fn derived_charge_hold_at_s(&self) -> f32 {
         let leading = self
             .windows
             .iter()
             .find(|w| matches!(w.tag, WindowTag::Startup));
         let Some(leading) = leading else {
-            // No windup to hold inside. The move freezes at its own first
-            // instant, which is what it did before any of this existed.
+            // No windup to hold inside: freeze at the move's first instant.
             return 0.0;
         };
         let pose = leading.start_s + (leading.end_s - leading.start_s) * CHARGE_POSE_FRACTION;
@@ -2902,55 +2516,38 @@ impl MoveSpec {
         if first_active == f32::MAX {
             return pose.max(0.0);
         }
-        // Strictly before: a freeze ON the first Active instant is the defect.
+        // Strictly before: a freeze on the first Active instant is a defect.
         pose.clamp(0.0, (first_active - CHARGE_POSE_EPSILON_S).max(0.0))
     }
 
-    /// The charge policy a SMASH-gesture use of this move plays under, or
+    /// The charge policy a smash-gesture use of this move plays under, or
     /// `None` when this move does not charge.
     ///
-    /// The multiplier is what says a move charges: a smash with no payoff is a
-    /// timeline that would freeze for nothing. The hold point is DERIVED from
-    /// the timeline the move already authors rather than duplicated beside it,
-    /// which is why every shipped fighter became chargeable without touching a
-    /// single moveset.
+    /// The derived hold point comes from the timeline the move already
+    /// authors, so every fighter with a charge multiplier is chargeable
+    /// without moveset changes.
     pub fn charge_policy(&self) -> Option<SmashChargeSpec> {
-        // ⭐ EITHER PAYOFF SAYS THIS MOVE CHARGES, and the second one had to be
-        // added for a move whose payoff is not a damage multiplier at all. A
-        // charged SHOT pays in the projectile it releases — bigger, faster,
-        // and worth more the longer it was held — and it lands no melee volume
-        // for a multiplier to scale, so `smash_charge_mult` on it would be a
-        // number that multiplies nothing.
-        //
-        // An explicit `smash_charge` is therefore its own statement of intent:
-        // a move that authors a hold point and a maximum is a move that holds.
-        // This is a strict widening — every previously-chargeable move still
-        // charges — and the shipped roster is unmoved by it, because every
-        // authored policy today sits beside a multiplier that already paid.
+        // Either payoff says this move charges. A charged shot pays in the
+        // projectile it releases and has no melee volume for
+        // `smash_charge_mult` to scale, so an explicit `smash_charge` is its
+        // own statement of intent.
         let Some(policy) = self.smash_charge.or_else(|| {
             (self.smash_charge_mult > 1.0).then_some(SmashChargeSpec {
-                // ⭐⭐ THE CHARGE POSE IS IN THE WINDUP, NOT AT THE HITBOX. Jon,
-                // 2026-08-23: *"it needs to hold on the first frames of the smash
-                // animation, before letting the rest of the animation, which
-                // actually has the hitboxes, play."* That is what the genre does:
-                // a charged smash freezes in its windup and releases into the swing.
+                // The charge pose is in the windup, not at the hitbox: a
+                // charged smash freezes in its windup and releases into the
+                // swing.
                 //
-                // ⛔⛔ THIS DERIVED FROM THE STARTUP WINDOW'S `end_s`, AND ACTIVE
-                // MEMBERSHIP IS `start_s <= t < end_s`. Ordinary smash authoring
-                // lays Active directly against Startup, so the freeze landed on the
-                // FIRST ACTIVE INSTANT — a fighter holding a charge with a live
-                // strike volume already spawned. `rooted_by_charge` is true there,
-                // so the hold was legal, indefinite, and armed.
-                //
-                // ⇒ the hold sits a fraction into the leading windup, strictly
-                // before the first Active window. The rest of the windup plays on
-                // release, which is the beat that makes a charge readable.
+                // Active membership is `start_s <= t < end_s`, and smash
+                // authoring usually puts Active right after Startup. A freeze
+                // at Startup's `end_s` would hold a charge with a live strike
+                // volume spawned. So the hold sits a fraction into the windup,
+                // strictly before the first Active window. The rest of the
+                // windup plays on release.
                 hold_at_s: self.derived_charge_hold_at_s(),
                 max_hold_s: SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-                // ⛔ A DERIVED POLICY NEVER STORES. This arm exists for the
-                // smashes, whose charge is a commitment inside one swing; a
-                // smash you could bank and throw later is a different mechanic
-                // and would arrive here by accident rather than by authoring.
+                // A derived policy never stores. A smash charge is a
+                // commitment inside one swing; a stored charge must be
+                // authored.
                 stores: false,
                 roots: true,
                 sustain: ChargeSustain::WhileHeld,
@@ -2961,16 +2558,13 @@ impl MoveSpec {
         policy.holds().then_some(policy)
     }
 
-    /// CM4: may this move, at proper-time `t` with the given hit state, be
-    /// canceled into a candidate answering to any of `names`? The caller
-    /// supplies every name the candidate answers to — its verb (`"attack"`,
+    /// May this move, at proper-time `t` with the given contact, be canceled
+    /// into a candidate that answers to any of `names`? The caller supplies
+    /// every name the candidate answers to: its verb (`"attack"`,
     /// `"special"`, `"ranged"`), its resolved move id, and its classes
     /// (`"any_attack"` for the attack family; `"jump"`/`"dash"` for the
-    /// locomotion escapes) — and an authored `into` entry matches any of
-    /// them. One namespace, no enum: content authors strings, the runtime
-    /// answers membership. An empty `cancels` timeline (no `Cancelable`
-    /// window) refuses everything — the pre-CM4 status quo, which is the
-    /// parity pin.
+    /// locomotion escapes). An authored `into` entry matches any of them. A
+    /// move with no `Cancelable` window refuses everything.
     pub fn cancel_permits(&self, t: f32, contact: MoveContact, names: &[&str]) -> bool {
         self.windows.iter().any(|w| match &w.tag {
             WindowTag::Cancelable { into, condition } => {
@@ -2983,12 +2577,11 @@ impl MoveSpec {
         })
     }
 
-    /// Derive this move's frame data (CM7): the startup / active / recovery /
-    /// cancel windows and the strike's reach, as a queryable table. A PURE
-    /// derivation from `windows` + `duration_s` — no storage, no new state. The
-    /// fighter brain reads it to time punishes and spacing; the boss validator
-    /// reads it to assert telegraph/recovery budgets. Proper-time seconds
-    /// throughout (the owner's clock), like every `MoveSpec` duration.
+    /// Derive this move's frame data: the startup / active / recovery /
+    /// cancel windows and the strike's reach. A pure derivation from
+    /// `windows` + `duration_s`, with no stored state. The fighter brain
+    /// reads it to time punishes and spacing; the boss validator reads it to
+    /// check telegraph/recovery budgets. All times are proper-time seconds.
     pub fn frame_data(&self) -> MoveFrameData {
         let active_spans: Vec<(f32, f32)> = self
             .windows
@@ -3023,26 +2616,13 @@ impl MoveSpec {
         // Recovery = from the last Active edge to the move's end.
         let last_active_end = active_spans.iter().map(|(_, e)| *e).fold(0.0_f32, f32::max);
         let recovery_s = (self.duration_s - last_active_end).max(0.0);
-        // ⛔⛤ A SHOVE IS NOT A REACH, AND FOLDING BOTH INTO ONE NUMBER TOLD
-        // EVERY READER THE MOVE COULD HIT WHERE IT CANNOT.
-        //
-        // [`authoring::wake`] ASSERTS that the push reaches further than the
-        // hit — *"an enclosed wake is authored dead code"* — so for every move
-        // that carries one, a union over all Active volumes reports the DUST's
-        // extent as the move's reach, by construction. `goblin::dirt_kick` then
-        // reads as a 82px poke whose boot stops at 48px.
-        //
-        // ⭐ MEASURED 2026-09-19, `AMBITION_DUEL_RUNG=5`, goblin mirror: both
-        // seats hold a 93px gap for 3618 ticks, choose `Approach` on 724 of 724
-        // decisions, and press `dirt_kick` on every decision the body is free —
-        // because the dust "reaches", and the dust's own push holds the gap
-        // open. 0 damage, 0 hitstun, one distinct move. That is the
-        // `used == 1, neutral == 100%` lock the BRAIN queue row measured across
-        // five fighters.
-        //
-        // ⇒ So the two regions are two fields. A [`VolumeReaction::Windbox`]
-        // *"PUSHES its victim and does nothing else"*, which makes it exactly
-        // not the thing a scorer asking *"can I hit them from here"* wants.
+        // A push is not a reach. [`authoring::wake`] requires the push to
+        // reach further than the hit, so a union over all Active volumes would
+        // report the dust's extent as the move's reach (for example
+        // `goblin::dirt_kick` would read as an 82px poke whose hit stops at
+        // 48px). A brain then presses the push move from a range where it
+        // cannot hit, and the push holds that range open. So hittable volumes
+        // and [`VolumeReaction::Windbox`] volumes are separate fields.
         let hittable = |v: &HitVolume| !matches!(v.reaction, Some(VolumeReaction::Windbox(_)));
         let active_volumes = || {
             self.windows
@@ -3058,29 +2638,19 @@ impl MoveSpec {
                 max: (a.max.0.max(b.max.0), a.max.1.max(b.max.1)),
             })
         };
-        // Reach = the farthest body-local +x extent any HITTABLE Active volume
-        // reaches (offset toward facing + the volume's half-width / radius).
-        // Zero when the move lands no hittable volume (a pure-motion, a gust, an
-        // effect-only move).
+        // Reach: the farthest body-local +x extent of any hittable Active
+        // volume. Zero when the move has no hittable volume.
         let reach = active_volumes()
             .filter(|v| hittable(v))
             .map(extent_x)
             .fold(0.0_f32, f32::max);
-        // ⛔⛤ **A CAPTURE IS A REACH, AND IT DOES NOT RIDE `volumes`.**
+        // A capture is a reach, and it is not in `volumes`.
         // [`smash_capture::CAPTURE_ATTEMPT`] sustains on an Active window's
-        // `sustain_effect` — a grab is spatially live for a window rather than
-        // a one-shot volume — so a fold over `volumes` alone says a grab has no
-        // region at all. To an option scorer that reads `coverage: None` as
-        // *"this move cannot miss"*, every grab on the roster was offered at
-        // every range and priced at zero.
-        //
-        // ⭐ **ONE OWNER.** `capture_candidate` in the actor layer already
-        // patched this in, for exactly ONE move: the neutral grab it reaches
-        // through `GRAB_VERB`. A command grab bound to an ordinary attack verb
-        // carries the same params and got none of it — measured 2026-09-20,
-        // `pugnacious_polygon/polygon_brawler_collar` on `attack_side` reaches
-        // 58px and read as reachless. The derivation belongs where the params
-        // and the key are declared, so every consumer gets the same answer.
+        // `sustain_effect`. Without this, a grab has no region, and an option
+        // scorer reads `coverage: None` as "this move cannot miss". The
+        // derivation is here, where the params and key are declared, so a
+        // command grab on an ordinary attack verb gets the same answer as the
+        // neutral grab.
         let captures = || {
             self.windows
                 .iter()
@@ -3110,15 +2680,12 @@ impl MoveSpec {
                 .chain(captures().map(|p| capture_box(&p))),
         );
         let push_coverage = union(&mut active_volumes().filter(|v| !hittable(v)).map(box_of));
-        // A SHIELD IS NOT THE ANSWER TO A GRAB, and the catalog can now say so
-        // itself rather than leaving it to whichever caller recognised the
-        // capture. `ignores_guard` stays a caller-settable field for the
-        // unblockables nothing here can recognise.
+        // A shield does not stop a grab. `ignores_guard` stays a
+        // caller-settable field for unblockables this code cannot recognize.
         let ignores_guard = captures().next().is_some();
-        // ⭐ AND WHAT IT REACHES THROUGH SOMETHING IT SPAWNS — see
-        // [`hazard_of`]. Every authored effect on the move is asked, the
-        // one-shot events and the window sustains alike, because a technique
-        // may ride either.
+        // Reach through something the move spawns: see [`hazard_of`]. Ask
+        // every authored effect, one-shot events and window sustains alike,
+        // because a technique may use either.
         let hazard = self
             .events
             .iter()
@@ -3132,58 +2699,30 @@ impl MoveSpec {
                 matches!(event.kind, MoveEventKind::Ranged)
                     .then_some(MoveHazard::OwnersRangedAction)
             }))
-            // ⛔⛤ **AND NOT A `SustainedAuthority` SUMMON, WHICH THIS BRIEFLY
-            // CLAIMED — REVIEWED 2026-09-20.** The argument was that the line
-            // between the `RecoveryRoute` kinds is whether the OPPONENT is
-            // offered anything, and that a summon holding ground for `seconds`
-            // makes a bolt's offer. The admiral's shark is the production
-            // instance and its authoring says the opposite in as many words:
-            // *"There is no hurtbox on this up-b, it's purely a mobility
-            // special"*, it is a `hitless_special` rather than a strike with an
-            // empty volume list, and the summoned body is `Neutral` and deals
-            // no contact damage. Its `reach` is authored as HALF THE RIDE'S
-            // STRAIGHT-LINE DISTANCE — how far the admiral can travel, not how
-            // far he threatens.
+            // A `SustainedAuthority` summon is not a hazard. Recovery authority
+            // answers "what movement does this give me"; hazard reach answers
+            // "what can this do to them". Example: the admiral's shark is a
+            // hitless mobility special, and its `reach` is travel distance.
+            // A summon that also threatens must state that as an effect. The
+            // travel half is read by [`RecoveryRoute::carry`] on the motion
+            // road (see `brain::fighter::options::motion_options`).
             //
-            // ⇒ Recovery authority answers *"what movement does this give
-            // ME"*; hazard reach answers *"what can this do to THEM"*. They are
-            // independent, and a future summon that does both states its
-            // offensive half as an effect like everything else here. The travel
-            // half is read by [`RecoveryRoute::carry`] on the MOTION road —
-            // see `brain::fighter::options::motion_options`.
-            //
-            // ⚠ **THE FARTHEST-REACHING ONE WINS, WHICH IS THE SAME RULE THE
-            // `max` BEFORE IT APPLIED** — and it is still the rule for a move
-            // that puts TWO hazards out, which nothing on the roster does. The
-            // day one does, the honest answer is a list; picking the longest
-            // is the answer that preserves today's behaviour exactly and says
-            // so here rather than pretending to be general.
+            // If a move has two hazards, the farthest-reaching one wins. No
+            // shipped move has two; a list would be the general answer.
             .max_by(|a, b| a.reach().total_cmp(&b.reach()));
-        // ⭐⭐ **AND *WHEN* IT GOES LIVE, WHICH IS NOT `startup_s` FOR ANYTHING
-        // THAT REACHES THROUGH A THING IT SPAWNS — REVIEWED 2026-09-20.**
+        // When the threat goes live. This is not `startup_s` for a move that
+        // reaches through something it spawns: `startup_s` falls back to the
+        // whole duration when there is no Active window, which is the shape
+        // of every projectile move. (Example: `polygon_projectile_charge_shot`
+        // fires at 0.26s but has `startup_s` 0.58s.) A consumer that leads a
+        // moving target by `startup_s` then aims past it.
         //
-        // `startup_s` is *"time until the first Active window"*, and a move with
-        // no Active window at all falls back to its WHOLE DURATION. Every
-        // projectile move in the game is that shape, so a consumer leading a
-        // moving target by `startup_s` leads it by the wrong number:
-        //
-        // ```text
-        // polygon_projectile_charge_shot   event 0.26s   startup_s 0.58s
-        // polygon_ponytail_boomerang       event 0.16s   startup_s 0.40s
-        // polygon_lay_bomb                 event 0.18s   startup_s 0.46s
-        // ```
-        //
-        // At a closing speed of 200px/s the first two aim 64px and 48px past
-        // the opponent — larger than `ADMISSION_SLACK_PX`, so the error is
-        // bigger than the margin the admission rule is tuned to.
-        //
-        // ⇒ The three roads that can threaten are asked for their OWN time:
-        // an Active window opens at its own `start_s`, a `Ranged` trigger and a
-        // hazardous `Effect` fire at their event `at_s`, and a sustained
-        // hazard is live for the window that carries it. `None` means the move
-        // offers the opponent nothing, which is the same population
-        // `hazard.is_none() && coverage.is_none() && push_coverage.is_none()`
-        // describes — stated once, here, rather than re-derived by each reader.
+        // Each threatening road reports its own time: an Active window opens
+        // at its `start_s`, a `Ranged` trigger and a hazardous `Effect` fire
+        // at their event `at_s`, and a sustained hazard is live for its
+        // window. `None` means the move offers the opponent nothing (the same
+        // set as `hazard.is_none() && coverage.is_none() &&
+        // push_coverage.is_none()`).
         let threat_live_at_s = (coverage.is_some() || push_coverage.is_some())
             .then_some(startup_s)
             .into_iter()
@@ -3206,12 +2745,11 @@ impl MoveSpec {
             .fold(None::<f32>, |acc, t| {
                 Some(acc.map_or(t, |best: f32| best.min(t)))
             });
-        // ⭐⭐ AND WHICH WAY IT BLOWS, because a shove's value depends on it.
-        // Authored (`launch_dir`) rather than derived from geometry — wind
-        // blows ONE WAY, whichever side you walked in from — so a scorer can
-        // ask whether this push sends the victim toward a blast line or away
-        // from one. Body-local, `+x` toward facing, the same frame
-        // `push_coverage` is in. `None` when the move shoves nobody.
+        // Push direction. It is authored (`launch_dir`), not derived from
+        // geometry, because wind blows one way whichever side the victim came
+        // from. A scorer can ask whether the push sends the victim toward a
+        // blast line. Body-local, `+x` toward facing, the same frame as
+        // `push_coverage`. `None` when the move pushes nobody.
         let push_dir = active_volumes()
             .filter(|v| !hittable(v))
             .find_map(|v| v.launch_dir)
@@ -3223,7 +2761,7 @@ impl MoveSpec {
                     (0.0, 0.0)
                 }
             });
-        // Power = the strongest Active volume, derived exactly like `reach`.
+        // Power: the strongest Active volume, derived like `reach`.
         let max_damage = self
             .windows
             .iter()
@@ -3239,45 +2777,32 @@ impl MoveSpec {
             .flat_map(|w| w.volumes.iter())
             .map(|v| v.knockback)
             .fold(0.0_f32, f32::max);
-        // ⛔⛤ **A COLLAPSED SCALAR RANKED FINISHING POWER BACKWARDS.** This used
-        // to fold `max(knockback)` over the volumes whose growth was not an
-        // authored `Some(0.0)`, which throws away the growth MAGNITUDE — the
-        // half of the launch law that decides a finisher. The Pugnacious
-        // Polygon authors the counterexample on his own table: forward smash
-        // `(162, 3.25)` against up smash `(158, 5.83)`. A base fold says the
-        // forward smash finishes harder; the two lines cross at about 2 damage
-        // and from there the up smash is not close.
+        // Keep the launch line, not one scalar. A `max(knockback)` fold drops
+        // the growth magnitude, which decides a finisher. Example: the
+        // Pugnacious Polygon's forward smash `(162, 3.25)` and up smash
+        // `(158, 5.83)` cross at about 2 damage. `LaunchEnvelope::at`
+        // evaluates the line against the actual opponent.
         //
-        // ⇒ Keep the LINE. `LaunchEnvelope::at` evaluates it against the
-        // opponent actually in front of the brain.
-        //
-        // ⚠ HITTABLE volumes only, which the fold above did not ask. A windbox
-        // moves a body and finishes nobody, so it has no business in a kill
-        // question even when it is authored with growth.
+        // Only hittable volumes count: a windbox moves a body and finishes
+        // nobody.
         let launch = active_volumes()
             .filter(|v| hittable(v))
             .fold(LaunchEnvelope::default(), |envelope, v| {
                 envelope.with_volume(v.knockback, v.knockback_growth)
             });
-        // LIFT: the against-gravity speed this move COMMANDS of its owner.
+        // Lift: the against-gravity speed this move commands of its owner.
         //
-        //  the whole point of deriving it here is that a policy layer can then
-        // recognise a recovery move by its GEOMETRY instead of by its name. `+y`
-        // is gravity-down, so lift is `-y`, and it rotates with gravity for free
-        // because it never leaves the body frame.
+        // A policy layer can then recognize a recovery move by its geometry,
+        // not its name. `+y` is gravity-down, so lift is `-y`, and it rotates
+        // with gravity because it stays in the body frame.
         //
-        //  only [`ImpulseMode::Set`] counts, and that is not a shortcut. An
-        // additive impulse commands nothing — its outcome is whatever the body
-        // was already doing plus a number — so no static reader can say what
-        // speed it produces. A `Set` states one. That distinction is exactly why
-        // a jab with a small upward lunge cannot be mistaken here for a recovery
-        // special.
+        // Only [`ImpulseMode::Set`] counts. An additive impulse commands no
+        // speed (its result depends on the body's velocity), so a jab with a
+        // small upward lunge is not a recovery.
         //
-        // A move that hauls its owner mostly SIDEWAYS — a grapple line, a boarding charge, a
-        // slingshot — was reported as the small rise left over after the useful half was discarded,
-        // and every reader of this table then planned a route the body would never take. Both
-        // halves are read off the SAME winning event, so `lift_side` is never some other move's
-        // number.
+        // The sideways half is kept too, because a move that pulls its owner
+        // mostly sideways (a grapple line, a slingshot) is not a small rise.
+        // Both halves come from the same winning event.
         let (lift_speed, lift_at_s, lift_side) = self
             .events
             .iter()
@@ -3288,7 +2813,7 @@ impl MoveSpec {
                 } if local.1 < 0.0 => Some((-local.1, ev.at_s, local.0)),
                 _ => None,
             })
-            // Ties on speed break on the EARLIER moment, so the answer does not
+            // Ties on speed break on the earlier moment, so the answer does not
             // depend on declaration order (ADR 0023).
             .fold((0.0_f32, 0.0_f32, 0.0_f32), |best, (speed, at, side)| {
                 if speed > best.0 || (speed == best.0 && speed > 0.0 && at < best.1) {
@@ -3318,12 +2843,9 @@ impl MoveSpec {
             lift_speed,
             lift_at_s,
             lift_side,
-            // ⭐⭐ THE ONE PLACE THE FOLD HAPPENS. An author who stated a route
-            // kind gets it; everybody else gets what their frame data implies,
-            // which is a burst when the move commands a rise against gravity and
-            // nothing when it does not. That second arm IS the rule the planner
-            // has always used (`lift_speed > 0.0`), moved here so no consumer
-            // has to spell it a second time.
+            // The only place the fold happens. An authored route kind wins;
+            // otherwise a move that commands a rise against gravity
+            // (`lift_speed > 0.0`) is a burst, and any other move is none.
             recovery_route: match self.gates.recovery_route {
                 Some(AuthoredRecoveryRoute::SustainedAuthority { seconds, reach }) => {
                     RecoveryRoute::SustainedAuthority { seconds, reach }
@@ -3342,9 +2864,9 @@ impl MoveSpec {
     }
 }
 
-/// A move's cancel window (CM7): the proper-time span during which the move may
-/// be canceled into the named move classes/ids, under [`CancelCondition`]
-/// (CM4). Derived from a [`WindowTag::Cancelable`] window.
+/// A move's cancel window: the proper-time span during which the move may be
+/// canceled into the named move classes/ids, under [`CancelCondition`].
+/// Derived from a [`WindowTag::Cancelable`] window.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CancelWindow {
     pub start_s: f32,
@@ -3355,11 +2877,10 @@ pub struct CancelWindow {
 
 /// The body-local box a move's Active volumes cover, in the same frame the
 /// volumes author themselves in: `+x` toward the owner's facing, `+y` toward its
-/// feet (so an anti-air's box has a NEGATIVE `min.1`).
+/// feet (so an anti-air's box has a negative `min.1`).
 ///
-///  a union, not a list. A move with three volumes is described by the region
-/// they span, which is what a *"can this reach where they are"* question needs;
-/// a consumer that wanted each volume separately would read the windows.
+/// A union, not a list: a "can this reach where they are" question needs the
+/// region the volumes span. For each volume separately, read the windows.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MoveCoverage {
     pub min: (f32, f32),
@@ -3367,49 +2888,30 @@ pub struct MoveCoverage {
 }
 
 impl MoveCoverage {
-    /// HOW FAR THIS MOVE REACHES IN ONE DIRECTION — the distance from the
+    /// How far this move reaches in one direction: the distance from the
     /// owner's origin to the far side of the box along `toward`, or `0.0` when
-    /// the box does not lie that way at all.
+    /// the box does not lie that way.
     ///
-    ///  this is [`MoveFrameData::reach`] generalised, and it collapses back
-    /// to it exactly. For a foe straight ahead of a forward volume the answer
-    /// IS `reach`; for a foe overhead it is how far the move reaches UP, which is
-    /// the number an anti-air is authored for and the number no scalar could
-    /// carry. A move that covers nothing in the asked direction answers `0.0`,
-    /// which is the honest *"this cannot touch them from here"*.
+    /// This generalizes [`MoveFrameData::reach`]: for a foe straight ahead of
+    /// a forward volume, it equals `reach`. For a foe overhead it is how far
+    /// the move reaches up, which an anti-air needs.
     ///
-    /// `inflate` grows the box on every side — a hitbox catches a HURTBOX, so a
-    /// caller passes the target's half-extent rather than pretending the target
-    /// is a point.
+    /// `inflate` grows the box on every side. A hitbox catches a hurtbox, so
+    /// pass the target's half-extent.
     ///
-    ///  a slab intersection from the ORIGIN, so a box that does not span the
-    /// ray returns `0.0` rather than a nearest-approach consolation prize. Two
-    /// moves that both fail to point at the opponent are equally useless, which
-    /// is the same judgement `reach` made about a whiff.
+    /// A slab intersection from the origin: a box that does not span the ray
+    /// returns `0.0`, not a nearest-approach value.
     pub fn extent_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> f32 {
         self.span_toward(toward, inflate).map_or(0.0, |(_, far)| far)
     }
 
-    /// WHERE THIS MOVE'S REGION STARTS AND STOPS along `toward` — the near and
+    /// Where this move's region starts and stops along `toward`: the near and
     /// far sides of the box, or `None` when the box does not lie that way.
     ///
-    /// ⛔ **THE NEAR SIDE WAS COMPUTED AND THROWN AWAY.** [`extent_toward`]
-    /// answers the far side, and the option layer read that alone as *"this
-    /// move's region touches them"* — which it is not. An authored strike is a
-    /// box hung OUT from the body: `pointed_polygon`'s thrust spans
-    /// x ∈ [20, 76], so `gap <= far` admits it against somebody standing in
-    /// the hole in the middle of it as happily as at its tip.
-    ///
-    /// ⚠ **AND ON TODAY'S ROSTER THAT COSTS NOTHING, WHICH IS ALSO MEASURED.**
-    /// `probe_how_far_out_an_authored_region_begins`, 2026-09-20: 118 of 340
-    /// authored hit regions begin away from the body and **the deepest begins
-    /// at 24.0px** (`carl_stargan/pale_blue_dot`) — the same 24px the option
-    /// layer forgives on each side, before the foe's own half-extent is added.
-    /// The whole grid is bit-identical with this arm in place, in all 21 rows.
-    /// ⇒ It is here so the code and its own specification agree, and so the
-    /// first authored move with a real hole is priced on the day it lands;
-    /// it is NOT the explanation for any fighter's damage today.
-    ///
+    /// Use the near side too, not only [`extent_toward`]. A strike box hangs
+    /// out from the body (for example `pointed_polygon`'s thrust spans
+    /// x ∈ [20, 76]), so `gap <= far` alone admits a foe who stands in the gap
+    /// between body and box.
     /// [`extent_toward`]: Self::extent_toward
     pub fn span_toward(&self, toward: (f32, f32), inflate: (f32, f32)) -> Option<(f32, f32)> {
         let len = (toward.0 * toward.0 + toward.1 * toward.1).sqrt();
@@ -3420,8 +2922,8 @@ impl MoveCoverage {
         let (lo_x, hi_x) = (self.min.0 - inflate.0, self.max.0 + inflate.0);
         let (lo_y, hi_y) = (self.min.1 - inflate.1, self.max.1 + inflate.1);
         // Per-axis entry/exit of the ray `t · d` through each slab. A zero
-        // component means the ray never leaves that slab, so it either lies
-        // inside it for all `t` or misses outright.
+        // component means the ray never leaves that slab: it is inside it for
+        // all `t` or misses.
         let slab = |lo: f32, hi: f32, d: f32| -> Option<(f32, f32)> {
             if d.abs() < f32::EPSILON {
                 return (lo <= 0.0 && 0.0 <= hi).then_some((f32::NEG_INFINITY, f32::INFINITY));
@@ -3437,9 +2939,8 @@ impl MoveCoverage {
         if near > far || far <= 0.0 {
             return None;
         }
-        // A box the origin sits inside opens at the origin: the region already
-        // touches them, and a negative "near" would read as a hole behind the
-        // body.
+        // If the origin is inside the box, the region opens at the origin. A
+        // negative "near" would read as a gap behind the body.
         Some((near.max(0.0), far))
     }
 }
@@ -3447,100 +2948,67 @@ impl MoveCoverage {
 /// How far into a smash's leading windup the charge pose sits, as a fraction of
 /// that window.
 ///
-/// ⭐ EARLY ON PURPOSE — a brief windup, then the freeze. The genre reads a
-/// charge as "the swing started and stopped", which needs some windup to have
-/// played; it does not read as "the swing is about to land and stopped", which
-/// is what a hold at the end of the window looks like. Jon, 2026-08-23: *"it
-/// needs to hold on the first frames of the smash animation."*
+/// Early on purpose: a brief windup, then the freeze. A charge must read as
+/// "the swing started and stopped", not "the swing is about to land and
+/// stopped".
 ///
-/// ⛔⛔ TRANSITIONAL, AND NOT THE AUTHORING CONTRACT. A charge pose is an
-/// ANIMATION fact — where in this move's windup this fighter holds — so it
-/// belongs on the move, as an explicit `smash_charge.hold_at_s` inside its
-/// leading Startup. This global exists so the shipped roster charges at all
-/// while that authoring is done, and every smash currently leans on it.
+/// This is a fallback, not the authoring contract. A charge pose is an
+/// animation fact, so it belongs on the move as an explicit
+/// `smash_charge.hold_at_s` inside its leading Startup. The shipped smash
+/// tables author that, and `fighter_moveset`'s contract test refuses a smash
+/// that derives its pose. This value is for a move that says nothing (a boss
+/// swing, a fixture, an old table).
 ///
-/// ⛔ DO NOT TUNE IT FROM AN EMERGENT CPU MATCH. Jon's reviewer, 2026-08-23:
-/// *"Charge-pose location is an animation/move-authoring fact; George's
-/// offstage/recovery trajectory is an emergent balance result."* Swept against
-/// one matchup (George Booul vs the duelist, 3600 ticks), `0.25` left George
-/// off the stage 394 ticks pressing his route home 0 times where `0.50` left
-/// him out 169 ticks pressing it 5 times — which is a fact about that match,
-/// not about where a swing should freeze. ⚠ AND I OVERSTATED THE FOLLOW-UP:
-/// the decision-log guard (`the_decision_log`, `--features causal`) was run at
-/// `0.50` only, so "his recovery still works at both" was never measured.
-///
-/// ⇒ THE SHIPPED ROSTER NO LONGER USES THIS. Both smash tables author an
-/// explicit `hold_at_s` of four frames, and `fighter_moveset`'s own contract
-/// test refuses a smash that derives its pose instead. What is left here is the
-/// answer for a move that says nothing — a boss swing, a fixture, a table
-/// written before charge existed — and for those a fraction of the windup is a
-/// reasonable guess rather than a feel decision.
+/// Do not tune it from CPU match results. Charge-pose location is an
+/// animation fact; recovery outcomes in a match are emergent balance.
 pub const CHARGE_POSE_FRACTION: f32 = 0.50;
 
-/// The margin that keeps a derived charge pose STRICTLY before the first live
+/// The margin that keeps a derived charge pose strictly before the first live
 /// volume, for a move whose windup is so short that the fraction lands on it.
 const CHARGE_POSE_EPSILON_S: f32 = 1.0 / 240.0;
 
 /// What a move launches for, as a function of the victim's accumulated damage.
 ///
-/// ⛔⛤ **THE LAUNCH LAW IS A LINE, SO A SINGLE NUMBER CANNOT CARRY IT.** It is
-/// [`launch::launch_speed`], and this holds the two `(base, growth)` pairs it
-/// is evaluated at. A summary that keeps only `base` ranks a
-/// high-base/low-growth move above a low-base/high-growth one at every damage,
-/// which is backwards everywhere past the crossover — the Pugnacious Polygon's
-/// forward smash `(162, 3.25)` and up smash `(158, 5.83)` cross at about 2
-/// damage.
+/// The launch law is a line ([`launch::launch_speed`]), so one number cannot
+/// hold it. This holds the two `(base, growth)` pairs it is evaluated at. A
+/// base-only summary ranks a high-base/low-growth move above a
+/// low-base/high-growth one at every damage, which is wrong past the crossover
+/// (the Pugnacious Polygon's forward smash `(162, 3.25)` and up smash
+/// `(158, 5.83)` cross at about 2 damage).
 ///
-/// ⛔⛤ **AND THE REST OF THE LAW USED TO BE ARGUED AWAY HERE.** This doc said
-/// `growth_scale`, the victim's weight and rage were *"COMMON to every
-/// candidate one attacker weighs against one opponent, so none of them can
-/// reorder a kit"*. They multiply the PERCENT TERM and not `base`, so they
-/// move the CROSSOVER rather than scaling both lines alike — reviewed
-/// 2026-09-20, with George Booul's two smashes as the counterexample. They are
-/// now arguments: [`Self::at`] takes a [`launch::LaunchConditions`], and the
-/// fighter brain fills it from the view the stage handed it.
+/// `growth_scale`, the victim's weight and rage multiply the percent term, not
+/// `base`, so they move the crossover. They are arguments: [`Self::at`] takes
+/// a [`launch::LaunchConditions`], which the fighter brain fills from the
+/// stage's view.
 ///
-/// ⛔⛤ **AND `knockback_growth: None` USED TO READ AS A SET LAUNCH HERE, WHICH
-/// IS A DIFFERENT ANSWER FROM THE ONE THE HIT RESOLVER GIVES — REVIEWED
-/// 2026-09-20, and it is the second half of the same finding.** `Some(0.0)` is
-/// FIXED knockback and `None` is *"the ruleset decides"*; this collapsed both
-/// to `0.0` at fold time, before any ruleset could be consulted, and the
-/// distinction could not be recovered afterwards. On the smash stage
-/// (`knockback_growth: 0.02`, percent scale `1.25`) `cellular_pulse` — base
-/// `140`, growth `None` — is **490px/s at 100%** to the hit resolver and was
-/// **140** here, with [`Self::grows_under`]'s predecessor also calling it a set
-/// launch and declining its rage. ⇒ The `Option` travels; [`launch::launch_speed`]
-/// collapses it once, after the conditions are known.
+/// `knockback_growth: None` is not a set launch. `Some(0.0)` is fixed
+/// knockback; `None` means "the ruleset decides". The `Option` is kept here,
+/// and [`launch::launch_speed`] resolves it once the conditions are known.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct LaunchEnvelope {
-    /// The volume with the largest base — the line that wins against a FRESH
-    /// opponent. Its growth is `None` when that volume authors none, which is
-    /// the RULESET's fallback and not a set launch.
+    /// The volume with the largest base: the line that wins against a fresh
+    /// opponent. Its growth is `None` when that volume authors none, which
+    /// means the ruleset's fallback, not a set launch.
     pub flat: (f32, Option<f32>),
-    /// The `(base, growth)` of the volume with the steepest AUTHORED growth —
+    /// The `(base, growth)` of the volume with the steepest authored growth:
     /// the line that wins once the opponent is worn.
     ///
-    /// ⚠ **A `None` VOLUME CANNOT CLAIM THIS LINE, because its growth is
-    /// `base * ruleset_growth` and no ruleset is in scope at fold time.** That
-    /// loses a move whose largest-base volume authors a growth while a SMALLER
-    /// volume authors `None` and would out-grow it. Measured across the
-    /// shipped tables 2026-09-20: **no authored move mixes the two roads** —
-    /// the three `None` volumes in the game (`cellular_pulse`,
-    /// `performer_trapdoor`, and the robot's) are each their move's only one —
-    /// so [`Self::flat`] carries every one of them and nothing is dropped
-    /// today.
+    /// A `None` volume cannot claim this line: its growth is
+    /// `base * ruleset_growth`, and no ruleset is in scope at fold time. This
+    /// loses a smaller `None` volume that would out-grow an authored one in
+    /// the same move. No shipped move mixes the two; each `None` volume is
+    /// its move's only volume, so [`Self::flat`] carries it.
     pub steep: (f32, f32),
 }
 
 impl LaunchEnvelope {
     /// Fold one Active volume's authored launch in.
     ///
-    /// ⚠ **TWO LINES, NOT ALL OF THEM, and the limit is stated rather than
-    /// hidden.** The true envelope of `n` volumes is the upper hull of `n`
-    /// lines; keeping the flattest and the steepest reproduces it exactly for
-    /// one or two volumes and UNDER-reports a third volume that would win only
-    /// in a middle band. Under-reporting is the safe direction for a kill
-    /// question, and it costs no allocation in a per-frame scorer.
+    /// Keeps two lines, not all of them. The true envelope of `n` volumes is
+    /// the upper hull of `n` lines. The flattest and steepest reproduce it
+    /// exactly for one or two volumes and under-report a third volume that
+    /// wins only in a middle band. Under-reporting is the safe direction for a
+    /// kill question, and it needs no allocation in a per-frame scorer.
     pub fn with_volume(self, base: f32, growth: Option<f32>) -> Self {
         Self {
             flat: if base > self.flat.0 {
@@ -3548,9 +3016,8 @@ impl LaunchEnvelope {
             } else {
                 self.flat
             },
-            // ⛔ ONLY AN AUTHORED GROWTH COMPETES FOR THE STEEP LINE — see the
-            // field. A `None` rides the flat line, which is where it always
-            // lands on today's tables because it is its move's only volume.
+            // Only an authored growth competes for the steep line (see the
+            // field). A `None` stays on the flat line.
             steep: match growth {
                 Some(g) if g > self.steep.1 => (base, g),
                 _ => self.steep,
@@ -3558,14 +3025,10 @@ impl LaunchEnvelope {
         }
     }
 
-    /// The launch speed this move produces under `conditions` — the upper hull
-    /// of its two lines, each evaluated by [`launch::launch_speed`].
-    ///
-    /// ⛔⛤ **IT TOOK ONLY THE VICTIM'S DAMAGE AND RE-IMPLEMENTED THE LINE, AND
-    /// THAT IS WHY IT RANKED KITS WRONG — see the module doc on
-    /// [`launch`].** The omitted factors multiply the PERCENT TERM and not
-    /// `base`, so they move the crossover between two candidates instead of
-    /// scaling both alike.
+    /// The launch speed this move produces under `conditions`: the upper hull
+    /// of its two lines, each evaluated by [`launch::launch_speed`]. It takes
+    /// the full conditions because they move the crossover between lines (see
+    /// the [`launch`] module doc).
     pub fn at(self, conditions: launch::LaunchConditions) -> f32 {
         launch::launch_speed(self.flat.0, self.flat.1, conditions)
             .max(launch::launch_speed(
@@ -3577,16 +3040,13 @@ impl LaunchEnvelope {
 
     /// Does this move's launch get better as the opponent takes damage?
     ///
-    /// The question a set launch answers `false` — a windbox is the same
-    /// distance at 0% and at 200%, and [`launch::launch_speed`] declines rage
-    /// for exactly that authoring.
+    /// A set launch answers `false`: a windbox goes the same distance at 0%
+    /// and at 200%, and [`launch::launch_speed`] declines rage for it.
     ///
-    /// ⛔ **IT TAKES THE CONDITIONS BECAUSE THE ANSWER DEPENDS ON THEM.** A
-    /// volume that authors `knockback_growth: None` is a set launch in an
-    /// undeclared world and a percent-scaling one on a stage that declares a
-    /// fallback growth, which is the same distinction [`Self::flat`] now
-    /// carries. Asking without a ruleset is asking a question with two
-    /// answers.
+    /// It takes the conditions because the answer depends on them. A volume
+    /// with `knockback_growth: None` is a set launch without a declared
+    /// ruleset, and scales with percent on a stage that declares a fallback
+    /// growth.
     pub fn grows_under(self, conditions: launch::LaunchConditions) -> bool {
         let resolved = |base: f32, growth: Option<f32>| {
             growth.unwrap_or_else(|| base * conditions.ruleset_growth.max(0.0))
@@ -3595,28 +3055,24 @@ impl LaunchEnvelope {
     }
 }
 
-/// The queryable frame data of a move (CM7) — the introspection the fighter
-/// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
-/// (no storage). All times are the owner's proper-time seconds.
+/// The queryable frame data of a move, read by the fighter brain and boss
+/// validators. A pure derivation by [`MoveSpec::frame_data`] (no storage).
+/// All times are the owner's proper-time seconds.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MoveFrameData {
     /// Total move length.
     pub total_s: f32,
-    /// Where on this move's own timeline a SMASH-gesture use freezes, or `None`
-    /// when the move does not charge at all.
+    /// Where on this move's timeline a smash-gesture use freezes, or `None`
+    /// when the move does not charge.
     ///
-    /// ⛔ NOT `startup_s`, and the difference is the whole reason this exists. A
-    /// reader that wants to know when a charge BEGINS was deriving it from when
-    /// the move's first hit LANDS, which is only the same number while the hold
-    /// point happens to sit at the end of the leading Startup window. Moving the
-    /// charge pose earlier — which is what the genre does — silently made every
-    /// such reader early or late.
+    /// Not `startup_s`. The hold point is in the windup, before the first hit,
+    /// so a reader that wants the charge start must read this.
     pub charge_hold_at_s: Option<f32>,
-    /// Time until the first Active window opens — the tell the opponent reads.
+    /// Time until the first Active window opens: the tell the opponent reads.
     pub startup_s: f32,
     /// Every Active window's `(start, end)`, in declaration order.
     pub active_spans: Vec<(f32, f32)>,
-    /// Time from the last Active window's end to the move's end — the punish
+    /// Time from the last Active window's end to the move's end: the punish
     /// window.
     pub recovery_s: f32,
     /// Cancel windows (`WindowTag::Cancelable`), for combo/chain reasoning.
@@ -3625,179 +3081,128 @@ pub struct MoveFrameData {
     pub reach: f32,
     /// A guard does not stop this move.
     ///
-    /// ⭐ **DERIVED FOR A CAPTURE, SETTABLE FOR EVERYTHING ELSE.** A hit volume
-    /// is blockable and a capture is not, and a capture is one thing this
-    /// catalog CAN recognise — [`smash_capture::CAPTURE_ATTEMPT`] is its own
-    /// key, declared here. A ruleset that authors some other unblockable
-    /// — armour break, command strike — still sets this itself, and an
-    /// ordinary move keeps `false`.
+    /// Derived for a capture ([`smash_capture::CAPTURE_ATTEMPT`] is declared
+    /// here). A ruleset that authors another unblockable (armor break,
+    /// command strike) sets it itself. An ordinary move keeps `false`.
     ///
-    /// ⚠ This said *"derived by nobody"* while `capture_candidate` in the actor
-    /// layer derived it for the one grab it could see, which is how a command
-    /// grab on an ordinary attack verb came to read as blockable.
-    ///
-    ///  genre-neutral on purpose. Unblockables, command grabs and armour
-    /// breaks are the same fact to a planner: *the shield is not the answer to
-    /// this one*.
+    /// Genre-neutral: to a planner, unblockables, command grabs and armor
+    /// breaks are the same fact: the shield is not the answer.
     pub ignores_guard: bool,
-    /// **What this move puts into the world that can hurt somebody** — `None`
-    /// for the overwhelming majority of moves, which put nothing.
+    /// What this move puts into the world that can hurt somebody. `None` for
+    /// most moves.
     ///
-    /// ⭐ THE OTHER HALF OF [`Self::coverage`]. A launcher authors no Active
-    /// volume on its owner's body, so `coverage` is `None` and a reader that
-    /// stops there concludes the move reaches NOWHERE — for the one class of
-    /// move that reaches furthest.
+    /// The other half of [`Self::coverage`]. A launcher has no Active volume
+    /// on its owner's body, so `coverage` is `None` even though the move
+    /// reaches far.
     ///
-    /// ⛔ **IT IS A [`MoveHazard`] AND NOT A DISTANCE, and the distance is
-    /// what the review of 2026-09-20 asked to stop patching.** See that type:
-    /// the hazard's SPEED is what lets a consumer ask when the hazard ARRIVES
-    /// rather than when it is thrown, and
-    /// [`MoveHazard::OwnersRangedAction`] is a REQUEST to the one layer that
-    /// can see the body rather than a number this derivation made up.
+    /// A [`MoveHazard`], not a distance: the hazard's speed lets a consumer
+    /// ask when it arrives, and [`MoveHazard::OwnersRangedAction`] is a
+    /// request to the layer that can see the body.
     ///
-    /// ⚠ **A KEY `hazard_of` HAS NOT BEEN TAUGHT ANSWERS `None`, and that is
-    /// a REFUSAL rather than a neutral default**: the admission rule reads it
-    /// as *"this move offers the opponent nothing"* and keeps the move off the
-    /// attack menu. Safe, and loud enough to notice — a new projectile that is
-    /// never thrown is the symptom.
+    /// A key that `hazard_of` does not know answers `None`. The admission rule
+    /// reads that as "this move offers the opponent nothing" and keeps the
+    /// move off the attack menu. The symptom is a new projectile that is never
+    /// thrown.
     pub hazard: Option<MoveHazard>,
 
-    /// **WHEN this move first offers the OPPONENT anything**, on the move's own
-    /// timeline. `None` when it offers nothing — a pure-motion move, a buff, a
-    /// recovery summon.
+    /// When this move first offers the opponent anything, on the move's own
+    /// timeline. `None` when it offers nothing (a pure-motion move, a buff, a
+    /// recovery summon).
     ///
-    /// ⛔⛤ **NOT `startup_s`, AND OVERLOADING `startup_s` FOR THIS IS THE
-    /// DEFECT IT EXISTS TO CLOSE.** `startup_s` is *"time until the first
-    /// Active window"* and falls back to the WHOLE MOVE DURATION when there is
-    /// none, which is every projectile move in the game. A consumer leading a
-    /// moving target by `startup_s` therefore aims hundreds of milliseconds too
-    /// far ahead on exactly the moves whose whole point is to be thrown at
-    /// somebody who is moving. See the derivation in [`MoveSpec::frame_data`].
+    /// Not `startup_s`, which falls back to the whole move duration when there
+    /// is no Active window (every projectile move). Leading a moving target by
+    /// `startup_s` aims too far ahead. See the derivation in
+    /// [`MoveSpec::frame_data`].
     ///
-    /// ⚠ Equal to `startup_s` for an ordinary strike, by construction — a
-    /// strike's threat IS its first Active window. The two numbers separate
-    /// only where the move reaches through something it spawns.
+    /// For an ordinary strike it equals `startup_s`. The two differ only
+    /// where the move reaches through something it spawns.
     pub threat_live_at_s: Option<f32>,
-    /// The region this move can hit, body-local, `None` when the move has no
-    /// way to touch anybody FROM ITS OWN BODY.
+    /// The region this move can hit from its own body, body-local. `None`
+    /// when the move cannot touch anybody from its own body.
     ///
-    /// ⚠ **`None` IS NOT ONE THING, AND A READER THAT TREATS IT AS ONE IS
-    /// WRONG ABOUT MOST OF THE ROSTER.** Measured 2026-09-20 —
-    /// `authored_movesets::offer_census` — **164 of 470 authored moves** answered
-    /// `None` here, and they are at least four unrelated cases: a counter,
-    /// which reaches nobody until it is struck; a buff or a taunt, which
-    /// reaches nobody at all; a launcher whose damage rides a PROJECTILE and
-    /// can therefore cross the stage; and a pure-motion recovery. An option
-    /// scorer reading `None` as *"this move cannot miss"* offers all four at
-    /// every range and prices all four at zero. A capture used to be a fifth
-    /// and is not any more — see the fold in [`MoveSpec::frame_data`].
+    /// `None` covers several unrelated cases: a counter (reaches nobody until
+    /// struck), a buff or taunt (reaches nobody), a launcher whose damage is a
+    /// projectile (may cross the stage), and a pure-motion recovery. Do not
+    /// read `None` as "this move cannot miss". Captures are included (see
+    /// [`MoveSpec::frame_data`]).
     ///
-    /// George Booul authors sixteen moves and started five distinct ones per match; the whole
-    /// vertical game (anti-air, juggle, spike) was never selected for the reason it exists, because
-    /// nothing downstream knew the opponent was ABOVE.
-    ///
-    ///  the same lesson [`Self::lift_side`] records one field down: a 2-D
-    /// authored shape summarised by a 1-D scalar describes a move that does not
-    /// exist. This is the datum — the union of the authored volumes — not another
-    /// summary of it.
+    /// This is the union of the authored volumes, a 2-D datum, not a 1-D
+    /// summary: the vertical game (anti-air, juggle, spike) needs to know the
+    /// opponent is above. See also [`Self::lift_side`].
     pub coverage: Option<MoveCoverage>,
-    /// The region this move can SHOVE without hitting — the union of its
-    /// [`VolumeReaction::Windbox`] volumes, `None` for the overwhelming majority
-    /// of moves, which carry none.
+    /// The region this move can push without hitting: the union of its
+    /// [`VolumeReaction::Windbox`] volumes. `None` for most moves.
     ///
-    /// ⛔ SEPARATE FROM [`Self::coverage`] BECAUSE A SCORER ASKS A DIFFERENT
-    /// QUESTION OF IT. "Can I hit them from here" and "can I push them from
-    /// here" have different answers and different consequences, and a union of
-    /// the two answers neither: `wake` guarantees the push reaches further, so
-    /// the merged reading said every waked move could hit as far as it could
-    /// shove.
+    /// Separate from [`Self::coverage`] because "can I hit them from here" and
+    /// "can I push them from here" have different answers. `wake` guarantees
+    /// the push reaches further, so a merged union would overstate hit reach.
     pub push_coverage: Option<MoveCoverage>,
     /// Which way the shove blows, body-local and unit-length (`+x` toward
     /// facing, `+y` toward the feet), from the windbox volumes' authored
     /// `launch_dir`. `None` when the move shoves nobody.
     ///
-    /// ⛔ A SHOVE'S VALUE IS SIGNED. Coverage says the push REACHES the
-    /// opponent; it says nothing about whether the push sends them toward the
-    /// blast line or rescues them off it. Two geometrically opposite
-    /// situations — the attacker inboard of the victim, and the attacker
-    /// outboard of them — have the same coverage and opposite worth.
+    /// A push's value is signed. Coverage says the push reaches the opponent,
+    /// not whether it sends them toward the blast line or saves them from it.
     pub push_dir: Option<(f32, f32)>,
-    /// Highest `damage` any Active volume deals — the move's POWER, so an
-    /// option scorer can price a smash above a jab (FB6a; §9 of
-    /// fighter-brain.md recorded that nothing could). `0` for a move that
-    /// lands no volume.
+    /// Highest `damage` any Active volume deals: the move's power, so an
+    /// option scorer can price a smash above a jab. `0` for a move with no
+    /// volume.
     ///
-    /// ⛔ **A MOVE'S OWN VOLUMES ONLY, AND A SCORER SHOULD ASK
-    /// [`Self::strongest_hit`] INSTEAD.** A launcher's damage rides the thing
-    /// it spawns, so this is `0` for the whole projectile half of the roster.
-    /// It stays volume-only because a second reader wants exactly that: the
-    /// fighter rollout applies it when the foe is inside [`Self::reach`],
-    /// which is where a VOLUME lands and not where a shot arrives.
+    /// Only the move's own volumes. A scorer should use
+    /// [`Self::strongest_hit`], because a launcher's damage is in what it
+    /// spawns. This field stays volume-only because the fighter rollout
+    /// applies it when the foe is inside [`Self::reach`], where a volume
+    /// lands.
     pub max_damage: i32,
     /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
-    /// What this move LAUNCHES for, against an opponent at a stated damage.
+    /// What this move launches for, against an opponent at a given damage.
     ///
-    /// ⭐ **THIS IS THE ONE A KILL QUESTION ASKS**, and it is a line rather than
-    /// a number because the launch law is one: `base + growth * damage`. "Which
-    /// of my moves finishes a damaged opponent" cannot be answered by either
-    /// term alone — a windbox or any other set launch answers it with a flat
-    /// number that never gets better, and the biggest `base` on a table is
-    /// routinely NOT the biggest launch once the opponent is worn.
+    /// A kill question reads this. It is a line because the launch law is
+    /// `base + growth * damage`: a set launch never improves, and the largest
+    /// `base` is often not the largest launch on a worn opponent.
     pub launch: LaunchEnvelope,
-    /// The move's authored self-motion at trigger, body-local (`+x` toward facing, `+y` per the
-    /// authoring convention), `(0, 0)` when none.
+    /// The move's authored self-motion at trigger, body-local (`+x` toward
+    /// facing, `+y` per the authoring convention). `(0, 0)` when none.
     pub start_impulse: (f32, f32),
-    /// The against-gravity speed this move COMMANDS, from its strongest
-    /// [`ImpulseMode::Set`] impulse. `0.0` for every move that does not lift its
-    /// owner outright, which is almost all of them.
+    /// The against-gravity speed this move commands, from its strongest
+    /// [`ImpulseMode::Set`] impulse. `0.0` for moves that do not lift their
+    /// owner.
     ///
-    ///  this is the semantic affordance a recovery policy reads. A move is a
-    /// recovery because of what it DOES to the body, not because of what it is
-    /// called — so a brain, an authoring validator and a recovery probe all
-    /// recognise one from the same number, and no layer needs a table of which
-    /// character's special is the Up-B.
+    /// A recovery policy reads this. A move is a recovery because of what it
+    /// does to the body, so a brain, a validator and a recovery probe all use
+    /// the same number and need no table of each character's Up-B.
     pub lift_speed: f32,
-    /// When [`Self::lift_speed`] arrives, proper-time seconds from move start —
-    /// the windup a body has to survive before the burst fires. `0.0` when there
-    /// is no lift.
+    /// When [`Self::lift_speed`] arrives, proper-time seconds from move start:
+    /// the windup a body must survive before the burst. `0.0` when there is no
+    /// lift.
     pub lift_at_s: f32,
     /// Along-facing component of the commanded lift velocity, body-local
     /// (`+x` toward facing). Together with [`Self::lift_speed`] this is the
     /// complete 2-D velocity-shaped recovery proposal.
     pub lift_side: f32,
-    /// THE WAY HOME THIS MOVE OFFERS, resolved — a burst from the two fields
-    /// above, or whatever its author stated instead.
+    /// The resolved way home this move offers: a burst from the fields above,
+    /// or the author's stated route.
     ///
-    /// ⭐ ONE ANSWER, so a planner never has to correlate `lift_speed` against a
-    /// gate to find out whether a move is a recovery at all. The fields above
-    /// remain what a BURST is made of; this is which kind of route it is.
+    /// One answer, so a planner does not correlate `lift_speed` with a gate.
+    /// The fields above describe a burst; this says which kind of route it is.
     pub recovery_route: RecoveryRoute,
 }
 
 impl MoveFrameData {
-    /// **THE MOST ONE USE OF THIS MOVE CAN TAKE OFF SOMEBODY** — its own
-    /// volumes or what it puts in the world, whichever is larger.
+    /// The most one use of this move can take off somebody: its own volumes
+    /// or what it puts in the world, whichever is larger.
     ///
-    /// ⛔⛤ **AN OPTION SCORER ASKING [`Self::max_damage`] PRICED EVERY
-    /// PROJECTILE AT ZERO.** That field folds Active volumes and a shot is not
-    /// one, so `expected_payoff` — the move's power over the kit's strongest —
-    /// was `0` for the whole launcher half of the roster. Measured on
-    /// Projectile Polygon, whose two projectiles are her game: the ponytail
-    /// boomerang deals `7` and the charge shot `4`, and with both reading `0`
-    /// the only things separating them were reach and frame advantage. Once
-    /// increment one gave the boomerang its true 83px of reach she stopped
-    /// throwing it at range and fell through to the WEAKER shot.
+    /// An option scorer must use this, not [`Self::max_damage`], which prices
+    /// every projectile at zero.
     ///
-    /// ⚠ **A `max`, NOT A SUM.** A move that both swings and throws can only
-    /// connect with one of them on a given body, and the payoff term prices
-    /// what a press is worth, not what a whole exchange might total.
+    /// A `max`, not a sum: a move that swings and throws connects with one of
+    /// them on a given body, and the payoff prices one press.
     ///
-    /// ⚠ **AND AN UNRESOLVED [`MoveHazard::OwnersRangedAction`] CONTRIBUTES
-    /// NOTHING**, because its damage is on the BODY. The kit builder is the
-    /// layer that joins the two and replaces the variant; a reader holding
-    /// only a `MoveSpec` gets the volumes, which is all it can honestly know.
+    /// An unresolved [`MoveHazard::OwnersRangedAction`] contributes nothing,
+    /// because its damage is on the body. The kit builder joins the two and
+    /// replaces the variant.
     pub fn strongest_hit(&self) -> i32 {
         self.max_damage
             .max(self.hazard.map_or(0, MoveHazard::damage))
@@ -3840,10 +3245,9 @@ pub enum AttackDir {
     Back,
 }
 
-/// **The RUNNING-stance verb for an attack base** — the one place the suffix is
-/// spelled, so the runtime's verb vocabulary and the selector cannot disagree
-/// about the word. Named for the genre's move ("dash attack"), keyed off the
-/// body's gait and not off `AbilitySet::dash`.
+/// The running-stance verb for an attack base. This is the only place the
+/// suffix is spelled. Named for the "dash attack", keyed off the body's gait
+/// and not off `AbilitySet::dash`.
 pub fn dash_stance_verb(base: &str) -> String {
     format!("{base}_dash")
 }
@@ -3882,20 +3286,17 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
     chain
 }
 
-/// The BASE verb a composed verb id was built from — the inverse of
+/// The base verb a composed verb id was built from: the inverse of
 /// [`directional_verb_chain`] and [`dash_stance_verb`].
 ///
-/// ⭐⭐ IT LIVES BESIDE THE COMPOSER ON PURPOSE. Every id in this vocabulary is
-/// `{base}` plus a suffix those two functions append, so the inverse is a fact
-/// about the same table — and a consumer that recovered the base by splitting on
-/// the first underscore would be inventing a second vocabulary that agrees until
-/// somebody authors a base verb with one in it.
+/// It lives beside the composers because it inverts the same suffix table. Do
+/// not split on the first underscore; a base verb may contain one.
 ///
 /// `attack_air_forward` → `attack`, `smash_dash` → `smash`, `special` →
-/// `special`. An id built from no known suffix is its own base.
+/// `special`. An id with no known suffix is its own base.
 pub fn base_verb_of(verb: &str) -> &str {
-    // ⛔ LONGEST FIRST. `attack_air_forward` must not reduce to `attack_air` by
-    // matching `_forward`, and `attack_air` must not survive as its own base.
+    // Longest first: `attack_air_forward` must not reduce to `attack_air` by
+    // matching `_forward`.
     const SUFFIXES: [&str; 10] = [
         "_air_forward",
         "_air_back",
@@ -3916,35 +3317,29 @@ pub fn base_verb_of(verb: &str) -> &str {
 
 /// The cancel namespace a move answers to when it is reached by `base`.
 ///
-/// ⭐⭐ THE ONE PLACE THIS LIST LIVES. A `Cancelable` window names verbs and
-/// CLASSES as well as move ids, and something has to say which of those a given
-/// move answers to. The trigger road built this inline; an exporter that wanted
-/// to show the cancel GRAPH would have had to build it again, and two lists that
-/// must agree are one list plus a bug.
+/// This is the only place the list lives. A `Cancelable` window names verbs
+/// and classes as well as move ids; the trigger road and any cancel-graph
+/// exporter both read this.
 ///
-/// ⛔ A RUNNING ATTACK ANSWERS TO THE ATTACK FAMILY whatever gesture asked for
-/// it — the cancel namespace follows the move that ran, not the button.
+/// A running attack answers to the attack family whatever gesture asked for
+/// it: the namespace follows the move that ran, not the button.
 ///
-/// ⛔⛔ AND THE EMPTY ANSWER IS A REAL ONE: a verb with no FAMILY answers to its
-/// own name and nothing else. Grabs (`&[GRAB_VERB]`), captures
-/// (`&[CAPTURE_THROW_FORWARD_VERB]`), taunts and `ranged` each pass exactly one
-/// name on the trigger road, so a fall-through that lumped them into the attack
-/// family would let `any_attack` cancel into a throw. Measured: it resolved the
-/// admiral's `ranged` cancel into 23 moves including every grab, pummel, throw
-/// and the taunt.
+/// The empty answer means "its own full name only". Grabs, captures, taunts
+/// and `ranged` each pass exactly one name on the trigger road. Putting them
+/// in the attack family would let `any_attack` cancel into a throw.
 pub fn cancel_names_for(base: &str, running_attack: bool) -> &'static [&'static str] {
     match base {
         SPECIAL_VERB => &[SPECIAL_VERB],
         SMASH_VERB if !running_attack => &[SMASH_VERB, ATTACK_VERB, "any_attack"],
         ATTACK_VERB | SMASH_VERB => &[ATTACK_VERB, "any_attack"],
-        // Each of these passes exactly ONE name on its own arm of the trigger
-        // road. ⛔ `grab_dash` reduces to `grab` and is right to — the grab road
-        // takes a running stance — while a capture verb does not reduce at all,
-        // which is why it falls to the empty answer below.
+        // Each of these passes exactly one name on its own arm of the trigger
+        // road. `grab_dash` reduces to `grab`, which is correct (the grab road
+        // takes a running stance). A capture verb does not reduce, so it falls
+        // to the empty answer below.
         GRAB_VERB => &[GRAB_VERB],
         RANGED_VERB => &[RANGED_VERB],
         TAUNT_VERB => &[TAUNT_VERB],
-        // ⛔⛔ EMPTY MEANS "ITS OWN FULL NAME", not "the attack family". The
+        // Empty means "its own full name", not "the attack family". The
         // capture road passes `capture_throw_forward` verbatim, and
         // `base_verb_of` would reduce that to `capture_throw`, which names
         // nothing.
@@ -3959,13 +3354,12 @@ pub fn cancel_names_for(base: &str, running_attack: bool) -> &'static [&'static 
 /// definition and many runtime actors. This id names the definition; the actor's
 /// runtime identity is its `SimId`, and the two are never the same question.
 ///
-/// A newtype so that confusion cannot survive a signature — the same reason `BrainPresetId` exists
-/// next door, and the confusion this one prevents is the more expensive of the two.
+/// A newtype so the template/instance confusion cannot survive a signature
+/// (the same reason `BrainPresetId` exists).
 ///
-/// Lives here, beside the placement schemas, because character identity is
-/// content vocabulary that authoring, the character domain and the runtime all
-/// need to name — and `#[serde(transparent)]` so authored data encodes exactly
-/// as the bare string it always was.
+/// It lives beside the placement schemas because authoring, the character
+/// domain and the runtime all name it. `#[serde(transparent)]` keeps the
+/// authored encoding a bare string.
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CharacterId(pub String);
@@ -3998,11 +3392,9 @@ impl std::fmt::Display for CharacterId {
     }
 }
 
-///  so a `BTreeMap<CharacterId, _>` can still be looked up by `&str`. The
-/// registry key becomes honest without every caller having to mint an id to ask
-/// a question — `Borrow` is the standard way a newtype key stays ergonomic, and
-/// it holds the required invariant: `Ord`/`Eq`/`Hash` on `CharacterId` delegate
-/// to the same `String`, so borrowed and owned comparisons cannot disagree.
+/// Lets a `BTreeMap<CharacterId, _>` be looked up by `&str`. This is sound
+/// because `Ord`/`Eq`/`Hash` on `CharacterId` delegate to the same `String`,
+/// so borrowed and owned comparisons agree.
 impl std::borrow::Borrow<str> for CharacterId {
     fn borrow(&self) -> &str {
         &self.0
@@ -4011,15 +3403,10 @@ impl std::borrow::Borrow<str> for CharacterId {
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 ///
-///  the four verb ids live BESIDE the contract they are keys into, not in
-/// the runtime that plays it. A verb NAME is part of the moveset contract's
-/// authoring vocabulary — content types one of these strings into a `verbs`
-/// map — while `ambition_combat` is where a bound move is *executed*. They sat
-/// in the runtime for historical reasons, and that placement was one of the
-/// couplings keeping `CharacterDefinition` out of the character domain: a
-/// definition cannot name the verb its moveset binds without reaching up into
-/// the runtime crate. Re-exported from `ambition_platformer2d::combat::moveset`, so every
-/// existing path still resolves.
+/// The verb ids live beside the moveset contract they key into, not in the
+/// runtime that plays moves, so a `CharacterDefinition` can name its verbs
+/// without depending on the runtime crate. Re-exported from
+/// `ambition_platformer2d::combat::moveset`.
 
 pub const ATTACK_VERB: &str = "attack";
 /// Strong directional attacks use the same authored verb machinery under the
@@ -4048,30 +3435,24 @@ pub fn is_ranged_verb(verb: &str) -> bool {
 /// directional verb or the base verb.
 pub const SPECIAL_VERB: &str = "special";
 /// The canonical verb id a body's taunt binds to, and the base of its
-/// directional chain. Unlike every verb above it, this one is not a threat —
-/// which is why a body needs no permission to carry it.
+/// directional chain. Unlike the verbs above, it is not a threat, so a body
+/// needs no permission to carry it.
 pub const TAUNT_VERB: &str = "taunt";
 /// The capture verbs. The grab that establishes a hold, and the moves a
 /// captor selects while one exists.
 ///
-///  they sit beside [`SMASH_VERB`] because they are the same kind of thing
-/// and it is worth being honest about what that kind is. This crate holds the
-/// verb NAMES a press can resolve to; content holds what each one DOES. `smash`
-/// was already platform-fighter taxonomy living here, so a throw is not a new
-/// concession — but it does make the pile of it bigger.
-///
-///  the restitch point is the first character-owned `smash.fighter` facet
-/// . When a Smash capability owns its own schema, these move with
-/// it and the generic catalog stops naming a throw. Until then one definition
-/// here beats the same strings copied into a selector and an authoring module.
+/// This crate holds the verb names a press can resolve to; content holds what
+/// each one does. When a Smash capability owns its own schema (a
+/// character-owned `smash.fighter` facet), these move with it. Until then,
+/// one definition here is better than strings copied into a selector and an
+/// authoring module.
 pub const GRAB_VERB: &str = "grab";
-/// **The RUNNING grab.** The same reach-out performed out of a run, which in
-/// this genre trades endlag for the range the run already carries — so unlike
-/// the dash ATTACK (a different move entirely, which each fighter authors) this
-/// one is DERIVED from the fighter's own standing grab. Spelled here because
+/// The running grab: the standing reach-out performed from a run. Unlike the
+/// dash attack (a separate move each fighter authors), it is derived from the
+/// fighter's own standing grab. Spelled here because
 /// [`MovesetContract::move_for_flat_verb`] needs a `&'static str`;
 /// `a_running_grabs_verb_is_the_dash_stance_of_the_grab` pins it to
-/// [`dash_stance_verb`] so the two spellings cannot drift.
+/// [`dash_stance_verb`].
 pub const GRAB_DASH_VERB: &str = "grab_dash";
 /// Neutral Attack inside a capture. Repeatable; the hold survives it.
 pub const CAPTURE_PUMMEL_VERB: &str = "capture_pummel";
@@ -4085,8 +3466,8 @@ pub const CAPTURE_THROW_UP_VERB: &str = "capture_throw_up";
 pub const CAPTURE_THROW_DOWN_VERB: &str = "capture_throw_down";
 
 /// Moveset contract: the entity's moves plus which input verb activates
-/// which move. `moves` is the composition surface — re-binding an existing
-/// move onto a different actor is a data edit here.
+/// which move. Re-binding an existing move onto a different actor is a data
+/// edit here.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MovesetContract {
@@ -4100,21 +3481,17 @@ pub struct MovesetContract {
 impl MovesetContract {
     /// The moves a `Cancelable` window's `into` list actually admits.
     ///
-    /// ⭐⭐ THE BROAD RULES ARE THE POINT. An authored list says `["attack",
-    /// "smash", "any_attack"]`, and a reader wants to know WHICH MOVES that is
-    /// — a question only this table can answer, because the answer is the
-    /// character's own repertoire. Resolving it anywhere else means teaching a
-    /// tool the verb-class vocabulary, and two copies of that vocabulary are one
-    /// copy plus a bug.
+    /// An authored list such as `["attack", "smash", "any_attack"]` resolves
+    /// to moves only against this table, because the answer is the
+    /// character's own repertoire. Do not resolve it elsewhere.
     ///
     /// The rule is the trigger road's: a candidate is admitted when the list
-    /// names its move id, or any of the verb-class names it answers to
-    /// ([`cancel_names_for`], keyed by the BASE of every verb that binds it).
+    /// names its move id, or any verb-class name it answers to
+    /// ([`cancel_names_for`], keyed by the base of every verb that binds it).
     ///
-    /// ⛔ IT DOES NOT ASK ABOUT TIMING OR CONDITION. Which window is open and
-    /// whether the move has landed are the caller's to check — see
-    /// [`MoveSpec::cancel_permits`], which is the runtime's whole test. This
-    /// answers only "who could this list mean".
+    /// Timing and condition are not checked; see
+    /// [`MoveSpec::cancel_permits`]. This answers only "who could this list
+    /// mean".
     pub fn cancel_targets(&self, into: &[String]) -> Vec<&MoveSpec> {
         self.moves
             .iter()
@@ -4122,19 +3499,17 @@ impl MovesetContract {
                 if into.iter().any(|entry| entry == &candidate.id) {
                     return true;
                 }
-                // Every verb that binds this move, reduced to its base — a move
-                // reachable as both `attack_forward` and `smash_forward`
-                // answers to both namespaces.
+                // Every verb that binds this move, reduced to its base: a move
+                // bound as both `attack_forward` and `smash_forward` answers
+                // to both namespaces.
                 self.verbs
                     .iter()
                     .filter(|(_, target)| *target == &candidate.id)
                     .flat_map(|(verb, _)| {
                         let family = cancel_names_for(base_verb_of(verb), false);
                         if family.is_empty() {
-                            // ⛔ NO FAMILY MEANS ITS OWN NAME. A grab, a throw, a
-                            // pummel and a taunt each pass exactly one name on
-                            // the trigger road — and it is the FULL verb, not a
-                            // reduced base: `capture_throw_forward` answers to
+                            // No family means its own full name (not a reduced
+                            // base): `capture_throw_forward` answers to
                             // `capture_throw_forward`.
                             vec![verb.as_str()]
                         } else {
@@ -4148,21 +3523,17 @@ impl MovesetContract {
 
     /// Rename every move this table defines, and every reference to one.
     ///
-    /// ⭐⭐ THE TRAVERSAL BELONGS TO THE SCHEMA, not to the caller that wants a
-    /// borrowed fighter. A move id appears in THREE places inside a contract —
-    /// `moves[].id`, `verbs`, and a `Cancelable` window's `into` list when it
-    /// names a move rather than a verb class — and a caller that knew about two
-    /// of them produced a table with one dead button. Every future field that
-    /// carries a move id is this function's obligation, and the compiler shows it
-    /// to whoever adds the field.
+    /// The traversal belongs to the schema. A move id appears in several
+    /// places: `moves[].id`, `verbs`, a `Cancelable` window's `into` list,
+    /// and `gates.when_refused`. A new field that carries a move id must be
+    /// handled here.
     ///
-    /// ⛔ A VERB CLASS IS NOT A MOVE ID. `"attack"`, `"any_attack"` and the rest
-    /// survive untouched: only a name this table itself defines is renamed with
-    /// it, which is why the old→new map is built first.
+    /// A verb class is not a move id. `"attack"`, `"any_attack"` and the other
+    /// classes are not changed: only names this table defines are renamed, so
+    /// the old→new map is built first.
     ///
-    /// ⛔ AND `rename` IS NOT ASKED ABOUT ANYTHING BUT A MOVE THIS TABLE OWNS,
-    /// so a caller may panic on an id it does not recognise without having to
-    /// know which of the three places it came from.
+    /// `rename` is called only for moves this table owns, so a caller may
+    /// panic on an id it does not recognize.
     pub fn remap_move_ids(&mut self, rename: impl Fn(&str) -> String) {
         let by_old: BTreeMap<String, String> = self
             .moves
@@ -4183,16 +3554,12 @@ impl MovesetContract {
                     }
                 }
             }
-            // ⛔⛔ THE REFUSAL VARIANT CARRIES A MOVE ID TOO, and this function's
-            // doc above says every field that does is its obligation. A roster
-            // that clones a fighter renames every move; a fallback left pointing
-            // at the ORIGINAL id would resolve to the other copy's move, or to
-            // nothing — and resolving to nothing is silent, because an unknown
-            // id degrades to "no fallback" by design.
+            // The refusal fallback carries a move id too. A cloned fighter
+            // renames every move, and a fallback left on the original id would
+            // resolve to the other copy's move or, silently, to nothing.
             //
-            // ⚠ `get`-only, exactly like the cancel targets beside it: an id this
-            // table does not own is left alone rather than renamed, so a variant
-            // naming something outside the contract stays as written.
+            // `get` only, like the cancel targets: an id this table does not
+            // own is left as written.
             if let Some(target) = mv.gates.when_refused.as_mut() {
                 if let Some(new) = by_old.get(target.as_str()) {
                     *target = new.clone();
@@ -4211,50 +3578,36 @@ impl MovesetContract {
         self.moves.iter().find(|m| m.id == id)
     }
 
-    /// Resolve an input verb to its move, IGNORING its gates.
+    /// Resolve an input verb to its move, ignoring its gates.
     ///
-    /// This answers "does this fighter author the verb at all" — what a display
-    /// row or an authorship check wants. A SELECTOR deciding what a press starts
-    /// wants [`Self::move_for_verb_in_stance`], because an authored move whose
-    /// gates refuse the body's stance is not a move that press may start.
+    /// This answers "does this fighter author the verb at all" (a display row
+    /// or an authorship check). A selector that decides what a press starts
+    /// must use [`Self::move_for_verb_in_stance`].
     pub fn move_for_verb(&self, verb: &str) -> Option<&MoveSpec> {
         self.move_by_id(self.verbs.get(verb)?)
     }
 
-    /// The move an input verb names, when the body's stance PERMITS it.
+    /// The move an input verb names, when the body's stance permits it.
     ///
-    /// The gated exact-verb lookup, and the one a selector should reach for. Its
-    /// siblings [`Self::move_for_flat_verb`] and
-    /// [`Self::move_for_directional_verb`] already refuse a move whose gates
-    /// disagree with the stance; a bare `move_for_verb` in a selector is that
-    /// same check written as "remembered to", and it was forgotten in seven
-    /// places — every capture verb among them, which is how an AIRBORNE press
-    /// started a grab the capture kit declares grounded-only.
+    /// Use this gated lookup in a selector, like
+    /// [`Self::move_for_flat_verb`] and [`Self::move_for_directional_verb`].
+    /// A bare `move_for_verb` lets an airborne press start a grounded-only
+    /// move (for example a grab).
     pub fn move_for_verb_in_stance(&self, verb: &str, grounded: bool) -> Option<&MoveSpec> {
         self.move_for_verb(verb)
             .filter(|mv| mv.gates.permits(grounded))
     }
 
-    /// Resolve a directional attack to its move: the first verb in the
-    /// most-specific → least-specific chain ([`directional_verb_chain`]) that is
-    /// both authored AND whose gates permit the current grounded state (a
-    /// grounded-only `attack_down` is skipped for an airborne body, falling
-    /// through to `attack`). A moveset that authors only `base` answers every
-    /// direction with the same move.
-    /// What an ATTACK press produces, stance included. The dash attack is a
-    /// STANCE and not a direction, so it is asked BEFORE the directional chain
-    /// rather than added to [`AttackDir`] — a dashing body pressing forward and
-    /// a standing one pressing forward want different moves, and `AttackDir` has
-    /// no vocabulary for the difference.
+    /// What an attack press produces, stance included. The dash attack is a
+    /// stance, not a direction, so it is checked before the directional chain
+    /// and not added to [`AttackDir`].
     ///
-    /// Composes with [`Self::move_for_directional_verb`] rather than replacing
-    /// it: the remaining verbs — special, smash, taunt — have no dash stance to
-    /// ask about, and giving them one would be a question with a constant
-    /// answer. A fighter that authors no `{base}_dash` resolves exactly what it
-    /// did before.
+    /// Other verbs (special, smash, taunt) have no dash stance. A fighter that
+    /// authors no `{base}_dash` resolves through
+    /// [`Self::move_for_directional_verb`] only.
     ///
-    /// GRAB is the other verb that does have one, and it goes through
-    /// [`Self::move_for_flat_verb`] instead, because the capture kit is flat.
+    /// Grab also has a running stance, but it goes through
+    /// [`Self::move_for_flat_verb`] because the capture kit is flat.
     pub fn move_for_attack(
         &self,
         base: &str,
@@ -4273,14 +3626,12 @@ impl MovesetContract {
         self.move_for_directional_verb(base, dir, grounded)
     }
 
-    /// **A FLAT verb's move, preferring its RUNNING-stance variant.** The
-    /// sibling of [`Self::move_for_attack`] for a verb with no directional
-    /// family — the capture kit, whose own doc is emphatic that a throw is not
-    /// `grab_forward`.
+    /// A flat verb's move, preferring its running-stance variant. The sibling
+    /// of [`Self::move_for_attack`] for a verb with no directional family (the
+    /// capture kit: a throw is not `grab_forward`).
     ///
-    /// ⚠ **conditioned on the variant being BOUND**, exactly as the dash attack
-    /// is: a contract without `{base}_dash` resolves its press to `base`, byte
-    /// for byte, so this cannot change what an existing moveset does.
+    /// Only when the variant is bound, as for the dash attack: a contract
+    /// without `{base}_dash` resolves its press to `base`.
     pub fn move_for_flat_verb(
         &self,
         base: &str,
@@ -4295,12 +3646,16 @@ impl MovesetContract {
                 return Some(mv);
             }
         }
-        // GATED, like the running variant above and like every candidate the
-        // directional chain considers. A standing move whose gates refuse this
-        // stance is not the answer to the press -- there simply is no answer.
+        // Gated, like the running variant and the directional chain. A
+        // standing move whose gates refuse this stance is not an answer.
         self.move_for_verb_in_stance(base, grounded)
     }
 
+    /// Resolve a directional attack to its move: the first verb in the
+    /// most-specific → least-specific chain ([`directional_verb_chain`]) that
+    /// is authored and whose gates permit the grounded state (a grounded-only
+    /// `attack_down` is skipped for an airborne body, falling through to
+    /// `attack`). A moveset that authors only `base` answers every direction.
     pub fn move_for_directional_verb(
         &self,
         base: &str,
@@ -4344,17 +3699,12 @@ pub struct EntityDef {
 
 /// The `schema_version` an authored entity-catalog document must declare.
 ///
-/// ⛔⛤ **THE FIELD EXISTED AND NOTHING COMPARED IT. MEASURED 2026-09-11:**
-/// `schema_version` was written in thirteen fixtures, `validate()` never looked
-/// at it, and no parse path checked it — a version number nobody compares cannot
-/// refuse anything, which is the silent misread a version number exists to
-/// prevent. Its first reader is `ambition_characters::moveset_content_schema`,
-/// which refuses a document from another version rather than reading its fields
-/// as the shape this build expects now.
+/// Readers must compare it. `ambition_characters::moveset_content_schema`
+/// refuses a document from another version and does not read its fields as
+/// the current shape.
 ///
-/// ⭐ IT LIVES WITH THE DOCUMENT, not with the reader: a schema handler, an
-/// exporter and a test would otherwise each spell the number, and three copies
-/// of a version are three chances to disagree about what the bytes mean.
+/// It lives with the document, so a schema handler, an exporter and a test do
+/// not each spell the number.
 pub const ENTITY_CATALOG_SCHEMA_VERSION: u32 = 1;
 
 /// An authored entity-catalog document (one or many entities).
@@ -4382,47 +3732,35 @@ pub enum CatalogError {
     },
     /// A window lies outside `[0, duration_s]` or is inverted.
     ///
-    /// A ZERO-WIDTH window (`start_s == end_s`) is legal: a move with no windup
-    /// still authors its Startup phase, and the phase readers (`phase_at`, the
-    /// synthesized read-model swing) want the window to exist so the timeline
-    /// stays three-phase. `simple_melee` with `windup_s: 0.0` emits exactly that.
-    /// Nothing fires inside one — every window predicate is the half-open
-    /// `start_s <= t < end_s`, which is empty here — so it costs nothing.
+    /// A zero-width window (`start_s == end_s`) is legal: a move with no
+    /// windup still authors its Startup phase, and the phase readers
+    /// (`phase_at`, the synthesized read-model swing) need the window to keep
+    /// the timeline three-phase. `simple_melee` with `windup_s: 0.0` emits
+    /// one. Every window predicate is the half-open `start_s <= t < end_s`,
+    /// so nothing fires inside it.
     WindowOutOfRange {
         entity: String,
         mv: String,
         index: usize,
     },
-    /// An AUTHORED smash charge freezes the timeline where a strike is already
-    /// live, or outside the move's leading windup entirely.
+    /// An authored smash charge freezes the timeline where a strike is already
+    /// live, or outside the move's leading windup.
     ///
-    /// ⛔⛔ THE HOLD POINT IS NOT A FREE NUMBER. `rooted_by_charge` is true from
-    /// the freeze onward and the button may hold it indefinitely, so a hold at
-    /// or past the first Active instant is a fighter standing still with a live
-    /// hitbox out — the strike volume spawns from the clock, and the clock has
-    /// stopped inside the window. Active membership is `start_s <= t < end_s`,
-    /// so "at" is already inside.
+    /// `rooted_by_charge` is true from the freeze onward and the button may
+    /// hold it indefinitely. A hold at or past the first Active instant leaves
+    /// a fighter standing still with a live hitbox. Active membership is
+    /// `start_s <= t < end_s`, so "at" is already inside.
     ChargeHoldOutsideWindup {
         entity: String,
         mv: String,
         hold_at_s: f32,
         first_active_s: f32,
     },
-    /// A WINDBOX volume authors damage, which its own contract forbids.
+    /// A windbox volume authors damage, which its contract forbids
+    /// (`VolumeReaction::Windbox` pushes and does nothing else).
     ///
-    /// ⛔⛔ THE CONTRACT LIVED IN A COMMENT AND IN EVERY FIXTURE'S GOOD MANNERS.
-    /// `VolumeReaction::Windbox` says it *"pushes its victim and does nothing
-    /// else — no damage, no hitstun, no shield"*, the runtime honours the last
-    /// two, and `damage` was published normally: the type permitted
-    /// `damage: 10` beside a windbox and every existing fixture merely
-    /// remembered to write zero.
-    ///
-    /// ⭐ REJECTED, NOT SILENTLY ZEROED. Discarding a number somebody
-    /// deliberately typed is how a content error becomes a mystery about why a
-    /// move does nothing; saying which move and which volume is the whole value
-    /// of catching it here. And it is caught NOW because no shipped move
-    /// authors a windbox yet — the moment before content starts depending on
-    /// the ambiguity is the only cheap one.
+    /// Rejected, not silently zeroed: discarding a typed number turns a
+    /// content error into a mystery. The error names the move and window.
     WindboxWithDamage {
         entity: String,
         mv: String,
@@ -4465,7 +3803,7 @@ pub enum CatalogError {
         window: usize,
     },
     /// An entity declares a moveset but no presentation clip could ever bind.
-    /// (Warning-grade in spirit, but structural: an empty clip name is a typo.)
+    /// (A typo-level error, but structural: an empty clip name is a typo.)
     EmptyClipBinding {
         entity: String,
         mv: String,
@@ -4594,9 +3932,9 @@ impl EntityCatalogDoc {
         ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
     }
 
-    /// Structural validation. Empty  sound. Filesystem-free: clip bindings
-    /// are checked for shape here; whether a clip resolves in the bound
-    /// visual is the publish-time validator's job (it has the visual data).
+    /// Structural validation. An empty result means the catalog is sound.
+    /// Filesystem-free: clip bindings are checked for shape here. Whether a
+    /// clip resolves in the bound visual is the publish-time validator's job.
     pub fn validate(&self) -> Vec<CatalogError> {
         let mut errors = Vec::new();
         let mut seen_entities = HashSet::new();
@@ -4741,11 +4079,10 @@ impl EntityCatalogDoc {
                         });
                     }
                 }
-                // ⛔ THE AUTHORED policy is what needs checking. The DERIVED one
-                // is clamped strictly before the first Active instant by
-                // `derived_charge_hold_at_s` and cannot land here; authoring
-                // OVERRIDES that clamp, so this is what refuses a bad override
-                // instead of letting it put a live hitbox inside a held charge.
+                // Check only an authored policy. The derived one is clamped
+                // before the first Active instant by `derived_charge_hold_at_s`.
+                // Authoring overrides that clamp, so this refuses a bad
+                // override.
                 if let Some(policy) = mv.charge_policy().filter(|_| mv.smash_charge.is_some()) {
                     let first_active = mv
                         .windows

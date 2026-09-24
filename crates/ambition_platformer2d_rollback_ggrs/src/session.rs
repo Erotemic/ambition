@@ -23,23 +23,16 @@ enum AmbitionReadInputsSet {
 
 /// Has the wrong-seam diagnostic fired this run?
 ///
-///  a finding, not just a log line. The check below could have warned and
-/// nothing else, and its first test did what a log-only diagnostic forces a test
-/// to do: re-derive the predicate over the same resources and assert on THAT —
-/// which passes just as happily when the system is never registered. Publishing
-/// the answer makes the SYSTEM the thing under test, and lets a consumer or a
-/// harness ask the question without scraping stderr.
+/// Published as a resource so tests assert on the system's result, not on a
+/// re-derived predicate, and a harness can read it without scraping stderr.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InputSeamMisuse(pub bool);
 
-/// EXTERNAL INPUT WAITING TO BE SUBMITTED TO GGRS, ONE FRAME PER HANDLE.
+/// External input waiting to be submitted to GGRS, one frame per handle.
 ///
-/// Intentionally not rollback state: prediction and session logic own the input
-/// stream, while simulation state is rewound beneath it.
-///
-///  one per handle, because publishing seat zero's frame to all of them —
-/// which is what `publish_local_inputs` did, back when there was only ever one —
-/// makes four pads move one fighter and checksum-compare a lie.
+/// Not rollback state: prediction and session logic own the input stream,
+/// while simulation state is rewound beneath it. Each handle has its own
+/// frame; one shared frame would make every pad drive one fighter.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingSeatInputs {
     seats: [ControlFrame; ambition_characters::control::SlotControls::MAX_SLOTS],
@@ -86,13 +79,9 @@ impl RollbackExecutionStats {
     /// The stats a freshly installed session starts from: per-session counters
     /// zeroed, lifetime totals carried through untouched.
     ///
-    ///  carried, not folded. The lifetime totals are accumulated by the
-    /// same systems that accumulate the per-session ones, so they are correct
-    /// on every frame rather than only just after a rebase. Adding the outgoing
-    /// session's counts here — which is the obvious reading of "carry forward",
-    /// and what this did first — double-counts every session. A teardown with no
-    /// following install would also lose its work under a fold-at-install rule,
-    /// and those are exactly the runs worth measuring.
+    /// The lifetime totals are accumulated by the same systems as the per-session
+    /// counters, so this only carries them. Adding the outgoing session's counts
+    /// here would double-count every session.
     fn rebased(self) -> Self {
         Self {
             advance_runs: 0,
@@ -129,9 +118,8 @@ impl SyncTestSettings {
     /// The player count clamped to what the session can actually build: at
     /// least one, at most the controller slots the game supports.
     ///
-    /// Clamped rather than asserted because this is settings data that reaches
-    /// the builder from a dev tool and a harness option, and a session that
-    /// refuses to start is worse than one that starts with a sane count.
+    /// Clamped, not asserted: this value comes from a dev tool or harness option,
+    /// and a session that starts with a sane count is better than one that refuses.
     pub fn player_count(&self) -> usize {
         self.players
             .clamp(1, ambition_characters::control::SlotControls::MAX_SLOTS)
@@ -184,12 +172,10 @@ pub fn start_sync_test_session(
     start_sync_test_session_owned(world, settings, SyncTestOwner::Caller)
 }
 
-/// [`start_sync_test_session`], declaring WHO owns the result.
+/// [`start_sync_test_session`], with an explicit owner.
 ///
-///  the owner is an argument, not a follow-up call. Stamping ownership
-/// after the session exists would leave a window where the maintainer's own
-/// session looks like somebody else's — and "an authority that needs a second
-/// call" is the shape this repo has been bitten by before.
+/// The owner is an argument so that the session never exists without its
+/// owner stamped on it.
 pub fn start_sync_test_session_owned(
     world: &mut World,
     settings: SyncTestSettings,
@@ -198,9 +184,8 @@ pub fn start_sync_test_session_owned(
     // GGRS construction touches no world, so it runs first and a rejected
     // setting cannot leave a half-installed timeline.
     let session = build_sync_test_session(settings)?;
-    // ⛔ AND THE SECOND FAILURE IS ABOUT THE WORLD, NOT THE SETTINGS. Both are
-    // asked before anything is installed, so a refusal leaves the world exactly
-    // as it was.
+    // The second check is about the world. Both run before any install, so a
+    // refusal leaves the world unchanged.
     let eligibility = FrameZeroEligibility::check(world)?;
     install_rebased_sync_test_session(world, session, settings, owner, eligibility);
     Ok(())
@@ -244,25 +229,19 @@ fn warn_if_no_world_to_rewind(world: &World) {
 
 /// Whether a gameplay session world has been constructed and is readable.
 ///
-///  `session_world_entity` is `None` for a bare fixture too, which is the
-/// same correct "no world" answer the `try_query` fallback gave, so nothing that
-/// legitimately runs without a session starts warning.
+/// A bare fixture also has no `session_world_entity`, so fixtures that
+/// legitimately run without a session do not warn.
 fn has_session_world_root(world: &World) -> bool {
     ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some()
 }
 
-/// Replace the WHOLE input-authority cluster, atomically.
+/// Replace the whole input-authority cluster in one step.
 ///
-/// `SlotControlLatches` was the one being preserved, which is the half a
-/// single-player test could never notice.
-///
-/// Each is reset only if the composition installed it: inserting one here would
-/// make this function a second authority on which latches exist.
+/// Each resource is reset only if the composition installed it, so this
+/// function does not become a second authority on which latches exist.
 fn reset_input_authority(world: &mut World) {
     world.insert_resource(PendingSeatInputs::default());
-    // ⭐ ONE table. This used to reset seat zero's latch and the other seats'
-    // separately, which is exactly how "preserved some, cleared the rest" became
-    // possible in the first place.
+    // One table holds every seat's latch, so all seats reset together.
     if world.contains_resource::<ambition_characters::control::SlotControlLatches>() {
         world.insert_resource(ambition_characters::control::SlotControlLatches::default());
     }
@@ -276,24 +255,23 @@ pub struct RollbackOrderRebase {
     pub carriers: usize,
     /// How many of them carry a canonical [`SimId`](ambition_platformer2d_shared_tangle::sim_id::SimId).
     ///
-    /// ⚠ Zero and MEANINGLESS when `hidden_candidates` is non-zero: nothing was
+    /// Zero and meaningless when `hidden_candidates` is non-zero: nothing was
     /// enumerated, because nothing was rebased.
     pub identified: usize,
     /// Orders this App had handed out before the rebase — including every one
     /// belonging to an entity that has since been despawned. The gap between
-    /// this and `carriers` IS the host-local history being discarded.
+    /// this and `carriers` is the host-local history being discarded.
     pub discarded_history: usize,
     /// Rollback carriers hidden from ordinary queries as construction
-    /// candidates. ⛔ NON-ZERO MEANS NOTHING WAS REBASED — see
+    /// candidates. Non-zero means nothing was rebased. See
     /// [`rebase_rollback_carrier_order`].
     pub hidden_candidates: usize,
 }
 
 /// How many rollback carriers a frame-zero enumeration can and cannot see.
 ///
-/// ⛔ ONE COUNT, TWO READERS. The frame-zero PRECONDITION and the rebase itself
-/// both need this, and two spellings of "how many are hidden" is how the two
-/// disagree.
+/// The frame-zero precondition and the rebase both read this one count, so
+/// they cannot disagree on how many carriers are hidden.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CarrierCensus {
     /// What an ordinary `With<Rollback>` query sees.
@@ -344,47 +322,26 @@ impl std::fmt::Display for FrameZeroRefused {
 
 impl std::error::Error for FrameZeroRefused {}
 
-/// Proof that this world can declare frame zero, obtained BEFORE anything
+/// Proof that this world can declare frame zero, obtained before anything
 /// destructive runs.
 ///
-/// ⛔⛤ **IT IS A TOKEN BECAUSE A REPORTED-BUT-UNREACHABLE FAILURE IS STILL A
-/// FAILURE SOMEBODY HAS TO HANDLE, AND EVERY HANDLER OF IT WAS WRONG.** Replacing
-/// a session is destroy-then-install. When the install itself could return
-/// `Err`, both callers had a branch for a refusal arriving AFTER the destructive
-/// half — and in that state the room is authoritative with the previous
-/// timeline's order history installed, or there is no session at all. The
-/// 2026-09-17 architecture review put it plainly: *"Continuing execution from
-/// there is worse than terminating."*
+/// Replacing a session is destroy-then-install. A refusal is only actionable
+/// before the destroy step, while the old session is still alive. So the
+/// refusal is here: [`Self::check`] is the only constructor, the field is
+/// private, and [`install_rebased_sync_test_session`] takes one by value.
+/// An install without a check cannot be written.
 ///
-/// ⇒ So the refusal moved to where it can be acted on. [`Self::check`] is the
-/// only way to build one, its field is private, and
-/// [`install_rebased_sync_test_session`] takes one by value — which makes
-/// "install without having checked" unspellable, and deletes both callers'
-/// unactionable post-destructive branches. ⛔ It does NOT make the install
-/// unconditionally safe — see the paragraph below, and the unconditional census
-/// at the top of [`install_rebased_sync_test_session`] that does.
+/// The token does not prove that the world is unchanged since the check. A
+/// caller can change it between the two calls: `maintain_lifecycle_commit`
+/// checks, runs `execute_lifecycle_commit` (which rebuilds a room), and then
+/// installs. So this is only a recoverable preflight.
+/// [`install_rebased_sync_test_session`] takes the census again before its
+/// first destructive write, and treats a hidden candidate there as an
+/// invariant failure.
 ///
-/// ⛔⛤ **WHAT IT DOES NOT PROVE IS THAT THE WORLD HAS NOT CHANGED SINCE, AND AN
-/// EARLIER VERSION OF THIS PARAGRAPH CLAIMED OTHERWISE.** It said `&mut World` is
-/// exclusive so nothing can intervene. That is true of other SYSTEMS and false
-/// of the caller: `maintain_lifecycle_commit` checks eligibility, runs
-/// `execute_lifecycle_commit` — which rebuilds a room — and only then installs.
-/// Exclusive access says nothing about that middle step. The 2026-09-17 review
-/// put it exactly: *"it does not mean the caller cannot invalidate the predicate
-/// between those two calls."*
-///
-/// ⇒ So this token is a RECOVERABLE PREFLIGHT and nothing more. It exists so a
-/// caller can find out while its old session is still alive and keep it on a
-/// refusal. [`install_rebased_sync_test_session`] takes the census again,
-/// unconditionally, before its first destructive write, and a hidden candidate
-/// there is an invariant failure rather than a `Result` — see the comment at that
-/// assertion for why `debug_assert` was the wrong instrument.
-///
-/// ⚠ It stays `Copy`, deliberately. Making it move-only would stop a caller
-/// re-using one token for two installs, which is a real mistake, but it would
-/// read as *"holding this makes the install safe"* — and that is the claim the
-/// review found to be false. The unconditional census is what makes the install
-/// safe; this type only makes the refusal reachable.
+/// The type stays `Copy` on purpose. Move-only would suggest that holding a
+/// token makes the install safe. The census in the install makes it safe;
+/// this type only makes the refusal reachable.
 #[derive(Debug, Clone, Copy)]
 pub struct FrameZeroEligibility {
     carriers: usize,
@@ -414,14 +371,11 @@ impl FrameZeroEligibility {
     }
 }
 
-/// Starting a local sync-test session has two ways to fail and they are not the
-/// same kind of thing.
+/// Why starting a local sync-test session failed.
 ///
-/// ⛔⛤ **GGRS CONSTRUCTION FAILING AND THE WORLD BEING UNFIT FOR FRAME ZERO ARE
-/// DIFFERENT ANSWERS, AND FOLDING THE SECOND INTO `GgrsError` WOULD HAVE MEANT
-/// INVENTING A VARIANT FOR IT.** The first is about the arguments; the second is
-/// about the world, is recoverable by waiting for the candidate to publish, and
-/// a caller that wants to retry needs to be able to tell them apart.
+/// The two causes are different. A GGRS error is about the settings. A
+/// frame-zero refusal is about the world and can clear when the candidate
+/// publishes, so a caller that retries must be able to tell them apart.
 #[derive(Debug)]
 pub enum StartSyncTestError {
     /// GGRS refused the settings. Touches no world.
@@ -454,63 +408,37 @@ impl From<FrameZeroRefused> for StartSyncTestError {
     }
 }
 
-/// Rebase the GGRS carrier ORDER onto the live rollback population.
+/// Rebase the GGRS carrier order onto the live rollback population.
 ///
-/// ⛔⛔ **THE COMPONENT CHECKSUM TWO PEERS COMPARE CONTAINS AN APP-LIFETIME
-/// INSERTION INDEX, AND WITHOUT THIS IT NEVER RESETS.** `ComponentChecksumPlugin`
-/// hashes `RollbackOrdered.order(rollback_id)` together with the value projection
-/// before XORing carriers together, and `RollbackOrdered` assigns each
-/// `RollbackId` an index the first time `Rollback` is added and keeps every index
-/// it ever handed out — despawned entities included. MEASURED 2026-09-17 on two
-/// hosts that reach the shipped Ambition route by different shell histories: the
-/// same 22 canonical identities at orders `0..21` against `74..95`, and **59 of
-/// 146 real `ChecksumPart`s disagreeing** while every value agreed.
+/// `ComponentChecksumPlugin` hashes `RollbackOrdered.order(rollback_id)` with
+/// each value before it XORs the carriers. `RollbackOrdered` gives each
+/// `RollbackId` an index when `Rollback` is first added and keeps every index,
+/// including those of despawned entities. Without this rebase, two hosts that
+/// reach the same state by different histories compute different checksums
+/// from equal values. A session that declares frame zero must drop that
+/// history, so this runs with the frame-counter reset, not at teardown.
 ///
-/// ⇒ A session declaring frame zero is exactly where that history must stop
-/// contributing, which is why this runs beside the frame counters rather than at
-/// teardown: the rebase is a property of the timeline being STARTED.
+/// The sort key is the canonical `SimId`, not `RollbackId`. `RollbackId` is
+/// the Bevy `Entity`, so sorting by it would only replace insertion-order
+/// dependence with allocation-order dependence. The previous order is a
+/// tie-break that makes the sort total. It is host-local, but
+/// `rollback_populated_timeline.rs` checks that every visible anchor's `SimId`
+/// is unique, so the tie-break should not be used.
 ///
-/// ⚠ **THE KEY IS THE CANONICAL IDENTITY, NOT `RollbackId`.** `RollbackId` is the
-/// Bevy `Entity` that first received `Rollback`, so ordering by it would replace
-/// insertion-history dependence with allocation-order dependence — the same
-/// defect one layer down, which is the trap the architecture review named. `SimId`
-/// is the peer-stable key the live population already carries. The previous order
-/// is the TIE-BREAK.
+/// The rebase refuses while a candidate world is in flight.
+/// `InactiveCandidate` is a disabling component, so the `With<Rollback>`
+/// query cannot see candidate roots (see
+/// `construction/tests.rs::a_ggrs_shaped_ordinary_query_cannot_see_a_candidate`).
+/// A rebase over the visible half would leave a hidden carrier out of the
+/// table, and `RollbackOrdered::order` panics for an unknown id. Including the
+/// candidates is not a fix either: an index is positional, so a candidate on
+/// only one peer shifts every later order. Declaring frame zero
+/// mid-construction is the error, so this reports it and changes nothing.
 ///
-/// ⛔⛤ **THE REASON GIVEN FOR THAT TIE-BREAK WAS WRONG AND IS WORTH RECORDING:**
-/// *"a candidate world and the live world may legitimately carry the same
-/// canonical identity at the same moment."* True of the WORLD and false of this
-/// query, which cannot see a candidate at all — see the refusal below. The
-/// tie-break is what makes the sort total on a population that should not
-/// contain a duplicate; `rollback_populated_timeline.rs` measures that every
-/// visible anchor's `SimId` is unique, so the tie-break is a fallback for a
-/// state that arm says does not occur, and BOTH of its keys are host-local.
-///
-/// ⛔⛤ **AND IT REFUSES WHILE A CANDIDATE WORLD IS IN FLIGHT, BECAUSE THE
-/// ENUMERATION BELOW CANNOT SEE ONE.** `InactiveCandidate` is a registered
-/// DISABLING component, so an ordinary `With<Rollback>` query skips every
-/// candidate root — and this repository already proves GGRS-shaped ordinary
-/// queries cannot see them
-/// (`construction/tests.rs::a_ggrs_shaped_ordinary_query_cannot_see_a_candidate`).
-/// A rebase taken over the visible half would leave a hidden carrier holding its
-/// `RollbackId` and absent from the rebuilt table, and `RollbackOrdered::order`
-/// PANICS for an id it does not know — so the crash would arrive later, on the
-/// checksum after that candidate was published.
-///
-/// ⇒ **The fix is not to include them.** The sort key is peer-stable
-/// (`SimId`), but an INDEX is positional: a candidate present on one peer and
-/// absent on the other shifts every order after it, which is the same
-/// host-local dependence this function exists to remove, re-entered through the
-/// front door. A timeline declaring frame zero mid-construction is the thing
-/// that is wrong, so this reports it and changes nothing.
-///
-/// ⚠ **IT REBUILDS THE RESOURCE THROUGH THE ONLY DOOR UPSTREAM LEAVES OPEN.**
-/// `RollbackOrdered::push` is private and there is no rebase API, so the order is
-/// re-established by removing `RollbackId` and `Rollback` and re-adding
-/// `Rollback`, whose `on_add` hook mints the id and pushes. The minted
-/// `RollbackId` is `RollbackId::new(entity)` — the SAME value, for the same
-/// entity — so nothing keyed on it moves; only the ordering changes. A small
-/// upstream primitive would be better and this is what exists.
+/// `RollbackOrdered::push` is private and upstream has no rebase API. So the
+/// order is rebuilt by removing `RollbackId` and `Rollback` and adding
+/// `Rollback` again; its `on_add` hook mints the id and pushes. The new id is
+/// `RollbackId::new(entity)`, the same value, so only the ordering changes.
 pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     use ambition_platformer2d_shared_tangle::sim_id::SimId;
     use bevy_ggrs::{Rollback, RollbackId, RollbackOrdered};
@@ -539,12 +467,11 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
             hidden_candidates,
         };
     }
-    // ⚠ `RollbackId` IS OPTIONAL HERE ON PURPOSE. The `on_add` hook inserts it
-    // through `Commands`, so a carrier spawned in the same frame can hold
-    // `Rollback` with the id still queued. Requiring it would leave that carrier
-    // out of the rebuilt ordering entirely, and `RollbackOrdered::order` PANICS
-    // for an id it does not know — a crash on the next checksum rather than a
-    // wrong number.
+    // `RollbackId` is optional on purpose. The `on_add` hook inserts it
+    // through `Commands`, so a carrier spawned this frame can have `Rollback`
+    // with the id still queued. If the query required it, that carrier would
+    // be missing from the new order and `RollbackOrdered::order` would panic
+    // on the next checksum.
     let mut carriers: Vec<(Option<String>, u64, Entity)> = world
         .query_filtered::<(Entity, Option<&SimId>, Option<&RollbackId>), With<Rollback>>()
         .iter(world)
@@ -563,26 +490,17 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
     let total = carriers.len();
     let identified = carriers.iter().filter(|(id, _, _)| id.is_some()).count();
     if identified != total {
-        // ⚠ NOT A REFUSAL. Rebasing on a partly-unnamed population is still
-        // strictly better than carrying another App's history, and refusing here
-        // would leave the defect in place for the one composition that needs it
-        // most. The gap is reported because a carrier the sim cannot name is the
-        // same finding `ensure_sim_id` and `collect_perception_peers` report.
+        // Not a refusal. A partly-unnamed population still gives a better
+        // order than another App's history. The gap is reported because an
+        // unnamed carrier is the same finding that `ensure_sim_id` and
+        // `collect_perception_peers` report.
         //
-        // ⛔⛤ **AND THAT ARGUMENT EXPIRES WHEN A SECOND PEER EXISTS.** A 2026-09-17
-        // review put it plainly: this manufactures a result that cannot be
-        // peer-stable, on the very population whose peer-stability is the point.
-        // It is right about the destination and the trade is different today —
-        // the alternative is not a refusal, it is KEEPING the App-lifetime
-        // history, which is wrong in the same direction and by more. ⇒ The
-        // condition that flips it is a real remote peer, not a date:
-        // `rollback_populated_timeline.rs` already measures that every VISIBLE
-        // rollback anchor in the populated world carries a unique `SimId`, so
-        // when an external session road exists this branch should refuse to
-        // install rather than fall back, and the duplicate-`SimId` tie-break
-        // below (previous order, then `Entity` — both host-local) should go with
-        // it. Doing that now would turn a diagnostic into a crash in the only
-        // lane that runs.
+        // This trade holds only while there is no remote peer. When an
+        // external session road exists, this branch should refuse to install,
+        // and the host-local tie-break (previous order, then `Entity`) should
+        // be removed. `rollback_populated_timeline.rs` already checks that
+        // every visible rollback anchor has a unique `SimId`. Refusing now
+        // would turn a diagnostic into a crash in the only lane that runs.
         bevy::log::error!(
             "{} of {total} live rollback carriers have no canonical `SimId`, so \
              their place in the peer-compared carrier order falls back to this \
@@ -612,43 +530,18 @@ pub fn rebase_rollback_carrier_order(world: &mut World) -> RollbackOrderRebase {
 
 /// Install an already-built sync-test session as the new frame-zero baseline.
 ///
-/// It returns nothing and has no RECOVERABLE failure. Frame counters and
+/// It returns nothing and has no recoverable failure. Frame counters and
 /// `Time<GgrsTime>` are reset here, before the session goes in.
 ///
-/// ⛔⛤ **THIS SUMMARY AND THAT FACT LIVED ON `warn_if_no_world_to_rewind` UNTIL
-/// 2026-09-19**, four hundred lines up: the doc comment carrying them sat above
-/// the wrong `fn`, so rustdoc rendered this function's whole rationale — the
-/// 2026-09-17 review's *"this sentence has now been wrong twice"* paragraph
-/// included — under an unrelated warning helper, while THIS item had no summary
-/// line at all and opened on the ⛔ below. Two owners for one fact, and the
-/// better-written one was attached to nothing that could be wrong about it.
+/// The check that can refuse is [`FrameZeroEligibility::check`]. Its token is
+/// the only way to call this function, so a caller asks first and keeps its
+/// current session on a refusal. A refusal after the destructive half could
+/// not be acted on, and installing anyway would carry this App's whole order
+/// history into the new timeline (see [`rebase_rollback_carrier_order`]).
 ///
-/// ⛔⛤ **IT REFUSES THE INSTALLATION, NOT MERELY THE REBASE — AND THE REFUSAL
-/// NOW HAPPENS BEFORE YOU CAN CALL THIS AT ALL.** The first version of this
-/// checked candidates inside [`rebase_rollback_carrier_order`], logged that the
-/// session *"starts on this App's earlier order history"*, and installed it
-/// anyway: it stopped building a partial order table that would panic later, and
-/// in exchange declared a new frame-zero timeline carrying every rollback order
-/// this App ever handed out — the ID-PEER defect the rebase exists to remove (59
-/// of 146 differing GGRS checksum parts between equivalent hosts). The
-/// architecture review of 2026-09-17 named it: *"It refuses the rebase, not the
-/// session installation."*
-///
-/// The repair after that made this return `Result`, and a second review pass
-/// found the cost: both callers then had a branch for a refusal arriving after
-/// their destructive half, and neither could do anything useful in it. ⇒ The
-/// check is [`FrameZeroEligibility::check`], the token it returns is the only way
-/// to reach this function, and there is no RECOVERABLE failure here: a caller
-/// that wants the session asks first and keeps what it has on a refusal.
-///
-/// ⛔⛤ **AND THE TOKEN IS NOT WHAT MAKES THAT SAFE, WHICH IS THE 2026-09-17
-/// REVIEW'S FINDING.** It proves the check ran, not that its answer still holds
-/// — so this function re-censuses unconditionally before its first destructive
-/// write, and fails the invariant there. MEASURED with that gate deleted:
-/// `cargo test --release` installs the session with a hidden carrier present
-/// and no diagnostic at all, because the `debug_assert` beside the rebase is
-/// compiled out. In debug the same deletion trips that `debug_assert` instead,
-/// which is why the arm for this is read in BOTH profiles.
+/// The token proves only that the check ran, not that its answer still holds.
+/// So this function takes the census again before its first destructive
+/// write and fails the invariant there.
 pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
@@ -656,34 +549,19 @@ pub fn install_rebased_sync_test_session(
     // Declared by the caller for the same reason as `start_sync_test_session_owned`:
     // a rebase keeps its owner, and inferring one here would guess.
     owner: SyncTestOwner,
-    // ⛔ THE PRECONDITION, AS A VALUE. Its field is private, so holding one is
-    // proof `FrameZeroEligibility::check` ran — and ran before whatever the
-    // caller did to get here.
+    // The precondition, as a value. Its field is private, so holding one
+    // proves that `FrameZeroEligibility::check` ran before the caller got here.
     eligibility: FrameZeroEligibility,
 ) {
-    // ⛔⛔ **THE TOKEN IS A PREFLIGHT, NOT A CAPABILITY, AND THIS LINE IS WHERE
-    // THAT DISTINCTION IS ENFORCED.** A `FrameZeroEligibility` proves the check
-    // HAPPENED and happened before whatever the caller did next; it cannot prove
-    // the caller did not then invalidate it. `&mut World` stops another SYSTEM
-    // intervening — it does not stop this caller. The lifecycle road is the
-    // proof: it checks eligibility, runs `execute_lifecycle_commit` (which
-    // rebuilds a room), and only then installs. Exclusive access says nothing
-    // about that middle step.
+    // The token is a preflight, not a capability. The caller can change the
+    // world after the check (the lifecycle road rebuilds a room between check
+    // and install), so take the census again here, before the first
+    // destructive write. Every road here has already reported `Committed`, so a
+    // hidden candidate now is a caller bug, not a recoverable condition.
     //
-    // ⇒ So the census is taken again HERE, unconditionally, BEFORE the first
-    // destructive write below. It is an invariant failure and not a `Result`:
-    // every road to this function has already reported `Committed`, so a hidden
-    // candidate at this point is a broken promise by the caller and not a
-    // recoverable condition. Recovering is what the token is for, one call
-    // earlier, while the old session is still alive.
-    //
-    // ⚠ AND IT MUST BE UNCONDITIONAL, NOT A `debug_assert`. The failure mode in
-    // release was the ID-PEER defect returning silently: the frame counters
-    // reset, `rebase_rollback_carrier_order` declines to rebuild the order
-    // because it cannot describe the hidden carriers, and the session installs
-    // carrying every rollback order this App ever handed out — 59 of 146 GGRS
-    // checksum parts differing between equivalent hosts. A guard that vanishes
-    // in the build that ships is not guarding the case that matters.
+    // This must be `assert`, not `debug_assert`. In release, a missing check
+    // lets the session install with this App's whole order history, because
+    // `rebase_rollback_carrier_order` refuses to rebuild the order.
     let precommit = census_rollback_carriers(world);
     assert_eq!(
         precommit.hidden_candidates, 0,
@@ -706,16 +584,12 @@ pub fn install_rebased_sync_test_session(
     world.insert_resource(RollbackFrameCount(0));
     world.insert_resource(ConfirmedFrameCount(-1));
     reset_input_authority(world);
-    // ⛔ THE CARRIER ORDER IS PART OF WHAT FRAME ZERO REBASES. Without this the
-    // checksum two peers compare carries every rollback entity this App ever
-    // registered, retired sessions included — see `rebase_rollback_carrier_order`.
+    // Frame zero also rebases the carrier order. See
+    // `rebase_rollback_carrier_order`.
     let rebase = rebase_rollback_carrier_order(world);
-    // ⚠ Unreachable now that the census above is unconditional and runs before
-    // the first write: nothing between the two can add a carrier. Kept as a
-    // `debug_assert` because the two readings bracket every mutation this
-    // function makes, so a disagreement would mean one of those mutations
-    // CREATES a hidden candidate — a different defect from the one above, and
-    // the only one this position can still see.
+    // Unreachable while the census above runs before the first write. Kept as
+    // a `debug_assert` because the two readings bracket every mutation here: a
+    // disagreement would mean this function itself creates a hidden candidate.
     debug_assert_eq!(
         rebase.hidden_candidates, 0,
         "the unconditional census at the top of this function read 0 hidden \
@@ -747,18 +621,13 @@ pub fn install_rebased_sync_test_session(
 /// content/schema contract. Matchbox will eventually construct a P2P session
 /// and hand it to this same seam; the harness uses [`start_sync_test_session`].
 ///
-/// ⛔⛔ **THIS ROAD DOES NOT DECLARE FRAME ZERO, SO IT DOES NOT REBASE — AND
-/// WHOEVER BUILDS THE P2P ROAD MUST DECIDE WHICH IT IS.** A session installed
-/// here inherits the frame counters and the carrier ordering as they stand,
-/// deliberately: rebasing either one under a session that continues somebody
-/// else's timeline would move the ground under the frames already agreed. ⇒ If
-/// the P2P path starts a NEW synchronised timeline — which is what negotiating
-/// a start tick means — it wants
-/// [`install_rebased_sync_test_session`]'s shape, including
-/// [`rebase_rollback_carrier_order`]. Without that call the peer-compared
-/// checksum carries every rollback entity this App ever registered: measured
-/// 2026-09-17 at 59 of 146 differing parts between two hosts whose canonical
-/// identities and values were identical.
+/// This road does not declare frame zero, so it does not rebase. A session
+/// installed here keeps the frame counters and carrier order as they are,
+/// because rebasing under a session that continues another timeline would
+/// change frames already agreed. If the P2P road starts a new synchronised
+/// timeline (a negotiated start tick), it needs the shape of
+/// [`install_rebased_sync_test_session`], including
+/// [`rebase_rollback_carrier_order`].
 pub fn install_session(world: &mut World, session: AmbitionGgrsSession) {
     install_session_with_ownership(world, session, RollbackSessionOwnership::External);
 }
@@ -775,15 +644,14 @@ fn install_session_with_ownership(
         .get_resource::<RollbackRegistry>()
         .map(RollbackRegistry::schema_fingerprint)
         .unwrap_or_else(|| RollbackRegistry::default().schema_fingerprint());
-    // ⭐⭐ THE TIMELINE NAMES ITS OWNER AT INSTALL. Everything else follows from
-    // this one line: which content it may bind to, whose health it carries, and
-    // who is allowed to read the answer.
+    // The timeline names its owner at install. This decides which content it
+    // may bind to, whose health it carries, and who may read the answer.
     let owner = ambition_platformer2d_shared_tangle::lifecycle::live_session_scope(world);
     let content = content_identity_of(world, owner);
-    // AC23 and the cross-session rule are ONE rule, and it lives in
+    // AC23 and the cross-session rule are one rule, in
     // `ActiveRollbackAuthority::installed`. A caller supplies who and what,
-    // never whether — a session install must not LAUNDER a divergence into a
-    // clean baseline, and it must not INHERIT one from a game that has ended.
+    // never whether. An install must not hide a divergence behind a clean
+    // baseline, and must not inherit one from a game that has ended.
     let authority = ActiveRollbackAuthority::installed(
         world.get_resource::<ActiveRollbackAuthority>(),
         owner,
@@ -791,9 +659,8 @@ fn install_session_with_ownership(
     );
     let generation = authority.generation().0;
     world.insert_resource(authority);
-    // Per-session counters restart; lifetime totals do not. A caller measuring
-    // a whole run must not have its measurement silently zeroed by a rebase it
-    // did not ask for and cannot see (AC18).
+    // Per-session counters restart; lifetime totals do not, so a rebase does
+    // not zero a whole-run measurement (AC18).
     let carried = world
         .get_resource::<RollbackExecutionStats>()
         .copied()
@@ -817,11 +684,9 @@ fn install_session_with_ownership(
 /// The generation counter intentionally survives: the next installation must
 /// receive a different identity even after the boundary itself is removed.
 pub fn stop_session(world: &mut World) {
-    // The input-authority cluster leaves WITH the session it belonged to.
-    //
-    // A latch holds levels and edges captured against the timeline that is being
-    // torn down. Leaving them installed means the next session's frame zero can
-    // begin with a jump nobody pressed in it.
+    // The input-authority cluster leaves with its session. A latch holds levels
+    // and edges from the old timeline; keeping it could start the next session
+    // with a jump nobody pressed.
     reset_input_authority(world);
     world.remove_resource::<AmbitionGgrsSession>();
     world.remove_resource::<RollbackSessionOwnership>();
@@ -829,11 +694,10 @@ pub fn stop_session(world: &mut World) {
     // to their non-rollback behavior immediately. Leaving this installed would
     // strand pending effects and keep confirmed-state save gates closed forever.
     world.remove_resource::<ConfirmedFrameBoundary>();
-    // ⭐ THE AUTHORITY STAYS, STOOD DOWN. The gameplay session that owned this
-    // timeline has NOT ended — only the timeline has — so a divergence recorded
-    // before the stop must keep refusing confirmed work. Removing the authority
-    // here is what would let a desync launder itself through a teardown.
-    // Retirement of the SCOPE is the thing that removes it; see
+    // The authority stays, stood down. Only the timeline ended, not the
+    // gameplay session, so a divergence recorded before the stop must keep
+    // refusing confirmed work. Removing it here would let a desync clear
+    // itself through a teardown. Scope retirement removes it; see
     // `retire_rollback_authority_with_its_scope`.
     if let Some(mut authority) = world.get_resource_mut::<ActiveRollbackAuthority>() {
         authority.stand_down_timeline();
@@ -843,11 +707,9 @@ pub fn stop_session(world: &mut World) {
 /// Retire the rollback authority governing `scope`, whether or not its timeline
 /// is still running.
 ///
-/// ⛔⛔ THIS IS TEARDOWN, NOT INVALIDATION. The gameplay session is over; its
-/// timeline's health is a fact about a world that no longer exists. The
-/// diagnosis is preserved in [`RollbackDiagnosticHistory`], which has no
-/// gameplay authority, and the resource itself goes — so nothing can be
-/// inherited even by accident.
+/// This is teardown, not invalidation. The gameplay session is over. The
+/// diagnosis stays in [`RollbackDiagnosticHistory`], which has no gameplay
+/// authority, and the resource is removed so nothing can inherit it.
 fn retire_rollback_authority(world: &mut World) {
     stop_session(world);
     world.remove_resource::<ActiveRollbackAuthority>();
@@ -881,27 +743,21 @@ pub fn session_is_active(world: &World) -> bool {
     world.contains_resource::<AmbitionGgrsSession>()
 }
 
-/// THE seam a driver writes input through, whichever host is running.
+/// The one seam a driver writes input through, on any host.
 ///
-/// A driver is anything supplying input that is not a device: a headless
-/// harness, an RL agent, a replay, an integration test, a consumer's acceptance
-/// walk. There are two resources underneath and picking the wrong one FAILS
-/// SILENTLY — the walk runs, the body never moves, nothing says why — so this
-/// exists to make the choice unnecessary rather than merely documented.
+/// A driver is any input source that is not a device: a headless harness, an
+/// RL agent, a replay, a test, a consumer's acceptance walk. There are two
+/// resources underneath, and the wrong choice fails silently (the body never
+/// moves). This function makes the choice for the driver.
 ///
-/// The split is not an accident and cannot be merged away. Under GGRS it is an OUTPUT:
-/// `publish_ggrs_input` writes it from the session's confirmed inputs every advance, so a
-/// driver writing it would be feeding resimulated input back in as new input. Handle zero of
-/// `PendingSeatInputs` is the input side there.
+/// Under GGRS the per-slot frame is an output: `publish_ggrs_input` writes it
+/// from confirmed inputs every advance, so a driver must write
+/// `PendingSeatInputs` instead.
 ///
 /// A device-backed host writes neither: it accumulates into
 /// [`ControlFrameLatch`], which both hosts drain at their own clock. If a latch
 /// is present this defers to it, so a driver can nudge a windowed build without
 /// fighting the device layer.
-///
-/// Found while giving the external-consumer fixture a rollback host: it had to
-/// carry its own copy of this branch, which is the definition of a leak — every
-/// consumer rediscovering an engine rule the engine could have stated once.
 pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     drive_slot_frame(
         world,
@@ -910,44 +766,24 @@ pub fn drive_control_frame(world: &mut World, frame: ControlFrame) {
     );
 }
 
-/// ⛤ ONE ARM, AND THE REST BELONGS TO SOMEBODY ELSE.
+/// Drive one slot. Accepts every slot, including slot zero.
 ///
-/// this was TWO functions with the same four-arm shape, differing only in
-/// which resource each arm named — and the resources they named have since
-/// become one table each (`SlotControlLatches`, `PendingSeatInputs`). What is
-/// left of the fork is the last arm.
+/// Only the `PendingSeatInputs` arm lives here, because that type is declared
+/// in this crate. The latch rule and the rest delegate to
+/// `ambition_platformer2d_runtime::input_drive::drive_slot_frame`.
 ///
-/// it accepts every slot, and the version that did not was a bug. `drive_seat_frame` refused
-/// slot zero with a bare `return`, on the argument that the primary seat belonged to
-/// [`drive_control_frame`].
-///
-/// ⛔ **AND THE FORK HAD GROWN BACK BY 2026-09-18, in the other direction.**
-/// There were two `drive_slot_frame`s — this one and
-/// `ambition_platformer2d_runtime::input_drive::drive_slot_frame`, picked apart
-/// by `#[cfg(feature = "rollback")]` in the facade — and two of the three arms
-/// were duplicated between them, comment paragraphs included. Only the
-/// `PendingSeatInputs` arm is genuinely this crate's, because that type is
-/// declared HERE and the lower crate cannot name it. So this is now that arm and
-/// a delegation: the latch rule and the raw/slot tail have one owner, one road,
-/// and one place to be wrong.
-///
-/// ⛔ **THE ORDER IS THE CONTRACT, and the delegation must not reorder it.** A
-/// device-backed rollback build has BOTH a latch and a pending table, and the
-/// latch has to win or a driver nudging a windowed build fights the device layer
-/// for the same seat. That is why the pending arm is gated on the latch's
-/// ABSENCE rather than tried first —
-/// `the_driver_seam_writes_whichever_resource_this_host_reads` asserts exactly
-/// that, by requiring the windowed world's `PendingSeatInputs` to stay neutral.
+/// The order is the contract. A device-backed rollback build has both a latch
+/// and a pending table, and the latch must win. So the pending arm runs only
+/// when no latch exists.
+/// `the_driver_seam_writes_whichever_resource_this_host_reads` checks this.
 pub fn drive_slot_frame(
     world: &mut World,
     slot: ambition_characters::control::PlayerSlot,
     frame: ControlFrame,
 ) {
-    //  this does NOT clear the other handles, and an earlier version did.
-    // `drive_slot_frame` is called BEFORE the step it applies to, so clearing
-    // here wiped every other seat's input on the way past — the seam was built
-    // and then emptied by its own sibling, one line later. A driver that wants a
-    // seat neutral drives it neutral; silence is not a request.
+    // Do not clear the other handles. This runs before the step it applies
+    // to, so clearing would erase every other seat's input. A driver that
+    // wants a seat neutral drives it neutral.
     if !world.contains_resource::<ambition_characters::control::SlotControlLatches>() {
         if let Some(mut pending) = world.get_resource_mut::<PendingSeatInputs>() {
             pending.set(slot.0 as usize, frame);
@@ -969,67 +805,48 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // See `local_session`.
     app.init_resource::<super::local_session::LocalSessionPolicy>()
         .init_resource::<super::local_session::LocalSessionOwnership>()
-        // Present from boot so "where do this session's seats come from" always
-        // has an answer to read and an owner to release. The default —
-        // `Devices` — is what every composition that never decides a match
-        // wants.
+        // Present from boot so seat sourcing always has an answer and an
+        // owner. The default, `Devices`, suits every composition that never
+        // decides a match.
         .init_resource::<ambition_input::SessionSeatingSource>()
         .add_systems(
             Update,
             super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
         )
-        // Both are in `Update` and nothing ordered them, so which authority sized the ggrs
-        // session was a race — and it resolved DIFFERENTLY on the two shipped routes: measured,
-        // versus took the pad count and smash took the roster's. The session is never resized
-        // afterwards (see the note in `maintain_local_session` for why detect-and-restart is
-        // worse), so whichever won, won for the whole match.
-        //
-        //  same schedule, so this is a REAL edge. A cross-schedule `.after`
-        // is silently vacuous in Bevy and this repo has been bitten by one; both
-        // sets live in `Update`, which is what makes the constraint bite.
+        // Both run in `Update`. Without this edge, which authority sizes the
+        // GGRS session is a race, and the session is never resized afterwards
+        // (see `maintain_local_session`). The edge is real because both sets
+        // are in the same schedule; a cross-schedule `.after` does nothing.
         .configure_sets(
             Update,
             super::local_session::LocalSessionSet::Maintain
                 .after(ambition_input::InputSet::Collect),
         );
 
-    // ⭐⭐ THE AUTHORITY DIES BEFORE THE WORLD IT GOVERNS. Named ordering, not an
-    // ad-hoc edge: `SessionScopeSet::RetireAuthority` exists to say that an
-    // authority stands down before `SessionScopeSet::Cleanup` removes the
-    // entities it was governing.
+    // The authority retires before the world it governs.
+    // `SessionScopeSet::RetireAuthority` runs before `SessionScopeSet::Cleanup`
+    // removes the entities.
     app.add_systems(
         Update,
         retire_rollback_authority_with_its_scope
             .in_set(
                 ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority,
             )
-            // ⛔⛔ THE MESSAGE IS A PREREQUISITE THIS PLUGIN DOES NOT SUPPLY, and
-            // in Bevy 0.19 a `MessageReader` for an unregistered channel is a HARD
-            // FAILURE that takes the whole `App` down — not a system that skips.
             // `SessionScopeRetired` is registered by the shared tangle's
-            // session-lifecycle plugin
-            // (`lifecycle/session.rs`), and a host may install the rollback
-            // backend without it: `examples/capability_demo`'s
-            // `rollback_round_trip` does exactly that, and died on frame one with
-            // *"Parameter `…::messages` failed validation: Message not
-            // initialized"* — a message that names neither the system nor the
-            // channel.
+            // session-lifecycle plugin (`lifecycle/session.rs`), not by this
+            // plugin. In Bevy 0.19 a `MessageReader` for an unregistered
+            // channel fails the whole `App`. A host may install the rollback
+            // backend without that plugin (for example
+            // `examples/capability_demo`'s `rollback_round_trip`).
             //
-            // ⭐ DECLINING IS THE RIGHT ANSWER, NOT REGISTERING. A host with no
-            // session-scope lifecycle retires no scopes, so there is nothing for
-            // this system to do; adding the channel here would make this plugin a
-            // second registrar of somebody else's vocabulary and give the message
-            // two cleanup systems in a host that has both.
+            // Such a host retires no scopes, so the system skips. Registering
+            // the channel here would make this plugin a second registrar and
+            // give the message two cleanup systems.
             //
-            // ⚠ NOTHING IN THIS CRATE OBSERVES THIS REGISTRATION EITHER WAY, and
-            // that is worth knowing before trusting a green suite about it.
-            // `session_ownership_tests` schedules the system DIRECTLY, so it
-            // tests the function rather than this line; `host_invariant_tests`
-            // builds the plugin but only asserts schedule and resource facts. So
-            // a future edit that dropped this system entirely would keep every
-            // test in the crate green, and so would a `run_if` that never
-            // becomes true.
+            // No test in this crate covers this registration:
+            // `session_ownership_tests` schedules the system directly, and
+            // `host_invariant_tests` checks only schedule and resource facts.
             .run_if(bevy::prelude::resource_exists::<
                 bevy::ecs::message::Messages<
                     ambition_platformer2d_shared_tangle::lifecycle::SessionScopeRetired,
@@ -1063,12 +880,9 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             GgrsSchedule,
             (publish_ggrs_input, count_advance_run)
                 .chain()
-                // ⛔ THE BOUNDARY THIS PUBLISHES IS A FACT OTHER SYSTEMS ORDER
-                // AGAINST, AND `.before(CoreSimulation)` DOES NOT SAY SO. A
-                // reader ordered against the wider `GameplaySimulationRoot`
-                // got no edge to this system at all — see
-                // `ConfirmedFrameBoundaryPublished`, which is what the reader
-                // names now.
+                // Readers order against `ConfirmedFrameBoundaryPublished`.
+                // `.before(CoreSimulation)` alone gives no edge to a reader
+                // ordered against `GameplaySimulationRoot`.
                 .in_set(ambition_platformer2d_core::ConfirmedFrameBoundaryPublished)
                 .before(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
         )
@@ -1103,22 +917,16 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             PreUpdate,
             ambition_platformer2d_runtime::external_effects::ExternalEffectSet::Release.after(RunGgrsSystems),
         )
-        // ⛔⛤ **THE EDGE `Q120`'s FIRST FIX ASSERTED IN A COMMENT AND NEVER
-        // DECLARED.** A developer edit to a value the simulation reads must be
-        // decided and published BEFORE this host advances the timeline —
-        // otherwise the old session simulates, and RESIMULATES HISTORY, against
-        // mechanics it never ran with. The first version watched for the edit in
-        // `Update`, after `RunGgrsSystems` had already advanced `GgrsSchedule`
-        // with the new value.
+        // A developer edit to a value the simulation reads must be published
+        // before this host advances the timeline. Otherwise the old session
+        // simulates and resimulates history with mechanics it never ran with.
         //
-        // ⭐ The SETS come from `ambition_platformer2d_core`, beside the
-        // resources, so the developer-tools crate can register proposers and
-        // publishers into them without depending on this crate — and so a
-        // composition with no rollback host still runs the same chain and
-        // publishes by default. The chain is declared by
-        // `schedule::configure_mechanical_edit_sets`, called above; what is this
-        // host's ALONE is the edge against its own advance, and with the three
-        // already chained, ordering the last of them orders all of them.
+        // The sets live in `ambition_platformer2d_core`, so the dev-tools
+        // crate can register into them without depending on this crate, and a
+        // composition with no rollback host still runs the chain.
+        // `schedule::configure_mechanical_edit_sets` (called above) chains
+        // them. This host adds only the edge against its own advance; ordering
+        // the last set orders all three.
         .configure_sets(
             PreUpdate,
             ambition_platformer2d_core::MechanicalEditSet::Publish.before(RunGgrsSystems),
@@ -1138,17 +946,13 @@ pub(crate) fn install_session_bridge(app: &mut App) {
 /// rendered frames may pass before a simulation tick, and a later level-only
 /// sample would overwrite a short press before GGRS observed it.
 fn capture_latched_local_input(
-    //  ONE table for every seat, zero included. This took seat zero's latch
-    // as a separate resource beside this one and drained the two in separate
-    // blocks — the same edge, the same reason, twice.
+    // One table for every seat, zero included.
     latches: Option<ResMut<ambition_characters::control::SlotControlLatches>>,
     mut pending: ResMut<PendingSeatInputs>,
 ) {
-    // ONLY when a device is actually wired to this latch.
-    //
-    // The predicate is STICKY rather than per-frame: a tick that sampled
-    // nothing must still receive the retained levels, or a held direction
-    // sticks on forever.
+    // Only when a device is wired to this latch. The predicate is sticky, not
+    // per-frame: a tick that sampled nothing must still get the retained
+    // levels, or a held direction sticks on forever.
     let Some(mut latches) = latches else {
         return;
     };
@@ -1156,11 +960,9 @@ fn capture_latched_local_input(
     if latches.is_device_authority(primary) {
         pending.set(0, latches.take(primary));
     }
-    //  seats 1.. are drained UNCONDITIONALLY, and seat zero is not. Only
-    // seat zero has a second author to lose to — every rollback harness drives
-    // `PendingLocalInput` directly, and replacing that with a neutral default is
-    // how four oracles went red at once. Nothing drives `PendingSeatInputs`
-    // behind this system's back.
+    // Seats 1.. drain unconditionally; seat zero does not. Only seat zero has
+    // a second author: rollback harnesses drive `PendingLocalInput` directly.
+    // Nothing drives `PendingSeatInputs` behind this system.
     for handle in 1..ambition_characters::control::SlotControls::MAX_SLOTS {
         let slot = ambition_characters::control::PlayerSlot(handle as u8);
         pending.set(handle, latches.take(slot));
@@ -1175,7 +977,7 @@ fn publish_local_inputs(
     local_players: Res<LocalPlayers>,
     mut commands: Commands,
 ) {
-    //  no `handle == 0` branch: one table answers for every handle.
+    // One table answers for every handle.
     let inputs = local_players
         .0
         .iter()
@@ -1186,11 +988,9 @@ fn publish_local_inputs(
 
 /// Publish the session's confirmed inputs into what the simulation reads.
 ///
-///  this is what puts seats 1.. INSIDE rollback.
-///
-/// Every seat lands in one table now, and `ControlFrame` is written after the loop as what it
-/// has become: a MIRROR of what seat zero received, for the trace codec, the harness's action
-/// encoder, and the wrong-seam diagnostic.
+/// This is what puts seats 1.. inside rollback. Every seat lands in one
+/// table. `ControlFrame` is then written as a mirror of seat zero, for the
+/// trace codec, the harness's action encoder, and the wrong-seam diagnostic.
 fn publish_ggrs_input(
     inputs: Res<PlayerInputs<AmbitionGgrsConfig>>,
     mut control: ResMut<ControlFrame>,
@@ -1204,9 +1004,8 @@ fn publish_ggrs_input(
             );
         }
     }
-    //  from the table, not from `inputs[0]` — so the mirror cannot disagree
-    // with the seat, including in the empty-session case where nobody published
-    // anything and neutral is the honest answer.
+    // Read the mirror from the table, not from `inputs[0]`, so it cannot
+    // disagree with the seat. An empty session gives neutral.
     *control = slots
         .as_deref()
         .map(|slots| slots.get(ambition_characters::control::PlayerSlot::PRIMARY))
@@ -1214,15 +1013,13 @@ fn publish_ggrs_input(
         .unwrap_or_default();
 }
 
-/// Publish the FACT "this frame number has been simulated before".
+/// Publish the fact "this frame number has been simulated before".
 ///
-/// Deliberately a fact, not a policy — but note how few consumers it has left. They now go
-/// through [`ambition_platformer2d_runtime::external_effects`], which defers rather than
-/// suppresses.
-///
-/// What remains are consumers that genuinely need to know a frame is being
-/// revisited: the forensic trace uses it to avoid consuming per-logical-frame
-/// suppression windows twice, and the falling-sand grid uses it as a step guard.
+/// A fact, not a policy. Most consumers now use
+/// [`ambition_platformer2d_runtime::external_effects`], which defers instead
+/// of suppressing. The rest need to know a frame is revisited: the forensic
+/// trace (so it does not consume per-frame suppression windows twice) and
+/// the falling-sand grid (as a step guard).
 fn publish_replay_pass(
     replay: &mut ambition_platformer2d_shared_tangle::schedule::SimulationReplayState,
     simulated_before: bool,
@@ -1234,10 +1031,9 @@ fn publish_replay_pass(
 /// and publish where the confirmed boundary sits.
 ///
 /// The frame number is the exact test for the first: at or below the high-water
-/// mark means this frame was simulated before. Bracketing on "a rollback
-/// happened this render frame" is NOT equivalent — `clear_historical_replay`
-/// runs after the whole GGRS batch, so the coarse window also covers the
-/// brand-new frame at the end of a rollback.
+/// mark means this frame was simulated before. "A rollback happened this
+/// render frame" is not equivalent: `clear_historical_replay` runs after the
+/// whole GGRS batch, so that window also covers the new frame at the end.
 ///
 /// [`ConfirmedFrameBoundary`] is the separate, stronger fact: which frames can
 /// never be simulated again. It is derived from the live session rather than
@@ -1272,28 +1068,22 @@ fn count_advance_run(
     }
 }
 
-/// What the GGRS DRIVER itself costs, bracketed from outside it.
+/// What the GGRS driver itself costs, measured from outside it.
 ///
-/// ⭐⭐ THE MEASUREMENT THAT SPLITS AN UNATTRIBUTED MILLISECOND. Measured
-/// 2026-08-29 on a Smash match: the seventeen sim phases sum to ~0.93ms of a
-/// 2.12ms `PreUpdate`, and the remaining ~1.2ms is in no sim phase at all. Two
-/// families of explanation fit, and one measurement separates them:
+/// Sim phases do not account for all of `PreUpdate`. This splits the rest:
 ///
-/// - `driver - sum(sim_phases)` is time INSIDE this exclusive system but outside
-///   the phase chain — the `ReadInputs` schedule, ggrs's own advance
-///   bookkeeping, and any sim system registered outside the chain;
-/// - `PreUpdate - driver` is time in `PreUpdate` but outside the driver
-///   entirely — the `DefaultPlugins` population (ui focus, leafwing input,
-///   picking, asset events).
+/// - `driver - sum(sim_phases)` is time inside this exclusive system but
+///   outside the phase chain: the `ReadInputs` schedule, ggrs bookkeeping,
+///   and any sim system registered outside the chain;
+/// - `PreUpdate - driver` is time in `PreUpdate` outside the driver: the
+///   `DefaultPlugins` population (ui focus, leafwing input, picking, assets).
 ///
-/// ⛔ IT LIVES HERE, NOT IN THE CENSUS CRATE. `ambition_dev_tools` does not
-/// depend on `bevy_ggrs` and must not start: bracketing `RunGgrsSystems` needs
-/// that dependency, and this crate already has it. The cost is that the row is
-/// emitted on a frame COUNT rather than the census's wall-clock interval, which
-/// is the honest trade rather than a new dependency edge.
+/// It lives here, not in the census crate, because `ambition_dev_tools` must
+/// not depend on `bevy_ggrs`. So it reports on a frame count, not on the
+/// census's wall-clock interval.
 ///
-/// ⚠ NOT ROLLBACK STATE, deliberately — a rewind leaves last-branch timings in
-/// it. Correct for an instrument, and it must never gate behaviour.
+/// Not rollback state: a rewind leaves last-branch timings in it. It is an
+/// instrument and must never gate behaviour.
 #[derive(Resource, Default)]
 pub struct GgrsDriverCensus {
     entered: Option<std::time::Instant>,
@@ -1329,8 +1119,8 @@ fn leave_ggrs_driver(mut census: ResMut<GgrsDriverCensus>) {
 
 /// Install the driver bracket when the workload census is switched on.
 ///
-/// ⛔ Registered only when asked, for the same reason the census's own phase
-/// marks are: an instrument must not join the population it measures.
+/// Registered only when asked: an instrument must not join the population it
+/// measures.
 pub fn install_ggrs_driver_census(app: &mut App) {
     if std::env::var("AMBITION_PROFILE_CENSUS").is_err() {
         return;
@@ -1349,18 +1139,15 @@ pub fn install_ggrs_driver_census(app: &mut App) {
 
 /// Where the confirmed line sits DURING the advance of `frame`.
 ///
-/// ⛔⛔ NOT `ConfirmedFrameCount`, and that resource is why this function
-/// exists. `bevy_ggrs` computes it from the frame counter it reads BEFORE
-/// bumping it, so inside `AdvanceWorld` it always describes the PREVIOUS frame.
-/// Under the shipped local session -- a sync test with `check_distance: 0`,
-/// where rollback is dormant and NOTHING is ever speculative -- that published
-/// `confirmed == current - 1` on every frame the game ever ran, so
-/// `fully_confirmed()` was false forever and every consumer waiting for settled
-/// truth stood down silently: the winner card, the return to character select,
-/// and the persistence save. A match ended and the stage never went home.
+/// Not `ConfirmedFrameCount`. `bevy_ggrs` computes that from the frame counter
+/// before it increments it, so inside `AdvanceWorld` it describes the previous
+/// frame. Under the shipped local session (sync test, `check_distance: 0`,
+/// nothing speculative) that gives `confirmed == current - 1` on every frame,
+/// so `fully_confirmed()` is never true and consumers of settled truth (winner
+/// card, return to character select, persistence save) never run.
 ///
-/// ⭐ The session is the authority, asked about the frame being advanced. This
-/// mirrors `bevy_ggrs`'s own rule; only the frame it is applied to differs.
+/// The session is the authority, asked about the frame being advanced. This
+/// is `bevy_ggrs`'s own rule, applied to a different frame.
 fn confirmed_line(
     frame: i32,
     session: Option<&AmbitionGgrsSession>,
@@ -1428,19 +1215,14 @@ fn record_sync_test_mismatch(
 
 /// Enforce the live timeline's contract against the world it actually governs.
 ///
-/// ⭐⭐ THREE QUESTIONS, IN THIS ORDER, and the first one is the one that was
-/// missing: *whose world is this?* A timeline whose gameplay session is no
-/// longer live is not enforcing anything — it is standing down. Only once the
-/// owner is confirmed live do "the schema changed" and "the content
-/// disappeared" mean what they say.
+/// It asks three questions in order. First: is the owner's gameplay session
+/// still live? If not, the timeline stands down; it does not enforce. Only
+/// then do "the schema changed" and "the content disappeared" mean a fault.
 ///
-/// ⛔⛔ RETIREMENT IS NOT CORRUPTION. Quitting a match to the title retires the
-/// scope and removes its canonical root, which a contract that looked only at
-/// "is a GGRS session installed?" read as an illegal mid-session content
-/// disappearance — poisoning a timeline that had done nothing wrong, and
-/// (before ownership) handing that poison to the next game. The scheduling
-/// order that produced it is fixed too (`SessionScopeSet::RetireAuthority`),
-/// but this is the half that holds when scheduling regresses.
+/// Retirement is not corruption. Quitting to the title retires the scope and
+/// removes its root; without the owner check, that reads as an illegal
+/// content disappearance. `SessionScopeSet::RetireAuthority` ordering also
+/// prevents it, but this check holds if that ordering regresses.
 pub(crate) fn enforce_session_contract(world: &mut World) {
     if !session_is_active(world) {
         return;
@@ -1475,12 +1257,9 @@ pub(crate) fn enforce_session_contract(world: &mut World) {
     }
     let owner = world.resource::<ActiveRollbackAuthority>().owner();
 
-    // ⛔⛔ BORROWED, NOT CLONED. `RollbackRegistry`'s hand-written `Clone` starts
-    // the memo `OnceLock` EMPTY on purpose, so `.cloned()` here handed
-    // `schema_fingerprint()` a registry that could never be memoised: this frame
-    // paid a ~450-entry BTreeMap clone AND rebuilt+hashed the whole ~40KB schema
-    // dump, every frame, which is the 292us the memo was added to remove. The
-    // cache only pays off on the resource that actually lives in the world.
+    // Borrow, do not clone. `RollbackRegistry`'s `Clone` starts the memo
+    // `OnceLock` empty, so a clone recomputes the full schema hash every
+    // frame. The memo works only on the resource in the world.
     let current_schema = world
         .get_resource::<RollbackRegistry>()
         .map(RollbackRegistry::schema_fingerprint)
@@ -1533,10 +1312,10 @@ pub(crate) fn enforce_session_contract(world: &mut World) {
 
 /// Retire the authority governing a scope the shell has just retired.
 ///
-/// ⭐ THE EXPLICIT SIGNAL, consumed where it belongs: an authority stands down
-/// BEFORE the world it governs is cleaned up ([`SessionScopeSet::RetireAuthority`]
-/// is ordered before [`SessionScopeSet::Cleanup`]). Polling for the absence of a
-/// world is what made deliberate teardown look like corruption.
+/// Consumes the explicit signal: an authority stands down before the world it
+/// governs is cleaned up ([`SessionScopeSet::RetireAuthority`] is ordered
+/// before [`SessionScopeSet::Cleanup`]). Polling for a missing world made
+/// deliberate teardown look like corruption.
 ///
 /// [`SessionScopeSet::RetireAuthority`]: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::RetireAuthority
 /// [`SessionScopeSet::Cleanup`]: ambition_platformer2d_shared_tangle::lifecycle::SessionScopeSet::Cleanup
@@ -1548,7 +1327,7 @@ pub(crate) fn retire_rollback_authority_with_its_scope(
     let owner = authority
         .as_deref()
         .and_then(ActiveRollbackAuthority::owner);
-    // Read the WHOLE batch, never `any()`: a short-circuit leaves later
+    // Read the whole batch, never `any()`: a short-circuit leaves later
     // retirements on the cursor to be re-read next frame.
     let mut retiring = false;
     for scope in retired.read() {
@@ -1561,7 +1340,7 @@ pub(crate) fn retire_rollback_authority_with_its_scope(
 
 /// Record a divergence on the live timeline and stop it.
 ///
-/// The timeline stops but its authority stays STOOD DOWN, so the diagnosis keeps
+/// The timeline stops but its authority stays stood down, so the diagnosis keeps
 /// refusing confirmed work for the rest of this gameplay session. The same
 /// reason is also copied into the process-lifetime
 /// [`RollbackDiagnosticHistory`], which outlives the session and authorizes
@@ -1587,11 +1366,10 @@ fn invalidate_session(world: &mut World, reason: String) {
 
 /// The prepared content identity of the canonical root belonging to `owner`.
 ///
-/// ⛔⛔ NOT "THE FIRST `PreparedContentIdentity` IN THE WORLD". A global
-/// first-match let a delayed root from a retired activation satisfy the current
-/// session's contract, and let the current session's root go unseen while a
-/// stale one was still being despawned. The contract belongs to a scope, so it
-/// inspects that scope's root and no other.
+/// Not the first `PreparedContentIdentity` in the world. A global first match
+/// lets a stale root from a retired activation satisfy the current contract,
+/// or hides the current root. The contract belongs to a scope, so it inspects
+/// only that scope's root.
 fn content_identity_of(
     world: &mut World,
     owner: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
@@ -1614,7 +1392,7 @@ mod carrier_order_tests {
     use bevy_ggrs::{Rollback, RollbackId, RollbackOrdered};
 
     /// A world holding `live` named carriers, after `retired` carriers have come
-    /// and gone — which is what a shell host looks like on its third route.
+    /// and gone, as a shell host looks after several routes.
     fn world_with(retired: usize, live: &[&str]) -> World {
         let mut world = World::new();
         world.init_resource::<RollbackOrdered>();
@@ -1623,8 +1401,8 @@ mod carrier_order_tests {
             world.flush();
             world.despawn(entity);
         }
-        // Spawned in REVERSE name order, so an arm that happens to agree with
-        // spawn order is not agreeing by accident.
+        // Spawned in reverse name order, so agreement with spawn order is not
+        // an accident.
         for name in live.iter().rev() {
             world.spawn((Rollback, SimId::placement(name)));
         }
@@ -1647,16 +1425,15 @@ mod carrier_order_tests {
         out
     }
 
-    /// ⛔ THE WHOLE POINT: two Apps that hold the same live carriers must hold
-    /// the same ORDERS, however much history each of them threw away first.
+    /// Two Apps that hold the same live carriers must hold the same orders,
+    /// whatever history each of them discarded first.
     #[test]
     fn two_histories_reach_the_same_carrier_order() {
         let live = ["alpha", "beta", "gamma"];
         let mut fresh = world_with(0, &live);
         let mut veteran = world_with(74, &live);
 
-        // The premise, and it is about HISTORY rather than about the defect: the
-        // veteran has handed out orders the fresh App never will.
+        // Premise: the veteran has handed out orders the fresh App never will.
         assert_ne!(
             fresh.resource::<RollbackOrdered>().len(),
             veteran.resource::<RollbackOrdered>().len()
@@ -1685,9 +1462,9 @@ mod carrier_order_tests {
         assert_eq!(veteran.resource::<RollbackOrdered>().len(), 3);
     }
 
-    /// ⛔ A REBASE MUST NOT CHANGE ROLLBACK IDENTITY. Every snapshot in the
-    /// engine is keyed on `RollbackId`, so if the rebuild minted new ones it
-    /// would silently detach every stored component from its carrier.
+    /// A rebase must not change rollback identity. Every snapshot is keyed on
+    /// `RollbackId`, so new ids would detach every stored component from its
+    /// carrier.
     #[test]
     fn a_rebase_keeps_every_rollback_id() {
         let mut world = world_with(2, &["alpha", "beta"]);
@@ -1706,35 +1483,23 @@ mod carrier_order_tests {
         assert_eq!(before.len(), 2);
     }
 
-    /// ⛔⛤ **TWO CARRIERS SHARING A `SimId` FALL BACK TO THIS APP'S SPAWN ORDER,
-    /// AND THAT IS STABLE BY COINCIDENCE RATHER THAN BY CONSTRUCTION.** The sort
-    /// is `(SimId, previous order, Entity)`: the first key is peer-stable and the
-    /// other two are not. On a duplicate the result is decided entirely by the
-    /// two host-local keys.
+    /// Two carriers that share a `SimId` fall back to this App's spawn order.
+    /// The sort is `(SimId, previous order, Entity)`: only the first key is
+    /// peer-stable, so a duplicate is decided by the two host-local keys.
     ///
-    /// ⚠ **I FIRST WROTE THIS AS A DISAGREEMENT ARM AND IT WAS VACUOUS.** It
-    /// compared raw `Entity` values from two different `World`s, which differ
-    /// whatever the ordering does — and the claim was wrong as well as
-    /// unmeasured: `previous order` is monotonic in spawn order, so a fresh App
-    /// and a veteran one put the same duplicate first. The disagreement needs a
-    /// history where the relative previous order INVERTS, which plain spawning
-    /// cannot produce.
+    /// This test pins what is true: the tie-break is total (nothing dropped, no
+    /// shared index) and reproduces local spawn order. `previous order` is
+    /// monotonic in spawn order, so two peers with the same construction order
+    /// agree. That agreement is not a peer-stability guarantee.
     ///
-    /// ⇒ So this pins what is actually true: the tie-break is TOTAL (nothing is
-    /// dropped, no index is shared) and it reproduces the local spawn order. Two
-    /// peers running the same construction agree because their construction
-    /// order matches, not because anything compared here is peer-stable — the
-    /// same shape as an invariant held by coincidence, recorded so the next
-    /// reader does not mistake the agreement for a guarantee.
-    ///
-    /// ⚠ `rollback_populated_timeline.rs` measures that every visible rollback
-    /// anchor in the populated world carries a UNIQUE `SimId`, so this state does
-    /// not occur today. When frame-zero installation refuses on a duplicate
-    /// instead of tie-breaking, this arm is what says what is being replaced.
+    /// `rollback_populated_timeline.rs` checks that every visible rollback
+    /// anchor has a unique `SimId`, so this state does not occur today. When
+    /// frame-zero installation refuses on a duplicate, this test documents what
+    /// is replaced.
     #[test]
     fn two_carriers_sharing_one_sim_id_keep_this_app_s_spawn_order() {
-        /// Returns the two same-named carriers in SPAWN order, which is the only
-        /// fact that distinguishes them inside one world.
+        /// Returns the two same-named carriers in spawn order, the only fact
+        /// that tells them apart inside one world.
         fn world_with_duplicates(retired: usize) -> (World, Entity, Entity) {
             let mut world = World::new();
             world.init_resource::<RollbackOrdered>();
@@ -1771,7 +1536,7 @@ mod carrier_order_tests {
         );
         rebase_rollback_carrier_order(&mut veteran);
 
-        // TOTAL: nothing dropped, and the two indices are distinct.
+        // Total: nothing dropped, and the two indices are distinct.
         assert_eq!(fresh.resource::<RollbackOrdered>().len(), 2);
         assert_eq!(veteran.resource::<RollbackOrdered>().len(), 2);
         assert_eq!(
@@ -1795,20 +1560,16 @@ mod carrier_order_tests {
         );
     }
 
-    /// ⛔⛤ **THE ARM THE OTHER ONES COULD NOT FAIL: `world_with` NEVER REGISTERS
-    /// THE DISABLING FILTER, so every carrier it builds is visible and no arm in
-    /// this module could tell a candidate-blind enumeration from a complete
-    /// one.** With the filter installed and one carrier hidden, an ordinary
-    /// `With<Rollback>` query returns 1 where the world holds 2 — and a rebase
-    /// taken over that 1 would leave the hidden carrier holding a `RollbackId`
-    /// absent from the rebuilt order, which `RollbackOrdered::order` panics on.
+    /// `world_with` does not register the disabling filter, so the other tests
+    /// cannot tell a candidate-blind enumeration from a complete one. Here the
+    /// filter is installed and one carrier is hidden, so an ordinary
+    /// `With<Rollback>` query sees 1 of 2. A rebase over that 1 would leave the
+    /// hidden carrier out of the order, and `RollbackOrdered::order` panics on
+    /// it.
     ///
-    /// ⛔ POISONED: with the `hidden_candidates > 0` refusal disabled the
-    /// rebuilt table holds ONE entry where the world has two carriers, which is
-    /// the state that panics later, on the checksum after the candidate is
-    /// published. ⚠ The assertions are ordered so THAT is what fails: checking
-    /// the report first made the poison fail on `hidden_candidates: 0`, which is
-    /// the field announcing the property rather than the property.
+    /// The property assertion runs before the report assertion, so a disabled
+    /// `hidden_candidates > 0` refusal fails on the property, not on the field
+    /// that reports it.
     #[test]
     fn a_hidden_candidate_carrier_stops_the_rebase_instead_of_being_dropped() {
         use ambition_platformer2d_shared_tangle::construction::{
@@ -1840,8 +1601,7 @@ mod carrier_order_tests {
 
         let before = world.resource::<RollbackOrdered>().len();
         let report = rebase_rollback_carrier_order(&mut world);
-        // ⛔ THE DEFECT-DESCRIBING ASSERTION GOES FIRST, so the poison fails on
-        // the PROPERTY rather than on the report field that announces it.
+        // Assert the property first, then the report field.
         assert_eq!(
             world.resource::<RollbackOrdered>().len(),
             before,
@@ -1853,32 +1613,16 @@ mod carrier_order_tests {
         assert_eq!(report.carriers, 2, "the report names the WHOLE population");
     }
 
-    /// ⛔⛤ **AND THE ARM ABOVE IS ABOUT THE REBASE, WHICH IS NOT THE ROAD A
-    /// SESSION TAKES.** The architecture review of 2026-09-17 named the gap
-    /// exactly: *"It refuses the rebase, not the session installation."* The
-    /// install road reset `RollbackFrameCount`, the confirmation counter, the
-    /// input authority and `GgrsTime`, saw the refusal, logged that the session
-    /// *"starts on this App's earlier order history"*, and installed it — trading
-    /// a later panic for a new frame-zero timeline carrying every order this App
-    /// ever handed out, which is the ID-PEER defect the rebase exists to remove.
+    /// The test above covers the rebase, not the road a session takes. This
+    /// test drives `start_sync_test_session_owned` and checks that a refusal
+    /// installs no session and leaves the frame counters, input authority,
+    /// `GgrsTime`, and carrier order unchanged. The fixture sets frame 77 and
+    /// confirmed 41, which differ from the install values (0 and -1), so a
+    /// reset is visible.
     ///
-    /// ⇒ This arm calls the road a session actually starts on and asserts the
-    /// five things a refusal must leave alone. ⚠ The counters are asserted
-    /// against values that are NOT the post-install ones, so a refusal that
-    /// reset them would fail here rather than coincide with a plausible number:
-    /// the fixture sets frame 77 and confirmed 41, and the install road's own
-    /// values are 0 and −1.
-    ///
-    /// ⚠ **AND THE RECOVERABLE REFUSAL IS NO LONGER IN THE INSTALL**, which is
-    /// why this arm drives `start_sync_test_session_owned`. A second review pass
-    /// found that a fallible install left both callers with an unactionable
-    /// post-destructive branch, so the recoverable half moved into
-    /// `FrameZeroEligibility::check`. What this arm tests is that the ROAD
-    /// declines and the world is untouched.
-    ///
-    /// ⇒ The install still refuses, as an INVARIANT rather than a `Result`, for
-    /// the case this arm cannot reach: a caller that checks, invalidates its own
-    /// answer, and then installs. That is
+    /// The recoverable refusal is in `FrameZeroEligibility::check`, not in the
+    /// install. The install still refuses as an invariant for a caller that
+    /// checks and then invalidates its own answer; see
     /// `an_install_whose_preflight_was_invalidated_panics_before_touching_frame_zero`.
     #[test]
     fn a_hidden_candidate_refuses_the_installation_and_mutates_nothing() {
@@ -1898,8 +1642,7 @@ mod carrier_order_tests {
         hide_candidate_session_root(&mut commands, hidden);
         queue.apply(&mut world);
 
-        // Distinctive values, so a reset is visible as a reset rather than as a
-        // number that could have been there all along.
+        // Distinctive values, so a reset is visible.
         world.insert_resource(RollbackFrameCount(77));
         world.insert_resource(ConfirmedFrameCount(41));
         let order_before = world.resource::<RollbackOrdered>().len();
@@ -1910,9 +1653,7 @@ mod carrier_order_tests {
             SyncTestOwner::Caller,
         );
 
-        // ⛔ THE DEFECT-DESCRIBING ASSERTIONS FIRST. Reading the `Err` first would
-        // let a poison fail on the return value — the thing that ANNOUNCES the
-        // property — instead of on the property.
+        // Assert the properties first; the returned `Err` only reports them.
         assert!(
             !session_is_active(&world),
             "a refused start installed a session anyway. That session's frame \
@@ -1952,11 +1693,10 @@ mod carrier_order_tests {
         }
     }
 
-    /// ⛔ **AND THE TOKEN CANNOT BE HAD WHILE A CANDIDATE IS HIDDEN, WHICH IS
-    /// WHAT MAKES THE INSTALL'S INFALLIBILITY MEAN ANYTHING.** Without this, the
-    /// arm above could pass because `start_sync_test_session_owned` declines for
-    /// its own reasons while `FrameZeroEligibility::check` waves the world
-    /// through — and every other caller takes the token road, not that one.
+    /// The token cannot be obtained while a candidate is hidden. Without this
+    /// test, the one above could pass because `start_sync_test_session_owned`
+    /// declines for another reason while `FrameZeroEligibility::check` lets the
+    /// world through, and other callers use the token road.
     #[test]
     fn the_frame_zero_token_is_refused_while_a_candidate_is_hidden_and_granted_when_it_is_not() {
         use ambition_platformer2d_shared_tangle::construction::{
@@ -1964,8 +1704,7 @@ mod carrier_order_tests {
         };
 
         let mut world = world_with(0, &["alpha", "beta"]);
-        // Granted first, so "refused" below is attributable to the candidate
-        // rather than to anything else about the fixture.
+        // Granted first, so the refusal below is caused by the candidate.
         let granted = FrameZeroEligibility::check(&mut world)
             .expect("a world with no candidate in flight can declare frame zero");
         assert_eq!(granted.carriers(), 2);
@@ -1987,9 +1726,9 @@ mod carrier_order_tests {
         assert_eq!(refusal.carriers, 2);
     }
 
-    /// ⚠ An unnamed carrier does not stop the rebase, and the report says so —
-    /// refusing would leave the whole population carrying another App's history
-    /// because one body's spawn site forgot to mint an identity.
+    /// An unnamed carrier does not stop the rebase, and the report counts it.
+    /// Refusing would keep another App's history for the whole population
+    /// because one spawn site did not mint an identity.
     #[test]
     fn an_unnamed_carrier_is_counted_and_still_ordered() {
         let mut world = world_with(1, &["alpha"]);
@@ -2006,24 +1745,17 @@ mod carrier_order_tests {
 mod tests {
     use super::*;
 
-    /// THE FRAME THE BRIDGE PUBLISHES IS ANNOUNCED AS A SET, AND THIS IS THE
-    /// HALF THAT CAN QUIETLY VANISH.
+    /// The bridge's boundary publisher must be a member of
+    /// `ConfirmedFrameBoundaryPublished`.
     ///
-    /// ⛔⛤ **REVIEW 2026-09-21: THE READER AND THIS PUBLISHER HAD NO EDGE.**
     /// `reconcile_authored_verdicts_with_the_timeline` reads `current` /
-    /// `confirmed` to decide which frame's verdict batch to clear, ordered
-    /// `.before(GameplaySimulationRoot)`; this pair was ordered
-    /// `.before(CoreSimulation)`, a set NESTED in that one, so both
-    /// constraints were satisfiable in either order. Bevy serialised them for
-    /// the shared resource and picked — and the wrong pick clears frame N's
-    /// batch on the pass that records N+1, so a 256-entry ring could never
-    /// hold more than one frame.
+    /// `confirmed` to decide which frame's verdict batch to clear. Ordering
+    /// against the nested `CoreSimulation` set gave no edge to that reader, and
+    /// the wrong order clears frame N's batch on the pass that records N+1.
     ///
-    /// ⚠ **THE READER'S OWN ARM CANNOT COVER THIS.** It asserts an edge to
-    /// `ConfirmedFrameBoundaryPublished`, which a `.after` registers whether
-    /// or not anything joined it — so a membership dropped here would leave
-    /// that arm green over an empty set. Hence an arm on each side of the
-    /// contract, in the crate that owns its half.
+    /// The reader's own test cannot cover this: a `.after` on an empty set
+    /// still registers an edge. So each side of the contract has a test in the
+    /// crate that owns it.
     #[test]
     fn the_boundary_publisher_is_a_member_of_the_set_readers_order_against() {
         use bevy::ecs::schedule::{NodeId, ScheduleLabel as _, Schedules, SystemKey, SystemSet as _};
@@ -2044,9 +1776,9 @@ mod tests {
                  ConfirmedFrameBoundaryPublished; without the set nothing downstream can \
                  order against the frame this pass is about",
             );
-        // BY SHAPE, NEVER BY NAME: `system.name()` is a placeholder unless the
-        // build graph unifies `bevy_ecs/debug`. The membership edge is a
-        // HIERARCHY edge, and at least one system must carry it.
+        // Check by shape, not by name: `system.name()` is a placeholder unless
+        // the build enables `bevy_ecs/debug`. Membership is a hierarchy edge,
+        // and at least one system must have it.
         let members: Vec<SystemKey> = graph
             .systems
             .iter()
@@ -2075,17 +1807,13 @@ mod tests {
         }
     }
 
-    /// ⭐⭐ THE PER-FRAME SCHEMA HASH MUST BE THE MEMOISED ONE.
+    /// The per-frame schema hash must use the memo.
     ///
-    /// `schema_fingerprint` was memoised because rebuilding the ~40KB schema dump
-    /// and blake3ing it cost 292us of EVERY frame. The memo then did nothing,
-    /// because this system read it through `.cloned()` — and `RollbackRegistry`'s
-    /// hand-written `Clone` starts the `OnceLock` empty on purpose. Every value
-    /// assertion still passed; the trace still showed the cost.
-    ///
-    /// ⛔ SO THIS TEST ASKS THE WORLD'S OWN REGISTRY, NOT THE VALUE. A test that
-    /// compares fingerprints across frames is exactly the test that agreed with
-    /// the bug: the recomputed value is correct, it is just recomputed.
+    /// `schema_fingerprint` is memoised because rebuilding and hashing the
+    /// schema dump every frame is expensive. `RollbackRegistry`'s `Clone`
+    /// starts the `OnceLock` empty, so reading through `.cloned()` defeats the
+    /// memo while every value stays correct. So this test checks the world's
+    /// registry for a populated memo, not the fingerprint value.
     #[test]
     fn the_session_contract_hashes_the_schema_once_per_registry_not_once_per_frame() {
         let mut world = World::new();
@@ -2104,11 +1832,10 @@ mod tests {
         start_sync_test_session(&mut world, SyncTestSettings::for_players(1))
             .expect("session starts");
 
-        // ⛔⛔ RE-ARM THE INSTRUMENT. Installing the session reads the fingerprint
-        // too, so by here the memo is already populated and "is it cached?" can
-        // no longer tell us who cached it. A `clone()` is precisely "same entries,
-        // empty memo" — swap it in, and from this point ONLY the per-frame system
-        // can populate it, and only by reading the world's registry directly.
+        // Reset the instrument. Installing the session also reads the
+        // fingerprint, so the memo is already populated. A `clone()` has the
+        // same entries and an empty memo; after this swap only the per-frame
+        // system can populate it, by reading the world's registry directly.
         let uncached = world.resource::<RollbackRegistry>().clone();
         assert!(
             !uncached.fingerprint_is_memoised(),
@@ -2145,8 +1872,8 @@ mod tests {
 
     /// One call reaches whichever seam the host actually reads.
     ///
-    /// The three cases are not interchangeable and getting one wrong is silent: the driver keeps
-    /// driving, the sim never sees the input, and nothing reports a thing.
+    /// The three cases are not interchangeable, and a wrong choice is silent:
+    /// the sim never sees the input and nothing reports it.
     #[test]
     fn the_driver_seam_writes_whichever_resource_this_host_reads() {
         let pressed = ControlFrame {
@@ -2183,11 +1910,9 @@ mod tests {
             "a driver must not write the output mirror on ANY host"
         );
 
-        // The same driver under GGRS. `ControlFrame` is an OUTPUT there —
-        // `publish_ggrs_input` overwrites it from the session's confirmed inputs
-        // every advance — so the input must land in `PendingSeatInputs`, and
-        // must NOT be written to `ControlFrame`, or a driver would be feeding
-        // resimulated input back in as new input.
+        // The same driver under GGRS. `ControlFrame` is an output there
+        // (`publish_ggrs_input` overwrites it every advance), so the input must
+        // go to `PendingSeatInputs` and not to `ControlFrame`.
         let mut rollback = World::new();
         rollback.insert_resource(ControlFrame::default());
         rollback.insert_resource(PendingSeatInputs::default());

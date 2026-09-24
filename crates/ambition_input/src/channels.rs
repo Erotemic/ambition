@@ -7,26 +7,25 @@
 
 use crate::participant::ParticipantId;
 
-/// What a person is playing ON, in a form that survives being written down.
+/// The device a person plays on, in a form that survives serialization.
 ///
-///  not [`crate::sources::InputSourceId`], and the difference is lifetime.
-/// That type names a LIVE source — a gamepad is an `Entity`, meaningful only
-/// while it stays plugged in. This one is what a lobby chose and a session
-/// froze, so it has to outlive a disconnect: the Nth pad in arrival order, or
-/// the keyboard.
+/// This is not [`crate::sources::InputSourceId`]. That type names a live
+/// source (a gamepad `Entity`, valid only while connected). This type is what
+/// a lobby chose and a session froze, so it outlives a disconnect: the Nth pad
+/// in arrival order, or the keyboard.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum LocalInputSource {
-    /// The keyboard-and-mouse bundle. Exactly one exists, and it is a source
-    /// only where a policy says so — under
+    /// The keyboard-and-mouse pair. There is one. It is a source only where a
+    /// policy says so: under
     /// [`crate::sources::InputAssignmentPolicy::UnifiedPrimary`] it drives the
-    /// primary participant and belongs to nobody.
+    /// primary participant and belongs to no seat.
     Keyboard,
     /// The Nth connected pad, in [`crate::LocalDeviceOrder`]'s arrival order.
     Pad(u8),
 }
 
 impl LocalInputSource {
-    /// The first pad — one controller on a desk, and the couch's player one.
+    /// The first pad: a single desk controller, or couch player one.
     pub const FIRST_PAD: Self = Self::Pad(0);
 
     /// This source's index into the frozen device order, if it is a pad.
@@ -44,9 +43,8 @@ impl LocalInputSource {
 
 /// Which source drives which channel, decided once for a session.
 ///
-/// Position IS the channel: `sources[0]` is what channel 0 listens to. That is
-/// what keeps channels dense without discarding which controller a person is
-/// holding.
+/// Position is the channel: `sources[0]` drives channel 0. This keeps channels
+/// dense and still records which controller each person holds.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LocalChannelPlan {
     sources: Vec<LocalInputSource>,
@@ -55,17 +53,16 @@ pub struct LocalChannelPlan {
 impl LocalChannelPlan {
     /// Build a plan from the sources that will be driven, in channel order.
     ///
-    ///  the caller decides the ORDER, and it is part of the decision: seat
-    /// order is what every existing roster means, and re-sorting by source
-    /// number would silently swap two people's fighters.
+    /// The caller decides the order. Seat order is what rosters mean;
+    /// sorting by source number would swap two people's fighters.
     pub fn from_sources(sources: impl IntoIterator<Item = LocalInputSource>) -> Self {
         Self {
             sources: sources.into_iter().collect(),
         }
     }
 
-    /// How many local channels this plan needs — the GGRS handle count, and the
-    /// number of local participants to seat.
+    /// How many local channels this plan needs: the GGRS handle count and the
+    /// number of local participants.
     pub fn channels(&self) -> usize {
         self.sources.len()
     }
@@ -86,9 +83,8 @@ impl LocalChannelPlan {
 
     /// Which channel this source drives, if it drives one.
     ///
-    ///  answers the FIRST channel holding it. A plan with a repeated source is
-    /// a composition error — see [`Self::repeated_sources`] — and this cannot
-    /// invent an answer for it.
+    /// Returns the first channel that holds it. A repeated source is a
+    /// composition error; see [`Self::repeated_sources`].
     pub fn channel_for_source(&self, source: LocalInputSource) -> Option<ParticipantId> {
         self.sources
             .iter()
@@ -98,12 +94,11 @@ impl LocalChannelPlan {
 
     /// The channel playing on the keyboard, if anybody is.
     ///
-    ///  the plan is the authority on this once one exists, and
-    /// `keyboard_owner_for`'s policy answer is the fallback for a session that
-    /// declared none. The difference is visible in the shipped Smash couch:
-    /// under `JoinToClaim` the policy hands the keyboard to the PRIMARY
-    /// participant unconditionally, so two pad players had player one bound to
-    /// `Entity::PLACEHOLDER` — deaf to the controller in their hands.
+    /// When a plan exists, it is the authority. `keyboard_owner_for`'s policy
+    /// answer is only the fallback for sessions without a plan. Under
+    /// `JoinToClaim` that policy gives the keyboard to the primary participant
+    /// always, so with two pad players player one was bound to
+    /// `Entity::PLACEHOLDER` and ignored their pad.
     pub fn keyboard_channel(&self) -> Option<ParticipantId> {
         self.channel_for_source(LocalInputSource::Keyboard)
     }
@@ -121,10 +116,9 @@ impl LocalChannelPlan {
 
     /// Sources claimed by more than one channel.
     ///
-    /// One controller cannot drive two fighters, and a plan that says it does
-    /// leaves one of them permanently still. Reported rather than silently
-    /// deduplicated: which of the two seats should lose its driver is not a
-    /// question this type can answer.
+    /// One controller cannot drive two fighters; one would never move. This
+    /// reports the fault and does not deduplicate, because this type cannot
+    /// choose which seat loses its driver.
     pub fn repeated_sources(&self) -> Vec<LocalInputSource> {
         let mut seen: Vec<LocalInputSource> = Vec::new();
         let mut repeated: Vec<LocalInputSource> = Vec::new();
@@ -145,9 +139,8 @@ impl LocalChannelPlan {
 mod tests {
     use super::*;
 
-    /// A lobby seats one CPU and one human, and the human is holding the second
-    /// controller. The channel is ZERO — there is one person playing — while the
-    /// source stays pad 1, because that is the pad in their hands.
+    /// A lobby seats one CPU and one human on the second pad. The channel is 0
+    /// (one person plays); the source stays pad 1.
     #[test]
     fn a_sparse_source_still_lands_on_a_dense_channel() {
         let plan = LocalChannelPlan::from_sources([LocalInputSource::Pad(1)]);
@@ -168,7 +161,7 @@ mod tests {
         );
     }
 
-    /// The select screen's own case: three people on pads 0, 1 and 3.
+    /// Three people on pads 0, 1, and 3.
     #[test]
     fn a_hole_in_the_sources_is_not_a_hole_in_the_channels() {
         let plan = LocalChannelPlan::from_sources([0, 1, 3].map(LocalInputSource::Pad));
@@ -185,8 +178,7 @@ mod tests {
         assert_eq!(plan.keyboard_channel(), None, "nobody is playing on keys");
     }
 
-    /// A keyboard player in a seat that is not the first — inexpressible while
-    /// the keyboard was a hole in a numbering.
+    /// A keyboard player in a seat that is not the first.
     #[test]
     fn the_keyboard_is_a_source_a_seat_can_hold() {
         let plan =

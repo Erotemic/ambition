@@ -5,16 +5,15 @@ use bevy::prelude::*;
 
 pub fn boss_anim_state_for(
     boss: crate::BossRef<'_>,
-    // Liveness from the boss's shared body components (§A1). The damage flash
-    // is deliberately NOT an input: the sim cursor this state drives feeds the
-    // boss geometry, and a presentation duration must not move it.
+    // Liveness from the boss's shared body components. The damage flash is
+    // not an input: this state drives the sim cursor that feeds boss
+    // geometry, and a presentation duration must not move it.
     alive: bool,
     attack_state: &ambition_characters::brain::BossAttackState,
     brain: &ambition_characters::brain::Brain,
 ) -> crate::sprites::BossAnimState {
-    // attack_active / attack_windup read the move-derived
-    // BossAttackState read-model instead of mirror fields on BossRuntime.
-    // pattern_timer remains durable brain cursor state; non-BossPattern
+    // attack_active / attack_windup read the move-derived `BossAttackState`
+    // read-model. pattern_timer is durable brain cursor state; non-BossPattern
     // brains (test fixtures) fall back to 0.0.
     let pattern_timer = brain
         .boss_pattern_state()
@@ -70,14 +69,13 @@ pub fn ecs_boss_anim_state_and_entity(
     )
 }
 
-/// Return the currently rendered attack-frame sample for a boss,
-/// but only when the chosen visual row is directly driven by the
-/// boss attack profile.
+/// Return the currently rendered attack-frame sample for a boss, but only
+/// when the chosen visual row is driven by the boss attack profile.
 ///
-/// The death override deliberately returns `None`; geometry callers then
-/// fall back to elapsed-time sampling instead of using a frame from the wrong
-/// visual row. A hit reaction never reaches here: the sim cursor does not
-/// enter the `Hit` row (see `boss_anim_state_for`).
+/// The death override returns `None`, so geometry callers fall back to
+/// elapsed-time sampling and do not use a frame from the wrong row. A hit
+/// reaction never reaches here: the sim cursor does not enter the `Hit` row
+/// (see `boss_anim_state_for`).
 pub fn ecs_boss_animation_frame_sample(
     catalog: &crate::BossCatalog,
     id: &str,
@@ -137,11 +135,10 @@ pub fn ecs_boss_animation_frame_sample(
                     }
                 }
             }
-            // Idle/rest: not driven by any attack profile, but still emit
-            // a sample so the rest-pose hurtbox bobs with the breathing
-            // animation instead of locking to frame 0. The Death row is
-            // deliberately left as `None` — geometry should stay on the
-            // rest-pose shape rather than chase a recoil/death frame.
+            // Idle/rest: not driven by an attack profile, but still emit a
+            // sample, so the rest-pose hurtbox bobs with the breathing
+            // animation. The Death row stays `None`: geometry keeps the
+            // rest-pose shape and does not follow a recoil/death frame.
             if result.is_none() && anim == crate::sprites::BossAnim::Rest {
                 result = Some((
                     entity,
@@ -191,10 +188,9 @@ fn boss_anim_for_attack_profile(
         "side_sweep" | "hand_sweep" | "broadside" => Some(BossAnim::SideSweep),
         "hazard_column" | "dive_lane" => Some(BossAnim::DashEcho),
         "wing_sweep" => None,
-        // `full_body_pulse`, `head_descent`, and every content special fall back
-        // to the spike-halo telegraph anim (a ring of damage around the boss) —
-        // the closest generic visual cue. Covers the former DebrisRain /
-        // MemorizedVolley / LockOnBeam / PitTrap / RotatingCross / MinionCascade.
+        // `full_body_pulse`, `head_descent` and every content special fall
+        // back to the spike-halo telegraph anim (a ring of damage around the
+        // boss), the closest generic visual cue.
         _ => Some(BossAnim::SpikeHalo),
     }
 }
@@ -207,9 +203,9 @@ fn boss_animation_key_for_sample(
     use crate::sprites::BossAnim;
     match (profile.move_id().as_str(), anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
-        // `gnu_shockwave`) but the damageable head/body box should follow
-        // the rendered row. Keep the sample keyed to the visual row so
-        // authored row frames are the source of truth for hurtboxes.
+        // `gnu_shockwave`), but the damageable head/body box follows the
+        // rendered row. Keep the sample keyed to the visual row, so authored
+        // row frames are the source of truth for hurtboxes.
         ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => Some("hand_slam".into()),
         ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep".into()),
         ("head_descent", BossAnim::SpikeHalo) => Some("head_down".into()),

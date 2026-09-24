@@ -20,7 +20,7 @@ fn app_with(display: ae::Vec2, profile: &GameplayPresentationProfile) -> App {
         occlusions: &[],
         control_footprints: ControlFootprints::default(),
     }));
-    // ONE update.
+    // One update.
     app.update();
     app
 }
@@ -95,8 +95,8 @@ fn full_bleed_draws_no_surround() {
     );
 }
 
-/// Switching from fixed aspect to full bleed at runtime tears the surround
-/// down — a stale bar over live gameplay would be worse than never drawing one.
+/// Switching from fixed aspect to full bleed at runtime removes the surround:
+/// a stale bar over live gameplay is worse than none.
 #[test]
 fn leaving_a_fixed_aspect_profile_tears_the_surround_down() {
     let display = ae::Vec2::new(2400.0, 1080.0);

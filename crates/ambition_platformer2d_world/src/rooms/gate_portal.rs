@@ -75,18 +75,9 @@ pub struct GatePortalConfig {
 /// live rollback state lives in [`GatePortalPhases`].
 #[derive(Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct GatePortalRegistry {
-    /// ⛔ SEALED, and that is the point of the refusal below. While this was
-    /// `pub` any crate could `portals.insert(..)` and take a zone from whoever
-    /// held it, so `register` refusing a conflict would have been advice rather
-    /// than a rule. A registry that validates in one function and leaves its map
-    /// open has one authority for the checked road and none for the other.
-    /// ⚠ `BTreeMap`, matching [`GatePortalPhases`] next door and for its stated
-    /// reason: deterministic key order for every reader. It was a `HashMap`, and
-    /// SEALING THE FIELD is what exposed that — the iteration used to happen in
-    /// `ambition_render` and `actor_monolith` through the public map, where the
-    /// workspace determinism policy did not look. Moving the loop into the
-    /// owning crate made a latent rule live, which is the policy working rather
-    /// than the policy being in the way.
+    /// Private, so every claim goes through `try_register` and its conflict
+    /// refusal. `BTreeMap`, like [`GatePortalPhases`], for deterministic key
+    /// order for every reader.
     portals: std::collections::BTreeMap<String, GatePortalConfig>,
 }
 
@@ -111,24 +102,15 @@ impl std::fmt::Display for GatePortalConflict {
 }
 
 impl GatePortalRegistry {
-    /// Claim a loading zone for a portal, REFUSING a conflicting second claim.
+    /// Claim a loading zone for a portal. Refuse a conflicting second claim.
     ///
-    /// ⛔⛔ THIS USED TO BE A BARE `insert`, one of seven registries in the
-    /// 2026-09-02 inventory whose second registration silently overwrote. The
-    /// inventory's ruling is that a silent overwrite must not be anyone's
-    /// accidental default: each of the seven has to say "replace" in place or
-    /// adopt refusal. ⇒ This one refuses, because a loading zone is a place and
-    /// two portals cannot both be there. Re-registering the SAME portal is
-    /// idempotent, so a plugin whose install runs twice is not an error.
+    /// A loading zone is a place, so two portals cannot both hold it. A second
+    /// registration must not silently overwrite. Re-registering the same
+    /// portal is idempotent, so a plugin install that runs twice is not an
+    /// error.
     ///
-    /// ⚠ PREVENTIVE, not a repair: MEASURED 2026-09-05, production has exactly
-    /// ONE caller (`ambition_content`'s intro portal, itself latch-guarded), so
-    /// no conflict is reachable today. What it buys is that the second portal —
-    /// which the open-world roadmap wants — cannot silently unseat the first.
-    ///
-    /// `ambition_registry_core::classify` decides the three cases so this
-    /// registry does not re-answer a question `PlacementLoweringRegistry` next
-    /// door already answers.
+    /// `ambition_registry_core::classify` decides the three cases, the same
+    /// way `PlacementLoweringRegistry` does.
     pub fn try_register(
         &mut self,
         zone_id: impl Into<String>,
@@ -166,10 +148,9 @@ impl GatePortalRegistry {
 
     /// Every registered portal, for the tick and the visuals.
     ///
-    /// ⚠ Key order, deterministically — the map is a `BTreeMap` for that reason.
-    /// Callers should still not DEPEND on the order (`world/rooms/systems.rs`
-    /// states why its tick is indifferent to it); what determinism buys is that
-    /// two runs of the same content iterate identically.
+    /// Key order is deterministic (`BTreeMap`), so two runs of the same content
+    /// iterate identically. Callers must still not depend on the order (see
+    /// `world/rooms/systems.rs`).
     pub fn iter(&self) -> impl Iterator<Item = (&String, &GatePortalConfig)> {
         self.portals.iter()
     }
@@ -378,18 +359,16 @@ mod tests {
         assert!(!GatePortalPhase::Closing { elapsed: 0.0 }.allows_traversal());
     }
 
-    ///  the phase is not recoverable from the switch — which is the whole
-    /// argument for [`GatePortalPhases`] being rollback state.
+    /// The phase is not recoverable from the switch, so [`GatePortalPhases`]
+    /// must be rollback state.
     ///
-    /// Two timelines that agree exactly on the switch (on, the entire time) but
-    /// disagree on how many ticks the portal has already been opening give
-    /// DIFFERENT traversal verdicts on the same frame. A rewind that restored
-    /// `AmbitionGameSave` (where the switch lives, and which IS registered) and
-    /// left the phase alone reproduces exactly this disagreement — six ticks of
-    /// divergence is well inside an ordinary rollback depth.
+    /// Two timelines agree on the switch (on the whole time) but differ in how
+    /// many ticks the portal has been opening. They give different traversal
+    /// verdicts on the same frame. A rewind that restores `AmbitionGameSave`
+    /// (where the switch lives) but not the phase gives this disagreement.
     ///
-    ///  both terms are observed: the test fails if the ahead timeline is NOT
-    /// traversable, and fails if the behind timeline IS.
+    /// The test fails if the ahead timeline is not traversable, and fails if
+    /// the behind timeline is.
     #[test]
     fn the_phase_is_not_a_function_of_the_switch_alone() {
         let dt = 1.0 / 60.0;
@@ -413,10 +392,9 @@ mod tests {
         );
     }
 
-    /// The phase machine has no terminal state and reverses through the SAME
-    /// visual progress, so "it will settle anyway" is not a defence: the two
-    /// timelines above stay apart for as long as the switch keeps commanding
-    /// the same thing, and they disagree about traversal the entire time.
+    /// The phase machine has no terminal state and reverses through the same
+    /// visual progress, so the timelines do not converge: they disagree about
+    /// traversal for as long as the switch commands the same thing.
     #[test]
     fn a_reversed_phase_keeps_the_divergence_rather_than_collapsing_it() {
         let mut ahead = GatePortalPhase::Opening {
@@ -448,14 +426,12 @@ mod tests {
         phases
     }
 
-    ///  a presence-only projection would agree with the bug. The registration
-    /// this backs exists because an `elapsed` timer ran ahead of the switch that
-    /// drove it, and every zone stayed present the whole time.
+    /// A presence-only projection would miss the case this guards: an
+    /// `elapsed` timer that diverges while every zone stays present.
     ///
-    ///  both terms are observed: identical states must AGREE, and a one-tick
-    /// difference in `elapsed` — plus a variant change carrying no payload at all
-    /// — must DISAGREE. A projection that hashed only the key set passes the
-    /// first assertion and fails the rest.
+    /// Identical states must agree. A one-tick difference in `elapsed`, and a
+    /// variant change with no payload, must disagree. A projection that hashes
+    /// only the key set passes the first assertion and fails the rest.
     #[test]
     fn the_phase_projection_sees_the_elapsed_timer_and_the_variant() {
         let dt = 1.0 / 60.0;
@@ -530,9 +506,8 @@ mod tests {
 
     /// A registrar that records what it was handed, and nothing else.
     ///
-    /// It has no rollback backend and no `App` — which is the point: the
-    /// registration this domain performs is expressible against the floor
-    /// vocabulary alone, so a test in THIS crate can watch it happen.
+    /// It has no rollback backend and no `App`: the registration uses only the
+    /// floor vocabulary, so a test in this crate can observe it.
     #[derive(Default)]
     struct CapturingRegistrar {
         calls: Vec<(&'static str, &'static str, &'static str, &'static str)>,
@@ -557,16 +532,15 @@ mod tests {
         }
     }
 
-    ///  the registration must hand over the VALUE projection, not a
-    /// presence probe. `the_phase_projection_sees_the_elapsed_timer_and_the_variant`
-    /// proves the projection is value-sensitive; it says nothing about whether the
-    /// registration actually uses it. This closes that gap from the domain side —
-    /// the function under test is the whole registration, and the checksum it
-    /// registered is pulled back out and fed diverging states.
+    /// The registration must hand over the value projection, not a presence
+    /// probe. `the_phase_projection_sees_the_elapsed_timer_and_the_variant`
+    /// proves the projection is value-sensitive; this test proves the
+    /// registration uses it. It pulls the registered checksum back out and
+    /// feeds it diverging states.
     ///
-    ///  both terms are observed: the call is asserted to have happened at all (an empty
-    /// `calls` fails), AND the registered function is asserted to separate two states that
-    /// differ only in `elapsed`.
+    /// Asserts that the call happened (an empty `calls` fails) and that the
+    /// registered function separates two states that differ only in
+    /// `elapsed`.
     #[test]
     fn the_domain_registers_its_own_phase_state_with_the_value_projection() {
         let mut registrar = CapturingRegistrar::default();
@@ -628,8 +602,8 @@ mod gate_portal_registry_tests {
         (switch, "portal_sprite", "ring_sprite")
     }
 
-    /// ⭐ THE THREE ANSWERS, one test each, because they are three different
-    /// decisions and a single "it works" arm would only exercise the first.
+    /// The three answers, one test each, because they are three different
+    /// decisions.
     #[test]
     fn a_fresh_zone_is_inserted() {
         let mut registry = GatePortalRegistry::default();
@@ -653,9 +627,8 @@ mod gate_portal_registry_tests {
         );
     }
 
-    /// ⛔⛔ THE ONE THAT USED TO BE SILENT. A bare `insert` accepted this and the
-    /// first portal simply stopped existing, with no error and no log — the
-    /// behaviour the 2026-09-02 registry inventory found in seven registries.
+    /// A conflicting claim is refused. A bare `insert` would silently drop the
+    /// first portal.
     #[test]
     fn a_different_portal_may_not_take_a_zone_that_is_already_claimed() {
         let mut registry = GatePortalRegistry::default();
@@ -668,10 +641,8 @@ mod gate_portal_registry_tests {
         assert_eq!(refused.existing.switch_id, "gate_switch");
         assert_eq!(refused.incoming.switch_id, "other_switch");
 
-        // ⚠ AND THE REGISTRY IS UNCHANGED. A refusal that had already mutated
-        // would be an overwrite wearing an error's clothes -- the fourth of the
-        // inventory's four protocol questions, and the one a caller cannot check
-        // for itself.
+        // The registry is unchanged. A refusal that had already mutated would
+        // be an overwrite, and a caller cannot check for that.
         assert!(registry
             .iter()
             .any(|(zone, held)| zone == "cove_gate" && held.switch_id == "gate_switch"));

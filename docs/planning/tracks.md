@@ -259,11 +259,15 @@ Do not promote these until the trigger exists:
   from an independent package boundary.
 - **Body-generic NPC economy/world interaction:** NPC agency or multiplayer
   currency pressure.
-- ✅ **Dormant `GravityFlipSwitch` cluster — RULED AND DELETED 2026-09-19.**
-  `Q137` kept gravity switching and retired the unreachable overlap plate; the
-  component, its system, both rollback registrations, the view facts, the
-  visual and the exit-oracle row went together. A later pressure plate is an
-  INPUT into `BaseGravity`, not a revived parallel implementation.
+- **Gravity pressure plate:** a real authored customer. `GravityFlipSwitch` was
+  deleted under `Q137` (2026-09-19); a new plate is an input into
+  `BaseGravity`, not a second implementation.
+- **Route-keyed music inside one experience:** a product need for, for example,
+  a stage theme and a winner-card theme. Declare them as two frontend-audio
+  routes (`FrontendAudioProfile`, `FrontendAudioRegistry` in
+  `crates/ambition_audio/src/selection.rs`) instead of a process-global music
+  switch through `MusicDirectorState`. `provider` and `experience` share string
+  vocabulary by maintainer decision; do not start a rename from this item.
 - **Dormant `GatePortalRegistry` cluster:** a real authored gate-portal customer
   or maintainer decision that the feature is dead. Revalidate production
   producers and rollback-schema consequences before deletion.

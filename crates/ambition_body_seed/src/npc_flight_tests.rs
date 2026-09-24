@@ -253,3 +253,65 @@ fn preparation_resolves_silence_and_only_an_unprepared_character_reaches_the_cat
         "as is a placement that names no character"
     );
 }
+
+/// A character that authors a sprite body but no locomotion takes the peaceful
+/// road (it has no blueprint), and is still sized from its sheet: the same
+/// `posed_body_geometry(Idle)` the pose pass asks, not the catalog join. The
+/// Hall of Characters' `mary_o` is this case; the catalog join built her at
+/// 32x48 and the pose pass stood her at 21.3x32 a tick later.
+#[test]
+fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
+    const SHEET: &str = "robot";
+    const WORLD_PER_PIXEL: f32 = 0.5;
+    let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
+        "npc_test_flyer",
+        "Test Flyer",
+        "test",
+    )
+    .with_sheet(SHEET);
+    definition.body = Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
+        world_per_pixel: WORLD_PER_PIXEL,
+    });
+    let finalized = ambition_characters::prepared::prepare_and_finalize_for_test(
+        definition,
+        &ambition_characters::prepared::CharacterBindings::default(),
+    );
+    let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    registry.insert_prepared(finalized.prepared);
+    assert!(
+        registry.get("npc_test_flyer").unwrap().body_blueprint().is_err(),
+        "the premise: no blueprint, so this is the peaceful road's own sizing"
+    );
+    let from_the_sheet = ambition_sprite_sheet::character::sheets::posed_body_geometry(
+        SHEET,
+        ambition_sprite_sheet::character::CharacterAnim::Idle,
+        WORLD_PER_PIXEL,
+    )
+    .expect("the baked `robot` sheet resolves a posed body");
+    let placement = ae::Vec2::new(32.0, 48.0);
+    assert!(
+        from_the_sheet.collision.distance(placement) > 1.0,
+        "the sheet's box equals the placement's, so this cannot tell them apart"
+    );
+
+    let interactable = npc_at(Some("npc_test_flyer"));
+    let (seed, render) = ActorClusterSeed::new_peaceful_npc_in(
+        &Default::default(),
+        &CharacterCatalog::empty(),
+        Some(&registry),
+        "flyer",
+        "Flyer",
+        ae::Aabb::new(ae::Vec2::new(100.0, 100.0), placement * 0.5),
+        &interactable,
+        &[],
+    );
+    assert_eq!(
+        seed.kin.size, from_the_sheet.collision,
+        "the peaceful seed was built at a box the pose pass will resize"
+    );
+    assert_eq!(render, Some(from_the_sheet.render), "the quad is the sheet's too");
+    assert_eq!(seed.posed, Some(from_the_sheet));
+
+    // The control: the same placement naming no character keeps its own box.
+    assert_eq!(seed_for(None, None).kin.size, ae::Vec2::new(32.0, 48.0));
+}

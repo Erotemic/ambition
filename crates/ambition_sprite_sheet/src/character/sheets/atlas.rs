@@ -1,19 +1,17 @@
 //! Character-sheet atlas accessors.
 //!
-//! Every pixel query — which page a frame lives on, the page's atlas cells, the
-//! page-local flat index, the per-frame trim — delegates to the shared
-//! [`ambition_sprite_sheet`] frame algebra on the underlying [`SheetRecord`].
-//! This file only maps the typed [`CharacterAnim`] (with its
-//! `LedgeClimb→LedgeGrab`, unknown→`Idle` fallbacks) onto a `record.rows` index
-//! and then calls that one implementation.
+//! Every pixel query (frame page, page atlas cells, page-local flat index,
+//! per-frame trim) delegates to the shared frame algebra on the underlying
+//! [`SheetRecord`]. This file only maps the typed [`CharacterAnim`] (with the
+//! `LedgeClimb→LedgeGrab` and unknown→`Idle` fallbacks) to a `record.rows`
+//! index.
 
 use super::*;
 use bevy::image::TextureAtlasLayout;
 
 /// Turn an [`AtlasPage`] (the shared algebra's page cells) into a Bevy
-/// [`TextureAtlasLayout`]. The only place the frame algebra meets Bevy's render
-/// type; every reader — character, boss, prop/effect — funnels through here so
-/// the record→layout step exists once.
+/// [`TextureAtlasLayout`]. This is the only place the frame algebra meets
+/// Bevy's render type; every reader (character, boss, prop/effect) uses it.
 pub fn build_atlas_layout(page: &AtlasPage) -> TextureAtlasLayout {
     let extent = page.extent.max(UVec2::ONE);
     let mut layout = TextureAtlasLayout::new_empty(extent);
@@ -45,12 +43,11 @@ impl CharacterSheetSpec {
     }
 
     pub fn resolve_anim(&self, anim: CharacterAnim) -> CharacterAnim {
-        // Render the most-specific pose in THIS actor's anim set — the rows the
-        // sprite generator wrote into the manifest ([`Self::maps`]). Walk the
-        // structural pose taxonomy toward the base until the sheet has a row for
-        // it; `Idle` (guaranteed present) is the floor. So a body can be driven
-        // into any state by its brain and the sheet decides how richly it reads,
-        // without ever snapping to `Idle` for a pose it has a relative of.
+        // Draw the most specific pose in this actor's anim set (the rows in
+        // the manifest, [`Self::maps`]). Walk the pose taxonomy toward the base
+        // until the sheet has a row; `Idle` is always present. So the sheet
+        // decides how richly a state reads, and never snaps to `Idle` for a
+        // pose that has a relative.
         let mut cur = anim;
         loop {
             if self.maps(cur) {
@@ -75,13 +72,10 @@ impl CharacterSheetSpec {
     /// How long one pass of `anim` takes to draw, in the clock the animator
     /// is ticked by ([`super::super::animator::CharacterAnimator::tick`]).
     ///
-    /// Resolved through the sheet's anim set exactly like the drawing is, so
-    /// this is the length of the clip that will ACTUALLY play — a sheet that
-    /// falls back from `Transform` to a 1-frame `Idle` answers with the idle's
-    /// length, not the length of art it doesn't have. The question a caller is
-    /// asking is "how long must I hold this pose for the audience to see all of
-    /// it", and a hand-authored duplicate of the generator's frame table is the
-    /// wrong answer to it: the art moves and the number doesn't.
+    /// Resolved through the anim set like the drawing, so this is the length
+    /// of the clip that plays. A sheet that falls back from `Transform` to a
+    /// 1-frame `Idle` gives the idle's length. Use this, not a hand-copied
+    /// frame table, to hold a pose long enough to be seen.
     pub fn clip_seconds(&self, anim: CharacterAnim) -> f32 {
         let row = self.row(anim);
         row.frame_count as f32 * row.duration_secs
@@ -92,9 +86,9 @@ impl CharacterSheetSpec {
         self.record.page_count()
     }
 
-    /// The pages this sheet's frames actually draw from — a sparse subset of
-    /// `0..page_count()` for a target inside a shared pack. Loaders want this,
-    /// not the count: see [`SheetRecord::used_pages`].
+    /// The pages this sheet's frames draw from: a sparse subset of
+    /// `0..page_count()` for a target in a shared pack. Loaders need this, not
+    /// the count (see [`SheetRecord::used_pages`]).
     pub fn used_pages(&self) -> std::collections::BTreeSet<u32> {
         self.record.used_pages()
     }
@@ -122,16 +116,14 @@ impl CharacterSheetSpec {
         self.record.flat_index_in_page(self.record_row(anim), frame)
     }
 
-    /// The row slot an authored CLIP CHAIN resolves to on this sheet.
+    /// The row slot an authored clip chain resolves to on this sheet.
     ///
-    /// the row-keyed half of the drawing path (sprite redirect P0). Every lookup above is
-    /// keyed by [`CharacterAnim`], a 56-variant vocabulary — and the new fighter sheets carry
-    /// rows it has no variant for at all: `smash_forward`, `air_dodge`, `tumble`, `knockdown`,
-    /// `tech_roll`.
+    /// The lookups above use [`CharacterAnim`], and fighter sheets have rows
+    /// with no variant (`smash_forward`, `air_dodge`, `tumble`, `knockdown`,
+    /// `tech_roll`). This is the row-keyed path.
     ///
-    /// `CharacterAnim` is not replaced. It stays the semantic body-state
-    /// vocabulary and the structural fallback: a caller asks for a clip, and when
-    /// the sheet has none of the chain it asks for a pose instead.
+    /// `CharacterAnim` stays the body-state vocabulary and the fallback: when
+    /// the sheet has none of the chain, the caller asks for a pose.
     pub fn clip_slot<'a>(&self, chain: impl IntoIterator<Item = &'a str>) -> Option<usize> {
         self.record.first_bound_row(chain).map(|bound| bound.slot())
     }
@@ -152,16 +144,15 @@ impl CharacterSheetSpec {
 
     /// Trim geometry for a slot resolved by [`Self::clip_slot`].
     ///
-    /// the row-keyed twin of [`Self::frame_trim`], and its absence was a live defect.
-    /// `CharacterAnimator::current_render` had only the [`CharacterAnim`]-keyed form, so while an
-    /// authored CLIP was playing it drew the clip's atlas cell (via [`Self::flat_index_at`]) at the
-    /// size and anchor of whatever SEMANTIC pose `current` still held.
+    /// The row-keyed form of [`Self::frame_trim`]. While an authored clip
+    /// plays, the renderer must use the clip's trim, not the trim of the
+    /// semantic pose that `current` still holds.
     pub fn frame_trim_at(&self, slot: usize, frame: usize) -> FrameTrim {
         self.record.frame_trim(slot, frame)
     }
 
-    /// Which page image a clip slot's frame draws from — the row-keyed twin of
-    /// [`Self::page_of`], for the same reason.
+    /// Which page image a clip slot's frame draws from: the row-keyed form of
+    /// [`Self::page_of`].
     pub fn page_of_at(&self, slot: usize, frame: usize) -> u32 {
         self.record.frame_page_of(slot, frame)
     }

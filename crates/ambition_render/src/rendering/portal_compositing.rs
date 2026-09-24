@@ -1,59 +1,45 @@
 //! Publish the drawables a portal pane may have to composite against.
 //!
-//! ⛔⛔ THE PORTAL PRESENTATION CRATE CANNOT SEE ORDINARY ACTORS. Its body seams
-//! are `PortalSceneBody` (ONE entity — whose sprite is decomposed at the seam)
-//! and `PortalAffordanceBody` (whoever operates the portals). An NPC standing
-//! behind an aperture is neither, so that crate had no way to know it exists —
-//! while THIS crate drew it at `WORLD_Z_DUMMY + 1.0`, above every pane. A
-//! far-side actor punching through a seamless window (Jon, 2026-09-05) is
-//! invisible from the side that would have to fix it.
+//! The portal presentation crate cannot see ordinary actors. Its body seams
+//! are `PortalSceneBody` (one entity, decomposed at the seam) and
+//! `PortalAffordanceBody` (whoever operates the portals). An NPC behind an
+//! aperture is neither, but this crate draws it at `WORLD_Z_DUMMY + 1.0`,
+//! above every pane, so a far-side actor would show through a seamless
+//! window.
 //!
-//! ⭐ THE HOST PUBLISHES THE FACT, which is the same shape as every other seam
-//! that crate exposes: it does not reach into this one, and this one does not
-//! learn what a pane is.
+//! So the host publishes the fact, like every other seam that crate exposes.
+//! That crate does not reach into this one, and this one does not learn what
+//! a pane is.
 
 use bevy::prelude::*;
 
-/// Publish each drawn actor sprite as a compositing candidate, in ENGINE
+/// Publish each drawn actor sprite as a compositing candidate, in engine
 /// coordinates.
 ///
-/// ⚠ DRAWN BOUNDS, NOT THE COLLISION BOX. `Sprite::custom_size` is what actually
-/// paints; the collision footprint is routinely smaller, and the difference IS
-/// the overhang that punches through the window. Publishing the box would build
-/// a report that misses the finding it exists for.
+/// Use drawn bounds, not the collision box. `Sprite::custom_size` is what
+/// paints; the collision box is often smaller, and the overhang is what shows
+/// through the window.
 ///
-/// ⚠ SPRITES WITH NO `custom_size` ARE SKIPPED rather than guessed at. A sprite
-/// sized by its texture has bounds this system cannot know without the atlas,
-/// and inventing one would put a confident wrong rectangle into a diagnostic
-/// whose whole job is to be trusted.
+/// Sprites with no `custom_size` are skipped. A texture-sized sprite's bounds
+/// are unknown here without the atlas, and a guessed rectangle would make the
+/// result untrustworthy.
 pub fn publish_portal_compositing_candidates(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    // ⛔⛔ THE PLAYER IS NOT A `FeatureVisual`. This query was `With<FeatureVisual>`
-    // alone, and the exploration player is spawned with `PlayerVisual`
-    // (`session/setup.rs`), so a far-side PLAYER never became a candidate and
-    // kept punching through the pane -- the exact case the compositor exists for,
-    // excluded at the door. Found by a GPT review 2026-09-05.
+    // Both `FeatureVisual` and `PlayerVisual`: the exploration player is
+    // spawned with `PlayerVisual` (`session/setup.rs`), not `FeatureVisual`.
     //
-    // ⚠ The crate-level test that claimed this case CONSTRUCTS its own candidate,
-    // so it proved the compositor is z-independent and could never witness a
-    // population it was never given.
-    // ⛔⛔ THE LOCAL `Transform`, NOT `GlobalTransform`, AND THAT IS THE WHOLE
-    // POINT. Transform propagation runs in `PostUpdate`, so a `GlobalTransform`
-    // read during `Update` still describes the PREVIOUS frame -- while
-    // `actors::sync_visuals` has already written this frame's local `Transform`
-    // earlier in this same run. Publishing a candidate that mixed this frame's
-    // `Sprite` with last frame's pose made the compositor subtract a region the
-    // body had already left, so pieces lagged and re-revealed pixels the pane
-    // should hide. Found by a GPT review 2026-09-05.
+    // Read the local `Transform`, not `GlobalTransform`. Propagation runs in
+    // `PostUpdate`, so during `Update` a `GlobalTransform` is last frame's
+    // pose, while `actors::sync_visuals` has already written this frame's
+    // `Transform`. Mixing them makes the compositor subtract a region the body
+    // already left.
     //
-    // ⚠ THE SUBSTITUTION IS ONLY SOUND BECAUSE THESE SPRITES ARE UNPARENTED --
-    // actor and feature visuals are spawned as top-level world-space entities,
-    // so local IS world. `Without<ChildOf>` states that as a requirement rather
-    // than an assumption: a parented drawable would need the propagated pose and
-    // must not be silently published with a local one.
+    // This is sound only because these sprites are unparented (top-level
+    // world-space entities), so local is world. `Without<ChildOf>` enforces
+    // it: a parented drawable would need the propagated pose.
     drawables: Query<
         (
             Entity,
@@ -67,29 +53,22 @@ pub fn publish_portal_compositing_candidates(
             Or<(
                 With<crate::rendering::primitives::FeatureVisual>,
                 With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
-                // ⛔⛔ A BODY'S OTHER REPRESENTATIONS DRAW TOO, and the base
-                // markers do not find them. While a player is MORPHED its
-                // `PlayerVisual` sprite is hidden and the ball IS the player --
-                // a separate root at `WORLD_Z_PLAYER + 0.05` = 20.05, far above
-                // the portal band pinned at or below `WORLD_Z_DUMMY` = 10. It
-                // therefore drew straight over a pane while the hidden base
-                // sprite was the only thing this publisher could see.
-                // ⇒ `PresentationOf` is how such a drawable says whose body it
-                // draws, so asking for it here is asking the question the
-                // compositor could not previously form. Raised by a GPT review
-                // 2026-09-06.
+                // A body's other representations draw too. While a player is
+                // morphed, its `PlayerVisual` sprite is hidden and the ball is the
+                // player: a separate root at `WORLD_Z_PLAYER + 0.05` (20.05), above
+                // the portal band (at or below `WORLD_Z_DUMMY`, 10).
+                // `PresentationOf` says whose body such a drawable draws.
                 With<ambition_platformer2d_shared_tangle::lifecycle::PresentationOf>,
             )>,
             Without<bevy::prelude::ChildOf>,
         ),
     >,
-    // ⭐⭐ THE NON-SPRITE POPULATION. A body-owned `Mesh2d` that DECLARES what it
+    // Non-sprite drawables. A body-owned `Mesh2d` that declares what it
     // paints (`DeclaredFrame`) is published from that declaration and its
-    // transform, so the compositor can clip it like a sprite. The hit-flash
-    // silhouette is the first; before this it could only be hidden wholesale.
-    // `Without<Sprite>` keeps the two populations disjoint, so a drawable is
-    // published exactly once: a sprite that ALSO declares goes through the
-    // sprite arm, and the compositor prefers its declaration when it paints.
+    // transform, so the compositor can clip it like a sprite (for example
+    // the hit-flash silhouette). `Without<Sprite>` keeps the two queries
+    // disjoint, so each drawable is published once; a sprite that also
+    // declares goes through the sprite arm.
     declared: Query<
         (
             Entity,
@@ -105,9 +84,8 @@ pub fn publish_portal_compositing_candidates(
         ),
     >,
 ) {
-    // ⚠ `SessionWorldRef` is a `Single`, so this system simply does not run
-    // without a session world -- which is the honest behaviour: there is no
-    // coordinate frame to publish engine positions in.
+    // `SessionWorldRef` is a `Single`, so this system does not run without a
+    // session world. There is then no frame to publish engine positions in.
     let size = world.0.size;
     for (entity, frame, transform, visibility, portal_hid_it) in &declared {
         if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
@@ -118,19 +96,14 @@ pub fn publish_portal_compositing_candidates(
             .insert(candidate_for(size, transform, frame.anchor, frame.size));
     }
     for (entity, sprite, transform, anchor, visibility, portal_hid_it) in &drawables {
-        // ⛔⛔ A DRAWABLE NOBODY IS DRAWING IS NOT A CANDIDATE. Publication took
-        // no account of visibility, so while a player was MORPHED its hidden base
-        // sprite still produced far-side pieces -- the wrong representation
-        // clipped against the pane while the ball, the one actually drawing, was
-        // composited too. A GPT review found the pair 2026-09-06.
+        // A drawable that nothing draws is not a candidate. For example, a
+        // morphed player's hidden base sprite must not produce far-side pieces
+        // while the ball draws.
         //
-        // ⚠ EXCEPT WHEN THE PORTAL IS THE ONE HIDING IT, which is the whole
-        // subtlety: a far-side body is Hidden BECAUSE it has been replaced by
-        // clipped pieces. Skipping it on that basis would drop its candidate, the
-        // compositor would give the body back, and the next frame would hide it
-        // again -- a flicker built out of two correct rules disagreeing.
-        // ⇒ The question is not "is it hidden" but "is somebody OTHER than the
-        // portal hiding it".
+        // Except when the portal hides it: a far-side body is `Hidden` because
+        // clipped pieces replace it. Dropping its candidate would make the
+        // compositor show the body again, then hide it next frame, and flicker.
+        // The question is whether something other than the portal hides it.
         if matches!(visibility, Visibility::Hidden) && portal_hid_it.is_none() {
             continue;
         }
@@ -149,17 +122,12 @@ pub fn publish_portal_compositing_candidates(
 /// The compositing candidate for a drawable posed by `transform`, pivoting on
 /// `anchor`, painting a `drawn`-sized quad before scale.
 ///
-/// ⛔⛔ A SPRITE PIVOTS ON ITS ANCHOR; A QUAD IS CENTRE-ORIGIN. Character
-/// sprites are FEET-anchored (`feet_anchor_for_render_size`), so the
-/// drawn rectangle's centre is nowhere near the transform translation --
-/// it is most of a body-height above it. Publishing the translation as
-/// the centre handed the compositor a rectangle offset by that much, and
-/// it then subtracted the wrong region.
+/// A sprite pivots on its anchor; a quad is centre-origin. Character sprites
+/// are feet-anchored (`feet_anchor_for_render_size`), so the drawn centre is
+/// most of a body height above the translation.
 ///
-/// ⭐ Derived by the SAME helper the compositor uses to place its pieces,
-/// rather than a second copy of the rule here. If these two ever disagreed
-/// about where a sprite is, the subtracted region and the drawn region
-/// would differ -- which is the whole defect, one layer down.
+/// Uses the same helper the compositor uses to place its pieces, so the
+/// subtracted region and the drawn region always agree.
 fn candidate_for(
     size: ambition_platformer2d_core::Vec2,
     transform: &Transform,
@@ -168,35 +136,28 @@ fn candidate_for(
 ) -> ambition_portal2d_presentation::PortalCompositingCandidate {
     let posed = ambition_portal2d_presentation::clip_piece_transform(transform, anchor, drawn);
     let bevy_centre = posed.translation.truncate();
-    // ⭐ The ONE definition of the y-flip, called rather than repeated.
+    // The single definition of the y-flip.
     let centre = ambition_platformer2d_core::config::bevy_size_to_world(size, bevy_centre);
     ambition_portal2d_presentation::PortalCompositingCandidate {
         drawn_centre: centre,
-        // ⚠ A y-flip moves a CENTRE, never a size -- but SCALE does
-        // change a size, and `clip_piece_transform` folds the sprite
-        // scale into the quad it poses, so the half-extent reads it back
-        // from there rather than from `custom_size` alone.
+        // A y-flip moves a centre, not a size. Scale does change a size, and
+        // `clip_piece_transform` folds the sprite scale into the posed quad,
+        // so the half-extent is read from there.
         //
-        // ⛔ AND ROTATION CHANGES IT TOO. The candidate is a world-space
-        // AABB; a ROTATED non-square sprite does not occupy its
-        // unrotated rectangle, so publishing the scaled half-extents
-        // under-reported the region for any rolled body (`ActorRoll` --
-        // an aerial/gravity roll is ordinary, not exotic) and the pane
-        // then failed to subtract the corners that actually overhang it.
+        // Rotation changes it too. The candidate is a world-space AABB, and a
+        // rotated non-square sprite (for example `ActorRoll`) overhangs its
+        // unrotated rectangle at the corners.
         drawn_half: rotated_half_extent(posed.scale.truncate().abs() * 0.5, posed.rotation),
     }
 }
 
 /// World-space AABB half-extent of a rectangle rotated about its own centre.
 ///
-/// ⭐ THE STANDARD ABSOLUTE-ROTATION FORM, not a corner sweep: for a rotation of
-/// θ the extents are `|cos|*hx + |sin|*hy` and `|sin|*hx + |cos|*hy`. It is
-/// exact for every angle, and reduces to the identity at θ = 0 so an unrotated
-/// sprite publishes precisely what it did before this existed.
+/// The standard absolute-rotation form: for rotation θ the extents are
+/// `|cos|*hx + |sin|*hy` and `|sin|*hx + |cos|*hy`. Exact at every angle, and
+/// the identity at θ = 0.
 ///
-/// ⚠ Only the Z rotation is meaningful here — these are 2D world sprites, and a
-/// quad rolled out of the XY plane is not something this projection can describe
-/// honestly.
+/// Only the Z rotation is meaningful: these are 2D world sprites.
 fn rotated_half_extent(half: Vec2, rotation: Quat) -> Vec2 {
     let (axis_z, angle) = {
         let (axis, angle) = rotation.to_axis_angle();
@@ -242,13 +203,10 @@ mod tests {
         sprite
     }
 
-    /// ⛔⛔ THE HIDDEN BASE SPRITE OF A MORPHED PLAYER MUST NOT BE COMPOSITED.
+    /// The hidden base sprite of a morphed player must not be composited.
     ///
     /// While morphed, `sync_morph_ball_visual` hides the base `PlayerVisual` and
-    /// the ball draws instead. Publication took no account of visibility, so the
-    /// hidden sprite still became a candidate and produced far-side pieces: the
-    /// WRONG representation clipped against the pane, while the ball -- the one
-    /// actually drawing -- was composited as well. A GPT review found the pair.
+    /// the ball draws instead. The hidden sprite must not produce far-side pieces.
     #[test]
     fn a_drawable_hidden_by_someone_else_is_not_composited() {
         let mut app = app();
@@ -270,13 +228,11 @@ mod tests {
         );
     }
 
-    /// ⭐ THE OTHER HALF, AND THE REASON THE RULE IS NOT "SKIP HIDDEN".
+    /// The other half, and why the rule is not "skip hidden".
     ///
-    /// A far-side body is `Hidden` precisely BECAUSE the compositor replaced it
-    /// with clipped pieces. Dropping its candidate on that basis would make the
-    /// compositor give the body back, hide it again next frame, and flicker --
-    /// two correct rules disagreeing. The question is whether somebody OTHER
-    /// than the portal is hiding it.
+    /// A far-side body is `Hidden` because the compositor replaced it with
+    /// clipped pieces. Dropping its candidate would make it flicker. The question
+    /// is whether something other than the portal hides it.
     #[test]
     fn a_body_the_portal_itself_hid_keeps_publishing() {
         use ambition_portal2d_presentation::PortalSourceHidden;
@@ -301,20 +257,13 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A MORPHED PLAYER'S BALL IS THE PLAYER, and it was invisible to this
-    /// publisher.
+    /// A morphed player's ball is the player, so it must be published.
     ///
-    /// While morphed the base `PlayerVisual` sprite is HIDDEN and
-    /// `MorphBallVisual` draws instead — a separate root at
-    /// `WORLD_Z_PLAYER + 0.05` = 20.05, far above the portal band this crate
-    /// pins at or below `WORLD_Z_DUMMY` = 10. The publisher's population was
-    /// `FeatureVisual OR PlayerVisual`, so the only thing it could see was the
-    /// hidden sprite, and the ball drew straight over any pane it stood behind.
-    ///
-    /// ⭐ IT IS NOT A PORTAL SPECIAL CASE FOR BALLS. The ball says whose body it
-    /// draws (`PresentationOf`), and this publisher asks that question — so the
-    /// next overlay that declares an owner is composited without touching this
-    /// file. Raised by a GPT review 2026-09-06.
+    /// While morphed, the base sprite is hidden and `MorphBallVisual` draws at
+    /// `WORLD_Z_PLAYER + 0.05` (20.05), above the portal band (at or below
+    /// `WORLD_Z_DUMMY`, 10). The ball declares its body with `PresentationOf`, and
+    /// the publisher reads that, so any overlay that declares an owner is
+    /// composited without changes here.
     #[test]
     fn a_drawable_that_names_its_body_is_published_even_without_the_base_markers() {
         use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
@@ -325,8 +274,8 @@ mod tests {
             .world_mut()
             .spawn((PlayerVisual, sprite(Vec2::new(24.0, 24.0)), Transform::default()))
             .id();
-        // Its OTHER representation: no `PlayerVisual`, no `FeatureVisual`, and
-        // the only thing actually drawing.
+        // Its other representation: no `PlayerVisual`, no `FeatureVisual`, and
+        // the only thing drawing.
         let ball = app
             .world_mut()
             .spawn((
@@ -348,10 +297,9 @@ mod tests {
         );
     }
 
-    /// ⭐⭐ A NON-SPRITE DRAWABLE THAT DECLARES ITS FRAME IS PUBLISHED FROM THE
-    /// DECLARATION. A unit quad scaled to 48x48 by its transform, the hit-flash
-    /// overlay's shape, publishes a 24x24 half-extent -- so the compositor can
-    /// classify it rather than the resolver hiding it wholesale.
+    /// A non-sprite drawable that declares its frame is published from the
+    /// declaration. A unit quad scaled to 48x48 (the hit-flash overlay's shape)
+    /// publishes a 24x24 half-extent, so the compositor can classify it.
     #[test]
     fn a_declared_non_sprite_drawable_is_published_from_its_declaration() {
         use ambition_platformer2d_shared_tangle::lifecycle::PresentationOf;
@@ -386,19 +334,15 @@ mod tests {
         assert_eq!(published.drawn_half, Vec2::new(24.0, 24.0));
     }
 
-    /// ⛔⛔ THE POSE MUST BE THIS FRAME'S, and the two components are made to
-    /// DISAGREE here on purpose.
+    /// The pose must be this frame's. The two components disagree here on purpose.
     ///
-    /// In production they always disagree at this moment: transform propagation
-    /// runs in `PostUpdate`, so during `Update` a `GlobalTransform` still holds
-    /// the previous frame's pose while `sync_visuals` has already written the
-    /// current one to the local `Transform`. Every earlier bridge test seeded
-    /// the two IDENTICALLY, which removed exactly the failure from the fixture --
-    /// so the publisher could read the stale one and stay green.
+    /// In production they disagree at this point: propagation runs in
+    /// `PostUpdate`, so during `Update` a `GlobalTransform` is last frame's pose
+    /// and `sync_visuals` has written the current `Transform`. A fixture that
+    /// seeds both the same would hide the failure.
     ///
-    /// ⚠ The gap is deliberately large (200 world units) so the assertion cannot
-    /// be satisfied by rounding: a stale read lands at the OLD centre, and there
-    /// is no interpretation under which that is "close enough".
+    /// The gap is large (200 world units), so rounding cannot satisfy the
+    /// assertion.
     #[test]
     fn the_candidate_uses_this_frames_transform_not_last_frames_global() {
         let mut app = app();
@@ -431,12 +375,11 @@ mod tests {
         );
     }
 
-    /// A rotated NON-SQUARE sprite does not occupy its unrotated rectangle.
+    /// A rotated non-square sprite does not occupy its unrotated rectangle.
     ///
-    /// ⭐ Non-square is what makes the assertion falsifiable: a square's AABB is
-    /// rotation-invariant at 90°, so a square fixture would pass with the
-    /// rotation term deleted. 40x10 rotated a quarter turn is 10x40, and the
-    /// half-extents must swap.
+    /// Non-square makes the test falsifiable: a square's AABB is unchanged by a
+    /// 90° turn. 40x10 rotated a quarter turn is 10x40, so the half-extents must
+    /// swap.
     #[test]
     fn a_rotated_non_square_sprite_publishes_its_rotated_bounds() {
         let mut app = app();
@@ -467,9 +410,7 @@ mod tests {
         );
     }
 
-    /// The unrotated case is untouched by the rotation term — stated because a
-    /// geometry change that quietly moved every ordinary candidate would be a
-    /// far worse bug than the one it fixed.
+    /// The rotation term leaves the unrotated case unchanged.
     #[test]
     fn an_unrotated_sprite_publishes_exactly_its_half_extents() {
         assert_eq!(
@@ -482,20 +423,16 @@ mod tests {
         app.world().get::<PortalCompositingCandidate>(entity).copied()
     }
 
-    /// ⚠ The BOUNDS tests use a `FeatureVisual`, which was published before the
-    /// population was widened. Otherwise reverting the population fix would
-    /// redden them too, and a poison that fails everything proves nothing about
-    /// which claim it broke.
+    /// The bounds tests use a `FeatureVisual`, which the original query already
+    /// covered. So reverting the `PlayerVisual` fix fails only its own test.
     fn feature() -> crate::rendering::primitives::FeatureVisual {
         crate::rendering::primitives::FeatureVisual {
             id: "bounds probe".to_string(),
         }
     }
 
-    /// ⛔⛔ THE PLAYER IS NOT A `FeatureVisual`, AND THE QUERY ONLY ASKED FOR
-    /// THAT. A far-side PLAYER therefore never became a candidate and kept
-    /// punching through the pane — the exact case the compositor exists for,
-    /// excluded at the door. Found by review, 2026-09-05.
+    /// A far-side player must become a candidate. A player is a `PlayerVisual`,
+    /// not a `FeatureVisual`.
     #[test]
     fn a_player_visual_is_published_as_a_candidate() {
         let mut app = app();
@@ -515,10 +452,8 @@ mod tests {
         );
     }
 
-    /// ⛔⛔ A SPRITE PIVOTS ON ITS ANCHOR; A QUAD IS CENTRE-ORIGIN. Character
-    /// sprites are FEET-anchored, so publishing the transform translation as the
-    /// drawn centre put the rectangle most of a body-height below the art, and
-    /// the compositor then subtracted the wrong region.
+    /// A sprite pivots on its anchor; a quad is centre-origin. A feet-anchored
+    /// sprite must report the centre of its art, not its pivot.
     #[test]
     fn a_feet_anchored_sprite_reports_the_centre_of_its_art_not_its_pivot() {
         let mut env = app();
@@ -555,13 +490,13 @@ mod tests {
             centred.drawn_centre,
             footed.drawn_centre
         );
-        // ⚠ The half-extent must NOT move with the anchor: an anchor relocates a
-        // rectangle, it never resizes one.
+        // The half-extent must not change with the anchor: an anchor moves a
+        // rectangle, it does not resize it.
         assert_eq!(centred.drawn_half, footed.drawn_half);
     }
 
-    /// ⚠ Scale is part of "what is drawn" too, and reading `custom_size` alone
-    /// misses it — a scaled sprite would be subtracted at its unscaled size.
+    /// Scale is part of what is drawn. Reading `custom_size` alone would subtract
+    /// a scaled sprite at its unscaled size.
     #[test]
     fn a_scaled_sprite_reports_its_scaled_extent() {
         let mut env = app();
@@ -582,19 +517,15 @@ mod tests {
     }
 }
 
-/// The publisher and the compositor, in ONE app.
+/// The publisher and the compositor, in one app.
 ///
-/// ⛔⛔ EVERY TEST BEFORE THIS ONE EXERCISED EXACTLY ONE SIDE. The presentation
-/// crate's arms build their own `PortalCompositingCandidate`; the arms above
-/// check what this bridge publishes. Three production defects lived in the gap
-/// between them and all of them were green on both sides: the query excluded
-/// `PlayerVisual`, the bounds ignored the anchor, and publication had no
-/// ordering edge, so the compositor could read a candidate that was not there
-/// yet.
+/// The unit tests above check one side each: the presentation crate's tests
+/// build their own `PortalCompositingCandidate`, and the tests above check what
+/// this bridge publishes. These tests run both real systems together, so they
+/// catch a missing population, wrong bounds, or a missing ordering edge.
 ///
-/// ⚠ Still not the assembled host — this wires the two real systems rather than
-/// the real plugins, so it cannot see a registration that is missing entirely.
-/// It CAN see the three defects above, which is what the gap actually contained.
+/// This wires the two systems, not the real plugins, so it cannot see a
+/// registration that is missing entirely.
 #[cfg(test)]
 mod bridge_meets_compositor_tests {
     use super::*;
@@ -638,16 +569,14 @@ mod bridge_meets_compositor_tests {
         );
         app.insert_resource(PortalViewer {
             present: true,
-            // Well in FRONT of the pane, so a body at high x is FAR.
+            // Well in front of the pane, so a body at high x is far-side.
             eye: ambition_platformer2d_core::Vec2::new(400.0, 300.0),
             ..default()
         });
         app.world_mut().spawn(pane());
-        // ⭐ THE ORDER UNDER TEST: publish, then composite, then RESOLVE, in one
-        // frame. The compositor states a reason to hide the source; since
-        // 2026-09-05 `resolve_portal_source_visibility` is the only writer of
-        // `Visibility`, so the chain has to reach it for this assertion to be
-        // about the production picture rather than an intermediate one.
+        // The order under test: publish, composite, then resolve, in one frame.
+        // `resolve_portal_source_visibility` is the only writer of `Visibility`,
+        // so the chain must include it for the assertion to match production.
         app.add_systems(
             Update,
             (
@@ -660,31 +589,22 @@ mod bridge_meets_compositor_tests {
         app
     }
 
-    /// ⛔⛔ A STATIONARY FAR-SIDE BODY MUST STAY HIDDEN ON EVERY FRAME, not only
-    /// the one it was classified on.
+    /// A stationary far-side body must stay hidden on every frame, not only the
+    /// frame it is classified on.
     ///
-    /// Found by a GPT review 2026-09-05, and the crate's own tests could not see
-    /// it: they step ONE frame, and the resolver's first version wrote `Hidden`
-    /// only when it inserted its marker. That is correct only if nothing else
-    /// writes the component — and `actors::sync_visuals` writes
-    /// `*visibility = if view.visible { Visible } else { Hidden }`
-    /// UNCONDITIONALLY for every `FeatureVisual`, every frame, before portal
-    /// presentation runs.
-    /// ⇒ Frame N: hidden and correct. Frame N+1: `sync_visuals` restores
-    /// `Visible`, the resolver sees its own marker and writes nothing, and the
-    /// whole sprite punches through the pane again — the reported bug, one frame
-    /// later.
+    /// `actors::sync_visuals` writes `Visible`/`Hidden` for every `FeatureVisual`
+    /// every frame, before portal presentation. A resolver that writes `Hidden`
+    /// only when it inserts its marker is correct on frame N and wrong on N+1.
     ///
-    /// ⭐ THIS FIXTURE COMPOSES THE REAL WRITER, which is the only reason it can
-    /// witness the defect. A portal-only harness cannot: the thing that undoes
-    /// the hide is not a portal system.
+    /// This fixture includes that other writer; a portal-only harness cannot see
+    /// the failure.
     #[test]
     fn a_far_side_body_stays_hidden_while_another_writer_keeps_showing_it() {
         let mut app = app();
         let body = far_side_player(&mut app);
 
-        // The other visibility owner, running BEFORE portal presentation exactly
-        // as the host schedules it.
+        // The other visibility owner, running before portal presentation, as
+        // the host schedules it.
         fn keep_showing_it(mut bodies: Query<&mut Visibility, With<PlayerVisual>>) {
             for mut visibility in &mut bodies {
                 *visibility = Visibility::Visible;
@@ -711,9 +631,8 @@ mod bridge_meets_compositor_tests {
         far_side_body(app, PlayerVisual)
     }
 
-    /// ⭐ ONE builder for both arms: the two differ ONLY by which marker they
-    /// carry, which is exactly the fact under test. A second fixture would let
-    /// them drift in position or size and quietly stop comparing like with like.
+    /// One builder for both arms: they differ only by marker, the fact under
+    /// test. Separate fixtures could drift in position or size.
     fn far_side_body(app: &mut App, marker: impl Bundle) -> Entity {
         let mut image = Image::default();
         image.texture_descriptor.size.width = 48;
@@ -721,8 +640,8 @@ mod bridge_meets_compositor_tests {
         let handle = app.world_mut().resource_mut::<Assets<Image>>().add(image);
         let mut sprite = Sprite::from_image(handle);
         sprite.custom_size = Some(Vec2::new(48.0, 48.0));
-        // Engine (505, 300) is BEHIND the pane; convert to the render frame the
-        // way the shipped code does rather than hand-placing it.
+        // Engine (505, 300) is behind the pane; convert to the render frame like
+        // the shipped code does.
         let frame = PortalWorldFrame { size: WORLD };
         let at = frame.to_render(
             ambition_platformer2d_core::Vec2::new(505.0, 300.0),
@@ -740,12 +659,8 @@ mod bridge_meets_compositor_tests {
             .id()
     }
 
-    /// ⭐⭐ JON'S REPORTED CASE, END TO END: a far-side NPC. The screenshot was a
-    /// Perfect Cellular Automaton punching through a seamless window, and an NPC
-    /// is a `FeatureVisual` — the population the bridge always had. The player
-    /// arm below covers the half that was EXCLUDED; this one covers the half the
-    /// bug was actually reported about, so a regression in either is visible
-    /// separately.
+    /// A far-side NPC, end to end. An NPC is a `FeatureVisual`. The player arm
+    /// below covers `PlayerVisual`, so a regression in either shows separately.
     #[test]
     fn a_far_side_npc_is_composited_in_the_same_frame_it_is_published() {
         let mut app = app();
@@ -770,13 +685,11 @@ mod bridge_meets_compositor_tests {
         );
     }
 
-    /// ⭐⭐ THE REAL HIT-FLASH OVERLAY, ATTACHED BY ITS OWN SYSTEM, IS COMPOSITED
-    /// LIKE THE SPRITE IT MIRRORS. The overlay is a `Mesh2d` root; until it
-    /// declared its frame it was not a candidate and the resolver hid it whole
-    /// whenever its body was far-side. Here the real `attach_hit_flash_overlays`
-    /// spawns it beside a far-side player, and the chain publishes it,
-    /// composites it into pieces of its own, and hides the whole mesh -- the
-    /// same three facts the sprite gets.
+    /// The real hit-flash overlay, attached by its own system, is composited like
+    /// the sprite it mirrors. The overlay is a `Mesh2d` root that declares its
+    /// frame. Here `attach_hit_flash_overlays` spawns it beside a far-side
+    /// player, and the chain publishes it, composites it into its own pieces, and
+    /// hides the whole mesh, like the sprite.
     #[test]
     fn the_real_hit_flash_overlay_of_a_far_side_body_is_composited_not_hidden_whole() {
         use ambition_portal2d_presentation::{PortalDependantHidden, PortalFarSideHidden};
@@ -789,11 +702,9 @@ mod bridge_meets_compositor_tests {
                 .before(publish_portal_compositing_candidates),
         );
         let body = far_side_player(&mut app);
-        // The attach runs ahead of the publisher with a sync point between, so
-        // the overlay is published and composited on the frame it is spawned.
-        // ⚠ The first draft counted "body-only" pieces on frame 1 and expected
-        // more on frame 2; both frames already had the overlay's, and the test
-        // failed against a working mechanism. Pieces are told apart by LOOK.
+        // The attach runs before the publisher with a sync point between, so the
+        // overlay is published and composited on its spawn frame. Pieces are
+        // told apart by look, because both frames include the overlay's pieces.
         app.update();
         let _ = body;
 
@@ -860,15 +771,15 @@ mod bridge_meets_compositor_tests {
         })
     }
 
-    /// The bridge app plus the REAL body-owned drawable writers, wired the way
-    /// production wires them: writers in `BodyOwnedDrawableSync`, the publisher
-    /// `.after` that set. The set edge is the command flush, so a drawable
-    /// spawned inside the set is a candidate on its first frame.
+    /// The bridge app plus the real body-owned drawable writers, wired like
+    /// production: writers in `BodyOwnedDrawableSync`, the publisher after that
+    /// set. The set edge is the command flush, so a drawable spawned inside the
+    /// set is a candidate on its first frame.
     fn app_with_body_drawables() -> App {
         use crate::rendering::BodyOwnedDrawableSync;
         let mut app = app();
-        // What `ImagePlugin` inserts in a real app: the 1x1 white image under
-        // the default handle, which a colour sprite samples. Without it the
+        // What `ImagePlugin` inserts in a real app: the 1x1 white image under the
+        // default handle, which a colour sprite samples. Without it the
         // compositor cannot rebuild the bar and gives it back whole.
         app.world_mut()
             .resource_mut::<Assets<Image>>()
@@ -899,13 +810,10 @@ mod bridge_meets_compositor_tests {
         app
     }
 
-    /// ⛔⛔ THE CLOCK BAR IS CLASSIFIED ON THE FRAME IT APPEARS, AND WHERE IT IS
-    /// NOW. `sync_body_clock_visuals` spawns and moves the bar through
-    /// commands and a transform write; with no edge to the publisher a bar
-    /// spawned this frame reached the renderer never classified, and a moved
-    /// one was classified at last frame's rectangle. A GPT review named both
-    /// 2026-09-07. The bar here straddles the pane's edge, so "composited"
-    /// means hidden-and-redrawn rather than merely present.
+    /// The clock bar is classified on the frame it appears, at its current
+    /// position. `sync_body_clock_visuals` spawns and moves the bar through
+    /// commands and a transform write, so the publisher needs the set edge. The
+    /// bar straddles the pane edge, so "composited" means hidden and redrawn.
     #[test]
     fn a_clock_bar_is_composited_on_its_first_frame_and_follows_its_body() {
         use crate::rendering::body_clock::BodyClockVisual;
@@ -913,8 +821,8 @@ mod bridge_meets_compositor_tests {
 
         let mut app = app_with_body_drawables();
         let body = far_side_player(&mut app);
-        // A full clock on a body whose head sits just under the pane's top edge:
-        // the bar (28x4) straddles the pane's x extent, so part of it is covered.
+        // A full clock on a body whose head is just under the pane's top edge.
+        // The bar (28x4) straddles the pane's x extent, so part of it is covered.
         let fact = |remaining_fraction: f32, x: f32| BodyClockFact {
             body,
             pos: ambition_platformer2d_core::Vec2::new(x, 300.0),
@@ -963,21 +871,18 @@ mod bridge_meets_compositor_tests {
         );
     }
 
-    /// ⛔⛔ NO MISSING FRAME ON THE WAY BACK. Frame N: the flashing body is
-    /// far-side and its silhouette is hidden with the portal's marker on it.
-    /// Frame N+1: the body crosses to the near side. The resolver drops its
-    /// claim without asserting a value (its rule), so the overlay's own owner
-    /// must have asserted `Visible` earlier that frame -- and the first version
-    /// skipped that write while last frame's marker was still present. One
-    /// frame of no flash, every time a flashing body left a pane. A GPT review
-    /// found it 2026-09-07.
+    /// No missing frame on the way back. Frame N: the flashing body is far-side
+    /// and its silhouette is hidden with the portal's marker. Frame N+1: the body
+    /// crosses to the near side. The resolver drops its claim without writing a
+    /// value, so the overlay's own owner must have written `Visible` earlier that
+    /// frame, even while last frame's marker is still present.
     #[test]
     fn a_flashing_silhouette_is_back_the_frame_its_body_returns_to_the_near_side() {
         use crate::rendering::hit_flash::HitFlashOverlay;
 
         let mut app = app_with_body_drawables();
         let body = far_side_player(&mut app);
-        // The flash is ACTIVE: the pose row the overlay reads carries a timer.
+        // The flash is active: the pose row the overlay reads has a timer.
         app.world_mut()
             .entity_mut(body)
             .insert(ambition_sim_view::BodyPoseView {
@@ -1003,7 +908,7 @@ mod bridge_meets_compositor_tests {
             "premise: the portal holds the claim"
         );
 
-        // The body crosses to the near side: engine x 495 is in front of the pane.
+        // The body crosses to the near side: engine x 480 is in front of the pane.
         let frame = PortalWorldFrame { size: WORLD };
         let near = frame.to_render(ambition_platformer2d_core::Vec2::new(480.0, 300.0), 20.0);
         *app.world_mut().get_mut::<Transform>(body).expect("pose") =
@@ -1017,10 +922,8 @@ mod bridge_meets_compositor_tests {
         );
     }
 
-    /// ⛔⛔ THE WHOLE POINT: a far-side PLAYER, published by the real bridge and
-    /// composited by the real compositor, IN ONE FRAME. With the shipped
-    /// `With<FeatureVisual>` filter this body was never a candidate, so it kept
-    /// its sprite and punched through the pane.
+    /// A far-side player, published by the real bridge and composited by the
+    /// real compositor, in one frame.
     #[test]
     fn a_far_side_player_is_composited_in_the_same_frame_it_is_published() {
         let mut app = app();

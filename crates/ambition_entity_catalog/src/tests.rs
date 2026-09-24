@@ -8,9 +8,9 @@ struct GliderParams {
 
 #[test]
 fn param_schema_registry_catches_typos_at_validate_time() {
-    // AJ1 / A1: a technique registers a hydrate check; the content pass
-    // runs every authored EffectRef through it. A good ref passes; a
-    // missing/mistyped field fails at validate time, not mid-fight.
+    // A technique registers a hydrate check; the content pass runs every
+    // authored EffectRef through it. A good ref passes; a missing or mistyped
+    // field fails at validate time, not mid-fight.
     let mut reg = ParamSchemaRegistry::default();
     assert!(reg.is_empty());
     reg.register("glider", check_hydrates::<GliderParams>);
@@ -246,9 +246,9 @@ fn frame_data_of_a_hitless_move_is_all_startup_no_reach() {
 
 #[test]
 fn smash_verbs_resolve_distinctly_from_tilt_verbs() {
-    // CM3 smash class = MORE VERBS (AJ1): a moveset binds `smash_up` distinct
-    // from the tilt `attack_up`, resolved by the SAME generic verb map. The
-    // input side (flick vs. hold) picks the base verb per game.
+    // Smash is more verbs: a moveset binds `smash_up` apart from the tilt
+    // `attack_up`, resolved by the same verb map. The input side (flick or
+    // hold) picks the base verb per game.
     let contract = MovesetContract {
         verbs: [
             ("attack_up".to_string(), "tilt_up_move".to_string()),
@@ -272,9 +272,9 @@ fn smash_verbs_resolve_distinctly_from_tilt_verbs() {
     assert_ne!(tilt.id, smash.id, "smash and tilt are distinct moves");
 }
 
-/// The full R2 ability vocabulary, authored entirely as RON: directional
-/// verbs, a move-start `start_impulse` lunge, and an `on_hit` pogo volume.
-/// The I7 acceptance — a fighter's whole kit is DATA, not code.
+/// The full ability vocabulary, authored as RON: directional verbs, a
+/// move-start `start_impulse` lunge, and an `on_hit` pogo volume. A fighter's
+/// whole kit is data, not code.
 const R2_FIGHTER: &str = r#"
 (
     schema_version: 1,
@@ -389,22 +389,12 @@ fn directional_verb_chain_orders_most_specific_first() {
     );
 }
 
-/// THE DASH ATTACK IS A STANCE, AND IT OUTRANKS THE DIRECTION.
+/// The running grab: the capture kit's version of the dash attack.
 ///
-///  four cases, and each kills a different wrong version: a dashing body gets
-/// its dash attack even with a direction held (or the tilt would keep winning),
-/// a STANDING body never does (or every forward tilt is now a dash attack), an
-/// AIRBORNE dashing body never does (a dash is a ground stance), and a fighter
-/// that authors none resolves exactly what it did before — which is the property
-/// that lets this ship without touching thirteen non-smash movesets.
-/// **The RUNNING GRAB — the capture kit's half of the dash attack.**
-///
-/// ⛔ four cases, each killing a different wrong version: a running grounded
-/// body reaches with its running grab, a STANDING body never does (or every
-/// grab became the committed one), an AIRBORNE running body never does (a run
-/// is a ground stance, and the capture kit is GROUNDED for v1), and a contract
-/// without the variant resolves its press to the plain grab byte for byte —
-/// which is what lets this ship without touching a single moveset.
+/// Four cases: a running grounded body uses its running grab; a standing body
+/// never does; an airborne running body never does (a run is a ground stance,
+/// and the capture kit is grounded); and a contract without the variant
+/// resolves its press to the plain grab.
 #[test]
 fn a_running_body_reaches_with_its_running_grab() {
     let with_dash_grab = MovesetContract {
@@ -432,11 +422,9 @@ fn a_running_body_reaches_with_its_running_grab() {
         Some("grab"),
         "a standing grab became the running one"
     );
-    // ⛔ NOTHING, not the standing grab. Both variants here are `grounded: Some(true)`
-    // -- the gate the capture kit authors on its whole vocabulary, because an
-    // aerial grab is a named FUTURE technique. This assertion used to read
-    // `"grab"`, which said out loud that an airborne press starts a grounded-only
-    // move; the selector agreed with it, so the pair was a bug and its receipt.
+    // Nothing, not the standing grab. Both variants here are
+    // `grounded: Some(true)`, the gate the capture kit authors on its whole
+    // vocabulary. An airborne press must not start a grounded-only move.
     assert_eq!(
         pick(false, true),
         None,
@@ -448,9 +436,9 @@ fn a_running_body_reaches_with_its_running_grab() {
         "an airborne press started a grounded-only grab"
     );
 
-    // ⭐ and the gate is what refuses it, not the verb: an UNGATED standing grab
-    // still answers an airborne press. Without this the assertions above would
-    // also pass if the lookup had simply stopped resolving `base`.
+    // The gate refuses it, not the verb: an ungated standing grab still
+    // answers an airborne press. Without this, the assertions above would also
+    // pass if the lookup had stopped resolving `base`.
     let ungated = MovesetContract {
         verbs: BTreeMap::from([("grab".to_string(), "grab".to_string())]),
         moves: vec![bare_move("grab", None)],
@@ -463,15 +451,14 @@ fn a_running_body_reaches_with_its_running_grab() {
         "an ungated grab must still answer an airborne press"
     );
 
-    // ⛔ **the WORD is spelled once.** `GRAB_DASH_VERB` exists only because the
-    // binding table needs a `&'static str`; if it ever drifts from the suffix
-    // rule, the selector asks for a verb the vocabulary does not declare.
+    // The word is spelled once. `GRAB_DASH_VERB` exists because the binding
+    // table needs a `&'static str`; it must match the suffix rule.
     assert_eq!(
         super::GRAB_DASH_VERB,
         super::dash_stance_verb(super::GRAB_VERB)
     );
 
-    // ⛔ the floor: a contract with no running grab is untouched.
+    // Positive control: a contract with no running grab is unchanged.
     let without = MovesetContract {
         verbs: BTreeMap::from([("grab".to_string(), "grab".to_string())]),
         moves: vec![bare_move("grab", Some(true))],
@@ -487,6 +474,11 @@ fn a_running_body_reaches_with_its_running_grab() {
     );
 }
 
+/// The dash attack is a stance, and it outranks the direction.
+///
+/// Four cases: a dashing body gets its dash attack even with a direction held;
+/// a standing body never does; an airborne dashing body never does (a dash is
+/// a ground stance); and a fighter that authors none resolves as before.
 #[test]
 fn a_running_body_gets_its_dash_attack_before_any_direction() {
     let with_dash = MovesetContract {
@@ -520,10 +512,8 @@ fn a_running_body_gets_its_dash_attack_before_any_direction() {
         "a dash attack was thrown in the air"
     );
 
-    //  the WORD is spelled once. The selector builds this verb through
-    // `dash_stance_verb` and so does the runtime's vocabulary; a table keyed by
-    // a hand-typed `"attack_dash"` here would keep passing after a rename that
-    // left the runtime unable to resolve the move.
+    // The word is spelled once: the selector and the runtime's vocabulary
+    // both build this verb through `dash_stance_verb`.
     assert_eq!(super::dash_stance_verb("attack"), "attack_dash");
 
     //  the floor: a fighter with no dash attack is untouched.
@@ -692,11 +682,10 @@ fn validators_catch_structural_violations() {
     assert!(has(&|e| matches!(e, CatalogError::EmptyClipBinding { .. })));
 }
 
-/// The relativity contract, pinned as behavior: the timeline is queried
-/// in the OWNER'S proper time, so a dilated actor advancing at 0.25×
-/// world rate reaches its active window after 4× the world time — by
-/// construction, because the caller integrates proper time from the
-/// owner's dt. The schema carries no world-time anywhere.
+/// The timeline is queried in the owner's proper time, so a dilated actor at
+/// 0.25× world rate reaches its active window after 4× the world time. The
+/// caller integrates proper time from the owner's dt; the schema holds no
+/// world time.
 #[test]
 fn proper_time_integration_is_callers_dt_sum() {
     let doc = EntityCatalogDoc::parse(SEED).unwrap();
@@ -1012,13 +1001,11 @@ fn move_hurtbox_keyframes_must_fit_inside_the_move_clock() {
     );
 }
 
-/// A ZERO-WIDTH window is legal; an INVERTED one is not.
+/// A zero-width window is legal; an inverted one is not.
 ///
-///  this is only safe because every window predicate is the half-open
-/// `start_s <= t < end_s` (`moveset/mod.rs`), so nothing can fire inside a
-/// zero-width window — it is a label on a boundary, not a span. If a predicate
-/// ever becomes inclusive at the end, this stops being free and the validator
-/// should tighten again.
+/// This is safe only because every window predicate is the half-open
+/// `start_s <= t < end_s`, so nothing fires inside a zero-width window. If a
+/// predicate becomes end-inclusive, tighten the validator.
 #[test]
 fn a_zero_width_window_is_legal_but_an_inverted_one_is_not() {
     let doc_with = |windows: &str| {
@@ -1078,7 +1065,7 @@ fn a_zero_width_window_is_legal_but_an_inverted_one_is_not() {
 }
 
 // ---------------------------------------------------------------------------
-// Timed authored self-displacement (`MoveEventKind::Impulse`) and the LIFT
+// Timed authored self-displacement (`MoveEventKind::Impulse`) and the lift
 // affordance derived from it.
 // ---------------------------------------------------------------------------
 
@@ -1139,15 +1126,12 @@ fn timed_move(id: &str, duration_s: f32, events: Vec<MoveEvent>) -> MoveSpec {
     }
 }
 
-/// A move that SETS an against-gravity speed advertises it; one that only ADDS
-/// to the body's own does not.
+/// A move that sets an against-gravity speed advertises it; one that only
+/// adds to the body's own speed does not.
 ///
-///  the distinction is the whole reason [`ImpulseMode`] has two variants, and
-/// pinning it here is what stops a lunging jab from reading as a recovery
-/// special to every consumer downstream. An `Add` produces a speed only in
-/// company with whatever the body was already doing, so no static reader can
-/// name one — and a reader that pretended otherwise would price a jab's 120px/s
-/// hop as a way home.
+/// An `Add` produces a speed only together with the body's current motion, so
+/// no static reader can name one. Otherwise a jab's small hop would read as a
+/// recovery.
 #[test]
 fn only_a_commanded_impulse_advertises_lift() {
     let commanded = timed_move(
@@ -1184,10 +1168,8 @@ fn only_a_commanded_impulse_advertises_lift() {
     );
 }
 
-/// A DOWNWARD commanded impulse is not lift. A dive is the same primitive
-/// pointed the other way, and a consumer looking for a way home must not find
-/// one in it — the sign is the only thing separating the two, so it gets its own
-/// guard rather than riding on the test above.
+/// A downward commanded impulse is not lift. Only the sign separates a dive
+/// from a rise, so it has its own test.
 #[test]
 fn a_commanded_dive_is_not_a_lift() {
     let dive = timed_move(
@@ -1204,9 +1186,9 @@ fn a_commanded_dive_is_not_a_lift() {
     assert_eq!(dive.frame_data().lift_speed, 0.0);
 }
 
-/// The strongest lift wins, and a tie breaks on the EARLIER moment. Two
-/// bursts on one timeline is a legal thing to author (a hop into a rise), and
-/// which one a policy plans around must not depend on declaration order.
+/// The strongest lift wins, and a tie breaks on the earlier moment. Two
+/// bursts on one timeline are legal (a hop into a rise), and the result must
+/// not depend on declaration order.
 #[test]
 fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
     let two = timed_move(
@@ -1255,10 +1237,7 @@ fn the_strongest_lift_wins_and_ties_break_on_the_earlier_moment() {
     assert_eq!(tied.frame_data().lift_at_s, 0.20);
 }
 
-/// A COMMANDED VELOCITY IS A VECTOR, AND BOTH HALVES COME FROM THE SAME
-/// EVENT.
-///
-/// Every downstream reader then planned around a move nobody wrote.
+/// A commanded velocity is a vector, and both halves come from the same event.
 #[test]
 fn a_diagonal_command_reports_both_of_its_halves() {
     let grapple = timed_move(
@@ -1280,10 +1259,9 @@ fn a_diagonal_command_reports_both_of_its_halves() {
         "the half that actually crosses the gap must survive the derivation"
     );
 
-    //  poison: the side is read off the WINNING event, never off whichever
-    // impulse happens to be first. Here the strong rise carries no side and the
-    // weak one carries a huge one; a derivation that mixed them would report a
-    // move that does not exist.
+    // The side is read from the winning event. Here the strong rise has no
+    // side and the weak one has a large one; mixing them would report a move
+    // that does not exist.
     let mixed = timed_move(
         "mixed",
         1.4,
@@ -1308,9 +1286,8 @@ fn a_diagonal_command_reports_both_of_its_halves() {
     assert_eq!((frames.lift_speed, frames.lift_at_s), (800.0, 0.40));
     assert_eq!(frames.lift_side, 0.0);
 
-    // A move that commands its owner BACKWARDS says so with a sign rather than
-    // by being invisible — the recoil of firing forwards is a real authored
-    // shape and it must not read as a way home in the wrong direction.
+    // A move that commands its owner backwards says so with a sign (for
+    // example recoil from firing forwards).
     let recoil = timed_move(
         "recoil",
         0.8,
@@ -1331,9 +1308,8 @@ fn a_diagonal_command_reports_both_of_its_halves() {
     );
 }
 
-/// An `Impulse` event round-trips through RON with `mode` omitted, so an
-/// authored timeline that says only `Impulse(local: (0, -900))` parses as the
-/// additive meaning `start_impulse` always had rather than failing to load.
+/// An `Impulse` event parses from RON with `mode` omitted, as the additive
+/// meaning `start_impulse` has.
 #[test]
 fn an_authored_impulse_defaults_to_the_additive_meaning() {
     let parsed: MoveEventKind = ron::from_str("Impulse(local: (0.0, -900.0))")
@@ -1347,8 +1323,8 @@ fn an_authored_impulse_defaults_to_the_additive_meaning() {
     );
 }
 
-/// The charge policy every shipped fighter relies on is DERIVED, not authored:
-/// the hold sits at the end of the move's own leading Startup window.
+/// A move with a charge multiplier and no authored policy gets a derived one:
+/// the hold sits inside the move's own leading Startup window.
 #[test]
 fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     let mut spec = MoveSpec {
@@ -1391,25 +1367,16 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
         flow: None,
     };
     let derived = spec.charge_policy().expect("a paying smash charges");
-    // ⭐ THE HOLD SITS WHERE THE WINDUP BEGINS, and this assertion read `0.3` —
-    // the Startup window's END — until 2026-08-23. That froze the body at the
-    // instant the strike was about to come out, with the whole windup already
-    // played and the hitbox one frame away, which reads as a fighter paused
-    // mid-swing rather than one winding up.
-    //
-    // Jon: *"it needs to hold on the first frames of the smash animation, before
-    // letting the rest of the animation, which actually has the hitboxes,
-    // play."* That is the genre's charge pose. Everything after this instant —
-    // the rest of the windup and every Active window — plays on release.
+    // The hold sits early in the windup. The rest of the windup and every
+    // Active window play on release.
     assert_eq!(
         derived.hold_at_s,
         0.3 * CHARGE_POSE_FRACTION,
         "the charge pose left the windup"
     );
-    // ⛔⛔ AND THE INVARIANT, not just the number: a held charge must not be
-    // able to stand inside a live strike. Active membership is
-    // `start_s <= t < end_s`, so a hold AT the first Active instant is already
-    // inside it — which is exactly what deriving from the windup's `end_s` did.
+    // The invariant, not only the number: a held charge must not stand inside
+    // a live strike. Active membership is `start_s <= t < end_s`, so a hold at
+    // the first Active instant is already inside it.
     let first_active = spec
         .windows
         .iter()
@@ -1452,12 +1419,9 @@ fn a_smash_charge_policy_is_derived_from_the_moves_own_windup() {
     );
 }
 
-/// The frame data a brain reads carries the move's own charge point, and says
-/// `None` for a move that does not charge at all.
-///
-/// ⛔ the fallback a reader would otherwise use is `startup_s`, which is when
-/// the first HIT lands. Deriving "when does the charge begin" from that is only
-/// right by coincidence.
+/// The frame data carries the move's own charge point, and `None` for a move
+/// that does not charge. `startup_s` (when the first hit lands) is not the
+/// charge start.
 #[test]
 fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
     let mut m = bare_move("smash", None);
@@ -1472,13 +1436,11 @@ fn frame_data_reports_the_charge_hold_point_and_only_for_a_charging_move() {
     assert_eq!(m.frame_data().charge_hold_at_s, Some(policy.hold_at_s));
 }
 
-/// ⛔⛔ AUTHORING MAY NOT PUT A HITBOX INSIDE A HELD CHARGE.
+/// Authoring must not put a hitbox inside a held charge.
 ///
-/// The derived hold point is clamped strictly before the first Active instant,
-/// but an authored `smash_charge` overrides that clamp — so the override is
-/// where a malformed pose can still get in. `rooted_by_charge` is true from the
-/// freeze onward and the button may hold it indefinitely, so a hold at or past
-/// the first live volume is a fighter standing still with a strike out.
+/// The derived hold point is clamped before the first Active instant, but an
+/// authored `smash_charge` overrides that clamp, so validation must catch a
+/// bad override.
 #[test]
 fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
     let make = |hold_at_s: f32| {
@@ -1529,7 +1491,7 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
         doc.validate()
     };
 
-    // ON the first Active instant is already INSIDE it: membership is
+    // On the first Active instant is already inside it: membership is
     // `start_s <= t < end_s`.
     let at_the_edge = problems(make(0.2));
     assert!(
@@ -1555,18 +1517,9 @@ fn an_authored_charge_hold_inside_a_live_strike_fails_validation() {
     );
 }
 
-/// ⭐⭐ RENAMING A MOVE RENAMES EVERY REFERENCE TO IT, AND NOTHING ELSE.
-///
-/// A move id lives in THREE places inside a contract, and this walk used to be
-/// written in a CONTENT crate — so every future id-bearing field on a `MoveSpec`
-/// was an obligation on a file that would never hear about it. Missing one is
-/// not a red test: it is one dead button in a match.
-///
-/// ⛔⛔ THE INVERSE MUST AGREE WITH THE COMPOSER, or the two vocabularies drift.
-///
-/// Every id `directional_verb_chain` builds has to reduce to the base it was
-/// built from — including the aerial forms, whose `_air_forward` would reduce to
-/// `attack_air` under a naive "strip the last suffix" rule.
+/// The inverse must agree with the composer. Every id `directional_verb_chain`
+/// builds reduces to its base, including aerial forms: `_air_forward` would
+/// reduce to `attack_air` under a naive "strip the last suffix" rule.
 #[test]
 fn every_composed_verb_id_reduces_to_the_base_it_was_built_from() {
     use crate::{base_verb_of, dash_stance_verb, directional_verb_chain, AttackDir};
@@ -1595,7 +1548,7 @@ fn every_composed_verb_id_reduces_to_the_base_it_was_built_from() {
     assert_eq!(base_verb_of("taunt"), "taunt");
 }
 
-/// ⛔ A BROAD RULE MEANS THE CHARACTER'S OWN MOVES, and only this table knows
+/// A broad rule means the character's own moves, and only this table knows
 /// which those are.
 #[test]
 fn a_broad_cancel_rule_resolves_into_the_moves_it_admits() {
@@ -1642,33 +1595,29 @@ fn a_broad_cancel_rule_resolves_into_the_moves_it_admits() {
 
     // The attack family, which a smash belongs to.
     assert_eq!(ids(&["any_attack"]), vec!["jab", "ftilt", "fsmash"]);
-    // ⛔ AND A SPECIAL IS NOT IN IT. `cancel_names_for` gives a special its own
-    // namespace and nothing else, so `any_attack` must not sweep it up.
+    // A special is not in it: `cancel_names_for` gives a special its own
+    // namespace, so `any_attack` must not include it.
     assert!(!ids(&["any_attack"]).contains(&"shark".to_string()));
     assert_eq!(ids(&["special"]), vec!["shark"]);
     // `smash` is narrower than `attack`.
     assert_eq!(ids(&["smash"]), vec!["fsmash"]);
     assert_eq!(ids(&["attack"]), vec!["jab", "ftilt", "fsmash"]);
-    // ⛔⛔ AND `any_attack` DOES NOT SWEEP UP EVERYTHING ELSE. A grab, a throw, a
-    // taunt and a ranged shot each pass exactly ONE name on the trigger road —
-    // their own — so a fall-through that lumped them into the attack family
-    // would let a cancel window turn a swing into a throw. Measured on a real
-    // export before this was total: the admiral's `ranged` cancel resolved into
-    // 23 moves, including every grab, pummel, throw and the taunt.
+    // `any_attack` does not include grabs, throws, taunts or ranged shots.
+    // Each passes exactly one name on the trigger road, so otherwise a cancel
+    // window could turn a swing into a throw.
     for outsider in ["grab_move", "fthrow", "taunt_move", "shot"] {
         assert!(
             !ids(&["any_attack", "attack", "smash"]).contains(&outsider.to_string()),
             "{outsider} is not in the attack family"
         );
     }
-    // Each of them answers to its own FULL verb, not a reduced base.
-    // ⛔ A RUNNING GRAB ANSWERS TO `grab`. `grab_dash` is the grab road's
-    // running stance, and it passes `[GRAB_VERB]` like the standing one — so the
-    // base reduction is right HERE and wrong for a capture verb.
+    // Each answers to its own full verb, not a reduced base. A running grab
+    // answers to `grab`: `grab_dash` passes `[GRAB_VERB]` like the standing
+    // one, so the base reduction is correct here and wrong for a capture verb.
     assert_eq!(ids(&["grab"]), vec!["grab_move", "running_grab"]);
     assert_eq!(ids(&["capture_throw_forward"]), vec!["fthrow"]);
     assert_eq!(ids(&["ranged"]), vec!["shot"]);
-    // ⛔ `capture_throw` is the BASE of the throw's verb and names nothing: the
+    // `capture_throw` is the base of the throw's verb and names nothing: the
     // capture road passes the full verb.
     assert!(ids(&["capture_throw"]).is_empty());
     // A literal move id admits exactly that move, bound or not.
@@ -1677,9 +1626,11 @@ fn a_broad_cancel_rule_resolves_into_the_moves_it_admits() {
     assert_eq!(ids(&["special", "jab2"]), vec!["shark", "jab2"]);
 }
 
-/// ⛔ THE VERB-CLASS ARM IS THE ONE THAT CONSTRAINS. `"any_attack"` is a cancel
-/// CLASS, not a move this table defines, and a rename that touched it would
-/// silently unhook every cancel window that names one.
+/// Renaming a move renames every reference to it, and nothing else. A missed
+/// reference is a dead button in a match.
+///
+/// A verb class such as `"any_attack"` is not a move this table defines. A
+/// rename that touched it would unhook every cancel window that names one.
 #[test]
 fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
     let mut jab = bare_move("polygon_jab", None);
@@ -1694,19 +1645,15 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
         sustain_effect: None,
         motion_scale: 1.0,
     });
-    // ⛔ THE REFUSAL VARIANT IS A MOVE ID TOO. `remap_move_ids`' own doc says
-    // every field carrying one is its obligation, and this arm is what makes
-    // that sentence testable rather than aspirational.
+    // The refusal fallback is a move id too.
     jab.gates.when_refused = Some("polygon_tilt_up".to_string());
-    // ⚠ And one that the table does NOT own, which must survive untouched for
-    // the same reason `any_attack` does beside it.
+    // And one the table does not own, which must stay unchanged, like
+    // `any_attack`.
     //
-    // ⛔⛔ THE NAME CONTAINS "polygon" ON PURPOSE. Spelled `somebody_elses_move`
-    // this arm proved NOTHING: the rename is `polygon -> author`, so a foreign
-    // id without "polygon" in it is unchanged whether the code consults the
-    // table or blindly renames. ⇒ Membership in `by_old` is the real
-    // distinction, so the fixture has to make those two behaviours produce
-    // DIFFERENT strings. Caught by poisoning the guard and watching it pass.
+    // The name contains "polygon" on purpose. The rename is
+    // `polygon -> author`, so a foreign id without "polygon" would be
+    // unchanged even if the code renamed blindly. Membership in `by_old` is
+    // the real distinction, so the fixture must make the two behaviors differ.
     let mut stranger = bare_move("polygon_stranger", None);
     stranger.gates.when_refused = Some("polygon_ghost".to_string());
     let mut contract = MovesetContract {
@@ -1763,21 +1710,13 @@ fn remapping_ids_follows_every_reference_and_leaves_verb_classes_alone() {
     );
 }
 
-/// ⛔⛔ A WINDBOX MAY NOT AUTHOR DAMAGE, AND THE TYPE USED TO LET IT.
+/// A windbox must not author damage.
 ///
-/// `VolumeReaction::Windbox` promises "pushes its victim and does nothing else
-/// — no damage, no hitstun, no shield". The runtime honours the hitstun and the
-/// shield; `damage` was published exactly as an ordinary hit's is, so the
-/// contract lived in a doc comment and in every fixture's good manners.
+/// Rejected, not zeroed: discarding a typed number turns a content error into
+/// a mystery.
 ///
-/// ⭐ REJECTED RATHER THAN ZEROED, because throwing away a number somebody
-/// deliberately typed is how a content error turns into a mystery about why a
-/// move does nothing.
-///
-/// ⭐⭐ THE ZERO-DAMAGE ARM IS THE POINT OF THE SECOND HALF. A rule that
-/// refused every windbox would satisfy the first assertion perfectly while
-/// making the mechanic unauthorable, which is the shape a validation ships
-/// broken in.
+/// The zero-damage case matters too: a rule that refused every windbox would
+/// pass the first assertion and make the mechanic unauthorable.
 #[test]
 fn a_windbox_that_authors_damage_is_rejected_and_a_zero_damage_one_is_not() {
     let catalog = |damage: i32| {
@@ -1871,7 +1810,7 @@ mod effect_sites {
         }
     }
 
-    /// A move that names a technique from ALL FOUR sites, each with its own key
+    /// A move that names a technique from all four sites, each with its own key
     /// so a walk that finds three cannot pass by finding one twice.
     fn move_naming_every_site() -> MoveSpec {
         let mut spec = bare_move("kitchen_sink", None);
@@ -1911,16 +1850,11 @@ mod effect_sites {
         spec
     }
 
-    /// ⛔⛔ **A MOVE NAMES TECHNIQUES FROM FOUR UNRELATED PLACES, and every
-    /// consumer used to reach into whichever one it cared about.** A hand-kept
-    /// list of four is a validator that silently stops covering a fifth the day
-    /// one is added — and what it stops covering is a misspelled key that reaches
-    /// the runtime, matches no handler, and does nothing.
+    /// A move names techniques from four places, and the walk must find all
+    /// of them.
     ///
-    /// ⭐ EACH SITE CARRIES ITS OWN KEY, so a walk that finds three of four
-    /// cannot pass by finding one of them twice. That is the shape of the poison
-    /// this packet asks for — each reference site poisoned SEPARATELY — expressed
-    /// as one fixture rather than four near-copies.
+    /// Each site carries its own key, so a walk that finds three of four
+    /// cannot pass by finding one twice.
     #[test]
     fn the_walk_finds_a_technique_named_from_every_site() {
         let spec = move_naming_every_site();
@@ -1970,8 +1904,8 @@ mod effect_sites {
         );
     }
 
-    /// ⛔ A MOVE THAT NAMES NOTHING REPORTS NOTHING. Without this, a walk that
-    /// invented a reference would still satisfy the rows above.
+    /// A move that names nothing reports nothing. Without this, a walk that
+    /// invented a reference would still pass the rows above.
     #[test]
     fn a_move_with_no_technique_reports_none() {
         assert!(bare_move("plain", None).effect_refs().is_empty());
@@ -2019,12 +1953,10 @@ mod technique_support {
         }
     }
 
-    /// ⛔⛔ **THE ACCEPTED NO-OP.** `pogo_bounce` is consumed from
-    /// `OnHitEffectMessage` alone. Authored at a timeline event, a window's
-    /// sustain slot or a flow `Emit` it becomes an
-    /// `ActorActionMessage::Special`, which that handler never reads — so the
-    /// move plays and the technique does nothing. Site-blind admission passed it,
-    /// which is admitting the exact state admission exists to exclude.
+    /// `pogo_bounce` is consumed from `OnHitEffectMessage` only. Authored at a
+    /// timeline event, a window's sustain slot or a flow `Emit`, it becomes an
+    /// `ActorActionMessage::Special`, which that handler never reads, so the
+    /// move plays and the technique does nothing. Admission must refuse it.
     #[test]
     fn an_on_hit_technique_authored_in_a_timeline_slot_is_refused() {
         let mut support = TechniqueSupport::default();
@@ -2047,9 +1979,8 @@ mod technique_support {
         }
     }
 
-    /// ⭐ THE ANTI-VACUITY FLOOR. The site the handler DOES read must pass —
-    /// a check that refused every site would satisfy the test above and break
-    /// every pogo in the game.
+    /// Positive control: the site the handler does read must pass. A check
+    /// that refused every site would pass the test above.
     #[test]
     fn the_site_an_on_hit_technique_does_read_is_admitted() {
         let mut support = TechniqueSupport::default();
@@ -2069,8 +2000,8 @@ mod technique_support {
         );
     }
 
-    /// ⭐ CONTROL. An action-road technique is the mirror: the three action
-    /// sites pass and the on-hit site is refused.
+    /// Control: an action-road technique is the mirror. The three action sites
+    /// pass and the on-hit site is refused.
     #[test]
     fn an_action_technique_is_refused_at_an_on_hit_site() {
         let mut support = TechniqueSupport::default();
@@ -2102,11 +2033,8 @@ mod technique_support {
         }
     }
 
-    /// ⛔⛔ **AN UNKNOWN KEY IS REFUSED, and the registry it replaces let one
-    /// PASS BY DESIGN.** `ParamSchemaRegistry`'s own doc said "the engine matches
-    /// no key, so an unregistered key always passes" — so `smash.teleprot`
-    /// reached the runtime, matched no handler's guard, and became a `warn!` in
-    /// the middle of a fight on a move that plays and does nothing.
+    /// An unknown key is refused (for example `smash.teleprot`), so it does not
+    /// reach the runtime as a move that plays and does nothing.
     #[test]
     fn a_key_nothing_installed_declares_is_refused() {
         let mut support = TechniqueSupport::default();
@@ -2119,23 +2047,20 @@ mod technique_support {
                 key: "smash.teleprot".to_string()
             }),
         );
-        // ⛔ THE FLOOR: the correctly-spelled key is still admitted, or the row
-        // above is satisfied by a table that refuses everything.
+        // Positive control: the correctly spelled key is still admitted, or the
+        // row above passes for a table that refuses everything.
         assert_eq!(
             support.admit(&effect("smash.teleport", "(offset: (1.0, 2.0))")),
             Ok(())
         );
     }
 
-    /// ⛔⛔ **A SECOND CLAIM ON ONE KEY IS A CONFLICT, NOT A REPLACEMENT.** The
-    /// old registry inserted over the first registration silently, which makes a
-    /// VALIDATOR go quiet rather than a behaviour change — the harder kind to
-    /// notice, and its own doc said so.
+    /// A second claim on one key is a conflict, not a replacement. A silent
+    /// replacement would quietly disable a validator.
     ///
-    /// ⭐ REPORTED BY KEY AND CLAIMED OWNER, never by comparing the two checks.
-    /// A `ParamCheck` is a function pointer, and this repository's registry rule
-    /// forbids anything process-local from entering a registration's identity,
-    /// so there is no honest "same check" case to detect.
+    /// Reported by key and claimed owner, not by comparing checks: a
+    /// `ParamCheck` is a function pointer, and process-local values must not
+    /// enter a registration's identity.
     #[test]
     fn two_capabilities_cannot_claim_one_technique() {
         let mut support = TechniqueSupport::default();
@@ -2155,9 +2080,8 @@ mod technique_support {
         );
     }
 
-    /// ⛔ PARAMLESS IS A CONTRACT. An author who wrote parameters for a technique
-    /// that takes none believed they did something; ignoring them is the silent
-    /// failure this table exists to end.
+    /// Paramless is a contract: parameters authored for a technique that takes
+    /// none must be refused, not ignored.
     #[test]
     fn a_paramless_technique_refuses_authored_parameters() {
         let mut support = TechniqueSupport::default();
@@ -2213,7 +2137,7 @@ mod technique_support {
     }
 }
 
-/// Flow validation, which exists because every one of these failures is SILENT.
+/// Flow validation, which exists because every one of these failures is silent.
 mod technique_flow {
     use crate::{EffectRef, FlowNode, FlowSignal, MoveContact, ParamValue, TechniqueFlow};
 
@@ -2229,10 +2153,8 @@ mod technique_flow {
 
     /// A transition past the end of the list is refused by name and index.
     ///
-    /// ⛔ AT RUNTIME THIS IS A MOVE THAT STOPS. The interpreter would find no
-    /// node at the index and have nothing to do, so the fighter plays an
-    /// animation and the sequence silently never continues — which reads as a
-    /// move that "doesn't work sometimes" rather than as bad data.
+    /// At runtime the interpreter finds no node at the index, so the sequence
+    /// silently stops.
     #[test]
     fn a_transition_past_the_end_is_refused() {
         let flow = TechniqueFlow {
@@ -2245,12 +2167,10 @@ mod technique_flow {
         );
     }
 
-    /// A flow with no REACHABLE `Finish` is refused, even though it has one.
+    /// A flow with no reachable `Finish` is refused, even though it has one.
     ///
-    /// ⭐⭐ THE CHECK THAT "does the flow contain a Finish" WOULD HAVE PASSED.
-    /// Node 1 here is a `Finish` nobody arrives at, and node 0 loops to itself:
-    /// presence and reachability are different questions, and only the second
-    /// one is the invariant.
+    /// Node 1 is a `Finish` nothing reaches, and node 0 loops to itself.
+    /// Presence and reachability differ; reachability is the invariant.
     #[test]
     fn a_finish_nothing_reaches_is_not_a_finish() {
         let flow = TechniqueFlow {
@@ -2289,10 +2209,8 @@ mod technique_flow {
 
     /// A wait that can never time out is refused.
     ///
-    /// ⛔ THERE IS NO AUTHORED VALUE OF "wait forever" THAT IS NOT A BUG. A
-    /// signal whose producer died leaves the fighter suspended in a special for
-    /// the rest of the match, and the move's own duration is not a bound because
-    /// the flow is what decides when the move is done.
+    /// An authored "wait forever" is always a bug: every step after it never
+    /// runs.
     #[test]
     fn a_wait_with_no_patience_is_refused() {
         let flow = TechniqueFlow {
@@ -2313,19 +2231,15 @@ mod technique_flow {
         );
     }
 
-    /// ⛔⛔ **A CYCLE ON ONE BRANCH, A `Finish` ON THE OTHER — and reachability
-    /// alone says yes.**
+    /// A cycle on one branch and a `Finish` on the other is refused.
     ///
-    /// `reaches_finish` is EXISTENTIAL: it answers "can execution arrive at a
-    /// Finish", and here it can, down the `then` road. The `otherwise` road loops
-    /// forever, and which road the fighter takes is decided at runtime by whether
-    /// the strike connected. So the same authored move terminates or hangs
-    /// depending on what happened in the match, and the check that was supposed
-    /// to catch a non-terminating flow passes.
+    /// `reaches_finish` is existential: here it finds `Finish` down the `then`
+    /// road, while the `otherwise` road loops. The road taken depends on
+    /// whether the strike connected, so the move would end or loop depending
+    /// on the match.
     ///
-    /// ⚠ THE PER-TICK NODE BUDGET IS NOT THIS CHECK. It limits how FAST a loop
-    /// spins, not whether one exists; a flow that emits once per tick forever is
-    /// inside the budget and still never ends.
+    /// The per-tick node budget is not this check: it limits how fast a loop
+    /// spins, not whether one exists.
     #[test]
     fn a_cycle_on_one_branch_is_refused_though_the_other_finishes() {
         let flow = TechniqueFlow {
@@ -2340,8 +2254,8 @@ mod technique_flow {
                 emit(0),
             ],
         };
-        // ⛔ THE PREMISE. Without this the test could be passing because the
-        // Finish is unreachable, which is a different defect with its own case.
+        // The premise. Without this, the test could pass because the Finish is
+        // unreachable, which is a different defect with its own case.
         assert!(
             !flow
                 .problems()
@@ -2358,10 +2272,8 @@ mod technique_flow {
         );
     }
 
-    /// ⛔⛔ **`f32::INFINITY > 0.0` IS TRUE**, so the mandatory-timeout check
-    /// admitted the exact value it exists to forbid: an authored "wait forever"
-    /// wearing a number. NaN was already refused by the same comparison; it is
-    /// asserted here so the pair cannot drift apart.
+    /// `f32::INFINITY > 0.0` is true, so a positive-only check admits an
+    /// infinite timeout. NaN is also asserted so the pair stays together.
     #[test]
     fn a_wait_forever_spelled_as_a_number_is_refused() {
         let wait_for = |timeout_s: f32| {
@@ -2386,8 +2298,8 @@ mod technique_flow {
                  mandatory timeout exists to forbid: {problems:?}"
             );
         }
-        // ⛔ THE FLOOR: an ordinary finite patience is still admitted, or the
-        // rows above are satisfied by a check that refuses every wait.
+        // Positive control: an ordinary finite timeout is still admitted, or the
+        // rows above pass for a check that refuses every wait.
         assert_eq!(
             wait_for(0.25),
             Vec::<String>::new(),
@@ -2395,14 +2307,11 @@ mod technique_flow {
         );
     }
 
-    /// ⛔ **THE BOUND IS THE VERSION'S CONTRACT.** It used to also be a CURSOR
-    /// bound — the edges were `usize`, `MovePlayback::flow_node` is a `u16`, and
-    /// the interpreter narrowed on every transition, so node 65,536 silently
-    /// became node 0. The edges are `u16` now, so that wrap is not representable
-    /// and this test measures the stated width alone.
+    /// The bound is the version's stated budget. Edges are `u16`, the cursor's
+    /// width, so a wrap cannot happen and this test checks the width only.
     ///
-    /// ⭐ BOTH SIDES OF THE BOUNDARY. A limit tested only from above is a limit
-    /// nobody has checked is reachable.
+    /// Both sides of the boundary are tested, so the limit is known to be
+    /// reachable.
     #[test]
     fn the_node_bound_admits_its_own_limit_and_refuses_one_more() {
         let chain = |count: u16| {
@@ -2456,10 +2365,9 @@ mod technique_flow {
     /// `Overlapped` is not `Connected`, which is the distinction a blocked
     /// strike turns on.
     ///
-    /// ⛔ THE ONE A FLOW AUTHOR WILL GET WRONG. `overlapped` is the staling
-    /// fact and a shield sets it, so a hit-confirm written against it continues
-    /// into its follow-up on a BLOCKED strike — the exact defect
-    /// `CancelCondition::OnBlock`'s note describes, reproduced one rung up.
+    /// A flow author can get this wrong: `overlapped` is the staling fact and
+    /// a shield sets it, so a hit-confirm written against it continues on a
+    /// blocked strike.
     #[test]
     fn a_blocked_strike_overlaps_without_connecting() {
         let blocked = MoveContact {
@@ -2476,27 +2384,18 @@ mod technique_flow {
         );
     }
 
-    /// An authored edge that does not fit the runtime cursor is refused BY THE
-    /// TYPE, at the deserialization boundary, before any validator runs.
+    /// An authored edge that does not fit the runtime cursor is refused by the
+    /// type, at the deserialization boundary, before any validator runs.
     ///
-    /// ⛔⛔ THIS IS THE ROAD AUTHORED CONTENT ACTUALLY TAKES. Every in-repo
-    /// fixture builds its flow with Rust literals, where an over-width edge is a
-    /// compile error and nobody can write the bug. A CHARACTER LOADED FROM DATA
-    /// has no such gate: while the edges were `usize` the interpreter narrowed
-    /// with `as u16` on every transition, so `then: 65536` deserialized happily,
-    /// passed the dangling-edge check (65,536 is not past the end of a list that
-    /// long), and then jumped to node 0 at runtime — a terminating flow silently
-    /// turned into a loop, firing its `Emit` again every tick for the rest of the
-    /// move. Nothing in the pipeline could report it, because by the time the
-    /// value was wrong it was already a legal index.
-    ///
-    /// ⇒ The edge is the cursor's own `u16` now, so serde refuses the number
-    /// itself and names the field. Converted ONCE, at the boundary.
+    /// Rust-literal fixtures cannot write this bug (it is a compile error), but
+    /// a character loaded from data can. With a narrowing cast, `then: 65536`
+    /// would pass the dangling-edge check and jump to node 0 at runtime. The
+    /// edge is `u16`, so serde refuses the number and names the field.
     #[test]
     fn an_authored_edge_wider_than_the_cursor_is_refused_at_the_boundary() {
-        // ⛔ ROUND-TRIPPED, NOT HAND-WRITTEN. A literal RON fixture that fails to
-        // parse for a spelling reason would satisfy the assertion below while
-        // measuring nothing; serializing the real value fixes the shape.
+        // Round-tripped, not hand-written: a RON literal that failed to parse
+        // for a spelling reason would pass the assertion below while testing
+        // nothing.
         let authored = TechniqueFlow {
             nodes: vec![emit(1), FlowNode::Finish],
         };
@@ -2512,9 +2411,8 @@ mod technique_flow {
             "an edge of 65536 was accepted; at runtime the cursor narrows it to \
              node 0 and the flow loops forever: {refused:?}"
         );
-        // ⛔ THE FLOOR. Without it the row above is satisfied by any document
-        // this parser rejects, which would prove only that the fixture is
-        // malformed rather than that the WIDTH is what refused it.
+        // Positive control: without it, the row above passes for any document
+        // this parser rejects, not only for the width.
         let admitted =
             ron::from_str::<TechniqueFlow>(&in_width).expect("the in-width control must parse");
         assert_eq!(

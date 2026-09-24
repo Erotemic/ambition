@@ -22,16 +22,9 @@ use super::*;
 impl RoomSet {
     /// Build a runtime room graph from already-materialized runtime rooms.
     ///
-    /// LDtk uses this path directly so it can own authored world data without
-    /// passing through a legacy RON world manifest.
-    /// ⛔⛤ **THE FIXTURE ROAD. PRODUCTION TAKES [`Self::try_from_parts`].**
-    /// Named so the wrong choice is visible at the call site rather than in a
-    /// doc comment: this one PANICS on a world the type cannot represent, and
-    /// a shipped game wants a refusal it can report.
-    ///
-    /// It is not a second constructor — it is `try_from_parts` plus an
-    /// `expect`. Both enforce the same invariant, so no `RoomSet` anywhere can
-    /// hold an index that names no room.
+    /// Fixture use only. Production uses [`Self::try_from_parts`]. This
+    /// function is `try_from_parts` plus an `expect`: it panics on a world the
+    /// type cannot represent, and a shipped game needs a refusal it can report.
     pub fn from_parts_or_panic(
         start_room: impl AsRef<str>,
         rooms: Vec<RoomSpec>,
@@ -45,19 +38,11 @@ impl RoomSet {
     /// Build a runtime room graph from already-materialized runtime rooms, or
     /// refuse.
     ///
-    /// ⛔⛤ **IT USED TO FALL BACK, AND THE FALLBACK WAS THE SAME DEFECT THE
-    /// CLAMP WAS — REVIEWED AND CLOSED 2026-09-20.** An unresolvable start room
-    /// silently selected room 0, so a caller asking for room X got a session
-    /// running a different one and no way to tell; worse, an EMPTY `rooms`
-    /// produced `active = start = 0` indexing nothing, which makes
-    /// [`RoomSet::active_spec`] and the room-set rollback checksum panic. The
-    /// same-day commit that privatised the indices claimed those indices "must
-    /// index `rooms`" while this constructor could still build a set where
-    /// they do not.
-    ///
-    /// ⚠ The 61 callers were migration cost, not a reason: twelve of them are
-    /// production and fifty are fixtures, which take
-    /// [`Self::from_parts_or_panic`].
+    /// There is no fallback. An unresolvable start room refuses, so the caller
+    /// never gets a session in a different room. An empty `rooms` refuses,
+    /// because `active = start = 0` would index nothing and make
+    /// [`RoomSet::active_spec`] and the room-set rollback checksum panic.
+    /// Fixtures use [`Self::from_parts_or_panic`].
     pub fn try_from_parts(
         start_room: impl AsRef<str>,
         rooms: Vec<RoomSpec>,
@@ -75,11 +60,10 @@ impl RoomSet {
         let mut room_nodes = Vec::new();
         let mut by_id = HashMap::new();
         for (index, room) in rooms.iter().enumerate() {
-            // ⛔ REFUSED BEFORE THE INSERT, because the insert is what loses
-            // the first room: `by_id` keeps the LAST and
-            // `RoomSet::room_index_by_id` returns the FIRST, so accepting a
-            // duplicate builds a set whose two lookup roads name two rooms.
-            // See `RoomSetRefused::DuplicateRoomId`.
+            // Refuse before the insert. `by_id` keeps the last duplicate and
+            // `RoomSet::room_index_by_id` returns the first, so a duplicate
+            // gives two lookups that name two rooms. See
+            // `RoomSetRefused::DuplicateRoomId`.
             if let Some((first, _)) = by_id.get(&room.id) {
                 return Err(RoomSetRefused::DuplicateRoomId {
                     id: room.id.clone(),
@@ -171,51 +155,24 @@ impl RoomSet {
         links
     }
 
-    /// A room is found by its AUTHORED ID and by nothing else.
+    /// A room is found by its authored id only.
     ///
-    /// ⛔⛔ THIS ALSO MATCHED `room.world.name`, WHICH IS A DISPLAY TITLE, NOT A
-    /// NAME. The LDtk converter builds it as
-    /// `format!("Ambition: {}", area_id.replace('_', " "))`, so EVERY authored
-    /// room has a `world.name` that differs from its `id` — `lab_genesis` is
-    /// titled `Ambition: lab genesis`. The alias therefore was not a synonym
-    /// kept for convenience: it made a room's human-facing caption a second,
-    /// equally authoritative way to name it, and a title is a string a
-    /// non-programmer edits.
-    ///
-    /// ⭐ THE POINT IS NOT THE LOOKUP, IT IS WHAT A SECOND NAME COSTS ITS
-    /// READERS. `same_destination` — the room transition dedup key — compares
-    /// two intents with `intent.target_room() == intent.target_room()`, raw. Two
-    /// intents naming ONE room, one by id and one by title, read as two
-    /// destinations and open TWO transactions into it, which is the exact defect
-    /// that key's own comment records having already been fixed once. With one
-    /// name per room that comparison cannot be wrong.
-    ///
-    /// ⚠ MEASURED BEFORE REMOVAL, not assumed: the alias half was exercised by
-    /// NO test. A positive control (this function returning `None` always) fells
-    /// 4 tests, so the function is genuinely covered; making it exact fells
-    /// none. Every documented `--start-room` value is an id (`goblin_encounter`,
-    /// `hall_of_characters`). It dated to git epoch 1, when a world's name
-    /// plausibly WAS its id — the converter's title format arrived later and
-    /// turned a synonym into an alias behind it.
+    /// `room.world.name` is a display title (the LDtk converter builds
+    /// `format!("Ambition: {}", area_id.replace('_', " "))`), not a name.
+    /// Do not match it here. `same_destination`, the room transition dedup
+    /// key, compares raw `target_room()` values. If a room had two names, two
+    /// intents for one room would open two transactions into it.
     pub fn room_index_by_id(&self, id: &str) -> Option<usize> {
         self.rooms.iter().position(|room| room.id == id)
     }
 
-    /// ⚠ `#[must_use]`: FALSE MEANS THE START ROOM WAS NOT SET, and a caller that
-    /// drops that runs a DIFFERENT PROGRAM than the one it was asked for -- the
-    /// `--start-room` road silently keeping whatever room the world already had.
-    /// Its one caller checks today; the attribute is what keeps the next one
-    /// honest.
+    /// `#[must_use]`: false means the start room was not set. A caller that
+    /// ignores it silently keeps the room the world already had.
     #[must_use = "false means the id matched no room and the start was NOT \
                   changed: report it, or the session silently starts elsewhere"]
     pub fn set_start_by_id(&mut self, id: &str) -> bool {
-        // ⛔⛤ **THROUGH `set_active`, NOT BESIDE IT — REVIEWED 2026-09-20.**
-        // This assigned `self.active` directly, which was a SECOND
-        // implementation of the rule governing that field. No runtime defect
-        // today (its one caller resolves the id first, and so does this), but
-        // an invariant, publication hook or instance synchronisation added to
-        // `set_active` later would simply not happen here. One field, one
-        // mutation law.
+        // Go through `set_active` so that one function owns all writes
+        // to `self.active`.
         if self.set_active_by_id(id).is_none() {
             return false;
         }
@@ -289,18 +246,13 @@ impl RoomSet {
 
     /// Seat the session in room `index`, or refuse.
     ///
-    /// ⛔⛤ **THIS CLAMPED UNTIL 2026-09-20, AND THE CLAMP WAS SILENT.** It was
-    /// `self.active = index.min(len - 1)`, so an out-of-range index did not
-    /// fail — it moved the session to the LAST room of the set while its caller
-    /// went on publishing the geometry of the room it had asked for. Measured
-    /// by accident 2026-09-14 by a poison that staged `usize::MAX` and got a
-    /// room change instead of a refusal.
+    /// Do not clamp. A clamp moves the session to the last room while the
+    /// caller publishes the geometry of the room it asked for.
     ///
-    /// `None` means the index named no room and **nothing was written**: the
-    /// previously active room is still active. One road already refused such a
-    /// plan before staging (`StagedWorldViolation::TargetRoomOutOfRange`); that
-    /// check stays, and now the setter it protects cannot be talked into the
-    /// clamp by anybody else.
+    /// `None` means the index named no room and nothing was written: the
+    /// previously active room is still active. The staging check
+    /// `StagedWorldViolation::TargetRoomOutOfRange` also refuses such a plan
+    /// earlier.
     #[must_use = "`None` means the index named no room and the active room did                   NOT change: report it, or the session silently stays put"]
     pub fn set_active(&mut self, index: usize) -> Option<&RoomSpec> {
         if index >= self.rooms.len() {
@@ -312,10 +264,8 @@ impl RoomSet {
 
     /// Seat the session in the room with this authored id, or refuse.
     ///
-    /// The id road, spelled once. Two callers outside this crate resolved an id
-    /// to a position and then assigned the private field themselves, which is
-    /// the same lookup written three times and the reason the field could be
-    /// written at all.
+    /// This is the one id-to-active road. Callers must not resolve the id and
+    /// write the private field themselves.
     #[must_use = "`None` means the id matched no room and the active room did                   NOT change: report it, or the session silently stays put"]
     pub fn set_active_by_id(&mut self, id: &str) -> Option<&RoomSpec> {
         let index = self.room_index_by_id(id)?;
@@ -324,18 +274,15 @@ impl RoomSet {
 
     /// Find the loading zone the controlled body's frame path enters this tick.
     ///
-    /// CC2 (the sweep law, docs/concepts/movement-collision.md): a loading-zone entry is
-    /// path-dependent. An overlap-fire zone (`Walk`, mid-room, not backed by a
-    /// world edge) must not be tunnelled by a fast body (blink / dash / Sanic
-    /// run) between frames, so the reader sweeps the body's `delta` path through
-    /// the zone via the ONE swept primitive instead of a discrete endpoint
-    /// overlap. Parity for slow / standing bodies — `aabb_path_contacts`
-    /// subsumes the old `strict_intersects` (the discrete overlap is the
-    /// `delta == 0` case). `Door` zones stay button-gated (`is_ready` requires
-    /// `wants_interact`), so the sweep only ever HELPS them: you cannot
-    /// tunnel-and-interact. `EdgeExit` bands sit at the room boundary backed by
-    /// world edge, so a tunnel past one is an OOB the CC3 oracle catches, not a
-    /// silent miss — the sweep costs nothing there and closes the gap for free.
+    /// CC2 (the sweep law, docs/concepts/movement-collision.md): loading-zone
+    /// entry is path-dependent. The reader sweeps the body's `delta` path
+    /// through the zone with the one swept primitive (`aabb_path_contacts`),
+    /// so a fast body (blink / dash / Sanic run) cannot tunnel an
+    /// overlap-fire `Walk` zone. With `delta == 0` this is the discrete
+    /// overlap. `Door` zones stay button-gated (`is_ready` requires
+    /// `wants_interact`), so the sweep only helps them. `EdgeExit` bands are
+    /// backed by the world edge, so a tunnel past one is an OOB that the CC3
+    /// oracle catches.
     pub fn transition_for_player(
         &self,
         player_aabb: ae::Aabb,
@@ -569,23 +516,16 @@ impl RoomSet {
 mod room_identity_tests {
     use super::*;
 
-    /// The authored id is a room's ONLY name; its display title is not a second
-    /// one.
+    /// The authored id is a room's only name; its display title is not a
+    /// second one.
     ///
-    /// ⚠ THE TITLE HERE IS NOT INVENTED — it is spelled exactly as
-    /// `ambition_platformer2d_ldtk`'s converter builds it,
-    /// `format!("Ambition: {}", area_id.replace('_', " "))`, so this test's
-    /// subject is the string every authored room actually carries. That crate
-    /// depends on this one, so the format cannot be imported; if it ever
-    /// changes, what this test loses is its REALISM, not its meaning, and the
-    /// first assertion below is what says so out loud.
+    /// The title matches the `ambition_platformer2d_ldtk` converter format,
+    /// `format!("Ambition: {}", area_id.replace('_', " "))`. That crate
+    /// depends on this one, so the format cannot be imported here. The first
+    /// assertion checks that the title differs from the id.
     ///
-    /// ⭐ THE GAP, NOT THE FIX: the removed alias let a room be found by its
-    /// caption, which made the room-transition dedup key
-    /// (`same_destination`, comparing two intents' raw `target_room()`) read one
-    /// room named two ways as two destinations. This asserts the caption does
-    /// NOT resolve, so re-adding the alias reddens here rather than surfacing as
-    /// a double transition three crates away.
+    /// If a caption resolved, `same_destination` would read one room named
+    /// two ways as two destinations. This test fails if a title alias returns.
     #[test]
     fn a_rooms_display_title_is_not_a_second_name_for_it() {
         let id = "lab_genesis";
@@ -639,23 +579,13 @@ mod room_identity_tests {
         )
     }
 
-    /// ⛔⛤ **AN INDEX THAT NAMES NO ROOM MOVES NOBODY.**
+    /// An index that names no room moves nobody.
     ///
-    /// `set_active` was `self.active = index.min(len - 1)`, so asking for room 7
-    /// of a set of two did not fail — it seated the session in room 1 while its
-    /// caller went on publishing room 7's geometry. One road refused such a plan
-    /// before staging; the setter itself accepted it from anyone.
+    /// The second assertion checks that the room did not move; a clamp that
+    /// returns `None` after it moves the room fails it.
     ///
-    /// ⭐ THE SECOND ASSERTION IS THE ONE THE CLAMP WOULD FAIL. A refusal that
-    /// returns `None` AFTER moving the active room is the same defect wearing a
-    /// return value, so what is pinned is that the room did not move.
-    ///
-    /// ⛔⛤ **AND THE ROOM IT REFUSES FROM IS CHOSEN, NOT INCIDENTAL.** The
-    /// clamp's destination is `len - 1`, which in a set of two is room 1 — so a
-    /// fixture that refuses while ALREADY in room 1 watches the clamp write the
-    /// value that was already there and reads clean. Measured: the first version
-    /// of this test refused from room 1 and the clamp poison PASSED it. Every
-    /// refusal below is made from room 0.
+    /// Every refusal is made from room 0. A clamp goes to `len - 1` (room 1),
+    /// so a refusal from room 1 would not detect it.
     #[test]
     fn an_index_that_names_no_room_is_refused_and_nothing_moves() {
         let mut set = two_rooms();
@@ -682,18 +612,11 @@ mod room_identity_tests {
         assert_eq!(set.active(), 0);
     }
 
-    /// ⛔⛤ **A SET THAT CANNOT SEAT ANYBODY IS NOT BUILT.**
+    /// A set that cannot seat anybody is not built.
     ///
-    /// `from_parts` used to select room 0 for an id it did not hold, and to
-    /// build `active = start = 0` over an EMPTY `rooms` — an index naming
-    /// nothing, which [`RoomSet::active_spec`] and the room-set rollback
-    /// checksum both dereference. The same-day commit that privatised those
-    /// indices claimed they "must index `rooms`" while this constructor could
-    /// still produce a set where they do not; a review caught the gap.
-    ///
-    /// ⭐ THE SECOND HALF OF EACH ARM IS THE ONE THAT MATTERS. A refusal is
-    /// only a refusal if the caller gets nothing back: an `Err` beside a
-    /// half-built set would be the clamp again, one level up.
+    /// An unresolvable start id and an empty `rooms` both refuse. The second
+    /// half of each arm checks that the caller gets no set back with the
+    /// `Err`.
     #[test]
     fn a_set_that_cannot_seat_anybody_is_refused_rather_than_built() {
         let world = || {
@@ -752,20 +675,13 @@ mod room_identity_tests {
         assert_eq!(built.active_spec().id, "cellar");
     }
 
-    /// TWO ROOMS UNDER ONE ID IS TWO ANSWERS TO "WHICH ROOM IS THIS".
+    /// Two rooms under one id give two answers to "which room is this".
     ///
-    /// ⛔⛤ **ACCEPTED UNTIL 2026-09-21, AND THE TWO ROADS DISAGREED IMMEDIATELY
-    /// — RAISED BY REVIEW.** `by_id` is a `HashMap`, so the duplicate insert
-    /// kept the LAST room and drove both the start resolution and every
-    /// authored link; [`RoomSet::room_index_by_id`] is a linear `position()`,
-    /// so it answered the FIRST and drove `set_active_by_id`. One set, two
-    /// meanings of `lab`, decided by which road asked.
-    ///
-    /// ⚠ **THE ARM ASSERTS THE DISAGREEMENT AND NOT ONLY THE REFUSAL**, so it
-    /// still says what the refusal is FOR after somebody forgets. It builds
-    /// the two roads' answers out of the same duplicate list and shows they
-    /// differ — which is what makes `DuplicateRoomId` a correctness refusal
-    /// rather than a tidiness rule.
+    /// `by_id` is a `HashMap`, so a duplicate insert keeps the last room; it
+    /// drives start resolution and authored links. [`RoomSet::room_index_by_id`]
+    /// is a linear `position()`, so it finds the first; it drives
+    /// `set_active_by_id`. The test asserts this disagreement as well as the
+    /// refusal, so it shows why `DuplicateRoomId` is a correctness rule.
     #[test]
     fn two_rooms_with_one_id_are_refused_because_the_two_lookup_roads_disagree() {
         let world = || {
@@ -790,10 +706,8 @@ mod room_identity_tests {
             },
         );
 
-        // ⭐ WHY IT MATTERS, NOT JUST THAT IT REFUSES. The `HashMap` road keeps
-        // the last duplicate and the `position` road finds the first, so a set
-        // that got built would answer 1 at construction/link time and 0 at
-        // runtime lookup time.
+        // Show the disagreement: the `HashMap` road keeps the last duplicate
+        // (1) and the `position` road finds the first (0).
         let mut by_id = std::collections::HashMap::new();
         for (index, room) in duplicated().iter().enumerate() {
             by_id.insert(room.id.clone(), index);
@@ -816,12 +730,10 @@ mod room_identity_tests {
         assert_eq!(built.active_spec().id, "lab");
     }
 
-    /// The start road and the active road are ONE mutation law.
+    /// The start road and the active road use one mutation law.
     ///
-    /// `set_start_by_id` assigned `self.active` directly — a second
-    /// implementation of the rule `set_active` owns. No runtime defect at the
-    /// time (its caller resolved the id first), but an invariant added to
-    /// `set_active` later would simply not have happened here.
+    /// `set_start_by_id` must go through `set_active`, so a rule added to
+    /// `set_active` also applies to it.
     #[test]
     fn setting_the_start_room_moves_the_active_room_through_the_same_road() {
         let mut set = two_rooms();

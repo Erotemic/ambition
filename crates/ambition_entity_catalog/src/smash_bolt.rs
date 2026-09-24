@@ -12,7 +12,7 @@ pub const STEERED_BOLT: &str = "smash.steered_bolt";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SteeredBoltParams {
-    /// How fast it travels, in world px per second. CONSTANT — the stick turns
+    /// How fast it travels, in world px per second. Constant: the stick turns
     /// it and never speeds it up, which is what makes the move about aim rather
     /// than about mashing.
     pub speed: f32,

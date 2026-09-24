@@ -1,11 +1,13 @@
+//! Fills the display area that the gameplay camera does not cover.
+//!
 //! Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`.
 //!
-//! The base fill below is that something; the [`SurroundPolicy`] then decides how the surround
-//! READS, not whether it exists.
+//! The base fill always draws; the [`SurroundPolicy`] decides how the
+//! surround reads, not whether it exists.
 //!
-//! Render owns the drawing and nothing else — it never selects policy. It reads
-//! the one resolved layout the host published and paints what that layout says
-//! the gameplay camera does not cover.
+//! Render owns only the drawing and never selects policy. It reads the
+//! resolved layout the host published and paints what the gameplay camera
+//! does not cover.
 
 use bevy::prelude::*;
 
@@ -44,8 +46,8 @@ impl Plugin for GameplaySurroundPlugin {
 ///
 /// [`SurroundPolicy::GameAuthored`] and
 /// [`SurroundPolicy::DecorativeWorldExtension`] still get the base fill: they
-/// describe what a game draws ON TOP, and skipping the fill for them would
-/// leave unpainted display when the game draws nothing.
+/// describe what a game draws on top, and without the fill the display would
+/// be unpainted when the game draws nothing.
 fn surround_color(policy: SurroundPolicy) -> Color {
     match policy {
         SurroundPolicy::None | SurroundPolicy::Solid => Color::srgb(0.02, 0.02, 0.03),
@@ -94,10 +96,9 @@ fn sync_gameplay_surround(
                     SurroundRegion::Top,
                     SurroundRegion::Bottom,
                 ] {
-                    // Laid out AT SPAWN, not on the next update: the frame a
-                    // fixed-aspect game starts is the frame the pillarboxes
-                    // appear, and a one-frame flash of uncleared framebuffer
-                    // is exactly the artifact this system exists to prevent.
+                    // Laid out at spawn, not on the next update: pillarboxes appear
+                    // on the first frame, and one frame of uncleared framebuffer is
+                    // the artifact this system prevents.
                     root.spawn((
                         bar_node(&letterbox, region),
                         BackgroundColor(color),

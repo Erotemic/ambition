@@ -1,6 +1,5 @@
-//! The recall-mark beacon visual (was in abilities/traversal/mark_recall) — a
-//! glowing beacon sprite at the player's dropped mark. Render-only; reads the
-//! sim-side mark read-model.
+//! The recall-mark beacon visual: a glowing beacon sprite at the player's
+//! dropped mark. Render-only; reads the sim-side mark read model.
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::lifecycle::{
@@ -13,14 +12,14 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct MarkBeaconVisual;
 
-/// How far above the mark (player center) the beacon's center sits, so it reads
-/// as a marker standing UP from the spot rather than buried in the floor.
+/// How far above the mark (player center) the beacon's center sits, so it
+/// stands up from the spot instead of sinking into the floor.
 const BEACON_RISE: f32 = 18.0;
 /// In-world display size of the beacon sprite (3:7, matching the rendered prop).
 const BEACON_SIZE: ae::Vec2 = ae::Vec2::new(30.0, 70.0);
 
-/// Clear-and-rebuild each frame — one mark per player, despawns when the mark is cleared. Visible
-/// build only.
+/// Clear and rebuild each frame: one beacon per mark, removed when the mark is
+/// cleared. Visible build only.
 pub fn sync_mark_beacon_visual(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<

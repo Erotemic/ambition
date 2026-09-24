@@ -1,22 +1,21 @@
 //! Presentation half of the follow camera.
 //!
-//! The RESOLVE — zoom policy, camera zones, target easing, blink
-//! interpolation, clamping (the `CameraEaseState` write) — belongs to the
-//! observation seam
-//! ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`], E4-17),
-//! which publishes one [`ResolvedCameraSnapshot`] per rendered FRAME. This
-//! module only (a) applies presentation-only deltas — portal camera
-//! continuity, shake — to a COPY of the snapshot, and (b) writes the Bevy
-//! camera transform/projection. Render never mutates sim camera state.
+//! The resolve (zoom policy, camera zones, target easing, blink
+//! interpolation, clamping; the `CameraEaseState` write) belongs to the
+//! observation seam ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`]),
+//! which publishes one [`ResolvedCameraSnapshot`] per rendered frame. This
+//! module only (a) applies presentation-only deltas (portal camera
+//! continuity, shake) to a copy of the snapshot, and (b) writes the Bevy
+//! camera transform and projection. Render never mutates sim camera state.
 //!
-//! Frame, not tick: the simulation produces authoritative world facts, and where the camera
-//! looks at them is presentation.
+//! Per frame, not per tick: the simulation produces world facts, and where
+//! the camera looks is presentation.
 //!
-//! The observer facts the resolver consumes (`CameraViewport`,
+//! The observer facts the resolver reads (`CameraViewport`,
 //! `CameraScreenFraming`) are published by
-//! `ambition_platformer2d_host::gameplay_presentation`: they are answers about the physical
-//! display and the active presentation profile, and render does not select
-//! policy.
+//! `ambition_platformer2d_host::gameplay_presentation`: they describe the
+//! physical display and the active presentation profile. Render does not
+//! select policy.
 
 #[cfg(feature = "portal_render")]
 use bevy::ecs::system::SystemParam;
@@ -24,14 +23,14 @@ use bevy::prelude::*;
 
 use super::primitives::PlayerVisual;
 use ambition_sim_view::camera_snapshot::{CameraPresentationInputs, ResolvedCameraSnapshot};
-// Only the portal publisher mints a chart transit; without that feature the
-// import is dead and `-D warnings` compositions say so.
+// Only the portal publisher creates a chart transit; without that feature
+// the import is unused and `-D warnings` fails.
 #[cfg(feature = "portal_render")]
 use ambition_sim_view::camera_snapshot::CameraChartTransit;
 use ambition_sim_view::LocalView;
 
-// It is re-exported from `ambition_sim_view` so the name still resolves here; see that module
-// for why a process-global could not answer "whose view" once there are two.
+// Re-exported from `ambition_sim_view`; see that module for why it is
+// per-view state.
 pub use ambition_sim_view::CameraViewState;
 
 #[cfg(feature = "portal_render")]
@@ -42,20 +41,19 @@ pub struct PortalCameraContinuityParams<'w> {
     host_view: Option<ResMut<'w, ambition_portal2d_presentation::PortalCameraContinuityHostView>>,
 }
 
-/// Bridge the portal-continuity facts the RESOLVER needs — the clamp pad and
-/// the chart rotation — into its generic inputs BEFORE this tick's resolve.
+/// Pass the portal-continuity facts the resolver needs (the clamp pad and
+/// the chart rotation) into its generic inputs before this tick's resolve.
 ///
-/// Same-frame, like the old inline read: a post-resolve copy would lag the pad
-/// one frame and visibly step the camera at transit clear.
-///
-/// A rotation-aware clamp is only expressible once the roll is an input, and the composition rule
-/// ([`presented_roll_radians`]) can only be applied where the base observer roll is also known.
+/// Same-frame: a post-resolve copy would lag the pad one frame and step the
+/// camera when the transit clears. A rotation-aware clamp needs the roll as
+/// an input, and the composition rule ([`presented_roll_radians`]) needs the
+/// base observer roll, which is known here.
 #[cfg(feature = "portal_render")]
 pub fn publish_portal_camera_clamp(
     selection: Option<Res<ambition_portal2d_presentation::PortalCameraContinuitySelection>>,
     state: Option<Res<ambition_portal2d_presentation::PortalCameraContinuityState>>,
-    // One row per local view. Ambition has one; the portal's facts are a fact
-    // about the world's geometry, so every view presenting that world is told.
+    // One row per local view. The portal facts describe the world, so every
+    // view of that world gets them.
     mut views: Query<
         (
             Entity,
@@ -86,10 +84,9 @@ pub fn publish_portal_camera_clamp(
             observer_roll_at_entry: match presentation.chart_transit {
                 // Already crossing: keep the roll adopted when it began.
                 Some(active) => active.observer_roll_at_entry,
-                // Rising edge: THIS view's last resolved roll is its base roll.
-                // ⚠ An UNFRAMED view has no roll to adopt — zero is the honest
-                // answer for a view nothing has framed yet, and it is stated
-                // rather than reached through a `Default` frame.
+                // Rising edge: this view's last resolved roll is its base roll.
+                // An unframed view has no roll, so zero is used explicitly
+                // (not through a `Default` frame).
                 None => resolved
                     .frame()
                     .map_or(0.0, |frame| frame.snapshot.rotation_radians),
@@ -98,23 +95,19 @@ pub fn publish_portal_camera_clamp(
     }
 }
 
-/// Apply the sim-resolved camera snapshot to EACH main camera — every one of
-/// them through the view it names — layering the presentation-only deltas
-/// (portal camera continuity, shake) onto a COPY.
+/// Apply the sim-resolved camera snapshot to each main camera, through the
+/// view it names, with the presentation-only deltas (portal camera
+/// continuity, shake) applied to a copy.
 pub fn camera_follow(
-    // THE VIEWS, read through each camera's own link. This was a
-    // `Single<…, With<LocalView>>` beside a query for the main camera — two
-    // uniqueness assumptions pretending to be a pairing, which held only because
-    // there happened to be one of each. A camera now NAMES the view it presents
-    // (`PresentsView`), so a second view does not turn this into a panic and a
-    // second camera does not turn it into a fight over one snapshot.
+    // The views, read through each camera's own link. A camera names the
+    // view it presents (`PresentsView`), so a second view or a second
+    // camera is not a special case.
     mut views: Query<
         (
             Entity,
             &ResolvedCameraSnapshot,
             &mut CameraPresentationInputs,
-            // The resolve below already knows which view this camera presents; that is exactly
-            // the entity whose diagnostics these are.
+            // The view this camera presents; its diagnostics go here.
             &mut CameraViewState,
         ),
         With<LocalView>,
@@ -123,23 +116,16 @@ pub fn camera_follow(
         ambition_platformer2d_core::RoomGeometry,
     >,
     shake: Res<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeState>,
-    // ⛔ REQUIRED, not `Option<Res<..>>`, and the first version of this was the
-    // Option. The select screen's stage button already ruled on this exact
-    // question when its `ResMut` turned 28 tests red: *"Both register it now
-    // rather than the parameter becoming Option -- an Option would have kept
-    // the fixtures green and silently no-opped the stage button in production
-    // if the real registration were ever dropped."*
-    //
-    // ⭐ AND THE USUAL COUNTER-ARGUMENT IS ALREADY DEAD HERE: `shake` above is
-    // a required `Res` in this same signature, so a host that would panic on
-    // a missing `FinishZoomState` is a host that already panics on
-    // `CameraShakeState`. The Option bought nothing in production and cost the
-    // protection against a silent no-op.
+    // Required, not `Option<Res<..>>`. An `Option` would keep test fixtures
+    // passing and silently disable the finish zoom in production if the
+    // registration were dropped. `shake` above is already a required `Res`,
+    // so a host missing this would already fail on `CameraShakeState`.
     finish_zoom: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomState>,
     finish_zoom_tuning: Res<ambition_platformer2d_shared_tangle::camera_ease::FinishZoomTuning>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
-    // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube pause-menu
-    // Camera3d, the portal view-cone renderer spawns offscreen capture `Camera2d`s.
+    // `With<MainCamera>`, not `With<Camera2d>`: the #31 cube pause menu has a
+    // `Camera3d`, and the portal view-cone renderer spawns offscreen capture
+    // `Camera2d`s.
     mut query: Query<
         (
             &mut Transform,
@@ -152,19 +138,13 @@ pub fn camera_follow(
         ),
     >,
 ) {
-    // Same singleton the component move deleted, restored as a loop-invariant.
-    // `PresentedViewState::get()` already refused to choose between several main cameras; this had
-    // no such protection, it just picked.
-    //
-    // the binding rule itself lives in `ambition_sim_view::ViewsOnHand` — one
-    // statement, shared with the viewport applier and the draw-side lookup,
-    // because three copies of "which view is this camera for" is three chances
-    // to disagree silently.
+    // The binding rule is in `ambition_sim_view::ViewsOnHand`, shared with
+    // the viewport applier and the draw-side lookup, so all three agree on
+    // which view a camera is for.
     let on_hand = ambition_sim_view::ViewsOnHand::survey(views.iter().map(|(view, ..)| view));
     let shake_offset = shake.offset();
-    // Resolved once per run rather than per camera: both are process-wide, and
-    // an idle zoom is exactly 1.0, so this is a no-op for every host that
-    // never decides a match.
+    // Resolved once per run: both are process-wide, and an idle zoom is 1.0,
+    // so this is a no-op for hosts that never decide a match.
     let finish_zoom_factor = finish_zoom.scale_factor(*finish_zoom_tuning);
 
     for (mut transform, mut projection, link) in &mut query {
@@ -177,13 +157,12 @@ pub fn camera_follow(
             );
             continue;
         };
-        // ⛔ A VIEW THAT HAS NOT BEEN FRAMED IS NOT PRESENTED. Before the
-        // `Option` (2026-09-04) this read a `Default` frame — a real-looking
-        // 568x320 window on the world origin — and moved the camera there.
+        // An unframed view is not presented; do not move the camera to a
+        // default frame.
         let Some(frame) = resolved.frame() else {
             continue;
         };
-        // Presentation deltas apply to a COPY — the sim's resolved snapshot is
+        // Presentation deltas apply to a copy; the resolved snapshot is
         // read-only here.
         #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
         let mut snapshot = frame.snapshot.clone();
@@ -192,16 +171,16 @@ pub fn camera_follow(
 
         #[cfg(not(feature = "portal_render"))]
         {
-            // Without portal continuity nothing writes these; keep them cleared
-            // so a stale pad or roll can't linger across feature configs.
+            // Without portal continuity nothing writes these; keep them clear so a
+            // stale pad or roll cannot remain across feature configs.
             *presentation = CameraPresentationInputs::default();
         }
         #[cfg(feature = "portal_render")]
         let _ = &mut presentation; // written pre-resolve by publish_portal_camera_clamp
 
-        // portal camera continuity is still ONE global for the whole process.
-        // `PortalCameraContinuityState`/`HostView` are `Resource`s, so the writes below are
-        // last-camera-wins once a composition really has two.
+        // Portal camera continuity is still one global for the process.
+        // `PortalCameraContinuityState` and `HostView` are `Resource`s, so with
+        // two cameras the last writer wins.
         #[cfg(feature = "portal_render")]
         {
             let portal_continuity_enabled =
@@ -227,9 +206,9 @@ pub fn camera_follow(
                     } else if !portal_clamp_padding_still_needed {
                         portal_state.clear_clamp_padding();
                     }
-                    // `publish_portal_camera_clamp` now hands both facts to the resolve, and
-                    // `snapshot.rotation_radians` already carries the composed answer by the
-                    // time this runs.
+                    // `publish_portal_camera_clamp` gives both facts to the resolve,
+                    // so `snapshot.rotation_radians` already has the composed
+                    // answer.
                 } else {
                     portal_state.clear();
                 }
@@ -255,16 +234,12 @@ pub fn camera_follow(
         *view_state = CameraViewState::from(&snapshot);
 
         if let Projection::Orthographic(orthographic) = &mut *projection {
-            // ⛔⛔ THE FINISHING ZOOM MULTIPLIES HERE AND NOWHERE UPSTREAM.
-            // `snapshot.orthographic_scale` descends from a policy that floors
-            // itself at 1.0 twice over — `CameraZoneSpec::effective_zoom` and
-            // `camera_snapshot`'s own `target_scale` — because the design view
-            // is a readability FLOOR the player is never given less than. A
-            // finishing zoom goes the other way, so it is applied to the
-            // PRESENTED projection instead of being allowed under that floor,
-            // exactly as the shake is applied to the presented transform.
-            // `scale_factor` returns 1.0 when idle, so this is a no-op for
-            // every host that never decides a match.
+            // The finishing zoom is applied here only. `snapshot.orthographic_scale`
+            // comes from a policy that floors at 1.0 (`CameraZoneSpec::effective_zoom`
+            // and `camera_snapshot`'s `target_scale`), because the design view is a
+            // readability floor. A finishing zoom goes below it, so it is applied to
+            // the presented projection, like shake to the presented transform.
+            // `scale_factor` is 1.0 when idle.
             orthographic.scale = snapshot.orthographic_scale * finish_zoom_factor;
         }
         transform.translation.x = x + shake_offset.x;
@@ -283,8 +258,7 @@ mod two_views_one_simulation_tests {
     use ambition_sim_view::{LocalView, LocalViewId, PresentsView};
     use bevy::ecs::system::RunSystemOnce as _;
 
-    /// 800x600, so the world-to-Bevy flip below is arithmetic anyone can check
-    /// by hand rather than a number copied out of a previous run.
+    /// 800x600, so the world-to-Bevy flip below is easy to check by hand.
     fn room() -> ae::RoomGeometry {
         ae::RoomGeometry(ae::World::new(
             "two views",
@@ -294,9 +268,8 @@ mod two_views_one_simulation_tests {
         ))
     }
 
-    /// What `camera_follow` must put on the Bevy transform for a view centred
-    /// here: the same flip the production line does, written once so the
-    /// expectation is derived rather than pinned.
+    /// What `camera_follow` must write on the Bevy transform for a view centred
+    /// here: the same flip as production, so the expectation is derived.
     fn expected_translation(center: ae::Vec2) -> Vec2 {
         Vec2::new(center.x - 800.0 * 0.5, 600.0 * 0.5 - center.y)
     }
@@ -324,12 +297,11 @@ mod two_views_one_simulation_tests {
     }
 
     /// One world, one simulation, two views, two cameras. `first_presents_left`
-    /// is the only thing that differs between runs: it SWAPS which view each
-    /// camera names while leaving spawn order, entity ids and every snapshot
-    /// value untouched.
+    /// is the only difference between runs: it swaps which view each camera
+    /// names, and keeps spawn order, entity ids, and every snapshot value.
     ///
     /// Returns, per camera in spawn order, the transform translation and
-    /// orthographic scale `camera_follow` gave it, plus what each VIEW's own
+    /// orthographic scale `camera_follow` gave it, plus what each view's own
     /// `CameraViewState` ended up holding.
     fn present(first_presents_left: bool) -> ([(Vec2, f32); 2], [ae::Vec2; 2]) {
         let mut world = World::new();
@@ -390,22 +362,13 @@ mod two_views_one_simulation_tests {
         (presented, view_states)
     }
 
-    /// EACH MAIN CAMERA PRESENTS THE VIEW IT NAMES — NOT THE FIRST
-    /// CAMERA'S VIEW.
+    /// Each main camera presents the view it names, not the first camera's view.
     ///
-    /// `camera_follow` read `query.iter.next`'s `PresentsView`, resolved that ONE view, and
-    /// then wrote that one view's transform and projection onto EVERY main camera.
+    /// The test checks values, not only that the cameras differ: each camera is
+    /// compared with the framing of the view it names.
     ///
-    /// the assertion is on the VALUES, not on inequality. "the two
-    /// cameras differ" would pass for a pair that differ and are both wrong.
-    /// Each camera is checked against the framing derived from the view it
-    /// names.
-    ///
-    /// and the falsifier is inside the test. The second run swaps only
-    /// the two `PresentsView` links — same spawn order, same entities, same
-    /// snapshots — and the two cameras must swap with them. A `camera_follow`
-    /// that keys off camera iteration order instead of the link passes the
-    /// first run and fails this one.
+    /// The second run swaps only the two `PresentsView` links, and the cameras
+    /// must swap too. A version keyed on camera iteration order fails that run.
     #[test]
     fn each_main_camera_presents_the_view_it_names() {
         let left_expected = (expected_translation(ae::Vec2::new(100.0, 200.0)), 2.0);

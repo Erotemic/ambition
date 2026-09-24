@@ -32,24 +32,22 @@ pub struct BossConfig {
 /// the shared body components.
 #[derive(Component, Clone, Debug)]
 pub struct BossEncounter {
-    /// Active encounter phase. Forwarded by `sync_boss_encounter_phase`
-    /// from `BossEncounterRegistry`. `Dormant` until the encounter
-    /// wakes up. The brain reads this via `BossPatternContext`.
+    /// Active encounter phase, forwarded by `sync_boss_encounter_phase` from
+    /// the entity-local phase state. `Dormant` until the encounter wakes. The
+    /// brain reads it via `BossPatternContext`.
     pub encounter_phase: BossEncounterPhase,
-    /// Sprite-driven body metrics — populated by the
-    /// `derive_boss_sprite_metrics` system after the SheetRegistry
-    /// has loaded. `None` for bosses whose sprite has no `body_metrics`
-    /// entry (the legacy `combat_size` path applies).
+    /// Sprite-driven body metrics, set by `derive_boss_sprite_metrics` after
+    /// the SheetRegistry loads. `None` for bosses whose sprite has no
+    /// `body_metrics` entry (then `combat_size` applies).
     pub sprite_metrics: Option<ActorSpriteMetrics>,
-    /// The sprite RENDER-BASIS size — the collision box the sheet's
+    /// The sprite render-basis size: the box the sheet's
     /// `render_size(basis)` scales the drawn quad from (the LDtk spawn seed).
-    /// Archetype swap AS4b: `kin.size` becomes the COLLISION envelope
-    /// (`combat_size`) so the boss integrates through the shared movement seam
-    /// (which sweeps `kin.size`), so the render basis can no longer BE `kin.size`.
-    /// The render (`upgrade_boss_sprites` / `animate_bosses`) reads this via
-    /// [`BossRef::render_size`], keeping the drawn sprite byte-identical across the
-    /// flip. (Deliberately distinct from `sprite_metrics.sprite_render_size`, the
-    /// derived world quad; this is the *input* the sheet spec scales.)
+    /// `kin.size` is the collision envelope (`combat_size`), which the shared
+    /// movement seam sweeps, so the render basis is stored here. The render
+    /// (`upgrade_boss_sprites` / `animate_bosses`) reads it via
+    /// [`BossRef::render_size`]. Distinct from
+    /// `sprite_metrics.sprite_render_size`, the derived world quad; this is
+    /// the input the sheet spec scales.
     pub render_size: ae::Vec2,
     /// Entity-local phase state and intrinsic phase triggers. Together with
     /// `health`, this is fight authority; music, walls, HUD, and other encounter
@@ -57,28 +55,27 @@ pub struct BossEncounter {
     pub encounter: Option<super::ActorPhaseState>,
 }
 
-/// Per-spawn boss "tweaks Z" — the data that makes "spawn boss X (with tweaks Z)
-/// at position Y and it just works" true (the refactor's one-line goal, R6).
+/// Per-spawn boss tweaks: the data behind "spawn boss X with tweaks Z at
+/// position Y".
 ///
-/// Carried on the spawned boss entity as a `Component` and read at SEED time by
+/// Carried on the spawned boss entity and read at seed time by
 /// `update_boss_encounters` (hp / size / phase triggers) and by
-/// `sync_boss_encounter_entities` (the encounter opt-out). `Default` = no
-/// tweaks (use the archetype profile), so a room-authored boss is unaffected.
+/// `sync_boss_encounter_entities` (the encounter opt-out). `Default` is no
+/// tweaks (use the archetype profile).
 #[derive(bevy::prelude::Component, Clone, Debug, Default)]
 pub struct BossOverrides {
     /// Override max HP (also the starting HP). `None`  the profile's `max_hp`.
     pub max_hp: Option<i32>,
-    /// Override the combat/contact box half-extent → full size. `None`  the
-    /// profile's `combat_size`.
+    /// Override the combat/contact box size. `None` uses the profile's
+    /// `combat_size`.
     pub combat_size: Option<ae::Vec2>,
-    /// Override the intrinsic phase triggers as DATA. `Some(vec![])`  the boss
-    /// never phases up (fights to death — a boss reused as a plain tough enemy);
-    /// `None`  the profile-derived triggers. Proves phases are trivially
-    /// flippable data, no code change.
+    /// Override the intrinsic phase triggers as data. `Some(vec![])` means the
+    /// boss never phases up (it fights to death, for example a boss reused as
+    /// a plain tough enemy); `None` uses the profile-derived triggers.
     pub phase_triggers: Option<Vec<super::PhaseTrigger>>,
-    /// Spawn the boss WITHOUT an encounter wrapper — a plain tough enemy: no
-    /// HUD, no lock-walls, no win/lose. (`sync_boss_encounter_entities` skips
-    /// it.) The creature still fights + dies normally.
+    /// Spawn the boss without an encounter wrapper, as a plain tough enemy:
+    /// no HUD, no lock-walls, no win/lose (`sync_boss_encounter_entities`
+    /// skips it). The creature still fights and dies normally.
     pub no_encounter: bool,
 }
 
@@ -99,10 +96,9 @@ pub struct BossMut<'a> {
 }
 
 impl<'a> BossRef<'a> {
-    /// The sprite RENDER-BASIS size (the drawn quad's collision scale input).
-    /// Post-AS4b this is NO LONGER `kin.size` (which is now the collision envelope,
-    /// `combat_size`) — it's the stored spawn-seed basis, so the drawn sprite is
-    /// unchanged by the size flip. See [`BossEncounter::render_size`].
+    /// The sprite render-basis size (the drawn quad's scale input). This is
+    /// not `kin.size`, which is the collision envelope (`combat_size`); it is
+    /// the stored spawn-seed basis. See [`BossEncounter::render_size`].
     pub fn render_size(&self) -> ae::Vec2 {
         self.status.render_size
     }
@@ -185,14 +181,13 @@ impl<'a> BossMut<'a> {
         self.config.behavior = behavior;
     }
 
-    // `reset_to_spawn` moved to the room-reset system (its only caller): the
-    // boss respawn is a discrete TRANSIT (ADR 0024 authority) and needs the
-    // boss's unified actor-cluster view + MotionModel, which this narrow
-    // boss-cluster view deliberately does not carry.
+    // `reset_to_spawn` is in the room-reset system (its only caller): a boss
+    // respawn is a discrete transit (ADR 0024) and needs the unified
+    // actor-cluster view and MotionModel, which this view does not carry.
 
-    // Boss body integration lives on the SHARED movement seam now (archetype swap
-    // AS4c): `integrate_boss_bodies` → `ActorMut::update` → the flight limb in
-    // direct-velocity mode. A boss IS just an aerial actor — no bespoke float.
+    // Boss body integration is on the shared movement seam:
+    // `integrate_boss_bodies` → `ActorMut::update` → the flight limb in
+    // direct-velocity mode. A boss is an aerial actor.
 }
 
 #[derive(QueryData)]
@@ -255,8 +250,8 @@ pub struct BossClusterScratch {
     pub kin: BodyKinematics,
     pub config: BossConfig,
     pub status: BossEncounter,
-    /// The boss's HP authority — the SAME `BodyHealth` component every body
-    /// carries (§A1). Spawned from here; never mirrored from boss state.
+    /// The boss's HP authority: the same `BodyHealth` component every body
+    /// carries. Spawned from here; never mirrored from boss state.
     pub health: ambition_characters::actor::BodyHealth,
 }
 
@@ -271,26 +266,24 @@ impl BossClusterScratch {
         brain: ambition_entity_catalog::placements::BossBrain,
     ) -> Self {
         let name = name.into();
-        // Behavior lookup prefers the brain's `PhaseScript:` id over the
-        // LDtk display name, so a "System Boss" room whose brain is
-        // `PhaseScript:clockwork_warden` still resolves to the
-        // clockwork_warden / Gradient Sentinel profile.
+        // Behavior lookup prefers the brain's `PhaseScript:` id over the LDtk
+        // display name, so a "System Boss" room whose brain is
+        // `PhaseScript:clockwork_warden` resolves to the clockwork_warden
+        // profile.
         let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
         let behavior = BossBehaviorProfile::for_authored_boss(boss_catalog, &canonical_id);
-        // AS4b: the LDtk spawn box is the sprite RENDER-BASIS (`render_size`); the
-        // COLLISION envelope is `combat_size` (the profile's, refined later by
-        // `derive_boss_sprite_metrics`). `kin.size` carries the COLLISION size so the
-        // shared movement seam sweeps the right box (AS4c); the render reads
-        // `render_size` so the drawn sprite is unchanged.
+        // The LDtk spawn box is the sprite render basis (`render_size`). The
+        // collision envelope is `combat_size` (the profile's, refined later by
+        // `derive_boss_sprite_metrics`). `kin.size` holds the collision size,
+        // so the shared movement seam sweeps the right box.
         let render_basis = aabb.half_size() * 2.0;
         let collision_size = behavior.combat_size.unwrap_or(render_basis);
         Self {
             kin: BodyKinematics {
                 pos: center,
-                // Bosses float; the brain emits a fresh `desired_vel` each
-                // tick (consumed by `integrate_body`), so `vel` is never
-                // integrated and stays `ZERO`.
+                // Bosses float: the brain emits a new `desired_vel` each tick,
+                // so `vel` is never integrated and stays `ZERO`.
                 vel: ae::Vec2::ZERO,
                 size: collision_size,
                 facing: 1.0,
@@ -344,26 +337,20 @@ impl BossClusterScratch {
     }
 }
 
-/// Whether this boss PLACEMENT is recorded `Cleared` in the save.
+/// Whether this boss placement is recorded `Cleared` in the save.
 ///
-/// R4 keys "cleared" by the boss's unique runtime/LDtk placement id
-/// (`config.id`), NOT the archetype — so the same archetype reused at another
-/// placement is not pre-marked defeated. The single definition of the "cleared"
-/// predicate FOR THE ECS ROAD -- everything holding a `BossConfig`: the
-/// per-tick encounter driver (`update_boss_encounters`, twice) and the cut-rope
-/// victory NPC (`victory.rs`) -- and it delegates to [`placement_is_cleared`],
-/// which construction asks before a `BossConfig` exists, so the skip-check and
-/// the build-it-defeated decision cannot drift apart.
+/// "Cleared" is keyed by the boss's unique placement id (`config.id`), not
+/// the archetype, so the same archetype at another placement is not marked
+/// defeated. This is the predicate for the ECS road (everything holding a
+/// `BossConfig`: `update_boss_encounters` and the cut-rope victory NPC in
+/// `victory.rs`). It delegates to [`placement_is_cleared`], which
+/// construction asks before a `BossConfig` exists, so they agree.
 ///
-/// ⛔ IT IS NOT THE ONLY READING OF THE FACT, AND DO NOT MAKE IT ONE. The
-/// authored-condition road (`conditions::cleared`, the `boss.cleared(...)` a
-/// Yarn file asks) reads the STATE rather than this predicate, because it must
-/// explain WHY a false answer is false -- `Untouched` and `Failed` produce
-/// different `WhyNot` text. Routing it through this bool would force it to read
-/// the row a SECOND time for the message, which is more duplication than it
-/// removes. Two readings, one authority underneath
-/// (`save.data().boss(id)`): that accessor is the fact, this is a predicate
-/// over it.
+/// It is not the only reading of the fact. The authored-condition road
+/// (`conditions::cleared`, Yarn's `boss.cleared(...)`) reads the state
+/// directly because it must explain why a false answer is false (`Untouched`
+/// and `Failed` give different `WhyNot` text). Both read one authority:
+/// `save.data().boss(id)`.
 pub fn boss_is_cleared(
     save: &ambition_persistence::save::AmbitionGameSave,
     config: &BossConfig,
@@ -371,9 +358,9 @@ pub fn boss_is_cleared(
     placement_is_cleared(save.data(), &config.id)
 }
 
-/// The same predicate before a `BossConfig` exists — for the roads that decide
-/// how to BUILD a placement (a construction commit, a programmatic spawn), which
-/// hold its id and not yet a body.
+/// The same predicate before a `BossConfig` exists, for code that decides how
+/// to build a placement (a construction commit, a programmatic spawn) and has
+/// only its id.
 pub fn placement_is_cleared(
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
     placement_id: &str,
@@ -384,9 +371,9 @@ pub fn placement_is_cleared(
     )
 }
 
-/// Which boss placements the durable save records Cleared, as a system
-/// parameter — so a spawner that must not name the save can still build a
-/// cleared placement defeated rather than alive.
+/// Which boss placements the save records Cleared, as a system parameter, so
+/// a spawner that must not name the save can still build a cleared placement
+/// defeated.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ClearedBossPlacements<'w> {
     save: bevy::prelude::Res<'w, ambition_persistence::save::AmbitionGameSave>,
@@ -400,22 +387,21 @@ impl ClearedBossPlacements<'_> {
 
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support {
-    //! Shared boss test fixtures. One definition of "a test `BossEncounter` /
-    //! `BossConfig`" so the boss test modules build the same shape — adding a
-    //! field updates them all at once instead of drifting per-module.
+    //! Shared boss test fixtures: one definition of a test `BossEncounter` /
+    //! `BossConfig`, so a new field updates every test module.
     use super::super::{ActorPhaseState, PhaseTrigger};
     use super::*;
 
-    /// Install the durable save [`ClearedBossPlacements`] reads, empty — what a
-    /// fixture composing a spawner needs so it builds under the same authority
-    /// production does, without naming the persistence crate.
+    /// Install the empty durable save that [`ClearedBossPlacements`] reads, so
+    /// a fixture with a spawner builds under the same authority as
+    /// production, without naming the persistence crate.
     pub fn install_empty_save(app: &mut bevy::prelude::App) {
         app.init_resource::<ambition_persistence::save::AmbitionGameSave>();
     }
 
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
-    /// entity-local `ActorPhaseState` carrying `triggers` (empty  never phases
-    /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
+    /// entity-local `ActorPhaseState` carrying `triggers` (empty means never
+    /// phases up) already set to `phase`. HP is on the shared `BodyHealth`.
     pub fn test_boss_status_with(
         hp: i32,
         phase: BossEncounterPhase,
@@ -438,7 +424,7 @@ pub mod test_support {
     }
 
     /// A `(BossEncounter, BodyHealth)` at `hp` HP in `phase` with no phase
-    /// triggers (fights to death — the common single-phase fixture).
+    /// triggers (fights to death; the common single-phase fixture).
     pub fn test_boss_status(
         hp: i32,
         phase: BossEncounterPhase,
@@ -471,14 +457,12 @@ pub mod test_support {
 
 /// The boss's encounter phase, and the `ActorPhaseState` it is forwarded from.
 ///
-/// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
-/// sheet registry, and because `ActorPhaseState.triggers` is authored data.
+/// A cursor, because the rest of `BossEncounter` is sprite metrics derived
+/// from the sheet registry, and `ActorPhaseState.triggers` is authored data.
 ///
-/// `encounter_phase` is the exposed MIRROR that `sync_boss_encounter_phase` copies out
-/// of `encounter` every tick. Rewinding only the mirror is rewinding a thermometer:
-/// `mockingbird_arena` telegraphed `wing_sweep` on the replay's tick 21 and stood still
-/// on the original's, with every clock, seed, and cooldown identical, because the
-/// replay's boss was already awake.
+/// `encounter_phase` is a mirror that `sync_boss_encounter_phase` copies from
+/// `encounter` every tick. Rewinding only the mirror is not enough: a replayed
+/// boss would already be awake and act differently from the original.
 impl SnapshotCursor for BossEncounter {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         self.encounter_phase.encode(out);

@@ -9,38 +9,23 @@ secondary game may eventually graduate into a **first-class game** if its produc
 quality warrants that investment. Super Smash Siblings is a plausible candidate.
 Ambition remains the main game.
 
-Current customers, each with its own plan — **this list is the index, and it is
-load-bearing**:
+Index of this directory:
 
-- [Sanic](sanic.md) — momentum acceptance;
-- [Super Mary-O](super-mary-o.md) — classic axis-swept AABB platforming;
+- [Sanic](sanic.md) — momentum acceptance.
+- [Super Mary-O](super-mary-o.md) — classic axis-swept AABB platforming.
 - [Super Smash Siblings](super-smash-siblings.md) — platform-fighter product
-  charter and index to its current inventory/campaign; plausible graduation
-  candidate;
-- [Hollow Lite](hollow-lite.md) — encounters and boss authoring;
+  charter; a possible first-class game.
+  - [Smash parity inventory](smash-parity-inventory.md) — current Smash feature
+    backlog and execution order.
+  - [Moveset reviews](moveset-reviews.md) — maintainer-authored move intent.
+- [Hollow Lite](hollow-lite.md) — encounters and boss authoring.
 - [TwinTrack](twintrack.md) — independent observers and reference-frame
   presentation.
 
-⛔ **`ambition_demo_pocket` IS NOT A MISSING ENTRY — it is not a customer.** It
-sits in `game/` beside the five above and is named like a sixth, which is why it
-keeps being investigated; its own manifest settles it: *"Tiny fourth-provider
-acceptance fixture for Ambition's provider authoring surface."* A fixture, one
-source file, depended on by `ambition_app` to prove the provider surface admits a
-fourth author. It has no product charter and wants no plan. ⚠ The confusion is
-structural rather than anybody's mistake — the repository's other fixtures live
-in `fixtures/` (`minimal_game`, `external_consumer`) while this one lives in
-`game/` under a `demo_` prefix. Re-checked 2026-09-02; if it ever grows a product
-charter it graduates into the list above, and until then this paragraph is here
-to stop the next session spending ten minutes deciding whether the index is
-incomplete.
-
-⚠ **the links are why this paragraph exists.** Until 2026-08-14 it named these
-games in prose and linked none of them, and `sanic.md` and `super-mary-o.md` were
-consequently referenced by NO document anywhere in the repository. Super Mary-O's
-was the only planning file in the tree that carried open items and was reachable
-from nothing — its two `▢`s, including the still-unanswered *"no way to get the
-fire flower"* report, were invisible to every session that worked the ledger. A
-plan nothing links to is not a plan; it is a file.
+`game/ambition_demo_pocket` is not a customer. Its manifest calls it a "tiny
+fourth-provider acceptance fixture for Ambition's provider authoring surface".
+It has no product charter and needs no plan. If it gets a product charter, add
+it to this list.
 
 ## Ownership rule
 

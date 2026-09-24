@@ -76,8 +76,8 @@ bosses are content.
 > and `target_pos` retirement, which is the one that is actually still open; the
 > old decomposition-ledger "E6" id was retired when that doc became doctrine).
 > Fight QUALITY work is
-> [`boss-design.md`](boss-design.md). Multi-limb history:
-> docs/archive/planning-superseded/multi-limb-bosses.md (removed from the checkout 2026-09-05; still in git history).
+> [`boss-design.md`](boss-design.md). Git history has the multi-limb
+> boss record.
 
 ---
 

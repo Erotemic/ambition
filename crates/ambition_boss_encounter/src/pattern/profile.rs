@@ -194,10 +194,9 @@ mod boss_vec2_option {
         Ok(raw.map(|(x, y)| ae::Vec2::new(x, y)))
     }
 
-    /// ⚠ THE SERIALIZING HALF, added when the catalog became canonical
-    /// generation material. It must write exactly the shape `deserialize` reads
-    /// — a tuple — or the fingerprint's bytes would stop corresponding to the
-    /// declaration a provider can author.
+    /// The serializing half, for the canonical catalog dump. It must write
+    /// exactly the shape `deserialize` reads (a tuple), so the fingerprint
+    /// matches what a provider can author.
     pub fn serialize<S>(value: &Option<ae::Vec2>, se: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,

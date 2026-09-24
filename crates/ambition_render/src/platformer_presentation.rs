@@ -30,18 +30,18 @@ pub struct PlatformerPresentationSetupSet;
 #[derive(Resource, Default)]
 struct PresentedSessionScope(Option<SessionScopeId>);
 
-/// The parallax half of the presentation memo, separate because a backdrop can
-/// become possible LATER than the room it sits behind. See
+/// The parallax half of the presentation memo. It is separate because a
+/// backdrop can become available later than its room. See
 /// `sync_session_room_visuals`.
 #[derive(Resource, Default)]
 struct PresentedParallaxScope(Option<SessionScopeId>);
 
-/// The provider-agnostic per-session room presentation: whenever a fresh session scope goes
-/// live, spawn the active `RoomSet` room's parallax layers and static visuals exactly once,
-/// owned by that scope.
+/// Per-session room presentation, independent of the provider. When a new
+/// session scope goes live, spawn the active room's parallax layers and static
+/// visuals once, owned by that scope.
 ///
-/// `PlatformerPresentationPlugin` includes it; a host with its own camera and
-/// presentation stack (the Ambition shell host) adds JUST this plugin.
+/// `PlatformerPresentationPlugin` includes it. A host with its own camera and
+/// presentation stack (the Ambition shell host) adds only this plugin.
 pub struct SessionRoomVisualsPlugin;
 
 impl Plugin for SessionRoomVisualsPlugin {
@@ -54,7 +54,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         app.init_resource::<PresentedSessionScope>();
         app.init_resource::<PresentedParallaxScope>();
         app.init_resource::<PhysicsSandboxSettings>();
-        // The loader's OUTCOME, read by presentation: see `ParallaxThemeAttempts`.
+        // The loader's outcome, read by presentation: see `ParallaxThemeAttempts`.
         app.init_resource::<crate::rendering::ParallaxThemeAttempts>();
         app.add_systems(
             Update,
@@ -62,53 +62,32 @@ impl Plugin for SessionRoomVisualsPlugin {
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
-        // ⭐ THE HOST TELLS PORTAL PRESENTATION WHAT IT DRAWS. That crate's body
-        // seams are the ONE decomposed scene body and the affordance body, so an
-        // ordinary NPC behind an aperture is invisible to it while this crate
-        // draws it above every pane.
+        // The host tells portal presentation what it draws. That crate sees only the
+        // decomposed scene body and the affordance body, so an ordinary NPC behind an
+        // aperture is invisible to it unless published here.
         //
-        // ⚠ GATED ON A PORTAL EXISTING, so a room with none does no work at all:
-        // this writes a component per drawable per frame, and paying that in
-        // every portal-free room would be a cost with no reader.
+        // Gated on a portal existing: this writes a component per drawable per frame.
         //
-        // ⛔⛔ AND IT NEEDS BOTH ORDERING EDGES, WHICH IT SHIPPED WITHOUT. This
-        // reads `Sprite::custom_size` and `Anchor` -- exactly the two things
-        // `PortalPresentationSet`'s own configuration says the animator rewrites
-        // per frame ("trimmed sprites can update `Sprite::custom_size` and
-        // `Anchor` during animation"). Registered as a bare `Update` system it
-        // could publish LAST frame's rectangle, and because the insert goes
-        // through deferred `Commands` the compositor could also read a candidate
-        // that is not there yet on the first overlapping frame.
-        //
-        // ⇒ AFTER the animator so the geometry is final, BEFORE the presentation
-        // set so the compositor consumes THIS frame's rectangle -- and an
-        // explicit edge is what makes Bevy place the command flush between them.
-        // Found by a GPT review 2026-09-05.
+        // It reads `Sprite::custom_size` and `Anchor`, which the animators rewrite
+        // per frame. So it runs after the animators (final geometry) and before
+        // `PortalPresentationSet` (so the compositor reads this frame's rectangle).
+        // The explicit edge also puts the command flush between them.
         #[cfg(feature = "portal_render")]
         app.add_systems(
             Update,
             crate::rendering::portal_compositing::publish_portal_compositing_candidates
-                // ⛔⛔ AFTER EVERY WRITER OF THE SPRITE BASIS, not just the
-                // player's. `animate_player` alone was the first cut, and the
-                // candidate population is `FeatureVisual` OR `PlayerVisual` --
-                // so the NPC half, which is the case the compositor was built
-                // for, was published from whatever `Sprite::custom_size` and
-                // `Anchor` happened to hold before `animate_characters` and
-                // `animate_feature_sprites` ran. A GPT review found the gap
-                // 2026-09-05.
-                //
-                // ⭐ `sync_visuals` is the pose writer and the animators are the
-                // basis writers; naming all of them is what makes "this frame's
-                // rectangle" true for both halves of the population.
+                // After every writer of the sprite basis. Candidates are
+                // `FeatureVisual` or `PlayerVisual`, so the NPC half needs
+                // `animate_characters` and `animate_feature_sprites` too.
+                // `sync_visuals` writes the pose; the animators write the basis.
                 .after(crate::rendering::actors::sync_visuals)
                 .after(crate::rendering::actors::animate_player)
                 .after(crate::rendering::actors::animate_characters)
                 .after(crate::rendering::actors::animate_feature_sprites)
-                // ⭐ AND AFTER EVERY BODY-OWNED DRAWABLE WRITER, as ONE edge to
-                // a published set rather than one per overlay: the clock bar,
-                // the flash silhouette, the ball, the wire. The set edge is
-                // also the command flush, so a drawable spawned this frame is
-                // a candidate this frame. See `BodyOwnedDrawableSync`.
+                // After every body-owned drawable writer (clock bar, flash
+                // silhouette, ball, wire), as one set edge. The set edge is also the
+                // command flush, so a drawable spawned this frame is a candidate this
+                // frame. See `BodyOwnedDrawableSync`.
                 .after(crate::rendering::BodyOwnedDrawableSync)
                 .before(ambition_portal2d_presentation::PortalPresentationSet)
                 .run_if(bevy::prelude::any_with_component::<
@@ -289,28 +268,18 @@ fn sync_session_room_visuals(
     };
     let spec = room_set.active_spec();
 
-    // ⛔⛔ TWO MEMOS, BECAUSE THE ROOM AND ITS BACKDROP BECOME POSSIBLE AT
-    // DIFFERENT TIMES. `spawn_parallax_layers` early-returns when `GameAssets`
-    // has no layers for the room's theme, and `GameAssets` loads ONE theme at
-    // startup — every other theme lazy-loads via
-    // `ensure_active_room_parallax_theme`. A single memo forced a choice
-    // between two wrong answers: set it first and a session that activated the
-    // frame BEFORE its theme arrived got no parallax and was never retried
-    // (one shot, and it missed); defer it and the whole room waited on a
-    // backdrop.
+    // Two memos, because the room and its backdrop become available at
+    // different times. `spawn_parallax_layers` returns early when `GameAssets`
+    // has no layers for the theme. `GameAssets` loads one theme at startup;
+    // `ensure_active_room_parallax_theme` lazy-loads the others.
     //
-    // ⭐ THIS IS WHY AMBITION HAD A BACKDROP AND SMASH DID NOT, on the same
-    // assets and the same theme (`Hub`). The sandbox draws through
-    // `spawn_initial_room_visuals`, which has no memo and simply tries again
-    // next frame; the session path is memoized and did not.
+    // With one memo, setting it first means a session that activates before its
+    // theme arrives never gets parallax. Deferring it means the whole room (all
+    // static visuals and authored entities) waits on the backdrop. Room
+    // presentation must not depend on the backdrop. Only parallax waits.
     //
-    // ⛔⛔ AND DEFERRING BOTH WAS THE WORSE HALF, which is what this split
-    // fixes: `!theme_loaded` used to `return` before `spawn_room_visuals`, so
-    // at a tier that wants parallax a late theme withheld EVERY static visual
-    // and every authored room entity — not merely the backdrop. Potato never
-    // showed it because `parallax.enabled` is false there, so the gate never
-    // engaged. ⇒ Room presentation may not depend on a backdrop becoming
-    // resident. Parallax waits alone.
+    // `spawn_initial_room_visuals` (the sandbox path) has no memo and retries
+    // every frame.
     let spawn_scope = SessionSpawnScope::scoped(scope);
 
     if presented.0 != Some(scope) {
@@ -340,17 +309,15 @@ fn sync_session_room_visuals(
                 .any(|layer| a.parallax_layers.get(theme, *layer).is_some())
         });
         if !theme_loaded {
-            // ⭐ ASK WHETHER ANYTHING IS STILL COMING. The loader closes a theme
-            // once it has tried it, so "not loaded" splits in two: not YET, which
-            // is worth another frame, and resolved-to-nothing, which is not.
-            // Retrying the second one is a question re-asked every frame for the
-            // life of the session against a loader that has stopped answering.
+            // The loader closes a theme after it tries it, so "not loaded" is
+            // either "not yet" (retry next frame) or "resolved to nothing" (do not
+            // retry).
             let nothing_is_coming = attempts
                 .as_deref()
                 .is_some_and(|attempts| attempts.attempted_without_art(theme));
             if !nothing_is_coming {
-                // Leave the PARALLAX memo unset so the next frame retries — and
-                // only that one. The room is already on screen.
+                // Leave only the parallax memo unset so the next frame retries.
+                // The room is already on screen.
                 return;
             }
             // Settled with no layers to spawn: this room's theme legitimately has
@@ -378,9 +345,9 @@ mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 
-    /// One room asking for a parallax theme that no `GameAssets` provides —
-    /// which is the state a session is in on the frame it activates, before
-    /// `ensure_active_room_parallax_theme` has loaded the theme.
+    /// One room that asks for a parallax theme that no `GameAssets` provides.
+    /// This is the state on the activation frame, before
+    /// `ensure_active_room_parallax_theme` loads the theme.
     fn room_set_wanting_a_theme() -> RoomSet {
         let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
             "late_theme_room",
@@ -395,13 +362,11 @@ mod tests {
         RoomSet::from_parts_or_panic("late_theme_room", vec![room], Vec::new())
     }
 
-    /// How many actual room visuals this session has on screen.
+    /// How many room visuals this session has on screen.
     ///
-    /// ⛔⛔ THE MEMO IS NOT THE PROPERTY. `PresentedSessionScope` is a note the
-    /// system leaves for itself; the defect was that the ROOM DID NOT DRAW.
-    /// Deleting the `spawn_room_visuals` call while leaving `presented.0 =
-    /// Some(scope)` in place would satisfy every memo assertion in this file, so
-    /// the regression below counts entities instead.
+    /// The memo is not the property under test. A build that deletes the
+    /// `spawn_room_visuals` call but still sets `presented.0` would pass every
+    /// memo assertion, so the regression tests count entities.
     fn room_visuals(app: &mut App) -> usize {
         let mut query = app.world_mut().query_filtered::<(), (
             With<ambition_platformer2d_shared_tangle::lifecycle::RoomVisual>,
@@ -426,22 +391,16 @@ mod tests {
         (app, scope)
     }
 
-    /// ⛔⛔ A LATE BACKDROP MUST NOT WITHHOLD THE ROOM.
+    /// A late backdrop must not withhold the room.
     ///
-    /// `!theme_loaded` used to `return` before `spawn_room_visuals`, so at any
-    /// tier whose budget wants parallax — every tier above Potato — a room whose
-    /// theme had not arrived yet presented NOTHING: no static visuals, no
-    /// authored room entities, not merely no backdrop. Potato hid it because
-    /// `parallax.enabled` is false there, so the gate never engaged and the one
-    /// tier anybody measured headless looked correct.
-    ///
-    /// ⇒ Two memos. The room presents on the first frame it can; parallax keeps
-    /// the retry that it needed, alone.
+    /// At every tier above Potato the budget wants parallax, so a room whose
+    /// theme has not arrived must still present its static visuals and authored
+    /// entities. Potato disables parallax, so it cannot show this failure.
+    /// The room presents on the first frame it can; only parallax retries.
     #[test]
     fn the_room_presents_even_though_its_parallax_theme_has_not_arrived() {
         let (mut app, scope) = app_with_an_active_session();
-        // No `GameAssets` at all, so no theme can be loaded — the strongest form
-        // of the condition, and the one a fresh session actually starts in.
+        // No `GameAssets`, so no theme can load. A new session starts this way.
         app.update();
 
         assert_eq!(
@@ -477,8 +436,7 @@ mod tests {
                 Vec::new(),
             ),
         );
-        // The parallax theme is still missing, because that is the state the
-        // regression lived in: a room that presents only after a backdrop.
+        // The parallax theme is missing, which is the condition under test.
         room.metadata.visual_profile.parallax_theme = Some("a_theme_nobody_loaded".to_string());
         room.placements
             .push(ambition_platformer2d_world::placements::PlacementRecord::new(
@@ -542,24 +500,18 @@ mod tests {
             .collect()
     }
 
-    /// ⭐⭐ THE PLAYER-VISIBLE SYMPTOM, PINNED: AN AUTHORED ROOM NPC MUST NEVER
-    /// WEAR THE UNCLAIMED-BODY PLACEHOLDER.
+    /// An authored room NPC must never wear the unclaimed-body placeholder.
     ///
-    /// This is the defect the parallax gate produced, stated as what a player
-    /// saw rather than as which system returned early. `draw_unclaimed_feature_views`
-    /// draws a magenta stand-in for any `FeatureViewIndex` row nothing claimed,
-    /// after `UNCLAIMED_STAND_IN_GRACE_FRAMES` (5) consecutive frames — and while
-    /// `sync_session_room_visuals` withheld `spawn_room_visuals` behind a theme
-    /// that had not loaded, every interactable NPC in every room above Potato was
-    /// unclaimed for exactly that long. Potato hid it because parallax is
-    /// disabled there, so the gate never engaged.
+    /// `draw_unclaimed_feature_views` draws a magenta stand-in for any
+    /// `FeatureViewIndex` row that nothing claims for
+    /// `UNCLAIMED_STAND_IN_GRACE_FRAMES` (5) frames. If `sync_session_room_visuals`
+    /// withholds `spawn_room_visuals` behind a missing theme, every NPC gets the
+    /// stand-in.
     ///
-    /// ⛔ THE CONTROL ARM IS NOT OPTIONAL, and it is the second id. A test that
-    /// only asserts "no placeholder" passes just as well against a build where
-    /// the stand-in never draws at all — which is most of the ways this could be
-    /// wrong. `a_body_the_room_never_authored` has a view row and NO placement,
-    /// so it MUST get one, and its appearance is what proves the grace clock ran
-    /// and the drawing path was live for the NPC too.
+    /// The control arm is required. `a_body_the_room_never_authored` has a view
+    /// row and no placement, so it must get a stand-in. That proves the grace
+    /// clock ran and the draw path was live; without it, a build that never draws
+    /// stand-ins would also pass.
     #[test]
     fn an_authored_room_npc_never_wears_the_unclaimed_placeholder() {
         const NPC: &str = "npc_room_greeter";
@@ -593,8 +545,7 @@ mod tests {
         app.world_mut()
             .spawn((SessionRoot(scope), room_set, geometry));
 
-        // Two frames past the grace period, so a placeholder that is merely LATE
-        // still has time to appear and be caught.
+        // Two frames past the grace period, so a late placeholder is still caught.
         for _ in 0..(5 + 2) {
             app.update();
         }
@@ -613,8 +564,7 @@ mod tests {
         );
     }
 
-    /// The retry the original single memo existed to provide, kept: parallax is
-    /// unsettled while the theme is missing, on every frame, not just the first.
+    /// Parallax stays unsettled on every frame while the theme is missing.
     #[test]
     fn parallax_keeps_retrying_while_the_theme_is_missing() {
         let (mut app, scope) = app_with_an_active_session();
@@ -633,22 +583,17 @@ mod tests {
         );
     }
 
-    /// ⭐ A THEME THE LOADER TRIED AND FOUND EMPTY IS FINISHED, NOT RETRIED.
+    /// A theme that the loader tried and found empty is settled, not retried.
     ///
-    /// ⛔ THE BRANCH THIS COVERS WAS UNREACHABLE. The code below the gate says a
-    /// room whose theme legitimately has no art "is finished rather than retried
-    /// every frame" — and `!theme_loaded` returned before it could ever run, so
-    /// the sentence described nothing. It is reachable in shipped profiles:
-    /// `WebStatic` / `BundledStatic` attempt an optional image only when it has
-    /// an authored embedded candidate, and the generated parallax manifest
-    /// authors entries without one, so the load yields zero handles and the
-    /// loader closes the theme.
+    /// This happens in shipped profiles: `WebStatic` / `BundledStatic` attempt an
+    /// optional image only when it has an authored embedded candidate. The
+    /// generated parallax manifest has entries without one, so the load yields
+    /// zero handles and the loader closes the theme.
     ///
-    /// The difference between this and
-    /// `parallax_keeps_retrying_while_the_theme_is_missing` is the whole point:
-    /// same missing theme, opposite answer, decided by whether anything is still
-    /// coming. Both are asserted, because a system that settled unconditionally
-    /// would pass one of them and lose every late backdrop in the game.
+    /// Compare with `parallax_keeps_retrying_while_the_theme_is_missing`: the same
+    /// missing theme gives the opposite answer, decided by whether anything is
+    /// still coming. A system that settled unconditionally would pass one test and
+    /// fail the other.
     #[test]
     fn a_theme_the_loader_resolved_to_nothing_settles_instead_of_retrying() {
         let (mut app, scope) = app_with_an_active_session();
@@ -676,9 +621,9 @@ mod tests {
         );
     }
 
-    /// ⚠ NON-VACUITY, and the reason this test exists beside the two above: if
-    /// the room memo could never settle, the first test would pass for the wrong
-    /// reason. A tier that does not want parallax settles BOTH on frame one.
+    /// Non-vacuity check for the tests above: a tier that wants no parallax
+    /// settles both memos on frame one. If the room memo could never settle, the
+    /// first test would pass for the wrong reason.
     #[test]
     fn a_tier_that_wants_no_parallax_settles_both_memos_at_once() {
         let (mut app, scope) = app_with_an_active_session();

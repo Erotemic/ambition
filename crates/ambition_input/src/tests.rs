@@ -51,8 +51,7 @@ fn menu_state_emits_first_press_then_waits_for_initial_delay() {
         0.10,
     );
     assert!(f.down);
-    // Continuing to hold for less than the initial delay must not
-    // re-emit.
+    // Holding for less than the initial delay must not re-emit.
     let mut emits = 0;
     for _ in 0..5 {
         let f = state.step(
@@ -117,8 +116,7 @@ fn menu_state_repeats_after_initial_delay() {
 #[test]
 fn cardinal_edges_pass_through_without_repeat_state() {
     let mut state = MenuInputState::default();
-    // D-pad / arrow keys edge fires on one frame but does not start
-    // an analog hold.
+    // A d-pad or arrow-key edge fires once and does not start an analog hold.
     let f = state.step(
         true, false, false, false, None, false, false, false, 0.016, 0.30, 0.10,
     );
@@ -162,19 +160,16 @@ fn menu_state_back_passes_through() {
     assert!(f.back);
 }
 
-/// ⭐⭐ A KEYBOARD FIGHTER CAN WALK.
+/// A keyboard body can walk.
 ///
-/// ⛔⛔ THE SIMULATION READS THE STICK'S MAGNITUDE AS THE GAIT — below
-/// `run_commit_frac` is a walk, at or above it is a run — and a DIGITAL source
-/// can only ever say 1.0. So a keyboard or D-pad fighter could not walk at all:
-/// no walk approach, no walk-to-tilt spacing, and `BodyMotionFacts::running`
-/// permanently true, which answers every grounded Attack press with the dash
-/// attack. The parity inventory's row points at this file rather than at
-/// locomotion, and the gait itself is measured correct by
+/// The simulation reads stick magnitude as the gait: below `run_commit_frac`
+/// is a walk, at or above is a run. A digital source always gives 1.0, so
+/// without the walk cap a keyboard or d-pad body always runs and every
+/// grounded Attack is a dash attack. The gait itself is tested by
 /// `a_light_tilt_walks_and_a_full_one_runs`.
 ///
-/// ⭐ A CAP, NOT A SCALE. A player already tilting an analog stick to a walk
-/// must not be punished for also asking to walk.
+/// The walk is a cap, not a scale: an analog tilt that is already a walk does
+/// not change.
 #[cfg(feature = "input")]
 mod the_walk_modifier {
     use crate::actions::Platformer2dInputActionMonolith as Action;
@@ -201,8 +196,7 @@ mod the_walk_modifier {
         .0
     }
 
-    /// ⛔ THE PREMISE. A digital hold really is full deflection, which is the
-    /// whole reason the action has to exist.
+    /// Premise: a digital hold is full deflection.
     #[test]
     fn a_digital_hold_is_full_deflection_without_the_walk_key() {
         let frame = frame_of(bevy::math::Vec2::new(1.0, 0.0), false);
@@ -221,9 +215,7 @@ mod the_walk_modifier {
             "a walking key hold must come out at the cap; got {}",
             frame.axis_x
         );
-        // ⛔ THE COUPLING, ASSERTED. The cap is only a walk because it is below
-        // the gait threshold; a change to either that crossed the other would
-        // ship a "walk" that runs.
+        // The cap is a walk only while it is below the gait threshold.
         assert!(
             frame.axis_x < ambition_platformer2d_core::movement::RUN_COMMIT_FRAC,
             "the cap must stay below the gait threshold or the `walk` runs: {} vs {}",
@@ -232,14 +224,12 @@ mod the_walk_modifier {
         );
     }
 
-    /// ⭐ IT IS A CAP. An analog stick already inside the walk band is left
-    /// alone — asking to walk while walking must not slow you further.
+    /// It is a cap: a tilt already inside the walk band does not change.
     #[test]
     fn an_analog_tilt_already_inside_the_band_is_untouched() {
-        // ⚠ COMPARED AGAINST THE SAME INPUT UNHELD, not against the raw number:
-        // the deadzone rescales a small tilt before the cap ever sees it, so a
-        // raw 0.3 is already ~0.15 by then. The claim is that holding walk
-        // changes NOTHING here, and only the pair can say that.
+        // Compare with the same input without walk, not with the raw value:
+        // the deadzone rescales a small tilt before the cap (0.3 becomes about
+        // 0.15).
         let held = frame_of(bevy::math::Vec2::new(0.3, 0.0), true);
         let free = frame_of(bevy::math::Vec2::new(0.3, 0.0), false);
         assert!(
@@ -256,7 +246,7 @@ mod the_walk_modifier {
         );
     }
 
-    /// ⭐ AND IT PRESERVES DIRECTION. A diagonal walk is still a diagonal.
+    /// The cap keeps direction: a diagonal walk stays diagonal.
     #[test]
     fn the_cap_preserves_direction() {
         let frame = frame_of(bevy::math::Vec2::new(1.0, 1.0), true);
@@ -317,10 +307,7 @@ mod the_attack_stick {
         (first, second)
     }
 
-    /// ⭐⭐ A TILT STICK THROWS A TILT AT FULL DEFLECTION, which is the thing the
-    /// one-way `attack_strong_hint` bool made impossible: the deflection armed a
-    /// flick, the flick matched the direction, and the interpreter returned
-    /// `Smash` however the device asked.
+    /// A tilt stick gives a tilt press even at full deflection.
     #[test]
     fn a_tilt_stick_flick_is_a_tilt_press_even_at_full_deflection() {
         let (flick, _) = push(RightStickMode::TiltAttack, bevy::math::Vec2::new(1.0, 0.0));
@@ -333,7 +320,7 @@ mod the_attack_stick {
         );
     }
 
-    /// …and a smash stick forces the other direction, from the same push.
+    /// A smash stick gives a smash press from the same push.
     #[test]
     fn a_smash_stick_flick_is_a_smash_press() {
         let (flick, _) = push(RightStickMode::SmashAttack, bevy::math::Vec2::new(1.0, 0.0));
@@ -341,21 +328,17 @@ mod the_attack_stick {
         assert_eq!(flick.attack_strength_hint, AttackStrengthHint::Smash);
     }
 
-    /// ⛔⛔ THE FLICK RECENTERS BEFORE THE SIM TICK, AND THE DIRECTION MUST
-    /// SURVIVE IT — the production path, adapter → latch, not the adapter alone.
+    /// A flick can return to center before the sim tick; its direction must
+    /// survive. This tests the production path (adapter, then latch).
     ///
-    /// Every other C-stick test here reads ONE device frame, where the aim level
-    /// still holds the flick. That is the moment the bug cannot appear. A real
-    /// flick is fast: the stick is often back at rest by the next device sample,
-    /// while the sim tick has not run yet. The press, the strength and
-    /// `attack_from_aim_stick` are EDGES and survive; `aim_x`/`aim_y` are LEVELS
-    /// and do not — so the direction had to become part of the press.
+    /// A single device frame still holds the flick in the aim level, so it
+    /// cannot show the fault. The press, strength, and
+    /// `attack_from_aim_stick` are edges and survive the latch; `aim_x`/`aim_y`
+    /// are levels and do not. So the press carries its own direction.
     ///
-    /// ⭐ THE LEFT STICK IS HELD THE OTHER WAY, because that is what makes the
-    /// failure visible as a WRONG direction rather than a missing one:
-    /// `player::attack_axis` falls back to the movement axis when the attack aim
-    /// is zero, so the pre-fix behaviour was an attack thrown at the player's
-    /// back.
+    /// The left stick points the other way, so a lost direction shows as a
+    /// wrong direction: `player::attack_axis` falls back to the movement axis
+    /// when the attack aim is zero.
     #[test]
     fn a_flick_that_recenters_before_the_tick_still_attacks_where_it_pointed() {
         use ambition_platformer2d_core::ControlFrameLatch;
@@ -398,9 +381,8 @@ mod the_attack_stick {
         );
     }
 
-    /// ⛔ THE HYSTERESIS. A stick held out is one attack, not one per frame —
-    /// the same rule the burst trigger has, and without it leaning on the stick
-    /// is a machine gun.
+    /// Hysteresis: a stick held out gives one attack, not one per frame, as
+    /// with the burst trigger.
     #[test]
     fn a_held_stick_presses_once() {
         let (flick, held) = push(RightStickMode::TiltAttack, bevy::math::Vec2::new(1.0, 0.0));
@@ -411,8 +393,7 @@ mod the_attack_stick {
         );
     }
 
-    /// ⛔ AND THE DEFAULT MODE IS UNTOUCHED. The right stick aims; it does not
-    /// attack, at any deflection.
+    /// The default mode is unchanged: the right stick aims and never attacks.
     #[test]
     fn the_aim_mode_never_presses_attack() {
         let (flick, held) = push(RightStickMode::Aim, bevy::math::Vec2::new(1.0, 0.0));
@@ -426,8 +407,8 @@ mod the_attack_stick {
         }
     }
 
-    /// ⛔ A NUDGE IS NOT A FLICK. Between the deadzone and the threshold the
-    /// stick says nothing, so resting a thumb on it does not attack.
+    /// A nudge is not a flick. Between the deadzone and the threshold the
+    /// stick does nothing, so a resting thumb does not attack.
     #[test]
     fn a_deflection_below_the_threshold_is_not_a_press() {
         let nudge = AIM_STICK_ATTACK_THRESHOLD * 0.5;

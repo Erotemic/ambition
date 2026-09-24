@@ -28,9 +28,8 @@ pub struct CaptureSettings {
 #[derive(Resource, Debug)]
 pub struct CaptureTarget {
     pub image: Handle<Image>,
-    /// How many cameras have been pointed at it. Zero means nothing is drawing
-    /// into this texture, and a caller that shoots anyway writes a transparent
-    /// PNG and calls it a success.
+    /// How many cameras point at it. Zero means nothing draws into this
+    /// texture; a capture then would write a transparent PNG.
     pub adopted: u32,
 }
 
@@ -80,12 +79,11 @@ pub fn setup_capture_target(
 
 /// Point every camera that exists at the capture target, every frame.
 ///
-/// The PNG is transparent and the tool reports success. That is exactly what Mary-O's first capture
-/// produced, and it took reading the pixel values to tell it apart from "the scene is white".
+/// Without adoption the PNG is transparent and the tool still reports
+/// success.
 ///
-///  WHEN a camera appears is composition-specific and therefore not knowable
-/// here — which is the same reason readiness belongs to the caller. So this
-/// runs every frame and counts what it has adopted; a caller shoots only once
+/// When a camera appears depends on the composition, so this runs every
+/// frame and counts what it adopted. A caller captures only once
 /// [`CaptureTarget::adopted`] is non-zero.
 pub fn adopt_cameras_into_capture_target(
     mut commands: Commands,
@@ -114,10 +112,9 @@ pub fn adopt_cameras_into_capture_target(
             .insert((render_target.clone(), Msaa::Off, CaptureAdopted));
         target.adopted += 1;
     }
-    //  the HUD camera is pointed at the target only when it is WANTED. Leaving
-    // it drawing into the same texture is how a "world only" capture grew a
-    // health bar. It is still MARKED either way, so an unwanted HUD camera is
-    // not revisited every frame forever.
+    // Point the HUD camera at the target only when UI is wanted; otherwise a
+    // "world only" capture includes the HUD. It is marked either way, so an
+    // unwanted HUD camera is not revisited every frame.
     for (entity, mut camera) in &mut hud_cameras {
         camera.is_active = settings.include_ui;
         if settings.include_ui {
@@ -136,8 +133,7 @@ pub struct CaptureAdopted;
 /// Ask for the readback that becomes the PNG. Idempotent: a second call while
 /// one is in flight does nothing.
 ///
-/// The caller decides WHEN — see this module's header for why that cannot live
-/// here.
+/// The caller decides when; see the module header.
 pub fn request_capture(
     commands: &mut Commands,
     target: &CaptureTarget,
@@ -154,8 +150,9 @@ pub fn request_capture(
 
 /// Copy the GPU readback into a PNG on disk.
 ///
-///  the row padding is not optional. wgpu pads every row to a 256-byte boundary, so the
-/// buffer is wider than the image for any width that is not a multiple of 64 pixels.
+/// Row padding is required: wgpu pads every row to a 256-byte boundary, so
+/// the buffer is wider than the image unless the width is a multiple of 64
+/// pixels.
 fn save_readback_to_disk(
     event: On<ReadbackComplete>,
     mut commands: Commands,
@@ -208,9 +205,9 @@ fn save_readback_to_disk(
 
 /// Exit successfully once the file is on disk.
 ///
-///  a FAILED capture must not take this branch. It has already written its
-/// own non-zero exit; announcing success afterwards would report a picture that
-/// does not exist, which is worse than any crash.
+/// A failed capture must not take this branch. It already set a non-zero
+/// exit; reporting success after it would describe a picture that does not
+/// exist.
 pub fn finish_after_capture(
     mut commands: Commands,
     settings: Res<CaptureSettings>,

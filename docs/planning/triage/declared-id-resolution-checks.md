@@ -1,8 +1,7 @@
 # Declared-id resolution — remaining authoring diagnostics
 
-> **Verified against `7ae442cc7` (2026-09-17); originally `cecd01ca`
-> (2026-08-13).** The original silent-resolution triage is mostly implemented. The complete investigation is archived at
-> `../../archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md` (docs/archive/planning-superseded/2026-08-13/triage-declared-id-resolution-checks.md — removed from the checkout 2026-09-05; still in git history).
+> **Verified against `7ae442cc7` (2026-09-17).** The original silent-resolution
+> triage is mostly implemented. Git history has the investigation.
 
 ## What already exists
 

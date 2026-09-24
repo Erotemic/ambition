@@ -2,11 +2,7 @@
 //! spawn-time hurtbox volumes. Sibling of `tick.rs` (the per-frame boss update).
 
 use ambition_sprite_sheet::ActorSpriteMetrics;
-// ⭐ NAMED, NOT GLOBBED. This was `use super::super::*`, a glob over the
-// whole `features/ecs` module — a channel a `crate::` grep cannot see, and
-// the reason a carve estimate needs more than an import count. Measured by
-// deleting it: everything it actually supplied was bevy's prelude and
-// `WorldTime`, and NO monolith vocabulary at all.
+// Named imports, not a glob, so the dependencies are visible to grep.
 use ambition_combat::components::{ActorDisposition, ActorIdentity};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Component, Entity, Query, Res, With, Without};
@@ -25,9 +21,9 @@ use bevy::prelude::Commands;
 pub struct BossSpriteMetricsApplied;
 
 /// A boss's shared actor components at construction: its identity, and its
-/// INITIAL disposition. Hostile is where a boss starts; from then on the
-/// general runtime owns `ActorDisposition` (targeting stand-down, release
-/// pacification), exactly as for every other actor.
+/// initial disposition. A boss starts Hostile; after that, the general runtime
+/// owns `ActorDisposition` (targeting stand-down, release pacification), as for
+/// every other actor.
 pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, ActorDisposition) {
     (
         ActorIdentity::new(boss.config.id.clone(), boss.config.name.clone()),
@@ -37,9 +33,9 @@ pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, Acto
 
 /// The sprite-registry target id a boss draws from — its authored
 /// `BossBehaviorProfile::sprite_target`, or its `id` when unset (the common
-/// case). The sprite generator's `target` doesn't always match the boss id:
-/// clockwork_warden / gradient_sentinel share the generic `"boss"` sheet,
-/// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"` — each
+/// case). The sprite generator's `target` does not always match the boss id:
+/// clockwork_warden and gradient_sentinel share the generic `"boss"` sheet,
+/// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"`, each
 /// authored in `boss_profiles.ron`. The engine names no boss here.
 pub fn sprite_target_for_boss(behavior: &crate::pattern::profile::BossBehaviorProfile) -> &str {
     behavior.sprite_target.as_deref().unwrap_or(&behavior.id)
@@ -48,17 +44,14 @@ pub fn sprite_target_for_boss(behavior: &crate::pattern::profile::BossBehaviorPr
 /// World-space size of the rendered sprite quad for a boss, given the
 /// boss's spawn / collision size and its sprite target.
 ///
-/// The visible sprite is rendered at `max(size) * collision_scale`,
-/// where `collision_scale` is per-sheet (1.6 for the clockwork /
-/// gradient sentinel `BOSS_SHEET`, 1.25 for the mockingbird sheet,
-/// 4.5 for GNU-ton). The hurtbox / hitbox math needs THIS value
-/// (not `boss.size`) as the world scale so the cyan / red / yellow
-/// boxes cover the visible body. Otherwise the boxes end up half
-/// the size of what the player sees.
+/// The visible sprite is rendered at `max(size) * collision_scale`, where
+/// `collision_scale` is per sheet (for example 1.6 for the clockwork /
+/// gradient sentinel `BOSS_SHEET`, 1.25 for the mockingbird, 4.5 for
+/// GNU-ton). The hurtbox/hitbox math needs this value, not `boss.size`, as
+/// the world scale, so the boxes cover the visible body.
 ///
-/// Unknown targets get a 1.0 scale fallback (sprite renders at
-/// `boss.size`) — that's the safe "no sprite spec known" case used
-/// by test fixtures and bosses without a registered sheet.
+/// Unknown targets get a 1.0 scale (the sprite renders at `boss.size`), for
+/// test fixtures and bosses without a registered sheet.
 pub fn sprite_render_size_for(
     catalog: &crate::BossCatalog,
     behavior: &crate::pattern::profile::BossBehaviorProfile,
@@ -70,23 +63,18 @@ pub fn sprite_render_size_for(
     ae::Vec2::new(render.x, render.y)
 }
 
-/// Read the sprite registry for each freshly-spawned boss and copy
-/// its `body_metrics` into `BossRuntime::sprite_metrics`. Also
-/// derives an updated `combat_size` from the bounding box of the
-/// body parts so the boss's collision + soft world-bounds clamp
-/// scales with the visible sprite body instead of the LDtk
-/// BossSpawn AABB.
+/// Read the sprite registry for each new boss and copy its `body_metrics`
+/// into `BossEncounter::sprite_metrics`. Also derive an updated `combat_size`
+/// from the bounding box of the body parts, so the boss's collision and soft
+/// world-bounds clamp match the visible body, not the LDtk BossSpawn AABB.
 ///
-/// Gated by the `BossSpriteMetricsApplied` marker so each boss is
-/// processed exactly once. Skips bosses whose sprite target isn't
-/// in the registry (the boss keeps its authored / fallback
-/// combat_size).
+/// Gated by the `BossSpriteMetricsApplied` marker, so each boss is processed
+/// once. Skips bosses whose sprite target is not in the registry (they keep
+/// their authored or fallback combat_size).
 ///
-/// When the boss's brain is `BossPattern { cfg, .. }`, the system
-/// also writes the derived combat_size into `cfg.combat_size` so
-/// the brain's soft world-bounds clamp matches the new physical
-/// envelope (otherwise the brain would still clamp against the
-/// stale 64×80 spawn AABB).
+/// When the brain is `BossPattern { cfg, .. }`, this also writes the derived
+/// combat_size into `cfg.combat_size`, so the brain's soft world-bounds clamp
+/// matches the new envelope.
 pub fn derive_boss_sprite_metrics(
     mut commands: Commands,
     boss_catalog: Res<crate::BossCatalog>,
@@ -97,9 +85,9 @@ pub fn derive_boss_sprite_metrics(
     >,
 ) {
     let Some(registry) = registry else {
-        // Headless / minimal-plugin tests don't init the sprite
-        // registry. With no metadata available, the derivation is a
-        // no-op — boss keeps its hardcoded `combat_size`.
+        // Headless or minimal-plugin tests do not init the sprite registry.
+        // With no metadata, this is a no-op and the boss keeps its
+        // `combat_size`.
         return;
     };
     if registry.is_empty() {
@@ -118,10 +106,10 @@ pub fn derive_boss_sprite_metrics(
         feature.status.sprite_metrics = Some(snapshot);
         if let Some(derived) = derived_combat_size {
             feature.config.behavior.combat_size = Some(derived);
-            // AS4b: `kin.size` IS the collision envelope, so refine it to the
-            // sprite-derived combat size too (the render basis stays put in
-            // `status.render_size`). This keeps the shared movement seam sweeping the
-            // real body once the boss integrates through the flight limb (AS4c).
+            // `kin.size` is the collision envelope, so refine it to the
+            // sprite-derived combat size too (the render basis stays in
+            // `status.render_size`). The shared movement seam then sweeps the
+            // real body.
             feature.kin.size = derived;
             // Mirror into the brain cfg so the soft world-bounds
             // clamp uses the new value too.
@@ -135,26 +123,17 @@ pub fn derive_boss_sprite_metrics(
     }
 }
 
-/// Pure derivation of a boss's sprite metrics + updated combat size from
-/// the sheet registry. Extracted from [`derive_boss_sprite_metrics`] so
-/// headless tools and tests can compute boss hurtbox geometry without the
-/// ECS system (which additionally writes the derived size into the boss
-/// brain cfg). Returns `None` when the boss's sprite target has no body
-/// metrics; otherwise `(metrics, Some(derived_combat_size))` where the
-/// combat size is `None` if there were no body parts to bound.
+/// Compute the rest-pose damageable hurtbox volumes a boss would expose when
+/// spawned from an authored `BossSpawn` at `aabb`. Resolves the boss's sprite
+/// metrics from the baked sheet registry (no Bevy `App`) and returns
+/// world-space AABBs. Used by the headless geometry-debug renderer; live
+/// combat uses the ECS path.
 ///
-/// Uses the SPRITE RENDER SIZE (not `boss.size`) as the world-scale base —
-/// the visible sprite renders at `max(boss.size) * collision_scale`, which
-/// is bigger than the LDtk spawn AABB. The `combat_offset`
-/// (`bound.center() - boss.pos`) captures that the body bbox isn't
-/// necessarily centered in the sprite frame, so `boss.aabb()` lines up
-/// with the visible body (GNU-ton's is ~41 px above `boss.pos`).
-/// Compute the rest-pose damageable hurtbox volumes a boss would expose
-/// when spawned from an authored `BossSpawn` at `aabb`. Resolves the
-/// boss's sprite metrics from the baked sheet registry (no Bevy `App`)
-/// and returns world-space AABBs. Exposed for the headless geometry-debug
-/// renderer so boss combat geometry can be verified in a room without
-/// launching the game; live combat uses the ECS path.
+/// The world scale is the sprite render size, not `boss.size`: the visible
+/// sprite renders at `max(boss.size) * collision_scale`, which is larger than
+/// the LDtk spawn AABB. The `combat_offset` (`bound.center() - boss.pos`)
+/// accounts for a body bbox that is not centered in the sprite frame (for
+/// GNU-ton, about 41 px above `boss.pos`).
 pub fn boss_spawn_hurtboxes(
     boss_catalog: &crate::BossCatalog,
     id: &str,
@@ -186,7 +165,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
     let target = sprite_target_for_boss(&boss.config.behavior);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
-    // AS4b: scale from the sprite render BASIS, not `kin.size` (now the collision
+    // AS4b: scale from the sprite render basis, not `kin.size` (now the collision
     // envelope) — so the derived world metrics are unchanged by the size flip.
     let sprite_render_size =
         sprite_render_size_for(boss_catalog, &boss.config.behavior, boss.status.render_size);
@@ -218,23 +197,17 @@ pub(crate) fn boss_sprite_metrics_from_registry(
 mod boss_combat_rebuild_contract {
     use ambition_characters::actor::BodyCombat;
 
-    /// EVERY `BodyCombat` FIELD DECLARES WHO WRITES IT ON THE BOSS ROAD.
+    /// Every `BodyCombat` field declares who writes it on the boss road.
     ///
-    /// the original of this guard recorded a propagated error.
-    /// `boss_component_snapshot` rebuilt `BodyCombat` and restored a list of
-    /// timers by the same rule the actor road used — an accurate citation of a
-    /// wrong rule, so both roads forgot
-    /// `landing_lag_timer` and a boss landing out of an authored aerial had its
-    /// lag erased on the next frame.
-    ///
-    ///  AC3.2 removed the rebuild from both roads at once. The boss snapshot no
-    /// longer returns a `BodyCombat` at all; it writes derived liveness in place.
+    /// The boss snapshot returns no `BodyCombat`; it writes derived liveness
+    /// in place. A rebuild with a hand-kept list of restored timers once
+    /// dropped `landing_lag_timer` on both the boss and actor roads.
     #[allow(dead_code)]
     fn every_body_combat_field_declares_whether_the_boss_sync_writes_it(combat: &BodyCombat) {
         let BodyCombat {
-            // ── UNTOUCHED — reaction history the damage path owns, the
+            // Untouched: reaction history the damage path owns, the
             // move-derived super-armor bit, and the authored sandbag flag. The
-            // boss sync writes NOTHING here now.
+            // boss sync writes nothing here.
             hit_flash: _,
             struck_recently: _,
             damage_invuln_timer: _,
@@ -243,7 +216,7 @@ mod boss_combat_rebuild_contract {
             hitstop_timer: _,
             asdi_owed: _,
             landing_lag_timer: _,
-            // A sleep a MOVE applied. Reaction history like the locks above it,
+            // A sleep a move applied. Reaction history like the locks above it,
             // and the boss sync has no opinion about it either.
             sleep_timer: _,
             armor: _,

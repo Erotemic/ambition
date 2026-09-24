@@ -1,27 +1,16 @@
-//! Authored BOSS conditions — "did the player beat this one?"
+//! Authored boss conditions: "did the player beat this one?"
 //!
-//! The boss capability publishing its own route- and dialogue-facing
+//! The boss capability publishes its own route- and dialogue-facing
 //! vocabulary, from its own plugin, beside the systems that write the fact.
 //!
-//! ⛔⛔ THIS RETIRES A SECOND AUTHORITY RATHER THAN ADDING A VERB, and that is
-//! the whole justification. `YarnStateMirrorData::bosses_cleared` <!-- cite-ok: records the second authority this retired; the name is gone by design -->
-//! (`ambition_dialog/src/bindings.rs`) held a per-frame projection of exactly
-//! this fact so a bespoke Yarn function `boss_cleared(id)` could answer it
-//! synchronously — and both modules already named that as the thing this
-//! project refuses: *"the mirror remains only for facts the catalog cannot
-//! answer"* (`authored_conditions.rs`) and *"Two mechanisms answering one
-//! question is exactly the second authority this project refuses elsewhere"*
-//! (`ambition_content/src/yarn_vocabulary.rs`).
+//! This condition reads the save directly and is the only answer to the
+//! question. Do not add a per-frame mirror of this fact for a bespoke Yarn
+//! function: two mechanisms answering one question is a second authority.
+//! (`world.flag_set` and `quest.active` follow the same rule.)
 //!
-//! ⭐ THE MIGRATION HAS A PRECEDENT IN THE SAME FILE. The mirror's FLAG slice is
-//! already gone, because `world.flag_set` answers it live. This is the same move
-//! for the next fact, and `quest.active` is its sibling.
-//!
-//! ⚠ NOT `encounter.cleared`. `encounters` (`PersistedEncounter`) and `bosses`
-//! (`PersistedBossDefeat`) are separate save fields (`save_data.rs:313`, `:317`)
-//! with separate accessors, so the existing encounter condition does not answer
-//! this question. Checked rather than assumed — "a boss is an encounter" is the
-//! plausible reading that would have made this look already-done.
+//! This is not `encounter.cleared`. `encounters` (`PersistedEncounter`) and
+//! `bosses` (`PersistedBossDefeat`) are separate save fields with separate
+//! accessors.
 
 use ambition_persistence::save_data::PersistedEncounterState;
 use ambition_platformer2d_shared_tangle::authored_logic::{
@@ -49,37 +38,26 @@ pub fn cleared_descriptor() -> ConditionDescriptor {
 
 /// `boss.cleared` — see [`cleared_descriptor`].
 ///
-/// ⭐ ONE NAMED STATE, not `state_is(boss, state)`, for the reason
-/// `encounter.cleared` records: `Failed` and `Untouched` are both "not beaten"
-/// to a door or a line of dialogue, and a generic accessor would be the
-/// key-value fact database the world-facts program refuses, arriving one enum at
-/// a time. A second state becomes a second named question when something wants
-/// it.
+/// One named state, not `state_is(boss, state)`: `Failed` and `Untouched`
+/// are both "not beaten" to a door or a line of dialogue, and a generic
+/// accessor would become a key-value fact database. Add another named
+/// question when something needs another state.
 ///
-/// ⛔⛔ AND THAT SENTENCE ANSWERS ONE ABSENCE WHILE A SECOND HIDES BEHIND IT.
-/// "Not recorded" is also what a boss id that does not exist looks like, so a
-/// misspelling is `NotSatisfied` forever with no diagnostic — and on this
-/// condition that is not hypothetical: `cove.yarn` and `kernel.yarn` asked
-/// `boss_cleared("mockingbird")`, the BEHAVIOUR id, against a save keyed by the
-/// PLACEMENT, and three executable branches could never open for weeks.
+/// "Not recorded" is also what a nonexistent boss id looks like, so a typo
+/// would be `NotSatisfied` forever. Boss progress is keyed only by stable
+/// authored encounter/placement ids, and content validation guards this:
+/// `every_authored_boss_cleared_call_names_a_real_boss_placement` resolves
+/// each authored argument through `boss_placement_id` (the production function
+/// `convert_boss_spawn` uses), so a behavior id fails; a Python alias guard
+/// catches other typos.
 ///
-/// ✔ **IT IS ANSWERED, AND THE ANSWER IS CONTENT VALIDATION — the same stance
-/// `world.switch_on` takes.** Jon ruled decision 57 on 2026-09-05 (*"Boss
-/// progress is keyed only by stable authored encounter/placement IDs"*), the
-/// callers were migrated, and TWO guards now hold the line:
-/// `every_authored_boss_cleared_call_names_a_real_boss_placement` resolves each
-/// authored argument through `boss_placement_id` — the production function
-/// `convert_boss_spawn` uses, not a copy — so a behaviour id is a RED; and the
-/// Python alias guard catches the wider "names nothing at all" typo class.
+/// So this evaluator is permissive on purpose: the roster is in the authored
+/// worlds, not in any resource this `&World` can reach, and the check runs
+/// where the roster is.
 ///
-/// ⇒ So this evaluator stays permissive ON PURPOSE. The roster it would need
-/// lives in the authored worlds, not in any resource a `&World` here can reach,
-/// and the check already runs where the roster is.
-///
-/// ⚠ AN UNRECORDED BOSS IS `NotSatisfied`, not `Unanswerable` — the save's own
-/// accessor reconstructs a missing row as `Untouched`, so absence is a real
-/// state rather than a missing subject. What IS unanswerable is having no save
-/// layer, because then nothing recorded anything.
+/// An unrecorded boss is `NotSatisfied`, not `Unanswerable`: the save
+/// reconstructs a missing row as `Untouched`, so absence is a real state. Only
+/// a missing save layer is unanswerable.
 pub fn cleared(world: &World, args: &[AuthoredArg]) -> ConditionOutcome {
     let Some(boss) = args[0].as_name() else {
         return ConditionOutcome::unanswerable("`boss` must be a name");

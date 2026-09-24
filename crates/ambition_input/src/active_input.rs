@@ -18,9 +18,9 @@ use bevy::input::gamepad::Gamepad;
 #[cfg(feature = "input")]
 use bevy_window::CursorMoved;
 
-/// How a pad's vendor draws its buttons. Presentation only — WHICH button is
-/// bound is [`crate::SeatBindings`]'s answer; this decides whether
-/// `GamepadButton::South` is drawn "A" (Xbox), "Cross" (PlayStation) or "B"
+/// How a pad's vendor labels its buttons. Presentation only: which button is
+/// bound comes from [`crate::SeatBindings`]. This decides whether
+/// `GamepadButton::South` is drawn "A" (Xbox), "Cross" (PlayStation), or "B"
 /// (Switch mirrors the positions).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub enum GamepadStyle {
@@ -37,10 +37,10 @@ pub enum GamepadStyle {
 
 /// Classify a pad from its USB vendor id, falling back to its reported name.
 ///
-/// The id is the strong signal — a DualSense reports Sony's `0x054c` whatever
-/// a platform calls it — and the name substrings catch bluetooth stacks and
-/// remappers that report no id. Anything unrecognised is [`GamepadStyle::Generic`],
-/// which draws Xbox-style: wrong at worst in LABELS, never in behaviour.
+/// The id is the strong signal (a DualSense reports Sony's `0x054c` on every
+/// platform). Name substrings catch bluetooth stacks and remappers that report
+/// no id. Anything unrecognised is [`GamepadStyle::Generic`], drawn Xbox-style,
+/// so an error affects only labels, never behaviour.
 pub fn gamepad_style_of(vendor_id: Option<u16>, name: Option<&str>) -> GamepadStyle {
     match vendor_id {
         Some(0x054c) => return GamepadStyle::PlayStation, // Sony
@@ -84,11 +84,10 @@ pub fn gamepad_style_of(vendor_id: Option<u16>, name: Option<&str>) -> GamepadSt
 pub enum ActiveDevice {
     #[default]
     Keyboard,
-    /// The mouse half of the keyboard-and-mouse bundle. Kept distinct from
-    /// [`Self::Keyboard`] because the hover gates need exactly this
-    /// distinction — but for glyphs a mouse click does not change which KEY a
-    /// prompt should name, which is what [`Self::draws_keyboard_glyphs`]
-    /// answers.
+    /// The mouse half of the keyboard-and-mouse bundle. Separate from
+    /// [`Self::Keyboard`] because the hover gates need the difference. For
+    /// glyphs, a click does not change which key a prompt names (see
+    /// [`Self::draws_keyboard_glyphs`]).
     Mouse,
     Gamepad(GamepadStyle),
     Touch,
@@ -101,14 +100,12 @@ impl ActiveDevice {
         matches!(self, Self::Keyboard | Self::Mouse)
     }
 
-    /// How this device's gamepad buttons should be SPELLED.
+    /// How this device's gamepad buttons are labelled.
     ///
-    /// a device that is not a pad answers the default (Xbox-style), which is
-    /// what a label has to say when nothing better is known — it is not a claim
-    /// that anybody is holding an Xbox pad. Callers that need to know whether
-    /// there is a pad at all ask [`Self::draws_keyboard_glyphs`]; a style alone
-    /// cannot express "this seat is on a keyboard", which is exactly how a
-    /// prompt came to print `Z` under a DualSense.
+    /// A device that is not a pad gives the default (Xbox-style). This does not
+    /// mean an Xbox pad is present. To know whether there is a pad, ask
+    /// [`Self::draws_keyboard_glyphs`]; a style alone cannot say "this seat is
+    /// on a keyboard".
     pub fn gamepad_style(self) -> GamepadStyle {
         match self {
             Self::Gamepad(style) => style,
@@ -118,8 +115,7 @@ impl ActiveDevice {
 }
 
 /// Every seat's active device, keyed by participant slot, plus which seat
-/// spoke most recently — so the old global's semantics survive as the
-/// [`Self::machine`] projection instead of as a second resource.
+/// spoke most recently (the [`Self::machine`] projection).
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeatActiveDevices {
     seats: BTreeMap<u8, ActiveDevice>,
@@ -127,25 +123,23 @@ pub struct SeatActiveDevices {
 }
 
 impl SeatActiveDevices {
-    /// The seat's last genuine device. A seat that has never spoken reads as
-    /// keyboard — the cold-start desktop answer, and what a fresh prompt
-    /// should draw.
+    /// The seat's last genuine device. A seat with no input yet reads as
+    /// keyboard, the cold-start desktop answer.
     pub fn for_seat(&self, slot: u8) -> ActiveDevice {
         self.seats.get(&slot).copied().unwrap_or_default()
     }
 
-    /// The newest genuine device across every seat — the machine-level
-    /// answer the mouse-hover gates ask. Idle frames keep the prior value;
-    /// nothing ever fired means keyboard.
+    /// The newest genuine device across all seats, used by the mouse-hover
+    /// gates. Idle frames keep the prior value; no input yet means keyboard.
     pub fn machine(&self) -> ActiveDevice {
         self.newest
             .map(|slot| self.for_seat(slot))
             .unwrap_or_default()
     }
 
-    /// Record genuine input from `device` on `slot`. Skips the no-op write —
-    /// same seat, same device, already newest — so `Changed<SeatActiveDevices>`
-    /// stays honest for change-gated readers.
+    /// Record genuine input from `device` on `slot`. Skips a no-op write (same
+    /// seat, same device, already newest), so `Changed<SeatActiveDevices>`
+    /// stays accurate.
     pub fn mark(&mut self, slot: u8, device: ActiveDevice) {
         if self.newest == Some(slot) && self.seats.get(&slot) == Some(&device) {
             return;
@@ -154,18 +148,16 @@ impl SeatActiveDevices {
         self.newest = Some(slot);
     }
 
-    /// Mark the primary seat — for detectors that know the device but have no
-    /// seat question to ask (touch: the machine's own screen).
+    /// Mark the primary seat, for detectors that know the device but not the
+    /// seat (touch: the machine's own screen).
     pub fn mark_primary(&mut self, device: ActiveDevice) {
         self.mark(crate::participant::ParticipantId::PRIMARY.slot(), device);
     }
 
-    /// How this seat's gamepad buttons should be SPELLED.
+    /// How this seat's gamepad buttons are labelled.
     ///
-    /// A seat that is not on a pad right now answers the default (Xbox-style),
-    /// which is what a label has to say when nothing better is known — the same
-    /// rule [`GamepadStyle::Generic`] follows. It is not a claim that the seat
-    /// holds an Xbox pad.
+    /// A seat not on a pad now gives the default (Xbox-style), the same rule as
+    /// [`GamepadStyle::Generic`]. This does not mean the seat holds an Xbox pad.
     pub fn gamepad_style_for(&self, slot: u8) -> GamepadStyle {
         self.for_seat(slot).gamepad_style()
     }
@@ -173,20 +165,17 @@ impl SeatActiveDevices {
 
 /// Detect the most recent genuine input per seat.
 ///
-/// Within one frame later checks win: keyboard, then mouse, then pads, then
-/// touch — so a finger on the screen owns the frame it is down (a stray
-/// keystroke from an attached bluetooth keyboard must not flip glyphs away
-/// from touch while a thumb is on the stick). Idle frames leave everything
-/// unchanged.
+/// Within one frame, later checks win: keyboard, then mouse, then pads, then
+/// touch. So a finger on the screen owns its frame, and a stray keystroke from
+/// a bluetooth keyboard cannot flip glyphs away from touch. Idle frames change
+/// nothing.
 ///
-/// `Pointer<Over>` is deliberately NOT consulted — only a real
-/// [`CursorMoved`] or a mouse-button press counts as mouse input, so a
-/// rebuild-induced `Over` under a stationary mouse can never flip the machine
-/// to `Mouse` (the menu snap-back root cause).
+/// `Pointer<Over>` is not read. Only a real [`CursorMoved`] or a mouse-button
+/// press counts as mouse input, so an `Over` caused by a UI rebuild under a
+/// still mouse cannot flip the machine to `Mouse` (menu focus snap-back).
 ///
-/// All inputs are `Option`al / drain-free so the system is a harmless no-op
-/// under `MinimalPlugins` (headless / RL), where Bevy's input resources are
-/// absent.
+/// All inputs are optional and drain-free, so the system does nothing under
+/// `MinimalPlugins` (headless / RL), where Bevy's input resources are absent.
 #[cfg(feature = "input")]
 pub fn update_seat_active_devices(
     keys: Option<Res<ButtonInput<KeyCode>>>,
@@ -204,21 +193,17 @@ pub fn update_seat_active_devices(
     mut devices: ResMut<SeatActiveDevices>,
 ) {
     let seat_count = participants.iter().len();
-    // The keyboard-and-mouse bundle's seat: its exclusive owner when the
-    // session named one, the primary otherwise.
-    // ⭐⭐ A FROZEN PLAN OWNS THIS QUESTION, exactly as it owns seat devices one
-    // layer down (`assign_local_seat_devices`). This read model used to answer it
-    // independently and default to PRIMARY, so a match whose plan put the
-    // keyboard on channel 1 still lit up channel 0's prompts and picked channel
-    // 0's control filters on every keypress — wrong glyphs and wrong filtering,
-    // even after fighter control itself was repaired.
+    // The keyboard-and-mouse bundle's seat: its exclusive owner if the session
+    // named one, else the primary. A frozen plan decides this, as it decides
+    // seat devices (`assign_local_seat_devices`). Otherwise a plan that puts the
+    // keyboard on channel 1 would light channel 0's prompts and use channel 0's
+    // control filters.
     let declared = topology
         .as_deref()
         .and_then(|topology| topology.declared_channels().cloned());
     let keyboard_seat = match &declared {
-        // ⛔ AND `None` HERE MEANS NOBODY. A plan that names no keyboard is a
-        // match played entirely on pads: a keypress during it belongs to no
-        // fighter's seat, and attributing it to one is the alias this fixes.
+        // A plan with no keyboard channel gives `None` (nobody): the match uses
+        // only pads, so a keypress belongs to no fighter's seat.
         Some(plan) => plan.keyboard_channel().map(|id| id.slot()),
         None => Some(
             crate::sources::keyboard_owner_for(
@@ -238,25 +223,24 @@ pub fn update_seat_active_devices(
         }
     }
 
-    // Mouse: a REAL cursor move (actual motion) OR a mouse-button press —
-    // never `Pointer<Over>` (the snap-back bug).
+    // Mouse: a real cursor move or a mouse-button press, never `Pointer<Over>`.
     let real_cursor_motion = cursor_moved.read().next().is_some();
     let mouse_pressed = mouse_buttons
         .as_deref()
         .is_some_and(|buttons| buttons.get_just_pressed().next().is_some());
-    // ⛔ THE MOUSE RIDES WITH THE KEYBOARD, including into "nobody". They are one
-    // bundle (`LocalInputSource::Keyboard`), so a match played entirely on pads
-    // must not light a fighter's prompts because somebody moved the cursor.
+    // The mouse goes with the keyboard, including to "nobody": they are one
+    // bundle (`LocalInputSource::Keyboard`). In a pads-only match, a cursor
+    // move must not light a fighter's prompts.
     if let Some(keyboard_seat) = keyboard_seat {
         if real_cursor_motion || mouse_pressed {
             devices.mark(keyboard_seat, ActiveDevice::Mouse);
         }
     }
 
-    // Gamepads: a button just-pressed OR an axis past a generous deflection,
-    // attributed to the seat whose map is associated with that pad. With one
-    // seat, leafwing's any-pad fallback means every pad is the primary's;
-    // with more, a pad nobody holds is a spare on the desk and marks no seat.
+    // Gamepads: a button just pressed or an axis past a generous deflection,
+    // given to the seat whose map is associated with that pad. With one seat,
+    // leafwing's any-pad fallback gives every pad to the primary. With more, an
+    // unheld pad is a spare and marks no seat.
     const GAMEPAD_AXIS_DEFLECTION: f32 = 0.5;
     for (pad_entity, pad, name) in pads.iter() {
         let button = pad.get_just_pressed().next().is_some();
@@ -280,10 +264,10 @@ pub fn update_seat_active_devices(
         devices.mark(seat, ActiveDevice::Gamepad(style));
     }
 
-    // Touch: any finger down owns the frame (checked LAST so it wins). The
-    // screen is the machine's own, so it is the primary's device. The touch
-    // overlay's virtual stick/buttons additionally mark from their own fold —
-    // they can be driven by a mouse, which `Touches` cannot see.
+    // Touch: any finger down owns the frame (checked last so it wins). The
+    // screen belongs to the machine, so it is the primary's device. The touch
+    // overlay's virtual stick and buttons also mark from their own fold, because
+    // a mouse can drive them and `Touches` cannot see that.
     if touches
         .as_deref()
         .is_some_and(|touches| touches.iter().next().is_some())
@@ -357,10 +341,9 @@ mod tests {
 
     #[test]
     fn pointer_over_does_not_flip_to_mouse() {
-        // `Pointer<Over>` is an entity-picking event, NOT a `CursorMoved` and
-        // NOT a mouse-button press, so this system never reads it. A frame
-        // with neither (the exact state during a rebuild-induced `Over`)
-        // must keep the prior device.
+        // `Pointer<Over>` is neither a `CursorMoved` nor a button press, so
+        // this system does not read it. A frame with neither must keep the
+        // prior device.
         let mut app = app();
         app.update();
         assert_eq!(
@@ -398,8 +381,7 @@ mod tests {
     fn a_pad_press_is_the_holding_seats_device_and_nobody_elses() {
         let mut app = app();
         // Seat 1 holds the pad (its map is associated with it); seat 0 is on
-        // the keyboard. This is the couch arrangement the per-seat fact
-        // exists for.
+        // the keyboard.
         let pad = app
             .world_mut()
             .spawn((
@@ -450,9 +432,7 @@ mod tests {
         let mut app = app();
         app.add_plugins(bevy::input::InputPlugin);
         let window = dummy_window(&mut app);
-        // A key fires the same frame a finger is down: touch wins — a stray
-        // bluetooth keystroke must not flip glyphs away from a thumb on the
-        // stick.
+        // A key fires on the same frame a finger is down: touch wins.
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(KeyCode::KeyA);

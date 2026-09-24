@@ -38,29 +38,24 @@ const WORLD_RENDER_LAYER: usize = 0;
 pub const PORTAL_WINDOW_RENDER_LAYER: usize = 5;
 const PORTAL_CAPTURE_PARALLAX_LAYER_BASE: usize = 32;
 /// Base of the per-portal window layers. Every window mesh carries the shared
-/// [`PORTAL_WINDOW_RENDER_LAYER`] (what the MAIN camera renders) PLUS its own
-/// `base + slot` layer, so a capture camera can include every OTHER portal's
-/// window (true recursion) while excluding its own — a window photographing
-/// itself is never correct optics, and on a thin-wall pair the self-capture
-/// fed back as a spurious nested window with one frame of lag. Base 512 keeps
-/// clear of the parallax layers (32 + slot, slot ≤ ~300).
+/// [`PORTAL_WINDOW_RENDER_LAYER`] (rendered by the main camera) and its own
+/// `base + slot` layer. A capture camera can then see every other portal's
+/// window (recursion) but not its own. A self-capture is never correct optics;
+/// on a thin-wall pair it shows as a nested window with one frame of lag.
+/// Base 512 keeps clear of the parallax layers (32 + slot, slot ≤ ~300).
 const PORTAL_WINDOW_SELF_LAYER_BASE: usize = 512;
 
 fn portal_capture_parallax_layer(channel: PortalChannel) -> usize {
     PORTAL_CAPTURE_PARALLAX_LAYER_BASE + portal_channel_render_slot(channel)
 }
 
-/// The layers a portal's WINDOW MESH draws on.
+/// The layers a portal's window mesh draws on.
 ///
-/// ⭐ ONE AUTHORITY, because the diagnostic must not spell this a second way.
-/// The dump reports whether a pane and an actor share a layer at all -- a depth
-/// comparison between entities on disjoint layers settles nothing -- and a
-/// second spelling here would let the report disagree with the renderer about
-/// the very fact it exists to explain.
+/// The debug dump uses this too, to report whether a pane and an actor share
+/// a layer. A second spelling could make the report disagree with the renderer.
 pub(crate) fn portal_window_render_layers(channel: PortalChannel) -> RenderLayers {
-    // Shared layer = what the MAIN camera renders; the per-portal layer lets
-    // other rigs' captures include this window without any capture ever seeing
-    // its OWN window.
+    // The shared layer is what the main camera renders. The per-portal layer
+    // lets other rigs' captures include this window, but never its own capture.
     RenderLayers::layer(PORTAL_WINDOW_RENDER_LAYER).with(portal_window_self_layer(channel))
 }
 
@@ -107,9 +102,9 @@ fn capture_render_layers(
     if include_parallax {
         layers = layers.with(parallax_layer);
     }
-    // Recursion sees the OTHER portals' windows via their per-portal layers —
-    // never the shared window layer, which would include this rig's OWN mesh
-    // and feed the capture back into itself (the thin-wall nested-window bug).
+    // Recursion sees other portals' windows through their per-portal layers.
+    // The shared window layer would include this rig's own mesh and feed the
+    // capture back into itself.
     if recursion_depth > 0 {
         for &layer in other_windows {
             layers = layers.with(layer);
@@ -379,9 +374,8 @@ impl PortalCaptureCameraMode {
 
 impl Default for PortalCaptureCameraMode {
     fn default() -> Self {
-        // Its historical parallax problem (background evaluated at the framing center) is gone
-        // — parallax copies anchor at the rig's `parallax_anchor` (the mapped host camera),
-        // independent of framing.
+        // Parallax copies anchor at the rig's `parallax_anchor` (the mapped host
+        // camera), so the framing centre does not affect the background.
         Self::ConeRect
     }
 }
@@ -486,20 +480,15 @@ pub struct PortalViewConeConfig {
     /// the current one-frame-lag recursive feedback. Exact multi-pass finite
     /// depth can later refine this field without changing the dev UI.
     pub recursion_depth: u32,
-    /// Render z of the window mesh. Defaults to [`crate::PORTAL_WINDOW_Z`]:
-    /// OVER the portal rims/labels (9.0–9.2) and the exit body copy — the
-    /// window is a captured composite of the far side, so it draws as the
-    /// single seamless source, not underneath the far portal's frame or a
-    /// doubled sprite — while staying BELOW actors (20) so a near-side actor
-    /// still occludes it. Above world blocks (0).
+    /// Render z of the window mesh. Defaults to [`crate::PORTAL_WINDOW_Z`]: above
+    /// the portal rims and labels (9.0–9.2) and the exit body copy, so the captured
+    /// far side draws as one seamless source. Below actors (20), so a near-side
+    /// actor still occludes it. Above world blocks (0).
     pub z: f32,
-    /// Tint multiplied over the capture (opaque — the window draws over what it
-    /// is in front of). This is ALSO the recursion attenuator: a capture
-    /// sees other portals' windows, so two facing/door portals recurse with one
-    /// frame of lag. A tint slightly below white makes each nested level
-    /// `tint × tint × …` → the infinite recursion CONVERGES to dark (a fading
-    /// tunnel) instead of a full-brightness chaotic fractal. 1.0 = no
-    /// attenuation (chaos); ~0.8 = a calm fade.
+    /// Tint multiplied over the capture (opaque). It also attenuates recursion:
+    /// a capture sees other portals' windows, so facing portals recurse with one
+    /// frame of lag. Below white, each nested level multiplies the tint and the
+    /// recursion fades to dark. 1.0 = no attenuation; ~0.8 = a calm fade.
     pub tint: Color,
     /// Debug: draw gizmo outlines of each portal's EXIT sample zone (the
     /// `ViewCone::source` rect, in the portal's channel color, in front of its
@@ -541,11 +530,8 @@ impl Default for PortalViewConeConfig {
             max_resolution: 4096,
             recursion_depth: 1,
             z: crate::PORTAL_WINDOW_Z,
-            // Pure white: the window is a SEAMLESS view — no tint, so what
-            // you see through a portal is exactly the exit chart. The field
-            // stays a knob: a below-white tint makes nested recursion levels
-            // converge to dark (each level multiplies the tint) if a game
-            // wants a fading tunnel instead of full-brightness recursion.
+            // Pure white: the view through a portal is exactly the exit chart.
+            // A below-white tint gives a fading recursion tunnel instead.
             tint: Color::srgb(1.0, 1.0, 1.0),
             debug_outline: true,
             debug_los_rays: false,
@@ -559,16 +545,11 @@ impl Default for PortalViewConeConfig {
 #[derive(Component)]
 pub struct PortalConeMesh;
 
-/// RETIRE a view-cone rig: despawn every entity it is made of. THE ONE TEARDOWN.
+/// Retire a view-cone rig: despawn every entity it is made of.
 ///
-/// ⛔⛔ A RIG IS TWO ENTITIES, AND THAT FACT WAS WRITTEN AT FOUR TEARDOWN SITES
-/// inside `sync_portal_view_cones` -- the effect being switched away, the mode
-/// being `Off`, a portal or its partner going missing, and the rebuild key
-/// changing. Each despawned the rig root AND `rig.cone`, in the same two lines.
-/// ⇒ "What a rig is made of, for teardown" had four authorities. A rig that
-/// grows a third entity now needs ONE edit instead of four, and a site that
-/// forgot the new one would leak it silently: an offscreen camera and its render
-/// target staying alive with nothing referencing them.
+/// A rig is two entities: the root and `rig.cone`. This is the one teardown
+/// for all four sites in `sync_portal_view_cones`. If a rig gets a third
+/// entity, add it here, or an offscreen camera and its render target leak.
 fn retire_rig(commands: &mut Commands, entity: Entity, rig: &PortalViewRig) {
     commands.entity(entity).despawn();
     commands.entity(rig.cone).despawn();
@@ -623,12 +604,10 @@ impl PortalViewRig {
         self.pane_dominant
     }
 
-    /// Render-space viewpoint the rig's parallax copies should be anchored to:
-    /// the HOST camera's center mapped through the portal pair — the position
-    /// a viewer looking through this window effectively sees from. Anchoring
-    /// parallax to the capture camera's own transform instead evaluates the
-    /// background at whatever point the framing policy happens to center
-    /// (wrong for a tight cone-rect frame — the "fundamental parallax issue").
+    /// Render-space viewpoint for the rig's parallax copies: the host camera
+    /// centre mapped through the portal pair. The capture camera's own transform
+    /// is wrong here, because the framing policy chooses its centre (for example
+    /// a tight cone-rect frame).
     pub fn parallax_anchor(&self) -> Vec2 {
         self.parallax_anchor
     }
@@ -669,13 +648,11 @@ impl GameplayScreenDensity<'_, '_> {
 /// for capture priority (world px).
 const PORTAL_SEAM_REACH: f32 = 64.0;
 
-/// A portal is "at the seam" when the viewer is essentially ON it — within its
-/// own reach of the aperture. Such a portal (and, on a thin wall, its partner
-/// right beside it) ALWAYS refreshes its capture: a stale window at the exact
-/// opening you are crossing is the most visible place for capture throttling to
-/// flicker, so the crossed pair bypasses the slot cap + refresh interval
-/// regardless of quality tier. Away from any portal, the ordinary budget
-/// applies, so this costs nothing except at the moment it matters.
+/// A portal is "at the seam" when the viewer is within its reach of the
+/// aperture. Such a portal (and, on a thin wall, its partner) always refreshes
+/// its capture, bypassing the slot cap and refresh interval on every quality
+/// tier. A stale window at the opening being crossed is the most visible
+/// flicker. Away from portals the ordinary budget applies.
 fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
     viewer
         .filter(|v| v.present)
@@ -730,13 +707,11 @@ fn portal_capture_camera_frame(
     let host_view = host_view.filter(|view| {
         view.initialized && view.visible_view.x >= 1.0 && view.visible_view.y >= 1.0
     })?;
-    // Map the WHOLE host-view rect through the body map, not just its center:
-    // a 90° pair rotates the viewport, so its image swaps width/height. Using
-    // the unrotated size framed the wrong region for floor↔wall pairs — mapped
-    // cone vertices fell outside the capture rect, their UVs clamped at the
-    // edge, and the window rendered smeared/warped. `map_aabb` is exact for
-    // cardinal portals, and the mesh's entry polygon is clipped to this same
-    // host rect, so every mapped vertex now lands inside the capture frame.
+    // Map the whole host-view rect, not only its centre: a 90° pair rotates
+    // the viewport and swaps width and height. With the unrotated size, mapped
+    // cone vertices fell outside the capture rect and the window smeared.
+    // `map_aabb` is exact for cardinal portals, and the mesh's entry polygon is
+    // clipped to this same host rect, so every mapped vertex lands inside.
     let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
     let mapped = ambition_portal2d::pieces::map_aabb(rect, &enter.frame, &exit.frame, convention);
     Some(geometry::CaptureCameraFrame {
@@ -748,9 +723,8 @@ fn portal_capture_camera_frame(
 mod geometry;
 mod mesh;
 
-// D-B split: the debug-overlay + text/PNG dump diagnostics live in `debug.rs`.
-// Re-exported so `view_cones::<item>` paths (lib.rs re-exports, plugin.rs system
-// registration) are unchanged by the relocation.
+// The debug overlay and text/PNG dump live in `debug.rs`, re-exported so
+// `view_cones::<item>` paths stay valid.
 mod debug;
 pub use debug::*;
 use geometry::{
@@ -767,9 +741,8 @@ use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 /// When [`crate::PortalEffectSelection`] is not on `ViewCones`, every rig is
 /// DESPAWNED (cameras included) rather than hidden, so an A/B profile against
 /// the other effects measures the true cost of the capture passes.
-/// The asset stores the cone rig writes, bundled so the system stays inside
-/// Bevy's sixteen-parameter ceiling. Grouping is what the ceiling asks for; the
-/// three were already one concern.
+/// The asset stores the cone rig writes, grouped to stay inside Bevy's
+/// sixteen-parameter limit.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct ConeRigAssets<'w> {
     images: ResMut<'w, Assets<Image>>,
@@ -1062,13 +1035,9 @@ pub fn sync_portal_view_cones(
                 cone_vis,
                 PortalConeMesh,
                 portal_window_render_layers(portal.channel),
-                // The mesh's vertices are rewritten in place every frame as the
-                // viewer moves, but Bevy computes a mesh entity's culling Aabb
-                // ONCE (calculate_bounds only fills in missing Aabbs; mutating
-                // the asset never refreshes it). A stale Aabb from the spawn
-                // shape — possibly the degenerate hidden placeholder — gets the
-                // window frustum-culled into nothing even though its geometry
-                // is correct. One quad: just never cull it.
+                // The vertices are rewritten each frame, but Bevy computes a mesh
+                // entity's culling Aabb only once. A stale Aabb (possibly the
+                // degenerate placeholder) would cull a correct window. Never cull it.
                 bevy::camera::visibility::NoFrustumCulling,
                 Name::new(format!("Portal view window ({})", portal.channel.name())),
             ))
@@ -1105,17 +1074,15 @@ pub fn sync_portal_view_cones(
         commands.spawn((
             Camera2d,
             Camera {
-                // Derived from the channel's stable render slot — NOT the
-                // portal query index, which is not stable across frames and
-                // would shuffle capture ordering (visible as recursion
-                // shimmer when multiple pairs are live).
+                // From the channel's stable render slot, not the query index,
+                // which is not stable and would shuffle capture order.
                 order: -8 - portal_channel_render_slot(portal.channel) as isize,
                 is_active: active,
                 clear_color: ClearColorConfig::Custom(CAPTURE_CLEAR),
                 ..default()
             },
-            // Single-sampled target needs a single-sampled camera (see commit
-            // history): a default 4×-MSAA camera renders nothing into it.
+            // A single-sampled target needs a single-sampled camera: a default
+            // 4×-MSAA camera renders nothing into it.
             Msaa::Off,
             RenderTarget::Image(ImageRenderTarget::from(image.clone())),
             capture_render_layers(

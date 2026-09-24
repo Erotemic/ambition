@@ -1,26 +1,21 @@
-//! The primitives a character's move table is written with — shared, because
-//! the second character to author one must not begin by copying the first.
+//! The primitives a character's move table is written with, shared so that a
+//! new character does not start by copying another.
 //!
-//! Mary-O and Sanic are registered by their own demos, both were 0/16 on the smash grid, and
-//! neither demo depends on Ambition's content crate — so completing their kits meant either a
-//! fourth copy of these helpers or moving the one copy to a crate everybody already has.
-//! `ambition_characters` is where the character model lives and where `moveset_prefabs` already
-//! derives a table from an action set; authoring one by hand belongs beside it.
+//! This crate is a dependency of every demo, so demo characters (Mary-O,
+//! Sanic) use the same helpers as the main content.
 //!
-//! There is ONE `strike` now. `ambition_demo_smash` carried a fork of it for a
-//! while, differing only in the clip fallback chain; the platform-fighter half
-//! that is genuinely its own — the `Feel` vocabulary, the repertoire, the cancel
-//! conventions — stayed there, which is the line: a move-BUILDING fact is
-//! shared, a game's POLICY about moves is not.
+//! There is one `strike`. A move-building fact is shared here; a game's policy
+//! about moves (for example the `Feel` vocabulary, the repertoire and the
+//! cancel conventions of `ambition_demo_smash`) is not.
 //!
-//! They were never robot-specific — `strike` is *startup, one active window carrying one volume,
-//! recovery*, which is the shape of nearly every move in the genre.
+//! `strike` is startup, one active window with one volume, then recovery: the
+//! shape of nearly every move in the genre.
 //!
-//!  a move states what it IS, never what a mode does with it. Startup,
-//! active frames, recovery, hitbox geometry, damage, base launch and growth are
-//! properties of the swing; percent, stocks, blast zones and DI are the
-//! RULESET's. That is what lets one table read as Hollow-Knight combat in one
-//! game and a platform fighter in another.
+//! A move states what it is, never what a mode does with it. Startup, active
+//! frames, recovery, hitbox geometry, damage, base launch and growth belong to
+//! the swing. Percent, stocks, blast zones and DI belong to the ruleset. So one
+//! table can read as Hollow-Knight combat in one game and a platform fighter in
+//! another.
 
 use crate::{
     CancelCondition, ClipBinding, EffectRef, HitVolume, ImpulseMode, MoveEvent, MoveEventKind,
@@ -29,65 +24,55 @@ use crate::{
 
 /// The sweep an arcing slash draws.
 ///
-/// ⭐ HERE RATHER THAN BESIDE THE PREFABS, because a move-BUILDING fact belongs
-/// with the builders — `strike` names it by default and every authored table
-/// reaches it through this module. `moveset_prefabs` imports it back.
+/// A move-building fact, so it lives with the builders: `strike` uses it by
+/// default. `moveset_prefabs` imports it.
 pub const SLASH_ARC_VFX: &str = "slash_arc";
 /// The sweep a straight poke draws.
 pub const SLASH_POKE_VFX: &str = "slash_poke";
 
-// The posture now follows from the slot in `crate::smash_repertoire::SmashRepertoire`, which is
-// the only place in the repo that knows what a tilt or an aerial IS. Leaving the helpers here would
-// have left the per-move override available to a fighter that did not mean to take it.
 
 fn event(mut m: MoveSpec, at_s: f32, kind: MoveEventKind) -> MoveSpec {
     m.events.push(MoveEvent { at_s, kind });
     m
 }
 
-/// A TIMED SELF-DISPLACEMENT.
+/// A timed self-displacement.
 ///
-///  [`ImpulseMode::Set`] COMMANDS a velocity; [`ImpulseMode::Add`] contributes
-/// to one. The difference is the difference between a recovery and a hop: a body
-/// falling at terminal velocity gets exactly the same result from a `Set` as a
-/// standing one does, and the worst possible result from an `Add`. It is also
-/// what the catalog's `lift_speed` / `lift_side` derivation keys on — an `Add`
-/// states no speed, so no static reader may claim one for it.
+/// [`ImpulseMode::Set`] commands a velocity; [`ImpulseMode::Add`] contributes
+/// to one. A body falling at terminal velocity gets the same result from a
+/// `Set` as a standing body, and the worst result from an `Add`. The catalog's
+/// `lift_speed` / `lift_side` derivation counts only `Set`, because an `Add`
+/// states no speed.
 ///
-/// `local` is body-local: `+x` toward facing, `+y` toward the feet, so a rise is
-/// a NEGATIVE second component.
+/// `local` is body-local: `+x` toward facing, `+y` toward the feet, so a rise
+/// has a negative second component.
 pub fn impulse(m: MoveSpec, at_s: f32, local: (f32, f32), mode: ImpulseMode) -> MoveSpec {
     event(m, at_s, MoveEventKind::Impulse { local, mode })
 }
 
-/// A TIMED GRAVITY REGIME: the owner falls at `scale` times its usual gravity
+/// A timed gravity regime: the owner falls at `scale` times its usual gravity
 /// for `seconds`, starting at this beat.
 ///
-/// ⭐⭐ THE MOVE ASKS AND THE MOVEMENT DOMAIN OWNS IT, which is why an author
-/// gives a DURATION rather than switching a float on and owing an off. A move
-/// that owed an off would be the authority for a locomotion regime, and would
-/// leak one every time it was interrupted, cancelled or rolled back mid-flight
-/// — the shape this campaign's rule exists to forbid.
+/// The move asks and the movement domain owns the regime, so the author gives
+/// a duration, not an on/off pair. A move that owed an "off" would leak the
+/// regime when interrupted, canceled or rolled back.
 ///
-/// ⛔ THE REGIME OUTLIVES THE MOVE, ON PURPOSE. `seconds` runs from this beat,
-/// not from the end of the move, so a parasol opened during a 0.3s animation can
-/// hold its owner up for two seconds afterwards. That is the whole difference
-/// between this and a window tag, which cannot outlast the move it is on.
+/// The regime outlives the move on purpose. `seconds` runs from this beat, so
+/// a parasol opened during a 0.3s animation can hold its owner up for two
+/// seconds. A window tag cannot outlast its move.
 ///
-/// ⚠ `scale` is a MULTIPLIER, so `1.0` is a no-op and `0.0` is a hover. A
-/// non-positive `seconds` CLEARS whatever the body is under, which is how a
-/// second beat in the same move ends the float early.
+/// `scale` is a multiplier: `1.0` is a no-op and `0.0` is a hover. A
+/// non-positive `seconds` clears the body's current modifier, so a second beat
+/// in the same move can end the float early.
 pub fn gravity_modifier(m: MoveSpec, at_s: f32, scale: f32, seconds: f32) -> MoveSpec {
     event(m, at_s, MoveEventKind::GravityModifier { scale, seconds })
 }
 
-/// A CUE AT A MOMENT. The move's own timeline is where its sound lives, so a
-/// windup you can hear and a swing you can hear are two events and not two
-/// systems.
+/// A sound cue at a moment on the move's own timeline.
 ///
-/// A [`vfx`] burst is heard on its own; writing `sfx(m, t, "vfx.<family>.<row>")` beside one
-/// plays it TWICE. If the sound is genuinely not the row's default, say so ON the burst with
-/// [`vfx_cued`].
+/// A [`vfx`] burst already plays its own sound; writing
+/// `sfx(m, t, "vfx.<family>.<row>")` beside one plays it twice. For a sound
+/// that is not the row's default, use [`vfx_cued`].
 pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     event(
         m,
@@ -98,19 +83,16 @@ pub fn sfx(m: MoveSpec, at_s: f32, cue: &str) -> MoveSpec {
     )
 }
 
-/// A BURST AT A MOMENT — picture and sound, because they are one thing.
+/// A visual burst at a moment, with its sound.
 ///
-///  `effect` is the NAME of a row on one of the shipped FX spritesheets
-/// (`ambition_sprite_sheet::fx` — 189 of them). `MoveSpec::presentation_problems`
-/// refuses a name no sheet carries, and the renderer counts it as a miss rather
-/// than playing nothing quietly.
+/// `effect` is the name of a row on one of the shipped FX spritesheets
+/// (`ambition_sprite_sheet::fx`). `MoveSpec::presentation_problems` refuses a
+/// name no sheet carries, and the renderer counts it as a miss.
 ///
-///  it is heard as well as seen, and the author writes nothing for that.
 /// The bank ships one `vfx.<family>.<row>` cue per authored row, so the name
-/// that finds the clip finds the sound; `dispatch_move_events` asks for the pair
-/// and presentation resolves it.  do NOT follow this with an [`sfx`] naming
-/// that same cue — the burst would be heard twice. [`vfx_cued`] is for the
-/// exception where the sound is genuinely not the row's default.
+/// that finds the clip also finds the sound: `dispatch_move_events` asks for
+/// the pair. Do not add an [`sfx`] with the same cue, or the burst plays
+/// twice. Use [`vfx_cued`] when the sound is not the row's default.
 pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
     event(
         m,
@@ -124,10 +106,10 @@ pub fn vfx(m: MoveSpec, at_s: f32, effect: &str) -> MoveSpec {
     )
 }
 
-/// A burst that says WHERE and HOW BIG, in the same body-local numbers the
+/// A burst that says where and how big, in the same body-local numbers the
 /// move's strike volumes use.
 ///
-///  pass a volume's own `offset` as `at` and the two cannot disagree.
+/// Pass a volume's own `offset` as `at`, so the two cannot disagree.
 pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) -> MoveSpec {
     event(
         m,
@@ -141,11 +123,11 @@ pub fn vfx_at(m: MoveSpec, at_s: f32, effect: &str, at: (f32, f32), scale: f32) 
     )
 }
 
-/// A PLACED BURST THAT DOES NOT SOUND LIKE ITS OWN ROW.
+/// A placed burst whose sound is not its own row's default.
 ///
-///  `cue` is a bank cue name, not an effect row name. An id neither the
-/// registry nor the packed bank authorizes is counted and dropped, not heard —
-/// so a typo here is silence, exactly as it is for [`sfx`].
+/// `cue` is a bank cue name, not an effect row name. An id that neither the
+/// registry nor the packed bank authorizes is counted and dropped, so a typo
+/// here is silence, as for [`sfx`].
 pub fn vfx_cued(
     m: MoveSpec,
     at_s: f32,
@@ -166,7 +148,7 @@ pub fn vfx_cued(
     )
 }
 
-/// WHAT LANDING THIS MOVE SOUNDS LIKE, applied to every volume it throws.
+/// The contact sound for this move, applied to every volume it throws.
 /// Contact feedback belongs to the volume because only the volume knows it
 /// connected.
 pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
@@ -176,21 +158,18 @@ pub fn on_contact(mut m: MoveSpec, cue: &str) -> MoveSpec {
     m
 }
 
-/// HOW THE SWING ITSELF IS DRAWN — the strike-presentation tag every volume
-/// this move throws carries.
+/// How the swing itself is drawn: the strike-presentation tag on every volume
+/// this move throws.
 ///
-///  this is NOT an FX-sheet row name. `HitVolume::vfx` is a two-word
-/// vocabulary ([`SLASH_ARC_VFX`] /
-/// [`SLASH_POKE_VFX`])
-/// that the move runtime
-/// reads twice: it picks the arc-vs-jab shape drawn out of the spawned volume,
-/// and it is the flag that makes a volume prefer the sprite manifest's authored
-/// hit polygon for this move's clip over the synthetic box. A sheet row name put
-/// here would silently take a move off both paths. Per-move ART is a
-/// [`vfx`] EVENT; this is how the SWING reads.
+/// This is not an FX-sheet row name. `HitVolume::vfx` is a two-word
+/// vocabulary ([`SLASH_ARC_VFX`] / [`SLASH_POKE_VFX`]) that the move runtime
+/// reads twice: it picks the arc or jab shape drawn from the spawned volume,
+/// and it makes a volume prefer the sprite manifest's authored hit polygon
+/// over the synthetic box. A sheet row name here would silently disable both.
+/// Per-move art is a [`vfx`] event.
 ///
-/// [`strike`] tags every volume `slash_arc`, which is right for a committed
-/// swing and wrong for a poke — so this exists for the pokes.
+/// [`strike`] tags every volume `slash_arc`, which is wrong for a poke; use
+/// this for pokes.
 pub fn strike_tag(mut m: MoveSpec, tag: &str) -> MoveSpec {
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
         volume.vfx = Some(tag.to_string());
@@ -207,35 +186,18 @@ pub fn active_start(m: &MoveSpec) -> f32 {
         .map_or(0.0, |w| w.start_s)
 }
 
-/// A CANCEL WINDOW. The timeline IS the cancel table, so a combo route is
-/// authored here and nowhere else.
-/// The refusal the three window-pushing verbs share.
+/// The refusal shared by the window-pushing verbs ([`armor`],
+/// [`armor_under`], [`invuln`], [`cancelable`]).
 ///
-/// ⭐⭐ ONE CONSTRAINT ON THE SHAPE, NOT THREE COPIES ON THREE VERBS — and it was
-/// on exactly one of them until 2026-09-06. [`armor`], [`invuln`] and
-/// [`cancelable`] are the same move: each takes `(spec, start_s, end_s, …)` and
-/// pushes a window carrying no volumes, whose entire content is its TAG and its
-/// bounds. `armor` refused a window that never opens; the other two accepted one
-/// in silence.
-///
-/// ⛔ AND THIS FAMILY IS THE ONE MOST PRONE TO IT, because an empty window has
-/// nothing else about it that could look wrong. A strike with a bad time draws in
-/// the wrong place and somebody sees it; a zero-width armour window is invisible
-/// in the source, invisible on screen, and shows up only as trades the move
-/// looked like it should win and did not.
-///
-/// ⇒ A constraint filed on the first case that suffered it is a constraint the
-/// second and third cases never read.
+/// Each of those verbs pushes a window with no volumes, whose content is only
+/// its tag and bounds. A zero-width window is invisible in the source and on
+/// screen, so each verb must refuse it. One shared check keeps them equal.
 ///
 /// # Panics
 ///
 /// If the window would never be open.
-// ⭐ `pub` NOW THAT THE MODULE MOVED CRATES, because the constraint it enforces
-// is one every AUTHOR owes, not one this crate owes itself. `moveset_prefabs`
-// calls it from `ambition_characters`, and the alternative — a second copy of
-// the same assertion beside each caller — is exactly what this helper's own
-// doc warns about: a constraint filed on the first case that suffered it is a
-// constraint the second and third never read.
+// Public because every author owes this constraint; `moveset_prefabs` in
+// `ambition_characters` calls it.
 pub fn refuse_a_window_that_never_opens(
     id: &str,
     start_s: f32,
@@ -250,6 +212,8 @@ pub fn refuse_a_window_that_never_opens(
     );
 }
 
+/// A cancel window. The timeline is the cancel table, so a combo route is
+/// authored here.
 pub fn cancelable(
     mut m: MoveSpec,
     start_s: f32,
@@ -278,13 +242,8 @@ pub fn cancelable(
     m
 }
 
-/// AN AUTHORED INTANGIBILITY WINDOW: the owner cannot be hit between these beats.
-///
-/// ⭐ `WindowTag::Invuln` HAS BEEN AUTHORING VOCABULARY WITH NO WAY TO SAY IT
-/// from this module — every helper here builds `Startup`, `Active`, `Recovery`
-/// or `Cancelable`, so a move that wanted i-frames had to push a `MoveWindow`
-/// by hand. `project_move_defense_windows` has consumed the tag for a while;
-/// this is the other end of it.
+/// An authored intangibility window: the owner cannot be hit between these
+/// beats. `project_move_defense_windows` consumes the tag.
 pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
     refuse_a_window_that_never_opens(
         &m.id,
@@ -304,28 +263,14 @@ pub fn invuln(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
     m
 }
 
-/// SUPER ARMOR: through this window the body IS hit and does not answer for it.
+/// Super armor: through this window the body is hit and does not react.
 ///
-/// ⭐⭐ THE OTHER HALF OF [`invuln`]'S STORY, and it is REACHED NOW.
-/// `WindowTag::Armor` is consumed end to end — `MovePlayback` republishes
-/// `BodyCombat::armored` from the live window every tick, and `hit_reaction` <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
-/// gates the launch on `!combat.armored` with tests either side of it.
+/// `MovePlayback` republishes `BodyCombat::armored` from the live window
+/// every tick, and `hit_reaction` gates the launch on `!combat.armored`. <!-- cite-ok: records the deleted boolean `ArmorPolicy` replaced -->
 ///
-/// ⛔⛤ **THIS COMMENT SAID *"no authored move in the tree has ever opened one"*
-/// AND THAT IS NO LONGER TRUE — re-derived 2026-09-12.** THREE production moves
-/// open an armor window: `alice_moveset.rs:294` (`n_b`),
-/// `patent_clerk_moveset.rs:388` (`side_b`) and `player_robot_moveset.rs:408`
-/// (`down_b`). ⇒ The dated measurement (2026-09-05) was right when written and
-/// became a claim about the present by sitting in the present tense. **It
-/// matters because it is the difference between a mechanic with no customer —
-/// where widening the vocabulary is building road for no traffic — and one with
-/// three, where the next question is what those three cannot yet SAY.**
-///
-/// ⛔ NOT INVULNERABILITY, AND THE DIFFERENCE IS THE WHOLE MOVE. An armoured
-/// body takes the damage; what it does not take is the launch, the hitstun and
-/// the recoil lock. ⇒ So armour LOSES to chip and to grabs and wins the trade
-/// against one big hit, where i-frames do the opposite — which is why a fighter
-/// wants both words and not a switch between them.
+/// Not invulnerability. An armored body takes the damage, but not the launch,
+/// the hitstun or the recoil lock. So armor loses to chip damage and grabs
+/// and wins the trade against one big hit; i-frames do the opposite.
 pub fn armor(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
     refuse_a_window_that_never_opens(
         &m.id,
@@ -345,22 +290,18 @@ pub fn armor(mut m: MoveSpec, start_s: f32, end_s: f32) -> MoveSpec {
     m
 }
 
-/// THRESHOLD ARMOR: through this window the body is held through SMALL hits and
-/// answers normally for a big one.
+/// Threshold armor: through this window the body is held through small hits
+/// and reacts normally to a big one.
 ///
-/// ⭐⭐ **THE VARIANT SUPER ARMOR COULD NOT EXPRESS.** [`armor`] above is all or
-/// nothing: a move that should eat a jab and still be launched by a smash had to
-/// choose between eating both and eating neither. `breaks_at` is the damage at
-/// which a hit gets through — `>=` breaks, so a move meant to survive a 9 and
-/// answer for a 10 authors `10`.
+/// [`armor`] is all or nothing. `breaks_at` is the damage at which a hit gets
+/// through. The comparison is `>=`, so to survive 9 and break on 10, author
+/// `10`.
 ///
-/// ⛔ NOTHING ACCUMULATES. Each hit is judged alone, so two 6s never add up to a
-/// break. That is the platform-fighter reading and it is also the only one that
-/// survives rollback without a second authority for how much armor is left.
+/// Nothing accumulates: each hit is judged alone, so two 6s never break it.
+/// This also needs no rollback state for remaining armor.
 ///
-/// ⚠ ARMOR STILL DOES NOT TOUCH THE PERCENT — under the threshold or over it,
-/// the body takes the damage. What the threshold decides is who keeps their
-/// trajectory and their control.
+/// Armor does not change the damage taken. The threshold decides only who
+/// keeps trajectory and control.
 pub fn armor_under(mut m: MoveSpec, start_s: f32, end_s: f32, breaks_at: i32) -> MoveSpec {
     refuse_a_window_that_never_opens(
         &m.id,
@@ -380,19 +321,15 @@ pub fn armor_under(mut m: MoveSpec, start_s: f32, end_s: f32, breaks_at: i32) ->
     m
 }
 
-/// FIXED KNOCKBACK: this hit launches the same at 0% and at 200%.
+/// Fixed knockback: this hit launches the same at 0% and at 200%.
 ///
-/// ⭐⭐ THE THING [`strike`] CANNOT SAY. Its builder takes one `f32` and reads
-/// zero as *"this stage decides"* — which is what every caller has always meant
-/// — so `Some(0.0)`, a hit whose launch does NOT grow with its victim's damage,
-/// was unreachable through it. Its own comment says as much and points here:
-/// *"a move that wants FIXED knockback says so on the volume"*. This is that
-/// sentence, made callable, so the next move that wants it does not reach into
+/// [`strike`] takes one `f32` and treats zero as "the stage decides", so it
+/// cannot author `Some(0.0)`. Use this in place of editing
 /// `windows[..].volumes[..]` by hand.
 ///
-/// The customers are moves whose whole identity is landing the same every time:
-/// a multi-hit pulse whose carry must not dissolve at high percent, and a hold
-/// that is supposed to hold everyone equally.
+/// Use it for moves that must land the same every time: a multi-hit pulse
+/// whose carry must hold at high percent, or a hold that holds everyone
+/// equally.
 pub fn fixed_knockback(mut m: MoveSpec) -> MoveSpec {
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
         volume.knockback_growth = Some(0.0);
@@ -400,13 +337,13 @@ pub fn fixed_knockback(mut m: MoveSpec) -> MoveSpec {
     m
 }
 
-/// A CONDITIONAL TECHNIQUE ON CONTACT — the engine's `on_hit` seam, applied to
+/// A conditional technique on contact: the engine's `on_hit` seam, applied to
 /// every volume the move lands.
 ///
-/// What the landing is CAPABLE of, never what a game does with it: the down-air
-/// says it can rebound its attacker and the RULESET decides whether to take it
-/// up on that or read the swing as a spike. Compare [`on_contact`], which is a
-/// SOUND, and [`strike_tag`], which is how the swing draws.
+/// It states what the landing can do, not what a game does with it: the
+/// down-air says it can rebound its attacker, and the ruleset decides whether
+/// to use that or read the swing as a spike. Compare [`on_contact`] (a sound)
+/// and [`strike_tag`] (how the swing draws).
 pub fn on_hit(mut m: MoveSpec, key: &str) -> MoveSpec {
     for volume in m.windows.iter_mut().flat_map(|w| w.volumes.iter_mut()) {
         volume.on_hit = Some(EffectRef::new(key));
@@ -414,10 +351,9 @@ pub fn on_hit(mut m: MoveSpec, key: &str) -> MoveSpec {
     m
 }
 
-/// A TAIL THE BODY CANNOT STEER OUT OF. Extends the move to `to_s` with a
-/// Recovery window whose `motion_scale` damps the owner's steering — the genre's
-/// "you are committed now", authored rather than hardcoded, and enforced
-/// body-side so it binds a CPU and a human identically.
+/// A tail the body cannot steer out of. Extends the move to `to_s` with a
+/// Recovery window whose `motion_scale` damps the owner's steering. It is
+/// enforced body-side, so it binds a CPU and a human the same way.
 pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec {
     let from = m.duration_s;
     if to_s <= from {
@@ -435,19 +371,17 @@ pub fn committed_tail(mut m: MoveSpec, to_s: f32, motion_scale: f32) -> MoveSpec
     m
 }
 
-/// A TAUNT — the one authored move that threatens nobody.
+/// A taunt: the one authored move that threatens nobody.
 ///
-/// No volume, no impulse, one committed recovery window: everything a taunt IS
-/// is that you cannot act for `duration_s`, which is what makes it a statement.
-/// Compose `sfx` / `vfx` onto the result the way every other move does.
+/// No volume, no impulse, one rooted recovery window: the owner cannot act for
+/// `duration_s`. Compose `sfx` / `vfx` onto the result like any other move.
 pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
     MoveSpec {
         display_name: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: "taunt".to_string(),
-            // A sheet with no taunt row stands still, which is the right thing
-            // for a move whose whole content is standing still.
+            // A sheet with no taunt row stands still, which suits a taunt.
             fallbacks: vec!["idle".to_string()],
         },
         duration_s,
@@ -475,19 +409,16 @@ pub fn taunt(id: &str, duration_s: f32) -> MoveSpec {
     }
 }
 
-/// A special whose whole content is its EFFECT: a timeline, a clip, and no
-/// volume anywhere on it.
+/// A special whose content is only its effect: a timeline, a clip, and no
+/// volume.
 ///
-/// ⭐ NOT EVERY SPECIAL HITS. A summon, a transformation, a counter-stance and a
-/// teleport are all moves whose payload is a technique rather than a box, and
-/// [`strike`] cannot express one — its shape is startup / one active volume /
-/// recovery, so authoring a hitless move through it means an active window
-/// carrying an empty volume list, which reads as *"this hits, for nothing"*.
+/// A summon, a transformation, a counter-stance or a teleport has a technique
+/// as its payload, not a box. Through [`strike`] it would need an active
+/// window with an empty volume list, which reads as "this hits, for nothing".
 ///
-/// The whole timeline is `Startup` up to `commits_at_s` and `Recovery` after,
-/// because that IS the shape: everything before the effect is the wind-up you
-/// can be punished during, and everything after is the tail you owe for it.
-/// Rooted throughout — a special you can stroll out of is not a commitment.
+/// The timeline is `Startup` up to `commits_at_s` and `Recovery` after: the
+/// windup you can be punished during, then the tail you owe. Rooted
+/// throughout.
 pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32) -> MoveSpec {
     assert!(
         commits_at_s <= duration_s,
@@ -534,27 +465,18 @@ pub fn hitless_special(id: &str, clip: &str, commits_at_s: f32, duration_s: f32)
     }
 }
 
-/// One strike on one timeline: startup, one active window carrying one volume,
-/// recovery.
-///
-/// Every move here is that shape, so the authored differences are the ones that
-/// MATTER — how long you are committed, how far it reaches, how hard it throws,
-/// and how much of the throw scales with the victim's damage.
 #[allow(clippy::too_many_arguments)]
-/// THE DASH ATTACK's shape, with the fighter supplying only what it hits for.
+/// The dash attack's shape, with the fighter supplying only what it hits for.
 ///
-///  the same split [`taunt`] uses: the helper owns the SHAPE — the genre's fast
-/// startup, long recovery and forward carry — and the fighter owns the numbers.
-/// A dash attack that each of fourteen fighters designed from scratch would be
-/// fourteen chances to author something that is not a dash attack.
+/// The helper owns the shape (fast startup, long recovery, forward carry) and
+/// the fighter owns the numbers, as in [`taunt`].
 ///
-///  the frame shape is the mechanic: it starts faster than a tilt because
-/// you already committed to the dash, and it recovers longer because that
-/// commitment is what you are paying for. A version with a tilt's recovery would
-/// be a strictly better tilt.
+/// The frame shape is the mechanic: it starts faster than a tilt because the
+/// dash is already a commitment, and it recovers longer because that is the
+/// price. With a tilt's recovery it would be a strictly better tilt.
 pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32) -> MoveSpec {
-    //  the impulse is FORWARD and lands at the swing, so the move carries the
-    // dash's own momentum rather than stopping the body to hit.
+    // The impulse is forward and lands at the swing, so the move carries the
+    // dash's momentum.
     impulse(
         strike(Strike {
             id,
@@ -562,11 +484,9 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
             startup_s: shape.startup_s,
             active_s: shape.active_s,
             recover_s: shape.recover_s,
-            //  `reach_px` IS what `reach_of` measures — offset plus
-            // half-extent, not the offset alone. A fighter whose tests pin a
-            // reach (Carl's `NEAREST_REACH`) has to be able to say the number
-            // its own doc says, and a helper that meant something else by the
-            // same word made that impossible to write down.
+            // `reach_px` is what `reach_of` measures: offset plus half-extent,
+            // not the offset alone. A fighter test can then pin a reach (for
+            // example Carl's `NEAREST_REACH`) with the same number.
             offset: (shape.reach_px * 0.6, -2.0),
             half_extents: (shape.reach_px * 0.4, 20.0),
             damage,
@@ -581,20 +501,14 @@ pub fn dash_attack(id: &str, shape: DashAttackShape, damage: i32, knockback: f32
     )
 }
 
-/// The frames a dash attack occupies, so a fighter that authored a LAW about
-/// its own timings can honour it.
+/// The frames a dash attack occupies, so a fighter with its own timing
+/// invariant can keep it.
 ///
-///  this is not "the shape became optional". [`DashAttackShape::GENRE`] is
-/// still the one statement of what a dash attack is, and nine of the fourteen
-/// fighters take it unchanged. The five that do not are the five whose own
-/// tests assert a property the genre's numbers break — Oiler's tolerance band,
-/// the Oni's 3x recovery law, Carl's reach-monotonic line, George's poke/commit
-/// gap — and each of those is a fact about that CHARACTER that a shared default
-/// has no standing to overrule.
-///
-///  the guards found every one of them. A generic move stamped over
-/// fourteen fighters violated five authored invariants, and five character
-/// censuses said so on the first run.
+/// [`DashAttackShape::GENRE`] is still the standard dash attack, and most
+/// fighters use it. A fighter whose own tests assert a property the genre
+/// numbers break (for example a tolerance band, a recovery ratio, a
+/// reach-monotonic line) authors its own shape. A shared default must not
+/// override a character's own invariant.
 #[derive(Clone, Copy, Debug)]
 pub struct DashAttackShape {
     pub startup_s: f32,
@@ -604,9 +518,8 @@ pub struct DashAttackShape {
 }
 
 impl DashAttackShape {
-    /// The genre's dash attack. Faster than a tilt because the dash is
-    /// already committed, and recovering longer because that commitment is what
-    /// is being paid for — a version with a tilt's recovery is a better tilt.
+    /// The genre's dash attack: faster than a tilt because the dash is already
+    /// a commitment, and a longer recovery because that is the price.
     pub const GENRE: Self = Self {
         startup_s: 0.05,
         active_s: 0.09,
@@ -615,22 +528,16 @@ impl DashAttackShape {
     };
 }
 
-/// ONE STRIKE, AS VALUES — the shape 294 of this repertoire's moves already had.
+/// One strike, as named values.
 ///
-/// ⛔⛔ **NAMED FIELDS, and that is the point of the type.** This was twelve
-/// POSITIONAL arguments; Alice's jab read `"challenge", "jab", 0.05, 0.05,
-/// 0.13, (24.0, 0.0), (17.0, 13.0), 3, 48.0, 1.05, None, None`. Three of those
-/// numbers are timings and two are
-/// knockback, all `f32`, and two are `(f32, f32)` geometry — so a transposition
-/// inside either group is a SILENT change to a fighter's feel: the compiler
-/// cannot see it, and no test asserts any individual fighter's numbers.
+/// Named fields, not positional arguments. Several timings and knockback
+/// values are all `f32`, and `offset` and `half_extents` are both
+/// `(f32, f32)`, so a transposition would silently change a fighter's feel.
 ///
-/// ⭐ it is also what makes the authored `smash_fighter` facet a derive rather
-/// than a redesign — a named-field record of pure values maps one-to-one onto
-/// serde, which `CaptureKitAuthoring` already demonstrated for the capture kit.
-/// ⛔ this type is NOT `Serialize` yet, deliberately: adding the derive is the
-/// facet's slice, and doing it here would freeze a wire shape before a customer
-/// has asked for one.
+/// A named-field record of pure values maps directly onto serde (as
+/// `CaptureKitAuthoring` does). It is not `Serialize` yet on purpose: adding
+/// the derive belongs to the authored `smash_fighter` facet, and adding it
+/// now would freeze a wire shape before anyone needs it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Strike<'a> {
     /// The move id. Unique within the kit.
@@ -640,14 +547,13 @@ pub struct Strike<'a> {
     pub clip: &'a str,
     /// The tell, before anything is dangerous.
     pub startup_s: f32,
-    /// How long the volume is LIVE.
+    /// How long the volume is live.
     pub active_s: f32,
     /// The tail after it, during which the body is committed.
     pub recover_s: f32,
     /// Volume centre, body-local. Mirrors with facing.
     pub offset: (f32, f32),
-    /// Volume half-extents. ⚠ the OTHER `(f32, f32)`, and the one a
-    /// transposition with `offset` used to hide in.
+    /// Volume half-extents. Do not transpose with `offset`.
     pub half_extents: (f32, f32),
     pub damage: i32,
     /// Base launch speed.
@@ -656,16 +562,17 @@ pub struct Strike<'a> {
     pub knockback_growth: f32,
     /// `None` lets the shared rule derive it from the geometry.
     pub launch_dir: Option<(f32, f32)>,
-    /// What LANDING this hit can do beyond damage. Today exactly one move uses
-    /// it: the down-air says it is capable of rebounding its attacker, and the
-    /// RULESET (`DeclaredCombatRules::downward_hit`) decides whether this game
-    /// takes it up on that or reads the swing as a spike instead.
+    /// What landing this hit can do beyond damage. The down-air uses it to say
+    /// it can rebound its attacker; the ruleset
+    /// (`DeclaredCombatRules::downward_hit`) decides whether to use that or
+    /// read the swing as a spike.
     pub on_hit: Option<EffectRef>,
 }
 
 impl<'a> Strike<'a> {
-    /// A named, zero-damage placeholder. Every real field is still stated at
-    /// the call site — this exists so a future field does not edit 294 literals.
+    /// A named, zero-damage placeholder. Call sites still state every real
+    /// field; this exists so a new field does not require editing every
+    /// literal.
     pub fn new(id: &'a str, clip: &'a str) -> Self {
         Self {
             id,
@@ -686,54 +593,49 @@ impl<'a> Strike<'a> {
 
 /// One holding pulse of a multi-hit, authored once and repeated.
 ///
-/// Deliberately small: everything a pulse needs that the finisher does not
-/// already state. A pulse is a WEAK hit that holds — the launch is the
-/// finisher's job.
+/// Small on purpose: only what a pulse needs that the finisher does not
+/// already state. A pulse is a weak hit that holds; the finisher launches.
 #[derive(Clone, Copy, Debug)]
 pub struct Pulse {
     /// Where the pulse's box sits, body-local, and how big it is.
     pub offset: (f32, f32),
     pub half_extents: (f32, f32),
-    /// Chip damage. Intermediate pulses are cheap by design — the move is paid
-    /// for by its finisher, and a multi-hit whose pulses hurt is a better move
-    /// than its own ending.
+    /// Chip damage. Pulses are cheap on purpose: the finisher pays for the
+    /// move, and pulses that hurt would be better than the ending.
     pub damage: i32,
-    /// How long one pulse is live, and the GAP before the next one.
+    /// How long one pulse is live, and the gap before the next one.
     ///
-    /// ⛔⛔ THE GAP IS LOAD-BEARING, not spacing. The move runtime's re-hit rule
-    /// lets SEPARATED Active windows hit the same victim again and refuses it
-    /// across a contiguous track — so a multi-hit that authored one long window,
-    /// or windows that touch, lands exactly once.
+    /// The gap is required. The move runtime lets separated Active windows hit
+    /// the same victim again and refuses a re-hit across a contiguous track, so
+    /// a multi-hit with one long window, or windows that touch, lands once.
     pub active_s: f32,
     pub gap_s: f32,
     /// The hold itself.
     pub autolink: crate::AutolinkVolume,
 }
 
-/// A MULTI-HIT: `pulses` holding hits, then the strike you pass in as the
+/// A multi-hit: `pulses` holding hits, then the strike you pass in as the
 /// finisher.
 ///
-/// ⭐ A COMBINATOR over [`strike`], not a second builder — the finisher is an
-/// ordinary strike with an ordinary launch, and this inserts the lead-in in
-/// front of it. That is the genre's shape stated directly: the intermediate hits
-/// keep the victim inside the next box and only the LAST one sends it anywhere.
+/// A combinator over [`strike`], not a second builder. The finisher is an
+/// ordinary strike; this inserts the lead-in before it. The intermediate hits
+/// keep the victim inside the next box, and only the last one launches.
 ///
-/// ⛔ NOT a capture and not a per-character mechanism: what holds the victim is
-/// `HitVolume::autolink` on the pulse volumes, which any move may author.
+/// Not a capture and not a per-character mechanism: `HitVolume::autolink` on
+/// the pulse volumes holds the victim, and any move may author it.
 pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
     if pulses == 0 {
         return m;
     }
     let mut m = m;
-    // The lead-in occupies the gap the finisher's Startup already reserves, so a
-    // multi-hit does not silently become slower than the strike it was built
-    // from — the AUTHOR chose that startup and the finisher still owns it.
+    // The lead-in fills the finisher's Startup, which is stretched, so the
+    // finisher keeps the startup its author chose.
     let lead_in = pulses as f32 * (pulse.active_s + pulse.gap_s);
     let shift = |t: f32| t + lead_in;
     let finish_start = active_start(&m);
     for window in &mut m.windows {
         // Everything from the finisher's Active onward moves back; its Startup
-        // stretches to cover the lead-in instead of being duplicated.
+        // stretches to cover the lead-in and is not duplicated.
         if window.start_s >= finish_start {
             window.start_s = shift(window.start_s);
             window.end_s = shift(window.end_s);
@@ -755,9 +657,8 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
                     half_extents: pulse.half_extents,
                 },
                 damage: pulse.damage,
-                // A pulse authors NO launch of its own: the autolink decides the
-                // victim's velocity outright, and a knockback beside it would be
-                // a second answer to one question. The number still feeds the
+                // A pulse has no launch of its own: the autolink sets the
+                // victim's velocity. The knockback value still feeds the
                 // hitstun the pulse owes.
                 knockback: 1.0,
                 knockback_growth: Some(0.0),
@@ -774,8 +675,8 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
         });
     }
     m.windows.append(&mut pulse_windows);
-    // The runtime reads windows in authored order for the sweetspot rule, so the
-    // lead-in must sort before the finisher rather than merely start earlier.
+    // The runtime reads windows in authored order for the sweetspot rule, so
+    // the lead-in must sort before the finisher, not only start earlier.
     m.windows.sort_by(|a, b| {
         a.start_s
             .total_cmp(&b.start_s)
@@ -784,22 +685,17 @@ pub fn multihit(m: MoveSpec, pulses: usize, pulse: Pulse) -> MoveSpec {
     m
 }
 
-/// A GUST: a volume that SHOVES and does not hurt.
+/// A gust: a volume that pushes and does not hurt.
 ///
-/// ⭐⭐ EVERYTHING THIS NEEDS WAS ALREADY IN THE ENGINE AND NO FIGHTER USED IT.
-/// `VolumeReaction::Windbox` ships with a validation error for a windbox that
-/// carries damage, and `hit_reaction` already sets `flinchless` from it — *"this
-/// is a push, not a hit"*. What was missing was a way to SAY it: authoring a
-/// gust meant hand-building a `MoveWindow` and remembering three separate
-/// invariants, and nobody did. Measured 2026-09-05: zero authored windboxes on
-/// the entire roster.
+/// It uses `VolumeReaction::Windbox`, and `hit_reaction` sets `flinchless`
+/// from it. This builder holds three invariants, each silent when broken:
 ///
-/// ⛔ THE THREE INVARIANTS THIS EXISTS TO HOLD, because each one is silent when
-/// broken. Damage must be ZERO or the catalog rejects the move
-/// (`WindboxWithDamage`). Knockback growth must be FIXED, or a gust shoves a
-/// damaged fighter further than a fresh one — which is a hit's rule, not wind's.
-/// And the slash arc must go: `strike` draws one from the spawned volume, so a
-/// gust built on it swings a visible blade that does no damage.
+/// - Damage must be zero, or the catalog rejects the move
+///   (`WindboxWithDamage`).
+/// - Knockback growth must be fixed, or a gust pushes a damaged fighter
+///   further than a fresh one.
+/// - No slash arc: `strike` draws one from the spawned volume, so a gust built
+///   on it would show a blade that does no damage.
 pub struct Gust<'a> {
     /// The move id. Unique within the kit.
     pub id: &'a str,
@@ -807,7 +703,7 @@ pub struct Gust<'a> {
     pub clip: &'a str,
     /// The tell, before the air moves.
     pub startup_s: f32,
-    /// How long the gust BLOWS.
+    /// How long the gust blows.
     pub active_s: f32,
     /// The tail after it.
     pub recover_s: f32,
@@ -815,21 +711,20 @@ pub struct Gust<'a> {
     pub offset: (f32, f32),
     /// Volume half-extents, body-local.
     pub half_extents: (f32, f32),
-    /// How hard it shoves. The same units as a strike's `knockback`, and it is
-    /// the ONLY thing this move does to whoever it catches.
+    /// How hard it pushes, in the units of a strike's `knockback`. This is the
+    /// only thing the move does to its target.
     pub push: f32,
     /// Which way it shoves, body-local: `+x` toward facing, `+y` gravity-down.
     ///
-    /// ⚠ AUTHORED RATHER THAN DERIVED, unlike a strike's `None`. The shared rule
-    /// derives a launch from where the victim stood relative to the volume, which
-    /// is right for a blow and wrong for wind: a gust blows ONE WAY regardless of
-    /// who walked into which side of it.
+    /// Authored, not derived (unlike a strike's `None`). The shared rule
+    /// derives a launch from where the victim stood relative to the volume,
+    /// which is wrong for wind: a gust blows one way.
     pub push_dir: (f32, f32),
     /// Does it keep pushing while they stand in it?
     ///
-    /// ⭐ `true` opts out of the hit-once set — correct for a sustained wind and
-    /// wrong for a one-shot shove, which is why `WindboxVolume::repeating` is
-    /// authored rather than assumed. A `false` gust is a single hard blast.
+    /// `true` opts out of the hit-once set: right for a sustained wind, wrong
+    /// for a one-shot push (see `WindboxVolume::repeating`). A `false` gust is
+    /// a single hard blast.
     pub sustained: bool,
 }
 
@@ -837,9 +732,8 @@ pub struct Gust<'a> {
 ///
 /// # Panics
 ///
-/// If `push` is not positive. A gust that shoves nowhere is a move that spends a
-/// startup and a recovery to do nothing, and the volume it spawns is invisible —
-/// so there is no frame at which a player could see that it had failed.
+/// If `push` is not positive. Such a gust spends a startup and a recovery to
+/// do nothing, and its volume is invisible, so a player cannot see the fault.
 pub fn gust(spec: Gust<'_>) -> MoveSpec {
     assert!(
         spec.push > 0.0,
@@ -856,12 +750,11 @@ pub fn gust(spec: Gust<'_>) -> MoveSpec {
         recover_s: spec.recover_s,
         offset: spec.offset,
         half_extents: spec.half_extents,
-        // ⛔ ZERO, AND THE CATALOG ENFORCES IT: `WindboxWithDamage` is a
-        // validation error, so a gust that chipped would not load.
+        // Zero: `WindboxWithDamage` is a validation error.
         damage: 0,
         knockback: spec.push,
-        // Set on the volumes below rather than here: the builder reads its own
-        // zero as "this stage decides", which is the opposite of what wind wants.
+        // Set on the volumes below: the builder reads its own zero as "the
+        // stage decides", which wind must not do.
         knockback_growth: 0.0,
         launch_dir: Some(spec.push_dir),
         on_hit: None,
@@ -872,16 +765,20 @@ pub fn gust(spec: Gust<'_>) -> MoveSpec {
                 repeating: spec.sustained,
             },
         ));
-        // ⛔ NO SLASH. `strike` draws its arc from the spawned volume, so without
-        // this the fighter swings a blade that does no damage and the player is
-        // told the wrong thing about a move whose whole point is that it is not
-        // a hit. ⚠ There is no wind art yet, so a gust currently draws NOTHING —
-        // which is honest and is a known gap rather than a choice.
+        // No slash: `strike` draws its arc from the spawned volume, so without
+        // this the fighter would show a blade. There is no wind art yet, so a
+        // gust draws nothing; this is a known gap.
         volume.vfx = None;
     }
     fixed_knockback(m)
 }
 
+/// One strike on one timeline: startup, one active window with one volume,
+/// recovery.
+///
+/// Nearly every move has this shape, so the authored differences are the ones
+/// that matter: commitment time, reach, launch, and how much of the launch
+/// scales with the victim's damage.
 pub fn strike(spec: Strike<'_>) -> MoveSpec {
     let Strike {
         id,
@@ -904,19 +801,15 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
         id: id.to_string(),
         clip: ClipBinding {
             clip: clip.to_string(),
-            //  THE AUTHORED FALLBACK CHAIN (sprite redirect P0/P1,
-            // ). A move names the exact row it wants — `smash_forward`,
-            // `air_back` — and this is what it settles for when a sheet does not
-            // have it. Robot v3's new sheet has 132 rows and draws the exact
-            // clip; a lean sheet with `attack` draws that; one with only `slash`
-            // and `idle` still plays.
+            // The fallback chain. A move names the exact row it wants
+            // (`smash_forward`, `air_back`); this is what it uses when a sheet
+            // lacks that row.
             //
-            //  the structural fallbacks are DIRECTIONAL first — an up-tilt
-            // that cannot find `attack_up` should look like a side swing before
-            // it looks like nothing, and `attack_side` is the row every fighter
-            // sheet in the repo has had for a year.
+            // The fallbacks are directional first: an up-tilt without
+            // `attack_up` should look like a side swing, and every fighter
+            // sheet has `attack_side`.
             //
-            //  a missing clip must never cost the move its GAMEPLAY: the
+            // A missing clip must never cost the move its gameplay: the
             // timeline runs whatever draws.
             fallbacks: vec![
                 "attack_side".to_string(),
@@ -946,18 +839,15 @@ pub fn strike(spec: Strike<'_>) -> MoveSpec {
                     },
                     damage,
                     knockback,
-                    // The BUILDER's zero still means "this stage decides", which
-                    // is what every caller of it has always meant. A move that
-                    // wants FIXED knockback says so on the volume — see
-                    // `HitVolume::knockback_growth` — because a builder that
-                    // took one number could not express both.
+                    // The builder's zero means "the stage decides". A move that
+                    // wants fixed knockback says so on the volume (see
+                    // `HitVolume::knockback_growth` and [`fixed_knockback`]).
                     knockback_growth: (knockback_growth > 0.0).then_some(knockback_growth),
                     launch_dir,
                     on_hit,
                     // The blade tag: the move runtime draws the slash from the
-                    // SAME spawned volume, so the hitbox and the arc can never
-                    // point different ways.  a POKE wants the other tag — see
-                    // [`strike_tag`].
+                    // same spawned volume, so the hitbox and the arc agree. A
+                    // poke wants the other tag (see [`strike_tag`]).
                     vfx: Some(SLASH_ARC_VFX.to_string()),
                     hit_sfx: None,
                     reaction: None,
@@ -1033,11 +923,9 @@ mod multihit_tests {
             .collect()
     }
 
-    /// ⛔⛔ THE GAPS ARE LOAD-BEARING, NOT SPACING. The move runtime's re-hit
-    /// rule lets SEPARATED Active windows strike the same victim again and
-    /// refuses it across a contiguous track — so a multi-hit authored as one long
-    /// window, or as windows that touch, lands exactly ONCE and the whole
-    /// mechanic silently does not exist.
+    /// The gaps are required. The move runtime lets separated Active windows
+    /// hit the same victim again and refuses a re-hit across a contiguous
+    /// track, so one long window, or windows that touch, would land once.
     #[test]
     fn every_pulse_is_a_separated_window_so_each_one_can_re_hit() {
         let m = multihit(finisher(), 4, pulse());
@@ -1053,8 +941,7 @@ mod multihit_tests {
         }
     }
 
-    /// The pulses HOLD and the finisher LAUNCHES — which is the whole shape, and
-    /// the thing a careless edit inverts.
+    /// The pulses hold and the finisher launches.
     #[test]
     fn the_pulses_hold_and_only_the_last_hit_launches() {
         let m = multihit(finisher(), 4, pulse());
@@ -1081,9 +968,8 @@ mod multihit_tests {
         assert_eq!(finish.damage, 7, "the finisher kept its authored payload");
     }
 
-    /// The finisher moves BACK by the lead-in rather than being overwritten, and
-    /// the move gets longer by exactly that much — a multihit must not silently
-    /// eat its own ending or its recovery.
+    /// The finisher moves back by the lead-in and is not overwritten, and the
+    /// move grows by exactly that much.
     #[test]
     fn the_finisher_is_pushed_back_and_the_move_grows_by_the_lead_in() {
         let base = finisher();
@@ -1114,9 +1000,8 @@ mod multihit_tests {
         );
     }
 
-    /// ⭐ THE POISON: zero pulses is the strike it was built from, untouched.
-    /// Without this, a combinator that always inserted something would pass every
-    /// assertion above.
+    /// Negative control: zero pulses gives the plain strike. Without this, a
+    /// combinator that always inserted something would pass the tests above.
     #[test]
     fn a_multihit_of_zero_pulses_is_the_plain_strike() {
         let base = finisher();
@@ -1127,40 +1012,16 @@ mod multihit_tests {
     }
 }
 
-/// ⛔⛔ `tipper` SHIPPED WITH NO TEST IN ITS OWN CRATE, 2026-09-06.
-///
-/// Its one load-bearing decision — the tip goes in at index 0, because
-/// `StrikeRank` is the move's reading order and the seam takes the first volume
-/// that reaches — was held only by an authored fighter in `ambition_content`.
-/// Found by poisoning `insert(0, ..)` to `insert(1, ..)`: that crate went red
-/// while `cargo test -p ambition_characters tipper` matched ZERO tests.
-///
-/// ⇒ A verb's invariant belongs where the verb lives. A customer can be
-/// re-authored, re-tuned or deleted, and the day it is, the mechanic it was
-/// silently holding up goes with it.
+/// A verb's invariant is tested in the crate that defines the verb, not only
+/// through an authored fighter in another crate.
 #[cfg(test)]
 mod refusal_tests {
-    //! ⭐⭐ THE `# Panics` SECTIONS NOBODY HAD EVER REACHED.
+    //! Tests for the documented `# Panics` of each verb.
     //!
-    //! Measured 2026-09-06 across this module: 19 of 23 verbs had no test in
-    //! their own crate, and three carried a documented `assert!` that no test
-    //! has ever run. A promise in a `# Panics` section is a specification, and an
-    //! unreached one is prose.
-    //!
-    //! ⛔ Not ceremony: `tipper` shipped the same morning with its one
-    //! load-bearing decision held only by an authored fighter in ANOTHER crate,
-    //! and that surfaced only because a poison reddened `ambition_content` while
-    //! `-p ambition_characters tipper` matched zero tests.
-    //!
-    //! ⭐ POISONED PER ENTRY PATH, 2026-09-06, because a shared helper called from
-    //! three sites is a ONE-ROAD guard wearing three coats unless each road is
-    //! poisoned alone. Removing the refusal from `armor` reddens only
-    //! `armour_that_never_opens_is_refused`; from `invuln`, only
-    //! `i_frames_that_never_open_are_refused`; from `cancelable`, only
-    //! `a_cancel_window_that_never_opens_is_refused`. And making the helper refuse
-    //! EVERYTHING reddens only `all_three_accept_a_window_that_opens` — which is
-    //! why that positive control is here: three `should_panic` tests with no
-    //! positive control pass just as well against three verbs that always panic.
+    //! Each window verb has its own refusal test, because a shared helper
+    //! called from several sites must be guarded on each path.
+    //! `all_three_accept_a_window_that_opens` is the positive control: without
+    //! it, `should_panic` tests also pass against verbs that always panic.
     use super::*;
 
     #[test]
@@ -1169,16 +1030,14 @@ mod refusal_tests {
         let _ = armor(taunt("test_armor_window", 0.5), 0.20, 0.20);
     }
 
-    /// The twin, and the reason the refusal moved to a shared helper: `invuln`
-    /// accepted a never-open window until 2026-09-06 because the constraint had
-    /// been filed on `armor` alone.
+    /// The same refusal on `invuln`.
     #[test]
     #[should_panic(expected = "never open")]
     fn i_frames_that_never_open_are_refused() {
         let _ = invuln(taunt("test_invuln_window", 0.5), 0.30, 0.10);
     }
 
-    /// The third of the same shape.
+    /// The same refusal on `cancelable`.
     #[test]
     #[should_panic(expected = "never open")]
     fn a_cancel_window_that_never_opens_is_refused() {
@@ -1191,10 +1050,8 @@ mod refusal_tests {
         );
     }
 
-    /// ⛔ AND ALL THREE STILL ACCEPT AN ORDINARY WINDOW, so the refusals above are
-    /// about the bound rather than about the verbs having been broken by the
-    /// extraction. A `should_panic` trio with no positive control passes just as
-    /// well against three verbs that panic unconditionally.
+    /// Positive control: all three still accept an ordinary window, so the
+    /// refusals above test the bound and not a broken verb.
     #[test]
     fn all_three_accept_a_window_that_opens() {
         use crate::WindowTag;
@@ -1241,23 +1098,8 @@ mod refusal_tests {
 
 #[cfg(test)]
 mod charge_tests {
-    //! Written BEFORE the ten call sites were converted, which is the order
-    //! `tipper` did not get: it shipped the same morning with its one
-    //! load-bearing decision held only by a fighter in another crate.
-    //!
-    //! ⭐ POISONED, all four guarantees separately: removing the hold-inside-the-
-    //! move assert, the positive-max-hold assert, or the multiplier floor each
-    //! reddens its own `should_panic`, and dropping `m.charge_gesture = ..`
-    //! reddens the one test that reads all three facts back.
-    //!
-    //! ⛔⛔ AND THE FIRST POISON RUN REPORTED THREE FALSE "DID NOT FIRE" — the
-    //! FOURTH time in one session. A regex meant to delete one `assert!` block
-    //! matched 53,730 characters (from the file's first `assert!` to a much later
-    //! `);`), the crate stopped compiling, and the harness's failure-list helper
-    //! read the empty `failures:` block as "no test failed". ⇒ **A poison harness
-    //! must check for a COMPILE ERROR before reading the failure list, and must
-    //! assert that its edit removed exactly what it meant to.** Exact anchors and
-    //! a length check found all three immediately.
+    //! Each guarantee of [`charge`] has its own test: the hold inside the
+    //! move, a positive max hold, the multiplier floor, and the gesture.
     use super::*;
 
     fn swing() -> MoveSpec {
@@ -1289,9 +1131,8 @@ mod charge_tests {
         }
     }
 
-    /// ⭐ ALL THREE FACTS, FROM ONE CALL. The gesture and the multiplier were
-    /// separate statements at every call site, set beside the charge in 3 and 4
-    /// of ten cases respectively — which is to say a caller could forget either.
+    /// One call sets the spec, the gesture and the multiplier, so a caller
+    /// cannot forget one of them.
     #[test]
     fn a_charge_sets_its_spec_its_gesture_and_its_payoff() {
         let m = charge(swing(), held());
@@ -1329,13 +1170,9 @@ mod charge_tests {
         let _ = charge(swing(), instant);
     }
 
-    /// ⛔⛔ AND THE FIRST VERSION OF THIS TEST ASSERTED THE WRONG RULE. It
-    /// refused a multiplier of exactly 1.0 as "a charge that buys nothing" — and
-    /// the Projectile Polygon's charge shot authors precisely that, because its
-    /// payoff is `RangedCharge`'s tier ladder rather than a bigger swing. ⇒ A
-    /// charge's reward may live outside the move, where the verb cannot see it.
-    /// The conversion of the ten call sites is what caught it, before either the
-    /// verb or the assertion had shipped.
+    /// A multiplier of exactly 1.0 is allowed. A charge's reward may be outside
+    /// the move (the Projectile Polygon's charge shot pays through
+    /// `RangedCharge`'s tier ladder).
     #[test]
     fn a_multiplier_of_one_is_allowed_because_the_payoff_may_be_elsewhere() {
         let mut flat = held();
@@ -1386,9 +1223,8 @@ mod wake_tests {
         }
     }
 
-    /// ⭐⭐ THE HIT STAYS AHEAD OF THE SHOVE, which is the whole ranking decision
-    /// and the exact inverse of [`tipper`]'s. A wake ranked FIRST would shove
-    /// people the move was about to hit, turning a kick into a worse gust.
+    /// The hit stays ahead of the push (the inverse of [`tipper`]). A wake
+    /// ranked first would push people the move was about to hit.
     #[test]
     fn the_wake_is_ranked_behind_the_hit() {
         let m = wake(kick(), dust());
@@ -1486,9 +1322,8 @@ mod tipper_tests {
         }
     }
 
-    /// ⭐ RANK, NOT PRESENCE. Appending the tip leaves a move that reads right in
-    /// the source and plays backwards, and a test that counted two volumes would
-    /// pass against it.
+    /// Tests rank, not presence. An appended tip reads correctly in the
+    /// source but plays backwards, and a volume count would not catch that.
     #[test]
     fn the_tip_is_ranked_ahead_of_the_base() {
         let m = tipper(poke(), far_tip());
@@ -1526,12 +1361,10 @@ mod tipper_tests {
         let _ = tipper(poke(), near);
     }
 
-    /// ⚠ STRONGER IS AN **OR**, AND THIS TEST WAS WRONG ABOUT IT FIRST. The
-    /// guard reads `tip.damage > base.damage || tip.knockback > base.knockback`,
-    /// so a tip that trades damage for launch — chips less, kills earlier — is
-    /// allowed, and that is a real sword design rather than a hole. The refusal
-    /// is only for a tip that is weaker on BOTH counts, which is a sourspot at
-    /// the far end wearing a sweetspot's helper.
+    /// "Stronger" is an or: the guard reads
+    /// `tip.damage > base.damage || tip.knockback > base.knockback`. A tip that
+    /// trades damage for launch is a valid sword design. Only a tip weaker on
+    /// both counts (a sourspot at the far end) is refused.
     #[test]
     #[should_panic(expected = "sourspot")]
     fn a_tip_weaker_on_both_counts_is_refused() {
@@ -1541,20 +1374,12 @@ mod tipper_tests {
         let _ = tipper(poke(), weak);
     }
 
-    /// ⛔⛔ THE BUILDER'S ZERO IS NOT FIXED KNOCKBACK, AND A SHIPPED MOVE GOT
-    /// THIS WRONG.
+    /// The builder's zero is not fixed knockback.
     ///
-    /// `strike` stores `(knockback_growth > 0.0).then_some(knockback_growth)`, so
-    /// writing `knockback_growth: 0.0` in a [`Strike`] yields `None` on the
-    /// volume — and `None` means *"this stage decides"*, which is the RULESET's
-    /// growth rather than no growth. The medic's `medic_tourniquet` authored that
-    /// zero under a bold paragraph explaining that a drag must not weaken as its
-    /// victim softens, and it weakened anyway from the day it shipped until
-    /// 2026-09-06.
-    ///
-    /// ⇒ This test exists so the next author meets the trap at the builder rather
-    /// than in a census months later. A move that wants a flat launch says so on
-    /// the VOLUME, via [`fixed_knockback`].
+    /// `strike` stores `(knockback_growth > 0.0).then_some(knockback_growth)`,
+    /// so `knockback_growth: 0.0` in a [`Strike`] gives `None` on the volume,
+    /// which means "the stage decides" (the ruleset's growth). A move that
+    /// wants a flat launch says so on the volume via [`fixed_knockback`].
     #[test]
     fn a_zero_growth_in_the_builder_means_the_stage_decides() {
         let m = strike(Strike {
@@ -1595,8 +1420,7 @@ mod tipper_tests {
         );
     }
 
-    /// The other side of that OR, stated so nobody "fixes" it into an AND: a tip
-    /// may hit for LESS and launch for MORE.
+    /// The other side of the or: a tip may hit for less and launch for more.
     #[test]
     fn a_tip_may_trade_damage_for_launch() {
         let mut trade = far_tip();
@@ -1611,55 +1435,39 @@ mod tipper_tests {
     }
 }
 
-/// A SMASH CHARGE: the hold, what it buys, and which button drives it.
+/// A smash charge: the hold, what it buys, and which button drives it.
 ///
-/// ⭐⭐ THE MOST-REPEATED RAW AUTHORING IN THE GAME, measured 2026-09-06: TEN
-/// sites set `smash_charge` as a struct literal, and all ten set all five of
-/// `SmashChargeSpec`'s fields. What made it cost more than the struct is the two
-/// companions that travel BESIDE it — `charge_gesture` (3 of 10) and
-/// `smash_charge_mult` (4 of 10) — as separate statements a caller can forget
-/// one of.
+/// A `SmashChargeSpec` travels with two companions, `charge_gesture` and
+/// `smash_charge_mult`. As fields here, they are set where the charge is
+/// decided, and a caller cannot forget one.
 ///
-/// ⇒ One call instead of three statements, and the two companions become FIELDS
-/// so they are set where the charge is decided rather than two lines later.
-///
-/// ⚠ **ONE SHIPPED CHARGE DOES NOT GO THROUGH THIS, and the reason is structural
-/// rather than an oversight.** `projectile_polygon_moveset.rs` builds its charge
-/// shot as a whole `MoveSpec` LITERAL, so there is no spec to hand a
-/// `MoveSpec -> MoveSpec` verb; converting it would mean restructuring the move's
-/// construction, not its charge. ⇒ Nine of ten call sites use this; the tenth is
-/// a different authoring shape rather than a second way to author a charge.
+/// `projectile_polygon_moveset.rs` builds its charge shot as a whole
+/// `MoveSpec` literal, so it does not use this `MoveSpec -> MoveSpec` verb.
 pub struct Charge {
-    /// When the hold begins, in move-seconds. ⭐ Inside the startup: the wind-up
-    /// should read before the freeze, or an opponent sees a statue appear.
+    /// When the hold begins, in move-seconds. Keep it inside the startup: the
+    /// windup should read before the freeze.
     pub hold_at_s: f32,
     /// The longest hold, in seconds.
     pub max_hold_s: f32,
-    /// May the charge be BANKED for a later press?
+    /// May the charge be banked for a later press?
     ///
-    /// ⛔ A stored charge is a threat carried into the next exchange, which is a
-    /// different character from one that must commit now. It is the field that
-    /// most changes what a fighter IS, which is why it has no default here.
+    /// A stored charge is a threat carried into the next exchange. It changes
+    /// the fighter's character a lot, so it has no default here.
     pub stores: bool,
-    /// Is the fighter ROOTED while holding?
+    /// Is the fighter rooted while holding?
     pub roots: bool,
-    /// What sustains the hold — see [`ChargeSustain`].
+    /// What sustains the hold; see [`ChargeSustain`].
     pub sustain: crate::ChargeSustain,
     /// Which press drives it. `Smash` is the genre's default; `Special` is for a
     /// charge that lives on a special button.
     pub gesture: crate::ChargeGesture,
-    /// What a FULL hold multiplies THIS MOVE by.
+    /// What a full hold multiplies this move by.
     ///
-    /// ⚠ `1.0` IS LEGITIMATE AND THE FIRST DRAFT OF THIS VERB REFUSED IT. The
-    /// Projectile Polygon's charge shot authors exactly that, deliberately: its
-    /// payoff is `RangedCharge`'s tier ladder — *"it needs to be able to store a
-    /// charge and fire at different sizes"* — so the hold buys a bigger SHOT
-    /// rather than a bigger swing. ⇒ **A charge's payoff may live outside the
-    /// move, where this verb cannot see it**, so a multiplier of 1.0 says "the
-    /// reward is elsewhere" rather than "there is no reward".
-    /// ⛔ Below 1.0 is still refused: a hold that makes the move WORSE is not a
-    /// design anybody has asked for, and it is the one reading of this number
-    /// that cannot be correct.
+    /// `1.0` is valid: a charge's payoff may be outside the move (the
+    /// Projectile Polygon's charge shot pays through `RangedCharge`'s tier
+    /// ladder). So `1.0` means "the reward is elsewhere". A value below `1.0`
+    /// is refused, because a hold that makes the move weaker cannot be
+    /// correct.
     pub multiplier: f32,
 }
 
@@ -1669,10 +1477,8 @@ pub struct Charge {
 ///
 /// If the hold begins outside the move (a freeze that never arrives, or one
 /// after the move has ended); if `max_hold_s` is not positive; or if the
-/// multiplier is BELOW `1.0`, which is a hold that makes the move weaker.
-///
-/// ⚠ It does NOT refuse a multiplier of exactly `1.0` — see [`Charge::multiplier`]
-/// for the shipped customer that needs it.
+/// multiplier is below `1.0`. A multiplier of exactly `1.0` is allowed (see
+/// [`Charge::multiplier`]).
 pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
     let id = m.id.clone();
     assert!(
@@ -1705,51 +1511,43 @@ pub fn charge(mut m: MoveSpec, charge: Charge) -> MoveSpec {
     m
 }
 
-/// The push a move leaves BEYOND its hit — the dust, the wake, the displaced air.
+/// The push a move leaves beyond its hit: the dust, the wake, the displaced
+/// air.
 ///
-/// ⭐⭐ THE INVERSE OF A TIP, AND THE RANKING SAYS SO. A [`Tip`] goes in FIRST
-/// because the far volume should win wherever both reach; a wake is APPENDED,
-/// because it is what you get when the hit misses you. Standing in both means you
-/// were hit, and being shoved instead is the consolation for being out of range.
+/// The inverse of a [`Tip`]. A tip goes in first, so the far volume wins
+/// wherever both reach. A wake is appended, so it applies only when the hit
+/// misses: a body in both is hit, and a body out of hit range is pushed.
 ///
-/// ⛔ IT CANNOT CARRY DAMAGE and the catalog enforces that — `WindboxWithDamage`
-/// is a validation error, so a wake that chipped would not load. That is the
-/// whole character of the thing: it moves you and does not hurt you, so it reads
-/// as space rather than as a second hitbox.
+/// It cannot carry damage: `WindboxWithDamage` is a validation error. It moves
+/// you and does not hurt you.
 pub struct Wake {
     /// Where the push sits, body-local, and how big it is.
     pub offset: (f32, f32),
     pub half_extents: (f32, f32),
-    /// How hard it shoves, in the same units a volume's `knockback` uses.
+    /// How hard it pushes, in the units of a volume's `knockback`.
     pub push: f32,
-    /// Which way it shoves, body-local. A ground wake pushes ALONG the floor; a
-    /// gust pushes away from the chest.
+    /// Which way it pushes, body-local. A ground wake pushes along the floor;
+    /// a gust pushes away from the chest.
     pub push_dir: (f32, f32),
     /// May it move the same body again while that body stands in it?
     ///
     /// `true` for a sustained wind you cannot walk through; `false` for a
-    /// one-shot displacement. See [`WindboxVolume::repeating`] — the hit-once
-    /// set exists so a long window cannot re-shove a stationary target every
-    /// frame, and this is the opt-out.
+    /// one-shot push. This opts out of the hit-once set (see
+    /// [`WindboxVolume::repeating`]).
     pub repeating: bool,
 }
 
-/// Give a strike a WAKE: a pushing volume beyond its hit that does no damage.
+/// Give a strike a wake: a pushing volume beyond its hit that does no damage.
 ///
-/// ⭐ ONE CALL FOR "IT HITS, AND WHAT IT MISSES GETS SHOVED". Everything here has
-/// shipped for a long time — `VolumeReaction::Windbox`, the validation, and
-/// `hit_reaction`'s `flinchless: hitbox.windbox().is_some()` saying *"this is a
-/// push, not a hit"* — but the only way to author one was [`gust`], which builds
-/// a WHOLE MOVE that is nothing but wind. A fighter who wanted a kick that also
-/// threw dirt had to hand-build a `HitVolume` in a content file, and nobody did.
+/// One call for "it hits, and what it misses gets pushed". [`gust`] builds a
+/// whole move of wind; this adds a wake to an existing strike.
 ///
 /// # Panics
 ///
 /// If the move has no Active volume for a wake to trail; if the wake does not
-/// reach FURTHER than the hit (a push INSIDE the hitbox is unreachable in the
-/// way a hilt sweetspot is not — the damaging volume is ranked first and wins
-/// there, so an enclosed wake is authored dead code); or if the push is not
-/// positive, which would be a volume that costs a window and does nothing.
+/// reach further than the hit (the damaging volume is ranked first and wins
+/// where both reach, so an enclosed wake is dead code); or if the push is not
+/// positive.
 pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
     let id = m.id.clone();
     assert!(
@@ -1770,18 +1568,18 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
          {hit_edge} — the damaging volume is ranked first and wins wherever both \
          reach, so an enclosed wake is authored dead code"
     );
-    // ⛔ APPENDED, and that is the mechanic. See [`Wake`]: first-authored wins,
-    // so the hit must stay ahead of the shove.
+    // Appended: first-authored wins, so the hit must stay ahead of the push.
+    // See [`Wake`].
     window.volumes.push(HitVolume {
         shape: VolumeShape::Rect {
             offset: wake.offset,
             half_extents: wake.half_extents,
         },
-        // ⛔ ZERO. `WindboxWithDamage` is a validation error.
+        // Zero: `WindboxWithDamage` is a validation error.
         damage: 0,
         knockback: wake.push,
-        // A shove that grew with the victim's damage would be a hit's rule
-        // wearing wind's costume — the same reasoning `gust` states.
+        // Fixed: a push that grew with the victim's damage would follow a
+        // hit's rule, not wind's (as in `gust`).
         knockback_growth: Some(0.0),
         launch_dir: Some(wake.push_dir),
         reaction: Some(crate::VolumeReaction::Windbox(
@@ -1791,9 +1589,8 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
         )),
         on_hit: None,
         vfx: None,
-        // A wake is silent on its own: the move's own cues already say a kick
-        // happened, and a second sound for the dust would fire on a body that
-        // was NOT hit — a hit sound for a miss.
+        // A wake is silent: the move's own cues already mark the kick, and a
+        // sound here would play on a body that was not hit.
         hit_sfx: None,
     });
     m
@@ -1801,14 +1598,12 @@ pub fn wake(mut m: MoveSpec, wake: Wake) -> MoveSpec {
 
 /// The far half of a swing, authored to outrank the near half.
 ///
-/// ⭐ THE GENRE'S SWORD MECHANIC. A thrust whose TIP hits harder than its base
-/// rewards spacing: the same button is a poke up close and a kill at range, and
-/// the fighter's distance from you becomes the read.
+/// A thrust whose tip hits harder than its base rewards spacing: the same
+/// button is a poke up close and a kill at range.
 ///
-/// ⇒ Compare [`Wake`], which is this shape inverted: a tip is INSERTED at rank 0
-/// so the far volume wins wherever both reach, and a wake is APPENDED so the hit
-/// stays ahead of the shove. The cross-reference is here because a reader who
-/// finds `tipper` first would otherwise never learn the other exists.
+/// Compare [`Wake`], the inverse shape: a tip is inserted at rank 0 so the far
+/// volume wins wherever both reach; a wake is appended so the hit stays ahead
+/// of the push.
 pub struct Tip {
     /// Where the tip sits, body-local, and how big it is.
     pub offset: (f32, f32),
@@ -1819,39 +1614,27 @@ pub struct Tip {
     pub launch_dir: Option<(f32, f32)>,
 }
 
-/// Give a strike a SWEETSPOT: a stronger volume at its far end.
+/// Give a strike a sweetspot: a stronger volume at its far end.
 ///
-/// ⭐⭐ EVERYTHING THIS NEEDS WAS ALREADY IN THE ENGINE AND NO FIGHTER USED IT —
-/// the same sentence `gust` carries, for the same reason. `StrikeRank { window,
-/// volume }` is the move's own reading order, and the strike seam arbitrates on
-/// it: *"The victim takes the FIRST-AUTHORED volume that reaches it and no
-/// other"*, so a body standing where both reach is hit once, by whichever the
-/// author wrote first. ⇒ A tipper is one Active window with TWO volumes and the
-/// tip written first. What was missing was a way to SAY it: authoring one meant
-/// hand-building a `MoveWindow`, and nobody did.
+/// `StrikeRank { window, volume }` is the move's reading order, and the strike
+/// seam arbitrates on it: the victim takes the first-authored volume that
+/// reaches it and no other. So a tipper is one Active window with two volumes,
+/// with the tip first.
 ///
-/// ⛔ THE TIP IS INSERTED AT INDEX 0, which IS the mechanic. Appending it would
-/// rank it BELOW the base, and the sourspot would win every exchange where both
-/// reach — a tipper that reads correctly in the source and is backwards in play.
+/// The tip is inserted at index 0. Appended, it would rank below the base, and
+/// the sourspot would win wherever both reach.
 ///
 /// # Panics
 ///
 /// If the move has no Active volume to be the base; if the tip does not reach
-/// FURTHER than the base; or if it is weaker on BOTH damage and knockback (a
-/// tipper whose tip loses on every count is a sourspot with extra steps).
+/// further than the base; or if it is weaker on both damage and knockback.
 ///
-/// ⚠ THAT LAST ONE IS AN **OR**, and this sentence said "does not hit HARDER"
-/// until 2026-09-06, which reads as an AND and is not what the code does. A tip
-/// may hit for LESS damage and launch for MORE — chips less, kills earlier — and
-/// that is an ordinary sword design rather than a hole in the guard. A test
-/// written from the old sentence expected a panic that correctly never came.
+/// The strength rule is an or: a tip may hit for less damage and launch for
+/// more. That is a normal sword design.
 ///
-/// ⚠ THE REACH RULE IS ABOUT THE NAME, NOT ABOUT REACHABILITY, and the first
-/// version of this doc said the opposite. A tip the base entirely contains is
-/// NOT unreachable: rank 0 is never outranked, so it wins wherever it reaches.
-/// What it is not is a TIP. A sweetspot at the hilt is a real mechanic and a
-/// different one; it should be authored on its own terms rather than through a
-/// helper whose name promises the far end.
+/// The reach rule is about the name, not reachability. A tip that the base
+/// contains still wins wherever it reaches (rank 0 is never outranked), but
+/// it is not a tip. Author a hilt sweetspot on its own terms.
 pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
     let id = m.id.clone();
     let window = m
@@ -1881,7 +1664,7 @@ pub fn tipper(mut m: MoveSpec, tip: Tip) -> MoveSpec {
         base.damage,
         base.knockback,
     );
-    // ⛔ INSERT, NOT PUSH. See the note above: rank is authored order.
+    // Insert, do not push: rank is authored order.
     window.volumes.insert(
         0,
         HitVolume {

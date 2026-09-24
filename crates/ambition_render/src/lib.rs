@@ -1,12 +1,12 @@
-//! Ambition's Bevy presentation layer — the sandbox's default renderer.
+//! Ambition's Bevy presentation layer: the sandbox's default renderer.
 //!
-//! Everything here is downstream of the sim: no module on the gameplay critical
-//! path lives in this crate. It reads lower read-model crates (`ambition_sim_view`, `ambition_platformer2d_world`,
-//! `ambition_sprite_sheet`, `ambition_platformer2d_shared_tangle`) and mirrors them
-//! into Bevy sprites / UI; it never mutates the sim. The sim/render seam is now
-//! a CRATE boundary in both directions: render does not depend on
-//! actor machinery, and actor machinery cannot import render (enforced by
-//! `architecture_boundaries`).
+//! Everything here is downstream of the sim; nothing on the gameplay critical
+//! path lives in this crate. It reads lower read-model crates
+//! (`ambition_sim_view`, `ambition_platformer2d_world`, `ambition_sprite_sheet`,
+//! `ambition_platformer2d_shared_tangle`) and mirrors them into Bevy sprites
+//! and UI; it never mutates the sim. The sim/render seam is a crate boundary
+//! in both directions: render does not depend on actor machinery, and actor
+//! machinery cannot import render (enforced by `architecture_boundaries`).
 
 pub mod asset_census;
 #[cfg(feature = "capture")]
@@ -19,7 +19,7 @@ pub mod fx;
 pub mod gameplay_surround;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
-/// The presentation face a demo can add (oracle-violation OV1). See its module docs.
+/// The presentation face a demo can add. See its module docs.
 pub mod platformer_presentation;
 pub mod quality;
 pub mod reading_layout;

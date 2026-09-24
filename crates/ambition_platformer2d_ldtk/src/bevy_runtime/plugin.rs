@@ -1,10 +1,10 @@
-//! Plugins wiring the LDtk runtime spine into the Bevy app.
+//! Plugins that connect the LDtk runtime spine to the Bevy app.
 //!
-//! `AmbitionLdtkRegistrationPlugin` registers the entity bundle/markers so
-//! bevy_ecs_ldtk spawns Ambition entities; `LdtkRuntimeSpinePlugin` adds the
+//! `AmbitionLdtkRegistrationPlugin` registers the entity bundle and markers so
+//! bevy_ecs_ldtk spawns Ambition entities. `LdtkRuntimeSpinePlugin` adds the
 //! index-rebuild systems. `sync_plugin_spawned_ambition_entities` attaches
-//! gameplay semantics + names to freshly spawned plugin entities. Components
-//! live in sibling `components`, rebuild systems in `systems`.
+//! gameplay semantics and names to new plugin entities. Components are in
+//! sibling `components`, rebuild systems in `systems`.
 
 use bevy::prelude::{
     Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut,
@@ -21,10 +21,8 @@ pub struct AmbitionLdtkRegistrationPlugin;
 
 impl Plugin for AmbitionLdtkRegistrationPlugin {
     fn build(&self, app: &mut App) {
-        // ⭐ DERIVED, NOT LISTED. Every identifier the engine can CONVERT gets a
-        // `bevy_ecs_ldtk` marker registration, minus the pair below. The hand-kept
-        // 32-name list this replaced was a second spelling of a vocabulary that
-        // already has one owner, and it had already drifted from it.
+        // Derived from the vocabulary, not listed: every identifier the engine can
+        // convert gets a `bevy_ecs_ldtk` marker registration, except the pair below.
         let vocabulary = crate::conversion::LdtkVocabulary::engine();
         for identifier in vocabulary.identifiers() {
             if MARKERLESS_IDENTIFIERS.contains(&identifier) {
@@ -35,27 +33,24 @@ impl Plugin for AmbitionLdtkRegistrationPlugin {
     }
 }
 
-/// Module-local Bevy plugin for the LDtk runtime-spine indexes.
+/// Bevy plugin for the LDtk runtime-spine indexes.
 ///
 /// Owns the chain that walks plugin-spawned Ambition entities
-/// (`sync_plugin_spawned_ambition_entities`), rebuilds the per-active-
-/// area solid / one-way / hazard runtime indexes, and pins parity with
-/// the JSON adapter via the spine parity check.
+/// (`sync_plugin_spawned_ambition_entities`), rebuilds the per-active-area
+/// solid / one-way / hazard runtime indexes, and checks parity with the JSON
+/// adapter.
 ///
-/// Runs in [`Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine`] (configured by
-/// `actor_monolith/src/schedule/schedule.rs`). Carved out of
-/// `app/plugins.rs::register_ldtk_runtime_spine_systems`
-/// per OVERNIGHT-TODO #6 — every system in this chain lives under
-/// `ldtk_world::bevy_runtime`, so it's the right domain to own the
-/// schedule registration.
+/// Runs in [`Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine`]
+/// (configured by `actor_monolith/src/schedule/schedule.rs`). Every system in
+/// the chain is in `ldtk_world::bevy_runtime`, so this crate owns the schedule
+/// registration.
 pub struct LdtkRuntimeSpinePlugin;
 
 impl Plugin for LdtkRuntimeSpinePlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // The spine's own index/stat resources (anti-god rule 5: the owner
-        // initializes). Empty defaults; the rebuild chain below fills them
-        // from whatever LDtk entities exist (none, in a RON-only demo).
+        // The spine's own index/stat resources (the owner initializes them). The
+        // rebuild chain fills them from any LDtk entities (none in a RON-only demo).
         app.init_resource::<super::indices::LdtkRuntimeSpineStats>();
         app.init_resource::<super::indices::LdtkRuntimeSpineIndex>();
         app.init_resource::<super::indices::LdtkRuntimeSolidIndex>();
@@ -73,7 +68,7 @@ impl Plugin for LdtkRuntimeSpinePlugin {
                 super::parity::check_ldtk_runtime_spine_parity,
             )
                 .chain()
-                // The index being optional is what finally makes that statable.
+                // Run only when an LDtk world is installed.
                 .run_if(super::asset::ldtk_world_installed),
         );
     }
@@ -97,10 +92,9 @@ pub fn sync_plugin_spawned_ambition_entities(
         stats.last_entity = format!("{} {}", ambition_entity.identifier, ambition_entity.iid);
         stats.sample_entity = ambition_entity.summary();
 
-        // Attach typed Ambition components for promoted collision-heavy LDtk
-        // categories. The generic `AmbitionLdtkEntity` always lands; typed
-        // sibling components let downstream systems query specifically without
-        // identifier-string matching.
+        // Attach typed Ambition components for collision-heavy LDtk categories. The
+        // generic `AmbitionLdtkEntity` is always added; typed siblings let systems
+        // query without matching identifier strings.
         let mut entity_commands = commands.entity(entity);
         entity_commands.insert((
             Name::new(format!(
@@ -109,9 +103,9 @@ pub fn sync_plugin_spawned_ambition_entities(
             )),
             ambition_entity.clone(),
         ));
-        // Plugin-spawned `Solid` LDtk entities get the typed `LdtkSolid`
-        // component so the `LdtkRuntimeSolidIndex` collision authority can
-        // pick them up without reparsing identifiers.
+        // Plugin-spawned `Solid` entities get `LdtkSolid`, so the
+        // `LdtkRuntimeSolidIndex` collision authority finds them without parsing
+        // identifiers.
         match ambition_entity.identifier.as_str() {
             "Solid" => {
                 entity_commands.insert(LdtkSolid {
@@ -139,22 +133,14 @@ pub fn sync_plugin_spawned_ambition_entities(
     }
 }
 
-/// The engine identifiers that are CONVERTED but deliberately get no
-/// `bevy_ecs_ldtk` marker registration.
+/// The engine identifiers that are converted but get no `bevy_ecs_ldtk`
+/// marker registration.
 ///
-/// ⛔⛔ THIS USED TO BE THE WHOLE LIST -- 32 names typed out beside a converter
-/// table of 34, with no test pinning the two. It had drifted, and the drift is
-/// these two entries: they were authorable, convertible, and invisible to the
-/// marker path, and nothing said so. Inverting the list is what makes that
-/// impossible: a new engine entity is now registered BY DEFAULT, and leaving one
-/// out costs a line here with a reason attached.
+/// A new engine entity is registered by default. To leave one out, add it here
+/// with a reason.
 ///
-/// ⚠ THE PAIR IS NOT ENDORSED, it is PRESERVED. Registering them would change
-/// what the `bevy_ecs_ldtk` path spawns, which is a behaviour decision filed as
-/// awaiting-maintainer-decision #64; this rewrite is deliberately
-/// behaviour-identical so that decision stays open and separate. MEASURED
-/// 2026-09-05: `sandbox.ldtk` authors one `SurfaceLoop` and no world defines or
-/// instances a `SurfaceRamp`, so the pair costs nothing while it waits.
+/// This pair is kept as it was, not endorsed. Registering them changes what
+/// the `bevy_ecs_ldtk` path spawns, which is awaiting-maintainer-decision #64.
 const MARKERLESS_IDENTIFIERS: &[&str] = &["SurfaceLoop", "SurfaceRamp"];
 
 #[cfg(test)]
@@ -162,10 +148,9 @@ mod marker_registration_tests {
     use super::MARKERLESS_IDENTIFIERS;
     use crate::conversion::LdtkVocabulary;
 
-    /// ⛔ AN EXCLUSION THAT EXCLUDES NOTHING IS A LIE THAT COSTS NOTHING TO TELL.
-    /// Rename or delete a converter and `MARKERLESS_IDENTIFIERS` keeps naming it;
-    /// the registration loop then quietly registers everything and this file still
-    /// reads as though two entities were held back.
+    /// An exclusion must name a real converter. If a converter is renamed or
+    /// deleted and still listed here, the loop registers everything while this file
+    /// still seems to hold two entities back.
     #[test]
     fn every_markerless_identifier_is_one_the_engine_can_convert() {
         let vocabulary = LdtkVocabulary::engine();
@@ -180,20 +165,13 @@ mod marker_registration_tests {
         }
     }
 
-    /// ⭐⭐ WHAT THE PLUGIN ACTUALLY REGISTERS, read back from `bevy_ecs_ldtk`.
+    /// What the plugin registers, read back from `bevy_ecs_ldtk`.
     ///
-    /// ⛔⛔ THE OTHER TWO TESTS COULD NOT SEE THIS ROAD. Both reason about the
-    /// vocabulary and the exclusion list; neither observes a single
-    /// `register_ldtk_entity` call, so a `build` that registered NOTHING -- or
-    /// registered a stale hardcoded set -- passes both. MEASURED: adding a new
-    /// converter to `standard_converters()` leaves both of them green, which is
-    /// correct behaviour for them and proves they are blind here.
-    ///
-    /// ⇒ When the code has N roads, poison EACH one. A single poison shows the
-    /// fixture works, not that the guard reaches the code. This one reads
-    /// `LdtkEntityMap` out of a built `App`, so it fails if the loop stops
-    /// iterating the vocabulary, if the exclusion silently widens, or if the
-    /// registration call is removed entirely.
+    /// The other two tests reason about the vocabulary and the exclusion list; they
+    /// do not observe any `register_ldtk_entity` call. This test reads
+    /// `LdtkEntityMap` from a built `App`, so it fails if the loop stops iterating
+    /// the vocabulary, if the exclusion widens, or if the registration call is
+    /// removed.
     #[test]
     fn the_plugin_registers_exactly_the_vocabulary_it_derives_from() {
         use bevy::prelude::App;
@@ -224,20 +202,15 @@ mod marker_registration_tests {
         );
     }
 
-    /// The registration set is the vocabulary MINUS the excluded pair.
+    /// The registration set is the vocabulary minus the excluded pair.
     ///
-    /// ⚠ This pins the ARITHMETIC, not a list of names: a name list here would
-    /// be the same hand-kept second spelling the derivation removed. Adding an
-    /// engine converter should raise both sides together and keep this green.
+    /// This checks the count, not a list of names: a name list would be a second
+    /// copy of the vocabulary. A new engine converter raises both sides together.
     ///
-    /// ⭐ IT IS NOT A SECOND SPELLING OF THE TEST ABOVE, and the difference is
-    /// worth stating because the two look redundant and the honest response to
-    /// two tests of one fact is to delete one. MEASURED by poisoning: replace an
-    /// exclusion with a DUPLICATE of the other (`["SurfaceLoop", "SurfaceLoop"]`)
-    /// and the test above still PASSES — both names are real vocabulary — while
-    /// this one fails. That state is a live defect, not a cosmetic one: the
-    /// displaced identifier is silently REGISTERED while the list still reads as
-    /// though two things are held back.
+    /// It is not redundant with the test above. If an exclusion is replaced with a
+    /// duplicate of the other (`["SurfaceLoop", "SurfaceLoop"]`), the test above
+    /// passes (both names are real) and this one fails. In that state the
+    /// displaced identifier is registered while the list seems to hold two back.
     #[test]
     fn the_registered_set_is_the_vocabulary_minus_the_excluded_pair() {
         let vocabulary = LdtkVocabulary::engine();

@@ -137,7 +137,7 @@ mod tests {
     }
 
     /// A stance whose window is open for zero time is refused where it is
-    /// AUTHORED rather than silently never catching anything.
+    /// authored, not silently never catching anything.
     #[test]
     fn a_counter_window_that_never_opens_is_refused() {
         let refused = std::panic::catch_unwind(|| {

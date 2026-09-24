@@ -4,9 +4,8 @@ use super::*;
 
 #[test]
 fn solo_play_never_gives_the_keyboard_an_exclusive_owner() {
-    // Milestone 8: "Single-participant Ambition still supports unified keyboard
-    // and gamepad control." One seat means there is nobody to exclude, and
-    // saying `Some(PRIMARY)` would rewrite an `InputMap` to no effect.
+    // One seat has nobody to exclude; `Some(PRIMARY)` would rewrite an
+    // `InputMap` for no effect.
     for policy in [
         InputAssignmentPolicy::UnifiedPrimary,
         InputAssignmentPolicy::JoinToClaim,
@@ -23,8 +22,7 @@ fn solo_play_never_gives_the_keyboard_an_exclusive_owner() {
 
 #[test]
 fn unified_primary_shares_the_keyboard_even_with_two_seats() {
-    // The default policy is today's behaviour byte for byte. Installing this
-    // module must not change what any existing game does.
+    // The default policy must not change what any existing game does.
     assert_eq!(
         keyboard_owner_for(InputAssignmentPolicy::UnifiedPrimary, KeyboardOwner(None), 2),
         None
@@ -42,9 +40,8 @@ fn unified_primary_shares_the_keyboard_even_with_two_seats() {
 
 #[test]
 fn an_unclaimed_keyboard_stays_with_player_one_when_a_pad_joins() {
-    // Milestones 1 and 2 together: the keyboard is one participant and the pad
-    // is another. The pad player joining must not take the keyboard away from
-    // the person already using it.
+    // A pad player joining must not take the keyboard from the person using
+    // it.
     assert_eq!(
         keyboard_owner_for(InputAssignmentPolicy::JoinToClaim, KeyboardOwner(None), 2),
         Some(ParticipantId::PRIMARY)
@@ -53,9 +50,8 @@ fn an_unclaimed_keyboard_stays_with_player_one_when_a_pad_joins() {
 
 #[test]
 fn a_claimed_keyboard_belongs_to_the_claimant_not_to_seat_zero() {
-    // Milestone 6, in the shape it takes here: ownership moves only by an
-    // explicit act. If player two claimed the keyboard, seat 0 does not get it
-    // back by being seat 0.
+    // Ownership moves only by an explicit act. If player two claimed the
+    // keyboard, seat 0 does not get it back.
     assert_eq!(
         keyboard_owner_for(
             InputAssignmentPolicy::JoinToClaim,
@@ -68,9 +64,8 @@ fn a_claimed_keyboard_belongs_to_the_claimant_not_to_seat_zero() {
 
 #[test]
 fn explicit_assignment_says_nothing_of_its_own() {
-    // The host is the authority under this policy, so an absent mapping means
-    // "not assigned", NOT "fall back to player one". A default that guesses is
-    // how a replay silently drives the wrong seat.
+    // The host is the authority here, so no mapping means "not assigned", not
+    // "player one". A guessed default makes a replay drive the wrong seat.
     assert_eq!(
         keyboard_owner_for(
             InputAssignmentPolicy::ExplicitAssignment,

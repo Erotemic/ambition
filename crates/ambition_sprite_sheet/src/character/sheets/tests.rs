@@ -3,13 +3,11 @@
 
 use super::*;
 
-/// When the manifest carries a `tuning:` block, `spec_from_record` must prefer it over the
+/// When the manifest has a `tuning:` block, `spec_from_record` uses it, not the
 /// passed-in `SheetTuning` const.
 #[test]
 fn spec_from_record_prefers_manifest_tuning_when_present() {
-    // Synthetic record with manifest-authored tuning that
-    // diverges sharply from the legacy const so any mix-up is
-    // detectable.
+    // Manifest tuning far from the const, so a mix-up is visible.
     let ron_text = r#"
             (
                 target: "synthetic_test",
@@ -33,8 +31,7 @@ fn spec_from_record_prefers_manifest_tuning_when_present() {
             )
         "#;
     let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
-    // Pass an OBVIOUSLY different legacy tuning. The override
-    // path means the manifest values win.
+    // A very different const tuning. The manifest values must win.
     let legacy_tuning = SheetTuning::new(99.9, 99);
     let spec = spec_from_record(&record, &legacy_tuning);
     assert!(
@@ -48,10 +45,8 @@ fn spec_from_record_prefers_manifest_tuning_when_present() {
     );
 }
 
-/// When the manifest has no `tuning:` block (the common case for
-/// existing chars whose `*_SHEET` const still owns their values),
-/// `spec_from_record` falls back to the passed-in const. Pins
-/// the backwards-compat half of the override path.
+/// When the manifest has no `tuning:` block, `spec_from_record` uses the
+/// passed-in const.
 #[test]
 fn spec_from_record_falls_back_to_const_when_manifest_omits_tuning() {
     let ron_text = r#"
@@ -80,15 +75,13 @@ fn spec_from_record_falls_back_to_const_when_manifest_omits_tuning() {
     assert_eq!(spec.frame_sample_inset, 1);
 }
 
-/// The quad is the sheet's body rectangle scaled onto the collision box, and
-/// `collision_scale` has nothing to do with it.
-///
-/// So this builds the same sheet twice with wildly different `collision_scale` and requires the
-/// two quads to be BYTE-IDENTICAL: the field cannot be doing work, whatever value it holds.
+/// The quad is the body rectangle scaled onto the collision box.
+/// `collision_scale` has no effect on it: two very different values must give
+/// identical quads.
 #[test]
 fn a_published_body_sizes_the_quad_and_collision_scale_is_inert() {
-    // A 40x80 character sitting off-centre inside a 100x120 frame, so a quad
-    // taken from the FRAME and a quad taken from the BODY cannot coincide.
+    // A 40x80 body off-centre in a 100x120 frame, so a frame-based quad and a
+    // body-based quad cannot match.
     let ron_text = r#"
             (
                 target: "synthetic_body",
@@ -129,17 +122,15 @@ fn a_published_body_sizes_the_quad_and_collision_scale_is_inert() {
         (drawn - collision).length() < 1e-4,
         "the drawn body measured {drawn:?} inside a {collision:?} collision box"
     );
-    // Uniform: the frame's aspect survives, so the art is scaled and never
-    // stretched.
+    // Uniform scale: the frame aspect is kept, so the art is not stretched.
     assert!(
         ((quad.x / 100.0) - (quad.y / 120.0)).abs() < 1e-4,
         "the quad {quad:?} scales the 100x120 frame by different amounts per axis"
     );
 }
 
-/// The 2 baked sheets that publish NO body (`creator_lab_props`,
-/// `weird_hermit`) keep the old arithmetic, because there is nothing else to
-/// ask — and that fallback is the only thing `collision_scale` still drives.
+/// Sheets with no published body (`creator_lab_props`, `weird_hermit`) keep
+/// the old arithmetic. This fallback is the only use of `collision_scale`.
 #[test]
 fn a_sheet_with_no_published_body_still_reads_collision_scale() {
     let ron_text = r#"
@@ -173,19 +164,15 @@ fn a_sheet_with_no_published_body_still_reads_collision_scale() {
     assert!((big.y - small.y * 2.0).abs() < 1e-4);
 }
 
-/// A CLIP RESOLVES TO ITS ROW SLOT, AND A MISSING ONE RESOLVES TO NOTHING.
+/// A clip resolves to its row slot, and a missing clip resolves to `None`.
 ///
-/// sprite redirect P0. Everything else on this spec is keyed by
-/// `CharacterAnim` — 56 semantic body states — and the new fighter sheets carry
-/// rows it has no variant for at all (`smash_forward`, `air_dodge`, `tumble`).
-/// Growing the enum toward the 271-entry fighter-motion catalog is what the
-/// redirect rejects; the authored clip name is the key instead.
+/// `CharacterAnim` has no variants for many fighter rows (`smash_forward`,
+/// `air_dodge`, `tumble`), so the authored clip name is the key.
 ///
-/// the `None` term is the important one. The habit this path replaces is
-/// `row_index_of(name).unwrap_or(0)`, which silently draws ROW ZERO — idle — for
-/// a row the sheet does not have, and looks exactly like a character that never
-/// swings. An unresolvable chain must say so, so the caller can fall back to the
-/// semantic pose ladder.
+/// The `None` case is the important one. `row_index_of(name).unwrap_or(0)`
+/// draws row zero (idle) for a missing row, which looks like a character that
+/// does not swing. The caller must get `None` and fall back to the semantic
+/// pose ladder.
 #[test]
 fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
     let ron_text = r#"
@@ -248,26 +235,23 @@ fn a_clip_chain_resolves_to_a_row_slot_or_to_nothing() {
          that does not swing"
     );
 
-    // and the slot indexes the real row: a resolved clip must be able to draw.
+    // The slot indexes the real row, so a resolved clip can draw.
     assert_eq!(spec.row_at(3).frame_count, 5, "slot 3 is the 5-frame smash");
     assert_eq!(spec.flat_index_at(3, 2), spec.flat_index_at(3, 0) + 2);
 }
 
-/// A trimmed sheet's CLIP must be sized and anchored by the CLIP's row.
+/// A playing clip on a trimmed sheet is sized and anchored by the clip's row.
 ///
-/// Both lookups clamp their row and frame, so the failure was a silently misplaced, mis-sized
-/// sprite rather than an error — and 122 of the 185 shipped sheets are trimmed.
+/// Both lookups clamp row and frame, so a wrong row gives a misplaced sprite,
+/// not an error. Most shipped sheets are trimmed.
 ///
-/// The two rows here are deliberately far apart in trim AND the clip row's name
-/// is one `CharacterAnim::from_name` does NOT know, which is the case that
-/// matters: a reusable effect sheet (`generic_action_fx`'s `hit_hard`,
-/// `poof_small`, `release_ring`, …) is addressable ONLY by row name. Requiring
-/// it to be addressable by pose would mean aliasing 18 effect rows onto a
-/// body-state enum, which is what the clip path exists to avoid.
+/// The two rows have very different trims, and the clip row name is unknown to
+/// `CharacterAnim::from_name`. Effect sheets (`generic_action_fx`: `hit_hard`,
+/// `poof_small`, `release_ring`) are addressable only by row name.
 #[test]
 fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
-    // `trimmed_render` / `FrameTrim` / `CharacterSpriteAsset` arrive through
-    // `use super::*` (this module re-exports them).
+    // `trimmed_render`, `FrameTrim`, and `CharacterSpriteAsset` come from
+    // `use super::*`.
     use crate::character::{CharacterAnimator, CharacterSpritePage};
 
     let ron_text = r#"
@@ -294,7 +278,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
     let record: SheetRecord = ron::from_str(ron_text).expect("synthetic record parses");
     let spec = spec_from_record(&record, &SheetTuning::new(1.0, 1));
 
-    // Both terms of the comparison are OBSERVED, so this cannot pass vacuously.
+    // Both sides of the comparison are observed, so this cannot pass vacuously.
     assert!(spec.is_trimmed(), "the fixture must actually be trimmed");
     let clip_slot = spec
         .clip_slot(["hit_hard"])
@@ -329,7 +313,7 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
         "a playing clip must be measured by its OWN row, not by `current`"
     );
 
-    // And the pose path is unchanged: dropping the clip returns to the pose's trim.
+    // Dropping the clip returns to the pose's trim.
     animator.request(CharacterAnim::Idle);
     assert_eq!(
         animator.current_render(),
@@ -340,17 +324,13 @@ fn a_clip_on_a_trimmed_sheet_is_measured_by_the_clip_row() {
 
 /// Repacking a sheet does not redraw it.
 ///
-/// The ultrapack synthesizes its own [`SheetRecord`] from atlas frame rects,
-/// which cannot know which way the body in those pixels points — so the base
-/// manifest's drawn facing has to be carried onto it, the same way the caller
-/// carries the base spec's `tuning`. Both west-drawn characters are packed at
-/// all four tiers, so a pack path that dropped this would have left them facing
-/// backwards again on exactly the devices that load packs, while their own
-/// sheets looked correct.
+/// The ultrapack builds its own [`SheetRecord`] from atlas rects and cannot know
+/// the drawn facing. The base manifest's facing must be carried onto it, as the
+/// caller carries `tuning`. Both west-drawn characters are packed at all four
+/// tiers.
 ///
-/// but on a tree that never ran regen there is no pack to check at all, and being RED for that
-/// is noise that teaches people to ignore red — so `has_baked_packs`, a build-script cfg over
-/// the same table the test reads, turns it into an `ignored` line with its reason on it.
+/// A tree with no regen output has no pack. The `has_baked_packs` build-script
+/// cfg then marks the test `ignored` with a reason, not failed.
 #[test]
 #[cfg_attr(
     not(has_baked_packs),
@@ -360,8 +340,7 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     for target in ["patent_clerk", "carl_stargan"] {
         let base = record_for_sheet_key(target)
             .unwrap_or_else(|| panic!("{target}'s sheet is baked into the sheet table"));
-        // The premise. Without it the assertions below hold vacuously for a
-        // sheet that never exercised the inheritance.
+        // Premise: without it the checks below pass vacuously.
         assert!(
             base.authored_faces_left,
             "{target}'s base manifest must declare its left-drawn artwork"
@@ -392,21 +371,14 @@ fn a_packed_target_keeps_the_facing_its_artwork_was_drawn_in() {
     }
 }
 
-/// A CHARACTER'S GAMEPLAY BODY MUST NOT DEPEND ON THE GRAPHICS SETTING.
+/// A character's gameplay body must not depend on the graphics setting.
 ///
-/// Every sheet is published four times — full resolution plus `0_5x`, `0_25x`
-/// and `potato` — and each publication carries its own `body_metrics`. Those
-/// metrics are not decoration: `authored_body` is the sheet's claim that
-/// `body_pixel_bbox` is a GAMEPLAY BODY rather than the extent of the drawing,
-/// and `authored_body_pixel_size` refuses to answer without it. A collision box
-/// derived from one tier and not another is a body whose SIZE changes when the
-/// player turns the graphics down.
+/// Each sheet is published at four tiers (full, `0_5x`, `0_25x`, `potato`),
+/// each with its own `body_metrics`. `authored_body` says `body_pixel_bbox` is
+/// a gameplay body, and `authored_body_pixel_size` needs it. If tiers disagree,
+/// the collision box changes size with the graphics setting.
 ///
-/// Luck is not an invariant, and the gap widened every time one road was regenerated without the
-/// other.
-///
-/// this asks the BAKED INDEX, not the files — the same table every runtime
-/// lookup reads, so it cannot pass against a tree the build did not compile.
+/// This reads the baked index, the same table the runtime reads, not the files.
 #[test]
 fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
     const TIERS: [&str; 3] = ["0_5x", "0_25x", "potato"];
@@ -416,8 +388,7 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
     let mut disagreements: Vec<String> = Vec::new();
 
     for (target, full) in index.iter() {
-        // Full-resolution targets only — a tier key carries its suffix, and
-        // comparing a tier against itself proves nothing.
+        // Full-resolution targets only; tier keys have a suffix.
         if TIERS
             .iter()
             .any(|tier| target.ends_with(&format!(".{tier}")))
@@ -445,9 +416,8 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
         }
     }
 
-    // the zero floor. A build that baked no quality variants at all — or an
-    // index whose tier keys stopped carrying their suffix — would compare
-    // NOTHING and report perfect agreement.
+    // Zero floor: with no tier variants, or tier keys without suffixes, nothing
+    // is compared and the test would pass.
     assert!(
         compared > 100,
         "only {compared} sheet/tier pairs were compared, so this proved almost \
@@ -463,42 +433,29 @@ fn a_sheets_gameplay_body_does_not_depend_on_the_graphics_setting() {
     );
 }
 
-/// ⭐⭐ THE ART IS DRAWN ON ITS OWN BOX, not on the middle of its packed cell.
+/// The art is drawn on its own box, not on the middle of its packed cell.
 ///
-/// ⛔⛤ THE DEFECT, reported in play 2026-08-27: *"the projectile polygon's
-/// collision box is extremely disjoint from its art."* The anchor returned
-/// `Anchor(Vec2::new(0.0, ay))` — the `y` read off the sheet's own
-/// `feet_anchor_norm` and the `x` a hard-coded zero. Zero is a claim about the
-/// FRAME, and a frame is not a character: it is a cell sized by the widest pose,
-/// and the art sits wherever the crop left it. So every body was drawn off its
-/// collision box by exactly how far off-centre it was packed.
+/// A frame is a cell sized by the widest pose, and the art sits where the crop
+/// left it. An anchor `x` of zero centres the quad on the cell, so the art is
+/// drawn off the collision box by the packing offset.
 ///
-/// ⛔⛔ AND THE REST OF THE ENGINE ALREADY DISAGREED WITH IT. `FrameToBody::
-/// planting_feet` maps an authored hitbox polygon by `(px - feet.x)`, so the
-/// HITBOXES were measured from the body's own centre while the ART was measured
-/// from the cell's. The two were out by `feet.x - frame_w/2` — 64.5px for the
-/// projectile polygon — which is a fighter, its damage boxes and its collision
-/// box in three different places.
+/// `FrameToBody::planting_feet` maps hitbox polygons by `(px - feet.x)`, so
+/// hitboxes are measured from the body centre. The art must be measured the
+/// same way, or art, hitboxes, and collision box are in different places.
 ///
-/// ⭐ THE ARMS STRADDLE THE POPULATION. A body packed near the middle would pass
-/// this whatever the anchor did (the other polygons are within 4% and that is
-/// why nobody saw it for so long), so the assertion needs a sheet that is
-/// badly off-centre to mean anything at all.
+/// A body packed near the centre passes with any anchor, so the test needs
+/// sheets that are far off-centre.
 #[test]
 fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
-    // ⛔ FAR OFF-CENTRE AND NEAR IT, in one loop. The near-centre row is not
-    // decoration: it is what says the fix is a CORRECTION rather than a constant
-    // shift applied to everybody.
+    // Far off-centre and near-centre rows together. The near-centre row shows
+    // the fix is a correction, not a constant shift for all bodies.
     for (target, min_offset) in [
         ("projectile_polygon", 0.10_f32),
         ("officer", 0.10),
         ("pointed_polygon", 0.0),
     ] {
-        // ⛔⛔ NOT `else { continue }`. The first version of this test skipped a
-        // missing key silently and therefore passed with the DEFECT RESTORED —
-        // measured, not feared: forcing the anchor back to a hard-coded `0.0`
-        // left it green, because all three rows had skipped. A row that cannot
-        // be found is a broken test, not an absent case.
+        // Panic on a missing key; do not skip. A skipped row passes with the
+        // defect present.
         let record = record_for_sheet_key(target).unwrap_or_else(|| {
             panic!(
                 "`{target}` is not a baked sheet key, so this row asserted \
@@ -514,10 +471,9 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
             .feet_pixel
             .unwrap_or_else(|| panic!("{target} publishes a feet pixel"));
         let frame_w = record.frame_width.max(1) as f32;
-        // The body's own centre, as the fraction of the frame the anchor is
-        // measured in. This is the number the sheet already stores in
-        // `feet_anchor_norm.x`, recomputed here from the pixel it came from so
-        // the test does not simply read back the field under test.
+        // The body centre as a fraction of the frame. This is the value in
+        // `feet_anchor_norm.x`, recomputed from the feet pixel so the test does
+        // not read back the field under test.
         let want = feet.x / frame_w - 0.5;
         assert!(
             want.abs() >= min_offset,
@@ -530,13 +486,10 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
         let spec = spec_from_record(record, &SheetTuning::default());
         let collision = Vec2::new(40.0, 80.0);
         let anchor = feet_anchor_for_render_size(&spec, collision, sprite_render_size(&spec, collision));
-        // ⛔ THE TOLERANCE ADMITS AUTHORING ROUNDING AND NOTHING ELSE. A handful
-        // of sheets store a `feet_anchor_norm.x` that differs from the feet pixel
-        // it was derived from in the third decimal (the officer's is -0.250000
-        // against a recomputed -0.248466, 0.15% of his frame) — the emitter
-        // rounded, and that is not a defect worth a red test. `0.01` is twenty
-        // times the largest such drift in the library and seventeen times SMALLER
-        // than the bug it guards, so neither case can be mistaken for the other.
+        // The tolerance admits only authoring rounding. Some sheets store a
+        // `feet_anchor_norm.x` that differs from the feet pixel in the third
+        // decimal (the officer: -0.250000 against -0.248466). `0.01` is well
+        // above that drift and well below the defect.
         assert!(
             (anchor.0.x - want).abs() < 0.01,
             "{target}: the sprite anchors at x={:.6} but its body sits at x={:.6} \
@@ -549,63 +502,13 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
     }
 }
 
-/// The Bevy resource's index and this module's `record_index` are THE SAME MAP,
-/// built twice over the same 870-entry baked table.
+/// Split baked sheet keys by the tier marker that
+/// `build.rs::baked_key_for_path` appends. Return the bare roots under each
+/// marker (`""` for the base tier).
 ///
-/// ⛔⛤ **THIS EXISTS BECAUSE A COMMENT DEFENDING THE DUPLICATION HAS GONE
-/// FALSE.** `attack_hitbox::warm_file_root_registry` still says, in the present
-/// tense, *"THE TWO LINES ARE TWO DIFFERENT REGISTRIES ... `init_sheet_registry`
-/// fills the Bevy resource keyed by `record.target`, while this one is keyed by
-/// FILE ROOT"*. [`record_index`]'s own doc says that disagreement is PAST tense
-/// and that it now calls [`crate::index_baked_table`] precisely so the two
-/// agree. Both cannot be current. The repository already priced the cost of
-/// believing the stale one: Tracy, 2026-08-29, **189,032,871 ns against a 21us
-/// mean** the first time a punch asked for the second index, inside a 198.3ms
-/// frame.
-///
-/// ⇒ A JUSTIFICATION WRITTEN IN THE PRESENT TENSE IS A CLAIM WITH A DATE ON IT,
-/// and nothing here checks the date. This test checks it: if the two indices
-/// ever genuinely diverge, this goes red and the comment becomes true again; so
-/// long as it passes, the second parse is buying nothing.
-///
-/// ⚠ Records are compared through `{:?}` because [`crate::SheetRecord`] derives
-/// `Debug, Clone, Deserialize` and NOT `PartialEq`.
-///
-/// ⛔⛤ **THAT COMPARISON REPORTED 519 OF ~870 KEYS AS DIFFERING WHEN NOTHING
-/// DIFFERED, AND THE FIX WAS NOT IN THIS FILE.** MEASURED 2026-09-12.
-/// `BodyMetrics::animations` and `FrameRect::anchors` were `HashMap`s, `Debug`
-/// prints a map in ITERATION order, and two `HashMap`s built in one process do
-/// not share one — so `absurd_general.potato` read `{"hit": …}` against
-/// `{"idle": …}`: the same entries, reordered. ⇒ A NEGATIVE RESULT IS A CLAIM
-/// ABOUT THE INSTRUMENT FIRST.
-///
-/// ⛔⛔ **AND A CANONICALISER THAT SORTED "THE MAP" WAS THE WRONG FIX — I WROTE
-/// ONE AND IT WAS FALSIFIED IN FIVE MINUTES.** It sorted `animations`, carried
-/// the comment *"`SheetRecord` reaches exactly ONE `HashMap`"*, and the count
-/// went 519 → 121 because `FrameRect::anchors` is a second one. A comparator
-/// that hand-enumerates a POPULATION is the same defect this repository keeps
-/// finding everywhere else, one layer down. ⇒ Both maps are `BTreeMap`s now, so
-/// `Debug` is order-stable BY CONSTRUCTION and this comparison needs to know
-/// nothing about how many maps a record reaches — including the ones added
-/// after this was written.
-///
-/// ⚠ ONE HOLE REMAINS AND IT IS SAFE HERE: NaN. Floats reach a record
-/// (`SheetTuningSpec::collision_scale`, `SheetRow::duration_secs`,
-/// `AnimationMetrics::frame_duration_secs`, `NamedPixelRect::poly`,
-/// `PixelPoint::{x,y}`, `NormPoint::{x,y}`) and `{:?}` prints `NaN`, so two
-/// NaNs compare EQUAL as strings where `PartialEq` would call them unequal. The
-/// proxy is therefore MORE LENIENT than `PartialEq`, not stricter — and that
-/// direction is the safe one: a false EQUAL needs both sides NaN in the SAME
-/// field, which means both indices parsed the same broken RON, which is
-/// agreement, and agreement is what this test establishes.
-/// Split baked sheet keys by the tier marker `build.rs::baked_key_for_path`
-/// appends, returning the BARE roots under each marker (`""` for the base
-/// tier).
-///
-/// ⚠ SPLIT ON THE LAST DOT AND ONLY FOR THE THREE KNOWN MARKERS. A sheet root
-/// may contain dots of its own, and a key ending in something that merely looks
-/// like a marker is a base-tier sheet, not a variant of a name nobody
-/// published.
+/// Split on the last dot, and only for the three known markers. A root can
+/// contain dots, and a key that only looks like it has a marker is a base-tier
+/// sheet.
 fn tier_partition<'a>(
     keys: impl Iterator<Item = &'a str>,
 ) -> std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>> {
@@ -623,42 +526,34 @@ fn tier_partition<'a>(
     out
 }
 
+/// The Bevy resource's index and [`record_index`] are the same map, built twice
+/// over the same baked table.
+///
+/// `attack_hitbox::warm_file_root_registry` says the two are different
+/// registries. [`record_index`] says it calls [`crate::index_baked_table`] so
+/// they agree. This test checks it: if the indices diverge, it fails.
+///
+/// Records are compared through `{:?}` because [`crate::SheetRecord`] does not
+/// derive `PartialEq`. `BodyMetrics::animations` and `FrameRect::anchors` are
+/// `BTreeMap`s so `Debug` output has a stable order; a `HashMap` gives false
+/// differences.
+///
+/// NaN: `{:?}` prints `NaN`, so two NaNs compare equal as strings. This is
+/// more lenient than `PartialEq`, which is safe: both indices parsed the same
+/// RON, and agreement is what the test checks.
 #[test]
 fn the_registry_and_the_record_index_are_one_map_built_twice() {
     let index = record_index();
     let registry =
         crate::SheetRegistry::from_baked_table(crate::baked_sheet_rons::BAKED_SHEET_RONS);
 
-    // ⛔ THE ANTI-VACUITY CHECK, FIRST AND BEFORE ANY COMPARISON. Two empty
-    // maps are equal, and an empty corpus is the most common way a check in
-    // this crate passes while measuring nothing.
+    // Anti-vacuity check first: two empty maps are equal.
     //
-    // ⛔⛤ **THIS WAS `len() > 800` AND THE ROSTER COULD NOT REACH IT — MEASURED
-    // 2026-09-21, AND THE OLD MESSAGE'S OWN THIRD CAUSE IS WHAT THE
-    // MEASUREMENT FALSIFIES.** It said a short reading is "a machine-state
-    // problem [that] belongs in the publish step", and told the next reader not
-    // to lower the floor. But `scripts/regen/sprites.sh`'s roster claims **175**
-    // `_spritesheet.ron` across **173 targets**, every one of them present on
-    // this box (`check_published_sheets_are_present.py`: all 173 rostered
-    // targets have published art) — so a box whose output exactly matches the
-    // roster bakes 700 files, and packed atlases expanding to per-target keys
-    // take it to roughly 728. This box reads 780 only because it also carries
-    // **13 unclaimed sheets per tier** — `goblin`, `robot`, `boss`,
-    // `perfect_cellular_automaton` and nine more — publish output for targets
-    // the roster no longer names. ⇒ 800 was a floor that could be met only by
-    // keeping STALE output, and publishing the whole roster on a clean box
-    // could never discharge it. That is not a machine-state problem.
-    //
-    // ⭐⭐ **SO THE MAGNITUDE IS REPLACED BY THE STRUCTURE IT WAS STANDING IN
-    // FOR.** The failure the old floor existed to catch is named in its own
-    // comment: *"the glob matched a different tree and half the sheets
-    // vanished"*. `build.rs` bakes four sibling directories under one key
-    // space, tagging three of them `.0_5x` / `.0_25x` / `.potato`, so the tree
-    // it matched says so in the keys: four tiers publishing THE SAME NAMES is a
-    // property of a correctly-globbed tree, and it moves with the roster
-    // instead of with whoever's box set the number. A glob that lost one
-    // directory, matched a different tree, or published a tier late fails it
-    // exactly.
+    // `build.rs` bakes four sibling directories into one key space and tags
+    // three with `.0_5x` / `.0_25x` / `.potato`. A correctly globbed tree has
+    // the same names in all four tiers. A glob that lost a directory, matched
+    // a different tree, or caught a tier mid-publish fails this. The check
+    // follows the roster, not a fixed count.
     let tiers = tier_partition(index.keys().map(String::as_str));
     let base = tiers.get("").cloned().unwrap_or_default();
     for marker in ["0_5x", "0_25x", "potato"] {
@@ -681,12 +576,9 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
         );
     }
 
-    // ⛔ AND A MAGNITUDE STILL, BECAUSE A UNIFORM HALVING KEEPS THE TIERS
-    // AGREEING. 150 is BELOW the 175 the roster claims and far above a halved
-    // 94, so it is a floor on the GENERATOR that a correctly-pruned box clears
-    // and a truncated glob does not. ⚠ The reference point is the roster
-    // (`scripts/regen/sprites.sh`, 173 targets / 175 sheets on 2026-09-21), not
-    // this box: re-derive it from there, never from a remembered reading.
+    // A uniform halving keeps the tiers in agreement, so also check a size.
+    // 150 is below the roster's sheet count and well above half of it. Derive
+    // the value from the roster (`scripts/regen/sprites.sh`), not this machine.
     assert!(
         base.len() > 150,
         "the base tier holds {} sheet(s), below the floor of 150 -- the publish \
@@ -703,7 +595,7 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
          before a single key is compared -- same vacuity, other side",
     );
 
-    // ⛔ BOTH DIRECTIONS. A subset test passes when one side silently drops keys.
+    // Check both directions. A subset test passes when one side drops keys.
     let missing: Vec<&str> = index
         .keys()
         .filter(|key| registry.get(key).is_none())
@@ -727,10 +619,8 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
         extra.iter().take(8).collect::<Vec<_>>(),
     );
 
-    // ⛔ AND THE RECORDS, NOT ONLY THE KEYS. Two maps of 870 entries can agree on
-    // every key and disagree on what each key ANSWERS — which is the shape of the
-    // bug `record_index`'s doc says already happened once, when one index handed
-    // back `tech_bro_disruptor`'s page for sheet `robot`.
+    // Compare records, not only keys: the same key can answer a different
+    // record (one index once gave `tech_bro_disruptor`'s page for `robot`).
     let mut differing: Vec<String> = Vec::new();
     for (key, mine) in index.iter() {
         let theirs = registry.get(key).expect("key sets agreed above");
@@ -748,25 +638,16 @@ fn the_registry_and_the_record_index_are_one_map_built_twice() {
     );
 }
 
-/// The comparison BELOW the floor is live code, exercised on a synthetic table.
+/// A control for the comparison in
+/// `the_registry_and_the_record_index_are_one_map_built_twice`.
 ///
-/// ⛔⛤ WITHOUT THIS, `the_registry_and_the_record_index_are_one_map_built_twice`
-/// is unfalsifiable ON A CHECKOUT THAT PUBLISHES NO SHEETS: its floor trips
-/// first and the key/record comparisons are never reached, so "the guard works"
-/// would rest on a branch nobody took. A synthetic two-record table reaches them
-/// without needing the 870-entry baked table to exist.
+/// On a checkout with no published sheets, that test fails its floor before
+/// the comparisons run. This synthetic two-record table exercises them.
 #[test]
 fn the_index_comparison_can_tell_two_tables_apart() {
-    // ⛔⛔ **THE SYNTHETIC RECORD CARRIES A POPULATED `animations` MAP, AND THAT
-    // IS NOT DECORATION.** The first version of this control built records with
-    // `rows: []` and NO `body_metrics`, so every map in it was EMPTY — and an
-    // empty map prints identically under any hasher. It therefore could not have
-    // caught the `HashMap`-iteration-order artifact that made its sibling report
-    // 519 false differences, which is the exact part of the comparator that
-    // broke. ⇒ A CONTROL THAT EXERCISES EVERYTHING EXCEPT THE PART THAT FAILS IS
-    // A CONTROL THAT CERTIFIES THE WRONG THING. Several entries, deliberately
-    // NOT in sorted order in the source text, so a container that did not sort
-    // would surface here.
+    // The record has a populated `animations` map with keys in unsorted
+    // order. Empty maps print the same under any order, so they could not
+    // catch a map with unstable iteration order.
     fn one(target: &str, image: &str) -> String {
         format!(
             "[(target: \"{target}\", image: \"{image}\", label_width: 0, \
@@ -787,9 +668,8 @@ fn the_index_comparison_can_tell_two_tables_apart() {
         ("beta", b_text.as_str()),
     ]);
     assert_eq!(same.len(), 2, "premise: the synthetic table indexes");
-    // ⛔ THE FLOOR ON THE FIXTURE ITSELF. A `body_metrics` field the parser
-    // ignored would leave every record's maps empty and this control would go
-    // back to certifying nothing, silently.
+    // Floor on the fixture: if the parser dropped `body_metrics`, the maps
+    // would be empty and this control would check nothing.
     assert!(
         same.get("alpha")
             .and_then(|r| r.body_metrics.as_ref())
@@ -799,7 +679,7 @@ fn the_index_comparison_can_tell_two_tables_apart() {
          stop doing"
     );
 
-    // ⭐ SAME INPUTS AGREE — the comparison does not report spurious differences.
+    // Same inputs agree: no false differences.
     for (key, record) in same.iter() {
         assert_eq!(
             format!("{record:?}"),
@@ -808,8 +688,7 @@ fn the_index_comparison_can_tell_two_tables_apart() {
         );
     }
 
-    // ⛔ AND DIFFERENT INPUTS DISAGREE — the comparison can actually FAIL, which
-    // is the half a green test never demonstrates.
+    // Different inputs disagree: the comparison can fail.
     let changed = one("alpha", "DIFFERENT.png");
     let other = crate::SheetRegistry::from_baked_table(&[("alpha", changed.as_str())]);
     assert_ne!(

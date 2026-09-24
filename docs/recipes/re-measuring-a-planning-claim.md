@@ -38,7 +38,8 @@ the same subject one level down — a CHECK that is correct and never runs.
 carrying a dated `> **Verified against <sha> (<date>).**` header were accurate,
 and the ones without one had drifted — every time, in that sample.**
 
-Accurate on re-check, all header-bearing: `frontend-audio-is-per-experience.md`,
+Accurate on re-check, all header-bearing: `frontend-audio-is-per-experience.md`
+(deleted 2026-09-24; its last item is in `tracks.md`),
 `engine_rename_campaign.md`, `triage/declared-id-resolution-checks.md`,
 `triage/gameplay-presentation-profiles.md`. So were two that carry a dated status
 line instead (`engine/relativity.md`, `engine/shell-vanity-sequence.md`).

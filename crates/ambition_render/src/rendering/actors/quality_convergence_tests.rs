@@ -1,15 +1,14 @@
 //! A live quality change must reach the bodies already on screen.
 //!
-//! The engine's side of this — retiring a stale realization and re-materializing
-//! it at the applied tier — is guarded in
-//! `ambition_platformer2d_actor_monolith::character_runtime`. This file guards the
-//! half that decides what a participant actually SEES: a body bound from the old
-//! realization has to end up bound to the new one, on the same entity, without
-//! losing its identity, and the old image has to die.
+//! `ambition_platformer2d_actor_monolith::character_runtime` guards the engine
+//! side: retire a stale realization and re-materialize it at the applied tier.
+//! This file guards what a participant sees: a body bound to the old
+//! realization rebinds to the new one on the same entity, keeps its identity,
+//! and the old image is freed.
 //!
-//! a rebind that only works on the frame `GameAssets` changed is not convergence. The new
-//! sheet's pages are `asset_server.load`ed, so they land some frames LATER — after the one-frame
-//! `is_changed()` window has closed.
+//! A rebind that works only on the frame `GameAssets` changed is not
+//! convergence. The new pages load through `asset_server.load`, so they arrive
+//! some frames later, after the one-frame `is_changed()` window.
 
 use bevy::prelude::*;
 
@@ -43,10 +42,9 @@ fn quality(profile: VisualQualityProfile) -> ResolvedVisualQuality {
 
 /// A realization at `tier` whose page-0 image is reserved but not present.
 ///
-/// That is what a fresh `asset_server.load` looks like for the frames before the
-/// decode finishes, and every binder here skips a sheet whose texture has not
-/// landed — so a fixture that pre-populated the image would silently test only
-/// the same-frame case.
+/// This is a fresh `asset_server.load` before decode finishes. The binders skip
+/// a sheet whose texture is not present, so a fixture with the image already
+/// present would test only the same-frame case.
 fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> CharacterSpriteAsset {
     use ambition_sprite_sheet::character::sheets::{try_load_spec_for_target, SheetTuning};
 
@@ -67,8 +65,8 @@ fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> Charact
         layout: layout.clone(),
         spec,
         pages: vec![CharacterSpritePage { texture, layout }],
-        // The fixture's realization got exactly the tier it asked for: these
-        // tests are about convergence, not about a fallback.
+        // The fixture gets the tier it asks for: these tests are about
+        // convergence, not fallback.
         requested_tier: tier,
         resolved_tier: tier,
     }
@@ -114,10 +112,9 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
 
 /// An actor body converges to the realization the table now holds.
 ///
-/// Medium (Half) → High (Full): the SAME entity, still naming the same feature
-/// and the same actor identity, ends up drawn from the Full realization — and
-/// the Half image is gone from `Assets<Image>`, not merely unreferenced by the
-/// table.
+/// Medium (Half) to High (Full): the same entity, with the same feature and
+/// actor identity, is drawn from the Full realization. The Half image is
+/// removed from `Assets<Image>`.
 #[test]
 fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     let mut app = asset_app();
@@ -170,8 +167,8 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         .publish(ACTOR_NAME, full.clone());
     app.update();
 
-    // THE FRAME THAT MATTERS. `GameAssets` last changed a frame ago; the
-    // decode finishes now. A binder gated on `is_changed()` never looks again.
+    // `GameAssets` changed a frame ago; the decode finishes now. A binder
+    // gated on `is_changed()` never looks again.
     the_image_lands(&mut app, &full);
     drop(full);
     app.update();
@@ -186,16 +183,14 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
         app.world().get::<BoundSpriteQuality>(body).map(|q| q.scale),
         Some(TextureResolutionScale::Full),
     );
-    // LOGICAL IDENTITY: the same entity, still the same feature. The realization
-    // moved; nothing about who this body IS did.
+    // Same entity, same feature. Only the realization moved.
     assert_eq!(
         app.world().get::<FeatureVisual>(body).map(|v| v.id.clone()),
         Some(ACTOR_ID.to_string()),
     );
 
-    // NOTHING LIVE STILL REFERENCES THE OLD ONE. There is no evictor: the
-    // table dropped its clones on republish and the body dropped its handle on
-    // rebind, so the last strong handle is gone and Bevy reclaims the image.
+    // Nothing live references the old image. There is no evictor: the table
+    // and the body dropped their handles, so Bevy frees the image.
     app.update();
     assert!(
         app.world()
@@ -274,12 +269,11 @@ fn the_player_body_converges_to_the_new_tier_and_the_old_image_dies() {
     );
 }
 
-/// A profile change that keeps the tier must not thrash the sprite.
+/// A profile change that keeps the tier must not rebind the sprite.
 ///
-/// `Low` and `Medium` realize the same `Half` pixels. A binder that keyed on the
-/// active PROFILE — or on "`GameAssets` changed" — would rebuild the sprite and
-/// reset the animation cursor for nothing, every time the participant nudged a
-/// setting that does not touch sheets.
+/// `Low` and `Medium` use the same `Half` pixels. A binder keyed on the
+/// profile, or on "`GameAssets` changed", would rebuild the sprite and reset
+/// the animation cursor for no reason.
 #[test]
 fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
     let mut app = asset_app();
@@ -309,7 +303,7 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
         .frame = 7;
 
     app.insert_resource(quality(VisualQualityProfile::Medium));
-    // And touch the table, the way an unrelated asset reload does.
+    // Touch the table, like an unrelated asset reload.
     app.world_mut().resource_mut::<GameAssets>();
     app.update();
     app.update();
@@ -324,14 +318,12 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
     );
 }
 
-/// a spawn's ART IDENTITY names its art.
+/// A spawn's art identity names its art.
 ///
-/// the sheet was the ONE thing bound off presentation: everything else about
-/// an actor — barks, hurt feedback, sprite-derived collision, authored attack
-/// volumes — resolves through `sprite_character_id`, while `upgrade_actor_sprites`
-/// looked the sheet up by DISPLAY NAME. So `EnemySpawnSpec::character_id`, added
-/// so a level's label and its art identity could differ, could not do the job it
-/// exists for: any spawn whose id differed from its name drew the placeholder.
+/// Barks, hurt feedback, sprite-derived collision, and authored attack volumes
+/// all resolve through `sprite_character_id`. The sheet must too, not the
+/// display name. Otherwise `EnemySpawnSpec::character_id` cannot separate a
+/// label from its art, and the spawn draws the placeholder.
 #[test]
 fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     let mut app = asset_app();
@@ -340,7 +332,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
     the_image_lands(&mut app, &art);
     let art_image = art.texture.id();
-    // Registered under the CATALOG ID only. Nothing answers to the label.
+    // Registered under the catalog id only. Nothing answers to the label.
     assets.characters.publish("catalog_identity", art);
     app.insert_resource(assets);
 
@@ -352,9 +344,8 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
             sprite_character_id: Some("catalog_identity".to_string()),
-            // deliberately NOT a registered sheet: if the binder still
-            // preferred the label this would find nothing and draw the
-            // placeholder, which is the bug.
+            // Not a registered sheet: a binder that preferred the label would
+            // draw the placeholder.
             name: "A Label Nobody Registered".to_string(),
             is_sandbag: false,
             render_size: None,
@@ -380,7 +371,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
     );
 }
 
-/// An actor with NO `sprite_character_id` — every authored spawn in the game today — still
+/// An actor with no `sprite_character_id` (every authored spawn today) still
 /// resolves by its display name.
 #[test]
 fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
@@ -426,19 +417,18 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
     );
 }
 
-/// a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
-/// never the tier that was requested.
+/// A prop's quality stamp is the tier of the asset it was built from, not the
+/// requested tier.
 ///
-/// an honest stamp is not a current prop. Props still carry no rematerialization recipe, so
-/// the table keeps the old asset — this pins that the staleness stays VISIBLE, which is the
-/// whole difference bought.
+/// Props have no rematerialization recipe, so the table keeps the old asset.
+/// This test makes sure that staleness stays visible.
 #[test]
 fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
     use crate::rendering::primitives::PropVisual;
     use ambition_platformer2d_world::rooms::PropDraw;
 
     let mut app = asset_app();
-    // The REQUEST is Full; the table holds only Half.
+    // The request is Full; the table holds only Half.
     app.insert_resource(quality(VisualQualityProfile::High));
     let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &half);
@@ -470,8 +460,8 @@ fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
          marks it current forever and nothing ever rebuilds it"
     );
 
-    // And the stamp settles: a second pass must not churn, or the honest stamp
-    // becomes a per-frame rebuild.
+    // The stamp settles: a second pass must not churn into a per-frame
+    // rebuild.
     app.update();
     assert_eq!(
         app.world().get::<BoundSpriteQuality>(prop).map(|q| q.scale),
@@ -480,27 +470,24 @@ fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
     );
 }
 
-/// THE DISCRIMINATOR: who owns the handle decides which question is asked.
+/// The owner of the handle decides which readiness question is asked.
 ///
-/// `texture_is_ready` replaced `Assets<Image>::get(..).is_some()` at four
-/// binders, and the whole point is that it stops conflating "the asset loaded"
-/// with "a CPU copy is resident". Both branches are exercised here because each
-/// one is the wrong answer for the other's case:
+/// `texture_is_ready` separates "the asset loaded" from "a CPU copy is
+/// resident". Both branches are tested, because each is wrong for the other
+/// case:
 ///
-/// * a handle the ASSET SERVER owns is asked the semantic question, so it keeps
-///   working if the main-world copy is ever evicted (Bevy's `RENDER_WORLD`-only
-///   usage does exactly that after upload);
-/// * a handle handed straight to the main world — `reserve_handle`, `add`, a
-///   procedurally generated sprite — has no load to ask about, so its presence
-///   IS its readiness. Asking the server about it would report "never loaded"
-///   forever, and a game that builds its own sprite would never bind.
+/// * For a handle the asset server owns, ask the load state. This keeps
+///   working if the main-world copy is evicted (Bevy's `RENDER_WORLD`-only
+///   usage does this after upload).
+/// * For a handle given straight to the main world (`reserve_handle`, `add`,
+///   a procedural sprite), presence is readiness. The server would report
+///   "never loaded" forever, and the sprite would never bind.
 #[test]
 fn texture_readiness_asks_the_owner_of_the_handle() {
     use super::texture_is_ready;
 
-    // its OWN app, with the IO pool: `asset_server.load` spawns onto it and
-    // panics without it, and the shared `asset_app()` fixture deliberately has no
-    // pool because no other test here issues a real load.
+    // A separate app with the IO pool: `asset_server.load` panics without it.
+    // The shared `asset_app()` fixture has no pool.
     let mut app = App::new();
     app.add_plugins(bevy::app::TaskPoolPlugin::default());
     app.add_plugins(bevy::asset::AssetPlugin::default());
@@ -522,8 +509,7 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
          must keep its current pixels"
     );
 
-    // Main-world-owned and present: readiness IS presence, because there is no
-    // load to ask about.
+    // Main-world-owned and present: presence is readiness.
     let present = app
         .world_mut()
         .resource_mut::<Assets<Image>>()
@@ -539,8 +525,8 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
          would never bind"
     );
 
-    // Server-owned: the question goes to the server, and a load that has not
-    // settled is not ready — regardless of what the main world holds.
+    // Server-owned: ask the server. An unsettled load is not ready, whatever
+    // the main world holds.
     let requested: Handle<Image> = asset_server.load("no_such_sheet_for_this_test.png");
     assert!(
         !texture_is_ready(
@@ -557,17 +543,13 @@ fn texture_readiness_asks_the_owner_of_the_handle() {
     );
 }
 
-/// A retired realization and one that never existed are the SAME
-/// `CharacterSheetState::Declared`, and the placeholder warning used to assert
-/// the second for both.
+/// A retired realization and one that never existed are both
+/// `CharacterSheetState::Declared`. `retired_tier` tells them apart.
 ///
-/// The retirement drops the token from `sheets` and deliberately leaves
-/// `declared` standing — that declaration is the recipe for re-making it — so
-/// nothing about the state distinguishes "was decoded, then dropped by a quality
-/// transition" from "nothing has ever decoded this". `retired_tier` is the trace
-/// that does. The warning it feeds fired 111 times on one Hall reveal saying
-/// "nothing demanded it", which for every retired sheet among them was false
-/// twice: it HAD been demanded, and it HAD been decoded.
+/// Retirement drops the token from `sheets` and keeps `declared`, because the
+/// declaration is the recipe to rebuild it. The placeholder warning uses
+/// `retired_tier` so it does not say "nothing demanded it" for a sheet that
+/// was demanded and decoded.
 #[test]
 fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     use ambition_sprite_sheet::character::CharacterSheetState;
@@ -576,8 +558,8 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     let full = a_pending_realization(&mut app, TextureResolutionScale::Full);
     let mut assets = GameAssets::default();
     assets.characters.declare(ACTOR_ID, ACTOR_NAME);
-    // A second declared character that is never published: the arm that keeps
-    // this test from passing because EVERYTHING reports a retirement.
+    // A second declared character that is never published, so the test cannot
+    // pass if everything reports a retirement.
     assets.characters.declare(PLAYER_ID, "Never Realized");
 
     assets.characters.publish(ACTOR_ID, full);
@@ -591,8 +573,8 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
         "a RESIDENT sheet has no retirement to report"
     );
 
-    // The quality transition: the active tier drops to Quarter, so a Full
-    // realization is above the ceiling and goes.
+    // The quality transition: the active tier drops to Quarter, so the Full
+    // realization is above the ceiling and is retired.
     let retired = assets
         .characters
         .retire_realizations([ACTOR_ID.to_string()]);
@@ -601,7 +583,7 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
         "premise: the transition actually retired the fixture (retired {retired:?})"
     );
 
-    // ── Both are now `Declared`, which is the whole problem ──────────────────
+    // Both are now `Declared`.
     assert!(
         matches!(
             assets.characters.sheet_state(ACTOR_ID),
@@ -617,7 +599,7 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
         "and so does one that was never realized — the states are identical"
     );
 
-    // ── And the trace separates them ────────────────────────────────────────
+    // The trace separates them.
     assert_eq!(
         assets.characters.retired_tier(ACTOR_ID),
         Some(TextureResolutionScale::Full),
@@ -631,12 +613,10 @@ fn a_retired_realization_is_told_apart_from_one_that_never_existed() {
     );
 }
 
-/// A character that comes back must stop being described by the retirement it
-/// recovered from.
+/// A character that comes back must not still report its old retirement.
 ///
-/// Otherwise the trace is worse than nothing: it would accumulate, and a healthy
-/// re-realized sheet would be reported as retired forever by anything that read
-/// it without first checking residency.
+/// Otherwise the trace accumulates, and a healthy re-realized sheet reads as
+/// retired to any reader that does not check residency first.
 #[test]
 fn a_re_realized_character_no_longer_reports_a_retirement() {
     let mut app = asset_app();
@@ -662,10 +642,9 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
         None,
         "re-realizing clears the trace"
     );
-    // ⭐ THE DISPLAY NAME TOO, not just the id. The table is double-keyed, the
-    // retirement is recorded per TOKEN, and `publish` clears every token the
-    // character was declared under — a clear that only covered the id would
-    // leave the name reporting a retirement the character recovered from.
+    // The display name too. The table is double-keyed, retirement is recorded
+    // per token, and `publish` clears every token the character is declared
+    // under.
     assert_eq!(
         assets.characters.retired_tier(ACTOR_NAME),
         None,
@@ -673,27 +652,22 @@ fn a_re_realized_character_no_longer_reports_a_retirement() {
     );
 }
 
-/// **AN ACTOR BIND IS ONE-SHOT, SO ITS GEOMETRY MUST BE COMPLETE BEFORE IT.**
+/// An actor bind is one-shot, so its geometry must be complete before it.
 ///
-/// `BoundFeatureKind` keys on kind + COLLISION size only (`feature_kind.rs`),
-/// so a render size that is corrected AFTER the bind never reaches the sprite:
-/// the collision footprint the key remembers has not changed, and nothing
-/// invalidates it. That is deliberate, not an oversight — widening the key to
-/// every presentation input would make a settling body rebuild its sprite
-/// repeatedly, and the animator's basis is meant to be chosen once.
+/// `BoundFeatureKind` keys on kind and collision size only (`feature_kind.rs`).
+/// A render size corrected after the bind does not reach the sprite. This is
+/// deliberate: a wider key would make a settling body rebuild its sprite, and
+/// the animator basis is chosen once.
 ///
-/// Locked here because it is the CONSTRAINT the construction seam has to
-/// satisfy: an actor must be geometry-complete at its first observable
-/// snapshot, because presentation will not take a second answer. The Mary-O
-/// snake violated it — construction sized the body from the catalog join while
-/// `sync_sprite_posed_bodies` resized it from the sheet a tick later, leaving
-/// exactly one tick of final collision beside a 5x spawn render size — and the
-/// fix was to give construction the sheet's body authority, not to widen this
-/// key.
+/// So an actor must be geometry-complete at its first observable snapshot.
+/// The Mary-O snake broke this rule: construction sized the body from the
+/// catalog and `sync_sprite_posed_bodies` resized it from the sheet a tick
+/// later. The fix gave construction the sheet's body authority; the key stays
+/// narrow.
 ///
-/// ⚠ The control is the same sequence with the collision size ALSO changing:
-/// that one does rebind, which is what says this is about the key's contents
-/// rather than about the binder never re-running.
+/// Control: the same sequence with the collision size also changing does
+/// rebind. So the test is about the key contents, not a binder that never
+/// re-runs.
 #[test]
 fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
     fn bind_then_correct(collision_changes: bool) -> (Option<Vec2>, Option<Vec2>) {
@@ -705,7 +679,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
         assets.characters.publish(ACTOR_NAME, art);
         app.insert_resource(assets);
 
-        // The snake's own numbers: collision already final, render still the
+        // The snake's numbers: collision already final, render still the
         // spawn/catalog size.
         let collision = ambition_platformer2d_core::Vec2::new(21.3, 9.5);
         let stale_render = ambition_platformer2d_core::Vec2::new(118.2, 118.2);
@@ -742,9 +716,8 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
             })
             .id();
         app.update();
-        // ⛔ THE BASIS, NOT `Sprite.custom_size`: the constructor applies
-        // frame-zero TRIM, so the sprite's quad is a per-frame derivation and
-        // reading it measured the trim rather than the bind.
+        // Read the basis, not `Sprite.custom_size`: the constructor applies
+        // frame-zero trim, so the quad size measures trim, not the bind.
         let basis = |app: &App| {
             app.world()
                 .get::<ambition_sprite_sheet::character::CharacterAnimator>(body)
@@ -778,8 +751,8 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
         "[latch] collision UNCHANGED: bound={bound_at:?} after_correction={after:?}\n\
          [latch] collision CHANGED  : bound={control_bound:?} after_correction={control_after:?}"
     );
-    // ANTI-VACUITY: the fixture must actually have bound something, and it
-    // must have bound the STALE size, or the arm below proves nothing.
+    // Non-vacuity: the fixture must bind the stale size, or the next arm
+    // proves nothing.
     let bound_at = bound_at.expect("the fixture must bind an animator with a render basis");
     assert!(
         (bound_at.x - 118.2).abs() < 1.0,
@@ -796,9 +769,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
          against a bind that takes one answer"
     );
 
-    // THE CONTROL: change the collision size too, and the same sequence
-    // rebinds. Without this the arm above could be about binding never
-    // updating at all.
+    // Control: change the collision size too, and the same sequence rebinds.
     let control = control_after.expect("the control animator exists");
     assert!(
         (control.x - 23.3).abs() < 1.0,
@@ -808,9 +779,9 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
     );
 }
 
-/// ⛔ The refresh rebinds the character a sprite was bound FROM. A body no
-/// binder stamped has none, and naming one for it (this defaulted to
-/// `player_robot_v3`) gave an unworn shell a character's sheet.
+/// The refresh rebinds the character that a sprite was bound from. A body
+/// that no binder stamped has none, and must not get a default character's
+/// sheet.
 #[test]
 fn the_refresh_binds_nothing_onto_a_body_no_binder_stamped() {
     let mut app = asset_app();
@@ -826,8 +797,8 @@ fn the_refresh_binds_nothing_onto_a_body_no_binder_stamped() {
         .world_mut()
         .spawn((PlayerVisual, ambition_sim_view::BodyPoseView::default()))
         .id();
-    // The control: the same body, stamped, IS bound — so the refusal above is
-    // the missing stamp speaking, not a fixture the pass cannot reach.
+    // Control: the same body, stamped, is bound. So the refusal comes from the
+    // missing stamp.
     let marked = app
         .world_mut()
         .spawn((
@@ -891,16 +862,16 @@ fn the_refresh_waits_for_a_settled_pose() {
     );
 }
 
-/// ⛔ An actor whose OWN art is declared but not resident yet is not drawn with
-/// whatever sheet its display name resolves. The actor binding is keyed on kind
-/// and collision size, which the arriving art does not change, so a substitute
-/// bound here would be kept. It waits on the placeholder, then binds its own.
+/// An actor whose own art is declared but not resident is not drawn with the
+/// sheet its display name resolves. The actor binding keys on kind and
+/// collision size, which the arriving art does not change, so a substitute
+/// would stay. The actor keeps the placeholder, then binds its own art.
 #[test]
 fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     const OWN_ART: &str = "probe_actor_art";
     let mut app = asset_app();
     app.insert_resource(quality(VisualQualityProfile::Medium));
-    // The NAME resolves a resident sheet; the art identity is only declared.
+    // The name resolves a resident sheet; the art identity is only declared.
     let by_name = a_pending_realization(&mut app, TextureResolutionScale::Half);
     the_image_lands(&mut app, &by_name);
     let name_image = by_name.texture.id();
@@ -953,11 +924,11 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
     );
 }
 
-/// ⛔ An actor is not bound its art while its body is not whole yet. The Hall
-/// of Characters builds `mary_o` at 32x48 on her first tick and 21.3x32 on her
-/// second (measured 2026-09-24): the prepared body is granted a tick after the
-/// placement. A binding made from the first tick builds its render basis once
-/// from the seeded quad, so the binder waits for `PoseGeometry::Settled`.
+/// An actor is not bound its art while its body is incomplete. The Hall of
+/// Characters builds `mary_o` at 32x48 on her first tick and 21.3x32 on the
+/// second: the prepared body arrives a tick after the placement. A bind from
+/// the first tick builds its render basis once from the seeded quad, so the
+/// binder waits for `PoseGeometry::Settled`.
 #[test]
 fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
     let mut app = asset_app();

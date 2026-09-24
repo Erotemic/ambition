@@ -50,7 +50,7 @@ fn publisher_installs_runtime_files_and_skips_diagnostics() {
     // Runtime files installed on disk.
     assert!(runtime_root.join("goblin_spritesheet.ron").exists());
     assert!(runtime_root.join("goblin_spritesheet.png").exists());
-    // Diagnostic NOT installed on disk.
+    // Diagnostic not installed on disk.
     assert!(!runtime_root.join("goblin_preview_labeled.png").exists());
 
     // Manifest records both runtime files and the un-installed diagnostic.

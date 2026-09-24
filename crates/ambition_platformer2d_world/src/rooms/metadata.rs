@@ -75,17 +75,13 @@ pub struct RoomNameplatePolicy {
     pub fade_out_count: Option<usize>,
     /// Does a body SOMEBODY IS DRIVING get a nameplate here?
     ///
-    /// ⭐⭐ THE DEFAULT (`None` ⇒ no) IS AN EXPLORATION RULE, and it stops being
-    /// right the moment a room holds more than one driven body. A plate exists
-    /// to name a body you are not inhabiting, so hiding it over the one you are
-    /// is honest in a game with a single driven body — and in a four-fighter
-    /// match it renders as "everyone is labelled except the human", which is
-    /// exactly the player-centrism this engine keeps removing. Jon, 2026-08-24:
-    /// *"This is player 1 centric behavior, and we should have none of it."*
+    /// The default (`None` means no) is an exploration rule. A plate names a
+    /// body you are not inhabiting, so hiding it over your one body is correct
+    /// with a single driven body. With several driven bodies it labels every
+    /// body except the human's, which is player-1-centric behavior.
     ///
-    /// ⇒ a room with a CAST declares `Some(true)` and every fighter is labelled
-    /// the same way. `Some(false)` labels none of them, which is the other
-    /// uniform answer and is one value away.
+    /// A room with a cast declares `Some(true)`, so every fighter is labelled
+    /// the same way. `Some(false)` labels none of them.
     pub label_driven_bodies: Option<bool>,
 }
 
@@ -143,18 +139,15 @@ pub struct RoomMetadata {
     ///
     /// A platformer's pit depth and a platform fighter's blast zone are the
     /// same number, and it belongs to the room. `None` takes the engine
-    /// default, which is what every room got when the number was a literal
-    /// inside the movement kernel — a stage could not disagree with it, which
-    /// is why a fighting stage could not be authored at all.
+    /// default.
     ///
     /// Authored as the LDtk level integer field `fall_out_margin`, in whole
     /// pixels, merged first-`Some`-wins like every other field here. Integer
-    /// because `RoomMetadata` is `Eq` and a distance in pixels has no business
-    /// being fractional; the composer widens it for the engine.
+    /// because `RoomMetadata` is `Eq`; the composer widens it for the engine.
     ///
-    /// ⛔ FLAT here, and grouped on the engine's `World`. The three are merged
-    /// independently first-`Some`-wins across metadata sources, so a struct
-    /// would have to merge field-by-field anyway and would only hide that.
+    /// The three margins are flat here and grouped on the engine's `World`.
+    /// Each merges independently, so a struct would still merge field by
+    /// field.
     pub fall_out_margin: Option<i32>,
     /// ACROSS the fall direction, in whole pixels. `None` — the default — means
     /// the sides are not a loss condition: walking off the left edge of a
@@ -176,12 +169,10 @@ pub struct RoomMetadata {
     /// Keeping this in room metadata lets authored content define progression
     /// without a room-id dispatch table in Rust.
     ///
-    ///  the engine does not check that the named room EXISTS. It cannot:
-    /// a level file states an id and only the loaded `RoomSet` knows which
-    /// rooms a session holds, so a room that names a destination it does not
-    /// have is a WARNING at the consumer, not a load-time refusal. Keeping it
-    /// a bare id rather than a resolved handle is what lets a room name a
-    /// sibling in another world file.
+    /// The engine does not check that the named room exists: only the loaded
+    /// `RoomSet` knows which rooms a session holds. A missing destination is
+    /// a warning at the consumer, not a load-time refusal. A bare id also
+    /// lets a room name a sibling in another world file.
     ///
     /// Authored as the LDtk level string field `next_room`, merged
     /// first-`Some`-wins like every other string field here.

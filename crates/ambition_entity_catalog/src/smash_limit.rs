@@ -30,11 +30,11 @@ pub struct LimitMeterFill {
     pub cap: f32,
     /// Added every second, regardless of what anybody does.
     pub per_second: f32,
-    /// Added once per damage INSTANCE this fighter dealt, whatever its size.
+    /// Added once per damage instance this fighter dealt, whatever its size.
     pub on_damage_dealt: f32,
     /// Added per point of damage dealt.
     pub per_damage_dealt: f32,
-    /// Added once per damage instance this fighter TOOK.
+    /// Added once per damage instance this fighter took.
     pub on_damage_taken: f32,
     /// Added per point of damage taken.
     pub per_damage_taken: f32,
@@ -61,7 +61,7 @@ impl LimitMeterFill {
         decay_per_second: 0.0,
     };
 
-    /// The Limit a seat is built with: this cap, EMPTY — it is earned, so no
+    /// The Limit a seat is built with: this cap, empty. It is earned, so no
     /// fighter enters a match, or respawns, able to spend it.
     pub fn declaration(&self) -> ambition_resource_spec::ResourceDeclaration {
         ambition_resource_spec::ResourceDeclaration::new(
@@ -71,12 +71,12 @@ impl LimitMeterFill {
         )
     }
 
-    /// What one damage instance contributes to the fighter who DEALT it.
+    /// What one damage instance contributes to the fighter who dealt it.
     pub fn dealt(&self, damage: i32) -> f32 {
         self.on_damage_dealt + self.per_damage_dealt * damage.max(0) as f32
     }
 
-    /// What one damage instance contributes to the fighter who TOOK it.
+    /// What one damage instance contributes to the fighter who took it.
     pub fn taken(&self, damage: i32) -> f32 {
         self.on_damage_taken + self.per_damage_taken * damage.max(0) as f32
     }

@@ -2,10 +2,11 @@
 //!
 //! A boss is assembled from five authored surfaces that must agree: behavior
 //! profiles, encounter specs, sprite-sheet overrides, provider-owned sprite
-//! filenames, and special-attack telegraph rows. Providers contribute immutable fragments; a Bevy [`App`]
-//! assembles one deterministic [`BossCatalog`] resource. Runtime systems and
-//! pure spawn helpers receive that catalog explicitly, so two Apps in one
-//! process may host different boss sets without first-install-wins state.
+//! filenames, and special-attack telegraph rows. Providers contribute
+//! immutable fragments; a Bevy [`App`] assembles one deterministic
+//! [`BossCatalog`] resource. Runtime systems and pure spawn helpers receive
+//! that catalog explicitly, so two Apps in one process may host different
+//! boss sets.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -31,22 +32,19 @@ pub struct BossCatalog {
 impl BossCatalog {
     /// Canonical generation material for every boss this App holds.
     ///
-    /// ⛔⛤ **THE BOSS CATALOG IS MECHANICAL AND REACHED NO FINGERPRINT.**
-    /// `PlatformerSessionBuilder` consumes it while constructing the session,
-    /// and it carries behaviour profiles, encounter definitions, sheet specs and
-    /// fallback identities — so two compositions could differ in how a boss
-    /// FIGHTS and share one `PreparedContentIdentity`.
+    /// The boss catalog is mechanical content: `PlatformerSessionBuilder`
+    /// consumes it, and it carries behavior profiles, encounter definitions,
+    /// sheet specs and fallback identities. So it must reach the
+    /// fingerprint; otherwise two compositions could differ in how a boss
+    /// fights and share one `PreparedContentIdentity`.
     ///
-    /// ⚠ Every field is a `BTreeMap`, so iteration order is the content's own
-    /// and not registration order; the derived `Serialize` is what keeps this
-    /// exhaustive when a field is added, rather than a hand-listed set that a
-    /// new field would silently miss.
-    /// ⛔⛤ **IT REFUSES RATHER THAN HASHING AN ERROR MESSAGE.** The first version
-    /// returned `<boss-catalog unserializable: {error}>`, which fails OPEN into
-    /// the identity machinery: two catalogs that both fail for the same reason
-    /// hash identically, and that hash is what the rollback timeline contract
-    /// compares. A generation whose mechanical material cannot be rendered has
-    /// no identity.
+    /// Every field is a `BTreeMap`, so iteration order follows the content,
+    /// not registration order. The derived `Serialize` keeps this exhaustive
+    /// when a field is added.
+    ///
+    /// It returns an error and does not hash an error message: two catalogs
+    /// failing for the same reason would hash identically, and that hash is
+    /// what the rollback timeline contract compares.
     pub fn deterministic_dump(&self) -> Result<String, String> {
         ron::to_string(self).map_err(|error| {
             format!("the boss catalog cannot be rendered as canonical generation material: {error}")
@@ -233,16 +231,12 @@ impl BossCatalogFragment {
         )
     }
 
-    /// The same assembly, with the roster and the encounters ALREADY PARSED.
+    /// The same assembly, with the roster and the encounters already parsed.
     ///
-    /// this is what lets the content pack be the load path.
-    /// [`Self::from_ron`] re-parses bytes the compiler has already read and
-    /// judged — two readers of one file, which is the split the content pack
-    /// exists to close. A provider whose content came out of a
-    /// `PreparedContentPack` hands the lowered values here instead.
-    ///
-    /// Ambition authors nine encounter files; until then the pack could only validate them and the
-    /// runtime parsed all nine again, right in this function.
+    /// This lets the content pack be the load path. [`Self::from_ron`] would
+    /// re-parse bytes the compiler already read and judged. A provider whose
+    /// content comes from a `PreparedContentPack` passes the lowered values
+    /// here.
     #[allow(clippy::too_many_arguments)]
     pub fn from_prepared(
         provider_id: impl Into<String>,

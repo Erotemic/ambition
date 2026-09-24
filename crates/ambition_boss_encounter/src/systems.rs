@@ -1,11 +1,12 @@
-//! Boss-encounter Bevy systems — the per-frame driver.
+//! Boss-encounter Bevy systems: the per-frame driver.
 //!
-//! `populate_boss_encounter_registry` (startup) loads the read-only profile catalog.
-//! `update_boss_encounters` (per sim-tick) seeds + wakes bosses in the active room, ticks each
-//! phase machine, publishes events, mirrors phase HP/phase onto the boss ECS clusters, manages the
-//! adaptive-music request lifetime, and syncs reward chests. `boss_phase_transition_feedback`
-//! CONSUMES the `BossPhaseChanged` edge that driver announces, firing camera shake + a `DamageBox`
-//! shockwave + scream VFX on dramatic transitions.
+//! `populate_boss_encounter_registry` (startup) loads the read-only profile
+//! catalog. `update_boss_encounters` (per sim tick) seeds and wakes bosses in
+//! the active room, ticks each phase machine, publishes events, mirrors phase
+//! HP/phase onto the boss ECS clusters, manages the adaptive-music request, and
+//! syncs reward chests. `boss_phase_transition_feedback` consumes the
+//! `BossPhaseChanged` edge that driver announces and fires camera shake, a
+//! `DamageBox` shockwave and scream VFX on dramatic transitions.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -37,8 +38,8 @@ pub fn populate_boss_encounter_registry(
     }
     // Per ADR 0017: named boss encounter specs are authored in
     // `ambition_content/assets/data/boss_encounters/<id>.ron` and assembled
-    // into the App-local catalog before the registry is populated. Log a one-time startup census so a
-    // missing provider composition or empty catalog is visible immediately.
+    // into the App-local catalog before this runs. Log a one-time startup
+    // census, so a missing provider or an empty catalog is visible.
     let profiles = default_boss_profiles(&catalog);
     let total = profiles.len();
     bevy::log::info!(
@@ -48,16 +49,15 @@ pub fn populate_boss_encounter_registry(
     for profile in profiles {
         registry.ensure_profile(profile);
     }
-    // The registry is a read-only DATA CATALOG (profiles only). Persisted
-    // "cleared" is applied per-entity in `update_boss_encounters` against the
-    // boss's own state, not pre-seeded here.
+    // The registry is a read-only data catalog (profiles only). Persisted
+    // "cleared" is applied per entity in `update_boss_encounters`.
     registry.specs_loaded = true;
 }
 
 /// Drive every boss's entity-local phase mechanism: seed from the profile
 /// catalog, wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
-/// The body's `BodyHealth` (§A1) + `BossEncounter.encounter` ARE the source of truth.
+/// The body's `BodyHealth` and `BossEncounter.encounter` are the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
     catalog: Res<BossCatalog>,
@@ -91,7 +91,7 @@ pub fn update_boss_encounters(
             Entity,
             &ambition_combat::FeatureId,
             crate::BossClusterQueryData,
-            // The boss's shared body components (§A1): HP authority + the
+            // The boss's shared body components: HP authority and the
             // hit-flash/reaction timers.
             &mut ambition_characters::actor::BodyHealth,
             &mut ambition_characters::actor::BodyCombat,
@@ -108,14 +108,14 @@ pub fn update_boss_encounters(
         return;
     };
 
-    // Sim clock: phase pacing (intro / phase-change timers, death outro,
-    // reward grace) freezes alongside the player in bullet-time (ADR 0010); we
-    // don't want phase transitions to fire while the sim is stopped.
+    // Sim clock: phase pacing (intro/phase-change timers, death outro, reward
+    // grace) freezes with the player in bullet-time (ADR 0010), so phase
+    // transitions do not fire while the sim is stopped.
     let dt = world_time.sim_dt();
 
-    // Active-fight music track (first fighting boss wins) + reward anchors,
-    // collected as we drive each boss. Anchors carry (placement_id,
-    // archetype_id, spawn): R4 keys "cleared" + rewards by PLACEMENT.
+    // Active-fight music track (first fighting boss wins) and reward anchors,
+    // collected per boss. Anchors are (placement_id, archetype_id, spawn):
+    // "cleared" and rewards are keyed by placement.
     let mut active_music_track: Option<String> = None;
     let mut boss_anchors: Vec<(String, String, ae::Vec2)> = Vec::new();
 
@@ -124,9 +124,9 @@ pub fn update_boss_encounters(
         let runtime_id = feature.config.id.clone();
         let boss_name = feature.config.name.clone();
 
-        // Resolve the authored profile from the read-only catalog (or a generic
-        // stub). `behavior.id` is the canonical archetype id resolved at spawn
-        // from the brain's `PhaseScript:` payload.
+        // Resolve the authored profile from the read-only catalog (or a
+        // generic stub). `behavior.id` is the canonical archetype id resolved
+        // at spawn from the brain's `PhaseScript:` payload.
         let profile = registry
             .profiles
             .get(&archetype_id)
@@ -142,11 +142,10 @@ pub fn update_boss_encounters(
             });
         let spec = profile.encounter.clone();
 
-        // Seed entity-local state ONCE from the profile (phase triggers as data
-        // + HP + behavior). Two of the same boss seed independent state by
-        // construction. The per-spawn `BossOverrides` (hp / combat_size / phase
-        // triggers) are applied HERE so the profile application above can't
-        // clobber them.
+        // Seed entity-local state once from the profile (phase triggers, HP,
+        // behavior), so two of the same boss have independent state. The
+        // per-spawn `BossOverrides` (hp / combat_size / phase triggers) are
+        // applied here, so the profile cannot overwrite them.
         if feature.status.encounter.is_none() {
             feature
                 .as_boss_mut()
@@ -167,10 +166,10 @@ pub fn update_boss_encounters(
             feature.status.encounter = Some(crate::ActorPhaseState::new(triggers));
         }
 
-        // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —
-        // a cleared placement renders defeated and is otherwise inert. Shared
-        // predicate (`boss_is_cleared`) with construction, which builds a
-        // cleared placement defeated, so the two can't drift.
+        // Persisted "cleared" is keyed to this placement, not the archetype. A
+        // cleared placement renders defeated and is otherwise inert. The
+        // predicate (`boss_is_cleared`) is shared with construction, so they
+        // agree.
         if crate::boss_is_cleared(&save, &feature.config) {
             health.health.current = 0;
             if let Some(phase) = feature.status.encounter.as_mut() {
@@ -179,27 +178,21 @@ pub fn update_boss_encounters(
             continue;
         }
 
-        // ⭐ WAS THE DEATH ALREADY SETTLED BEFORE THIS TICK? Read before the tick,
-        // because the record below is a fact about an EVENT and must be written on
-        // its edge.
+        // Was the death already settled before this tick? Read before the
+        // tick, because the record below is written on the event's edge.
         //
-        // ⛔⛔ IT USED TO BE RE-DERIVED FROM THE CORPSE, EVERY FRAME, and the
-        // `if !boss_is_cleared(..)` guard made that look idempotent. It is not:
-        // a road that RETRACTS the record — a room replay clearing the attempt so
-        // the boss can be re-fought — had its retraction overwritten on the very
-        // next frame by the body it was replaying. That was invisible while the
-        // only replay reset the corpse in the same frame it cleared the record;
-        // it became live the moment the rebuild moved to a confirmed lifecycle
-        // boundary two frames later.
+        // Do not re-derive it from the corpse each frame: a room replay that
+        // retracts the record (so the boss can be fought again) would have its
+        // retraction overwritten on the next frame.
         let death_was_already_settled = feature
             .status
             .encounter
             .as_ref()
             .is_some_and(|phase| phase.death_outro_complete(spec.death_seconds));
 
-        // Wake (Dormant → start) while alive, then advance the phase mechanism.
-        // The phase ticks even when not alive so a dead boss's death OUTRO timer
-        // advances (so `death_outro_complete` can fire).
+        // Wake (Dormant → start) while alive, then advance the phase
+        // mechanism. The phase also ticks when dead, so the death outro timer
+        // advances (and `death_outro_complete` can fire).
         let alive = health.alive();
         let hp_fraction = health.health.ratio();
         let mut phase_events = Vec::new();
@@ -212,10 +205,9 @@ pub fn update_boss_encounters(
         }
         for ev in &phase_events {
             publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
-            // the transition edge, from the authority that commits it
-            // (P0.2). Every consumer of "this boss just changed phase" reads
-            // this rather than diffing state against a memory of its own; see
-            // `BossPhaseChanged` for what the `Local` diff cost on a rollback.
+            // the transition edge, from the authority that commits it. Every
+            // consumer of "this boss just changed phase" reads this, not a
+            // diff against its own memory (see `BossPhaseChanged`).
             if let crate::BossPhaseEvent::PhaseChanged { from, to } = ev {
                 phase_changes.write(super::events::BossPhaseChanged {
                     boss: boss_entity,
@@ -240,21 +232,21 @@ pub fn update_boss_encounters(
             combat.hit_flash = 0.0;
         }
 
-        // Death resolution: once the outro elapses, record this PLACEMENT as
-        // Cleared (R4) + fire the quest event (idempotent — only the first time
-        // the placement flips to Cleared). The quest event still carries the
-        // ARCHETYPE id (quest objectives are about the boss kind, e.g. "defeat
-        // the Gradient Sentinel").
+        // Death resolution: once the outro ends, record this placement as
+        // Cleared and fire the quest event (once, when the placement first
+        // becomes Cleared). The quest event carries the archetype id (quest
+        // objectives are about the boss kind, e.g. "defeat the Gradient
+        // Sentinel").
         if matches!(phase, crate::BossEncounterPhase::Death) && death_done {
-            // A scripted / environmental kill can reach Death with HP left —
-            // zero it so `alive()` (THE liveness authority, §A1) agrees.
+            // A scripted or environmental kill can reach Death with HP left;
+            // zero it so `alive()`, the liveness authority, agrees.
             if health.alive() {
                 health.health.current = 0;
             }
-            // The EDGE, not the resting state: recorded the frame the outro
+            // The edge, not the resting state: recorded on the frame the outro
             // completes and never again, so the record can be retracted while
-            // the corpse is still standing. `boss_is_cleared` still guards the
-            // quest event, which must fire once per placement either way.
+            // the corpse stands. `boss_is_cleared` still guards the quest
+            // event, which fires once per placement.
             if !death_was_already_settled && !crate::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
@@ -268,9 +260,10 @@ pub fn update_boss_encounters(
             }
         }
 
-        // Collect the active-fight music + the reward anchor (placement_id,
-        // archetype_id, spawn): the reward sync keys the chest + looted flag by
-        // PLACEMENT and resolves the DropChest reward via the archetype profile.
+        // Collect the active-fight music and the reward anchor
+        // (placement_id, archetype_id, spawn): the reward sync keys the chest
+        // and looted flag by placement and resolves the DropChest reward via
+        // the archetype profile.
         if active_music_track.is_none() {
             if let Some(track) = phase_music_track(&spec, phase) {
                 if !track.is_empty() {
@@ -285,17 +278,15 @@ pub fn update_boss_encounters(
         ));
     }
 
-    // Music-request lifetime: keep the active boss's track up; clear it when no
-    // boss is in an active-fight phase (boss defeated, or player left the room
-    // so no boss entities exist) so room music resumes. Pinned by
-    // `boss_music_plays_during_the_fight` +
+    // Music-request lifetime: keep the active boss's track up; clear it when
+    // no boss is in an active-fight phase (defeated, or the player left the
+    // room), so room music resumes. Guarded by
+    // `boss_music_plays_during_the_fight` and
     // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
     //
-    // It releases only its OWN claim. This system has no run condition, so it
-    // reaches the "no boss is fighting" arm on every frame of every game — and
-    // when that arm cleared the tier outright it silenced every other claimant
-    // in the engine. A demo with no bosses at all could not hold priority music
-    // for a single frame.
+    // Release only this system's own claim. It has no run condition, so the
+    // "no boss is fighting" arm runs every frame of every game; clearing the
+    // whole tier would silence every other music claimant.
     match active_music_track {
         Some(track) => music_request.claim_priority(BOSS_MUSIC_OWNER, track),
         None => music_request.release_priority(BOSS_MUSIC_OWNER),
@@ -359,9 +350,9 @@ const BOSS_PHASE_SHAKE_PX: f32 = 11.0;
 pub fn boss_phase_transition_feedback(
     mut phase_changes: MessageReader<super::events::BossPhaseChanged>,
     mut sfx: ambition_sfx::SfxWriter,
-    // P0.1: an intent, not a write. The kick is applied on the far side of the
-    // confirmed-frame boundary, so a phase change on a predicted frame that the
-    // correction erases cannot leave a shake behind it.
+    // An intent, not a write. The kick is applied after the confirmed-frame
+    // boundary, so a phase change on a predicted frame that a correction
+    // erases leaves no shake.
     mut shake: MessageWriter<ambition_platformer2d_shared_tangle::camera_ease::CameraShakeRequest>,
     // Boss geometry — the actor that emits the phase-transition shockwave.
     bosses: Query<
@@ -391,12 +382,12 @@ pub fn boss_phase_transition_feedback(
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: ae::Vec2::ZERO,
             });
-            // The transition is a dodge-able GAMEPLAY beat, not just feel: the
-            // boss emits a `DamageBox` effect through the SAME generic
+            // The transition is a dodgeable gameplay beat, not only feel: the
+            // boss emits a `DamageBox` effect through the same generic
             // `apply_effects` consumer the player's shockwave gauntlet uses.
-            // Resolved at the boss's own position + side (`HitSide::Boss`),
-            // so the shared `apply_hitbox_damage` lands it on the player — the
-            // literal "player and boss fire the same attack" unification, in-game.
+            // It is resolved at the boss's position and side
+            // (`HitSide::Boss`), so the shared `apply_hitbox_damage` lands it
+            // on the player.
             effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
                 effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
@@ -409,9 +400,8 @@ pub fn boss_phase_transition_feedback(
                     name: Some("Shockwave AOE"),
                 }),
             });
-            // "Scream lines": a sharp radial spark burst FROM the boss, so the
-            // phase change reads as a dramatic beat instead of a silent state
-            // flip (#122 "transitions are not noticeable / too short").
+            // "Scream lines": a sharp radial spark burst from the boss, so the
+            // phase change is noticeable and not a silent state flip.
             vfx.write(ambition_vfx::vfx::VfxMessage::Burst {
                 pos: kin.pos,
                 count: 24,
@@ -425,8 +415,7 @@ pub fn boss_phase_transition_feedback(
 
 #[cfg(test)]
 mod phase_feedback_tests {
-    //! P0.2: the feedback fires from the ANNOUNCED edge, not from a memory of
-    //! its own.
+    //! The feedback fires from the announced edge, not from its own memory.
     use super::*;
     use crate::test_support::{test_boss_config, test_boss_status};
     use crate::BossEncounterPhase;
@@ -472,9 +461,8 @@ mod phase_feedback_tests {
             .write(super::super::events::BossPhaseChanged { boss, from, to });
     }
 
-    /// What the transition asked the world for this frame. The shockwave is the
-    /// GAMEPLAY half — the reason this system's correctness is a rollback
-    /// question and not a feel question.
+    /// What the transition asked the world for this frame. The shockwave is
+    /// the gameplay half, which makes correctness a rollback question.
     fn requested(app: &App) -> (usize, usize) {
         (
             app.world().resource::<Messages<CameraShakeRequest>>().len(),
@@ -523,8 +511,8 @@ mod phase_feedback_tests {
     /// A boss standing in a dramatic phase, with nothing announced, does
     /// nothing.
     ///
-    /// the level-versus-edge poison. There is no phase-reading left to perturb: the system cannot
-    /// see `Enrage` at all, only the announcement of entering it.
+    /// Level versus edge: the system cannot see `Enrage`, only the
+    /// announcement of entering it.
     #[test]
     fn a_boss_already_standing_in_a_dramatic_phase_fires_nothing() {
         let mut app = test_app();
@@ -538,24 +526,18 @@ mod phase_feedback_tests {
         );
     }
 
-    /// THE ROLLBACK FALSIFIER. (P0.2)
+    /// A re-simulated transition still fires on the corrected timeline.
     ///
-    /// this is the case the `Local<HashMap<..>>` got wrong, and it is a
-    /// GAMEPLAY loss rather than a cosmetic one: the shockwave is a `DamageBox`
-    /// the player is meant to dodge.
+    /// Rollback case: a predicted frame enters `Enrage` and the shockwave
+    /// spawns. The host rewinds: `BossEncounter` is rollback-registered and
+    /// returns to `Phase1`, and the `DamageBox` is removed. A system with
+    /// non-rollback memory (such as a `Local` map) would remember `Enrage`,
+    /// see no change on the corrected pass, and produce nothing. The shockwave
+    /// is a `DamageBox` the player must dodge, so this is a gameplay loss.
     ///
-    /// The old shape, step by step: a predicted frame enters `Enrage`, the map
-    /// records `Enrage`, the shockwave spawns. The host rewinds — `BossEncounter`
-    /// is rollback-registered and goes back to `Phase1`, the spawned `DamageBox`
-    /// is rewound out of existence, and the map is not restored, because a
-    /// `Local` is not rollback state. The corrected pass enters `Enrage` again,
-    /// the diff compares `Enrage` to a remembered `Enrage`, finds no change, and
-    /// the transition produces NOTHING on the timeline the session settled on.
-    ///
-    /// the fixture reproduces the rewind, not a mock of it: the same system
-    /// instance — so it keeps whatever memory it has — sees the same transition
-    /// announced twice, which is exactly what a re-simulated frame does. A system
-    /// carrying non-rollback memory answers the second one with silence.
+    /// The fixture reproduces the rewind: the same system instance (with any
+    /// memory it has) sees the same transition announced twice, as a
+    /// re-simulated frame does.
     #[test]
     fn a_resimulated_transition_still_fires_on_the_corrected_timeline() {
         let mut app = test_app();
@@ -571,10 +553,9 @@ mod phase_feedback_tests {
         app.update();
         assert_eq!(requested(&app), (1, 1), "the predicted pass fired");
 
-        // The rewind: everything the abandoned pass produced is gone. (Rollback
-        // restores simulation state; these channels are what presentation and
-        // the effect consumer would have seen, so clearing them models the pass
-        // being taken back.)
+        // The rewind: everything the abandoned pass produced is gone. These
+        // channels are what presentation and the effect consumer would have
+        // seen, so clearing them models the pass being taken back.
         app.world_mut()
             .resource_mut::<Messages<CameraShakeRequest>>()
             .clear();
@@ -582,8 +563,8 @@ mod phase_feedback_tests {
             .resource_mut::<Messages<ambition_vfx::EffectRequest>>()
             .clear();
 
-        // The corrected pass re-runs the phase machine, which re-announces the
-        // same change because the corrected timeline really does cross it.
+        // The corrected pass re-runs the phase machine, which announces the
+        // same change again because the corrected timeline crosses it.
         announce(
             &mut app,
             boss,
@@ -606,9 +587,9 @@ mod phase_feedback_tests {
 
 #[cfg(test)]
 mod mount_death_bridge_tests {
-    //! Q19a: `MountDied` → the rider boss's `External("mount_died")` phase
-    //! trigger. `notify_bosses_on_mount_death` is
-    //! `PhaseTriggerCondition::External`'s first production caller.
+    //! `MountDied` → the rider boss's `External("mount_died")` phase trigger.
+    //! `notify_bosses_on_mount_death` is the first production caller of
+    //! `PhaseTriggerCondition::External`.
     use super::*;
     use crate::test_support::{test_boss_config, test_boss_status_with};
     use crate::BossEncounter;

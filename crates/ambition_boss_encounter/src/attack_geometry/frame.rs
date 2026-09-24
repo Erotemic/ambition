@@ -15,11 +15,10 @@ pub(super) fn sprite_authored_volumes(
     animation_elapsed_s: f32,
 ) -> Option<Vec<ae::CombatVolume>> {
     let metrics = ctx.sprite_metrics?;
-    // Use the SPRITE RENDER SIZE (not `ctx.size`) — that's the
-    // world-space extent of the visible sprite quad. `ctx.size` is
-    // the LDtk spawn AABB which is smaller than the rendered sprite
-    // (collision_scale > 1.0 in every sheet spec). Using ctx.size
-    // would render hitboxes at half the visible size of the attack.
+    // Use the sprite render size, not `ctx.size`: it is the world-space extent
+    // of the visible sprite quad. `ctx.size` is the LDtk spawn AABB, which is
+    // smaller (collision_scale > 1.0 in every sheet spec), so hitboxes would be
+    // about half the visible attack size.
     let world_size = sprite_world_size(metrics, ctx.size);
     for animation in crate::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile) {
         let Some(entry) = metrics.animations.get(&animation) else {
@@ -71,28 +70,23 @@ pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
 /// The animation keys a runtime lookup will try, with their two provenances
 /// kept apart.
 ///
-/// Removing the push left all 21 derivation tests green, which is how the gap was found.
+/// The sample key is a fallback that can hide missing profile rows. It cannot
+/// simply be removed: `apple_rain` is a `Special` absent from the content
+/// crate's `special_animation_keys()`, so its profile claims nothing and the
+/// sample key is the only thing that finds its damageable row. Removing it
+/// changes a live boss's hurtbox, which is a content decision (tracked in
+/// `awaiting-maintainer-decision.md`).
 ///
-/// the push cannot simply be deleted. `apple_rain` is a `Special` absent from
-/// the content crate's `special_animation_keys()`, so its profile claims NOTHING
-/// and the sample key is the only thing that finds its damageable row. Deleting
-/// the push changes a live boss's hurtbox. That is a CONTENT decision and it sits
-/// in `awaiting-maintainer-decision.md`.
-///
-/// what is not blocked is telling the two apart. Behaviour is unchanged —
-/// [`Self::in_lookup_order`] rebuilds the exact list, same order, same dedup —
-/// but the rescue is now a property something can assert on
-/// ([`Self::only_the_sample_names_a_key`]) instead of a comment. The day the
-/// content decision lands, that predicate goes false for `apple_rain` and the
-/// fold's precondition is a test result rather than an argument.
+/// So the two sources are kept apart. [`Self::in_lookup_order`] rebuilds the
+/// exact list (same order, same dedup), and
+/// [`Self::only_the_sample_names_a_key`] makes the rescue testable. When the
+/// content decision lands, that predicate becomes false for `apple_rain`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct RuntimeAnimationKeys {
-    /// The key the LIVE SAMPLE names, present only when the sample's profile is
-    /// the one being resolved. The fallback that rescues a profile claiming no
-    /// rows — and the term that makes a key-based rule untestable while it is
-    /// folded into the list below.
+    /// The key the live sample names, present only when the sample's profile
+    /// is the one being resolved. It rescues a profile that claims no rows.
     pub(super) sample_key: Option<String>,
-    /// The keys the PROFILE itself claims (or `rest_keys` when there is no
+    /// The keys the profile itself claims (or `rest_keys` when there is no
     /// profile). This is what a key-based rule would actually consult.
     pub(super) claimed: Vec<String>,
 }
@@ -112,15 +106,13 @@ impl RuntimeAnimationKeys {
         keys
     }
 
-    /// The circularity, as a predicate. True when the sample's own key is the
-    /// only thing naming a row — i.e. this profile's rows are found only because
-    /// the sample rescued it, and a key-based rule would miss and fall back to
-    /// elapsed-time sampling.
-    /// a TEST is its only caller, deliberately — the doc above says the point
-    /// is that the rescue becomes "a test result rather than an argument", so a
-    /// production caller was never the goal. Silenced rather than `#[cfg(test)]`
-    /// because the type's own doc links to it, and a cfg'd item breaks that link
-    /// in a normal build.
+    /// True when the sample's own key is the only thing naming a row: this
+    /// profile's rows are found only because the sample rescued it, and a
+    /// key-based rule would miss and fall back to elapsed-time sampling.
+    ///
+    /// Only tests call it. It is allowed dead code, not `#[cfg(test)]`, because
+    /// the type's doc links to it and a cfg'd item would break that link in a
+    /// normal build.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(super) fn only_the_sample_names_a_key(&self) -> bool {
         self.sample_key.is_some() && self.claimed.iter().all(|key| key.is_empty())

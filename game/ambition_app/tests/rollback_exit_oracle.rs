@@ -512,10 +512,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored faction; changed only by possession, which respawns the body",
         ),
         (
-            "ambition_characters::control::PlayerSlot",
-            "authored slot index; immutable for the session",
-        ),
-        (
             "ambition_characters::brain::action_set::ActionSet",
             "MUTATED AT RUNTIME (checked 2026-08-29): `apply_catalog_mode` overwrites\
              the whole value for a peaceful body — wants a value projection",

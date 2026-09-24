@@ -24,7 +24,7 @@ use bevy::prelude::*;
 /// types (heal, damage, respawn, cosmetic, …) SHOULD carry either an
 /// `Entity` or a `PlayerSlot` so they don't silently assume the
 /// primary player.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PlayerSlot(pub u8);
 
 impl PlayerSlot {

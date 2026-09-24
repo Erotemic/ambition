@@ -49,14 +49,13 @@ fn two_players_have_independent_active_attacks() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(0),
             PrimaryPlayer,
             BodyMelee::default(),
         ))
         .id();
     let p2 = app
         .world_mut()
-        .spawn((PlayerEntity, PlayerSlot(1), BodyMelee::default()))
+        .spawn((PlayerEntity, BodyMelee::default()))
         .id();
 
     // Start an attack on player 1 only.
@@ -99,7 +98,6 @@ fn two_players_have_independent_safety_anchors() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(0),
             PrimaryPlayer,
             PlayerSafetyState::new(p1_initial),
         ))
@@ -108,7 +106,6 @@ fn two_players_have_independent_safety_anchors() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(1),
             PlayerSafetyState::new(p2_initial),
         ))
         .id();
@@ -150,8 +147,8 @@ fn two_players_have_independent_safety_anchors() {
 fn primary_player_query_resolves_with_two_players_spawned() {
     let mut app = App::new();
     app.world_mut()
-        .spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
-    app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
+        .spawn((PlayerEntity, PrimaryPlayer));
+    app.world_mut().spawn((PlayerEntity,));
 
     let mut q = app
         .world_mut()
@@ -172,17 +169,20 @@ fn primary_player_query_resolves_with_two_players_spawned() {
 #[test]
 fn player_entity_query_iterates_all_spawned_players() {
     let mut app = App::new();
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
     app.world_mut()
-        .spawn((PlayerEntity, PlayerSlot(0), PrimaryPlayer));
-    app.world_mut().spawn((PlayerEntity, PlayerSlot(1)));
-    app.world_mut().spawn((PlayerEntity, PlayerSlot(2)));
+        .spawn((PlayerEntity, SimId::player_slot(0), PrimaryPlayer));
+    app.world_mut().spawn((PlayerEntity, SimId::player_slot(1)));
+    app.world_mut().spawn((PlayerEntity, SimId::player_slot(2)));
 
     let mut q = app
         .world_mut()
-        .query_filtered::<&PlayerSlot, With<PlayerEntity>>();
-    let mut slots: Vec<u8> = q.iter(app.world()).map(|s| s.0).collect();
-    slots.sort_unstable();
-    assert_eq!(slots, vec![0, 1, 2]);
+        .query_filtered::<&SimId, With<PlayerEntity>>();
+    let mut ids: Vec<String> = q.iter(app.world()).map(|id| id.as_str().to_string()).collect();
+    ids.sort_unstable();
+    let mut expected: Vec<String> = (0..3).map(|n| SimId::player_slot(n).as_str().to_string()).collect();
+    expected.sort_unstable();
+    assert_eq!(ids, expected);
 }
 
 /// `BodyMelee::clear` zeroes the attack on its own
@@ -195,7 +195,6 @@ fn clear_is_per_entity() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(0),
             BodyMelee {
                 swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec.clone())),
                 ..Default::default()
@@ -206,7 +205,6 @@ fn clear_is_per_entity() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(1),
             BodyMelee {
                 swing: Some(ambition_combat::components::MeleeSwing::new(attack_spec)),
                 ..Default::default()
@@ -253,7 +251,6 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(0),
             PrimaryPlayer,
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
@@ -266,7 +263,6 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(1),
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
@@ -303,7 +299,6 @@ fn untargeted_heal_routes_to_primary() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(0),
             PrimaryPlayer,
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
@@ -316,7 +311,6 @@ fn untargeted_heal_routes_to_primary() {
         .world_mut()
         .spawn((
             PlayerEntity,
-            PlayerSlot(1),
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,

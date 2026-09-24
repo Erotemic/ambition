@@ -407,15 +407,8 @@ classes of read are not borrows:
 seen as presence-filtered, `SaveRestored` as a resource read) with the inverse
 arms as anti-looseness controls, and both were poisoned.
 
-⛔ **THE ONE ROW WITH NO PRODUCTION READER IS `player.local_marker`.**
-`LocalPlayer` is `component-clone`: snapshotted every frame, not in the session
-checksum, localizable only by a carrier count. Its 16 production mentions are a
-definition, a re-export, two
-insertions, a rollback registration and doc comments — not one read. Its only
-`With<LocalPlayer>` is in `smash_in_the_host.rs`, a test. Pinned by
-`test_local_player_is_registered_for_rollback_and_read_by_nothing`, which is
-deliberately tied to the live finding and says in its own message which failure
-direction is the good one.
+✅ **`player.local_marker`, THE ONE ROW WITH NO PRODUCTION READER, IS DELETED** (schema
+v214): `LocalPlayer` was a per-peer marker in snapshotted state that nothing read.
 
 ⛔⛤ **AND THE GUARD THAT CAUGHT THE SPELLING BUG WENT BLIND THE SAME DAY, TO A
 CHANGE THAT HAD NOTHING TO DO WITH IT.** The first fix floored the census at 120

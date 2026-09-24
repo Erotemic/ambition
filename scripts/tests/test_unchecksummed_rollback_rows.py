@@ -147,7 +147,7 @@ def test_the_triage_sees_a_presence_filter_and_a_resource_read():
       `PortalFrameHistory` all reported zero readers while each is a live
       `Res`/`ResMut` parameter.
 
-    Both zeros were in the reassuring direction. 20 rows read as unread; 1 is.
+    Both zeros were in the reassuring direction. 20 rows read as unread; one was (`LocalPlayer`, since deleted).
     """
     module = _module()
     assert len(module.presence_filter_sites("FeatureSimEntity")) >= 20, (
@@ -164,30 +164,6 @@ def test_the_triage_sees_a_presence_filter_and_a_resource_read():
     assert not module.resource_read_sites("FeatureSimEntity"), (
         "a component is not a `Res`; if this matches, the pattern is loose"
     )
-
-
-def test_local_player_is_registered_for_rollback_and_read_by_nothing():
-    """⛔ THE ONE ROW THE WIDENED TRIAGE STILL CANNOT FIND A READER FOR.
-
-    `player.local_marker` is `component-clone`: snapshotted every frame, not in
-    the session checksum, and localizable only by a carrier count. Its 16
-    production mentions are a definition, a
-    re-export, two insertions, a rollback registration and doc comments — not one
-    read. Its only `With<LocalPlayer>` is in `smash_in_the_host.rs`, a test.
-
-    ⚠ THIS ARM IS PINNED TO A LIVE FINDING AND WILL DIE WHEN IT IS FIXED. If it
-    fails because a production reader appeared, that is the good outcome: delete
-    the arm and the row's entry. If it fails because the triage stopped seeing
-    reads, that is the bad one — check `FeatureSimEntity` and `SaveRestored`
-    above first, since those are the known-answer controls.
-    """
-    module = _module()
-    per_tick, gated = module.reader_sites("LocalPlayer")
-    assert not per_tick and not gated, f"borrowed somewhere now: {per_tick + gated}"
-    assert not module.presence_filter_sites("LocalPlayer"), (
-        "filtered on in production now — this row has a reader"
-    )
-    assert not module.resource_read_sites("LocalPlayer"), "LocalPlayer is not a resource"
 
 
 def test_the_sharpest_list_is_an_intersection_and_excludes_each_operand_alone():

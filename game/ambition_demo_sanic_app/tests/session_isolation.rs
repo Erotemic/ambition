@@ -54,7 +54,6 @@ fn primary_player(app: &mut App) -> Option<Entity> {
     first
 }
 
-const PROBE_ENCOUNTER: &str = "session_isolation_probe";
 
 #[test]
 fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
@@ -72,10 +71,7 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
     // them. Using the real player entity makes each a genuine dangling handle
     // the instant the sweep despawns it.
     app.world_mut().resource_mut::<PossessionState>().possessed = Some(player_a);
-    app.world_mut()
-        .resource_mut::<EncounterRegistry>()
-        .ids
-        .insert(PROBE_ENCOUNTER.to_owned(), player_a);
+    app.world_mut().resource_mut::<EncounterRegistry>().specs_loaded = true;
     app.world_mut().resource_mut::<ControlledSubject>().0 = Some(player_a);
     app.world_mut()
         .resource_mut::<MovingPlatformSet>()
@@ -126,11 +122,8 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
          (the sim sleeps at the launcher, so only teardown can clear it)"
     );
     assert!(
-        !app.world()
-            .resource::<EncounterRegistry>()
-            .ids
-            .contains_key(PROBE_ENCOUNTER),
-        "EncounterRegistry still maps an id to the dead session-A entity"
+        !app.world().resource::<EncounterRegistry>().specs_loaded,
+        "the encounter populate latch survived teardown"
     );
 
     // ── Activate session B (a fresh scope for the same provider) ───────────
@@ -163,13 +156,6 @@ fn a_second_session_shares_no_entity_handle_cache_or_view_with_the_first() {
         app.world().resource::<PossessionState>().possessed,
         None,
         "session B inherited session A's possession handle"
-    );
-    assert!(
-        !app.world()
-            .resource::<EncounterRegistry>()
-            .ids
-            .contains_key(PROBE_ENCOUNTER),
-        "session B inherited session A's encounter index probe"
     );
     // MovingPlatformSet was rebuilt from B's room (no authored platforms in the
     // Sanic demo), so the session-A probe platform is gone.

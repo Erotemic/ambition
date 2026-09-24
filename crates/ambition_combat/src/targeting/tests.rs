@@ -63,10 +63,9 @@ fn enemy_at(app: &mut App, pos: ae::Vec2) -> Entity {
 
 // Spawn a player body carrying faction Player — a relational candidate like any
 // other body (the production player always has this faction).
-fn spawn_player(app: &mut App, slot: u8, primary: bool, pos: ae::Vec2) -> Entity {
+fn spawn_player(app: &mut App, primary: bool, pos: ae::Vec2) -> Entity {
     let mut e = app.world_mut().spawn((
         PlayerEntity,
-        PlayerSlot(slot),
         dummy_player_body(pos),
         ActorFaction::Player,
         alive(),
@@ -80,7 +79,7 @@ fn spawn_player(app: &mut App, slot: u8, primary: bool, pos: ae::Vec2) -> Entity
 #[test]
 fn target_points_at_only_player_when_one_present() {
     let mut app = App::new();
-    let player = spawn_player(&mut app, 0, true, ae::Vec2::new(300.0, 100.0));
+    let player = spawn_player(&mut app, true, ae::Vec2::new(300.0, 100.0));
     let enemy = enemy_at(&mut app, ae::Vec2::new(100.0, 100.0));
     app.add_systems(Update, select_actor_targets);
     app.update();
@@ -94,8 +93,8 @@ fn target_picks_nearest_when_two_players_present() {
     let mut app = App::new();
     // p1 at (100, 100), p2 at (500, 100). Enemy at (450, 100)
     // → nearest is p2.
-    spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
-    let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
+    spawn_player(&mut app, true, ae::Vec2::new(100.0, 100.0));
+    let p2 = spawn_player(&mut app, false, ae::Vec2::new(500.0, 100.0));
     let enemy = enemy_at(&mut app, ae::Vec2::new(450.0, 100.0));
     app.add_systems(Update, select_actor_targets);
     app.update();
@@ -116,8 +115,8 @@ fn nearest_foe_tie_breaks_on_stable_identity_not_entity_id() {
     // the confirmed timeline did — a desync that only shows up on a symmetric
     // setup, which is precisely the case this test builds.
     let mut app = App::new();
-    let p1 = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
-    let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
+    let p1 = spawn_player(&mut app, true, ae::Vec2::new(100.0, 100.0));
+    let p2 = spawn_player(&mut app, false, ae::Vec2::new(500.0, 100.0));
     // Give the two candidates stable identities in the OPPOSITE order to their
     // entity ids, so "sorted by SimId" and "min Entity" disagree and the
     // assertion can only pass for the identity rule.
@@ -147,8 +146,8 @@ fn nearest_foe_tie_is_still_deterministic_without_stable_ids() {
     // land somewhere reproducible rather than following Query order. They fall
     // back to entity order among themselves.
     let mut app = App::new();
-    let p1 = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 100.0));
-    let p2 = spawn_player(&mut app, 1, false, ae::Vec2::new(500.0, 100.0));
+    let p1 = spawn_player(&mut app, true, ae::Vec2::new(100.0, 100.0));
+    let p2 = spawn_player(&mut app, false, ae::Vec2::new(500.0, 100.0));
     let expected = p1.min(p2);
     let enemy = enemy_at(&mut app, ae::Vec2::new(300.0, 100.0));
     app.add_systems(Update, select_actor_targets);
@@ -160,7 +159,7 @@ fn nearest_foe_tie_is_still_deterministic_without_stable_ids() {
 #[test]
 fn passive_aggression_targets_self_not_player() {
     let mut app = App::new();
-    spawn_player(&mut app, 0, true, ae::Vec2::new(999.0, 999.0));
+    spawn_player(&mut app, true, ae::Vec2::new(999.0, 999.0));
     let actor_pos = ae::Vec2::new(40.0, 60.0);
     let passive = app
         .world_mut()
@@ -189,7 +188,7 @@ fn a_peaceful_npc_ignores_the_player_until_it_holds_a_grudge() {
     // Provoking it sets a GRUDGE against the attacker, and THEN it hunts that
     // exact entity (no faction-identity mutation).
     let mut app = App::new();
-    let player = spawn_player(&mut app, 0, true, ae::Vec2::new(200.0, 100.0));
+    let player = spawn_player(&mut app, true, ae::Vec2::new(200.0, 100.0));
     let npc = app
         .world_mut()
         .spawn((
@@ -478,7 +477,7 @@ fn relational_fighter_targets_nearest_foe_observer_spared_by_distance() {
             alive(),
         ))
         .id();
-    let player = spawn_player(&mut app, 0, true, ae::Vec2::new(600.0, 100.0));
+    let player = spawn_player(&mut app, true, ae::Vec2::new(600.0, 100.0));
     app.add_systems(Update, select_actor_targets);
     app.update();
     // The Boss foe (40px away) is nearer than the far observer (500px) → the
@@ -539,7 +538,6 @@ fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
     // HostileToFaction fighter never falls back to it.
     app.world_mut().spawn((
         PlayerEntity,
-        PlayerSlot(0),
         PrimaryPlayer,
         dummy_player_body(ae::Vec2::new(120.0, 100.0)),
         alive(),
@@ -762,8 +760,8 @@ fn teams_decide_between_two_bodies_that_share_a_faction() {
 fn a_body_waiting_to_respawn_is_not_hunted_though_it_is_at_full_health() {
     let mut app = App::new();
     let hunter = enemy_at(&mut app, ae::Vec2::new(0.0, 0.0));
-    let waiting = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 0.0));
-    let live = spawn_player(&mut app, 1, false, ae::Vec2::new(400.0, 0.0));
+    let waiting = spawn_player(&mut app, true, ae::Vec2::new(100.0, 0.0));
+    let live = spawn_player(&mut app, false, ae::Vec2::new(400.0, 0.0));
     app.add_systems(Update, select_actor_targets);
 
     // Premise: with both in play the NEARER one is chosen, so the swap below is
@@ -809,7 +807,7 @@ fn a_hunter_that_has_left_play_does_not_pick_up_a_target() {
     app.world_mut()
         .entity_mut(hunter)
         .insert(crate::death_rules::OutOfPlay);
-    let prey = spawn_player(&mut app, 0, true, ae::Vec2::new(100.0, 0.0));
+    let prey = spawn_player(&mut app, true, ae::Vec2::new(100.0, 0.0));
     app.add_systems(Update, select_actor_targets);
     app.update();
     assert_eq!(

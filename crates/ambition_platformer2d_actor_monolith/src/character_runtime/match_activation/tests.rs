@@ -465,23 +465,11 @@ fn a_local_human_body_keeps_local_source_identity_on_the_slot_model() {
     finalize_and_update(&mut app);
 
     let world = app.world_mut();
-    let mut locals = world.query::<(
-        &ambition_platformer2d_shared_tangle::markers::LocalPlayer,
-        Option<&ambition_characters::control::DrivingParticipant>,
-    )>();
-    let seats: Vec<_> = locals
-        .iter(world)
-        .map(|(_, driver)| driver.copied())
-        .collect();
+    let mut driven = world.query::<&ambition_characters::control::DrivingParticipant>();
     assert_eq!(
-        seats.len(),
+        driven.iter(world).count(),
         1,
-        "the human seat must produce one locally sourced body"
-    );
-    assert!(
-        seats[0].is_some(),
-        "a locally sourced human body must name its control slot through \
-         DrivingParticipant"
+        "the human seat must produce exactly one body named by its control slot"
     );
 }
 

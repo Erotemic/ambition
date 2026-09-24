@@ -2,9 +2,7 @@
 //!
 //! E1 makes the live encounter a Bevy entity rather than a value in a
 //! resource-owned map: [`Encounter`] is its stable identity and the entity
-//! carries the live [`EncounterState`](crate::EncounterState) component. The
-//! [`EncounterRegistry`](crate::EncounterRegistry) is reduced to an
-//! `id -> Entity` index (no duplicate live state).
+//! carries the live [`EncounterState`](crate::EncounterState) component.
 //!
 //! [`EncounterView`] is the one cross-crate PRESENTATION read-model (§6): the
 //! host publishes it each tick from the live encounter entities so presentation
@@ -15,8 +13,7 @@ use bevy::prelude::*;
 
 /// Stable identity of a live encounter entity — matches the authored id (the
 /// LDtk `EncounterTrigger.id` for waves; the boss placement id for a boss
-/// fight). The [`EncounterRegistry`](crate::EncounterRegistry) indexes entities
-/// by this.
+/// fight).
 #[derive(Component, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Encounter {
     pub id: String,

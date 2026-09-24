@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v212",
+    "version": "ggrs-rollback-schema-v214",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -109,6 +109,7 @@
       "resource.clock_regime_policy\tresource-canonical\tRegimePolicy\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.clock_state\tresource-canonical\tClockState\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.custody_baseline\tresource-clone-custom-checksum\tCustodyBaseline\tbevy_ggrs clone snapshot + entity-free remembered-custody checksum projection",
+      "resource.encounter_registry\tresource-clone-custom-checksum\tEncounterRegistry\tbevy_ggrs clone snapshot + whether this session's encounter triggers have been populated",
       "resource.gameplay_elapsed\tresource-canonical\tGameplayElapsed\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",
       "resource.gate_portal_phases\tresource-clone-custom-checksum\tGatePortalPhases\tbevy_ggrs clone snapshot + key-ordered phase/elapsed checksum projection",
       "resource.gravity_field\tresource-canonical\tGravityField\tbevy_ggrs canonical codec snapshot + identical canonical checksum projection",

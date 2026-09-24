@@ -4,7 +4,7 @@
 //! This component is NOT the authority. The authoritative slot→gate
 //! resolution is the shared [`derive_action_scheme`] called DIRECTLY, each tick,
 //! on the body's immediate authorities at BOTH consumers: the gameplay persona
-//! gate (`gate_worn_player_control`) and the `ControlPrompt` read-model. Because
+//! gate (`gate_body_control`) and the `ControlPrompt` read-model. Because
 //! both re-derive from the same current `AbilitySet` / moveset / `ActionSet` /
 //! techniques, the button and what it fires cannot drift — there is no lagged
 //! cache on the critical path.
@@ -299,7 +299,7 @@ mod tests {
 
     /// A DERIVATION-LEVEL guard (not the resolver itself): a combat slot is in
     /// the derived scheme IFF the `ActionSet` authority that gates its behavior
-    /// says the body has it. Both the gameplay gate (`gate_worn_player_control`)
+    /// says the body has it. Both the gameplay gate (`gate_body_control`)
     /// and the `ControlPrompt` read-model now call the SAME `derive_action_scheme`
     /// on the body's immediate authorities, so this equivalence is what makes the
     /// shared resolver's two consumers agree. The end-to-end, same-tick proof that

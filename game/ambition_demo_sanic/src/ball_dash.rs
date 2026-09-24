@@ -80,7 +80,7 @@ pub struct BallDashInput {
 }
 
 /// The body's action scheme declares `spin_dash` on the Attack slot (`ActorTechniques`), so
-/// `gate_worn_player_control` routes the Attack device edge into
+/// `gate_body_control` routes the Attack device edge into
 /// `ResolvedTechniqueEdges["spin_dash"]` (and clears the raw melee verb); this reads that edge.
 /// Runs AFTER the gate. Vacated bodies are reset so a possession handoff cannot replay a stale
 /// rev edge.

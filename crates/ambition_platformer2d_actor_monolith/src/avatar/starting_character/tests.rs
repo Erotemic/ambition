@@ -715,7 +715,7 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, gate_worn_player_control);
+    app.add_systems(Update, gate_body_control);
     let entity = app
         .world_mut()
         .spawn((
@@ -788,7 +788,7 @@ fn an_authored_charging_character_keeps_its_projectile_press() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, gate_worn_player_control);
+    app.add_systems(Update, gate_body_control);
 
     // Two characters, identical but for how they fire.
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
@@ -882,7 +882,7 @@ fn gate_routes_a_technique_attack_slot_into_the_sanctioned_edge() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, gate_worn_player_control);
+    app.add_systems(Update, gate_body_control);
 
     // A Sanic-shaped body: movement abilities, empty ActionSet, and a spin_dash
     // technique claiming the Attack slot. Pressing melee this tick.
@@ -2336,7 +2336,7 @@ fn the_shield_verb_follows_the_ability_not_the_special() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, gate_worn_player_control);
+    app.add_systems(Update, gate_body_control);
 
     let mut spawn = |abilities, actions| {
         app.world_mut()
@@ -2395,7 +2395,7 @@ fn a_held_item_keeps_the_shield_verb_alive_without_the_ability() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
-    app.add_systems(Update, gate_worn_player_control);
+    app.add_systems(Update, gate_body_control);
     let body = app
         .world_mut()
         .spawn((
@@ -2738,5 +2738,67 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
             .is_some(),
         reworn.execution.charges_projectiles(),
         "the grant and the re-wear disagree about how `lobber` fires"
+    );
+}
+
+/// A SEAT-DRIVEN BODY OUTSIDE THE PLAYER POPULATION IS GATED BY ITS OWN SCHEME.
+///
+/// Possession and multi-seat drive an actor through the same `ActorControl`
+/// frame as the home avatar, and content grants techniques to whatever body is
+/// the controlled subject. A gate filtered to `PlayerEntity` left that body's
+/// frame raw: its technique never received its edge, and it kept a guard verb
+/// its abilities do not grant. No `WornCharacter` either, because a possessed
+/// boss or a staged actor need not wear one.
+#[test]
+fn a_driven_actor_outside_the_player_population_is_gated_by_its_own_scheme() {
+    use ambition_characters::action_scheme::{ActorTechniques, ResolvedTechniqueEdges};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActionSet;
+    use ambition_characters::control::ActorControl;
+    use ambition_entity_catalog::action_scheme::{ActionGate, ActionId, ActionSpec, ControlSlot};
+    use bevy::prelude::*;
+
+    let mut frame = ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    frame.shield_held = true;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(Update, gate_body_control);
+    let mut abilities = ambition_platformer2d_core::AbilitySet::sandbox_all();
+    abilities.shield = false;
+    let body = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_core::BodyAbilities::new(abilities),
+            ActionSet::peaceful(),
+            ActorTechniques(vec![ActionSpec {
+                id: ActionId::new("spin_dash"),
+                slot: ControlSlot::Attack,
+                display_name: None,
+                visual: None,
+                gate: ActionGate::Technique("spin_dash".to_owned()),
+            }]),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+
+    let world = app.world();
+    let edges = world
+        .get::<ResolvedTechniqueEdges>(body)
+        .expect("ActorTechniques requires its edge sink");
+    assert!(
+        edges.pressed("spin_dash"),
+        "the driven actor's Attack press never reached its technique: {edges:?}"
+    );
+    let gated = &world.get::<ActorControl>(body).unwrap().0;
+    assert!(
+        !gated.melee_pressed,
+        "a technique-owned Attack press must not also survive as a raw melee verb"
+    );
+    assert!(
+        !gated.shield_held,
+        "a body without the shield ability kept its guard verb"
     );
 }

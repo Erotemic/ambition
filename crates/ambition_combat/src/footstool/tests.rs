@@ -431,7 +431,7 @@ fn a_victim_in_the_middle_of_a_move_takes_no_reaction() {
         rules,
     );
     let mut melee = crate::components::BodyMelee::default();
-    melee.begin(swing(), ae::Vec2::new(1.0, 0.0), 0.0);
+    melee.begin(swing(), 0.0);
     app.world_mut().entity_mut(victim).insert(melee);
 
     app.update();

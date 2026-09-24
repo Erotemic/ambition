@@ -733,7 +733,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// gameplay reader; its one writer was the F3 inspector's "slash damage" knob,
 /// which therefore changed nothing. (221 is AP11's `resource.gravity_field`,
 /// numbered in parallel.)
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 222;
+/// ⛔⛤ 222 -> 223: `actor.body_melee` no longer encodes `pending_axis`. Its one
+/// writer, `BodyMelee::begin`, has no production caller, and nothing read it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 223;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

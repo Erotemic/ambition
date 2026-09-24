@@ -655,7 +655,7 @@ fn maybe_substitute_sprint(
 ///
 /// The brain does NOT rate-limit here: it attempts a ranged shot on every
 /// in-band tick and the body enforces the fire rate (invariant I3,
-/// `BodyMelee::try_fire_ranged`). A blocked attempt simply spawns
+/// `RangedRefire::try_fire`). A blocked attempt simply spawns
 /// nothing; the controller never beats the weapon's rate by attempting faster.
 fn maybe_substitute_ranged(
     action: SpecificAction,

@@ -2466,7 +2466,7 @@ fn a_fire_intent_triggers_the_ranged_move() {
 /// dropped. Measured 2026-08-23 in the duel arena, that was the fate of 22 of
 /// 28 authored ranged events.
 ///
-/// ⛔ THE ARMS STRADDLE THE COMPARISON `ranged_cooldown <= 0.0`, because a gate
+/// ⛔ THE ARMS STRADDLE THE COMPARISON `RangedRefire::ready`, because a gate
 /// that only ever sees a cold weapon cannot tell "refuses correctly" from
 /// "never refuses". The third arm is the premise: with no fire intent nothing
 /// starts and nothing is spent, so the second arm's `0.5` is attributable to
@@ -2511,9 +2511,8 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
                     ranged: Some(RangedActionSpec::bolt(240.0, 3).with_refire(0.5)),
                     ..Default::default()
                 },
-                BodyMelee {
-                    ranged_cooldown: cooldown,
-                    ..Default::default()
+                crate::components::RangedRefire {
+                    remaining: cooldown,
                 },
                 ae::BodyKinematics {
                     pos: ae::Vec2::ZERO,
@@ -2526,7 +2525,10 @@ fn a_recharging_weapon_refuses_the_firing_move_and_acceptance_spends_it() {
         app.update();
         (
             app.world().get::<MovePlayback>(body).is_some(),
-            app.world().get::<BodyMelee>(body).unwrap().ranged_cooldown,
+            app.world()
+                .get::<crate::components::RangedRefire>(body)
+                .unwrap()
+                .remaining,
         )
     }
 

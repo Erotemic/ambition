@@ -438,14 +438,14 @@ pub fn rebuild_control_prompt(
 /// Say which prompt slots cannot fire right now.
 ///
 /// ⭐⭐ THE FACT IS THE BODY'S, and it is read rather than modelled:
-/// `BodyMelee::ranged_cooldown` is the fire-rate floor the body itself enforces
+/// [`ambition_combat::RangedRefire`] is the fire-rate floor the body itself enforces
 /// (*"a spam controller and a human produce the same weapon rate"*), so a prompt
 /// derived from it cannot disagree with what a press actually does. A second
 /// timer in presentation would be a second answer to a question the sim answers.
 ///
 /// ⛔ A SEPARATE SYSTEM FROM THE REBUILD ABOVE, and that is the whole design.
 /// The scheme derive caches on the authorities that decide what a slot DOES and
-/// skips quiet frames; `ranged_cooldown` decays EVERY tick, so reading it inside
+/// skips quiet frames; the refire floor decays EVERY tick, so reading it inside
 /// that derive would re-run the whole thing sixty times a second while any weapon
 /// recharges. This writes one bool in place instead.
 ///
@@ -454,7 +454,7 @@ pub fn rebuild_control_prompt(
 pub fn project_prompt_readiness(
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    bodies: Query<&ambition_combat::components::BodyMelee>,
+    bodies: Query<&ambition_combat::components::RangedRefire>,
     mut prompt: ResMut<ControlPrompt>,
 ) {
     let subject = controlled
@@ -463,9 +463,9 @@ pub fn project_prompt_readiness(
         .or_else(|| primary.single().ok());
     let recharging = subject
         .and_then(|body| bodies.get(body).ok())
-        .is_some_and(|melee| melee.ranged_cooldown > 0.0);
+        .is_some_and(|refire| !refire.ready());
     for entry in &mut prompt.entries {
-        // ⛔ ONLY the slot the cooldown governs. `ranged_cooldown` is documented
+        // ⛔ ONLY the slot the cooldown governs. The refire floor is documented
         // as orthogonal to melee (invariant I3), so dimming anything else here
         // would report a restriction the body does not impose.
         let ready = entry.slot != ControlSlot::Projectile || !recharging;
@@ -590,18 +590,18 @@ mod tests {
     ///
     /// ⭐⭐ THE RULING THIS ANSWERS is *"give recharge enough presentation that an
     /// unavailable shot is legible"* — owed since D241 and drawn by nothing.
-    /// `BodyMelee::ranged_cooldown` is the body's OWN fire-rate floor, so a prompt
+    /// `RangedRefire` is the body's OWN fire-rate floor, so a prompt
     /// derived from it cannot tell the player a press will work when the body will
     /// refuse it.
     ///
-    /// ⛔ THE SECOND ARM IS THE ONE THAT MATTERS. `ranged_cooldown` is documented
+    /// ⛔ THE SECOND ARM IS THE ONE THAT MATTERS. The refire floor is documented
     /// as orthogonal to melee (invariant I3), so a readiness projection that dimmed
     /// the whole prompt would report a restriction the body does not impose — and
     /// "the ranged button went grey" and "every button went grey" look identical
     /// from a single assertion about the ranged one.
     #[test]
     fn a_recharging_ranged_slot_is_the_only_one_that_stops_reading_ready() {
-        use ambition_combat::components::BodyMelee;
+        use ambition_combat::components::RangedRefire;
 
         let mut app = app();
         app.add_systems(
@@ -628,7 +628,7 @@ mod tests {
                 PrimaryPlayer,
                 BodyAbilities::new(abilities),
                 moveset,
-                BodyMelee::default(),
+                RangedRefire::default(),
             ))
             .id();
         app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
@@ -659,9 +659,9 @@ mod tests {
 
         // Fire: the body arms its own floor.
         app.world_mut()
-            .get_mut::<BodyMelee>(body)
+            .get_mut::<RangedRefire>(body)
             .expect("the fixture has melee state")
-            .ranged_cooldown = 0.4;
+            .remaining = 0.4;
         app.update();
 
         let prompt = app.world().resource::<ControlPrompt>();
@@ -678,9 +678,9 @@ mod tests {
 
         // And it comes back on its own clock, without a second writer.
         app.world_mut()
-            .get_mut::<BodyMelee>(body)
+            .get_mut::<RangedRefire>(body)
             .expect("the fixture has melee state")
-            .ranged_cooldown = 0.0;
+            .remaining = 0.0;
         app.update();
         assert!(
             app.world()

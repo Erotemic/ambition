@@ -926,6 +926,7 @@ fn boss_actor_cluster(
     ambition_body_seed::ActorMotionPath,
     ambition_platformer2d_core::body_clusters::ActorSurfaceState,
     ambition_combat::components::BodyMelee,
+    ambition_combat::components::RangedRefire,
     ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle,
     ambition_platformer2d_core::movement::MotionModel,
     ambition_combat::CombatCapabilities,
@@ -1005,6 +1006,7 @@ fn boss_actor_cluster(
             gravity_scale: 0.0,
         },
         ambition_combat::components::BodyMelee::default(),
+        ambition_combat::components::RangedRefire::default(),
         ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
             // The union is STATED here now. It was inside the constructor,
             // which is why the comment above could say "unioned into the body's

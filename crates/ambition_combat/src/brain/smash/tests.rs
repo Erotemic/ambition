@@ -343,7 +343,7 @@ fn melee_takes_precedence_over_ranged_in_reach() {
 #[test]
 fn brain_does_not_self_rate_limit_fire_body_owns_the_rate() {
     // Invariant I3: the brain no longer gates its own fire rate — it attempts
-    // a ranged shot on EVERY in-band tick. The body (`try_fire_ranged`) is
+    // a ranged shot on EVERY in-band tick. The body (`RangedRefire::try_fire`) is
     // the floor that turns those attempts into the weapon's rate. So back-to-
     // back ticks both emit `fire`; nothing in the brain throttles them. (The
     // body-side throttle is proven over real systems in the fighter harness.)

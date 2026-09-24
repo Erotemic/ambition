@@ -23,15 +23,12 @@ use ambition_projectiles::ProjectileSeqCounter;
 
 pub const HARNESS_DT: f32 = 1.0 / 60.0;
 
-/// Tick the body's per-frame attack timers, exactly as the real integrator does
-/// (`em.update()` → `BodyMelee::tick`). Isolated here so the harness
-/// advances body cooldowns without standing up the full integration system; the
-/// fire-rate enforcement under test reads the same `ranged_cooldown` this decays.
-fn tick_body_cooldowns(mut q: Query<&mut ambition_combat::components::BodyMelee>) {
-    for mut attack in &mut q {
-        // Advances the melee swing (none armed on the fire path) and the
-        // `ranged_cooldown` floor the fire-rate test reads.
-        attack.tick(HARNESS_DT);
+/// Tick the body's refire floor, as `tick_ranged_refire` does in the real
+/// schedule. Isolated here so the harness advances it without standing up the
+/// full combat schedule; the fire-rate enforcement under test reads this floor.
+fn tick_body_cooldowns(mut q: Query<&mut ambition_combat::components::RangedRefire>) {
+    for mut refire in &mut q {
+        refire.tick(HARNESS_DT);
     }
 }
 

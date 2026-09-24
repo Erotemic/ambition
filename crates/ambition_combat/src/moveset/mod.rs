@@ -34,7 +34,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_time::ProperTimeScale;
 
-use super::components::{ActorFaction, BodyMelee, MeleeSwing};
+use super::components::{ActorFaction, BodyMelee, MeleeSwing, RangedRefire};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
 use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::actor::attack_gesture::{
@@ -2599,9 +2599,9 @@ struct StartingMove<'a, 'cw, 'cs> {
     gesture_window: Option<(&'a mut AttackGestureState, u8, f32)>,
     /// The body's weapon and the recharge its ranged action authors — spent
     /// here when the accepted move is one that fires. `None` for a body with no
-    /// melee cluster or no ranged action, which is every move that fires
+    /// refire floor or no ranged action, which is every move that fires
     /// nothing.
-    weapon: Option<(&'a mut BodyMelee, f32)>,
+    weapon: Option<(&'a mut RangedRefire, f32)>,
     /// The occurrence number THIS move takes, from [`MoveOccurrence::next`].
     ///
     /// ⛔ THE CALLER READS THE BODY'S COUNTER. It is not derived from the
@@ -2765,9 +2765,9 @@ fn start_move(m: StartingMove<'_, '_, '_>) {
         // press, not a B-reverse"* — true of the code as well as of the intent.
         gesture.prev_lateral_sign = press_sign;
     }
-    if let Some((melee, refire_s)) = weapon {
+    if let Some((refire, refire_s)) = weapon {
         if fires_ranged {
-            melee.ranged_cooldown = melee.ranged_cooldown.max(refire_s.max(0.0));
+            refire.arm(refire_s);
         }
     }
 }
@@ -2891,10 +2891,10 @@ fn move_fires_ranged(spec: &ambition_entity_catalog::MoveSpec) -> bool {
 /// ordinary buffering every other move already gets, rather than a queue of its
 /// own.
 ///
-/// ⛔ A MOVE THAT FIRES NOTHING IS NEVER REFUSED, and a body with no melee
-/// cluster (a bare fixture) has no weapon to be recharging.
-fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, melee: Option<&BodyMelee>) -> bool {
-    !move_fires_ranged(spec) || melee.is_none_or(|m| m.ranged_cooldown <= 0.0)
+/// ⛔ A MOVE THAT FIRES NOTHING IS NEVER REFUSED, and a body with no refire
+/// floor (a bare fixture) has no weapon to be recharging.
+fn weapon_ready(spec: &ambition_entity_catalog::MoveSpec, refire: Option<&RangedRefire>) -> bool {
+    !move_fires_ranged(spec) || refire.is_none_or(RangedRefire::ready)
 }
 
 /// IS THIS BODY IN THE MIDDLE OF A RECOVERY IT HAS ALREADY PAID FOR?
@@ -3016,9 +3016,9 @@ pub fn trigger_moveset_moves(
         // rather than by a lookup query because starting a firing move is a
         // SPEND — the same shape the guard and the recovery budget already use,
         // and they are looked up only because they are read by other systems in
-        // the same set. `Option` on both: a body with no melee cluster and a
+        // the same set. `Option` on both: a body with no refire floor and a
         // body with no ranged action both fire nothing.
-        Option<&mut BodyMelee>,
+        Option<&mut RangedRefire>,
         Option<&ambition_characters::brain::action_set::ActionSet>,
         // THE GESTURE HISTORY, so an accepted special can open its B-reverse
         // window. Taken here rather than in the gesture system because opening
@@ -3096,7 +3096,7 @@ pub fn trigger_moveset_moves(
         held,
         motion_facts,
         mut action_buffer,
-        mut melee,
+        mut refire,
         action_set,
         // ⚠ `body_is_held` is NOT `held` above, which is the item in this body's
         // HAND. This one is whether the BODY is held.
@@ -3696,10 +3696,10 @@ pub fn trigger_moveset_moves(
             // too. Same four affordances, same one-hop fallback, one function.
             let cancel_charges_left = jumps.get(entity).ok().map(|j| j.recovery_charges);
             let cancel_bank = meters.get(entity).ok();
-            let cancel_melee = melee.as_deref();
+            let cancel_refire = refire.as_deref();
             let Some(spec) = accepted_or_variant(spec, &moveset.0, |candidate| {
                 afford_recovery(candidate, cancel_charges_left)
-                    && weapon_ready(candidate, cancel_melee)
+                    && weapon_ready(candidate, cancel_refire)
                     && permitted_while_held(candidate, body_is_held)
                     && afford_meter(candidate, cancel_bank)
             }) else {
@@ -3806,7 +3806,7 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
-                weapon: melee.as_deref_mut().zip(refire_s),
+                weapon: refire.as_deref_mut().zip(refire_s),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state
@@ -3826,11 +3826,11 @@ pub fn trigger_moveset_moves(
         // Read beside the recovery budget and for the same reason: both are
         // affordances, and both are asked while the move is still refusable.
         let bank = meters.get(entity).ok();
-        let melee_ready_against = melee.as_deref();
+        let refire_ready_against = refire.as_deref();
         let affordable = |candidate: &ambition_entity_catalog::MoveSpec| {
             afford_recovery(candidate, charges_left)
                 && permitted_while_held(candidate, body_is_held)
-                && weapon_ready(candidate, melee_ready_against)
+                && weapon_ready(candidate, refire_ready_against)
                 && afford_meter(candidate, bank)
         };
         if let Some(spec) = spec.and_then(|spec| accepted_or_variant(spec, &moveset.0, affordable))
@@ -3926,7 +3926,7 @@ pub fn trigger_moveset_moves(
                 oos_policy,
                 jump: jumps.get_mut(entity).ok(),
                 meter: meters.get_mut(entity).ok(),
-                weapon: melee.as_deref_mut().zip(refire_s),
+                weapon: refire.as_deref_mut().zip(refire_s),
                 gesture_window: (special_turn_ticks > 0)
                     .then(|| {
                         gesture_state

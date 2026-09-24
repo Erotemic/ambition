@@ -43,8 +43,8 @@ const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 /// Read every `ActorActionMessage::Ranged` and spawn the matching projectile.
 /// Applies recoil to the firing body's velocity.
 ///
-/// BODY-GENERIC. The query now names only what firing actually needs: kinematics, the body's melee
-/// state (which owns the shared refire floor), its surface frame, and an OPTIONAL archetype config
+/// BODY-GENERIC. The query now names only what firing actually needs: kinematics, the body's refire
+/// floor ([`ambition_combat::RangedRefire`]), its surface frame, and an OPTIONAL archetype config
 /// for the per-archetype default look. Any body that emits `ActionRequest::Ranged` now fires
 /// through this one consumer.
 /// WHERE A SHOT IS BORN, for every muzzle a ranged action can name.
@@ -101,7 +101,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // writes here, so a mutable borrow would be an access this system claims
         // and does not use, which constrains the scheduler for nothing.
         &ae::BodyKinematics,
-        &mut ambition_combat::BodyMelee,
+        &mut ambition_combat::RangedRefire,
         Option<&super::ActorSurfaceState>,
         Option<&ambition_combat::actor_tuning::ActorConfig>,
         Option<&ambition_characters::actor::BodyHealth>,
@@ -176,7 +176,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // ⛔ `body_flight`, NOT `flight`: this scope already binds `flight` to
         // `ProjectileFlight`, the projectile's own envelope. Two different things
         // called the same word one block apart is how the wrong one gets staged.
-        let Ok((kin, mut melee, surface, config, health, body_flight)) =
+        let Ok((kin, mut refire, surface, config, health, body_flight)) =
             actors.get_mut(msg.actor)
         else {
             // Message references a body that no longer exists
@@ -211,7 +211,7 @@ pub fn spawn_projectiles_from_brain_actions(
         // this file that every character in the game was silently balanced
         // around.
         if commitment == RangedCommitment::Attempt
-            && !melee.try_fire_ranged(spec.refire_s).accepted()
+            && !refire.try_fire(spec.refire_s).accepted()
         {
             continue;
         }

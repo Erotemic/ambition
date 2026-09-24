@@ -109,6 +109,8 @@ where
         .rollback_component_canonical::<crate::stale::BodyStaleMoves>(OWNER, "combat.stale_moves");
     registrar
         .rollback_component_canonical::<crate::components::BodyMelee>(OWNER, "actor.body_melee");
+    registrar
+        .rollback_component_canonical::<crate::components::RangedRefire>(OWNER, "actor.ranged_refire");
     registrar.rollback_component_canonical::<crate::components::ActorDisposition>(
         OWNER,
         "actor.disposition",

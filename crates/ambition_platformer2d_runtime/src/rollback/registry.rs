@@ -690,7 +690,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 209 -> 210: `actor.combo_trace` LEFT. The HUD's movement readout is
 /// app presentation state fed from `FrameEvents` after the kernel ran; no
 /// simulation system read it.
-/// ⛔⛤ 210 -> 212 (211 is CalculexAmbition's AP6.3): `feature.switch_on` LEFT.
+/// ⛔⛤ 210 -> 211: `actor.ranged_refire` ENTERED and `BodyMelee` no longer
+/// encodes `ranged_cooldown`. The ranged fire-rate floor (invariant I3) is its
+/// own component, `RangedRefire`, not melee state.
+/// ⛔⛤ 211 -> 212: `feature.switch_on` LEFT.
 /// `SwitchOn` mirrored the save's switch map every tick and was spawned `false`
 /// until the first mirror; readers take the save by the activation id.
 pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 212;

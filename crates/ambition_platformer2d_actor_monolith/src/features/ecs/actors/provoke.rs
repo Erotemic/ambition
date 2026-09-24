@@ -87,27 +87,23 @@ pub fn provoke_actor_in_place(
         // the grudge entity as a foe, and the victim-side damage gate is `can_damage`
         // (different-faction), which an Npc-vs-Player hit already passes.
         //
-        // PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT: a body a
-        // participant is driving keeps its seat, and its own brain waits.
+        // PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT: a driven
+        // body keeps its `DrivingParticipant`, which suppresses the brain's
+        // execution without replacing it. So the provoked brain is installed
+        // under the driver too, and it is what resumes when control is released.
         //
         // ONLY THE BRAIN LANDS. What a body fights with is a projection of its
         // identity, its worn equipment and its hand, and getting angry moves
         // none of those.
         //
-        // The binding is written whether or not the body is driven, so
-        // releasing control later resumes the provoked mode rather than the
-        // peaceful one; a no-op for anonymous bodies that carry no binding.
+        // The binding records the provoked source; a no-op for anonymous
+        // bodies that carry none.
         let (provoked_brain, source) = (mind.projection.brain, mind.source);
         commands.queue(move |world: &mut bevy::prelude::World| {
-            let driven = world
-                .get::<ambition_characters::control::DrivingParticipant>(entity)
-                .is_some();
             let Ok(mut em) = world.get_entity_mut(entity) else {
                 return;
             };
-            if !driven {
-                em.insert(provoked_brain);
-            }
+            em.insert(provoked_brain);
             if let Some(mut binding) =
                 em.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>()
             {

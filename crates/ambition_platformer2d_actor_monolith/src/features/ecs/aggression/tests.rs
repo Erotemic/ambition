@@ -497,21 +497,16 @@ fn a_provoked_body_keeps_the_health_pool_its_character_authored() {
     );
 }
 
-/// PROVOKING A BODY SOMEBODY IS DRIVING DOES NOT TAKE IT AWAY FROM THEM.
+/// PROVOCATION NEVER CHANGES WHO DRIVES A BODY, BUT IT DOES CHANGE THE
+/// AUTONOMOUS POLICY WAITING UNDER THE DRIVER.
 ///
-/// the flip inserted the provoked `Brain` unconditionally, and for a body under player control that
-/// is a silent seizure: the first hit a SEATED FIGHTER took replaced its own policy with the Smash
-/// state machine, in place and permanently — activation is one-shot and never rebinds — so a
-/// human's fighter became a CPU mid-fight and the couch test read it as input crosstalk.
-///
-/// What a provocation may do to a driven body: change its RELATIONSHIP and
-/// record the autonomous source that will resume when control is released
-/// (`a_released_character_returns_to_its_own_policy_not_the_provoked_one` is the
-/// other end of that thread). It may NOT touch the body's repertoire — that is a
-/// projection of identity, worn equipment and the hand, and getting angry moves
-/// none of them.
+/// `DrivingParticipant` suppresses the brain's execution; it does not own the
+/// `Brain`, and releasing control only removes the driver. So a body provoked
+/// while driven must carry the provoked mind already, or the old peaceful one
+/// resumes on release under a hostile disposition. The repertoire is untouched
+/// either way: it is a projection of identity, worn equipment and the hand.
 #[test]
-fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
+fn provoking_a_driven_body_changes_its_mind_and_not_its_driver() {
     use ambition_characters::actor::character_catalog::{
         AutonomousSource, BrainBinding, BrainPresetId,
     };
@@ -558,17 +553,14 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
     }
     app.update();
 
-    //  THE POISON, and it runs first because it is what proves the assertion
-    // below is about the DRIVER rather than about provocation doing nothing. The
-    // same stimulus on the same body with nobody at the controls installs a
-    // hostile mind.
+    // The control: the same stimulus on an undriven body installs the mind, so
+    // the driven assertion below measures the driver and not a broken provoke.
     assert!(
         matches!(
             app.world().get::<Brain>(free),
             Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
         ),
-        "an undriven body must actually receive the provoked mind, or this test \
-         would pass on a build where provocation had stopped working entirely"
+        "an undriven body must receive the provoked mind"
     );
 
     assert_eq!(
@@ -577,13 +569,11 @@ fn provoking_a_player_driven_body_changes_its_mood_and_not_its_driver() {
         "a body under player control must still be under player control — \
          provocation changes what a body IS, never who drives it"
     );
-    assert!(
-        !matches!(
-            app.world().get::<Brain>(driven),
-            Some(Brain::StateMachine(StateMachineCfg::Smash { .. }))
-        ),
-        "the driven body's own policy was seized — the provoked mind must not be \
-         installed over the one a person is currently playing with"
+    assert_eq!(
+        app.world().get::<Brain>(driven).map(Brain::label),
+        app.world().get::<Brain>(free).map(Brain::label),
+        "the driven body kept its peaceful mind, so releasing control resumes \
+         a policy its hostile disposition contradicts"
     );
     assert_eq!(
         *app.world().get::<ActorDisposition>(driven).unwrap(),

@@ -21,7 +21,7 @@ use ambition_platformer2d_shared_tangle::body::SpawnBaseline;
 use ambition_platformer2d_core::{
     BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState, BodyDashState,
     BodyDodgeState, BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState,
-    BodyLedgeState, BodyRestartLatch, BodyModeState, BodyOffense, BodyShieldState,
+    BodyLedgeState, BodyRestartLatch, BodyModeState, BodyShieldState,
     BodyWallState,
 };
 
@@ -70,7 +70,6 @@ pub struct ActorMut<'a> {
     pub body_mode: &'a mut BodyModeState,
     pub env_contact: &'a mut BodyEnvironmentContact,
     pub resources: Option<&'a mut ambition_platformer2d_core::resources::ActorResources>,
-    pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
 }
@@ -97,7 +96,6 @@ impl<'a> ActorMut<'a> {
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
             resources: self.resources.as_deref_mut(),
-            offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
         }
@@ -152,7 +150,6 @@ pub struct ActorClusterQueryData {
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
     pub resources: Option<&'static mut ambition_platformer2d_core::resources::ActorResources>,
-    pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
 }
@@ -191,7 +188,6 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_deref_mut(),
-            offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         }
@@ -245,7 +241,6 @@ impl SeedActorMut for ActorClusterSeed {
             body_mode: &mut body.body_mode,
             env_contact: &mut body.env_contact,
             resources: body.resources.as_mut(),
-            offense: &mut body.offense,
             action_buffer: &mut body.action_buffer,
             restart: &mut body.restart,
         }

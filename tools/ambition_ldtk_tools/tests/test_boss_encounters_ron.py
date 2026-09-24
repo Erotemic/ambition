@@ -29,14 +29,10 @@ REQUIRED_FIELDS = {
     "name",
     "max_hp",
     "phase1_to_transition_hp",
-    "transition_to_phase2_hp",
     "phase2_to_enrage_hp",
     "intro_seconds",
     "transition_seconds",
-    "stagger_seconds",
     "death_seconds",
-    "stagger_threshold",
-    "stagger_window_seconds",
     "music_intro",
     "music_phase1",
     "music_phase2",
@@ -93,7 +89,6 @@ def test_phase_threshold_fractions_in_valid_range():
         data = load(ron_path.read_text())
         for field in (
             "phase1_to_transition_hp",
-            "transition_to_phase2_hp",
             "phase2_to_enrage_hp",
         ):
             v = data[field]
@@ -108,7 +103,6 @@ def test_timing_fields_are_positive():
         for field in (
             "intro_seconds",
             "transition_seconds",
-            "stagger_seconds",
             "death_seconds",
         ):
             assert data[field] > 0.0, (

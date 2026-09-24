@@ -210,10 +210,6 @@ snapshot_pod!(crate::body_clusters::BodyShieldState {
     shield_tilt: f32,
 });
 
-snapshot_pod!(crate::body_clusters::BodyOffense {
-    damage_multiplier: i32,
-});
-
 snapshot_pod!(crate::body_clusters::BodyRestartLatch {
     // SNAPSHOT state, not bookkeeping to drop: a rewind into the tick between a
     // reset and its `BodyRestarted` trigger must replay the announcement, or

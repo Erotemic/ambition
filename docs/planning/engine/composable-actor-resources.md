@@ -85,7 +85,7 @@ Current source already has several pressures on one implicit meter:
   numeric pool and regeneration/decay policy in one value;
 - `BodyMana` in `ambition_platformer2d_core::body_clusters` gives the body one
   generic spendable meter and defaults it to a full 100-point pool;
-- `MoveGates::meter_cost` in `ambition_entity_catalog` has no resource identity;
+- `MoveGates::meter_cost` in `ambition_entity_catalog` has no resource identity; <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
   combat therefore reads `BodyMana` directly;
 - `afford_meter` in `ambition_combat::moveset` currently treats a missing
   `BodyMana` as affordable for a positive cost;
@@ -1193,7 +1193,7 @@ Acceptance:
 
 ## Phase 2 — replace the implicit move meter
 
-Replace `MoveGates::meter_cost` with explicit resource-cost authoring and prepared
+Replace `MoveGates::meter_cost` with explicit resource-cost authoring and prepared <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
 costs.
 
 During the migration:
@@ -1217,7 +1217,7 @@ free.
 ### Step 1 landed 2026-09-23 — the Limit is a named resource in a per-actor bank
 
 **Old authorities.** One `BodyMana` on every body served as BOTH the main
-game's Mana and a Smash seat's Limit. `MoveGates::meter_cost` priced moves in
+game's Mana and a Smash seat's Limit. `MoveGates::meter_cost` priced moves in <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
 "the meter" without naming one, so the goblin's dive meant Limit in a match
 and a free once-per-life charge in exploration; `smash.fill_meter` filled
 whichever meter its caster carried; and Smash had to insert
@@ -1244,7 +1244,7 @@ unaffordable. Both positive prices name `smash_limit::LIMIT`. The Limit fill
 systems and `smash.fill_meter` reach the Limit slot by name, so a body that
 holds no Limit gains nothing from them.
 
-**Deleted.** `MoveGates::meter_cost`; `MatchRules::earned_meter_cap`; Smash's
+**Deleted.** `MoveGates::meter_cost`; `MatchRules::earned_meter_cap`; Smash's <!-- cite-ok: deleted in 658bd337c, step 1 of this plan; the line describes the state that step replaced -->
 route-scoped `PlayerManaRegen(0.0)` and its prior/give-back arm (nothing of the
 Limit's is reachable by the Mana refill any more).
 

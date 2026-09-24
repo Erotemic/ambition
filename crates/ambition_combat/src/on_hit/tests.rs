@@ -211,7 +211,6 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
                 on_ground: true,
                 ..Default::default()
             },
-            ambition_platformer2d_core::BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
@@ -225,7 +224,6 @@ fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
         .spawn((
             ActorFaction::Enemy,
             ae::CenteredAabb::from_center_size(victim_center, ae::Vec2::new(20.0, 40.0)),
-            ambition_platformer2d_core::BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),

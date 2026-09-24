@@ -34,7 +34,6 @@ pub struct BodyClustersMut<'a> {
     /// The body's resource bank, when something declared one for it. Absent is
     /// a body that holds no resource — a complete composition.
     pub resources: Option<&'a mut crate::resources::ActorResources>,
-    pub offense: &'a mut BodyOffense,
     pub action_buffer: &'a mut BodyActionBuffer,
     pub restart: &'a mut BodyRestartLatch,
 }
@@ -61,7 +60,6 @@ pub struct BodyClusterQueryData {
     pub body_mode: &'static mut BodyModeState,
     pub env_contact: &'static mut BodyEnvironmentContact,
     pub resources: Option<&'static mut crate::resources::ActorResources>,
-    pub offense: &'static mut BodyOffense,
     pub action_buffer: &'static mut BodyActionBuffer,
     pub restart: &'static mut BodyRestartLatch,
 }
@@ -90,7 +88,6 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
             body_mode: &mut *self.body_mode,
             env_contact: &mut *self.env_contact,
             resources: self.resources.as_deref_mut(),
-            offense: &mut *self.offense,
             action_buffer: &mut *self.action_buffer,
             restart: &mut *self.restart,
         }
@@ -930,9 +927,6 @@ pub fn announce_body_restarts(
 /// longer picks: every banked resource returns to the start it was DECLARED
 /// with (`ActorResources::reset_to_start`).
 ///
-/// `BodyOffense` is still unclaimed: its only writer is a dev-tools editable,
-/// where losing an editor override on a reset is the intended behaviour.
-///
 /// The same lesson this function's own doc already records for
 /// `air_jumps_default`: an authority that silently picks is not an authority.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1008,7 +1002,6 @@ pub fn reset_body_clusters(
     if let Some(resources) = clusters.resources.as_deref_mut() {
         resources.reset_to_start();
     }
-    *clusters.offense = BodyOffense::default();
     *clusters.action_buffer = BodyActionBuffer::default();
     // The announcement is DERIVED from the reset, not asked of the caller. A flag on state
     // this function already owns cannot be forgotten by a caller that does not know it
@@ -1133,20 +1126,6 @@ pub struct BodyEnvironmentContact {
     pub climbable: Option<ClimbableContact>,
 }
 
-/// Offensive scaling knobs.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BodyOffense {
-    pub damage_multiplier: i32,
-}
-
-impl Default for BodyOffense {
-    fn default() -> Self {
-        Self {
-            damage_multiplier: 1,
-        }
-    }
-}
-
 /// ECS-owned COMBAT action buffer: seconds of the owner's proper time each
 /// pressed combat verb stays SPENDABLE after its press edge. The MOVEMENT
 /// buffers (jump / dash / blink) are axis-policy maneuver state
@@ -1265,7 +1244,6 @@ pub struct BodyClusterScratch {
     pub env_contact: BodyEnvironmentContact,
     /// See [`BodyClustersMut::resources`].
     pub resources: Option<crate::resources::ActorResources>,
-    pub offense: BodyOffense,
     pub action_buffer: BodyActionBuffer,
     pub restart: BodyRestartLatch,
 }
@@ -1305,9 +1283,6 @@ impl BodyClusterScratch {
             body_mode: BodyModeState::default(),
             env_contact: BodyEnvironmentContact::default(),
             resources: None,
-            offense: BodyOffense {
-                damage_multiplier: 1,
-            },
             action_buffer: BodyActionBuffer::default(),
             restart: BodyRestartLatch::default(),
         }
@@ -1358,7 +1333,6 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_mut(),
-            offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         };
@@ -1404,7 +1378,6 @@ impl BodyClusterScratch {
             body_mode: &mut self.body_mode,
             env_contact: &mut self.env_contact,
             resources: self.resources.as_mut(),
-            offense: &mut self.offense,
             action_buffer: &mut self.action_buffer,
             restart: &mut self.restart,
         }

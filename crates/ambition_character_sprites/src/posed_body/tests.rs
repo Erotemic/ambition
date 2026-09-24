@@ -368,3 +368,48 @@ fn a_stance_moves_the_art_without_resizing_it() {
         crouch_max - crouch_min
     );
 }
+
+/// The resize holds the face the BODY's own gravity points at, not the one the
+/// primary body's `GravityField` points at. Here the world mirror says down
+/// while this body's resolved frame says up (a flip zone it alone stands in),
+/// so the face that must stay planted is its TOP.
+#[test]
+fn the_resize_holds_the_face_of_the_bodys_own_gravity() {
+    let mut app = bevy::prelude::App::new();
+    app.insert_resource(ambition_platformer2d_shared_tangle::gravity::GravityField::default());
+    let walking = geometry(CharacterAnim::Idle);
+    let boxed = geometry(CharacterAnim::ShellIdle);
+    let ceiling_y = 100.0;
+    let mut frame = ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default();
+    frame.publish_resolved_frame(ae::MotionFrame::from_direction(ae::Vec2::new(0.0, -1.0), 0.0));
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpritePosedBody::new(SNAKE, SCALE),
+            ActorRenderSize(walking.render),
+            ActorSpriteOffset(walking.sprite_offset),
+            ActorAnimOverride(CharacterAnim::ShellIdle),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(0.0, ceiling_y + walking.collision.y * 0.5),
+                vel: ae::Vec2::ZERO,
+                size: walking.collision,
+                facing: 1.0,
+            },
+            frame,
+        ))
+        .id();
+    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    app.update();
+
+    let kin = app
+        .world()
+        .get::<ae::BodyKinematics>(entity)
+        .copied()
+        .expect("kinematics");
+    assert_eq!(kin.size, boxed.collision, "the box follows the pinned pose");
+    assert!(
+        (kin.pos.y - kin.size.y * 0.5 - ceiling_y).abs() < 1e-3,
+        "a body standing on a ceiling must keep its top planted: top at {}, ceiling at {ceiling_y}",
+        kin.pos.y - kin.size.y * 0.5
+    );
+}

@@ -729,6 +729,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// encodes `damage_kind`, `can_pogo` or `damage_override`. All three were
 /// written and snapshotted and read by nothing; the damage a swing deals is the
 /// moveset's.
+/// ⛔⛤ 220 -> 221: `resource.gravity_field` is DERIVED, not canonical. It
+/// mirrors the primary body's resolved frame, and its sim readers (the
+/// zone-less `GravityCtx` arm, the posed-body resize, the pose view's facing
+/// flip, the projection retract) now read the ambient or the body's own frame.
 /// ⛔⛤ 220 -> 222: `body.offense` LEFT. `BodyOffense::damage_multiplier` had no
 /// gameplay reader; its one writer was the F3 inspector's "slash damage" knob,
 /// which therefore changed nothing. (221 is AP11's `resource.gravity_field`,

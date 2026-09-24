@@ -142,6 +142,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         },
     )]));
     app.insert_resource(ambition_sim_view::BossRenderIndex::default());
@@ -358,6 +359,7 @@ fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         },
     )]));
     app.insert_resource(ambition_sim_view::BossRenderIndex::default());
@@ -403,6 +405,7 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         },
     )]));
     app.insert_resource(ambition_sim_view::BossRenderIndex::default());
@@ -718,6 +721,7 @@ fn an_actor_bind_is_one_shot_so_its_geometry_must_be_complete_before_it() {
             is_sandbag: false,
             render_size: Some(render_size),
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         };
 
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
@@ -916,6 +920,7 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
             is_sandbag: false,
             render_size: None,
             dream_seed: None,
+            geometry: ambition_sim_view::PoseGeometry::Settled,
         },
     )]));
     app.insert_resource(ambition_sim_view::BossRenderIndex::default());
@@ -945,5 +950,61 @@ fn an_actor_waits_for_its_declared_art_rather_than_binding_its_names() {
         app.world().get::<Sprite>(body).map(|s| s.image.id()),
         Some(own_image),
         "the control: once its own art is resident the actor binds it"
+    );
+}
+
+/// ⛔ An actor is not bound its art while its body is not whole yet. The Hall
+/// of Characters builds `mary_o` at 32x48 on her first tick and 21.3x32 on her
+/// second (measured 2026-09-24): the prepared body is granted a tick after the
+/// placement. A binding made from the first tick builds its render basis once
+/// from the seeded quad, so the binder waits for `PoseGeometry::Settled`.
+#[test]
+fn an_actor_is_not_bound_its_art_from_a_body_whose_geometry_is_pending() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Medium));
+    let own = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &own);
+    let own_image = own.texture.id();
+    let mut assets = GameAssets::default();
+    assets.characters.publish(ACTOR_NAME, own);
+    app.insert_resource(assets);
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        a_feature_view(),
+    )]));
+    let row = |geometry| {
+        ambition_sim_view::ActorRenderIndex::from_rows([(
+            ACTOR_ID.to_string(),
+            ambition_sim_view::ActorRenderView {
+                sprite_character_id: Some(ACTOR_NAME.to_string()),
+                name: ACTOR_NAME.to_string(),
+                is_sandbag: false,
+                render_size: None,
+                dream_seed: None,
+                geometry,
+            },
+        )])
+    };
+    app.insert_resource(row(ambition_sim_view::PoseGeometry::Pending));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, super::upgrade_actor_sprites);
+    let body = app
+        .world_mut()
+        .spawn(FeatureVisual {
+            id: ACTOR_ID.to_string(),
+        })
+        .id();
+    app.update();
+    assert!(
+        app.world().get::<BoundSpriteQuality>(body).is_none(),
+        "the actor binder finalized a binding from a body whose geometry is pending"
+    );
+
+    app.insert_resource(row(ambition_sim_view::PoseGeometry::Settled));
+    app.update();
+    assert_eq!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(own_image),
+        "the control: the same actor binds its art once its geometry settles"
     );
 }

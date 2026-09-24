@@ -45,9 +45,13 @@ where
     );
     registrar
         .rollback_resource_canonical::<crate::gravity::BaseGravity>(OWNER, "resource.base_gravity");
-    registrar.rollback_resource_canonical::<crate::gravity::GravityField>(
+    // The PRIMARY body's frame, mirrored for the camera, HUD and touch
+    // glyphs. No simulation system reads it (bodies read their own frame), and
+    // `resolve_active_gravity` rewrites it every tick before any reader.
+    registrar.declare_rollback_derived_resource::<crate::gravity::GravityField>(
         OWNER,
         "resource.gravity_field",
+        "re-derived from the primary body's ResolvedMotionFrame in FrameResolveSet; read only by presentation",
     );
     // ⛔⛔ A TEMPORARY WELL IS SPAWNED MID-MATCH, so the room-load re-derivation
     // that covers an AUTHORED gravity zone covers nothing here. A gravity

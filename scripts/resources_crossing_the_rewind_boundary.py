@@ -135,7 +135,9 @@ CROSSING_IS_HARMLESS: dict[str, str] = {
     "ActiveUiCues": "presentation cues, republished from sim state every tick",
     "ActorTraceBuffer": "dev trace ring, never read as authority",
     "CameraShakeState": "presentation; the sim requests, the camera decays it",
-    "DeveloperRuntimeState": "dev tools",
+    # ✅ `DeveloperRuntimeState` left 2026-09-24 because it stopped crossing:
+    # AP17 (5539d8667) moved its HUD-flash decay out of the simulation into
+    # `Update`, so only the host side writes it now.
     "GameplayTraceBuffer": "dev trace ring",
     "RelativisticOpticalView2d": "derived presentation view",
     "RelativisticTargetingView2d": "derived presentation view",

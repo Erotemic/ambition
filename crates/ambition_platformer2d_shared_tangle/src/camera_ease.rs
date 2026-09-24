@@ -357,9 +357,6 @@ pub struct PlayerBlinkCameraState {
     /// World-space camera position at the moment the blink fired; the camera
     /// eases from here toward the new player position.
     pub blink_camera_from: ae::Vec2,
-    /// Blink destination in world space (set alongside `blink_camera_from`
-    /// for future use; not yet consumed by the camera easing path).
-    pub blink_camera_to: ae::Vec2,
     /// Positive while the camera should snap (not ease) to the player position.
     ///
     /// ⭐⭐ ARMED BY WHOEVER MOVED THE BODY, and it has to be. A camera cannot
@@ -382,7 +379,6 @@ impl Default for PlayerBlinkCameraState {
             blink_in_timer: 0.0,
             blink_in_duration: 0.0,
             blink_camera_from: ae::Vec2::ZERO,
-            blink_camera_to: ae::Vec2::ZERO,
             camera_snap_timer: 0.0,
         }
     }

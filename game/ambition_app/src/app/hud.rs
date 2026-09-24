@@ -74,6 +74,7 @@ pub(super) fn update_hud(
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
+        &ambition_platformer2d::encounter::Encounter,
         &ambition_platformer2d::boss_encounter::EncounterDef,
         &ambition_platformer2d::boss_encounter::EncounterProgress,
     )>,
@@ -192,7 +193,7 @@ pub(super) fn update_hud(
     // member-derived `EncounterProgress` (R2). No encounter → no line.
     let boss_line = {
         let mut lines = Vec::new();
-        for (def, progress) in &boss_encounters {
+        for (encounter, def, progress) in &boss_encounters {
             if !def.hud {
                 continue;
             }
@@ -205,7 +206,7 @@ pub(super) fn update_hud(
                 let empty = 16usize.saturating_sub(filled);
                 let bar_filled = "=".repeat(filled);
                 let bar_empty = "-".repeat(empty);
-                let id = &def.placement_id;
+                let id = &encounter.id;
                 let phase = member.phase.label();
                 let hp = member.hp;
                 let max_hp = member.max_hp;

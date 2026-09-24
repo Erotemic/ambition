@@ -612,7 +612,6 @@ pub fn handle_player_events(
         blink_cam.blink_in_duration = BLINK_IN_ANIM_TIME;
         blink_cam.blink_in_timer = blink_cam.blink_in_duration;
         blink_cam.blink_camera_from = blink.from;
-        blink_cam.blink_camera_to = blink.to;
     }
     // The white hit-flash is DAMAGE feedback — a hazard hit reads as being hurt.
     // Movement operations (jump, dash, blink, …) deliberately do NOT flash: an

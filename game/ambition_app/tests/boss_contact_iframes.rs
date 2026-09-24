@@ -663,10 +663,15 @@ fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
     }
 
     let world = sim.world_mut();
-    let mut q = world.query::<(&EncounterDef, &EncounterParticipants, &EncounterProgress)>();
-    let (def, parts, progress) = q
+    let mut q = world.query::<(
+        &ambition_platformer2d::encounter::Encounter,
+        &EncounterDef,
+        &EncounterParticipants,
+        &EncounterProgress,
+    )>();
+    let (_, def, parts, progress) = q
         .iter(world)
-        .find(|(def, _, _)| def.placement_id == "boss_with_encounter")
+        .find(|(encounter, _, _, _)| encounter.id == "boss_with_encounter")
         .expect("a woken boss must be wrapped by an encounter entity");
     assert!(def.hud, "the auto-created encounter binds the HUD");
     assert_eq!(

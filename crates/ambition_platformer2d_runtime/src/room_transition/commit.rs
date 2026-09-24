@@ -545,7 +545,6 @@ impl RoomTransitionFinalize<'_, '_> {
         ) {
             blink_cam.blink_in_timer = 0.0;
             blink_cam.blink_camera_from = arrival_pos;
-            blink_cam.blink_camera_to = arrival_pos;
             blink_cam.camera_snap_timer = if edge_exit {
                 0.0
             } else {

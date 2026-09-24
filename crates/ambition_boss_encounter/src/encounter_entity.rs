@@ -37,10 +37,6 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 /// shared with wave arenas — not a boss-shaped `Vec<Entity>`.
 #[derive(Component, Clone, Debug)]
 pub struct EncounterDef {
-    /// Stable placement id (the room / LDtk encounter key). R4 keys the
-    /// "cleared" save record to THIS — the placement — not the archetype, so
-    /// reusing a boss archetype elsewhere is not pre-marked cleared.
-    pub placement_id: String,
     /// Whether this encounter binds the HUD (a view of its progress). `false`
     /// / no encounter  no boss HUD.
     pub hud: bool,
@@ -194,10 +190,7 @@ pub fn sync_boss_encounter_entities(
                 // namespace — the boss BODY owns `placement:{id}`.
                 ambition_platformer2d_shared_tangle::sim_id::SimId::encounter(&config.id),
                 EncounterLifecycle::default(),
-                EncounterDef {
-                    placement_id: config.id.clone(),
-                    hud: true,
-                },
+                EncounterDef { hud: true },
                 EncounterParticipants::new(vec![EncounterParticipant::adopted(
                     config.id.clone(),
                     entity,

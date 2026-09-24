@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_actor_monolith::avatar::{
-    HomeBodyResources, InitialBodyPolicy, StartingCharacter,
+    HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter,
 };
 use ambition_platformer2d_world::rooms::{
     ActiveRoomMetadata, LiveRoomInstance, RoomMusicRequest, RoomSet,
@@ -58,6 +58,9 @@ pub struct PreparedPlatformerSource {
     initial_body: InitialBodyPolicy,
     /// What the home body holds. See [`HomeBodyResources`].
     home_body_resources: HomeBodyResources,
+    /// What the experience grants and permits the home body. See
+    /// [`HomeBodyAbilities`].
+    home_body_abilities: HomeBodyAbilities,
     /// The active-area index an authoring FORMAT installed, if any. `None`
     /// for every RON-authored game, which is what makes this optional rather
     /// than a field they fill with an empty value — see the module header.
@@ -81,6 +84,7 @@ impl PreparedPlatformerSource {
             active_room,
             initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             home_body_resources: HomeBodyResources::default(),
+            home_body_abilities: HomeBodyAbilities::default(),
             starting_character,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
@@ -115,6 +119,7 @@ impl PreparedPlatformerSource {
             starting_character: catalog_default,
             initial_body: InitialBodyPolicy::NoInitialBody,
             home_body_resources: HomeBodyResources::default(),
+            home_body_abilities: HomeBodyAbilities::default(),
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: None,
         }
@@ -125,6 +130,14 @@ impl PreparedPlatformerSource {
     #[must_use]
     pub fn with_home_body_resources(mut self, resources: HomeBodyResources) -> Self {
         self.home_body_resources = resources;
+        self
+    }
+
+    /// Declare what the experience grants and permits its home body, over the
+    /// worn character's own kit — read once when the body is constructed.
+    #[must_use]
+    pub fn with_home_body_abilities(mut self, abilities: HomeBodyAbilities) -> Self {
+        self.home_body_abilities = abilities;
         self
     }
 
@@ -194,6 +207,7 @@ impl PreparedPlatformerSource {
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
+            home_body_abilities: self.home_body_abilities,
             #[cfg(feature = "ldtk")]
             installed_ldtk_index: self.installed_ldtk_index.clone(),
         }
@@ -237,6 +251,7 @@ impl PreparedPlatformerSource {
             starting_character: self.starting_character.clone(),
             initial_body: self.initial_body.clone(),
             home_body_resources: self.home_body_resources.clone(),
+            home_body_abilities: self.home_body_abilities,
             requests: PlatformerSessionRequests::default(),
         }
     }
@@ -270,6 +285,7 @@ pub struct PlatformerSessionWorld {
     pub starting_character: StartingCharacter,
     pub initial_body: InitialBodyPolicy,
     pub home_body_resources: HomeBodyResources,
+    pub home_body_abilities: HomeBodyAbilities,
     pub requests: PlatformerSessionRequests,
 }
 

@@ -21,7 +21,6 @@
 //! `crates/ambition_platformer2d::actors/src//tests.rs`.
 
 use ambition_platformer2d::actors::avatar::PlayerIdentityBundle;
-use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
 use ambition_platformer2d::sim::PlayerSlot;
 use ambition_platformer2d::platformer::sim_id::SimId;
 use ambition_platformer2d::characters::actor::BodyAnimFacts;
@@ -130,13 +129,12 @@ fn player_entity_carries_canonical_sim_components() {
         &BodyHealth,
         &BodyCombat,
         &BodyAnimFacts,
-        &BodyModeCapabilities,
         &PlayerBlinkCameraState,
     ), With<PlayerEntity>>();
     let row = q
         .single(app.world())
         .expect("player entity should carry every PlayerSimulationBundle component");
-    let (kinematics, health, combat, _anim, _caps, _blink_cam) = row;
+    let (kinematics, health, combat, _anim, _blink_cam) = row;
     assert!(
         health.current() > 0,
         "player should start at >0 HP, got {}",

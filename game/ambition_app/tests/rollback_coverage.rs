@@ -147,6 +147,12 @@ const WAIVED: &[(&str, &str)] = &[
          body. The live bank it seeds (the body's ActorResources) is registered \
          component-canonical",
     ),
+    (
+        "ambition_platformer2d_actor_monolith::avatar::starting_character::HomeBodyAbilities",
+        "the same activation input for what the experience GRANTS and PERMITS its \
+         home body, read only by `simulation_world` when it builds the body. The \
+         abilities it seeds (AbilityBase, BodyAbilities) are registered",
+    ),
     // ── Authored geometry and identity on world props ────────────────────────
     //
     // Same population change surfaced these: a shrine, a moving platform's visual

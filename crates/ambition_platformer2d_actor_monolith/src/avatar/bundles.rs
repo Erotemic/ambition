@@ -4,7 +4,6 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 use bevy::prelude::*;
 
-use crate::body_mode::BodyModeCapabilities;
 // ⛔ THE DEFINITION, NOT `crate::control`'s RE-EXPORT — and this line IS the
 // finding. `LocalPlayer` is a zero-field marker that now lives in
 // `shared_tangle::markers`; naming the re-export would leave the `avatar ->
@@ -83,9 +82,6 @@ pub struct PlayerSimulationBundle {
     pub health: BodyHealth,
     pub wallet: BodyWallet,
     pub combat: BodyCombat,
-    /// Body-mode kit: the home player can crouch / morph / climb. A possessed
-    /// actor uses ITS OWN capabilities (this is the home body's).
-    pub body_mode_caps: BodyModeCapabilities,
     pub anim: BodyAnimFacts,
     pub blink_cam: PlayerBlinkCameraState,
     pub attack: BodyMelee,
@@ -196,7 +192,6 @@ impl PlayerSimulationBundle {
             health: BodyHealth::new(health),
             wallet: BodyWallet::default(),
             combat: BodyCombat::default(),
-            body_mode_caps: BodyModeCapabilities::full(),
             anim: BodyAnimFacts::default(),
             blink_cam: PlayerBlinkCameraState::default(),
             attack: BodyMelee::default(),

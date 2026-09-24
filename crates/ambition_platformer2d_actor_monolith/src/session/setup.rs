@@ -56,6 +56,8 @@ pub struct SimulationSetup<'a> {
     pub initial_body: &'a crate::avatar::InitialBodyPolicy,
     /// What the home body holds, when there is one.
     pub home_body_resources: &'a crate::avatar::HomeBodyResources,
+    /// What the experience grants and permits the home body.
+    pub home_body_abilities: &'a crate::avatar::HomeBodyAbilities,
     /// The prepared cast, when this composition registered one.
     ///
     /// `None` is the ordinary case for a composition that registers no
@@ -130,6 +132,7 @@ pub fn simulation_world(
         tuning,
         initial_body,
         home_body_resources,
+        home_body_abilities,
         prepared_characters,
         placement_lowering,
         content_staging,
@@ -251,12 +254,22 @@ pub fn simulation_world(
     // an answer not given here is never given — the default V3 stood in
     // `sandbox_all` (reset and grab included) while wearing a set that grants
     // neither.
+    //
+    // The experience then grants and permits over that kit
+    // (`HomeBodyAbilities`): Morph Ball reaches Ambition's home body this way,
+    // and never through the character or the fallback below.
     let worn_id = starting_character.effective_id(default_character_id);
-    let base_abilities = prepared_characters
+    let authored_abilities = prepared_characters
         .and_then(|registry| registry.get(worn_id))
         .and_then(|prepared| prepared.abilities)
         .or_else(|| character_catalog.ability_set(worn_id))
-        .unwrap_or_else(ae::AbilitySet::sandbox_all);
+        .unwrap_or(ae::AbilitySet {
+            // An unauthored body gets every intrinsic verb. Morph Ball is
+            // progression an experience grants, so a fallback never carries it.
+            morph: false,
+            ..ae::AbilitySet::sandbox_all()
+        });
+    let base_abilities = home_body_abilities.apply(authored_abilities);
     let mut initial_scratch = crate::avatar::primary_player_scratch(world.0.spawn, base_abilities);
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,

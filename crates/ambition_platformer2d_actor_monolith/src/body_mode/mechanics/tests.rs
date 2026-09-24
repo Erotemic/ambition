@@ -3,7 +3,6 @@
 //! flight suppressing ladder auto-climb.
 
 use super::*;
-use crate::body_mode::BodyModeCapabilities;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::control::ActorControl;
 use ambition_characters::control::SlotInteractionState;
@@ -76,11 +75,11 @@ fn build_body_mode_test_app() -> (App, Entity) {
         .spawn((
             PlayerEntity,
             PrimaryPlayer,
-            // Controlled by the primary slot, with the full body-mode kit — the
-            // driver keys on `DrivingParticipant` + `BodyModeCapabilities`, not `PlayerEntity`.
+            // Controlled by the primary slot, with every posture verb — the
+            // driver keys on `DrivingParticipant` + `BodyAbilities`, not `PlayerEntity`.
             DrivingParticipant(PlayerSlot::PRIMARY),
             ActorControl::default(),
-            BodyModeCapabilities::full(),
+            ambition_platformer2d_core::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
             BodyKinematics {
                 pos: world_spawn,
                 size: Vec2::new(30.0, 48.0),
@@ -114,7 +113,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
 /// inert body the driver must skip).
 fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity {
     let mut body = app.world_mut().spawn((
-        BodyModeCapabilities::full(),
+        ambition_platformer2d_core::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
         ActorControl::default(),
         BodyKinematics {
             pos,

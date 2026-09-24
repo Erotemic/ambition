@@ -155,6 +155,18 @@ pub struct AbilitySet {
     /// fail loudly anywhere.
     #[serde(default = "yes")]
     pub interact: bool,
+    /// Duck into the shorter Crouch stance while holding down on the ground.
+    #[serde(default)]
+    pub crouch: bool,
+    /// Grab and climb a climbable region (a ladder, a vine, a flag pole).
+    /// Not [`Self::wall_climb`], which climbs a wall the body clings to.
+    #[serde(default)]
+    pub climb: bool,
+    /// Curl into the Morph Ball (double-tap down on the ground). A progression
+    /// verb: no character kit carries it by default; an experience grants it
+    /// (see [`AbilityGrant::MorphBall`] and [`MatchAbilities`]).
+    #[serde(default)]
+    pub morph: bool,
 }
 
 /// Can this body STAY WHERE IT IS, without being carried off?
@@ -239,6 +251,10 @@ impl AbilitySet {
             shield,
             grab,
             interact,
+            // Postures are the pose; a held pose has none of its own.
+            crouch: _,
+            climb: _,
+            morph: _,
         } = *self;
         Self {
             move_horizontal,
@@ -270,6 +286,9 @@ impl AbilitySet {
             shield,
             grab,
             interact,
+            crouch: false,
+            climb: false,
+            morph: false,
         }
     }
 
@@ -305,6 +324,9 @@ impl AbilitySet {
             shield: false,
             grab: false,
             interact: true,
+            crouch: true,
+            climb: true,
+            morph: false,
         }
     }
 
@@ -340,6 +362,9 @@ impl AbilitySet {
             shield: true,
             grab: true,
             interact: true,
+            crouch: true,
+            climb: true,
+            morph: true,
         }
     }
 
@@ -382,6 +407,9 @@ impl AbilitySet {
             shield: false,
             grab: false,
             interact: true,
+            crouch: true,
+            climb: true,
+            morph: false,
         }
     }
 
@@ -422,6 +450,9 @@ impl AbilitySet {
         shield: false,
         grab: false,
         interact: false,
+        crouch: false,
+        climb: false,
+        morph: false,
     };
 
     /// Field-wise OR: a verb is granted if *either* set grants it.
@@ -465,6 +496,9 @@ impl AbilitySet {
             shield: self.shield || other.shield,
             grab: self.grab || other.grab,
             interact: self.interact || other.interact,
+            crouch: self.crouch || other.crouch,
+            climb: self.climb || other.climb,
+            morph: self.morph || other.morph,
         }
     }
 
@@ -510,6 +544,9 @@ impl AbilitySet {
             shield: self.shield && mask.shield,
             grab: self.grab && mask.grab,
             interact: self.interact && mask.interact,
+            crouch: self.crouch && mask.crouch,
+            climb: self.climb && mask.climb,
+            morph: self.morph && mask.morph,
         }
     }
 
@@ -623,8 +660,9 @@ impl Default for AbilitySet {
 /// whole point of composition over presets: new verbs never fork the roster.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum AbilityGrant {
-    /// The classic run-and-jump floor: horizontal steering, a ground jump, and
-    /// variable jump height. The minimal kit a platformer protagonist needs.
+    /// The classic run-and-jump floor: horizontal steering, a ground jump,
+    /// variable jump height, ducking and climbing a ladder. The minimal kit a
+    /// platformer protagonist needs.
     RunJump,
     /// An extra jump in the air. On its own this is a *double* jump (the
     /// [`air_jumps`](AxisSweptParams) tuning default is 1); a character that
@@ -647,6 +685,9 @@ pub enum AbilityGrant {
     FreeFlight,
     /// Every implemented verb ([`AbilitySet::sandbox_all`]).
     SandboxAll,
+    /// Curl into the Morph Ball. A progression grant an experience hands its
+    /// home body, not part of any character's kit.
+    MorphBall,
 }
 
 impl AbilityGrant {
@@ -657,6 +698,8 @@ impl AbilityGrant {
                 move_horizontal: true,
                 jump: true,
                 variable_jump: true,
+                crouch: true,
+                climb: true,
                 ..AbilitySet::NONE
             },
             Self::AirJump => AbilitySet {
@@ -681,6 +724,10 @@ impl AbilityGrant {
             },
             Self::SaneSubset => AbilitySet::sane_subset(),
             Self::SandboxAll => AbilitySet::sandbox_all(),
+            Self::MorphBall => AbilitySet {
+                morph: true,
+                ..AbilitySet::NONE
+            },
         }
     }
 }

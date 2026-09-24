@@ -72,7 +72,7 @@ fn a_misspelt_verb_is_a_content_fault_even_with_nobody_to_ask() {
 /// VALUE.
 ///
 /// ⭐ THE FIELD LIST COMES FROM `serde`, NOT FROM THIS TEST. A hand-typed list
-/// of 29 names would be a third copy to keep in step, and the one most likely
+/// of 32 names would be a third copy to keep in step, and the one most likely
 /// to be forgotten — so the set serializes itself and every key it produces is
 /// asked for. Adding a capability therefore extends the test automatically.
 ///
@@ -88,8 +88,8 @@ fn every_ability_answers_to_its_own_field_name_and_value() {
         let fields = json.as_object().expect("it serializes as a map of fields");
         assert_eq!(
             fields.len(),
-            29,
-            "the ability vocabulary is 29 fields; if this moved, `ability_named`\
+            32,
+            "the ability vocabulary is 32 fields; if this moved, `ability_named`\
              and this test have both just been told about it"
         );
         for (field, value) in fields {

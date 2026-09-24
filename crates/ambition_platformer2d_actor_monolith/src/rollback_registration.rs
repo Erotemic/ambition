@@ -542,11 +542,6 @@ where
         "derived.player_body_frame_output",
         "republished by body integration every simulation frame",
     );
-    registrar.declare_rollback_derived_component::<crate::body_mode::BodyModeCapabilities>(
-        OWNER,
-        "derived.body_mode_capabilities",
-        "projected from the active body mode each frame",
-    );
     registrar.declare_rollback_derived_component::<ambition_combat::hurtbox_resolution::ResolvedHurtboxes>(
         OWNER,
         "derived.resolved_hurtboxes",

@@ -1020,6 +1020,9 @@ fn sanic_setup(
     home_body_resources: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::HomeBodyResources,
     >,
+    home_body_abilities: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::HomeBodyAbilities,
+    >,
     character_catalog: bevy::prelude::Res<
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
@@ -1053,6 +1056,7 @@ fn sanic_setup(
             tuning: &tuning,
             initial_body: &initial_body,
             home_body_resources: &home_body_resources,
+            home_body_abilities: &home_body_abilities,
             prepared_characters: prepared_characters.as_deref(),
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,

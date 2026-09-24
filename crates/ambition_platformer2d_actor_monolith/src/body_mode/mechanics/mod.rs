@@ -1,9 +1,9 @@
 //! Controlled-body mode driver for crouch, morph ball, and climbing.
 //!
 //! `try_change_body_mode_clusters` owns collision-safe resizing. Mid-action
-//! mechanics that own body shape suppress mode transitions. Any driven body with
-//! `BodyModeCapabilities` uses this path; controller kind does not select a
-//! separate simulation path.
+//! mechanics that own body shape suppress mode transitions. Any driven body uses
+//! this path, gated by its effective `BodyAbilities` (`crouch`, `climb`,
+//! `morph`); controller kind does not select a separate simulation path.
 
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
@@ -17,7 +17,8 @@ pub fn update_body_mode(
     world: ambition_platformer2d_world::collision::CollisionWorld,
     // Slot-scoped gesture edges for the participant driving each body.
     mut slot_gestures: ResMut<ambition_characters::control::SlotInteractionState>,
-    // Capability-gated driven bodies; no `PlayerEntity` identity filter.
+    // Driven bodies, gated by their effective abilities; no `PlayerEntity`
+    // identity filter.
     mut bodies: Query<(
         &ambition_characters::control::DrivingParticipant,
         &mut ambition_platformer2d_core::BodyKinematics,
@@ -30,7 +31,7 @@ pub fn update_body_mode(
         &ambition_platformer2d_core::BodyEnvironmentContact,
         &ambition_characters::control::ActorControl,
         (
-            &crate::body_mode::BodyModeCapabilities,
+            &ambition_platformer2d_core::BodyAbilities,
             &ambition_platformer2d_core::BodyFlightState,
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         ),
@@ -53,7 +54,7 @@ pub fn update_body_mode(
         facts,
         env_contact,
         control,
-        (caps, flight, resolved_frame),
+        (abilities, flight, resolved_frame),
     ) in &mut bodies
     {
         // `DrivingParticipant` is the control-authority filter.
@@ -189,7 +190,7 @@ pub fn update_body_mode(
         // — flight suppresses ladder auto-climb so you can fly past / over a
         // ladder without snapping onto it. (Land or disable flight to climb.)
         let climb_initiator = climb_axis_held && !(climb_axis_down && on_ground && !jump_pressed);
-        if caps.can_climb
+        if abilities.abilities.climb
             && climbable_contact_present
             && climb_initiator
             && !flight.fly_enabled
@@ -233,7 +234,7 @@ pub fn update_body_mode(
 
         // Double-tap-down on the ground from Standing or Crouching curls
         // into MorphBall — only if this body can morph.
-        if caps.can_morph && on_ground && double_tap_down {
+        if abilities.abilities.morph && on_ground && double_tap_down {
             let _ = ae::try_change_body_mode_clusters(
                 &mut kinematics,
                 base_size,
@@ -270,7 +271,7 @@ pub fn update_body_mode(
         // `try_change_body_mode_clusters`, so this cannot push a body through a
         // ceiling.
         let carries_its_crouch = mode == ae::BodyMode::Crouching;
-        let target = if caps.can_crouch && down_held && (on_ground || carries_its_crouch) {
+        let target = if abilities.abilities.crouch && down_held && (on_ground || carries_its_crouch) {
             ae::BodyMode::Crouching
         } else {
             ae::BodyMode::Standing

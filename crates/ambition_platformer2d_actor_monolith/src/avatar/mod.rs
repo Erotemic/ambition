@@ -21,7 +21,7 @@ pub use starting_character::{
     apply_worn_character_gameplay, apply_worn_character_overlay, apply_worn_motion_model,
     gate_worn_player_control, motion_model_spec_for_character, motion_model_spec_for_character_id,
     movement_tuning_for_character, sustain_bubble_shield, sync_charge_projectile_capability,
-    HomeBodyResources, InitialBodyPolicy, StartingCharacter, WornControlGateSet,
+    HomeBodyAbilities, HomeBodyResources, InitialBodyPolicy, StartingCharacter, WornControlGateSet,
 };
 // Body-generic vocabulary stays under `crate::actor`; this module exports only home-avatar policy.
 pub use events::PlayerHealRequested;

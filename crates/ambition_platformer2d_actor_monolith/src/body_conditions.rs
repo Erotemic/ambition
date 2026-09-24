@@ -139,7 +139,7 @@ fn driven_bodies<'w, T: bevy::prelude::Component>(
 /// no field for.
 ///
 /// ⛔⛔ THE DESTRUCTURE IS THE GUARD, AND `deny(unused_variables)` IS WHAT MAKES
-/// IT ONE. A hand-kept list of 29 field names goes stale the first time somebody
+/// IT ONE. A hand-kept list of field names goes stale the first time somebody
 /// adds a capability, and a stale one fails SILENTLY: the new verb is simply
 /// unaskable, and an author who names it gets "no ability is spelled that" for a
 /// field that exists. Binding every field by name and denying unused bindings
@@ -177,6 +177,9 @@ fn ability_named(set: &AbilitySet, verb: &str) -> Option<bool> {
         shield,
         grab,
         interact,
+        crouch,
+        climb,
+        morph,
     } = *set;
     Some(match verb {
         "move_horizontal" => move_horizontal,
@@ -208,6 +211,9 @@ fn ability_named(set: &AbilitySet, verb: &str) -> Option<bool> {
         "shield" => shield,
         "grab" => grab,
         "interact" => interact,
+        "crouch" => crouch,
+        "climb" => climb,
+        "morph" => morph,
         _ => return None,
     })
 }

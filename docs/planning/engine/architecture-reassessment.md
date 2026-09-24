@@ -75,6 +75,13 @@ projectile, session, world`. Diffed against the nine above:
 `assets`/`character_sprites` SCC of two is unchanged. ⛔ **Diff the MEMBERS; the
 count cannot tell a repair from a regression, and here it contained both.**
 
+Re-run 2026-09-24: **seven** — `abilities, construction, features, items,
+projectile, session, world`. `avatar`, `character_runtime` and `control` LEFT
+when possession moved from `abilities::traversal` to `control::possession`:
+possession is a seat redirect, and it was the only reference between `abilities`
+and `control` in either direction. The `assets`/`character_sprites` pair is
+unchanged.
+
 The workspace has 79 packages and 679,785 physical Rust lines under their `src`
 directories, including tests and comments. The actor monolith accounts for 98,464
 of those lines. ⚠ **Re-derived 2026-09-17 — 80 packages, 737,522

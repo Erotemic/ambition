@@ -7,7 +7,7 @@
 use ambition_characters::actor::limb::Limb;
 use bevy::prelude::*;
 
-use crate::abilities::traversal::possession::PossessionState;
+use crate::control::possession::PossessionState;
 
 /// Re-derive non-item body custody each tick from rollback-authoritative roots.
 ///

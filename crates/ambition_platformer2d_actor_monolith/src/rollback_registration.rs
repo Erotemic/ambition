@@ -195,13 +195,13 @@ where
             OWNER,
             "resource.pending_lifecycle_commit",
         );
-    registrar.rollback_resource_clone_entity_set::<crate::abilities::traversal::possession::PossessionState>(
+    registrar.rollback_resource_clone_entity_set::<crate::control::possession::PossessionState>(
             OWNER,
             "resource.possession_state",
             |state| state.possessed.into_iter().chain(state.home).collect(),
         );
     registrar
-        .rollback_resource_map_entities::<crate::abilities::traversal::possession::PossessionState>(
+        .rollback_resource_map_entities::<crate::control::possession::PossessionState>(
             OWNER,
             "map.resource.possession_state",
         );

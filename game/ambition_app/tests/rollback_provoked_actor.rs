@@ -187,7 +187,7 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
 /// end-to-end suite uses, and then keeps simulating inside a live prediction window.
 #[test]
 fn possession_survives_the_real_rollback_window() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 

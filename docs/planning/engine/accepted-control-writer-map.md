@@ -169,7 +169,7 @@ and, when two entities hold `DrivingParticipant(slot)`, logs an `error!` and
 returns `None`: *"refusing ambiguous authority, so this seat drives nothing until
 one of them vacates."* Measured by `git grep` when this page was written: **no
 test anywhere named `body_driving_seat`**, while four production readers depended
-on it — `abilities/traversal/possession.rs:56`, `control/input_systems.rs:236`,
+on it — `control/possession.rs:56`, `control/input_systems.rs:236`,
 `control/queries.rs:224` and `ambition_sim_view::local_view.rs:145`. <!-- cite-test: the wrong member, kept as the record; corrected below -->
 
 ⛔⛔ **CORRECTED 2026-09-10 AT `2bf960acf`. THE COUNT IS STILL FOUR AND TWO OF
@@ -206,8 +206,8 @@ exists — only the ROLE is wrong. A citation that points at a real line in a te
 and calls it production passes the lane.
 
 ⚠ The other five citations on this page were checked at the same time and all
-five resolve: `abilities/traversal/possession.rs:56`,
-`abilities/traversal/possession.rs:268`, `control/input_systems.rs:236`,
+five resolve: `control/possession.rs:56`,
+`control/possession.rs:268`, `control/input_systems.rs:236`,
 `control/queries.rs:45` and `ambition_sim_view::local_view.rs:145`.
 
 ⇒ **WHAT THE FIXTURE FOUND WAS THE INVERSE OF THE DOCUMENTED BEHAVIOUR.**

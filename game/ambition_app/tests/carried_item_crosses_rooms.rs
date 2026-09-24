@@ -795,7 +795,7 @@ const POSSESS_TARGET_ID: &str = "carry_while_possessed";
 /// whole hold window, and the target weaves around its own attack range, so a
 /// single window can land just out of the possession radius.
 fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::combat::components::FeatureId;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
@@ -959,7 +959,7 @@ fn an_item_carried_by_a_possessed_body_survives_the_door_too() {
 /// radius. That is a spacing race, not the thing under test.
 #[test]
 fn an_authored_actor_carried_out_of_its_room_and_back_does_not_meet_a_copy() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
 
@@ -1154,7 +1154,7 @@ fn the_occurrence_ledger_learns_of_a_driven_body_on_the_tick_it_is_driven() {
 /// i.e.
 #[test]
 fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::platformer::lifecycle::AuthoredOccurrences;
 
     let mut sim = fixed_60hz_room_sim("vertical_shaft");
@@ -1220,7 +1220,7 @@ fn a_custody_row_with_nobody_holding_it_is_retracted_before_a_room_can_act_on_it
 /// door puts the rider above it, which is why a one-shot placement never crosses.
 #[test]
 fn a_mount_you_are_riding_crosses_the_door_with_you() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;
@@ -1354,7 +1354,7 @@ fn a_mount_you_are_riding_crosses_the_door_with_you() {
 /// the mount.
 #[test]
 fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
@@ -1496,7 +1496,7 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
 /// mount is still one occurrence after both.
 #[test]
 fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::actor::limb::LimbRig;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
@@ -1755,7 +1755,7 @@ fn no_two_rooms_in_the_merged_world_author_the_same_id() {
 /// pin the actor to a named room; it pins position transfer and uniqueness.
 #[test]
 fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -1950,7 +1950,7 @@ fn an_actor_released_in_a_foreign_room_leaves_one_of_it_and_a_body_to_drive() {
 /// rider as a pickup collector after its mount dies.
 #[test]
 fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;
@@ -2088,7 +2088,7 @@ fn a_mount_dying_under_a_possession_leaves_the_player_driving() {
 /// coverage this test can actually speak for is possession's.
 #[test]
 fn a_mount_dying_under_a_possession_survives_rewinds() {
-    use ambition_platformer2d::actors::abilities::traversal::possession::PossessionState;
+    use ambition_platformer2d::actors::control::possession::PossessionState;
     use ambition_platformer2d::characters::brain::Brain;
     use ambition_platformer2d::engine_core::BodyKinematics;
     use ambition_platformer2d::mount::RidingOn;

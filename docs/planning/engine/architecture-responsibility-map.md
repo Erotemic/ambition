@@ -116,7 +116,7 @@ All paths in this table are under
 | `world` (remaining staging/replay roads) | Mixed world query, room preparation and lifecycle adapters | Inventory each operation; room activation is not the same as immutable room geometry |
 | `construction` | Typed assembly of actors, objects, summons and encounter-specific parts | The actor label overstates coherence; preserve typed lanes and separate adapters when a real domain warrants it |
 | `projectile/systems.rs` | Projectile body stepping, contact selection/consumption and world collision | A2, then projectile owner extraction. Do not move this full integration function into combat just to close a cycle |
-| `abilities/traversal/possession.rs` and related control consumers | Eligibility policy plus accepted control/custody projection | Co-locate the relation authority; ability-specific acquisition rules remain optional policy |
+| `control/possession.rs` and related control consumers | Eligibility policy plus accepted control/custody projection | Co-locate the relation authority; ability-specific acquisition rules remain optional policy |
 | `abilities` (remaining) | Several independent abilities and summoning/traversal adapters | Split by actual customer. No universal ability service needed for a single summoning call |
 | `control/authority.rs`, `control/input_systems.rs` | Accepted driver projection, participant intents, possession integration, stray animation advancement | Keep accepted control with possession relation; move animation advancement to its actual frame owner |
 | `shrine.rs` | Rest/heal/checkpoint capture trigger plus startup/reset restoration | A1 separates content behavior from lifecycle restoration; keep heal/save semantics unchanged |

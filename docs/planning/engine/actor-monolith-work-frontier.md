@@ -312,7 +312,7 @@ banner saying the map was delivered — and then under a SECOND banner saying th
 one thing it left open was closed. Three statements of this hold's status, two of
 them added above a third that still said wait.
 **Source regions:** `control/authority.rs`, `control/input_systems.rs`,
-`abilities/traversal/possession.rs`, `body_custody.rs`, live actor clusters,
+`control/possession.rs`, `body_custody.rs`, live actor clusters,
 `avatar` integration and `features/ecs/actors/update.rs`, all inside the monolith.
 
 **Responsibility:** accepted driver relation, input projection, live body execution

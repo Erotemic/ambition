@@ -256,7 +256,7 @@ pub fn interaction_input_system(
         let movement_mode = frame.control_frame_modes.movement;
         let door_double_tap_up = std::mem::take(&mut interaction.double_tap_up_pending);
         // Down + Interact is the possession gesture
-        // (`abilities::traversal::possession`), so a held-Down interact is
+        // (`control::possession`), so a held-Down interact is
         // CLAIMED by possession and must NOT also trigger a normal interaction
         // (open a door / start an NPC dialog) — otherwise the press that begins
         // a possession hold also opens whatever's adjacent. Suppress the interact
@@ -264,7 +264,7 @@ pub fn interaction_input_system(
         // possession trigger uses so they agree under any gravity. The
         // double-tap-UP door request is an Up gesture, so it is never suppressed.
         let gravity_dir = crate::control::seat_frame_down(&drivers, slot, &frames, body);
-        let down_held = crate::abilities::traversal::possession::holding_descend(
+        let down_held = crate::control::possession::holding_descend(
             frame.axis_x,
             frame.axis_y,
             gravity_dir,
@@ -273,7 +273,7 @@ pub fn interaction_input_system(
         // Holding Up is a third way in, beside the press and the double-tap:
         // the same gravity-resolved axis, past the same deflection, held for
         // as long as a possession takes.
-        let up_held = crate::abilities::traversal::possession::holding_ascend(
+        let up_held = crate::control::possession::holding_ascend(
             frame.axis_x,
             frame.axis_y,
             gravity_dir,

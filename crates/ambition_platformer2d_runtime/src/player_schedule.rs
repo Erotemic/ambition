@@ -106,7 +106,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // seats. Mirror the primary slot only for consumers of the legacy `ControlFrame`
                 // surface, and record the final frame the simulation consumes.
                 (
-                    ambition_platformer2d_actor_monolith::abilities::traversal::possession::resolve_controlled_subject,
+                    ambition_platformer2d_actor_monolith::control::possession::resolve_controlled_subject,
                     ambition_platformer2d_actor_monolith::schedule::publish_seat_controls_when_nobody_else_does
                         .in_set(ambition_platformer2d_actor_monolith::control::PrimarySlotInputCommit),
                     //  and the MIRROR, once, for every host. `ControlFrame`
@@ -233,9 +233,9 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_platformer2d_actor_monolith::abilities::traversal::possession::possession_trigger_system
+                ambition_platformer2d_actor_monolith::control::possession::possession_trigger_system
                     .in_set(GameplayGated),
-                ambition_platformer2d_actor_monolith::abilities::traversal::possession::release_possession_if_target_lost,
+                ambition_platformer2d_actor_monolith::control::possession::release_possession_if_target_lost,
                 // Reproject body custody after possession settles. It remains ungated so room
                 // transitions can read settled residency while gameplay is suspended.
                 ambition_platformer2d_actor_monolith::body_custody::project_body_custody

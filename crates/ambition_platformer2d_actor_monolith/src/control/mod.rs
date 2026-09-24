@@ -9,6 +9,7 @@ pub mod acting;
 pub mod authority;
 pub mod components;
 pub mod input_systems;
+pub mod possession;
 pub mod queries;
 pub mod slots;
 

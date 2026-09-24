@@ -37,7 +37,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
 };
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 
-use crate::abilities::traversal::possession::PossessionState;
+use crate::control::possession::PossessionState;
 use ambition_boss_encounter::BossEncounterRegistry;
 use ambition_characters::control::SlotInteractionState;
 use ambition_encounter::switches::SwitchActivationQueue;

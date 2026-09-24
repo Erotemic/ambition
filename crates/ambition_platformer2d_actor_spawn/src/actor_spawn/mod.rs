@@ -1408,6 +1408,9 @@ pub fn spawn_runtime_minion_into(
     // BUILT from, so the components it is spawned with come from that one
     // resolution. See `spawn_render_geometry`.
     let posed = enemy.posed;
+    let definition = prepared
+        .get(character_id)
+        .expect("resolved above: the body blueprint came from this definition");
     EnemyActorSpawnPlan::hostile(
         format!("Runtime minion: {name}"),
         id.clone(),
@@ -1419,6 +1422,10 @@ pub fn spawn_runtime_minion_into(
     .with_aggression(aggression)
     .spawn_into(&mut scope.reborrow());
     scope.insert(ambition_combat::components::EncounterMob::new(encounter_id));
+    // A summon wears its character like a placement does, so its identity is
+    // `WornCharacter` rather than only the config's sprite id. The grant writes
+    // no health or contact tuning, so the per-summon overrides above stand.
+    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation());
     // The authored mount role captured above, on the body that now exists.
     if let Some(mount) = mount_role.as_ref() {
         attach_mount_role_from(
@@ -1442,6 +1449,47 @@ pub fn spawn_runtime_minion_into(
     }
     if let Some(offset) = sprite_offset {
         scope.insert(ambition_combat::components::ActorSpriteOffset(offset));
+    }
+}
+
+/// A body built from a prepared character WEARS it, in the construction batch:
+/// the identity, the kit (holding the character's weapon, resolved before the
+/// kit is granted so the kit is written already holding it) and the memo that
+/// tells the re-template pass this body is current.
+///
+/// Answers to no match: the character's own feel is the whole answer (see
+/// `MatchRules::body_over`). An unregistered held item is a WARNING, not a
+/// refusal: the body is fine without it.
+fn wear_prepared_character(
+    scope: &mut RootScope,
+    definition: &ambition_characters::prepared::PreparedCharacterDefinition,
+    generation: ambition_characters::prepared::CharacterCatalogGeneration,
+) {
+    scope.insert(ambition_characters::actor::WornCharacter::new(
+        definition.id.as_str(),
+    ));
+    let held = definition.held_item.as_deref().and_then(|id| {
+        let spec = ambition_characters::brain::held_item_by_id(id);
+        if spec.is_none() {
+            bevy::log::warn!(
+                "character `{}` holds `{id}`, which is not a registered held item",
+                definition.id.as_str()
+            );
+        }
+        spec.map(HeldItem::new)
+    });
+    crate::character_body::grant_prepared_character_body(
+        &mut scope.entity_scope(),
+        definition,
+        generation,
+        crate::character_body::KitOwnership::Grant,
+        definition.movement_tuning,
+        held.as_ref().map_or(ambition_characters::repertoire::Hand::Empty, |held| {
+            ambition_characters::repertoire::Hand::Holding(&held.spec)
+        }),
+    );
+    if let Some(held) = held {
+        scope.insert(held);
     }
 }
 
@@ -1601,52 +1649,9 @@ pub fn spawn_enemy_with_faction_into(
             authored,
             faction,
         );
-        //  IT WEARS ITSELF. The persona derive is the single writer for a
-        // worn body's action set, moveset and identity baseline — the same one
-        // that serves a match seat — so a migrated enemy's kit comes from its
-        // character rather than from `enemy.spec.melee`.
-        scope.insert(ambition_characters::actor::WornCharacter::new(
-            definition.id.as_str(),
-        ));
-        // The body was built partial here, `WornCharacter` was attached, and
-        // `project_prepared_character_definitions` noticed it a tick later and inserted the
-        // action set, the moveset, the hurtboxes and the posed body onto a body that had
-        // already begun simulating.
-        //
-        //  the memo goes on in the SAME batch (see
-        // `grant_prepared_character_body`), so the re-template pass reads this
-        // body as current and never touches it. That pass is now what it was
-        // always for: a cast hot reload, or a deliberate runtime re-wear.
-        // THE WEAPON THE CHARACTER CARRIES, resolved before the kit is granted so
-        // the kit is written already holding it. The plan resolves its held item
-        // from `enemy.spec`, which for a character-first body is inert; the fact
-        // is the character's. An id the registry does not know is a WARNING, not
-        // a refusal: the body is fine without it.
-        let held = definition.held_item.as_deref().and_then(|id| {
-            let spec = ambition_characters::brain::held_item_by_id(id);
-            if spec.is_none() {
-                bevy::log::warn!(
-                    "character `{}` holds `{id}`, which is not a registered held item",
-                    definition.id.as_str()
-                );
-            }
-            spec.map(HeldItem::new)
-        });
-        crate::character_body::grant_prepared_character_body(
-            &mut scope.entity_scope(),
-            definition,
-            prepared.generation(),
-            crate::character_body::KitOwnership::Grant,
-            // A room placement answers to no match: the character's own feel is
-            // the whole answer here (see `MatchRules::body_over`).
-            definition.movement_tuning,
-            held.as_ref().map_or(ambition_characters::repertoire::Hand::Empty, |held| {
-                ambition_characters::repertoire::Hand::Holding(&held.spec)
-            }),
-        );
-        if let Some(held) = held {
-            scope.insert(held);
-        }
+        // IT WEARS ITSELF, so its kit comes from its character rather than from
+        // `enemy.spec.melee`.
+        wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation());
         //  a body that states no mount gets no role, and that is the whole
         // rule now. The other arm read the archetype row this placement's brain
         // key happened to name — which for every migrated character was the

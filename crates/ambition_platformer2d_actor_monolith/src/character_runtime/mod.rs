@@ -624,10 +624,9 @@ pub fn declare_registered_characters(
 
 /// An ACTOR that resolved a character identity needs that art too.
 ///
-/// That system watches `WornCharacter` — the identity a body PUTS ON. A runtime minion
-/// (`spawn_runtime_minion_into`) wears nothing: its character is stated only onto
-/// `ActorConfig::sprite_character_id` by `ActorClusterSeed::new_character_in`, so without this
-/// system it would resolve its character and never ask for the art.
+/// That system watches `WornCharacter` — the identity a body PUTS ON. This one reads the
+/// config's `sprite_character_id`, which every character road also writes; a body with a
+/// sprite id and no worn character (an anonymous NPC resolved by name) still needs its art.
 ///
 /// `Added` rather than `Changed`. The actor cluster view borrows `ActorConfig`
 /// mutably every tick, which marks it changed whether or not anything moved, so

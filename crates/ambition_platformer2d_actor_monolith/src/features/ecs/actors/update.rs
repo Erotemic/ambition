@@ -1671,10 +1671,9 @@ pub(crate) fn compute_crowding_by_id(
                 id_a.clone(),
                 ambition_characters::brain::smash::CrowdingSignal {
                     same_faction_count: count,
-                    other_faction_count: 0,
                     away_dir: away,
                     pressure: ambition_characters::brain::smash::CrowdingSignal::compute_pressure(
-                        count, 0,
+                        count,
                     ),
                 },
             );

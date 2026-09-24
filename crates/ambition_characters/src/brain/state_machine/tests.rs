@@ -24,7 +24,6 @@ fn snap_at(pos_x: f32, target_x: f32) -> BrainSnapshot {
 fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSignal {
     crate::brain::smash::CrowdingSignal {
         same_faction_count: 1,
-        other_faction_count: 0,
         away_dir,
         pressure: 1.0,
     }

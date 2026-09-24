@@ -205,32 +205,20 @@ mod tests {
         // 1 ally → 0.70, above STRIKER_DEFAULT.crowding_threshold = 0.65.
         // This is the load-bearing case for the 2-goblin encounter
         // (each actor sees exactly one nearby ally).
-        let p = CrowdingSignal::compute_pressure(1, 0);
+        let p = CrowdingSignal::compute_pressure(1);
         assert!(p > 0.65, "got {p}");
     }
 
     #[test]
     fn compute_pressure_two_allies_passes_default_threshold() {
         // 2 allies → 1.40, well above threshold.
-        let p = CrowdingSignal::compute_pressure(2, 0);
+        let p = CrowdingSignal::compute_pressure(2);
         assert!(p > 0.65, "got {p}");
     }
 
     #[test]
-    fn compute_pressure_non_faction_count_floor() {
-        // 2 non-faction characters alone shouldn't pressure.
-        assert_eq!(CrowdingSignal::compute_pressure(0, 2), 0.0);
-        // 3 non-faction → starts to pressure: (3-2) * 0.15 = 0.15.
-        assert!(
-            (CrowdingSignal::compute_pressure(0, 3) - 0.15).abs() < f32::EPSILON,
-            "got {}",
-            CrowdingSignal::compute_pressure(0, 3)
-        );
-    }
-
-    #[test]
     fn compute_pressure_caps_at_2_0() {
-        assert!(CrowdingSignal::compute_pressure(10, 10) <= 2.0);
+        assert!(CrowdingSignal::compute_pressure(10) <= 2.0);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_match** — The versus MATCH, prepared: a roster of participants, the rules of the stage, and the immutable plan a kernel activates without a lookup.
+**ambition_match** — The versus match, prepared: a roster of participants, the stage rules, and the immutable plan a kernel activates without a lookup.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

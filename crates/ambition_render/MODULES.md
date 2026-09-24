@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_render** — Ambition's Bevy presentation layer — the sandbox's default renderer.
+**ambition_render** — Ambition's Bevy presentation layer: the sandbox's default renderer.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
@@ -11,7 +11,7 @@
 | [`cutscene`](src/cutscene/mod.rs) | Sandbox cutscene presentation overlay. |
 | [`dialog_ui`](src/dialog_ui.rs) | Provider-selectable dialogue presentation. |
 | [`fx`](src/fx.rs) | Procedural visual effects for the sandbox. |
-| [`gameplay_surround`](src/gameplay_surround.rs) | Design of record: `docs/planning/triage/gameplay-presentation-profiles.md`. |
+| [`gameplay_surround`](src/gameplay_surround.rs) | Fills the display area that the gameplay camera does not cover. |
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
 | [`platformer_presentation`](src/platformer_presentation.rs) | Generic platformer room presentation. |
 | [`quality`](src/quality.rs) | Live resolved visual-quality resource. |

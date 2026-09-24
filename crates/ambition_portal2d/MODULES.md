@@ -7,13 +7,13 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`color`](src/color.rs) | Portal pair-linking identity. |
-| [`eviction`](src/eviction.rs) | Straddle eviction — the ONE sanctioned pushout. |
+| [`eviction`](src/eviction.rs) | Straddle eviction: the only pushout the portal mechanic performs. |
 | [`gun`](src/gun.rs) | Compatibility state for Ambition's held portal gun. |
 | [`gun_construction`](src/gun_construction.rs) | Transactional construction owned by the optional portal-gun capability. |
 | [`gun_lifecycle`](src/gun_lifecycle.rs) | Compatibility lifecycle for gun-owned portals. |
 | [`gun_pickup`](src/gun_pickup.rs) | Compatibility pickup for Ambition's portal-gun workflow. |
 | [`gun_projectile`](src/gun_projectile.rs) | Compatibility projectile for portal-gun-style placement. |
-| [`lifecycle`](src/lifecycle.rs) | Portal lifecycle / persistence policy for placed portals and transit cooldowns. |
+| [`lifecycle`](src/lifecycle.rs) | Portal lifecycle and persistence policy for placed portals and transit cooldowns. |
 | [`link`](src/link.rs) | Explicit portal linking by id, plus the min-aperture equalizer. |
 | [`messages`](src/messages.rs) | Portal intent and outcome messages. |
 | [`pieces`](src/pieces.rs) | Pure portal-piece geometry — the Core invariant of the portal system. |

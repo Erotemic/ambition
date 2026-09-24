@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_smash_app** — This crate exists for one reason that the content crate cannot supply: until something runs the stage, every claim about the stocks loop is a unit test.
+**ambition_demo_smash_app** — The runnable smash demo.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

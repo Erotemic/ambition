@@ -138,7 +138,12 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         // Startup binding precedes activation, so the theme (and the skybridge
         // parallax stack) comes from the authored world rather than a session
         // root that does not exist yet.
-        .with_room(ambition_demo_sanic::sanic_session_world().metadata.0),
+        .with_room(
+            ambition_demo_sanic::sanic_session_world()
+                .room_set
+                .active_metadata()
+                .clone(),
+        ),
     );
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation

@@ -14,7 +14,7 @@
 | [`loading`](src/loading.rs) | LDtk file-loading policy for worlds declared by a `WorldManifest`. |
 | [`project`](src/project.rs) | LDtk JSON deserialization types. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_platformer2d_ldtk`. |
-| [`surfaces`](src/surfaces.rs) | Typed `Surface` authoring primitive: parse + compile to engine collision. |
+| [`surfaces`](src/surfaces.rs) | Typed `Surface` authoring primitive: parse, then compile to engine collision. |
 
 _9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

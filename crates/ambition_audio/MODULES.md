@@ -11,7 +11,7 @@
 | [`content_schema`](src/content_schema.rs) | Authored-content schemas for the audio capability. |
 | [`library`](src/library.rs) | Authored-audio playback library: typed SFX cue table, lazily-loaded pre-rendered music tracks, the music/SFX Kira channels, and the track-switch/radio/default-start helpers. |
 | [`mix`](src/mix.rs) | Host-supplied mix levels. |
-| [`music`](src/music/mod.rs) | Adaptive music core: cue catalog, layered Kira channels, the director (simple + adaptive cue playback), and its tuning. |
+| [`music`](src/music/mod.rs) | Adaptive music core: cue catalog, layered Kira channels, the director (simple and adaptive cue playback), and its tuning. |
 | [`output`](src/output.rs) | Runtime selection of the audio backend and final output side effect. |
 | [`render`](src/render.rs) | Provider-relative SFX source resolution and Kira adapters. |
 | [`selection`](src/selection.rs) | App-local active audio context. |

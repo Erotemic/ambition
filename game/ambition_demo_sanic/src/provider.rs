@@ -21,13 +21,36 @@ pub struct SanicSessionWorld {
     pub starting_character: StartingCharacter,
 }
 
+/// Which act a session enters at. Set once, before the app is built, by a
+/// binary's `--act` flag; unset means Act 1.
+static START_ROOM: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+
+/// Enter the session at act `act` (1 or 2) instead of Act 1: for playing or
+/// photographing a later act without finishing the ones before it. Call before
+/// building the app; the first call wins.
+pub fn start_at_act(act: u32) -> Result<(), String> {
+    let room = match act {
+        1 => SPEEDWAY_ROOM_ID,
+        2 => crate::HIGHWAY_ROOM_ID,
+        other => return Err(format!("Sanic has acts 1 and 2, not {other}")),
+    };
+    let _ = START_ROOM.set(room);
+    Ok(())
+}
+
 pub fn sanic_session_world() -> SanicSessionWorld {
-    let room = sanic_speedway();
-    let geometry = ae::RoomGeometry(room.world.clone());
-    // Both acts, entered at the speedway; each act's `next_room` says where
-    // its goal leads.
-    let room_set =
-        RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room, sanic_highway()], Vec::new());
+    let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
+    let rooms = vec![sanic_speedway(), sanic_highway()];
+    let geometry = ae::RoomGeometry(
+        rooms
+            .iter()
+            .find(|room| room.id == start)
+            .expect("the start room is one of the acts")
+            .world
+            .clone(),
+    );
+    // Both acts; each act's `next_room` says where its goal leads.
+    let room_set = RoomSet::from_parts_or_panic(start, rooms, Vec::new());
     SanicSessionWorld {
         geometry,
         room_set,

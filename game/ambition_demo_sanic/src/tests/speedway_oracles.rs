@@ -3,7 +3,7 @@ use ambition_platformer2d::engine_core as ae;
 
 use crate::{
     sanic_speedway, FLOOR_TOP, LOOP_CLOSURE_POINT_INDEX, LOOP_ENTRY_POINT_INDEX, LOOP_SEGMENTS,
-    PIT_LEFT_X, PIT_RIGHT_X,
+    PIT_FLOOR_Y, PIT_LEFT_X, PIT_RIGHT_X,
 };
 
 /// The rig gravity every momentum test in this crate uses (60 Hz, y-down).
@@ -1020,31 +1020,37 @@ fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
 }
 
 #[test]
-fn oracle_the_pit_swallows_a_walker_and_a_speeding_jump_clears_it() {
+fn oracle_a_walker_lands_on_the_spike_bed_and_a_speeding_jump_clears_it() {
     let room = sanic_speedway();
     let floor_idx = chain_index(&room.world, "sanic_floor_route");
     let floor = &room.world.chains[floor_idx];
 
-    // A stroll off the west lip drops into the pit and touches the hazard
-    // floor: the kernel raises its reset event (the game layer respawns).
+    // A stroll off the west lip drops onto the pit's floor. The spikes there
+    // are a damage volume (a HIT, which the game layer resolves), not a
+    // kernel reset: the body lands on solid ground and stays in the world.
     let (s, _) = floor.project(ae::Vec2::new(PIT_LEFT_X - 40.0, FLOOR_TOP));
     let mut probe = Probe::riding_chain(&room.world, floor_idx, s, 250.0, sanic_params());
-    let mut entered_pit = false;
-    let mut reset_in_pit = false;
+    let mut landed_in_pit = false;
     for _ in 0..240 {
         probe.step(&room.world, ae::Vec2::X, false);
+        assert!(
+            !probe.trace.last().is_some_and(|sample| sample.reset),
+            "the pit is no longer a reset\n{}",
+            dump_tail(&probe.trace, 10)
+        );
         let pos = probe.pos();
-        let in_pit = pos.x > PIT_LEFT_X && pos.x < PIT_RIGHT_X && pos.y > FLOOR_TOP;
-        entered_pit |= in_pit;
-        if in_pit && probe.trace.last().is_some_and(|sample| sample.reset) {
-            reset_in_pit = true;
+        if pos.x > PIT_LEFT_X && pos.x < PIT_RIGHT_X && probe.riding() {
+            assert!(
+                (pos.y - PIT_FLOOR_Y).abs() < 40.0,
+                "it rides the pit floor, not the floor line above it: {pos:?}"
+            );
+            landed_in_pit = true;
             break;
         }
     }
-    assert!(entered_pit, "a walker falls into the pit");
     assert!(
-        reset_in_pit,
-        "the pit hazard raises the kernel reset event\n{}",
+        landed_in_pit,
+        "a walker lands in the pit\n{}",
         dump_tail(&probe.trace, 10)
     );
 
@@ -1153,10 +1159,9 @@ fn oracle_full_course_run_reaches_the_finish() {
 fn oracle_every_highway_loop_is_ridden_exactly_once_holding_up() {
     let room = crate::sanic_highway();
     for (loop_name, floor_name) in [
-        ("highway_loop_a", "highway_floor_west"),
-        ("highway_loop_b", "highway_floor_middle"),
-        ("highway_loop_c", "highway_floor_middle"),
-        ("highway_loop_d", "highway_floor_east"),
+        ("highway_loop_a", "highway_west"),
+        ("highway_loop_b", "highway_bridge"),
+        ("highway_loop_d", "highway_east"),
     ] {
         let loop_idx = chain_index(&room.world, loop_name);
         let floor_idx = chain_index(&room.world, floor_name);

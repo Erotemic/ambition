@@ -170,10 +170,9 @@ fn sanic_speedway_composes_through_the_umbrella() {
         .filter(|b| matches!(b.kind, ae::BlockKind::Hazard))
         .map(|b| b.name.as_str())
         .collect();
-    assert_eq!(
-        reset_blocks.len(),
-        1,
-        "the PIT is the speedway's only reset-to-spawn hazard: {reset_blocks:?}"
+    assert!(
+        reset_blocks.is_empty(),
+        "the speedway has no reset-to-spawn hazard; its pit is a spike bed: {reset_blocks:?}"
     );
     let spikes = room
         .placements
@@ -185,9 +184,9 @@ fn sanic_speedway_composes_through_the_umbrella() {
         .collect::<Vec<_>>();
     assert_eq!(
         spikes,
-        ["mid_spikes"],
-        "and the mid-course strip is a DAMAGE volume, so a hit costs rings \
-         rather than the whole run"
+        ["pit_spikes", "mid_spikes"],
+        "the pit's bed and the mid-course strip are DAMAGE volumes, so a hit \
+         costs rings rather than the whole run"
     );
     let authored = room
         .world
@@ -1380,10 +1379,9 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
         room.world.size.x
     );
     for (loop_name, floor_name) in [
-        ("highway_loop_a", "highway_floor_west"),
-        ("highway_loop_b", "highway_floor_middle"),
-        ("highway_loop_c", "highway_floor_middle"),
-        ("highway_loop_d", "highway_floor_east"),
+        ("highway_loop_a", "highway_west"),
+        ("highway_loop_b", "highway_bridge"),
+        ("highway_loop_d", "highway_east"),
     ] {
         let loop_chain = &room.world.chains[room
             .world
@@ -1405,6 +1403,25 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
         room.world.validate_surface_junctions().is_empty(),
         "{:?}",
         room.world.validate_surface_junctions()
+    );
+}
+
+/// Act 2 has height: its ground climbs and drops by more than half a screen,
+/// and it is drawn as ground (filled), not as a line over the sky.
+#[test]
+fn the_highway_rolls_climbs_and_drops() {
+    let room = sanic_highway();
+    let ground: Vec<&ae::SurfaceChain> = room.world.chains.iter().filter(|c| c.filled).collect();
+    assert!(
+        ground.len() >= 3,
+        "the highway's ground runs are filled chains: {:?}",
+        room.world.chains.iter().map(|c| (&c.name, c.filled)).collect::<Vec<_>>()
+    );
+    let heights = ground.iter().flat_map(|c| c.points.iter().map(|p| p.y));
+    let (top, bottom) = heights.fold((f32::MAX, f32::MIN), |(lo, hi), y| (lo.min(y), hi.max(y)));
+    assert!(
+        bottom - top > 500.0,
+        "its ground spans {top:.0}..{bottom:.0}: a flat course by another name"
     );
 }
 

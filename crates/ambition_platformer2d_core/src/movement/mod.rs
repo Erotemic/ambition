@@ -45,7 +45,7 @@ mod tuning;
 
 pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlAttachment, CrawlerParams, CrawlerState};
 pub use surface_momentum::{
-    DepthOcclusions, MomentumParams, OcclusionSpan, RouteDeparture, SurfaceMotion, SurfaceRef,
+    ground_ends_ahead, sweep_ball, BallHit, DepthOcclusions, MomentumParams, OcclusionSpan, RouteDeparture, SurfaceMotion, SurfaceRef,
 };
 
 pub use abilities::{

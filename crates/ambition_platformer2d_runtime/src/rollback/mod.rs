@@ -164,6 +164,13 @@ pub fn register_engine_rollback_state(registrar: &mut impl RollbackRegistrar) {
         // Runtime-staged actors need this marker after restore so presentation can
         // rediscover them. `SfxSource` must also survive for projectiles because it
         // is stamped at spawn and may outlive the firing body; probe it by value.
+        // A level's request to leave its room, on the mode owner: whether it
+        // has asked, where to, and for how long decide what the sim records.
+        .rollback_component_clone_probed::<crate::room_departure::Departure>(
+            ENGINE,
+            "session.room_departure",
+            crate::room_departure::Departure::checksum,
+        )
         .rollback_component_clone_probed::<ambition_sfx::BodyPresentationSource>(
             ENGINE,
             "presentation.body_source",

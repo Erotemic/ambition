@@ -152,11 +152,13 @@ pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
         ctx.offset,
     );
     let closed = field_bool(entity, "closed").unwrap_or(false);
-    let chain = if closed {
+    let mut chain = if closed {
         ae::SurfaceChain::closed_loop(name, points)
     } else {
         ae::SurfaceChain::open(name, points)
     };
+    // `fill`: the chain is the top of the ground, drawn filled beneath.
+    chain.filled = field_bool(entity, "fill").unwrap_or(false);
     let problems = chain.validate();
     if !problems.is_empty() {
         return Err(problems.join("; "));

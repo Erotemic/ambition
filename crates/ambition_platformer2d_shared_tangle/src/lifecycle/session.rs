@@ -829,6 +829,23 @@ pub trait SpawnSessionScopedExt {
         bundle: B,
     ) -> EntityCommands<'_>;
 
+    /// Spawn a game mode's OWNER: the one entity a mode's rules keep their
+    /// state on (an act clock, a level tally). Owned by the session, swept when
+    /// the active room's mode becomes another, and named
+    /// `SimId::singleton("mode_owner", mode)` so it has a place in the
+    /// peer-compared rollback order. Both demos spawned this shape by hand and
+    /// both left the identity off, which the frame-zero rebase reported as an
+    /// unnamed carrier.
+    ///
+    /// It carries a [`super::Departure`]: a mode's level that is done asks it
+    /// to leave for the next room.
+    fn spawn_mode_owner<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        mode: &str,
+        bundle: B,
+    ) -> EntityCommands<'_>;
+
     /// Populate an entity someone else allocated, giving it the same session
     /// ownership [`Self::spawn_session_scoped`] would have.
     ///
@@ -878,6 +895,22 @@ impl SpawnSessionScopedExt for Commands<'_, '_> {
         bundle: B,
     ) -> EntityCommands<'_> {
         let mut entity = self.spawn((RoomScopedEntity, bundle));
+        scope.apply_to(&mut entity);
+        entity
+    }
+
+    fn spawn_mode_owner<B: Bundle>(
+        &mut self,
+        scope: SessionSpawnScope,
+        mode: &str,
+        bundle: B,
+    ) -> EntityCommands<'_> {
+        let mut entity = self.spawn((
+            super::markers::ModeScopedEntity(mode.to_string()),
+            crate::sim_id::SimId::singleton("mode_owner", mode),
+            super::Departure::default(),
+            bundle,
+        ));
         scope.apply_to(&mut entity);
         entity
     }

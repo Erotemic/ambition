@@ -95,6 +95,26 @@ fn a_dirty_act_state_mutation_is_rolled_back_by_restore() {
         "the act-state owner never spawned once GGRS started driving the sim"
     );
 
+    // Every carrier has a canonical identity, so frame zero's rebase orders it
+    // by name rather than by this App's construction order. The act owner was
+    // the one that did not (`spawn_mode_owner` now names it).
+    {
+        let world = app.world_mut();
+        let carriers = world
+            .query_filtered::<Entity, With<ambition_platformer2d::rollback::Rollback>>()
+            .iter(world)
+            .count();
+        let unnamed = world
+            .query_filtered::<Entity, (
+                With<ambition_platformer2d::rollback::Rollback>,
+                Without<ambition_platformer2d::platformer::sim_id::SimId>,
+            )>()
+            .iter(world)
+            .count();
+        assert!(carriers > 0, "the census saw no rollback carriers at all");
+        assert_eq!(unnamed, 0, "{unnamed} of {carriers} rollback carriers have no SimId");
+    }
+
     // The act clock ticks under GGRS.
     let before = act_state(&mut app).expect("act owner survives session start");
     for _ in 0..12 {

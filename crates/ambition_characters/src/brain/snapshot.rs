@@ -66,6 +66,10 @@ pub struct BrainSnapshot {
     /// Autonomous steering preference authored for simple walkers. Consumed by
     /// Patrol/Wanderer brains, never by movement integration or human control.
     pub turns_at_walls: bool,
+    /// The ground this walker rides ends within a stride ahead, in its facing.
+    /// A FACT from the movement kernel; `false` for a body whose profile does
+    /// not turn at ledges (nobody asks) and for any body not riding a surface.
+    pub ground_ends_ahead: bool,
     /// Whether this body is a gravity-free free-mover (a flyer: enemy
     /// `is_aerial` / `gravity_scale == 0`, or a `Floating` NPC). When true the
     /// brain steers in 2D via `velocity_target` instead of grounded
@@ -242,6 +246,7 @@ impl BrainSnapshot {
             actor_on_ground: true,
             side_contact_normal: None,
             turns_at_walls: false,
+            ground_ends_ahead: false,
             actor_aerial: false,
             attack_kit: Vec::new(),
             subject: None,

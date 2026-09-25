@@ -13,6 +13,8 @@
 mod sanic_it_sync;
 
 mod act_completion;
+mod act_two_routes;
+mod badniks_walk_slopes;
 mod exit_3;
 mod feet_on_the_floor;
 mod ov1_draws_the_world;

@@ -751,7 +751,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// read it; contact harm is the body's tuning plus "no driver"), and
 /// `derived.contact_threat_withdrawn` joins: the Mary-O shell's contact threat
 /// is a read of `SnakeShell` rather than a per-tick write into `actor.config`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 226;
+/// ⛔⛤ 226 -> 227: `session.room_departure` joins. A level's request to leave
+/// its room (`Departure`, on every mode owner) is rollback state: whether a
+/// level has asked, where to and for how long decide what the sim records.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 227;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

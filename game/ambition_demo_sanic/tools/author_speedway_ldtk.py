@@ -34,16 +34,22 @@ TARGET = REPO / "game" / "ambition_demo_sanic" / "assets" / "worlds" / "sanic_sp
 
 # ── Layout constants (mirrored by game/ambition_demo_sanic/src/lib.rs) ──────
 LEVEL_W = 6400
-LEVEL_H = 720
-FLOOR_TOP = 672  # LEVEL_H - 48
+LEVEL_H = 816
+FLOOR_TOP = 672
+# The ground's depth below the floor line; the spike pit is dug into it.
+GROUND_DEPTH = LEVEL_H - FLOOR_TOP
 
 # Loop graft anchors: the floor chain MUST have vertices exactly here.
 RAMP_JUNCTION_X = 1740
 RUNOUT_JUNCTION_X = 2920
 
-# The pit (bottomless in spirit; a hazard strip resets to spawn).
+# The spike pit: a trench whose floor is a bed of spikes. Falling in is a HIT
+# (rings burst out, or death with none); its depth is under a jump's apex
+# (~169px), so a player who landed with rings jumps back out.
 PIT_LEFT = 4000
 PIT_RIGHT = 4256
+PIT_FLOOR = 784
+SPIKE_HEIGHT = 16
 
 # Rolling hills: two smooth sin^2 bumps rising from the flat floor.
 HILL_1 = (350.0, 900.0, 90.0)  # (start_x, end_x, amplitude)
@@ -177,6 +183,8 @@ def area_spec() -> dict:
             name="sanic_floor_route",
             points=points_field(floor_route_points()),
             closed=False,
+            # The top of the ground: the hills are drawn as hills.
+            fill=True,
         ),
         rect(
             "SurfaceChain",
@@ -185,11 +193,13 @@ def area_spec() -> dict:
             name="sanic_floor_runout",
             points=points_field([(PIT_RIGHT, FLOOR_TOP), (LEVEL_W, FLOOR_TOP)]),
             closed=False,
+            fill=True,
         ),
         # Solid ground (lowered to IntGrid): split around the pit; the finish
         # tower caps the runout.
-        rect("Solid", (0, FLOOR_TOP), (PIT_LEFT, 48), name="speedway_floor_west"),
-        rect("Solid", (PIT_RIGHT, FLOOR_TOP), (LEVEL_W - PIT_RIGHT, 48), name="speedway_floor_east"),
+        rect("Solid", (0, FLOOR_TOP), (PIT_LEFT, GROUND_DEPTH), name="speedway_floor_west"),
+        rect("Solid", (PIT_RIGHT, FLOOR_TOP), (LEVEL_W - PIT_RIGHT, GROUND_DEPTH), name="speedway_floor_east"),
+        rect("Solid", (PIT_LEFT, PIT_FLOOR), (PIT_RIGHT - PIT_LEFT, LEVEL_H - PIT_FLOOR), name="spike_pit_floor"),
         rect("Solid", (6320, 416), (32, 256), name="finish_tower"),
         # One-way platforms — every lift a plain jump must reach is <= 144px
         # (jump apex is ~169px at the authored 700px/s jump under 1450 gravity);
@@ -209,27 +219,24 @@ def area_spec() -> dict:
         rect("ReboundPad", (1640, 650), (72, 22), impulseX=1120, impulseY=-260),
         rect("ReboundPad", (4680, 648), (48, 24), impulseX=0, impulseY=-1000),
         rect("ReboundPad", (5152, 648), (48, 24), impulseX=700, impulseY=-700),
-        # `HazardBlock` has exactly one outcome: return the body to spawn. It lowers to IntGrid
-        # value 5 → `BlockKind::Hazard` → `ResetCause::Hazard`, and no health, currency, or i-frame
-        # is ever consulted. The ring shield was never broken; it was waiting for a damage event
-        # that the reset road does not emit.
-        #
-        #  the strip is a `DamageVolume`: the engine's damage hazard, which
-        # publishes an ordinary `HitEvent` and therefore reaches everything a hit
-        # already means here — the wallet shield spends the rings, they burst
-        # outward as real pickups, i-frames arm, and a super Sanic is untouched
-        # because `update_ecs_hazards` asks `body_vulnerable` like every other
-        # emitter. It also finally LOOKS like spikes: a damage volume draws
-        # `hazard_spikes` while a reset block draws the flat `hazard_tile`.
-        #
-        # It was not a warning about the finish; it was a punishment for reaching it. Crossing
-        # the line at speed carried Sanic into it and he died inside his own four-second results
-        # card (room-replay triage §1, which mis-diagnosed this as running out of level —
-        # measuring showed the death at x≈6130, well inside a 6400-wide course).
-        rect("HazardBlock", (PIT_LEFT, 704), (PIT_RIGHT - PIT_LEFT, 16), name="pit_hazard"),
+        # Both spike beds are `DamageVolume`s: the engine's damage hazard, which
+        # publishes an ordinary `HitEvent` and so reaches everything a hit means
+        # here: the wallet shield spends the rings, they burst out as real
+        # pickups, i-frames arm, and a super Sanic is untouched (the volume asks
+        # `body_vulnerable` like every emitter). A damage volume draws
+        # `hazard_spikes`. The pit used to be a `HazardBlock`, whose one outcome
+        # is a reset to spawn and which draws a flat tile: it looked like a hole
+        # and cost nothing but the run.
+        rect(
+            "DamageVolume",
+            (PIT_LEFT, PIT_FLOOR - SPIKE_HEIGHT),
+            (PIT_RIGHT - PIT_LEFT, SPIKE_HEIGHT),
+            name="pit_spikes",
+            damage=1,
+        ),
         rect("DamageVolume", (5648, 656), (96, 16), name="mid_spikes", damage=1),
-        # Badniks pace the flats (axis walkers cannot patrol chain hills yet —
-        # see dev/journals/code_smells.md).
+        # Badniks. They ride the surface solver, so a badnik walks the hills
+        # like Sanic does and turns back at the pit's lip.
         *(
             rect(
                 "EnemySpawn",
@@ -324,6 +331,11 @@ def main() -> None:
         # levels, and at this point there are none — `area create` is the next
         # step. `main()`'s closing repair+validate covers the finished file.
         "--no-repair",
+    )
+    # `fill` marks a chain as the top of the ground (drawn filled beneath).
+    run_tool(
+        "def", "update-entity", "SurfaceChain", str(target),
+        "--add-field", "fill:Bool:false", "--in-place", "--no-repair",
     )
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_speedway_area.json"

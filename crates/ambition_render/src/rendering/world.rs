@@ -460,6 +460,26 @@ pub fn spawn_surface_chain_visuals(
 ) {
     const THICKNESS: f32 = 8.0;
 
+    for chain in world.chains.iter().filter(|chain| chain.filled && !chain.closed) {
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                FilledGroundVisual {
+                    top: chain
+                        .points
+                        .iter()
+                        .map(|point| world_to_bevy(world, *point, 0.0).truncate())
+                        .collect(),
+                    floor: world_to_bevy(world, ae::Vec2::new(0.0, world.size.y), 0.0).y,
+                },
+                Transform::from_xyz(0.0, 0.0, WORLD_Z_BLOCK - 0.5),
+                Visibility::Visible,
+                Name::new(format!("Filled ground: {}", chain.name)),
+                RoomVisual,
+            ),
+        );
+    }
+
     for chain in &world.chains {
         for segment_index in 0..chain.segment_count() {
             let depth = chain.segment_depth(segment_index);
@@ -492,6 +512,74 @@ pub fn spawn_surface_chain_visuals(
                 ),
             );
         }
+    }
+}
+
+/// The earth under a filled chain (see `SurfaceChain::filled`), in Bevy space:
+/// the chain's points and the room floor's y.
+///
+/// Spawned with the room's other visuals, which have only `Commands`;
+/// [`build_filled_ground_meshes`] gives it its mesh on the next frame.
+#[derive(Component, Clone, Debug)]
+pub struct FilledGroundVisual {
+    top: Vec<BVec2>,
+    floor: f32,
+}
+
+/// Mesh every [`FilledGroundVisual`] that has none yet: one quad per chain
+/// segment, from the segment down to the room floor, shaded darker with depth.
+pub fn build_filled_ground_meshes(
+    mut commands: Commands,
+    meshes: Option<ResMut<Assets<Mesh>>>,
+    materials: Option<ResMut<Assets<bevy::sprite_render::ColorMaterial>>>,
+    fresh: Query<(Entity, &FilledGroundVisual), Without<Mesh2d>>,
+) {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::mesh::{Indices, PrimitiveTopology};
+
+    const TOP: [f32; 4] = [0.05, 0.20, 0.26, 1.0];
+    const DEEP: [f32; 4] = [0.02, 0.05, 0.09, 1.0];
+    /// How far below the surface the shade reaches `DEEP`.
+    const SHADE_DEPTH: f32 = 480.0;
+
+    let (Some(mut meshes), Some(mut materials)) = (meshes, materials) else {
+        return;
+    };
+    for (entity, ground) in &fresh {
+        let mut positions: Vec<[f32; 3]> = Vec::new();
+        let mut colors: Vec<[f32; 4]> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        let shade = |depth: f32| {
+            let t = (depth / SHADE_DEPTH).clamp(0.0, 1.0);
+            std::array::from_fn(|i| TOP[i] + (DEEP[i] - TOP[i]) * t)
+        };
+        for pair in ground.top.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            let base = positions.len() as u32;
+            positions.extend([
+                [a.x, a.y, 0.0],
+                [b.x, b.y, 0.0],
+                [b.x, ground.floor, 0.0],
+                [a.x, ground.floor, 0.0],
+            ]);
+            colors.extend([
+                TOP,
+                TOP,
+                shade(b.y - ground.floor),
+                shade(a.y - ground.floor),
+            ]);
+            indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        mesh.insert_indices(Indices::U32(indices));
+        commands.entity(entity).try_insert((
+            Mesh2d(meshes.add(mesh)),
+            bevy::sprite_render::MeshMaterial2d(
+                materials.add(bevy::sprite_render::ColorMaterial::from_color(Color::WHITE)),
+            ),
+        ));
     }
 }
 

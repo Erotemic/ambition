@@ -62,6 +62,7 @@ impl Plugin for SessionRoomVisualsPlugin {
         );
         // The composition that spawns blocks also applies authored per-block art overrides.
         app.add_systems(Update, crate::rendering::apply_block_art);
+        app.add_systems(Update, crate::rendering::build_filled_ground_meshes);
         // The host tells portal presentation what it draws. That crate sees only the
         // decomposed scene body and the affordance body, so an ordinary NPC behind an
         // aperture is invisible to it unless published here.

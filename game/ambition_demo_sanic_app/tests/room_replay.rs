@@ -189,12 +189,16 @@ fn the_act_clear_restarts_the_act_after_the_full_dwell() {
         app.update();
     }
     let home = player_pos(&mut app).expect("he is still in the world");
+    // The start line of whichever act the clear led to: Act 1's goal leads on
+    // to Act 2, whose start is not Act 1's.
+    let start = room_spawn(&mut app);
     assert!(
-        home.distance(spawn) < 64.0,
-        "past the full dwell the act restarts and puts him back at the start \
-         line; he is at {home:?} and spawn is {spawn:?}. Before 2026-07-21 he \
-         stood exactly where he was: `cycle_act_after_clear` reset its own phase \
-         and emitted a request the standalone binary drained with nothing."
+        home.distance(start) < 64.0,
+        "past the full dwell the course moves on and puts him at the next act's \
+         start line; he is at {home:?} and that start is {start:?}. Before \
+         2026-07-21 he stood exactly where he was: `cycle_act_after_clear` reset \
+         its own phase and emitted a request the standalone binary drained with \
+         nothing."
     );
 }
 

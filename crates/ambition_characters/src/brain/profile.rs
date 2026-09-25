@@ -125,6 +125,14 @@ pub struct BrainProfile {
     /// inhabiting the same body.
     #[serde(default = "default_turns_at_walls")]
     pub turns_at_walls: bool,
+    /// Simple walkers turn back where their ground runs out (a pit lip, a
+    /// block's corner, a slope too steep to climb) instead of walking off it.
+    ///
+    /// Off by default: a Mary-O crony walking off a ledge is the genre. A
+    /// Sanic badnik pacing its hill is the other genre. Same ownership as
+    /// `turns_at_walls`: the kernel publishes the fact, the brain decides.
+    #[serde(default)]
+    pub turns_at_ledges: bool,
     /// Patrol effort as a fraction of the body's own top speed. Profiles
     /// author normalized effort rather than world-space speed.
     #[serde(default = "default_patrol_effort")]
@@ -182,6 +190,7 @@ impl Default for BrainProfile {
             aggro_radius: 0.0,
             attack_range: 0.0,
             turns_at_walls: true,
+            turns_at_ledges: false,
             patrol_effort: default_patrol_effort(),
             chase_effort: default_chase_effort(),
             fighter_level: default_fighter_level(),

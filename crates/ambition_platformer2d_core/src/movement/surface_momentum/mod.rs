@@ -575,6 +575,79 @@ fn step_riding(
     }
 }
 
+/// Where a ball moving by `delta` first meets the world: a chain's riding
+/// side or a solid block, by the same sweep a surface rider flies with.
+///
+/// For things that are not riders but should land where a rider lands (a
+/// scattered ring, a thrown prop): swept against boxes alone they fell
+/// through every hill, loop and slope a level drew with chains.
+pub fn sweep_ball(world: &World, center: Vec2, radius: f32, delta: Vec2, down: Vec2) -> Option<BallHit> {
+    first_circle_hit(world, center, radius, 0, delta, &DepthOcclusions::default(), down).map(|hit| {
+        BallHit {
+            toi: hit.toi,
+            normal: hit.contact_normal,
+        }
+    })
+}
+
+/// Where [`sweep_ball`] stopped: the fraction of `delta` travelled, and the
+/// outward normal of what it met.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BallHit {
+    pub toi: f32,
+    pub normal: Vec2,
+}
+
+/// Does the ground a rider walks on stop being walkable within `distance` of
+/// arc ahead, toward local side `facing` (`+1` = the frame's side axis)?
+///
+/// "Stops being walkable" is what a walker would meet there: the open end of
+/// its chain (a pit lip), a surface that turns steeply DOWN (the corner of a
+/// block's top face), or one that turns steeply UP (a wall, or a loop it could
+/// not climb). The ride itself is surface-relative, so this is asked along the
+/// surface too, and a hill is ground all the way over.
+///
+/// A body that is not riding has no ground to run out of: `false`.
+pub fn ground_ends_ahead(
+    world: &World,
+    motion: &SurfaceMotion,
+    frame: MotionFrame,
+    facing: f32,
+    distance: f32,
+) -> bool {
+    /// Steeper than this (about 50 degrees) is not walking ground.
+    const STEEP: f32 = 0.75;
+    const SAMPLES: usize = 4;
+    let SurfaceMotion::Riding { on, s, .. } = *motion else {
+        return false;
+    };
+    let Some(chain) = resolve_surface(world, on) else {
+        return false;
+    };
+    let chain = chain.as_ref();
+    let total = chain.total_length();
+    if total <= 0.0 {
+        return false;
+    }
+    // Which way along the arc "ahead" is: the tangent here, oriented to the
+    // body's facing in its own frame.
+    let here = chain.frame_at(s).tangent;
+    let along = if here.dot(frame.side()) * facing.signum() >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    };
+    let down = frame.down();
+    (1..=SAMPLES).any(|i| {
+        let probe = s + along * distance * i as f32 / SAMPLES as f32;
+        if !chain.closed && !(0.0..=total).contains(&probe) {
+            return true;
+        }
+        let heading = chain.frame_at(probe).tangent * along;
+        heading.dot(down).abs() > STEEP
+    })
+}
+
 /// Resolve an explicitly authored route junction while stationary.
 ///
 /// Arc-length state still identifies which occurrence the rider reached, so a

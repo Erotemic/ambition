@@ -24,6 +24,10 @@ pub use ambition_platformer2d_runtime::{
     PlatformerSessionWorld, PreparedContent, PreparedContentIdentity, PreparedPlatformerSource,
     SnapshotSchemaFingerprint,
 };
+/// A level that is done leaves for its next room: ask the mode owner's
+/// [`Departure`]; the engine's [`DepartureSet`] carries it out.
+pub use ambition_platformer2d_runtime::room_departure::DepartureSet;
+pub use ambition_platformer2d_shared_tangle::lifecycle::{Departure, DepartureState, Destination};
 pub use ambition_platformer2d_shared_tangle::lifecycle::{
     insert_session_world_component, session_world_component, session_world_component_mut,
     session_world_entity, session_world_exists, settle_until_controlled_subject,

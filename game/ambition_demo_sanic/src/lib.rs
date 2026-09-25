@@ -88,10 +88,12 @@ const LOOP_RUNOUT_END_X: f32 = 2920.0;
 /// generator) — the loop graft and the oracles anchor on these.
 pub const LEVEL_WIDTH: f32 = 6400.0;
 pub const FLOOR_TOP: f32 = 672.0;
-/// The pit: the west floor route ends at the left lip, the east runout route
-/// starts at the right lip, and a hazard strip rests at the bottom.
+/// The spike pit: the west floor route ends at the left lip, the east runout
+/// route starts at the right lip, and a bed of spikes lines its solid floor.
+/// Falling in is a hit, not a reset; it is shallower than a jump is high.
 pub const PIT_LEFT_X: f32 = 4000.0;
 pub const PIT_RIGHT_X: f32 = 4256.0;
+pub const PIT_FLOOR_Y: f32 = 784.0;
 
 /// The LDtk world this demo ships — a separate file from Ambition's worlds,
 /// embedded so the standalone shell needs no asset-root negotiation. Authored
@@ -363,9 +365,11 @@ pub fn sanic_speedway() -> RoomSpec {
     room
 }
 
-/// Act 2, the highway: four loops, two pits, an upside-down tunnel and a
-/// spike gauntlet, and the `velocity` score. Every loop is authored data
-/// (`SurfaceLoop` with `attach_to`); nothing is grafted here.
+/// Act 2, the highway: ground that climbs and drops, a speed-gated split (the
+/// sky bridge or the valley), two secrets, an upside-down tunnel, a halfpipe,
+/// the spike gauntlet, and the `velocity` score. Every loop is authored data
+/// (`SurfaceLoop` with `attach_to`); nothing is grafted here. The layout is
+/// `tools/author_highway_ldtk.py`'s docstring.
 pub fn sanic_highway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(HIGHWAY_WORLD_JSON)
         .expect("sanic_highway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_highway_ldtk.py)");
@@ -1159,7 +1163,9 @@ impl Plugin for SanicRulesPlugin {
             cycle_act_after_clear,
         )
             .chain()
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
+            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects)
+            // An act that asks to leave is carried out the same tick.
+            .before(ambition_platformer2d::session::DepartureSet);
         // The super form states its traits before the engine runs them.
         //
         // This is an ordering, not an installation. `apply_contact_harm` is
@@ -1579,8 +1585,8 @@ fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool
 }
 
 /// Bring the act state into being the first frame the mode is live. Spawned
-/// `spawn_mode_scoped`, so the engine despawns it when the active room's mode
-/// changes — no teardown code here.
+/// `spawn_mode_owner`, so the engine despawns it when the active room's mode
+/// changes (no teardown code here) and names it for the rollback order.
 fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
@@ -1604,13 +1610,7 @@ fn spawn_sanic_mode_owner(
         // Owned by the mode (survives in-session room changes) and by the
         // session (torn down on relaunch; a same-mode reload alone would leak
         // the act across launch → quit → relaunch).
-        commands
-            .spawn_session_scoped(spawn_scope, SanicActState::default())
-            .insert(
-                ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
-                    SANIC_MODE.to_string(),
-                ),
-            );
+        commands.spawn_mode_owner(spawn_scope, SANIC_MODE, SanicActState::default());
         // Audible confirmation that the shell drains the standard SfxMessage
         // seam at room entry. H2/I3: the course's sound, by name.
         // `write_global` would make it the host's.
@@ -1996,8 +1996,8 @@ pub fn arc_scattered_rings(
     }
 }
 
-/// Move a ring by `delta` against the room's solid geometry, stopping at the
-/// first surface it meets.
+/// Move a ring by `delta` against the room's geometry, stopping at the first
+/// surface it meets: a hill, a loop or a slope as much as a solid block.
 ///
 /// Returns the displacement actually taken and the contact normal, if any.
 fn ring_step(
@@ -2005,26 +2005,15 @@ fn ring_step(
     ring: ae::Aabb,
     delta: ae::Vec2,
 ) -> (ae::Vec2, Option<ae::Vec2>) {
-    use ambition_platformer2d::engine_core::cast::SolidWorldQuery;
     let (Some(world), true) = (world, delta != ae::Vec2::ZERO) else {
         return (delta, None);
     };
-    let mut nearest: Option<ambition_platformer2d::engine_core::geometry::AabbSweepHit> = None;
-    // One-way platforms count only while the ring falls, the same rule as a
-    // body: a ring lands on your platform, and a rising ring passes through.
-    let falling = delta.y > 0.0;
-    world.for_each_solid_aabb(falling, &mut |solid| {
-        if let Some(hit) = ae::AabbExt::sweep_hit(ring, delta, solid) {
-            if nearest.is_none_or(|best| hit.time_of_impact < best.time_of_impact) {
-                nearest = Some(hit);
-            }
-        }
-    });
-    match nearest {
-        Some(hit) => (
-            delta * hit.time_of_impact.clamp(0.0, 1.0),
-            Some(hit.normal1),
-        ),
+    // A ring is round: sweep it as the ball it is drawn as, by the sweep a
+    // rider flies with. Boxes alone let a spray fall through every hill.
+    let radius = (ring.max.x - ring.min.x) * 0.5;
+    let center = (ring.min + ring.max) * 0.5;
+    match ae::movement::sweep_ball(world, center, radius, delta, ae::Vec2::Y) {
+        Some(hit) => (delta * hit.toi.clamp(0.0, 1.0), Some(hit.normal)),
         None => (delta, None),
     }
 }
@@ -2200,94 +2189,39 @@ pub fn clear_act_at_goal(
     }
 }
 
-/// How long past its results card an act keeps asking to leave for the next
-/// one before it gives up and replays instead.
-pub const ACT_DEPART_GIVE_UP: f32 = 3.0;
-
 /// Once the results have been read, the act goes where its room says.
 ///
 /// A room that names a `next_room` (an authored LDtk level field) leads there:
-/// the speedway leads to the highway and the highway back. A room that names
-/// none replays, which is what every act did before there were two. The
-/// departure is re-asked every tick until it lands, because a refused slot is
-/// ordinary ("trigger noise is not a new request"); after
-/// [`ACT_DEPART_GIVE_UP`] it is dropped with a warning and the room replays,
-/// so an act always ends somewhere.
-#[allow(clippy::too_many_arguments)]
+/// the speedway leads to the highway and the highway back. The trip is the
+/// engine's [`Departure`](ambition_platformer2d::session::Departure) on the
+/// mode owner, which keeps asking until the room changes and replays this room
+/// if it never does, or if the room names nowhere to go.
+///
+/// Arriving restarts the act (`begin_act_on_arrival`). A trip that ends in the
+/// same room (a replay) restarts it here.
 pub fn cycle_act_after_clear(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
-    mut act: bevy::prelude::Query<&mut SanicActState>,
-    rooms: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::world::rooms::RoomSet,
-    >,
-    subjects: bevy::prelude::Query<
-        &ambition_platformer2d::platformer::sim_id::SimId,
-        ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
-    >,
-    // Optional: a composition with no lifecycle commit cannot transition, and
-    // its act falls through to a replay once the departure gives up.
-    mut pending: Option<
-        bevy::prelude::ResMut<
-            ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit,
-        >,
-    >,
-    boundary: Option<
-        bevy::prelude::Res<ambition_platformer2d::engine_core::ConfirmedFrameBoundary>,
-    >,
-    mut replay: bevy::prelude::MessageWriter<
-        ambition_platformer2d::actors::session::reset::RoomReplayRequested,
-    >,
+    mut acts: bevy::prelude::Query<(
+        &mut SanicActState,
+        &mut ambition_platformer2d::session::Departure,
+    )>,
 ) {
-    for mut state in &mut act {
+    for (mut state, mut departure) in &mut acts {
         let SanicActPhase::Cleared { dwell, .. } = &mut state.phase else {
             continue;
         };
+        let reading_the_card = *dwell > 0.0;
         *dwell -= time.scaled_dt;
         if *dwell > 0.0 {
             continue;
         }
-        let target = rooms.active_metadata().next_room.clone();
-        let target_index = target
-            .as_deref()
-            .and_then(|target| rooms.rooms.iter().position(|room| room.id == target));
-        let give_up = *dwell <= -ACT_DEPART_GIVE_UP;
-        match (target, target_index) {
-            (Some(target), Some(index)) if !give_up => {
-                let (Ok(subject), Some(pending)) = (subjects.single(), pending.as_deref_mut())
-                else {
-                    continue;
-                };
-                let _ = pending.record(
-                    boundary.as_deref().map_or(0, |boundary| boundary.current),
-                    ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent::Transition(
-                        ambition_platformer2d::actors::session::lifecycle_commit::RoomTransitionIntent {
-                            subject: subject.clone(),
-                            target_room: target,
-                            arrival: rooms.rooms[index].world.spawn,
-                            // Finishing an act is not walking off the side of a room.
-                            edge_exit: false,
-                            zone_sfx: None,
-                        },
-                    ),
-                );
-            }
-            (target, _) => {
-                if let Some(target) = target {
-                    bevy::log::warn!(
-                        target: "ambition_demo_sanic",
-                        "the act leads to room `{target}`, which {}; replaying this act",
-                        if give_up {
-                            "it never arrived in"
-                        } else {
-                            "this session's rooms do not include"
-                        },
-                    );
-                }
-                *state = SanicActState::default();
-                replay.write(
-                    ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
-                );
-            }
+        if reading_the_card {
+            departure.leave(ambition_platformer2d::session::Destination::NextRoom);
+        } else if !departure.is_leaving() {
+            *state = SanicActState {
+                room: state.room,
+                ..SanicActState::default()
+            };
         }
     }
 }

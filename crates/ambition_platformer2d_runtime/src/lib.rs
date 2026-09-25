@@ -41,6 +41,7 @@ pub mod authored_verdict_timeline;
 pub mod verdict_census;
 pub mod runtime_census;
 mod room_schedule;
+pub mod room_departure;
 pub mod room_transition;
 /// The shared sandbox-reset authority (`reset_sandbox`) and the one
 /// `RoomReplayRequested` consumer every host drains.
@@ -584,6 +585,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // emits the request: without a consumer here, a standalone demo
             // binary writes the message into a channel nothing drains.
             .add(RoomReplaySchedulePlugin)
+            // A level that is done leaves for its next room by one road:
+            // `Departure` on the mode owner, driven here.
+            .add(room_departure::RoomDeparturePlugin)
             // The reset horizon (checkpoint baseline capture + restore). Added
             // immediately after the replay consumer because its restore set is
             // ordered against that consumer's set, and the two are one

@@ -107,6 +107,22 @@ pub fn register_badnik_character(app: &mut App) {
         move_style: MoveStyleSpec::Walk,
         ..Default::default()
     })
+    // It rides the ground Sanic rides. On the axis kernel it collided only with
+    // the flat solids under the hills, so it walked THROUGH every hill; on the
+    // surface solver it follows the chain. `slope_factor: 0` makes it a walker,
+    // not a ball: gravity along a slope neither drags it downhill nor stalls
+    // it climbing, so it paces at one speed over any ground.
+    .with_motion_model(ae::MotionModelSpec::SurfaceMomentum(ae::MomentumParams {
+        ground_accel: 600.0,
+        brake: 1800.0,
+        friction: 1800.0,
+        slope_factor: 0.0,
+        top_speed: 60.0,
+        air_accel: 0.0,
+        jump_speed: 0.0,
+        stick_factor: 1.5,
+        ..ae::MomentumParams::default()
+    }))
     .with_contact_damage(ContactDamage {
         strength: 0.5,
         amount: 1,
@@ -117,6 +133,9 @@ pub fn register_badnik_character(app: &mut App) {
         attack_range: 0.0,
         // Preserve the shipped patrol effort when constructing the character definition.
         patrol_effort: 1.0,
+        // A badnik paces its stretch of ground: it turns at a pit lip or a
+        // slope it cannot climb rather than walking off.
+        turns_at_ledges: true,
         ..Default::default()
     });
     definition.vitals.max_health = Some(1);

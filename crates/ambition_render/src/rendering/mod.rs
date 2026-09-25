@@ -142,7 +142,7 @@ pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
 };
 pub use world::{
-    apply_block_art, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change,
+    apply_block_art, build_filled_ground_meshes, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change,
     spawn_room_visuals, spawn_surface_chain_visuals, sync_lock_wall_visuals,
     sync_removed_block_visuals,
 };

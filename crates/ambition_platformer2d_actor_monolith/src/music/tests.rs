@@ -117,7 +117,8 @@ fn active_phase_uses_wave_state_by_index() {
 fn cleared_phase_returns_cleared_state_play() {
     let waves = waves_fixture(EncounterRun::default());
     let states = lookup("goblin_encounter", EncounterPhase::Completed, &waves);
-    let director = director_with_active_cue(None);
+    // The clearing frame: the fight's own cue is the one playing.
+    let director = director_with_active_cue(Some("first_goblin_tune_v2"));
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
         resolve_directive_for_binding(&bind, &states, &director),
@@ -188,7 +189,7 @@ fn resolver_iterates_multiple_bindings() {
     });
     let waves = waves_fixture(EncounterRun::default());
     let states = lookup("imaginary_arena", EncounterPhase::Completed, &waves);
-    let director = MusicDirectorState::default();
+    let director = director_with_active_cue(Some("imaginary_cue"));
     // goblin_encounter binding has no encounter; imaginary_arena binding
     // is Cleared. The resolver iterates and returns the second
     // binding's Play directive.
@@ -331,5 +332,21 @@ fn a_cleared_encounter_stops_asking_once_its_outro_has_run_out() {
         None,
         "the outro has already run to completion and the encounter is still \
          Completed, so asking again restarts it — the 7.3s loop Jon heard"
+    );
+
+    // ⛔ AND A DOOR DOES NOT BRING IT BACK. A room-track switch sets
+    // `SimpleTrack`; asking only "has the mode finished" replayed the outro at
+    // every door whose room changed the track, for the rest of the session.
+    director.mode = MusicDirectorMode::SimpleTrack;
+    assert_eq!(
+        resolve_adaptive_directive(&catalog, &states, &director),
+        None,
+        "a door after the outro replayed the goblin fight's outro"
+    );
+    // Nor does a fresh director: a save loaded with the fight already cleared.
+    assert_eq!(
+        resolve_adaptive_directive(&catalog, &states, &MusicDirectorState::default()),
+        None,
+        "a session starting on a cleared fight played its outro"
     );
 }

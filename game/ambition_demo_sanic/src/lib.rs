@@ -691,15 +691,14 @@ pub fn install_sanic_content(app: &mut App) {
         AudioCatalogFragment::new(
             provider::SANIC_EXPERIENCE,
             Some(sanic_music_registry()),
-            // Sanic authors the cues it emits (Dash, Jump). Declaring them
-            // authorizes them for provider-relative SFX; an Ambition-only
-            // bank id cannot resolve here.
+            // Sanic authors its own Dash and Jump. Its moves name bank cues.
             Some(ambition_platformer2d::audio::spec::SfxRegistry {
                 sample_rate: 44_100,
                 sfx: sanic_sfx_specs(),
             }),
         )
-        .expect("Sanic audio catalogs should be valid"),
+        .expect("Sanic audio catalogs should be valid")
+        .with_resident_sfx_bank(),
     );
     // The ring sheet is content, so register it here: it loads the same way
     // standalone or hosted (both add `SanicExperiencePlugin`). A prop is not

@@ -325,6 +325,7 @@ fn kick_off_bank_load(
     asset_server: Res<AssetServer>,
     catalog: Res<SfxBankAssetCatalog>,
     legacy_path: Option<Res<SfxBankAssetPath>>,
+    audio_catalogs: Option<Res<crate::catalog::AudioCatalogRegistry>>,
     banks: Res<SfxBankResource>,
 ) {
     let mut requested = BTreeMap::<String, String>::new();
@@ -332,13 +333,21 @@ fn kick_off_bank_load(
         requested.insert(provider.to_owned(), path.to_owned());
     }
     if let Some(path) = legacy_path {
-        match requested.get(&path.provider_id) {
-            Some(existing) if existing != &path.asset_path => panic!(
-                "provider '{}' has conflicting SFX bank paths '{}' and '{}'",
-                path.provider_id, existing, path.asset_path
-            ),
-            _ => {
-                requested.insert(path.provider_id.clone(), path.asset_path.clone());
+        // The resident bank serves the host's own provider and every provider
+        // whose audio fragment declares it.
+        let declared = audio_catalogs
+            .iter()
+            .flat_map(|catalogs| catalogs.resident_sfx_bank_users())
+            .map(str::to_owned);
+        for provider_id in std::iter::once(path.provider_id.clone()).chain(declared) {
+            match requested.get(&provider_id) {
+                Some(existing) if existing != &path.asset_path => panic!(
+                    "provider '{}' has conflicting SFX bank paths '{}' and '{}'",
+                    provider_id, existing, path.asset_path
+                ),
+                _ => {
+                    requested.insert(provider_id, path.asset_path.clone());
+                }
             }
         }
     }
@@ -475,6 +484,7 @@ pub fn audio_play_sfx_messages(
     mut cache: ResMut<ProviderSfxHandleCache>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     mut playback: ResMut<SfxPlaybackState>,
+    audio_catalogs: Option<Res<crate::catalog::AudioCatalogRegistry>>,
     mut first_play_logged: Local<bool>,
 ) {
     for owned in messages.read() {
@@ -506,12 +516,25 @@ pub fn audio_play_sfx_messages(
             continue;
         }
         let source_registry = selection.sfx_for_source(source);
+        // A borrowed bank does not replace a cue the provider authored itself.
+        let own_voice = audio_catalogs
+            .as_deref()
+            .is_some_and(|catalogs| catalogs.borrows_resident_sfx_bank(provider_id))
+            && source_registry.is_some_and(|registry| registry.spec_for_id(id).is_some());
+        let (bank, bank_fingerprint) = if own_voice {
+            (None, None)
+        } else {
+            (
+                banks.provider(provider_id),
+                banks.fingerprint_for(provider_id, id),
+            )
+        };
         let resolved = cache.handle_for(
             provider_id,
             id,
             source_registry,
-            banks.provider(provider_id),
-            banks.fingerprint_for(provider_id, id),
+            bank,
+            bank_fingerprint,
             audio_sources.as_mut(),
         );
         let resolved = match resolved {

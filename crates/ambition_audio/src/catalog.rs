@@ -18,6 +18,8 @@ pub struct AudioCatalogFragment {
     provider_id: String,
     music: Option<MusicRegistry>,
     sfx: Option<SfxRegistry>,
+    /// The provider borrows the host's resident packed bank.
+    resident_sfx_bank: bool,
 }
 
 impl AudioCatalogFragment {
@@ -49,7 +51,24 @@ impl AudioCatalogFragment {
             provider_id,
             music,
             sfx,
+            resident_sfx_bank: false,
         })
+    }
+
+    /// Declare that this provider borrows the resident packed bank, which
+    /// another provider packs.
+    ///
+    /// Every host that loads the resident bank gives it to each provider that
+    /// declares this, so the provider sounds the same standalone and hosted.
+    /// A borrowed bank does not replace the provider's own voice: a cue in the
+    /// provider's procedural registry plays from that registry.
+    pub fn with_resident_sfx_bank(mut self) -> Self {
+        self.resident_sfx_bank = true;
+        self
+    }
+
+    pub fn uses_resident_sfx_bank(&self) -> bool {
+        self.resident_sfx_bank
     }
 
     pub fn provider_id(&self) -> &str {
@@ -111,6 +130,21 @@ impl AudioCatalogRegistry {
 
     pub fn providers(&self) -> impl Iterator<Item = &str> {
         self.fragments.keys().map(String::as_str)
+    }
+
+    /// Whether `provider_id` declared [`AudioCatalogFragment::with_resident_sfx_bank`].
+    pub fn borrows_resident_sfx_bank(&self, provider_id: &str) -> bool {
+        self.fragments
+            .get(provider_id)
+            .is_some_and(AudioCatalogFragment::uses_resident_sfx_bank)
+    }
+
+    /// The providers that declared [`AudioCatalogFragment::with_resident_sfx_bank`].
+    pub fn resident_sfx_bank_users(&self) -> impl Iterator<Item = &str> {
+        self.fragments
+            .values()
+            .filter(|fragment| fragment.resident_sfx_bank)
+            .map(|fragment| fragment.provider_id.as_str())
     }
 
     /// Whether `provider_id` registered an audio fragment (music, SFX, or an

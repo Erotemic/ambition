@@ -3286,10 +3286,11 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     )
                     .collect(),
             }),
-            // No SFX registry: the fighters bring their own cues.
+            // No procedural SFX: the fighters' moves name bank cues.
             None,
         )
-        .expect("the smash audio fragment is valid"),
+        .expect("the smash audio fragment is valid")
+        .with_resident_sfx_bank(),
     );
 }
 

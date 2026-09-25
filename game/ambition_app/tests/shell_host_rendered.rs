@@ -750,9 +750,19 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         .world()
         .resource::<ambition_platformer2d::audio::render::SfxPlaybackState>()
         .rejected_unauthorized;
+    // The helper returns the previous record when nothing plays, and Mary-O's
+    // own cues play while she runs, so compare the id, not `is_none`.
+    let unauthored = ambition_platformer2d::sfx::SfxId::new("no.source.authors.this");
+    let played = play_owned_sfx(
+        &mut app,
+        SfxMessage::Play {
+            id: unauthored,
+            pos: Vec2::ZERO,
+        },
+    );
     assert!(
-        play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO }).is_none(),
-        "Mary-O's explicit empty fragment means deliberate SFX silence"
+        played.is_none_or(|record| record.id != unauthored),
+        "a cue no source of Mary-O's authors is refused, not played"
     );
     assert!(
         app.world()
@@ -803,6 +813,51 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         "the stale Sanic-A request must take the wrong-owner rejection path, \
          which is the same thing as never reaching playback",
     );
+}
+
+/// A hosted game plays the bank cues its moves name, as it does standalone.
+///
+/// Every move in these games names a cue in the resident packed bank. The host
+/// loads that bank once, and each provider's audio fragment declares that it
+/// uses it. A host that gave the bank only to its own provider left the other
+/// games' moves silent while they played sound standalone.
+#[test]
+fn a_hosted_game_plays_the_bank_cues_its_moves_name() {
+    use ambition_platformer2d::audio::render::SfxSourceKind;
+    use ambition_platformer2d::sfx::{SfxId, SfxMessage};
+
+    let mut app = rendered_app();
+    settle(&mut app);
+    for (route, provider) in [
+        (
+            ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ambition_demo_smash::SMASH_EXPERIENCE,
+        ),
+        (
+            ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+            ambition_demo_mary_o::MARY_O_EXPERIENCE,
+        ),
+        (
+            ambition_demo_sanic::SANIC_GAMEPLAY_ROUTE,
+            ambition_demo_sanic::SANIC_EXPERIENCE,
+        ),
+    ] {
+        app.world_mut().write_message(ShellCommand::GoTo(route.into()));
+        settle(&mut app);
+        let swing = play_owned_sfx(
+            &mut app,
+            SfxMessage::Play {
+                id: SfxId::new("player.attack.charge"),
+                pos: Vec2::ZERO,
+            },
+        )
+        .unwrap_or_else(|| panic!("hosted '{provider}' resolves the bank cue its moves name"));
+        assert_eq!(swing.provider_id, provider);
+        assert_eq!(swing.id, SfxId::new("player.attack.charge"));
+        assert_eq!(swing.source.kind, SfxSourceKind::Bank);
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(&mut app);
+    }
 }
 
 /// What a stranger reads on the first screen.

@@ -456,7 +456,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_audio/src/bank_asset.rs",
         "crates/ambition_game_shell/src/session.rs",
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs",
-        "game/ambition_app/src/app/setup_systems.rs",
     ),
     "AudioLibrary": (
         "crates/ambition_audio/src/library.rs",
@@ -825,10 +824,6 @@ BASELINE: dict[str, tuple[str, ...]] = {
     "SessionMatchOrdinal": (
         "crates/ambition_platformer2d_actor_monolith/src/character_runtime/match_activation.rs",
         "crates/ambition_platformer2d_actor_monolith/src/session/teardown.rs",
-    ),
-    "SfxBankRegistry": (
-        "crates/ambition_audio/src/bank_asset.rs",
-        "game/ambition_app/src/app/setup_systems.rs",
     ),
     "SfxPlaybackState": (
         "crates/ambition_audio/src/bank_asset.rs",
@@ -2524,19 +2519,6 @@ ADJUDICATED: dict[str, str] = {
         "`.run_if(simulation_authorized)` / owner-change-latch mutual "
         "exclusion. Measured by CalculexAmbition, 2026-09-18."
     ),
-    "SfxBankRegistry": (
-        "A KEYED COLLECTION WITH A BUILT-IN COLLISION GUARD. "
-        "`register(provider_id, ...)` "
-        "(`crates/ambition_audio/src/bank_asset.rs:117`) is per-`provider_id`, "
-        "and checks fingerprint agreement when a `provider_id` re-registers "
-        "(`:123-125`). `publish_resident_sfx_bank_authority` "
-        "(`game/ambition_app/src/app/setup_systems.rs:128`) registers one "
-        "fixed provider id, gated by a `Local<bool>` that fires once ever. "
-        "`promote_loaded_sfx_bank` (`bank_asset.rs:375`) registers whichever "
-        "other providers are in its own pending-handles queue as they finish "
-        "loading. Disjoint keys plus a same-key consistency check. Measured "
-        "by CalculexAmbition, 2026-09-18."
-    ),
     "SfxPlaybackState": (
         "A RESET-VERSUS-SET-ON-PLAY PAIR, TEMPORALLY DISJOINT ROLES. "
         "`audio_play_sfx_messages` "
@@ -3143,10 +3125,8 @@ ADJUDICATED: dict[str, str] = {
         "`current.sfx_sources` by the exact `provider_id` argument, so a "
         "late bank can never expand another provider's authority; "
         "`promote_loaded_sfx_bank` "
-        "(`crates/ambition_audio/src/bank_asset.rs:375`) and "
-        "`publish_resident_sfx_bank_authority` "
-        "(`game/ambition_app/src/app/setup_systems.rs:128`, a `Local<bool>` "
-        "run-once latch) both call it keyed to their own provider id. "
+        "(`crates/ambition_audio/src/bank_asset.rs`) calls it keyed to each "
+        "provider whose bank finished loading. "
         "`authorize_staged_character_presentation_sources` "
         "(`crates/ambition_platformer2d_actor_monolith/src/character_runtime/presentation.rs:58`) "
         "documents itself as \"Idempotent by construction: ... merges by "

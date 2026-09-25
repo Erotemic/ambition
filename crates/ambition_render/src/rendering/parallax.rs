@@ -232,12 +232,11 @@ pub fn refresh_parallax_layers_on_quality_change(
     );
 }
 
-/// Lazily load the active room's parallax theme.
+/// The themes whose load produced no art.
 ///
-/// Loading mutates [`GameAssets`], which causes skipped layers to be rebuilt by
-/// [`refresh_parallax_layers_on_quality_change`]. `attempted` prevents missing
-/// themes from being retried every frame and repeatedly invalidating layers.
-/// The theme loads this session has tried, and which of them produced no art.
+/// Only this is remembered. Whether a theme is loaded is read from
+/// [`GameAssets`] each time, because the residency policy evicts themes: a
+/// memo of "already tried" outlived an eviction and kept a theme unloaded.
 ///
 /// This is a resource so that presentation can read it:
 /// `sync_session_room_visuals` must tell "not arrived yet" from "resolved to
@@ -246,10 +245,9 @@ pub fn refresh_parallax_layers_on_quality_change(
 /// parallax manifest has none, so the load yields zero handles.
 #[derive(bevy::prelude::Resource, Default, Debug)]
 pub struct ParallaxThemeAttempts {
-    // `pub(crate)` so `platformer_presentation` tests can stage "tried and found
-    // nothing" without an asset server. Read it through `attempted_without_art`.
-    pub(crate) attempted: Vec<ParallaxTheme>,
-    /// Attempted, and the asset profile produced no layer at all.
+    /// Attempted, and the asset profile produced no layer at all. `pub(crate)`
+    /// so `platformer_presentation` tests can stage "tried and found nothing"
+    /// without an asset server. Read it through `attempted_without_art`.
     pub(crate) without_art: Vec<ParallaxTheme>,
 }
 
@@ -263,6 +261,11 @@ impl ParallaxThemeAttempts {
     }
 }
 
+/// Load the active room's parallax theme when it is not resident.
+///
+/// Loading mutates [`GameAssets`], which causes skipped layers to be rebuilt by
+/// [`refresh_parallax_layers_on_quality_change`]. A theme that produced no art
+/// is not retried, so it does not invalidate the layers every frame.
 pub fn ensure_active_room_parallax_theme(
     assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
@@ -280,20 +283,17 @@ pub fn ensure_active_room_parallax_theme(
     else {
         return;
     };
-    // A rebuilt `GameAssets` has no themes, so the memo restarts with it.
-    // Otherwise a theme already "attempted" would never load into the new set.
+    // A rebuilt `GameAssets` may use another profile, so ask again.
     if assets.is_added() {
-        attempts.attempted.clear();
         attempts.without_art.clear();
     }
     let metadata = room_set.active_spec().metadata.clone();
     let theme = ParallaxTheme::from_room_metadata(&metadata);
-    if attempts.attempted.contains(&theme) {
+    if attempts.without_art.contains(&theme) {
         return;
     }
-    attempts.attempted.push(theme);
-    // Already present. Return without touching `GameAssets`: a mutable deref
-    // marks it changed, and the refresh system would respawn every layer.
+    // Resident. Return without touching `GameAssets`: a mutable deref marks it
+    // changed, and the refresh system would respawn every layer.
     if ParallaxLayerAsset::ALL
         .iter()
         .any(|layer| assets.parallax_layers.get(theme, *layer).is_some())
@@ -1200,6 +1200,80 @@ mod two_views_one_backdrop_tests {
             "a retired view's copy is DESPAWNED, not left keyed to a view that is \
              gone — an orphan copy still draws while falling out of every query \
              that selects by view"
+        );
+    }
+}
+
+#[cfg(test)]
+mod theme_residency_tests {
+    use super::*;
+    use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
+
+    fn hub_room_set() -> ambition_platformer2d_world::rooms::RoomSet {
+        let mut room = ambition_platformer2d_world::rooms::RoomSpec::new(
+            "hub_room",
+            ambition_platformer2d_core::World::new(
+                "hub_room",
+                ambition_platformer2d_core::Vec2::new(640.0, 480.0),
+                ambition_platformer2d_core::Vec2::new(16.0, 16.0),
+                Vec::new(),
+            ),
+        );
+        room.metadata.visual_profile.parallax_theme = Some("hub".to_string());
+        ambition_platformer2d_world::rooms::RoomSet::from_parts_or_panic(
+            "hub_room",
+            vec![room],
+            Vec::new(),
+        )
+    }
+
+    fn hub_is_resident(app: &App) -> bool {
+        app.world()
+            .resource::<GameAssets>()
+            .parallax_layers
+            .resident_themes()
+            .contains(&ParallaxTheme::Hub)
+    }
+
+    /// A theme the residency policy evicted loads again while its room is active.
+    ///
+    /// Reset Sandbox rebuilds the room without a door transition. A memo of
+    /// themes "already attempted" outlived the eviction, so the hub's backdrop
+    /// never came back and the black grid showed through.
+    #[test]
+    fn an_evicted_theme_loads_again_while_its_room_is_active() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<bevy::image::Image>();
+        app.insert_resource(
+            ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog::new(
+                ambition_asset_manager::AmbitionAssetCatalog::new(
+                    ambition_sprite_sheet::game_assets::sandbox_image_manifest("sprites"),
+                ),
+                ambition_asset_manager::AssetProfile::AndroidBundle,
+            ),
+        );
+        app.init_resource::<GameAssets>();
+        app.init_resource::<ParallaxThemeAttempts>();
+        let mut active = ActiveSessionScope::default();
+        let scope = active.begin();
+        app.insert_resource(active);
+        app.world_mut().spawn((SessionRoot(scope), hub_room_set()));
+        app.add_systems(bevy::prelude::Update, ensure_active_room_parallax_theme);
+
+        app.update();
+        assert!(hub_is_resident(&app), "the active room's theme loads");
+
+        app.world_mut()
+            .resource_mut::<GameAssets>()
+            .parallax_layers
+            .retain_themes(|_| false);
+        assert!(!hub_is_resident(&app), "the eviction applied");
+        app.update();
+        assert!(
+            hub_is_resident(&app),
+            "an evicted theme must load again while its room is active"
         );
     }
 }

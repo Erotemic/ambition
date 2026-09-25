@@ -602,7 +602,6 @@ mod tests {
             &room_set_wanting_a_theme().active_spec().metadata,
         );
         let mut attempts = crate::rendering::ParallaxThemeAttempts::default();
-        attempts.attempted.push(theme);
         attempts.without_art.push(theme);
         app.insert_resource(attempts);
 

@@ -306,8 +306,9 @@ pub fn audit_character_authority_parity(world: &World) -> Vec<CharacterAuthority
 
     // And the AUTHOR, which is the field with teeth: it picks the cue bank and the
     // authorized presentation source. Checked against `CharacterCatalogOwners` —
-    // the catalog's own record of who contributed each id — rather than against the
-    // catalog entry, which does not carry a provider at all.
+    // the catalog's own record of who contributed each id, written in the same
+    // assembly step as the entry's `provider`. Nothing else reads it as a provider
+    // authority; this cross-check is its one consumer outside assembly.
     if let (Some(registry), Some(owners)) = (registry, owners) {
         for (id, prepared) in registry.iter() {
             let Some(catalog_provider) = owners.provider_for(id) else {

@@ -1176,9 +1176,9 @@ pub fn advance_move_playback(
     // test body without one uses the engine default down.
     owner_frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    character_owners: Option<
-        Res<ambition_characters::actor::character_catalog::CharacterCatalogOwners>,
-    >,
+    // The attribution fallback for a body struck before its published source
+    // lands: the same prepared provider `publish_body_presentation_sources` reads.
+    prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     authored_volumes: Res<super::authored_volumes::AuthoredAttackVolumeResolver>,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
@@ -1200,10 +1200,8 @@ pub fn advance_move_playback(
         // App-local catalog resolves.
         Option<&ambition_characters::actor::WornCharacter>,
         // A13's published attribution. THE authority on who this body sounds
-        // like: it is derived from the prepared registry FIRST and the assembled
-        // catalog second, so a character declared only through
-        // `register_character` — which has no `CharacterCatalogOwners` entry at
-        // all — still names its own provider here.
+        // like: its prepared character's provider, which every catalog row and
+        // every `register_character` definition has.
         Option<&ambition_sfx::BodyPresentationSource>,
         // MUTABLE since the timeline learned to move its own owner: a
         // `MoveEventKind::Impulse` crossing is authored SELF-MOTION and this is
@@ -1294,23 +1292,17 @@ pub fn advance_move_playback(
         }
         let strike_faction = crate::targeting::effective_faction(*faction, driver);
         let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
-        // Read the published attribution; do NOT re-derive it. This function is
-        // the ORIGINAL caller of `write_from`, and it kept its own owners-map
-        // lookup after A13 hoisted the derivation onto the body — so the one
-        // emitter the whole mechanism was built for was the one attributing
-        // registered-only characters to nobody. `unscoped` then sent the cue to
-        // the session's global emission context, where it was either credited to
-        // the session owner's bank or denied outright.
+        // Read the published attribution first. Before it lands (a body that
+        // strikes on the tick it is built), ask the one authority the publisher
+        // asks: the owners map this read once answered registered-only
+        // characters with nobody, and `unscoped` then sent the cue to the
+        // session's global emission context.
         let presentation_source = body_source
             .map(|source| source.id().clone())
             .or_else(|| {
                 character_id
-                    .and_then(|id| {
-                        character_owners
-                            .as_deref()
-                            .and_then(|owners| owners.provider_for(id))
-                    })
-                    .map(PresentationSourceId::new)
+                    .and_then(|id| prepared.as_deref()?.get(id))
+                    .map(|prepared| PresentationSourceId::new(prepared.provider.as_str()))
             })
             .unwrap_or_else(PresentationSourceId::unscoped);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no

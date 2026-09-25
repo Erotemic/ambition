@@ -8,7 +8,6 @@ use ambition_characters::prepared::PreparedCharacterRegistry;
 use bevy::prelude::*;
 use std::collections::BTreeSet;
 
-use ambition_characters::actor::character_catalog::CharacterCatalogOwners;
 use ambition_platformer2d_shared_tangle::construction::EntityScope;
 
 use super::CharacterLoadStates;
@@ -16,21 +15,18 @@ use ambition_platformer2d_actor_spawn::character_body::{
     grant_prepared_character_body, KitOwnership, ProjectedCharacterKit,
 };
 
-/// The provider that authored a character, from either declaration source.
+/// The provider that authored a character: its prepared definition's.
 ///
-/// The prepared registry is consulted FIRST and the assembled catalog second, for
-/// the same reason `sheet_for_declared_character` prefers the registered sheet: a
-/// character may exist only on the registration seam, and then the registry is the
-/// only place its provider is written down.
+/// The barrier prepares every catalog row under the provider that registered it,
+/// so the catalog's owners map holds no provider the registry does not; asking it
+/// as well would be a second answer. `None` means nobody prepared the id.
 pub fn provider_of_character<'a>(
     registry: Option<&'a PreparedCharacterRegistry>,
-    owners: Option<&'a CharacterCatalogOwners>,
     character_id: &str,
 ) -> Option<&'a str> {
     registry
         .and_then(|registry| registry.get(character_id))
         .map(|prepared| prepared.provider.as_str())
-        .or_else(|| owners.and_then(|owners| owners.provider_for(character_id)))
 }
 
 /// Authorize a presentation source for every provider in the staged cast.
@@ -58,7 +54,6 @@ pub fn provider_of_character<'a>(
 pub fn authorize_staged_character_presentation_sources(
     states: Option<Res<CharacterLoadStates>>,
     registry: Option<Res<PreparedCharacterRegistry>>,
-    owners: Option<Res<CharacterCatalogOwners>>,
     audio_catalog: Option<Res<ambition_audio::catalog::AudioCatalogRegistry>>,
     bank_ids: Option<Res<ambition_audio::catalog::SfxBankRegistry>>,
     selection: Option<ResMut<ambition_audio::selection::ActiveAudioSelection>>,
@@ -75,7 +70,7 @@ pub fn authorize_staged_character_presentation_sources(
     let mut authorized: BTreeSet<String> = BTreeSet::new();
     for character_id in states.cast().ids() {
         let Some(provider) =
-            provider_of_character(registry.as_deref(), owners.as_deref(), character_id)
+            provider_of_character(registry.as_deref(), character_id)
         else {
             // No declaration names an author. The load ledger already reports
             // unknown characters; this is not a second place to complain about it.
@@ -110,15 +105,13 @@ pub fn authorize_staged_character_presentation_sources(
 /// entirely for a body that is spawned and strikes before the next frame boundary — which is
 /// precisely the case a versus match makes ordinary.
 ///
-/// A body's source is its WORN character's author, falling back to the sprite
-/// character its combat tuning names. A body wearing nothing gets no component at
-/// all rather than an empty source: absent means "ask the session", which is the
+/// A body's source is its WORN character's author. A body wearing nothing gets
+/// no component at all rather than an empty source: absent means "ask the session", which is the
 /// honest answer for a hazard or an unworn body, and is materially different from
 /// "this body belongs to nobody".
 pub fn publish_body_presentation_sources(
     mut commands: Commands,
     registry: Option<Res<PreparedCharacterRegistry>>,
-    owners: Option<Res<CharacterCatalogOwners>>,
     bodies: Query<
         (
             Entity,
@@ -145,7 +138,7 @@ pub fn publish_body_presentation_sources(
     for (entity, worn, current) in &bodies {
         let character_id = worn.map(ambition_characters::actor::WornCharacter::id);
         let provider = character_id
-            .and_then(|id| provider_of_character(registry.as_deref(), owners.as_deref(), id));
+            .and_then(|id| provider_of_character(registry.as_deref(), id));
         match provider {
             Some(provider) => {
                 let next = ambition_sfx::PresentationSourceId::new(provider);

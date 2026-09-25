@@ -49,6 +49,10 @@ serde = { workspace = true }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.19.1", default-features = false }
 
+[dev-dependencies]
+# Fixtures publish the prepared cast a barrier would (`prepare_cast_for_test`).
+ambition_characters = { path = "../ambition_characters", features = ["test-support"] }
+
 [features]
 # The authored-content schema this capability owns.
 content_pack = ["dep:ambition_content_pack", "dep:ron"]

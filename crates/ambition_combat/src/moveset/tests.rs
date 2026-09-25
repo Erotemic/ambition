@@ -808,14 +808,19 @@ fn one_tick_sfx_move(cue: &str) -> MoveSpec {
 #[test]
 fn move_events_capture_character_provider_presentation_sources() {
     let (mut app, _victim) = app_with_victim();
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalogOwners(
-            std::collections::BTreeMap::from([
-                ("sanic".to_string(), "sanic".to_string()),
-                ("mary_o".to_string(), "mary_o".to_string()),
-            ]),
-        ),
-    );
+    // No `BodyPresentationSource` is published in this fixture, so the
+    // attribution comes from the prepared cast directly.
+    app.insert_resource(ambition_characters::prepared::prepare_cast_for_test(
+        &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        [
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "sanic", "Sanic", "sanic",
+            ),
+            ambition_characters::actor::definition::CharacterDefinition::new(
+                "mary_o", "Mary-O", "mary_o",
+            ),
+        ],
+    ));
 
     let worn = spawn_attacker(
         &mut app,

@@ -963,12 +963,33 @@ ABSENCE_CONTRACTS: list[dict] = [
         ],
         "patterns": [r"\bprovider_of_character\("],
         "reason": (
-            "Which provider owns a character — registry first, catalog owners "
-            "second — is decided in `presentation.rs` and consumed everywhere "
-            "else. A second caller is a second answer, and the failure is a "
-            "body emitting in the wrong provider's voice: audible, "
-            "attributable to nothing, and only on a crossover stage where two "
-            "providers are live at once."
+            "Which provider owns a character is decided in `presentation.rs` "
+            "(the prepared definition's) and consumed everywhere else. A second "
+            "caller is a second answer, and the failure is a body emitting in "
+            "the wrong provider's voice: audible, attributable to nothing, and "
+            "only on a crossover stage where two providers are live at once."
+        ),
+    },
+    {
+        "id": "the-catalog-owners-map-is-not-a-provider-authority",
+        "paths": [
+            "crates/",
+            "game/",
+            "fixtures/",
+            ":!crates/ambition_characters/src/actor/character_catalog/registry.rs",
+            ":!crates/ambition_platformer2d_actor_monolith/src/character_runtime/audit.rs",
+            ":!game/ambition_app/tests/app_local_catalog_composition.rs",
+        ],
+        "patterns": [r"\.provider_for\("],
+        "reason": (
+            "AP31 (2026-09-25). The barrier prepares every catalog row under "
+            "the provider that registered it, so `CharacterCatalogOwners` holds "
+            "no provider the prepared registry does not. The resolver and the "
+            "move clock each asked it as a fallback, which answered a "
+            "registered-only character with nobody. Assembly writes it, the "
+            "parity audit cross-checks it, and the catalog-composition test "
+            "pins its assembly; a sim or presentation reader asks the prepared "
+            "definition."
         ),
     },
     {

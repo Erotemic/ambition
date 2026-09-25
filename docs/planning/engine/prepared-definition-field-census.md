@@ -106,7 +106,7 @@ and, if so, whether a disagreement is watched.
 |---|---|---|
 | `kit`, `death_traits`, `mount` | none | two readers of one authority; nothing to do |
 | `id` | the key both maps use | nothing to do |
-| `provider` | `entry.provider` + `CharacterCatalogOwners` | two authorities, watched (`ProviderDisagreement`) |
+| `provider` | `entry.provider` + `CharacterCatalogOwners` | one authority read (AP31): every catalog row is prepared under its registering provider, readers ask the prepared definition, and the owners map is assembly's record, cross-checked by `ProviderDisagreement` |
 | `sheet` | `entry.spritesheet` / `entry.manifest` | two authorities, watched (`SheetDisagreement`) |
 | `autonomous_profile` | the catalog's named-profile library | one resolution (`resolve_autonomous_profile` in `prepared.rs`); the catalog's `default_brain` names a `BrainPreset`, a different vocabulary |
 | `movement_tuning`, `motion_model` | `catalog.axis_tuning(id)` / `catalog.motion_model_spec(id)` | one authority: the preparation barrier folds the catalog row in (`prepared.rs`) |

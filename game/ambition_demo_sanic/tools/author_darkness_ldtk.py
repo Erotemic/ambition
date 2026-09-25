@@ -13,6 +13,13 @@ ambition_ldtk_tools. The course has six sections:
 
 The lower road connects the whole course. High roads give rings and avoid
 hazards. They rejoin the lower road before the next section.
+
+The ground is PAINTED: the lower road is `Terrain` cells down to the level's
+floor, the high roads are one-cell `Track` bands (you can jump up through
+them), and the vault's roof is `Terrain` hanging from above. Open the level in
+LDtk to see it; `ambition_ldtk_tools.terrain` rasterizes the key points below
+into the slope palette, and the engine traces the painted cells back into
+rideable surfaces.
 """
 
 from __future__ import annotations
@@ -22,9 +29,16 @@ import tempfile
 from pathlib import Path
 
 from author_highway_ldtk import (
-    REPO, RING_SIZE, chain, badnik, booster, height_at, monitor, points_field,
+    BADNIK_CHARACTER_ID, BADNIK_DISPLAY_NAME, REPO, RING_SIZE, TOOLS, booster, monitor,
     rect, ring, ring_arc, rings_over, run_tool, spring, surface_loop,
 )
+
+import sys
+
+sys.path.insert(0, str(TOOLS))
+from ambition_ldtk_tools import terrain  # noqa: E402
+
+GRID = 16
 
 ROOM_ID = "sanic_darkness"
 NEXT_ROOM = "sanic_speedway"
@@ -87,6 +101,22 @@ def rings() -> list[dict]:
     return out
 
 
+#: The whole lower road, one profile: the runs share their end points.
+LOWER = WEST + VIADUCT[1:] + VAULT[1:] + BASIN[1:] + EAST[1:]
+LOWER_HEIGHTS = terrain.quantize(terrain.cosine_profile(LOWER), 0, LEVEL_W // GRID, GRID)
+#: The painted lower road's height. Things that stand on the ground stand on
+#: THIS, not the key-point curve it was drawn from (up to half a cell away): a
+#: booster placed by the curve ended half-buried at the foot of a painted slope.
+ground_y = terrain.surface(LOWER_HEIGHTS, 0, GRID)
+
+
+def on_ground_badnik(x: float) -> dict:
+    return rect(
+        "EnemySpawn", (x, ground_y(x + 14) - 48), (28, 32),
+        brain=BADNIK_CHARACTER_ID, character_id=BADNIK_CHARACTER_ID, name=BADNIK_DISPLAY_NAME,
+    )
+
+
 def area_spec() -> dict:
     def portal(name: str, x: int, y: int, color: str, normal: str) -> dict:
         # A vertical rift catches a body running across its plane. Its
@@ -96,47 +126,36 @@ def area_spec() -> dict:
 
     entities = [
         rect("PlayerStart", (144, 1594), (28, 46), name="darkness_start"),
-        chain("darkness_west", WEST, True),
-        chain("darkness_viaduct", VIADUCT, True),
-        chain("darkness_vault", VAULT, True),
-        chain("darkness_basin", BASIN, True),
-        chain("darkness_east", EAST, True),
-        chain("darkness_high_west", HIGH_WEST, False),
-        chain("darkness_high_east", HIGH_EAST, False),
-        surface_loop("darkness_loop_dusk", 2500, 210, "darkness_west", 1810),
-        surface_loop("darkness_loop_viaduct", 7100, 185, "darkness_viaduct", 1780),
-        surface_loop("darkness_loop_vault", 11800, 220, "darkness_vault", 1500),
-        surface_loop("darkness_loop_east", 27200, 230, "darkness_east", 1740),
-        # This track faces down. The zone pulls a body to it.
-        rect("SurfaceChain", (VAULT_X[0], VAULT_CEILING - 16), (16, 16),
-             name="darkness_vault_ceiling",
-             points=points_field([(VAULT_X[1], VAULT_CEILING),
-                                  (VAULT_X[0], VAULT_CEILING)]), closed=False),
-        rect("Solid", (VAULT_X[0], VAULT_CEILING - 64),
-             (VAULT_X[1] - VAULT_X[0], 64), name="darkness_vault_roof"),
+        # Each loop attaches to the painted floor under it.
+        surface_loop("darkness_loop_dusk", 2500, 210, "terrain", 1808),
+        surface_loop("darkness_loop_viaduct", 7100, 185, "terrain", 1776),
+        surface_loop("darkness_loop_vault", 11800, 220, "terrain", 1504),
+        surface_loop("darkness_loop_east", 27200, 230, "terrain", 1744),
+        # The vault's roof is painted; its underside faces down, and the zone
+        # pulls a body up onto it.
         rect("GravityZone", (VAULT_X[0] + 80, VAULT_CEILING),
              (VAULT_X[1] - VAULT_X[0] - 160, 240),
              name="darkness_vault_flip", dir="up"),
         # The high roads pass over the lower rifts. A runner on the lower
         # road crosses their plane and exits further east.
         portal("viaduct_entrance", 8150,
-               round(height_at(VIADUCT, 8150) - 24), "purple", "left"),
+               round(ground_y(8150) - 24), "purple", "left"),
         portal("viaduct_exit", 10100, 1476, "yellow", "right"),
         portal("shadow_entrance", 26500,
-               round(height_at(EAST, 26500) - 24), "green", "left"),
+               round(ground_y(26500) - 24), "green", "left"),
         portal("shadow_exit", 29400, 1396, "magenta", "right"),
         # The rift on the vault ceiling leads to the second high road.
         portal("vault_secret_entrance", 11800, VAULT_CEILING + 24, "teal", "left"),
         portal("vault_secret_exit", 22000, 1136, "red", "right"),
         # Springs reach the optional roads. The lower road stays complete.
-        spring(5480, height_at(VIADUCT, 5504), 1700),
-        spring(21500, height_at(EAST, 21524), 1700),
-        booster(800, 1640, 1100),
-        booster(3950, height_at(WEST, 3980), 1200),
-        booster(7850, height_at(VIADUCT, 7880), 1300),
-        booster(10100, 1500, 1050),
-        booster(15800, 2000, 1500),
-        booster(26300, height_at(EAST, 26330), 1250),
+        spring(5480, ground_y(5504), 1700),
+        spring(21500, ground_y(21524), 1700),
+        booster(800, ground_y(830), 1100),
+        booster(3950, ground_y(3980), 1200),
+        booster(7850, ground_y(7880), 1300),
+        booster(10100, ground_y(10130), 1050),
+        booster(15800, ground_y(15830), 1500),
+        booster(26300, ground_y(26330), 1250),
         # Short hazard groups have a clear gap between them.
         rect("DamageVolume", (6120, 1764), (112, 16), name="viaduct_spikes_a", damage=1),
         rect("DamageVolume", (6830, 1764), (112, 16), name="viaduct_spikes_b", damage=1),
@@ -150,14 +169,13 @@ def area_spec() -> dict:
         spring(19650, 1350, 1450),
         rect("OneWayPlatform", (OBSERVATORY[0], OBSERVATORY[1]),
              (OBSERVATORY[2], 16), name="observatory"),
-        rect("Solid", (FINISH_X, 1164), (32, 256), name="darkness_finish_tower"),
     ]
     for keys, positions in [
         (WEST, [1400, 4550]), (VIADUCT, [6300, 7500, 9000]),
         (VAULT, [13500]), (BASIN, [15300, 17500, 19900]),
         (EAST, [21100, 23900, 25900, 29600, 30600]),
     ]:
-        entities += [badnik(keys, x) for x in positions]
+        entities += [on_ground_badnik(x) for x in positions]
     entities += rings()
     return {
         "id": ROOM_ID, "level_id": ROOM_ID, "world_x": 0, "world_y": 0,
@@ -179,6 +197,42 @@ def named_blocks() -> dict:
     }
 
 
+def painted() -> dict:
+    """The level's painted cells: `Terrain` (the lower road, the vault roof,
+    the finish tower) and `Track` (the two high roads)."""
+    columns, rows = LEVEL_W // GRID, LEVEL_H // GRID
+    lower = terrain.cosine_profile(LOWER)
+    cells = terrain.ground(lower, 0, columns, GRID, bottom=rows)
+    # How far the painted road strays from the key-point curve, reported so a
+    # change to the keys that the palette cannot follow is seen.
+    heights = LOWER_HEIGHTS
+    worst = max(abs(h * GRID / terrain.Q - lower(i * GRID)) for i, h in enumerate(heights))
+    print(f"lower road: {len(cells)} cells, within {worst:.1f}px of its curve")
+    assert worst < GRID, "the lower road is steeper than 45° somewhere"
+    # The vault roof: four cells of rock whose underside is the ceiling run.
+    roof_underside = terrain.ceiling(
+        lambda x: VAULT_CEILING, VAULT_X[0] // GRID, VAULT_X[1] // GRID, GRID,
+        top=(VAULT_CEILING - 64) // GRID,
+    )
+    cells.update(roof_underside)
+    # The finish tower stands on the road: a wall a runner meets.
+    tower_foot = heights[FINISH_X // GRID] // terrain.Q
+    for cx in range(FINISH_X // GRID, (FINISH_X + 32) // GRID):
+        for cy in range(1164 // GRID, tower_foot):
+            cells[(cx, cy)] = terrain.FULL
+    track: dict = {}
+    for keys in (HIGH_WEST, HIGH_EAST):
+        x0, x1 = keys[0][0] // GRID, keys[-1][0] // GRID
+        track.update(terrain.band(terrain.cosine_profile(keys), x0, x1, GRID, thickness=1))
+    return {
+        "level_id": ROOM_ID,
+        "layers": {
+            "Terrain": [[cx, cy, v] for (cx, cy), v in sorted(cells.items())],
+            "Track": [[cx, cy, v] for (cx, cy), v in sorted(track.items())],
+        },
+    }
+
+
 def main() -> None:
     MAP_TARGET.parent.mkdir(parents=True, exist_ok=True)
     run_tool("world", "init", str(MAP_TARGET), "--identifier",
@@ -186,7 +240,6 @@ def main() -> None:
     for entity, field in (
         ("PickupSpawn", "sprite:String:"),
         ("SurfaceLoop", "attach_to:String:"),
-        ("SurfaceChain", "fill:Bool:false"),
     ):
         run_tool("def", "update-entity", entity, str(MAP_TARGET),
                  "--add-field", field, "--in-place", "--no-repair")
@@ -197,6 +250,9 @@ def main() -> None:
         blocks = Path(tmp) / "darkness_named_blocks.json"
         blocks.write_text(json.dumps(named_blocks(), indent=2))
         run_tool("entity", "add", str(blocks), "--ldtk", str(MAP_TARGET), "--in-place")
+        cells = Path(tmp) / "darkness_terrain.json"
+        cells.write_text(json.dumps(painted()))
+        run_tool("terrain", "paint", str(cells), "--ldtk", str(MAP_TARGET))
     run_tool("level", "add-field-def", "next_room", "--type", "String",
              str(MAP_TARGET), "--in-place")
     run_tool("level", "set-field", "--ldtk", str(MAP_TARGET), "--level", ROOM_ID,

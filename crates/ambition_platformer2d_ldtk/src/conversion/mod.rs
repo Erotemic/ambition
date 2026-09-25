@@ -263,6 +263,26 @@ impl LdtkProject {
                 }
             }
 
+            // IntGrid `Terrain` layer: painted ground and slopes, traced into
+            // rideable surface chains (`terrain.rs`).
+            // `Track` paints the same way; only its floors lower (a road you can
+            // jump up through).
+            let painted = [
+                (level.terrain_layer(), super::terrain::emit_terrain_from_intgrid as fn(_, _, &str) -> _),
+                (level.track_layer(), super::terrain::emit_track_from_intgrid),
+            ];
+            for (layer, emit) in painted {
+                let Some(layer) = layer else { continue };
+                let layer_key = format!("{}/{}", level.identifier, layer.identifier);
+                match emit(layer, offset, &layer_key) {
+                    Ok(emission) => chains.extend(emission.chains),
+                    Err(message) => errors.push(format!(
+                        "level '{}' {}: {message}",
+                        level.identifier, layer.identifier
+                    )),
+                }
+            }
+
             // IntGrid `Water` layer: each cell becomes a swimmable region. Entity
             // `WaterVolume` also fills `World::water_regions`.
             if let Some(layer) = level.water_layer() {
@@ -321,9 +341,24 @@ impl LdtkProject {
         // Attached loops go last: each names a floor chain any entity may have
         // authored, and attaching may split that floor.
         for attachment in &loop_attachments {
+            let floor = if attachment.floor == super::terrain::TERRAIN_FLOOR {
+                match painted_floor_under(&world, attachment.center_x, attachment.marker_y) {
+                    Some(name) => name,
+                    None => {
+                        errors.push(format!(
+                            "area '{area_id}' SurfaceLoop `{}`: attach_to \"terrain\" but no \
+                             painted floor lies under x={}",
+                            attachment.name, attachment.center_x
+                        ));
+                        continue;
+                    }
+                }
+            } else {
+                attachment.floor.clone()
+            };
             if let Err(error) = world.attach_loop(
                 &attachment.name,
-                &attachment.floor,
+                &floor,
                 attachment.ramp_start_x,
                 attachment.center_x,
                 attachment.radius,
@@ -379,6 +414,9 @@ impl LdtkProject {
 pub struct LoopAttachment {
     pub name: String,
     pub floor: String,
+    /// The marker's centre y (world space): with `floor == "terrain"`, the
+    /// loop attaches to the nearest painted floor below it.
+    pub marker_y: f32,
     pub ramp_start_x: f32,
     pub center_x: f32,
     pub radius: f32,
@@ -1678,4 +1716,28 @@ mod tests {
             "the refusal must name the contradicting brain: {both:?}"
         );
     }
+}
+
+/// The painted-terrain chain whose floor passes under `(x, y)` nearest below
+/// it: a left→right segment (a floor, in the chains' winding) spanning `x`.
+fn painted_floor_under(world: &ae::World, x: f32, y: f32) -> Option<String> {
+    world
+        .chains
+        .iter()
+        .filter(|chain| {
+            chain.name.starts_with(super::terrain::TERRAIN_CHAIN_PREFIX)
+                || chain.name.starts_with(super::terrain::TRACK_CHAIN_PREFIX)
+        })
+        .flat_map(|chain| {
+            chain.points.windows(2).filter_map(move |pair| {
+                let (a, b) = (pair[0], pair[1]);
+                (a.x < x && x < b.x).then(|| {
+                    let floor_y = a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x);
+                    (floor_y, &chain.name)
+                })
+            })
+        })
+        .filter(|(floor_y, _)| *floor_y >= y)
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, name)| name.clone())
 }

@@ -54,11 +54,24 @@ fn room(app: &mut App) -> (String, Option<usize>, Option<usize>) {
         .world_mut()
         .query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let set = q.iter(app.world()).next().expect("the session's room set");
-    (
-        set.active_spec().id.clone(),
-        set.active_world().chain_named("highway_tunnel_ceiling"),
-        set.active_world().chain_named("highway_bridge"),
-    )
+    // Act 2's painted surfaces, found where they are: the tunnel roof's
+    // underside (a right → left run, which faces down, over x = 8400) and the
+    // sky bridge (a `Track` floor over x = 6000).
+    let world = set.active_world();
+    let spans = |chain: &ae::SurfaceChain, x: f32, leftward: bool| {
+        chain.points.windows(2).any(|p| {
+            let (a, b) = if leftward { (p[1], p[0]) } else { (p[0], p[1]) };
+            a.x < x && x < b.x
+        })
+    };
+    let tunnel = world.chains.iter().position(|c| {
+        c.name.starts_with("terrain:") && spans(c, 8400.0, true) && c.points.iter().all(|p| p.y < 1100.0)
+    });
+    let bridge = world
+        .chains
+        .iter()
+        .position(|c| c.name.starts_with("track:") && spans(c, 6000.0, false));
+    (set.active_spec().id.clone(), tunnel, bridge)
 }
 
 fn hold(app: &mut App, jump: bool) {
@@ -94,17 +107,23 @@ fn place(app: &mut App, at: Vec2) {
     );
 }
 
-fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road: &str) {
+/// Spring from `spring_x` and land on the painted high road: a `Track`
+/// chain (named `track:…` by the loader) whose floor passes over `road_x`.
+fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road_x: f32) {
+    let road = format!("the painted high road over x={road_x:.0}");
     let chain = {
         let mut q = app
             .world_mut()
             .query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        q.iter(app.world())
-            .next()
-            .expect("room set")
-            .active_world()
-            .chain_named(road)
-            .expect("authored high road")
+        let set = q.iter(app.world()).next().expect("room set");
+        set.active_world()
+            .chains
+            .iter()
+            .position(|chain| {
+                chain.name.starts_with("track:")
+                    && chain.points.windows(2).any(|p| p[0].x < road_x && road_x < p[1].x)
+            })
+            .unwrap_or_else(|| panic!("no painted high road over x={road_x}"))
     };
     place(app, Vec2::new(spring_x + 24.0, spring_y - 130.0));
     let mut launched = false;
@@ -257,8 +276,8 @@ fn the_three_acts_connect_and_clear() {
         6,
         "all authored portals spawn"
     );
-    ride_high_road(&mut app, 5480.0, 1660.0, "darkness_high_west");
-    ride_high_road(&mut app, 21500.0, 1640.0, "darkness_high_east");
+    ride_high_road(&mut app, 5480.0, 1660.0, 6000.0);
+    ride_high_road(&mut app, 21500.0, 1640.0, 22000.0);
     place(&mut app, Vec2::new(144.0, 1594.0));
     run_to_clear(&mut app, "Act 3", 7200, |_| false);
     assert!(

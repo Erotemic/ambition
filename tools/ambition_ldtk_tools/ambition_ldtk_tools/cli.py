@@ -223,6 +223,12 @@ def cmd_door(args, rest):
     return _todo(f"door {args.door_action}")
 
 
+def cmd_terrain(args, rest):
+    if args.terrain_action == "paint":
+        return _delegate("ambition_ldtk_tools.terrain", rest)
+    return _todo(f"terrain {args.terrain_action}")
+
+
 def cmd_level(args, rest):
     if args.level_action == "set-field":
         return _delegate("ambition_ldtk_tools.edit.level_set_field", rest)
@@ -553,6 +559,17 @@ def build_parser() -> argparse.ArgumentParser:
         "[--door-w 48] [--door-h 96] [--prefer-y N]",
     )
     sp_door.set_defaults(func=cmd_door)
+
+    sp_terrain = sub.add_parser(
+        "terrain", help="Painted terrain: the Terrain and Track IntGrid layers"
+    )
+    terrain_sub = sp_terrain.add_subparsers(dest="terrain_action", required=True)
+    terrain_sub.add_parser(
+        "paint",
+        help="Add the painted layers if missing and paint a level's cells from a "
+        "JSON spec. Usage: terrain paint <spec.json> --ldtk <file>",
+    )
+    sp_terrain.set_defaults(func=cmd_terrain)
 
     # level set-field
     sp_level = sub.add_parser("level", help="Level (room) metadata edits")

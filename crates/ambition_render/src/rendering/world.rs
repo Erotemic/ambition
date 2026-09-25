@@ -480,6 +480,19 @@ pub fn spawn_surface_chain_visuals(
         );
     }
 
+    for chain in world.chains.iter().filter(|chain| !chain.earth.is_empty()) {
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                PaintedEarthVisual::new(world, &chain.earth),
+                Transform::from_xyz(0.0, 0.0, WORLD_Z_BLOCK - 0.5),
+                Visibility::Visible,
+                Name::new(format!("Painted earth: {}", chain.name)),
+                RoomVisual,
+            ),
+        );
+    }
+
     for chain in &world.chains {
         for segment_index in 0..chain.segment_count() {
             let depth = chain.segment_depth(segment_index);
@@ -526,13 +539,62 @@ pub struct FilledGroundVisual {
     floor: f32,
 }
 
-/// Mesh every [`FilledGroundVisual`] that has none yet: one quad per chain
-/// segment, from the segment down to the room floor, shaded darker with depth.
+/// Painted earth (see `SurfaceChain::earth`), in Bevy space: its convex
+/// polygons, and each vertex's depth below the top of the earth in its column,
+/// which shades it the way [`FilledGroundVisual`] shades depth below a chain.
+#[derive(Component, Clone, Debug)]
+pub struct PaintedEarthVisual {
+    polygons: Vec<Vec<BVec2>>,
+    depths: Vec<Vec<f32>>,
+}
+
+impl PaintedEarthVisual {
+    fn new(world: &ae::World, earth: &[Vec<ae::Vec2>]) -> Self {
+        /// Column width for the shading's "top of the earth here": one LDtk cell.
+        const COLUMN: f32 = 16.0;
+        let column = |x: f32| (x / COLUMN).floor() as i64;
+        let mut tops: std::collections::HashMap<i64, f32> = std::collections::HashMap::new();
+        for polygon in earth {
+            let (min_x, max_x, min_y) = polygon.iter().fold(
+                (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY),
+                |(a, b, c), p| (a.min(p.x), b.max(p.x), c.min(p.y)),
+            );
+            for col in column(min_x)..column(max_x - 0.01).max(column(min_x)) + 1 {
+                let top = tops.entry(col).or_insert(min_y);
+                *top = top.min(min_y);
+            }
+        }
+        let depth = |p: ae::Vec2| {
+            // A vertex on a column boundary belongs to both columns: the
+            // shallower answer keeps a cliff's face lit from its top.
+            let top = [column(p.x), column(p.x - 0.01)]
+                .into_iter()
+                .filter_map(|col| tops.get(&col).copied())
+                .fold(f32::INFINITY, f32::min);
+            if top.is_finite() { (p.y - top).max(0.0) } else { 0.0 }
+        };
+        Self {
+            polygons: earth
+                .iter()
+                .map(|polygon| {
+                    polygon.iter().map(|p| world_to_bevy(world, *p, 0.0).truncate()).collect()
+                })
+                .collect(),
+            depths: earth.iter().map(|polygon| polygon.iter().map(|p| depth(*p)).collect()).collect(),
+        }
+    }
+}
+
+/// Mesh every [`FilledGroundVisual`] and [`PaintedEarthVisual`] that has none
+/// yet. Filled ground is one quad per chain segment, from the segment down to
+/// the room floor; painted earth is its own polygons. Both shade darker with
+/// depth.
 pub fn build_filled_ground_meshes(
     mut commands: Commands,
     meshes: Option<ResMut<Assets<Mesh>>>,
     materials: Option<ResMut<Assets<bevy::sprite_render::ColorMaterial>>>,
     fresh: Query<(Entity, &FilledGroundVisual), Without<Mesh2d>>,
+    fresh_earth: Query<(Entity, &PaintedEarthVisual), Without<Mesh2d>>,
 ) {
     use bevy::asset::RenderAssetUsages;
     use bevy::mesh::{Indices, PrimitiveTopology};
@@ -569,6 +631,34 @@ pub fn build_filled_ground_meshes(
                 shade(a.y - ground.floor),
             ]);
             indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+        }
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        mesh.insert_indices(Indices::U32(indices));
+        commands.entity(entity).try_insert((
+            Mesh2d(meshes.add(mesh)),
+            bevy::sprite_render::MeshMaterial2d(
+                materials.add(bevy::sprite_render::ColorMaterial::from_color(Color::WHITE)),
+            ),
+        ));
+    }
+    for (entity, earth) in &fresh_earth {
+        let shade = |depth: f32| -> [f32; 4] {
+            let t = (depth / SHADE_DEPTH).clamp(0.0, 1.0);
+            std::array::from_fn(|i| TOP[i] + (DEEP[i] - TOP[i]) * t)
+        };
+        let mut positions: Vec<[f32; 3]> = Vec::new();
+        let mut colors: Vec<[f32; 4]> = Vec::new();
+        let mut indices: Vec<u32> = Vec::new();
+        for (polygon, depths) in earth.polygons.iter().zip(&earth.depths) {
+            let base = positions.len() as u32;
+            positions.extend(polygon.iter().map(|p| [p.x, p.y, 0.0]));
+            colors.extend(depths.iter().map(|d| shade(*d)));
+            // Convex: a fan from the first vertex.
+            for k in 1..polygon.len().saturating_sub(1) as u32 {
+                indices.extend([base, base + k, base + k + 1]);
+            }
         }
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::RENDER_WORLD);
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);

@@ -578,12 +578,23 @@ fn oracle_speed_booster_boosts_a_momentum_rider() {
 // seeded pseudo-random play.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Position pinned (< 2px net over 15 ticks) while reported speed never drops
+/// Position pinned (within 2px of where the window began, for all 15 ticks)
+/// while reported speed never drops
 /// below 200 px/s — the "frozen position, integrating velocity" signature.
 fn find_pin(trace: &[Sample]) -> Option<usize> {
     const WINDOW: usize = 15;
     for i in WINDOW..trace.len() {
-        let disp = (trace[i].pos - trace[i - WINDOW].pos).length();
+        // The window's furthest excursion from its first sample, not its net
+        // displacement: a runner a booster throws back over his own track
+        // travels ~200 px in 15 ticks and ends where he began, and the endpoint
+        // difference called that a pin (seed #23, once `frame_at`'s rounding
+        // moved its path onto a reversing pad). A pinned body stays inside the
+        // ball for the whole window.
+        let start = trace[i - WINDOW].pos;
+        let disp = trace[i - WINDOW..=i]
+            .iter()
+            .map(|s| (s.pos - start).length())
+            .fold(0.0, f32::max);
         let min_speed = trace[i - WINDOW..=i]
             .iter()
             .map(|s| s.vel.length())
@@ -1157,13 +1168,20 @@ fn oracle_full_course_run_reaches_the_finish() {
 #[test]
 fn oracle_every_highway_loop_is_ridden_exactly_once_holding_up() {
     let room = crate::sanic_highway();
-    for (loop_name, floor_name) in [
-        ("highway_loop_a", "highway_west"),
-        ("highway_loop_b", "highway_bridge"),
-        ("highway_loop_d", "highway_east"),
-    ] {
+    for loop_name in ["highway_loop_a", "highway_loop_b", "highway_loop_d"] {
         let loop_idx = chain_index(&room.world, loop_name);
-        let floor_idx = chain_index(&room.world, floor_name);
+        // The floor it attached to — painted, so named by the loader — is the
+        // chain its route junctions name.
+        let floor_idx = room.world.chains[loop_idx]
+            .junctions
+            .iter()
+            .flat_map(|junction| junction.ports.iter())
+            .find_map(|port| match port {
+                ae::SurfacePort::Chain { chain, .. } => Some(*chain),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("{loop_name} is attached to a floor"));
+        let floor_name = room.world.chains[floor_idx].name.as_str();
         let chain = &room.world.chains[loop_idx];
         let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
         let top_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2);

@@ -1412,25 +1412,36 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
         "Act 2 is the bigger course: {} wide against the speedway's {LEVEL_WIDTH}",
         room.world.size.x
     );
-    for (loop_name, floor_name) in [
-        ("highway_loop_a", "highway_west"),
-        ("highway_loop_b", "highway_bridge"),
-        ("highway_loop_d", "highway_east"),
+    // Each loop attaches to the PAINTED floor under it: loops A and D to the
+    // ground (`terrain:`), loop B to the sky bridge (`track:`).
+    for (loop_name, floor_prefix) in [
+        ("highway_loop_a", "terrain:"),
+        ("highway_loop_b", "track:"),
+        ("highway_loop_d", "terrain:"),
     ] {
         let loop_chain = &room.world.chains[room
             .world
             .chain_named(loop_name)
             .unwrap_or_else(|| panic!("the highway authors {loop_name}"))];
-        let floor = room.world.chain_named(floor_name).expect("the floor");
-        let floor_ports = loop_chain
+        let floors: Vec<usize> = loop_chain
             .junctions
             .iter()
             .flat_map(|junction| junction.ports.iter())
-            .filter(|port| matches!(port, ae::SurfacePort::Chain { chain, .. } if *chain == floor))
-            .count();
+            .filter_map(|port| match port {
+                ae::SurfacePort::Chain { chain, .. } => Some(*chain),
+                _ => None,
+            })
+            .collect();
         assert_eq!(
-            floor_ports, 2,
-            "{loop_name} joins {floor_name} at its ramp foot and its runout end"
+            floors.len(),
+            2,
+            "{loop_name} joins its floor at its ramp foot and its runout end"
+        );
+        assert!(
+            floors.iter().all(|&f| f == floors[0]
+                && room.world.chains[f].name.starts_with(floor_prefix)),
+            "{loop_name} joins one painted {floor_prefix} floor: {:?}",
+            floors.iter().map(|&f| &room.world.chains[f].name).collect::<Vec<_>>()
         );
     }
     assert!(
@@ -1441,21 +1452,28 @@ fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
 }
 
 /// Act 2 has height: its ground climbs and drops by more than half a screen,
-/// and it is drawn as ground (filled), not as a line over the sky.
+/// and it is drawn as ground (painted earth), not as a line over the sky.
 #[test]
 fn the_highway_rolls_climbs_and_drops() {
     let room = sanic_highway();
-    let ground: Vec<&ae::SurfaceChain> = room.world.chains.iter().filter(|c| c.filled).collect();
+    let ground: Vec<&ae::SurfaceChain> = room
+        .world
+        .chains
+        .iter()
+        .filter(|c| c.name.starts_with("terrain:"))
+        .collect();
     assert!(
-        ground.len() >= 3,
-        "the highway's ground runs are filled chains: {:?}",
-        room.world
-            .chains
-            .iter()
-            .map(|c| (&c.name, c.filled))
-            .collect::<Vec<_>>()
+        ground.iter().any(|c| !c.earth.is_empty()),
+        "the highway's ground is painted earth: {:?}",
+        room.world.chains.iter().map(|c| &c.name).collect::<Vec<_>>()
     );
-    let heights = ground.iter().flat_map(|c| c.points.iter().map(|p| p.y));
+    // Its floors: the left → right runs of the painted outline.
+    let heights = ground.iter().flat_map(|c| {
+        c.points
+            .windows(2)
+            .filter(|p| p[1].x > p[0].x)
+            .flat_map(|p| [p[0].y, p[1].y])
+    });
     let (top, bottom) = heights.fold((f32::MAX, f32::MIN), |(lo, hi), y| (lo.min(y), hi.max(y)));
     assert!(
         bottom - top > 500.0,
@@ -2386,4 +2404,27 @@ fn the_utility_button_reads_transform_and_never_fly() {
         !utility.display().to_lowercase().contains("fly"),
         "the button is wearing the generic flight verb again"
     );
+}
+
+/// Past any vertex by the smallest step a rider takes, `frame_at` names the
+/// NEXT segment. A painted outline is one chain around the whole level
+/// (~66k px), and while `frame_at` walked `s -= len` and `arc_at_vertex`
+/// summed, the two disagreed by more than that step at s ≈ 60k: the rider
+/// crossed the same 14° joint forever, frozen at full speed at x = 26374.
+#[test]
+fn every_painted_joint_can_be_ridden_past() {
+    for room in [crate::sanic_darkness(), crate::sanic_highway()] {
+        for chain in room.world.chains.iter().filter(|c| c.name.starts_with("terrain:")) {
+            for v in 1..chain.segment_count() {
+                let arc = chain.arc_at_vertex(v);
+                let step = (arc.abs() * f32::EPSILON * 8.0).max(1.0e-4);
+                assert_eq!(
+                    chain.frame_at(arc + step).segment,
+                    v,
+                    "{} vertex {v} at arc {arc}",
+                    chain.name
+                );
+            }
+        }
+    }
 }

@@ -22,6 +22,7 @@ mod intgrid;
 mod loading;
 mod project;
 mod surfaces;
+mod terrain;
 
 #[cfg(feature = "ldtk_runtime")]
 pub use bevy_runtime::*;

@@ -203,6 +203,7 @@ pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
             loop_attachments: vec![super::LoopAttachment {
                 name: name.to_string(),
                 floor: attach_to,
+                marker_y: center.y + ctx.offset.y,
                 ramp_start_x: center_x - approach,
                 center_x,
                 radius,

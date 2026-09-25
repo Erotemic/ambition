@@ -164,6 +164,10 @@ pub enum CharacterAnim {
     CrouchWalk = 56,
     /// Crouching and airborne (generator row `crouch_jump`).
     CrouchJump = 57,
+    Bark = 58,
+    SitDown = 59,
+    SitIdle = 60,
+    StandUp = 61,
 }
 
 impl CharacterAnim {
@@ -199,6 +203,10 @@ impl CharacterAnim {
             "big_shrink" => Self::BigShrink,
             "transform" => Self::Transform,
             "death" => Self::Death,
+            "bark" => Self::Bark,
+            "sit_down" => Self::SitDown,
+            "sit_idle" => Self::SitIdle,
+            "stand_up" => Self::StandUp,
             "blink_out" => Self::BlinkOut,
             "blink_in" => Self::BlinkIn,
             "dash" => Self::Dash,
@@ -333,6 +341,7 @@ impl CharacterAnim {
             Peek => ShellIdle,
             Emerge => ShellIdle,
             Hiss => Idle,
+            Bark | SitDown | SitIdle | StandUp => Idle,
         })
     }
 }
@@ -374,6 +383,9 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::Shrink
             | CharacterAnim::BigShrink
             | CharacterAnim::Transform
+            | CharacterAnim::Bark
+            | CharacterAnim::SitDown
+            | CharacterAnim::StandUp
     )
 }
 
@@ -391,6 +403,10 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
 /// vocabulary and all its readers sit above the actor crate.
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorAnimOverride(pub CharacterAnim);
+
+/// A short pose that follows an actor's authored ambient bark.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+pub struct ActorBarkGesture(pub f32);
 
 #[cfg(test)]
 mod shell_anim_tests {

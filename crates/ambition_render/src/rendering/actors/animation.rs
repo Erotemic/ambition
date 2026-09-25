@@ -60,6 +60,8 @@ pub(crate) fn apply_character_frame(
     // variant for some sheet rows (`smash_forward`, `air_dodge`, `tumble`). The
     // move names its clip and fallbacks; `anim`'s pose ladder is the last resort.
     clip: Option<&ambition_sim_view::ClipRequest>,
+    conversation_held: bool,
+    barking: bool,
     dt: f32,
     facing: f32,
     gravity_dir: ambition_platformer2d_core::Vec2,
@@ -73,10 +75,13 @@ pub(crate) fn apply_character_frame(
     } else {
         stance
     };
-    match clip {
-        Some(request) => animator.request_clip(request.chain(), anim),
-        None => animator.request(anim),
-    }
+    animator.request_actor_pose(
+        anim,
+        clip.into_iter().flat_map(|request| request.chain()),
+        clip.is_some(),
+        conversation_held,
+        barking,
+    );
     let index = animator.tick(dt);
     // Split sheets: select the page image the active animation draws from.
     // Single-page sheets (the common case) skip this entirely, so their
@@ -160,6 +165,8 @@ pub fn animate_player(
             // A human and a CPU fighter on the same character draw the same row for
             // the same move.
             pose.clip.as_ref(),
+            false,
+            false,
             dt,
             pose.facing,
             pose.gravity_dir,
@@ -220,6 +227,8 @@ pub fn animate_characters(
             anchor.map(|a| a.into_inner()),
             frame.anim,
             frame.clip.as_ref(),
+            frame.conversation_held,
+            frame.barking,
             dt,
             frame.facing,
             gravity.dir_at(frame.pos),
@@ -274,6 +283,8 @@ pub fn animate_feature_sprites(
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             // A prop plays no moves.
             None,
+            false,
+            false,
             dt,
             1.0,
             ambition_platformer2d_core::Vec2::Y,
@@ -326,6 +337,8 @@ pub fn animate_props(
             ambition_sprite_sheet::character::CharacterAnim::Idle,
             // A prop plays no moves.
             None,
+            false,
+            false,
             dt,
             1.0,
             ambition_platformer2d_core::Vec2::Y,

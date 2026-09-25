@@ -2,6 +2,51 @@
 //! `tuning:` over the passed-in Rust `SheetTuning` const.
 
 use super::*;
+use crate::character::CharacterAnimator;
+
+#[test]
+fn a_sheet_with_sit_rows_enters_and_leaves_a_conversation_pose() {
+    let record: SheetRecord = ron::from_str(r#"(
+        target: "social_fixture", image: "social.png", label_width: 0,
+        frame_width: 16, frame_height: 16,
+        rows: [
+            (animation: "idle", row_index: 0, frame_count: 1, duration_ms: 100, duration_secs: 0.1),
+            (animation: "sit_down", row_index: 1, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "sit_idle", row_index: 2, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "stand_up", row_index: 3, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "bark", row_index: 4, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+            (animation: "death", row_index: 5, frame_count: 2, duration_ms: 100, duration_secs: 0.1),
+        ],
+    )"#).expect("the social sheet parses");
+    let asset = CharacterSpriteAsset {
+        texture: Default::default(),
+        layout: Default::default(),
+        spec: spec_from_record(&record, &SheetTuning::new(1.0, 1)),
+        pages: Vec::new(),
+        requested_tier: Default::default(),
+        resolved_tier: Default::default(),
+    };
+    let mut animator = CharacterAnimator::new(&asset);
+    let request = |animator: &mut CharacterAnimator, held, bark| {
+        animator.request_actor_pose(CharacterAnim::Idle, [], false, held, bark)
+    };
+    request(&mut animator, true, false);
+    assert_eq!(animator.current, CharacterAnim::SitDown);
+    animator.tick(0.21);
+    request(&mut animator, true, false);
+    assert_eq!(animator.current, CharacterAnim::SitIdle);
+    request(&mut animator, false, false);
+    assert_eq!(animator.current, CharacterAnim::StandUp);
+    animator.tick(0.21);
+    request(&mut animator, false, true);
+    assert_eq!(animator.current, CharacterAnim::Bark);
+    request(&mut animator, true, false);
+    request(&mut animator, true, false);
+    request(&mut animator, false, false);
+    request(&mut animator, false, false);
+    animator.request_actor_pose(CharacterAnim::Death, [], false, true, true);
+    assert_eq!(animator.current, CharacterAnim::Death);
+}
 
 /// When the manifest has a `tuning:` block, `spec_from_record` uses it, not the
 /// passed-in `SheetTuning` const.
@@ -485,7 +530,8 @@ fn a_body_packed_off_centre_is_drawn_on_its_box_and_not_on_its_frame() {
 
         let spec = spec_from_record(record, &SheetTuning::default());
         let collision = Vec2::new(40.0, 80.0);
-        let anchor = feet_anchor_for_render_size(&spec, collision, sprite_render_size(&spec, collision));
+        let anchor =
+            feet_anchor_for_render_size(&spec, collision, sprite_render_size(&spec, collision));
         // The tolerance admits only authoring rounding. Some sheets store a
         // `feet_anchor_norm.x` that differs from the feet pixel in the third
         // decimal (the officer: -0.250000 against -0.248466). `0.01` is well
@@ -517,9 +563,10 @@ fn tier_partition<'a>(
     for key in keys {
         let (root, marker) = ["0_5x", "0_25x", "potato"]
             .into_iter()
-            .find_map(|marker| key.strip_suffix(marker).and_then(|head| {
-                head.strip_suffix('.').map(|root| (root, marker))
-            }))
+            .find_map(|marker| {
+                key.strip_suffix(marker)
+                    .and_then(|head| head.strip_suffix('.').map(|root| (root, marker)))
+            })
             .unwrap_or((key, ""));
         out.entry(marker).or_default().insert(root);
     }

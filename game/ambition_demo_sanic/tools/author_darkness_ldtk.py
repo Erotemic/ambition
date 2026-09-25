@@ -167,10 +167,10 @@ def area_spec() -> dict:
     entities = [
         rect("PlayerStart", (144, 1594), (28, 46), name="darkness_start"),
         # Each loop attaches to the painted floor under it.
-        surface_loop("darkness_loop_dusk", 2500, 210, "terrain", 1808),
-        surface_loop("darkness_loop_viaduct", 7100, 185, "terrain", 1776),
-        surface_loop("darkness_loop_vault", 11800, 220, "terrain", 1504),
-        surface_loop("darkness_loop_east", 27200, 230, "terrain", 1744),
+        surface_loop("darkness_loop_dusk", 2500, 210, "terrain", ground_y),
+        surface_loop("darkness_loop_viaduct", 7100, 185, "terrain", ground_y),
+        surface_loop("darkness_loop_vault", 11800, 220, "terrain", ground_y),
+        surface_loop("darkness_loop_east", 27200, 230, "terrain", ground_y),
         # The vault's roof is painted; its underside faces down, and the zone
         # pulls a body up onto it.
         rect("GravityZone", (VAULT_X[0] + 80, VAULT_CEILING),
@@ -277,12 +277,8 @@ def main() -> None:
     MAP_TARGET.parent.mkdir(parents=True, exist_ok=True)
     run_tool("world", "init", str(MAP_TARGET), "--identifier",
              "ambition-sanic-darkness-world", "--force")
-    for entity, field in (
-        ("PickupSpawn", "sprite:String:"),
-        ("SurfaceLoop", "attach_to:String:"),
-    ):
-        run_tool("def", "update-entity", entity, str(MAP_TARGET),
-                 "--add-field", field, "--in-place", "--no-repair")
+    run_tool("def", "update-entity", "PickupSpawn", str(MAP_TARGET),
+             "--add-field", "sprite:String:", "--in-place", "--no-repair")
     with tempfile.TemporaryDirectory() as tmp:
         area = Path(tmp) / "darkness_area.json"
         area.write_text(json.dumps(area_spec(), indent=2))
@@ -293,6 +289,9 @@ def main() -> None:
         cells = Path(tmp) / "darkness_terrain.json"
         cells.write_text(json.dumps(painted()))
         run_tool("terrain", "paint", str(cells), "--ldtk", str(MAP_TARGET))
+    # Loops are boxes as big as their circles: their own layer, under the rest.
+    run_tool("entity", "change-layer", str(MAP_TARGET), "--identifier", "SurfaceLoop",
+             "--from-layer", "Ambition", "--to-layer", "AmbitionLoops", "--in-place")
     run_tool("level", "add-field-def", "next_room", "--type", "String",
              str(MAP_TARGET), "--in-place")
     run_tool("level", "set-field", "--ldtk", str(MAP_TARGET), "--level", ROOM_ID,

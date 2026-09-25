@@ -84,19 +84,12 @@ pub const LOOP_FOREGROUND_SEGMENTS_PER_SIDE: usize = ae::LoopResolution::STANDAR
 /// Index of the route's final floor-level runout point.
 pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_CLOSURE_POINT_INDEX + LOOP_RUNOUT_SEGMENTS;
 
-const LOOP_RADIUS: f32 = 180.0;
-const LOOP_CENTER_X: f32 = 2200.0;
-const LOOP_TRACK_RISE: f32 = 84.0;
-const LOOP_RAMP_START_X: f32 = 1740.0;
-const LOOP_OVERPASS_END_X: f32 = 2480.0;
-const LOOP_RUNOUT_END_X: f32 = 2920.0;
-
 /// Course dimensions, mirrored by `tools/author_speedway_ldtk.py` (the level
-/// generator) — the loop graft and the oracles anchor on these.
+/// generator) — the oracles anchor on these.
 pub const LEVEL_WIDTH: f32 = 6400.0;
 pub const FLOOR_TOP: f32 = 672.0;
-/// The spike pit: the west floor route ends at the left lip, the east runout
-/// route starts at the right lip, and a bed of spikes lines its solid floor.
+/// The spike pit: the west ground ends at the left lip, the east ground starts
+/// at the right lip, and a bed of spikes lines its painted floor.
 /// Falling in is a hit, not a reset; it is shallower than a jump is high.
 pub const PIT_LEFT_X: f32 = 4000.0;
 pub const PIT_RIGHT_X: f32 = 4256.0;
@@ -291,12 +284,10 @@ fn refresh_sanic_control_legend(
     }
 }
 
-/// Build the Sanic showcase room: parse the demo's LDtk world (everything
-/// spatial), then graft the code-generated loop route onto it. The loop stays
-/// in code because LDtk cannot express its depth lanes and junctions. It
-/// anchors on floor-chain vertices the level generator authors at
-/// [`struct@LOOP_RAMP_START_X`]/[`struct@LOOP_RUNOUT_END_X`], and it panics if
-/// the two files drift.
+/// Build the Sanic showcase room from the demo's LDtk world. Everything spatial
+/// is authored there: the painted ground (hills, pit, finish tower) and the
+/// loop, a `SurfaceLoop` whose box is its circle, attached to the painted
+/// floor. This adds only the mode, the theme and the ruler labels.
 pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
@@ -314,7 +305,7 @@ pub fn sanic_speedway() -> RoomSpec {
         .find(|room| room.id == SPEEDWAY_ROOM_ID)
         .expect("the world file authors the sanic_speedway area");
 
-    let loop_center = graft_loop_route(&mut room.world);
+    let loop_top = loop_top(&room.world);
     room.metadata.mode = Some(SANIC_MODE.to_string());
     // Borrow Ambition's generated skybridge stack. The visible shell loads the
     // shared `GameAssets`; if those optional images are absent the renderer keeps
@@ -338,7 +329,7 @@ pub fn sanic_speedway() -> RoomSpec {
         (
             "loop".to_string(),
             "LOOP".to_string(),
-            ae::Vec2::new(loop_center.x, loop_center.y - LOOP_RADIUS - 36.0),
+            ae::Vec2::new(loop_top.x, loop_top.y - 36.0),
         ),
         (
             "finish".to_string(),
@@ -444,32 +435,19 @@ pub fn sanic_darkness() -> RoomSpec {
     room
 }
 
-/// Attach the speedway's loop to its floor route, and return the loop center
-/// for the label. The engine builds the ramp → full loop → deck → runout route
-/// and its crossover (`ae::World::attach_loop`); this names where.
-fn graft_loop_route(world: &mut ae::World) -> ae::Vec2 {
-    let loop_center = world
-        .attach_loop(
-            "sanic_loop",
-            "sanic_floor_route",
-            LOOP_RAMP_START_X,
-            LOOP_CENTER_X,
-            LOOP_RADIUS,
-            LOOP_TRACK_RISE,
-            LOOP_OVERPASS_END_X,
-            LOOP_RUNOUT_END_X,
-        )
-        .unwrap_or_else(|error| panic!("the speedway's loop attaches: {error}"));
-
-    let mut ground_index = 0;
-    for block in &mut world.blocks {
-        if matches!(block.kind, ae::BlockKind::Solid) && (block.aabb.min.y - FLOOR_TOP).abs() < 0.5
-        {
-            block.id = ae::GeoId::tile_layer("sanic_speedway_ground", ground_index);
-            ground_index += 1;
-        }
-    }
-    loop_center
+/// The top of the speedway's loop, where its label hangs: the highest point of
+/// the authored `sanic_loop` route.
+fn loop_top(world: &ae::World) -> ae::Vec2 {
+    let chain = world
+        .chain_named("sanic_loop")
+        .map(|index| &world.chains[index])
+        .expect("sanic_speedway.ldtk authors the `sanic_loop` SurfaceLoop");
+    chain
+        .points
+        .iter()
+        .copied()
+        .min_by(|a, b| a.y.total_cmp(&b.y))
+        .expect("a loop route has points")
 }
 
 /// The demo's two-form catalog. Every demo installs its own roster; the engine

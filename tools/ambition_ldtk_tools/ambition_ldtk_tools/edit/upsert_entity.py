@@ -245,6 +245,11 @@ PRESENTATION_KEYS = (
     ("width", "width"),
     ("height", "height"),
     ("docs", "doc"),
+    # An entity whose box IS its shape (a `SurfaceLoop`'s box is its circle)
+    # locks its aspect ratio, and draws as an outline so it does not hide the
+    # entities inside it.
+    ("keep_aspect_ratio", "keepAspectRatio"),
+    ("hollow", "hollow"),
 )
 
 

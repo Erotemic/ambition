@@ -48,14 +48,14 @@
                 points: "2200,880; 2380,820",
             ),
         ),
-        // The loop: a marker; the converter generates a 24-gon of radius 200
-        // about its CENTER (min + size/2 = (2600, 680)), whose bottom kisses the
-        // floor at y=880. Interior-rideable by construction.
+        // The loop: its box IS its circle, a 24-gon of radius 200 about the
+        // box's centre (2600, 680), whose bottom kisses the floor at y=880.
+        // Interior-rideable by construction.
         (
             type: "SurfaceLoop",
-            px: [2584, 664],
-            size: [32, 32],
-            fields: ( name: "sanic_loop", radius: 200.0, segments: 24 ),
+            px: [2400, 480],
+            size: [400, 400],
+            fields: ( name: "sanic_loop", segments: 24 ),
         ),
         // A knight ambling on the floor — coexistence: it fights AABB while
         // Sanic rides the chains in the same room.

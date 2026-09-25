@@ -22,6 +22,15 @@ fn sanic_params() -> ae::MomentumParams {
     }
 }
 
+/// Arc length `s` along the west floor, counted from the course's west edge.
+///
+/// The oracles were written against a hand-plotted floor chain that began at
+/// x = 0. The painted floor's chain begins where the tracer began it, so an arc
+/// position is offset by where the course's west edge sits on it.
+fn west_s(world: &ae::World, floor: usize, s: f32) -> f32 {
+    s + world.chains[floor].project(ae::Vec2::new(0.0, FLOOR_TOP)).0
+}
+
 fn chain_index(world: &ae::World, name: &str) -> usize {
     world
         .chains
@@ -259,14 +268,14 @@ fn laps_until_exit(
 fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
     let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
     let top_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2);
 
     // On the floor guide left of the ramp fork, running right, holding Up the
     // whole way — the exact input a player uses to take the high route.
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 1200.0, 900.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 1200.0), 900.0, sanic_params());
     for _ in 0..1200 {
         probe.step(&room.world, ae::Vec2::new(1.0, -1.0), false);
     }
@@ -294,14 +303,14 @@ fn oracle_held_up_forward_run_rides_the_loop_exactly_once() {
 fn oracle_held_up_reverse_run_exits_down_the_ramp_after_one_lap() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
     let top_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2);
 
     // Up at the runout fork climbs the descent; the correct route is then one
     // reverse revolution and out down the entry ramp.
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 3400.0, -600.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 3400.0), -600.0, sanic_params());
     for _ in 0..1400 {
         probe.step(&room.world, ae::Vec2::new(-1.0, -1.0), false);
     }
@@ -431,8 +440,8 @@ fn oracle_route_bias_isolation_held_up_reverse_rider_exits_after_one_lap() {
 #[test]
 fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
-    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
+    let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
 
     // Every drop point has clear sky down to the ground route: clear of the
     // one-way platforms (real landings) and of the raised loop structure
@@ -476,7 +485,7 @@ fn oracle_flat_floor_landings_attach_to_the_route_chain_not_the_block() {
 #[test]
 fn oracle_descent_launched_rider_lands_on_the_route_chain() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
 
     // The exact airborne state the convex descent leaves behind: fast,
     // rightward, still on simulated-depth lane +1 (the outbound rail's lane),
@@ -545,14 +554,14 @@ fn oracle_block_stranded_rider_can_still_take_the_raised_route_by_holding_up() {
 #[test]
 fn oracle_speed_booster_boosts_a_momentum_rider() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
 
     // Run right across the pad at x=1640..1712 (authored impulse (1120,-260):
     // "Feed the raised ramp with enough horizontal speed"). For a riding
     // momentum body the pad is a speed booster: the impulse projects onto the
     // running tangent, so the observable is tangential speed near the pad's
     // 1120 px/s — not an airborne launch.
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 1500.0, 600.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 1500.0), 600.0, sanic_params());
     for _ in 0..90 {
         probe.step(&room.world, ae::Vec2::X, false);
     }
@@ -656,7 +665,7 @@ fn held(steer: ae::Vec2, ticks: usize) -> Vec<(ae::Vec2, bool)> {
 fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
     let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
@@ -674,12 +683,12 @@ fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
         ),
         (
             "floor run, hold Up+Right",
-            Probe::riding_chain(&room.world, floor_idx, 600.0, 300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 600.0), 300.0, sanic_params()),
             held(ae::Vec2::new(1.0, -1.0), 1800),
         ),
         (
             "right side, hold Up+Left",
-            Probe::riding_chain(&room.world, floor_idx, 3600.0, -300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 3600.0), -300.0, sanic_params()),
             held(ae::Vec2::new(-1.0, -1.0), 1800),
         ),
         (
@@ -706,22 +715,22 @@ fn oracle_soak_position_never_pins_and_ride_state_never_flaps() {
         ),
         (
             "seeded random play #11",
-            Probe::riding_chain(&room.world, floor_idx, 800.0, 300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 800.0), 300.0, sanic_params()),
             scripted_inputs(11, 1800),
         ),
         (
             "seeded random play #23",
-            Probe::riding_chain(&room.world, floor_idx, 800.0, 300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 800.0), 300.0, sanic_params()),
             scripted_inputs(23, 1800),
         ),
         (
             "seeded random play #47",
-            Probe::riding_chain(&room.world, floor_idx, 800.0, 300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 800.0), 300.0, sanic_params()),
             scripted_inputs(47, 1800),
         ),
         (
             "seeded random play #101",
-            Probe::riding_chain(&room.world, floor_idx, 800.0, 300.0, sanic_params()),
+            Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 800.0), 300.0, sanic_params()),
             scripted_inputs(101, 1800),
         ),
     ];
@@ -826,7 +835,7 @@ fn oracle_ramp_jump_held_forward_lands_on_the_track() {
 fn oracle_floor_jump_lands_on_the_ramp_face() {
     let room = sanic_speedway();
     let loop_idx = chain_index(&room.world, "sanic_loop");
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let chain = &room.world.chains[loop_idx];
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
 
@@ -836,7 +845,7 @@ fn oracle_floor_jump_lands_on_the_ramp_face() {
     // occlusion cycle: the launch starts coincident with the low ramp tail
     // (suppressed), separates at the apex (released), then lands on the very
     // track it launched beneath.
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 1780.0, 300.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 1780.0), 300.0, sanic_params());
     probe.step(&room.world, ae::Vec2::ZERO, true);
     for _ in 0..120 {
         probe.step(&room.world, ae::Vec2::ZERO, false);
@@ -893,8 +902,7 @@ fn oracle_drop_onto_the_overpass_lands_on_the_raised_track() {
 /// so "the ground" is the chain surface, not the flat slab top).
 fn ground_y_at(room: &ambition_platformer2d::world::rooms::RoomSpec, x: f32) -> f32 {
     let mut best = f32::MAX;
-    for name in ["sanic_floor_route", "sanic_floor_runout"] {
-        let chain = &room.world.chains[chain_index(&room.world, name)];
+    for chain in room.world.chains.iter().filter(|chain| chain.name.starts_with("terrain:")) {
         for pair in chain.points.windows(2) {
             let (a, b) = (pair[0], pair[1]);
             if (a.x..=b.x).contains(&x) && (b.x - a.x) > 1.0e-3 {
@@ -937,7 +945,7 @@ fn oracle_every_platform_is_jumpable_or_spring_served() {
 #[test]
 fn oracle_a_floor_jump_lands_on_a_marker_platform() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let floor = &room.world.chains[floor_idx];
     // Stand on the flat floor beneath marker platform 2 (top y=528, lift 144
     // — inside the ~169px apex) and jump straight up: the body passes through
@@ -965,7 +973,7 @@ fn oracle_a_floor_jump_lands_on_a_marker_platform() {
 #[test]
 fn oracle_the_vertical_spring_lifts_a_slow_walker_to_the_perch() {
     let room = sanic_speedway();
-    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
+    let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
     let runout = &room.world.chains[runout_idx];
     // Walk onto the vertical spring (impulse (0,-1000)) at a stroll: the
     // launch keeps the walk speed, rises past the 256px perch lift (a plain
@@ -1002,7 +1010,7 @@ fn oracle_the_vertical_spring_lifts_a_slow_walker_to_the_perch() {
 #[test]
 fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
     let room = sanic_speedway();
-    let runout_idx = chain_index(&room.world, "sanic_floor_runout");
+    let runout_idx = super::floor_chain_at(&room.world, super::EAST_FLOOR_X);
     let runout = &room.world.chains[runout_idx];
     let (s, _) = runout.project(ae::Vec2::new(5170.0, FLOOR_TOP));
     let mut probe = Probe::riding_chain(&room.world, runout_idx, s, 150.0, sanic_params());
@@ -1032,7 +1040,7 @@ fn oracle_the_diagonal_spring_flings_the_runner_up_forward() {
 #[test]
 fn oracle_a_walker_lands_on_the_spike_bed_and_a_speeding_jump_clears_it() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     let floor = &room.world.chains[floor_idx];
 
     // A stroll off the west lip drops onto the pit's floor. The spikes there
@@ -1091,11 +1099,11 @@ fn oracle_a_walker_lands_on_the_spike_bed_and_a_speeding_jump_clears_it() {
 #[test]
 fn oracle_hills_flow_without_pins_or_flapping() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     // Run the hills from the start, held right: momentum carries over both
     // crests (brief airborne hops at speed are physical) with no position
     // pins and no attach/shed flapping, reaching the booster approach.
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 180.0, 300.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 180.0), 300.0, sanic_params());
     for _ in 0..300 {
         probe.step(&room.world, ae::Vec2::X, false);
         if probe.pos().x > 1600.0 {
@@ -1122,12 +1130,12 @@ fn oracle_hills_flow_without_pins_or_flapping() {
 #[test]
 fn oracle_full_course_run_reaches_the_finish() {
     let room = sanic_speedway();
-    let floor_idx = chain_index(&room.world, "sanic_floor_route");
+    let floor_idx = super::floor_chain_at(&room.world, super::WEST_FLOOR_X);
     // The showcase line: hold Up+Right the whole way (hills → booster → ramp
     // → one loop lap → runout), jump the pit at the lip and hop the spike
     // strip. The run must reach the finish approach with no hazard reset
     // (a reset shows as a giant backwards teleport to spawn).
-    let mut probe = Probe::riding_chain(&room.world, floor_idx, 180.0, 200.0, sanic_params());
+    let mut probe = Probe::riding_chain(&room.world, floor_idx, west_s(&room.world, floor_idx, 180.0), 200.0, sanic_params());
     let steer = ae::Vec2::new(1.0, -1.0);
     let mut jumped_pit = false;
     let mut jumped_spikes = false;

@@ -166,24 +166,33 @@ pub(super) fn convert_surface_chain(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     Ok(RoomEmission::chain(chain))
 }
 
-/// `SurfaceLoop`: a rideable full loop, authored as a marker so a level need not
-/// plot every point. Fields: `radius` (px, required) and optional `segments`
-/// (polygon resolution, default 24, min 3). The converter generates the closed
-/// polygon at conversion and emits it into the `chains` channel that
-/// `SurfaceChain` uses.
+/// `SurfaceLoop`: a rideable full loop. **The entity's box is the loop's
+/// circle**: its centre is the loop's centre and half its side is the radius,
+/// so an author draws a bigger box for a bigger loop and sees in the editor
+/// where it will be. Optional `segments` (polygon resolution, default 24, min
+/// 3). The converter generates the closed polygon at conversion and emits it
+/// into the `chains` channel that `SurfaceChain` uses.
 ///
-/// The marker's center (`min + size/2`) is the loop center.
+/// ⛔ There is no `radius` field. It was the loop's size while the box was a
+/// 16 px marker, so the editor showed a dot where a 400 px loop would be; two
+/// sizes for one loop is one too many.
 pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let radius = field_f32(entity, "radius").unwrap_or(0.0);
+    if (size.x - size.y).abs() > 1.0 {
+        return Err(format!(
+            "SurfaceLoop's box is its circle and must be square, not {}x{}",
+            size.x, size.y
+        ));
+    }
+    let radius = size.x.min(size.y) * 0.5;
     if radius <= 0.0 {
-        return Err("SurfaceLoop requires a positive `radius`".to_string());
+        return Err("SurfaceLoop's box is its circle and must have a size".to_string());
     }
     let center = min + size * 0.5;
     // ATTACHED: a runnable loop joined to a floor chain (ramp → revolution →
-    // crossover deck → runout). The marker's center x is the loop's center x;
-    // the floor decides the height. The spans default to the proportions of
-    // the Sanic speedway's loop (radius 180: rise 84, approach 460, deck 280,
+    // crossover deck → runout), built where the box is. The ramp climbs from
+    // the floor to the circle's bottom. The spans default to the proportions
+    // of the Sanic speedway's loop (radius 180: approach 460, deck 280,
     // runout 720).
     let attach_to = field_string(entity, "attach_to").unwrap_or_default();
     if !attach_to.is_empty() {
@@ -195,7 +204,6 @@ pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
             Ok(value)
         };
         let center_x = center.x + ctx.offset.x;
-        let rise = span("rise", radius * 84.0 / 180.0)?;
         let approach = span("approach", radius * 460.0 / 180.0)?;
         let deck = span("deck", radius * 280.0 / 180.0)?;
         let runout = span("runout", radius * 720.0 / 180.0)?;
@@ -203,11 +211,9 @@ pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
             loop_attachments: vec![super::LoopAttachment {
                 name: name.to_string(),
                 floor: attach_to,
-                marker_y: center.y + ctx.offset.y,
+                center: ae::Vec2::new(center_x, center.y + ctx.offset.y),
                 ramp_start_x: center_x - approach,
-                center_x,
                 radius,
-                rise,
                 overpass_end_x: center_x + deck,
                 runout_end_x: center_x + runout,
             }],

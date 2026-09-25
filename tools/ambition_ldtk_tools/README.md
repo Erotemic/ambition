@@ -130,7 +130,11 @@ The layers' auto-rules draw each value as its shape, so what the editor shows
 is what the player rides. A flat must sit on a cell line (the palette has no
 half-height flat), and a slope run must finish before a flat starts.
 
-A `SurfaceLoop` with `attach_to: terrain` joins the painted floor under it.
+A `SurfaceLoop`'s box IS its circle: draw a bigger square for a bigger loop,
+where the loop should be. With `attach_to: terrain` it joins the painted floor
+under its bottom, the ramp climbing from that floor to the circle. Loops live on
+the `AmbitionLoops` layer (the `Ambition` layer refuses them), drawn hollow
+under everything else, so a loop's box never hides the rings inside it.
 
 The palette is an editor limitation only: a `SurfaceChain` entity still
 authors any polyline the engine can ride.

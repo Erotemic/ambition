@@ -254,11 +254,8 @@ def test_a_conditional_fields_grammar_is_conditional_too():
     assert _errors(_project(missing)) == ["contract.conditional_field_missing"]
 
 
-def test_a_zero_radius_loop_is_refused_and_a_real_one_is_not():
-    assert _errors(_project(_entity("SurfaceLoop", "s1", radius=0))) == [
-        "contract.value_refused"
-    ]
-    assert _codes(_project(_entity("SurfaceLoop", "s1", radius=200))) == []
+def test_a_loop_needs_no_radius_field_because_its_box_is_its_circle():
+    assert _codes(_project(_entity("SurfaceLoop", "s1"))) == []
 
 
 def test_a_one_point_path_is_refused_and_a_two_point_one_is_not():

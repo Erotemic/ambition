@@ -342,13 +342,16 @@ impl LdtkProject {
         // authored, and attaching may split that floor.
         for attachment in &loop_attachments {
             let floor = if attachment.floor == super::terrain::TERRAIN_FLOOR {
-                match painted_floor_under(&world, attachment.center_x, attachment.marker_y) {
+                // A box drawn flush on the floor is on it, however smoothing
+                // nudged the floor: a quarter cell of slack.
+                let bottom = attachment.center.y + attachment.radius;
+                match painted_floor_under(&world, attachment.center.x, bottom - 4.0) {
                     Some(name) => name,
                     None => {
                         errors.push(format!(
                             "area '{area_id}' SurfaceLoop `{}`: attach_to \"terrain\" but no \
                              painted floor lies under x={}",
-                            attachment.name, attachment.center_x
+                            attachment.name, attachment.center.x
                         ));
                         continue;
                     }
@@ -360,9 +363,8 @@ impl LdtkProject {
                 &attachment.name,
                 &floor,
                 attachment.ramp_start_x,
-                attachment.center_x,
+                attachment.center,
                 attachment.radius,
-                attachment.rise,
                 attachment.overpass_end_x,
                 attachment.runout_end_x,
             ) {
@@ -414,13 +416,14 @@ impl LdtkProject {
 pub struct LoopAttachment {
     pub name: String,
     pub floor: String,
-    /// The marker's centre y (world space): with `floor == "terrain"`, the
-    /// loop attaches to the nearest painted floor below it.
-    pub marker_y: f32,
+    /// The loop's circle (world space), from the entity's box. With
+    /// `floor == "terrain"` the loop attaches to the nearest painted floor
+    /// below its BOTTOM: a big circle can reach up past other ground (the
+    /// darkness vault's loop rises through the vault roof), and the floor it
+    /// stands on is under it, not under its centre.
+    pub center: ae::Vec2,
     pub ramp_start_x: f32,
-    pub center_x: f32,
     pub radius: f32,
-    pub rise: f32,
     pub overpass_end_x: f32,
     pub runout_end_x: f32,
 }

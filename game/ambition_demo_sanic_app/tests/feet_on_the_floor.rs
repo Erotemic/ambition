@@ -32,20 +32,25 @@ fn sanic_stands_on_the_floor_he_rides() {
         "the premise: a body taller than it is wide, which is the case that sank"
     );
     let feet = kin.pos.y + kin.size.y * 0.5;
+    // The painted floor under him: the nearest floor segment (authored left to
+    // right) below his centre.
     let floor = world
         .query::<&ae::RoomGeometry>()
         .iter(world)
         .next()
         .expect("the room's geometry")
         .0
-        .blocks
+        .chains
         .iter()
-        .filter(|block| {
-            kin.pos.x >= block.aabb.min.x && kin.pos.x <= block.aabb.max.x && block.aabb.min.y >= kin.pos.y
+        .flat_map(|chain| chain.points.windows(2))
+        .filter(|pair| pair[0].x <= kin.pos.x && kin.pos.x < pair[1].x)
+        .map(|pair| {
+            let (a, b) = (pair[0], pair[1]);
+            a.y + (b.y - a.y) * (kin.pos.x - a.x) / (b.x - a.x)
         })
-        .map(|block| block.aabb.min.y)
+        .filter(|y| *y >= kin.pos.y)
         .fold(f32::INFINITY, f32::min);
-    assert!(floor.is_finite(), "the premise: a block under him");
+    assert!(floor.is_finite(), "the premise: a floor under him");
     assert!(
         (feet - floor).abs() < 0.5,
         "his feet are at {feet:.2} and the floor he rides is at {floor:.2}: \

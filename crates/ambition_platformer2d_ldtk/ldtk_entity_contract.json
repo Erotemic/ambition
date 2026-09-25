@@ -319,19 +319,11 @@
     {
       "identifier": "SurfaceLoop",
       "probe_size": [
-        16,
-        16
+        400,
+        400
       ],
-      "fields": [
-        {
-          "name": "radius",
-          "presence": "required",
-          "positive": true,
-          "on_invalid": "refused",
-          "sample": "200",
-          "note": "the marker's centre is the loop centre; the polygon is generated at conversion. With `attach_to` naming a SurfaceChain floor it is instead a runnable loop (ramp, revolution, crossover deck, runout) joined to that floor, the floor setting its height; tuning spans `rise`, `approach`, `deck`, `runout` default to the speedway's proportions"
-        }
-      ]
+      "note": "the box IS the loop's circle: its centre is the loop centre and half its side the radius, so it must be square. With `attach_to` naming a SurfaceChain floor (or \"terrain\") it is a runnable loop (ramp, revolution, crossover deck, runout) built where the box is, its ramp climbing from the floor to the circle's bottom; spans `approach`, `deck`, `runout` default to the speedway's proportions",
+      "fields": []
     },
     {
       "identifier": "SurfaceRamp",

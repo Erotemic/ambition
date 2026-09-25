@@ -169,10 +169,18 @@ def ring_arc(x0: float, x1: float, cy: float, rise: float, n: int) -> list[dict]
     ]
 
 
-def surface_loop(name: str, centre_x: float, radius: float, attach_to: str, floor_y: float) -> dict:
-    # The marker's centre x is the loop's; the floor decides its height.
-    cy = floor_y - 84 - radius
-    return rect("SurfaceLoop", (centre_x - 8, cy - 8), (16, 16), name=name, radius=radius, attach_to=attach_to)
+def surface_loop(name: str, centre_x: float, radius: float, attach_to: str, floor) -> dict:
+    """A loop whose box is its circle, drawn where it is built.
+
+    The ramp's foot is the converter's default `approach` left of the centre,
+    and the loop's bottom stands the speedway's rise above the floor there
+    (``floor(x)`` is that floor's painted height)."""
+    ramp_x = centre_x - radius * 460 / 180
+    cy = floor(ramp_x) - radius * 84 / 180 - radius
+    return rect(
+        "SurfaceLoop", (round(centre_x - radius), round(cy - radius)), (round(2 * radius),) * 2,
+        name=name, attach_to=attach_to,
+    )
 
 
 def badnik(ground_y, x: float) -> dict:
@@ -285,9 +293,9 @@ def area_spec() -> dict:
     entities = [
         rect("PlayerStart", (146, 1100 - 46), (28, 46), name="highway_start"),
         # Each loop attaches to the painted floor under it (loop B: the bridge).
-        surface_loop("highway_loop_a", LOOP_A[0], LOOP_A[1], "terrain", west_y(LOOP_A[0])),
-        surface_loop("highway_loop_b", LOOP_B[0], LOOP_B[1], "terrain", 960),
-        surface_loop("highway_loop_d", LOOP_D[0], LOOP_D[1], "terrain", east_y(LOOP_D[0])),
+        surface_loop("highway_loop_a", LOOP_A[0], LOOP_A[1], "terrain", west_y),
+        surface_loop("highway_loop_b", LOOP_B[0], LOOP_B[1], "terrain", lambda x: 960),
+        surface_loop("highway_loop_d", LOOP_D[0], LOOP_D[1], "terrain", east_y),
         # The upside-down tunnel: the painted roof's underside faces down, into
         # the tunnel; the GravityZone points gravity up inside, so he falls
         # onto it and rides it. Leaving the zone gives gravity back and he
@@ -374,12 +382,9 @@ def main() -> None:
     if target.exists():
         target.unlink()
     run_tool("world", "init", str(target), "--identifier", "ambition-sanic-highway-world")
-    # The shared defs lack the fields these entities author; extend them first.
-    for entity, field in (
-        ("PickupSpawn", "sprite:String:"),
-        ("SurfaceLoop", "attach_to:String:"),
-    ):
-        run_tool("def", "update-entity", entity, str(target), "--add-field", field, "--in-place", "--no-repair")
+    # The shared defs lack the ring's sheet field; extend it first.
+    run_tool("def", "update-entity", "PickupSpawn", str(target), "--add-field", "sprite:String:",
+             "--in-place", "--no-repair")
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_highway_area.json"
         spec.write_text(json.dumps(area_spec(), indent=2))
@@ -390,6 +395,10 @@ def main() -> None:
         cells = Path(tmp) / "sanic_highway_terrain.json"
         cells.write_text(json.dumps(painted()))
         run_tool("terrain", "paint", str(cells), "--ldtk", str(target))
+    # A loop's box is its circle, big enough to cover the rings around it:
+    # loops live on their own layer, drawn under the rest.
+    run_tool("entity", "change-layer", str(target), "--identifier", "SurfaceLoop",
+             "--from-layer", "Ambition", "--to-layer", "AmbitionLoops", "--in-place")
     # After the area: this step validates the project, and a project with no
     # levels does not validate.
     run_tool("level", "add-field-def", "next_room", "--type", "String", str(target), "--in-place")

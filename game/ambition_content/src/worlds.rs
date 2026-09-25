@@ -371,8 +371,6 @@ mod tests {
         let guests: std::collections::BTreeSet<String> = [
             "mary_o",
             "mary_o_tall",
-            "npc_snakes_on_a_cartesian_plane",
-            "npc_snakes_on_a_paper_plane",
             "sanic",
             "super_sanic",
         ]

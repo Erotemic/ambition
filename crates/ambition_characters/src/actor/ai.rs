@@ -122,6 +122,8 @@ pub struct CharacterAiSnapshot {
     pub attack_recover_remaining: f32,
     pub stun_remaining: f32,
     pub alive: bool,
+    /// True when a live target is available for chase or attack.
+    pub target_alive: bool,
     /// True when the actor should patrol when not engaged (e.g. has a
     /// path or a non-zero patrol speed). False makes "not engaged"
     /// resolve to `Idle` instead of `Patrol`.
@@ -169,6 +171,20 @@ pub fn evaluate_character_ai_output(snap: CharacterAiSnapshot) -> CharacterAiOut
         return CharacterAiOutput {
             mode: CharacterAiMode::Recover,
             intent: CharacterAiIntent::Hold,
+        };
+    }
+    if !snap.target_alive {
+        return CharacterAiOutput {
+            mode: if snap.patrol_enabled {
+                CharacterAiMode::Patrol
+            } else {
+                CharacterAiMode::Idle
+            },
+            intent: if snap.patrol_enabled {
+                CharacterAiIntent::Patrol
+            } else {
+                CharacterAiIntent::Hold
+            },
         };
     }
     let delta = snap.player_pos - snap.actor_pos;

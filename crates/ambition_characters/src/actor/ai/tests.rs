@@ -11,6 +11,7 @@ fn snap_with(distance: f32, alive: bool) -> CharacterAiSnapshot {
         attack_recover_remaining: 0.0,
         stun_remaining: 0.0,
         alive,
+        target_alive: true,
         patrol_enabled: true,
     }
 }

@@ -251,6 +251,8 @@ pub struct PatrolCfg {
     pub aggro_radius: f32,
     /// If `aggressiveness > 0`, the melee attack range (px).
     pub attack_range: f32,
+    /// Seconds between optional grounded hops. Zero disables hopping.
+    pub hop_interval_s: f32,
 }
 
 impl PatrolCfg {
@@ -263,6 +265,7 @@ impl PatrolCfg {
         aggressiveness: 0.0,
         aggro_radius: 80.0, // talk radius for peaceful patrol
         attack_range: 0.0,
+        hop_interval_s: 0.0,
     };
 }
 
@@ -367,6 +370,11 @@ fn tick_patrol(
                 out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0;
             }
         }
+    }
+    if cfg.hop_interval_s > 0.0 && snapshot.actor_on_ground {
+        let cycle = (snapshot.sim_time / cfg.hop_interval_s).floor();
+        let next_cycle = ((snapshot.sim_time + snapshot.dt) / cfg.hop_interval_s).floor();
+        out.jump_pressed = next_cycle > cycle;
     }
 }
 

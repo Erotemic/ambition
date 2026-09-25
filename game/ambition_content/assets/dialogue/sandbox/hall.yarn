@@ -1240,6 +1240,15 @@ Robot v2: I have paperwork stating I am a released model.
     Robot v2: Ask v3. We stopped comparing after the third argument.
 ===
 
+title: hall_npc_companion_dog
+---
+Companion Dog: *wags its tail*
+-> Say hello.
+    Companion Dog: Woof! *sniffs your hand*
+-> Watch the dog.
+    Companion Dog: *takes a small hop and looks pleased*
+===
+
 title: hall_npc_busy_beaver
 ---
 Busy Beaver: Started logging this morning. I'm on file eight thousand two hundred fourteen.

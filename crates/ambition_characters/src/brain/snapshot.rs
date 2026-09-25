@@ -334,6 +334,7 @@ impl BrainSnapshot {
             attack_recover_remaining: self.attack_recover_remaining,
             stun_remaining: self.stun_remaining,
             alive: self.alive,
+            target_alive: self.target_alive,
             patrol_enabled,
         }
     }

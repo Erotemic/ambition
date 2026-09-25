@@ -750,6 +750,8 @@ pub enum BrainPreset {
         aggressiveness: f32,
         aggro_radius: f32,
         attack_range: f32,
+        #[serde(default)]
+        hop_interval_s: f32,
     },
     Wanderer {
         speed: f32,

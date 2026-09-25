@@ -416,7 +416,7 @@ pub fn tick_actor_brains(
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==
-        // None` here means "no one to fight" → the brain idles (peaceful behavior).
+        // None` here means "no one to fight". The brain can patrol without a target.
         let target_alive = match target.entity {
             Some(e) => decision_facts.crowd.is_alive(e),
             None => false,

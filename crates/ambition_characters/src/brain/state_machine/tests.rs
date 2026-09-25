@@ -18,7 +18,22 @@ fn snap_at(pos_x: f32, target_x: f32) -> BrainSnapshot {
     let mut s = BrainSnapshot::idle();
     s.actor_pos = ae::Vec2::new(pos_x, 0.0);
     s.target_pos = ae::Vec2::new(target_x, 0.0);
+    s.target_alive = true;
     s
+}
+
+#[test]
+fn patrol_moves_when_no_target_exists() {
+    let mut sm = StateMachineCfg::Patrol {
+        cfg: PatrolCfg::NPC_DEFAULT,
+        state: PatrolState::default(),
+    };
+    let mut snapshot = snap_at(0.0, 0.0);
+    snapshot.target_alive = false;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
+    assert!(out.locomotion.x > 0.0);
+    assert!(!out.melee_pressed);
 }
 
 fn same_faction_crowding(away_dir: ae::Vec2) -> crate::brain::smash::CrowdingSignal {
@@ -100,6 +115,35 @@ fn patrol_lane_is_authored_world_route_not_local_side() {
     s.control_down = ae::Vec2::new(1.0, 0.0);
     assert_eq!(lane.signed_offset(s.actor_pos), 40.0);
     assert_eq!(lane.facing_after_bounds(s.actor_pos, s.actor_facing), -1.0);
+}
+
+#[test]
+fn peaceful_patrol_hops_only_on_a_grounded_interval_crossing() {
+    let mut cfg = PatrolCfg::NPC_DEFAULT;
+    cfg.hop_interval_s = 2.0;
+    let mut sm = StateMachineCfg::Patrol {
+        cfg,
+        state: PatrolState::default(),
+    };
+    let mut snapshot = snap_at(0.0, 5000.0);
+    snapshot.actor_on_ground = true;
+    snapshot.dt = 1.0 / 60.0;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+
+    snapshot.sim_time = 1.5;
+    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
+    assert!(!out.jump_pressed);
+    assert!(out.locomotion.x > 0.0);
+    assert!(!out.melee_pressed);
+
+    snapshot.sim_time = 2.0 - snapshot.dt / 2.0;
+    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
+    assert!(out.jump_pressed);
+
+    snapshot.actor_on_ground = false;
+    snapshot.sim_time = 4.0 - snapshot.dt / 2.0;
+    tick_simple_state_machine(&mut sm, &snapshot, &mut out);
+    assert!(!out.jump_pressed);
 }
 
 #[test]

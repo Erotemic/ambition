@@ -655,6 +655,7 @@ mod tests {
             aggressiveness: 0.0,
             aggro_radius: 80.0,
             attack_range: 0.0,
+            hop_interval_s: 0.0,
         };
         let brain = brain_from_preset(&preset, 100.0);
         match brain {

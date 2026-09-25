@@ -22,6 +22,7 @@ mod npc_alice;
 mod npc_bob;
 mod npc_burning_flying_shark;
 mod npc_carl_stargan;
+mod npc_companion_dog;
 mod npc_dividing_mite;
 mod npc_emmy_noether;
 mod npc_exploding_mite;
@@ -68,6 +69,7 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["npc_exploding_mite"], npc_exploding_mite::author),
     (&["npc_dividing_mite"], npc_dividing_mite::author),
     (&["npc_puppy_slug"], npc_puppy_slug::author),
+    (&["npc_companion_dog"], npc_companion_dog::author),
     (&["stochastic_parrot"], stochastic_parrot::author),
     // the two SNAKE-PLANE swarms left this cast: Mary-O is their
     // one provider now (catalog rows + definitions in `ambition_demo_mary_o`),

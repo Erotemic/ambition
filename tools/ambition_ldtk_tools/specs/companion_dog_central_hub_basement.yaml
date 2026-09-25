@@ -1,0 +1,12 @@
+# Place the dog on the clear right platform in the central hub basement.
+# The patrol fits between the hazard block and the platform edge.
+level_id: central_hub_basement
+entities:
+  - type: NpcSpawn
+    px: [1512, 656]
+    size: [96, 64]
+    fields:
+      character_id: npc_companion_dog
+      prompt: Greet the dog
+      dialogue_id: hall_npc_companion_dog
+      patrol_radius: 32

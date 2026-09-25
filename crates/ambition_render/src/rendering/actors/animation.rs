@@ -430,6 +430,10 @@ mod tests {
         // publishing its facing, or if another sheet starts to declare one.
         left_drawn.sort_unstable();
         let expected: Vec<&str> = vec![
+            "author",
+            "author.0_25x",
+            "author.0_5x",
+            "author.potato",
             "carl_stargan",
             "carl_stargan.0_25x",
             "carl_stargan.0_5x",

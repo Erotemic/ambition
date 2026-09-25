@@ -165,6 +165,15 @@
     },
     brain_presets: {
         "stand_still": StandStill,
+        "companion_dog_roam": Patrol(
+            spawn_local_x: 0.0,
+            radius: 96.0,
+            speed: 54.0,
+            aggressiveness: 0.0,
+            aggro_radius: 80.0,
+            attack_range: 0.0,
+            hop_interval_s: 3.0,
+        ),
         "patrol_peaceful": Patrol(
             spawn_local_x: 0.0,
             radius: 64.0,
@@ -302,6 +311,24 @@
         // player slot is special-cased by the runtime (Brain::Player);
         // its catalog entry exists only to keep the sprite registry
         // and catalog symmetrical so Phase 6 can delete the registry.
+        "npc_companion_dog": (
+            display_name: "Companion Dog",
+            spritesheet: "sprites/companion_dog_spritesheet.png",
+            manifest: "sprites/companion_dog_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            standing_height: Some(64.0),
+            composition: None,
+            default_brain: "companion_dog_roam",
+            default_action_set: "peaceful",
+            tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
+            fallback_dialogue: ["Woof!", "The dog wags its tail."],
+            barks: (
+                idle: ["Woof!", "Arf!"],
+                hall: ["Woof!", "The dog wags its tail."],
+            ),
+            hall_dialogue_id: Some("hall_npc_companion_dog"),
+        ),
         "npc_busy_beaver": (
             display_name: "Busy Beaver",
             spritesheet: "sprites/busy_beaver_spritesheet.png",

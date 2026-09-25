@@ -31,6 +31,7 @@ pub mod snapshot;
 mod snapshot_impls;
 #[cfg(test)]
 pub(crate) mod test_support;
+pub mod surface_loop;
 pub mod world;
 
 // Public mechanics surface.
@@ -119,6 +120,7 @@ pub use player_state::{
     classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
+pub use surface_loop::{AttachedLoop, LoopResolution, LoopRoute};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,

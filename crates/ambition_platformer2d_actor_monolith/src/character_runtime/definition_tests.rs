@@ -441,3 +441,70 @@ fn a_silent_character_is_provoked_into_its_providers_declared_policy() {
         "a provider that declares none leaves a silent character unprovokable"
     );
 }
+
+/// A catalog row nobody authored a definition for is prepared like any other
+/// character: its own row's facts, and its provider's declarations.
+///
+/// Without that, the row had no prepared entry, so the provider's declared
+/// actor abilities and provoked policy reached only authored characters: a
+/// catalog-only NPC could not be provoked and, possessed, could not move.
+#[test]
+fn a_catalog_row_with_no_definition_is_prepared_with_its_providers_declarations() {
+    use ambition_characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+
+    const ROWS: &str = r#"(
+        brain_presets: {},
+        action_set_presets: {
+            "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+        },
+        characters: {
+            "villager": (
+                display_name: "Villager",
+                spritesheet: "sprites/villager.png",
+                manifest: "sprites/villager.ron",
+                tier: MainHall, body_kind: Standard, composition: None,
+                default_action_set: "peaceful",
+                max_health: Some(7),
+            ),
+        },
+        autonomous_profiles: {
+            "brawler": (template: Smash, aggro_radius: 300.0, attack_range: 90.0),
+        },
+    )"#;
+
+    let mut app = App::new();
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron("rows", None::<String>, ROWS)
+            .unwrap()
+            .with_default_provoked_profile("brawler")
+            .with_actor_default_abilities(ambition_platformer2d_core::AbilitySet::classic_actor()),
+    );
+    finalize(&mut app);
+
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    let villager = registry
+        .get("villager")
+        .expect("a catalog row is a character, so the barrier prepares it");
+    assert_eq!(villager.display_name, "Villager");
+    assert_eq!(
+        villager.vitals.max_health,
+        Some(7),
+        "the row's own facts fold in exactly as they do under an authored definition"
+    );
+    assert_eq!(
+        villager.provoked_profile_id.as_ref().map(|id| id.as_str()),
+        Some("rows::brawler"),
+        "the provider's declared provoked policy reaches a row it did not author"
+    );
+    assert_eq!(
+        villager.actor_abilities,
+        ambition_platformer2d_core::AbilitySet::classic_actor(),
+        "the provider's declared actor abilities reach it too"
+    );
+    assert!(
+        registry.get("nobody").is_none(),
+        "an id no catalog row names is still not a character"
+    );
+}

@@ -316,8 +316,9 @@ mod tests {
             .expect("worlds compose");
 
         use ambition_entity_catalog::placements::{InteractionKindSpec, PlacementSchema};
-        let (mut total, mut registered, mut complete) = (0usize, 0usize, 0usize);
+        let (mut total, mut named, mut registered, mut complete) = (0usize, 0usize, 0usize, 0usize);
         let mut complete_ids: std::collections::BTreeSet<String> = Default::default();
+        let mut unknown: std::collections::BTreeSet<String> = Default::default();
         for room in &room_set.rooms {
             for placement in &room.placements {
                 let PlacementSchema::Interactable(spec) = &placement.schema else {
@@ -330,7 +331,9 @@ mod tests {
                 let Some(cid) = character_id.as_deref() else {
                     continue;
                 };
+                named += 1;
                 let Some(def) = prepared.get(cid) else {
+                    unknown.insert(cid.to_string());
                     continue;
                 };
                 registered += 1;
@@ -359,21 +362,27 @@ mod tests {
              {total}) — the fallback road has no traffic left, so checklist item \
              6 is a deletion rather than a migration, and this ratchet goes with it"
         );
-        // EVERY REGISTERED NPC CHARACTER IS BODY-COMPLETE, so this flipped from a poison into
-        // the invariant it was counting toward. None can fail it now, and the body-assist seam that
-        // corrected those bodies is deleted.
-        //
-        // `complete < total` above is the honest remainder and it is a
-        // different gap: placements that name no character at all, or name one
-        // this provider does not register. That is checklist item 6's road, and
-        // it is not the same as a character being half-migrated.
+        // EVERY NAMED NPC CHARACTER IS PREPARED (AP30): the barrier prepares
+        // each catalog row nobody authored as a bare definition. So "registered"
+        // no longer separates migrated characters from the rest; what separates
+        // them is `complete`, a character that authors its own locomotion. The
+        // only names this Ambition-only fixture cannot resolve are the Hall's
+        // guests from the Mary-O and Sanic providers; any other is a typo.
+        let guests: std::collections::BTreeSet<String> = [
+            "mary_o",
+            "mary_o_tall",
+            "npc_snakes_on_a_cartesian_plane",
+            "npc_snakes_on_a_paper_plane",
+            "sanic",
+            "super_sanic",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
         assert_eq!(
-            registered, complete,
-            "a REGISTERED NPC character cannot build its own body ({registered} \
-             registered, {complete} complete). Every one of them could as of \
-             2026-08-13, and the seam that used to patch the difference is gone — \
-             so this is a character authored without a body fact, and the fix is \
-             to author it, not to bring back an assist"
+            unknown, guests,
+            "NPC placements name characters no catalog row or definition knows \
+             ({registered} of {named} prepared)"
         );
     }
 

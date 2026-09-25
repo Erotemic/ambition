@@ -147,6 +147,7 @@ mod rollback_lifecycle_reset;
 mod rollback_match_activation;
 mod rollback_populated_timeline;
 mod rollback_provoked_actor;
+mod a_challenged_body_is_provoked_whole;
 mod rollback_room_transition;
 mod rollback_schema_baseline;
 mod the_developer_hud_flash_still_winds_down;

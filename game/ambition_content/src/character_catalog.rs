@@ -255,10 +255,15 @@ mod tests {
             (alice.abilities.is_some(), alice.body.is_some()),
             "the guide prepared differently from the hub NPC it was modelled on"
         );
+        // Every catalog row is prepared (AP30), so the control is what the
+        // vault keeper AUTHORS: nothing beyond its row.
+        let keeper = prepared
+            .get("npc_vault_keeper")
+            .expect("every catalog row is a prepared character");
         assert!(
-            prepared.get("npc_vault_keeper").is_none(),
-            "another hub NPC gained a definition too, so this was a rule that \
-             swept the hall rather than one character taking its own identity"
+            keeper.locomotion.is_none() && keeper.body.is_none(),
+            "another hub NPC gained authored body facts too, so this was a rule \
+             that swept the hall rather than one character taking its own identity"
         );
     }
 

@@ -66,6 +66,21 @@ pub fn apply_actor_stimuli(
             continue;
         };
 
+        // ⛔ ONE ANSWER TO "CAN THIS BODY BE PROVOKED": its character's
+        // resolved provoked policy. A peaceful body with none is not provoked
+        // at all, so neither its aggression nor its standing flips; flipping
+        // them while `provoke_actor_in_place` declined the mind left a body
+        // that read as hostile and ran its peaceful brain.
+        let provoked_policy = worn.zip(prepared.as_deref()).and_then(|(worn, registry)| {
+            ambition_platformer2d_actor_spawn::brain_builders::authored_provoked_policy(
+                registry,
+                worn.id(),
+            )
+        });
+        if disposition.is_peaceful() && provoked_policy.is_none() {
+            continue;
+        }
+
         // The challenge bypasses the passivity / threshold gates entirely.
         if !challenged {
             if matches!(aggression.mode, AggressionMode::Passive) {
@@ -122,8 +137,7 @@ pub fn apply_actor_stimuli(
             &mut em,
             &mut disposition,
             repertoire,
-            worn.map(ambition_characters::actor::WornCharacter::id),
-            prepared.as_deref(),
+            provoked_policy,
         );
     }
 }

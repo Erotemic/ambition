@@ -651,6 +651,17 @@ impl CharacterCatalogAppExt for App {
             .insert_resource(assembled.declarations)
             .insert_resource(assembled.owners)
             .insert_resource(assembled.brain_profiles);
+        // A catalog row is a character, so a fragment brings the preparation
+        // barrier that prepares its rows, exactly as a registered definition
+        // does (`stage_authored_character`).
+        if !self.is_plugin_added::<crate::prepared::CharacterPreparationPlugin>()
+            && matches!(
+                self.plugins_state(),
+                bevy::app::PluginsState::Adding | bevy::app::PluginsState::Ready
+            )
+        {
+            self.add_plugins(crate::prepared::CharacterPreparationPlugin);
+        }
         Ok(self)
     }
 }

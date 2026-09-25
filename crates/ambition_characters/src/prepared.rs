@@ -2365,6 +2365,44 @@ fn finalize_cast(
     registry
 }
 
+/// The cast a barrier folds: every authored definition, plus a BARE one for
+/// each catalog row nobody authored.
+///
+/// A catalog row is a character already: an id, a provider, art, and the row's
+/// facts. Left out of the cast, a body wearing one had no prepared entry, so its
+/// readers asked the catalog again at wear time, and its provider's declarations
+/// (actor abilities, the provoked policy) reached only authored characters. A
+/// bare definition authors nothing, so the ordinary fold gives it exactly its
+/// row plus its provider's declarations, and the registry answers for every id
+/// the catalog knows.
+///
+/// Not written into [`StagedCharacterOverrides::by_id`]: that table is what
+/// providers AUTHORED, and a revision compares against it.
+fn cast_with_catalog_rows(
+    authored: BTreeMap<ambition_entity_catalog::CharacterId, StagedCharacter>,
+    catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
+) -> Vec<StagedCharacter> {
+    let mut cast = authored;
+    for (id, entry) in catalog.into_iter().flat_map(|catalog| catalog.iter()) {
+        cast.entry(ambition_entity_catalog::CharacterId::new(id.as_str()))
+            .or_insert_with(|| {
+                let bare = CharacterDefinition::new(
+                    id.as_str(),
+                    entry.display_name.as_str(),
+                    entry.provider.as_str(),
+                );
+                // The art its row names, as a provider's own bare registration
+                // states it.
+                let bare = match entry.manifest_target() {
+                    Some(sheet) => bare.with_sheet(sheet),
+                    None => bare,
+                };
+                prepare_for_registration(bare, &CharacterBindings::default()).staged
+            });
+    }
+    cast.into_values().collect()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // THE LIFECYCLE. Staging, the barrier, and the fold it closes over.
 //
@@ -2824,7 +2862,8 @@ pub fn close_preparation_barrier_without_admission(world: &mut bevy::ecs::world:
         .get_resource::<PreparedCharacterRegistry>()
         .map(|registry| registry.generation())
         .unwrap_or_default();
-    let registry = finalize_cast(staged_cast.into_values(), &authorities, previous);
+    let cast = cast_with_catalog_rows(staged_cast, authorities.catalog.as_ref());
+    let registry = finalize_cast(cast, &authorities, previous);
     world.insert_resource(registry);
 }
 
@@ -2929,7 +2968,7 @@ fn finalize_prepared_cast(
     // ⚠ AND `kit`'s MOVESET, NOT `authored_moveset`: the kit always carries one
     // (derived from the action set when the character authored no timelines), so
     // this is the full set of effects a body wearing this character can reach.
-    let staged: Vec<_> = staged.into_values().collect();
+    let staged = cast_with_catalog_rows(staged, authorities.catalog.as_ref());
     // ⭐ THE SUPPORT TABLE ARRIVES AS AN ORDINARY ARGUMENT. It is
     // composition/runtime state and stays owned there; this crate names only
     // `TechniqueSupport`, a plain data type in `ambition_entity_catalog` that it

@@ -13,7 +13,7 @@
 
 use super::*;
 use ambition_combat::components::ActorDisposition;
-use ambition_platformer2d_actor_spawn::brain_builders::{authored_provoked_policy, provoked_mind};
+use ambition_platformer2d_actor_spawn::brain_builders::provoked_mind;
 
 /// Flip a PEACEFUL actor hostile in place — no cluster swap, no entity churn —
 /// installing the mind [`provoked_mind`] answers. An already-hostile actor is
@@ -29,15 +29,14 @@ pub fn provoke_actor_in_place(
     // the live projection instead of folding a second answer from a subset of
     // its inputs.
     repertoire: Option<&ambition_characters::brain::ActionSet>,
-    // It existed so a provoked body could be recognised by its encounter's dialogue id — one of
-    // three prose spellings `hostile_brain_id_for_actor` guessed at — and a creature that publishes
-    // its own provoked policy needs none of them. WHICH CHARACTER THIS BODY IS — the GAMEPLAY
-    // identity.
-    worn_character: Option<&str>,
-    // WHAT THE BODY'S CHARACTER RESOLVED ABOUT BEING PROVOKED: its own policy,
-    // else its provider's declared default. `Option` because a composition may
-    // register no cast.
-    prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
+    // WHAT THE BODY'S CHARACTER RESOLVED ABOUT BEING PROVOKED
+    // (`brain_builders::authored_provoked_policy`: its own policy, else its provider's
+    // declared default), asked once by the caller, which also gates the
+    // aggression flip on it.
+    provoked_policy: Option<(
+        ambition_characters::brain::BrainProfile,
+        ambition_entity_catalog::BrainProfileId,
+    )>,
 ) {
     // provocation is one body, a different driver, a changed relationship.
     // The body stays exactly as its character built it.
@@ -45,10 +44,7 @@ pub fn provoke_actor_in_place(
     // ⛔ NO POLICY, NO PROVOCATION. A body whose character and provider state
     // no provoked policy (or that wears no prepared character at all) is not
     // handed an engine-invented fighter: it stays as it was.
-    let Some(policy) = prepared
-        .zip(worn_character)
-        .and_then(|(registry, character)| authored_provoked_policy(registry, character))
-    else {
+    let Some(policy) = provoked_policy else {
         return;
     };
     // ⛔ AN ALREADY-HOSTILE BODY IS NOT RE-DERIVED: that would zero its

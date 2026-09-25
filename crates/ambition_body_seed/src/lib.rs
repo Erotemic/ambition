@@ -389,11 +389,24 @@ impl ActorClusterSeed {
         // `BodyHealth` is the only thing that keeps it (AC6.2): `ActorTuning`
         // carried a `max_health` beside it, and the two were written
         // independently.
-        let max_health = authored_body.as_ref().map_or(
+        //
+        // ⛔ FROM THE CHARACTER'S VITALS, NOT FROM ITS BLUEPRINT. A blueprint
+        // exists only when the character authored locomotion, and vitals do not
+        // depend on it: reading the pool through the blueprint built the Hall's
+        // `sanic` (who authors one hit point and no locomotion) with the
+        // unauthored default of 4, and left the persona derive to correct it a
+        // tick later. The same holds for the weight and the death traits below.
+        let physical = prepared_character.map(crate::PhysicalBaseline::of);
+        let max_health = physical.map_or(
             ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
-            |body| body.max_health,
+            |physical| {
+                physical.max_health_over(ambition_characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH)
+            },
         );
         let tuning = ambition_combat::actor_tuning::ActorTuning {
+            weight: physical
+                .and_then(|physical| physical.knockback_weight())
+                .unwrap_or(ambition_combat::actor_tuning::ActorTuning::default().weight),
             max_run_speed: authored_body
                 .as_ref()
                 .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
@@ -543,7 +556,10 @@ impl ActorClusterSeed {
                 is_aerial,
                 collision_size,
             ),
-            caps: ambition_combat::CombatCapabilities::default(),
+            caps: prepared_character
+                .and_then(|prepared| prepared.death_traits.as_ref())
+                .map(ambition_combat::CombatCapabilities::from)
+                .unwrap_or_default(),
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
             // Resolved above when the character authors a sprite body; `None`
             // for a placement whose character states no `BodySource`.
@@ -1413,4 +1429,6 @@ mod tests {
 
 #[cfg(test)]
 mod npc_flight_tests;
+#[cfg(test)]
+mod npc_vitals_tests;
 

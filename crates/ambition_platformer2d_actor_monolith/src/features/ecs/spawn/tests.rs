@@ -902,13 +902,15 @@ mod authored_enemy_reads_its_character {
     }
 
     /// A prepared character with NO body blueprint (it authored no locomotion)
-    /// placed as an NPC still gets its BODY at construction, and only its
-    /// persona is left to the derive. The Hall of Characters places four such
-    /// characters (`mary_o`, `mary_o_tall`, `sanic`, `super_sanic`); left to the
-    /// derive, their body was the seed's for a tick, so the pose view called
-    /// the geometry `Pending` and `mary_o` stood 32x48 before 21.3x32.
+    /// placed as an NPC is built whole: its body AND its persona at
+    /// construction, stamped current so no derive completes it later. The Hall
+    /// of Characters places four such characters (`mary_o`, `mary_o_tall`,
+    /// `sanic`, `super_sanic`). Left to the projector, `mary_o` stood 32x48
+    /// before 21.3x32; left to the persona derive, a replayed `sanic` stood at
+    /// the unauthored 4 hit points with an empty kit for a tick, because a
+    /// replay rebuilds the room after the derive has run.
     #[test]
-    fn a_prepared_npc_without_a_blueprint_is_granted_its_body_but_not_its_persona() {
+    fn a_prepared_npc_without_a_blueprint_is_built_whole_by_its_construction() {
         use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
         let authored = ambition_platformer2d_world::rooms::Authored::new(
             "NpcSpawn-beaver",
@@ -987,10 +989,11 @@ mod authored_enemy_reads_its_character {
             "the NPC's prepared body was not granted by its construction, so its \
              geometry is the seed's until the projector grants it a tick later"
         );
-        assert!(
-            baseline.is_none(),
-            "the persona memo was stamped, which switches off the derive that owns \
-             this body's health, weight and kit"
+        assert_eq!(
+            baseline.map(|baseline| (baseline.id.as_str(), baseline.generation)),
+            Some(("npc_busy_beaver", generation)),
+            "the NPC's persona was not applied by its construction, so the derive \
+             completes its health, weight and kit on a later tick"
         );
     }
 

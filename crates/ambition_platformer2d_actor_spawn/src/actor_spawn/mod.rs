@@ -856,38 +856,25 @@ impl NpcActorSpawnPlan {
         // Absence stays the honest answer, and the legacy name-matcher still
         // covers it.
         //
-        // A character that builds its own body (`new_character_in` above) is
-        // WORN in this batch, like every other character road, so the persona
-        // derive finds it current rather than completing it on its first tick.
-        // LAST, so its kit replaces the seed's rather than being replaced by it.
+        // EVERY PREPARED CHARACTER IS WORN IN THIS BATCH, so the persona derive
+        // finds it current rather than completing it on its first tick. LAST, so
+        // its kit replaces the seed's rather than being replaced by it.
         //
-        // A prepared character WITHOUT a body blueprint (no authored locomotion)
-        // is not worn whole: the peaceful seed built it with default vitals, and
-        // its persona (health, weight, mass, kit) still arrives from the derive,
-        // which the persona memo would switch off. Its BODY is granted here
-        // anyway (`PersonaDerive`), as the home body's is, because the body is
-        // what the art is bound against. Measured 2026-09-24 in the Hall of
-        // Characters, which places `mary_o`, `mary_o_tall`, `sanic` and
-        // `super_sanic` this way: left to the derive, `mary_o` stood 32x48 on
-        // her first tick and 21.3x32 on her second.
+        // ⛔ Including a character with no body blueprint (no authored
+        // locomotion). It used to be granted with `KitOwnership::PersonaDerive`,
+        // leaving its health, weight, mass and kit to the derive, because the
+        // peaceful seed read those through the blueprint. The derive runs early
+        // in the tick and a room rebuild commits late in it, so on a replay the
+        // Hall's `sanic` stood at 4/4 with an empty kit for a whole tick before
+        // becoming the 1/1 fighter the room load had built. The seed now reads
+        // the character's vitals directly, and nothing is left to derive.
         //
         // An id nobody prepared (reported above) takes the derive's unknown-id
         // answer.
         if let Some(character) = worn {
             match prepared.get(&character) {
-                Some(definition) if definition.body_blueprint().is_ok() => {
-                    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation())
-                }
                 Some(definition) => {
-                    scope.insert(ambition_characters::actor::WornCharacter::new(character));
-                    crate::character_body::grant_prepared_character_body(
-                        &mut scope.entity_scope(),
-                        definition,
-                        prepared.generation(),
-                        crate::character_body::KitOwnership::PersonaDerive,
-                        definition.movement_tuning,
-                        ambition_characters::repertoire::Hand::Empty,
-                    );
+                    wear_prepared_character(&mut scope.reborrow(), definition, prepared.generation())
                 }
                 None => {
                     scope.insert(ambition_characters::actor::WornCharacter::new(character));
@@ -1526,6 +1513,12 @@ fn wear_prepared_character(
     );
     if let Some(held) = held {
         scope.insert(held);
+    }
+    // The one physical fact no seed carries. Health and weight are built into
+    // the seed from the same vitals, and a derive never revisits a body this
+    // batch stamps as worn, so an authored mass left out here would be lost.
+    if let Some(mass) = definition.vitals.mass {
+        scope.insert(ambition_platformer2d_shared_tangle::body::Mass(mass));
     }
 }
 

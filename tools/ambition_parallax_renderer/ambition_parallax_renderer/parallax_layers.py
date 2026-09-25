@@ -438,8 +438,8 @@ def _draw_sky(theme: Theme) -> Image.Image:
     elif theme.celestial == "eclipse":
         _draw_eclipse(
             image,
-            (602, 110),
-            42 if theme.key == "eclipse" else 34,
+            (330, 385) if theme.key == "eclipse" else (602, 110),
+            24 if theme.key == "eclipse" else 34,
             theme.glow if theme.key == "eclipse" else (255, 108, 72),
         )
     elif theme.celestial == "caustics":

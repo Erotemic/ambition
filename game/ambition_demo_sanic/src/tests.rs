@@ -1361,6 +1361,25 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
     }
 }
 
+#[test]
+fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
+    let room = sanic_speedway();
+    let sizes: Vec<_> = room
+        .placements
+        .iter()
+        .filter(|record| is_ring_placement(record))
+        .map(|record| record.aabb.max - record.aabb.min)
+        .collect();
+    assert!(sizes.len() >= 30, "the premise: a field of rings; got {}", sizes.len());
+    for size in sizes {
+        assert!(
+            (size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01,
+            "a placed ring is {size:?} and a scattered one is {RING_SIZE}x{RING_SIZE}, \
+             so a ring changes size when it is dropped"
+        );
+    }
+}
+
 /// Rings are a life, not a score. A hit taken holding rings is survived and
 /// costs the rings; a hit taken holding none lands normally.
 ///

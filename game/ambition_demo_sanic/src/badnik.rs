@@ -73,8 +73,10 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
-/// How tall a badnik stands, in world units (what the catalog join gave it).
-const BADNIK_STANDING_HEIGHT: f32 = 48.0;
+/// How tall a badnik stands: three fifths of Sanic, the proportion a classic
+/// badnik has to the hero. At his full 48 its wide art was 74 units across,
+/// over twice his width (Jon: "the badniks are always way too big").
+const BADNIK_STANDING_HEIGHT: f32 = crate::SANIC_STANDING_HEIGHT * 0.6;
 
 /// Register the badnik as a character.
 ///

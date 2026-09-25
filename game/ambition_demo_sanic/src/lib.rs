@@ -217,6 +217,14 @@ pub const SUPER_SANIC_SUPER_STATE:
 /// square so the round sprite is not stretched.
 pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 
+/// A ring's square side, in world units — for the rings the level places AND
+/// the ones a hit scatters. The speedway's author script writes the same number
+/// (`RING_SIZE` in `tools/author_speedway_ldtk.py`) and
+/// `every_ring_the_speedway_places_is_the_size_a_hit_scatters` holds the two
+/// together: the level's were authored 30 while a scatter made 18, so a ring
+/// changed size when you dropped it.
+pub const RING_SIZE: f32 = 18.0;
+
 /// A ring placement: one of the `currency:1` pickups the author script lays down
 /// (named `ring`). The demo tags these with the animated sprite and the tests
 /// count them through this one predicate.
@@ -1931,7 +1939,7 @@ pub fn scatter_rings_on_hit(
             let angle = std::f32::consts::TAU * t;
             let speed = SCATTER_BURST_SPEED * SCATTER_INNER_SHELL_SCALE.powi(shell as i32);
             let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
-            let size = ae::Vec2::splat(18.0);
+            let size = ae::Vec2::splat(RING_SIZE);
             let seq = counter.next();
             let ring_id = ambition_platformer2d::platformer::sim_id::SimId::spawned(player_id, seq);
             let authored = ambition_platformer2d::world::rooms::Authored {

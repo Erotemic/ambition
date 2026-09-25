@@ -263,9 +263,8 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 // called them, which is the only reason they looked boss-side.
 
 /// Choose the world-space size to scale sprite-pixel rects against.
-/// Prefer the metrics-captured render size (set by
-/// `derive_boss_sprite_metrics` from the sheet spec's
-/// `collision_scale`). Fall back to `ctx.size` when the snapshot
+/// Prefer the metrics-captured render size (set at boss construction from the
+/// sheet spec's `collision_scale`). Fall back to `ctx.size` when the snapshot
 /// didn't capture one — test fixtures that build `ActorSpriteMetrics`
 /// by hand can leave `sprite_render_size = Vec2::ZERO` to opt out.
 pub fn sprite_world_size(

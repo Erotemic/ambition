@@ -121,7 +121,7 @@ pub use ecs::{
     apply_gameplay_banner_requests, apply_hitbox_damage,
     apply_summon_effects, arm_requested_challenges, boss_anim_state_for, boss_spawn_hurtboxes,
     can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
-    derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
+    derive_pogo_target_volumes, dissolve_settled_grudges,
     drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample,
     integrate_boss_bodies, integrate_sim_bodies,
@@ -966,11 +966,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             (
-                // Sprite-driven boss metrics must be available before
-                // boss damageable/pogo volumes are derived, otherwise
-                // composite bosses such as GNU-ton would briefly fall
-                // back to their coarse spawn envelope.
-                derive_boss_sprite_metrics,
                 refresh_body_damageable_volumes,
                 refresh_boss_damageable_volumes,
                 refresh_breakable_damageable_volumes,

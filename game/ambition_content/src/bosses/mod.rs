@@ -541,3 +541,44 @@ mod encounter_book_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod sheet_body_tests {
+    /// A boss is built with the body its sheet draws, in every build.
+    ///
+    /// A later tick used to refine the body, and only when the sprite registry
+    /// resource was installed. So a headless build fought the authored box and
+    /// a visible build fought the sheet's body. The sheet table is baked, so
+    /// construction answers once for both.
+    #[test]
+    fn a_boss_is_built_with_the_body_its_sheet_draws() {
+        use ambition_platformer2d_core::{Aabb, AabbExt, Vec2};
+
+        let catalog = super::authored_boss_catalog();
+        let boss = ambition_boss_encounter::BossClusterScratch::new(
+            &catalog,
+            "boss_clockwork_warden",
+            "clockwork_warden",
+            Aabb::new(Vec2::new(500.0, 400.0), Vec2::new(60.0, 60.0)),
+            ambition_entity_catalog::placements::BossBrain::Dormant,
+        );
+        let metrics = boss
+            .status
+            .sprite_metrics
+            .as_ref()
+            .expect("the clockwork warden's sheet publishes body metrics");
+        let drawn = ambition_combat::body_geometry::bounding_aabb(
+            &ambition_combat::body_geometry::world_space_body_aabbs_from_parts(
+                &metrics.body_pixel_parts,
+                metrics.body_pixel_bbox,
+                metrics.frame_width,
+                metrics.frame_height,
+                boss.kin.pos,
+                metrics.sprite_render_size,
+            ),
+        )
+        .expect("the sheet's body has parts");
+        assert_eq!(boss.kin.size, drawn.half_size() * 2.0);
+        assert_eq!(boss.as_ref().combat_size(), boss.kin.size);
+    }
+}

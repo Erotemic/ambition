@@ -144,15 +144,13 @@ pub fn update_boss_encounters(
 
         // Seed entity-local state once from the profile (phase triggers, HP,
         // behavior), so two of the same boss have independent state. The
-        // per-spawn `BossOverrides` (hp / combat_size / phase triggers) are
-        // applied here, so the profile cannot overwrite them.
+        // per-spawn `BossOverrides` (hp / phase triggers) are applied here, so
+        // the profile cannot overwrite them. The body size is not seeded here:
+        // construction resolved `kin.size`.
         if feature.status.encounter.is_none() {
             feature
                 .as_boss_mut()
                 .apply_behavior_profile(profile.behavior.clone());
-            if let Some(size) = overrides.and_then(|o| o.combat_size) {
-                feature.config.behavior.combat_size = Some(size);
-            }
             let max_hp = overrides
                 .and_then(|o| o.max_hp)
                 .unwrap_or(spec.max_hp)

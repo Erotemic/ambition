@@ -44,8 +44,7 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
 /// `hurtbox.parts` mirror the rest / descent head positions
 /// authored in the live spritesheet RON. Tests that exercise
 /// `damageable_volumes` use this so the head invariants stay
-/// pinned even though gnu_ton_runtime doesn't go through
-/// `derive_boss_sprite_metrics`.
+/// pinned whatever sheet the fixture's behavior draws.
 fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics {
     use ambition_sprite_sheet::{AnimationBox, AnimationMetrics, NamedPixelRect};
     use std::collections::BTreeMap;

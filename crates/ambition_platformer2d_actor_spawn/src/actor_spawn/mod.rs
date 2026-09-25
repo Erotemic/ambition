@@ -1035,13 +1035,9 @@ pub fn spawn_boss_with_overrides_into(
         authored.aabb,
         authored.payload.clone(),
     );
-    // Apply a combat-size override to the initial scratch so the first-frame
-    // AABB/render size are right; `update_boss_encounters` re-applies it at seed
-    // (after the profile application that would otherwise overwrite it).
+    // A placement's authored size outranks the sheet's body. `kin.size` is
+    // the collision body; the render basis stays in `status.render_size`.
     if let Some(size) = overrides.combat_size {
-        boss.config.behavior.combat_size = Some(size);
-        // AS4b: `kin.size` IS the collision envelope, so keep it in lock-step with an
-        // overridden combat size (the render basis stays in `status.render_size`).
         boss.kin.size = size;
     }
     bevy::log::info!(

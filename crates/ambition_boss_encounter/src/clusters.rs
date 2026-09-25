@@ -32,9 +32,9 @@ pub struct BossConfig {
 /// the shared body components.
 #[derive(Component, Clone, Debug)]
 pub struct BossEncounter {
-    /// Sprite-driven body metrics, set by `derive_boss_sprite_metrics` after
-    /// the SheetRegistry loads. `None` for bosses whose sprite has no
-    /// `body_metrics` entry (then `combat_size` applies).
+    /// Sprite-driven body metrics, resolved at construction from the baked
+    /// sheet. `None` for a boss whose sheet publishes no `body_metrics` (then
+    /// the authored `combat_size` is its body).
     pub sprite_metrics: Option<ActorSpriteMetrics>,
     /// The sprite render-basis size: the box the sheet's
     /// `render_size(basis)` scales the drawn quad from (the LDtk spawn seed).
@@ -110,10 +110,11 @@ impl<'a> BossRef<'a> {
         self.status.render_size
     }
 
-    /// Multi-part bosses (GNU-ton) expose a `combat_size` distinct from
-    /// the sprite `size`; that's the size collision and volumes use.
+    /// The collision body: `kin.size`, which construction resolved once.
+    /// `behavior.combat_size` is authoring input to that resolution, not a
+    /// second answer.
     pub fn combat_size(&self) -> ae::Vec2 {
-        self.config.behavior.combat_size.unwrap_or(self.kin.size)
+        self.kin.size
     }
 
     /// World offset from `kin.pos` to the body's bounding-AABB center.
@@ -280,13 +281,12 @@ impl BossClusterScratch {
         let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
         let behavior = BossBehaviorProfile::for_authored_boss(boss_catalog, &canonical_id);
-        // The LDtk spawn box is the sprite render basis (`render_size`). The
-        // collision envelope is `combat_size` (the profile's, refined later by
-        // `derive_boss_sprite_metrics`). `kin.size` holds the collision size,
-        // so the shared movement seam sweeps the right box.
+        // The LDtk spawn box is the sprite render basis (`render_size`).
+        // `kin.size` holds the collision body, so the shared movement seam
+        // sweeps the right box. See `resolve_sheet_body` for its source.
         let render_basis = aabb.half_size() * 2.0;
         let collision_size = behavior.combat_size.unwrap_or(render_basis);
-        Self {
+        let mut boss = Self {
             kin: BodyKinematics {
                 pos: center,
                 // Bosses float: the brain emits a new `desired_vel` each tick,
@@ -310,6 +310,27 @@ impl BossClusterScratch {
             health: ambition_characters::actor::BodyHealth::new(
                 ambition_characters::actor::Health::new(18),
             ),
+        };
+        boss.resolve_sheet_body(boss_catalog);
+        boss
+    }
+
+    /// Size the body from the sheet it draws, when that sheet publishes
+    /// `body_metrics`: the sprite metrics, and a collision body that bounds
+    /// the drawn body parts. A sheet with no metrics leaves the authored
+    /// `combat_size`. The sheet table is baked, so every build answers the
+    /// same. Call it again after a change to `config.behavior`.
+    pub fn resolve_sheet_body(&mut self, boss_catalog: &super::BossCatalog) {
+        let Some((metrics, body)) = crate::ecs::boss_sprite_metrics_from_registry(
+            boss_catalog,
+            self.as_ref(),
+            ambition_sprite_sheet::shared_baked_sheet_registry(),
+        ) else {
+            return;
+        };
+        self.status.sprite_metrics = Some(metrics);
+        if let Some(body) = body {
+            self.kin.size = body;
         }
     }
 

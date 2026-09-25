@@ -768,6 +768,13 @@ pub fn baked_sheet_registry() -> SheetRegistry {
     SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS)
 }
 
+/// The baked registry, built once. Construction reads it, so a headless and a
+/// visible build size a body from the same sheet.
+pub fn shared_baked_sheet_registry() -> &'static SheetRegistry {
+    static REGISTRY: std::sync::OnceLock<SheetRegistry> = std::sync::OnceLock::new();
+    REGISTRY.get_or_init(baked_sheet_registry)
+}
+
 /// Bevy plugin that installs and populates the baked character sheet registry.
 pub struct SheetRegistryPlugin;
 

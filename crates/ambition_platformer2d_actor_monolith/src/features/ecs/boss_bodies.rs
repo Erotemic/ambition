@@ -53,7 +53,6 @@ pub fn integrate_boss_bodies(
         (
             Entity,
             crate::actor_clusters::ActorClusterQueryData,
-            &BossConfig,
             &ambition_combat::BodyEnvelope,
             Option<&mut ActorControl>,
             Option<&mut ambition_characters::actor::BodyAnimFacts>,
@@ -79,6 +78,7 @@ pub fn integrate_boss_bodies(
         ),
         (
             With<FeatureSimEntity>,
+            With<BossConfig>,
             With<ambition_combat::components::ActorTarget>,
             Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
         ),
@@ -92,7 +92,6 @@ pub fn integrate_boss_bodies(
     for (
         entity,
         mut cq,
-        boss_config,
         envelope,
         mut control,
         mut anim,
@@ -106,12 +105,7 @@ pub fn integrate_boss_bodies(
         pose_owned_externally,
     ) in &mut bosses
     {
-        // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
-        // robust to the profile / spawn-override / sprite-derive timing that writes
-        // `behavior.combat_size`. The coarse render footprint stays in `BodyEnvelope`.
-        let combat_size = boss_config.behavior.combat_size.unwrap_or(cq.kin.size);
         let mut em = cq.as_actor_mut();
-        em.kin.size = combat_size;
         crate::features::ecs::actors::integrate_actor_body(
             entity,
             body_sources.get(entity).ok().map(|s| s.id()),

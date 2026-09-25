@@ -527,6 +527,15 @@ pub struct SurfaceChain {
     /// eye, and without this it was drawn as a thin strip over empty sky.
     #[serde(default)]
     pub filled: bool,
+    /// Painted earth, drawn filled: convex polygons in world space.
+    /// Presentation only, like [`Self::filled`] — what collides is the chain.
+    ///
+    /// A painted terrain layer (the LDtk `Terrain` IntGrid) lowers to several
+    /// chains, one per stretch of outline, and the earth they bound goes on
+    /// the first of them, so a region is drawn exactly as it was painted:
+    /// overhangs, caves and all, where [`Self::filled`] can only fill DOWN.
+    #[serde(default)]
+    pub earth: Vec<Vec<Vec2>>,
 }
 
 impl SurfaceChain {
@@ -540,6 +549,7 @@ impl SurfaceChain {
             junctions: Vec::new(),
             velocity: Vec2::ZERO,
             filled: false,
+            earth: Vec::new(),
         }
     }
 
@@ -553,6 +563,7 @@ impl SurfaceChain {
             junctions: Vec::new(),
             velocity: Vec2::ZERO,
             filled: false,
+            earth: Vec::new(),
         }
     }
 
@@ -634,19 +645,29 @@ impl SurfaceChain {
     pub fn frame_at(&self, s: f32) -> SurfaceFrame {
         let total = self.total_length();
         debug_assert!(total > 0.0, "frame_at on a degenerate chain");
-        let mut s = if self.closed {
+        let s = if self.closed {
             s.rem_euclid(total)
         } else {
             s.clamp(0.0, total)
         };
         let count = self.segment_count();
+        // ⛔ ACCUMULATE, never subtract. The segment's start is the running
+        // sum `start += len`, the same additions in the same order as
+        // [`Self::arc_at_vertex`] — so a vertex's arc is the SAME float here as
+        // there. This walked `s -= len` instead, which rounds differently, and on
+        // a long chain (a painted level's outline, ~66k px) the two disagreed by
+        // more than the solver's joint nudge: a rider stepped past a joint by
+        // `arc_at_vertex`, was told by this it had not, and crossed the same
+        // joint forever — frozen at full speed.
+        let mut start = 0.0;
         for i in 0..count {
             let len = self.segment_length(i);
-            if s <= len || i == count - 1 {
+            let end = start + len;
+            if s <= end || i == count - 1 {
                 let (a, b) = self.segment(i);
                 let t = self.tangent(i);
                 let f = if len > 0.0 {
-                    (s / len).clamp(0.0, 1.0)
+                    ((s - start) / len).clamp(0.0, 1.0)
                 } else {
                     0.0
                 };
@@ -657,7 +678,7 @@ impl SurfaceChain {
                     segment: i,
                 };
             }
-            s -= len;
+            start = end;
         }
         unreachable!("segment walk covers the arc length");
     }

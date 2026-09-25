@@ -189,6 +189,18 @@ impl LdtkLevel {
             .find(|layer| layer.identifier == COLLISION_LAYER)
     }
 
+    pub(super) fn terrain_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == super::terrain::TERRAIN_LAYER)
+    }
+
+    pub(super) fn track_layer(&self) -> Option<&LdtkLayerInstance> {
+        self.layer_instances
+            .iter()
+            .find(|layer| layer.identifier == super::terrain::TRACK_LAYER)
+    }
+
     pub(super) fn water_layer(&self) -> Option<&LdtkLayerInstance> {
         self.layer_instances
             .iter()

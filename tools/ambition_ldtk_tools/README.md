@@ -112,6 +112,40 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools gates audit \
   --level goblin_encounter                                # switches / lock walls / triggers / breakables
 ```
 
+## Painted terrain (`Terrain` and `Track` layers)
+
+Ground with slopes is painted, not typed in as coordinates. Two IntGrid layers
+share one palette (`ambition_ldtk_tools/terrain.py`, mirrored by the loader in
+`crates/ambition_platformer2d_ldtk/src/terrain.rs`):
+
+- `Ground` (full cell), floor slopes at 45° (`Up45`/`Down45`, one cell), 22.5°
+  (`Up22a`+`Up22b`, a two-cell run) and about 11° (`Up11a`..`d`, a four-cell
+  run), plus the same shapes hanging from above (`Ceil…`).
+- **`Terrain`** is solid all round: the loader traces the painted outline into
+  rideable surface chains. Paint earth down to wherever the ground should end.
+- **`Track`** lowers only the top: a road you can jump up through (bridges,
+  high roads). One cell thick is enough.
+
+The layers' auto-rules draw each value as its shape, so what the editor shows
+is what the player rides. A flat must sit on a cell line (the palette has no
+half-height flat), and a slope run must finish before a flat starts.
+
+A `SurfaceLoop` with `attach_to: terrain` joins the painted floor under it.
+
+The palette is an editor limitation only: a `SurfaceChain` entity still
+authors any polyline the engine can ride.
+
+```bash
+# Add the layers (and palette tileset) if missing, then replace a level's cells:
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools terrain paint \
+  cells.json --ldtk <world.ldtk>     # {"level_id": ..., "layers": {"Terrain": [[cx, cy, value], ...]}}
+```
+
+Scripts that draw a level from key points use `terrain.ground` / `band` /
+`ceiling` (a rasterizer that picks the nearest palette staircase) and
+`terrain.surface` to stand things on the ground actually painted
+(`game/ambition_demo_sanic/tools/author_darkness_ldtk.py` is the example).
+
 ## Specs
 
 Current specs live directly under `tools/ambition_ldtk_tools/specs/`. Prefer copying an existing spec and changing IDs/coordinates instead of inventing a new schema shape.

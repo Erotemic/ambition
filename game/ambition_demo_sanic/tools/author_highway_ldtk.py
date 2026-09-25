@@ -7,9 +7,12 @@ the repo root after changing the layout below:
 
     python3 game/ambition_demo_sanic/tools/author_highway_ldtk.py
 
-Act 2 is a course with height: the ground is a filled surface chain (`fill`)
-that rolls, climbs and drops across a room twice as tall as the screen. Every
-loop is data (`SurfaceLoop` + `attach_to`).
+Act 2 is a course with height: the ground rolls, climbs and drops across a
+room twice as tall as the screen. The ground is PAINTED (`Terrain` cells, the
+sky bridge a one-cell `Track`, the tunnel roof and the finish tower `Terrain`
+too): open the level in LDtk to see it. The key points below are rasterized
+into the slope palette by `ambition_ldtk_tools.terrain`. Every loop is data
+(`SurfaceLoop` attached to the painted floor under it).
 
 The course, left to right:
 
@@ -40,6 +43,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 TOOLS = REPO / "tools" / "ambition_ldtk_tools"
+sys.path.insert(0, str(TOOLS))
+from ambition_ldtk_tools import terrain  # noqa: E402
+
+GRID = 16
 TARGET = REPO / "game" / "ambition_demo_sanic" / "assets" / "worlds" / "sanic_highway.ldtk"
 MAP_ASSETS_TARGET = REPO / "game" / "ambition_map_assets" / "ambition_demo_sanic" / "worlds" / "sanic_highway.ldtk"
 
@@ -51,10 +58,9 @@ MUSIC_TRACK = "velocity"
 LEVEL_W = 16000  # a multiple of the 16px grid
 LEVEL_H = 1600
 
-STEP = 25.0  # polyline sampling along curved ground
 
 # ── The ground, as key points joined by smooth (cosine) curves ─────────────
-# (x, y), y down. Each run is ONE chain; a run's curves are sampled at STEP.
+# (x, y), y down. Each run is painted as ground cells from these key points.
 
 # West: start plateau, rolling descent, loop A's flat, the big climb, the lip.
 WEST = [
@@ -119,25 +125,6 @@ RING_SIZE = (18, 18)  # the same side as Act 1 and a scattered ring
 RING_SPRITE = "sanic_ring_prop"
 
 
-def smooth(keys: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """Sample a cosine-eased curve through the key points.
-
-    Flat runs (equal y) stay two points, so a loop's flat has the long straight
-    segment `attach_loop` splits.
-    """
-    out: list[tuple[float, float]] = [keys[0]]
-    for (x0, y0), (x1, y1) in zip(keys, keys[1:]):
-        if abs(y1 - y0) < 0.5:
-            out.append((x1, y1))
-            continue
-        n = max(2, int((x1 - x0) / STEP))
-        for i in range(1, n + 1):
-            t = i / n
-            e = (1 - math.cos(math.pi * t)) / 2
-            out.append((round(x0 + (x1 - x0) * t, 1), round(y0 + (y1 - y0) * e, 1)))
-    return out
-
-
 def height_at(keys: list[tuple[float, float]], x: float) -> float:
     for (x0, y0), (x1, y1) in zip(keys, keys[1:]):
         if x0 <= x <= x1:
@@ -148,23 +135,11 @@ def height_at(keys: list[tuple[float, float]], x: float) -> float:
     raise ValueError(f"x {x} is off the run")
 
 
-def points_field(points: list[tuple[float, float]]) -> str:
-    return "; ".join(f"{x:g},{y:g}" for x, y in points)
-
-
 def rect(etype: str, px: tuple[float, float], size: tuple[float, float], **fields) -> dict:
     entry: dict = {"type": etype, "px": [int(px[0]), int(px[1])], "size": [int(size[0]), int(size[1])]}
     if fields:
         entry["fields"] = fields
     return entry
-
-
-def chain(name: str, keys: list[tuple[float, float]], fill: bool) -> dict:
-    x0, y0 = keys[0]
-    return rect(
-        "SurfaceChain", (x0, y0 - 16), (16, 16),
-        name=name, points=points_field(smooth(keys)), closed=False, fill=fill,
-    )
 
 
 def ring(cx: float, cy: float) -> dict:
@@ -200,12 +175,12 @@ def surface_loop(name: str, centre_x: float, radius: float, attach_to: str, floo
     return rect("SurfaceLoop", (centre_x - 8, cy - 8), (16, 16), name=name, radius=radius, attach_to=attach_to)
 
 
-def badnik(keys: list[tuple[float, float]], x: float) -> dict:
+def badnik(ground_y, x: float) -> dict:
     # Dropped just above the ground it will walk: a badnik rides the surface
     # now, so a spawn inside a hill would walk the floor under it.
     return rect(
         "EnemySpawn",
-        (x, height_at(keys, x + 14) - 48),
+        (x, ground_y(x + 14) - 48),
         (28, 32),
         brain=BADNIK_CHARACTER_ID,
         character_id=BADNIK_CHARACTER_ID,
@@ -254,61 +229,95 @@ def ring_placements() -> list[dict]:
     return rings
 
 
+def painted_run(keys: list[tuple[float, float]]):
+    """One run of ground as painted: its columns, heights, and ``y(x)``."""
+    x0, x1 = int(keys[0][0]) // GRID, int(keys[-1][0]) // GRID
+    heights = terrain.quantize(terrain.cosine_profile(keys), x0, x1, GRID)
+    return x0, x1, heights, terrain.surface(heights, x0, GRID)
+
+
+# The painted height of each run. Things that stand on the ground stand on
+# THESE, not on the key-point curves (up to half a cell away).
+west_y = painted_run(WEST)[3]
+valley_y = painted_run(VALLEY)[3]
+east_y = painted_run(EAST)[3]
+
+
+def painted() -> dict:
+    """The level's cells: the three ground runs, the carved cave, the tunnel
+    roof and the finish tower on `Terrain`; the sky bridge on `Track`."""
+    rows = LEVEL_H // GRID
+    cells: dict = {}
+    for keys in (WEST, VALLEY, EAST):
+        x0, x1, _, _ = painted_run(keys)
+        cells.update(terrain.ground(terrain.cosine_profile(keys), x0, x1, GRID, bottom=rows))
+    # SECRET 1: the cave, carved out of the climb's rock down to the valley
+    # floor that runs on under the cliff. Its mouth is the cliff face at
+    # CAVE_WALL_X, closed by the breakable wall.
+    cave_floor_row = int(valley_y(CAVE[0])) // GRID
+    for cx in range(CAVE[0] // GRID, CAVE_WALL_X // GRID):
+        for cy in range(cave_floor_row - 7, cave_floor_row):
+            cells.pop((cx, cy), None)
+    # The tunnel roof: four cells of rock whose underside is the ceiling run.
+    cells.update(terrain.ceiling(
+        lambda x: TUNNEL_CEILING, TUNNEL[0] // GRID, TUNNEL[1] // GRID, GRID,
+        top=(TUNNEL_CEILING - 64) // GRID,
+    ))
+    # The finish tower stands on the road: a wall a runner meets.
+    for cx in range(FINISH_TOWER_X // GRID, (FINISH_TOWER_X + 32) // GRID):
+        for cy in range(944 // GRID, int(east_y(cx * GRID)) // GRID):
+            cells[(cx, cy)] = terrain.FULL
+    bridge = terrain.band(
+        terrain.cosine_profile(BRIDGE), int(BRIDGE[0][0]) // GRID, int(BRIDGE[-1][0]) // GRID,
+        GRID, thickness=1,
+    )
+    return {
+        "level_id": ROOM_ID,
+        "layers": {
+            "Terrain": [[cx, cy, v] for (cx, cy), v in sorted(cells.items())],
+            "Track": [[cx, cy, v] for (cx, cy), v in sorted(bridge.items())],
+        },
+    }
+
+
 def area_spec() -> dict:
     x_island, y_island, w_island = SKY_ISLAND
     entities = [
         rect("PlayerStart", (146, 1100 - 46), (28, 46), name="highway_start"),
-        # The ground. West, valley and east are filled: earth below the line.
-        chain("highway_west", WEST, fill=True),
-        chain("highway_valley", VALLEY, fill=True),
-        chain("highway_east", EAST, fill=True),
-        # The sky bridge is a track over the valley, drawn as one.
-        chain("highway_bridge", BRIDGE, fill=False),
-        surface_loop("highway_loop_a", LOOP_A[0], LOOP_A[1], LOOP_A[2], 1300),
-        surface_loop("highway_loop_b", LOOP_B[0], LOOP_B[1], LOOP_B[2], 960),
-        surface_loop("highway_loop_d", LOOP_D[0], LOOP_D[1], LOOP_D[2], 1200),
-        # The upside-down tunnel. The ceiling is authored RIGHT→LEFT so its
-        # riding side faces down, into the tunnel; the GravityZone points
-        # gravity up inside, so he falls onto it and rides it. Leaving the zone
-        # gives gravity back and he drops to the floor.
-        rect(
-            "SurfaceChain",
-            (TUNNEL[0], TUNNEL_CEILING - 16),
-            (16, 16),
-            name="highway_tunnel_ceiling",
-            points=points_field([(TUNNEL[1], TUNNEL_CEILING), (TUNNEL[0], TUNNEL_CEILING)]),
-            closed=False,
-        ),
-        rect("Solid", (TUNNEL[0], TUNNEL_CEILING - 64), (TUNNEL[1] - TUNNEL[0], 64), name="tunnel_roof"),
+        # Each loop attaches to the painted floor under it (loop B: the bridge).
+        surface_loop("highway_loop_a", LOOP_A[0], LOOP_A[1], "terrain", west_y(LOOP_A[0])),
+        surface_loop("highway_loop_b", LOOP_B[0], LOOP_B[1], "terrain", 960),
+        surface_loop("highway_loop_d", LOOP_D[0], LOOP_D[1], "terrain", east_y(LOOP_D[0])),
+        # The upside-down tunnel: the painted roof's underside faces down, into
+        # the tunnel; the GravityZone points gravity up inside, so he falls
+        # onto it and rides it. Leaving the zone gives gravity back and he
+        # drops to the floor.
         rect("GravityZone", (TUNNEL[0] + 80, TUNNEL_CEILING), (TUNNEL[1] - TUNNEL[0] - 160, TUNNEL_FLOOR - TUNNEL_CEILING), name="tunnel_flip", dir="up"),
         # Boosters: into the climb, into loop D, and at the halfpipe's bottom.
-        booster(3700, 1300, 1300),
-        booster(9300, 1200, 1120),
-        booster(11620, 1480, 1400),
+        booster(3700, west_y(3730), 1300),
+        booster(9300, east_y(9330), 1120),
+        booster(11620, east_y(11650), 1400),
         # The valley's way back up to the others: a spring at its east end.
-        spring(7000, height_at(VALLEY, 7024), 1000),
-        # The cave's back wall, deep in the rock.
-        rect("Solid", (CAVE[0] - 64, CAVE[2] - 112), (64, 112), name="cave_back_wall"),
+        spring(7000, valley_y(7024), 1000),
         # SECRET 2: a ledge over the running line with a spring on it, and the
         # island the spring reaches.
         rect("OneWayPlatform", (SKY_LEDGE[0], SKY_LEDGE[1]), (SKY_LEDGE[2], 16), name="sky_ledge"),
         spring(SKY_LEDGE[0] + SKY_LEDGE[2] / 2 - 24, SKY_LEDGE[1], 1450),
         rect("OneWayPlatform", (x_island, y_island), (w_island, 16), name="sky_island"),
         # The valley's spike dip, and the gauntlet before the finish.
-        rect("DamageVolume", (VALLEY_SPIKES[0] + 10, VALLEY_SPIKES[2] - 16), (VALLEY_SPIKES[1] - VALLEY_SPIKES[0] - 20, 16), name="valley_spikes", damage=1),
-        spring(14250, 1200, 800),
+        rect("DamageVolume", (VALLEY_SPIKES[0] + 10, valley_y((VALLEY_SPIKES[0] + VALLEY_SPIKES[1]) / 2) - 16), (VALLEY_SPIKES[1] - VALLEY_SPIKES[0] - 20, 16), name="valley_spikes", damage=1),
+        spring(14250, east_y(14274), 800),
         rect("DamageVolume", (14400, 1184), (96, 16), name="gauntlet_spikes_1", damage=1),
         rect("DamageVolume", (14580, 1184), (96, 16), name="gauntlet_spikes_2", damage=1),
         rect("DamageVolume", (14760, 1184), (64, 16), name="gauntlet_spikes_3", damage=1),
-        rect("Solid", (FINISH_TOWER_X, 944), (32, 256), name="highway_finish_tower"),
         # Badniks walk the slopes now: on the rolling descent, the valley, the
         # plateau and the run-in.
-        badnik(WEST, 1180),
-        badnik(WEST, 1700),
-        badnik(VALLEY, 5400),
-        badnik(VALLEY, 6400),
-        badnik(EAST, 12900),
-        badnik(EAST, 15100),
+        badnik(west_y, 1180),
+        badnik(west_y, 1700),
+        badnik(valley_y, 5400),
+        badnik(valley_y, 6400),
+        badnik(east_y, 12900),
+        badnik(east_y, 15100),
     ]
     entities += ring_placements()
     return {
@@ -338,9 +347,9 @@ def named_blocks() -> dict:
         "level_id": ROOM_ID,
         "entities": [
             # SECRET 1: the cave in the climb's rock, behind a wall a roll breaks.
-            rect("Solid", (CAVE_WALL_X, CAVE[2] - 112), (32, 112), name="breakable_cave_wall"),
-            monitor("monitor_rings_cave", 4460, CAVE[2]),
-            monitor("monitor_speed_cave", 4560, CAVE[2]),
+            rect("Solid", (CAVE_WALL_X, valley_y(CAVE_WALL_X + 16) - 112), (32, 112), name="breakable_cave_wall"),
+            monitor("monitor_rings_cave", 4460, valley_y(4473)),
+            monitor("monitor_speed_cave", 4560, valley_y(4573)),
             # SECRET 2's reward.
             monitor("monitor_rings_sky", x_island + w_island - 50, y_island),
         ],
@@ -369,7 +378,6 @@ def main() -> None:
     for entity, field in (
         ("PickupSpawn", "sprite:String:"),
         ("SurfaceLoop", "attach_to:String:"),
-        ("SurfaceChain", "fill:Bool:false"),
     ):
         run_tool("def", "update-entity", entity, str(target), "--add-field", field, "--in-place", "--no-repair")
     with tempfile.TemporaryDirectory() as tmp:
@@ -379,6 +387,9 @@ def main() -> None:
         blocks = Path(tmp) / "sanic_highway_named_blocks.json"
         blocks.write_text(json.dumps(named_blocks(), indent=2))
         run_tool("entity", "add", str(blocks), "--ldtk", str(target), "--in-place")
+        cells = Path(tmp) / "sanic_highway_terrain.json"
+        cells.write_text(json.dumps(painted()))
+        run_tool("terrain", "paint", str(cells), "--ldtk", str(target))
     # After the area: this step validates the project, and a project with no
     # levels does not validate.
     run_tool("level", "add-field-def", "next_room", "--type", "String", str(target), "--in-place")

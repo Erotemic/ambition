@@ -22,8 +22,8 @@ For non-trivial work, localize in this order:
 4. `docs/planning/vision.md` plus the relevant `docs/planning/tracks.md` entry.
 5. The likely crate's generated packet and `MODULES.md`.
 6. ONE focused concept/system/recipe/tool doc or ADR.
-7. `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
-8. If you are reviewing, architecturally steering, or inspecting another agent's work, read `docs/reviewer-guide.md` before reviewing the diff.
+7. `dev/journals` and `dev/benchmark-candidates` when engineering memory is relevant.
+8. For review or architectural work, read `docs/reviewer-guide.md`.
 
 Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
 See `docs/recipes/fresh-agent-navigation.md`.
@@ -50,200 +50,137 @@ for intended direction.
 ## Source-of-truth order
 
 1. Fresh user instructions.
-2. **The master plan under `docs/planning/`** — primary coordination surface for direction and tasking.
+2. The master plan under `docs/planning/`.
 3. ADRs under `docs/adr/` and concepts under `docs/concepts/`.
 4. Focused docs under `docs/systems/`, `docs/tools/`, `docs/recipes/`.
 5. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
 6. Engineering memory under `dev/` and generated indexes under `.agent/`.
 
-`docs/current/` is retired. `docs/vision/` holds auxiliary notes only. Superseded docs are deleted rather than moved to an archive and can be read from git history with `git show <sha>^:<path>`.
+`docs/current/` is retired. `docs/vision/` holds auxiliary notes only. Superseded docs are deleted rather than archived and can be read from Git history.
 
-⛔ **A DONE ITEM IN A PLANNING DOC IS A RECEIPT, NOT A CASE FILE.** When you close a row, compress it in the same commit: what was wrong in one sentence, what fixed it, the commit, the guard, and any standing prohibition that would otherwise be rediscovered. Investigation belongs in the commit message and git history. For an OPEN row, keep the current model at the top and delete reasoning it supersedes. See `docs/planning/README.md#queue-contract`.
+⛔ **A DONE ITEM IN A PLANNING DOC IS A RECEIPT, NOT A CASE FILE.** Keep what was wrong, what fixed it, the commit, the guard, and any standing prohibition. Investigation belongs in the commit message and Git history. See `docs/planning/README.md#queue-contract`.
 
 ## Current architectural stance
 
 * Ambition is Bevy-native. Do not resurrect backend-neutral constraints unless a new ADR says so.
 * Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
-* LDtk owns world/level authoring. RON room manifests are historical; RON remains appropriate for tuning, save/settings, and other structured data.
+* LDtk owns world/level authoring. RON remains appropriate for tuning, save/settings, and other structured data.
 * Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. `ambition_platformer2d_actor_monolith` is not awaiting a size-driven carve. Current roles and accepted extractions are in `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
+* **Crate layering:** foundations and domain services feed the unified simulation heart; observation/presentation consume it; runtime/provider/host compose it; game providers own named content. Do not carve `ambition_platformer2d_actor_monolith` merely because it is large. See `docs/architecture/engine-architecture.md` and `docs/planning/tracks.md`.
 
 ### Assets in worktrees
 
-**Binary asset payloads are git-ignored but may be PRESENT on disk. Git-ignored is not missing.** `ls` before concluding an asset is unavailable. Do not build fetch/hydration machinery as part of a feature; a feature owes graceful visible degradation when an asset is absent.
+Binary asset payloads are git-ignored but may be PRESENT on disk. `ls` before concluding an asset is unavailable.
 
-Assets and initialized submodules do not automatically travel to a fresh worktree. From inside the worktree:
+Assets and initialized submodules do not automatically travel to a fresh worktree:
 
 ```bash
 python3 scripts/mirror_assets_for_worktree.py
 ```
 
-This also initializes `game/ambition_map_assets`, which backs symlinked LDtk paths.
-Full rules: `docs/recipes/adding-an-asset.md`.
+This also initializes `game/ambition_map_assets`.
+See `docs/recipes/adding-an-asset.md`.
 
-For a fresh clone/worktree, run:
+Before the first build of every session:
+
+```bash
+scripts/setup/target_bindmount.sh --status
+```
+
+If the bind is absent:
 
 ```bash
 scripts/setup/target_bindmount.sh
 ```
 
-⛔⛔ **RUN `scripts/setup/target_bindmount.sh --status` BEFORE YOUR FIRST BUILD,
-EVERY SESSION, AND ACT ON WHAT IT SAYS.** The repo may be on virtiofs; the script
-shadows `target/` with a directory on local storage. The bind does not survive a
-reboot, so an unbound session can silently build into the slow shared filesystem
-and create a large second copy of build artifacts.
+Do not build until the required target bind is active.
 
-⇒ If the bind is absent, repair it before building:
-
-```bash
-scripts/setup/target_bindmount.sh
-```
-
-⚠ Binding stops further growth on the shared filesystem but **does not reclaim an
-already-created shadowed copy**. Report that condition rather than deleting it.
-If disk pressure is involved, inspect the repository filesystem as well as the
-filesystem visible at `target/`:
-
-```bash
-df -h .
-df -h target
-```
-
-If the repo mount remains full with the bind in place, stop and report it rather
-than guessing what should be deleted.
-
-⛔ **`rm -rf` under `target/` is never the tool — `cargo clean` is.**
-
-✔ When the target is correctly bound, use Cargo or the repository cleanup tools:
-
-```bash
-./scripts/clean_workspace_crates.sh --incremental-only
-./scripts/clean_workspace_crates.sh --incremental-only --apply
-cargo clean --workspace
-cargo clean
-```
-
-Run the incremental cleaner without `--apply` first when you only need headroom.
-
-⚠ `./run_tests.sh` refuses to start on an unbound virtiofs target. Do not work
-around that safety check.
-
-Do not substitute `CARGO_TARGET_DIR` for the main repository target-bind policy.
+* Never use `rm -rf` under `target/`; use Cargo or repository cleanup tools.
+* Do not substitute `CARGO_TARGET_DIR` for the main repository target-bind policy.
+* If an old shadowed `target/` copy exists underneath the bind, report it rather than deleting it.
+* Do not run concurrent Cargo builds against one target directory.
 
 ## Autonomous decision-making
 
-When operating autonomously and you hit an architecture/design fork, **make the choice Jon would most likely make and act**. Read `docs/planning/decision-principles.md` and `docs/concepts/autonomous-decision-making.md`.
+When operating autonomously and you hit an architecture/design fork, make the choice Jon would most likely make and act. Read `docs/planning/decision-principles.md` and `docs/concepts/autonomous-decision-making.md`.
 
 Do not stop to ask about an architectural choice you can resolve from those principles. Until a polish pass, current output/feel is not a preservation constraint.
 
-**Handing the turn back on an armed run.** Never stop an autonomous run to ask, except when Jon explicitly asks in that turn to finish and wait. Then:
+If Jon explicitly asks in that turn to finish and wait:
 
 ```bash
 python3 scripts/goal_guard.py --pause "Jon asked me to finish X and wait"
 ```
 
-Do not use `--pause` to end a turn early. Clearing an armed run is Jon's call.
-
 Extend an armed run with:
 
 ```bash
-python3 scripts/goal_guard.py --extend 48h   # also 2d, 90m, or ISO timestamp
-python3 scripts/goal_guard.py --extend       # print clocks
+python3 scripts/goal_guard.py --extend 48h
+python3 scripts/goal_guard.py --extend
 ```
 
-Never hand-edit `.goal/active.json`; the run has multiple release clocks and
-`--extend` updates them consistently.
+Never hand-edit `.goal/active.json`.
 
 ## Programmatic Checks
 
-A check that takes more than a minute is not cheap. A check that takes more
-than 2 minutes is expensive. Many iterations of 10s-of-seconds checks add real
-latency and have a large negative impact on throughput.
+A check that takes more than a minute is not cheap. Batch expensive gates rather than running them after every small edit.
 
-* **Batch the gate**: do not run the full gate every micro-edit. It belongs
-  before a big commit, not between edits. Sometimes not even between commits,
-  when they are part of a larger campaign.
-* Do not double check with cargo. Tee its output to a file once if you need
-  multiple operators over its output.
-* ⛔⛔ **FREEZE THE TREE WHILE A GATE RUNS — including docs, including a merge.**
-  A verification result must describe one stable tree. Do not edit or merge
-  underneath a running gate.
+⛔ **FREEZE THE TREE WHILE A GATE RUNS.** A verification result must describe one stable tree.
 
 ## Verification
 
 Use the narrowest command that actually covers the change. Full matrix:
 `docs/recipes/cheapest-sufficient-check.md`.
 
-* **Drive the real headless sim — don't say "I can't test it."** Step the actual
-  sim (`headless` / `trace_replay`) and observe. If important state cannot be
-  exercised headlessly, improve the harness. Only visual feel ships blind.
-* **Test invariants/properties, not tuned values or unfinished feel.** Prefer
-  symmetry/covariance where applicable.
-* **Replay/bit-identical tests are canaries, not cages.** Re-baseline deliberate
-  changes when the diff is not egregious.
-* **`cargo check -p <one_crate>` is not the compile gate.**
+* Drive the real headless simulation when behavior matters (`headless` / `trace_replay`). If important state cannot be exercised headlessly, improve the harness.
+* Test invariants/properties, not tuned values or unfinished feel.
+* Replay/bit-identical tests are canaries, not cages. Re-baseline deliberate changes when appropriate.
+* `cargo check -p <one_crate>` is not the assembled-app compile gate:
 
   ```bash
   cargo check -p ambition_app
   ```
 
-  A crate-local check can be green while the assembled app fails.
-
-* App-level integration tests live in one `app_it` target:
+* App integration tests live in one target:
 
   ```bash
   cargo test -p ambition_app --test app_it -- <module>
   ```
 
-  ⛔ **The trailing `-- <module>` is a FILTER, not a lane.** A green filtered run
-  proves only the selected population. Before claiming the target passes, remove
-  the filter and run the whole target.
+  The trailing argument is a filter. A green filtered run proves only that population.
 
-  Likewise, `--exact` with a bare test name can match nothing and still exit 0;
-  use the full module path.
+* `--exact` with a bare test name can match nothing. Use the full module path.
+* When a sense-flip is involved, manually read the assertion against the claim.
+* A diagnostic probe whose outcomes are both informative should pass; inspect it before encoding the intended invariant.
+* Do not routinely run:
 
-* ⛔ **A green suite cannot certify an assertion's direction.** When a sense-flip
-  is involved, read the assertion against the claim and failure message.
+  ```bash
+  cargo test --workspace --tests
+  ```
 
-* A probe whose two outcomes are both informative must not be a deliberately
-  failing test. Use a passing diagnostic probe, inspect it, then encode the
-  intended invariant.
-
-* ⛔⛔ **DO NOT SWEEP `cargo test --workspace --tests`.** It links many
-  integration targets at once. Prefer `--workspace --lib` plus named integration
-  targets.
-
-* ⛔ **THE PER-TURN GATE DOES NOT RUN `--workspace --lib`.** Before
-  push/finalization, when the verification recipe calls for it:
+* Before finalization, when required by the verification recipe:
 
   ```bash
   cargo test --workspace --lib
   ```
 
-  Keep this as a separate validation tier. Do not add it to every turn.
-
-* When touching character, movement, or combat:
+* For character, movement, or combat changes:
 
   ```bash
   cargo test -p ambition_demo_smash_app
   ```
 
-* When moving dependency, ownership, motion-authority, or other architecture boundaries:
+* For dependency, ownership, motion-authority, or architecture-boundary changes:
 
   ```bash
   cargo test -p ambition_workspace_policy
   ```
 
-  If a policy fires because architecture intentionally changed, update its
-  rationale. Do not add a waiver merely to silence it.
+  If policy intentionally changed, update its rationale rather than adding a waiver.
 
-* `cargo nextest run` is installed and `./run_tests.sh` uses it when available.
-  Prefer it for diagnosis because it reports individual test durations.
+* `cargo nextest` does not run doctests. Do not claim doctest coverage from a nextest-only run.
 
-  ⛔ **NEXTEST RUNS NO DOCTESTS.** Do not claim doctest coverage from a nextest
-  run unless doctests ran separately.
-
-* ⛔ **A compiling game can still draw stale quality-variant art.** Publishing art means:
+* Publishing changed art requires:
 
   ```bash
   ./scripts/regen/quality_variants.sh
@@ -252,12 +189,9 @@ Use the narrowest command that actually covers the change. Full matrix:
 
 ### Generated assets
 
-⭐⭐ **THE BIG ASSETS ARE GENERATED FROM SMALL AUTHORED SOURCES, AND THAT IS WHY
-THEY ARE GITIGNORED.** Spritesheets, portraits, backgrounds, quality tiers,
-music cues and the packed SFX bank are all output. Git carries the small,
-reviewable source used to rebuild them.
+Large runtime assets are generated from small authored sources and are intentionally git-ignored.
 
-One command rebuilds all generated runtime content, fonts included:
+Build generated runtime content with:
 
 ```bash
 scripts/setup/generated_content.sh
@@ -268,125 +202,46 @@ Narrower commands:
 ```bash
 ./scripts/regen/assets.sh
 ./scripts/regen/sprites.sh --list
-./scripts/regen/sprites.sh --target george_booul_vfx
-./scripts/regen/sprites.sh --check-toolchain
+./scripts/regen/sprites.sh --target <target>
 python3 scripts/grab_font_assets.py
 ```
 
-⛔ **An assetless tree can fail tests that do not name assets.** Common symptoms:
-
-| symptom | likely cause | fix |
-|---|---|---|
-| many unrelated `"unknown cosmetic effect"` errors | baked sprite-sheet table is empty | `./scripts/regen/sprites.sh` |
-| missing bundled font at compile time | fonts were not fetched | `python3 scripts/grab_font_assets.py` |
-| portrait manifest expected but absent | baked portrait table is empty | `./scripts/regen/sprites.sh` |
-| art draws at a stale quality tier | quality variants are stale | `./scripts/regen/quality_variants.sh` |
-
-⚠ `regen/assets.sh` does not fetch fonts. `scripts/setup/generated_content.sh`
-does both generated assets and fonts.
-
-`build.rs` declares asset directories with `cargo:rerun-if-changed`, so Cargo
-re-bakes after regeneration. Do not run regeneration concurrently with a Cargo
-build.
+Do not regenerate assets concurrently with a Cargo build.
 
 Details:
-[`scripts/regen/README.md`](scripts/regen/README.md),
-[`docs/tools/generated-visual-tools.md`](docs/tools/generated-visual-tools.md),
-[`docs/tools/generated-audio-tools.md`](docs/tools/generated-audio-tools.md).
+
+* `scripts/regen/README.md`
+* `docs/tools/generated-visual-tools.md`
+* `docs/tools/generated-audio-tools.md`
 
 ### Authored data
 
-A changed Rust type does not typecheck authored RON embedded inside `&str` literals.
-Search every authored occurrence of changed fields and run tests for each affected
-crate.
-
-Git-ignored sprite RON can be skipped by ordinary recursive search and symlink
-handling. For sprite assets use:
-
-```bash
-find . -path '*/assets/sprites/*.ron' -not -path './target/*' | \
-    xargs grep -l '<field>'
-```
+A changed Rust type does not typecheck authored RON embedded inside `&str` literals. Search every authored occurrence of changed fields and run tests for each affected crate.
 
 ### Repository checks
 
-Repository check scripts may default to advisory mode. Before relying on a zero
-exit code, check whether enforcement requires `--check` or `--strict`.
+Repository check scripts may default to advisory mode. Before relying on a zero exit code, confirm whether enforcement requires `--check` or `--strict`, and confirm the checker reached its normal verdict rather than crashing.
 
-Known advisory-by-default scripts include:
-
-* `check_absence_contracts.py` — enforce with `--check`
-* `check_doc_link_ratchet.py` — enforce with `--check`
-* `check_planning_citations.py --vanished REF` — enforce with `--strict`
-* `check_planning_line_citations.py` — enforce with `--strict`, repair with
-  `--fix`
-
-`compile_ratchet.py` is intentionally the counterexample and fails by default.
-
-⛔ **A checker that crashes is not a checker that fails.** If a checker shells
-out to other tools, confirm that it reached its normal verdict output rather
-than trusting the exit code or traceback alone.
-
-Do not duplicate a check in CI without first searching the workflow at the
-parent commit.
-
-Adding or removing a workspace crate can affect repository policy files and
-nested lockfiles outside the changed crate. After adding or removing a crate,
-run:
+When adding or removing a workspace crate, run:
 
 ```bash
 cargo test -p ambition_workspace_policy --test policy
 python3 scripts/check_absence_contracts.py --check
 ```
 
-Relevant files are discoverable:
-
-```bash
-git grep -l <an existing sibling crate name> -- '*.toml' '*.lock' '*.py'
-```
+Search for other crate-name allowlists, lockfiles, and repository tooling that may need updates.
 
 ### Long-running builds
 
-⛔ **NEVER SIT AND WATCH A BUILD DURING COORDINATED WORK.** Give a worker
-independent writing work in a worktree while `main` verifies.
+Do not sit and watch a long build during coordinated work. Use an independent worktree for unrelated writing work.
 
-⛔ **DO NOT RUN CONCURRENT BUILDS AGAINST ONE TARGET DIR.** Agent worktrees each
-bind-mount their own, so builds in different slots are fine — see
-`docs/tools/agent-worktrees.md`. Pace your `-j` to your slot.
+Do not run concurrent Cargo builds against one target directory.
 
-⛔ **Do not run concurrent Cargo builds with different feature sets against the
-same target directory.** Shared artifacts can be rebuilt incompatibly and leave
-misleading link failures.
-
-If a long feature-specific run is in flight, do documentation or other
-non-Cargo work instead of launching a competing build.
-
-⛔ **A nested workspace's `target/` is not the main bind-mounted target.**
-`examples/capability_demo`, `fixtures/minimal_game`, and
-`fixtures/external_consumer` carry their own workspaces. Route those builds into
-the main bound target explicitly, for example:
-
-```bash
-CARGO_TARGET_DIR=$PWD/target/capability_demo \
-  cargo test --manifest-path examples/capability_demo/Cargo.toml ...
-```
-
-`scripts/setup/target_bindmount.sh --status` reports the main target only. If
-disk pressure matters, check both:
-
-```bash
-df -h .
-df -h target
-```
-
-The exhaustive plan `--run-everything-you-probably-dont-need-this` is
-intentionally exceptional. Use it only when the verification recipe names your
-change.
+Nested standalone workspaces have their own `target/`. Route them into appropriate bound storage when disk pressure matters.
 
 ## Test placement
 
-Tests live at the narrowest scope owning the invariant. Never widen a production
-API merely to move a test. See `docs/concepts/test-placement.md`.
+Tests live at the narrowest scope owning the invariant. Never widen a production API merely to move a test. See `docs/concepts/test-placement.md`.
 
 ## The Hall of Characters is NOT a special case
 
@@ -394,9 +249,7 @@ API merely to move a test. See `docs/concepts/test-placement.md`.
 
 ⛔ **When it is slow, do not fix the Hall. Fix the engine.**
 
-Do not hand-edit the level. Read
-`docs/concepts/hall-of-characters-is-not-special.md` before optimizing anything
-that touches it.
+Do not hand-edit the level. Read `docs/concepts/hall-of-characters-is-not-special.md`.
 
 ## Before a non-trivial patch
 
@@ -415,96 +268,60 @@ Add durable lessons to `dev/benchmark-candidates/`; never transient project stat
 
 * Do not hand-edit generated LDtk content.
 * Formatting is advisory, never an acceptance gate.
-* A script that writes an artifact ends stdout with a `rich` clickable `file://`
-  link to the artifact and its directory. Pattern: `scripts/git_debloat.py`.
-* `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks
-  when they cover the touched invariant.
-* ⛔ **`cargo test -p <crate>` DOES NOT COVER THE `-D warnings` INVARIANT.**
-  A warning is not a test failure. Use `scripts/check_no_warnings.py` when that
-  invariant matters.
-* ⭐ **A lane you assemble yourself has no skip-list to read past.** If you go
-  narrow, say what the narrow set omits. If you cannot name the omission, do
-  not treat the lane as comprehensive.
-* For long-running commands, read state they wrote rather than polling process
-  names:
-
-  * `target/run_tests_status.json` — only `state: done` means the plan ran;
-    `aborted` means the suite stopped part-way; `incomplete` means a lane could
-    not run and names the remedy in `unrunnable`.
-  * `dev/ambition_dev_measurements/run_tests_cost.jsonl`
-
-Do not poll long-running work with `pgrep -f <script>`; the polling command can
-match itself. Prefer the status artifact. If process inspection is unavoidable,
-use a pattern that cannot match the polling command itself.
+* `./run_tests.sh` is the broad repository test backbone. Prefer narrower checks when they cover the touched invariant.
+* `cargo test -p <crate>` does not cover the `-D warnings` invariant. Use `scripts/check_no_warnings.py` when that invariant matters.
+* If you assemble a narrow verification lane, say what it omits.
+* For long-running commands, use their status artifacts rather than polling process names.
 
 ## Comments
 
-**Concise, substantive, and unlikely to go stale.** Every comment earns its lines
-or is deleted; trim overlong comments as ordinary work.
+**Concise, substantive, and unlikely to go stale.**
 
-What belongs where:
+| location | content |
+| --- | --- |
+| production source | current invariant, owner, non-obvious ordering reason, consequence of violation |
+| test | concrete regression scenario |
+| commit / planning / `dev/` | investigation history, measurements, failed theories, dates, review provenance |
 
-| location                   | content                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------- |
-| production source          | current invariant, owner, non-obvious ordering reason, consequence of violation        |
-| test                       | concrete regression scenario                                                           |
-| commit / planning / `dev/` | investigation history, measurements, failed theories, dates, quotes, review provenance |
-
-* **Do not narrate the past in source.**
-* **Do not argue with the comment you replaced.** State the current rule.
-* **Do not restate the code.**
-* **Keep warnings that name non-obvious invariants.**
-* For proven transitional architecture, use a short `TODO(compat-remove)` naming
-  the replacement and deletion condition instead of a migration essay.
+* Do not narrate the past in source.
+* Do not argue with the comment you replaced.
+* Do not restate the code.
+* Keep warnings that name non-obvious invariants.
+* For real transitional architecture, use a short `TODO(compat-remove)` naming the replacement and deletion condition.
 
 ## Push what you commit
 
-**Always push to GitHub when credentials exist.** Committing is not the durable step.
+Always push to GitHub when credentials exist.
 
-* ⛔⛔ **RECONCILE WITH `git merge`, NOT `git rebase`.** The per-commit resource
-  tally and other planning/evidence records can be keyed to commit SHA. Rebase
-  rewrites those addresses and can orphan their attribution.
+⛔ **Reconcile with `git merge`, not `git rebase`.** Repository evidence can be keyed to commit SHA.
 
-  Test reachability, not merely object existence:
+Test reachability when needed:
 
-  ```bash
-  git merge-base --is-ancestor <sha> origin/main
-  ```
+```bash
+git merge-base --is-ancestor <sha> origin/main
+```
 
-  A duplicate-looking commit is cheaper than orphaning records keyed to the old
-  SHA.
+Push an ahead submodule before committing the superproject pointer:
 
-* Push every ahead submodule before the superproject commit that records its pointer:
+```bash
+git -C <submodule> rev-list --count origin/main..HEAD
+```
 
-  ```bash
-  git -C <submodule> rev-list --count origin/main..HEAD
-  ```
+Do not push another agent's uncommitted submodule work.
 
-* ⛔ **Push commits, never somebody else's uncommitted submodule work.**
-
-* Append-only ledgers inside submodules are shared state. Commit your appended
-  rows before updating the submodule. Repository merge configuration is
-  responsible for combining independently committed appends.
-
-  When pruning an append-only file, prune only lines added past `HEAD` and
-  verify the committed prefix is byte-identical first. Deletions from the
-  committed prefix are a warning sign.
+Append-only ledgers are shared state. Commit your own appended rows and let repository merge configuration combine independent appends.
 
 ## Coordinating subagents and worktrees
 
-⛔ **Read `docs/tools/agent-worktrees.md` before working in or assigning a worktree.**
+Read `docs/tools/agent-worktrees.md` before working in or assigning a worktree.
 
-Three fixed slots, `.worktrees/agent-worktree{1,2,3}`. A COORDINATOR assigns one;
-never claim a slot yourself and never create a worktree named after a feature.
+Use the fixed slots. A coordinator assigns them; do not claim one yourself.
 
 ```bash
-scripts/agent_worktree.sh list          # slots, HEAD, size, who is building
-scripts/agent_worktree.sh setup all     # submodules + assets + bind-mounted target
-scripts/agent_worktree.sh jobs 2        # the -j to build with in that slot
+scripts/agent_worktree.sh list
+scripts/agent_worktree.sh setup all
+scripts/agent_worktree.sh jobs 2
 ```
-
-CPU is halved down the slots — main `nproc`, then /2, /4, /8 — so three agents do
-not each build as if they own the machine. A coordinator overrules.
 
 Also read `docs/recipes/coordinator-and-worker-sessions.md`.
 
@@ -540,18 +357,19 @@ coverage gap.
 If a proposed guard prevents a concrete recurring harmful failure, evaluate it on
 those merits. Otherwise the answer remains no.
 
-⛔ **DO NOT run `install --claude`, whatever `doctor` says.** SessionEnd-only
-Claude wiring is deliberate. `doctor` may report that only SessionEnd is wired;
-do not "repair" that state from this repository.
+Prefer, in order:
 
-The parent's totals are not the whole bill. Tool repositories can carry their
-own tracked tallies. Use:
+1. clear architecture;
+2. Rust types and APIs;
+3. crate/dependency boundaries;
+4. behavioral tests;
+5. static/process guards only when the above cannot naturally enforce the invariant.
 
-```bash
-python3 .llm_resource_tally/tool fleet . tools/ambition_sprite2d_renderer
-```
+Migration-only guards should be removed when the migration is complete.
 
-when aggregate totals across the parent and renderer are required.
+An LLM review asking for redundant coverage or meta-tests is not itself a reason to add them.
+
+⛔ **Do not run `.llm_resource_tally/tool install --claude`.** SessionEnd-only Claude wiring is deliberate.
 
 <!-- BEGIN llm_resource_tally v0.3.0 (managed block — regenerated by `install`; edits below will be overwritten) -->
 ## LLM resource accounting
@@ -582,4 +400,3 @@ given.
   It is offline and idempotent, and it reads the committed `.llm_resource_tally/settings.json`
   policy.
 <!-- END llm_resource_tally -->
-

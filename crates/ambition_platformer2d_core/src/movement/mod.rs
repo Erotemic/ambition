@@ -502,6 +502,7 @@ fn update_body_simulation_inner(
         // putting the modifier here: it expires on the same tick every other
         // maneuver timer does, and no move has to remember to end it.
         state.gravity_modifier_timer = dec(state.gravity_modifier_timer);
+        state.held_velocity_timer = dec(state.held_velocity_timer);
         state.rebound_cooldown = dec(state.rebound_cooldown);
         // ⭐⭐ THE ROLL HANDS OFF TO ITS OWN ENDLAG, exactly as the air dodge
         // below does: "invulnerable" and "committed" become separable states

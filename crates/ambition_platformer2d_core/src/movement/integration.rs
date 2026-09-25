@@ -543,15 +543,19 @@ pub(super) fn integrate_normal_clusters(
             // ⛔ NOT GATED ON `on_ground`. A roll that leaves the edge keeps the
             // momentum it authored; handing air control back mid-roll would let
             // the stick edit the same velocity from the other law instead.
+            // ⭐ AND A MOVE HOLDING ITS OWN SIDE SPEED is the same case as an
+            // evade: the velocity was authored, so the stick does not edit it.
             can_move_horizontal: abilities.abilities.move_horizontal
                 && !(input.shield_held && ground.on_ground)
-                && state.dodge_roll_timer <= 0.0,
+                && state.dodge_roll_timer <= 0.0
+                && state.held_velocity_timer <= 0.0,
             // ⭐ PLANTED, NOT MERELY UNSTEERABLE. A guard raised mid-run sheds
             // the run; an EVADE does not, because a roll and a spot dodge set
             // their own velocity and this law must not brake them.
             settling: ground.on_ground
                 && state.dodge_roll_timer <= 0.0
-                && state.air_dodge_timer <= 0.0,
+                && state.air_dodge_timer <= 0.0
+                && state.held_velocity_timer <= 0.0,
             can_variable_jump: abilities.abilities.variable_jump,
             gravity_modifier,
         },

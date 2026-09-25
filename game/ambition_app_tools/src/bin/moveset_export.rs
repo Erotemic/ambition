@@ -459,6 +459,7 @@ fn event_json(event: &ambition_entity_catalog::MoveEvent) -> serde_json::Value {
         MoveEventKind::GravityModifier { scale, seconds } => {
             ("gravity_modifier", format!("x{scale} for {seconds}s"))
         }
+        MoveEventKind::HoldVelocity { seconds } => ("hold_velocity", format!("{seconds}s")),
     };
     serde_json::json!({
         "at_s": event.at_s,

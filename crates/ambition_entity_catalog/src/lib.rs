@@ -1421,6 +1421,15 @@ pub enum MoveEventKind {
         /// body's current modifier, so a move can end one early.
         seconds: f32,
     },
+    /// Leave the owner's side speed to the move for `seconds`: the movement
+    /// domain neither steers nor brakes it until the clock runs out, as for an
+    /// accepted roll. Paired with an [`Impulse`](Self::Impulse) at the same
+    /// beat, it is a timed step of `speed x seconds` that ground friction does
+    /// not eat. A duration for the reason [`GravityModifier`](Self::GravityModifier)
+    /// is one; `0.0` hands the side speed back.
+    HoldVelocity {
+        seconds: f32,
+    },
 }
 
 /// How a [`MoveEventKind::Impulse`] meets the velocity the body already had.
@@ -2340,7 +2349,8 @@ impl MoveSpec {
                 | MoveEventKind::Sfx { .. }
                 | MoveEventKind::Ranged
                 | MoveEventKind::Impulse { .. }
-                | MoveEventKind::GravityModifier { .. } => {}
+                | MoveEventKind::GravityModifier { .. }
+                | MoveEventKind::HoldVelocity { .. } => {}
             }
         }
         if let Some(TechniqueFlow { nodes }) = flow {

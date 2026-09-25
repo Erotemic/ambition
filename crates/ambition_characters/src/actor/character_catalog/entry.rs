@@ -865,7 +865,6 @@ pub enum MeleePreset {
         recover_s: f32,
         damage: i32,
         reach_px: f32,
-        hop_height_px: f32,
     },
     Bite {
         windup_s: f32,

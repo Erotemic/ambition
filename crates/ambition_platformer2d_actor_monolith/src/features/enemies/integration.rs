@@ -563,3 +563,5 @@ impl SeedActorIntegrationTestExt for ambition_body_seed::ActorClusterSeed {}
 mod dash_tests;
 #[cfg(test)]
 mod hitlag_tests;
+#[cfg(test)]
+mod lunge_tests;

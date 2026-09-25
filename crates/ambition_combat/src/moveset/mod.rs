@@ -1513,6 +1513,21 @@ pub fn advance_move_playback(
                     }
                     continue;
                 }
+                // The same class again: a hold is a write on the owner's own
+                // movement policy, and a policy that cannot hold says so.
+                if let MoveEventKind::HoldVelocity { seconds } = &ev.kind {
+                    if let Some(motion) = motion.as_deref_mut() {
+                        if !motion.hold_velocity(*seconds) {
+                            bevy::log::warn!(
+                                target: "ambition::moves",
+                                "move `{}` asked to hold its owner's velocity and its owner's \
+                                 movement policy has no such state — the beat did nothing",
+                                pb.spec.id
+                            );
+                        }
+                    }
+                    continue;
+                }
                 if let MoveEventKind::Impulse { local, mode } = &ev.kind {
                     let body_frame = owner_frames
                         .get(owner)
@@ -4526,6 +4541,9 @@ pub fn dispatch_move_events(
             // movement policy, so `advance_move_playback` applies it at the
             // authored instant and never publishes it.
             MoveEventKind::GravityModifier { .. } => {}
+            // UNREACHABLE BY CONSTRUCTION, for the same reason: a hold is a
+            // write on the owner's movement policy.
+            MoveEventKind::HoldVelocity { .. } => {}
         }
     }
 }

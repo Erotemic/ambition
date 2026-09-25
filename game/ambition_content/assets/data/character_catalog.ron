@@ -33,6 +33,9 @@
         // or how fast it can move — that is the character's half.
         "medium_striker": (
             template: Smash,
+            // A swing, then 0.34s before this driver commits to another: the
+            // pace the headless Smash arena already gives the same brain.
+            attack_cooldown_s: 0.34,
             aggro_radius: 460.0,
             attack_range: 150.0,
             patrol_effort: 0.6176,
@@ -61,6 +64,7 @@
         // needs no matcher to recognise it.
         "cellular_duelist": (
             template: Smash,
+            attack_cooldown_s: 0.34,
             aggro_radius: 540.0,
             attack_range: 150.0,
             patrol_effort: 0.5714,
@@ -85,6 +89,7 @@
         // eighty-line archetype row could not simply become a definition.
         "robot_duelist": (
             template: Smash,
+            attack_cooldown_s: 0.34,
             aggro_radius: 560.0,
             attack_range: 60.0,
             patrol_effort: 0.55,
@@ -101,6 +106,7 @@
         // takes a swing is the same raider; only its mind changes.
         "pirate_boarder": (
             template: Smash,
+            attack_cooldown_s: 0.34,
             aggro_radius: 460.0,
             attack_range: 140.0,
             patrol_effort: 0.6842,
@@ -135,6 +141,7 @@
         // about: does this one come looking for you, or wait.
         "door_guard": (
             template: Smash,
+            attack_cooldown_s: 0.34,
             aggro_radius: 320.0,
             attack_range: 120.0,
             patrol_effort: 0.08,

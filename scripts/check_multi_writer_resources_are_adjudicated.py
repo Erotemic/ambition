@@ -341,6 +341,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_demo_mary_o/src/lib.rs",
+        "game/ambition_demo_sanic/src/lib.rs",
     ),
     "QuestRegistry": (
         "crates/ambition_boss_encounter/src/systems.rs",
@@ -2333,7 +2334,13 @@ ADJUDICATED: dict[str, str] = {
         "assembled from four `in_set` declarations in four crates, and no single "
         "page states it. A reader asking *what happens if a player dies in a "
         "doorway on the frame a checkpoint resumes* has to rebuild this table "
-        "from the schedule to find out."
+        "from the schedule to find out. "
+        "⚠ TWO DEMO ARMERS DISCARD THE ADMISSION, AND BOTH MAY: Mary-O's "
+        "`cycle_level_on_flag_tally` and Sanic's `cycle_act_after_clear` "
+        "(2026-09-24, act progression) write `let _ = pending.record(..)`, but "
+        "neither spends anything on the strength of it. Each leaves its phase "
+        "`Tallied`/`Cleared` and re-asks every tick, so a refusal costs one tick "
+        "of dwell and nothing else, unlike the door's press."
     ),
     "CutsceneTriggerQueue": (
         "CORRECT BY COINCIDENCE — CUTSCENE-ROLLBACK-DECISION item 2: every "

@@ -221,3 +221,31 @@ fn every_hall_body_wears_the_actor_verbs_preparation_resolved() {
          checked, {unauthored} of them unauthored"
     );
 }
+
+/// The swing pace a shared policy authors reaches the live body that names it.
+///
+/// The goblin drives by the catalog's `medium_striker`, which authors
+/// `attack_cooldown_s`. The move road arms the body's melee floor from
+/// `ActorConfig::brain_profile`, so a pace that stopped at the catalog would
+/// arm nothing.
+#[test]
+fn a_hall_goblin_carries_the_swing_pace_its_shared_policy_authors() {
+    let mut hall = fixed_60hz_room_sim("hall_of_characters");
+    for _ in 0..90 {
+        hall.step(base());
+    }
+    let world = hall.world_mut();
+    let mut q = world.query::<(&WornCharacter, &ActorConfig)>();
+    let paces: Vec<f32> = q
+        .iter(world)
+        .filter(|(worn, _)| worn.id() == "goblin")
+        .map(|(_, config)| config.brain_profile.attack_cooldown_s)
+        .collect();
+    assert!(!paces.is_empty(), "the Hall staged no goblin");
+    for pace in paces {
+        assert_eq!(
+            pace, 0.34,
+            "the goblin's `medium_striker` authors a 0.34s swing pace; its body carries {pace}"
+        );
+    }
+}

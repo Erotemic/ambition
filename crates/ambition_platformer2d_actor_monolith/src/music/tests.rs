@@ -16,7 +16,7 @@ use ambition_audio::music::state::MusicDirectorState;
 /// phase separately.
 fn waves_fixture(run: EncounterRun) -> EncounterWaves {
     let spec: ambition_encounter::EncounterSpec = ron::from_str(
-        r#"(id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
+        r#"(id: "t", room_id: "r", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
             camera_zoom: 1.0, lock_wall: None, intro_seconds: 0.0, music_track: "")"#,
     )
     .expect("minimal spec");

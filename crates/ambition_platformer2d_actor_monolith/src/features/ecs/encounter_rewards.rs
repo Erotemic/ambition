@@ -49,10 +49,14 @@ pub fn clear_encounter_reward_ecs(
 /// Takes the cleared encounters' `(id, spec)` pairs (gathered from the live
 /// encounter entities by the caller) rather than the registry, so it stays
 /// decoupled from the encounter state representation (E1).
+///
+/// A chest is a feature of the room its encounter is authored in. The cleared
+/// list covers every live encounter, so only those in `active_room` get a chest.
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
+    active_room: &str,
     cleared: &[(String, ambition_encounter::EncounterSpec)],
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
@@ -60,7 +64,7 @@ pub fn sync_encounter_reward_chests_ecs(
     >,
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
-    for (encounter_id, spec) in cleared.iter() {
+    for (encounter_id, spec) in cleared.iter().filter(|(_, spec)| spec.room_id == active_room) {
         let chest_id = ambition_encounter::encounter_chest_feature_id(encounter_id);
         let looted = save.flag(&ambition_encounter::encounter_reward_looted_flag(
             encounter_id,
@@ -120,6 +124,9 @@ pub fn sync_encounter_reward_chests(
     mut commands: ambition_platformer2d_shared_tangle::lifecycle::SessionCommands<'_, '_>,
     save: bevy::prelude::Res<ambition_persistence::save::AmbitionGameSave>,
     cleared: bevy::prelude::Res<ambition_encounter::rewards::ClearedEncounters>,
+    rooms: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_world::rooms::RoomSet,
+    >,
     chests: bevy::prelude::Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -130,7 +137,14 @@ pub fn sync_encounter_reward_chests(
     let Some(session_scope) = commands.spawn_scope() else {
         return;
     };
-    sync_encounter_reward_chests_ecs(&mut commands, session_scope, save.data(), &cleared.0, &chests);
+    sync_encounter_reward_chests_ecs(
+        &mut commands,
+        session_scope,
+        save.data(),
+        &rooms.active_spec().id,
+        &cleared.0,
+        &chests,
+    );
 }
 
 /// Composes [`sync_encounter_reward_chests`] on the feature side.
@@ -197,6 +211,10 @@ pub fn retire_rewards_for_rearmed_encounters(
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
     >,
+    encounters: bevy::prelude::Query<(
+        &ambition_encounter::Encounter,
+        &ambition_encounter::EncounterWaves,
+    )>,
 ) {
     if switches.0.is_empty() {
         return;
@@ -209,14 +227,15 @@ pub fn retire_rewards_for_rearmed_encounters(
         {
             continue;
         }
-        // An empty target means "the active room's own encounter", exactly as
-        // the adapter resolved it.
-        let target_id = if activation.target_encounter.is_empty() {
-            rooms.active_spec().id.clone()
-        } else {
-            activation.target_encounter.clone()
+        let Some(target_id) = activation.target_encounter_in(
+            &rooms.active_spec().id,
+            encounters
+                .iter()
+                .map(|(encounter, waves)| (encounter.id.as_str(), waves.spec.room_id.as_str())),
+        ) else {
+            continue;
         };
-        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, &target_id);
+        clear_encounter_reward_ecs(&mut commands, save.data_mut(), &chests, target_id);
     }
 }
 

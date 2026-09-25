@@ -286,6 +286,7 @@ mod tests {
     fn spec(waves: Vec<EncounterWaveSpec>) -> EncounterSpec {
         EncounterSpec {
             id: "test_enc".into(),
+            room_id: "test_enc".into(),
             waves,
             trigger_min: [0.0, 0.0],
             trigger_size: [100.0, 100.0],

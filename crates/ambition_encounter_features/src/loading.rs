@@ -91,6 +91,7 @@ pub fn load_encounter_specs_from_rooms(
 
         let spec = EncounterSpec {
             id: trigger_id.clone(),
+            room_id: room.id.clone(),
             waves,
             trigger_min,
             trigger_size,

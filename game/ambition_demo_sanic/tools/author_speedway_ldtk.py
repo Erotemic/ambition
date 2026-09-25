@@ -94,7 +94,9 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 # them; arcs over the hills / pit reward the fast air routes. The box is SQUARE so
 # the round `sanic_ring_prop` sprite (bound demo-side) isn't stretched; `px` is
 # its top-left, so a ring is centred on (cx, cy).
-RING_SIZE = (30, 30)
+# : The same side as a ring a hit scatters (`RING_SIZE` in `src/lib.rs`); the
+# : demo's `every_ring_the_speedway_places_is_the_size_a_hit_scatters` holds them together.
+RING_SIZE = (18, 18)
 # : The sheet each ring wears, authored on the placement.
 # :
 # : `PickupSpawn` does not carry a `sprite` field in the shared defs, so

@@ -335,7 +335,10 @@ fn sanic_speedway_composes_through_the_umbrella() {
             junction.ports
                 == vec![
                     ae::SurfacePort::local(0),
-                    ae::SurfacePort::chain(1, ramp_fork_vertex),
+                    ae::SurfacePort::chain(
+                        room.world.chain_named("sanic_floor_route").expect("the floor"),
+                        ramp_fork_vertex,
+                    ),
                 ]
         }),
         "the tiled floor and the ramp are one steerable route junction"
@@ -538,7 +541,7 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, 0, start_s, speed, params);
+    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), start_s, speed, params);
 
     let mut reached_runout = false;
     for _ in 0..180 {
@@ -580,7 +583,7 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
         jump_speed: 700.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, 0, entry_s, speed, params);
+    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), entry_s, speed, params);
 
     let clear_s = closure_s + 160.0;
     for _ in 0..180 {
@@ -954,7 +957,7 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     };
 
     let step_from = |s: f32, v_t: f32, steer: ae::Vec2| {
-        let mut rig = MomentumRig::riding(chain, 0, s, v_t, params);
+        let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), s, v_t, params);
         rig.step(&room.world, steer);
         rig.motion()
     };
@@ -1035,14 +1038,18 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
         rig.motion()
     };
 
+    let loop_index = room
+        .world
+        .chain_named("sanic_loop")
+        .expect("the speedway attaches its loop");
     let raised = step(ae::Vec2::new(1.0, -1.0));
     assert!(
         matches!(
             raised,
             ae::SurfaceMotion::Riding {
-                on: ae::SurfaceRef::Chain(0),
+                on: ae::SurfaceRef::Chain(index),
                 ..
-            }
+            } if index == loop_index
         ),
         "up-right transfers directly from the floor guide onto the ramp: {raised:?}"
     );
@@ -1086,7 +1093,7 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, 0, start_s, -900.0, params);
+    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), start_s, -900.0, params);
 
     let mut entered_loop = false;
     for _ in 0..420 {
@@ -1357,6 +1364,25 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
             pickup.sprite.as_deref(),
             Some(RING_SPRITE_KIND),
             "every ring must name the animated sprite sheet"
+        );
+    }
+}
+
+#[test]
+fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
+    let room = sanic_speedway();
+    let sizes: Vec<_> = room
+        .placements
+        .iter()
+        .filter(|record| is_ring_placement(record))
+        .map(|record| record.aabb.max - record.aabb.min)
+        .collect();
+    assert!(sizes.len() >= 30, "the premise: a field of rings; got {}", sizes.len());
+    for size in sizes {
+        assert!(
+            (size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01,
+            "a placed ring is {size:?} and a scattered one is {RING_SIZE}x{RING_SIZE}, \
+             so a ring changes size when it is dropped"
         );
     }
 }

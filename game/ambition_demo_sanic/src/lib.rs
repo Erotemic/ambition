@@ -35,20 +35,21 @@ pub const SANIC_MODE: &str = "sanic";
 pub const SANIC_MUSIC_ASSET_PATH: &str = "audio/music/generated/you_are_too_slow/full.ogg";
 
 /// Number of segments in the full 360-degree loop body.
-pub const LOOP_SEGMENTS: usize = 128;
+pub const LOOP_SEGMENTS: usize = ae::LoopResolution::STANDARD.revolution;
 
 /// Samples in the raised entry ramp. The ramp, loop, and runout are one open
 /// surface route; there is no chain-transfer seam at either side of the loop.
-pub const LOOP_RAMP_SEGMENTS: usize = 32;
+pub const LOOP_RAMP_SEGMENTS: usize = ae::LoopResolution::STANDARD.ramp;
 
 /// Samples in the post-loop route: a flat foreground overpass clears the
 /// crossover before a separate descent returns to the tiled floor.
-pub const LOOP_RUNOUT_SEGMENTS: usize = 32;
+pub const LOOP_RUNOUT_SEGMENTS: usize =
+    ae::LoopResolution::STANDARD.overpass + ae::LoopResolution::STANDARD.descent;
 
 /// Flat samples after the full revolution. Keeping the rider attached until it
 /// is horizontally clear of the inbound rail is the physical half of the 2.5D
 /// crossover; depth ordering supplies the visual half.
-pub const LOOP_OVERPASS_SEGMENTS: usize = 12;
+pub const LOOP_OVERPASS_SEGMENTS: usize = ae::LoopResolution::STANDARD.overpass;
 
 /// Remaining samples in the descent from the overpass to the floor.
 pub const LOOP_DESCENT_SEGMENTS: usize = LOOP_RUNOUT_SEGMENTS - LOOP_OVERPASS_SEGMENTS;
@@ -61,14 +62,12 @@ pub const LOOP_CLOSURE_POINT_INDEX: usize = LOOP_ENTRY_POINT_INDEX + LOOP_SEGMEN
 
 /// Lower-arc segments rendered in front of the player on each side of the
 /// loop. The remaining loop body is on the ordinary/back lane.
-pub const LOOP_FOREGROUND_SEGMENTS_PER_SIDE: usize = 22;
+pub const LOOP_FOREGROUND_SEGMENTS_PER_SIDE: usize = ae::LoopResolution::STANDARD.front_per_side;
 
 /// Index of the route's final floor-level runout point.
 pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_CLOSURE_POINT_INDEX + LOOP_RUNOUT_SEGMENTS;
 
 const LOOP_RADIUS: f32 = 180.0;
-const LOOP_START_ANGLE: f32 = std::f32::consts::FRAC_PI_2;
-const LOOP_SWEEP_ANGLE: f32 = std::f32::consts::TAU;
 const LOOP_CENTER_X: f32 = 2200.0;
 const LOOP_TRACK_RISE: f32 = 84.0;
 const LOOP_RAMP_START_X: f32 = 1740.0;
@@ -89,87 +88,6 @@ pub const PIT_RIGHT_X: f32 = 4256.0;
 /// by `tools/author_speedway_ldtk.py` through `ambition_ldtk_tools`; never
 /// hand-edited.
 pub const SPEEDWAY_WORLD_JSON: &str = include_str!("../assets/worlds/sanic_speedway.ldtk");
-
-fn cubic_bezier(p0: ae::Vec2, p1: ae::Vec2, p2: ae::Vec2, p3: ae::Vec2, t: f32) -> ae::Vec2 {
-    let u = 1.0 - t;
-    p0 * (u * u * u) + p1 * (3.0 * u * u * t) + p2 * (3.0 * u * t * t) + p3 * (t * t * t)
-}
-
-/// Build one continuous entry-ramp → full-loop → runout route.
-///
-/// The loop starts at its bottom with a horizontal tangent, makes a complete
-/// 360-degree revolution, returns to the same screen-space point at a later arc
-/// length, and continues into a distinct runout. The repeated point is a 2.5D
-/// crossover: per-segment depth lanes distinguish the inbound/back rail from the
-/// outbound/front rail while the riding solver follows one unambiguous arc-length
-/// route. This is the classic Sonic topology rather than a literal planar circle.
-fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
-    let center = ae::Vec2::new(LOOP_CENTER_X, floor_top - LOOP_TRACK_RISE - LOOP_RADIUS);
-    let ramp_start = ae::Vec2::new(LOOP_RAMP_START_X, floor_top);
-    let loop_start =
-        center + ae::Vec2::new(LOOP_START_ANGLE.cos(), LOOP_START_ANGLE.sin()) * LOOP_RADIUS;
-    debug_assert!((loop_start.y - (floor_top - LOOP_TRACK_RISE)).abs() < 1.0e-3);
-
-    let mut points =
-        Vec::with_capacity(1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS + LOOP_RUNOUT_SEGMENTS);
-    points.push(ramp_start);
-
-    // Rise from the tiled floor to the loop bottom with a horizontal tangent at
-    // both ends. The first segment is a real ramp, not a teleport or rebound-only
-    // gap, while the final tangent exactly matches the loop's bottom tangent.
-    let ramp_control_1 = ramp_start + ae::Vec2::new(150.0, 0.0);
-    let ramp_control_2 = loop_start - ae::Vec2::new(170.0, 0.0);
-    for step in 1..=LOOP_RAMP_SEGMENTS {
-        let t = step as f32 / LOOP_RAMP_SEGMENTS as f32;
-        points.push(cubic_bezier(
-            ramp_start,
-            ramp_control_1,
-            ramp_control_2,
-            loop_start,
-            t,
-        ));
-    }
-
-    // Decreasing theta gives the rideable inward normals expected by the
-    // surface kernel. The final sample intentionally equals `loop_start`: it is
-    // non-adjacent to the entry sample, so no degenerate segment is introduced.
-    for step in 1..=LOOP_SEGMENTS {
-        let t = step as f32 / LOOP_SEGMENTS as f32;
-        let theta = LOOP_START_ANGLE - LOOP_SWEEP_ANGLE * t;
-        points.push(center + ae::Vec2::new(theta.cos(), theta.sin()) * LOOP_RADIUS);
-    }
-
-    // Cross the loop mouth on a flat foreground deck first. A high-speed rider
-    // may legitimately launch when a track begins descending; doing that at the
-    // coincident inbound/outbound point lets the airborne circle immediately
-    // re-hit the back rail. The flat deck keeps the rider attached until the
-    // simulated-depth crossover is physically clear.
-    let overpass_end = ae::Vec2::new(LOOP_OVERPASS_END_X, loop_start.y);
-    for step in 1..=LOOP_OVERPASS_SEGMENTS {
-        let t = step as f32 / LOOP_OVERPASS_SEGMENTS as f32;
-        points.push(loop_start.lerp(overpass_end, t));
-    }
-
-    // Descend only after clearing the loop's rightmost extent. Both cubic end
-    // tangents are horizontal, so the overpass/descent seam and the return to
-    // the tiled floor are smooth. Launching from this convex descent is valid
-    // Sonic behavior because no back-lane rail remains underneath it.
-    let runout_end = ae::Vec2::new(LOOP_RUNOUT_END_X, floor_top);
-    let runout_control_1 = overpass_end + ae::Vec2::new(120.0, 0.0);
-    let runout_control_2 = runout_end - ae::Vec2::new(160.0, 0.0);
-    for step in 1..=LOOP_DESCENT_SEGMENTS {
-        let t = step as f32 / LOOP_DESCENT_SEGMENTS as f32;
-        points.push(cubic_bezier(
-            overpass_end,
-            runout_control_1,
-            runout_control_2,
-            runout_end,
-            t,
-        ));
-    }
-
-    (points, center)
-}
 
 /// Canonical transform pair for the demo's semantic Utility action (D in the
 /// classic arrows+Z/X/C preset).
@@ -216,6 +134,14 @@ pub const SUPER_SANIC_SUPER_STATE:
 /// renderer binds the spinning sheet instead of the static coin. The AABB is
 /// square so the round sprite is not stretched.
 pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
+
+/// A ring's square side, in world units — for the rings the level places AND
+/// the ones a hit scatters. The speedway's author script writes the same number
+/// (`RING_SIZE` in `tools/author_speedway_ldtk.py`) and
+/// `every_ring_the_speedway_places_is_the_size_a_hit_scatters` holds the two
+/// together: the level's were authored 30 while a scatter made 18, so a ring
+/// changed size when you dropped it.
+pub const RING_SIZE: f32 = 18.0;
 
 /// A ring placement: one of the `currency:1` pickups the author script lays down
 /// (named `ring`). The demo tags these with the animated sprite and the tests
@@ -427,63 +353,22 @@ pub fn sanic_speedway() -> RoomSpec {
     room
 }
 
-/// Graft the ramp→loop→runout route onto the LDtk-loaded world, and return
-/// the loop center for the label. LDtk cannot express this topology (depth
-/// lanes, loop-mouth and floor-fork junctions).
-///
-/// The loop chain is inserted at index 0, so test fixtures keep the loop as
-/// `chains[0]`; junction ports name the floor route by its post-insert index.
-/// Anchor vertices are found by position on the authored floor chain, so a
-/// drift between the generator and these constants panics at the exact seam.
+/// Attach the speedway's loop to its floor route, and return the loop center
+/// for the label. The engine builds the ramp → full loop → deck → runout route
+/// and its crossover (`ae::World::attach_loop`); this names where.
 fn graft_loop_route(world: &mut ae::World) -> ae::Vec2 {
-    let (ramp_loop_points, loop_center) = raised_full_loop_points(FLOOR_TOP);
-    let mut loop_depths = vec![0_i8; ramp_loop_points.len() - 1];
-    // The approach lives behind the player. The two lower loop shoulders and
-    // the outbound runout live in front, creating the classic inside/outside
-    // crossover without adding a second collision surface.
-    loop_depths[..LOOP_RAMP_SEGMENTS].fill(-1);
-    let front = LOOP_FOREGROUND_SEGMENTS_PER_SIDE.min(LOOP_SEGMENTS / 2);
-    loop_depths[LOOP_ENTRY_POINT_INDEX..LOOP_ENTRY_POINT_INDEX + front].fill(1);
-    loop_depths[LOOP_CLOSURE_POINT_INDEX - front..].fill(1);
-
-    let floor_index = world
-        .chains
-        .iter()
-        .position(|chain| chain.name == "sanic_floor_route")
-        .expect("the LDtk world authors the sanic_floor_route chain");
-    let vertex_at = |x: f32| {
-        world.chains[floor_index]
-            .points
-            .iter()
-            .position(|p| (p.x - x).abs() < 0.5 && (p.y - FLOOR_TOP).abs() < 0.5)
-            .unwrap_or_else(|| {
-                panic!(
-                    "sanic_floor_route must have a junction anchor vertex at \
-                     ({x}, {FLOOR_TOP}) — regenerate the level with \
-                     tools/author_speedway_ldtk.py"
-                )
-            })
-    };
-    let ramp_vertex = vertex_at(LOOP_RAMP_START_X);
-    let runout_vertex = vertex_at(LOOP_RUNOUT_END_X);
-    // Momentum bodies ride the authored floor guide over the solid ground.
-    // The floor/ramp split is a first-class route junction: the player keeps
-    // running on the floor or holds toward the raised ramp, no airborne hack.
-    let floor_after_insert = floor_index + 1;
-    let ramp_loop = ae::SurfaceChain::open("sanic_loop", ramp_loop_points)
-        .with_segment_depths(loop_depths)
-        .with_junctions(vec![
-            ae::SurfaceJunction::new(vec![LOOP_ENTRY_POINT_INDEX, LOOP_CLOSURE_POINT_INDEX]),
-            ae::SurfaceJunction::across(vec![
-                ae::SurfacePort::local(0),
-                ae::SurfacePort::chain(floor_after_insert, ramp_vertex),
-            ]),
-            ae::SurfaceJunction::across(vec![
-                ae::SurfacePort::local(LOOP_EXIT_POINT_INDEX),
-                ae::SurfacePort::chain(floor_after_insert, runout_vertex),
-            ]),
-        ]);
-    world.chains.insert(0, ramp_loop);
+    let loop_center = world
+        .attach_loop(
+            "sanic_loop",
+            "sanic_floor_route",
+            LOOP_RAMP_START_X,
+            LOOP_CENTER_X,
+            LOOP_RADIUS,
+            LOOP_TRACK_RISE,
+            LOOP_OVERPASS_END_X,
+            LOOP_RUNOUT_END_X,
+        )
+        .unwrap_or_else(|error| panic!("the speedway's loop attaches: {error}"));
 
     let mut ground_index = 0;
     for block in &mut world.blocks {
@@ -1931,7 +1816,7 @@ pub fn scatter_rings_on_hit(
             let angle = std::f32::consts::TAU * t;
             let speed = SCATTER_BURST_SPEED * SCATTER_INNER_SHELL_SCALE.powi(shell as i32);
             let vel = ae::Vec2::new(angle.cos(), angle.sin()) * speed;
-            let size = ae::Vec2::splat(18.0);
+            let size = ae::Vec2::splat(RING_SIZE);
             let seq = counter.next();
             let ring_id = ambition_platformer2d::platformer::sim_id::SimId::spawned(player_id, seq);
             let authored = ambition_platformer2d::world::rooms::Authored {

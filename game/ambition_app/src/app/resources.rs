@@ -317,10 +317,6 @@ pub fn init_sandbox_resources(app: &mut App) {
         .insert_resource(hot_reload)
         .insert_resource(ldtk_world::LdtkRuntimeSpineStats::default())
         .insert_resource(ldtk_world::LdtkRuntimeSpineIndex::default())
-        .insert_resource(ldtk_world::LdtkRuntimeSolidIndex::default())
-        .insert_resource(ldtk_world::LdtkRuntimeOneWayIndex::default())
-        .insert_resource(ldtk_world::LdtkRuntimeDamageIndex::default())
-        .insert_resource(ldtk_world::LdtkRuntimeSpineParity::default())
         // `PhysicsSandboxSettings` must exist before the plugins that would
         // otherwise provide it: on the visible binary `AmbitionPhysicsPlugin`
         // re-inserts the default (harmless — same default), but headless does
@@ -352,8 +348,8 @@ pub fn init_sandbox_resources(app: &mut App) {
             // frames disagree by ~half-room-width on x, so the plugin's
             // IntGrid output appeared as a duplicated, horizontally-shifted
             // copy of our render. Force the plugin to emit no visual at all
-            // for IntGrid cells; the runtime-spine `LdtkSolid` component
-            // (our typed authority) is unaffected by this setting.
+            // for IntGrid cells. Collision comes from the world IR, not
+            // from these cells.
             int_grid_rendering: IntGridRendering::Invisible,
             ..default()
         })

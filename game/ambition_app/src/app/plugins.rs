@@ -245,11 +245,9 @@ fn register_app_local_sim_systems(app: &mut App) {
 /// `RenderApp` sub-app, and `asset_server.load::<LdtkProject>` requires
 /// the LDtk asset type to be registered.
 ///
-/// Once the LDtk runtime-spine roadmap finishes promoting LDtk entity
-/// categories to direct Ambition components (see
-/// `project_ldtk_roadmap` memory), this dependency goes away and
-/// headless can spawn the same entity set without bevy_ecs_ldtk's
-/// rendering machinery.
+/// Nothing in the simulation reads the entities it spawns: collision and
+/// placements come from the world IR the LDtk backend converts into
+/// (ADR 0021), which headless builds the same way.
 pub fn add_ldtk_runtime_plugin(app: &mut App) {
     // `Platformer2dStartupAssets` includes a typed LDtk handle, so the LDtk
     // asset type and loader must be initialized before bevy_asset_loader

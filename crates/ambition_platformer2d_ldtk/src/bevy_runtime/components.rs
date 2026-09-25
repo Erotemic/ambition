@@ -3,9 +3,7 @@
 //! `AmbitionLdtkMarkerBundle` registers every authored entity with
 //! bevy_ecs_ldtk (so it owns lifecycle without drawing placeholders);
 //! `AmbitionLdtkEntity`/`AmbitionLdtkMarker` carry identity. `LdtkRuntimeRole`
-//! classifies an identifier (with `promoted()`/`label()`), and `LdtkSolid`/
-//! `LdtkOneWayPlatform`/`LdtkDamageVolume` are the typed collision tags read by
-//! sibling `systems`/`indices`.
+//! classifies an identifier (with `promoted()`/`label()`).
 
 use bevy::prelude::{Bundle, Component};
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntity};
@@ -93,38 +91,4 @@ impl LdtkRuntimeRole {
     pub fn promoted(self) -> bool {
         !matches!(self, Self::Other)
     }
-}
-
-/// Typed collision data attached to plugin-spawned `Solid` entities. The JSON
-/// adapter currently publishes the matching runtime block during parity rollout.
-#[derive(Component, Clone, Debug, Default)]
-pub struct LdtkSolid {
-    /// Top-left corner in LDtk-level-local pixel coordinates.
-    pub level_px: [i32; 2],
-    /// Width and height in pixels.
-    pub size: [i32; 2],
-}
-
-/// Typed collision data for plugin-spawned one-way platforms. The JSON adapter
-/// currently publishes the matching runtime block as well.
-#[derive(Component, Clone, Debug, Default)]
-pub struct LdtkOneWayPlatform {
-    pub level_px: [i32; 2],
-    pub size: [i32; 2],
-}
-
-/// Typed Ambition component attached to plugin-spawned `DamageVolume`
-/// (and the legacy `HazardBlock`) entities.
-///
-/// The JSON adapter still produces the matching `ae::Block::hazard(...)`
-/// for the runtime collision world; this component is the typed
-/// sibling for ECS-side query and the parity overlay.
-#[derive(Component, Clone, Debug, Default)]
-pub struct LdtkDamageVolume {
-    pub level_px: [i32; 2],
-    pub size: [i32; 2],
-    /// Damage amount (1 by default) — sandbox doesn't yet expose
-    /// per-volume damage in the LDtk schema, so this defaults to 1
-    /// and future LDtk field reads can populate it.
-    pub damage: i32,
 }

@@ -91,30 +91,6 @@ impl ActorBody {
         scratch.base_size.base_size = base_size;
         Self(scratch)
     }
-
-    /// The RULESET'S DEFAULT ACTOR BODY: what a character that states no
-    /// abilities of its own is given.
-    ///
-    /// This is the set `from_kit` used to union into everybody, plus the
-    /// `attack` it forced. Named and applied only where the authored answer is
-    /// ABSENT, so it is a default rather than a floor — a character that states
-    /// its own set now gets exactly that set, and can decline any of these.
-    ///
-    /// `reset` is off for an actor body: only a controlled body resets itself.
-    pub fn default_actor_abilities() -> ae::AbilitySet {
-        ae::AbilitySet {
-            move_horizontal: true,
-            jump: true,
-            variable_jump: true,
-            double_jump: true,
-            // CAPABILITY, not policy: the moveset and the brain decide whether a
-            // body that MAY attack ever does. A character that should not be
-            // able to at all says so in its own set.
-            attack: true,
-            reset: false,
-            ..ae::AbilitySet::basic()
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -556,16 +532,15 @@ impl ActorClusterSeed {
             // ⛔ A BODY GETS WHAT WAS AUTHORED FOR IT, AND NOTHING ELSE. A
             // character that can carry a body took `new_character_in` above;
             // this road serves three populations that are NOT alike. A prepared
-            // character with no body blueprint lacks only `locomotion`, and may
-            // well author its abilities (the Hall's `mary_o`/`sanic` state
-            // `RunJump`), so it gets exactly those. The placement that names no
-            // character (the cut-rope victory NPC) and an id nobody prepared
-            // (reported as a content error) have no author, so they get NONE —
-            // never the ruleset's actor default, which handed an anonymous NPC
-            // a jump, a double jump and an attack.
+            // character with no body blueprint lacks only `locomotion`, so it
+            // gets the same resolved verbs its blueprint would have carried (the
+            // Hall's `mary_o`/`sanic` grant `RunJump` on their catalog rows). The
+            // placement that names no character (the cut-rope victory NPC) and
+            // an id nobody prepared (reported as a content error) have no author
+            // and no provider, so they get NONE.
             body: ActorBody::from_abilities(
                 prepared_character
-                    .and_then(|prepared| prepared.abilities)
+                    .map(|prepared| prepared.actor_abilities)
                     .unwrap_or(ambition_platformer2d_core::AbilitySet::NONE),
                 is_aerial,
                 collision_size,
@@ -811,11 +786,11 @@ impl ActorClusterSeed {
             // a seat is unaffected: `seat_abilities` still intersects, and a
             // character that authored nothing still gets `NONE` here and the
             // mode's set there.
-            // THE CHARACTER'S OWN SET, OR THE RULESET'S DEFAULT — never both.
-            // `unwrap_or(NONE)` fed a union that could only widen, so a
-            // character that authored a narrow body got the default anyway.
+            // Resolved by preparation: the character's own set, or its
+            // provider's declared actor default — never both, and never a
+            // default held here.
             body: ActorBody::from_abilities(
-                abilities.unwrap_or_else(ActorBody::default_actor_abilities),
+                abilities,
                 is_aerial,
                 collision_size,
             ),
@@ -895,7 +870,7 @@ pub fn fixture_body_blueprint(
         mount: None,
         held_item: None,
         death_traits: None,
-        abilities: None,
+        abilities: ae::AbilitySet::classic_actor(),
         ranged_vfx: None,
         body: None,
         sheet: None,
@@ -979,7 +954,7 @@ mod tests {
             mount: None,
             held_item: None,
             death_traits: None,
-            abilities: None,
+            abilities: ae::AbilitySet::classic_actor(),
             ranged_vfx: None,
             body: None,
             sheet: None,
@@ -1410,9 +1385,8 @@ mod tests {
     }
 
     /// **AN NPC NOBODY AUTHORED IS GIVEN NO CAPABILITY.** The peaceful road's
-    /// fallthrough (a placement naming no character) used to take
-    /// [`ActorBody::default_actor_abilities`], so an anonymous body could jump,
-    /// double-jump and attack.
+    /// fallthrough (a placement naming no character) used to take the ruleset's
+    /// actor default, so an anonymous body could jump, double-jump and attack.
     ///
     /// ⚠ THE EDIT THAT MAKES THIS FALSE is handing that fallthrough any default.
     #[test]
@@ -1441,24 +1415,6 @@ mod tests {
             built.jump,
             built.double_jump,
             built.attack,
-        );
-    }
-
-    /// And the DEFAULT still reaches a character that states nothing, which is
-    /// the arm that stops the one above passing on a constructor that simply
-    /// discards its argument.
-    #[test]
-    fn a_character_that_states_nothing_gets_the_rulesets_default_body() {
-        let default = ActorBody::default_actor_abilities();
-        assert!(
-            default.move_horizontal && default.jump && default.double_jump && default.attack,
-            "the ruleset default cannot act, so an unauthored body is now inert \
-             rather than defaulted"
-        );
-        assert!(
-            !default.reset,
-            "only a controlled body resets itself; an actor taking `reset` from \
-             `basic()` is the floor leaking back in"
         );
     }
 }

@@ -44,7 +44,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     // from the character's movement kit; build the body from a dash-bearing kit
     // so the pipeline dash limb matches.
     seed.body = ActorBody::from_abilities(
-        ActorBody::default_actor_abilities().union(ae::AbilitySet {
+        ambition_platformer2d_core::AbilitySet::classic_actor().union(ae::AbilitySet {
             dash: can_dash,
             ..ae::AbilitySet::NONE
         }),
@@ -272,7 +272,7 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     let half_h = seed.kin.size.y * 0.5;
     seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
     seed.surface.gravity_scale = 1.0;
-    seed.body = ActorBody::from_abilities(ActorBody::default_actor_abilities(), false, seed.kin.size);
+    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), false, seed.kin.size);
     seed.body.0.ground.on_ground = true;
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
@@ -327,7 +327,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     seed.kin.vel = ae::Vec2::ZERO;
     seed.surface.gravity_scale = 0.0;
     // Aerial body: is_aerial forces the fly ability + fly_enabled from spawn.
-    seed.body = ActorBody::from_abilities(ActorBody::default_actor_abilities(), true, seed.kin.size);
+    seed.body = ActorBody::from_abilities(ambition_platformer2d_core::AbilitySet::classic_actor(), true, seed.kin.size);
     let start = seed.kin.pos;
     let mut model = ambition_platformer2d_core::movement::MotionModel::default();
     let mut em = seed.as_actor_mut();
@@ -399,7 +399,7 @@ fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
     // built — `from_kit` sets `fly_enabled` outright for that case, which would
     // make this test pass without the press doing anything.
     seed.body = ActorBody::from_abilities(
-        ActorBody::default_actor_abilities().union(ae::AbilitySet {
+        ambition_platformer2d_core::AbilitySet::classic_actor().union(ae::AbilitySet {
             fly: can_fly,
             fly_toggle: can_fly,
             ..ae::AbilitySet::NONE

@@ -1285,8 +1285,7 @@ mod withholding {
     fn a_definition_naming_an_uninstalled_technique_is_not_published() {
         let admitted = admit_and_finalize_cast(
             cast("rider", "smash.not_installed_here", "bystander"),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );
@@ -1313,8 +1312,7 @@ mod withholding {
     fn the_rest_of_the_cast_is_still_published() {
         let admitted = admit_and_finalize_cast(
             cast("rider", "smash.not_installed_here", "bystander"),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );
@@ -1387,8 +1385,7 @@ mod withholding {
     fn a_summoner_whose_beast_was_withheld_is_withheld_too() {
         let admitted = admit_and_finalize_cast(
             a_summoner_and_the_beast_it_names(),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );
@@ -1415,8 +1412,7 @@ mod withholding {
     fn the_bystander_survives_a_transitive_withholding() {
         let admitted = admit_and_finalize_cast(
             a_summoner_and_the_beast_it_names(),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );
@@ -1457,8 +1453,7 @@ mod withholding {
     fn an_empty_support_table_withholds_a_native_effect_nobody_installed() {
         let admitted = admit_and_finalize_cast(
             cast("rider", "smash.not_installed_here", "bystander"),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &TechniqueSupport::default(),
         );
@@ -1484,8 +1479,7 @@ mod withholding {
     fn an_empty_support_table_still_publishes_a_character_that_names_nothing() {
         let admitted = admit_and_finalize_cast(
             cast("rider", "smash.not_installed_here", "bystander"),
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &TechniqueSupport::default(),
         );
@@ -1511,8 +1505,7 @@ mod withholding {
         )));
         let admitted = admit_and_finalize_cast(
             staged_cast,
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );
@@ -1676,8 +1669,7 @@ mod revision_activation {
         let sources = staged.clone();
         let admitted = admit_and_finalize_cast(
             staged,
-            None,
-            None,
+            &CastAuthorities::default(),
             CharacterCatalogGeneration::default(),
             &supporting_summons(),
         );

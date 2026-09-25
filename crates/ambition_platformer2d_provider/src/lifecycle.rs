@@ -1468,15 +1468,16 @@ pub fn prepare_platformer_content(
     // because rooms and content stagers may select characters dynamically. This
     // is broader than the eventual dependency closure but never under-binds.
     if let Some(registry) = character_registry {
-        for (provider, default, source_ron) in registry.canonical_fragments() {
+        for (provider, default, actor_default, source_ron) in registry.canonical_fragments() {
             builder.add_owner(ContentOwner::new(
                 &provider,
                 "registered-character-fragment",
                 "characters",
             ));
             let mut bytes = format!(
-                "provider={provider}\ndefault={}\n",
-                default.as_deref().unwrap_or("-")
+                "provider={provider}\ndefault={}\nactor_default={}\n",
+                default.as_deref().unwrap_or("-"),
+                actor_default.as_deref().unwrap_or("-")
             )
             .into_bytes();
             bytes.extend_from_slice(source_ron.as_bytes());

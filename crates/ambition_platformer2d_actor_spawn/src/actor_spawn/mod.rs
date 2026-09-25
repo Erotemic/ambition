@@ -1006,12 +1006,8 @@ fn boss_actor_cluster(
         ambition_combat::components::BodyMelee::default(),
         ambition_combat::components::RangedRefire::default(),
         ambition_platformer2d_shared_tangle::body::AncillaryMovementBundle::from_scratch(
-            // The union is STATED here now. It was inside the constructor,
-            // which is why the comment above could say "unioned into the body's
-            // `AbilitySet` below" about something no caller controlled. A boss
-            // body is the ruleset's default plus the flight this site declares.
             ambition_body_seed::ActorBody::from_abilities(
-                ambition_body_seed::ActorBody::default_actor_abilities().union(movement_kit),
+                movement_kit,
                 true,
                 kin.size,
             )

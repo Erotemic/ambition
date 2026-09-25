@@ -170,7 +170,9 @@ pub struct CharacterBodyBlueprint<'a> {
     pub mount: Option<&'a crate::actor::CharacterMount>,
     pub held_item: Option<&'a str>,
     pub death_traits: Option<&'a crate::actor::CharacterDeathTraits>,
-    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// [`PreparedCharacterDefinition::actor_abilities`]: resolved, so a
+    /// constructor has no default to reach for.
+    pub abilities: ambition_platformer2d_core::AbilitySet,
     /// What this body's ranged verb LOOKS like. See
     /// [`CharacterDefinition::ranged_vfx`].
     pub ranged_vfx: Option<&'a str>,
@@ -279,7 +281,7 @@ impl PreparedCharacterDefinition {
             mount: self.mount.as_ref(),
             held_item: self.held_item.as_deref(),
             death_traits: self.death_traits.as_ref(),
-            abilities: self.abilities,
+            abilities: self.actor_abilities,
             ranged_vfx: self.ranged_vfx.as_deref(),
             body: self.body.as_ref(),
             sheet: self.sheet.as_deref(),
@@ -724,22 +726,13 @@ pub fn admit_staged_revision(
         }
     }
 
-    let catalog = world
-        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
-        .cloned();
-    let profiles = world
-        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
-        .cloned();
+    let authorities = CastAuthorities::from_world(world);
 
     // The candidate: the live cast with the edits folded over it. Built as a
     // separate value so a refusal cannot have touched the published one.
     let mut candidate = active.clone();
     for character in &staged {
-        candidate.insert(finalize_character(
-            character.inner.clone(),
-            catalog.as_ref(),
-            profiles.as_ref(),
-        ));
+        candidate.insert(finalize_character(character.inner.clone(), &authorities));
     }
 
     // ⚠ ADMITTED AGAINST THE WHOLE CANDIDATE, not against the edit alone: a
@@ -989,6 +982,12 @@ pub struct PreparedCharacterDefinition {
     /// means neither stated any, and a construction path that has a legacy source for verbs (an
     /// archetype's movement kit, a match's declared set) still uses it.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// The verbs an ACTOR body wearing this character has: [`Self::abilities`],
+    /// else its provider's declared actor default, else none. Resolved here so
+    /// no constructor holds a default of its own. The player seat and a match
+    /// seat still read [`Self::abilities`], because each has its own answer
+    /// for silence.
+    pub actor_abilities: ambition_platformer2d_core::AbilitySet,
     /// How this body moves, as the character authored it. `None` leaves a
     /// legacy source (an archetype row, a construction default) in charge.
     pub locomotion: Option<crate::actor::CharacterLocomotion>,
@@ -1580,12 +1579,35 @@ fn prepare_character(
 /// that registers characters and installs no catalog has nothing to inherit FROM,
 /// which is the same answer as "this id is not in the catalog" — the case the
 /// runtime already handled by installing the host compatibility kit.
+/// What the fold resolves a character against, all published by catalog
+/// assembly and read together so no road folds against part of the set.
+#[derive(Clone, Default)]
+pub(crate) struct CastAuthorities {
+    catalog: Option<crate::actor::character_catalog::CharacterCatalog>,
+    /// The POLICY authority, published beside the catalog.
+    profiles: Option<crate::actor::character_catalog::BrainProfileRegistry>,
+    actor_defaults: Option<crate::actor::character_catalog::ProviderActorDefaults>,
+}
+
+impl CastAuthorities {
+    fn from_world(world: &bevy::ecs::world::World) -> Self {
+        use crate::actor::character_catalog as cc;
+        Self {
+            catalog: world.get_resource::<cc::CharacterCatalog>().cloned(),
+            profiles: world.get_resource::<cc::BrainProfileRegistry>().cloned(),
+            actor_defaults: world.get_resource::<cc::ProviderActorDefaults>().cloned(),
+        }
+    }
+}
+
 fn finalize_character(
     overrides: PreparedCharacterOverrides,
-    catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
-    profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
+    authorities: &CastAuthorities,
 ) -> PreparedCharacterDefinition {
     use crate::brain::ActionSet;
+
+    let catalog = authorities.catalog.as_ref();
+    let profiles = authorities.profiles.as_ref();
 
     let PreparedCharacterOverrides {
         id,
@@ -1620,6 +1642,16 @@ fn finalize_character(
         ranged_execution,
         provoked_profile_ref,
     } = overrides;
+
+    // Folded like health: a catalog row states a body's verbs too
+    // (`abilities: Some([RunJump])`), and the Hall's Mary-O and Sanic author
+    // theirs ONLY there. Left unfolded, the player road read the row while
+    // every actor road read this field, so the same character could run as
+    // the player and not as an NPC.
+    let abilities = abilities.or_else(|| catalog?.ability_set(&id));
+    let actor_abilities = abilities
+        .or_else(|| authorities.actor_defaults.as_ref()?.for_provider(&provider))
+        .unwrap_or(ambition_platformer2d_core::AbilitySet::NONE);
 
     // THE KIT. Decided here once rather than by whichever construction path
     // reaches it first, and derived under the character's own `ranged_execution`
@@ -1688,12 +1720,8 @@ fn finalize_character(
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
-        // Folded like health: a catalog row states a body's verbs too
-        // (`abilities: Some([RunJump])`), and the Hall's Mary-O and Sanic author
-        // theirs ONLY there. Left unfolded, the player road read the row while
-        // every actor road read this field, so the same character could run as
-        // the player and not as an NPC.
-        abilities: abilities.or_else(|| catalog?.ability_set(&id)),
+        abilities,
+        actor_abilities,
         // A prepared definition that still needs the catalog to say whether a body flies is only
         // partly prepared.
         //
@@ -2020,8 +2048,13 @@ pub fn prepare_and_finalize_against_for_test(
         prepared, report, ..
     } = prepare_character(definition, bindings);
     let checked = prepared.checked.clone();
+    let authorities = CastAuthorities {
+        catalog: catalog.cloned(),
+        profiles,
+        actor_defaults: None,
+    };
     FinalizedCharacter {
-        prepared: finalize_character(prepared, catalog, profiles.as_ref()),
+        prepared: finalize_character(prepared, &authorities),
         report,
         checked,
     }
@@ -2315,13 +2348,12 @@ pub(crate) fn prepare_for_registration(
 /// boot cast by more than its contents.
 fn finalize_cast(
     staged: impl IntoIterator<Item = StagedCharacter>,
-    catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
-    profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
+    authorities: &CastAuthorities,
     previous: CharacterCatalogGeneration,
 ) -> PreparedCharacterRegistry {
     let mut registry = PreparedCharacterRegistry::default();
     for character in staged {
-        registry.insert(finalize_character(character.inner, catalog, profiles));
+        registry.insert(finalize_character(character.inner, authorities));
     }
     registry.stamp_after(previous);
     registry
@@ -2781,22 +2813,12 @@ pub fn close_preparation_barrier_without_admission(world: &mut bevy::ecs::world:
     // ⛔⛤ CLONED, NOT TAKEN — see `StagedCharacterOverrides::by_id`.
     let staged_cast = staged.by_id.clone();
     let _ = support;
-    let catalog = world
-        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
-        .cloned();
-    let profiles = world
-        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
-        .cloned();
+    let authorities = CastAuthorities::from_world(world);
     let previous = world
         .get_resource::<PreparedCharacterRegistry>()
         .map(|registry| registry.generation())
         .unwrap_or_default();
-    let registry = finalize_cast(
-        staged_cast.into_values(),
-        catalog.as_ref(),
-        profiles.as_ref(),
-        previous,
-    );
+    let registry = finalize_cast(staged_cast.into_values(), &authorities, previous);
     world.insert_resource(registry);
 }
 
@@ -2850,13 +2872,7 @@ fn finalize_prepared_cast(
     // shipping app and a test build disagree about whether a revision is
     // possible at all, and the unchecked backstop is `cfg`-gated to test builds.
     let staged = staged.by_id.clone();
-    let catalog = world
-        .get_resource::<crate::actor::character_catalog::CharacterCatalog>()
-        .cloned();
-    // The POLICY authority, published beside the catalog by assembly.
-    let profiles = world
-        .get_resource::<crate::actor::character_catalog::BrainProfileRegistry>()
-        .cloned();
+    let authorities = CastAuthorities::from_world(world);
     // TRANSACTIONAL: the whole cast is folded and only then published, so a
     // reader can never observe a registry that holds half of one generation.
     let previous = world
@@ -2914,13 +2930,7 @@ fn finalize_prepared_cast(
     // already depends on. Nothing about the dependency graph reverses, and the
     // unchecked path below is what a composition WITHOUT an admission authority
     // gets — which is also a composition with no installed techniques to check.
-    let admitted = admit_and_finalize_cast(
-        staged,
-        catalog.as_ref(),
-        profiles.as_ref(),
-        previous,
-        support,
-    );
+    let admitted = admit_and_finalize_cast(staged, &authorities, previous, support);
     if !admitted.refusals.is_empty() {
         bevy::prelude::error!(
             "{} authored effect(s) name a technique this composition does not \
@@ -2999,8 +3009,7 @@ pub struct AdmittedCast {
 /// reporting a character it was not given.
 pub(crate) fn admit_and_finalize_cast(
     staged: Vec<StagedCharacter>,
-    catalog: Option<&crate::actor::character_catalog::CharacterCatalog>,
-    profiles: Option<&crate::actor::character_catalog::BrainProfileRegistry>,
+    authorities: &CastAuthorities,
     previous: CharacterCatalogGeneration,
     // ⛔⛤ **NOT `Option`, AND THAT WAS THE LAST A11 BLOCKER.** This took
     // `Option<&TechniqueSupport>` and returned the whole cast unexamined on
@@ -3019,7 +3028,7 @@ pub(crate) fn admit_and_finalize_cast(
         // is why the fold is inside the loop: a summon may name a character
         // staged after its rider, and it may name one this round is about to
         // withhold.
-        let candidate = finalize_cast(kept.iter().cloned(), catalog, profiles, previous);
+        let candidate = finalize_cast(kept.iter().cloned(), authorities, previous);
         let round = unsupported_authored_effects(support, &candidate);
         if round.is_empty() {
             return AdmittedCast {

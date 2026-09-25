@@ -26,6 +26,10 @@ pub struct CharacterCatalogFragment {
     /// Optional because a fragment can legitimately be built from a literal in
     /// a test, and `None` reads as "no file to name" rather than as a lie.
     source: Option<String>,
+    /// The verbs this provider's characters wear as actor bodies when neither
+    /// their definition nor their catalog row states any. See
+    /// [`Self::with_actor_default_abilities`].
+    actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
 }
 
 impl CharacterCatalogFragment {
@@ -112,6 +116,7 @@ impl CharacterCatalogFragment {
             source_ron: ron::ser::to_string(&catalog).unwrap_or_default(),
             catalog,
             source,
+            actor_default_abilities: None,
         })
     }
 
@@ -156,7 +161,21 @@ impl CharacterCatalogFragment {
             catalog,
             source_ron: catalog_ron.to_string(),
             source,
+            actor_default_abilities: None,
         })
+    }
+
+    /// Declare what this provider's unauthored characters can do as actors.
+    ///
+    /// A body's verbs are content: the definition's set, else the catalog
+    /// row's grants, else THIS. The engine holds no fallback of its own, so a
+    /// provider that declares nothing gives an unauthored character no verbs.
+    pub fn with_actor_default_abilities(
+        mut self,
+        abilities: ambition_platformer2d_core::AbilitySet,
+    ) -> Self {
+        self.actor_default_abilities = Some(abilities);
+        self
     }
 
     pub fn provider_id(&self) -> &str {
@@ -211,6 +230,7 @@ impl CharacterCatalogRegistry {
         if let Some(existing) = self.fragments.get(&fragment.provider_id) {
             if existing.default_character_id == fragment.default_character_id
                 && existing.source_ron == fragment.source_ron
+                && existing.actor_default_abilities == fragment.actor_default_abilities
             {
                 return Ok(());
             }
@@ -230,16 +250,21 @@ impl CharacterCatalogRegistry {
     /// Canonical provider-owned authored fragments for prepared-content
     /// fingerprinting. Provider order is the `BTreeMap` order; raw source is
     /// included because it is the exact validated definition assembled by this
-    /// same-build contract.
-    pub fn canonical_fragments(&self) -> Vec<(String, Option<String>, String)> {
+    /// same-build contract. The actor default is canonical RON, or `None` when
+    /// the provider declared none.
+    pub fn canonical_fragments(&self) -> Vec<(String, Option<String>, Option<String>, String)> {
         self.fragments
             .iter()
             .map(|(provider, fragment)| {
                 let canonical_catalog = ron::ser::to_string(&fragment.catalog)
                     .expect("validated character catalog must serialize canonically");
+                let actor_default = fragment.actor_default_abilities.map(|abilities| {
+                    ron::ser::to_string(&abilities).expect("an ability set serializes")
+                });
                 (
                     provider.clone(),
                     fragment.default_character_id.clone(),
+                    actor_default,
                     canonical_catalog,
                 )
             })
@@ -248,7 +273,7 @@ impl CharacterCatalogRegistry {
 
     pub fn deterministic_dump(&self) -> String {
         let mut out = String::new();
-        for (provider, default, source) in self.canonical_fragments() {
+        for (provider, default, _, source) in self.canonical_fragments() {
             out.push_str(&format!(
                 "provider\t{provider}\t{}\t{}\n",
                 default.as_deref().unwrap_or("-"),
@@ -264,6 +289,7 @@ impl CharacterCatalogRegistry {
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
         let mut defaults = BTreeMap::new();
+        let mut actor_defaults = BTreeMap::new();
         let mut owners: BTreeMap<String, String> = BTreeMap::new();
 
         for (provider_id, fragment) in &self.fragments {
@@ -323,6 +349,9 @@ impl CharacterCatalogRegistry {
             if let Some(default_id) = &fragment.default_character_id {
                 defaults.insert(provider_id.clone(), default_id.clone());
             }
+            if let Some(abilities) = fragment.actor_default_abilities {
+                actor_defaults.insert(provider_id.clone(), abilities);
+            }
         }
 
         // Same values, same keys, so the two cannot disagree.
@@ -344,6 +373,7 @@ impl CharacterCatalogRegistry {
             brain_profiles,
             catalog,
             defaults: CharacterCatalogDefaults(defaults),
+            actor_defaults: ProviderActorDefaults(actor_defaults),
             owners: CharacterCatalogOwners(owners),
         })
     }
@@ -363,6 +393,17 @@ impl CharacterCatalogDefaults {
     }
 }
 
+/// Each provider's declared actor-default verbs. See
+/// [`CharacterCatalogFragment::with_actor_default_abilities`].
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct ProviderActorDefaults(pub BTreeMap<String, ambition_platformer2d_core::AbilitySet>);
+
+impl ProviderActorDefaults {
+    pub fn for_provider(&self, provider_id: &str) -> Option<ambition_platformer2d_core::AbilitySet> {
+        self.0.get(provider_id).copied()
+    }
+}
+
 /// Which provider authored each globally visible character id.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct CharacterCatalogOwners(pub BTreeMap<String, String>);
@@ -377,6 +418,7 @@ impl CharacterCatalogOwners {
 pub struct AssembledCharacterCatalog {
     pub catalog: CharacterCatalog,
     pub defaults: CharacterCatalogDefaults,
+    pub actor_defaults: ProviderActorDefaults,
     pub owners: CharacterCatalogOwners,
     /// Controller policy, as its own authority. See [`BrainProfileRegistry`].
     pub brain_profiles: BrainProfileRegistry,
@@ -579,6 +621,7 @@ impl CharacterCatalogAppExt for App {
         self.insert_resource(registry)
             .insert_resource(assembled.catalog)
             .insert_resource(assembled.defaults)
+            .insert_resource(assembled.actor_defaults)
             .insert_resource(assembled.owners)
             .insert_resource(assembled.brain_profiles);
         Ok(self)

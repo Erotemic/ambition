@@ -11,10 +11,13 @@
 //! entities still lower directly, so a level (or a future editor) that needs a
 //! slope the palette lacks authors that polyline itself.
 //!
-//! What you paint is what you ride: the outline is not smoothed, so the map
-//! is an exact reference for where the ground is. The engine's joint rules
-//! handle the corners (a convex crest launches a fast rider; a concave dip is
-//! followed).
+//! The palette can only STAIRCASE a gentle slope — a flat, an 11° run, a flat
+//! — so the traced outline is smoothed before it is ridden or drawn: every
+//! stretch between two hard corners (sharper than 50°: a cliff top, a wall's
+//! foot, a roof's edge) is resampled and blurred over a few cells, and the
+//! hard corners stay exactly where they were painted. A flat stays flat; a
+//! staircase becomes the slope it stands for. The painted cells stay the
+//! editor's view, and the ridden surface never strays far from them.
 //!
 //! A second layer, `Track`, paints with the same palette but lowers only the
 //! outline's upward-facing runs: a road you can jump up through from below
@@ -185,17 +188,34 @@ fn emit_painted(
         let (cx, cy) = ((index % cw as usize) as i32, (index / cw as usize) as i32);
         cells.push(((cx, cy), cell));
     }
-    let scale = layer.grid_size as f32 / Q as f32;
+    let grid = layer.grid_size as f32;
+    let scale = grid / Q as f32;
     let to_world = |p: P| ae::Vec2::new(p.0 as f32 * scale, p.1 as f32 * scale) + offset;
-    let mut pieces = trace(&cells);
+    // Smooth each traced piece between its hard corners; the pieces of one
+    // ring, joined, are that ring smoothed — the outline the earth is cut from.
+    let mut pieces: Vec<(Vec<ae::Vec2>, bool)> = Vec::new();
+    let mut rings: Vec<Vec<ae::Vec2>> = Vec::new();
+    for ring in trace_rings(&cells) {
+        let mut outline: Vec<ae::Vec2> = Vec::new();
+        for piece in ring {
+            let points: Vec<ae::Vec2> = piece.points.iter().map(|&p| to_world(p)).collect();
+            let points = smooth(&points, piece.closed, grid);
+            outline.extend(&points[..if piece.closed { points.len() } else { points.len() - 1 }]);
+            pieces.push((points, piece.closed));
+        }
+        rings.push(outline);
+    }
     if floors_only {
-        pieces = pieces.into_iter().flat_map(floor_runs).collect();
+        pieces = pieces
+            .into_iter()
+            .flat_map(|(points, closed)| floor_runs(&points, closed))
+            .map(|run| (run, false))
+            .collect();
     }
     let mut chains: Vec<ae::SurfaceChain> = Vec::new();
-    for (n, piece) in pieces.into_iter().enumerate() {
+    for (n, (points, closed)) in pieces.into_iter().enumerate() {
         let name = format!("{name_prefix}#{n}");
-        let points = piece.points.into_iter().map(to_world).collect();
-        let chain = if piece.closed {
+        let chain = if closed {
             ae::SurfaceChain::closed_loop(name, points)
         } else {
             ae::SurfaceChain::open(name, points)
@@ -207,10 +227,7 @@ fn emit_painted(
         chains.push(chain);
     }
     if let Some(first) = chains.first_mut() {
-        first.earth = earth(&cells)
-            .into_iter()
-            .map(|polygon| polygon.into_iter().map(to_world).collect())
-            .collect();
+        first.earth = earth_strips(&rings);
     }
     Ok(TerrainEmission { chains })
 }
@@ -223,7 +240,14 @@ struct Piece {
 }
 
 /// Union the cells and trace every region's outline into chain pieces.
+#[cfg(test)]
 fn trace(cells: &[(P, TerrainCell)]) -> Vec<Piece> {
+    trace_rings(cells).into_iter().flatten().collect()
+}
+
+/// Union the cells and trace every region's outline: one list of pieces per
+/// ring (outer boundary or hole), in ring order.
+fn trace_rings(cells: &[(P, TerrainCell)]) -> Vec<Vec<Piece>> {
     // Every cell contributes its outline as unit edges (axis edges split at
     // each quarter, so a half-height step cancels exactly against the part of
     // its neighbour's full edge it covers). An edge shared by two cells
@@ -282,33 +306,31 @@ fn trace(cells: &[(P, TerrainCell)]) -> Vec<Piece> {
             from = at;
             at = next;
         }
-        pieces.extend(split_at_wall_feet(merge_collinear(ring)));
+        pieces.push(split_at_wall_feet(merge_collinear(ring)));
     }
     pieces
 }
 
-/// The maximal runs of `piece` that head left → right — the floors, whose
-/// `(t.y, -t.x)` normal points up — each as its own open piece.
-fn floor_runs(piece: Piece) -> Vec<Piece> {
-    let n = piece.points.len();
-    let segments = if piece.closed { n } else { n - 1 };
-    let is_floor = |i: usize| piece.points[(i + 1) % n].0 > piece.points[i].0;
-    // A closed ring's first segment leaves its top-left vertex along the top:
-    // a floor, so no run wraps past index 0 — but a run may END at the wrap.
+/// The maximal runs of a piece that head left → right — the floors, whose
+/// `(t.y, -t.x)` normal points up — each as its own open run.
+fn floor_runs(points: &[ae::Vec2], closed: bool) -> Vec<Vec<ae::Vec2>> {
+    let n = points.len();
+    let segments = if closed { n } else { n - 1 };
     let mut runs = Vec::new();
-    let mut current: Vec<P> = Vec::new();
+    let mut current: Vec<ae::Vec2> = Vec::new();
     for i in 0..segments {
-        if is_floor(i) {
+        let (a, b) = (points[i], points[(i + 1) % n]);
+        if b.x > a.x {
             if current.is_empty() {
-                current.push(piece.points[i]);
+                current.push(a);
             }
-            current.push(piece.points[(i + 1) % n]);
+            current.push(b);
         } else if !current.is_empty() {
-            runs.push(Piece { points: std::mem::take(&mut current), closed: false });
+            runs.push(std::mem::take(&mut current));
         }
     }
     if !current.is_empty() {
-        runs.push(Piece { points: current, closed: false });
+        runs.push(current);
     }
     runs
 }
@@ -395,45 +417,179 @@ fn split_at_wall_feet(ring: Vec<P>) -> Vec<Piece> {
     pieces
 }
 
-/// The painted cells as convex polygons for presentation: runs of full cells
-/// merge into one rectangle per row; each slope cell is its own polygon.
-fn earth(cells: &[(P, TerrainCell)]) -> Vec<Vec<P>> {
-    let full: BTreeSet<P> = cells
-        .iter()
-        .filter(|(_, cell)| *cell == TerrainCell::Full)
-        .map(|&(at, _)| at)
+/// A corner sharper than this is HARD: smoothing keeps it exactly where it
+/// was painted. The palette's own joints (45° at most) are soft.
+const HARD_TURN_DEG: f32 = 50.0;
+/// Resample spacing, and the blur's reach, in cells. Three cells melts the
+/// staircase an 11° run and a flat make of a gentle slope, and moves a crest
+/// only a few pixels.
+const SMOOTH_STEP_CELLS: f32 = 0.5;
+const SMOOTH_REACH_CELLS: f32 = 3.0;
+/// How far a simplified point may sit from the smoothed curve, in pixels.
+const SIMPLIFY_TOLERANCE: f32 = 0.3;
+
+/// Soften a traced piece (see the module doc). Hard corners and an open
+/// piece's ends stay fixed; each stretch between them is resampled, blurred
+/// and simplified.
+fn smooth(points: &[ae::Vec2], closed: bool, grid: f32) -> Vec<ae::Vec2> {
+    let n = points.len();
+    let turn = |i: usize| {
+        let (prev, at, next) = (points[(i + n - 1) % n], points[i], points[(i + 1) % n]);
+        let (a, b) = ((at - prev).normalize_or_zero(), (next - at).normalize_or_zero());
+        a.perp_dot(b).atan2(a.dot(b)).abs()
+    };
+    let hard_turn = HARD_TURN_DEG.to_radians();
+    let hard: Vec<usize> = (0..n)
+        .filter(|&i| (!closed && (i == 0 || i == n - 1)) || turn(i) > hard_turn)
         .collect();
-    let mut out = Vec::new();
-    let mut rows: BTreeMap<i32, Vec<i32>> = BTreeMap::new();
-    for &(cx, cy) in &full {
-        rows.entry(cy).or_default().push(cx);
-    }
-    for (cy, mut xs) in rows {
-        xs.sort_unstable();
-        let mut i = 0;
-        while i < xs.len() {
-            let mut j = i;
-            while j + 1 < xs.len() && xs[j + 1] == xs[j] + 1 {
-                j += 1;
+    let step = grid * SMOOTH_STEP_CELLS;
+    // Repeated [¼ ½ ¼] passes are a Gaussian of variance passes/2 samples².
+    let passes = (2.0 * (SMOOTH_REACH_CELLS / SMOOTH_STEP_CELLS).powi(2)) as usize;
+    if hard.is_empty() {
+        // A closed outline with no hard corner at all: blur it all the way round.
+        let mut ring = resample(&[points, &points[..1]].concat(), step);
+        ring.pop();
+        let m = ring.len();
+        for _ in 0..passes {
+            let prev = ring.clone();
+            for i in 0..m {
+                ring[i] = prev[(i + m - 1) % m] * 0.25 + prev[i] * 0.5 + prev[(i + 1) % m] * 0.25;
             }
-            let (x0, x1) = (xs[i] * Q, (xs[j] + 1) * Q);
-            let (y0, y1) = (cy * Q, (cy + 1) * Q);
-            out.push(vec![(x0, y0), (x1, y0), (x1, y1), (x0, y1)]);
-            i = j + 1;
         }
+        return ring;
     }
-    for &((cx, cy), cell) in cells {
-        if cell == TerrainCell::Full {
-            continue;
+    let runs = if closed { hard.len() } else { hard.len() - 1 };
+    let mut out: Vec<ae::Vec2> = Vec::new();
+    for k in 0..runs {
+        let (from, to) = (hard[k], hard[(k + 1) % hard.len()]);
+        let mut run = vec![points[from]];
+        let mut i = from;
+        while i != to {
+            i = (i + 1) % n;
+            run.push(points[i]);
         }
-        out.push(
-            cell.outline()
-                .into_iter()
-                .map(|(x, y)| (x + cx * Q, y + cy * Q))
-                .collect(),
-        );
+        let run = smooth_run(&run, step, passes);
+        out.extend(if out.is_empty() { &run[..] } else { &run[1..] });
+    }
+    if closed {
+        out.pop(); // back at the first hard corner
     }
     out
+}
+
+/// One stretch between two fixed ends: resample, blur, simplify.
+fn smooth_run(run: &[ae::Vec2], step: f32, passes: usize) -> Vec<ae::Vec2> {
+    let length: f32 = run.windows(2).map(|w| w[0].distance(w[1])).sum();
+    if length < 2.0 * step {
+        return run.to_vec();
+    }
+    let mut points = resample(run, step);
+    let last = points.len() - 1;
+    for _ in 0..passes {
+        let prev = points.clone();
+        for i in 1..last {
+            points[i] = prev[i - 1] * 0.25 + prev[i] * 0.5 + prev[i + 1] * 0.25;
+        }
+    }
+    simplify(&points, SIMPLIFY_TOLERANCE)
+}
+
+/// Evenly spaced points along a polyline, both ends kept exactly.
+fn resample(run: &[ae::Vec2], step: f32) -> Vec<ae::Vec2> {
+    let length: f32 = run.windows(2).map(|w| w[0].distance(w[1])).sum();
+    let count = (length / step).round().max(1.0) as usize;
+    let spacing = length / count as f32;
+    let mut out = Vec::with_capacity(count + 1);
+    out.push(run[0]);
+    let (mut segment, mut walked) = (0usize, 0.0f32);
+    for k in 1..count {
+        let target = spacing * k as f32;
+        loop {
+            let len = run[segment].distance(run[segment + 1]);
+            if walked + len >= target || segment + 2 == run.len() {
+                let f = if len > 0.0 { ((target - walked) / len).clamp(0.0, 1.0) } else { 0.0 };
+                out.push(run[segment].lerp(run[segment + 1], f));
+                break;
+            }
+            walked += len;
+            segment += 1;
+        }
+    }
+    out.push(*run.last().expect("a run has points"));
+    out
+}
+
+/// Douglas–Peucker: drop points within `tolerance` of the line their
+/// neighbours keep, ends kept.
+fn simplify(points: &[ae::Vec2], tolerance: f32) -> Vec<ae::Vec2> {
+    fn keep(points: &[ae::Vec2], tolerance: f32, from: usize, to: usize, out: &mut Vec<bool>) {
+        let (a, b) = (points[from], points[to]);
+        let ab = b - a;
+        let len = ab.length();
+        let (mut worst, mut at) = (0.0f32, None);
+        for i in from + 1..to {
+            let d = if len > 0.0 { ab.perp_dot(points[i] - a).abs() / len } else { points[i].distance(a) };
+            if d > worst {
+                (worst, at) = (d, Some(i));
+            }
+        }
+        if let Some(i) = at.filter(|_| worst > tolerance) {
+            out[i] = true;
+            keep(points, tolerance, from, i, out);
+            keep(points, tolerance, i, to, out);
+        }
+    }
+    let last = points.len() - 1;
+    let mut kept = vec![false; points.len()];
+    kept[0] = true;
+    kept[last] = true;
+    keep(points, tolerance, 0, last, &mut kept);
+    points.iter().zip(kept).filter(|(_, k)| *k).map(|(p, _)| *p).collect()
+}
+
+/// The earth inside `rings` (outer boundaries and holes alike, filled
+/// even-odd) as vertical trapezoids: between each pair of consecutive vertex
+/// x positions, the edges spanning that slab pair off top to bottom.
+fn earth_strips(rings: &[Vec<ae::Vec2>]) -> Vec<Vec<ae::Vec2>> {
+    let mut edges: Vec<(ae::Vec2, ae::Vec2)> = Vec::new();
+    let mut xs: Vec<f32> = Vec::new();
+    for ring in rings {
+        for i in 0..ring.len() {
+            let (a, b) = (ring[i], ring[(i + 1) % ring.len()]);
+            xs.push(a.x);
+            if (b.x - a.x).abs() > 1.0e-4 {
+                edges.push(if a.x < b.x { (a, b) } else { (b, a) });
+            }
+        }
+    }
+    xs.sort_by(f32::total_cmp);
+    xs.dedup_by(|a, b| (*a - *b).abs() < 1.0e-3);
+    edges.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
+    let y_at = |(a, b): (ae::Vec2, ae::Vec2), x: f32| a.y + (b.y - a.y) * ((x - a.x) / (b.x - a.x));
+    let mut strips = Vec::new();
+    let (mut next, mut active): (usize, Vec<(ae::Vec2, ae::Vec2)>) = (0, Vec::new());
+    for slab in xs.windows(2) {
+        let (x0, x1) = (slab[0], slab[1]);
+        while next < edges.len() && edges[next].0.x <= x0 + 1.0e-3 {
+            active.push(edges[next]);
+            next += 1;
+        }
+        active.retain(|edge| edge.1.x >= x1 - 1.0e-3);
+        let mid = (x0 + x1) * 0.5;
+        let mut crossing: Vec<(ae::Vec2, ae::Vec2)> =
+            active.iter().copied().filter(|edge| edge.0.x <= x0 + 1.0e-3).collect();
+        crossing.sort_by(|a, b| y_at(*a, mid).total_cmp(&y_at(*b, mid)));
+        for pair in crossing.chunks_exact(2) {
+            let (top, bottom) = (pair[0], pair[1]);
+            strips.push(vec![
+                ae::Vec2::new(x0, y_at(top, x0)),
+                ae::Vec2::new(x1, y_at(top, x1)),
+                ae::Vec2::new(x1, y_at(bottom, x1)),
+                ae::Vec2::new(x0, y_at(bottom, x0)),
+            ]);
+        }
+    }
+    strips
 }
 
 #[cfg(test)]

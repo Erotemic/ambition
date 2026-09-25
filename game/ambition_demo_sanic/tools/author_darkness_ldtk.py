@@ -110,6 +110,29 @@ LOWER_HEIGHTS = terrain.quantize(terrain.cosine_profile(LOWER), 0, LEVEL_W // GR
 ground_y = terrain.surface(LOWER_HEIGHTS, 0, GRID)
 
 
+def high_road_y(keys):
+    """The painted top of a high road (a `Track` band drawn from ``keys``)."""
+    x0 = keys[0][0] // GRID
+    heights = terrain.quantize(terrain.cosine_profile(keys), x0, keys[-1][0] // GRID, GRID)
+    return terrain.surface(heights, x0, GRID)
+
+
+#: A monitor on a high road sits on a shelf a jump above it. On the road itself
+#: it was a wall to anyone not rolling, and the vault's portal drops a runner
+#: onto the east road: a Right-only run ended against it.
+SHELF_W, SHELF_LIFT = 96, 96
+SHELVES = {
+    "monitor_rings_viaduct": (7660, high_road_y(HIGH_WEST)),
+    "monitor_rings_east": (23860, high_road_y(HIGH_EAST)),
+}
+
+
+def shelf(name: str) -> tuple[float, float]:
+    """(x, top y) of the shelf that carries monitor ``name``."""
+    x, road_y = SHELVES[name]
+    return x, road_y(x + SHELF_W / 2) - SHELF_LIFT
+
+
 def on_ground_badnik(x: float) -> dict:
     return rect(
         "EnemySpawn", (x, ground_y(x + 14) - 48), (28, 32),
@@ -169,6 +192,8 @@ def area_spec() -> dict:
         spring(19650, 1350, 1450),
         rect("OneWayPlatform", (OBSERVATORY[0], OBSERVATORY[1]),
              (OBSERVATORY[2], 16), name="observatory"),
+        *[rect("OneWayPlatform", shelf(name), (SHELF_W, 16), name=f"{name}_shelf")
+          for name in SHELVES],
     ]
     for keys, positions in [
         (WEST, [1400, 4550]), (VIADUCT, [6300, 7500, 9000]),
@@ -191,8 +216,7 @@ def named_blocks() -> dict:
         "entities": [
             monitor("monitor_rings_observatory", OBSERVATORY[0] + 100, OBSERVATORY[1]),
             monitor("monitor_speed_observatory", OBSERVATORY[0] + 260, OBSERVATORY[1]),
-            monitor("monitor_rings_viaduct", 7700, 1260),
-            monitor("monitor_rings_east", 23900, 1160),
+            *[monitor(name, shelf(name)[0] + 35, shelf(name)[1]) for name in SHELVES],
         ],
     }
 

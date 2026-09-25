@@ -2261,3 +2261,34 @@ fn a_body_rides_across_the_seam_from_a_solid_onto_a_flush_blink_wall() {
         body.pos.x
     );
 }
+
+/// A wall that is ANOTHER chain stops a rider, as a block wall does. A painted
+/// level lowers a step to two chains that meet at the wall's foot: a floor
+/// ending there, and the wall rising from it. The rider knew only its floor,
+/// ran to its end with its body already inside the wall, and the airborne
+/// sweep (which skips a face whose plane the centre has crossed) let it into
+/// the rock — the Act 2 cave, walked straight through.
+#[test]
+fn a_rider_stops_at_a_wall_that_is_another_chain() {
+    // The rider runs LEFT (negative v_t) along the floor into its end at the
+    // foot, x = 400, where the wall rises with its normal facing the floor.
+    let floor = SurfaceChain::open(
+        "floor",
+        vec![Vec2::new(400.0, 300.0), Vec2::new(1400.0, 300.0)],
+    );
+    let wall = SurfaceChain::open("wall", vec![Vec2::new(400.0, 100.0), Vec2::new(400.0, 300.0)]);
+    let world = world_with_chains(vec![floor, wall]);
+    let params = frictionless();
+    let radius = 24.0;
+    let mut body = ride(0, 600.0, -1300.0, &world, radius);
+    for _ in 0..120 {
+        step_surface_body(&mut body, &world, &params, gframe(G), SurfaceInputs::default(), DT, None);
+    }
+    assert!(
+        body.pos.x >= 400.0 + radius - 1.0,
+        "the rider stays out of the wall: {:?} {:?}",
+        body.pos,
+        body.motion
+    );
+    assert!(body.pos.y < 300.0, "and on the floor, not through it: {:?}", body.pos);
+}

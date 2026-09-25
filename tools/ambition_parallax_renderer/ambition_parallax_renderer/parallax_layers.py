@@ -118,6 +118,18 @@ THEMES: tuple[Theme, ...] = (
         18,
     ),
     Theme(
+        "eclipse",
+        (5, 8, 27),
+        (24, 17, 57),
+        (5, 11, 29),
+        (18, 20, 54),
+        (67, 179, 205),
+        (192, 111, 242),
+        "eclipse",
+        "ruined_observatory",
+        112,
+    ),
+    Theme(
         "water",
         (2, 24, 44),
         (7, 62, 80),
@@ -301,7 +313,12 @@ def _draw_sun(
     _blurred_alpha_composite(base, overlay, 12)
 
 
-def _draw_eclipse(base: Image.Image, center: tuple[int, int], radius: int) -> None:
+def _draw_eclipse(
+    base: Image.Image,
+    center: tuple[int, int],
+    radius: int,
+    corona: RGB = (255, 108, 72),
+) -> None:
     overlay, draw = _new_overlay()
     x, y = center
     for grow, alpha in ((22, 26), (10, 56), (4, 96)):
@@ -312,7 +329,7 @@ def _draw_eclipse(base: Image.Image, center: tuple[int, int], radius: int) -> No
                 x + radius + grow,
                 y + radius + grow,
             ],
-            outline=(255, 108, 72, alpha),
+            outline=(*corona, alpha),
             width=4,
         )
     draw.ellipse(
@@ -419,7 +436,12 @@ def _draw_sky(theme: Theme) -> Image.Image:
     elif theme.celestial == "sun":
         _draw_sun(image, (598, 106), 38, theme.glow)
     elif theme.celestial == "eclipse":
-        _draw_eclipse(image, (602, 110), 34)
+        _draw_eclipse(
+            image,
+            (602, 110),
+            42 if theme.key == "eclipse" else 34,
+            theme.glow if theme.key == "eclipse" else (255, 108, 72),
+        )
     elif theme.celestial == "caustics":
         over, odraw = _new_overlay()
         _draw_caustics(odraw, rng, _rgba(theme.glow, 42))
@@ -693,6 +715,37 @@ def _add_monoliths(draw: ImageDraw.ImageDraw, color: RGBA, accent: RGBA) -> None
             [(x1, y1), ((x1 + x2) // 2, (y1 + y2) // 2 - 18), (x2, y2)],
             _scale_alpha(accent, 0.65),
             4,
+        )
+
+
+def _add_eclipse_observatory(
+    draw: ImageDraw.ImageDraw, color: RGBA, accent: RGBA, glow: RGBA
+) -> None:
+    for cx, tip, width in ((142, 262, 74), (372, 202, 92), (630, 288, 70)):
+        _poly(
+            draw,
+            [
+                (cx - width, 548),
+                (cx - width // 2, tip + 46),
+                (cx, tip),
+                (cx + width // 2, tip + 46),
+                (cx + width, 548),
+            ],
+            color,
+        )
+        _line(draw, [(cx, tip + 36), (cx, 466)], accent, 5)
+        for y in (tip + 78, tip + 130, tip + 182):
+            draw.ellipse([cx - 5, y - 5, cx + 5, y + 5], fill=glow)
+    for start, end in ((54, 316), (430, 726)):
+        _line(draw, [(start, 408), ((start + end) // 2, 386), (end, 412)], accent, 6)
+        _line(draw, [(start, 424), ((start + end) // 2, 402), (end, 428)], color, 11)
+    for radius, alpha in ((122, 0.50), (152, 0.30)):
+        draw.arc(
+            [372 - radius, 334 - radius, 372 + radius, 334 + radius],
+            202,
+            338,
+            fill=_scale_alpha(glow, alpha),
+            width=5,
         )
 
 
@@ -1231,6 +1284,8 @@ def _add_theme_landmark(
     elif theme.key == "boss":
         _add_monoliths(draw, base, accent)
         _add_shards(draw, _scale_alpha(glow, 0.9))
+    elif theme.key == "eclipse":
+        _add_eclipse_observatory(draw, base, accent, glow)
     elif theme.key == "water":
         _add_ruins_and_kelp(draw, base, accent, glow)
     elif theme.key == "forest":
@@ -1268,7 +1323,7 @@ def _draw_near_background(theme: Theme) -> Image.Image:
         _periodic_band(draw, _rgba(theme.glow, 18), 506, 16, 12, 8, 1.4, 0.2)
     elif theme.key in {"cove", "water", "cave"}:
         _periodic_band(draw, _rgba(theme.glow, 20), 544, 12, 16, 10, 0.8, 1.8)
-    elif theme.key in {"boss", "basement"}:
+    elif theme.key in {"boss", "basement", "eclipse"}:
         _periodic_band(draw, _rgba(theme.glow, 18), 532, 14, 10, 14, 1.7, 1.1)
     return img.filter(ImageFilter.GaussianBlur(2.2))
 

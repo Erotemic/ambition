@@ -129,8 +129,8 @@ def area_spec() -> dict:
         portal("vault_secret_entrance", 11800, VAULT_CEILING + 24, "teal", "left"),
         portal("vault_secret_exit", 22000, 1136, "red", "right"),
         # Springs reach the optional roads. The lower road stays complete.
-        spring(5480, height_at(VIADUCT, 5504), 1050),
-        spring(21500, height_at(EAST, 21524), 1000),
+        spring(5480, height_at(VIADUCT, 5504), 1700),
+        spring(21500, height_at(EAST, 21524), 1700),
         booster(800, 1640, 1100),
         booster(3950, height_at(WEST, 3980), 1200),
         booster(7850, height_at(VIADUCT, 7880), 1300),

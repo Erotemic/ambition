@@ -176,6 +176,7 @@ pub enum ParallaxTheme {
     Cove,
     Skybridge,
     Boss,
+    Eclipse,
     Water,
     Forest,
     Cave,
@@ -189,6 +190,7 @@ impl ParallaxTheme {
         Self::Cove,
         Self::Skybridge,
         Self::Boss,
+        Self::Eclipse,
         Self::Water,
         Self::Forest,
         Self::Cave,
@@ -202,6 +204,7 @@ impl ParallaxTheme {
             Self::Cove => "cove",
             Self::Skybridge => "skybridge",
             Self::Boss => "boss",
+            Self::Eclipse => "eclipse",
             Self::Water => "water",
             Self::Forest => "forest",
             Self::Cave => "cave",
@@ -267,6 +270,7 @@ impl ParallaxTheme {
             "cove" | "coast" | "beach" => Some(Self::Cove),
             "skybridge" | "sky" | "blue" => Some(Self::Skybridge),
             "boss" | "mob_arena" | "arena" => Some(Self::Boss),
+            "eclipse" => Some(Self::Eclipse),
             "water" | "underwater" | "tide" => Some(Self::Water),
             "forest" | "woods" | "grove" | "bamboo" | "dojo" | "ninja" | "ninja_dojo" => {
                 Some(Self::Forest)

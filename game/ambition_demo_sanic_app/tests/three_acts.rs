@@ -78,6 +78,61 @@ fn release(app: &mut App) {
         .0 = ControlFrame::default();
 }
 
+fn place(app: &mut App, at: Vec2) {
+    let mut q = app.world_mut().query_filtered::<(
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d::actor::MotionModel,
+    ), With<PrimaryPlayer>>();
+    let world = app.world_mut();
+    let (mut clusters, mut model) = q.iter_mut(world).next().expect("Sanic exists");
+    let mut clusters = clusters.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        at,
+        ae::movement::TransitVelocity::Zero,
+    );
+}
+
+fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road: &str) {
+    let chain = {
+        let mut q = app
+            .world_mut()
+            .query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        q.iter(app.world())
+            .next()
+            .expect("room set")
+            .active_world()
+            .chain_named(road)
+            .expect("authored high road")
+    };
+    place(app, Vec2::new(spring_x + 24.0, spring_y - 130.0));
+    let mut launched = false;
+    for _ in 0..120 {
+        release(app);
+        app.update();
+        if body(app).0.vel.y < -500.0 {
+            launched = true;
+            break;
+        }
+    }
+    assert!(launched, "spring at {spring_x:.0} must launch Sanic");
+    let mut highest = f32::MAX;
+    let mut furthest = f32::MIN;
+    for _ in 0..480 {
+        let (kin, motion) = body(app);
+        highest = highest.min(kin.pos.y);
+        furthest = furthest.max(kin.pos.x);
+        if matches!(motion, Some(ae::SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(on), .. }) if on == chain)
+        {
+            return;
+        }
+        hold(app, false);
+        app.update();
+    }
+    panic!("spring at {spring_x:.0} did not reach {road}; highest y {highest:.0}, furthest x {furthest:.0}");
+}
+
 /// Run until the act clears, or panic naming how far he got.
 fn run_to_clear(
     app: &mut App,
@@ -202,6 +257,9 @@ fn the_three_acts_connect_and_clear() {
         6,
         "all authored portals spawn"
     );
+    ride_high_road(&mut app, 5480.0, 1660.0, "darkness_high_west");
+    ride_high_road(&mut app, 21500.0, 1640.0, "darkness_high_east");
+    place(&mut app, Vec2::new(144.0, 1594.0));
     run_to_clear(&mut app, "Act 3", 7200, |_| false);
     assert!(
         app.world().resource::<PortalTransits>().0 > 0,

@@ -75,11 +75,11 @@ Also landed:
     Sanic scripts set it with `level set-field`.
 - **Act 3, darkness (2026-09-24).** The 32,000×2,400 course has four attached
   loops, two high roads, an inverted vault, a basin, an observatory reward route,
-  three portal pairs, and the
+  three portal pairs, a new eclipse background, and the
   `to_be_superluminal_is_to_live_in_darkness` score. The three acts form a
   cycle. `tools/author_darkness_ldtk.py` authors the map. The real headless app
-  clears all three acts and records a portal transit in Act 3
-  (`three_acts::the_three_acts_connect_and_clear`).
+  reaches both high roads, clears all three acts, and records a portal transit
+  in Act 3 (`three_acts::the_three_acts_connect_and_clear`).
 - **Act 1's pit is a spike pit (2026-09-25).** It was a `HazardBlock` (a flat
   reset strip). It is now a 112px trench with a solid floor and a
   `DamageVolume` bed: falling in costs rings, or the run with none, and you can

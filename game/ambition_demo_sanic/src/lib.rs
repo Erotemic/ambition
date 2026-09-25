@@ -427,9 +427,9 @@ pub fn sanic_darkness() -> RoomSpec {
         .find(|room| room.id == DARKNESS_ROOM_ID)
         .expect("the world file authors the sanic_darkness area");
     room.metadata.biome = Some("basement".to_string());
-    room.metadata.visual_theme = Some("basement".to_string());
+    room.metadata.visual_theme = Some("eclipse".to_string());
     room.metadata.visual_profile.id = Some("sanic_darkness".to_string());
-    room.metadata.visual_profile.parallax_theme = Some("basement".to_string());
+    room.metadata.visual_profile.parallax_theme = Some("eclipse".to_string());
     let finish = ae::Vec2::new(goal_x_of(&room.world), 1120.0);
     room.debug_labels = vec![ambition_platformer2d::world::rooms::Authored::new(
         "sanic_darkness_finish",

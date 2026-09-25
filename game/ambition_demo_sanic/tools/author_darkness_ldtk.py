@@ -110,6 +110,20 @@ LOWER_HEIGHTS = terrain.quantize(terrain.cosine_profile(LOWER), 0, LEVEL_W // GR
 ground_y = terrain.surface(LOWER_HEIGHTS, 0, GRID)
 
 
+#: The vault roof's painted underside. The palette's flats lie on cell lines,
+#: so it is not `VAULT_CEILING` (1260) but the line the painting chose (1264).
+vault_roof_y = terrain.surface(
+    terrain.quantize(lambda x: VAULT_CEILING, VAULT_X[0] // GRID, VAULT_X[1] // GRID, GRID),
+    VAULT_X[0] // GRID, GRID,
+)
+
+#: A standing Sanic's centre, off the surface he stands on. Every rift is
+#: centred there: a portal keeps a body's offset along its plane, so a pair
+#: centred at different heights off their floors sets a runner down inside
+#: one (the vault's red rift put him 12 px into the east road) or drops him.
+STANDING_CENTRE = 24
+
+
 def high_road_y(keys):
     """The painted top of a high road (a `Track` band drawn from ``keys``)."""
     x0 = keys[0][0] // GRID
@@ -141,9 +155,12 @@ def on_ground_badnik(x: float) -> dict:
 
 
 def area_spec() -> dict:
-    def portal(name: str, x: int, y: int, color: str, normal: str) -> dict:
-        # A vertical rift catches a body running across its plane. Its
-        # 128px opening fits a standing Sanic body.
+    def portal(name: str, x: int, surface_y: float, color: str, normal: str,
+               hangs: bool = False) -> dict:
+        # A vertical rift catches a body running across its plane. Its 128px
+        # opening fits a standing Sanic body, centred where he stands off the
+        # painted surface under it (or over it, for a rift on a ceiling).
+        y = round(surface_y + (STANDING_CENTRE if hangs else -STANDING_CENTRE))
         return rect("Portal", (x - 8, y - 64), (16, 128),
                     name=name, color=color, normal=normal)
 
@@ -161,15 +178,14 @@ def area_spec() -> dict:
              name="darkness_vault_flip", dir="up"),
         # The high roads pass over the lower rifts. A runner on the lower
         # road crosses their plane and exits further east.
-        portal("viaduct_entrance", 8150,
-               round(ground_y(8150) - 24), "purple", "left"),
-        portal("viaduct_exit", 10100, 1476, "yellow", "right"),
-        portal("shadow_entrance", 26500,
-               round(ground_y(26500) - 24), "green", "left"),
-        portal("shadow_exit", 29400, 1396, "magenta", "right"),
+        portal("viaduct_entrance", 8150, ground_y(8150), "purple", "left"),
+        portal("viaduct_exit", 10100, ground_y(10100), "yellow", "right"),
+        portal("shadow_entrance", 26500, ground_y(26500), "green", "left"),
+        portal("shadow_exit", 29400, ground_y(29400), "magenta", "right"),
         # The rift on the vault ceiling leads to the second high road.
-        portal("vault_secret_entrance", 11800, VAULT_CEILING + 24, "teal", "left"),
-        portal("vault_secret_exit", 22000, 1136, "red", "right"),
+        portal("vault_secret_entrance", 11800, vault_roof_y(11800), "teal", "left",
+               hangs=True),
+        portal("vault_secret_exit", 22000, high_road_y(HIGH_EAST)(22000), "red", "right"),
         # Springs reach the optional roads. The lower road stays complete.
         spring(5480, ground_y(5504), 1700),
         spring(21500, ground_y(21524), 1700),

@@ -1,4 +1,3 @@
-
 use ambition_platformer2d::engine_core as ae;
 
 use crate::{
@@ -1177,8 +1176,7 @@ fn oracle_every_highway_loop_is_ridden_exactly_once_holding_up() {
             .position(|p| p.distance(ramp_foot) < 0.5)
             .unwrap_or_else(|| panic!("{loop_name}'s ramp foot is a vertex of {floor_name}"));
         let start_s = (floor.arc_at_vertex(foot_vertex) - 300.0).max(10.0);
-        let mut probe =
-            Probe::riding_chain(&room.world, floor_idx, start_s, 900.0, sanic_params());
+        let mut probe = Probe::riding_chain(&room.world, floor_idx, start_s, 900.0, sanic_params());
         for _ in 0..1200 {
             probe.step(&room.world, ae::Vec2::new(1.0, -1.0), false);
             if matches!(probe.motion(), ae::SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(c), s, .. } if c == loop_idx && s > closure_s + 100.0)

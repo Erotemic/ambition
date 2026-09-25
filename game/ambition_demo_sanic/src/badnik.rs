@@ -83,8 +83,8 @@ const BADNIK_STANDING_HEIGHT: f32 = crate::SANIC_STANDING_HEIGHT * 0.6;
 /// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
 /// offense is walking into you.
 pub fn register_badnik_character(app: &mut App) {
+    use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
     use ambition_platformer2d::character::CharacterDefinition;
-    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
     use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
     use ambition_platformer2d::characters::brain::{
         BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
@@ -101,7 +101,10 @@ pub fn register_badnik_character(app: &mut App) {
     // Its body is its art at one scale, so the quad sits on its feet (the
     // catalog join sized the box right but published no offset, and the art
     // floated ~3.6 units).
-    .with_sprite_authored_body(crate::world_per_pixel_for_height("ai_slop", BADNIK_STANDING_HEIGHT))
+    .with_sprite_authored_body(crate::world_per_pixel_for_height(
+        "ai_slop",
+        BADNIK_STANDING_HEIGHT,
+    ))
     .with_locomotion(CharacterLocomotion {
         run_speed: 60.0,
         move_style: MoveStyleSpec::Walk,

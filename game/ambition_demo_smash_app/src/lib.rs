@@ -121,29 +121,26 @@ mod portal_presentation_tests {
     // defaults; the behavioural half is
     // `the_ruleset_states_the_portal_presentation_not_the_binary`.
 
-    /// The smash ruleset turns the seamless portal presentation off
-    /// (`Pop`/`Static`). This checks the premise: the engine still defaults to
-    /// `Continuous`/`Dynamic`, so the ruleset's choice is a real per-case
-    /// override. If the engine default changes, this fails so that someone
-    /// re-checks the override.
+    /// The smash ruleset turns the seamless portal camera off (`Pop`). This
+    /// checks the premise: the engine still defaults to `Continuous`, so the
+    /// ruleset's choice is a real per-case override. If the engine default
+    /// changes, this fails so that someone re-checks the override.
+    ///
+    /// The cone half of this premise ended 2026-09-25, when the engine's own
+    /// default became `Static` (Dynamic cones misdrew in Sanic). Smash still
+    /// states `Static`, now as a restatement: the ruleset keeps small authored
+    /// cones even if the engine default moves back.
     #[test]
     fn the_engine_defaults_still_make_the_rulesets_choice_an_override() {
         use ambition_platformer2d::portal_presentation as portal_view;
 
         let engine_camera = portal_view::PortalCameraContinuitySelection::default().mode;
-        let engine_cones = portal_view::PortalViewConeConfig::default().mode;
         assert_eq!(
             engine_camera,
             portal_view::PortalCameraTransitMode::Continuous,
             "the engine no longer defaults to the seamless camera, so this host's \
              `Pop` is a restatement rather than an override and the case-by-case \
              claim needs re-checking"
-        );
-        assert_eq!(
-            engine_cones,
-            portal_view::PortalViewConeMode::Dynamic,
-            "the engine no longer defaults to viewer-dependent cones, so this \
-             host's `Static` proves nothing about disabling it per case"
         );
 
         // `SmashExperiencePlugin` states the presentation, and every composition

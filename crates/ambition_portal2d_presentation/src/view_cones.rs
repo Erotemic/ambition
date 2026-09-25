@@ -206,9 +206,12 @@ impl PortalViewConeMode {
     }
 }
 
+/// `Static` by default (Jon, 2026-09-25): the viewer-dependent cones misdrew
+/// in Sanic, and the small authored cone reads the same in every game. A host
+/// or the portal inspector can still select `Dynamic`.
 impl Default for PortalViewConeMode {
     fn default() -> Self {
-        Self::Dynamic
+        Self::Static
     }
 }
 
@@ -503,7 +506,7 @@ pub struct PortalViewConeConfig {
 impl Default for PortalViewConeConfig {
     fn default() -> Self {
         Self {
-            mode: PortalViewConeMode::Dynamic,
+            mode: PortalViewConeMode::default(),
             visibility_mode: PortalViewConeVisibilityMode::FaceLosWithContinuity,
             aperture_los_quality: PortalApertureLosQuality::Low,
             source_clip_policy: PortalViewConeSourceClipPolicy::ClampToFrame,

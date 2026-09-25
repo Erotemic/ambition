@@ -640,6 +640,7 @@ fn test_blade_resolver(
     _cid: Option<&str>,
     animation: &str,
     collision: ae::Vec2,
+    _drawn_quad: Option<ae::Vec2>,
     _clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     (animation == "attack_side").then(|| {
@@ -876,10 +877,10 @@ fn the_strike_poly_comes_from_the_character_the_body_wears() {
         let sink = Arc::clone(&asked);
         app.insert_resource(
             crate::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
-                move |catalog, cid, animation, collision, clip_elapsed| {
+                move |catalog, cid, animation, collision, drawn_quad, clip_elapsed| {
                     sink.lock().expect("the sink is not poisoned")
                         .push(cid.map(str::to_string));
-                    test_blade_resolver(catalog, cid, animation, collision, clip_elapsed)
+                    test_blade_resolver(catalog, cid, animation, collision, drawn_quad, clip_elapsed)
                 },
             ),
         );
@@ -908,6 +909,59 @@ fn the_strike_poly_comes_from_the_character_the_body_wears() {
         "the strike volume resolved against something other than the character \
          the body wears. A body that transformed keeps the old character's hit \
          polygon: {asked:?}"
+    );
+}
+
+/// The strike scales an authored blade by the quad the body is DRAWN at.
+///
+/// A blade is drawn in frame pixels, so its world size is the art's quad. The
+/// resolver re-derived that quad from the catalog join at hit time, which
+/// answers for a different box than the renderer draws: measured 2026-09-25,
+/// 40 of 302 worn bodies across the shipped rooms were drawn at a quad the join
+/// did not give, among them `super_sanic`, whose authored blades resolved 3.5%
+/// smaller than the art. Asked of the injected resolver, like the worn id above.
+#[test]
+fn the_strike_poly_is_scaled_by_the_quad_the_body_is_drawn_at() {
+    use std::sync::{Arc, Mutex};
+
+    let asked: Arc<Mutex<Vec<Option<ae::Vec2>>>> = Arc::new(Mutex::new(Vec::new()));
+    let (mut app, _victim) = app_with_victim();
+    {
+        let sink = Arc::clone(&asked);
+        app.insert_resource(
+            crate::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
+                move |catalog, cid, animation, collision, drawn_quad, clip_elapsed| {
+                    sink.lock().expect("the sink is not poisoned").push(drawn_quad);
+                    test_blade_resolver(catalog, cid, animation, collision, drawn_quad, clip_elapsed)
+                },
+            ),
+        );
+    }
+    // Deliberately not the collision box nor any fit of it, so a strike that
+    // derives a quad cannot pass by coincidence.
+    let drawn = ae::Vec2::new(71.0, 83.0);
+    let attacker = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(30.0, 48.0),
+        simple_melee(&SimpleMeleeParams::default()),
+    );
+    app.world_mut().entity_mut(attacker).insert((
+        ambition_characters::actor::WornCharacter::new("sanic"),
+        crate::components::ActorRenderSize(drawn),
+    ));
+
+    run_seconds(&mut app, 0.14);
+
+    let asked = asked.lock().expect("the sink is not poisoned").clone();
+    assert!(
+        !asked.is_empty(),
+        "the manifest seam was never reached, so this fixture measures nothing"
+    );
+    assert!(
+        asked.iter().all(|quad| *quad == Some(drawn)),
+        "the strike scaled its authored blade by a quad other than the one the \
+         body is drawn at: {asked:?}"
     );
 }
 

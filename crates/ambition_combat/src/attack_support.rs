@@ -355,6 +355,9 @@ pub fn player_attack_hitbox(
     character_catalog: &CharacterCatalog,
     authored_volumes: &crate::authored_volumes::AuthoredAttackVolumeResolver,
     sprite_character_id: Option<&str>,
+    // The quad the body is drawn at (`ActorRenderSize`), so the overlay's blade
+    // is the one the strike resolves.
+    drawn_quad: Option<ae::Vec2>,
     view: &AttackView,
     intent: AttackIntent,
     gravity_dir: ae::Vec2,
@@ -371,6 +374,7 @@ pub fn player_attack_hitbox(
                 sprite_character_id,
                 animation,
                 view.size,
+                drawn_quad,
                 None,
             )?
             .place_body_local(view.pos, view.facing, gravity_dir),

@@ -1227,6 +1227,9 @@ pub fn advance_move_playback(
         // kernel spends the clock; nothing here owes a matching "off". `None`
         // for a bare test body, which then has no policy to float.
         Option<&mut ae::MotionModel>,
+        // The quad the body is drawn at: an authored blade is drawn in frame
+        // pixels, so it is scaled by the art's own quad, not a re-derived one.
+        Option<&crate::components::ActorRenderSize>,
     )>,
     // IS ATTACK STILL DOWN? The body-generic resolved gesture, produced by
     // `resolve_attack_gestures` earlier in this same tick — never a device and
@@ -1269,8 +1272,10 @@ pub fn advance_move_playback(
         scale,
         owner_sim_id,
         mut motion,
+        drawn,
     ) in &mut players
     {
+        let drawn_quad = drawn.map(|quad| quad.0);
         // ⭐⭐ THE AIM LATCH, SAMPLED BEFORE THIS TICK'S EVENTS FIRE. A
         // technique that acts on this tick — a teleport's transit — must see the
         // stick the player is holding NOW as well as everything they asked for
@@ -1803,6 +1808,7 @@ pub fn advance_move_playback(
                                 sprite_cid,
                                 clip,
                                 kin.size,
+                                drawn_quad,
                                 Some(window.start_s),
                             )
                         });

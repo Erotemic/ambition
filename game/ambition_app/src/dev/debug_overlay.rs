@@ -135,6 +135,8 @@ pub(crate) fn draw_debug_overlay(
             // shakes against a world that looks perfectly stable — see
             // `draw_player_debug`'s `draw_pos`.
             Option<&ambition_platformer2d::sim_view::PresentedPose>,
+            // The quad the body is drawn at, which scales its authored blade.
+            Option<&ambition_platformer2d::combat::components::ActorRenderSize>,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -218,6 +220,7 @@ pub(crate) fn draw_debug_overlay(
         attack,
         worn_character,
         presented,
+        drawn,
     )) = player_q.single_mut()
     {
         let clusters = cluster_item.as_clusters_mut();
@@ -231,6 +234,7 @@ pub(crate) fn draw_debug_overlay(
             &feature_q.character_catalog,
             &feature_q.authored_attack_volumes,
             worn_character.id(),
+            drawn.map(|quad| quad.0),
             &clusters,
             player_draw_pos,
             motion_model,

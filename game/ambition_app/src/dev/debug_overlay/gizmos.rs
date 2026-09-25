@@ -196,6 +196,7 @@ pub(crate) fn draw_player_debug(
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     authored_attack_volumes: &ambition_platformer2d::combat::authored_volumes::AuthoredAttackVolumeResolver,
     worn_character_id: &str,
+    drawn_quad: Option<ae::Vec2>,
     clusters: &ae::BodyClustersMut<'_>,
     // Where the body is DRAWN this frame — the frame-clock presented
     // position, not `clusters.kinematics.pos`.
@@ -306,6 +307,7 @@ pub(crate) fn draw_player_debug(
                 character_catalog,
                 authored_attack_volumes,
                 Some(worn_character_id),
+                drawn_quad,
                 &view,
                 attack_state.spec.intent,
                 gravity_dir,

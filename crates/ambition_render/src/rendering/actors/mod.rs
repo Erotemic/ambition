@@ -15,7 +15,7 @@ use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, Featur
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
-    build_character_presentation_with_render_size, feet_anchor_for_render_size, sprite_render_size,
+    build_character_presentation_with_render_size, feet_anchor_for_render_size,
     CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
@@ -40,13 +40,11 @@ pub fn character_render_basis(
     authored_render: Option<BVec2>,
     authored_offset: Option<BVec2>,
 ) -> (BVec2, Anchor) {
-    match authored_render {
-        Some(render) if authored_offset.is_some() => (render, Anchor::CENTER),
-        Some(render) => (render, feet_anchor_for_render_size(spec, collision, render)),
-        None => {
-            let render = sprite_render_size(spec, collision);
-            (render, feet_anchor_for_render_size(spec, collision, render))
-        }
+    let render = ambition_sprite_sheet::character::sheets::drawn_render_size(spec, collision, authored_render);
+    if authored_render.is_some() && authored_offset.is_some() {
+        (render, Anchor::CENTER)
+    } else {
+        (render, feet_anchor_for_render_size(spec, collision, render))
     }
 }
 
@@ -1018,7 +1016,8 @@ mod compact_pose_tests {
 
 #[cfg(test)]
 mod render_basis_tests {
-    use super::{character_render_basis, feet_anchor_for_render_size, sprite_render_size};
+    use super::{character_render_basis, feet_anchor_for_render_size};
+    use ambition_sprite_sheet::character::sprite_render_size;
     use bevy::math::Vec2 as BVec2;
     use bevy::sprite::Anchor;
 

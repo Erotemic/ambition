@@ -329,7 +329,7 @@ fn aerial_enemy_respects_world_collision_against_a_wall() {
     // verifies the integration step blocks the body against
     // the wall, not just the steering code that picks velocity.
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    frame.velocity_target = ae::WorldVec2::new(enemy.config.tuning.chase_speed, 0.0);
+    frame.velocity_target = ae::WorldVec2::new(enemy.policy.0.chase_speed(enemy.config.tuning.max_run_speed), 0.0);
     for _ in 0..120 {
         let mut model = ambition_platformer2d_core::movement::MotionModel::default();
         enemy.update_for_test(
@@ -449,7 +449,7 @@ fn sideways_wall_contact_is_reported_without_mutating_facing() {
         &[],
     );
     enemy.kin.facing = 1.0;
-    let mut model = enemy.config.tuning.motion_model();
+    let mut model = enemy.config.tuning.motion_model(&enemy.policy.0);
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     frame.facing = 1.0;
     // With gravity pointing world-right, local +side points world-up. The
@@ -528,7 +528,7 @@ fn slug_step_on_platform(platform_velocity: ae::Vec2) -> f32 {
     enemy.body.0.ground.on_ground = true;
     enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
     let x0 = enemy.kin.pos.x;
-    let mut model = enemy.config.tuning.motion_model();
+    let mut model = enemy.config.tuning.motion_model(&enemy.policy.0);
     let ambition_platformer2d_core::movement::MotionModel::AdhesiveCrawler(crawler) = &mut model else {
         panic!("a surface_walker archetype must select the crawler policy at spawn");
     };
@@ -637,7 +637,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
     );
     body.policy.0.turns_at_walls = true;
     body.kin.facing = 1.0;
-    let mut model = body.config.tuning.motion_model();
+    let mut model = body.config.tuning.motion_model(&body.policy.0);
 
     for _ in 0..240 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
@@ -681,7 +681,7 @@ fn stopping_in_open_space_preserves_facing() {
     body.policy.0.turns_at_walls = true;
     body.kin.facing = 1.0;
     body.kin.vel.x = 120.0;
-    let mut model = body.config.tuning.motion_model();
+    let mut model = body.config.tuning.motion_model(&body.policy.0);
 
     for _ in 0..240 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();

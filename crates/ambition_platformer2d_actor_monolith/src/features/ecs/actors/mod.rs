@@ -18,7 +18,7 @@ fn shark_charge_crashed(
         em.health.alive(),
         em.kin.pos,
         em.kin.vel,
-        em.config.tuning.chase_speed,
+        em.policy.0.chase_speed(em.config.tuning.max_run_speed),
         is_being_ridden,
         charge_vec,
         previous_pos,

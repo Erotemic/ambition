@@ -390,8 +390,6 @@ fn release_provocation_pacifies_and_restores_default() {
     // What construction built, in values no default produces: the release must
     // hand these back untouched, because nothing on the provoke road changed them.
     let built_tuning = ambition_combat::actor_tuning::ActorTuning {
-        patrol_speed: 105.0,
-        chase_speed: 210.0,
         max_run_speed: 210.0,
         ..Default::default()
     };

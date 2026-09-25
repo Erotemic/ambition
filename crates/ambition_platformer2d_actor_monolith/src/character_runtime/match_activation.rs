@@ -41,7 +41,7 @@ fn realize_seat(
     // the CHARACTER's below. Switching rather than replacing is ADR 0024: a
     // cross-model change preserves every shared body fact and initializes only
     // the destination solver's private state.
-    let motion_model = seed.config.tuning.motion_model();
+    let motion_model = seed.config.tuning.motion_model(&seed.policy.0);
     let (_seed_disposition, combat) =
         ambition_platformer2d_actor_spawn::conversion::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition the seed derives

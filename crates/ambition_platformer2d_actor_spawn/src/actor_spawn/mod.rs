@@ -546,7 +546,7 @@ impl EnemyActorSpawnPlan {
     /// ⭐ The root arrives inside the scope, so this can no longer be handed a
     /// `Commands` and asked to make its own.
     pub(super) fn spawn_into(self, scope: &mut RootScope) {
-        let motion_model = self.enemy.config.tuning.motion_model();
+        let motion_model = self.enemy.config.tuning.motion_model(&self.enemy.policy.0);
         let (disposition, combat) = self::conversion::enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         scope.insert_session_scoped((
@@ -807,7 +807,7 @@ impl NpcActorSpawnPlan {
             // marker is not re-folded (see the hostile path).
             None,
         );
-        let motion_model = self.seed.config.tuning.motion_model();
+        let motion_model = self.seed.config.tuning.motion_model(&self.seed.policy.0);
         let cluster_bundle = self.seed.into_components();
         scope.insert_session_scoped((
                 Name::new(self.entity_name),
@@ -968,7 +968,6 @@ fn boss_actor_cluster(
     // forces the sentence to be re-read.
     let body_damage = config.behavior.body_damage;
     let tuning = ambition_combat::actor_tuning::ActorTuning {
-        chase_speed: BOSS_FLIGHT_SPEED,
         max_run_speed: BOSS_FLIGHT_SPEED,
         is_aerial: true,
         // The BossPattern brain commands an exact per-tick velocity, so the flight

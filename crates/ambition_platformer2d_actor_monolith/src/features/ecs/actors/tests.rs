@@ -250,13 +250,13 @@ fn shark_charge_crash_detects_solo_charge_wall_hit() {
     enemy.kin.pos = previous_pos;
     enemy.kin.vel = ae::Vec2::ZERO;
     enemy.health.reset();
-    let charge_vec = ae::Vec2::new(enemy.config.tuning.chase_speed * 2.0, 0.0);
+    let charge_vec = ae::Vec2::new(enemy.policy.0.chase_speed(enemy.config.tuning.max_run_speed) * 2.0, 0.0);
     assert!(shark_charge_crashed_parts(
         &enemy.caps,
         enemy.health.alive(),
         enemy.kin.pos,
         enemy.kin.vel,
-        enemy.config.tuning.chase_speed,
+        enemy.policy.0.chase_speed(enemy.config.tuning.max_run_speed),
         false,
         charge_vec,
         previous_pos,
@@ -333,7 +333,7 @@ fn shark_charge_crash_ignores_mounted_or_noncharge_cases() {
     enemy.kin.pos = previous_pos;
     enemy.kin.vel = ae::Vec2::ZERO;
     enemy.health.reset();
-    let chase_speed = enemy.config.tuning.chase_speed;
+    let chase_speed = enemy.policy.0.chase_speed(enemy.config.tuning.max_run_speed);
     let charge_vec = ae::Vec2::new(chase_speed * 2.0, 0.0);
     assert!(!shark_charge_crashed_parts(
         &enemy.caps,

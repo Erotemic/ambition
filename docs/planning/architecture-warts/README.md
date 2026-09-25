@@ -37,7 +37,7 @@ there. After the W003 deletion, only `extra_phase_triggers` can enter
 
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
-| W017 | STRUCTURAL | actor tuning | `ActorTuning` still holds reusable body facts, controller-policy projections (`patrol_speed`/`chase_speed` = run speed × the profile's efforts), placement/session facts and presentation facts, and its exhaustive test classifies them. ⭐ THE RUNTIME HALF IS SPLIT (AP29, v231): the driver's policy is `ActorPolicy`, and `ActorConfig` is construction input with no runtime writer (the actor cluster view borrows it read-only). What remains is one construction record with several OWNERS, not a second truth. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag, and do not put a runtime-written field back in it. |
+| W017 | STRUCTURAL | actor tuning | `ActorTuning` still holds reusable body facts, placement/session facts and presentation facts, and its exhaustive test classifies them. ⭐ THE RUNTIME HALF IS SPLIT (AP29, v231): the driver's policy is `ActorPolicy`, and `ActorConfig` is construction input with no runtime writer (the actor cluster view borrows it read-only). ⭐ THE CONTROLLER-POLICY PROJECTIONS ARE GONE (AP32): `patrol_speed`/`chase_speed` were the construction policy baked against the body, and a provoked driver read them; a driver's speeds are now its policy against `max_run_speed`, computed where it is lowered. What remains is one construction record with several OWNERS, not a second truth. | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag, and do not put a runtime-written field back in it. |
 
 ## Detailed evidence notes
 

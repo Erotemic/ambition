@@ -3,6 +3,15 @@ use ambition_platformer2d_core::frame::MapConvention;
 use ambition_portal2d::pieces::{PortalAperture, PortalFrame};
 use ambition_portal2d::{PortalChannelColor, PortalGunColor};
 
+/// These arms test the viewer-dependent (`Dynamic`) cone geometry, which is no
+/// longer the engine default (`Static` since 2026-09-25), so they ask for it.
+fn dynamic_config() -> PortalViewConeConfig {
+    PortalViewConeConfig {
+        mode: PortalViewConeMode::Dynamic,
+        ..PortalViewConeConfig::default()
+    }
+}
+
 /// Pin the flip-free UV convention: the source-rect corner with MINIMAL
 /// world coords (left, world-top) is texture (0,0); maximal is (1,1).
 #[test]
@@ -267,14 +276,14 @@ fn rendered_span_x(plan: &ConePlan, enter: &PlacedPortal, exit: &PlacedPortal) -
 #[test]
 fn view_cone_defaults_to_low_aperture_los() {
     assert_eq!(
-        PortalViewConeConfig::default().aperture_los_quality,
+        dynamic_config().aperture_los_quality,
         PortalApertureLosQuality::Low
     );
 }
 
 #[test]
 fn view_cone_defaults_to_cone_rect_and_full_half_plane() {
-    let config = PortalViewConeConfig::default();
+    let config = dynamic_config();
     assert_eq!(
         config.capture_camera_mode,
         PortalCaptureCameraMode::ConeRect
@@ -297,7 +306,7 @@ fn full_half_plane_render_clips_to_the_full_active_frame_at_the_aperture() {
         Vec2::new(600.0, 900.0),
         Vec2::new(0.0, -1.0),
     );
-    let config = PortalViewConeConfig::default();
+    let config = dynamic_config();
     let viewer = PortalViewer {
         present: true,
         eye: Vec2::new(303.45, 875.5),
@@ -391,7 +400,7 @@ fn doorway_view_cone_reaches_half_plane_without_immediate_snap() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
         present: true,
@@ -450,7 +459,7 @@ fn near_doorway_view_cone_opens_only_inside_the_proximity_band() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let full_dist = config.half_plane_preview_full_distance;
     let start_dist = full_dist + config.half_plane_preview_blend_distance;
@@ -524,7 +533,7 @@ fn blocked_los_hides_near_portal_cone_inside_preview_range() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let config = PortalViewConeConfig::default();
+    let config = dynamic_config();
     let blocker = ae::Aabb::new(Vec2::new(900.0, 780.0), Vec2::new(120.0, 3.0));
     let viewer = PortalViewer {
         present: true,
@@ -564,7 +573,7 @@ fn exact_mode_uses_los_geometry_without_bounded_preview() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut default_config = PortalViewConeConfig::default();
+    let mut default_config = dynamic_config();
     default_config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let mut exact_config = default_config.clone();
     exact_config.half_plane_preview_full_distance = 0.0;
@@ -619,7 +628,7 @@ fn positive_half_plane_max_lateral_keeps_bounded_diagnostic_mode() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.half_plane_preview_max_lateral = 360.0;
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
@@ -657,7 +666,7 @@ fn off_axis_near_plane_viewer_does_not_get_half_plane_preview() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let centered_viewer = PortalViewer {
         present: true,
@@ -715,7 +724,7 @@ fn partial_los_reduces_window_growth() {
         Vec2::new(900.0, 180.0),
         Vec2::new(0.0, 1.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     config.half_plane_preview_blend_distance = 240.0;
     let eye = enter.pos + enter.normal * 60.0;
@@ -782,7 +791,7 @@ fn thin_wall_far_side_portal_stays_closed_for_a_near_side_viewer() {
         Vec2::new(524.0, 450.0),
         Vec2::new(1.0, 0.0),
     );
-    let config = PortalViewConeConfig::default();
+    let config = dynamic_config();
     let viewer = PortalViewer {
         present: true,
         eye: Vec2::new(400.0, 450.0),
@@ -838,7 +847,7 @@ fn window_depth_clips_to_the_host_wall_thickness() {
     );
     // Exact mode: no half-plane assist, so the wedge is the finite
     // LOS geometry alone (the doorway takeover is deliberately unclipped).
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.half_plane_preview_full_distance = 0.0;
     let viewer = PortalViewer {
         present: true,
@@ -898,7 +907,7 @@ fn thin_wall_doorway_pane_stays_inside_the_slab_at_the_aperture() {
     );
     // DEFAULT config: half-plane takeover enabled — the doorway rule
     // itself must suppress it, not a tuning knob.
-    let config = PortalViewConeConfig::default();
+    let config = dynamic_config();
     let viewer = PortalViewer {
         present: true,
         eye: near.pos + near.normal * 0.5, // standing in the aperture
@@ -1016,7 +1025,7 @@ fn just_behind_doorway_still_contributes_to_half_plane() {
         Vec2::new(2792.0, 248.0),
         Vec2::new(-1.0, 0.0),
     );
-    let mut config = PortalViewConeConfig::default();
+    let mut config = dynamic_config();
     config.aperture_los_quality = PortalApertureLosQuality::Medium;
     let viewer = PortalViewer {
         present: true,

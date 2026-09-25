@@ -124,6 +124,8 @@ fn wall_verbs_are_withheld_for_any_transiting_body_and_come_back_from_its_base()
         .spawn((
             BodyAbilities::new(authored),
             AbilityBase::new(authored),
+            // A body with verbs is an integrated body (ADR 0024 §1).
+            ambition_platformer2d_core::movement::MotionModel::default(),
             PortalTransit {
                 straddling: BLUE,
                 crossed: false,
@@ -176,6 +178,7 @@ fn a_transit_ending_does_not_hand_back_a_verb_another_source_withholds() {
             PrimaryPlayer,
             BodyAbilities::new(authored),
             AbilityBase::new(authored),
+            ambition_platformer2d_core::movement::MotionModel::default(),
             contributions,
             PortalTransit {
                 straddling: BLUE,

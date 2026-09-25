@@ -85,13 +85,15 @@ pub fn project_body_abilities(
         &AbilityContributions,
         &mut BodyAbilities,
         Option<&mut BodyFlightState>,
-        Option<&mut MotionModel>,
+        // Required, never optional (ADR 0024 §1): every body that carries
+        // verbs is an integrated body, and integrated bodies carry a model.
+        &mut MotionModel,
         Option<&mut BodyDashState>,
         Option<&mut BodyJumpState>,
         Option<&AuthoredMovementTuning>,
     )>,
 ) {
-    for (base, contributions, mut abilities, flight, model, dash, jump, authored) in &mut bodies {
+    for (base, contributions, mut abilities, flight, mut model, dash, jump, authored) in &mut bodies {
         let desired = contributions.apply(base.abilities);
         let previous = abilities.abilities;
         if previous == desired {
@@ -104,12 +106,10 @@ pub fn project_body_abilities(
             }
         }
         if !desired.blink {
-            if let Some(mut model) = model {
-                if let MotionModel::AxisSwept(axis) = &mut *model {
-                    axis.state.blink_hold_active = false;
-                    axis.state.blink_hold_timer = 0.0;
-                    axis.state.blink_aiming = false;
-                }
+            if let MotionModel::AxisSwept(axis) = &mut *model {
+                axis.state.blink_hold_active = false;
+                axis.state.blink_hold_timer = 0.0;
+                axis.state.blink_aiming = false;
             }
         }
         if let Some(mut dash) = dash {

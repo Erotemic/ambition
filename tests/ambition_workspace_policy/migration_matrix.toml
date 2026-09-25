@@ -280,7 +280,7 @@ policies = ["engine.gravity-mechanic-extracted", "engine.gravity-visuals-in-rend
 [[entry]]
 old_test = "architecture_boundaries_abilities_live_under_abilities_layer"
 disposition = "declarative"
-policies = ["game.abilities-under-layer", "game.abilities-not-at-crate-root", "game.app-composes-engine-plugins", "game.engine-composes-abilities"]
+policies = ["game.abilities-under-layer", "game.abilities-not-at-crate-root", "game.app-composes-engine-plugins"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade"
@@ -316,7 +316,7 @@ policies = ["engine.clock-resets-owner-only", "engine.runtime-applies-clock-rese
 old_test = "architecture_boundaries_player_fallbacks_are_slot_ordered"
 disposition = "declarative"
 # The old test's other two halves still land, so this entry stays `declarative`.
-policies = ["engine.player-fallbacks-no-raw-query", "engine.player-fallback-save-sync-documented"]
+policies = ["engine.player-fallbacks-no-raw-query"]
 
 [[entry]]
 old_test = "architecture_boundaries_machinery_does_not_import_content"

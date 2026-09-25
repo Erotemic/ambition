@@ -336,7 +336,7 @@ pub fn conduct_gnu_ton(
         (With<BossConfig>, Without<MountSlot>, Without<Limb>),
     >,
     mut giants: Query<
-        (&LimbRig, &mut ae::BodyKinematics, &mut BodyHealth),
+        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState, &mut BodyHealth),
         (With<MountSlot>, Without<Limb>, Without<BossConfig>),
     >,
     mut fists: Query<
@@ -376,7 +376,7 @@ pub fn conduct_gnu_ton(
         mut scholar_sweep,
     ) in &mut scholars
     {
-        let Ok((rig, mut giant_kin, mut giant_health)) = giants.get_mut(riding.mount) else {
+        let Ok((rig, mut giant_kin, mut giant_flight, mut giant_health)) = giants.get_mut(riding.mount) else {
             continue;
         };
         // The gnu is scenery you can stand on, not a target.
@@ -395,12 +395,14 @@ pub fn conduct_gnu_ton(
                 if let Some(hitbox) = conductor.hitboxes[index].take() {
                     commands.entity(hitbox).try_despawn();
                 }
-                let Some(Ok((mut kin, mut aabb, _, mut surface, _, _))) = entity.map(|e| fists.get_mut(e)) else {
+                let Some(Ok((mut kin, mut aabb, _, mut surface, _, mut sweep))) = entity.map(|e| fists.get_mut(e)) else {
                     continue;
                 };
                 surface.gravity_scale = 1.0;
                 aabb.center = kin.pos;
-                kin.vel.x = 0.0;
+                // His last pose for it: where it is, dropping straight down.
+                let (pos, fall) = (kin.pos, kin.vel.y);
+                ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pos, Vec2::new(0.0, fall));
             }
             continue;
         }
@@ -507,7 +509,9 @@ pub fn conduct_gnu_ton(
                         // The strike's own onset.
                         match mv {
                             Move::Buck => {
-                                giant_kin.vel.y = -BUCK_HOP;
+                                // Through the launch gateway: the kernel spends it on
+                                // the gnu's next step. Flinchless — a hop, not a hit.
+                                giant_flight.stage_launch(Vec2::new(0.0, -BUCK_HOP), true);
                                 play(&mut sfx, scholar, SFX_SNORT, giant_kin.pos);
                             }
                             Move::Stomp => {

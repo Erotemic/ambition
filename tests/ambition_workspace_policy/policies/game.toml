@@ -361,6 +361,8 @@ file = "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs"
 
 
 # was: architecture_boundaries_abilities_live_under_abilities_layer
+# ⚠ Possession left this list in AP14 (`d260b372c`): it is control authority,
+# not an ability, and lives at `control/possession.rs`.
 [[policy]]
 id = "game.abilities-under-layer"
 scope = "game"
@@ -370,7 +372,7 @@ watch_paths = ["crates/ambition_abilities/src"]
 rationale = "player abilities live under src/abilities/"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/traversal/possession.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/beam.rs", "crates/ambition_abilities/src/ranged/meteor.rs", "crates/ambition_abilities/src/ranged/shockwave.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/volley.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/ranged/sentry.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
+paths = ["crates/ambition_abilities/src/traversal/blink.rs", "crates/ambition_abilities/src/traversal/dive.rs", "crates/ambition_abilities/src/traversal/grapple.rs", "crates/ambition_abilities/src/traversal/mark_recall.rs", "crates/ambition_abilities/src/ranged/beam.rs", "crates/ambition_abilities/src/ranged/meteor.rs", "crates/ambition_abilities/src/ranged/shockwave.rs", "crates/ambition_abilities/src/ranged/vortex.rs", "crates/ambition_abilities/src/ranged/volley.rs", "crates/ambition_abilities/src/ranged/bomb.rs", "crates/ambition_abilities/src/ranged/sentry.rs", "crates/ambition_abilities/src/thrown/gravity_grenade.rs", "crates/ambition_platformer2d_actor_monolith/src/abilities/thrown/puppy_slug_gun.rs"]
 
 [[policy]]
 id = "game.abilities-not-at-crate-root"
@@ -395,17 +397,10 @@ severity = "error"
 contains = ["ambition_platformer2d::runtime::PlatformerEnginePlugins"]
 file = "game/ambition_app/src/app/plugins.rs"
 
-[[policy]]
-id = "game.engine-composes-abilities"
-scope = "game"
-kind = "file-contains"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_runtime/src/lib.rs"]
-rationale = "PlatformerEnginePlugins composes abilities through AmbitionAbilitiesPlugin"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-contains = ["ambition_platformer2d_actor_monolith::abilities::AmbitionAbilitiesPlugin"]
-file = "crates/ambition_platformer2d_runtime/src/lib.rs"
+# **`game.engine-composes-abilities` WAS HERE AND IS DELETED — ITS SUBJECT
+# WAS DELETED FIRST.** `AmbitionAbilitiesPlugin` only initialised possession's
+# resources; AP14 (`d260b372c`) replaced it with `control::possession::
+# PossessionPlugin`. There is no abilities plugin left for the engine to compose.
 
 
 # was: architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces

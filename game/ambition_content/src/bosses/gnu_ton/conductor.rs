@@ -376,7 +376,7 @@ pub fn conduct_gnu_ton(
         mut scholar_sweep,
     ) in &mut scholars
     {
-        let Ok((rig, mut giant_kin, mut giant_flight, mut giant_health)) = giants.get_mut(riding.mount) else {
+        let Ok((rig, giant_kin, mut giant_flight, mut giant_health)) = giants.get_mut(riding.mount) else {
             continue;
         };
         // The gnu is scenery you can stand on, not a target.

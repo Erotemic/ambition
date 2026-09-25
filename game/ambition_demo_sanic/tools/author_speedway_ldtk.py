@@ -332,6 +332,12 @@ def main() -> None:
         monitors = Path(tmp) / "sanic_speedway_monitors.json"
         monitors.write_text(json.dumps(MONITORS, indent=2))
         run_tool("entity", "add", str(monitors), "--ldtk", str(target), "--in-place")
+    # Where this act's goal leads: Act 2 (`author_highway_ldtk.py`).
+    run_tool("level", "add-field-def", "next_room", "--type", "String", str(target), "--in-place")
+    run_tool(
+        "level", "set-field", "--ldtk", str(target), "--level", "sanic_speedway",
+        "--set", "next_room=sanic_highway", "--in-place",
+    )
     run_tool("repair", str(target), "--in-place")
     run_tool("validate", str(target))
     print(f"authored {target.relative_to(REPO)}")

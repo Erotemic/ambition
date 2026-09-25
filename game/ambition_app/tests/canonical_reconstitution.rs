@@ -79,7 +79,11 @@ type Census = BTreeMap<String, Facts>;
 /// ⭐ ONE FRAME OF THE FASTEST AUTHORED PATROL, and it buys exactly one thing:
 /// a boot builds its room before the first frame while a rebuild commits partway
 /// through one, so two identically-constructed populations get different
-/// fractions of a frame of motion. Measured at 0.5px on this room's enemies.
+/// fractions of a frame of motion. Measured at 0.5px on this room's walking
+/// enemies, and at 1.33px (two ticks of a 40 px/s crawl) on its Puppy Slugs,
+/// which move from their first live tick: a boot's slug crawls on the frame
+/// the census starts counting while a rebuilt one is committed during it, and
+/// the rebuilt slug spends one live tick landing on the floor it was placed on.
 ///
 /// ⛔ It is not a general slack. Every non-positional fact above is compared
 /// EXACTLY, and the defect this file was written against showed up as 34.6px
@@ -327,9 +331,28 @@ fn settle_after_construction(
         built,
         "no room construction landed within 120 frames, so this arm never got          the population it is about to census"
     );
-    for _ in 0..MATURITY {
+    // Aged in LIVE ticks. A rebuild's commit is followed by a tick on which
+    // the transition still holds the sim clock at zero, which a boot's settle
+    // spent before this arm began counting; a frozen tick moves nothing, so
+    // counting it would sample the rebuilt room one tick of motion younger.
+    // Crawlers made it visible: they move from their first live tick, and a
+    // replayed slug stood 2px behind the fresh one.
+    let mut aged = 0;
+    for _ in 0..MATURITY * 4 {
+        if aged == MATURITY {
+            break;
+        }
         sim.step(base());
+        if sim
+            .world()
+            .resource::<ambition_platformer2d::platformer::time::SimDt>()
+            .get()
+            > 0.0
+        {
+            aged += 1;
+        }
     }
+    assert_eq!(aged, MATURITY, "the sim clock never ran long enough to age this arm");
     population_entities(sim)
 }
 

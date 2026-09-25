@@ -320,6 +320,16 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
         // What stays here is what legitimately differs: WHICH tuning this body moves under (its
         // character's authored feel, else its config's).
         let resolved_tuning = authored_tuning.unwrap_or(tuning);
+        // A crawler's params are refreshed here as `step_body` refreshes the
+        // axis params: its pace is its DRIVER's, asked of the live policy like
+        // the flight speed above, so a policy a provocation installs paces the
+        // body on its next step; its fall is the body's resolved tuning.
+        if let ae::movement::MotionModel::AdhesiveCrawler(crawler) = motion_model {
+            crawler.params = ae::CrawlerParams {
+                crawl_speed: self.config.tuning.crawl_speed(&self.policy.0),
+                max_fall_speed: resolved_tuning.max_fall_speed,
+            };
+        }
         let mut clusters = self.clusters_mut();
         let result = ambition_characters::actor::step_body(
             motion_model,

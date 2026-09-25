@@ -1724,10 +1724,28 @@ fn finalize_character(
                 .map(|max| max.max(1)),
             ..vitals
         },
-        motion_model: motion_model.unwrap_or_else(|| match catalog {
-            Some(catalog) => catalog.motion_model_spec(&id),
-            None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
-        }),
+        // An authored model, else the policy the authored locomotion names,
+        // else the catalog's. ⛔ The middle arm was missing: the catalog answers
+        // only axis-swept or momentum, so every character authoring
+        // `surface_walker` (all 18 shipped Puppy Slugs) was built a crawler and
+        // switched back to axis-swept by the construction grant. Its params are
+        // only a start: the actor integration refreshes them each tick from the
+        // live tuning and the driver's policy.
+        motion_model: motion_model
+            .or_else(|| {
+                locomotion.filter(|locomotion| locomotion.surface_walker).map(|locomotion| {
+                    ambition_platformer2d_core::MotionModelSpec::AdhesiveCrawler(
+                        ambition_platformer2d_core::CrawlerParams {
+                            crawl_speed: locomotion.run_speed,
+                            ..Default::default()
+                        },
+                    )
+                })
+            })
+            .unwrap_or_else(|| match catalog {
+                Some(catalog) => catalog.motion_model_spec(&id),
+                None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
+            }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
         abilities,

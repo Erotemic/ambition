@@ -1,9 +1,9 @@
 //! The per-frame actor tick: syncing poses from feature AABBs, driving the
 //! enemy + NPC updates, neighbor/crowding queries, and brain snapshots.
 
-use crate::features::ActorMutIntegrationExt;
-use crate::actor_clusters::ActorMut;
 use super::*;
+use crate::actor_clusters::ActorMut;
+use crate::features::ActorMutIntegrationExt;
 use ambition_combat::components::{
     ActorDisposition, ActorIdentity, ActorInteraction, CenteredAabb,
 };
@@ -505,12 +505,12 @@ pub fn tick_actor_brains(
                         // spends. Both halves must be present: a ring with no
                         // declared rules stales nothing, and declared rules
                         // with no ring have nothing to stale.
-                        stale_moves.zip(combat_rules.as_deref()).map(
-                            |(recent, rules)| WornMoves {
+                        stale_moves
+                            .zip(combat_rules.as_deref())
+                            .map(|(recent, rules)| WornMoves {
                                 recent: *recent,
                                 rules: *rules,
-                            },
-                        ),
+                            }),
                     );
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
                     // whose profile turns there. The rider knows its surface, so
@@ -1010,7 +1010,7 @@ pub(crate) fn integrate_actor_body(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
-                    attacker_move_instance: None,
+            attacker_move_instance: None,
         });
         frame = ambition_characters::actor::control::ActorControlFrame::neutral();
     }
@@ -1046,7 +1046,7 @@ pub(crate) fn integrate_actor_body(
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
-                    attacker_move_instance: None,
+            attacker_move_instance: None,
         });
     }
     // Fly-toggle + shield are resolved INSIDE `em.update`'s shared pipeline. The kernel NAMED
@@ -1863,17 +1863,17 @@ pub(super) fn attack_kit_of(
             // so redirecting it here took a running fighter's specials away and
             // reddened two acceptance tests. Copying a production rule means
             // copying WHERE THE ROAD APPLIES IT.
-            let running_now = running
-                && grounded
-                && matches!(verb, AttackVerb::Basic | AttackVerb::Smash);
+            let running_now =
+                running && grounded && matches!(verb, AttackVerb::Basic | AttackVerb::Smash);
             let resolve_verb = if running_now {
                 ambition_combat::moveset::ATTACK_VERB
             } else {
                 verb_name
             };
-            let Some(spec) = moveset
-                .0
-                .move_for_attack(resolve_verb, direction, grounded, running_now)
+            let Some(spec) =
+                moveset
+                    .0
+                    .move_for_attack(resolve_verb, direction, grounded, running_now)
             else {
                 continue;
             };
@@ -2131,7 +2131,12 @@ fn capture_candidate(
         // ⚠ A GRAB IS NOT A RUNNING ATTACK HERE: `cancel_names_for` reduces
         // `grab_dash` to `grab` on its own, and this candidate is the standing
         // one. `false` is the honest answer rather than a value carried in.
-        legality: legality_of(playback, ambition_entity_catalog::GRAB_VERB, false, &spec.id),
+        legality: legality_of(
+            playback,
+            ambition_entity_catalog::GRAB_VERB,
+            false,
+            &spec.id,
+        ),
         // Filled by the caller, which is the layer holding the stale ring.
         wear: ambition_characters::brain::attack_kit::MoveWear::FRESH,
     })
@@ -2329,14 +2334,17 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.
 pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
-    npcs: Query<
+    mut commands: Commands,
+    mut npcs: Query<
         (
+            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
             &ambition_characters::actor::BodyHealth,
+            Option<&mut ambition_sprite_sheet::character::ActorBarkGesture>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -2381,7 +2389,15 @@ pub fn tick_npc_idle_barks(
         ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
         _ => (12.0, 8_000),
     };
-    for (kin, identity, combat, interaction, disposition, health) in &npcs {
+    for (entity, kin, identity, combat, interaction, disposition, health, gesture) in &mut npcs {
+        if let Some(mut gesture) = gesture {
+            gesture.0 -= dt;
+            if gesture.0 <= 0.0 {
+                commands
+                    .entity(entity)
+                    .try_remove::<ambition_sprite_sheet::character::ActorBarkGesture>();
+            }
+        }
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
@@ -2438,6 +2454,9 @@ pub fn tick_npc_idle_barks(
             pos: anchor,
             text: line.to_string(),
         });
+        commands
+            .entity(entity)
+            .try_insert(ambition_sprite_sheet::character::ActorBarkGesture(0.48));
         let next = rotation.wrapping_add(1);
         state.rotations.insert(identity.id.clone(), next);
         state.timers.insert(

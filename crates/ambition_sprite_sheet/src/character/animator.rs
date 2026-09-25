@@ -39,8 +39,17 @@ pub struct CharacterAnimator {
     /// Once a non-looping clip (Slash/Hit/Death) finishes its last frame
     /// we hold there until `set` switches to a new animation.
     pub clip_held: bool,
+    social_pose: SocialPose,
     /// Base render size + anchor, set at spawn.
     pub render_basis: Option<RenderBasis>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SocialPose {
+    Stand,
+    SittingDown,
+    Sitting,
+    StandingUp,
 }
 
 impl CharacterAnimator {
@@ -54,6 +63,7 @@ impl CharacterAnimator {
             frame: 0,
             elapsed: 0.0,
             clip_held: false,
+            social_pose: SocialPose::Stand,
             render_basis: None,
         }
     }
@@ -134,6 +144,51 @@ impl CharacterAnimator {
         self.frame = 0;
         self.elapsed = 0.0;
         self.clip_held = false;
+    }
+
+    /// Select a sheet-authored social pose for the addressed actor.
+    pub fn request_actor_pose<'a>(
+        &mut self,
+        anim: CharacterAnim,
+        clip: impl IntoIterator<Item = &'a str>,
+        has_clip: bool,
+        conversation_held: bool,
+        barking: bool,
+    ) {
+        let can_sit = self.spec.maps(CharacterAnim::SitDown)
+            && self.spec.maps(CharacterAnim::SitIdle)
+            && self.spec.maps(CharacterAnim::StandUp);
+        if anim == CharacterAnim::Death {
+            self.social_pose = SocialPose::Stand;
+            self.request(anim);
+            return;
+        }
+        if can_sit {
+            self.social_pose = match (conversation_held, self.social_pose) {
+                (true, SocialPose::Stand | SocialPose::StandingUp) => SocialPose::SittingDown,
+                (true, SocialPose::SittingDown) if self.clip_held => SocialPose::Sitting,
+                (false, SocialPose::Sitting | SocialPose::SittingDown) => SocialPose::StandingUp,
+                (false, SocialPose::StandingUp) if self.clip_held => SocialPose::Stand,
+                (_, phase) => phase,
+            };
+            let pose = match self.social_pose {
+                SocialPose::SittingDown => Some(CharacterAnim::SitDown),
+                SocialPose::Sitting => Some(CharacterAnim::SitIdle),
+                SocialPose::StandingUp => Some(CharacterAnim::StandUp),
+                SocialPose::Stand => None,
+            };
+            if let Some(pose) = pose {
+                self.request(pose);
+                return;
+            }
+        }
+        if barking && self.spec.maps(CharacterAnim::Bark) {
+            self.request(CharacterAnim::Bark);
+        } else if has_clip {
+            self.request_clip(clip, anim);
+        } else {
+            self.request(anim);
+        }
     }
 
     /// Play an authored CLIP if this sheet has one of `chain`; otherwise the

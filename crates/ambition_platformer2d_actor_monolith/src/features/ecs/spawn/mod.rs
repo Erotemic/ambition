@@ -23,7 +23,7 @@ pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
 };
 
-pub(crate) use ambition_platformer2d_actor_spawn::{spawn_runtime_minion};
+pub(crate) use ambition_platformer2d_actor_spawn::{spawn_runtime_minion, summon_cast};
 
 /// A room's authored paths under every spelling they answer to, for the
 /// lowering roads that resolve a path reference by string.

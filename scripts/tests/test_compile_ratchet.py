@@ -750,3 +750,11 @@ def test_an_adopted_crate_keeps_the_current_table_row():
     assert merged["crates"]["ambition_mono"]["edit_cost_lines"] == 70, (
         "an adopted scalar must not be left beside a stale table row"
     )
+
+
+def test_only_the_graph_shape_gates():
+    """Jon, 2026-09-25: "line-count should not be a gate". Lines, and seconds
+    priced from lines, are reported; a longer critical path still fails."""
+    assert ratchet.GATING == {"PATH", "GONE"}
+    for reported in ("REGRESSED", "CARVED", "SHORTENED", "STALE", "UNPRICED", "MOVED"):
+        assert reported not in ratchet.GATING

@@ -5,7 +5,19 @@ use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use bevy::prelude::{App, Update};
 
+/// A peaceful NPC wearing a character that resolves a provoked policy, with
+/// `strikes` already counted toward its threshold.
 fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity {
+    let npc = spawn_character_npc(app, &npc_cast(Some(false), None));
+    app.world_mut()
+        .get_mut::<ActorAggression>(npc)
+        .expect("a spawned NPC carries its aggression")
+        .strikes = strikes;
+    npc
+}
+
+/// A peaceful NPC nobody authored: no character, so no provoked policy.
+fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
     let interactable = ambition_interaction::Interactable::new(
         "alice",
@@ -27,7 +39,37 @@ fn spawn_npc_with_strikes(app: &mut App, strikes: i32) -> bevy::prelude::Entity 
         &interactable,
         &[],
     );
-    spawn_actor_from_seed(app, seed, "alice", aabb, interactable, strikes)
+    spawn_actor_from_seed(app, seed, "alice", aabb, interactable, 0)
+}
+
+/// NO POLICY, NO PROVOCATION. A body whose character and provider state no
+/// provoked policy is not handed an engine-invented fighter when struck; it
+/// stays as it was.
+#[test]
+fn a_body_with_no_provoked_policy_cannot_be_provoked() {
+    let mut app = App::new();
+    app.add_message::<ActorStimulus>();
+    app.add_message::<crate::features::NpcProvocationChanged>();
+    app.add_systems(Update, apply_actor_stimuli);
+    let npc = spawn_anonymous_npc(&mut app);
+    let control = spawn_character_npc(&mut app, &npc_cast(Some(false), None));
+    for body in [npc, control] {
+        app.world_mut().write_message(ActorStimulus::Challenged {
+            actor: body,
+            challenger: None,
+        });
+    }
+    app.update();
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(control).unwrap(),
+        ActorDisposition::Hostile,
+        "the control: a body with a resolved policy is provoked by the same stimulus"
+    );
+    assert_eq!(
+        *app.world().get::<ActorDisposition>(npc).unwrap(),
+        ActorDisposition::Peaceful,
+        "an anonymous body was provoked into a policy nobody declared"
+    );
 }
 
 /// The spawn half of [`spawn_npc_with_strikes`], shared with the flight fixture
@@ -290,11 +332,23 @@ fn npc_cast(
         ..Default::default()
     });
     definition.vitals.max_health = max_health;
-    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+    let mut prepared = crate::character_runtime::prepare_and_finalize_for_test(
         definition,
         &ambition_characters::prepared::CharacterBindings::default(),
-    );
-    registry.insert_prepared(finalized.prepared);
+    )
+    .prepared;
+    // What preparation resolves from a provider's declared provoked profile:
+    // without one the character is not provokable at all.
+    prepared.provoked_profile = Some(ambition_characters::brain::BrainProfile {
+        template: ambition_characters::brain::CharacterBrainTemplate::Smash,
+        aggro_radius: 460.0,
+        attack_range: 150.0,
+        ..Default::default()
+    });
+    prepared.provoked_profile_id = Some(ambition_entity_catalog::BrainProfileId::new(
+        "test::combatant",
+    ));
+    registry.insert_prepared(prepared);
     registry
 }
 
@@ -317,6 +371,9 @@ fn spawn_character_npc(
             brain_override: None,
         },
     );
+    // The provocation reads the published cast and the worn character, so the
+    // fixture publishes one and wears the other.
+    app.insert_resource(cast.clone());
     let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
@@ -327,7 +384,11 @@ fn spawn_character_npc(
         &interactable,
         &[],
     );
-    spawn_actor_from_seed(app, seed, "parrot", aabb, interactable, 0)
+    let npc = spawn_actor_from_seed(app, seed, "parrot", aabb, interactable, 0);
+    app.world_mut()
+        .entity_mut(npc)
+        .insert(ambition_characters::actor::WornCharacter::new("npc_test_parrot"));
+    npc
 }
 
 fn spawn_flying_npc(app: &mut App) -> bevy::prelude::Entity {
@@ -591,7 +652,9 @@ fn provoking_a_driven_body_changes_its_mind_and_not_its_driver() {
     }
     assert_eq!(
         app.world().get::<BrainBinding>(driven).map(|b| &b.source),
-        Some(&AutonomousSource::ProvokedDefault),
+        Some(&AutonomousSource::ProvokedProfile {
+            profile: ambition_entity_catalog::BrainProfileId::new("test::combatant"),
+        }),
         "and the SOURCE that resumes on release is the provoked one — otherwise \
          letting go of a body you angered would hand back a peaceful stroller"
     );
@@ -697,14 +760,14 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
         let npc = spawn_npc_with_strikes(&mut app, 0);
         app.world_mut()
             .entity_mut(npc)
-            .insert(SimId::placement("alice"));
+            .insert(SimId::placement("parrot"));
         (app, npc)
     }
     fn durable(app: &App) -> bool {
         app.world()
             .resource::<AmbitionGameSave>()
             .data()
-            .flag(&crate::fate_flags::npc_flag_id("alice"))
+            .flag(&crate::fate_flags::npc_flag_id("parrot"))
     }
 
     // The player challenges: live AND durable.
@@ -731,7 +794,7 @@ fn a_provocation_is_durable_exactly_when_the_player_causes_it_and_a_release_clea
 
     // Released: live AND durable.
     app.world_mut()
-        .write_message(crate::features::ReleaseProvocation::new(SimId::placement("alice")));
+        .write_message(crate::features::ReleaseProvocation::new(SimId::placement("parrot")));
     app.update();
     assert_eq!(
         *app.world().get::<ActorDisposition>(npc).unwrap(),

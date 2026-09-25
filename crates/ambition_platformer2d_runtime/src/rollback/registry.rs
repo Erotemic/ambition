@@ -757,11 +757,14 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 227 -> 228: the axis-swept maneuver state encodes
 /// `held_velocity_timer`, the clock of a move's `HoldVelocity` beat (W004: a
 /// Lunge's windup step), after `gravity_modifier_timer`.
-/// ⛔⛤ 228 -> 229: `content.gnu_ton_conductor` joins, with its entity mapping.
+/// ⛔⛤ 228 -> 229: `BrainBinding`'s source tag 2 (`ProvokedDefault`, the
+/// engine's payloadless default provoked policy) is RETIRED. Every provoked
+/// body names its resolved profile (tag 4); the provider declares the default.
+/// ⛔⛤ 229 -> 230: `content.gnu_ton_conductor` joins, with its entity mapping.
 /// GNU-ton's conductor latches where the player stood when a beat began and
 /// holds the fists' hit-volume handles; a rewind that kept them would land a
 /// slam where the player stood on the other timeline.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 229;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 230;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

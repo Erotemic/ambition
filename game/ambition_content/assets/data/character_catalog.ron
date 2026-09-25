@@ -26,6 +26,20 @@
     // `run_speed`), never px/s — §4.7's brain→body seam. A policy that authored
     // absolute speeds could not be shared by a mite and a giant.
     autonomous_profiles: {
+        // HOW AN AMBITION CHARACTER FIGHTS ONCE PROVOKED, when it names no
+        // policy of its own: the provider's declared default
+        // (`with_default_provoked_profile`), the numbers the engine constant
+        // `default_provoked_policy()` held before it was deleted. A melee
+        // policy on purpose: a provoked kernel guide or merchant fights like
+        // the pirates, not as a rock-thrower.
+        "provoked_combatant": (
+            template: Smash,
+            attack_cooldown_s: 0.34,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            patrol_effort: 0.6774,
+            chase_effort: 1.0,
+        ),
         // The goblin band's fighting style, lifted verbatim off the
         // `medium_striker` archetype's controller half: notice at 460px, commit
         // the swing at 150, poke with a thrown rock before closing, and dash to

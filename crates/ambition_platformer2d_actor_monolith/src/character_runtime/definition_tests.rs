@@ -379,3 +379,65 @@ fn an_unauthored_character_wears_its_providers_declared_actor_default() {
         "a provider that declared no actor default gives a silent character no verbs"
     );
 }
+
+/// A character's provoked policy is its own, else its PROVIDER's declared
+/// default, resolved at the barrier; a provider that declares none leaves a
+/// silent character unprovokable rather than inventing a fighter for it.
+#[test]
+fn a_silent_character_is_provoked_into_its_providers_declared_policy() {
+    use ambition_characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+    use ambition_characters::actor::definition::CharacterDefinition;
+
+    const DECLARING: &str = r#"(
+        brain_presets: {},
+        action_set_presets: {},
+        characters: {},
+        autonomous_profiles: {
+            "brawler": (template: Smash, aggro_radius: 300.0, attack_range: 90.0),
+            "duelist": (template: Smash, aggro_radius: 500.0, attack_range: 150.0),
+        },
+    )"#;
+    const EMPTY: &str = "(brain_presets: {}, action_set_presets: {}, characters: {})";
+
+    let mut app = App::new();
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron("declaring", None::<String>, DECLARING)
+            .unwrap()
+            .with_default_provoked_profile("brawler"),
+    );
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron("silent", None::<String>, EMPTY).unwrap(),
+    );
+    app.register_character(CharacterDefinition::new("quiet", "Quiet", "declaring"));
+    app.register_character(
+        CharacterDefinition::new("proud", "Proud", "declaring").with_provoked_profile_named("duelist"),
+    );
+    app.register_character(CharacterDefinition::new("orphan", "Orphan", "silent"));
+    finalize(&mut app);
+
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    let provoked = |id: &str| {
+        let prepared = registry.get(id).expect("published");
+        (
+            prepared.provoked_profile.map(|profile| profile.aggro_radius),
+            prepared.provoked_profile_id.as_ref().map(|id| id.as_str().to_string()),
+        )
+    };
+    assert_eq!(
+        provoked("quiet"),
+        (Some(300.0), Some("declaring::brawler".to_string())),
+        "a character naming no provoked policy takes its provider's declared one"
+    );
+    assert_eq!(
+        provoked("proud"),
+        (Some(500.0), Some("declaring::duelist".to_string())),
+        "a character's own provoked policy outranks its provider's"
+    );
+    assert_eq!(
+        provoked("orphan"),
+        (None, None),
+        "a provider that declares none leaves a silent character unprovokable"
+    );
+}

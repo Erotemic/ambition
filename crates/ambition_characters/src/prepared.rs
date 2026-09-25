@@ -1012,8 +1012,9 @@ pub struct PreparedCharacterDefinition {
     /// the charge is a fact about the CHARACTER rather than about which arm of
     /// [`PreparedKit`] built it.
     pub ranged_execution: crate::brain::RangedExecution,
-    /// The policy this creature adopts when provoked, RESOLVED — see
-    /// [`CharacterDefinition::provoked_profile_ref`].
+    /// The policy this creature adopts when provoked, RESOLVED: its own
+    /// [`CharacterDefinition::provoked_profile_ref`], else its provider's
+    /// declared default. `None` means it cannot be provoked.
     pub provoked_profile: Option<crate::brain::BrainProfile>,
     /// The same policy's CANONICAL ID, kept beside the value.
     ///
@@ -1586,7 +1587,7 @@ pub(crate) struct CastAuthorities {
     catalog: Option<crate::actor::character_catalog::CharacterCatalog>,
     /// The POLICY authority, published beside the catalog.
     profiles: Option<crate::actor::character_catalog::BrainProfileRegistry>,
-    actor_defaults: Option<crate::actor::character_catalog::ProviderActorDefaults>,
+    declarations: Option<crate::actor::character_catalog::ProviderDeclarations>,
 }
 
 impl CastAuthorities {
@@ -1595,7 +1596,7 @@ impl CastAuthorities {
         Self {
             catalog: world.get_resource::<cc::CharacterCatalog>().cloned(),
             profiles: world.get_resource::<cc::BrainProfileRegistry>().cloned(),
-            actor_defaults: world.get_resource::<cc::ProviderActorDefaults>().cloned(),
+            declarations: world.get_resource::<cc::ProviderDeclarations>().cloned(),
         }
     }
 }
@@ -1650,8 +1651,13 @@ fn finalize_character(
     // the player and not as an NPC.
     let abilities = abilities.or_else(|| catalog?.ability_set(&id));
     let actor_abilities = abilities
-        .or_else(|| authorities.actor_defaults.as_ref()?.for_provider(&provider))
+        .or_else(|| authorities.declarations.as_ref()?.actor_abilities(&provider))
         .unwrap_or(ambition_platformer2d_core::AbilitySet::NONE);
+    // The policy a provocation installs: the character's own, else its
+    // provider's declared default, else none, and a character with none is not
+    // provokable. Resolved here like every other silent-character answer.
+    let provoked_profile_ref = provoked_profile_ref
+        .or_else(|| authorities.declarations.as_ref()?.provoked_profile(&provider).cloned());
 
     // THE KIT. Decided here once rather than by whichever construction path
     // reaches it first, and derived under the character's own `ranged_execution`
@@ -2051,7 +2057,7 @@ pub fn prepare_and_finalize_against_for_test(
     let authorities = CastAuthorities {
         catalog: catalog.cloned(),
         profiles,
-        actor_defaults: None,
+        declarations: None,
     };
     FinalizedCharacter {
         prepared: finalize_character(prepared, &authorities),

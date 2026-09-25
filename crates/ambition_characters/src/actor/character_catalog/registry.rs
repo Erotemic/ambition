@@ -26,10 +26,24 @@ pub struct CharacterCatalogFragment {
     /// Optional because a fragment can legitimately be built from a literal in
     /// a test, and `None` reads as "no file to name" rather than as a lie.
     source: Option<String>,
-    /// The verbs this provider's characters wear as actor bodies when neither
-    /// their definition nor their catalog row states any. See
-    /// [`Self::with_actor_default_abilities`].
-    actor_default_abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// What this provider answers for its characters when they are silent.
+    declaration: ProviderDeclaration,
+}
+
+/// A provider's answers for the questions its characters may leave open.
+///
+/// Each is CONTENT: the engine holds no fallback for either, so a provider
+/// that declares nothing gives a silent character nothing. Resolved into every
+/// prepared character at the barrier, so no constructor or runtime road asks
+/// again.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct ProviderDeclaration {
+    /// The verbs an unauthored character wears as an actor body. See
+    /// [`CharacterCatalogFragment::with_actor_default_abilities`].
+    pub actor_abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// The policy a character that names none is driven by once provoked. See
+    /// [`CharacterCatalogFragment::with_default_provoked_profile`].
+    pub provoked_profile: Option<crate::brain::BrainProfileRef>,
 }
 
 impl CharacterCatalogFragment {
@@ -116,7 +130,7 @@ impl CharacterCatalogFragment {
             source_ron: ron::ser::to_string(&catalog).unwrap_or_default(),
             catalog,
             source,
-            actor_default_abilities: None,
+            declaration: ProviderDeclaration::default(),
         })
     }
 
@@ -161,7 +175,7 @@ impl CharacterCatalogFragment {
             catalog,
             source_ron: catalog_ron.to_string(),
             source,
-            actor_default_abilities: None,
+            declaration: ProviderDeclaration::default(),
         })
     }
 
@@ -174,7 +188,17 @@ impl CharacterCatalogFragment {
         mut self,
         abilities: ambition_platformer2d_core::AbilitySet,
     ) -> Self {
-        self.actor_default_abilities = Some(abilities);
+        self.declaration.actor_abilities = Some(abilities);
+        self
+    }
+
+    /// Declare the policy this provider's characters are driven by once
+    /// provoked, when they name none of their own: a profile in this
+    /// provider's `autonomous_profiles`, resolved like a character's own
+    /// `provoked_profile_ref`. A provider that declares none leaves a silent
+    /// character unprovokable: striking it does not invent a fighter.
+    pub fn with_default_provoked_profile(mut self, profile: impl Into<String>) -> Self {
+        self.declaration.provoked_profile = Some(crate::brain::BrainProfileRef::new(profile));
         self
     }
 
@@ -230,7 +254,7 @@ impl CharacterCatalogRegistry {
         if let Some(existing) = self.fragments.get(&fragment.provider_id) {
             if existing.default_character_id == fragment.default_character_id
                 && existing.source_ron == fragment.source_ron
-                && existing.actor_default_abilities == fragment.actor_default_abilities
+                && existing.declaration == fragment.declaration
             {
                 return Ok(());
             }
@@ -250,21 +274,21 @@ impl CharacterCatalogRegistry {
     /// Canonical provider-owned authored fragments for prepared-content
     /// fingerprinting. Provider order is the `BTreeMap` order; raw source is
     /// included because it is the exact validated definition assembled by this
-    /// same-build contract. The actor default is canonical RON, or `None` when
-    /// the provider declared none.
+    /// same-build contract. The provider's declaration is canonical RON, or
+    /// `None` when it declared nothing.
     pub fn canonical_fragments(&self) -> Vec<(String, Option<String>, Option<String>, String)> {
         self.fragments
             .iter()
             .map(|(provider, fragment)| {
                 let canonical_catalog = ron::ser::to_string(&fragment.catalog)
                     .expect("validated character catalog must serialize canonically");
-                let actor_default = fragment.actor_default_abilities.map(|abilities| {
-                    ron::ser::to_string(&abilities).expect("an ability set serializes")
+                let declaration = (fragment.declaration != ProviderDeclaration::default()).then(|| {
+                    ron::ser::to_string(&fragment.declaration).expect("a declaration serializes")
                 });
                 (
                     provider.clone(),
                     fragment.default_character_id.clone(),
-                    actor_default,
+                    declaration,
                     canonical_catalog,
                 )
             })
@@ -289,7 +313,7 @@ impl CharacterCatalogRegistry {
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
         let mut defaults = BTreeMap::new();
-        let mut actor_defaults = BTreeMap::new();
+        let mut declarations = BTreeMap::new();
         let mut owners: BTreeMap<String, String> = BTreeMap::new();
 
         for (provider_id, fragment) in &self.fragments {
@@ -349,8 +373,8 @@ impl CharacterCatalogRegistry {
             if let Some(default_id) = &fragment.default_character_id {
                 defaults.insert(provider_id.clone(), default_id.clone());
             }
-            if let Some(abilities) = fragment.actor_default_abilities {
-                actor_defaults.insert(provider_id.clone(), abilities);
+            if fragment.declaration != ProviderDeclaration::default() {
+                declarations.insert(provider_id.clone(), fragment.declaration.clone());
             }
         }
 
@@ -373,7 +397,7 @@ impl CharacterCatalogRegistry {
             brain_profiles,
             catalog,
             defaults: CharacterCatalogDefaults(defaults),
-            actor_defaults: ProviderActorDefaults(actor_defaults),
+            declarations: ProviderDeclarations(declarations),
             owners: CharacterCatalogOwners(owners),
         })
     }
@@ -393,14 +417,17 @@ impl CharacterCatalogDefaults {
     }
 }
 
-/// Each provider's declared actor-default verbs. See
-/// [`CharacterCatalogFragment::with_actor_default_abilities`].
+/// Each provider's [`ProviderDeclaration`], keyed by provider id.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct ProviderActorDefaults(pub BTreeMap<String, ambition_platformer2d_core::AbilitySet>);
+pub struct ProviderDeclarations(pub BTreeMap<String, ProviderDeclaration>);
 
-impl ProviderActorDefaults {
-    pub fn for_provider(&self, provider_id: &str) -> Option<ambition_platformer2d_core::AbilitySet> {
-        self.0.get(provider_id).copied()
+impl ProviderDeclarations {
+    pub fn actor_abilities(&self, provider_id: &str) -> Option<ambition_platformer2d_core::AbilitySet> {
+        self.0.get(provider_id)?.actor_abilities
+    }
+
+    pub fn provoked_profile(&self, provider_id: &str) -> Option<&crate::brain::BrainProfileRef> {
+        self.0.get(provider_id)?.provoked_profile.as_ref()
     }
 }
 
@@ -418,7 +445,7 @@ impl CharacterCatalogOwners {
 pub struct AssembledCharacterCatalog {
     pub catalog: CharacterCatalog,
     pub defaults: CharacterCatalogDefaults,
-    pub actor_defaults: ProviderActorDefaults,
+    pub declarations: ProviderDeclarations,
     pub owners: CharacterCatalogOwners,
     /// Controller policy, as its own authority. See [`BrainProfileRegistry`].
     pub brain_profiles: BrainProfileRegistry,
@@ -621,7 +648,7 @@ impl CharacterCatalogAppExt for App {
         self.insert_resource(registry)
             .insert_resource(assembled.catalog)
             .insert_resource(assembled.defaults)
-            .insert_resource(assembled.actor_defaults)
+            .insert_resource(assembled.declarations)
             .insert_resource(assembled.owners)
             .insert_resource(assembled.brain_profiles);
         Ok(self)

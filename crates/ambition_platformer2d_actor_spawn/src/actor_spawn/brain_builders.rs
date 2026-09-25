@@ -580,9 +580,10 @@ mod cognition_stream_tests {
     }
 }
 
-// ⇒ the constants those pins protected are unchanged, which is what the pins
-// were for: `UNDESCRIBED_BODY_RESPAWN` and `default_provoked_policy()` are now
-// the only authorities on their questions and they say what the row said. The
+// ⇒ the constant those pins protected is unchanged, which is what the pins
+// were for: `UNDESCRIBED_BODY_RESPAWN` is now the only authority on its
+// question and says what the row said. (The provoked policy that sat beside it
+// is content now: a provider declares it and preparation resolves it.) The
 // template → brain-family mapping is pinned off a CHARACTER's profile by
 // `enemy_default_brain_picks_the_family_its_policy_names` in the spawn tests.
 
@@ -591,34 +592,6 @@ mod cognition_stream_tests {
 // state a driven body can be in, but "no repertoire" is an ordinary state and
 // needs no engine answer at all. `default_fighting_kit()` is deleted; a body
 // nobody described swings nothing.
-
-/// **THE POLICY A BODY IS DRIVEN BY WHEN IT IS PROVOKED AND SAYS NOTHING.**
-///
-/// It answers *how does it fight*, and NOTHING answers *what does it swing* —
-/// the two halves the `combatant` archetype row did at once. Separating them is
-/// what let the row die, and the asymmetry is the point: a driven body must be
-/// driven by some policy, so an absent one needs an engine answer, while a body
-/// that authored no repertoire simply has none.
-///
-/// `an_engine_default_provoked_policy_matches_the_combatant_row` pins the numbers against the
-/// row while the row survives; when it goes, the constant stands alone and nothing has to
-/// change.
-///
-/// A stage that wants provoked bodies to fight differently says so there; nothing says so yet.
-///
-/// deliberately NOT a ranged policy. `medium_striker` carried a thrown rock,
-/// and using it here turned every provoked NPC — the kernel guide, a merchant —
-/// into a rock-thrower instead of a melee attacker like the pirates.
-pub fn default_provoked_policy() -> ambition_combat::actor_tuning::BrainProfile {
-    ambition_combat::actor_tuning::BrainProfile {
-        template: ambition_characters::brain::CharacterBrainTemplate::Smash,
-        aggro_radius: 460.0,
-        attack_range: 150.0,
-        patrol_effort: 0.6774,
-        chase_effort: 1.0,
-        ..Default::default()
-    }
-}
 
 /// What provocation produces: a MIND and a KIT. Never a body.
 ///
@@ -663,8 +636,9 @@ pub struct ProvokedMind {
     pub source: ambition_characters::actor::character_catalog::AutonomousSource,
 }
 
-/// The provoked policy a character AUTHORS, with the id a binding records, or
-/// `None` when it states none and the engine default applies.
+/// The provoked policy a character resolved at preparation (its own, else its
+/// provider's declared default), with the id a binding records, or `None` when
+/// it has none and cannot be provoked.
 pub fn authored_provoked_policy(
     prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     character: &str,
@@ -678,28 +652,22 @@ pub fn authored_provoked_policy(
 
 /// See [`ProvokedMind`].
 pub fn provoked_mind(
-    authored: Option<(BrainProfile, ambition_entity_catalog::BrainProfileId)>,
+    (policy, id): (BrainProfile, ambition_entity_catalog::BrainProfileId),
     current_config: &ActorConfig,
     identity: &ActorIdentity,
     repertoire: Option<&ambition_characters::brain::ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedMind {
     use ambition_characters::actor::character_catalog::AutonomousSource;
-    let (policy, source) = match authored {
-        Some((policy, id)) => (policy, AutonomousSource::ProvokedProfile { profile: id }),
-        None => (default_provoked_policy(), AutonomousSource::ProvokedDefault),
-    };
+    let source = AutonomousSource::ProvokedProfile { profile: id };
     ProvokedMind {
         projection: provoked_projection(policy, current_config, identity, repertoire, body),
         source,
     }
 }
 
-/// The projection itself, from a POLICY rather than from a row.
-///
-/// the policy is pinned equal to the `combatant` row while that row survives
-/// (`an_engine_default_provoked_policy_matches_the_combatant_row`); when the row
-/// goes, this signature is already the one that stays.
+/// The projection itself, from a POLICY rather than from a row: the one the
+/// character resolved at preparation.
 pub fn provoked_projection(
     brain_profile: BrainProfile,
     current_config: &ActorConfig,

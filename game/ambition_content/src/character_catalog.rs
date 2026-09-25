@@ -46,7 +46,10 @@ pub fn register(app: &mut bevy::prelude::App) {
         // What an Ambition character that states no verbs can do as an actor.
         .with_actor_default_abilities(
             ambition_platformer2d_core::AbilitySet::classic_actor(),
-        ),
+        )
+        // How an Ambition character that names no provoked policy fights once
+        // provoked. Without it, striking such a character provokes nothing.
+        .with_default_provoked_profile("provoked_combatant"),
     );
 }
 

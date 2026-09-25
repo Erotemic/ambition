@@ -34,19 +34,23 @@ pub fn provoke_actor_in_place(
     // its own provoked policy needs none of them. WHICH CHARACTER THIS BODY IS — the GAMEPLAY
     // identity.
     worn_character: Option<&str>,
-    // WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED, if it says
-    // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
-    // because most compositions register no cast, and no character today states
-    // one.
+    // WHAT THE BODY'S CHARACTER RESOLVED ABOUT BEING PROVOKED: its own policy,
+    // else its provider's declared default. `Option` because a composition may
+    // register no cast.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
 ) {
-    // THE CREATURE'S OWN ANSWER, when it has one.
-    //
     // provocation is one body, a different driver, a changed relationship.
     // The body stays exactly as its character built it.
-    let authored = prepared
+    //
+    // ⛔ NO POLICY, NO PROVOCATION. A body whose character and provider state
+    // no provoked policy (or that wears no prepared character at all) is not
+    // handed an engine-invented fighter: it stays as it was.
+    let Some(policy) = prepared
         .zip(worn_character)
-        .and_then(|(registry, character)| authored_provoked_policy(registry, character));
+        .and_then(|(registry, character)| authored_provoked_policy(registry, character))
+    else {
+        return;
+    };
     // ⛔ AN ALREADY-HOSTILE BODY IS NOT RE-DERIVED: that would zero its
     // accumulated fire/footsies/mode cadence on every stimulus. Only the first
     // flip installs a mind, and the binding records the policy only when it is
@@ -54,14 +58,10 @@ pub fn provoke_actor_in_place(
     if disposition.is_peaceful() {
         // The ONE definition of "what provocation produces", shared with
         // construction from a save's provocation fact
-        // (`NpcActorSpawnPlan::provoke`): the character's own provoked policy
-        // when it authors one, else the ENGINE's default
-        // (`default_provoked_policy`), stated where a session ruleset will
-        // eventually override it. The binding records the MODE — payloadless
-        // `ProvokedDefault`, or `ProvokedProfile` by canonical id — never a
-        // roster key to look up (P2.21).
+        // (`NpcActorSpawnPlan::provoke`). The binding records the policy by
+        // canonical id (`ProvokedProfile`), never a roster key (P2.21).
         let mind = provoked_mind(
-            authored,
+            policy,
             em.config,
             em.identity,
             repertoire,
@@ -69,8 +69,8 @@ pub fn provoke_actor_in_place(
         );
         // THE MIND CHANGES. THE BODY DOES NOT.
         //
-        // The engine's default provoked policy is `CharacterBrainTemplate::Smash`,
-        // and the Smash brain branches on `obs.self_aerial` with no `can_fly`
+        // A provoked policy is usually `CharacterBrainTemplate::Smash`, and the
+        // Smash brain branches on `obs.self_aerial` with no `can_fly`
         // gate — a flyer's grounded motor outputs are discarded and it steers a
         // 2D `velocity_target` instead. `cfg.can_fly` gates only the hybrid
         // take-off/landing toggle, and it is read off THIS body's `AbilitySet`,

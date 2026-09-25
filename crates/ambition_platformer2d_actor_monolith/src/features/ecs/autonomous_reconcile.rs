@@ -86,8 +86,14 @@ mod tests {
         config.tuning.surface_walker = true;
 
         let before = config.clone();
+        let policy = ambition_combat::actor_tuning::BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::Smash,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            ..Default::default()
+        };
         let proj = ambition_platformer2d_actor_spawn::brain_builders::provoked_projection(
-            ambition_platformer2d_actor_spawn::brain_builders::default_provoked_policy(),
+            policy,
             &config,
             &ambition_combat::components::ActorIdentity::new("npc", "Npc"),
             None,
@@ -104,10 +110,9 @@ mod tests {
 
         // THE POISON. Without this, deleting the whole projection passes.
         assert_eq!(
-            proj.brain_profile,
-            ambition_platformer2d_actor_spawn::brain_builders::default_provoked_policy(),
-            "the provoked POLICY is the engine's default — that is the one thing \
-             a generic provocation is for"
+            proj.brain_profile, policy,
+            "the provoked POLICY is the one the character resolved — that is the \
+             one thing a provocation is for"
         );
         // The endpoint is that there is no such field, so the claim worth pinning is the SHAPE:
         // every field on this projection is a mind or a kit. A new body fact cannot be added

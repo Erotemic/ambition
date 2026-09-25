@@ -749,12 +749,17 @@ impl NpcActorSpawnPlan {
     /// The grudge names a FACTION rather than the body that struck the blow:
     /// that body is gone, and a room can be built before any player body
     /// exists.
+    ///
+    /// A character with no resolved provoked policy cannot have been provoked
+    /// by a live strike either, so it is built as it was authored.
     pub(super) fn provoke(&mut self, prepared: &ambition_characters::prepared::PreparedCharacterRegistry) {
-        let authored = npc_character_id(&self.interactable).and_then(|character| {
+        let Some(policy) = npc_character_id(&self.interactable).and_then(|character| {
             self::brain_builders::authored_provoked_policy(prepared, character)
-        });
+        }) else {
+            return;
+        };
         let mind = self::brain_builders::provoked_mind(
-            authored,
+            policy,
             &self.seed.config,
             &self.seed.identity,
             Some(&self.action_set),

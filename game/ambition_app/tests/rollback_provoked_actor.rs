@@ -97,7 +97,9 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
     world
         .get_mut::<BrainBinding>(body)
         .expect("the chosen body has a binding")
-        .provoke();
+        .source = ambition_platformer2d::characters::actor::character_catalog::AutonomousSource::ProvokedProfile {
+        profile: ambition_platformer2d::characters::brain::BrainProfileId::new("ambition::provoked_combatant"),
+    };
     // A mind that is not the peaceful one, so "the brain survived" cannot be
     // satisfied by nothing having happened.
     *world.get_mut::<Brain>(body).expect("the body has a brain") = Brain::stand_still();
@@ -149,7 +151,11 @@ fn a_provoked_wounded_body_survives_the_real_rollback_window() {
     let world = sim.world_mut();
     assert_eq!(
         world.get::<BrainBinding>(body).map(|b| b.source.clone()),
-        Some(AutonomousSource::ProvokedDefault),
+        Some(AutonomousSource::ProvokedProfile {
+            profile: ambition_platformer2d::characters::brain::BrainProfileId::new(
+                "ambition::provoked_combatant"
+            ),
+        }),
         "the provoked SOURCE did not survive the rollback window — the binding \
          codec is canonical rollback state, so if this fails the codec is the \
          thing to look at, not a missing reconciler"

@@ -38,7 +38,6 @@ there. After the W003 deletion, only `extra_phase_triggers` can enter
 | ID | Status | Area | Current defect | Smallest sound direction |
 | --- | --- | --- | --- | --- |
 | W017 | STRUCTURAL | actor tuning | `ActorTuning` contains reusable body facts, controller-policy projections, placement/session policy, presentation facts, and mutable runtime state. Its exhaustive test explicitly classifies these different authority groups. `ActorConfig` rolls the whole projection back. ⭐ Re-measured 2026-09-24: the "mutable runtime state" has narrowed to ONE field. After AP22 moved the Mary-O shell's contact threat out, the only runtime writer of `ActorConfig` is `brain_profile`, at provocation (`provoke.rs`) and brain command (`brain_command.rs`). Those are real transitions, and it is read every tick (`turns_at_walls`) and by brain rebuilds. Every `tuning` field is written only at construction (the `config.tuning.*` writes in `autonomous_reconcile.rs` are its test module). | Split by owner when a real consumer boundary exists. Do not add more unrelated fields to this bag. The runtime half, if it is split, is `brain_profile` alone. |
-| W026 | STRUCTURAL | provocation policy | `default_provoked_policy()` supplies an engine-default hostile brain when a provoked actor has no explicit policy. The source already says this is a ruleset-level answer. | Move the choice to explicit ruleset/content policy, or make the default a documented product rule with one owner. |
 
 ## Detailed evidence notes
 
@@ -58,12 +57,6 @@ not change the target or body motion.
 character facts, controller policy, placement/session facts, presentation facts,
 and mutable runtime state. That test is useful as a census, but it also shows
 that the type does not have one semantic owner.
-
-### W026 — missing authoring can grant behavior
-
-`default_provoked_policy()` supplies a hostile brain when no explicit policy was
-selected. That can be a valid product rule, but it should be a ruleset/content
-decision rather than an accidental consequence of missing data.
 
 ## Already-owned related work
 

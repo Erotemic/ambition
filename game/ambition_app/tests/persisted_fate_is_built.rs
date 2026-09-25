@@ -103,11 +103,7 @@ fn a_room_rebuilt_after_a_persisted_provocation_builds_that_person_hostile() {
         });
         {
             assert!(
-                binding.is_provoked()
-                    || matches!(
-                        binding.source,
-                        ambition_platformer2d::characters::actor::character_catalog::AutonomousSource::ProvokedProfile { .. }
-                    ),
+                binding.is_provoked(),
                 "frame {frame}: {id} is built hostile but its brain binding says {:?}, \
                  so a rewind would restore the peaceful mind",
                 binding.source

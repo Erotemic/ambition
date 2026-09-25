@@ -581,11 +581,9 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 1);
                 put_str(out, preset.as_str());
             }
-            // This carried a `HostileArchetypeId` that was always the string `"combatant"` — one
-            // row, forever — so the rollback road resolved a roster the live road had already
-            // stopped consulting. The engine states the default provoked policy; there is nothing
-            // to look up.
-            AutonomousSource::ProvokedDefault => put_u8(out, 2),
+            // Tag 2 was the engine's payloadless default provoked policy. Every
+            // provoked body now names its resolved profile (tag 4), and the tag
+            // stays retired so an old byte decodes as an error, not as a guess.
             // Boss: the live brain is a `BossPattern` rebuilt from the boss
             // catalog by this id (or resumed from the suspended runtime), never a
             // catalog preset. The stable boss id is all a rebuild needs.
@@ -624,7 +622,6 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
         let source = match r.u8()? {
             0 => AutonomousSource::CatalogDefault,
             1 => AutonomousSource::CatalogPreset(BrainPresetId::new(r.str()?.to_string())),
-            2 => AutonomousSource::ProvokedDefault,
             3 => AutonomousSource::Boss {
                 archetype: BossAutonomyId::new(r.str()?.to_string()),
             },

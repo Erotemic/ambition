@@ -757,7 +757,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 227 -> 228: the axis-swept maneuver state encodes
 /// `held_velocity_timer`, the clock of a move's `HoldVelocity` beat (W004: a
 /// Lunge's windup step), after `gravity_modifier_timer`.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 228;
+/// ⛔⛤ 228 -> 229: `BrainBinding`'s source tag 2 (`ProvokedDefault`, the
+/// engine's payloadless default provoked policy) is RETIRED. Every provoked
+/// body names its resolved profile (tag 4); the provider declares the default.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 229;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

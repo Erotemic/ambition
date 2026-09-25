@@ -160,19 +160,6 @@ pub enum AutonomousSource {
     /// An explicit catalog preset override (authored `brain_override`, or a
     /// runtime `UsePreset` switch).
     CatalogPreset(BrainPresetId),
-    /// PROVOKED, WITH NOTHING TO LOOK UP — the body is driven by the
-    /// engine's default provoked policy.
-    ///
-    ///  payloadless for the same reason [`Self::CharacterProfile`] is: the
-    /// answer is not somewhere to look up, it is a thing the engine states.
-    /// `brain_builders::default_provoked_policy()`, whose home is the session
-    /// ruleset when a second experience wants a different one.
-    ///
-    ///  a creature that states its OWN provoked policy records
-    /// [`Self::ProvokedProfile`] instead and never reaches this — which is the
-    /// distinction the two variants exist to keep, and the reason this one can
-    /// be payloadless without losing anything.
-    ProvokedDefault,
     /// A provoked character's autonomous policy, named by stable profile id.
     /// The body remains unchanged; rollback stores the resolvable id rather than
     /// embedding the profile's tuning values.
@@ -263,8 +250,7 @@ impl BrainBinding {
         match &self.source {
             AutonomousSource::CatalogPreset(id) => Some(id),
             AutonomousSource::CatalogDefault => self.default_preset.preset(),
-            AutonomousSource::ProvokedDefault
-            | AutonomousSource::ProvokedProfile { .. }
+            AutonomousSource::ProvokedProfile { .. }
             | AutonomousSource::CharacterProfile
             | AutonomousSource::Boss { .. } => None,
         }
@@ -275,11 +261,9 @@ impl BrainBinding {
         matches!(self.source, AutonomousSource::CatalogPreset(_))
     }
 
-    /// True iff the actor is currently provoked into the engine's default
-    /// policy. (A creature provoked into its OWN authored policy records
-    /// [`AutonomousSource::ProvokedProfile`]; ask that separately.)
+    /// True iff the actor is currently driven by a provoked policy.
     pub fn is_provoked(&self) -> bool {
-        matches!(self.source, AutonomousSource::ProvokedDefault)
+        matches!(self.source, AutonomousSource::ProvokedProfile { .. })
     }
 
     /// True iff the actor's autonomous source is a boss mode.
@@ -310,14 +294,6 @@ impl BrainBinding {
                 AutonomousSource::CatalogDefault
             }
         };
-    }
-
-    /// Record that the actor was provoked into the engine's default policy. The
-    /// caller rebuilds the coupled autonomous state (brain / action set) from
-    /// that policy; a snapshot reconstructs it the same way, so the provoked
-    /// mode survives a rewind in both directions.
-    pub fn provoke(&mut self) {
-        self.source = AutonomousSource::ProvokedDefault;
     }
 }
 
@@ -827,16 +803,11 @@ mod tests {
             BrainPresetId::new("wanderer_puppy_slug"),
             AutonomousSource::CatalogDefault,
         );
-        binding.provoke();
-        assert!(binding.is_provoked());
-        assert_eq!(binding.active_preset(), None);
-        //  the poison: a body provoked into its OWN authored policy is a
-        // different source, and `is_provoked` must not answer for it — the two
-        // rebuild differently, which is the whole reason there are two.
+        assert!(!binding.is_provoked());
         binding.source = AutonomousSource::ProvokedProfile {
             profile: ambition_entity_catalog::BrainProfileId::new("cellular_duelist"),
         };
-        assert!(!binding.is_provoked());
+        assert!(binding.is_provoked());
         assert_eq!(binding.active_preset(), None);
     }
 

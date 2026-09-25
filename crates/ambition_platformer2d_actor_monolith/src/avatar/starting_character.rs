@@ -21,7 +21,6 @@ use bevy::ecs::change_detection::Ref;
 use bevy::ecs::system::{Commands, Query};
 use bevy::prelude::{Component, Entity, Has, Name, Res, With};
 
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 
@@ -205,41 +204,24 @@ impl InitialBodyPolicy {
 // does not know its id; `resolve_playable_action_set` owns that rule and is the
 // only place that should state it.
 
-/// The movement policy for `character_id`, DEFINITION first, catalog second.
+/// The movement policy for `character_id`: its prepared definition's.
 ///
-/// A separate function rather than a parameter on the catalog-only one because
-/// three call sites legitimately have no registry — a from-scratch bundle
-/// predates the world, and two tests build a catalog alone — and threading an
-/// `Option<&Registry>` through them would make "there is no registry here" and
-/// "the registry had nothing" the same call.
+/// The barrier prepares every catalog row (AP30) and folds the row's motion
+/// model into it, so the registry answers for every character the catalog
+/// knows. An id it does not hold gets the default axis-swept model.
 pub fn motion_model_spec_for_character(
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    catalog: &CharacterCatalog,
     character_id: &str,
 ) -> ambition_platformer2d_core::MotionModelSpec {
     registry
         .and_then(|registry| registry.get(character_id))
-        .map(|prepared| prepared.motion_model)
-        // The catalog is consulted only for an id NOTHING registered. A prepared
-        // character already folded its row in at the barrier, so falling back
-        // here for one would be the displaced authority getting a second vote.
-        .unwrap_or_else(|| motion_model_spec_for_character_id(catalog, character_id))
+        .map_or_else(
+            || ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
+            |prepared| prepared.motion_model,
+        )
 }
 
-/// Resolve the state-free movement policy a CATALOG ROW authors.
-///
-/// The active experience owns the character catalog. Movement identity must be
-/// resolved from that App-local catalog rather than from Ambition's built-in
-/// roster, so standalone experiences such as Sanic can author their own policy
-/// without process-global registration.
-///
-/// Prefer [`motion_model_spec_for_character`] wherever a registry is in hand: a
-/// definition that authored a motion model outranks the row.
-/// The movement FEEL for `character_id`, DEFINITION first, catalog second.
-///
-/// Companion to [`motion_model_spec_for_character`]: that one picks the solver,
-/// this one supplies its numbers. Same precedence rule, and the same reason for
-/// being a separate function from the catalog-only lookup.
+/// The movement FEEL for `character_id`: its prepared definition's.
 ///
 /// `None` is not a default here, it is an ANSWER. The marker component's
 /// presence means "this body's tuning is authored rather than the shared dev
@@ -248,26 +230,9 @@ pub fn motion_model_spec_for_character(
 /// sandbox protagonist never returns the body to the live inspector sliders.
 pub fn movement_tuning_for_character(
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    catalog: &CharacterCatalog,
     character_id: &str,
 ) -> Option<ambition_platformer2d_core::MovementTuning> {
-    match registry.and_then(|registry| registry.get(character_id)) {
-        Some(prepared) => prepared.movement_tuning,
-        None => catalog.axis_tuning(character_id),
-    }
-}
-
-/// The body of this function was eighteen lines reading nothing but the catalog and
-/// `ambition_platformer2d_core` — both visible from `ambition_characters` — so it was a catalog
-/// question written next to its first caller. It is `CharacterCatalog:motion_model_spec` now,
-/// and character PREPARATION asks the catalog directly instead of reaching up into
-/// `crate:avatar`, which is one of the two obstacles keeping the authoritative character model
-/// inside this monolith.
-pub fn motion_model_spec_for_character_id(
-    catalog: &CharacterCatalog,
-    character_id: &str,
-) -> ambition_platformer2d_core::MotionModelSpec {
-    catalog.motion_model_spec(character_id)
+    registry?.get(character_id)?.movement_tuning
 }
 
 /// Apply the worn character's movement identity to an already-spawned body.
@@ -276,13 +241,13 @@ pub fn motion_model_spec_for_character_id(
 /// changes that policy; it never removes the component or uses absence as an
 /// axis-swept sentinel.
 pub fn apply_worn_motion_model(
-    catalog: &CharacterCatalog,
+    registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     commands: &mut Commands,
     entity: Entity,
     character_id: &str,
 ) {
     let mut model = MotionModel::default();
-    model.apply_spec(motion_model_spec_for_character_id(catalog, character_id));
+    model.apply_spec(motion_model_spec_for_character(registry, character_id));
     commands.entity(entity).insert(model);
 }
 
@@ -292,13 +257,12 @@ pub fn apply_worn_motion_model(
 /// ONLY destination-private state — through the one kernel transition seam.
 fn sync_worn_motion_model_preserving_state(
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
-    catalog: &CharacterCatalog,
     character_id: &str,
     current: &mut MotionModel,
 ) {
     ambition_platformer2d_core::switch_motion_model(
         current,
-        motion_model_spec_for_character(registry, catalog, character_id),
+        motion_model_spec_for_character(registry, character_id),
     );
 }
 
@@ -312,7 +276,6 @@ fn sync_worn_motion_model_preserving_state(
 /// Returns HOW the resolved persona fires ([`RangedExecution`]); the ECS derive
 /// system synchronizes the charge marker and its mutable state from that.
 pub fn apply_worn_character_overlay(
-    catalog: &CharacterCatalog,
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
     action_set: &mut ActionSet,
@@ -321,7 +284,7 @@ pub fn apply_worn_character_overlay(
     character_id: &str,
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
-    let execution = wear_character(catalog, registry, name, identity, character_id, match_kit);
+    let execution = wear_character(registry, name, identity, character_id, match_kit);
     // Construction: nothing is worn or held yet, so the live pair is the
     // identity's own fold, published with it.
     let live = ambition_characters::repertoire::effective_repertoire(
@@ -341,22 +304,19 @@ pub fn apply_worn_character_overlay(
 /// with worn equipment and the hand, so a body re-wearing a character while
 /// holding something is never published empty-handed.
 pub fn wear_character(
-    catalog: &CharacterCatalog,
     registry: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     name: &mut Name,
     identity: &mut ambition_characters::brain::action_set::IdentityKit,
     character_id: &str,
     match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
-    let kit = WornKit::resolve(catalog, registry, character_id, match_kit);
-    // Prepared name, else the catalog's, else the id itself, so an unknown id is
-    // shown as the id and the problem stays visible.
+    let kit = WornKit::resolve(registry, character_id, match_kit);
+    // The prepared name, else the id itself, so an unknown id is shown as the
+    // id and the problem stays visible.
     *name = Name::new(
         registry
             .and_then(|registry| registry.get(character_id))
-            .map(|prepared| prepared.display_name.as_str())
-            .or_else(|| catalog.display_name(character_id))
-            .unwrap_or(character_id)
+            .map_or(character_id, |prepared| prepared.display_name.as_str())
             .to_string(),
     );
     *identity = kit.identity;
@@ -395,18 +355,10 @@ pub fn sync_charge_projectile_capability(
 /// Derive a body's gameplay from its worn identity and host ability source.
 ///
 /// An identity change refreshes the complete persona: display name, effective
-/// kit, projectile capability, and movement identity. An ability-only change is
-/// narrower: only the compatibility kit an id the catalog does not know
-/// receives depends on `BodyAbilities`, so only that kit and its projectile
-/// capability are rebuilt. ⚠ That gate is `!catalog.knows(id)` rather than an
-/// inspection of the prepared kit, and the two cannot diverge: the only other
-/// route to `PreparedKit::Unauthored` is preparation with NO catalog, and this
-/// system takes `Res<CharacterCatalog>` unconditionally, so it does not run in
-/// a composition that has none.
-/// In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
+/// kit, projectile capability, and movement identity, all read from the
+/// prepared cast. In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
-    catalog: Res<CharacterCatalog>,
     // Optional, like every other reader of it: a composition with no registered
     // characters is the ordinary case and must not require the resource.
     registry: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
@@ -490,7 +442,6 @@ pub fn apply_worn_character_gameplay(
         }
         if recharacterize || stale_cast {
             let execution = wear_character(
-                &catalog,
                 registry.as_deref(),
                 &mut name,
                 &mut identity,
@@ -543,7 +494,6 @@ pub fn apply_worn_character_gameplay(
             // state to Airborne.
             sync_worn_motion_model_preserving_state(
                 registry.as_deref(),
-                &catalog,
                 id,
                 &mut motion_model,
             );
@@ -553,7 +503,7 @@ pub fn apply_worn_character_gameplay(
             // Insert it when the worn identity authors a tuning, remove it when
             // it does not — so a re-wear from an authored feel back to the
             // sandbox protagonist returns the body to the live inspector sliders.
-            match movement_tuning_for_character(registry.as_deref(), &catalog, id) {
+            match movement_tuning_for_character(registry.as_deref(), id) {
                 Some(tuning) => {
                     commands
                         .entity(entity)

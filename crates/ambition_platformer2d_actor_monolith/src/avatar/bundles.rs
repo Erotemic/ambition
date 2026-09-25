@@ -255,7 +255,6 @@ impl PlayerSimulationBundle {
     /// own kit gets that authored kit, because the authored arm is settled
     /// before membership is consulted at all.
     pub fn from_scratch_as_character(
-        catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
@@ -284,7 +283,6 @@ impl PlayerSimulationBundle {
             identity_kit: Default::default(),
         };
         *ranged = crate::avatar::apply_worn_character_overlay(
-            catalog,
             prepared,
             &mut kit.name,
             &mut kit.action_set,
@@ -299,8 +297,8 @@ impl PlayerSimulationBundle {
         let mut bundle = Self::from_kit(scratch, health, kit);
         bundle
             .motion_model
-            .apply_spec(crate::avatar::motion_model_spec_for_character_id(
-                catalog,
+            .apply_spec(crate::avatar::motion_model_spec_for_character(
+                prepared,
                 character_id,
             ));
         bundle
@@ -326,6 +324,12 @@ mod tests {
                 "../../../../game/ambition_content/assets/data/character_catalog.ron"
             )),
         )
+    }
+
+    /// The shipped catalog's rows as the barrier prepares them, with no
+    /// authored definitions.
+    fn cast() -> ambition_characters::prepared::PreparedCharacterRegistry {
+        ambition_characters::prepared::prepare_cast_for_test(&catalog(), [])
     }
 
     /// ⛔ **THE FRAME IS THE CLAIM, NOT THE VALUE.** `ensure_sim_id` would give a
@@ -360,13 +364,12 @@ mod tests {
         // full code-side player kit — the protagonist is the one row whose kit
         // is NOT its (peaceful) catalog action set. Production installs the
         // default at the content choke point; mirror that here.
-        let catalog = catalog();
+        let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
-            &catalog,
             player_scratch(),
             Health::new(20),
             "player_robot_v3",
-            None,
+            Some(&cast),
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
@@ -389,13 +392,12 @@ mod tests {
         // worn character's ActionSet IS the kit (no fallback to the player's
         // bolt). Pin the installed default so the protagonist branch is
         // deterministic regardless of test order.
-        let catalog = catalog();
+        let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
-            &catalog,
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
-            None,
+            Some(&cast),
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
@@ -423,13 +425,12 @@ mod tests {
         // stale prior name. ⛔ The KIT is not invented: an id nobody wrote down
         // wears nothing it did not author (it used to be handed the protagonist's
         // swipe, bolt and shield, built from the body's abilities).
-        let catalog = catalog();
+        let cast = cast();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
-            &catalog,
             player_scratch(),
             Health::new(20),
             "not_a_real_character",
-            None,
+            Some(&cast),
             &mut ambition_characters::brain::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.driver.0, PlayerSlot::PRIMARY);

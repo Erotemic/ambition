@@ -1,4 +1,5 @@
 use super::*;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::brain::action_set::RangedStyle;
 
 /// A self-contained momentum speedster. Ambition's shipped roster no longer
@@ -43,8 +44,12 @@ fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCat
     ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
 }
 
+/// The test catalog and the cast its barrier publishes: every row prepared
+/// bare (AP30), so a worn id is answered by the registry as in production.
 fn install_test_catalog(app: &mut bevy::prelude::App) {
-    app.insert_resource(test_catalog());
+    let catalog = test_catalog();
+    app.insert_resource(ambition_characters::prepared::prepare_cast_for_test(&catalog, []));
+    app.insert_resource(catalog);
 }
 
 mod live_refresh;
@@ -111,16 +116,16 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     app.add_plugins(MinimalPlugins);
     install_test_catalog(&mut app);
     let entity = app.world_mut().spawn_empty().id();
-    let catalog = app
+    let cast = app
         .world()
-        .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+        .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
         .clone();
 
     // Wear Sanic → SurfaceMomentum inserted with the authored fast profile.
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
-        apply_worn_motion_model(&catalog, &mut commands, entity, "sanic");
+        apply_worn_motion_model(Some(&cast), &mut commands, entity, "sanic");
     }
     queue.apply(app.world_mut());
     match app.world().get::<MotionModel>(entity) {
@@ -134,7 +139,7 @@ fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
-        apply_worn_motion_model(&catalog, &mut commands, entity, "player_robot_v3");
+        apply_worn_motion_model(Some(&cast), &mut commands, entity, "player_robot_v3");
     }
     queue.apply(app.world_mut());
     assert!(
@@ -1126,13 +1131,11 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     );
     registry.insert_prepared(prepared.prepared);
 
-    let catalog = CharacterCatalog::empty();
     let mut name = Name::new("placeholder");
     let mut action_set = ActionSet::default();
     let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
     let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
     crate::avatar::apply_worn_character_overlay(
-        &catalog,
         Some(&registry),
         &mut name,
         &mut action_set,
@@ -1167,7 +1170,6 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
     );
     registry.insert_prepared(unarmed.prepared);
     crate::avatar::apply_worn_character_overlay(
-        &catalog,
         Some(&registry),
         &mut name,
         &mut action_set,
@@ -1229,7 +1231,6 @@ fn catalog_granting_melee(id: &str) -> CharacterCatalog {
 
 /// Run the one production writer and hand back what it put on the body.
 fn wear(
-    catalog: &CharacterCatalog,
     registry: &ambition_characters::prepared::PreparedCharacterRegistry,
     id: &str,
 ) -> (ActionSet, ActorMoveset) {
@@ -1238,7 +1239,6 @@ fn wear(
     let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
     let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
     crate::avatar::apply_worn_character_overlay(
-        catalog,
         Some(registry),
         &mut name,
         &mut action_set,
@@ -1275,6 +1275,11 @@ fn prepared_against(
     definition: ambition_characters::actor::definition::CharacterDefinition,
     catalog: Option<&CharacterCatalog>,
 ) -> ambition_characters::prepared::PreparedCharacterRegistry {
+    // With a catalog, the whole cast its barrier publishes: this definition
+    // folded over its row, and every other row prepared bare (AP30).
+    if let Some(catalog) = catalog {
+        return ambition_characters::prepared::prepare_cast_for_test(catalog, [definition]);
+    }
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(
         crate::character_runtime::prepare_and_finalize_against_for_test(
@@ -1300,14 +1305,15 @@ fn an_action_set_authored_on_the_definition_beats_the_catalog_row() {
         })),
         ..ActionSet::default()
     };
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "duellist", "Duellist", "demo",
         )
         .with_action_set(authored),
+        Some(&catalog),
     );
 
-    let (set, _) = wear(&catalog, &registry, "duellist");
+    let (set, _) = wear(&registry, "duellist");
 
     match set.melee {
         Some(MeleeActionSpec::Swipe(swipe)) => assert_eq!(
@@ -1329,16 +1335,17 @@ fn an_authored_empty_action_set_is_not_the_same_as_authoring_nothing() {
     // falls through to the catalog and hands him the row's melee — and the whole
     // reason this field is an `Option` is to make that unrepresentable.
     let catalog = catalog_granting_melee("speedster");
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "speedster",
             "Speedster",
             "demo",
         )
         .with_action_set(ActionSet::default()),
+        Some(&catalog),
     );
 
-    let (set, moveset) = wear(&catalog, &registry, "speedster");
+    let (set, moveset) = wear(&registry, "speedster");
 
     assert!(
         set.melee.is_none(),
@@ -1371,7 +1378,7 @@ fn a_definition_with_no_action_set_still_falls_through_to_the_catalog() {
         Some(&catalog),
     );
 
-    let (set, _) = wear(&catalog, &registry, "inheritor");
+    let (set, _) = wear(&registry, "inheritor");
 
     match set.melee {
         Some(MeleeActionSpec::Swipe(swipe)) => assert_eq!(swipe.damage, 3),
@@ -1387,16 +1394,17 @@ fn a_prepared_action_set_with_no_prepared_moveset_derives_from_the_winning_set()
     // apart — deriving from the winner yields no moves, deriving from the loser yields the row's
     // swipe.
     let catalog = catalog_granting_melee("minimalist");
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "minimalist",
             "Minimalist",
             "demo",
         )
         .with_action_set(ActionSet::default()),
+        Some(&catalog),
     );
 
-    let (_, moveset) = wear(&catalog, &registry, "minimalist");
+    let (_, moveset) = wear(&registry, "minimalist");
 
     assert!(
         moveset.0.moves.is_empty(),
@@ -1424,7 +1432,7 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
 
     let catalog = catalog_granting_melee("gunslinger");
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "gunslinger",
             "Gunslinger",
@@ -1444,9 +1452,10 @@ fn an_authored_ranged_action_set_derives_a_ranged_move() {
             }),
             ..ActionSet::default()
         }),
+        Some(&catalog),
     );
 
-    let (action_set, moveset) = wear(&catalog, &registry, "gunslinger");
+    let (action_set, moveset) = wear(&registry, "gunslinger");
 
     assert!(
         action_set.ranged.is_some(),
@@ -1481,7 +1490,7 @@ fn an_authored_special_action_set_derives_a_special_move() {
     use ambition_characters::brain::SpecialActionSpec;
 
     let catalog = catalog_granting_melee("mystic");
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "mystic", "Mystic", "demo",
         )
@@ -1489,9 +1498,10 @@ fn an_authored_special_action_set_derives_a_special_move() {
             special: Some(SpecialActionSpec::Special("starfall".into())),
             ..ActionSet::default()
         }),
+        Some(&catalog),
     );
 
-    let (action_set, moveset) = wear(&catalog, &registry, "mystic");
+    let (action_set, moveset) = wear(&registry, "mystic");
 
     assert!(
         action_set.special.is_some(),
@@ -1509,18 +1519,18 @@ fn an_authored_special_action_set_derives_a_special_move() {
     );
 }
 
-/// An UNREGISTERED authored persona derives its ranged move too.
+/// A persona that lives in the catalog and nothing else derives its ranged
+/// move too.
 ///
-/// The test above proves it for a character in the prepared registry, where the
-/// fold happens at the preparation barrier. Most of the cast is not registered —
-/// it lives in the catalog and nothing else — and that path derives its moves
-/// separately, in `derive_persona_moveset`.
+/// The test above proves it for a character with an authored definition. Most
+/// of the cast has none: its row is prepared bare at the barrier (AP30), so its
+/// moves come from the same fold, `derive_moveset` over the row's action set.
 #[test]
-fn an_unregistered_authored_persona_derives_its_ranged_move() {
+fn a_catalog_only_persona_derives_its_ranged_move() {
     let catalog = catalog_granting_melee_and_ranged("drifter");
-    let empty = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    let cast = ambition_characters::prepared::prepare_cast_for_test(&catalog, []);
 
-    let (action_set, moveset) = wear(&catalog, &empty, "drifter");
+    let (action_set, moveset) = wear(&cast, "drifter");
 
     assert!(
         action_set.ranged.is_some(),
@@ -1532,7 +1542,7 @@ fn an_unregistered_authored_persona_derives_its_ranged_move() {
             .0
             .verbs
             .contains_key(ambition_combat::moveset::RANGED_VERB),
-        "an unregistered catalog persona advertises ranged and derived no ranged \
+        "a catalog-only persona advertises ranged and derived no ranged \
          verb, so pressing it does nothing: {:?}",
         moveset.0.verbs.keys().collect::<Vec<_>>()
     );
@@ -1779,29 +1789,32 @@ fn a_definition_authored_motion_model_beats_the_catalog_row() {
         ground_accel: 1234.0,
         ..Default::default()
     });
-    let registry = prepared(
+    let registry = prepared_against(
         ambition_characters::actor::definition::CharacterDefinition::new(
             "mary_o", "Mary-O", "demo",
         )
         .with_motion_model(momentum),
+        Some(&catalog),
     );
 
-    let resolved =
-        crate::avatar::motion_model_spec_for_character(Some(&registry), &catalog, "mary_o");
+    let resolved = crate::avatar::motion_model_spec_for_character(Some(&registry), "mary_o");
     assert_eq!(
         resolved, momentum,
         "the catalog row won over the definition's authored motion model"
     );
 
-    // And a character that authored NOTHING still inherits its row — the
-    // migration path, and the half that keeps this safe to put in front of
-    // every character at once.
-    let untouched =
-        crate::avatar::motion_model_spec_for_character(Some(&registry), &catalog, "sanic");
+    // And a character that authored NOTHING still inherits its row, because
+    // the barrier prepares that row bare and the fold carries it (AP30).
+    let untouched = crate::avatar::motion_model_spec_for_character(Some(&registry), "sanic");
     assert_eq!(
         untouched,
-        crate::avatar::motion_model_spec_for_character_id(&catalog, "sanic"),
+        catalog.motion_model_spec("sanic"),
         "an unauthored character stopped inheriting its catalog row"
+    );
+    assert!(
+        matches!(untouched, MotionModelSpec::SurfaceMomentum(_)),
+        "fixture: the row must author a non-default model, or inheriting it is \
+         indistinguishable from getting the default"
     );
 }
 
@@ -2586,14 +2599,12 @@ fn only_a_press_that_resolves_to_the_bubble_raises_the_guard() {
 /// is the arm a rewrite is most likely to drop.
 #[test]
 fn an_unknown_character_is_named_after_its_id_so_the_problem_is_visible() {
-    let catalog = CharacterCatalog::empty();
     let mut name = Name::new("placeholder");
     let mut action_set = ActionSet::default();
     let mut moveset = ActorMoveset(ambition_entity_catalog::MovesetContract::default());
     let mut identity = ambition_characters::brain::action_set::IdentityKit::default();
 
     crate::avatar::apply_worn_character_overlay(
-        &catalog,
         None,
         &mut name,
         &mut action_set,
@@ -2653,7 +2664,6 @@ fn the_spawn_grant_and_the_persona_derive_resolve_one_authored_kit() {
     registry.insert_prepared(finalized.prepared);
 
     let derived = ambition_combat::worn_kit::WornKit::resolve(
-        &CharacterCatalog::empty(),
         Some(&registry),
         "brute",
         None,
@@ -2717,7 +2727,7 @@ fn a_moves_only_character_is_granted_and_reworn_as_one_kit() {
     let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
     registry.insert_prepared(prepared);
     let reworn =
-        ambition_combat::worn_kit::WornKit::resolve(&CharacterCatalog::empty(), Some(&registry), "lobber", None);
+        ambition_combat::worn_kit::WornKit::resolve(Some(&registry), "lobber", None);
 
     let world = app.world();
     let identity = world

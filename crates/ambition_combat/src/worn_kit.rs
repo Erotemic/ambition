@@ -9,7 +9,6 @@
 //! `avatar` module. The kernel now consumes the [`WornKit`] value and writes it
 //! onto components; it no longer decides what a character's kit is.
 
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::brain::action_set::IdentityKit;
 use ambition_characters::brain::{ActionSet, RangedExecution};
 use ambition_characters::prepared::{
@@ -42,9 +41,9 @@ impl WornKit {
     ///   repertoire is what a character IS; what a ruleset currently permits it
     ///   to use is the per-frame action scheme over `BodyAbilities`, not a
     ///   narrowing of the kit (census DUP-CHARACTER-KIT, decided 2026-09-23);
-    /// - an unprepared catalog row: the catalog's default action set, or a safe
-    ///   peaceful kit when that row's preset does not resolve;
-    /// - an unknown id: a peaceful kit, reported.
+    /// - an id the cast does not hold: a peaceful kit, reported. The barrier
+    ///   prepares every catalog row (AP30), so this is an id no catalog row or
+    ///   definition names, or a composition that published no cast.
     ///
     /// ⛔ NO ROAD INVENTS THE HOST PROTAGONIST'S KIT. An id nobody wrote down, or a
     /// character that authored no action set, used to be handed the swipe, bolt,
@@ -60,7 +59,6 @@ impl WornKit {
     /// generic set still charges if the robot charges — and a character's own
     /// authored timelines still overlay the borrowed set's derived moves.
     pub fn resolve(
-        catalog: &CharacterCatalog,
         registry: Option<&PreparedCharacterRegistry>,
         character_id: &str,
         match_kit: Option<&ActionSet>,
@@ -82,20 +80,11 @@ impl WornKit {
                     (set, moveset, prepared.ranged_execution)
                 }
                 None => {
-                    let catalog_knows_it = catalog.knows(character_id);
-                    let authored = catalog.build_default_action_set(character_id);
-                    if catalog_knows_it && authored.is_none() {
-                        bevy::log::error!(
-                            "worn character '{character_id}' has a catalog row whose \
-                             default_action_set does not resolve; installing a safe peaceful kit"
-                        );
-                    } else if !catalog_knows_it {
-                        bevy::log::error!(
-                            "worn character id '{character_id}' is not in the catalog; wearing \
-                             a peaceful kit and showing the id as the display name"
-                        );
-                    }
-                    let (set, execution) = resolve_playable_action_set(authored);
+                    bevy::log::error!(
+                        "worn character id '{character_id}' is not a prepared character; \
+                         wearing a peaceful kit and showing the id as the display name"
+                    );
+                    let (set, execution) = resolve_playable_action_set(None);
                     let derived = derive_persona_moveset(&set, execution, None);
                     (set, derived, execution)
                 }
@@ -207,8 +196,7 @@ mod tests {
     /// existed. It is peaceful now, and reported.
     #[test]
     fn an_unknown_id_wears_nothing_it_did_not_author() {
-        let catalog = CharacterCatalog::empty();
-        let kit = WornKit::resolve(&catalog, None, "nobody", None);
+        let kit = WornKit::resolve(None, "nobody", None);
         assert_eq!(kit.execution, RangedExecution::MovesetVerb);
         assert!(kit.action_set.melee.is_none(), "an unknown id was handed a swipe");
         assert!(kit.action_set.ranged.is_none(), "an unknown id was handed a bolt");

@@ -1028,20 +1028,17 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
-        "id": "the-motion-model-resolver-is-confined-to-one-file",
-        "paths": [
-            "crates/",
-            "game/",
-            "fixtures/",
-            ":!crates/ambition_platformer2d_actor_monolith/src/avatar/starting_character.rs",
-        ],
-        "patterns": [r"\bmotion_model_spec_for_character\("],
+        "id": "the-catalog-only-motion-model-resolver-stays-deleted",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [r"\bmotion_model_spec_for_character_id\b"],
         "reason": (
-            "The definition-first movement policy resolver (R-a, 2026-07-28). "
-            "The catalog-only `motion_model_spec_for_character_id` is "
-            "deliberately NOT covered — it is the fallback this one calls, and "
-            "two tests plus a from-scratch bundle legitimately have no registry "
-            "to consult. What must stay singular is the place that WEIGHS them."
+            "AP30 (2026-09-25). The barrier prepares every catalog row, so a "
+            "worn body's movement policy is its prepared definition's and "
+            "`motion_model_spec_for_character` is a plain registry read. It "
+            "used to WEIGH the registry against this catalog-only resolver, and "
+            "a from-scratch bundle called the catalog one directly, so the home "
+            "body ignored a definition's authored model. A second way to ask "
+            "the catalog is a second answer."
         ),
     },
     {

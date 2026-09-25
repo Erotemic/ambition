@@ -249,7 +249,7 @@ fn an_ability_the_mask_disabled_can_be_enabled_again_from_the_base() {
 fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.insert_resource(super::test_catalog());
+    super::install_test_catalog(&mut app);
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     // The ADMITTED mask, beside the editor resource it is admitted from.
     app.init_resource::<ambition_dev_tools::dev_tools::ActiveEditableAbilityMask>();
@@ -535,7 +535,7 @@ fn assert_riding_state(
 fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.insert_resource(super::test_catalog());
+    super::install_test_catalog(&mut app);
     app.add_systems(Update, super::super::apply_worn_character_gameplay);
 
     let entity = app

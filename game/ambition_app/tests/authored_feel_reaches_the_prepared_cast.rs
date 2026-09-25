@@ -9,23 +9,14 @@
 //! `sheet` and `provider` and not these two: those three are carried on both
 //! sides, these two are reconciled.
 //!
-//! ⛔ WHAT IS NOT RECONCILED IS THE ROW NOBODY PREPARED. `avatar/starting_character.rs`
-//! spells the fold a SECOND time at read time — `:187` is `None => catalog.axis_tuning(character_id)`
-//! and `:157` the motion-model twin — for exactly the ids the registry does not
-//! hold. MEASURED 2026-09-11 in the shipped launcher composition: 147 catalog
-//! rows, 58 prepared, so that read-site fold is reached for **89 ids per boot**
-//! and the catalog authors a value for **none of them**. It returns the default
-//! every time.
-//!
-//! ⇒ So the read-site fold is deletable — the barrier already owns the rule —
-//! **but only while this test passes.** An authored row that nobody prepares is
-//! the one case where the two spellings stop agreeing, and it fails silently: the
-//! character plays on the shared editable tuning while its row says otherwise,
-//! which is the same shape as the containment bug next door, where a policy
-//! nothing probed was wrong for the life of the project.
+//! ⛔ WHAT WAS NOT RECONCILED WAS THE ROW NOBODY PREPARED. `avatar/starting_character.rs`
+//! spelled the fold a second time at read time for the ids the registry did not
+//! hold: 89 of 147 per boot (measured 2026-09-11), none of which authored a value.
+//! Since AP30 the barrier prepares every row nobody authored, so the registry
+//! holds every catalog id and the read-site fold is deleted. This test is the
+//! check that a row authoring feel is in the prepared cast.
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::avatar::motion_model_spec_for_character_id;
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use std::collections::BTreeSet;
@@ -45,8 +36,7 @@ fn every_catalog_row_that_authors_feel_is_in_the_prepared_cast() {
     let catalog = world.resource::<CharacterCatalog>();
     let registry = world.resource::<PreparedCharacterRegistry>();
     let prepared: BTreeSet<&str> = registry.ids().collect();
-    let default_motion =
-        motion_model_spec_for_character_id(&CharacterCatalog::empty(), "an_id_no_catalog_knows");
+    let default_motion = CharacterCatalog::empty().motion_model_spec("an_id_no_catalog_knows");
 
     let mut rows = 0usize;
     let mut authored: Vec<&String> = Vec::new();
@@ -54,7 +44,7 @@ fn every_catalog_row_that_authors_feel_is_in_the_prepared_cast() {
     for (id, _) in catalog.iter() {
         rows += 1;
         let states_feel = catalog.axis_tuning(id).is_some()
-            || motion_model_spec_for_character_id(catalog, id) != default_motion;
+            || catalog.motion_model_spec(id) != default_motion;
         if !states_feel {
             continue;
         }

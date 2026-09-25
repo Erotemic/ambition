@@ -118,14 +118,14 @@ folded fields to `CharacterAuthorityConflict` would be a variant that cannot fai
 No generic resolver, no request bus, no new trait to unify registry and catalog,
 and no type moves.
 
-### Open: what an unprepared id inherits at wear time
+### Closed: what an unprepared id inherits at wear time
 
 ⭐ DECIDED 2026-09-25 (AP30): a catalog row IS a character, so the barrier
 prepares every row nobody authored as a bare definition, and the fold gives it
 its row and its provider's declarations. The shipped host now has no unprepared
-catalog id (147 of 147 prepared, where it was 58), so the read-time fold below
-answers only for an id no catalog knows, or where no barrier ran. Deleting it is
-AP30's second half. The paragraph below is the measurement that led here.
+catalog id (147 of 147 prepared, where it was 58), and the read-time fold
+below is DELETED: the wear road reads the prepared cast only. The paragraph
+below is the measurement that led here.
 
 The fold is spelled twice: `avatar/starting_character.rs` re-performs it at read
 time for ids the registry does not hold. Measured in every composition (the

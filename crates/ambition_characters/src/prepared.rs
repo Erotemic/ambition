@@ -2066,6 +2066,33 @@ pub fn prepare_and_finalize_against_for_test(
     }
 }
 
+/// The cast a barrier publishes for `definitions` against `catalog`: each
+/// authored definition folded over its row, and every row nobody authored
+/// prepared as its bare definition.
+#[cfg(any(test, feature = "test-support"))]
+pub fn prepare_cast_for_test(
+    catalog: &crate::actor::character_catalog::CharacterCatalog,
+    definitions: impl IntoIterator<Item = CharacterDefinition>,
+) -> PreparedCharacterRegistry {
+    let authored = definitions
+        .into_iter()
+        .map(|definition| {
+            let staged = prepare_for_registration(definition, &CharacterBindings::default()).staged;
+            (ambition_entity_catalog::CharacterId::new(staged.id()), staged)
+        })
+        .collect();
+    let authorities = CastAuthorities {
+        catalog: Some(catalog.clone()),
+        profiles: None,
+        declarations: None,
+    };
+    finalize_cast(
+        cast_with_catalog_rows(authored, Some(catalog)),
+        &authorities,
+        CharacterCatalogGeneration::default(),
+    )
+}
+
 /// Prepared character authority keyed by stable id.
 ///
 /// Authored definition values override catalog fallbacks for kit fields; `None`

@@ -140,14 +140,6 @@ pub fn simulation_world(
         boss_catalog,
         default_character_id,
     } = params;
-    // ⛔ ONE CARRIER FOR THE CATALOG. Setup used to take it as its own
-    // `SimulationSetup` field AND hand it to room construction, which took it as
-    // two more positional arguments — three spellings of one authority, any two
-    // of which could be handed different snapshots without a compiler noticing.
-    // It rides on the construction context now, beside the prepared cast and the
-    // policies, and this is the one place setup names it.
-    let character_catalog = construction.characters;
-
     for warning in room_set.layout_warnings() {
         bevy::log::debug!(target: "ambition_platformer2d::room_layout", "{warning}");
     }
@@ -249,8 +241,8 @@ pub fn simulation_world(
     // preserves behaviour exactly for an untouched panel.
     //
     // The worn character answers first: what its prepared definition AUTHORS
-    // (`None` is no contribution, not `NONE`), then the catalog row's grants,
-    // then the host baseline. The persona derive only READS `BodyAbilities`, so
+    // (`None` is no contribution, not `NONE`; the barrier has already folded
+    // the catalog row's grants into it), then the host baseline. The persona derive only READS `BodyAbilities`, so
     // an answer not given here is never given — the default V3 stood in
     // `sandbox_all` (reset and grab included) while wearing a set that grants
     // neither.
@@ -262,7 +254,6 @@ pub fn simulation_world(
     let authored_abilities = prepared_characters
         .and_then(|registry| registry.get(worn_id))
         .and_then(|prepared| prepared.abilities)
-        .or_else(|| character_catalog.ability_set(worn_id))
         .unwrap_or(ae::AbilitySet {
             // An unauthored body gets every intrinsic verb. Morph Ball is
             // progression an experience grants, so a fallback never carries it.
@@ -301,11 +292,9 @@ pub fn simulation_world(
         .map(ambition_body_seed::PhysicalBaseline::of);
     let player_health = ambition_characters::actor::Health::new(match physical.as_ref() {
         Some(physical) => physical.max_health_over(DEFAULT_PLAYER_HEALTH),
-        // No prepared character: the catalog row is still the authority for the
-        // legacy cast, which is most of it.
-        None => character_catalog
-            .max_health(worn_id)
-            .unwrap_or(DEFAULT_PLAYER_HEALTH),
+        // An id the cast does not hold: every catalog row is prepared (AP30),
+        // so no row is left to ask.
+        None => DEFAULT_PLAYER_HEALTH,
     });
     // The authored BOX, on the exploration player, built at the size it stands in:
     // an `Explicit` character's box, or a `SpriteAuthored` character's standing
@@ -331,7 +320,6 @@ pub fn simulation_world(
     // character's authored repertoire unapplied, with the derive told it was
     // current.
     let player_bundle = crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
-        character_catalog,
         initial_scratch,
         player_health,
         worn_id,
@@ -403,8 +391,8 @@ pub fn simulation_world(
     // THE PREPARED BODY, granted at construction like every other character
     // body: the posed silhouette, authored hurtboxes, movement feel and motion
     // model land with the player, in one batch, rather than on its first tick
-    // from the re-template pass. The kit is the worn derive's. A character with
-    // no prepared definition keeps the catalog's movement identity.
+    // from the re-template pass. The kit is the worn derive's. An id the cast
+    // does not hold gets the default movement identity.
     match prepared_characters.and_then(|registry| registry.get(worn_id).map(|p| (registry, p))) {
         Some((registry, prepared)) => {
             ambition_platformer2d_actor_spawn::grant_prepared_character_body(
@@ -419,7 +407,7 @@ pub fn simulation_world(
             );
         }
         None => crate::avatar::apply_worn_motion_model(
-            character_catalog,
+            prepared_characters,
             commands,
             player,
             starting_character.effective_id(default_character_id),

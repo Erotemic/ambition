@@ -108,8 +108,8 @@ VIOLATING_LINE = {
         "    let authored = catalog.build_default_action_set(id);",
     "the-provider-resolver-is-confined-to-one-file":
         "    let p = provider_of_character(registry, owners, id);",
-    "the-motion-model-resolver-is-confined-to-one-file":
-        "    let m = motion_model_spec_for_character(registry, catalog, id);",
+    "the-catalog-only-motion-model-resolver-stays-deleted":
+        "    let m = motion_model_spec_for_character_id(catalog, id);",
     "the-catalog-axis-tuning-is-confined-to-one-file":
         "    match catalog.axis_tuning(id) {",
     "the-movement-tuning-resolver-is-confined-to-one-file":

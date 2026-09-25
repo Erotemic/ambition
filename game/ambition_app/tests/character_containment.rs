@@ -11,13 +11,15 @@
 //! test is the half that knows the POPULATION — every character the shipped
 //! host registers, which is where a provider's new cast member arrives.
 //!
-//! ## Why the catalog and not the prepared registry
+//! ## Why the prepared registry
 //!
-//! The catalog is what `motion_model_spec_for_character_id` reads, so it is the
-//! authority on which policy a character actually plays under. Probing anything
-//! else would test a copy of the decision rather than the decision.
+//! A worn body's policy is its prepared definition's
+//! (`motion_model_spec_for_character`), and the barrier prepares every catalog
+//! row (AP30). Probing the catalog would test the fold's input rather than the
+//! decision.
 
 use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 use ambition_platformer2d::engine_core::movement::containment::{
     probe_containment, walled_box, ContainmentProbe,
 };
@@ -29,8 +31,14 @@ const WALL_PX: f32 = 16.0;
 
 #[test]
 fn no_registered_character_can_leave_a_plain_walled_room() {
-    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    // What `App::run` does before the first update, so the barrier closes on
+    // the road production takes.
+    app.finish();
+    app.cleanup();
+    app.update();
     let catalog = app.world().resource::<CharacterCatalog>();
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
     let world = walled_box(ROOM, WALL_PX);
     let bounds = Aabb {
         min: Vec2::ZERO,
@@ -50,7 +58,10 @@ fn no_registered_character_can_leave_a_plain_walled_room() {
     let mut escapes = Vec::new();
     let mut sized = 0usize;
     for id in &ids {
-        let spec = ambition_platformer2d::actors::avatar::motion_model_spec_for_character_id(catalog, id);
+        let spec = ambition_platformer2d::actors::avatar::motion_model_spec_for_character(
+            Some(registry),
+            id,
+        );
         // The character's OWN body, not a generic one.
         //
         // `None` for a character whose sheet publishes no body metrics — the

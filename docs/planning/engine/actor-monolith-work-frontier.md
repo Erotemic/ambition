@@ -311,13 +311,10 @@ one struct, and all production runtime reads resolve through
   different vocabulary. One resolution exists, in
   `crates/ambition_characters/src/prepared.rs`.
 - `movement_tuning`/`motion_model` are folded by the barrier, so the acceptance
-  line "no duplicate authored movement/tuning authority" is met. The fold is
-  spelled twice: the read-time fall-back in `avatar/starting_character.rs`.
-  Removing it reddened six tests on the wear/re-wear road.
-  **Open question:** what an unprepared id should inherit at wear time. That is
-  design, not cleanup.
-  `game/ambition_app/tests/authored_feel_reaches_the_prepared_cast.rs` keeps the
-  orphan case from arising meanwhile.
+  line "no duplicate authored movement/tuning authority" is met. The second,
+  read-time spelling of the fold in `avatar/starting_character.rs` is deleted
+  (AP30): the barrier prepares every catalog row nobody authored, so the wear
+  road reads the prepared cast only.
 
 Not a resolver, not a bus, and no type moves; see the census page for why.
 

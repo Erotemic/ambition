@@ -701,7 +701,6 @@ pub fn prepare_match(
         // The kit this seat wears, from the same compiler as spawn and
         // re-wear, so a seated fighter and a room fighter agree.
         let worn = ambition_combat::worn_kit::WornKit::resolve(
-            catalog,
             Some(registry),
             participant.character.as_str(),
             participant.action_set.as_ref(),

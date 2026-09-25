@@ -141,3 +141,37 @@ fn one_character_built_as_an_npc_and_as_a_summon_is_the_same_body() {
          hostile"
     );
 }
+
+/// A Hall body can do what its catalog row grants, not merely what its
+/// definition restates.
+///
+/// The Hall's `mary_o` has no body blueprint, so it is built on the peaceful
+/// road, and its `RunJump` is authored on the CATALOG row rather than on the
+/// definition. A seed that consults only the definition builds it with no verbs,
+/// and the per-body gate then holds a possessed Mary-O still.
+#[test]
+fn a_hall_character_wears_the_abilities_its_catalog_row_grants() {
+    use ambition_platformer2d::engine_core::body_clusters::{AbilityBase, BodyAbilities};
+
+    let mut hall = fixed_60hz_room_sim("hall_of_characters");
+    for _ in 0..90 {
+        hall.step(base());
+    }
+    let world = hall.world_mut();
+    let mut q = world.query::<(&WornCharacter, &ActorIdentity, &AbilityBase, &BodyAbilities)>();
+    let found: Vec<_> = q
+        .iter(world)
+        .filter(|(worn, ..)| worn.id() == "mary_o")
+        .map(|(_, identity, base, live)| (identity.id().to_string(), base.abilities, live.abilities))
+        .collect();
+    assert!(!found.is_empty(), "the Hall staged no body wearing `mary_o`");
+    for (placement, base, live) in found {
+        for (which, set) in [("AbilityBase", base), ("BodyAbilities", live)] {
+            assert!(
+                set.move_horizontal && set.jump,
+                "the Hall's `{placement}` wears `mary_o`, whose catalog row grants RunJump, \
+                 but its {which} cannot run or jump: {set:?}"
+            );
+        }
+    }
+}

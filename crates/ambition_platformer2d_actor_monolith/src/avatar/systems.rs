@@ -135,6 +135,7 @@ pub fn tick_controlled_brains(
             // reverse a controlled body.
             side_contact_normal: None,
             turns_at_walls: false,
+            ground_ends_ahead: false,
             // This translation path does not carry an ActorMoveset; fighter attack
             // generation is therefore inactive here.
             attack_kit: Vec::new(),

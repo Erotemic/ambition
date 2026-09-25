@@ -15,7 +15,7 @@
 //!
 //! ```text
 //! cargo run -p ambition_demo_sanic_app --features visible --bin capture_sanic \
-//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--no-ui]
+//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--act N] [--no-ui]
 //! ```
 
 use std::path::PathBuf;
@@ -66,6 +66,13 @@ fn main() {
                     .next()
                     .and_then(|v| v.parse().ok())
                     .unwrap_or_else(|| fail("--walk needs a frame count"));
+            }
+            "--act" => {
+                let act = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or_else(|| fail("--act needs an act number"));
+                ambition_demo_sanic::provider::start_at_act(act).unwrap_or_else(|e| fail(&e));
             }
             "--no-ui" => include_ui = false,
             "--center-subject" => center_subject = true,

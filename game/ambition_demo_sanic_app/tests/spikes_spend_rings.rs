@@ -266,19 +266,21 @@ fn a_super_runner_crosses_the_spikes_untouched() {
 }
 
 #[test]
-fn the_pit_still_swallows_him_at_any_ring_count() {
-    for rings in [0, 12] {
-        // Start on the west floor just short of the gap and run in.
-        let out = walk_right_into(PIT_LEFT_X - 40.0, rings, false, 240);
-        assert!(
-            out.sent_home,
-            "the pit resets, and it resets whatever you are carrying — falling \
-             out is not something that HIT you, so no wallet buys you out of it \
-             (rings={rings}): {out:?}"
-        );
-        assert_eq!(
-            out.scattered, 0,
-            "and it is not a hit, so nothing scatters (rings={rings}): {out:?}"
-        );
-    }
+fn the_pit_is_a_spike_bed_that_costs_rings_not_the_run() {
+    // Start on the west floor just short of the gap and run in.
+    let with_rings = walk_right_into(PIT_LEFT_X - 40.0, 12, false, 240);
+    assert!(
+        with_rings.scattered > 0 && with_rings.rings < 12,
+        "landing on the pit's spikes is a hit: the rings burst out: {with_rings:?}"
+    );
+    assert!(
+        !with_rings.sent_home && with_rings.deaths == 0,
+        "and he lives, in the pit, free to jump back out: {with_rings:?}"
+    );
+
+    let broke = walk_right_into(PIT_LEFT_X - 40.0, 0, false, 240);
+    assert!(
+        broke.deaths > 0,
+        "with no rings to spend, the same spikes kill: {broke:?}"
+    );
 }

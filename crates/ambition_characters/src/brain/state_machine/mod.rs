@@ -296,11 +296,15 @@ fn frame_to_local(snapshot: &BrainSnapshot, world: ae::WorldVec2) -> ae::LocalAx
 /// or a fighter brain never calls this helper, so collision cannot silently
 /// override its facing intent.
 fn wall_turn_facing(snapshot: &BrainSnapshot) -> Option<f32> {
+    let facing = snapshot.actor_facing.signum_or(1.0);
+    // Where the ground runs out is a wall to a walker that keeps to its ground.
+    if snapshot.ground_ends_ahead {
+        return Some(-facing);
+    }
     if !snapshot.turns_at_walls {
         return None;
     }
     let wall_normal = snapshot.side_contact_normal?;
-    let facing = snapshot.actor_facing.signum_or(1.0);
     (wall_normal.abs() > 0.5 && wall_normal * facing < 0.0).then_some(wall_normal.signum())
 }
 

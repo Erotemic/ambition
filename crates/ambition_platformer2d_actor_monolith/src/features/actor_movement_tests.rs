@@ -118,6 +118,7 @@ fn tick_peaceful(
             .then_some(seed.body.0.wall.wall_normal_x.signum()),
         turns_at_walls: seed.config.brain_profile.turns_at_walls
             && !seed.config.tuning.surface_walker,
+        ground_ends_ahead: false,
         attack_kit: Vec::new(),
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,

@@ -84,7 +84,7 @@ fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
     }
 }
 
-fn apply_side_contact(
+pub(crate) fn apply_side_contact(
     wall: &mut crate::body_clusters::BodyWallState,
     world_normal: Vec2,
     gravity_dir: Vec2,

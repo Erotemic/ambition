@@ -492,6 +492,16 @@ fn step_surface_momentum(
         clusters.kinematics.facing = ctx.facing_intent.signum();
     }
     clusters.ground.on_ground = body.riding();
+    // The wall FACT, from the same contacts, by the axis arm's rule: a rider
+    // stopped by a block in its path is against a wall. Without it a walker on
+    // this model never learned a wall was there and pressed into it forever.
+    clusters.wall.on_wall = false;
+    for contact in contacts
+        .iter()
+        .filter(|c| c.kind != crate::collision_semantics::ContactKind::Support)
+    {
+        super::collision::apply_side_contact(clusters.wall, contact.normal, ctx.frame.down());
+    }
     motion.state = body.motion;
     motion.depth_lane = body.depth_lane;
     motion.route_memory = body.route_memory;

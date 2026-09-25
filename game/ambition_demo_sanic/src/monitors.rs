@@ -11,11 +11,13 @@
 //! base is never edited), so it stops colliding and, through the render
 //! reconcile, stops drawing. It re-arms on room load and on replay.
 //!
-//! Grants:
-//! - `monitor_speed` → speed shoes: a timed multiplier on the body's own
+//! Grants, by name prefix (a block name is its identity, so each monitor in a
+//! level has its own suffix):
+//! - `monitor_speed…` → speed shoes: a timed multiplier on the body's own
 //!   `MomentumParams` (top speed and ground accel), restored exactly on
 //!   expiry. Skipped while super, because the form's params come from its
 //!   identity row.
+//! - `monitor_rings…` → ten rings, the classic stash behind a secret.
 //!
 //! There is no super monitor: the transformation lives only on the Utility
 //! action (`toggle_sanic_form`).
@@ -27,12 +29,24 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 
-use crate::{SPEEDWAY_ROOM_ID, SUPER_SANIC_CHARACTER_ID};
+use crate::SUPER_SANIC_CHARACTER_ID;
 
 /// Authored block-name prefix that marks a block as a monitor.
 pub const MONITOR_PREFIX: &str = "monitor_";
-/// The one authored monitor (block name in the LDtk file).
+/// Act 1's speed monitor (block name in the LDtk file), and the prefix every
+/// speed monitor's name starts with.
 pub const SPEED_MONITOR: &str = "monitor_speed";
+/// The prefix of a wall a rolling Sanic smashes through: the classic door to
+/// a secret. A solid block like any other until he rolls into it.
+pub const BREAKABLE_WALL: &str = "breakable_";
+/// How far ahead of his box (px, beyond this tick's travel) a rolling Sanic
+/// breaks a wall. A rider stopped by a wall keeps none of his speed, so the
+/// wall has to go the tick BEFORE he would meet it.
+const BREAK_REACH: f32 = 12.0;
+/// The prefix of a ring monitor's block name.
+pub const RING_MONITOR: &str = "monitor_rings";
+/// Rings a ring monitor holds.
+pub const RING_MONITOR_RINGS: i32 = 10;
 
 /// How long the speed shoes last (sim seconds) and what they multiply.
 const SPEED_SHOES_SECONDS: f32 = 8.0;
@@ -42,7 +56,7 @@ const SPEED_SHOES_ACCEL_FACTOR: f32 = 1.5;
 /// Vertical tolerance (px) for "feet on the monitor's lid".
 const STOMP_BAND: f32 = 16.0;
 
-/// Which monitors are broken this run. A Vec, not a HashSet: the overlay
+/// Which monitors (and breakable walls) are broken this run. A Vec, not a HashSet: the overlay
 /// iterates it every frame, and the sim determinism contract bans std-hash
 /// iteration order.
 /// `Clone` because it is rollback state: the overlay subtracts these names
@@ -87,6 +101,7 @@ pub struct SpeedShoes {
 /// Every monitor pops on a roll-through, the classic Sonic feel.
 pub fn break_monitor_boxes(
     mut commands: Commands,
+    time: Res<ambition_platformer2d::time::WorldTime>,
     mut spent: ResMut<SpentMonitors>,
     geometry: SessionWorldRef<ae::RoomGeometry>,
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
@@ -99,11 +114,12 @@ pub fn break_monitor_boxes(
             &mut ae::MotionModel,
             Option<&crate::ball_dash::Rolling>,
             Option<&SpeedShoes>,
+            Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
         ),
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((entity, kin, worn, mut model, rolling, shoes)) = players.single_mut() else {
+    let Ok((entity, kin, worn, mut model, rolling, shoes, mut wallet)) = players.single_mut() else {
         return;
     };
     let rolling = rolling.is_some();
@@ -112,7 +128,35 @@ pub fn break_monitor_boxes(
         return;
     }
     let p = kin.aabb();
+    // Where a rolling body will be by next tick, plus a little: see `BREAK_REACH`.
+    let reach = kin.vel.abs() * time.scaled_dt * 2.0 + ae::Vec2::splat(BREAK_REACH);
     for block in &geometry.0.blocks {
+        if block.name.starts_with(BREAKABLE_WALL) && !spent.is_broken(&block.name) {
+            let b = block.aabb;
+            let near = p.min.x - reach.x < b.max.x
+                && p.max.x + reach.x > b.min.x
+                && p.min.y - reach.y < b.max.y
+                && p.max.y + reach.y > b.min.y;
+            if rolling && near {
+                spent.0.push(block.name.clone());
+                let center = (b.min + b.max) * 0.5;
+                vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
+                    pos: center,
+                    count: 24,
+                    speed: 220.0,
+                    color: [0.45, 0.62, 0.70, 1.0],
+                    kind: ambition_platformer2d::vfx::ParticleKind::Shard,
+                });
+                sfx.write_from(
+                    crate::provider::SANIC_EXPERIENCE,
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(crate::SFX_MONITOR),
+                        pos: center,
+                    },
+                );
+            }
+            continue;
+        }
         if !block.name.starts_with(MONITOR_PREFIX) || spent.is_broken(&block.name) {
             continue;
         }
@@ -146,7 +190,12 @@ pub fn break_monitor_boxes(
             },
         );
         match block.name.as_str() {
-            SPEED_MONITOR => {
+            name if name.starts_with(RING_MONITOR) => {
+                if let Some(wallet) = wallet.as_deref_mut() {
+                    wallet.add(RING_MONITOR_RINGS);
+                }
+            }
+            name if name.starts_with(SPEED_MONITOR) => {
                 // Never stack: a second pair of shoes would save the
                 // already-multiplied params and "restore" them, and shoes over
                 // the super form would restore the form's params after it is
@@ -215,8 +264,8 @@ pub fn contribute_broken_monitors_to_overlay(
 /// `RoomLoaded`. `AttemptScoped` re-arms on both signals; an implementor
 /// names what to re-arm, not which signal counts.
 impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonitors {
-    /// The speedway alone — these names are authored in that room.
-    const ROOM: Option<&'static str> = Some(SPEEDWAY_ROOM_ID);
+    /// Any room: both acts author monitors, and you stand in one at a time.
+    const ROOM: Option<&'static str> = None;
 
     fn rearm(&mut self) {
         self.0.clear();
@@ -226,6 +275,7 @@ impl ambition_platformer2d::actors::session::reset::AttemptScoped for SpentMonit
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::SPEEDWAY_ROOM_ID;
     use ambition_platformer2d::world::rooms::RoomLoaded;
 
     #[test]
@@ -267,12 +317,10 @@ mod tests {
         );
     }
 
-    /// The room scope. `SpentMonitors` declares `ROOM = Some(SPEEDWAY_ROOM_ID)`,
-    /// so loading a different room must leave the speedway's monitors alone.
-    /// (The replay path is unfiltered, because a replay is always in the
-    /// current room; `a_death_replay_rearms_the_monitors` covers it.)
+    /// Both acts author monitors, so arriving in the other act is a fresh
+    /// attempt there: its boxes are all whole.
     #[test]
-    fn a_load_of_another_room_leaves_the_speedways_monitors_spent() {
+    fn arriving_in_the_other_act_restocks_the_monitors() {
         let mut app = App::new();
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
@@ -284,13 +332,12 @@ mod tests {
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
             .write(RoomLoaded {
-                room_id: "some_other_room".to_string(),
+                room_id: crate::HIGHWAY_ROOM_ID.to_string(),
             });
         app.update();
-        assert_eq!(
-            app.world().resource::<SpentMonitors>().0.len(),
-            1,
-            "another room's load must not restock the speedway"
+        assert!(
+            app.world().resource::<SpentMonitors>().0.is_empty(),
+            "Act 2's load restocks the monitors Act 1 spent"
         );
     }
 

@@ -521,6 +521,12 @@ pub struct SurfaceChain {
     pub junctions: Vec<SurfaceJunction>,
     /// Per-frame displacement of this surface (`ZERO` for static geometry).
     pub velocity: Vec2,
+    /// This chain is the top of the ground: the earth beneath it, down to the
+    /// room's floor, is drawn filled. Presentation only; what collides is the
+    /// chain. A hill a rider climbs is a line to the solver and a hill to the
+    /// eye, and without this it was drawn as a thin strip over empty sky.
+    #[serde(default)]
+    pub filled: bool,
 }
 
 impl SurfaceChain {
@@ -533,6 +539,7 @@ impl SurfaceChain {
             depth_lanes: Vec::new(),
             junctions: Vec::new(),
             velocity: Vec2::ZERO,
+            filled: false,
         }
     }
 
@@ -545,6 +552,7 @@ impl SurfaceChain {
             depth_lanes: Vec::new(),
             junctions: Vec::new(),
             velocity: Vec2::ZERO,
+            filled: false,
         }
     }
 
@@ -573,6 +581,12 @@ impl SurfaceChain {
     }
 
     /// Attach explicit route switches between coincident vertex occurrences.
+    /// Mark this chain as the top of filled ground (see [`Self::filled`]).
+    pub fn as_filled_ground(mut self) -> Self {
+        self.filled = true;
+        self
+    }
+
     pub fn with_junctions(mut self, junctions: Vec<SurfaceJunction>) -> Self {
         self.junctions = junctions;
         self

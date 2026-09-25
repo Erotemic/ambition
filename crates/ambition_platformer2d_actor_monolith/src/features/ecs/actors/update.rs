@@ -512,6 +512,21 @@ pub fn tick_actor_brains(
                             },
                         ),
                     );
+                    // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
+                    // whose profile turns there. The rider knows its surface, so
+                    // the question is asked along it: a stride ahead, which is
+                    // half the body plus a margin.
+                    if body.config.brain_profile.turns_at_ledges {
+                        if let ae::MotionModel::SurfaceMomentum(momentum) = motion_model {
+                            snapshot.ground_ends_ahead = ae::movement::ground_ends_ahead(
+                                &feature_world,
+                                &momentum.state,
+                                resolved_frame.get(),
+                                body.kin.facing,
+                                body.kin.size.x * 0.5 + 8.0,
+                            );
+                        }
+                    }
                     // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
                     // typed, per-body [`Perception`], defaulting to `Omniscient` (the
                     // BASIC mode) when the component is absent. There is NO "perception
@@ -2182,6 +2197,9 @@ fn build_enemy_brain_snapshot(
         // around" to a walker and means "keep going" to a body whose entire
         // locomotion is walls.
         turns_at_walls: body.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
+        // Needs the collision world, which this builder does not take; the
+        // caller asks it for the bodies that turn at ledges.
+        ground_ends_ahead: false,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a
         // moveset itself, so this is body-derived truth arriving through the

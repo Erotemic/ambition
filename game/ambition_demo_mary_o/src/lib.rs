@@ -2069,8 +2069,9 @@ fn spawn_mary_o_mode_owner(
         // (survives in-session room changes) and the active session (torn down on
         // a shell relaunch, which a same-mode reload is NOT).
         commands
-            .spawn_session_scoped(
+            .spawn_mode_owner(
                 spawn_scope,
+                MARY_O_MODE,
                 (
                     MaryOLevelState::default(),
                     flag::FlagSequence::default(),
@@ -2079,11 +2080,6 @@ fn spawn_mary_o_mode_owner(
                     // decides authoritative writes and therefore has to rewind
                     // with them — see [`LevelDeparture`].
                     LevelDeparture::default(),
-                ),
-            )
-            .insert(
-                ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
-                    MARY_O_MODE.to_string(),
                 ),
             );
     }

@@ -1,10 +1,11 @@
 //! The two acts are one course: the speedway's goal leads to the highway, the
 //! highway's back. A scripted headless run holds Right through both.
 //!
-//! Act 2 exercises what Act 1 cannot: four loops authored as LDtk data
-//! (`SurfaceLoop` + `attach_to`), springs a runner at full speed can use, and
-//! an upside-down tunnel where a `GravityZone` points gravity up and the
-//! momentum solver rides the ceiling.
+//! Act 2 exercises what Act 1 cannot: ground with height, loops authored as
+//! LDtk data (`SurfaceLoop` + `attach_to`), a speed-gated split where a fast
+//! runner clears the chasm onto the sky bridge, and an upside-down tunnel
+//! where a `GravityZone` points gravity up and the momentum solver rides the
+//! ceiling. Its other road and its secrets are `act_two_routes`.
 
 use ambition_demo_sanic::{SanicActPhase, SanicActState, HIGHWAY_ROOM_ID, SPEEDWAY_ROOM_ID};
 use ambition_demo_sanic_app::build_demo_app;
@@ -32,12 +33,13 @@ fn act(app: &mut App) -> SanicActState {
     q.iter(app.world()).next().copied().expect("the act owner exists")
 }
 
-fn room(app: &mut App) -> (String, Option<usize>) {
+fn room(app: &mut App) -> (String, Option<usize>, Option<usize>) {
     let mut q = app.world_mut().query::<&ambition_platformer2d::world::rooms::RoomSet>();
     let set = q.iter(app.world()).next().expect("the session's room set");
     (
         set.active_spec().id.clone(),
         set.active_world().chain_named("highway_tunnel_ceiling"),
+        set.active_world().chain_named("highway_bridge"),
     )
 }
 
@@ -109,9 +111,13 @@ fn the_speedway_leads_to_the_highway_and_the_highway_back() {
     );
     assert!(body(&mut app).0.pos.x < 400.0, "and at Act 2's start line");
 
-    // Act 2, Right only: its springs carry a full-speed runner over both pits.
-    let tunnel = room(&mut app).1.expect("the highway authors its tunnel ceiling");
+    // Act 2, Right only: a full-speed runner clears the chasm off the kicker
+    // lip onto the sky bridge (the fast road), and rides the tunnel ceiling.
+    let (_, tunnel, bridge) = room(&mut app);
+    let tunnel = tunnel.expect("the highway authors its tunnel ceiling");
+    let bridge = bridge.expect("the highway authors its sky bridge");
     let mut rode_the_ceiling = false;
+    let mut rode_the_bridge = false;
     let mut furthest = f32::MIN;
     let mut cleared = false;
     for _ in 0..3000 {
@@ -121,6 +127,10 @@ fn the_speedway_leads_to_the_highway_and_the_highway_back() {
         {
             rode_the_ceiling = true;
         }
+        if matches!(motion, Some(ae::SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(chain), .. }) if chain == bridge)
+        {
+            rode_the_bridge = true;
+        }
         hold(&mut app, false);
         app.update();
         if matches!(act(&mut app).phase, SanicActPhase::Cleared { .. }) {
@@ -129,6 +139,10 @@ fn the_speedway_leads_to_the_highway_and_the_highway_back() {
         }
     }
     assert!(cleared, "Act 2: held Right and never cleared; furthest x {furthest:.0}");
+    assert!(
+        rode_the_bridge,
+        "at full speed the kicker lip throws him across the chasm onto the sky bridge"
+    );
     assert!(
         rode_the_ceiling,
         "inside the tunnel the GravityZone points gravity up, so he must ride its ceiling chain"

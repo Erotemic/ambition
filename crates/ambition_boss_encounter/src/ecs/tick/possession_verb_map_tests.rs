@@ -19,17 +19,16 @@ fn melee_frame(axis: ae::LocalAxes) -> ActorControlFrame {
 }
 
 /// The possessed controller's aim resolves through the directional-verb chain
-/// over the profile's authored `possessed_verbs`: neutral sweeps, down slams,
-/// up raises the shockwave, special rains apples. The resolved ids are the
-/// `limb_routing` keys, so aboard the giant these are the limb verbs.
+/// over the profile's authored `possessed_verbs`: neutral demonstrates (a slam
+/// at the aim), down stomps, up swings the pendulum, special rains apples.
 #[test]
 fn possessed_verbs_resolve_directionally() {
     let behavior = rider_behavior();
     let cases = [
-        (ae::LocalAxes::ZERO, "hand_sweep"),          // neutral attack
-        (ae::LocalAxes::new(1.0, 0.0), "hand_sweep"), // forward attack
-        (ae::LocalAxes::new(0.0, 1.0), "hand_slam"),  // down (+y = toward feet)
-        (ae::LocalAxes::new(0.0, -1.0), "converging_shockwave"), // up
+        (ae::LocalAxes::ZERO, "demonstrate"),          // neutral attack
+        (ae::LocalAxes::new(1.0, 0.0), "demonstrate"), // forward attack
+        (ae::LocalAxes::new(0.0, 1.0), "stomp"),       // down (+y = toward feet)
+        (ae::LocalAxes::new(0.0, -1.0), "pendulum"),   // up
     ];
     for (axis, expected) in cases {
         let got = possessed_attack_choice(&melee_frame(axis), &behavior, None, 1.0)
@@ -41,7 +40,7 @@ fn possessed_verbs_resolve_directionally() {
         );
     }
     // Back-aim: no authored `attack_back`, so the chain falls through to
-    // the base `attack` verb — the sweep again, never a silent no-op.
+    // the base `attack` verb — the demonstration again, never a silent no-op.
     let back = possessed_attack_choice(
         &melee_frame(ae::LocalAxes::new(-1.0, 0.0)),
         &behavior,
@@ -49,7 +48,7 @@ fn possessed_verbs_resolve_directionally() {
         1.0,
     )
     .expect("back aim falls through the chain to the base attack verb");
-    assert_eq!(back.move_id(), "hand_sweep");
+    assert_eq!(back.move_id(), "demonstrate");
 
     let mut special = ActorControlFrame::neutral();
     special.special_pressed = true;
@@ -113,8 +112,8 @@ fn the_declared_possessed_actions_are_the_moves_the_presses_fire() {
     let rider = rider_behavior();
     let rider_cap = BossCapability {
         specials: vec![
-            (BossAttackProfile::Strike("hand_slam".to_string()), 0.3),
-            (BossAttackProfile::Special("apple_rain".to_string()), 2.0),
+            (BossAttackProfile::Special("demonstrate".to_string()), 1.5),
+            (BossAttackProfile::Special("apple_rain".to_string()), 3.0),
         ],
     };
     let warden = crate::pattern::profile::BossBehaviorProfile::clockwork_warden();
@@ -130,7 +129,7 @@ fn the_declared_possessed_actions_are_the_moves_the_presses_fire() {
     let mut special = ActorControlFrame::neutral();
     special.special_pressed = true;
     for (behavior, cap, attack, signature) in [
-        (&rider, &rider_cap, "hand_sweep", "apple_rain"),
+        (&rider, &rider_cap, "demonstrate", "apple_rain"),
         (&warden, &warden_cap, "floor_slam", "overfit_volley"),
     ] {
         let declared = possessed_boss_techniques(behavior, cap);

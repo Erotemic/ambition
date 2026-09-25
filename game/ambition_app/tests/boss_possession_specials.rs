@@ -57,26 +57,50 @@ fn down_interact(edge: bool) -> AgentAction {
     }
 }
 
+/// The possessed boss: the Clockwork Warden, whose phase-1 movement is an
+/// anchored sway (it stays near the player through the hold, unlike a swooping
+/// boss) and whose scripted repertoire has a GEOMETRY primary (slot 0) AND a
+/// content signature special, so both mapping arms are exercised.
+///
+/// ⚠ This was GNU-ton until his rework made every move of his a conducted
+/// `Special`; a boss with no geometry strike cannot witness the geometry arm.
+const POSSESSED_PROFILE: &str = "clockwork_warden";
+
+/// "floor_slam" → "Floor Slam": how a prompt names a move.
+fn move_label(profile: &BossAttackProfile) -> String {
+    profile
+        .move_id()
+        .split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Spawn a boss one short stride from the player and possess it (~2s hold).
-/// The GNU-ton rider is a `StationaryGiant` (it stays put through the hold,
-/// unlike an airborne swooping boss) whose scripted repertoire is
-/// `[HandSlam, HandSweep, HeadDescent, ConvergingShockwave, Special("apple_rain")]`
-/// — a geometry primary (slot 0) AND a content signature special, so both
-/// mapping arms are exercised.
 fn spawn_and_possess_boss(sim: &mut Platformer2dSimHarness) -> Entity {
     let p = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         BOSS_ID,
-        "gnu_ton_rider",
+        POSSESSED_PROFILE,
         (p.x + 60.0, p.y),
         (30.0, 30.0),
         BossBrain::PhaseScript {
-            script_id: "gnu_ton_rider".to_string(),
+            script_id: POSSESSED_PROFILE.to_string(),
         },
     );
     let boss = boss_entity(sim.world_mut());
     for i in 0..150 {
+        // The warden sways on its anchor; stay beside it through the hold.
+        if let Some(at) = sim.world().get::<BodyKinematics>(boss).map(|k| (k.pos.x - 40.0, k.pos.y)) {
+            sim.teleport_player(at);
+        }
         sim.step(down_interact(i == 0));
+        if possessed(sim) == Some(boss) {
+            break;
+        }
     }
     assert_eq!(
         possessed(sim),
@@ -123,20 +147,17 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
             .expect("possessed boss retains its authored capability");
         (
             cap.slot(0)
-                .expect("the gnu_ton rider has strikes")
+                .expect("the possessed boss has strikes")
                 .0
                 .clone(),
             cap.signature_special()
-                .expect("the gnu_ton rider authors a content special")
+                .expect("the possessed boss authors a content special")
                 .0
                 .clone(),
         )
     };
-    assert_eq!(primary, BossAttackProfile::Strike("hand_slam".to_string()));
-    assert_eq!(
-        signature,
-        BossAttackProfile::Special("apple_rain".to_string())
-    );
+    assert!(!primary.is_special(), "slot 0 is a geometry strike: {primary:?}");
+    assert!(signature.is_special(), "the signature is a content special: {signature:?}");
 
     // No strike in flight before we press.
     assert_eq!(active_profile(sim.world_mut(), boss), None);
@@ -148,15 +169,9 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // stamped in `advance_move_playback`), so it hits the boss's former allies
     // rather than the controlling player.
     //
-    // WHICH strike is the boss's own authored choice. The rider authors a G5 `possessed_verbs` map
-    // (`attack` -> `hand_sweep`), so plain Attack commands that move instead of falling back to
-    // slot 0 — and because `hand_sweep` is limb-routed, the press drives the giant mount's
-    // facing-side hand.
-    let attack_move = BossAttackProfile::Strike("hand_sweep".to_string());
-    assert!(
-        !primary.is_special() && !attack_move.is_special(),
-        "the rider's strikes are geometry profiles, not specials"
-    );
+    // WHICH strike is the boss's own authored choice: with no `possessed_verbs`
+    // map, plain Attack commands slot 0.
+    let attack_move = primary.clone();
     sim.step(AgentAction {
         attack: true,
         ..AgentAction::default()
@@ -237,15 +252,18 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
 /// `special` verb, so before `possessed_boss_techniques` its scheme had no such
 /// slots: the prompt showed Jump, Ranged and Interact only, and the control gate
 /// treated both presses as verbs the body does not own. The labels are the moves
-/// the presses resolve to: the rider's `possessed_verbs` map `attack` to
-/// `hand_sweep`, and its signature special is `apple_rain`.
+/// the presses resolve to: slot 0 for Attack, the signature special for Special.
 #[test]
 fn a_possessed_boss_prompt_shows_the_attack_and_special_it_fires() {
     use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
     use ambition_platformer2d::sim_view::ControlPrompt;
     let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
         .expect("sandbox sim builds");
-    spawn_and_possess_boss(&mut sim);
+    let boss = spawn_and_possess_boss(&mut sim);
+    let (primary, signature) = {
+        let cap = sim.world_mut().get::<BossCapability>(boss).expect("capability");
+        (cap.slot(0).unwrap().0.clone(), cap.signature_special().unwrap().0.clone())
+    };
     sim.step(AgentAction::default());
     let prompt = sim.world_mut().resource::<ControlPrompt>().clone();
     let labels: Vec<_> = prompt
@@ -255,12 +273,12 @@ fn a_possessed_boss_prompt_shows_the_attack_and_special_it_fires() {
         .collect();
     assert_eq!(
         prompt.label_for(ControlSlot::Attack),
-        Some("Hand Sweep"),
+        Some(move_label(&primary).as_str()),
         "the Attack button names the move the press fires: {labels:?}"
     );
     assert_eq!(
         prompt.label_for(ControlSlot::Special),
-        Some("Apple Rain"),
+        Some(move_label(&signature).as_str()),
         "the Special button names the signature special: {labels:?}"
     );
 }

@@ -838,6 +838,59 @@ fn possess_an_actor(sim: &mut Platformer2dSimHarness) -> Entity {
 
 /// Put a body somewhere, through its kinematics — the possessed body is not the
 /// primary player, so `teleport_player` moves the wrong entity.
+/// Move the active room's first door so its box is centred on `body`.
+///
+/// ⛔ The arena's door is in its top-left corner, and the giant is its drawn
+/// size (440x415): no pose of that mount puts its rider's saddle over that door
+/// without wedging the giant into the walls. These tests are about custody
+/// through a door, not about whether a giant fits a corner, so the door comes to
+/// the rider. Any other zone under the rider (the portal it just arrived
+/// through) is moved off, so this door is the only crossing on offer.
+fn bring_the_door_to(sim: &mut Platformer2dSimHarness, body: Entity) {
+    use ambition_platformer2d::engine_core::{Aabb, Vec2};
+    use ambition_platformer2d::world::rooms::{LoadingZoneActivation, RoomSet};
+    let at = sim
+        .world()
+        .get::<ambition_platformer2d::engine_core::BodyKinematics>(body)
+        .expect("the body has kinematics")
+        .pos;
+    let world = sim.world_mut();
+    let mut q = world.query::<&mut RoomSet>();
+    let mut set = q.iter_mut(world).next().expect("a room set");
+    let active = set.active();
+    let here = set.active_spec().id.clone();
+    // A door that LEAVES: some of a hall's doors lead back into the hall.
+    let leads_elsewhere = |zone: &str| {
+        set.canonical_links().iter().any(|link| {
+            (link.from_room == here && link.from_zone == zone && link.to_room != here)
+                || (link.bidirectional
+                    && link.to_room == here
+                    && link.to_zone == zone
+                    && link.from_room != here)
+        })
+    };
+    let door = set.rooms[active]
+        .loading_zones
+        .iter()
+        .position(|zone| zone.activation == LoadingZoneActivation::Door && leads_elsewhere(&zone.id))
+        .expect("the room authors a door that leads out of it");
+    // ⚠ Without change detection: a changed `RoomSet` reloads the room, which
+    // puts every zone back where it was authored.
+    let zones = &mut bevy::ecs::change_detection::DetectChangesMut::bypass_change_detection(&mut set).rooms[active].loading_zones;
+    let under = Aabb::new(at, Vec2::splat(120.0));
+    for (i, zone) in zones.iter_mut().enumerate() {
+        if i == door {
+            zone.aabb = Aabb::new(at, zone.aabb.half_size());
+        } else if zone.aabb.min.x < under.max.x
+            && zone.aabb.max.x > under.min.x
+            && zone.aabb.min.y < under.max.y
+            && zone.aabb.max.y > under.min.y
+        {
+            zone.aabb = Aabb::new(Vec2::splat(-100_000.0), zone.aabb.half_size());
+        }
+    }
+}
+
 fn place_body(sim: &mut Platformer2dSimHarness, body: Entity, at: (f32, f32)) {
     let world = sim.world_mut();
     let mut kin = world
@@ -1406,38 +1459,9 @@ fn a_limbed_mount_crosses_the_door_with_all_of_its_parts() {
     assert!(possessed, "setup: the rider was never possessed");
 
     let before = sim.observation().active_room.clone();
-    let door = {
-        let world = sim.world_mut();
-        let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-        let set = q.iter(world).next().expect("a room set");
-        set.active_loading_zones()
-            .iter()
-            .find(|zone| {
-                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
-            })
-            .cloned()
-            .expect("'gnu_ton_arena' authors a door")
-    };
-    let centre = door.aabb.center();
-    place_body(&mut sim, mount, (centre.x, centre.y));
-    sim.step(base());
-    let saddle = {
-        let m = sim
-            .world()
-            .get::<BodyKinematics>(mount)
-            .map(|k| k.pos)
-            .unwrap();
-        let r = sim
-            .world()
-            .get::<BodyKinematics>(rider)
-            .map(|k| k.pos)
-            .unwrap();
-        (r.x - m.x, r.y - m.y)
-    };
-    let aim = (centre.x - saddle.0, centre.y - saddle.1);
+    bring_the_door_to(&mut sim, rider);
     let mut arrived = None;
     for _ in 0..120 {
-        place_body(&mut sim, mount, aim);
         let room = sim
             .step(AgentAction {
                 interact: true,
@@ -1583,43 +1607,36 @@ fn the_whole_attachment_closure_is_recorded_as_being_in_custody() {
         );
     }
 
+    // Where the rider sits on the mount, while both are still in the arena.
+    let saddle = {
+        let m = sim.world().get::<BodyKinematics>(mount).map(|k| k.pos).unwrap();
+        let r = sim.world().get::<BodyKinematics>(rider).map(|k| k.pos).unwrap();
+        (r.x - m.x, r.y - m.y)
+    };
     // Two crossings while ridden — the door out of `hall_of_bosses` does not
     // lead home, so this is not a round trip and does not pretend to be.
     for _ in 0..2 {
         let before = sim.observation().active_room.clone();
-        let door = {
+        let has_door = {
             let world = sim.world_mut();
             let mut q = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
             let set = q.iter(world).next().expect("a room set");
-            set.active_loading_zones()
-                .iter()
-                .find(|zone| {
-                    zone.activation
-                        == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
-                })
-                .cloned()
+            set.active_loading_zones().iter().any(|zone| {
+                zone.activation == ambition_platformer2d::world::rooms::LoadingZoneActivation::Door
+            })
         };
-        let Some(door) = door else { break };
-        let centre = door.aabb.center();
-        place_body(&mut sim, mount, (centre.x, centre.y));
-        sim.step(base());
-        let saddle = {
-            let m = sim
-                .world()
-                .get::<BodyKinematics>(mount)
-                .map(|k| k.pos)
-                .unwrap();
-            let r = sim
-                .world()
-                .get::<BodyKinematics>(rider)
-                .map(|k| k.pos)
-                .unwrap();
-            (r.x - m.x, r.y - m.y)
-        };
-        let aim = (centre.x - saddle.0, centre.y - saddle.1);
+        if !has_door {
+            break;
+        }
+        // Hold the mount where its rider stands (a crossing moves the rider, and
+        // the test pins the mount under it, as the arena crossing below did), and
+        // keep the door under wherever the rider settles.
+        let rider_at = sim.world().get::<BodyKinematics>(rider).map(|k| k.pos).unwrap();
+        let mount_at = (rider_at.x - saddle.0, rider_at.y - saddle.1);
         let mut crossed = false;
         for _ in 0..120 {
-            place_body(&mut sim, mount, aim);
+            place_body(&mut sim, mount, mount_at);
+            bring_the_door_to(&mut sim, rider);
             let room = sim
                 .step(AgentAction {
                     interact: true,

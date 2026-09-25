@@ -8,15 +8,17 @@
 //! would have started hunting the player it exists to carry. The row's
 //! hostility half is controller policy and now says so.
 //!
-//! `default_size` does NOT come across, and the placement is why: the
-//! sandbox's giant is authored as a 220x220 LDtk box, exactly the
-//! envelope the row was restating, so the size survives without a second
-//! authority stating it. Its `respawn: OnRoomReenter` moves to the
-//! placement, where a respawn policy belongs.
+//! Its size is its sprite's: see `with_sprite_authored_body` below. Its
+//! `respawn: OnRoomReenter` lives on the placement, where a respawn policy
+//! belongs.
 
 use ambition_characters::actor::CharacterLocomotion;
 use ambition_characters::brain::{BrainProfile, CharacterBrainTemplate, MoveStyleSpec};
 use ambition_platformer2d::character::CharacterDefinition;
+
+/// World units per sprite pixel for the giant and its fists: one scale, so a
+/// fist is drawn the size of the hand that throws it.
+pub(crate) const GNU_WORLD_PER_PIXEL: f32 = 1.3;
 
 /// See the module doc. Reached through [`super::AUTHORED_CAST`], which is also
 /// what makes this character buildable — there is no second list to remember.
@@ -29,8 +31,19 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             move_style: MoveStyleSpec::WalkHeavy,
             ..Default::default()
         })
+        // THE ART IS THE BODY. The giant was a 220x220 placement box with a
+        // 768x576 frame scaled x4.5 over it, so it drew three times its own
+        // collision and stood on nothing it appeared to stand on. Now the box is
+        // the sheet's authored body (338x319 px) at one scale, and its feet are
+        // on the floor.
+        .with_sheet("giant_gnu")
+        .with_sprite_authored_body(GNU_WORLD_PER_PIXEL)
         .with_mount(ambition_characters::actor::CharacterMount {
             class: Some("giant".to_string()),
+            // The scholar sits at the base of the gnu's neck: the sheet's
+            // shoulder point (388, 313) px against its body-box centre
+            // (350, 329.5), at the same scale, lifted half his height.
+            saddle: Some((50.0, -67.0)),
             ..Default::default()
         })
         .with_autonomous_profile(BrainProfile {

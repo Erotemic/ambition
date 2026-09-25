@@ -834,6 +834,47 @@ fn peaceful_brain_does_not_emit_attack_intent() {
 
 // ===== BossCapability / special_repertoire =====
 
+/// A move authored ONLY inside a `Select` arm (or a stance) is still a move the
+/// boss can play: its strike and telegraph windows are baked like any other.
+/// Both scans walked the phase's top-level steps alone, so GNU-ton's buck/stomp
+/// choice won its arm and then stood still for the arm's length.
+#[test]
+fn a_move_authored_only_inside_a_select_arm_or_a_stance_is_baked() {
+    use ambition_characters::brain::boss_pattern::{SituationBucket, WeightedArm};
+    let special = |key: &str| BossAttackProfile::Special(key.into());
+    let beat = |key: &str, tel: f32, strike: f32| {
+        vec![
+            BossPatternStep::Telegraph { profile: special(key), duration: tel, telegraph: None },
+            BossPatternStep::Strike { profile: special(key), duration: strike },
+        ]
+    };
+    let phase1 = BossPattern {
+        steps: vec![BossPatternStep::Select {
+            table: vec![
+                WeightedArm { weight: 1.0, when: Some(SituationBucket::PlayerNear), steps: beat("buck", 0.7, 0.5) },
+                WeightedArm { weight: 1.0, when: Some(SituationBucket::PlayerFar), steps: beat("stomp", 0.8, 0.4) },
+            ],
+        }],
+        stances: [("flourish".to_string(), beat("bow", 0.3, 0.2))].into_iter().collect(),
+        ..Default::default()
+    };
+    let cfg = cfg_with(BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1,
+        transition: BossPattern::default(),
+        phase2: BossPattern::default(),
+        enrage: BossPattern::default(),
+    });
+    let strikes: Vec<_> = cfg.special_repertoire();
+    assert_eq!(
+        strikes,
+        vec![(special("buck"), 0.5), (special("stomp"), 0.4), (special("bow"), 0.2)],
+        "every arm's and every stance's strikes are in the repertoire"
+    );
+    let telegraphs: Vec<_> = cfg.telegraph_windows().into_iter().map(|(p, t, _)| (p, t)).collect();
+    assert_eq!(telegraphs, vec![(special("buck"), 0.7), (special("stomp"), 0.8), (special("bow"), 0.3)]);
+}
+
 #[test]
 fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
     // Two phases; phase1 strikes FloorSlam, phase2 strikes a Special then

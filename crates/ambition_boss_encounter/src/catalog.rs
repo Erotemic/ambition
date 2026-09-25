@@ -758,6 +758,16 @@ pub fn test_boss_catalog() -> &'static BossCatalog {
                 "echo_fan".into(),
                 vec!["spike_halo".into(), "eye_beam".into()],
             ),
+            // GNU-ton's conducted moves, as `ambition_content` registers them.
+            ("demonstrate".into(), vec!["spike_halo".into()]),
+            ("demonstrate_pair".into(), vec!["spike_halo".into()]),
+            ("pendulum".into(), vec!["spike_halo".into()]),
+            ("cradle".into(), vec!["spike_halo".into()]),
+            ("orbit".into(), vec!["spike_halo".into()]),
+            ("fluxions".into(), vec!["spike_halo".into()]),
+            ("fluxions_pair".into(), vec!["spike_halo".into()]),
+            ("buck".into(), vec!["spike_halo".into()]),
+            ("stomp".into(), vec!["spike_halo".into()]),
         ]);
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",

@@ -27,7 +27,7 @@ pub use cut_rope::{
     SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
     CUT_ROPE_VICTORY_NPC_ID,
 };
-pub use gnu_ton::gate_gnu_ton_arena_ladder;
+pub use gnu_ton::{adopt_gnu_ton, conduct_gnu_ton, gate_gnu_ton_arena_ladder, gnu_back_is_ground};
 
 pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
 
@@ -161,6 +161,19 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
             "echo_fan".into(),
             vec!["spike_halo".into(), "eye_beam".into()],
         ),
+        // GNU-ton's lectures. Every `Special` draws the scholar's spike-halo row
+        // (arms raised: he is conducting), so that is the row each names.
+        // `apple_rain` deliberately claims nothing (see
+        // `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`).
+        ("demonstrate".into(), vec!["spike_halo".into()]),
+        ("demonstrate_pair".into(), vec!["spike_halo".into()]),
+        ("pendulum".into(), vec!["spike_halo".into()]),
+        ("cradle".into(), vec!["spike_halo".into()]),
+        ("orbit".into(), vec!["spike_halo".into()]),
+        ("fluxions".into(), vec!["spike_halo".into()]),
+        ("fluxions_pair".into(), vec!["spike_halo".into()]),
+        ("buck".into(), vec!["spike_halo".into()]),
+        ("stomp".into(), vec!["spike_halo".into()]),
     ])
 }
 
@@ -260,6 +273,18 @@ pub fn register_rollback_state(
         .clear_message_on_rollback::<CutRopeRoomReplayRequested>(
             "ambition_content::bosses",
             "message.cut_rope_room_replay_requested",
+        );
+    // GNU-ton's conductor: the beat he is performing and the fists' latched
+    // aims are sim state (a rewind that kept them would land a slam where the
+    // player stood on the other timeline); its hit-volume handles are remapped.
+    registrar
+        .rollback_component_cursor::<gnu_ton::GnuTonConductor>(
+            "ambition_content::bosses",
+            "content.gnu_ton_conductor",
+        )
+        .rollback_map_entities::<gnu_ton::GnuTonConductor>(
+            "ambition_content::bosses",
+            "map.content.gnu_ton_conductor",
         );
     specials::register_rollback_state(registrar);
 }
@@ -397,10 +422,22 @@ impl Plugin for AmbitionBossContentPlugin {
         // actor / projectile collision sees the derived geometry.
         app.add_systems(
             sim,
-            gate_gnu_ton_arena_ladder
+            (gate_gnu_ton_arena_ladder, gnu_back_is_ground)
                 .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+        );
+        // GNU-ton's conductor performs the scholar's live move with his fists.
+        // After the saddle pin (so he is on the gnu this tick unless Eureka says
+        // otherwise), in the post-integration phase, so the poses written here
+        // are the last word before combat reads them.
+        app.add_systems(
+            sim,
+            (adopt_gnu_ton, conduct_gnu_ton)
+                .chain()
+                .after(ambition_mount::RidersSyncedToMounts)
+                .in_set(GameplayGated)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

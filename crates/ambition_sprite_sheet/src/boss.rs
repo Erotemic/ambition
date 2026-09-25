@@ -530,16 +530,15 @@ pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
 
 /// GNU-ton scholar rider sheet (ADR 0020 mount/rider split).
 ///
-/// The scholar is drawn alone and centred, on its own tight trim. It has the
-/// same 6 rows as the giant but a much smaller silhouette.
-/// `frame_width`/`frame_height` match the generator's canvas (768×576); the
-/// atlas and rects come from the published RON. `collision_scale` is a
-/// first-pass value.
+/// The scholar alone, on a 96x96 canvas cropped around him (the generator's
+/// `RIDER_FRAME`). Drawn at 1.75 world units per pixel from a 96-unit basis, so
+/// his authored body (39x52 px) is his 68x91 collision. Centred on his body:
+/// he sits in a saddle.
 pub static GNU_TON_RIDER_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 0,
-        frame_width: 768,
-        frame_height: 576,
+        frame_width: 96,
+        frame_height: 96,
         rows: vec![
             (
                 BossAnim::Rest,
@@ -584,10 +583,10 @@ pub static GNU_TON_RIDER_SHEET: std::sync::LazyLock<BossSheetSpec> =
                 },
             ),
         ],
-        collision_scale: 1.0,
+        collision_scale: 1.75,
         feet_anchor_y: 0.0,
         frame_sample_inset: 1,
-        body_centered: false,
+        body_centered: true,
         authored_faces_left: false,
     });
 

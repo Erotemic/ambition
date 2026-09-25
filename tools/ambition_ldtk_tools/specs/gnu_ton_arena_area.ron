@@ -1,10 +1,7 @@
 // GNU-ton boss arena — tall underground chamber for the giant wildebeest fight.
 //
-// Rev: bumped to 1792×1280 (was 1536×896) so the player drops in from a
-// ledge near the top and sees the whole GNU-ton silhouette before
-// descending into striking range. The body sprite is z-layered behind
-// platforms (see `presentation::rendering::actors::GnuTonBodyLayer`)
-// so the player can read jump targets through the giant.
+// 1792×1280, so the player drops in from a ledge near the top and sees the
+// whole GNU-ton silhouette before descending into the fight.
 //
 // Encounter flow:
 //   1. Player enters from `hall_of_bosses` via the top-left LoadingZone.
@@ -12,9 +9,13 @@
 //   3. The platform breaks under their weight, forcing a descent into
 //      the fight (they fall through a column of perches that catches
 //      them safely before the floor).
-//   4. Boss fight at floor level. GNU-ton's head is always damageable
-//      but high up at rest — climb the perches to reach it, or wait for
-//      the head-descent windows that bring it to player level.
+//   4. The fight: GNU-ton rides the giant gnu in the middle of the hall and
+//      conducts its two fists (slams, a pendulum, curves he draws in the air
+//      and then traces, Newton's cradle, orbits). A fist stuck in the floor
+//      can be struck and the blow lands on him; or climb the low perches onto
+//      the gnu's back — standing on the shoulders of a giant — and strike him
+//      in the saddle. After each apple rain a golden apple knocks him off the
+//      gnu, dazed on the floor, for a while.
 //   5. After defeat, the player climbs back up the ladder column near
 //      the spawn (the ladder is painted Climbable in IntGrid).
 //
@@ -23,24 +24,19 @@
 //   +------------------------------------------------------------+ y=0
 //   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ceiling ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒|
 //   | [door]   [ledge───][BreakablePad]                          | ← top entry
-//   |  ▓ladder▓                                                  |
 //   |  ▓ladder▓               ░░░░top perch░░░░                  |
-//   |  ▓ladder▓                                                  |
-//   |  ▓ladder▓        ┌─────[BossSpawn]─────┐                   | ← GNU-ton centered
-//   |  ▓ladder▓        │   (220×220 box)     │                   |
-//   |  ▓ladder▓        └─────────────────────┘                   |
-//   |  ▓ladder▓   ░░perch left       perch right░░               |
-//   |  ▓ladder▓                                                  |
-//   |  ▓ladder▓       ░░perch mid-left   perch mid-right░░       |
-//   |  ▓ladder▓                                                  |
-//   |  ▓ladder▓                                                  |
-//   |  ▓floor ▓░░perch left low    perch right low░░             |
+//   |  ▓ladder▓   ░░perch left high           perch right high░░ |
+//   |  ▓ladder▓        ░░mid-high        mid-high░░              |
+//   |  ▓ladder▓   ░░perch left mid              perch right mid░░|
+//   |  ▓ladder▓            ┌── giant gnu + GNU-ton ──┐            |
+//   |  ▓ladder▓            │   (440x416, on floor)   │            |
+//   |  ▓ladder▓░░low░  ░gnu-left░          ░gnu-right░  ░low░░   |
 //   |▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ floor ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒| y=1248
 //   +------------------------------------------------------------+
 //
 // Ladder gating: the Climbable IntGrid below is painted unconditionally
 // at world-load time, but the sandbox-side `gate_gnu_ton_arena_ladder`
-// system (bosses/gnu_ton.rs) removes the Ladder regions from
+// system (bosses/gnu_ton/mod.rs) removes the Ladder regions from
 // `world.climbable_regions` on entry and re-adds them the frame the
 // gnu_ton (now gnu_ton_rider) boss is defeated. So the cells exist in
 // LDtk but only count at runtime once the player has earned the retreat.
@@ -55,7 +51,7 @@
 //   2. `entity add specs/gnu_ton/add_ladder_floor_gate.yaml`
 //      (adds the `ladder_floor_gate` named Solid entity into that slot)
 // `specs/gnu_ton/lower_boss_spawn.yaml` is now OBSOLETE — the mount already
-// spawns at px [786, 832] here (the fused BossSpawn it moved no longer exists).
+// spawns at its true size, standing on the floor, here.
 
 (
     id: "gnu_ton_arena",
@@ -170,6 +166,7 @@
             ],
             fields: (
                 name: "spawn_descent_pad",
+                max_hp: 3,
                 collision: "Solid",
                 trigger: "OnStand",
                 respawn: "Never",
@@ -248,20 +245,6 @@
         (
             type: "OneWayPlatform",
             px: [
-                752,
-                832,
-            ],
-            size: [
-                288,
-                16,
-            ],
-            fields: (
-                name: "perch_center_main",
-            ),
-        ),
-        (
-            type: "OneWayPlatform",
-            px: [
                 336,
                 944,
             ],
@@ -290,11 +273,11 @@
         (
             type: "OneWayPlatform",
             px: [
-                192,
-                1088,
+                176,
+                1120,
             ],
             size: [
-                224,
+                160,
                 16,
             ],
             fields: (
@@ -304,15 +287,47 @@
         (
             type: "OneWayPlatform",
             px: [
-                1376,
-                1088,
+                1456,
+                1120,
             ],
             size: [
-                224,
+                160,
                 16,
             ],
             fields: (
                 name: "perch_right_low",
+            ),
+        ),
+        // Stepping stones onto the gnu's back: a double jump from either
+        // puts you on the giant's shoulders (a one-way ledge the runtime lays
+        // on the gnu's back), which is the only way to reach the scholar
+        // while he is in the saddle.
+        (
+            type: "OneWayPlatform",
+            px: [
+                480,
+                1128,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "perch_gnu_left",
+            ),
+        ),
+        (
+            type: "OneWayPlatform",
+            px: [
+                1184,
+                1128,
+            ],
+            size: [
+                128,
+                16,
+            ],
+            fields: (
+                name: "perch_gnu_right",
             ),
         ),
         (
@@ -341,7 +356,7 @@
             ],
             fields: (
                 id: "gnu_ton_arena_exit",
-                name: "gnu_ton_arena_exit",
+                name: "to hall of bosses",
                 activation: "Door",
                 target_room: "hall_of_bosses",
                 target_zone: "hall_gnu_ton_portal",
@@ -349,35 +364,39 @@
             ),
         ),
         // ADR 0020 (G4): GNU-ton is authored as a LINKED PAIR — a brainless
-        // `giant_gnu` EnemySpawn MOUNT carrying the giant's 220x220 envelope, and
-        // a `gnu_ton_rider` BossSpawn RIDER (the scholar, the encounter boss)
-        // welded to the giant's saddle via a `mounted_on` EntityRef. The mount
-        // carries no explicit `id`, so its runtime FeatureId == its iid — exactly
-        // the target the rider's ref stores, which `resolve_pending_mount_links`
-        // matches. `spawn_boss` attaches the rider's CanPilot("giant"); G3's limb
-        // router drives the giant's hands from the rider's authored strikes.
+        // `giant_gnu` EnemySpawn MOUNT (its box is the giant's own body: the
+        // sheet's authored body at 1.3 world units per pixel, feet on the
+        // floor) and a `gnu_ton_rider` BossSpawn RIDER (the scholar, the
+        // encounter boss) welded to the giant's saddle via a `mounted_on`
+        // EntityRef. The mount carries no explicit `id`, so its runtime
+        // FeatureId == its iid — exactly the target the rider's ref stores,
+        // which `resolve_pending_mount_links` matches. The scholar conducts the
+        // giant's two fists (`bosses/gnu_ton/conductor.rs`).
         (
             type: "EnemySpawn",
             ref: "giant_gnu_mount",
             px: [
-                786,
+                676,
                 832,
             ],
             size: [
-                220,
-                220,
+                440,
+                416,
             ],
             fields: (
                 name: "Giant GNU",
                 brain: "giant_gnu",
                 character_id: "npc_giant_gnu",
+                respawn: "OnRoomReenter",
+                // The mount is not your enemy; the scholar riding it is.
+                disposition: "Peaceful",
             ),
         ),
         (
             type: "BossSpawn",
             px: [
-                869,
-                754,
+                919,
+                925,
             ],
             size: [
                 54,
@@ -418,7 +437,7 @@
             ],
             fields: (
                 name: "gnu_ton_arena_label",
-                text: "GNU-ton — drop in from above; strike the head when it descends.",
+                text: "GNU-ton — stand on the shoulders of a giant; strike a fist while it is stuck.",
                 category: "Custom",
             ),
         ),

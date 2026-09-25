@@ -32,7 +32,8 @@ fn legacy_baseline_pins() {
     assert!((warden.macro_tuning.engage_max_duration_s - 9.0).abs() < f32::EPSILON);
     let gnu = BossBehaviorProfile::gnu_ton_rider();
     assert_eq!(gnu.body_damage, 0);
-    assert_eq!(gnu.attacks.len(), 5);
+    // His fists are conducted by content: every move is a `Special`.
+    assert!(gnu.attacks.iter().all(|attack| attack.is_special()), "{:?}", gnu.attacks);
     let mocker = BossBehaviorProfile::mockingbird();
     assert!(matches!(mocker.attack_pattern, BossAttackPattern::Cycle));
 }

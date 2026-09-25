@@ -1464,6 +1464,7 @@ pub fn spawn_runtime_minion_into(
             mount.class.as_deref(),
             Some(aabb.half_size() * 2.0),
             mount.death_splash,
+            mount.saddle,
             1.0,
             &mount.pilotable_classes,
         );
@@ -1694,6 +1695,7 @@ pub fn spawn_enemy_with_faction_into(
                 mount.class.as_deref(),
                 Some(body_size),
                 mount.death_splash,
+                mount.saddle,
                 definition.vitals.mass.unwrap_or(1.0),
                 &mount.pilotable_classes,
             );
@@ -1831,14 +1833,18 @@ fn attach_mount_role_from(
     mount_class: Option<&str>,
     default_size: Option<ae::Vec2>,
     death_splash: Option<i32>,
+    saddle: Option<(f32, f32)>,
     mass: f32,
     pilotable: &[String],
 ) {
     if let Some(class) = mount_class {
-        // Saddle offset heuristic: the rider sits just above the mount's top.
-        // Feel-tunable; a mount that wants a precise saddle can grow a field.
+        // The authored saddle, or the heuristic: the rider sits just above the
+        // mount's top.
         let mount_size = default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
-        let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
+        let rider_offset = saddle.map_or_else(
+            || ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0)),
+            |(x, y)| ae::Vec2::new(x, y),
+        );
         scope.insert((
             ambition_mount::Mountable {
                 rider_offset,

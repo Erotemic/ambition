@@ -990,14 +990,14 @@
 
         // ===== Giant GNU (ADR 0020 mount actor — the carried giant GNU-ton
         // rides on). A brainless, stationary MOUNT: it renders via the
-        // character-sprite path from the G1 scholar-less `giant_gnu` sheet
-        // (target `giant_gnu`, collision_scale 4.5 matching the giant art). Its
+        // character-sprite path from the scholar-less `giant_gnu` sheet, whose
+        // authored body is its collision (see `authored/npc_giant_gnu.rs`). Its
         // rideability + heavy mass + own HP live on the `giant_gnu` archetype
         // (character_archetypes.ron); GNU-ton (the rider) stays the boss. Not a
         // Hall exhibit as well as a gameplay mount; its gallery voice reflects
         // that support role rather than pretending it is the rider.
         "npc_giant_gnu": (
-            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU",
             spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
@@ -1020,17 +1020,24 @@
             hall_dialogue_id: Some("hall_npc_giant_gnu"),
         ),
 
-        // ===== Giant GNU Hands (Q18 / G3 — the giant's two DRIVEN limb bodies).
-        // A brainless actor body rendering the scholar-less `giant_gnu_hands`
-        // sheet; the gnu_ton_rider boss's strikes drive it through the limb router.
-        // Same 768x576 layout / collision_scale 4.5 as the giant body (they share
-        // the G1 sheet placement). Its Hall voice leans into the absurdity of a
-        // separately cataloged, boss-driven hand instead of explaining it away.
+        // ===== Giant GNU Fist (the giant's two limb bodies, conducted by
+        // GNU-ton). A brainless actor body rendering the single-fist
+        // `giant_gnu_fist` sheet; its definition takes its body from that
+        // sheet at the giant's scale. Its Hall voice leans into the absurdity
+        // of a separately cataloged, boss-driven hand instead of explaining it
+        // away.
         "npc_giant_gnu_hands": (
-            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU Hand",
-            spritesheet: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.png",
-            manifest: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.ron",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_fist_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_fist_spritesheet.ron",
+            // Its face is the pair of hands the generator still draws for it.
+            portrait: Some((
+                image: "sprites/gnu_ton_boss/giant_gnu_hands_portraits.png",
+                manifest: "sprites/gnu_ton_boss/giant_gnu_hands_portraits.ron",
+                default_clip: "default",
+                still_clip: "",
+            )),
             tier: MainHall,
             body_kind: Wide,
             composition: None,

@@ -798,20 +798,48 @@ fn dead_rider_does_not_disturb_mount_records() {
     );
 }
 
-/// G2-archetypes end-to-end (ADR 0020; Q19): the REAL authored `giant_gnu`
-/// mount + `gnu_ton_rider` boss pair, exercised through the whole
-/// dismount→on-foot bridge.
+/// A boss rider whose `hand_slam` strike routes to a giant's two hands: the
+/// limb-routing seam's own fixture.
 ///
-/// This ties together every G2 authoring seam at once:
-///   * the `giant_gnu` archetype parses with `mount_class == "giant"` (it IS a
-///     rideable mount),
+/// ⛔ NOT THE SHIPPED GNU-TON ANY MORE. He was this seam's only user, and he now
+/// conducts his fists in content (`ambition_content::bosses::gnu_ton`) with no
+/// route and no host strike. The router, the verb map and the dismount bridge are
+/// still engine vocabulary, so their tests keep them honest on a profile that
+/// states the routing here instead of borrowing it from content that stopped
+/// saying it.
+fn limb_routed_rider() -> ambition_boss_encounter::BossProfile {
+    use ambition_boss_encounter::pattern::profile::{LimbMotion, LimbRoute};
+    use ambition_characters::actor::limb::LimbSlot;
+    use ambition_characters::brain::BossAttackProfile;
+    let mut profile = ambition_boss_encounter::BossProfile::from_id(
+        ambition_boss_encounter::test_boss_catalog(),
+        "gnu_ton_rider",
+    )
+    .expect("the rider profile loads");
+    profile.behavior.attacks = vec![BossAttackProfile::Strike("hand_slam".into())];
+    profile.behavior.possessed_verbs = vec![("attack_down".into(), "hand_slam".into())];
+    profile.behavior.limb_routing = vec![(
+        "hand_slam".into(),
+        LimbRoute {
+            slots: vec![LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT],
+            motion: LimbMotion::SlamDown,
+        },
+    )];
+    profile
+}
+
+/// G2-archetypes end-to-end (ADR 0020; Q19): a giant mount + boss rider pair,
+/// exercised through the whole dismount→on-foot bridge.
+///
 ///   * `npc_giant_gnu` resolves a character sprite (the mount renders via the
-///     character-sprite path, not the boss split-overlay),
-///   * the `gnu_ton_rider` boss profile carries the authored `mount_died`
-///     External phase trigger (its on-foot mini-phase), and
+///     character-sprite path, not the boss split-overlay), and
 ///   * linking the pair and killing the mount drives the Q19 bridge: the boss
 ///     dismounts KEEPING its Brain (the BossConfig rule), gravity flips on, and
-///     its phase advances to the authored on-foot `Enrage` via `mount_died`.
+///     a `mount_died` External trigger advances its phase.
+///
+/// ⚠ The trigger is stated HERE. The shipped GNU-ton's giant cannot die (the
+/// conductor holds it untouchable), so his encounter no longer authors one; the
+/// bridge is engine vocabulary and is pinned on its own terms.
 #[test]
 fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     use ambition_boss_encounter::{
@@ -839,9 +867,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         );
     }
 
-    // (3) The authored `gnu_ton_rider` boss profile carries the on-foot
-    // `mount_died` External trigger (this is what makes the mini-phase authored,
-    // not test-injected).
+    // (3) A rider whose encounter answers `mount_died` with an on-foot phase.
     let profile = BossProfile::from_id(
         ambition_boss_encounter::test_boss_catalog(),
         "gnu_ton_rider",
@@ -852,17 +878,13 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         vec!["giant".to_string()],
         "the rider boss pilots the 'giant' mount class",
     );
-    let triggers = PhaseTrigger::intrinsic_from_spec(&profile.encounter);
-    let mount_died_to = triggers.iter().find_map(|t| match &t.when {
-        PhaseTriggerCondition::External(g) if g == "mount_died" => Some(t.to),
-        _ => None,
+    let mut triggers = PhaseTrigger::intrinsic_from_spec(&profile.encounter);
+    triggers.push(PhaseTrigger {
+        when: PhaseTriggerCondition::External("mount_died".into()),
+        from: Vec::new(),
+        to: BossEncounterPhase::Enrage,
+        lock: 0.0,
     });
-    assert_eq!(
-        mount_died_to,
-        Some(BossEncounterPhase::Enrage),
-        "the authored gnu_ton_rider encounter must carry a mount_died -> Enrage \
-         External trigger (the on-foot mini-phase)",
-    );
 
     // (4) Spawn the REAL pair, link it, kill the mount, and tick the whole
     // bridge (dissolution + boss-encounter notify) in one update.
@@ -969,7 +991,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     );
 }
 
-/// Q18 (G3) end-to-end: the gnu_ton_rider boss's `hand_slam` strike ROUTES to the
+/// Q18 (G3) end-to-end: a rider boss's `hand_slam` strike ROUTES to the
 /// giant mount's two hand limbs. Spawns the rig the way the spawn hook wires it —
 /// a giant carrying `LimbRig` + `LimbIntents` + `LimbRouteState`, two hand limb
 /// bodies, and a linked rider boss whose `BossConfig` carries the authored
@@ -992,20 +1014,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     use ambition_characters::brain::{BossAttackProfile, BossAttackState};
     use ambition_characters::control::ActorControl;
 
-    let profile = BossProfile::from_id(
-        ambition_boss_encounter::test_boss_catalog(),
-        "gnu_ton_rider",
-    )
-    .expect("gnu_ton_rider boss profile is authored");
-    // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
-    assert!(
-        profile
-            .behavior
-            .limb_routing
-            .iter()
-            .any(|(k, _)| k == "hand_slam"),
-        "gnu_ton_rider must author a hand_slam limb route (Q18)",
-    );
+    let profile = limb_routed_rider();
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
@@ -1141,9 +1150,8 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 ///   `route_boss_strikes_to_limbs` (bridges the RidingOn/MountSlot link) →
 ///   `fan_out_limb_intents` (writes the hands' `ActorControl`).
 ///
-/// Nothing here is test-injected on the attack path: the verb map and the limb
-/// routing are the AUTHORED `gnu_ton_rider` profile from `boss_profiles.ron`,
-/// and the moveset is the production `boss_attack_moveset` build.
+/// The verb map and the limb routing are [`limb_routed_rider`]'s; the moveset is
+/// the production `boss_attack_moveset` build.
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     use crate::features::route_boss_strikes_to_limbs;
@@ -1156,19 +1164,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     use ambition_characters::control::ActorControl;
     use ambition_characters::control::{PlayerSlot, SlotControls};
 
-    let profile = BossProfile::from_id(
-        ambition_boss_encounter::test_boss_catalog(),
-        "gnu_ton_rider",
-    )
-    .expect("gnu_ton_rider boss profile is authored");
-    assert!(
-        profile
-            .behavior
-            .possessed_verbs
-            .iter()
-            .any(|(v, m)| v == "attack_down" && m == "hand_slam"),
-        "gnu_ton_rider must bind attack_down → hand_slam (the G5 verb map)",
-    );
+    let profile = limb_routed_rider();
 
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());

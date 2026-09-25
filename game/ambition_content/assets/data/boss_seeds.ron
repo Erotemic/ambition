@@ -11,14 +11,15 @@
         skill_tested: "Leave the floor on the tell, and land somewhere useful.",
         fair_counters: [Jump, Blink],
         threat: Medium,
-        telegraph: (min_s: 0.44, max_s: 1.40),
-        active: (min_s: 0.28, max_s: 0.70),
+        telegraph: (min_s: 0.44, max_s: 1.00),
+        active: (min_s: 0.28, max_s: 3.30),
         instances: [
             "side_sweep",           // two arms, boss-relative left+right
-            "hand_sweep",           // one wide low arc (0.85 × 0.28 body-relative)
             "wing_sweep",           // mockingbird, cycle-timed
             "broadside",            // two tall side columns — a sweep you jump BETWEEN
-            "converging_shockwave", // floor-level, arena-wide, arrives from both sides
+            "pendulum",             // GNU-ton: a fist on a string, low across where you stood
+            "cradle",               // GNU-ton: Newton's cradle, one fist swinging at a time
+            "stomp",                // GNU-ton's gnu: a shock rolling out along the floor
         ],
         recipes: [
             (
@@ -35,9 +36,9 @@
             ),
             (
                 name: "arena_wide",
-                telegraph_s: 1.10,
-                active_s: 0.70,
-                notes: "The `converging_shockwave` shape: covers the floor, so the telegraph must fund a jump AND a landing spot. Pair with a platform or it is a coin flip.",
+                telegraph_s: 0.80,
+                active_s: 0.50,
+                notes: "The floor-covering shape (GNU-ton's `stomp` shock): covers the floor, so the telegraph must fund a jump AND a landing spot. Pair with a platform or it is a coin flip.",
             ),
         ],
     ),
@@ -49,12 +50,12 @@
         skill_tested: "Read the wind-up's aim, then walk or dash out of it — and be greedy enough to come back before it recovers.",
         fair_counters: [WalkOut, Dash],
         threat: Heavy,
-        telegraph: (min_s: 0.60, max_s: 1.80),
-        active: (min_s: 0.40, max_s: 1.40),
+        telegraph: (min_s: 0.60, max_s: 1.40),
+        active: (min_s: 0.40, max_s: 2.00),
         instances: [
             "floor_slam",    // wide flat rect at the feet
-            "hand_slam",     // two vertical columns, GNU-ton
-            "head_descent",  // the FSM's slow drop — 1.8s telegraph, 1.4s active
+            "demonstrate",      // GNU-ton: a fist tracks, locks, falls, and sticks
+            "demonstrate_pair", // GNU-ton: the second fist falls where you dodged to
             "seismic_stomp", // trex; a special, so damage rides its own effect
         ],
         recipes: [
@@ -71,10 +72,10 @@
                 notes: "Phase 1 workhorse. Always followed by a Rest ≥ 1.2s — that Rest IS the punish window (§3 rule 3), and nothing else is.",
             ),
             (
-                name: "slow_giant",
-                telegraph_s: 1.80,
-                active_s: 1.40,
-                notes: "`head_descent`. A long active window is only fair when the volume is narrow (0.32 body-widths) and the telegraph is huge.",
+                name: "stuck_fist",
+                telegraph_s: 1.00,
+                active_s: 1.50,
+                notes: "GNU-ton's `demonstrate`: the strike is long because the fist STAYS in the floor (0.85s) — that stuck time is the punish window, not the Rest after it. Track the player, then LOCK for the last 0.3s so the dodge is a read, not a coin flip.",
             ),
         ],
     ),
@@ -91,6 +92,7 @@
         instances: [
             "full_body_pulse", // 0.70 × 0.70 body-relative, centered
             "gradient_nova",   // the exploding-gradient boss's runaway burst
+            "buck",            // GNU-ton's gnu throws whoever stands on its back
         ],
         recipes: [
             (
@@ -115,12 +117,15 @@
         skill_tested: "Re-plan your footing while still tracking the boss.",
         fair_counters: [Jump, WalkOut, Dash],
         threat: Medium,
-        telegraph: (min_s: 0.70, max_s: 1.40),
+        telegraph: (min_s: 0.70, max_s: 1.50),
         active: (min_s: 0.50, max_s: 4.80),
         instances: [
             "hazard_column", // 0.30 × 1.80 — a tall pillar the player walks around
             "minima_trap",   // a 5s pit hazard (the trap outlives its 0.6s strike)
             "saddle_point",  // rotating cross arms, 220px, up to 4.8s of active
+            "fluxions",      // GNU-ton draws a curve, then a fist traces it: stand where it is high
+            "fluxions_pair", // …and its reflection, together
+            "orbit",         // GNU-ton's fists orbit him for 4.5s: slip between them
         ],
         recipes: [
             (
@@ -152,7 +157,7 @@
         fair_counters: [Jump, Dash, WalkOut, Blink],
         threat: Light,
         telegraph: (min_s: 0.60, max_s: 1.40),
-        active: (min_s: 0.26, max_s: 2.20),
+        active: (min_s: 0.26, max_s: 3.00),
         instances: [
             "apple_rain",     // GNU-ton; a 2.2s spawn window at 0.35s cadence
             "overfit_volley", // five sampled ghosts, then five tracking shots

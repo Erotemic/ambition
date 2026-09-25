@@ -276,16 +276,15 @@ mod pilotable_mount_tests {
                  rider's authored attacks {move_ids:?} — the verb could never fire",
             );
         }
-        // The two limb verbs land on routed strikes so possession drives the
-        // giant's hands (the G5 payoff): both keys appear in limb_routing.
-        for key in ["hand_slam", "hand_sweep"] {
+        // Possessing him conducts his fists: every verb names one of his
+        // content-performed `Special`s.
+        for (verb, move_key) in &rider.possessed_verbs {
             assert!(
                 rider
-                    .possessed_verbs
+                    .attacks
                     .iter()
-                    .any(|(_, move_key)| move_key == key)
-                    && rider.limb_routing.iter().any(|(k, _)| k == key),
-                "'{key}' should be reachable by a possessed verb AND limb-routed",
+                    .any(|attack| attack.is_special() && &attack.move_id() == move_key),
+                "possessed verb '{verb}' should command a conducted Special, got '{move_key}'",
             );
         }
     }

@@ -669,17 +669,44 @@ pub fn demand_rostered_character_sheets(
 }
 
 pub fn demand_worn_character_sheets(
-    worn: Query<
-        &ambition_characters::actor::WornCharacter,
-        Changed<ambition_characters::actor::WornCharacter>,
-    >,
+    worn: Query<&ambition_characters::actor::WornCharacter>,
+    assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
+    states: Option<Res<CharacterLoadStates>>,
     demand: Option<ResMut<CharacterLoadDemand>>,
 ) {
     let Some(mut demand) = demand else {
         return;
     };
+    // ⛔⛔ NOT `Changed<WornCharacter>`, WHICH THIS WAS, AND IT SAW NOTHING. A
+    // room's bodies arrive with change ticks older than this system's last run
+    // (measured in `gnu_ton_arena`: four worn bodies, `Changed` matched zero on
+    // the very first frame they existed), so the one road for "a body appeared
+    // that nothing staged" never fired — and a giant's hands, which no room list
+    // names, drew as flat boxes forever.
+    //
+    // ⇒ Ask the question the name promises: is a body WEARING a character whose
+    // art is not realized? Demand is a set and the lookup is a hash, so asking
+    // every frame is cheap. With a sheet table, "not realized" is a sheet that is
+    // only DECLARED (a retired realization comes back this way too); without one
+    // it is a character the ledger has no outcome for. A character whose load
+    // already FAILED is not asked again: the materializer recorded why, and
+    // re-asking would re-fail every frame.
     for identity in &worn {
-        demand.request(identity.id());
+        let id = identity.id();
+        let outcome = states.as_ref().and_then(|states| states.outcome(id));
+        let failed = outcome.is_some_and(|outcome| !matches!(outcome, CharacterLoadOutcome::Ready));
+        let unrealized = match assets.as_deref() {
+            Some(assets) => match assets.characters.sheet_state(id) {
+                ambition_sprite_sheet::character::CharacterSheetState::Declared { .. } => true,
+                // Asked once, so the materializer can NAME it (UnknownCharacter).
+                ambition_sprite_sheet::character::CharacterSheetState::Unknown => outcome.is_none(),
+                ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => false,
+            },
+            None => outcome.is_none(),
+        };
+        if unrealized && !failed {
+            demand.request(id);
+        }
     }
 }
 

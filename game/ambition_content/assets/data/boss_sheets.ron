@@ -91,14 +91,16 @@
         body_centered: true,
         authored_faces_left: false,
     ),
-    // ADR 0020 RIDER: the scholar's own tight-trimmed standalone sheet. Same 6
-    // rows, but a small first-pass collision_scale (scholar is tiny vs the
-    // giant) and grounded (body_centered: false). Byte-identical to the built-in
-    // GNU_TON_RIDER_SHEET default.
+    // GNU-ton, the scholar who rides the giant: his own 96x96 sheet, cropped
+    // around him. Drawn at 1.75 world units per pixel (96 px of basis height —
+    // the arena's 54x96 BossSpawn — times 1.75), so his collision is his
+    // authored body (39x52 px → 68x91) and he reads as a person on a giant, not
+    // a speck. Centred on his body: he sits in a saddle, not on a floor.
+    // Byte-identical to the built-in GNU_TON_RIDER_SHEET default.
     "gnu_ton_rider": (
         label_width: 0,
-        frame_width: 768,
-        frame_height: 576,
+        frame_width: 96,
+        frame_height: 96,
         rows: [
             (Rest, (
                 frame_count: 10,
@@ -125,10 +127,10 @@
                 duration_secs: 0.105,
             )),
         ],
-        collision_scale: 1.0,
+        collision_scale: 1.75,
         feet_anchor_y: 0.0,
         frame_sample_inset: 1,
-        body_centered: false,
+        body_centered: true,
         authored_faces_left: false,
     ),
     "gradient_sentinel": (

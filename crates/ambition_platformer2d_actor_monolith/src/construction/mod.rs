@@ -800,6 +800,13 @@ fn construct_giant_hand(
         ambition_combat::components::ActorFaction::Enemy,
         fate,
     );
+    // ⛔ A HAND IS NOT IN THE ROOM SPEC: the planner derives it from the host,
+    // so the room-load visuals (which walk `spec.enemy_spawns`) never see it,
+    // and until this marker nothing drew it — invisible from the start of the
+    // history, then a placeholder box once unclaimed views got one. It is
+    // staged outside the authored lists exactly as a runtime-staged actor is,
+    // and that marker is what the renderer's runtime discovery reads.
+    ctx.insert(ambition_combat::components::RuntimeStagedActor);
 }
 
 fn construct_authored_enemy(

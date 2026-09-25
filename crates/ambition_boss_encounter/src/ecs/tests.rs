@@ -106,11 +106,12 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 /// A sheet whose body geometry is authored per animation (a head hurtbox that
 /// bobs with the idle and dives with the head-descent) resolves through
 /// `boss_sprite_metrics_from_registry` as an animation map with no static
-/// parts, the opposite of the mockingbird's single alpha-bbox below.
+/// parts, the opposite of the mockingbird's single alpha-bbox below. The fused
+/// `gnu_ton_boss` sheet (the Hall's GNU-ton exhibit) is that shape.
 ///
-/// The scholar's own trimmed `gnu_ton_rider` sheet authors no body metrics,
-/// which the second half checks: a rider's hurtboxes can live on the body it
-/// rides.
+/// The second half is the opposite shape: the scholar's own `gnu_ton_rider`
+/// sheet authors ONE static body, and it is his collision — the fight's
+/// complaint was a scholar drawn at a sixth of his size.
 #[test]
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     use crate::pattern::profile::BossBehaviorProfile;
@@ -118,8 +119,8 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     let registry = ambition_sprite_sheet::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut behavior = BossBehaviorProfile::gnu_ton_rider();
-    // Aim the lookup at the mount's sheet: the giant is what carries the head.
-    behavior.sprite_target = Some("giant_gnu".to_string());
+    // Aim the lookup at the fused exhibit sheet, which carries the head.
+    behavior.sprite_target = Some("gnu_ton_boss".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     let mut boss = crate::BossClusterScratch::new(
         crate::test_boss_catalog(),
@@ -132,7 +133,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 
     let (metrics, derived_size) =
         boss_sprite_metrics_from_registry(crate::test_boss_catalog(), boss.as_ref(), &registry)
-            .expect("the giant_gnu sheet has body metrics in the baked registry");
+            .expect("the gnu_ton_boss sheet has body metrics in the baked registry");
     // The head/hand hurtboxes (what damageable_volumes consumes) live
     // in the per-animation map.
     assert!(
@@ -158,8 +159,8 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
         "with no static body bbox, no combat_size is derived"
     );
 
-    // The rider, on its own tight sheet, has no body metrics to resolve — his
-    // damageable volume falls back to his authored `combat_size`.
+    // The rider, on his own 96x96 sheet, authors one static body; drawn at 1.75
+    // world units per pixel (a 96-unit basis), it IS his collision.
     let mut rider = crate::BossClusterScratch::new(
         crate::test_boss_catalog(),
         "boss_gnu_ton_rider",
@@ -168,10 +169,14 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     rider.config.behavior = BossBehaviorProfile::gnu_ton_rider();
-    assert!(
+    let (rider_metrics, rider_size) =
         boss_sprite_metrics_from_registry(crate::test_boss_catalog(), rider.as_ref(), &registry)
-            .is_none(),
-        "the scholar's trimmed sheet authors no body metrics — the giant carries them",
+            .expect("the scholar's sheet authors his body");
+    assert!(rider_metrics.body_pixel_bbox.is_some() && rider_metrics.animations.is_empty());
+    let size = rider_size.expect("a static body derives his combat size");
+    assert!(
+        (size.x - 39.0 * 1.75).abs() < 1.0 && (size.y - 52.0 * 1.75).abs() < 1.0,
+        "his collision is his drawn body (39x52 px at 1.75): {size:?}",
     );
 }
 

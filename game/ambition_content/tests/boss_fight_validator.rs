@@ -109,21 +109,26 @@ fn the_shipped_roster_against_section_threes_rules() {
     );
 }
 
-/// All 8 errors are rule 3, all in Enrage, all the same shape: the tightened enrage combos
+/// All 7 errors are rule 3, all in Enrage, all the same shape: the tightened enrage combos
 /// chain a `Strike` straight into the next `Telegraph`, leaving the player no punish window at all.
 /// §3 calls that an unpunishable attack; the authors called it escalation.
 ///
-/// Of the 10 warnings, nine are rule 5: not one shipped boss
-/// authors a telegraph identity. Every attack in the game telegraphs by duration
-/// alone. Today it is a measurement; promotion to a hard error requires calibration
-/// and a separate maintainer decision (not automatically after BD7). It is the
-/// single largest readability gap the pipeline has found.
+/// Of the 9 warnings, eight are rule 5: every shipped boss but one authors no
+/// telegraph identity, so those attacks telegraph by duration alone. Today it is a
+/// measurement; promotion to a hard error requires calibration and a separate
+/// maintainer decision (not automatically after BD7). It is the single largest
+/// readability gap the pipeline has found.
 ///
-/// The tenth: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
+/// ⭐ The one is GNU-ton. His 2026-09-25 rework authors a pose and a cue for every
+/// attack and a Rest after every one, which took his rule-5 warning AND his enrage
+/// rule-3 error off this list (8/10 → 7/9) — the first fight made fairer by the
+/// validator's own measure rather than recalibrated around it.
+///
+/// The ninth warning: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
 /// never has to simply *step out of the way*.
 ///
 /// Rule 1 (telegraph proportionality) fires nowhere, which corrects BD4 §7's
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
-const EXPECTED_ERRORS: usize = 8;
-const EXPECTED_WARNINGS: usize = 10;
+const EXPECTED_ERRORS: usize = 7;
+const EXPECTED_WARNINGS: usize = 9;

@@ -325,6 +325,32 @@ impl BossPattern {
     pub fn total_duration(&self) -> f32 {
         self.steps.iter().map(step_duration).sum()
     }
+
+    /// Every step this phase can ever run, in authored order: its own steps,
+    /// each `Select` arm's (recursively), then each stance's.
+    ///
+    /// ⛔ A walk of `steps` alone is a walk of what the phase runs UNCONDITIONALLY.
+    /// The move-timing scans below used it, so a move authored only inside a
+    /// `Select` arm had no move built for it: the arm won, its beats ran, and the
+    /// boss stood still for their length (GNU-ton's buck/stomp choice, measured).
+    pub fn every_step(&self) -> Vec<&BossPatternStep> {
+        fn walk<'a>(steps: &'a [BossPatternStep], out: &mut Vec<&'a BossPatternStep>) {
+            for step in steps {
+                out.push(step);
+                if let BossPatternStep::Select { table } = step {
+                    for arm in table {
+                        walk(&arm.steps, out);
+                    }
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.steps, &mut out);
+        for stance in self.stances.values() {
+            walk(stance, &mut out);
+        }
+        out
+    }
 }
 
 /// How a boss decides which attack hitbox is active each frame.
@@ -624,7 +650,7 @@ impl BossPatternCfg {
                 enrage,
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
-                    for step in &pattern.steps {
+                    for step in pattern.every_step() {
                         if let BossPatternStep::Strike { profile, duration } = step {
                             push(profile, *duration);
                         }
@@ -675,7 +701,7 @@ impl BossPatternCfg {
                 enrage,
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
-                    for step in &pattern.steps {
+                    for step in pattern.every_step() {
                         if let BossPatternStep::Telegraph {
                             profile,
                             duration,

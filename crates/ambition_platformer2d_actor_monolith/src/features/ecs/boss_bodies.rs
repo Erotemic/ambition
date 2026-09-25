@@ -69,6 +69,13 @@ pub fn integrate_boss_bodies(
             Option<&'static ambition_combat::moveset::MovePlayback>,
             // ADR 0033's window, asked rather than assumed — see the call below.
             bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // A boss can be CARRIED: GNU-ton rides his gnu, and the saddle pin
+            // owns his pose. The pin runs in `WorldPrepSet::AfterIntegrate`,
+            // which is BEFORE this chain, so a boss that integrated its own
+            // locomotion here stepped off the saddle every tick (measured: 20
+            // units a tick, toward his spawn point). A held boss declines the
+            // locomotion pass, exactly as a held actor does.
+            bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
         ),
         (
             With<FeatureSimEntity>,
@@ -96,6 +103,7 @@ pub fn integrate_boss_bodies(
         mut motion_facts,
         playback,
         boss_out_of_play,
+        pose_owned_externally,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -117,9 +125,9 @@ pub fn integrate_boss_bodies(
             // would pass `None` and publish from `kin.size`.
             Some(envelope.0),
             &mut motion_model,
-            // A boss is never mounted, and nothing carries one either.
+            // Nothing rides a boss today.
             false,
-            false,
+            pose_owned_externally,
             &feature_world,
             combat_tuning,
             &steering,

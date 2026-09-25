@@ -367,12 +367,13 @@ in ONE RON file per game so re-calibration is data, not code"*).
 
 ### THE MEASUREMENT: the shipped roster vs §3
 
-**8 errors, 10 warnings.** The test constants in
+**7 errors, 9 warnings** (8/10 until GNU-ton's 2026-09-25 rework authored a
+telegraph identity and a Rest for every attack). The test constants in
 `game/ambition_content/tests/boss_fight_validator.rs` are the source of truth.
-All eight errors are rule 3 findings in **Enrage**: the authored sequence leaves a
-zero-tick punish window where the configured floor is positive. Nine warnings are
-rule 5 findings because every shipped boss currently lacks authored telegraph
-identity; the tenth warns that the smirking behemoth never demands `WalkOut`.
+All seven errors are rule 3 findings in **Enrage**: the authored sequence leaves a
+zero-tick punish window where the configured floor is positive. Eight warnings are
+rule 5 findings because every shipped boss but GNU-ton lacks authored telegraph
+identity; the ninth warns that the smirking behemoth never demands `WalkOut`.
 
 The exact roster is intentionally kept in the validator test rather than copied
 here. Run that test before changing this status.
@@ -444,7 +445,7 @@ something adjacent and reports green.
 §3's original aspiration was a gate (*"fight does not install"*). That contract is
 deliberately NOT implemented, and by maintainer decision it is not a current
 requirement: provider boss-fragment registration does not call the validator, the current test
-accepts eight hard errors through `EXPECTED_ERRORS`, and **the 8 errors / 10
+accepts seven hard errors through `EXPECTED_ERRORS`, and **the 7 errors / 9
 warnings are diagnostic findings, not a failure condition.** The validator is useful
 early infrastructure; it is not on the critical architectural path, must not gate
 installation, and must not block any other engine / gameplay / content work.

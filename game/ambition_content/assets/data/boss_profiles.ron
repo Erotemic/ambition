@@ -195,71 +195,55 @@
         ),
     ),
     // ============================================================
-    // GNU-ton RIDER (ADR 0020 mount/rider split — G2). GNU-ton IS this row: the
-    // scholar is the boss (BossConfig + encounter HP) and he rides the
-    // `giant_gnu` MOUNT actor, whose hand limbs his strikes drive. The fused
-    // single-profile GNU-ton — one body with a render-only hands overlay — was
-    // torn down in the E6 teardown (`refactor-chain.md` R2); a two-part boss is
-    // two linked actors, so the hands can be hit, and the giant can die out from
-    // under the scholar.
-    //   * `sprite_target: "gnu_ton_rider"` — the scholar's own trimmed sheet.
-    //     The giant's body geometry rides the `giant_gnu` MOUNT's sheet.
-    //   * `pilotable_mount_classes: ["giant"]` — `spawn_boss` attaches a
-    //     `CanPilot` so this boss can board the `giant_gnu` mount.
-    //   * `combat_size` is the scholar's small footprint, not the giant's.
-    //   * hand_slam / hand_sweep / converging_shockwave are `limb_routing`-mapped
-    //     onto the giant's hands (G3). `head_descent` stays a host-body move and
-    //     `apple_rain` a Special. The on-foot mini-phase fires via the encounter
-    //     spec's `extra_phase_triggers` mount_died External trigger
-    //     (gnu_ton_rider.ron).
+    // GNU-ton RIDER — "Principia". The scholar is the boss (BossConfig +
+    // encounter HP); he rides the `giant_gnu` MOUNT and CONDUCTS its two fists.
+    // Every move is a `Special`: the brain decides WHAT he does, and
+    // `ambition_content::bosses::gnu_ton::conductor` performs it with the fists
+    // (see `choreography.rs` for the shapes). Each move is one of his laws,
+    // demonstrated on the player, and each contains its own refutation:
+    //   * demonstrate(_pair) — a fist hovers over you, tracks, locks, falls.
+    //     A fist in the floor can be struck, and the blow lands on him.
+    //   * pendulum — a fist on a string, released from high on one side, sweeping
+    //     the floor where you stood. Double jump it, twice.
+    //   * fluxions(_pair) — his signature: he DRAWS the curve in the air, then a
+    //     fist traces it. It dips to the floor where you stood; stand where it
+    //     is high.
+    //   * cradle — Newton's cradle: the fists trade one impulse, clack by clack.
+    //   * orbit — the fists orbit him like planets. Slip between them.
+    //   * buck / stomp — the gnu's own answers: a buck throws whoever stands on
+    //     its back (the way to reach him); a stomp sends a shock along the floor.
+    //   * apple_rain — and after it, a golden apple finds his head: the long
+    //     Rest that follows is him knocked off the gnu and dazed on the floor
+    //     (the conductor performs it), the fight's big punish window.
+    // Each key has ONE telegraph and ONE strike length, wherever it appears.
     "gnu_ton_rider": (
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         id: "gnu_ton_rider",
         sprite_target: Some("gnu_ton_rider"),
         reward_ability: Some("fireball"),
         signature_gauntlet: Some("meteor"),
-        // Scholar footprint (a human on the giant's shoulder), not the giant's
-        // 220x220 envelope — that belongs to the `giant_gnu` mount.
-        combat_size: Some((54.0, 96.0)),
+        // The scholar's own body: his sheet's authored body box at the sheet's
+        // scale (39x52 px at 1.75).
+        combat_size: Some((68.0, 91.0)),
         // ADR 0020: this boss RIDES a "giant"-class mount. `spawn_boss` attaches
         // the CanPilot tag from this list.
         pilotable_mount_classes: ["giant"],
-        // Q18 (G3) limb routing — which of the giant mount's hand limbs each strike
-        // drives, and how. `route_boss_strikes_to_limbs` reads THIS map off the
-        // rider boss and writes per-limb intents onto the linked giant. BLIND / Jon
-        // retunes later ("don't care yet"):
-        //   * hand_slam  → both hands, overhead SlamDown.
-        //   * hand_sweep → the facing-side hand only, lateral SweepAcross.
-        //   * converging_shockwave → both hands, SlamDown.
-        // head_descent stays a host-body move (no limb route) and apple_rain stays a
-        // Special — neither appears here, so they route to NO limb (unchanged).
-        limb_routing: [
-            ("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
-            ("hand_sweep", (slots: ["hand_left", "hand_right"], motion: SweepAcross)),
-            ("converging_shockwave", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
-        ],
-        // G5 (R10.6): the possessed-verb map — possess the scholar and your
-        // controller verbs command his kit through the same directional-verb
-        // chain an actor melee resolves (attack_down → attack). Because the
-        // move keys match `limb_routing`, these verbs drive the giant's hands
-        // when he's aboard: neutral/side attack sweeps the facing-side hand,
-        // down+attack slams both hands, up+attack raises the converging
-        // shockwave slam, special rains apples. BLIND / Jon retunes bindings:
+        // Possess the scholar and your verbs conduct his fists.
         possessed_verbs: [
-            ("attack", "hand_sweep"),
-            ("attack_down", "hand_slam"),
-            ("attack_up", "converging_shockwave"),
+            ("attack", "demonstrate"),
+            ("attack_down", "stomp"),
+            ("attack_up", "pendulum"),
             ("special", "apple_rain"),
         ],
         movement: StationaryGiant(
-            sway_amplitude: 6.0,
-            sway_frequency: 0.28,
-            speed: 40.0,
+            sway_amplitude: 0.0,
+            sway_frequency: 0.0,
+            speed: 0.0,
         ),
         movement_phase2: None,
         movement_enrage: None,
         strike_speed_scale: 1.0,
-        self_dodge: Some((70.0, 1.6)),
+        self_dodge: None,
         macro_tuning: (
             too_close_distance: 0.0,
             too_far_distance: 0.0,
@@ -272,60 +256,140 @@
             retreat_distance: 0.0,
         ),
         attacks: [
-            Strike("hand_slam"),
-            Strike("hand_sweep"),
-            Strike("head_descent"),
-            Strike("converging_shockwave"),
+            Special("demonstrate"),
+            Special("demonstrate_pair"),
+            Special("pendulum"),
+            Special("fluxions"),
+            Special("fluxions_pair"),
+            Special("cradle"),
+            Special("orbit"),
+            Special("buck"),
+            Special("stomp"),
             Special("apple_rain"),
         ],
         attack_cooldown: 0.0,
         attack_windup: 0.0,
         attack_active: 0.0,
         attack_damage: 2,
-        // The scholar body deals no contact damage (the giant's limbs are the
-        // threat once G3 lands).
+        // The scholar deals no contact damage: his fists are the threat.
         body_damage: 0,
         attack_pattern: Scripted(
             intro: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.4),
+                Rest(duration: 1.0),
+                Telegraph(profile: Special("demonstrate"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("demonstrate"), duration: 1.5),
+                Rest(duration: 1.0),
             ]),
+            // Phase 1 — "Lectures on Motion": one fist at a time.
             phase1: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.2),
-                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
-                Strike(profile: Strike("hand_sweep"), duration: 0.50),
-                Rest(duration: 1.0),
-                Telegraph(profile: Special("apple_rain"), duration: 1.0),
-                Strike(profile: Special("apple_rain"), duration: 2.2),
-                Rest(duration: 1.0),
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.8),
+                Telegraph(profile: Special("demonstrate"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("demonstrate"), duration: 1.5),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("pendulum"), duration: 0.9,
+                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("pendulum"), duration: 2.4),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("demonstrate"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("demonstrate"), duration: 1.5),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("buck"), duration: 0.7,
+                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("buck"), duration: 0.5),
+                        Rest(duration: 0.8),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("stomp"), duration: 0.5),
+                        Rest(duration: 0.8),
+                    ]),
+                ]),
+                Telegraph(profile: Special("apple_rain"), duration: 1.0,
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                Strike(profile: Special("apple_rain"), duration: 3.0),
+                // Eureka: the golden apple, the tumble, the daze, the climb.
+                Rest(duration: 3.5),
             ]),
             transition: (steps: [Rest(duration: 3.0)]),
+            // Phase 2 — "Principia": both hands, and the curve he draws.
             phase2: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 1.4),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.0),
-                Telegraph(profile: Strike("head_descent"), duration: 1.8),
-                Strike(profile: Strike("head_descent"), duration: 1.4),
-                Rest(duration: 1.4),
-                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
-                Strike(profile: Strike("hand_sweep"), duration: 0.50),
-                Rest(duration: 2.0),
-            ]),
-            enrage: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 0.90),
-                Strike(profile: Strike("hand_slam"), duration: 0.45),
-                Telegraph(profile: Strike("hand_sweep"), duration: 0.90),
-                Strike(profile: Strike("hand_sweep"), duration: 0.45),
+                Telegraph(profile: Special("fluxions"), duration: 1.5,
+                    telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("fluxions"), duration: 1.4),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("demonstrate_pair"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.stomp")))),
+                Strike(profile: Special("demonstrate_pair"), duration: 2.0),
+                Rest(duration: 0.8),
+                Select(table: [
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("buck"), duration: 0.7,
+                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("buck"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("stomp"), duration: 0.5),
+                        Rest(duration: 0.6),
+                    ]),
+                ]),
+                Telegraph(profile: Special("cradle"), duration: 1.0,
+                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.stomp")))),
+                Strike(profile: Special("cradle"), duration: 3.3),
+                Rest(duration: 0.8),
+                Telegraph(profile: Special("pendulum"), duration: 0.9,
+                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.charge")))),
+                Strike(profile: Special("pendulum"), duration: 2.4),
                 Rest(duration: 0.6),
-                Telegraph(profile: Strike("converging_shockwave"), duration: 1.10),
-                Strike(profile: Strike("converging_shockwave"), duration: 0.70),
-                Rest(duration: 1.2),
+                Telegraph(profile: Special("apple_rain"), duration: 1.0,
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                Strike(profile: Special("apple_rain"), duration: 3.0),
+                Rest(duration: 3.5),
+            ]),
+            // Enrage — "The System of the World": the planets, and everything
+            // at once.
+            enrage: (steps: [
+                Telegraph(profile: Special("orbit"), duration: 0.8,
+                    telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.snort")))),
+                Strike(profile: Special("orbit"), duration: 4.5),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("fluxions_pair"), duration: 1.5,
+                    telegraph: Some((pose: Some("spike_halo"), cue: Some("boss.gnu_ton.stomp")))),
+                Strike(profile: Special("fluxions_pair"), duration: 1.6),
+                Rest(duration: 0.6),
+                Select(table: [
+                    (weight: 1.0, when: Some(PlayerNear), steps: [
+                        Telegraph(profile: Special("buck"), duration: 0.7,
+                            telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("buck"), duration: 0.5),
+                        Rest(duration: 0.5),
+                    ]),
+                    (weight: 1.0, when: Some(PlayerFar), steps: [
+                        Telegraph(profile: Special("stomp"), duration: 0.8,
+                            telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.snort")))),
+                        Strike(profile: Special("stomp"), duration: 0.5),
+                        Rest(duration: 0.5),
+                    ]),
+                ]),
+                Telegraph(profile: Special("demonstrate_pair"), duration: 1.0,
+                    telegraph: Some((pose: Some("floor_slam"), cue: Some("boss.gnu_ton.stomp")))),
+                Strike(profile: Special("demonstrate_pair"), duration: 2.0),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("cradle"), duration: 1.0,
+                    telegraph: Some((pose: Some("side_sweep"), cue: Some("boss.gnu_ton.stomp")))),
+                Strike(profile: Special("cradle"), duration: 3.3),
+                Rest(duration: 0.6),
+                Telegraph(profile: Special("apple_rain"), duration: 1.0,
+                    telegraph: Some((pose: Some("rest"), cue: Some("boss.gnu_ton.snort")))),
+                Strike(profile: Special("apple_rain"), duration: 3.0),
+                Rest(duration: 3.5),
             ]),
         ),
         reward: DropChest(

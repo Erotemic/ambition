@@ -1098,16 +1098,24 @@ impl RoomFeatureConstructionPlan {
             .map(|request| request.name.clone())
             .collect();
         for entity in self.construction.entities() {
-            if let crate::construction::ActorConstructionParams::StagedActor(request) =
-                entity.parameters()
-            {
-                names.push(request.name.clone());
-                // The kind may carry the catalog id the display name is not.
-                if let ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy { character, .. } =
-                    &request.kind
-                {
-                    names.push(character.to_string());
+            match entity.parameters() {
+                crate::construction::ActorConstructionParams::StagedActor(request) => {
+                    names.push(request.name.clone());
+                    // The kind may carry the catalog id the display name is not.
+                    if let ambition_platformer2d_actor_spawn::SpawnActorKind::Enemy {
+                        character, ..
+                    } = &request.kind
+                    {
+                        names.push(character.to_string());
+                    }
                 }
+                // A giant's hands are planned from the giant, not placed, so no
+                // authored list names their character: until this arm their
+                // sheet was never demanded and they drew as a flat box.
+                crate::construction::ActorConstructionParams::GiantHand { authored } => {
+                    names.push(authored.payload.character_id.to_string());
+                }
+                _ => {}
             }
         }
         names.sort();

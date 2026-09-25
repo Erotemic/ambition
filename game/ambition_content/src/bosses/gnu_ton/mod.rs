@@ -1,4 +1,10 @@
-//! GNU-ton arena exit gating.
+//! GNU-ton: the scholar who stands on the shoulders of a giant.
+//!
+//! * [`choreography`] — what his fists do, as pure functions of time.
+//! * [`conductor`] — the ECS side: reads his live move and performs it.
+//! * This file — the arena's exit gating.
+//!
+//! ## Exit gating
 //!
 //! One current boss-alive check controls both sides of the retreat path: while
 //! alive, the ladder is carved out and `ladder_floor_gate` remains solid; after
@@ -12,9 +18,14 @@ use ambition_boss_encounter::BossClusterRef;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 
+pub mod choreography;
+pub mod conductor;
+
+pub use conductor::{adopt_gnu_ton, conduct_gnu_ton, gnu_back_is_ground, GnuTonConductor};
+
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
-/// yaml at `tools/ambition_ldtk_tools/specs/gnu_ton_arena_area.yaml`.
+/// spec at `tools/ambition_ldtk_tools/specs/gnu_ton_arena_area.ron`.
 const ARENA_ROOM_NAME: &str = "gnu_ton_arena";
 
 /// Authored name of the named Solid block that fills the gap above

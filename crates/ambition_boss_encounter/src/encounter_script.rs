@@ -242,11 +242,9 @@ pub fn tick_commanded_moves(
         attack_intent.clear();
         control.0.melee_pressed = false;
         control.0.special_pressed = false;
-        control.0.facing = if dx.abs() > 2.0 {
-            dx.signum()
-        } else {
-            boss.kin.facing
-        };
+        // Turn toward the mark, and not again once there: an arrived body
+        // that overshoots by a pixel does not spin round.
+        control.0.facing = ambition_characters::brain::face_toward(boss.kin.facing, dx, cmd.arrive_tolerance);
         // `dx` is a world-x difference, so the command is world-space.
         control.0.velocity_target = if dx.abs() <= cmd.arrive_tolerance {
             ae::WorldVec2::ZERO

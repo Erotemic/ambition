@@ -329,10 +329,7 @@ fn tick_patrol(
             // Player in talk range or otherwise hold position.
             // Face toward target if any.
             if snapshot.target_alive {
-                let side = local_target_side(snapshot);
-                if side.abs() > 4.0 {
-                    out.facing = side.signum();
-                }
+                out.facing = snapshot.face_toward(local_target_side(snapshot));
             }
         }
         crate::actor::ai::CharacterAiIntent::Patrol => {
@@ -354,19 +351,16 @@ fn tick_patrol(
             if cfg.aggressiveness > 0.0 {
                 out.locomotion =
                     snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.speed, 0.0));
-                out.facing = direction_side.signum_or(snapshot.actor_facing);
+                out.facing = snapshot.face_toward(local_target_side(snapshot));
             } else {
                 // Peaceful patroller in "Chase" mode = HOLD. The
                 // npc semantics: "player is close, face them".
-                let side = local_target_side(snapshot);
-                if side.abs() > 4.0 {
-                    out.facing = side.signum();
-                }
+                out.facing = snapshot.face_toward(local_target_side(snapshot));
             }
         }
-        crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
+        crate::actor::ai::CharacterAiIntent::Attack { .. } => {
             if cfg.aggressiveness > 0.0 {
-                out.facing = direction_side.signum_or(snapshot.actor_facing);
+                out.facing = snapshot.face_toward(local_target_side(snapshot));
                 out.melee_pressed = snapshot.attack_cooldown_remaining <= 0.0;
             }
         }
@@ -468,10 +462,10 @@ fn tick_melee_brute(
         crate::actor::ai::CharacterAiIntent::Chase { direction_side } => {
             out.locomotion =
                 snapshot.locomotion_for(ae::LocalAxes::new(direction_side * cfg.chase_speed, 0.0));
-            out.facing = direction_side.signum_or(snapshot.actor_facing);
+            out.facing = snapshot.face_toward(local_target_side(snapshot));
         }
-        crate::actor::ai::CharacterAiIntent::Attack { direction_side } => {
-            out.facing = direction_side.signum_or(snapshot.actor_facing);
+        crate::actor::ai::CharacterAiIntent::Attack { .. } => {
+            out.facing = snapshot.face_toward(local_target_side(snapshot));
             // Brain wants to start an attack windup if the cooldown
             // is clear. The ActionSet's attack spec timing then
             // determines the concrete windup → active → recover
@@ -588,7 +582,7 @@ fn tick_skirmisher(
     // Facing always toward the actual target so the rider / muzzle
     // aims at the player rather than the orbit point.
     let aim_dir = to_target_raw.normalize_or_zero();
-    out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
+    out.facing = snapshot.face_toward(to_target_local.x);
     // Move toward the orbit point at strafe_speed. Aerial archetypes
     // (sharks etc.) need 2D motion to actually orbit; the
     // integration uses both x and y when `is_aerial = true`.
@@ -655,7 +649,7 @@ fn tick_sniper(
         return;
     }
     let dir = to_target.normalize_or_zero();
-    out.facing = to_target_local.x.signum_or(snapshot.actor_facing);
+    out.facing = snapshot.face_toward(to_target_local.x);
     if state.cooldown_remaining <= 0.0 {
         out.fire = Some(crate::actor::control::ActorFireRequest::world_space(
             dir,
@@ -721,7 +715,7 @@ fn tick_charge_crash(
     // The shark steers by `orbit_dir` (below), not a direct aim vector — the old
     // `aim_dir` chase heading was superseded by the orbit-standoff model and left
     // an unused binding. `facing` still comes from the target's local-frame side.
-    let facing = to_target_local.x.signum_or(snapshot.actor_facing);
+    let facing = snapshot.face_toward(to_target_local.x);
     out.facing = facing;
 
     let (sin_p, cos_p) = state.orbit_phase.sin_cos();
@@ -905,15 +899,14 @@ fn tick_aerial(
         tick_aerial_lively(cfg, state, snapshot, out, pos, now);
     }
 
-    // Face the target if engaged, else the direction of travel.
-    let face_side = if snapshot.target_alive {
-        frame_to_local(snapshot, ae::WorldVec2(snapshot.target_pos - pos)).x
+    // Face the target if engaged, else the direction of travel. A velocity is
+    // not a distance, so travel keeps the minimum band rather than the body's.
+    out.facing = if snapshot.target_alive {
+        snapshot.face_toward(frame_to_local(snapshot, ae::WorldVec2(snapshot.target_pos - pos)).x)
     } else {
-        frame_to_local(snapshot, out.velocity_target).x
+        let travel = frame_to_local(snapshot, out.velocity_target).x;
+        crate::brain::face_toward(snapshot.actor_facing, travel, 0.0)
     };
-    if face_side.abs() > 4.0 {
-        out.facing = face_side.signum();
-    }
 }
 
 fn tick_aerial_lively(

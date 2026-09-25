@@ -55,6 +55,9 @@ ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_time = { path = "../ambition_time" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_interaction = { path = "../ambition_interaction" }
+# `RidingOn` — a rider's mount takes its facing, so the boss tick turns a riding
+# boss by its mount's width (`BossPatternContext::actor_half_width`).
+ambition_mount = { path = "../ambition_mount" }
 # `CollisionWorld` — the boss ECS tick sweeps its bodies against the room,
 # and this is the ONE dependency that module needed that this crate lacked.
 # A clean downward edge: `_world` sees only asset_manager / _core /

@@ -623,6 +623,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
                 front_wall_clearance: None,
                 dt,
                 actor_facing: 1.0,
+                actor_half_width: 0.0,
                 hp_current: 100,
                 hp_max: 100,
                 live_attack: None,

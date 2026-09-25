@@ -106,6 +106,7 @@ fn tick_peaceful(
         actor_pos: seed.kin.pos,
         actor_vel: seed.kin.vel,
         actor_facing: seed.kin.facing,
+        actor_half_width: seed.kin.size.x * 0.5,
         control_down: gravity,
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,

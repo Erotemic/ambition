@@ -54,7 +54,7 @@ pub use profile::BrainProfile;
 // `StateMachineCfg::Smash` names by value and what the snapshot encoder reads.
 pub use smash::{BroadMode, DifficultyProfile, SmashCfg, SmashState};
 #[allow(unused_imports)]
-pub use snapshot::BrainSnapshot;
+pub use snapshot::{face_toward, BrainSnapshot, MIN_TURN_BAND};
 #[allow(unused_imports)]
 pub use state_machine::{
     tick_simple_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState,

@@ -1032,6 +1032,11 @@ pub struct BossPatternContext {
     /// [`SituationBucket::PlayerBehind`] reads it; `0.0` means "no opinion", and
     /// the bucket then never holds.
     pub actor_facing: f32,
+    /// Half the side extent of the body that turns when this boss turns — its
+    /// own collision box, or its mount's when it rides one. The boss faces its
+    /// target by [`crate::brain::face_toward`] with this band. `0.0` (the
+    /// default) leaves the minimum band.
+    pub actor_half_width: f32,
     /// The boss's live HP. BD1's [`SituationBucket::HpBelow`] reads the fraction,
     /// and [`InterruptTrigger::OnHitTaken`] reads the DROP since last tick — which
     /// the brain remembers itself (`BossPatternState::last_hp`) rather than asking

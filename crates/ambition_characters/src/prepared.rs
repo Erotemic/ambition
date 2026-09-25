@@ -984,9 +984,9 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::death_traits`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
     pub death_traits: Option<crate::actor::CharacterDeathTraits>,
-    /// The verbs this body has, as the character authored them — see
-    /// [`CharacterDefinition::abilities`]. `None` means the character stated
-    /// none, and a construction path that has a legacy source for verbs (an
+    /// The verbs this body has, as content authored them: the definition's
+    /// [`CharacterDefinition::abilities`], else its catalog row's grants. `None`
+    /// means neither stated any, and a construction path that has a legacy source for verbs (an
     /// archetype's movement kit, a match's declared set) still uses it.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
     /// How this body moves, as the character authored it. `None` leaves a
@@ -1688,9 +1688,12 @@ fn finalize_character(
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
-        // Carried, not folded: nothing else in the engine can state a body's
-        // verbs, so there is no second authority to reconcile with.
-        abilities,
+        // Folded like health: a catalog row states a body's verbs too
+        // (`abilities: Some([RunJump])`), and the Hall's Mary-O and Sanic author
+        // theirs ONLY there. Left unfolded, the player road read the row while
+        // every actor road read this field, so the same character could run as
+        // the player and not as an NPC.
+        abilities: abilities.or_else(|| catalog?.ability_set(&id)),
         // A prepared definition that still needs the catalog to say whether a body flies is only
         // partly prepared.
         //

@@ -546,6 +546,63 @@ fn the_cast_generation_advances_on_every_published_change() {
     );
 }
 
+/// A catalog row's grants are the character's verbs when its definition
+/// states none, and the definition wins when it does.
+///
+/// The row is content like the definition, and before the fold only the player
+/// road read it: every actor road built the Hall's Mary-O with no verbs.
+#[test]
+fn a_catalog_rows_grants_fold_into_the_prepared_abilities() {
+    use crate::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d_core::{AbilityGrant, AbilitySet};
+
+    const CATALOG: &str = r#"(
+        brain_presets: { "stand_still": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk, melee: None, ranged: None, special: None) },
+        characters: {
+            "runner": (
+                display_name: "Runner",
+                spritesheet: "sprites/x.png",
+                manifest: "sprites/x.ron",
+                tier: MainHall,
+                body_kind: Standard,
+                composition: None,
+                default_brain: "stand_still",
+                default_action_set: "peaceful",
+                tags: [],
+                fallback_dialogue: [],
+                abilities: Some([RunJump]),
+            ),
+        },
+    )"#;
+    let catalog =
+        CharacterCatalog::from_data(crate::actor::character_catalog::parse_catalog(CATALOG));
+
+    let unstated = prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("runner", "Runner", "test"),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert_eq!(
+        unstated.abilities,
+        Some(AbilitySet::compose(&[AbilityGrant::RunJump])),
+        "the definition states no verbs and its catalog row grants RunJump"
+    );
+
+    let stated = prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("runner", "Runner", "test").with_abilities(AbilitySet::NONE),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert_eq!(
+        stated.abilities,
+        Some(AbilitySet::NONE),
+        "a definition that states its verbs keeps them, even an empty set"
+    );
+}
+
 /// Preparation resolves gravity freedom into the prepared character. Runtime
 /// construction must not re-query catalog body-kind metadata to decide it.
 #[test]

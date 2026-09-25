@@ -108,6 +108,8 @@ VIOLATING_LINE = {
         "    let authored = catalog.build_default_action_set(id);",
     "the-provider-resolver-is-confined-to-one-file":
         "    let p = provider_of_character(registry, id);",
+    "the-boss-encounter-phase-is-stored-once":
+        "    let phase = boss.status.encounter_phase;",
     "the-catalog-owners-map-is-not-a-provider-authority":
         "            .and_then(|owners| owners.provider_for(id))",
     "the-catalog-only-motion-model-resolver-stays-deleted":

@@ -129,61 +129,6 @@ pub fn possessed_boss_techniques(
         .collect()
 }
 
-/// Sync each boss's `encounter_phase` mirror from the entity-local
-/// [`ActorPhaseState`] copy (`BossEncounter.encounter`). The brain
-/// (`BossPatternContext`) reads the mirror; the phase machine, ticked by
-/// `update_boss_encounters`, is the source of truth. Keyed per entity, so two
-/// bosses of the same archetype have independent phases.
-///
-/// Runs before [`tick_boss_brains_system`] so the brain sees this frame's phase.
-pub fn sync_boss_encounter_phase(
-    mut bosses: Query<crate::BossClusterQueryData, With<FeatureSimEntity>>,
-    mut last_logged: bevy::ecs::system::Local<
-        std::collections::HashMap<String, crate::BossEncounterPhase>,
-    >,
-) {
-    for mut feature in &mut bosses {
-        let boss_id = feature.config.id.clone();
-        let behavior_id = feature.config.behavior.id.clone();
-        // Phase comes from the entity-local copy (per entity).
-        let new_phase = feature.status.encounter.as_ref().map(|p| p.phase);
-        // Log phase transitions per boss (for example Dormant → Intro →
-        // Phase1).
-        let prev = last_logged.get(&boss_id).copied();
-        if new_phase != prev {
-            match new_phase {
-                Some(phase) => {
-                    bevy::log::info!(
-                        target: "ambition_platformer2d::boss_encounter",
-                        "sync_phase: boss={} (behavior.id={}) phase {:?} → {:?}",
-                        boss_id,
-                        behavior_id,
-                        prev,
-                        phase,
-                    );
-                    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
-                        "boss-phase {boss_id} {prev:?} -> {phase:?}"
-                    ));
-                    last_logged.insert(boss_id.clone(), phase);
-                }
-                None => {
-                    bevy::log::warn!(
-                        target: "ambition_platformer2d::boss_encounter",
-                        "sync_phase: boss={} behavior.id={} has no entity-local encounter state (boss.encounter_phase stays {:?})",
-                        boss_id,
-                        behavior_id,
-                        feature.status.encounter_phase,
-                    );
-                    last_logged.insert(boss_id.clone(), feature.status.encounter_phase);
-                }
-            }
-        }
-        if let Some(phase) = new_phase {
-            feature.status.encounter_phase = phase;
-        }
-    }
-}
-
 /// Start the moveset entry named by the boss's current attack intent.
 ///
 /// Geometry and special strikes both use the shared moveset runtime: geometry
@@ -567,7 +512,7 @@ pub fn tick_boss_brains_system(
         let attack_request = match &mut *brain {
             Brain::StateMachine(StateMachineCfg::BossPattern { cfg, state }) => {
                 let ctx = ambition_characters::brain::BossPatternContext {
-                    encounter_phase: boss.status.encounter_phase,
+                    encounter_phase: boss.status.encounter_phase(),
                     actor_pos: boss.kin.pos,
                     target_pos,
                     target_body_size,

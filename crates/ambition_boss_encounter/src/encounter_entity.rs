@@ -257,13 +257,7 @@ pub fn update_encounter_progress(
             member.entity = Some(boss_entity);
             any_resolved = true;
             member.alive = health.alive();
-            // Phase comes from the entity-local copy; fall back to the synced
-            // `encounter_phase` mirror if the copy isn't populated yet.
-            let phase = status
-                .encounter
-                .as_ref()
-                .map(|p| p.phase)
-                .unwrap_or(status.encounter_phase);
+            let phase = status.encounter_phase();
             progress.members.push(MemberProgress {
                 name: config.name.clone(),
                 phase,

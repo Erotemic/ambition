@@ -207,13 +207,6 @@ ADJUDICATED: dict[str, str] = {
         "simulation (read 2026-09-18)"
     ),
     # ── A LOG OR WARN LATCH ─────────────────────────────────────────────────
-    "sync_boss_encounter_phase": (
-        "LOG LATCH. `last_logged` exists to print `Dormant -> Intro -> Phase1` "
-        "once per transition; the phase itself comes from the entity-local copy on "
-        "each boss. Nothing the `Local` holds reaches a write, so a replay that "
-        "logs a transition twice or skips one has changed only the log (read "
-        "2026-09-18)"
-    ),
     "emit_falling_sand_spouts": (
         "LOG LATCH, verified in the guarded block rather than inferred from the "
         "name: the body under `if last_logged.as_ref() != Some(&state.spouts)` is a "

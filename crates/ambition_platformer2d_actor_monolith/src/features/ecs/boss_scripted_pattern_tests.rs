@@ -26,7 +26,9 @@ fn gnu_ton_runtime() -> ambition_boss_encounter::BossClusterScratch {
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     scratch.config.behavior = behavior;
-    scratch.status.encounter_phase = ambition_boss_encounter::BossEncounterPhase::Phase1;
+    let mut phase_state = ambition_boss_encounter::ActorPhaseState::new(Vec::new());
+    phase_state.phase = ambition_boss_encounter::BossEncounterPhase::Phase1;
+    scratch.status.encounter = Some(phase_state);
     // After the data-driven migration, the head-position invariants
     // (rest above shoulder, descent at player level) live in the
     // sprite RON's per-animation `hurtbox.parts`. The test fixture

@@ -32,10 +32,6 @@ pub struct BossConfig {
 /// the shared body components.
 #[derive(Component, Clone, Debug)]
 pub struct BossEncounter {
-    /// Active encounter phase, forwarded by `sync_boss_encounter_phase` from
-    /// the entity-local phase state. `Dormant` until the encounter wakes. The
-    /// brain reads it via `BossPatternContext`.
-    pub encounter_phase: BossEncounterPhase,
     /// Sprite-driven body metrics, set by `derive_boss_sprite_metrics` after
     /// the SheetRegistry loads. `None` for bosses whose sprite has no
     /// `body_metrics` entry (then `combat_size` applies).
@@ -53,6 +49,17 @@ pub struct BossEncounter {
     /// `health`, this is fight authority; music, walls, HUD, and other encounter
     /// presentation remain encounter-owned.
     pub encounter: Option<super::ActorPhaseState>,
+}
+
+impl BossEncounter {
+    /// The active encounter phase: the entity-local phase state's, `Dormant`
+    /// until it is seeded. Read from the state itself; a stored copy lagged it
+    /// by whatever ran between the phase machine and its readers.
+    pub fn encounter_phase(&self) -> BossEncounterPhase {
+        self.encounter
+            .as_ref()
+            .map_or(BossEncounterPhase::Dormant, |state| state.phase)
+    }
 }
 
 /// Per-spawn boss tweaks: the data behind "spawn boss X with tweaks Z at
@@ -296,7 +303,6 @@ impl BossClusterScratch {
                 behavior,
             },
             status: BossEncounter {
-                encounter_phase: BossEncounterPhase::Dormant,
                 sprite_metrics: None,
                 encounter: None,
                 render_size: render_basis,
@@ -413,7 +419,6 @@ pub mod test_support {
         health.current = hp;
         (
             BossEncounter {
-                encounter_phase: phase,
                 sprite_metrics: None,
                 encounter: Some(encounter),
                 // Test fixtures don't render; a placeholder render basis is fine.
@@ -455,17 +460,12 @@ pub mod test_support {
     }
 }
 
-/// The boss's encounter phase, and the `ActorPhaseState` it is forwarded from.
+/// The boss's entity-local phase state.
 ///
 /// A cursor, because the rest of `BossEncounter` is sprite metrics derived
 /// from the sheet registry, and `ActorPhaseState.triggers` is authored data.
-///
-/// `encounter_phase` is a mirror that `sync_boss_encounter_phase` copies from
-/// `encounter` every tick. Rewinding only the mirror is not enough: a replayed
-/// boss would already be awake and act differently from the original.
 impl SnapshotCursor for BossEncounter {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
-        self.encounter_phase.encode(out);
         match &self.encounter {
             None => put_bool(out, false),
             Some(e) => {

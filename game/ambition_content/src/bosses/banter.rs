@@ -154,7 +154,7 @@ pub fn tick_boss_idle_barks(
             continue;
         }
         if !matches!(
-            boss.status.encounter_phase,
+            boss.status.encounter_phase(),
             ambition_boss_encounter::BossEncounterPhase::Phase1
                 | ambition_boss_encounter::BossEncounterPhase::Phase2
                 | ambition_boss_encounter::BossEncounterPhase::Enrage

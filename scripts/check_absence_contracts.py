@@ -971,6 +971,21 @@ ABSENCE_CONTRACTS: list[dict] = [
         ),
     },
     {
+        "id": "the-boss-encounter-phase-is-stored-once",
+        "paths": ["crates/", "game/", "fixtures/"],
+        "patterns": [
+            r"\bsync_boss_encounter_phase\b",
+            r"\.status\.encounter_phase([^(]|$)",
+        ],
+        "reason": (
+            "AP33 (2026-09-25). `BossEncounter` carried `encounter_phase`, a copy "
+            "of its own `encounter.phase` that a system rewrote every tick; the "
+            "brain, member progress and banter read the copy. The phase is read "
+            "through `BossEncounter::encounter_phase()` from the phase state "
+            "itself, so there is no second value to fall behind."
+        ),
+    },
+    {
         "id": "the-catalog-owners-map-is-not-a-provider-authority",
         "paths": [
             "crates/",

@@ -31,9 +31,10 @@
 | [`sim_random`](src/sim_random.rs) | RANDOMNESS THAT SURVIVES A REWIND — and it survives by not existing. |
 | [`snapshot`](src/snapshot.rs) | Backend-neutral deterministic snapshot vocabulary. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
+| [`surface_loop`](src/surface_loop.rs) | Attached loops: a full 360° loop a runner enters from a floor and leaves onto the same floor, as one authored fact. |
 | [`world`](src/world.rs) | Generated sandbox room data. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

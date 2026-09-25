@@ -307,3 +307,75 @@ fn re_registering_one_character_still_reports_the_duplicate_id() {
         CharacterRegistrationError::DuplicateId { .. }
     ));
 }
+
+/// A body's verbs when its character states none are its PROVIDER's
+/// declaration, resolved at the barrier — not a default a constructor holds.
+///
+/// Three characters, one question each: the declaring provider's silent
+/// character wears the declaration; an authored set wins over it; and a
+/// provider that declared nothing gives its silent character nothing.
+#[test]
+fn an_unauthored_character_wears_its_providers_declared_actor_default() {
+    use ambition_characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+    use ambition_characters::actor::definition::CharacterDefinition;
+    use ambition_platformer2d_core::AbilitySet;
+
+    const EMPTY: &str = "(brain_presets: {}, action_set_presets: {}, characters: {})";
+    let declared = AbilitySet {
+        dash: true,
+        ..AbilitySet::basic()
+    };
+    let walking = || ambition_characters::actor::CharacterLocomotion {
+        run_speed: 90.0,
+        ..Default::default()
+    };
+
+    let mut app = App::new();
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron("declaring", None::<String>, EMPTY)
+            .unwrap()
+            .with_actor_default_abilities(declared),
+    );
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron("silent", None::<String>, EMPTY).unwrap(),
+    );
+    app.register_character(
+        CharacterDefinition::new("quiet", "Quiet", "declaring").with_locomotion(walking()),
+    );
+    app.register_character(
+        CharacterDefinition::new("spoken", "Spoken", "declaring")
+            .with_locomotion(walking())
+            .with_abilities(AbilitySet::NONE),
+    );
+    app.register_character(
+        CharacterDefinition::new("orphan", "Orphan", "silent").with_locomotion(walking()),
+    );
+    finalize(&mut app);
+
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    let body = |id: &str| {
+        registry
+            .get(id)
+            .expect("published")
+            .body_blueprint()
+            .expect("it states its locomotion")
+            .abilities
+    };
+    assert_eq!(
+        body("quiet"),
+        declared,
+        "a character that states no verbs wears its provider's declared actor default"
+    );
+    assert_eq!(
+        body("spoken"),
+        AbilitySet::NONE,
+        "an authored set, even an empty one, outranks the provider's declaration"
+    );
+    assert_eq!(
+        body("orphan"),
+        AbilitySet::NONE,
+        "a provider that declared no actor default gives a silent character no verbs"
+    );
+}

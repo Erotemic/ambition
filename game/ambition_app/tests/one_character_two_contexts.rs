@@ -175,3 +175,49 @@ fn a_hall_character_wears_the_abilities_its_catalog_row_grants() {
         }
     }
 }
+
+/// Every Hall body wearing a prepared character carries exactly that
+/// character's resolved actor verbs.
+///
+/// The census is the whole Hall, not one sample: a constructor that reached for
+/// a default of its own would disagree with preparation on the characters that
+/// state no verbs, and most of the Hall states none.
+#[test]
+fn every_hall_body_wears_the_actor_verbs_preparation_resolved() {
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
+    use ambition_platformer2d::engine_core::body_clusters::AbilityBase;
+
+    let mut hall = fixed_60hz_room_sim("hall_of_characters");
+    for _ in 0..90 {
+        hall.step(base());
+    }
+    let world = hall.world_mut();
+    let registry = world.resource::<PreparedCharacterRegistry>().clone();
+    let mut q = world.query::<(&WornCharacter, &ActorIdentity, &AbilityBase)>();
+    let mut unauthored = 0;
+    let mut checked = 0;
+    for (worn, identity, base) in q.iter(world) {
+        let Some(prepared) = registry.get(worn.id()) else {
+            continue;
+        };
+        // Flight is the body's locomotion, which the constructor adds on top.
+        let mut built = base.abilities;
+        built.fly = prepared.actor_abilities.fly;
+        assert_eq!(
+            built,
+            prepared.actor_abilities,
+            "the Hall's `{}` wears `{}` but was built with verbs preparation did not resolve",
+            identity.id(),
+            worn.id(),
+        );
+        checked += 1;
+        if prepared.abilities.is_none() {
+            unauthored += 1;
+        }
+    }
+    assert!(
+        unauthored > 0 && checked > unauthored,
+        "the census needs both populations to mean anything: {checked} bodies \
+         checked, {unauthored} of them unauthored"
+    );
+}

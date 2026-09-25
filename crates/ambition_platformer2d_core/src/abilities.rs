@@ -330,6 +330,20 @@ impl AbilitySet {
         }
     }
 
+    /// The classic platformer actor: [`Self::basic`] plus a double jump and an
+    /// attack, without `reset` (only a controlled body resets itself).
+    ///
+    /// A set a content provider may DECLARE as its actor default, not one the
+    /// engine applies on silence.
+    pub const fn classic_actor() -> Self {
+        Self {
+            double_jump: true,
+            attack: true,
+            reset: false,
+            ..Self::basic()
+        }
+    }
+
     /// Endgame sandbox defaults: every currently implemented verb is enabled.
     pub const fn sandbox_all() -> Self {
         Self {

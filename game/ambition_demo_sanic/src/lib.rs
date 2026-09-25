@@ -587,7 +587,11 @@ pub fn install_sanic_content(app: &mut App) {
             Some(SANIC_CHARACTER_ID),
             SANIC_CATALOG_RON,
         )
-        .expect("Sanic character catalog should be valid"),
+        .expect("Sanic character catalog should be valid")
+        // What a Sanic character that states no verbs can do as an actor.
+        .with_actor_default_abilities(
+            ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
+        ),
     );
     // §7.6: both forms through the one character seam. Each registration
     // publishes the prepared definition and demands its art.

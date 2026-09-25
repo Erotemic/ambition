@@ -124,7 +124,8 @@ fn stage_provoked_and_wounded(sim: &mut Platformer2dSimHarness) -> (Entity, i32)
 /// every component the absent `reconcile_autonomous_actors` would rebuild is
 /// registered rollback state: `Brain` (cursor), `BrainBinding`, `BodyHealth`,
 /// `ActorSurfaceState` and `CombatCapabilities` (canonical),
-/// and `ActorConfig`, `ActionSet`, `Mounted`, `MountSlot`, `RidingOn` (clone).
+/// and `ActorConfig`, `ActorPolicy`, `ActionSet`, `Mounted`, `MountSlot`,
+/// `RidingOn` (clone).
 ///
 /// the HP assertion is the one that matters, and it is the one that would
 /// Provoked reconstruction must preserve restored current health rather than
@@ -349,5 +350,69 @@ fn a_load_restores_the_simulated_mind_and_rederives_nothing() {
         Some(chosen),
         "a load re-derived the body's mind from its binding instead of restoring \
          the one the simulation had"
+    );
+}
+
+/// THE DRIVER'S POLICY REWINDS WITH THE MIND LOWERED FROM IT.
+///
+/// `ActorPolicy` is what a provocation or a brain command replaces, beside the
+/// `Brain` it lowers. If it did not rewind, a rewind across a provocation would
+/// restore the peaceful mind under the provoked policy, and the ledge and wall
+/// turns (read off the policy every tick) would follow the wrong one.
+///
+/// The survival half alone cannot tell a registered component from one nothing
+/// touches, so the discriminator is a write the simulation did not make: a direct
+/// world write inside a live prediction window is not reproduced on resimulation,
+/// and only a registered component is put back by the load.
+#[test]
+fn a_bodys_policy_is_rollback_state() {
+    use ambition_platformer2d::actor::ActorPolicy;
+    use ambition_platformer2d::characters::brain::{BrainProfile, CharacterBrainTemplate};
+
+    let mut sim = hall_sim();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let world = sim.world_mut();
+    let body = a_bound_body(world);
+    let provoked = BrainProfile {
+        template: CharacterBrainTemplate::Smash,
+        attack_cooldown_s: 0.77,
+        ..Default::default()
+    };
+    world
+        .get_mut::<ActorPolicy>(body)
+        .expect("every actor carries a policy")
+        .0 = provoked;
+    sim.rebase_rollback_history()
+        .expect("the provoked policy becomes the rollback baseline");
+    let loads_before = load_runs(&mut sim);
+    for _ in 0..60 {
+        sim.step(AgentAction::default());
+    }
+    assert_rolled_back(&mut sim, loads_before, "the provoked-policy window");
+    assert_eq!(
+        sim.world().get::<ActorPolicy>(body).map(|policy| policy.0),
+        Some(provoked),
+        "a policy in the baseline did not survive the window"
+    );
+
+    // Not the simulation's write, so a rewind must take it back.
+    sim.world_mut()
+        .get_mut::<ActorPolicy>(body)
+        .expect("every actor carries a policy")
+        .0 = BrainProfile::default();
+    let loads_before = load_runs(&mut sim);
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    assert_rolled_back(&mut sim, loads_before, "the stray-write window");
+    assert_eq!(
+        sim.world().get::<ActorPolicy>(body).map(|policy| policy.0),
+        Some(provoked),
+        "a policy written outside the simulation survived a rewind, so the load \
+         did not restore `ActorPolicy`: it is not registered rollback state, and \
+         a rewind across a provocation would keep the provoked policy under the \
+         restored peaceful mind"
     );
 }

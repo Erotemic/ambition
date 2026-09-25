@@ -180,7 +180,6 @@ mod tests {
         tuning.movement.gravity = 800.0;
         let config = ActorConfig {
             tuning,
-            brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
             // A fixture body, not a seated CPU twin.
             preserves_mirror_symmetry: false,

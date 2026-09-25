@@ -678,13 +678,13 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             &MatchSeat,
             &ambition_platformer2d::characters::brain::Brain,
             Option<&ambition_platformer2d::combat::moveset::ActorMoveset>,
-            &ambition_platformer2d::combat::actor_tuning::ActorConfig,
+            &ambition_platformer2d::combat::actor_tuning::ActorPolicy,
         )>();
         type SeatBrainRow = (usize, String, &'static str, CharacterBrainTemplate, usize);
         let mut rows: Vec<SeatBrainRow> = q
             .iter(w)
             .filter(|(seat, _, _, _)| seat.0 < 2)
-            .map(|(seat, brain, moveset, config)| {
+            .map(|(seat, brain, moveset, policy)| {
                 use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
                 let seed = match brain {
                     Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => {
@@ -696,7 +696,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     seat.0,
                     seed,
                     brain.label(),
-                    config.brain_profile.template,
+                    policy.0.template,
                     moveset.map_or(0, |m| m.0.moves.len()),
                 )
             })
@@ -744,7 +744,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
             // Nothing asserted this before 2026-09-10, and its absence is why
             // `npc_pirate_admiral` duelled with a `melee_brute` on seat 1: the
             // dismount road rebuilt a rider's brain from a hard-coded default
-            // while `ActorConfig.brain_profile.template` still said `Fighter`.
+            // while the seat's policy template still said `Fighter`.
             // Every column of his row — damage rate, start counts, hitstun
             // split, and D-BRAIN-MENU's "jab is 57% of all damage" — was a
             // fighter-vs-brute measurement, under a green suite.
@@ -763,7 +763,7 @@ fn two_cpus_in_the_shipped_composition_damage_each_other() {
                     *label,
                     expected_brain_label(*template),
                     "seat {seat} finished the bout on a `{label}` brain while \
-                     its own ActorConfig asks for {template:?}. The match's \
+                     its own ActorPolicy asks for {template:?}. The match's \
                      policy landed and something rebuilt the brain underneath \
                      it — see the dismount road."
                 );

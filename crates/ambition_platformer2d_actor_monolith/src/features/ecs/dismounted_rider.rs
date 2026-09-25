@@ -72,6 +72,7 @@ pub fn rebuild_dismounted_rider_brains(
     >,
     riders: bevy::prelude::Query<(
         &ActorConfig,
+        &ambition_combat::actor_tuning::ActorPolicy,
         &ambition_combat::components::ActorIdentity,
         Option<&HeldItem>,
         Option<&ambition_boss_encounter::BossConfig>,
@@ -81,7 +82,7 @@ pub fn rebuild_dismounted_rider_brains(
     )>,
 ) {
     for dismount in dismounts.read() {
-        let Ok((config, identity, held_item, boss_config, match_seat)) =
+        let Ok((config, policy, identity, held_item, boss_config, match_seat)) =
             riders.get(dismount.rider)
         else {
             continue;
@@ -96,7 +97,7 @@ pub fn rebuild_dismounted_rider_brains(
         //
         // - A CPU SEAT. An `npc_pirate_admiral` mirror duel at rung 9 ended with
         //   seat 1 running a `melee_brute` after summoning and losing its shark —
-        //   born `fighter`, and its `ActorConfig.brain_profile.template` still
+        //   born `fighter`, and its policy's `template` still
         //   `Fighter` at that moment, so the match's policy had landed and this
         //   rebuild threw it away for the rest of the bout.
         // - A HUMAN SEAT. `killing_the_shark_puts_the_admiral_down_and_frees_the_
@@ -162,6 +163,7 @@ pub fn rebuild_dismounted_rider_brains(
         // dropped any granted verb the rider was wearing.
         let brain = ambition_platformer2d_actor_spawn::brain_builders::dismounted_rider_brain(
             config,
+            &policy.0,
             identity,
             held_item.map(|item| &item.spec),
         );
@@ -177,18 +179,22 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
     use ambition_platformer2d_shared_tangle::body::MountDied;
     use bevy::prelude::*;
 
-    /// The rider's config and identity, spawned together as the cluster
-    /// bundle would.
-    fn rider_config() -> (ActorConfig, ambition_combat::components::ActorIdentity) {
+    /// The rider's config, policy and identity, spawned together as the
+    /// cluster bundle would.
+    fn rider_config() -> (
+        ActorConfig,
+        ambition_combat::actor_tuning::ActorPolicy,
+        ambition_combat::components::ActorIdentity,
+    ) {
+        // ⭐ THE MATCH'S POLICY, which is what a smash seat carries: the duel
+        // measured `template: Fighter` on the admiral's policy at the very tick
+        // its `Brain` had already become a brute.
+        let policy = ambition_combat::actor_tuning::ActorPolicy(BrainProfile {
+            template: ambition_characters::brain::CharacterBrainTemplate::Fighter,
+            ..Default::default()
+        });
         let config = ActorConfig {
             tuning: ActorTuning::default(),
-            // ⭐ THE MATCH'S POLICY, which is what a smash seat carries: the
-            // duel measured `template: Fighter` on the admiral's `ActorConfig`
-            // at the very tick its `Brain` had already become a brute.
-            brain_profile: BrainProfile {
-                template: ambition_characters::brain::CharacterBrainTemplate::Fighter,
-                ..Default::default()
-            },
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "smash_duelist_l9".into(),
             ),
@@ -196,7 +202,7 @@ mod a_seat_keeps_its_brain_and_an_unseated_rider_gets_one_back {
         };
         let identity =
             ambition_combat::components::ActorIdentity::new("seat_fighter#seat1", "Seat Fighter");
-        (config, identity)
+        (config, policy, identity)
     }
 
     fn fighter_brain() -> Brain {

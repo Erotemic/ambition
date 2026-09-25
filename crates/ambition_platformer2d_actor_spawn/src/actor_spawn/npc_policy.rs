@@ -95,10 +95,8 @@ pub fn resolve_npc_brain(
                 "AMBITION_ACTOR_BRAIN_PROFILE names unknown autonomous profile `{name}`"
             )
         });
-        let mut config = body.clone();
-        config.brain_profile = *profile;
         return (
-            super::brain_builders::enemy_default_brain(&config, identity, abilities),
+            super::brain_builders::enemy_default_brain(body, profile, identity, abilities),
             Some((BrainBinding::from_character_profile(), authored)),
         );
     }
@@ -111,10 +109,8 @@ pub fn resolve_npc_brain(
             .is_empty()
     {
         if let Some(profile) = character_profile {
-            let mut config = body.clone();
-            config.brain_profile = profile;
             return (
-                super::brain_builders::enemy_default_brain(&config, identity, abilities),
+                super::brain_builders::enemy_default_brain(body, &profile, identity, abilities),
                 Some((BrainBinding::from_character_profile(), authored)),
             );
         }

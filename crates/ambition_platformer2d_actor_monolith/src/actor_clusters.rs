@@ -9,7 +9,7 @@
 
 use ambition_body_seed::{ActorClusterSeed, ActorMotionPath};
 use ambition_characters::actor::ai::ActorStatus;
-use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d_core::BodyKinematics;
 use bevy::ecs::query::QueryData;
 
@@ -46,7 +46,11 @@ pub struct ActorMut<'a> {
     pub surface: &'a mut ActorSurfaceState,
     pub attack: &'a mut BodyMelee,
     pub identity: &'a ActorIdentity,
-    pub config: &'a mut ActorConfig,
+    /// Construction input: nothing writes it after the body is built.
+    pub config: &'a ActorConfig,
+    /// The autonomous driver's policy. Read-only here: only a provocation or
+    /// a brain command replaces it, never the per-frame integration.
+    pub policy: &'a ActorPolicy,
     pub spawn: &'a mut SpawnBaseline,
     pub motion: &'a mut ActorMotionPath,
     /// Spawn-resolved special-behavior flags (kit vocabulary). Read-only:
@@ -117,7 +121,8 @@ pub struct ActorClusterQueryData {
     /// Who this body is. Required, not `Option`: the cluster bundle
     /// materializes it, so a body without one was never constructed.
     pub identity: &'static ActorIdentity,
-    pub config: &'static mut ActorConfig,
+    pub config: &'static ActorConfig,
+    pub policy: &'static ActorPolicy,
     /// Where this body started, and what it started as.
     ///
     /// ⚠ The doc here named `reset_to_spawn` as its reader until 2026-09-09, and
@@ -169,7 +174,8 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             surface: &mut self.surface,
             attack: &mut self.attack,
             identity: self.identity,
-            config: &mut self.config,
+            config: self.config,
+            policy: self.policy,
             spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: self.caps,
@@ -221,7 +227,8 @@ impl SeedActorMut for ActorClusterSeed {
             surface: &mut self.surface,
             attack: &mut self.attack,
             identity: &self.identity,
-            config: &mut self.config,
+            config: &self.config,
+            policy: &self.policy,
             spawn: &mut self.spawn,
             motion: &mut self.motion,
             caps: &self.caps,

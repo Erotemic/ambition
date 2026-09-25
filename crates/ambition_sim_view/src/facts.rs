@@ -912,7 +912,6 @@ mod tests {
 
         let config = ActorConfig {
             tuning: Default::default(),
-            brain_profile: Default::default(),
             brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                 "burning_flying_shark".into(),
             ),

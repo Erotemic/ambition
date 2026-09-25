@@ -10432,15 +10432,10 @@ fn a_resolved_hit_is_always_an_overlap_so_a_wait_cannot_freeze() {
 /// an unarmed floor leaves them all open and an authored pace does nothing.
 #[test]
 fn a_brain_started_swing_arms_its_authored_pace_and_a_driven_one_does_not() {
-    let config = crate::actor_tuning::ActorConfig {
-        tuning: Default::default(),
-        brain_profile: ambition_characters::brain::BrainProfile {
-            attack_cooldown_s: 0.5,
-            ..Default::default()
-        },
-        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
-        preserves_mirror_symmetry: false,
-    };
+    let policy = crate::actor_tuning::ActorPolicy(ambition_characters::brain::BrainProfile {
+        attack_cooldown_s: 0.5,
+        ..Default::default()
+    });
     let spawn = |app: &mut App, driven: bool| {
         let mut body = app.world_mut().spawn((
             ActorMoveset(swat_moveset()),
@@ -10452,7 +10447,7 @@ fn a_brain_started_swing_arms_its_authored_pace_and_a_driven_one_does_not() {
                 facing: 1.0,
             },
             crate::components::BodyMelee::default(),
-            config.clone(),
+            policy,
             ambition_characters::brain::Brain::stand_still(),
         ));
         if driven {

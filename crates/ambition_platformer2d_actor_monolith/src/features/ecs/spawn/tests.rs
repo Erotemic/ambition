@@ -30,7 +30,11 @@ fn fixture_identity() -> ambition_combat::components::ActorIdentity {
 
 fn body_driven_by(
     template: ambition_characters::brain::CharacterBrainTemplate,
-) -> (ActorConfig, ambition_platformer2d_core::AbilitySet) {
+) -> (
+    ActorConfig,
+    ambition_characters::brain::BrainProfile,
+    ambition_platformer2d_core::AbilitySet,
+) {
     let mut definition = ambition_characters::actor::definition::CharacterDefinition::new(
         "fixture_body",
         "Fixture Body",
@@ -67,7 +71,7 @@ fn body_driven_by(
         &[],
     );
     let abilities = seed.body.0.abilities.abilities;
-    (seed.config, abilities)
+    (seed.config, seed.policy.0, abilities)
 }
 
 /// The room-construction choke point lowers authored placements through EXACTLY
@@ -428,26 +432,26 @@ fn encounter_mob_spawns_with_brain_components() {
 fn enemy_default_brain_picks_the_family_its_policy_names() {
     use ambition_characters::brain::CharacterBrainTemplate as Template;
 
-    let (sandbag, abilities) = body_driven_by(Template::StandStill);
+    let (sandbag, sandbag_policy, abilities) = body_driven_by(Template::StandStill);
     assert!(matches!(
-        enemy_default_brain(&sandbag, &fixture_identity(), abilities),
+        enemy_default_brain(&sandbag, &sandbag_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
-    let (diver, abilities) = body_driven_by(Template::ChargeCrash);
+    let (diver, diver_policy, abilities) = body_driven_by(Template::ChargeCrash);
     assert!(matches!(
-        enemy_default_brain(&diver, &fixture_identity(), abilities),
+        enemy_default_brain(&diver, &diver_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
-    let (brute, abilities) = body_driven_by(Template::MeleeBrute);
+    let (brute, brute_policy, abilities) = body_driven_by(Template::MeleeBrute);
     assert!(matches!(
-        enemy_default_brain(&brute, &fixture_identity(), abilities),
+        enemy_default_brain(&brute, &brute_policy, &fixture_identity(), abilities),
         Brain::StateMachine(StateMachineCfg::MeleeBrute { .. })
     ));
 
-    let (striker, abilities) = body_driven_by(Template::Smash);
-    match enemy_default_brain(&striker, &fixture_identity(), abilities) {
+    let (striker, striker_policy, abilities) = body_driven_by(Template::Smash);
+    match enemy_default_brain(&striker, &striker_policy, &fixture_identity(), abilities) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
             assert!((cfg.chase_speed - 155.0).abs() < 0.01);
@@ -467,9 +471,9 @@ fn enemy_default_brain_picks_the_family_its_policy_names() {
 /// hostile.
 #[test]
 fn a_body_forced_hostile_swings_when_its_kit_can() {
-    let (enemy, abilities) =
+    let (enemy, enemy_policy, abilities) =
         body_driven_by(ambition_characters::brain::CharacterBrainTemplate::MeleeBrute);
-    let mut brain = enemy_default_brain(&enemy, &fixture_identity(), abilities);
+    let mut brain = enemy_default_brain(&enemy, &enemy_policy, &fixture_identity(), abilities);
     match &mut brain {
         Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
             cfg.aggressiveness = 1.0;

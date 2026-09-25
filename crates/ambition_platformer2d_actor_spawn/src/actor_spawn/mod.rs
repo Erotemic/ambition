@@ -477,6 +477,7 @@ impl EnemyActorSpawnPlan {
     ) -> Self {
         let brain = self::brain_builders::enemy_default_brain(
             &enemy.config,
+            &enemy.policy.0,
             &enemy.identity,
             enemy.body.0.abilities.abilities,
         );
@@ -765,7 +766,7 @@ impl NpcActorSpawnPlan {
             Some(&self.action_set),
             self.seed.body.0.abilities.abilities,
         );
-        self.seed.config.brain_profile = mind.projection.brain_profile;
+        self.seed.policy.0 = mind.projection.brain_profile;
         self.brain = mind.projection.brain;
         if let Some((binding, _)) = self.brain_binding.as_mut() {
             binding.source = mind.source;
@@ -982,7 +983,6 @@ fn boss_actor_cluster(
     let weight = tuning.weight;
     let actor_config = ambition_combat::actor_tuning::ActorConfig {
         tuning,
-        brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.

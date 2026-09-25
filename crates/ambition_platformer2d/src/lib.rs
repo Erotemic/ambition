@@ -373,6 +373,8 @@ pub mod actor {
 
     /// What a game spawns and configures.
     pub use ambition_combat::actor_tuning::ActorConfig;
+    /// The policy a spawned body's autonomous driver plays it by.
+    pub use ambition_combat::actor_tuning::ActorPolicy;
     /// Who a spawned body is: its stable id and display name.
     pub use ambition_combat::components::ActorIdentity;
     pub use ambition_combat::components::ActorFaction;

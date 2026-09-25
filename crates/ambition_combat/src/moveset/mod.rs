@@ -3034,7 +3034,7 @@ pub fn trigger_moveset_moves(
     // excluded, because the pace is the driver's decision and a human in the
     // same body must not inherit it.
     mut brain_paced: Query<
-        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorConfig),
+        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorPolicy),
         (
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::Without<ambition_characters::control::DrivingParticipant>,
@@ -3917,7 +3917,7 @@ pub fn trigger_moveset_moves(
 /// value is the profile's authored `attack_cooldown_s`; unauthored is no floor.
 fn arm_brain_swing_pacing(
     brain_paced: &mut Query<
-        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorConfig),
+        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorPolicy),
         (
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::Without<ambition_characters::control::DrivingParticipant>,
@@ -3929,8 +3929,8 @@ fn arm_brain_swing_pacing(
     if !matches!(proposer, ProposedVerb::Attack) {
         return;
     }
-    if let Ok((mut melee, config)) = brain_paced.get_mut(entity) {
-        melee.cooldown = config.brain_profile.attack_cooldown_s.max(0.0);
+    if let Ok((mut melee, policy)) = brain_paced.get_mut(entity) {
+        melee.cooldown = policy.0.attack_cooldown_s.max(0.0);
     }
 }
 

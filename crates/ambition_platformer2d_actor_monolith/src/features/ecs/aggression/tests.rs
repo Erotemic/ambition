@@ -895,9 +895,9 @@ fn an_authored_provocation_installs_the_characters_policy_and_records_it() {
     app.update();
 
     let world = app.world();
-    let config = world.get::<ambition_combat::actor_tuning::ActorConfig>(npc).unwrap();
+    let policy = world.get::<ambition_combat::actor_tuning::ActorPolicy>(npc).unwrap();
     let brain = world.get::<Brain>(npc).unwrap();
-    assert_eq!(config.brain_profile, profile, "the character's policy is the live one");
+    assert_eq!(policy.0, profile, "the character's policy is the live one");
     assert_ne!(
         brain.label(),
         "smash",
@@ -954,7 +954,7 @@ fn an_already_hostile_body_records_no_policy_it_was_not_given() {
     app.update();
 
     let world = app.world();
-    assert_ne!(world.get::<ambition_combat::actor_tuning::ActorConfig>(npc).unwrap().brain_profile, profile);
+    assert_ne!(world.get::<ambition_combat::actor_tuning::ActorPolicy>(npc).unwrap().0, profile);
     assert_eq!(
         world.get::<BrainBinding>(npc).unwrap().source,
         AutonomousSource::CharacterProfile,

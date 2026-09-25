@@ -116,7 +116,7 @@ fn tick_peaceful(
             .wall
             .on_wall
             .then_some(seed.body.0.wall.wall_normal_x.signum()),
-        turns_at_walls: seed.config.brain_profile.turns_at_walls
+        turns_at_walls: seed.policy.0.turns_at_walls
             && !seed.config.tuning.surface_walker,
         ground_ends_ahead: false,
         attack_kit: Vec::new(),
@@ -635,7 +635,7 @@ fn movement_integration_does_not_auto_turn_at_a_wall() {
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
     );
-    body.config.brain_profile.turns_at_walls = true;
+    body.policy.0.turns_at_walls = true;
     body.kin.facing = 1.0;
     let mut model = body.config.tuning.motion_model();
 
@@ -678,7 +678,7 @@ fn stopping_in_open_space_preserves_facing() {
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
     );
-    body.config.brain_profile.turns_at_walls = true;
+    body.policy.0.turns_at_walls = true;
     body.kin.facing = 1.0;
     body.kin.vel.x = 120.0;
     let mut model = body.config.tuning.motion_model();

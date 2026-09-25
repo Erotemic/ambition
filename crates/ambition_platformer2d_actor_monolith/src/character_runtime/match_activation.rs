@@ -75,6 +75,7 @@ fn realize_seat(
             // that forbids shielding reaches for a verb the body does not have.
             ambition_platformer2d_actor_spawn::brain_builders::enemy_default_brain(
                 &seed.config,
+                &seed.policy.0,
                 &seed.identity,
                 seat.effective_abilities
                     .unwrap_or(seed.body.0.abilities.abilities),

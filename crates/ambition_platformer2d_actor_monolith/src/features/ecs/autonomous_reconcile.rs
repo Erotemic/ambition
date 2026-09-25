@@ -43,7 +43,6 @@ pub(crate) fn peaceful_config() -> PeacefulConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     // ⚠ TEST-ONLY: the production half of this module stopped naming `ActorConfig`
     // when `provoked_projection` moved to `actor_spawn::conversion`, so importing
     // it at file scope is an unused import in a release build.
@@ -53,7 +52,6 @@ mod tests {
     fn config_fixture() -> ActorConfig {
         ActorConfig {
             tuning: ActorTuning::default(),
-            brain_profile: BrainProfile::default(),
             brain: CharacterBrain::Passive,
             // A fixture body, not a seated CPU twin.
             preserves_mirror_symmetry: false,

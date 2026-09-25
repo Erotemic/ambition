@@ -232,7 +232,11 @@ mod authority_split_tests {
             // Presentation facts.
             dream_seed: _,
             ranged_visual: _,
-            // Mutable runtime state. `ActorConfig` is rollback registered, so this value rewinds.
+            // The character's contact hazard, which a summoner may decline at
+            // construction. Not runtime state: a live withdrawal is its own
+            // component, and nothing writes a tuning field after spawn (the
+            // cluster view borrows `ActorConfig` read-only). What does change at
+            // runtime, the driver's policy, is `ActorPolicy`.
             body_contact_damage: _,
         } = ActorTuning::default();
 
@@ -257,22 +261,33 @@ mod authority_split_tests {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ContactThreatWithdrawn(pub bool);
 
-/// Authored configuration for an actor (any disposition). Archetype-free by
-/// construction: the named roster enum is resolved at spawn and projected into
-/// generic kit data (`tuning` + `brain_profile` + the `CombatCapabilities`
+/// The policy this body's AUTONOMOUS driver plays it by: template, radii,
+/// normalized effort, swing pace.
+///
+/// Split out of [`ActorConfig`] because it is the one thing about an actor that
+/// changes after construction: a provocation installs the provoked policy and
+/// a brain command installs another, and the brain rebuilds read it. Keeping it
+/// in the config made the whole construction record a runtime-written row.
+/// Required by [`ActorConfig`], so every actor has one on every road, including
+/// a rollback restore.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct ActorPolicy(pub BrainProfile);
+
+/// Authored configuration for an actor (any disposition), written once at
+/// construction. Archetype-free: the named roster enum is resolved at spawn and
+/// projected into generic kit data (`tuning` + the `CombatCapabilities`
 /// component), so neither the per-frame integration nor the runtime brain
-/// rebuilds (provoke, dismount) call back into the content roster.
+/// rebuilds (provoke, dismount) call back into the content roster. The policy
+/// the driver plays by changes at runtime and is its own component,
+/// [`ActorPolicy`].
 ///
 /// WHO the body is lives on [`crate::components::ActorIdentity`], not here.
 #[derive(Component, Clone, Debug)]
+#[require(ActorPolicy)]
 pub struct ActorConfig {
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
     pub tuning: ActorTuning,
-    /// Generic brain-construction inputs (kit vocabulary), projected
-    /// from the archetype at spawn so the runtime brain rebuilds
-    /// reconstruct a brain without naming the roster enum.
-    pub brain_profile: BrainProfile,
     /// The placement's AUTHORED brain key (`Custom("snake")`, `Guard`, …), a
     /// content label read by the tag and sprite passes. Written at construction
     /// and never changed: the live mind is `Brain`'s, not this field's.

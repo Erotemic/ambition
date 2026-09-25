@@ -397,7 +397,6 @@ fn release_provocation_pacifies_and_restores_default() {
     };
     app.world_mut().entity_mut(e).insert(ActorConfig {
         tuning: built_tuning.clone(),
-        brain_profile: ambition_characters::brain::BrainProfile::default(),
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
         preserves_mirror_symmetry: false,
     });
@@ -513,7 +512,7 @@ fn villager() -> ambition_combat::components::ActorIdentity {
     ambition_combat::components::ActorIdentity::new("villager", "Villager")
 }
 
-fn character_first_config(brain_profile: ambition_characters::brain::BrainProfile) -> ActorConfig {
+fn character_first_config() -> ActorConfig {
     ActorConfig {
         tuning: ambition_combat::actor_tuning::ActorTuning {
             // deliberately NOT the generic peaceful seed
@@ -524,7 +523,6 @@ fn character_first_config(brain_profile: ambition_characters::brain::BrainProfil
             max_run_speed: 91.0,
             ..Default::default()
         },
-        brain_profile,
         brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
         // A fixture body, not a seated CPU twin.
         preserves_mirror_symmetry: false,
@@ -546,7 +544,7 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
             SimId::placement(sim),
             // The live mind matches the live policy: this body IS fighting.
             crate::features::ecs::character_policy::brain_from_profile(
-                &character_first_config(provoked_policy()),
+                &character_first_config(),
                 &villager(),
                 provoked_policy(),
                 Default::default(),
@@ -557,7 +555,8 @@ fn spawn_provoked_character_first(app: &mut App, sim: &str) -> Entity {
                 pos: ae::Vec2::ZERO,
                 ..Default::default()
             },
-            character_first_config(provoked_policy()),
+            character_first_config(),
+            ambition_combat::actor_tuning::ActorPolicy(provoked_policy()),
             villager(),
             ambition_characters::actor::WornCharacter::new("npc_villager"),
         ))
@@ -579,9 +578,9 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
     );
     assert_ne!(
         app.world()
-            .get::<ActorConfig>(e)
+            .get::<ambition_combat::actor_tuning::ActorPolicy>(e)
             .unwrap()
-            .brain_profile
+            .0
             .template,
         character_policy().template,
         "precondition: the body's CURRENT policy is not its character's — \
@@ -605,9 +604,9 @@ fn a_released_character_returns_to_its_own_policy_not_the_provoked_one() {
     );
     assert_eq!(
         app.world()
-            .get::<ActorConfig>(e)
+            .get::<ambition_combat::actor_tuning::ActorPolicy>(e)
             .unwrap()
-            .brain_profile
+            .0
             .template,
         character_policy().template,
         "and the live policy field agrees with the mind, rather than being \
@@ -683,7 +682,7 @@ fn a_release_during_temporary_control_still_changes_the_source() {
 /// A CHARACTER-FIRST DEFAULT THAT CANNOT BE RESOLVED IS REJECTED, NOT
 /// COVERED FOR.
 ///
-/// `ActorConfig::brain_profile` is the policy the body is running NOW and provocation writes it, so
+/// `ActorPolicy` is the policy the body is running NOW and provocation writes it, so
 /// on a body whose `WornCharacter` or prepared cast went missing, "ask the character, and otherwise
 /// trust whatever mind is installed" restores the PROVOKED policy and labels it the character's
 /// own. Silently. Forever.

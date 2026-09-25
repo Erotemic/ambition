@@ -54,6 +54,9 @@ fn fighter_cognition_seed(enemy: &ActorConfig, id: &str, level: u8) -> u64 {
 /// Build the enemy's default `Brain` from its resolved controller profile.
 pub fn enemy_default_brain(
     enemy: &ActorConfig,
+    // The policy the driver plays by (`ActorPolicy`): the body's current one,
+    // or the one a provocation is installing.
+    policy: &BrainProfile,
     // Who the body is: per-actor streams and jitter are keyed on its id.
     identity: &ActorIdentity,
     // **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
@@ -62,10 +65,10 @@ pub fn enemy_default_brain(
     // that reaches for different things.
     body: ambition_platformer2d_core::AbilitySet,
 ) -> Brain {
-    match enemy.brain_profile.template {
+    match policy.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Fighter => {
-            let level = enemy.brain_profile.fighter_level;
+            let level = policy.fighter_level;
             let cfg = ambition_characters::brain::fighter::FighterCfg::new(
                 ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
             );
@@ -81,18 +84,18 @@ pub fn enemy_default_brain(
         CharacterBrainTemplate::Wanderer => Brain::StateMachine(StateMachineCfg::Wanderer {
             cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
         }),
-        CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy, &identity.id),
-        CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy, &identity.id),
-        CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy, &identity.id),
-        CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy, &identity.id),
+        CharacterBrainTemplate::MeleeBrute => melee_brute_brain_for_enemy(enemy, policy, &identity.id),
+        CharacterBrainTemplate::ChargeCrash => charge_crash_brain_for_enemy(enemy, policy, &identity.id),
+        CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy, policy, &identity.id),
+        CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy, policy, &identity.id),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
-            cfg: smash_cfg_from_spec(&enemy.brain_profile, &enemy.tuning, body),
+            cfg: smash_cfg_from_spec(policy, &enemy.tuning, body),
             state: SmashState {
                 rng_seed: seed_from_id(&identity.id) as u64,
                 ..Default::default()
             },
         }),
-        CharacterBrainTemplate::Aerial => aerial_brain_for_enemy(enemy, &identity.id),
+        CharacterBrainTemplate::Aerial => aerial_brain_for_enemy(enemy, policy, &identity.id),
     }
 }
 
@@ -100,20 +103,20 @@ pub fn enemy_default_brain(
 /// parrot). Per-actor jitter keeps a flock from diving in lockstep. Shares
 /// `StateMachineCfg::Aerial` with the peaceful catalog bird — only
 /// `aggressiveness` differs.
-fn aerial_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
+fn aerial_brain_for_enemy(enemy: &ActorConfig, policy: &BrainProfile, id: &str) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(id));
     let cruise_speed = t.chase_speed * (0.55 + 0.25 * jitters.0);
     let dive_speed = (t.chase_speed * (1.7 + 0.5 * jitters.1)).max(360.0);
     // Dive altitude / range: a bit of spread so two parrots stack their dives.
-    let roam_radius = (110.0 + 60.0 * jitters.2).max(enemy.brain_profile.attack_range * 1.5);
+    let roam_radius = (110.0 + 60.0 * jitters.2).max(policy.attack_range * 1.5);
     Brain::StateMachine(StateMachineCfg::Aerial {
         cfg: ambition_characters::brain::state_machine::AerialCfg {
             aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
             cruise_speed,
             dive_speed,
-            aggro_radius: enemy.brain_profile.aggro_radius,
-            attack_range: enemy.brain_profile.attack_range,
+            aggro_radius: policy.aggro_radius,
+            attack_range: policy.attack_range,
             roam_radius,
         },
         state: ambition_characters::brain::state_machine::AerialState::default(),
@@ -127,6 +130,7 @@ fn aerial_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
 /// once the hostility flag is set.
 pub fn aggressive_brain_for_enemy(
     enemy: &ActorConfig,
+    policy: &BrainProfile,
     identity: &ActorIdentity,
     repertoire: Option<&ActionSet>,
     body: ambition_platformer2d_core::AbilitySet,
@@ -146,22 +150,27 @@ pub fn aggressive_brain_for_enemy(
     // is empty, which is the brain below rather than a skirmisher.
     let ranged_only = repertoire.is_some_and(|set| set.ranged.is_some() && set.melee.is_none());
     if ranged_only {
-        return skirmisher_brain_from_tuning(&identity.id, &enemy.tuning, &enemy.brain_profile, true);
+        return skirmisher_brain_from_tuning(&identity.id, &enemy.tuning, policy, true);
     }
 
-    if let Some(min_aggro) = enemy.brain_profile.provoke_forced_brute_min_aggro {
-        return forced_hostile_melee_brute_brain(enemy, &identity.id, min_aggro);
+    if let Some(min_aggro) = policy.provoke_forced_brute_min_aggro {
+        return forced_hostile_melee_brute_brain(enemy, policy, &identity.id, min_aggro);
     }
-    enemy_default_brain(enemy, identity, body)
+    enemy_default_brain(enemy, policy, identity, body)
 }
 
-fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, id: &str, min_aggro_radius: f32) -> Brain {
+fn forced_hostile_melee_brute_brain(
+    enemy: &ActorConfig,
+    policy: &BrainProfile,
+    id: &str,
+    min_aggro_radius: f32,
+) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(id));
     let aggro_radius =
-        enemy.brain_profile.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
+        policy.aggro_radius.max(min_aggro_radius) * (0.9 + 0.2 * jitters.0);
     let chase_speed = t.chase_speed * (0.9 + 0.2 * jitters.1);
-    let attack_range = enemy.brain_profile.attack_range.max(56.0) * (0.95 + 0.1 * jitters.2);
+    let attack_range = policy.attack_range.max(56.0) * (0.95 + 0.1 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
             aggressiveness: 1.0,
@@ -173,12 +182,12 @@ fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, id: &str, min_aggro_rad
     })
 }
 
-pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
+pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig, policy: &BrainProfile, id: &str) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(id));
-    let aggro_radius = enemy.brain_profile.aggro_radius * (0.8 + 0.4 * jitters.0);
+    let aggro_radius = policy.aggro_radius * (0.8 + 0.4 * jitters.0);
     let chase_speed = t.chase_speed * (0.85 + 0.3 * jitters.1);
-    let attack_range = enemy.brain_profile.attack_range * (0.9 + 0.2 * jitters.2);
+    let attack_range = policy.attack_range * (0.9 + 0.2 * jitters.2);
     Brain::StateMachine(StateMachineCfg::MeleeBrute {
         cfg: MeleeBruteCfg {
             aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
@@ -190,16 +199,16 @@ pub(super) fn melee_brute_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brai
     })
 }
 
-pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
+pub(super) fn skirmisher_brain_for_enemy(enemy: &ActorConfig, policy: &BrainProfile, id: &str) -> Brain {
     skirmisher_brain_from_tuning(
         id,
         &enemy.tuning,
-        &enemy.brain_profile,
+        policy,
         enemy.tuning.is_hostile,
     )
 }
 
-fn sniper_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
+fn sniper_brain_for_enemy(enemy: &ActorConfig, policy: &BrainProfile, id: &str) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(id));
     let base_cooldown_s = 1.5;
@@ -208,7 +217,7 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     Brain::StateMachine(StateMachineCfg::Sniper {
         cfg: SniperCfg {
             aggressiveness: if t.is_hostile { 1.0 } else { 0.0 },
-            aggro_radius: enemy.brain_profile.aggro_radius,
+            aggro_radius: policy.aggro_radius,
             fire_cooldown_s,
         },
         state: SniperState {
@@ -217,19 +226,19 @@ fn sniper_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
     })
 }
 
-fn charge_crash_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
+fn charge_crash_brain_for_enemy(enemy: &ActorConfig, policy: &BrainProfile, id: &str) -> Brain {
     let t = &enemy.tuning;
     let jitters = five_f32s_from_seed(seed_from_id(id));
-    let aggro_radius = enemy.brain_profile.aggro_radius * (0.85 + 0.3 * jitters.0);
+    let aggro_radius = policy.aggro_radius * (0.85 + 0.3 * jitters.0);
     let cruise_speed = t.chase_speed * (0.85 + 0.25 * jitters.1);
     let charge_speed = (cruise_speed * (2.0 + 0.4 * jitters.2)).max(360.0);
-    let bite_range = enemy.brain_profile.attack_range * (0.85 + 0.15 * jitters.3);
+    let bite_range = policy.attack_range * (0.85 + 0.15 * jitters.3);
     let charge_duration_s = 0.38 + 0.18 * jitters.4;
     let charge_cooldown_s = 0.75 + 0.55 * jitters.1;
     let standoff_px =
-        (enemy.brain_profile.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
+        (policy.attack_range * 0.40).max(140.0) * (0.8 + 0.4 * jitters.2);
     let vertical_wobble_px =
-        (enemy.brain_profile.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
+        (policy.attack_range * 0.12).max(20.0) * (0.8 + 0.4 * jitters.3);
     let orbit_drift_rad_s = 0.55 + 0.7 * jitters.4;
     Brain::StateMachine(StateMachineCfg::ChargeCrash {
         cfg: ChargeCrashCfg {
@@ -267,13 +276,14 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig, id: &str) -> Brain {
 /// default is peaceful. Dismount means "fall off and fight".
 pub fn dismounted_rider_brain(
     rider: &ActorConfig,
+    policy: &BrainProfile,
     identity: &ActorIdentity,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
 ) -> Brain {
     if held_item.is_some_and(|item| item.grants_ranged()) {
-        skirmisher_brain_from_tuning(&identity.id, &rider.tuning, &rider.brain_profile, true)
+        skirmisher_brain_from_tuning(&identity.id, &rider.tuning, policy, true)
     } else {
-        forced_hostile_melee_brute_brain(rider, &identity.id, 540.0)
+        forced_hostile_melee_brute_brain(rider, policy, &identity.id, 540.0)
     }
 }
 
@@ -391,26 +401,26 @@ mod cognition_stream_tests {
         seat_index: usize,
         level: u8,
         mirrors: bool,
-    ) -> (ActorIdentity, ActorConfig) {
+    ) -> (ActorIdentity, ActorConfig, BrainProfile) {
         let identity = ActorIdentity::new(format!("{character}#seat{seat_index}"), character);
         let config = ActorConfig {
             tuning: ActorTuning::default(),
-            brain_profile: BrainProfile {
-                template: CharacterBrainTemplate::Fighter,
-                fighter_level: level,
-                ..Default::default()
-            },
             brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
             preserves_mirror_symmetry: mirrors,
         };
-        (identity, config)
+        let policy = BrainProfile {
+            template: CharacterBrainTemplate::Fighter,
+            fighter_level: level,
+            ..Default::default()
+        };
+        (identity, config, policy)
     }
 
     /// The stream a seat's fighter brain is actually built on — asked through the
     /// real builder, not through the seed helper, so the test constrains the
     /// composition and not an internal function.
-    fn stream_for((identity, config): &(ActorIdentity, ActorConfig)) -> u64 {
-        match enemy_default_brain(config, identity, ambition_platformer2d_core::AbilitySet::NONE) {
+    fn stream_for((identity, config, policy): &(ActorIdentity, ActorConfig, BrainProfile)) -> u64 {
+        match enemy_default_brain(config, policy, identity, ambition_platformer2d_core::AbilitySet::NONE) {
             Brain::StateMachine(StateMachineCfg::Fighter { state, .. }) => state.noise,
             other => panic!("expected a fighter brain, got {other:?}"),
         }
@@ -562,8 +572,8 @@ mod cognition_stream_tests {
                 cfg: mirror_cfg, ..
             }),
         ) = (
-            enemy_default_brain(&ordinary.1, &ordinary.0, ambition_platformer2d_core::AbilitySet::NONE),
-            enemy_default_brain(&mirroring.1, &mirroring.0, ambition_platformer2d_core::AbilitySet::NONE),
+            enemy_default_brain(&ordinary.1, &ordinary.2, &ordinary.0, ambition_platformer2d_core::AbilitySet::NONE),
+            enemy_default_brain(&mirroring.1, &mirroring.2, &mirroring.0, ambition_platformer2d_core::AbilitySet::NONE),
         )
         else {
             panic!("both seats must build fighter brains");
@@ -676,10 +686,9 @@ pub fn provoked_projection(
     body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
     // the POLICY is the provoked one; the BODY is the one that was struck.
-    let mut hostile_config = current_config.clone();
-    hostile_config.brain_profile = brain_profile;
     let brain = aggressive_brain_for_enemy(
-        &hostile_config,
+        current_config,
+        &brain_profile,
         identity,
         repertoire,
         body,

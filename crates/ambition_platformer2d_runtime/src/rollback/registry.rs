@@ -764,7 +764,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// GNU-ton's conductor latches where the player stood when a beat began and
 /// holds the fists' hit-volume handles; a rewind that kept them would land a
 /// slam where the player stood on the other timeline.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 230;
+/// ⛔⛤ 230 -> 231: `actor.policy` joins (W017). `ActorConfig::brain_profile`
+/// left the config for its own `ActorPolicy` component, the one actor fact a
+/// provocation or a brain command replaces; `actor.config` is construction
+/// input and nothing writes it after spawn.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 231;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

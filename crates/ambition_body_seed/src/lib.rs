@@ -17,11 +17,12 @@
 //! - attack windup/active/cooldown/axis → [`BodyMelee`] (component)
 //! - respawn countdown        → [`ActorStatus`] (liveness → [`ambition_characters::actor::BodyHealth`];
 //!   damage-blink + post-hit i-frame → [`ambition_characters::actor::BodyCombat`])
-//! - tuning/brain_profile/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
+//! - tuning/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
+//! - the autonomous driver's policy → [`ActorPolicy`]
 //! - patrol path             → [`ActorMotionPath`]
 
 use ambition_characters::actor::ai::ActorStatus;
-use ambition_combat::actor_tuning::ActorConfig;
+use ambition_combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d_core::BodyKinematics;
 use bevy::prelude::Component;
 
@@ -110,6 +111,10 @@ pub struct ActorClusterSeed {
     /// bundle as everything else, so no body exists without it.
     pub identity: ActorIdentity,
     pub config: ActorConfig,
+    /// The policy the body's autonomous driver plays it by. Its own field and
+    /// component because it is the part a provocation or a brain command
+    /// replaces at runtime; `config` is construction input only.
+    pub policy: ActorPolicy,
     /// The body a reset hands back — position, authored size, authored gravity
     /// scale. ⛔ IT IS NOT PART OF `ActorConfig`: a mount dissolving a dead
     /// shark restores this and nothing else about the rider's identity, and a
@@ -233,6 +238,8 @@ pub type ActorClusterBundle = (
     ActorIdentity,
     // A fresh body's ranged weapon starts ready; nothing about it is authored.
     ambition_combat::RangedRefire,
+    // Last so the positional fixtures that index this tuple keep their slots.
+    ActorPolicy,
 );
 
 /// The death policy of an NPC PLACEMENT: permanent (ADR 0022 — an NPC is a unique
@@ -517,7 +524,6 @@ impl ActorClusterSeed {
             identity: ActorIdentity::new(id, name),
             config: ActorConfig {
                 tuning,
-                brain_profile: ambition_combat::actor_tuning::BrainProfile::default(),
                 brain: config_brain,
                 // this road takes no `CharacterBodyBlueprint`, so no authored
                 // character trait reaches it. A peaceful catalog NPC has no CPU
@@ -526,6 +532,8 @@ impl ActorClusterSeed {
                 // grows a blueprint first.
                 preserves_mirror_symmetry: false,
             },
+            // No autonomous profile reaches this road; a provocation installs one.
+            policy: ActorPolicy::default(),
             motion: ActorMotionPath(motion),
             // A floating catalog body (the stochastic parrot) flies through the
             // shared flight limb from spawn; a grounded NPC runs the grounded spine.
@@ -754,13 +762,13 @@ impl ActorClusterSeed {
             identity: ActorIdentity::new(id, display_name),
             config: ActorConfig {
                 tuning,
-                brain_profile,
                 brain: config_brain.clone(),
                 // the character's own answer, carried on the blueprint —
                 // so a seat, a room spawn and a rewind rebuild all give this
                 // body the same cognitive stream.
                 preserves_mirror_symmetry,
             },
+            policy: ActorPolicy(brain_profile),
             // a practice target is skipped for the same reason the archetype
             // road skips it: a dummy on a patrol path is a dummy that walks away
             // from the player practising on it.
@@ -830,6 +838,7 @@ impl ActorClusterSeed {
             combat_tuning,
             self.identity,
             ambition_combat::RangedRefire::default(),
+            self.policy,
         )
     }
 }

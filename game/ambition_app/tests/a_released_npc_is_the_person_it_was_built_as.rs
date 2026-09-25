@@ -32,7 +32,10 @@ fn body_facts(
             .cloned()
             .unwrap_or_default(),
         *world.get::<ActorDisposition>(npc).expect("an NPC carries a disposition"),
-        config.brain_profile,
+        world
+            .get::<ambition_platformer2d::actor::ActorPolicy>(npc)
+            .expect("an NPC carries its policy")
+            .0,
     )
 }
 

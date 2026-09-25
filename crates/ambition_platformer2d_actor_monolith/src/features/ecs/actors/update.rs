@@ -516,7 +516,7 @@ pub fn tick_actor_brains(
                     // whose profile turns there. The rider knows its surface, so
                     // the question is asked along it: a stride ahead, which is
                     // half the body plus a margin.
-                    if body.config.brain_profile.turns_at_ledges {
+                    if body.policy.0.turns_at_ledges {
                         if let ae::MotionModel::SurfaceMomentum(momentum) = motion_model {
                             snapshot.ground_ends_ahead = ae::movement::ground_ends_ahead(
                                 &feature_world,
@@ -2196,7 +2196,7 @@ fn build_enemy_brain_snapshot(
         // the LOGIC is unchanged and is not a detail: a wall means "turn
         // around" to a walker and means "keep going" to a body whose entire
         // locomotion is walls.
-        turns_at_walls: body.config.brain_profile.turns_at_walls && !motion_facts.adhesive_crawling,
+        turns_at_walls: body.policy.0.turns_at_walls && !motion_facts.adhesive_crawling,
         // Needs the collision world, which this builder does not take; the
         // caller asks it for the bodies that turn at ledges.
         ground_ends_ahead: false,

@@ -10,7 +10,7 @@ use crate::common::{base, fixed_60hz_room_sim};
 use ambition_app::{AgentAction, Platformer2dSimHarness};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::actor::WornCharacter;
-use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+use ambition_platformer2d::combat::actor_tuning::{ActorConfig, ActorPolicy};
 use ambition_platformer2d::combat::components::{ActorDisposition, ActorIdentity};
 
 const CHARACTER: &str = "npc_puppy_slug";
@@ -226,7 +226,7 @@ fn every_hall_body_wears_the_actor_verbs_preparation_resolved() {
 ///
 /// The goblin drives by the catalog's `medium_striker`, which authors
 /// `attack_cooldown_s`. The move road arms the body's melee floor from
-/// `ActorConfig::brain_profile`, so a pace that stopped at the catalog would
+/// `ActorPolicy`, so a pace that stopped at the catalog would
 /// arm nothing.
 #[test]
 fn a_hall_goblin_carries_the_swing_pace_its_shared_policy_authors() {
@@ -235,11 +235,11 @@ fn a_hall_goblin_carries_the_swing_pace_its_shared_policy_authors() {
         hall.step(base());
     }
     let world = hall.world_mut();
-    let mut q = world.query::<(&WornCharacter, &ActorConfig)>();
+    let mut q = world.query::<(&WornCharacter, &ActorPolicy)>();
     let paces: Vec<f32> = q
         .iter(world)
         .filter(|(worn, _)| worn.id() == "goblin")
-        .map(|(_, config)| config.brain_profile.attack_cooldown_s)
+        .map(|(_, policy)| policy.0.attack_cooldown_s)
         .collect();
     assert!(!paces.is_empty(), "the Hall staged no goblin");
     for pace in paces {

@@ -418,6 +418,30 @@ where
     // nothing enforces. ⛔ the STABLE NAME is unchanged — `actor.config` — so the
     // wire did not move; only the OWNER string did.
     registrar.rollback_component_clone::<crate::actor_tuning::ActorConfig>(OWNER, "actor.config");
+    // The runtime-written half `actor.config` shed (W017): provocation and brain
+    // commands replace it, so it rewinds like the config did. Probed on the
+    // fields a tick reads and a provocation changes, so a rewind that kept the
+    // wrong policy localizes to this row rather than to the brain beside it.
+    registrar.rollback_component_clone_probed::<crate::actor_tuning::ActorPolicy>(
+        OWNER,
+        "actor.policy",
+        |policy| {
+            let p = &policy.0;
+            [
+                p.template as u64,
+                p.fighter_level as u64,
+                p.aggro_radius.to_bits() as u64,
+                p.attack_range.to_bits() as u64,
+                p.attack_cooldown_s.to_bits() as u64,
+                p.turns_at_walls as u64,
+                p.turns_at_ledges as u64,
+            ]
+            .iter()
+            .fold(0xcbf2_9ce4_8422_2325, |hash, value| {
+                (hash ^ value).wrapping_mul(0x0100_0000_01b3)
+            })
+        },
+    );
     registrar.declare_rollback_derived_component::<crate::actor_tuning::ContactThreatWithdrawn>(
         OWNER,
         "derived.contact_threat_withdrawn",

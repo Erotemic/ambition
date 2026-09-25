@@ -79,7 +79,6 @@ pub fn provoke_actor_in_place(
         //
         // A body's pool is settled at construction and provocation has no
         // opinion about it.
-        em.config.brain_profile = mind.projection.brain_profile;
         *disposition = ActorDisposition::Hostile;
         // The provoked actor KEEPS its `ActorFaction` identity (no in-place flip to
         // `Enemy`). It hunts + hits its attacker through the per-actor GRUDGE
@@ -98,12 +97,19 @@ pub fn provoke_actor_in_place(
         //
         // The binding records the provoked source; a no-op for anonymous
         // bodies that carry none.
-        let (provoked_brain, source) = (mind.projection.brain, mind.source);
+        //
+        // The policy lands in the SAME command as the brain lowered from it, so
+        // no tick sees one without the other.
+        let (provoked_brain, policy, source) = (
+            mind.projection.brain,
+            ambition_combat::actor_tuning::ActorPolicy(mind.projection.brain_profile),
+            mind.source,
+        );
         commands.queue(move |world: &mut bevy::prelude::World| {
             let Ok(mut em) = world.get_entity_mut(entity) else {
                 return;
             };
-            em.insert(provoked_brain);
+            em.insert((provoked_brain, policy));
             if let Some(mut binding) =
                 em.get_mut::<ambition_characters::actor::character_catalog::BrainBinding>()
             {

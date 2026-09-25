@@ -164,7 +164,7 @@ fn apply_brain_selection(
     // RESTORING A CHARACTER'S OWN POLICY IS NOT A PRESET LOOKUP.
     //
     // The lowering is the same one the spawn road and the rewind road use, and
-    // it reads the profile off the body's own config, so all three agree by
+    // it lowers against the body's own config, so all three agree by
     // construction rather than by three matching implementations.
     if matches!(kind, BrainCommandKind::RestoreDefault)
         && matches!(
@@ -181,8 +181,8 @@ fn apply_brain_selection(
             return false;
         };
         // THE POLICY COMES FROM THE CHARACTER, NOT FROM THE BODY'S CURRENT
-        // ONE. This lowered `config.brain_profile` directly, and provocation
-        // WRITES that field — so "you are free" rebuilt the provoked mind and
+        // ONE. This lowered the body's `ActorPolicy` directly, and provocation
+        // WRITES that — so "you are free" rebuilt the provoked mind and
         // then labelled the binding `CharacterProfile`. The body kept hunting
         // you while every piece of state agreed it had been released.
         //
@@ -237,7 +237,7 @@ pub fn apply_brain_commands(
     catalog: Res<CharacterCatalog>,
     // The cast, for a body whose autonomous default is its own character's
     // policy: that policy is recovered by identity, never from the mutable
-    // `ActorConfig::brain_profile` a provocation has overwritten. `Option`
+    // `ActorPolicy` a provocation has overwritten. `Option`
     // because compositions that register no cast are ordinary.
     prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut commands_in: MessageReader<BrainCommand>,
@@ -247,7 +247,9 @@ pub fn apply_brain_commands(
         &mut Brain,
         &mut BrainBinding,
         Option<&AuthoredBrainContext>,
-        Option<&mut ActorConfig>,
+        Option<&ActorConfig>,
+        // The policy a switch replaces; see `apply_catalog_mode`.
+        Option<&mut ambition_combat::actor_tuning::ActorPolicy>,
         Option<&ambition_combat::components::ActorIdentity>,
         // Who is MASKING this body's own policy, if anyone — see the arm below.
         Option<&ambition_platformer2d_shared_tangle::temporary_control::ControlClaims>,
@@ -276,6 +278,7 @@ pub fn apply_brain_commands(
         mut binding,
         authored,
         config,
+        policy,
         identity,
         claims,
         body_abilities,
@@ -354,13 +357,13 @@ pub fn apply_brain_commands(
                 &mut binding,
                 &ctx,
                 kind,
-                config.as_deref().zip(identity),
+                config.zip(identity),
                 character_profile,
                 abilities,
             );
         }
         if changed {
-            apply_catalog_mode(config, character_profile);
+            apply_catalog_mode(policy, character_profile);
         }
     }
 }
@@ -371,20 +374,20 @@ pub fn apply_brain_commands(
 /// them and a re-derivation here could only overwrite them (it did — see
 /// [`peaceful_config`](crate::features::ecs::autonomous_reconcile::peaceful_config)).
 fn apply_catalog_mode(
-    config: Option<Mut<ActorConfig>>,
+    policy: Option<Mut<ambition_combat::actor_tuning::ActorPolicy>>,
     // See the `Some` arm below: a character that states its own policy is
     // restored to THAT policy, not to the generic peaceful one.
     character_profile: Option<ambition_characters::brain::BrainProfile>,
 ) {
-    let Some(mut config) = config else {
+    let Some(mut policy) = policy else {
         return;
     };
     if let Some(profile) = character_profile {
-        config.brain_profile = profile;
+        policy.0 = profile;
         return;
     }
     let peaceful = crate::features::ecs::autonomous_reconcile::peaceful_config();
-    config.brain_profile = peaceful.brain_profile;
+    policy.0 = peaceful.brain_profile;
     // THE REPERTOIRE IS NOT RESTORED HERE, because nothing took it away. What a
     // body can do is the projection of its identity, its worn equipment and its
     // hand, and neither a provocation nor a catalog switch moves any of them.

@@ -1006,7 +1006,6 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
 fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
     use crate::features::route_boss_strikes_to_limbs;
     use ambition_boss_encounter::BossConfig;
-    use ambition_boss_encounter::BossProfile;
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,
@@ -1155,7 +1154,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
 #[test]
 fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     use crate::features::route_boss_strikes_to_limbs;
-    use ambition_boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
+    use ambition_boss_encounter::{BossEncounterPhase, PhaseTrigger};
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::actor::limb::{
         fan_out_limb_intents, Limb, LimbIntents, LimbRig, LimbRouteState,

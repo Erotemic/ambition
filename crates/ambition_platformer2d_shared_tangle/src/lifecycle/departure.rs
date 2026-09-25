@@ -44,6 +44,11 @@ pub enum DepartureState {
     Requested(Destination),
     /// On the way to `target`, asking for `asked` seconds.
     Leaving { target: String, asked: f32 },
+    /// Replaying this room, asking for `asked` seconds. A replay request can be
+    /// REFUSED (the lifecycle slot is earliest-sticky and another operation may
+    /// hold it), so the intent stays here, re-asked every tick, until a replay
+    /// is admitted.
+    Replaying { asked: f32 },
 }
 
 impl Departure {
@@ -81,6 +86,10 @@ impl Departure {
             DepartureState::Leaving { target, asked } => {
                 2u8.hash(&mut hasher);
                 target.hash(&mut hasher);
+                asked.to_bits().hash(&mut hasher);
+            }
+            DepartureState::Replaying { asked } => {
+                3u8.hash(&mut hasher);
                 asked.to_bits().hash(&mut hasher);
             }
         }

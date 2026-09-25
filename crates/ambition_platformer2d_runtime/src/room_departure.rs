@@ -43,6 +43,15 @@ pub struct DepartureSet;
 /// on arrival. A destination the session does not hold, or a trip that never
 /// arrives, is a warning and a replay: the level still ends and the player
 /// still goes somewhere.
+///
+/// ⛔ A REPLAY IS RETRIED TOO. `admit_room_replay` refuses a request while
+/// another lifecycle operation holds the slot, and a refused request is gone.
+/// This used to write the request once and drop back to `Staying`, so a refused
+/// replay was lost and a game that waits on `is_leaving()` re-armed its level
+/// although nothing had been replayed. The intent now waits in
+/// [`DepartureState::Replaying`], re-asked every tick, until a replay is
+/// ADMITTED (`RoomReplayAdmitted`) — any replay: the room restarting is the
+/// fact the level asked for, whoever asked first.
 #[allow(clippy::too_many_arguments)]
 pub fn drive_departures(
     time: Res<ambition_time::WorldTime>,
@@ -55,8 +64,10 @@ pub fn drive_departures(
     mut pending: Option<ResMut<PendingLifecycleCommit>>,
     boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut replay: MessageWriter<RoomReplayRequested>,
+    mut admitted: MessageReader<ambition_combat::RoomReplayAdmitted>,
     mut departures: Query<&mut Departure>,
 ) {
+    let replay_admitted = admitted.read().count() > 0;
     let Some(rooms) = rooms else {
         return;
     };
@@ -64,6 +75,25 @@ pub fn drive_departures(
     for mut departure in &mut departures {
         let target = match std::mem::take(&mut departure.state) {
             DepartureState::Staying => continue,
+            DepartureState::Replaying { asked } => {
+                if replay_admitted {
+                    // The room is restarting: the trip is over.
+                    continue;
+                }
+                if asked >= DEPARTURE_GIVE_UP_S {
+                    bevy::log::warn!(
+                        target: "ambition::room_departure",
+                        "the level asked to replay `{active}` and no replay was admitted \
+                         in {DEPARTURE_GIVE_UP_S}s; staying"
+                    );
+                    continue;
+                }
+                replay.write(RoomReplayRequested::manual());
+                departure.state = DepartureState::Replaying {
+                    asked: asked + time.scaled_dt,
+                };
+                continue;
+            }
             DepartureState::Requested(to) => match to {
                 Destination::Replay => None,
                 Destination::Room(room) => Some(room),
@@ -80,7 +110,7 @@ pub fn drive_departures(
                         "the level asked to leave for room `{target}` and never arrived \
                          there in {DEPARTURE_GIVE_UP_S}s; replaying `{active}` instead"
                     );
-                    replay.write(RoomReplayRequested::manual());
+                    replay_this_room(&mut departure, &mut replay);
                     continue;
                 }
                 departure.state = DepartureState::Leaving {
@@ -91,7 +121,7 @@ pub fn drive_departures(
             }
         };
         let Some(target) = target else {
-            replay.write(RoomReplayRequested::manual());
+            replay_this_room(&mut departure, &mut replay);
             continue;
         };
         let Some(arrival) = rooms
@@ -105,7 +135,7 @@ pub fn drive_departures(
                 "the level asked to leave for room `{target}`, which this session \
                  does not hold; replaying `{active}` instead"
             );
-            replay.write(RoomReplayRequested::manual());
+            replay_this_room(&mut departure, &mut replay);
             continue;
         };
         if !matches!(departure.state, DepartureState::Leaving { .. }) {
@@ -135,6 +165,12 @@ pub fn drive_departures(
             }),
         );
     }
+}
+
+/// Ask for this room again, and keep asking until a replay is admitted.
+fn replay_this_room(departure: &mut Departure, replay: &mut MessageWriter<RoomReplayRequested>) {
+    replay.write(RoomReplayRequested::manual());
+    departure.state = DepartureState::Replaying { asked: 0.0 };
 }
 
 /// Installs [`drive_departures`] in the simulation. Part of
@@ -172,6 +208,7 @@ mod tests {
         app.init_resource::<ambition_time::WorldTime>();
         app.init_resource::<PendingLifecycleCommit>();
         app.add_message::<RoomReplayRequested>();
+        app.add_message::<ambition_combat::RoomReplayAdmitted>();
         ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
             app.world_mut(),
             RoomSet::from_parts_or_panic("first", vec![room("first", next), room("second", None)], Vec::new()),
@@ -217,6 +254,53 @@ mod tests {
         app.update();
         assert_eq!(recorded(&app), None, "nowhere to go is not a transition");
         assert_eq!(replays(&mut app), 1, "it is the same level again");
+    }
+
+    fn state(app: &mut App) -> DepartureState {
+        let mut q = app.world_mut().query::<&Departure>();
+        q.iter(app.world()).next().expect("the departure").state.clone()
+    }
+
+    /// A replay the lifecycle slot REFUSES is asked again, through the real
+    /// admission, until one is admitted — and only then does the level stop
+    /// leaving. The game's own wait (`is_leaving()`) spans the refusal.
+    #[test]
+    fn a_refused_replay_is_asked_again_until_one_is_admitted() {
+        let mut app = app_leaving(None, Destination::Replay);
+        // The real admission, ahead of the driver as in the schedule
+        // (`PlayerInput` runs before `GameplayEffects`).
+        app.add_systems(
+            Update,
+            crate::sandbox_reset::admit_room_replay.before(drive_departures),
+        );
+        // Another lifecycle operation owns the earliest-sticky slot.
+        let competing = LifecycleIntent::Transition(RoomTransitionIntent {
+            subject: SimId::player_slot(0),
+            target_room: "second".into(),
+            arrival: ae::Vec2::ZERO,
+            edge_exit: false,
+            zone_sfx: None,
+        });
+        let _ = app.world_mut().resource_mut::<PendingLifecycleCommit>().record(0, competing);
+
+        app.update(); // the driver asks
+        app.update(); // the admission refuses it; the driver asks again
+        assert!(
+            matches!(state(&mut app), DepartureState::Replaying { .. }),
+            "a refused replay is still wanted: {:?}",
+            state(&mut app)
+        );
+        assert_eq!(recorded(&app).as_deref(), Some("second"), "the other operation kept the slot");
+
+        // The other operation completes.
+        app.world_mut().resource_mut::<PendingLifecycleCommit>().take();
+        app.update(); // admitted this time
+        assert_eq!(state(&mut app), DepartureState::Staying, "the room is restarting: the trip is over");
+        let pending = app.world().resource::<PendingLifecycleCommit>().peek().cloned();
+        assert!(
+            pending.is_some_and(|pending| pending.kind.target_room() == "first"),
+            "and what holds the slot now is this room's replay"
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v228
+ggrs-rollback-schema-v229
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -118,6 +118,7 @@ content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical code
 content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.flag_pole	derived	FlagPole	the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change
+content.gnu_ton_conductor	component-clone-cursor	GnuTonConductor	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.level_destination	derived	LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; not in the session checksum
@@ -269,6 +270,7 @@ limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; not in
 map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
 map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
 map.captured_by	entity-mapping	CapturedBy	bevy_ggrs LoadWorld entity-reference remapping
+map.content.gnu_ton_conductor	entity-mapping	GnuTonConductor	bevy_ggrs LoadWorld entity-reference remapping
 map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.falling_hazard	entity-mapping	FallingHazard	bevy_ggrs LoadWorld entity-reference remapping

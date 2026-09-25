@@ -196,10 +196,10 @@ population's total and prints four methods beside it. This table carries only
 the SHAPE — the per-spelling split and the two semantics — re-measured
 2026-09-19 under that row's method so the two cannot disagree.
 
-<!-- alias-split: SessionWorldRef=170/92 SessionWorldMut=12/11 live_session_world_root=3/1 session_root_for_scope=2/2 -->
+<!-- alias-split: SessionWorldRef=171/93 SessionWorldMut=12/11 live_session_world_root=3/1 session_root_for_scope=2/2 -->
 | spelling | what it is | production uses |
 | --- | --- | ---: |
-| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 170, in 92 files |
+| `SessionWorldRef<T>` | `Single<Ref<T>, With<SessionRoot>>` | 171, in 93 files |
 | `SessionWorldMut<T>` | `Single<&mut T, With<SessionRoot>>` | 12, in 11 files (a `Mut` became a `Ref` in `dbffb1a76`, AP12/W021: the music adapter only reads encounter state now; the total is unchanged) |
 | `live_session_world_root` | finds the root whose scope equals the ACTIVE scope | 3, in 1 file |
 | `session_root_for_scope` | finds a named scope's root, through the disabling marker | 2, in 2 files |

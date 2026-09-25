@@ -58,7 +58,9 @@ def manifests() -> list[pathlib.Path]:
     return [
         p
         for p in sorted(REPO.rglob("Cargo.toml"))
-        if "target" not in p.parts and ".git" not in p.parts
+        # `.worktrees/` holds other checkouts of this repo (git-ignored): a
+        # stale one there reported eight "stranded" lines this tree never had.
+        if "target" not in p.parts and ".git" not in p.parts and ".worktrees" not in p.parts
     ]
 
 

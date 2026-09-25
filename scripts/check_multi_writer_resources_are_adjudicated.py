@@ -257,7 +257,8 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_encounter_features/src/lock_walls.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_overlay.rs",
-        "game/ambition_content/src/bosses/gnu_ton.rs",
+        "game/ambition_content/src/bosses/gnu_ton/conductor.rs",
+        "game/ambition_content/src/bosses/gnu_ton/mod.rs",
         "game/ambition_content/src/falling_sand.rs",
         "game/ambition_content/src/falling_sand_sim.rs",
         "game/ambition_content/src/portal/carve_adapter.rs",
@@ -339,9 +340,9 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_platformer2d_actor_monolith/src/world/rooms/systems.rs",
         "crates/ambition_platformer2d_rollback_ggrs/src/lifecycle_commit.rs",
         "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
+        "crates/ambition_platformer2d_runtime/src/room_departure.rs",
         "crates/ambition_platformer2d_runtime/src/sandbox_reset.rs",
         "game/ambition_demo_mary_o/src/lib.rs",
-        "game/ambition_demo_sanic/src/lib.rs",
     ),
     "QuestRegistry": (
         "crates/ambition_boss_encounter/src/systems.rs",
@@ -1997,20 +1998,23 @@ ADJUDICATED: dict[str, str] = {
         "exactly whether a save file belongs in what two peers agree on."
     ),
     "FeatureEcsWorldOverlay": (
-        "CORRECT — ONE REBUILDER, EIGHT CONTRIBUTORS AND A FIELD SPLIT THE "
+        "CORRECT — ONE REBUILDER, NINE CONTRIBUTORS AND A FIELD SPLIT THE "
         "COMPILER ENFORCES. `rebuild_feature_ecs_world_overlay` "
         "(`actor_monolith/src/features/ecs/world_overlay.rs`) calls "
         "`clear_engine_contributions` in `FeatureWorldOverlaySet`, and every "
         "contributor carries an explicit `.after(FeatureWorldOverlaySet)` edge — "
         "verified per registration 2026-09-18: `contribute_encounter_lock_walls` "
         "and `sync_authored_gated_lock_walls` (`runtime/src/world_gating.rs`), "
-        "`gate_gnu_ton_arena_ladder`, `project_particles_to_movement_world`, "
+        "`gate_gnu_ton_arena_ladder`, `gnu_back_is_ground` (GNU-ton's back as a "
+        "one-way ledge, 2026-09-25: registered in the same tuple as the ladder "
+        "gate, same edges, append-only `blocks`), "
+        "`project_particles_to_movement_world`, "
         "`project_settled_sand`, `contribute_broken_bricks_to_overlay`, "
         "`contribute_discovered_hidden_blocks_to_overlay`, "
         "`contribute_broken_monitors_to_overlay`. ⇒ Without that edge a "
         "contribution is wiped by the clear depending on set order, so the edge "
-        "IS the authority argument, and all eight state it.\n"
-        "    ⭐ THE NINTH WRITER IS THE INTERESTING ONE AND IT NEEDS NO SUCH "
+        "IS the authority argument, and all nine state it.\n"
+        "    ⭐ THE TENTH WRITER IS THE INTERESTING ONE AND IT NEEDS NO SUCH "
         "EDGE. `bridge_portal_carves` owns `portal_carves`, the ONE field "
         "`clear_engine_contributions` deliberately does not clear — its body says "
         "*\"NOT OURS ... clearing it here would race that and blink the "
@@ -2335,12 +2339,19 @@ ADJUDICATED: dict[str, str] = {
         "page states it. A reader asking *what happens if a player dies in a "
         "doorway on the frame a checkpoint resumes* has to rebuild this table "
         "from the schedule to find out. "
-        "⚠ TWO DEMO ARMERS DISCARD THE ADMISSION, AND BOTH MAY: Mary-O's "
-        "`cycle_level_on_flag_tally` and Sanic's `cycle_act_after_clear` "
-        "(2026-09-24, act progression) write `let _ = pending.record(..)`, but "
-        "neither spends anything on the strength of it. Each leaves its phase "
-        "`Tallied`/`Cleared` and re-asks every tick, so a refusal costs one tick "
-        "of dwell and nothing else, unlike the door's press."
+        "⚠ TWO ARMERS DISCARD THE ADMISSION, AND BOTH MAY: Mary-O's "
+        "`cycle_level_on_flag_tally` (2026-09-24, act progression) and the "
+        "engine's shared `drive_departures` (`room_departure.rs`, every game's "
+        "\"go on\"; Sanic's act clear asks through it since 2026-09-25) write "
+        "`let _ = pending.record(..)`, but neither spends anything on the "
+        "strength of it. Mary-O leaves its phase `Tallied` and re-asks every "
+        "tick; a `Departure` stays `Leaving` and re-asks every tick until the "
+        "active room is its target. Its replay fallback is the same shape one "
+        "road over: a `RoomReplayRequested` that `admit_room_replay` refuses is "
+        "gone, so the departure waits in `Replaying` and re-requests every tick "
+        "until a `RoomReplayAdmitted` arrives (witnessed by "
+        "`a_refused_replay_is_asked_again_until_one_is_admitted`). So a refusal "
+        "costs one tick of dwell and nothing else, unlike the door's press."
     ),
     "CutsceneTriggerQueue": (
         "CORRECT BY COINCIDENCE — CUTSCENE-ROLLBACK-DECISION item 2: every "

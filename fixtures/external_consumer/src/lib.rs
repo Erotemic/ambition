@@ -585,12 +585,12 @@ pub fn run_outlander_walkthrough(app: &mut App) -> Result<OutlanderRunReport, St
                 "expected exactly one primary player after activation, found {player_count}"
             ));
         }
-        let mut actors = world.query::<&ambition_platformer2d::actor::ActorConfig>();
+        let mut actors = world.query::<&ambition_platformer2d::actor::ActorIdentity>();
         if !actors
             .iter(world)
-            .any(|config| config.id == OUTLANDER_SENTRY_ID)
+            .any(|identity| identity.id == OUTLANDER_SENTRY_ID)
         {
-            let present: Vec<String> = actors.iter(world).map(|config| config.id.clone()).collect();
+            let present: Vec<String> = actors.iter(world).map(|identity| identity.id.clone()).collect();
             return Err(format!(
                 "the staged sentry {OUTLANDER_SENTRY_ID:?} is missing; actors present: {present:?}"
             ));

@@ -136,25 +136,25 @@ patch and not a commit.
  			"uid": 105835
  		}
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
---- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
-+++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
+--- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
++++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
 @@ -255,8 +255,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
--			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 224, "h": 224 },
--			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 224, "h": 224 },
-+			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 111, "h": 85 },
-+			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 111, "h": 85 },
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6182,14 +6182,14 @@
+@@ -6444,14 +6444,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
--			"pxHei": 1728,
--			"pxWid": 1681,
+-			"pxHei": 2468,
+-			"pxWid": 3072,
 -			"relPath": "../sprites/player_robot_v3_spritesheet.png",
 +			"pxHei": 653,
 +			"pxWid": 832,
@@ -163,8 +163,72 @@ patch and not a commit.
  			"spacing": 0,
  			"tags": ["sprite"],
  			"tagsSourceEnumUid": null,
--			"tileGridSize": 224,
-+			"tileGridSize": 111,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
++++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6444,14 +6444,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2468,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
+ 			"uid": 6852
+ 		}
+ 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+--- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
++++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
+@@ -255,8 +255,8 @@
+ 			"showName": true,
+ 			"tilesetId": 6852,
+ 			"tileRenderMode": "Cover",
+-			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
+-			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 256, "h": 256 },
++			"tileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
++			"uiTileRect": { "tilesetUid": 6852, "x": 0, "y": 0, "w": 69, "h": 68 },
+ 			"nineSliceBorders": [],
+ 			"maxCount": 0,
+ 			"limitScope": "PerLayer",
+@@ -6407,14 +6407,14 @@
+ 			"enumTags": [],
+ 			"identifier": "sprite_player_robot_v3",
+ 			"padding": 0,
+-			"pxHei": 2468,
+-			"pxWid": 3072,
+-			"relPath": "../sprites/player_robot_v3_spritesheet.png",
++			"pxHei": 653,
++			"pxWid": 832,
++			"relPath": "../sprites_0_25x/player_robot_v3_spritesheet.png",
+ 			"savedSelections": [],
+ 			"spacing": 0,
+ 			"tags": ["sprite"],
+ 			"tagsSourceEnumUid": null,
+-			"tileGridSize": 256,
++			"tileGridSize": 69,
  			"uid": 6852
  		}
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [

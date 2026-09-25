@@ -240,6 +240,8 @@ pub fn tick_actor_brains(
     // law, which is exactly what `LaunchLaw::default()` means.
     combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     mut decisions: ResMut<ActorDecisionFrames>,
+    // Any body's collision extent, read-only: a rider's mount, for its width.
+    bodies: Query<&ae::BodyKinematics>,
     mut actors: Query<
         (
             Entity,
@@ -257,6 +259,9 @@ pub fn tick_actor_brains(
             // attacks (melee / ranged) the actor can commit. `Option`
             // so dynamically-spawned actors without a set still tick.
             Option<&ambition_characters::brain::ActionSet>,
+            // A rider's mount takes its facing, so the body that turns when this
+            // brain turns is the mount's. See `BrainSnapshot::actor_half_width`.
+            Option<&ambition_mount::RidingOn>,
             (
                 // The generated read-only view of the COMPLETE actor cluster.
                 // Using the existing cluster shape preserves the old eligibility
@@ -398,6 +403,7 @@ pub fn tick_actor_brains(
         driver,
         has_control,
         action_set,
+        riding,
         (
             body,
             resolved_frame,
@@ -512,6 +518,9 @@ pub fn tick_actor_brains(
                                 rules: *rules,
                             }),
                     );
+                    if let Some(mount) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
+                        snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
+                    }
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body
                     // whose profile turns there. The rider knows its surface, so
                     // the question is asked along it: a stride ahead, which is
@@ -2187,6 +2196,8 @@ fn build_enemy_brain_snapshot(
         actor_pos: body.kin.pos,
         actor_vel: body.kin.vel,
         actor_facing: body.kin.facing,
+        // Its own box; `tick_actor_brains` widens it to a mount's.
+        actor_half_width: body.kin.size.x * 0.5,
         control_down: gravity_dir,
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,

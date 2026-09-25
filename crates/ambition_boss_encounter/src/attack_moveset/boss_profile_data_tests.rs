@@ -99,6 +99,7 @@ fn a_contact_boss_standing_against_its_target_fires_its_authored_attack() {
             front_wall_clearance: None,
             dt,
             actor_facing: -1.0,
+            actor_half_width: 0.0,
             hp_current: 100,
             hp_max: 100,
             live_attack: None,

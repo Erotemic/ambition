@@ -394,10 +394,13 @@ pub fn tick_boss_brains_system(
             // playing move through it: cycle mode sustains its request through
             // the windup and rests when the move ends. Read-only.
             Option<&BossAttackState>,
+            // A rider's mount takes its facing (`ambition_mount`), so a riding
+            // boss turns by its mount's width, not its own.
+            Option<&ambition_mount::RidingOn>,
         ),
         With<FeatureSimEntity>,
     >,
-    // Any body a boss may aim at: its collision extent, read-only. Not
+    // Any body a boss may aim at or ride: its collision extent, read-only. Not
     // `CenteredAabb`, which for a boss comes from its `BodyEnvelope` render
     // envelope. `BodyKinematics::size` is the box the movement seam sweeps;
     // `integrate_boss_bodies` sets `kin.size` to the authored `combat_size`
@@ -419,6 +422,7 @@ pub fn tick_boss_brains_system(
         target,
         capability,
         attack_state,
+        riding,
     ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
@@ -523,6 +527,14 @@ pub fn tick_boss_brains_system(
                     // its own last HP, so a hit is a drop in this pool; there
                     // is no per-tick damage channel.
                     actor_facing: boss.kin.facing,
+                    // The body that turns: its own box, or its mount's. A
+                    // scholar that turned by his own 68 px spun the 440 px gnu
+                    // under him whenever the player crossed his centre line —
+                    // and the gnu's back and fists mirror with it.
+                    actor_half_width: riding
+                        .and_then(|riding| target_bodies.get(riding.mount).ok())
+                        .map_or(boss.kin.size.x, |mount| mount.size.x.max(boss.kin.size.x))
+                        * 0.5,
                     hp_current: health.current(),
                     hp_max: health.max(),
                     // The brain's observation of its own live move, from the

@@ -59,6 +59,14 @@ MAIN_SLOTS_PER_FLOOR = 16
 BASEMENT_SLOT_WIDTH_PX = 512
 BASEMENT_SLOT_HEIGHT_PX = 384
 BASEMENT_SLOTS_PER_ROW = 4
+# The giants' row, at the very bottom. A basement slot is 368 px clear; the
+# giant gnu stands 415 px tall and draws about 725 px wide, so on a main-hall
+# pedestal it covered eight neighbours and two floors.
+GIANT_SLOT_WIDTH_PX = 1024
+GIANT_SLOT_HEIGHT_PX = 512
+GIANT_SLOTS_PER_ROW = 2
+#: The catalog's `CharacterTier`s, in the order the hall stacks them.
+TIERS = ("MainHall", "Basement", "Giant")
 CEILING_PX = 16
 FLOOR_THICKNESS_PX = 16
 HALL_WORLD_X = 40000  # to the right of every existing level (rightmost is x=39024)
@@ -93,19 +101,27 @@ def basement_rows_for(basement_count: int) -> int:
     return max(1, -(-basement_count // BASEMENT_SLOTS_PER_ROW))
 
 
-def derived_dims(main_count: int, basement_count: int) -> tuple[int, int]:
-    """Return (pxWid, pxHei) sized to seat exactly `main_count` main-hall and
-    `basement_count` basement pedestals. The hall grows to fit any roster; there
-    is no fixed floor/row cap."""
+def giant_rows_for(giant_count: int) -> int:
+    """Giant rows needed below the basement. None when there are no giants: the
+    basement's last row is then the hall's floor."""
+    return -(-giant_count // GIANT_SLOTS_PER_ROW)
+
+
+def derived_dims(main_count: int, basement_count: int, giant_count: int = 0) -> tuple[int, int]:
+    """Return (pxWid, pxHei) sized to seat exactly `main_count` main-hall,
+    `basement_count` basement and `giant_count` giant pedestals. The hall grows
+    to fit any roster; there is no fixed floor/row cap."""
     width = HALL_WIDTH_PX
     main_section = main_floors_for(main_count) * MAIN_SLOT_HEIGHT_PX
     basement_section = basement_rows_for(basement_count) * BASEMENT_SLOT_HEIGHT_PX
+    giant_section = giant_rows_for(giant_count) * GIANT_SLOT_HEIGHT_PX
     height = (
         CEILING_PX
         + main_section
         + FLOOR_THICKNESS_PX
         + basement_section
         + FLOOR_THICKNESS_PX
+        + (giant_section + FLOOR_THICKNESS_PX if giant_section else 0)
     )
     return width, height
 
@@ -200,13 +216,17 @@ def parse_catalog(
         window = characters_text[match.end() : end]
         tm = re.search(r"tier:\s*([A-Za-z_]+)", window)
         tiers[cid] = tm.group(1) if tm else "MainHall"
+        # An unknown tier used to seat the character nowhere, silently.
+        if tiers[cid] not in TIERS:
+            raise ValueError(f"{cid!r} has tier {tiers[cid]!r}; the Hall seats {TIERS}")
         hm = re.search(r'hall_dialogue_id:\s*Some\(\s*"([^"]+)"\s*\)', window)
         if hm:
             hall_dialogue_ids[cid] = hm.group(1)
 
     main = [cid for cid in ids if tiers[cid] == "MainHall"]
     basement = [cid for cid in ids if tiers[cid] == "Basement"]
-    return main, basement, hall_dialogue_ids
+    giants = [cid for cid in ids if tiers[cid] == "Giant"]
+    return main, basement, giants, hall_dialogue_ids
 
 
 def make_entity(
@@ -224,12 +244,15 @@ def build_spec(
     main_ids: list[str],
     basement_ids: list[str],
     hall_dialogue_ids: dict[str, str] | None = None,
+    giant_ids: list[str] | None = None,
 ) -> dict:
     hall_dialogue_ids = hall_dialogue_ids or {}
+    giant_ids = giant_ids or []
     # Floors/rows are SIZED to the roster (grows to fit any character count).
     main_floors = main_floors_for(len(main_ids))
     basement_rows = basement_rows_for(len(basement_ids))
-    px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids))
+    giant_rows = giant_rows_for(len(giant_ids))
+    px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids), len(giant_ids))
 
     # --- Compute slot positions ---
     # Floor 1 is the lowest main floor (hub entry); Floor N is the
@@ -238,6 +261,9 @@ def build_spec(
     main_section_top = CEILING_PX
     basement_section_top = (
         main_section_top + main_floors * MAIN_SLOT_HEIGHT_PX + FLOOR_THICKNESS_PX
+    )
+    giant_section_top = (
+        basement_section_top + basement_rows * BASEMENT_SLOT_HEIGHT_PX + FLOOR_THICKNESS_PX
     )
 
     # Floor index 0 is top (Floor N), floor index main_floors - 1 is bottom (Floor 1).
@@ -263,6 +289,13 @@ def build_spec(
             BASEMENT_SLOT_WIDTH_PX,
             BASEMENT_SLOT_HEIGHT_PX,
         )
+
+    def giant_slot_world_xy(slot_index: int) -> tuple[int, int, int, int]:
+        row = slot_index // GIANT_SLOTS_PER_ROW
+        col_in_row = slot_index % GIANT_SLOTS_PER_ROW
+        slot_top_y = giant_section_top + row * GIANT_SLOT_HEIGHT_PX
+        slot_left_x = col_in_row * GIANT_SLOT_WIDTH_PX
+        return (slot_left_x, slot_top_y, GIANT_SLOT_WIDTH_PX, GIANT_SLOT_HEIGHT_PX)
 
     entities: list[dict] = []
 
@@ -370,9 +403,15 @@ def build_spec(
     basement_floor_thickness = 16
     drop_hole_w = 96
     drop_hole_x = (px_wid - drop_hole_w) // 2
-    for row in range(basement_rows):
-        floor_top_y = basement_section_top + (row + 1) * BASEMENT_SLOT_HEIGHT_PX
-        is_last_row = row == basement_rows - 1
+    lower_rows = [
+        (f"basement_row_{row + 1}", basement_section_top + (row + 1) * BASEMENT_SLOT_HEIGHT_PX)
+        for row in range(basement_rows)
+    ] + [
+        (f"giant_row_{row + 1}", giant_section_top + (row + 1) * GIANT_SLOT_HEIGHT_PX)
+        for row in range(giant_rows)
+    ]
+    for index, (row_name, floor_top_y) in enumerate(lower_rows):
+        is_last_row = index == len(lower_rows) - 1
         if is_last_row:
             # Terminal floor — no drop hole.
             entities.append(
@@ -380,7 +419,7 @@ def build_spec(
                     "Solid",
                     (16, floor_top_y),
                     (px_wid - 32, basement_floor_thickness),
-                    {"name": f"basement_row_{row + 1}_floor"},
+                    {"name": f"{row_name}_floor"},
                 )
             )
         else:
@@ -390,7 +429,7 @@ def build_spec(
                     "Solid",
                     (16, floor_top_y),
                     (drop_hole_x - 16, basement_floor_thickness),
-                    {"name": f"basement_row_{row + 1}_floor_left"},
+                    {"name": f"{row_name}_floor_left"},
                 )
             )
             entities.append(
@@ -401,7 +440,7 @@ def build_spec(
                         px_wid - 16 - (drop_hole_x + drop_hole_w),
                         basement_floor_thickness,
                     ),
-                    {"name": f"basement_row_{row + 1}_floor_right"},
+                    {"name": f"{row_name}_floor_right"},
                 )
             )
 
@@ -467,9 +506,11 @@ def build_spec(
             )
         )
 
-    # --- Basement pedestals ---
-    for slot_index, cid in enumerate(basement_ids):
-        x, y, w, h = basement_slot_world_xy(slot_index)
+    # --- Basement and giant pedestals ---
+    lower_pedestals = [(cid, basement_slot_world_xy(i)) for i, cid in enumerate(basement_ids)] + [
+        (cid, giant_slot_world_xy(i)) for i, cid in enumerate(giant_ids)
+    ]
+    for cid, (x, y, w, h) in lower_pedestals:
         center_x = x + w // 2
         foot_y = y + h
         npc_w, npc_h = 48, 80
@@ -588,6 +629,8 @@ def merge_provider_entries(
     """
     seen = set(main_ids) | set(basement_ids)
     for cid, tier, dialogue_id in provider_entries:
+        if tier not in ("MainHall", "Basement"):
+            raise ValueError(f"provider exhibit {cid!r} has tier {tier!r}; providers seat MainHall or Basement")
         existing = hall_dialogue_ids.get(cid)
         if existing is not None and existing != dialogue_id:
             raise ValueError(
@@ -626,11 +669,11 @@ def main(argv: list[str] | None = None) -> int:
     from .ron_parse import dumps as ron_dumps
 
     text = args.catalog.read_text()
-    main_ids, basement_ids, hall_dialogue_ids = parse_catalog(text)
+    main_ids, basement_ids, giant_ids, hall_dialogue_ids = parse_catalog(text)
     main_ids, basement_ids, hall_dialogue_ids = merge_provider_entries(
         main_ids, basement_ids, hall_dialogue_ids, PROVIDER_HALL_ENTRIES
     )
-    spec = build_spec(main_ids, basement_ids, hall_dialogue_ids)
+    spec = build_spec(main_ids, basement_ids, hall_dialogue_ids, giant_ids)
     out_text = HEADER + ron_dumps(spec)
     args.out.write_text(out_text)
 
@@ -639,7 +682,7 @@ def main(argv: list[str] | None = None) -> int:
         applied = _apply_to_dedicated_ldtk(args.out, args.ldtk, spec)
 
     if args.print_summary:
-        px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids))
+        px_wid, px_hei = derived_dims(len(main_ids), len(basement_ids), len(giant_ids))
         print(f"hall: {px_wid}x{px_hei} px")
         print(
             f"  main_hall entries: {len(main_ids)} "
@@ -648,6 +691,10 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"  basement entries:  {len(basement_ids)} "
             f"({basement_rows_for(len(basement_ids))} rows x {BASEMENT_SLOTS_PER_ROW} slots)"
+        )
+        print(
+            f"  giant entries:     {len(giant_ids)} "
+            f"({giant_rows_for(len(giant_ids))} rows x {GIANT_SLOTS_PER_ROW} slots)"
         )
         print(f"  spec written to:   {args.out}")
         if applied:

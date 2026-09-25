@@ -23,10 +23,11 @@ pub fn tick_boss_pattern(
         return;
     }
 
-    let facing_delta_x = ctx.target_pos.x - ctx.actor_pos.x;
-    if facing_delta_x.abs() > 2.0 {
-        out.facing = facing_delta_x.signum();
-    }
+    out.facing = ambition_characters::brain::face_toward(
+        ctx.actor_facing,
+        ctx.target_pos.x - ctx.actor_pos.x,
+        ctx.actor_half_width,
+    );
 
     // Tick the free-running clocks the movement profile reads.
     state.movement_timer += ctx.dt;
@@ -645,6 +646,7 @@ pub fn tick_boss_pattern_via_state_machine(
         // `OnHitTaken`'s min_damage is percent-of-max on this path. The ECS
         // boss tick passes the real pool.
         actor_facing: snapshot.actor_facing,
+        actor_half_width: snapshot.actor_half_width,
         hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
         hp_max: 100,
         // This path ticks under a Dormant phase (see above) and never reaches

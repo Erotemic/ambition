@@ -1,11 +1,15 @@
-# Place the dog on the basement floor. The patrol reaches both ends.
+# Place the dog on the basement floor, in the one gap no door borders: right of
+# the lab door, against the east wall. It first stood between the boss and
+# cutscene-lab doors, and a player holding interact at the cutscene-lab door got
+# the dog instead. Its patrol reaches from here to the west wall (the lane is
+# centred on the spawn and walls bound it).
 level_id: central_hub_basement
 entities:
   - type: NpcSpawn
-    px: [925, 864]
+    px: [1792, 864]
     size: [64, 64]
     fields:
       character_id: npc_companion_dog
       prompt: Greet the dog
       dialogue_id: hall_npc_companion_dog
-      patrol_radius: 800
+      patrol_radius: 1800

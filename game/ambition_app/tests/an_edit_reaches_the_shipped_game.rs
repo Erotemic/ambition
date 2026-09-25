@@ -943,13 +943,22 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
             .get_resource::<ActiveSessionScope>()
             .and_then(ActiveSessionScope::current)
     }
-    fn population(app: &mut bevy::prelude::App, owner: SessionScopeId) -> usize {
+    // ⛔ IDENTITIES, NOT A COUNT. This counted every session-scoped entity,
+    // particles included, and six dust particles expiring during 240 frames of
+    // idle play read as "a refused candidate cost world N six entities". What a
+    // candidate could take from N is its SIMULATION: the entities with a
+    // `SimId`. A set also says which one went.
+    fn population(
+        app: &mut bevy::prelude::App,
+        owner: SessionScopeId,
+    ) -> std::collections::BTreeSet<ambition_platformer2d::platformer::sim_id::SimId> {
         let world = app.world_mut();
         world
-            .query::<&SessionScopedEntity>()
+            .query::<(&SessionScopedEntity, &ambition_platformer2d::platformer::sim_id::SimId)>()
             .iter(world)
-            .filter(|scoped| scoped.0 == owner)
-            .count()
+            .filter(|(scoped, _)| scoped.0 == owner)
+            .map(|(_, id)| id.clone())
+            .collect()
     }
     fn live_room(app: &mut bevy::prelude::App) -> Option<String> {
         ambition_platformer2d::platformer::lifecycle::session_world_component::<
@@ -977,7 +986,7 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
     let before_population = population(&mut app, live);
     let before_room = live_room(&mut app);
     assert!(
-        before_population > 0 && before_room.is_some(),
+        !before_population.is_empty() && before_room.is_some(),
         "the premise: world N is a real, populated, roomed session"
     );
     // ⛔⛤ **THE PREMISE FINDING 1 NEEDS: A'S DURABLE STATE MUST DIFFER FROM THE
@@ -1106,11 +1115,8 @@ fn a_candidate_session_the_transaction_refuses_leaves_the_live_session_playable(
         Some(live),
         "the live session scope moved even though no candidate was admitted"
     );
-    assert_eq!(
-        population(&mut app, live),
-        before_population,
-        "⛔ A REFUSED CANDIDATE SESSION COST WORLD N ENTITIES"
-    );
+    let lost: Vec<_> = before_population.difference(&population(&mut app, live)).cloned().collect();
+    assert!(lost.is_empty(), "⛔ A REFUSED CANDIDATE SESSION COST WORLD N ENTITIES: {lost:?}");
     assert_eq!(
         live_room(&mut app),
         before_room,
@@ -1241,13 +1247,22 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
             .get_resource::<ActiveSessionScope>()
             .and_then(ActiveSessionScope::current)
     }
-    fn population(app: &mut bevy::prelude::App, owner: SessionScopeId) -> usize {
+    // ⛔ IDENTITIES, NOT A COUNT. This counted every session-scoped entity,
+    // particles included, and six dust particles expiring during 240 frames of
+    // idle play read as "a refused candidate cost world N six entities". What a
+    // candidate could take from N is its SIMULATION: the entities with a
+    // `SimId`. A set also says which one went.
+    fn population(
+        app: &mut bevy::prelude::App,
+        owner: SessionScopeId,
+    ) -> std::collections::BTreeSet<ambition_platformer2d::platformer::sim_id::SimId> {
         let world = app.world_mut();
         world
-            .query::<&SessionScopedEntity>()
+            .query::<(&SessionScopedEntity, &ambition_platformer2d::platformer::sim_id::SimId)>()
             .iter(world)
-            .filter(|scoped| scoped.0 == owner)
-            .count()
+            .filter(|(scoped, _)| scoped.0 == owner)
+            .map(|(_, id)| id.clone())
+            .collect()
     }
 
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
@@ -1265,7 +1280,7 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
     let live = scope(&app).expect("the first session activated");
     let before = population(&mut app, live);
     assert!(
-        before > 0,
+        !before.is_empty(),
         "the premise: world N is a populated session. Without it 'N was not \
          touched' would be true of an empty world"
     );
@@ -1275,14 +1290,14 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
         request: None,
     });
     let mut handed_over = false;
-    let mut low_water = before;
+    let mut lost = std::collections::BTreeSet::new();
     for _ in 0..240 {
         app.update();
         match scope(&app) {
             // ⛔ THE ONLY FRAMES THIS ARM JUDGES. Once the active scope has
             // MOVED, N is retired by its own lifecycle and is supposed to empty.
             Some(current) if current == live => {
-                low_water = low_water.min(population(&mut app, live));
+                lost.extend(before.difference(&population(&mut app, live)).cloned());
             }
             _ => {
                 handed_over = true;
@@ -1295,12 +1310,13 @@ fn a_candidate_session_does_not_retire_the_playing_sessions_world() {
         "the handoff never happened, so no candidate was ever prepared beside \
          world N and this arm measured nothing"
     );
-    assert_eq!(
-        low_water, before,
+    assert!(
+        lost.is_empty(),
         "⛔ THE CANDIDATE SESSION TOOK ENTITIES OUT OF THE WORLD THAT WAS STILL \
          PLAYING. Its first room plans the same authored ids, and a verifier that \
          does not ask WHOSE world it is looking at declares them superseded and \
-         despawns them — before anything has decided the candidate may be played"
+         despawns them — before anything has decided the candidate may be played: \
+         {lost:?}"
     );
 }
 

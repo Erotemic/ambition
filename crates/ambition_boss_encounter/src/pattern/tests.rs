@@ -44,6 +44,7 @@ fn ctx(phase: BossEncounterPhase, dt: f32) -> BossPatternContext {
         // A healthy boss facing right. BD1's buckets and `OnHitTaken` read these;
         // the default `0/0` pool would make every "took damage" read as a heal.
         actor_facing: 1.0,
+        actor_half_width: 0.0,
         hp_current: 100,
         hp_max: 100,
         live_attack: None,

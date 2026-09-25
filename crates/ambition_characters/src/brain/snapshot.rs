@@ -47,6 +47,11 @@ pub struct BrainSnapshot {
     pub actor_vel: ae::Vec2,
     /// Actor's current facing: +1 local-right, -1 local-left.
     pub actor_facing: f32,
+    /// Half the side extent of the body that turns when this brain turns: its
+    /// own box, or its mount's when it rides one (the mount takes the rider's
+    /// facing). [`face_toward`] reads it; `0.0` in an inert test snapshot, which
+    /// leaves the minimum band.
+    pub actor_half_width: f32,
     /// Direction that defines the controlled actor's local down for human-input
     /// interpretation this tick. Defaults to ordinary screen-down so AI/test
     /// snapshots that do not care about human control remain inert.
@@ -227,7 +232,34 @@ pub struct BrainSnapshot {
     pub terrain: Option<crate::brain::smash::TerrainAwareness>,
 }
 
+/// The facing a brain asks for toward a target `side` px away along the body's
+/// local side axis, for a body `half_width` px from centre to edge.
+///
+/// A body turns only once its target is past its own edge; inside that band it
+/// keeps `current`. The band is the hysteresis. A target crossing the centre of
+/// a body it overlaps never flips it, and a 440 px giant needs its foe clear of
+/// its flank before it turns round. `side.signum()` with a 2–4 px band flipped a
+/// body every frame the player stood inside it, and everything that mirrors with
+/// facing — an off-centre hurtbox, a giant's fists, the back a rider stands on —
+/// jumped across with it.
+pub fn face_toward(current: f32, side: f32, half_width: f32) -> f32 {
+    if side.abs() > half_width.max(MIN_TURN_BAND) {
+        side.signum()
+    } else {
+        current
+    }
+}
+
+/// The band a body with no reported width turns by (px): a target this close to
+/// its centre line is neither side of it.
+pub const MIN_TURN_BAND: f32 = 4.0;
+
 impl BrainSnapshot {
+    /// [`face_toward`] for this body: keep facing unless `side` is past its edge.
+    pub fn face_toward(&self, side: f32) -> f32 {
+        face_toward(self.actor_facing, side, self.actor_half_width)
+    }
+
     /// Build a minimal snapshot — useful for tests where most fields
     /// are inert. Callers can `..BrainSnapshot::idle()` and override
     /// the fields that matter for the test.
@@ -240,6 +272,7 @@ impl BrainSnapshot {
             actor_pos: ae::Vec2::ZERO,
             actor_vel: ae::Vec2::ZERO,
             actor_facing: 1.0,
+            actor_half_width: 0.0,
             control_down: ae::Vec2::new(0.0, 1.0),
             movement_frame_mode: ae::ControlFrameModes::default().movement,
             aim_frame_mode: ae::ControlFrameModes::default().aim,

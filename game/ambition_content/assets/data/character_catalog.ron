@@ -1049,7 +1049,7 @@
             display_name: "Giant GNU",
             spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
             manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
-            tier: MainHall,
+            tier: Giant,
             body_kind: Wide,
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
@@ -1086,7 +1086,7 @@
                 default_clip: "default",
                 still_clip: "",
             )),
-            tier: MainHall,
+            tier: Giant,
             body_kind: Wide,
             composition: None,
             //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an

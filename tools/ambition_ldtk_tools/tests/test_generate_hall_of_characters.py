@@ -180,7 +180,8 @@ def test_parse_catalog_is_dependency_light_and_preserves_order():
     },
 )
 '''
-    main, basement, dialogue = parse_catalog(catalog)
+    main, basement, giants, dialogue = parse_catalog(catalog)
+    assert giants == []
     assert main == ["alpha", "gamma"]
     assert "peaceful" not in main
     assert "stand_still" not in main
@@ -198,3 +199,41 @@ def test_make_entity_shape():
         "size": [100, 16],
         "fields": {"name": "test_floor"},
     }
+
+
+def test_a_giant_stands_in_its_own_row_below_the_basement():
+    """The giant gnu stands 415 px and draws ~725 px wide. On a 128x192 main-hall
+    pedestal it covered eight neighbours and two floors; a basement slot is 47 px
+    too short for it. A `Giant` gets a row of its own at the very bottom."""
+    spec = build_spec(["alpha"], ["boss_one"], {}, ["npc_giant_gnu"])
+    npcs = {e["fields"]["character_id"]: e for e in spec["entities"] if e["type"] == "NpcSpawn"}
+    assert set(npcs) == {"alpha", "boss_one", "npc_giant_gnu"}
+
+    def feet(cid):
+        e = npcs[cid]
+        return e["px"][1] + e["size"][1]
+
+    assert feet("npc_giant_gnu") > feet("boss_one"), "below the basement"
+    floors = {e["fields"]["name"]: e for e in spec["entities"] if e["type"] == "Solid"}
+    assert feet("npc_giant_gnu") == floors["giant_row_1_floor"]["px"][1], "on the giant row's floor"
+    # Clear height above the giant's feet: up to the basement floor over its row.
+    over = floors["basement_row_1_floor_left"]
+    clear = feet("npc_giant_gnu") - (over["px"][1] + over["size"][1])
+    assert clear >= 480, clear
+    # The basement's last row now drops through to the giants.
+    assert "basement_row_1_floor" not in floors
+    assert spec["px_hei"] == derived_dims(1, 1, 1)[1]
+
+
+def test_an_unknown_tier_is_refused_not_dropped():
+    catalog = """
+(
+    characters: {
+        "alpha": (
+            tier: Colossal,
+        ),
+    },
+)
+"""
+    with pytest.raises(ValueError, match="Colossal"):
+        parse_catalog(catalog)

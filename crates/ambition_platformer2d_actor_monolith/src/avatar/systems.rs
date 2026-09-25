@@ -127,6 +127,8 @@ pub fn tick_controlled_brains(
             actor_pos: kin.pos,
             actor_vel: kin.vel,
             actor_facing: kin.facing,
+            // The player brain faces by the stick, never by `face_toward`.
+            actor_half_width: kin.size.x * 0.5,
             control_down,
             movement_frame_mode: control_frame_modes.movement,
             aim_frame_mode: control_frame_modes.aim,

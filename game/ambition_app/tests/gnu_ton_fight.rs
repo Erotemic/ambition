@@ -246,3 +246,46 @@ fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
         s.performing.is_none() && (s.scholar.pos - saddle(&s)).length() < 1.0
     });
 }
+
+/// The gnu turns when you are past its flank, and not while you are under it.
+///
+/// The scholar rides and the gnu takes his facing, so the scholar turned by his
+/// own 68 px body and spun the 440 px gnu — its back, its fists — every time the
+/// player crossed his centre line. The band is the gnu's width.
+#[test]
+fn the_gnu_does_not_turn_while_you_stand_under_it() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    let s = scene(&mut sim);
+    let (player_kin, _) = player(&mut sim);
+    let stand = |x: f32| ae::Vec2::new(x, s.floor - player_kin.size.y * 0.5 - 1.0);
+    let half = s.giant.size.x * 0.5;
+    assert!(half > 150.0, "the premise is a giant: its body is {} wide", s.giant.size.x);
+
+    // Past its left flank: it faces left.
+    place_player(&mut sim, stand(s.giant.pos.x - half - 120.0));
+    step_until(&mut sim, 120, "the gnu to face a player past its left flank", |sim| scene(sim).giant.facing < 0.0);
+
+    // Under it, either side of the scholar's centre line. Each side is held long
+    // enough for a turn to reach the gnu through the rider.
+    let scholar_x = scene(&mut sim).scholar.pos.x;
+    let mut turns = 0;
+    let mut facing = scene(&mut sim).giant.facing;
+    for x in [scholar_x + 90.0, scholar_x - 90.0, scholar_x + 90.0, scholar_x - 90.0] {
+        assert!((x - s.giant.pos.x).abs() < half, "{x} is under the gnu");
+        place_player(&mut sim, stand(x));
+        for _ in 0..30 {
+            sim.step(AgentAction::default());
+            let now = scene(&mut sim).giant.facing;
+            if now != facing {
+                turns += 1;
+                facing = now;
+            }
+        }
+    }
+    assert_eq!(turns, 0, "the gnu turned {turns} times while the player stood under it");
+
+    // Past its right flank: it still turns.
+    place_player(&mut sim, stand(s.giant.pos.x + half + 120.0));
+    step_until(&mut sim, 120, "the gnu to face a player past its right flank", |sim| scene(sim).giant.facing > 0.0);
+}

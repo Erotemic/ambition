@@ -13,12 +13,16 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// What tier a character occupies in the Hall of Characters and other
-/// gallery rooms. Drives layout: `MainHall` characters get standard
-/// 128 px slots; `Basement` characters get the wide 256 px slots.
+/// gallery rooms. Drives layout: `MainHall` characters get 128×192 slots,
+/// `Basement` characters 512×384, and `Giant`s a 1024×512 row at the very
+/// bottom. The hall generator (`generate_hall_of_characters.py`) reads this and
+/// nothing else about a character's size, so a body that outgrows its slot
+/// must say so here.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum CharacterTier {
     MainHall,
     Basement,
+    Giant,
 }
 
 /// Footprint hint. Today it only influences gallery layout; the
@@ -570,7 +574,8 @@ pub struct CharacterCatalogEntry {
     pub portrait: Option<CharacterPortraitRef>,
     /// Gallery tier. Drives hall placement.
     pub tier: CharacterTier,
-    /// Footprint hint. Drives slot sizing.
+    /// Footprint hint. The hall generator does not read it; [`Self::tier`] is
+    /// what sizes a hall slot.
     pub body_kind: CharacterBodyKind,
     /// How TALL this character stands, in world px, feet to the top of the
     /// visible body. `None` falls back to

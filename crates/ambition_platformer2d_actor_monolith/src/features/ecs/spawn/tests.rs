@@ -499,6 +499,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
         actor_pos: ae::Vec2::ZERO,
         actor_vel: ae::Vec2::ZERO,
         actor_facing: 1.0,
+        actor_half_width: 0.0,
         control_down: ae::Vec2::new(0.0, 1.0),
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,

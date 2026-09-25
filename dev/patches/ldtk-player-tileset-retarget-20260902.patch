@@ -138,7 +138,7 @@ patch and not a commit.
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
-@@ -255,8 +255,8 @@
+@@ -2271,8 +2271,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -149,7 +149,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6444,14 +6444,14 @@
+@@ -8420,14 +8420,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -166,11 +166,11 @@ patch and not a commit.
 -			"tileGridSize": 256,
 +			"tileGridSize": 69,
  			"uid": 6852
- 		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 		},
+ 		{
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
-@@ -255,8 +255,8 @@
+@@ -2271,8 +2271,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -181,7 +181,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6444,14 +6444,14 @@
+@@ -8420,14 +8420,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -198,8 +198,8 @@ patch and not a commit.
 -			"tileGridSize": 256,
 +			"tileGridSize": 69,
  			"uid": 6852
- 		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 		},
+ 		{
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
 @@ -255,8 +255,8 @@

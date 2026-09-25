@@ -683,7 +683,6 @@ mod default_profile_tests {
             &npc(None),
             &[],
         )
-        .0
         .config
     }
 

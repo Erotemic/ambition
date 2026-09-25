@@ -44,7 +44,7 @@ fn world_with_patrolling_npc(
             brain_override: None,
         },
     );
-    let (mut seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let mut seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         id.clone(),
         id.clone(),
         aabb,

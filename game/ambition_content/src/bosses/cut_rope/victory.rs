@@ -104,7 +104,7 @@ fn spawn_victory_npc_entity(
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
-    let (mut seed, _render) =
+    let mut seed =
         ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             character_catalog,

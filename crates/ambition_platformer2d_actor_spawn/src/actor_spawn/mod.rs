@@ -597,7 +597,6 @@ pub(super) struct NpcActorSpawnPlan {
     /// Peaceful actors are the SAME unified cluster as enemies, built with
     /// peaceful tuning + a `Passive`/`Patrol` AI brain.
     seed: ambition_body_seed::ActorClusterSeed,
-    render_size: Option<ae::Vec2>,
     interactable: ambition_interaction::Interactable,
     brain: ambition_characters::brain::Brain,
     /// The explicit brain binding (default preset + current selection) and the
@@ -688,7 +687,7 @@ impl NpcActorSpawnPlan {
         let provoked_baseline = authored_kit
             .cloned()
             .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
-        let (seed, render_size) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+        let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,
             Some(prepared),
@@ -722,7 +721,6 @@ impl NpcActorSpawnPlan {
             feature_name: name,
             feature_aabb,
             seed,
-            render_size,
             interactable,
             brain,
             brain_binding,
@@ -788,7 +786,7 @@ impl NpcActorSpawnPlan {
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
         // component so it survives a hostile flip (otherwise the body-sized
         // collision would get `collision_scale` re-applied, ballooning the sprite).
-        let render_size = self.render_size;
+        let render_size = self.seed.render_size;
         // Dialogue is a SHARED actor capability (`ActorInteraction`).
         let interaction = ambition_combat::components::ActorInteraction {
             interactable: self.interactable,
@@ -1454,10 +1452,9 @@ pub fn spawn_runtime_minion_into(
     // flag on death and reads none on load, and it never revives in place.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_aabb(aabb);
-    // Read before the seed is moved into the plan: the geometry this body was
-    // BUILT from, so the components it is spawned with come from that one
-    // resolution. See `spawn_render_geometry`.
-    let posed = enemy.posed;
+    // The geometry this body was BUILT from, read before the seed moves into
+    // the plan: the quad from the same resolution that sized its collider.
+    let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
     let definition = prepared
         .get(character_id)
         .expect("resolved above: the body blueprint came from this definition");
@@ -1488,13 +1485,6 @@ pub fn spawn_runtime_minion_into(
             &mount.pilotable_classes,
         );
     }
-    let (render, sprite_offset) = spawn_render_geometry(
-        posed,
-        authored_sheets,
-        catalog,
-        &name,
-        aabb.half_size() * 2.0,
-    );
     if let Some(rs) = render {
         scope.insert(ambition_combat::components::ActorRenderSize(rs));
     }
@@ -1692,16 +1682,9 @@ pub fn spawn_enemy_with_faction_into(
             .map_or(enemy.config.tuning.is_hostile, |disposition| {
                 disposition.is_hostile()
             });
-        // What this body DOES when it dies, and what it may do — both the
-        // character's, both already resolved on the definition.
-        enemy.caps = ambition_combat::CombatCapabilities::from(
-            &definition.death_traits.clone().unwrap_or_default(),
-        );
         let body_size = enemy.kin.size;
         spawn_solo_enemy_into(
             &mut scope.reborrow(),
-            catalog,
-            authored_sheets,
             enemy,
             authored,
             faction,
@@ -1904,8 +1887,6 @@ fn attach_mount_role_from(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_solo_enemy_into(
     scope: &mut RootScope,
-    catalog: &CharacterCatalog,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     enemy: ambition_body_seed::ActorClusterSeed,
     authored: &ambition_platformer2d_world::rooms::Authored<
         ambition_platformer2d_world::rooms::EnemySpawnSpec,
@@ -1913,10 +1894,9 @@ pub(super) fn spawn_solo_enemy_into(
     faction: ambition_combat::components::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    // Read before the seed is moved into the plan: the geometry this body was
-    // BUILT from, so the components it is spawned with come from that one
-    // resolution. See `spawn_render_geometry`.
-    let posed = enemy.posed;
+    // The geometry this body was BUILT from, read before the seed moves into
+    // the plan: the quad from the same resolution that sized its collider.
+    let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
     EnemyActorSpawnPlan::hostile(
         format!("Feature actor enemy: {}", authored.name),
         authored.id.clone(),
@@ -1930,13 +1910,6 @@ pub(super) fn spawn_solo_enemy_into(
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
     // `CenteredAabb` sync derives from the sprite-sized collision.
-    let (render, sprite_offset) = spawn_render_geometry(
-        posed,
-        authored_sheets,
-        catalog,
-        &authored.name,
-        authored.aabb.half_size() * 2.0,
-    );
     if let Some(rs) = render {
         scope.insert(ambition_combat::components::ActorRenderSize(rs));
     }
@@ -2138,7 +2111,7 @@ pub fn spawn_encounter_mob(
     //  AC6 removed the fallback rather than the silence.
     let mut enemy = match definition {
         Some(definition) => {
-            let mut enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
+            let enemy = ambition_body_seed::ActorClusterSeed::new_character_in(
                 authored_sheets,
                 catalog,
                 // The instance identity.  NOT the character: two goblins in one
@@ -2152,9 +2125,6 @@ pub fn spawn_encounter_mob(
                 aabb,
                 brain,
                 &[],
-            );
-            enemy.caps = ambition_combat::CombatCapabilities::from(
-                &definition.death_traits.clone().unwrap_or_default(),
             );
             enemy
         }
@@ -2178,10 +2148,9 @@ pub fn spawn_encounter_mob(
     // is the policy that keeps no record.
     enemy.config.tuning.respawn = ambition_entity_catalog::placements::RespawnPolicy::OnRoomReenter;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
-    // Read before the seed is moved into the plan: the geometry this body was
-    // BUILT from, so the components it is spawned with come from that one
-    // resolution. See `spawn_render_geometry`.
-    let posed = enemy.posed;
+    // The geometry this body was BUILT from, read before the seed moves into
+    // the plan: the quad from the same resolution that sized its collider.
+    let (render, sprite_offset) = (enemy.render_size, enemy.posed.map(|geometry| geometry.sprite_offset));
     let entity = EnemyActorSpawnPlan::hostile(
         format!("Encounter mob: {id}"),
         id.clone(),
@@ -2202,13 +2171,6 @@ pub fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
-    let (render, sprite_offset) = spawn_render_geometry(
-        posed,
-        authored_sheets,
-        catalog,
-        character.unwrap_or(&id),
-        size * 0.5 * 2.0,
-    );
     if let Some(rs) = render {
         commands
             .entity(entity)
@@ -2341,109 +2303,3 @@ mod runtime_giant_refusal_tests {
     }
 }
 
-/// The presentation geometry a body is spawned with: the sprite quad and where
-/// to draw it, or `None` for a body that publishes neither.
-///
-/// ⛔⛤ **THE SEED'S RESOLUTION FIRST — 2026-09-21.** A character that authors a
-/// `BodySource` has already had all three geometry facts resolved ONCE, from
-/// its sheet, by `ActorClusterSeed::new_character_in`; `kin.size` is the
-/// collision third and [`ActorClusterSeed::posed`] carries the other two. The
-/// catalog join below is the road for every body that authors none, and for a
-/// body that DOES it answers differently — Mary-O's Solid Snake was spawned
-/// with a 118x118 quad against the sheet's 23x23 and corrected a moment later
-/// by `sync_sprite_posed_bodies`.
-///
-/// That correction is not free: an actor bind is keyed on kind + collision size
-/// alone (`BoundFeatureKind`), so a quad corrected after the bind never reaches
-/// the sprite. Whether the correction beat the binder was a system-ordering
-/// accident. Seeding from the one resolution removes the race rather than
-/// winning it.
-fn spawn_render_geometry(
-    posed: Option<ambition_sprite_sheet::character::sheets::PosedBodyGeometry>,
-    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    catalog: &CharacterCatalog,
-    name: &str,
-    ldtk_fallback: ae::Vec2,
-) -> (Option<ae::Vec2>, Option<ae::Vec2>) {
-    match posed {
-        Some(geometry) => (Some(geometry.render), Some(geometry.sprite_offset)),
-        // No authored body source: the catalog join is this body's only
-        // answer, and it publishes no quad offset.
-        None => (
-            ambition_body_seed::sprite_render_size_for_name_in(
-                authored_sheets,
-                catalog,
-                name,
-                ldtk_fallback,
-            ),
-            None,
-        ),
-    }
-}
-
-#[cfg(test)]
-mod spawn_render_geometry_tests {
-    use super::{ae, spawn_render_geometry};
-    use ambition_characters::actor::character_catalog::CharacterCatalog;
-    use ambition_sprite_sheet::character::sheets::{AuthoredSheets, PosedBodyGeometry};
-
-    /// A body that resolved its own geometry is spawned from THAT, and from the
-    /// right third of it.
-    ///
-    /// The quad is `render` and the offset is `sprite_offset`; handing the
-    /// collision size to either is the slip this guards, because collision is
-    /// the one of the three that is already correct on the body and so the
-    /// mistake looks plausible everywhere it is read.
-    #[test]
-    fn a_resolved_body_is_spawned_from_its_own_geometry() {
-        let geometry = PosedBodyGeometry {
-            collision: ae::Vec2::new(21.3, 9.5),
-            render: ae::Vec2::new(23.3, 23.3),
-            sprite_offset: ae::Vec2::new(-1.0, -0.9),
-        };
-        // Deliberately distinct from all three, so a fall-through to the
-        // catalog road cannot be mistaken for a pass.
-        let ldtk = ae::Vec2::new(108.0, 48.0);
-
-        let (render, offset) = spawn_render_geometry(
-            Some(geometry),
-            &AuthoredSheets::default(),
-            &CharacterCatalog::empty(),
-            "solid_snake",
-            ldtk,
-        );
-        assert_eq!(
-            render,
-            Some(geometry.render),
-            "the spawned quad is not the sheet's render size"
-        );
-        assert_eq!(
-            offset,
-            Some(geometry.sprite_offset),
-            "the spawned quad offset is not the sheet's"
-        );
-        assert_ne!(
-            render,
-            Some(geometry.collision),
-            "the quad was seeded from the COLLISION third of the geometry"
-        );
-    }
-
-    /// And a body that resolved none still goes down the catalog road, so the
-    /// arm above is about the seed being consumed rather than about this
-    /// function having one branch.
-    #[test]
-    fn a_body_with_no_resolved_geometry_falls_through_to_the_catalog_road() {
-        let (render, offset) = spawn_render_geometry(
-            None,
-            &AuthoredSheets::default(),
-            &CharacterCatalog::empty(),
-            "solid_snake",
-            ae::Vec2::new(108.0, 48.0),
-        );
-        // An empty catalog names no character, so the join declines — the
-        // point is that this branch ASKS it, and publishes no offset either way.
-        assert_eq!(render, None);
-        assert_eq!(offset, None, "the catalog road has no quad offset to give");
-    }
-}

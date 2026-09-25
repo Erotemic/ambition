@@ -11,6 +11,40 @@ use crate::prepared_fixtures::{mary_o, moveset_with, slash};
 use ambition_binding::Namespace;
 use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape};
 
+/// A character that authors a surface-walking locomotion and no motion model is
+/// prepared as an adhesive crawler. The catalog answers only axis-swept or
+/// momentum, so without this every shipped Puppy Slug was built a crawler and
+/// switched to a walker by the construction grant.
+#[test]
+fn a_surface_walker_is_prepared_as_an_adhesive_crawler() {
+    let crawler = CharacterDefinition::new("test_crawler", "Test Crawler", "test").with_locomotion(
+        crate::actor::CharacterLocomotion {
+            run_speed: 80.0,
+            surface_walker: true,
+            ..Default::default()
+        },
+    );
+    let walker = CharacterDefinition::new("test_walker", "Test Walker", "test").with_locomotion(
+        crate::actor::CharacterLocomotion {
+            run_speed: 80.0,
+            ..Default::default()
+        },
+    );
+    let spec = |definition| {
+        prepare_and_finalize_for_test(definition, &CharacterBindings::default())
+            .prepared
+            .motion_model
+    };
+    assert!(
+        matches!(spec(crawler), ambition_platformer2d_core::MotionModelSpec::AdhesiveCrawler(_)),
+        "an authored surface walker crawls"
+    );
+    assert!(
+        matches!(spec(walker), ambition_platformer2d_core::MotionModelSpec::AxisSwept(_)),
+        "the control: a walker still walks"
+    );
+}
+
 /// §4.6: the cue vocabulary is DERIVED from the moves that emit it, never
 /// hand-listed beside them, because a hand-maintained list drifts.
 #[test]

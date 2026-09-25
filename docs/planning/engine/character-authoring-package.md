@@ -255,9 +255,19 @@ invisible: `sync_sprite_posed_bodies` happened to run before any binder in the
 same tick, so a once-per-tick instrument reads it as clean, and the fix was
 only distinguishable from the bug by probing the spawn site directly.
 `ActorClusterSeed` now carries the resolved `PosedBodyGeometry` and the spawn
-sites seed the quad and the quad offset from it (`spawn_render_geometry`).
+sites seed the quad and the quad offset from it.
 ⭐ The general lesson: **a geometry fact is three components, and closing one
 of them reads exactly like closing the seam.**
+
+⚠ **AND THE QUAD WAS STILL LOOKED UP AGAIN FOR EVERY BODY WITHOUT A POSE
+(2026-09-25).** `spawn_render_geometry` fell back to
+`sprite_render_size_for_name_in`, keyed by the placement's NAME, a free label.
+Of the 43 enemy placements, 39 labels happened to be their character's display
+name; the four `Skirmisher` placements of `npc_pirate_raider` resolved to
+nothing and spawned with no quad. The seed now carries `render_size`, the quad
+of the same resolution that sized its collider (posed geometry, else the
+catalog join by character), and the name lookup is deleted. Guarded by
+`a_skirmisher_is_drawn_at_the_quad_its_character_resolves`.
 
 ⚠ **ONE ASYMMETRY FOUND, AND IT IS NOT A D166 SLICE.** `CharacterDefinition` has
 twenty-two `with_*` builders — abilities, locomotion, mount, contact damage,

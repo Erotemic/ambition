@@ -18,6 +18,11 @@
 //! construction record, which provocation does not rewrite: 88 provoked Smash
 //! drivers chased at the peaceful road's stored 60 where their policy says 270,
 //! and two MeleeBrute bodies turned Hostile with an aggressiveness of zero.
+//!
+//! And a crawler is paced by the policy it runs now. Construction baked the
+//! peaceful patrol pace into its `MotionModel`, so a provoked Puppy Slug
+//! (80 px/s top, peaceful effort 0.5, provoked 0.6774) crawled at 40 px/s under
+//! a policy that asks for 54.
 
 use crate::common::{base, fixed_60hz_room_sim};
 use ambition_platformer2d::actor::{ActorConfig, ActorPolicy};
@@ -75,6 +80,16 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
         bodies.len()
     );
 
+    // The policy each body runs BEFORE the challenge, so the crawler arm below
+    // can prove the provoked pace is not the peaceful one it replaced.
+    let peaceful_policy: std::collections::HashMap<Entity, ambition_platformer2d::characters::brain::BrainProfile> = {
+        let world = sim.world();
+        bodies
+            .iter()
+            .filter_map(|(entity, ..)| world.get::<ActorPolicy>(*entity).map(|live| (*entity, live.0)))
+            .collect()
+    };
+
     let player = {
         let mut q = sim.world_mut().query_filtered::<&SimId, PrimaryPlayerOnly>();
         q.single(sim.world()).cloned().expect("one primary body")
@@ -89,6 +104,7 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
     // Past the challenge grace (2s), with room for the flip to land.
     sim.step_n(base(), 60 * 3);
 
+    let mut crawlers_whose_effort_changed = 0;
     for (entity, _, worn, policy) in &bodies {
         let world = sim.world();
         let disposition = world.get::<ActorDisposition>(*entity).copied();
@@ -112,6 +128,26 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
                     "`{worn}` turned hostile with a peaceful mind: the builder read the \
                      construction record's engagement instead of the one provocation installs"
                 );
+                if let Some(ambition_platformer2d::actor::MotionModel::AdhesiveCrawler(crawler)) =
+                    world.get::<ambition_platformer2d::actor::MotionModel>(*entity)
+                {
+                    let top = world
+                        .get::<ActorConfig>(*entity)
+                        .expect("a provoked body is a built actor")
+                        .tuning
+                        .max_run_speed;
+                    assert_eq!(
+                        crawler.params.crawl_speed,
+                        policy.patrol_speed(top),
+                        "`{worn}` crawls at a pace its provoked policy did not choose"
+                    );
+                    if peaceful_policy
+                        .get(entity)
+                        .is_some_and(|peaceful| peaceful.patrol_effort != policy.patrol_effort)
+                    {
+                        crawlers_whose_effort_changed += 1;
+                    }
+                }
                 if let StateMachineCfg::Smash { cfg, .. } = mind {
                     let top = world
                         .get::<ActorConfig>(*entity)
@@ -132,5 +168,10 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
                  hostile standing here runs its peaceful mind"
             ),
         }
-    }
+    }    assert!(
+        crawlers_whose_effort_changed > 0,
+        "the Hall must provoke a crawler whose provoked patrol effort differs from \
+         its peaceful one, or the crawler arm above cannot tell a live pace from \
+         a stale one"
+    );
 }

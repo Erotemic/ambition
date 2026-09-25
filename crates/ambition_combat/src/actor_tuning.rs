@@ -112,6 +112,17 @@ impl ActorTuning {
             .max(1.0)
     }
 
+    /// The pace an adhesive crawler moves at under this driver: its patrol
+    /// effort against the body's top speed.
+    ///
+    /// The crawler's sibling of [`Self::flight_speed`], and asked the same way:
+    /// of the LIVE policy, where the body is stepped. Construction used to bake
+    /// it into `CrawlerParams` once, so a provoked Puppy Slug kept crawling at
+    /// its peaceful 40 px/s under a policy that no longer existed.
+    pub fn crawl_speed(&self, policy: &BrainProfile) -> f32 {
+        policy.patrol_speed(self.max_run_speed)
+    }
+
     /// Where this body contests space when it fights — the one fact the
     /// crowding signal needs that positions do not carry.
     pub fn crowd_kind(&self) -> crate::crowd::CrowdKind {
@@ -132,10 +143,11 @@ pub use ambition_characters::brain::BrainProfile;
 impl ActorTuning {
     /// The explicit movement policy this archetype's bodies carry from spawn.
     ///
-    /// Crawler archetypes (`surface_walker`) select the adhesive-crawler policy
-    /// with the constructing `policy`'s patrol speed as the crawl speed;
-    /// everything else starts axis-swept with its authored body tuning
-    /// (integration refreshes those parameters live each tick).
+    /// Crawler archetypes (`surface_walker`) select the adhesive-crawler policy,
+    /// starting at the constructing `policy`'s [`Self::crawl_speed`]; everything
+    /// else starts axis-swept with its authored body tuning. Integration
+    /// refreshes both from the live tuning and policy each tick, so neither
+    /// starting value outlives the driver that chose it.
     pub fn motion_model(
         &self,
         policy: &BrainProfile,
@@ -143,7 +155,7 @@ impl ActorTuning {
         if self.surface_walker {
             ambition_platformer2d_core::movement::MotionModel::adhesive_crawler(
                 ambition_platformer2d_core::CrawlerParams {
-                    crawl_speed: policy.patrol_speed(self.max_run_speed),
+                    crawl_speed: self.crawl_speed(policy),
                     max_fall_speed: self.movement.max_fall_speed,
                 },
             )

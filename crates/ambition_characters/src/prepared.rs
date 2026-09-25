@@ -170,6 +170,9 @@ pub struct CharacterBodyBlueprint<'a> {
     pub mount: Option<&'a crate::actor::CharacterMount>,
     pub held_item: Option<&'a str>,
     pub death_traits: Option<&'a crate::actor::CharacterDeathTraits>,
+    /// [`crate::actor::definition::Vitals::knockback_weight`]: `None` leaves the
+    /// constructor's reference weight.
+    pub knockback_weight: Option<f32>,
     /// [`PreparedCharacterDefinition::actor_abilities`]: resolved, so a
     /// constructor has no default to reach for.
     pub abilities: ambition_platformer2d_core::AbilitySet,
@@ -281,6 +284,7 @@ impl PreparedCharacterDefinition {
             mount: self.mount.as_ref(),
             held_item: self.held_item.as_deref(),
             death_traits: self.death_traits.as_ref(),
+            knockback_weight: self.vitals.knockback_weight,
             abilities: self.actor_abilities,
             ranged_vfx: self.ranged_vfx.as_deref(),
             body: self.body.as_ref(),
@@ -1720,10 +1724,28 @@ fn finalize_character(
                 .map(|max| max.max(1)),
             ..vitals
         },
-        motion_model: motion_model.unwrap_or_else(|| match catalog {
-            Some(catalog) => catalog.motion_model_spec(&id),
-            None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
-        }),
+        // An authored model, else the policy the authored locomotion names,
+        // else the catalog's. ⛔ The middle arm was missing: the catalog answers
+        // only axis-swept or momentum, so every character authoring
+        // `surface_walker` (all 18 shipped Puppy Slugs) was built a crawler and
+        // switched back to axis-swept by the construction grant. Its params are
+        // only a start: the actor integration refreshes them each tick from the
+        // live tuning and the driver's policy.
+        motion_model: motion_model
+            .or_else(|| {
+                locomotion.filter(|locomotion| locomotion.surface_walker).map(|locomotion| {
+                    ambition_platformer2d_core::MotionModelSpec::AdhesiveCrawler(
+                        ambition_platformer2d_core::CrawlerParams {
+                            crawl_speed: locomotion.run_speed,
+                            ..Default::default()
+                        },
+                    )
+                })
+            })
+            .unwrap_or_else(|| match catalog {
+                Some(catalog) => catalog.motion_model_spec(&id),
+                None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
+            }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
         abilities,

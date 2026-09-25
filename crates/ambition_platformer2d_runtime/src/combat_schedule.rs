@@ -1069,13 +1069,14 @@ fn authored_volume_resolver_for(
 ) -> ambition_combat::authored_volumes::AuthoredAttackVolumeResolver {
     let sheets = sheets.clone();
     ambition_combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
-        move |catalog, sprite_character_id, animation, collision, clip_elapsed| {
+        move |catalog, sprite_character_id, animation, collision, drawn_quad, clip_elapsed| {
             ambition_character_sprites::authored_attack_volume_resolver(
                 &sheets,
                 catalog,
                 sprite_character_id,
                 animation,
                 collision,
+                drawn_quad,
                 clip_elapsed,
             )
         },

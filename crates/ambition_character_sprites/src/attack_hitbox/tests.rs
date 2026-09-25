@@ -185,6 +185,7 @@ fn seam_resolver_resolves_the_authored_player_blade() {
         "attack_side",
         ae::Vec2::new(30.0, 48.0),
         None,
+        None,
     );
     assert!(
         matches!(volume, Some(ae::CombatVolume::Convex { .. })),
@@ -213,6 +214,7 @@ fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
             "jab",
             collision(),
             None,
+            None,
         )
         .is_none()
     {
@@ -229,6 +231,7 @@ fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
             "pointed_polygon",
             animation,
             collision(),
+            None,
             None,
         )
         .unwrap_or_else(|| panic!("pointed_polygon/{animation} authors a hitbox"))
@@ -248,5 +251,47 @@ fn a_left_drawn_fighters_forward_swings_land_in_front_of_her() {
         reach("air_back") < 0.0,
         "air_back is authored behind her and must stay there, resolved centre x = {}",
         reach("air_back")
+    );
+}
+
+/// An authored blade is scaled by the quad the body is drawn at.
+///
+/// The blade is drawn in frame pixels, so a body drawn twice as large swings a
+/// blade twice as large. This road used to ignore the body's quad and re-ask
+/// the catalog join, which answers for the placement box, not for the art.
+/// Without a carried quad it answers by the renderer's own no-quad rule.
+#[test]
+fn an_authored_blade_is_scaled_by_the_quad_the_body_is_drawn_at() {
+    const CHARACTER: &str = "npc_alice";
+    let catalog = catalog();
+    let authored = Default::default();
+    let spec = catalog_join::sheet_for_character_id_from_data(&authored, catalog.data(), CHARACTER)
+        .expect("alice's baked sheet resolves");
+    let rule = sheets::sprite_render_size(&spec, collision());
+    let width = |drawn: Option<ae::Vec2>| {
+        let bounds = actor_attack_hitbox_local(
+            &authored,
+            &catalog,
+            CHARACTER,
+            "air_forward",
+            collision(),
+            drawn,
+            None,
+        )
+        .expect("alice authors an air_forward blade")
+        .bounds();
+        bounds.max.x - bounds.min.x
+    };
+    assert!(
+        (width(None) - width(Some(rule))).abs() < 1e-3,
+        "a body carrying no quad is drawn by the renderer's rule, so its blade must \
+         be the one that rule scales"
+    );
+    assert!(
+        (width(Some(rule * 2.0)) - 2.0 * width(Some(rule))).abs() < 1e-2,
+        "a body drawn at twice the quad swung a blade of width {} against {}: the \
+         blade was not scaled by the quad the body is drawn at",
+        width(Some(rule * 2.0)),
+        width(Some(rule))
     );
 }

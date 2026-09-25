@@ -25,6 +25,14 @@ impl CharacterSheetSpec {
     }
 }
 
+/// The quad a body is DRAWN at: the one it carries (`ActorRenderSize`, from the
+/// resolution that sized its collider), else the frame fitted to its collision
+/// box. The renderer draws with it and the authored attack volumes are scaled
+/// by it, so a blade polygon lands on the art that shows it.
+pub fn drawn_render_size(spec: &CharacterSheetSpec, collision: Vec2, carried: Option<Vec2>) -> Vec2 {
+    carried.unwrap_or_else(|| sprite_render_size(spec, collision))
+}
+
 /// Per-target sprite render size: the sheet's frame drawn at the scale that
 /// puts the character's own body rectangle on the collision box.
 pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {

@@ -11,7 +11,15 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;
 
 /// Resolver signature: `(catalog, sprite_character_id, animation clip,
-/// collision size, seconds into the clip) -> BODY-LOCAL authored volume`.
+/// collision size, drawn quad, seconds into the clip) -> BODY-LOCAL authored
+/// volume`.
+///
+/// The drawn quad is the `ActorRenderSize` the body carries, `None` when it
+/// carries none. An authored volume is drawn in frame pixels, so it is scaled
+/// by the quad the art is drawn at, and that quad is the body's own fact:
+/// re-deriving it here from the catalog join answered for a different box than
+/// the renderer draws (every sprite-authored body, and any body the join does
+/// not size from its standing height).
 /// `sprite_character_id = None` means the provider's default controllable-body
 /// row (currently the `player` row for Ambition).
 ///
@@ -29,8 +37,14 @@ use bevy::prelude::Resource;
 /// her, and no argument at this seam could have said so. The placement terms
 /// are gone rather than documented — an argument that must be a specific
 /// constant is not an argument.
-pub type AuthoredAttackVolumeFn =
-    fn(&CharacterCatalog, Option<&str>, &str, ae::Vec2, Option<f32>) -> Option<ae::CombatVolume>;
+pub type AuthoredAttackVolumeFn = fn(
+    &CharacterCatalog,
+    Option<&str>,
+    &str,
+    ae::Vec2,
+    Option<ae::Vec2>,
+    Option<f32>,
+) -> Option<ae::CombatVolume>;
 
 /// App-local bridge from combat to the linked sprite-metadata implementation.
 ///
@@ -58,6 +72,7 @@ pub struct AuthoredAttackVolumeResolver {
                 Option<&str>,
                 &str,
                 ae::Vec2,
+                Option<ae::Vec2>,
                 Option<f32>,
             ) -> Option<ae::CombatVolume>
             + Send
@@ -82,6 +97,7 @@ impl AuthoredAttackVolumeResolver {
                 Option<&str>,
                 &str,
                 ae::Vec2,
+                Option<ae::Vec2>,
                 Option<f32>,
             ) -> Option<ae::CombatVolume>
             + Send
@@ -108,9 +124,10 @@ impl AuthoredAttackVolumeResolver {
         sprite_character_id: Option<&str>,
         animation: &str,
         collision: ae::Vec2,
+        drawn_quad: Option<ae::Vec2>,
         clip_elapsed: Option<f32>,
     ) -> Option<ae::CombatVolume> {
-        (self.resolve)(catalog, sprite_character_id, animation, collision, clip_elapsed)
+        (self.resolve)(catalog, sprite_character_id, animation, collision, drawn_quad, clip_elapsed)
     }
 }
 
@@ -125,6 +142,7 @@ fn no_authored_attack_volume(
     _sprite_character_id: Option<&str>,
     _animation: &str,
     _collision: ae::Vec2,
+    _drawn_quad: Option<ae::Vec2>,
     _clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     None
@@ -164,6 +182,7 @@ mod tests {
         _cid: Option<&str>,
         _animation: &str,
         _collision: ae::Vec2,
+        _drawn_quad: Option<ae::Vec2>,
         _clip_elapsed: Option<f32>,
     ) -> Option<ae::CombatVolume> {
         let x = if catalog.get("alpha").is_some() {
@@ -201,6 +220,7 @@ mod tests {
                     None,
                     "attack_side",
                     ae::Vec2::splat(1.0),
+                    None,
                     None,
                 )
                 .expect("fixture catalog should resolve")

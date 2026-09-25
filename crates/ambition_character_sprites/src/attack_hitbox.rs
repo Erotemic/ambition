@@ -186,21 +186,22 @@ pub fn manifest_attack_hitbox_world(
     )
 }
 
-/// Render size of the player's sprite quad, resolved from the supplied
-/// App-local catalog the same way the renderer does. `None` if the player has
-/// no sheet spec. The baked manifest registry remains the only immutable
-/// process-wide cache; catalog-dependent sheet selection is never cached.
+/// The quad the player row's art is drawn at, by the renderer's own rule
+/// ([`sheets::drawn_render_size`]). `None` if the player has no sheet spec. The
+/// baked manifest registry remains the only immutable process-wide cache;
+/// catalog-dependent sheet selection is never cached.
 fn player_render_size(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     catalog: &CharacterCatalog,
     collision: ae::Vec2,
+    drawn_quad: Option<ae::Vec2>,
 ) -> Option<ae::Vec2> {
     let spec = catalog_join::sheet_for_character_id_from_data(
         authored,
         catalog.data(),
         PLAYER_CHARACTER_ID,
     )?;
-    Some(sheets::sprite_render_size(&spec, collision))
+    Some(sheets::drawn_render_size(&spec, collision, drawn_quad))
 }
 
 /// Resolve a controllable body's authored melee volume, BODY-LOCAL.
@@ -214,6 +215,9 @@ fn player_render_size(
 /// rotates itself against its owner every query, so handing it a placed volume
 /// would mirror the swing twice. `clip_elapsed` is seconds into the clip, so a
 /// sheet publishing per-frame geometry drives the box that is live right now.
+/// `drawn_quad` is the quad the body carries (`ActorRenderSize`), which scales
+/// the blade exactly as it scales the art that shows it.
+#[allow(clippy::too_many_arguments)]
 pub fn authored_attack_volume_resolver(
     // U1 stage C: provider-authored sheets, captured by the composition root
     // into the resolver closure. Combat calls this without naming the type.
@@ -222,13 +226,27 @@ pub fn authored_attack_volume_resolver(
     sprite_character_id: Option<&str>,
     animation: &str,
     collision: ae::Vec2,
+    drawn_quad: Option<ae::Vec2>,
     clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     match sprite_character_id {
-        Some(cid) => {
-            actor_attack_hitbox_local(authored, catalog, cid, animation, collision, clip_elapsed)
-        }
-        None => player_attack_hitbox_local(authored, catalog, animation, collision, clip_elapsed),
+        Some(cid) => actor_attack_hitbox_local(
+            authored,
+            catalog,
+            cid,
+            animation,
+            collision,
+            drawn_quad,
+            clip_elapsed,
+        ),
+        None => player_attack_hitbox_local(
+            authored,
+            catalog,
+            animation,
+            collision,
+            drawn_quad,
+            clip_elapsed,
+        ),
     }
 }
 
@@ -237,6 +255,7 @@ pub fn player_attack_hitbox_local(
     catalog: &CharacterCatalog,
     animation: &str,
     collision: ae::Vec2,
+    drawn_quad: Option<ae::Vec2>,
     clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     // Authored first, baked second — the same order every other sheet lookup
@@ -245,11 +264,12 @@ pub fn player_attack_hitbox_local(
     let record = authored
         .get(PLAYER_FILE_ROOT)
         .or_else(|| file_root_registry().get(PLAYER_FILE_ROOT))?;
-    let render_size = player_render_size(authored, catalog, collision)?;
+    let render_size = player_render_size(authored, catalog, collision, drawn_quad)?;
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }
 
-/// [`player_attack_hitbox_local`] placed for a body that exists right now.
+/// [`player_attack_hitbox_local`] placed for a body that exists right now and
+/// carries no quad of its own.
 #[allow(clippy::too_many_arguments)]
 pub fn player_attack_hitbox_world(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -261,7 +281,7 @@ pub fn player_attack_hitbox_world(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     Some(
-        player_attack_hitbox_local(authored, catalog, animation, collision, None)?
+        player_attack_hitbox_local(authored, catalog, animation, collision, None, None)?
             .place_body_local(body_pos, facing, gravity_dir),
     )
 }
@@ -285,26 +305,24 @@ pub fn actor_attack_hitbox_local(
     character_id: &str,
     animation: &str,
     collision: ae::Vec2,
+    drawn_quad: Option<ae::Vec2>,
     clip_elapsed: Option<f32>,
 ) -> Option<ae::CombatVolume> {
     let file_root = catalog.get(character_id)?.manifest_target()?;
     let record = authored
         .get(file_root)
         .or_else(|| file_root_registry().get(file_root))?;
-    // Scale by the actor's rendered sprite size (same derivation its collision
-    // came from); fall back to the collision box when no sheet spec resolves.
-    let render_size = catalog_join::sprite_body_collision_for_character_id_from_data(
-        authored,
-        catalog.data(),
-        character_id,
-        collision,
-    )
-    .map(|b| b.render_size)
-    .unwrap_or(collision);
+    // Scale by the quad the art is drawn at, by the renderer's own rule. The
+    // catalog join is NOT asked again: it answers for the placement box, which
+    // a sprite-authored or posed body is not drawn from.
+    let render_size = catalog_join::sheet_for_character_id_from_data(authored, catalog.data(), character_id)
+        .map(|spec| sheets::drawn_render_size(&spec, collision, drawn_quad))
+        .unwrap_or_else(|| drawn_quad.unwrap_or(collision));
     manifest_attack_hitbox_local(record, animation, collision, render_size, clip_elapsed)
 }
 
-/// [`actor_attack_hitbox_local`] placed for a body that exists right now.
+/// [`actor_attack_hitbox_local`] placed for a body that exists right now and
+/// carries no quad of its own.
 #[allow(clippy::too_many_arguments)]
 pub fn actor_attack_hitbox_world(
     authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -317,7 +335,7 @@ pub fn actor_attack_hitbox_world(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     Some(
-        actor_attack_hitbox_local(authored, catalog, character_id, animation, collision, None)?
+        actor_attack_hitbox_local(authored, catalog, character_id, animation, collision, None, None)?
             .place_body_local(body_pos, facing, gravity_dir),
     )
 }

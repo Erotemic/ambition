@@ -152,6 +152,49 @@ fn ride_high_road(app: &mut App, spring_x: f32, spring_y: f32, road_x: f32) {
     panic!("spring at {spring_x:.0} did not reach {road}; highest y {highest:.0}, furthest x {furthest:.0}");
 }
 
+/// Ride the vault ceiling right into its rift and come out of the red one on
+/// the east high road, standing on it.
+///
+/// A portal keeps a body's offset along its plane, so a pair centred at
+/// different heights off their surfaces sets a runner down inside one. The red
+/// rift put him 12 px into the road; the next frame the solver popped him out,
+/// and the camera jolted with him (Jon: "the character embeds into the floor
+/// before settling back on the surface").
+fn through_the_vault_rift(app: &mut App) {
+    place(app, Vec2::new(11700.0, 1290.0));
+    for _ in 0..20 {
+        release(app);
+        app.update();
+    }
+    let transits = app.world().resource::<PortalTransits>().0;
+    let mut arrived = None;
+    for _ in 0..240 {
+        hold(app, false);
+        app.update();
+        if app.world().resource::<PortalTransits>().0 > transits {
+            arrived = Some(body(app).0.pos);
+            break;
+        }
+    }
+    let arrived = arrived.expect("riding the vault ceiling right must cross its rift");
+    assert!(arrived.x > 21000.0, "the vault rift leads to the east road: {arrived:?}");
+    for _ in 0..10 {
+        hold(app, false);
+        app.update();
+    }
+    let (kin, motion) = body(app);
+    assert!(
+        matches!(motion, Some(ae::SurfaceMotion::Riding { .. })),
+        "he runs on along the east road: {motion:?}"
+    );
+    assert!(
+        (kin.pos.y - arrived.y).abs() < 0.5,
+        "he came out of the red rift at y {:.1} and stands at {:.1}: set down in the road, then popped out",
+        arrived.y,
+        kin.pos.y
+    );
+}
+
 /// Run until the act clears, or panic naming how far he got.
 fn run_to_clear(
     app: &mut App,
@@ -278,6 +321,7 @@ fn the_three_acts_connect_and_clear() {
     );
     ride_high_road(&mut app, 5480.0, 1660.0, 6000.0);
     ride_high_road(&mut app, 21500.0, 1640.0, 22000.0);
+    through_the_vault_rift(&mut app);
     place(&mut app, Vec2::new(144.0, 1594.0));
     run_to_clear(&mut app, "Act 3", 7200, |_| false);
     assert!(

@@ -289,3 +289,76 @@ fn the_gnu_does_not_turn_while_you_stand_under_it() {
     place_player(&mut sim, stand(s.giant.pos.x + half + 120.0));
     step_until(&mut sim, 120, "the gnu to face a player past its right flank", |sim| scene(sim).giant.facing > 0.0);
 }
+
+/// Entering the arena, the fists start where they stand and stay at the giant.
+///
+/// The conductor eased its fists from a defaulted latch at the world origin, so
+/// two frames after the room loaded both jumped ~1300 px to the room's top-left
+/// corner and slid back (Jon: "the hands start in the upper left corner, and
+/// then very quickly move into the correct location").
+#[test]
+fn entering_the_arena_the_fists_start_where_they_stand() {
+    let opts = Platformer2dSimHarnessOptions::default()
+        .with_timestep(TimestepMode::fixed_60hz())
+        .with_required_start_room("hall_of_bosses");
+    let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("the hall of bosses builds headlessly");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+    let door = {
+        let world = sim.world_mut();
+        let mut rooms = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+        let set = rooms.iter(world).next().expect("a room set");
+        set.active_loading_zones()
+            .iter()
+            .find(|zone| zone.id == "hall_gnu_ton_portal")
+            .cloned()
+            .expect("the hall of bosses has a door to GNU-ton")
+    };
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let at = door.aabb.center();
+    sim.teleport_player((at.x, at.y));
+    let hold = AgentAction { interact: true, interact_held: true, ..AgentAction::default() };
+    let mut entered = false;
+    for _ in 0..120 {
+        if sim.step(hold.clone()).active_room == ARENA {
+            entered = true;
+            break;
+        }
+    }
+    assert!(entered, "holding interact at the door never entered {ARENA}");
+
+    let fists = |sim: &mut Platformer2dSimHarness| -> (Vec<ae::Vec2>, ae::BodyKinematics) {
+        let world = sim.world_mut();
+        let fists = world
+            .query_filtered::<&ae::BodyKinematics, With<Limb>>()
+            .iter(world)
+            .map(|kin| kin.pos)
+            .collect();
+        let giant = world
+            .query_filtered::<&ae::BodyKinematics, (With<LimbRig>, Without<Limb>)>()
+            .iter(world)
+            .next()
+            .cloned()
+            .expect("the giant is in the arena");
+        (fists, giant)
+    };
+    let (mut last, _) = fists(&mut sim);
+    assert_eq!(last.len(), 2, "the premise: both fists are in the arena from its first frame");
+    for frame in 0..60 {
+        sim.step(AgentAction::default());
+        let (now, giant) = fists(&mut sim);
+        for (before, after) in last.iter().zip(&now) {
+            assert!(
+                (*after - *before).length() < 40.0,
+                "frame {frame}: a fist jumped {before:?} -> {after:?}"
+            );
+            assert!(
+                (*after - giant.pos).length() < giant.size.x,
+                "frame {frame}: a fist at {after:?} is out of reach of the giant at {:?}",
+                giant.pos
+            );
+        }
+        last = now;
+    }
+}

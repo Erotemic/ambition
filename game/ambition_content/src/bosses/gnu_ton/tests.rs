@@ -102,6 +102,7 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     scratch.config.behavior = behavior;
+    scratch.resolve_sheet_body(&catalog);
     scratch
 }
 
@@ -111,81 +112,24 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
 fn giant_head_hurtbox_overlaps_the_body_envelope() {
     use ambition_platformer2d_core::AabbExt;
 
-    let mut app = App::new();
-    app.insert_resource(crate::bosses::authored_boss_catalog());
-    app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
-    let entity = app
-        .world_mut()
-        .spawn((
-            ambition_platformer2d::actor::FeatureSimEntity,
-            spawn_giant_bodied_boss_runtime().into_components(),
-            ambition_characters::brain::BossAttackState::default(),
-        ))
-        .id();
-    app.add_systems(
-        Update,
-        ambition_platformer2d_actor_monolith::features::derive_boss_sprite_metrics,
-    );
-    // First update runs Startup (loads the baked sprite registry)
-    // then Update (derives the boss's sprite metrics from it).
-    app.update();
-
-    let status = app
-        .world()
-        .get::<ambition_boss_encounter::BossEncounter>(entity)
-        .unwrap();
+    let boss = spawn_giant_bodied_boss_runtime();
     assert!(
-        status.sprite_metrics.is_some(),
-        "the giant's sprite metrics should derive from the baked sheet registry"
+        boss.status.sprite_metrics.is_some(),
+        "the giant's sprite metrics should resolve from the baked sheet registry"
     );
-    let attack = app
-        .world()
-        .get::<ambition_characters::brain::BossAttackState>(entity)
-        .unwrap();
-    let kin = app
-        .world()
-        .get::<ambition_platformer2d_core::body_clusters::BodyKinematics>(entity)
-        .unwrap();
-    let config = app
-        .world()
-        .get::<ambition_boss_encounter::BossConfig>(entity)
-        .unwrap();
-    let status = app
-        .world()
-        .get::<ambition_boss_encounter::BossEncounter>(entity)
-        .unwrap();
-    let boss_ref = ambition_boss_encounter::BossRef {
-        kin,
-        config,
-        status,
-    };
+    let attack = ambition_characters::brain::BossAttackState::default();
     let catalog = crate::bosses::authored_boss_catalog();
     let ctx = ambition_boss_encounter::attack_geometry::BossVolumeContext::from_ref(
-        &catalog, boss_ref, attack,
+        &catalog,
+        boss.as_ref(),
+        &attack,
     );
     let hurtboxes = ambition_combat::body_geometry::damageable_volumes(&ctx);
     assert!(
         !hurtboxes.is_empty(),
         "the giant should expose at least one damageable hurtbox at rest"
     );
-    let kin = app
-        .world()
-        .get::<ambition_platformer2d_core::body_clusters::BodyKinematics>(entity)
-        .unwrap();
-    let config = app
-        .world()
-        .get::<ambition_boss_encounter::BossConfig>(entity)
-        .unwrap();
-    let status = app
-        .world()
-        .get::<ambition_boss_encounter::BossEncounter>(entity)
-        .unwrap();
-    let body = ambition_boss_encounter::BossRef {
-        kin,
-        config,
-        status,
-    }
-    .aabb();
+    let body = boss.as_ref().aabb();
     for hb in &hurtboxes {
         assert!(
             body.strict_intersects(hb.bounds()),

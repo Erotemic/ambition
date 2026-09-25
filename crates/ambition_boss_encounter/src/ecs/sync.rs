@@ -5,20 +5,10 @@ use ambition_sprite_sheet::ActorSpriteMetrics;
 // Named imports, not a glob, so the dependencies are visible to grep.
 use ambition_combat::components::{ActorDisposition, ActorIdentity};
 use ambition_platformer2d_core as ae;
-use bevy::prelude::{Component, Entity, Query, Res, With, Without};
 
 use crate::attack_geometry::bounding_aabb;
-use ambition_characters::brain::{Brain, StateMachineCfg};
 use ambition_platformer2d_core::AabbExt;
-use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
 use ambition_sprite_sheet::SheetRegistry;
-use bevy::prelude::Commands;
-
-/// Marker that a boss entity has had its sprite metrics applied
-/// (once-per-boss derivation gate). Inserted by
-/// [`derive_boss_sprite_metrics`] when it walks a new boss.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct BossSpriteMetricsApplied;
 
 /// A boss's shared actor components at construction: its identity, and its
 /// initial disposition. A boss starts Hostile; after that, the general runtime
@@ -63,66 +53,6 @@ pub fn sprite_render_size_for(
     ae::Vec2::new(render.x, render.y)
 }
 
-/// Read the sprite registry for each new boss and copy its `body_metrics`
-/// into `BossEncounter::sprite_metrics`. Also derive an updated `combat_size`
-/// from the bounding box of the body parts, so the boss's collision and soft
-/// world-bounds clamp match the visible body, not the LDtk BossSpawn AABB.
-///
-/// Gated by the `BossSpriteMetricsApplied` marker, so each boss is processed
-/// once. Skips bosses whose sprite target is not in the registry (they keep
-/// their authored or fallback combat_size).
-///
-/// When the brain is `BossPattern { cfg, .. }`, this also writes the derived
-/// combat_size into `cfg.combat_size`, so the brain's soft world-bounds clamp
-/// matches the new envelope.
-pub fn derive_boss_sprite_metrics(
-    mut commands: Commands,
-    boss_catalog: Res<crate::BossCatalog>,
-    registry: Option<Res<SheetRegistry>>,
-    mut bosses: Query<
-        (Entity, crate::BossClusterQueryData, Option<&mut Brain>),
-        (With<FeatureSimEntity>, Without<BossSpriteMetricsApplied>),
-    >,
-) {
-    let Some(registry) = registry else {
-        // Headless or minimal-plugin tests do not init the sprite registry.
-        // With no metadata, this is a no-op and the boss keeps its
-        // `combat_size`.
-        return;
-    };
-    if registry.is_empty() {
-        // Registry hasn't loaded yet — retry next frame. Don't
-        // insert the gate marker so the next tick re-attempts.
-        return;
-    }
-    for (entity, mut feature, brain_opt) in &mut bosses {
-        let Some((snapshot, derived_combat_size)) =
-            boss_sprite_metrics_from_registry(&boss_catalog, feature.as_boss_ref(), &registry)
-        else {
-            // No metadata for this boss — leave defaults alone.
-            commands.entity(entity).insert(BossSpriteMetricsApplied);
-            continue;
-        };
-        feature.status.sprite_metrics = Some(snapshot);
-        if let Some(derived) = derived_combat_size {
-            feature.config.behavior.combat_size = Some(derived);
-            // `kin.size` is the collision envelope, so refine it to the
-            // sprite-derived combat size too (the render basis stays in
-            // `status.render_size`). The shared movement seam then sweeps the
-            // real body.
-            feature.kin.size = derived;
-            // Mirror into the brain cfg so the soft world-bounds
-            // clamp uses the new value too.
-            if let Some(mut brain) = brain_opt {
-                if let Brain::StateMachine(StateMachineCfg::BossPattern { cfg, .. }) = &mut *brain {
-                    cfg.combat_size = derived;
-                }
-            }
-        }
-        commands.entity(entity).insert(BossSpriteMetricsApplied);
-    }
-}
-
 /// Compute the rest-pose damageable hurtbox volumes a boss would expose when
 /// spawned from an authored `BossSpawn` at `aabb`. Resolves the boss's sprite
 /// metrics from the baked sheet registry (no Bevy `App`) and returns
@@ -141,13 +71,7 @@ pub fn boss_spawn_hurtboxes(
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
 ) -> Vec<ae::CombatVolume> {
-    let registry = ambition_sprite_sheet::baked_sheet_registry();
-    let mut boss = crate::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
-    if let Some((metrics, _)) =
-        boss_sprite_metrics_from_registry(boss_catalog, boss.as_ref(), &registry)
-    {
-        boss.status.sprite_metrics = Some(metrics);
-    }
+    let boss = crate::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
     let attack_state = ambition_characters::brain::BossAttackState::default();
     crate::attack_geometry::damageable_volumes(
         &crate::attack_geometry::BossVolumeContext::from_ref(

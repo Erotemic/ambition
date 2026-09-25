@@ -109,7 +109,6 @@ WAIVERS = {
     "FrontHudCamera": "the HUD camera layer, same population as `MainCamera`",
     "BossAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",
     "CharacterAnimator": "sprite-sheet animator state, rebuilt from the sim's pose view",
-    "BossSpriteMetricsApplied": "a once-per-sheet render sync latch in `ecs/sync.rs`",
     "PlayerTrail": "the avatar's visual trail",
     "LightEmitter2d": "a relativity2d render signal",
     # ⭐⛤ THE `game/*` ARRIVALS, 2026-09-18. These became visible when

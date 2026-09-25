@@ -99,13 +99,8 @@ pub use world_overlay::rebuild_feature_ecs_world_overlay;
 // monolith's façade rows so its schedule registration and its callers did not
 // have to move with it; the definitions are one hop away and named as such.
 pub use ambition_boss_encounter::ecs::boss_component_snapshot;
-#[allow(
-    unused_imports,
-    reason = "marker re-exported for tests / external visualizers"
-)]
-pub use ambition_boss_encounter::ecs::BossSpriteMetricsApplied;
 pub use ambition_boss_encounter::ecs::{
-    boss_spawn_hurtboxes, derive_boss_sprite_metrics, drive_boss_animators,
+    boss_spawn_hurtboxes, drive_boss_animators,
     project_boss_attack_state_from_move, tick_boss_brains_system, trigger_boss_attack_moves, update_ecs_bosses,
 };
 // ⛔ EXCEPT THIS ONE, which did not go: see `boss_bodies`.

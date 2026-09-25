@@ -118,14 +118,28 @@ pub struct GnuTonConductor {
     landing: Vec2,
 }
 
-impl Default for GnuTonConductor {
-    fn default() -> Self {
+impl GnuTonConductor {
+    /// A conductor for fists standing at `fists` (left, right).
+    ///
+    /// ⛔ THERE IS NO `Default`, AND THAT IS THE FIX. The conductor eases each
+    /// fist from `latch.from`, and a defaulted latch said the fists stood at the
+    /// world origin. They were built in place, then the first idle beat dragged
+    /// them to the room's top-left corner and eased them back over 0.6 s (Jon:
+    /// "the hands start in the upper left corner, and then very quickly move
+    /// into the correct location"). Where the fists are is a fact about the
+    /// world, so the only constructor asks for it.
+    pub fn new(fists: [Vec2; 2]) -> Self {
         Self {
             hall: None,
             part: None,
             last_remaining: 0.0,
-            latch: Latch::default(),
-            aims: [Vec2::ZERO; 2],
+            latch: Latch {
+                aim: (fists[0] + fists[1]) * 0.5,
+                lead: None,
+                from: fists,
+                curve_phase: 0.0,
+            },
+            aims: fists,
             next_lead: Fist::Left,
             clock: 0.0,
             ticks: 0,
@@ -137,9 +151,7 @@ impl Default for GnuTonConductor {
             landing: Vec2::ZERO,
         }
     }
-}
 
-impl GnuTonConductor {
     /// The move being performed and whether it is striking, for tests and
     /// inspectors.
     pub fn performing(&self) -> Option<(Move, bool)> {
@@ -198,17 +210,23 @@ pub fn is_gnu_ton(config: &BossConfig) -> bool {
 pub fn adopt_gnu_ton(
     mut commands: Commands,
     scholars: Query<(Entity, &BossConfig, &RidingOn), Without<GnuTonConductor>>,
-    giants: Query<&LimbRig, With<MountSlot>>,
+    giants: Query<(&LimbRig, &ae::BodyKinematics), With<MountSlot>>,
     fists: Query<(), (With<Limb>, Without<ae::PoseOwnedExternally>)>,
+    fist_bodies: Query<&ae::BodyKinematics, With<Limb>>,
 ) {
     for (scholar, config, riding) in &scholars {
         if !is_gnu_ton(config) {
             continue;
         }
-        commands.entity(scholar).insert(GnuTonConductor::default());
-        let Ok(rig) = giants.get(riding.mount) else {
+        // Not until the giant is here: the conductor starts from where its
+        // fists stand, and a fist that is gone starts at its home.
+        let Ok((rig, giant)) = giants.get(riding.mount) else {
             continue;
         };
+        let home = homes(giant);
+        let at = [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].map(|slot| rig.get(slot).and_then(|fist| fist_bodies.get(fist).ok()));
+        let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |kin| kin.pos));
+        commands.entity(scholar).insert(GnuTonConductor::new(fists_at));
         for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
             if fists.contains(fist) {
                 commands.entity(fist).insert((

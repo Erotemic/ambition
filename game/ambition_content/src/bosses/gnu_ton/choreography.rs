@@ -105,8 +105,9 @@ impl Stage {
     }
 }
 
-/// Facts latched when a beat began.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+/// Facts latched when a beat began. No `Default`: `from` is where the fists
+/// stand, and a zero there is the world origin.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Latch {
     /// Where the player was at the telegraph's start (or its lock, for a
     /// tracking move, which keeps updating it until the lock).

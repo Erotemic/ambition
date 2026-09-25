@@ -272,11 +272,11 @@ impl ActorClusterSeed {
     // its CHARACTER says it is, and an identifier that names no character is a
     // construction refusal rather than a silent downgrade.
 
-    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
+    /// Build a PEACEFUL actor seed from catalog/NPC spawn inputs — the unified
     /// replacement for `NpcClusterScratch::new_with_paths`. A peaceful actor is
     /// the same cluster as a hostile enemy, just with peaceful tuning
-    /// (`is_hostile = false`, zero aggro, `max_run_speed = NPC_PATROL_SPEED`,
-    /// `health = 1`) and a `Passive`/`Patrol` AI brain; its movement is driven by
+    /// (`is_hostile = false`, zero aggro, its character's top speed or the
+    /// shared one, the unauthored health) and a `Passive`/`Patrol` AI brain; its movement is driven by
     /// the catalog `Brain` component attached at spawn, not by this `config.brain`
     /// (which only feeds the integrator's patrol-stall intent). The seed's `spec`
     /// field is filled with an inert default (peaceful actors never spawn through
@@ -394,8 +394,6 @@ impl ActorClusterSeed {
             |body| body.max_health,
         );
         let tuning = ambition_combat::actor_tuning::ActorTuning {
-            patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
-            chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             max_run_speed: authored_body
                 .as_ref()
                 .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |body| {
@@ -683,15 +681,10 @@ impl ActorClusterSeed {
         // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion.run_speed;
         let tuning = ambition_combat::actor_tuning::ActorTuning {
-            // the PROFILE's pacing against the BODY's top speed — §4.7's
-            // brain→body seam, both halves finally stated by their own
-            // authority. These were `run_speed * 0.5` and `run_speed`, hard
-            // coded, so every character-first body ambled at exactly half pace
-            // whatever its archetype row had said: `pirate_shark_rider`'s
-            // tuned 0.4783 and `medium_striker`'s 0.44 would both have been
-            // silently rounded to one shared number by migrating them.
-            patrol_speed: run_speed * brain_profile.patrol_effort,
-            chase_speed: run_speed * brain_profile.chase_effort,
+            // The BODY's top speed only. A driver's pace is its profile's
+            // effort against it (`BrainProfile::patrol_speed`/`chase_speed`),
+            // computed where the driver is lowered so a provoked policy paces
+            // by its own effort rather than the construction policy's.
             max_run_speed: run_speed,
             // Touching a body hurts only if its CHARACTER says so. A fighter
             // that authors none is safe to stand next to, which is what every
@@ -1197,11 +1190,9 @@ mod tests {
             seed.config.tuning.max_run_speed, 200.0,
             "the BODY's capability"
         );
-        assert_eq!(
-            seed.config.tuning.patrol_speed, 50.0,
-            "0.25 of it, not half"
-        );
-        assert_eq!(seed.config.tuning.chase_speed, 150.0, "0.75 of it, not all");
+        let top = seed.config.tuning.max_run_speed;
+        assert_eq!(seed.policy.0.patrol_speed(top), 50.0, "0.25 of it, not half");
+        assert_eq!(seed.policy.0.chase_speed(top), 150.0, "0.75 of it, not all");
         assert!(
             seed.config.tuning.is_hostile,
             "construction has no relationship to state, so it states the ordinary \

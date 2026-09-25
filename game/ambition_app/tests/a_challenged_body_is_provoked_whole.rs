@@ -12,9 +12,16 @@
 //! - The aggression flip happened before the mind was chosen, so those 89, and
 //!   the six whose providers declare no provoked policy, turned Hostile in
 //!   aggression and standing while keeping their peaceful mind.
+//!
+//! And the mind a provocation lowers is lowered from the policy it installs
+//! (AP32). The builders read the chase speed and the engagement off the
+//! construction record, which provocation does not rewrite: 88 provoked Smash
+//! drivers chased at the peaceful road's stored 60 where their policy says 270,
+//! and two MeleeBrute bodies turned Hostile with an aggressiveness of zero.
 
 use crate::common::{base, fixed_60hz_room_sim};
-use ambition_platformer2d::actor::ActorPolicy;
+use ambition_platformer2d::actor::{ActorConfig, ActorPolicy};
+use ambition_platformer2d::characters::brain::{Brain, StateMachineCfg};
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::combat::components::ActorDisposition;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -97,6 +104,26 @@ fn every_hall_body_is_provoked_into_its_policy_or_stays_peaceful() {
                     Some(*policy),
                     "`{worn}` turned hostile without the provoked policy its character resolved"
                 );
+                let Some(Brain::StateMachine(mind)) = world.get::<Brain>(*entity) else {
+                    panic!("`{worn}` was provoked into no state-machine mind");
+                };
+                assert!(
+                    mind.is_hostile(),
+                    "`{worn}` turned hostile with a peaceful mind: the builder read the \
+                     construction record's engagement instead of the one provocation installs"
+                );
+                if let StateMachineCfg::Smash { cfg, .. } = mind {
+                    let top = world
+                        .get::<ActorConfig>(*entity)
+                        .expect("a provoked body is a built actor")
+                        .tuning
+                        .max_run_speed;
+                    assert_eq!(
+                        cfg.chase_speed,
+                        policy.chase_speed(top),
+                        "`{worn}` chases at a speed its provoked policy did not choose"
+                    );
+                }
             }
             None => assert_eq!(
                 disposition,

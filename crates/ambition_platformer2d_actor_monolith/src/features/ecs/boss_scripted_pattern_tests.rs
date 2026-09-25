@@ -550,7 +550,6 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // cluster (`boss_actor_cluster`).
     seed.surface.gravity_scale = 0.0;
     seed.config.tuning.is_aerial = true;
-    seed.config.tuning.chase_speed = 1200.0;
     seed.config.tuning.max_run_speed = 1200.0;
     seed.config.tuning.flight_direct_velocity = true;
     // A floating boss: is_aerial forces flight into the body's movement kit.

@@ -268,10 +268,10 @@ impl<'a> ActorMutIntegrationExt for ActorMut<'a> {
             .tuning
             .movement
             .body_tuning(self.config.tuning.max_run_speed);
-        // Flight tuning from the actor's chase speed: the body flies at its own
+        // Flight tuning from the driver's chase speed: the body flies at its own
         // speed, steers responsively (matching the old floating accel), and does
         // NOT idle-bob like the player (hover speed 0) — an AI flyer holds station.
-        let flight_speed = self.config.tuning.flight_speed();
+        let flight_speed = self.config.tuning.flight_speed(&self.policy.0);
         tuning.flight_terminal_speed = flight_speed;
         tuning.flight_accel = (flight_speed * 3.0).max(900.0);
         tuning.flight_drag = (flight_speed * 3.0).max(900.0);

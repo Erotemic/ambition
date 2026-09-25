@@ -208,6 +208,18 @@ impl BrainProfile {
     /// call sites that already hold it.
     pub const DEFAULT_SMASH_HIT_BAND: f32 = DEFAULT_SMASH_HIT_BAND;
 
+    /// The speed this driver patrols a body at: its effort against the body's
+    /// own top speed. Computed where a driver is lowered, never stored, so a
+    /// policy swapped in later (a provocation) paces the body by its own effort.
+    pub fn patrol_speed(&self, body_top_speed: f32) -> f32 {
+        body_top_speed * self.patrol_effort
+    }
+
+    /// The same, for a committed chase.
+    pub fn chase_speed(&self, body_top_speed: f32) -> f32 {
+        body_top_speed * self.chase_effort
+    }
+
     /// A profile that only names its template — every policy knob at its
     /// default. The shape a peaceful or scripted body wants.
     pub fn from_template(template: CharacterBrainTemplate) -> Self {

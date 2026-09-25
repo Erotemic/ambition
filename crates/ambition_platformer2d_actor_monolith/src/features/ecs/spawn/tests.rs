@@ -1207,7 +1207,8 @@ mod authored_enemy_reads_its_character {
     }
 
     /// Spawn the complete character with an optional placement-authored policy,
-    /// and report the patrol speed its tuning ended up with.
+    /// and report the patrol speed its driver lowers to: the policy's effort
+    /// against the body's top speed.
     fn spawn_with_placement_policy(
         policy: Option<&'static str>,
         profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
@@ -1260,12 +1261,9 @@ mod authored_enemy_reads_its_character {
         app.update();
 
         let world = app.world_mut();
-        let mut q = world.query::<&ActorConfig>();
-        q.iter(world)
-            .next()
-            .expect("one enemy body")
-            .tuning
-            .patrol_speed
+        let mut q = world.query::<(&ActorConfig, &ambition_combat::actor_tuning::ActorPolicy)>();
+        let (config, policy) = q.iter(world).next().expect("one enemy body");
+        policy.0.patrol_speed(config.tuning.max_run_speed)
     }
 
     fn prepared() -> ambition_characters::prepared::PreparedCharacterRegistry {

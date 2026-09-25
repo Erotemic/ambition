@@ -119,14 +119,15 @@ fn a_named_character_supplies_the_npc_body_it_authored() {
     // amble is the PROFILE's fraction of the body's top speed, and it is strictly
     // slower than the body can move.
     let effort = ambition_combat::actor_tuning::BrainProfile::default().patrol_effort;
+    let patrol_speed = seed.policy.0.patrol_speed(tuning.max_run_speed);
     assert_eq!(
-        tuning.patrol_speed,
+        patrol_speed,
         225.0 * effort,
         "patrol speed is the controller's EFFORT against the body's top speed, \
          not a number either one states alone"
     );
     assert!(
-        tuning.patrol_speed < tuning.max_run_speed,
+        patrol_speed < tuning.max_run_speed,
         "and it must still be an amble: a character that authors a fast body \
          does not thereby decide to stroll at a sprint"
     );

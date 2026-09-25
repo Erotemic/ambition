@@ -372,6 +372,23 @@ pub struct ResolvedSwitchActivation {
     pub on: bool,
 }
 
+impl ResolvedSwitchActivation {
+    /// The encounter this activation targets: the one it names, else the one
+    /// authored in the active room. `encounters` yields `(id, room_id)`.
+    pub fn target_encounter_in<'a>(
+        &'a self,
+        active_room: &str,
+        encounters: impl IntoIterator<Item = (&'a str, &'a str)>,
+    ) -> Option<&'a str> {
+        if !self.target_encounter.is_empty() {
+            return Some(&self.target_encounter);
+        }
+        encounters
+            .into_iter()
+            .find_map(|(id, room_id)| (room_id == active_room).then_some(id))
+    }
+}
+
 /// This tick's activations, resolved — the switch domain's published answer to
 /// *"what did the player just press?"*.
 ///
@@ -566,6 +583,41 @@ mod one_drain_one_author {
             vec!["first", "second", "third"],
             "two peers holding the same activations in a different order have \
              diverged — SwitchActivationQueue::checksum says so"
+        );
+    }
+}
+
+#[cfg(test)]
+mod switch_target_tests {
+    use super::{ResolvedSwitchActivation, SwitchAction};
+
+    fn reset(target: &str) -> ResolvedSwitchActivation {
+        ResolvedSwitchActivation {
+            id: "gate".into(),
+            action: SwitchAction::ResetEncounter,
+            target_encounter: target.into(),
+            on: false,
+        }
+    }
+
+    /// An encounter id is not its room. The encounter in `hall` is named
+    /// `hall_fight`, and an encounter named `hall` lives in another room.
+    const ENCOUNTERS: [(&str, &str); 2] = [("hall", "cellar"), ("hall_fight", "hall")];
+
+    #[test]
+    fn an_unnamed_target_is_the_encounter_authored_in_the_active_room() {
+        assert_eq!(
+            reset("").target_encounter_in("hall", ENCOUNTERS),
+            Some("hall_fight")
+        );
+        assert_eq!(reset("").target_encounter_in("attic", ENCOUNTERS), None);
+    }
+
+    #[test]
+    fn a_named_target_is_the_encounter_it_names() {
+        assert_eq!(
+            reset("hall").target_encounter_in("hall", ENCOUNTERS),
+            Some("hall")
         );
     }
 }

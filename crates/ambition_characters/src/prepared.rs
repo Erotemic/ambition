@@ -194,6 +194,8 @@ pub struct CharacterBodyBlueprint<'a> {
     /// cannot see `ambition_sprite_sheet`, so it hands both declarations to
     /// construction rather than resolving them here.
     pub sheet: Option<&'a str>,
+    /// [`PreparedCharacterDefinition::sheet_sizing`].
+    pub sheet_sizing: Option<SheetSizing>,
 }
 
 /// Why this character cannot build a body on its own, named rather than
@@ -289,6 +291,7 @@ impl PreparedCharacterDefinition {
             ranged_vfx: self.ranged_vfx.as_deref(),
             body: self.body.as_ref(),
             sheet: self.sheet.as_deref(),
+            sheet_sizing: self.sheet_sizing,
         }
     }
 }
@@ -954,6 +957,16 @@ pub fn stage_move_section(
 #[derive(bevy::prelude::Resource, Default, Debug, Clone, PartialEq, Eq)]
 pub struct AuthoredEffectRefusals(pub Vec<EffectRefusal>);
 
+/// The catalog facts that size a body from its sheet: the frame is scaled so the
+/// visible body is `standing_height` tall, else by the placement box times the
+/// tuning's `collision_scale`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SheetSizing {
+    pub tuning: Option<crate::actor::character_catalog::SpriteTuningSpec>,
+    /// The row's standing height, else its body kind's default.
+    pub standing_height: Option<f32>,
+}
+
 /// A prepared character: flat, immutable, and COMPLETE.
 ///
 /// The session consumes resolved values. That is the real invariant behind §4.3 —
@@ -968,7 +981,13 @@ pub struct PreparedCharacterDefinition {
     pub display_name: String,
     pub provider: String,
     pub lineage: Option<Lineage>,
+    /// The sheet target this character wears: its definition's, else its
+    /// catalog row's. Art, sizing and residency read this one answer.
     pub sheet: Option<String>,
+    /// How [`Self::sheet`] sizes a body that does not author its own geometry.
+    /// `Some` only for a character with a catalog row, because the row holds
+    /// the standing height and the sprite tuning.
+    pub sheet_sizing: Option<SheetSizing>,
     pub portrait: Option<String>,
     /// See [`CharacterDefinition::voice`]. Empty means this character brought no
     /// lines of its own, which is different from "it has nothing to say" — the
@@ -1705,6 +1724,16 @@ fn finalize_character(
         },
     };
 
+    // The art is asked once, here: a definition that names no sheet wears its
+    // catalog row's, and only a catalog row can size a body from its sheet.
+    let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
+    let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
+    let sheet_sizing = catalog_row.map(|row| SheetSizing {
+        tuning: row.sprite_tuning,
+        standing_height: row
+            .standing_height
+            .or_else(|| row.body_kind.default_standing_height()),
+    });
     PreparedCharacterDefinition {
         // HEALTH FOLDS LIKE EVERY OTHER KIT FIELD, and it is the last one
         // that did not. The catalog row has carried `max_health: Option<i32>`
@@ -1813,6 +1842,7 @@ fn finalize_character(
         provider,
         lineage,
         sheet,
+        sheet_sizing,
         portrait,
         voice,
         body,

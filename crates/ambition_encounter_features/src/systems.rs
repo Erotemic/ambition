@@ -216,8 +216,8 @@ pub fn drive_wave_encounters(
     //    + lock release on exit. (E10 makes this cleanup ownership-driven: the
     //    Reset event despawns the encounter's SPAWNED mobs — pre-E10 they
     //    lingered until a death or re-arm, which was accidental, not policy.)
-    for (enc, lifecycle, _waves, _participants) in &encounters {
-        if lifecycle.phase().in_flight() && enc.id != active_area {
+    for (enc, lifecycle, waves, _participants) in &encounters {
+        if lifecycle.phase().in_flight() && waves.spec.room_id != active_area {
             lifecycle_commands.write(EncounterCommand::new(&enc.id, EncounterCommandKind::Reset));
             ending_this_tick.insert(enc.id.clone());
         }
@@ -228,12 +228,11 @@ pub fn drive_wave_encounters(
     //    terminal phase resets in the same command batch (the reducer applies
     //    Reset then Start in order), so a persisted Completed/Failed doesn't
     //    lock out re-triggering after a switch toggle.
-    let armed_active = switch_index.encounter_armed(&active_area);
     if let Some((enc, lifecycle, waves, mut participants)) = encounters
         .iter_mut()
-        .find(|(enc, _, _, _)| enc.id == active_area)
+        .find(|(_, _, waves, _)| waves.spec.room_id == active_area)
     {
-        if !lifecycle.phase().in_flight() && armed_active {
+        if !lifecycle.phase().in_flight() && switch_index.encounter_armed(&enc.id) {
             // Iterate every player so any player walking into the trigger
             // fires the encounter — single-player behavior preserved because
             // the iterator has one entity today. OVERNIGHT-TODO #17.8.
@@ -270,7 +269,7 @@ pub fn drive_wave_encounters(
     // (instance id, character, brain kind, pos, size) — the three identity
     // questions kept apart all the way to the spawner.
     for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
-        if enc.id != active_area || ending_this_tick.contains(&enc.id) {
+        if waves.spec.room_id != active_area || ending_this_tick.contains(&enc.id) {
             continue;
         }
         match lifecycle.phase() {
@@ -376,22 +375,23 @@ pub fn drive_wave_encounters(
                 });
             }
             ambition_encounter::switches::SwitchAction::ResetEncounter => {
-                let target_id = if activation.target_encounter.is_empty() {
-                    active_area.clone()
-                } else {
-                    activation.target_encounter.clone()
-                };
                 if !activation.on {
                     // Re-arming: Reset the encounter (the reducer refuses Start
                     // from a terminal phase, so a stale Completed/Failed must
                     // clear); the ownership-driven cleanup adapter (E10) drops
                     // carryover mobs off the Reset event.
-                    if let Some((_, lifecycle, _, _)) =
-                        encounters.iter().find(|(enc, _, _, _)| enc.id == target_id)
+                    let target = activation.target_encounter_in(
+                        &active_area,
+                        encounters
+                            .iter()
+                            .map(|(enc, _, waves, _)| (enc.id.as_str(), waves.spec.room_id.as_str())),
+                    );
+                    if let Some((enc, lifecycle, _, _)) =
+                        target.and_then(|id| encounters.iter().find(|(enc, ..)| enc.id == id))
                     {
                         if !lifecycle.phase().in_flight() {
                             lifecycle_commands.write(EncounterCommand::new(
-                                &target_id,
+                                &enc.id,
                                 EncounterCommandKind::Reset,
                             ));
                         }

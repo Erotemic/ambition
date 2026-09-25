@@ -144,8 +144,6 @@ WAIVERS = {
     ),
     # World build. These mark entities the LDtk loader owns; the sim reads the
     # collision world it builds from them, not the markers.
-    "LdtkSolid": "an LDtk loader marker; the sim reads the built collision world",
-    "LdtkOneWayPlatform": "an LDtk loader marker; same road as `LdtkSolid`",
     "LdtkWorldRoot": "the LDtk asset root entity, not a simulated body",
     # Local lifecycle. ID-PEER's own tokens: these are deliberately per-App and
     # deliberately outside the peer surface. See `id_peer_audit.rs`.

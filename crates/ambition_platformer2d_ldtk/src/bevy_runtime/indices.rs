@@ -1,10 +1,8 @@
-//! Resource indices summarizing plugin-spawned LDtk collision entities.
+//! Resource indices summarizing plugin-spawned LDtk entities.
 //!
-//! Per-kind AABB lists rebuilt from the ECS each frame — `LdtkRuntimeSolidIndex`,
-//! `LdtkRuntimeOneWayIndex`, `LdtkRuntimeDamageIndex` (plus the spine
-//! roll-up `LdtkRuntimeSpineIndex`/`LdtkRuntimeSpineStats`) — so collision/parity
-//! code can read the runtime-spine geometry without re-querying. Populated by
-//! sibling `systems`; cross-checked against the JSON world in sibling `parity`.
+//! `LdtkRuntimeSpineIndex` lists the promoted entities of the active area, and
+//! `LdtkRuntimeSpineStats` counts the spawns. The debug overlay and the headless
+//! summary read them. Populated by sibling `systems`.
 
 use std::collections::BTreeMap;
 
@@ -74,122 +72,6 @@ impl LdtkRuntimeSpineIndex {
     pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
         next.entities.sort_by(|a, b| a.iid.cmp(&b.iid));
         if self.active_area != next.active_area || self.entities != next.entities {
-            next.revision = self.revision.saturating_add(1);
-            *self = next;
-        }
-    }
-}
-
-/// Active-area-local view of one promoted LDtk `Solid` entity.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LdtkRuntimeSolid {
-    pub iid: String,
-    /// Top-left corner in active-area-local Ambition coordinates.
-    pub min: ae::Vec2,
-    pub size: ae::Vec2,
-}
-
-impl LdtkRuntimeSolid {
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::aabb_from_min_size(self.min, self.size)
-    }
-}
-
-/// ECS-side solid-collision index rebuilt from typed LDtk entities. During the
-/// parity period the JSON adapter still populates `ae::World::blocks`.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct LdtkRuntimeSolidIndex {
-    pub active_area: String,
-    pub solids: Vec<LdtkRuntimeSolid>,
-    pub revision: u64,
-}
-
-impl LdtkRuntimeSolidIndex {
-    pub fn count(&self) -> usize {
-        self.solids.len()
-    }
-
-    pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
-        next.solids.sort_by(|a, b| a.iid.cmp(&b.iid));
-        if self.active_area != next.active_area || self.solids != next.solids {
-            next.revision = self.revision.saturating_add(1);
-            *self = next;
-        }
-    }
-}
-
-/// Active-area-local view of one promoted LDtk `OneWayPlatform`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LdtkRuntimeOneWayPlatform {
-    pub iid: String,
-    pub min: ae::Vec2,
-    pub size: ae::Vec2,
-}
-
-impl LdtkRuntimeOneWayPlatform {
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::aabb_from_min_size(self.min, self.size)
-    }
-}
-
-/// Rebuilt every frame from plugin-spawned `OneWayPlatform` entities.
-/// Parallel ECS view of one-way platform collision authored in LDtk;
-/// the JSON-derived `ae::World::blocks` is still the collision
-/// authority pending the parity overlay.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct LdtkRuntimeOneWayIndex {
-    pub active_area: String,
-    pub platforms: Vec<LdtkRuntimeOneWayPlatform>,
-    pub revision: u64,
-}
-
-impl LdtkRuntimeOneWayIndex {
-    pub fn count(&self) -> usize {
-        self.platforms.len()
-    }
-
-    pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
-        next.platforms.sort_by(|a, b| a.iid.cmp(&b.iid));
-        if self.active_area != next.active_area || self.platforms != next.platforms {
-            next.revision = self.revision.saturating_add(1);
-            *self = next;
-        }
-    }
-}
-
-/// Active-area-local view of one promoted LDtk `DamageVolume`.
-#[derive(Clone, Debug, PartialEq)]
-pub struct LdtkRuntimeDamageVolume {
-    pub iid: String,
-    pub min: ae::Vec2,
-    pub size: ae::Vec2,
-    pub damage: i32,
-}
-
-impl LdtkRuntimeDamageVolume {
-    pub fn aabb(&self) -> ae::Aabb {
-        ae::aabb_from_min_size(self.min, self.size)
-    }
-}
-
-/// Rebuilt every frame from plugin-spawned `DamageVolume` /
-/// `HazardBlock` entities. Parallel ECS view of damage authored in
-/// LDtk; the JSON-derived blocks are still the gameplay authority.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct LdtkRuntimeDamageIndex {
-    pub active_area: String,
-    pub volumes: Vec<LdtkRuntimeDamageVolume>,
-    pub revision: u64,
-}
-
-impl LdtkRuntimeDamageIndex {
-    pub fn count(&self) -> usize {
-        self.volumes.len()
-    }
-
-    pub(crate) fn replace_if_changed(&mut self, mut next: Self) {
-        next.volumes.sort_by(|a, b| a.iid.cmp(&b.iid));
-        if self.active_area != next.active_area || self.volumes != next.volumes {
             next.revision = self.revision.saturating_add(1);
             *self = next;
         }

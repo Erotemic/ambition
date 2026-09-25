@@ -106,6 +106,7 @@ fn kill_all(parts: &mut EncounterParticipants) {
 fn lab_spec() -> EncounterSpec {
     EncounterSpec {
         id: "goblin_encounter".into(),
+        room_id: "goblin_encounter".into(),
         waves: vec![
             EncounterWaveSpec {
                 label: "wave 1".into(),

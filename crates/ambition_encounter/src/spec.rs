@@ -135,6 +135,11 @@ impl LockWallSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EncounterSpec {
     pub id: String,
+    /// The room this encounter is authored in. Its trigger, its wave spawns and
+    /// its reward chest are in that room's coordinates, so each one applies
+    /// only while this room is active. The id is not the room: a trigger may
+    /// name itself.
+    pub room_id: String,
     pub waves: Vec<EncounterWaveSpec>,
     /// AABB in active-area-local coordinates that triggers the
     /// encounter when the player enters.
@@ -180,7 +185,7 @@ mod tests {
     use ambition_interaction::PickupKind;
 
     const BASE: &str = r#"(
-        id: "t", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
+        id: "t", room_id: "r", waves: [], trigger_min: (0.0, 0.0), trigger_size: (10.0, 10.0),
         camera_zoom: 1.2, lock_wall: None, intro_seconds: 1.0, music_track: """#;
 
     #[test]

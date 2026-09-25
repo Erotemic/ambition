@@ -72,6 +72,7 @@ mod rewards_tests {
     fn spec_with_trigger(min: [f32; 2], size: [f32; 2]) -> EncounterSpec {
         EncounterSpec {
             id: "test_enc".into(),
+            room_id: "test_enc".into(),
             waves: Vec::new(),
             trigger_min: min,
             trigger_size: size,

@@ -2,18 +2,16 @@
 //!
 //! `AmbitionLdtkRegistrationPlugin` registers the entity bundle and markers so
 //! bevy_ecs_ldtk spawns Ambition entities. `LdtkRuntimeSpinePlugin` adds the
-//! index-rebuild systems. `sync_plugin_spawned_ambition_entities` attaches
-//! gameplay semantics and names to new plugin entities. Components are in
-//! sibling `components`, rebuild systems in `systems`.
+//! index-rebuild system. `sync_plugin_spawned_ambition_entities` attaches
+//! identity and names to new plugin entities. Components are in sibling
+//! `components`, the rebuild system in `systems`.
 
 use bevy::prelude::{
     Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut,
 };
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
-use super::components::{
-    AmbitionLdtkEntity, AmbitionLdtkMarkerBundle, LdtkDamageVolume, LdtkOneWayPlatform, LdtkSolid,
-};
+use super::components::{AmbitionLdtkEntity, AmbitionLdtkMarkerBundle};
 use super::indices::LdtkRuntimeSpineStats;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
@@ -36,9 +34,8 @@ impl Plugin for AmbitionLdtkRegistrationPlugin {
 /// Bevy plugin for the LDtk runtime-spine indexes.
 ///
 /// Owns the chain that walks plugin-spawned Ambition entities
-/// (`sync_plugin_spawned_ambition_entities`), rebuilds the per-active-area
-/// solid / one-way / hazard runtime indexes, and checks parity with the JSON
-/// adapter.
+/// (`sync_plugin_spawned_ambition_entities`) and rebuilds the per-active-area
+/// spine index.
 ///
 /// Runs in [`Platformer2dSimulationPhaseMonolith::LdtkRuntimeSpine`]
 /// (configured by `actor_monolith/src/schedule/schedule.rs`). Every system in
@@ -53,19 +50,11 @@ impl Plugin for LdtkRuntimeSpinePlugin {
         // rebuild chain fills them from any LDtk entities (none in a RON-only demo).
         app.init_resource::<super::indices::LdtkRuntimeSpineStats>();
         app.init_resource::<super::indices::LdtkRuntimeSpineIndex>();
-        app.init_resource::<super::indices::LdtkRuntimeSolidIndex>();
-        app.init_resource::<super::indices::LdtkRuntimeOneWayIndex>();
-        app.init_resource::<super::indices::LdtkRuntimeDamageIndex>();
-        app.init_resource::<super::parity::LdtkRuntimeSpineParity>();
         app.add_systems(
             sim,
             (
                 sync_plugin_spawned_ambition_entities,
                 super::systems::rebuild_ldtk_runtime_spine_index,
-                super::systems::rebuild_ldtk_runtime_solid_index,
-                super::systems::rebuild_ldtk_runtime_one_way_index,
-                super::systems::rebuild_ldtk_runtime_damage_index,
-                super::parity::check_ldtk_runtime_spine_parity,
             )
                 .chain()
                 // Run only when an LDtk world is installed.
@@ -92,44 +81,13 @@ pub fn sync_plugin_spawned_ambition_entities(
         stats.last_entity = format!("{} {}", ambition_entity.identifier, ambition_entity.iid);
         stats.sample_entity = ambition_entity.summary();
 
-        // Attach typed Ambition components for collision-heavy LDtk categories. The
-        // generic `AmbitionLdtkEntity` is always added; typed siblings let systems
-        // query without matching identifier strings.
-        let mut entity_commands = commands.entity(entity);
-        entity_commands.insert((
+        commands.entity(entity).insert((
             Name::new(format!(
                 "LDtk {} {}",
                 ambition_entity.identifier, ambition_entity.iid
             )),
-            ambition_entity.clone(),
+            ambition_entity,
         ));
-        // Plugin-spawned `Solid` entities get `LdtkSolid`, so the
-        // `LdtkRuntimeSolidIndex` collision authority finds them without parsing
-        // identifiers.
-        match ambition_entity.identifier.as_str() {
-            "Solid" => {
-                entity_commands.insert(LdtkSolid {
-                    level_px: ambition_entity.px,
-                    size: ambition_entity.size,
-                });
-            }
-            "OneWayPlatform" => {
-                entity_commands.insert(LdtkOneWayPlatform {
-                    level_px: ambition_entity.px,
-                    size: ambition_entity.size,
-                });
-            }
-            "DamageVolume" | "HazardBlock" => {
-                entity_commands.insert(LdtkDamageVolume {
-                    level_px: ambition_entity.px,
-                    size: ambition_entity.size,
-                    // `damage` is not yet part of the LDtk schema; default
-                    // to the JSON adapter's hazard amount (1).
-                    damage: 1,
-                });
-            }
-            _ => {}
-        }
     }
 }
 

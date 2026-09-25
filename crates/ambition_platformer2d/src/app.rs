@@ -1120,14 +1120,14 @@ impl PlatformerApp {
         // be two composition paths for one difference.
         if matches!(start_at, StartAt::Launcher) {
             use crate::game_shell::{
-                ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
+                ShellHostConfiguration, ShellHostSpec, ShellExperienceId, ShellRouteCatalog,
                 ShellRouteSpec,
             };
             app.world_mut()
                 .resource_mut::<ShellRouteCatalog>()
                 .register(ShellRouteSpec::new(
                     primary_launcher.clone(),
-                    ShellLaunchCatalog::basic_experience_id(),
+                    ShellExperienceId::basic_launcher(),
                 ));
             app.world_mut()
                 .resource_mut::<ShellHostConfiguration>()

@@ -8,7 +8,7 @@
 use bevy::app::{App, Plugins};
 
 use ambition_game_shell::{
-    ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
+    ShellHostConfiguration, ShellHostSpec, ShellExperienceId, ShellRouteCatalog, ShellRouteSpec,
 };
 
 /// The three ids a shell host needs about the experience it is hosting.
@@ -122,7 +122,7 @@ impl ShellComposition {
                 .resource_mut::<ShellRouteCatalog>()
                 .register(ShellRouteSpec::new(
                     self.launcher_route.as_str(),
-                    ShellLaunchCatalog::basic_experience_id(),
+                    ShellExperienceId::basic_launcher(),
                 ));
         }
         app.world_mut()
@@ -152,7 +152,7 @@ mod tests {
                 .resource_mut::<ShellRouteCatalog>()
                 .register(ShellRouteSpec::new(
                     "test_gameplay",
-                    ShellLaunchCatalog::basic_experience_id(),
+                    ShellExperienceId::basic_launcher(),
                 ));
         }
     }

@@ -74,8 +74,8 @@ fn active_route(app: &App) -> Option<String> {
 fn launch_row(app: &mut App, label: &str) {
     let index = app
         .world()
-        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-        .entries
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
         .iter()
         .position(|entry| entry.label == label)
         .unwrap_or_else(|| panic!("no launcher row labelled {label:?}"));

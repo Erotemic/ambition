@@ -20,7 +20,7 @@ use ambition_app::app::shell_host;
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::game_shell::{ShellLaunchCatalog, ShellLauncherCommand};
+use ambition_platformer2d::game_shell::{ShellExperienceRegistry, ShellLauncherCommand};
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
 
@@ -68,13 +68,12 @@ fn room_id(app: &mut App) -> Option<String> {
 /// Launch the row with this label, the way the launcher does.
 fn launch(app: &mut App, label: &str) {
     let (index, total) = {
-        let catalog = app.world().resource::<ShellLaunchCatalog>();
+        let catalog = app.world().resource::<ShellExperienceRegistry>().launch_entries();
         let index = catalog
-            .entries
             .iter()
             .position(|entry| entry.label == label)
             .unwrap_or_else(|| {
-                let offered: Vec<&str> = catalog.entries.iter().map(|e| e.label.as_str()).collect();
+                let offered: Vec<&str> = catalog.iter().map(|e| e.label.as_str()).collect();
                 panic!("the launcher offers no `{label}` row; it offers {offered:?}")
             });
         let exit = app
@@ -82,7 +81,7 @@ fn launch(app: &mut App, label: &str) {
             .resource::<ambition_platformer2d::game_shell::ShellLauncherPresentation>()
             .exit_label
             .is_some() as usize;
-        (index, catalog.entries.len() + exit)
+        (index, catalog.len() + exit)
     };
     let current = app
         .world()

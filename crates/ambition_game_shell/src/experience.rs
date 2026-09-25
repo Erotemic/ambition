@@ -8,10 +8,10 @@
 //! then *derived* from these registrations, never from a central match over demo
 //! identities.
 
-use bevy::prelude::{App, DetectChanges, Resource};
+use bevy::prelude::{App, Resource};
 
 use crate::{
-    ShellExperienceId, ShellLaunchCatalog, ShellLaunchEntry, ShellRouteCatalog, ShellRouteId,
+    ShellExperienceId, ShellLaunchEntry, ShellRouteCatalog, ShellRouteId,
     ShellRouteSpec,
 };
 
@@ -130,9 +130,10 @@ impl ExperienceRegistration {
     }
 }
 
-/// Ordered set of registered experiences. The launcher catalog is a projection
-/// of this registry, so a host that registers a provider gets a launcher entry
-/// with no host-side match logic.
+/// Ordered set of registered experiences, and the launcher's only list of
+/// them: its rows are [`Self::launch_entries`], read where they are drawn, so a
+/// host that registers a provider gets a launcher entry with no host-side match
+/// logic and no copy to fall behind.
 #[derive(Resource, Default)]
 pub struct ShellExperienceRegistry {
     entries: Vec<ExperienceRegistration>,
@@ -316,25 +317,6 @@ fn canonical_pair(a: String, b: String) -> (String, String) {
     } else {
         (b, a)
     }
-}
-
-/// Rebuild the launcher catalog from the experience registry.
-///
-/// Runs when the registry changes (on the first frame, since registration
-/// happens at app build). The registry is the source of truth.
-pub(crate) fn sync_registry_into_launch_catalog(
-    registry: bevy::prelude::Res<ShellExperienceRegistry>,
-    mut catalog: bevy::prelude::ResMut<ShellLaunchCatalog>,
-) {
-    if !registry.is_changed() {
-        return;
-    }
-    // Do not wipe a manually seeded catalog in a host with no registered
-    // experiences (e.g. a headless load test).
-    if registry.is_empty() {
-        return;
-    }
-    catalog.entries = registry.launch_entries();
 }
 
 #[cfg(test)]

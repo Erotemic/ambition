@@ -13,7 +13,7 @@
 | [`frontend`](src/frontend.rs) | Explicit ownership vocabulary for shell/frontend presentation. |
 | [`id`](src/id.rs) | Stable identifiers for shell routes, experiences, holds, and sequence segments. |
 | [`input`](src/input.rs) | Narrow neutral shell action adapter shared by startup, launcher, loading, and gameplay-to-home presentation. |
-| [`launcher`](src/launcher.rs) | Host-provided launch catalog and the cursor used by the minimal `ambition_menu` adapter. |
+| [`launcher`](src/launcher.rs) | Launcher rows, presentation and the cursor used by the minimal `ambition_menu` adapter. |
 | [`pause_menu`](src/pause_menu.rs) | The universal shell/system menu the host offers every experience. |
 | [`plugin`](src/plugin.rs) | Bevy plugins that drive shell routing, sequences, and launcher commands. |
 | [`preparation`](src/preparation.rs) | Provider-authored fresh preparation plans and exact prepared-session identity. |

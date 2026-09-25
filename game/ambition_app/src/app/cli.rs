@@ -528,7 +528,7 @@ pub fn run_shared_host_headless_in_room(
 #[cfg(not(target_arch = "wasm32"))]
 mod shell_drive {
     use ambition_platformer2d::game_shell::{
-        ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState, ShellRouter,
+        ShellExperienceRegistry, ShellLauncherCommand, ShellLauncherState, ShellRouter,
     };
     use bevy::prelude::*;
 
@@ -582,8 +582,8 @@ mod shell_drive {
     pub(super) fn shell_select_launcher_route(app: &mut App, route: &str) -> bool {
         let target = app
             .world()
-            .resource::<ShellLaunchCatalog>()
-            .entries
+            .resource::<ShellExperienceRegistry>()
+            .launch_entries()
             .iter()
             .filter(|entry| entry.available)
             .position(|entry| entry.route_id.as_str() == route);
@@ -592,8 +592,8 @@ mod shell_drive {
         };
         let selectable = app
             .world()
-            .resource::<ShellLaunchCatalog>()
-            .entries
+            .resource::<ShellExperienceRegistry>()
+            .launch_entries()
             .iter()
             .filter(|entry| entry.available)
             .count()
@@ -619,8 +619,8 @@ mod shell_drive {
     pub(super) fn shell_select_launcher_exit(app: &mut App) -> bool {
         let target = app
             .world()
-            .resource::<ShellLaunchCatalog>()
-            .entries
+            .resource::<ShellExperienceRegistry>()
+            .launch_entries()
             .iter()
             .filter(|entry| entry.available)
             .count();

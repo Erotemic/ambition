@@ -853,8 +853,8 @@ fn two_hosts_at_different_content_epochs_share_one_construction_provenance() {
         let enter = |app: &mut bevy::prelude::App| {
             let route = app
                 .world()
-                .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-                .entries
+                .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+                .launch_entries()
                 .iter()
                 .find(|entry| entry.label == "Ambition")
                 .expect("the Ambition row exists in the shipped launcher")

@@ -211,7 +211,7 @@ mod composed {
     use crate::{
         ActiveShellSequence, ExperienceRegistration, MinimalShellPlugins, ShellCommand,
         ShellCompletionPolicy, ShellExperienceId, ShellExperienceRegistry, ShellHostConfiguration,
-        ShellHostSpec, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState,
+        ShellHostSpec, ShellLauncherCommand, ShellLauncherState,
         ShellRouteCatalog, ShellRouteId, ShellRouteSpec, ShellRouter, ShellScopedEntity,
         ShellSegmentId, ShellSegmentRole, ShellSegmentSpec, ShellSequenceCatalog,
         ShellSequenceCommand, ShellSequenceSpec,
@@ -238,7 +238,7 @@ mod composed {
             .resource_mut::<ShellRouteCatalog>()
             .register(ShellRouteSpec::new(
                 route,
-                ShellLaunchCatalog::basic_experience_id(),
+                ShellExperienceId::basic_launcher(),
             ));
     }
 
@@ -410,13 +410,13 @@ mod composed {
 
         // The launcher catalog is a pure projection of the registry — no host match.
         assert_eq!(app.world().resource::<ShellExperienceRegistry>().len(), 2);
-        let catalog = app.world().resource::<ShellLaunchCatalog>();
-        assert_eq!(catalog.entries.len(), 2);
-        assert_eq!(catalog.entries[0].label, "Alpha");
-        assert!(catalog.entries[0].available);
-        assert!(!catalog.entries[1].available);
+        let catalog = app.world().resource::<ShellExperienceRegistry>().launch_entries();
+        assert_eq!(catalog.len(), 2);
+        assert_eq!(catalog[0].label, "Alpha");
+        assert!(catalog[0].available);
+        assert!(!catalog[1].available);
         assert_eq!(
-            catalog.entries[1].unavailable_reason.as_deref(),
+            catalog[1].unavailable_reason.as_deref(),
             Some("needs the beta feature"),
         );
         assert!(app.world().resource::<ShellLauncherState>().active);
@@ -544,11 +544,11 @@ mod composed {
         // Premise: the zero-row state exists. Otherwise the test passes without
         // the guards.
         {
-            let catalog = app.world().resource::<crate::ShellLaunchCatalog>();
+            let catalog = app.world().resource::<crate::ShellExperienceRegistry>().launch_entries();
             assert!(
-                catalog.entries.is_empty(),
+                catalog.is_empty(),
                 "this test needs an EMPTY catalog to reach `selectable == 0`; it has {:?}",
-                catalog.entries
+                catalog
             );
         }
         assert!(

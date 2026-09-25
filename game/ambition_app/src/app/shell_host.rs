@@ -115,7 +115,7 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
         .resource_mut::<ShellRouteCatalog>()
         .register(ShellRouteSpec::new(
             AMBITION_LAUNCHER_ROUTE,
-            ambition_platformer2d::game_shell::ShellLaunchCatalog::basic_experience_id(),
+            ambition_platformer2d::game_shell::ShellExperienceId::basic_launcher(),
         ));
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()

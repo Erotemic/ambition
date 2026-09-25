@@ -2,7 +2,7 @@
 
 use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 use ambition_platformer2d::game_shell::{
-    ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
+    ShellHostConfiguration, ShellHostSpec, ShellExperienceId, ShellRouteCatalog, ShellRouteSpec,
 };
 use bevy::prelude::*;
 
@@ -30,7 +30,7 @@ fn build_rollback_demo_app() -> App {
         .resource_mut::<ShellRouteCatalog>()
         .register(ShellRouteSpec::new(
             ambition_demo_sanic::SANIC_LAUNCHER_ROUTE,
-            ShellLaunchCatalog::basic_experience_id(),
+            ShellExperienceId::basic_launcher(),
         ));
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()

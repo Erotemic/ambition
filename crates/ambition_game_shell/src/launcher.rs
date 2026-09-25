@@ -1,4 +1,4 @@
-//! Host-provided launch catalog and the cursor used by the minimal `ambition_menu` adapter.
+//! Launcher rows, presentation and the cursor used by the minimal `ambition_menu` adapter.
 
 use bevy::prelude::{Message, Resource};
 
@@ -16,26 +16,13 @@ pub struct ShellLaunchEntry {
     pub unavailable_reason: Option<String>,
 }
 
-#[derive(Resource, Default)]
-pub struct ShellLaunchCatalog {
-    pub entries: Vec<ShellLaunchEntry>,
-}
-
-impl ShellLaunchCatalog {
-    pub fn register(&mut self, entry: ShellLaunchEntry) -> Option<ShellLaunchEntry> {
-        if let Some(existing) = self
-            .entries
-            .iter_mut()
-            .find(|existing| existing.route_id == entry.route_id)
-        {
-            return Some(std::mem::replace(existing, entry));
-        }
-        self.entries.push(entry);
-        None
-    }
-
-    pub fn basic_experience_id() -> ShellExperienceId {
-        ShellExperienceId::new(BASIC_LAUNCHER_EXPERIENCE)
+impl ShellExperienceId {
+    /// The basic launcher's experience id, the route a host boots into when it
+    /// starts at the launcher. The launcher's rows are
+    /// [`crate::ShellExperienceRegistry::launch_entries`]: the registry is the
+    /// only list of experiences, and nothing holds a copy of it.
+    pub fn basic_launcher() -> Self {
+        Self::new(BASIC_LAUNCHER_EXPERIENCE)
     }
 }
 

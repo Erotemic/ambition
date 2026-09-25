@@ -17,7 +17,7 @@ use crate::audio_controls::ShellAudioControl;
 use crate::{
     ActiveGameplaySession, ActiveShellSequence, AmbitionGameShellSet, PreparedSessionRegistry,
     ShellCommand, ShellCommandRejection, ShellEvent, ShellExperienceRegistry,
-    ShellHostConfiguration, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
+    ShellHostConfiguration, ShellLauncherCommand, ShellLauncherPresentation,
     ShellActivationGates, ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter,
     ShellScopedEntity,
     ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime,
@@ -139,15 +139,13 @@ impl Plugin for ShellSequencePlugin {
 
 impl Plugin for ShellLauncherPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ShellLaunchCatalog>()
-            .init_resource::<ShellExperienceRegistry>()
+        app.init_resource::<ShellExperienceRegistry>()
             .init_resource::<ShellLauncherPresentation>()
             .init_resource::<ShellLauncherState>()
             .add_message::<ShellLauncherCommand>()
             .add_systems(
                 Update,
                 (
-                    crate::experience::sync_registry_into_launch_catalog,
                     sync_launcher_activation,
                     // Apply navigation in the same frame as the input.
                     process_launcher_commands.after(InputSet::Consume),
@@ -630,7 +628,7 @@ fn cleanup_segment_scoped_entities(
 
 fn sync_launcher_activation(
     router: Res<ShellRouter>,
-    catalog: Res<ShellLaunchCatalog>,
+    registry: Res<ShellExperienceRegistry>,
     presentation: Res<ShellLauncherPresentation>,
     mut state: ResMut<ShellLauncherState>,
 ) {
@@ -645,8 +643,8 @@ fn sync_launcher_activation(
     if state.active {
         // Selection space: the available experiences plus the built-in Exit
         // row (when the presentation shows one).
-        let available = catalog
-            .entries
+        let available = registry
+            .launch_entries()
             .iter()
             .filter(|entry| entry.available)
             .count();
@@ -674,7 +672,7 @@ fn adjust_settings_row(
 
 fn process_launcher_commands(
     mut commands: MessageReader<ShellLauncherCommand>,
-    catalog: Res<ShellLaunchCatalog>,
+    registry: Res<ShellExperienceRegistry>,
     presentation: Res<ShellLauncherPresentation>,
     mut state: ResMut<ShellLauncherState>,
     mut shell: MessageWriter<ShellCommand>,
@@ -685,8 +683,8 @@ fn process_launcher_commands(
     if !state.active {
         return;
     }
-    let available: Vec<_> = catalog
-        .entries
+    let entries = registry.launch_entries();
+    let available: Vec<_> = entries
         .iter()
         .filter(|entry| entry.available)
         .collect();

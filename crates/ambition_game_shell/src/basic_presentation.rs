@@ -24,7 +24,7 @@ use crate::audio_controls::ShellAudioControl;
 
 use crate::{
     image_sequence_frame_at, shell_action_edges, ActiveShellSequence, FrontendOwnedEntity,
-    FrontendPresentationKind, LauncherTab, ShellLaunchCatalog, ShellLauncherCommand,
+    FrontendPresentationKind, LauncherTab, ShellExperienceRegistry, ShellLaunchEntry, ShellLauncherCommand,
     ShellLauncherPresentation,
     ShellLauncherState, ShellRouter, ShellSegmentPresentation, ShellSequenceCommand,
 };
@@ -129,7 +129,7 @@ impl Plugin for BasicShellPresentationPlugin {
 /// verb ("Play" for an experience, the exit label for the Exit row).
 fn publish_shell_ui_cues(
     launcher: Res<ShellLauncherState>,
-    catalog: Res<ShellLaunchCatalog>,
+    registry: Res<ShellExperienceRegistry>,
     presentation: Res<ShellLauncherPresentation>,
     sequence: Res<ActiveShellSequence>,
     mut cues: ResMut<ActiveUiCues>,
@@ -144,7 +144,7 @@ fn publish_shell_ui_cues(
         sequence_active,
     );
 
-    let available = catalog.entries.iter().filter(|e| e.available).count();
+    let available = registry.launch_entries().iter().filter(|e| e.available).count();
     let on_exit_row = presentation.exit_label.is_some() && launcher.selected >= available;
     let label = if on_exit_row {
         presentation
@@ -352,7 +352,7 @@ fn basic_shell_card_tap(
 fn render_basic_shell(
     mut commands: Commands,
     launcher: Res<ShellLauncherState>,
-    catalog: Res<ShellLaunchCatalog>,
+    registry: Res<ShellExperienceRegistry>,
     launcher_presentation: Res<ShellLauncherPresentation>,
     sequence: Res<ActiveShellSequence>,
     router: Res<ShellRouter>,
@@ -367,6 +367,7 @@ fn render_basic_shell(
     launcher_roots: Query<Entity, (With<BevyUiMenuRoot>, With<BasicShellUiRoot>)>,
     mut prior_key: Local<String>,
 ) {
+    let catalog = registry.launch_entries();
     let frame_key = format!(
         "{:?}:{}",
         router.active.as_ref().map(|active| active.activation_id),
@@ -519,7 +520,7 @@ fn render_basic_shell(
 fn spawn_launcher_menu(
     commands: &mut Commands,
     launcher: &ShellLauncherState,
-    catalog: &ShellLaunchCatalog,
+    catalog: &[ShellLaunchEntry],
     presentation: &ShellLauncherPresentation,
     asset_server: Option<&AssetServer>,
     menu_font: Option<&ambition_menu::render::bevy_ui::MenuFont>,
@@ -579,7 +580,7 @@ fn spawn_launcher_menu(
             MenuTextAlign::Center,
             MenuColor::rgba(0.65, 0.70, 0.85, 1.0),
         );
-    } else if catalog.entries.is_empty() && presentation.exit_label.is_none() {
+    } else if catalog.is_empty() && presentation.exit_label.is_none() {
         page.text(
             50.0,
             48.0,
@@ -595,11 +596,11 @@ fn spawn_launcher_menu(
         // cursor onto the full list when deciding what to highlight.
         let exit_rows = usize::from(presentation.exit_label.is_some());
         // The cap applies only with few rows; many rows still share the height.
-        let row_height = (66.0 / (catalog.entries.len() + exit_rows).max(1) as f32).min(16.0);
+        let row_height = (66.0 / (catalog.len() + exit_rows).max(1) as f32).min(16.0);
         let row_left = 12.0;
         let row_width = 76.0;
         let mut available_index = 0usize;
-        for (index, entry) in catalog.entries.iter().enumerate() {
+        for (index, entry) in catalog.iter().enumerate() {
             let (kind, action, detail, selected) = if entry.available {
                 let selected = available_index == launcher.selected;
                 // The row carries its selection index, not its route, so a
@@ -647,7 +648,7 @@ fn spawn_launcher_menu(
             page.control(
                 MenuRect::new(
                     row_left,
-                    18.0 + catalog.entries.len() as f32 * (row_height + 1.5),
+                    18.0 + catalog.len() as f32 * (row_height + 1.5),
                     row_width,
                     row_height,
                 ),
@@ -819,7 +820,7 @@ fn follow_the_launcher_cursor(
 
 fn shell_frame_key(
     launcher: &ShellLauncherState,
-    catalog: &ShellLaunchCatalog,
+    catalog: &[ShellLaunchEntry],
     presentation: &ShellLauncherPresentation,
     sequence: &ActiveShellSequence,
     settings: Option<&ambition_persistence::settings::UserSettings>,
@@ -850,7 +851,7 @@ fn shell_frame_key(
             .unwrap_or_default();
         return format!(
 "launcher:{:?}:{}:{:?}:{audio}",
-            launcher.tab, presentation.title, catalog.entries
+            launcher.tab, presentation.title, catalog
         );
     }
     sequence_frame(sequence).key
@@ -1216,7 +1217,7 @@ mod semantic_input_tests {
     fn cues_name_the_focused_verb_per_surface() {
         let mut app = App::new();
         app.init_resource::<ShellLauncherState>();
-        app.init_resource::<ShellLaunchCatalog>();
+        app.init_resource::<ShellExperienceRegistry>();
         app.init_resource::<ShellLauncherPresentation>();
         app.init_resource::<ActiveShellSequence>();
         app.init_resource::<ActiveUiCues>();
@@ -1484,9 +1485,9 @@ mod cursor_moves_without_a_rebuild_tests {
     /// A cursor move does not change the frame key, so it does not rebuild.
     #[test]
     fn the_frame_key_does_not_change_when_only_the_cursor_moves() {
-        use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
+        use crate::{ActiveShellSequence, ShellLauncherPresentation};
 
-        let catalog = ShellLaunchCatalog::default();
+        let catalog: Vec<crate::ShellLaunchEntry> = Vec::new();
         let presentation = ShellLauncherPresentation::default();
         let sequence = ActiveShellSequence::default();
         let mut launcher = ShellLauncherState {
@@ -1509,9 +1510,9 @@ mod cursor_moves_without_a_rebuild_tests {
     /// Control for the test above: the key changes when the rows change.
     #[test]
     fn the_frame_key_still_changes_when_the_rows_do() {
-        use crate::{ActiveShellSequence, ShellLaunchCatalog, ShellLauncherPresentation};
+        use crate::{ActiveShellSequence, ShellLauncherPresentation};
 
-        let catalog = ShellLaunchCatalog::default();
+        let catalog: Vec<crate::ShellLaunchEntry> = Vec::new();
         let sequence = ActiveShellSequence::default();
         let launcher = ShellLauncherState {
             active: true,

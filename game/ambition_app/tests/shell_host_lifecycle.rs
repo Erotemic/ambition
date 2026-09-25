@@ -250,8 +250,8 @@ fn assert_home(app: &mut App, context: &str) {
 /// Launcher rows = registered experience entries + built-in host actions (the
 /// Exit row, when the host shows it). Derived, never a literal.
 fn launcher_row_count(app: &App) -> usize {
-    use ambition_platformer2d::game_shell::{ShellLaunchCatalog, ShellLauncherPresentation};
-    let experiences = app.world().resource::<ShellLaunchCatalog>().entries.len();
+    use ambition_platformer2d::game_shell::{ShellExperienceRegistry, ShellLauncherPresentation};
+    let experiences = app.world().resource::<ShellExperienceRegistry>().launch_entries().len();
     let exit = app
         .world()
         .resource::<ShellLauncherPresentation>()
@@ -274,17 +274,17 @@ fn launch_entry(app: &mut App, index: usize) {
 fn launch_labeled(app: &mut App, label: &str) {
     let index = app
         .world()
-        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-        .entries
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
         .iter()
         .position(|entry| entry.label == label)
         .unwrap_or_else(|| {
-            let offered: Vec<&str> = app
+            let offered: Vec<String> = app
                 .world()
-                .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-                .entries
-                .iter()
-                .map(|entry| entry.label.as_str())
+                .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+                .launch_entries()
+                .into_iter()
+                .map(|entry| entry.label)
                 .collect();
             panic!("the launcher offers no `{label}` row; it offers {offered:?}")
         });
@@ -493,8 +493,8 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     // The launcher derives its entries from provider registrations.
     let entries: Vec<String> = app
         .world()
-        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-        .entries
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
         .iter()
         .map(|entry| entry.label.clone())
         .collect();
@@ -536,8 +536,8 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     // platform with nobody to fight.
     let smash_row = app
         .world()
-        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-        .entries
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
         .iter()
         .find(|entry| entry.label == "Smash")
         .expect("the smash row exists")
@@ -762,8 +762,8 @@ fn the_full_multi_game_lifecycle(host: ambition_platformer2d::runtime::Simulatio
     // ── Exit ───────────────────────────────────────────────────────────
     let exit_index = app
         .world()
-        .resource::<ambition_platformer2d::game_shell::ShellLaunchCatalog>()
-        .entries
+        .resource::<ambition_platformer2d::game_shell::ShellExperienceRegistry>()
+        .launch_entries()
         .len();
     select_entry(&mut app, exit_index);
     app.world_mut()

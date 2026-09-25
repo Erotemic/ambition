@@ -490,8 +490,9 @@ impl MeleeSwing {
 
 /// The body's melee pacing floor — the one melee fact the body itself holds.
 ///
-/// `cooldown` is the AI/recovery floor a brain reads to time its next swing.
-/// ⚠ Nothing arms it in production (AP12 records the decision), so it reads 0.
+/// `cooldown` is the floor a brain reads to time its next swing. A melee swing
+/// a brain starts arms it from that brain's authored
+/// `BrainProfile::attack_cooldown_s`; a participant-driven swing never does.
 /// The swing in flight is not stored here: see [`MeleeSwing`]. The ranged
 /// fire-rate floor is not melee state: it is [`RangedRefire`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]

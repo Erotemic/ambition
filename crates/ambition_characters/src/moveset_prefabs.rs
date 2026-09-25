@@ -48,7 +48,7 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     // The authored-melee path is now a thin adapter over the `simple_melee`
     // engine prefab (A2): the MeleeActionSpec timeline becomes prefab params.
     // Byte-identical — the clamps + volume shape live in the prefab core.
-    simple_melee(&SimpleMeleeParams {
+    let mut attack = simple_melee(&SimpleMeleeParams {
         windup_s: windup,
         active_s: active,
         recover_s: recover,
@@ -61,7 +61,26 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         swing_sfx: None,
         swing_vfx: None,
         hit_sfx: None,
-    })
+    });
+    // A Lunge steps forward while it winds up: the authored distance over the
+    // authored windup, as a set side speed the body holds for exactly the
+    // windup. `Set`, so a body that arrived walking steps the authored
+    // distance and not its walk plus the step.
+    if let Some(step_px) = spec.windup_step_px().filter(|step| *step != 0.0) {
+        let windup = windup.max(f32::EPSILON);
+        attack.events.push(MoveEvent {
+            at_s: 0.0,
+            kind: MoveEventKind::Impulse {
+                local: (step_px / windup, 0.0),
+                mode: ambition_entity_catalog::ImpulseMode::Set,
+            },
+        });
+        attack.events.push(MoveEvent {
+            at_s: 0.0,
+            kind: MoveEventKind::HoldVelocity { seconds: windup },
+        });
+    }
+    attack
 }
 
 /// Params for the [`simple_melee`] engine prefab (A2 / R2.3) — a forward swing
@@ -606,6 +625,15 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
             let mut m = base.clone();
             m.id = id.to_string();
             m.display_name = Some(label.to_string());
+            // A turned swing keeps the base swing's geometry, not its step: a
+            // lunge's forward step is the grounded forward attack's, and an
+            // aerial that inherited it would drift.
+            m.events.retain(|event| {
+                !matches!(
+                    event.kind,
+                    MoveEventKind::Impulse { .. } | MoveEventKind::HoldVelocity { .. }
+                )
+            });
             m.clip.clip = clip.to_string();
             m.gates.grounded = Some(grounded);
             for w in &mut m.windows {

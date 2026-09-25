@@ -1513,6 +1513,21 @@ pub fn advance_move_playback(
                     }
                     continue;
                 }
+                // The same class again: a hold is a write on the owner's own
+                // movement policy, and a policy that cannot hold says so.
+                if let MoveEventKind::HoldVelocity { seconds } = &ev.kind {
+                    if let Some(motion) = motion.as_deref_mut() {
+                        if !motion.hold_velocity(*seconds) {
+                            bevy::log::warn!(
+                                target: "ambition::moves",
+                                "move `{}` asked to hold its owner's velocity and its owner's \
+                                 movement policy has no such state — the beat did nothing",
+                                pb.spec.id
+                            );
+                        }
+                    }
+                    continue;
+                }
                 if let MoveEventKind::Impulse { local, mode } = &ev.kind {
                     let body_frame = owner_frames
                         .get(owner)
@@ -3014,6 +3029,17 @@ pub fn trigger_moveset_moves(
     // `StoredMoveCharge`; empty for every fighter that has never charged a
     // storing move.
     banked: Query<&StoredMoveCharge>,
+    // THE BRAIN'S SWING PACING. A melee swing a BRAIN started arms the body's
+    // floor from that brain's authored profile; a body a participant drives is
+    // excluded, because the pace is the driver's decision and a human in the
+    // same body must not inherit it.
+    mut brain_paced: Query<
+        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorConfig),
+        (
+            bevy::prelude::With<ambition_characters::brain::Brain>,
+            bevy::prelude::Without<ambition_characters::control::DrivingParticipant>,
+        ),
+    >,
     // This is the second writer to name itself.
     //
     // `Option` on both: the FEATURE and the PLUGIN are two switches, and a
@@ -3719,6 +3745,7 @@ pub fn trigger_moveset_moves(
                 );
                 let _ = before;
             }
+            arm_brain_swing_pacing(&mut brain_paced, entity, proposer);
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
@@ -3839,6 +3866,7 @@ pub fn trigger_moveset_moves(
                 .ok()
                 .filter(|stored| stored.move_id == spec.id)
                 .map(|stored| stored.held_s);
+            arm_brain_swing_pacing(&mut brain_paced, entity, proposer);
             start_move(StartingMove {
                 commands: &mut commands,
                 entity,
@@ -3880,6 +3908,29 @@ pub fn trigger_moveset_moves(
                 banked_charge: banked_for_this_move,
             });
         }
+    }
+}
+
+/// Arm a brain-driven body's melee floor when one of its melee swings starts.
+///
+/// Read back as `attack_cooldown_remaining` by every brain swing gate. The
+/// value is the profile's authored `attack_cooldown_s`; unauthored is no floor.
+fn arm_brain_swing_pacing(
+    brain_paced: &mut Query<
+        (&mut crate::components::BodyMelee, &crate::actor_tuning::ActorConfig),
+        (
+            bevy::prelude::With<ambition_characters::brain::Brain>,
+            bevy::prelude::Without<ambition_characters::control::DrivingParticipant>,
+        ),
+    >,
+    entity: Entity,
+    proposer: ProposedVerb,
+) {
+    if !matches!(proposer, ProposedVerb::Attack) {
+        return;
+    }
+    if let Ok((mut melee, config)) = brain_paced.get_mut(entity) {
+        melee.cooldown = config.brain_profile.attack_cooldown_s.max(0.0);
     }
 }
 
@@ -4490,6 +4541,9 @@ pub fn dispatch_move_events(
             // movement policy, so `advance_move_playback` applies it at the
             // authored instant and never publishes it.
             MoveEventKind::GravityModifier { .. } => {}
+            // UNREACHABLE BY CONSTRUCTION, for the same reason: a hold is a
+            // write on the owner's movement policy.
+            MoveEventKind::HoldVelocity { .. } => {}
         }
     }
 }

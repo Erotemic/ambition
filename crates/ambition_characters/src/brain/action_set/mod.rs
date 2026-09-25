@@ -1130,9 +1130,8 @@ impl MeleeActionSpec {
     /// basic swing as a data-driven `"attack"` [`MoveSpec`](ambition_entity_catalog::MoveSpec)
     /// — Startup/Active(forward volume)/Recovery on the owner's proper-time clock —
     /// so a plain melee runs through the SAME moveset runtime as its specials
-    /// (fable review §A1 / §3a). Variant-specific extras (Lunge `step_px`, Slam
-    /// `hop_height_px`) are not carried yet — a self-motion window is a
-    /// parameterizable follow-up.
+    /// (fable review §A1 / §3a). The one variant-specific extra, the Lunge's
+    /// windup step, is [`Self::windup_step_px`].
     pub fn timeline(self) -> (f32, f32, f32, i32, f32) {
         match self {
             Self::Swipe(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
@@ -1140,6 +1139,15 @@ impl MeleeActionSpec {
             Self::Slam(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::Bite(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
             Self::PunchWeak(s) => (s.windup_s, s.active_s, s.recover_s, s.damage, s.reach_px),
+        }
+    }
+
+    /// How far forward the body steps during windup, when the swing authors a
+    /// step (only a Lunge does).
+    pub fn windup_step_px(self) -> Option<f32> {
+        match self {
+            Self::Lunge(s) => Some(s.step_px),
+            Self::Swipe(_) | Self::Slam(_) | Self::Bite(_) | Self::PunchWeak(_) => None,
         }
     }
 }
@@ -1243,7 +1251,6 @@ pub struct SlamSpec {
     pub recover_s: f32,
     pub damage: i32,
     pub reach_px: f32,
-    pub hop_height_px: f32,
 }
 
 /// Jaw bite — short reach, fast.

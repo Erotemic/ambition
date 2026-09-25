@@ -23,6 +23,7 @@
 | [`progression_schedule`](src/progression_schedule.rs) | Progression-phase schedule plugin. |
 | [`projectile_schedule`](src/projectile_schedule.rs) | Projectile schedule seams owned by the runtime composition tier. |
 | [`rollback`](src/rollback/mod.rs) | Backend-neutral rollback schema composition. |
+| [`room_departure`](src/room_departure.rs) | Leaving a room because the level in it is done: the one road for "go on". |
 | [`room_schedule`](src/room_schedule.rs) | Room-transition schedule anchors. |
 | [`room_transition`](src/room_transition/mod.rs) | Engine-owned room-transition orchestration. |
 | [`runtime_census`](src/runtime_census.rs) | `[census] rooms` — WHICH ROOM IS LIVE, AND WHAT THE CROSSING IS DOING. |
@@ -33,7 +34,7 @@
 | [`verdict_census`](src/verdict_census.rs) | `[census] verdicts` — WHAT AUTHORED CONTENT ASKED, AND WHAT IS STUCK. |
 | [`world_gating`](src/world_gating.rs) | The two roads into `gate_solids`, registered in one place. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

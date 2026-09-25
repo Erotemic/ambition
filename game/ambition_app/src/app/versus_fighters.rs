@@ -350,6 +350,9 @@ pub const VERSUS_CATALOG_RON: &str = r#"(
         // and the queue row.
         "versus_duelist": (
             template: Smash,
+            // A swing, then 0.34s before this driver commits to another: the
+            // pace the headless Smash arena already gives the same brain.
+            attack_cooldown_s: 0.34,
             aggro_radius: 460.0,
             attack_range: 150.0,
             patrol_effort: 0.6176,

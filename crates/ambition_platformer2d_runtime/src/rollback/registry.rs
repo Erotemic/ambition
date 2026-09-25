@@ -754,7 +754,10 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 226 -> 227: `session.room_departure` joins. A level's request to leave
 /// its room (`Departure`, on every mode owner) is rollback state: whether a
 /// level has asked, where to and for how long decide what the sim records.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 227;
+/// ⛔⛤ 227 -> 228: the axis-swept maneuver state encodes
+/// `held_velocity_timer`, the clock of a move's `HoldVelocity` beat (W004: a
+/// Lunge's windup step), after `gravity_modifier_timer`.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 228;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

@@ -227,6 +227,11 @@ pub struct AxisManeuverState {
     /// Seconds left on [`Self::gravity_modifier_scale`]. `<= 0.0` means NO
     /// modifier, and the scale beside it is then not read.
     pub gravity_modifier_timer: f32,
+    /// Seconds the body's side speed stays the MOVE's: while positive the
+    /// spine neither steers nor brakes it, exactly as for an accepted roll.
+    /// A move's timed step is an impulse plus this hold; without the hold,
+    /// ground friction spends the impulse within a few ticks.
+    pub held_velocity_timer: f32,
     pub dodge_roll_timer: f32,
     /// How much longer this evade is INTANGIBLE — the staled half of an evade,
     /// and the only half staling is allowed to touch.
@@ -484,6 +489,7 @@ impl Default for AxisManeuverState {
             // construction rather than by everyone remembering.
             gravity_modifier_scale: 0.0,
             gravity_modifier_timer: 0.0,
+            held_velocity_timer: 0.0,
             dodge_roll_timer: 0.0,
             evade_invuln_timer: 0.0,
             dodge_roll_push: 0.0,
@@ -702,6 +708,20 @@ impl MotionModel {
         match self {
             Self::AxisSwept(axis) => {
                 axis.state.set_gravity_modifier(scale, seconds);
+                true
+            }
+            Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,
+        }
+    }
+
+    /// Leave this body's side speed to the move for `seconds`: no steering and
+    /// no friction on it until the clock runs out. Returns whether it landed;
+    /// `false` for a policy with no such state, like
+    /// [`Self::set_gravity_modifier`], and for the same reason.
+    pub fn hold_velocity(&mut self, seconds: f32) -> bool {
+        match self {
+            Self::AxisSwept(axis) => {
+                axis.state.held_velocity_timer = seconds.max(0.0);
                 true
             }
             Self::SurfaceMomentum(_) | Self::AdhesiveCrawler(_) => false,

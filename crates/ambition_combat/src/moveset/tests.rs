@@ -10424,3 +10424,63 @@ fn a_resolved_hit_is_always_an_overlap_so_a_wait_cannot_freeze() {
          `Overlapped` is now always true and a whiff is unpunishable"
     );
 }
+
+/// A melee swing a BRAIN starts arms the body's floor from the brain's
+/// authored pace; the same body driven by a participant arms nothing.
+///
+/// Every brain swing gate reads that floor as `attack_cooldown_remaining`, so
+/// an unarmed floor leaves them all open and an authored pace does nothing.
+#[test]
+fn a_brain_started_swing_arms_its_authored_pace_and_a_driven_one_does_not() {
+    let config = crate::actor_tuning::ActorConfig {
+        tuning: Default::default(),
+        brain_profile: ambition_characters::brain::BrainProfile {
+            attack_cooldown_s: 0.5,
+            ..Default::default()
+        },
+        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
+        preserves_mirror_symmetry: false,
+    };
+    let spawn = |app: &mut App, driven: bool| {
+        let mut body = app.world_mut().spawn((
+            ActorMoveset(swat_moveset()),
+            pressing_attack(),
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 100.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(15.0, 24.0),
+                facing: 1.0,
+            },
+            crate::components::BodyMelee::default(),
+            config.clone(),
+            ambition_characters::brain::Brain::stand_still(),
+        ));
+        if driven {
+            body.insert(ambition_characters::control::DrivingParticipant(
+                ambition_characters::control::PlayerSlot::PRIMARY,
+            ));
+        }
+        body.id()
+    };
+    let mut app = trigger_app();
+    let autonomous = spawn(&mut app, false);
+    let driven = spawn(&mut app, true);
+    app.update();
+
+    for body in [autonomous, driven] {
+        assert!(
+            app.world().get::<MovePlayback>(body).is_some(),
+            "the swing did not start, so this test examined no arming"
+        );
+    }
+    assert_eq!(
+        app.world().get::<crate::components::BodyMelee>(autonomous).unwrap().cooldown,
+        0.5,
+        "a brain's swing must arm the floor its profile authors"
+    );
+    assert_eq!(
+        app.world().get::<crate::components::BodyMelee>(driven).unwrap().cooldown,
+        0.0,
+        "a participant-driven swing must not inherit the brain's pace"
+    );
+}

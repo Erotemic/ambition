@@ -167,20 +167,18 @@ pub struct BrainProfile {
     /// aggressive brain.
     #[serde(default)]
     pub provoke_forced_brute_min_aggro: Option<f32>,
-    /// How often this driver commits to a swing — `ENEMY_ATTACK_COOLDOWN *
-    /// attack_cooldown_mult` paces the brain's next attack.
+    /// How long this driver waits after starting a melee swing before it may
+    /// commit to another, in seconds. Armed onto the body's melee floor when a
+    /// brain-driven swing starts, and closed on the brain's swing gates.
     ///
     /// It reads as a body number and is not one, by exactly the argument already made for
     /// `aggro_radius` and `attack_range`: a radius at which a driver notices, a range at which it
     /// commits, and a rate at which it commits again are all decisions about how to PLAY a body,
     /// and a human or scripted controller in the same body must not inherit them.
-    #[serde(default = "default_attack_cooldown_mult")]
-    pub attack_cooldown_mult: f32,
-}
-
-/// Serde/`Default` value for [`BrainProfile::attack_cooldown_mult`]: unscaled.
-pub fn default_attack_cooldown_mult() -> f32 {
-    1.0
+    ///
+    /// Unauthored is `0.0`: no floor. The engine holds no pacing number of its own.
+    #[serde(default)]
+    pub attack_cooldown_s: f32,
 }
 
 impl Default for BrainProfile {
@@ -199,7 +197,7 @@ impl Default for BrainProfile {
             smash_sprint_to_close: false,
             smash_duelist: false,
             provoke_forced_brute_min_aggro: None,
-            attack_cooldown_mult: default_attack_cooldown_mult(),
+            attack_cooldown_s: 0.0,
         }
     }
 }

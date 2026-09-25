@@ -455,8 +455,23 @@ fn step_riding(
     let mut obstruction: Option<CircleHit> = None;
     if travel.abs() > 1.0e-6 {
         let delta = frame.tangent * travel;
-        if let Some(hit) = first_block_hit(world, body.pos, body.radius, delta, motion_frame.down())
-        {
+        let foreign_chain = match on {
+            SurfaceRef::Chain(ridden) => first_foreign_chain_hit(
+                world,
+                body.pos,
+                body.radius,
+                body.depth_lane,
+                delta,
+                ridden,
+            ),
+            _ => None,
+        };
+        let block = first_block_hit(world, body.pos, body.radius, delta, motion_frame.down());
+        let nearest = match (foreign_chain, block) {
+            (Some(c), Some(b)) => Some(if b.toi < c.toi { b } else { c }),
+            (c, b) => c.or(b),
+        };
+        if let Some(hit) = nearest {
             let coincident = matches!(on, SurfaceRef::Chain(_))
                 && hit_lies_on_chain(
                     chain,
@@ -1726,6 +1741,43 @@ fn first_circle_hit(
     if delta.length_squared() <= 1.0e-12 {
         return None;
     }
+    // Two surfaces reached within half a pixel of each other along this
+    // frame's travel are the SAME contact, expressed in TOI units.
+    let tie_toi = SURFACE_TIE_SLOP / delta.length().max(1.0e-6);
+    let best_chain = first_chain_hit(world, center, radius, depth_lane, delta, |ci, i| {
+        !occlusions.occludes(ci, i)
+    });
+    let best_block = first_block_hit(world, center, radius, delta, down);
+    match (best_chain, best_block) {
+        (Some(chain_hit), Some(block_hit)) => {
+            // The block face wins only when it is genuinely earlier — never
+            // on the floating-point tie a chain authored over the same
+            // geometry produces (a guide chain and its floor block are ONE
+            // surface; the routable one is the authority).
+            if block_hit.toi < chain_hit.toi - tie_toi {
+                Some(block_hit)
+            } else {
+                Some(chain_hit)
+            }
+        }
+        (chain_hit, block_hit) => chain_hit.or(block_hit),
+    }
+}
+
+/// The first CHAIN segment this travel runs into: one-sided, landing only
+/// when approaching a segment's rideable (+normal) side and moving into it.
+/// `consider(chain, segment)` admits the segments to test.
+fn first_chain_hit(
+    world: &World,
+    center: Vec2,
+    radius: f32,
+    depth_lane: i8,
+    delta: Vec2,
+    consider: impl Fn(usize, usize) -> bool,
+) -> Option<CircleHit> {
+    if delta.length_squared() <= 1.0e-12 {
+        return None;
+    }
     let ball = Ball::new(radius);
     let options = ShapeCastOptions {
         max_time_of_impact: 1.0,
@@ -1735,8 +1787,6 @@ fn first_circle_hit(
     };
     let pose = Pose::translation(center.x, center.y);
     let vel = Vector::new(delta.x, delta.y);
-    // Two surfaces reached within half a pixel of each other along this
-    // frame's travel are the SAME contact, expressed in TOI units.
     let tie_toi = SURFACE_TIE_SLOP / delta.length().max(1.0e-6);
     // Tie preference among coincident chain contacts: last-ridden lane, then
     // the base plane, then any other layer.
@@ -1756,7 +1806,7 @@ fn first_circle_hit(
     for (ci, chain) in world.chains.iter().enumerate() {
         for i in 0..chain.segment_count() {
             let lane = chain.segment_depth(i);
-            if occlusions.occludes(ci, i) {
+            if !consider(ci, i) {
                 continue;
             }
             let (a, b) = chain.segment(i);
@@ -1820,22 +1870,38 @@ fn first_circle_hit(
             }
         }
     }
-    let best_chain = best.map(|(hit, _)| hit);
-    let best_block = first_block_hit(world, center, radius, delta, down);
-    match (best_chain, best_block) {
-        (Some(chain_hit), Some(block_hit)) => {
-            // The block face wins only when it is genuinely earlier — never
-            // on the floating-point tie a chain authored over the same
-            // geometry produces (a guide chain and its floor block are ONE
-            // surface; the routable one is the authority).
-            if block_hit.toi < chain_hit.toi - tie_toi {
-                Some(block_hit)
-            } else {
-                Some(chain_hit)
-            }
-        }
-        (chain_hit, block_hit) => chain_hit.or(block_hit),
-    }
+    best.map(|(hit, _)| hit)
+}
+
+/// The first chain a RIDING body runs into: every chain but the ridden one and
+/// the route alternatives linked to it by a junction (a loop and the floor it
+/// is attached to), on the base plane or the rider's own depth lane.
+///
+/// A painted level's walls are chains, split from the floor at the wall's
+/// foot. Without this the rider knew only the chain under it, rode to the
+/// floor's end at the foot with its body already inside the wall, and the
+/// airborne sweep — which skips a face whose plane the centre has crossed —
+/// let it through into the rock (the Act 2 cave's back wall).
+fn first_foreign_chain_hit(
+    world: &World,
+    center: Vec2,
+    radius: f32,
+    depth_lane: i8,
+    delta: Vec2,
+    ridden: usize,
+) -> Option<CircleHit> {
+    let linked = |a: usize, b: usize| {
+        world.chains[a].junctions.iter().flat_map(|j| j.ports.iter()).any(
+            |port| matches!(port, crate::world::SurfacePort::Chain { chain, .. } if *chain == b),
+        )
+    };
+    first_chain_hit(world, center, radius, depth_lane, delta, |ci, i| {
+        let lane = world.chains[ci].segment_depth(i);
+        ci != ridden
+            && (lane == 0 || lane == depth_lane)
+            && !linked(ci, ridden)
+            && !linked(ridden, ci)
+    })
 }
 
 /// The first SOLID BLOCK face this travel runs into.

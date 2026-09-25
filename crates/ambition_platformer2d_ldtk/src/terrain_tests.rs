@@ -165,13 +165,92 @@ fn the_layer_lowers_to_valid_chains_in_world_space_with_its_earth() {
     let chain = &emission.chains[0];
     assert_eq!(chain.name, "terrain:test/Terrain#0");
     assert!(chain.validate().is_empty());
-    // The flat before the slope, three cells down from the level's top.
+    // The hard corners stay exactly where they were painted: the level-left
+    // edge's top, and the top flat's far end over the right edge.
     assert!(chain.points.contains(&ae::Vec2::new(100.0, 48.0)), "{:?}", chain.points);
-    assert!(chain.points.contains(&ae::Vec2::new(100.0 + 32.0, 48.0)));
-    // The slope reaches the top flat two cells up, two cells on.
-    assert!(chain.points.contains(&ae::Vec2::new(100.0 + 64.0, 16.0)));
-    // Earth: each row's full cells merge into one rectangle, plus the slopes.
-    assert_eq!(chain.earth.len(), 3 + 2);
+    assert!(chain.points.contains(&ae::Vec2::new(100.0 + 96.0, 16.0)));
+    // The slope's foot is rounded, not a kink, and stays near the paint.
+    let foot = chain
+        .points
+        .iter()
+        .filter(|p| (p.x - 132.0).abs() < 12.0)
+        .map(|p| p.y)
+        .fold(f32::NAN, f32::max);
+    assert!(foot.is_nan() || (40.0..=48.0).contains(&foot), "foot {foot}: {:?}", chain.points);
+    // The earth covers what was painted (2 + 3 + 6 full cells and two half-cell
+    // slopes, 256 px² per cell), give or take the rounding.
+    let area: f32 = chain.earth.iter().map(|q| polygon_area(q)).sum();
+    assert!((area - 12.0 * 256.0).abs() < 128.0, "earth area {area}");
+}
+
+fn polygon_area(points: &[ae::Vec2]) -> f32 {
+    let n = points.len();
+    (0..n).map(|i| points[i].perp_dot(points[(i + 1) % n])).sum::<f32>().abs() * 0.5
+}
+
+/// A gentle slope the palette can only staircase — an 11° run, then a flat,
+/// again and again — rides as the slope it stands for.
+#[test]
+fn a_painted_staircase_rides_as_an_even_slope() {
+    // Each step: a four-cell 11° run (rises one cell) and a four-cell flat.
+    let steps = 6;
+    let (width, height) = (steps * 8 + 4, steps + 2);
+    let mut rows = vec![vec!['.'; width]; height];
+    let mut csv = vec![0; width * height];
+    for step in 0..steps {
+        let row = height - 2 - step;
+        for (k, x) in (step * 8..step * 8 + 4).enumerate() {
+            csv[row * width + x] = 8 + k as i32; // Up11a..d
+            rows[row][x] = '/';
+        }
+        for x in step * 8 + 4..width {
+            for r in row..height {
+                csv[r * width + x] = 1;
+            }
+        }
+        for x in step * 8..step * 8 + 4 {
+            for r in row + 1..height {
+                csv[r * width + x] = 1;
+            }
+        }
+    }
+    for x in 0..width {
+        csv[(height - 1) * width + x] = 1;
+    }
+    let mut layer = layer(&["."]);
+    layer.c_wid = width as i32;
+    layer.c_hei = height as i32;
+    layer.int_grid_csv = csv;
+    let emission = emit_terrain_from_intgrid(&layer, ae::Vec2::ZERO, "stairs").expect("lowers");
+    let floor: Vec<ae::Vec2> = emission
+        .chains
+        .iter()
+        .flat_map(|c| c.points.windows(2).filter(|w| w[1].x > w[0].x).flat_map(|w| [w[0], w[1]]).collect::<Vec<_>>())
+        .filter(|p| p.x > 64.0 && p.x < (steps * 8 * 16) as f32 - 64.0)
+        .collect();
+    assert!(!floor.is_empty());
+    // The painted staircase turns 0° → 14° → 0° every 64 px; ridden, the
+    // slope between neighbouring points stays close to the average ~7°.
+    for w in floor.windows(2) {
+        let d = w[1] - w[0];
+        if d.x <= 0.0 {
+            continue;
+        }
+        let deg = (-d.y).atan2(d.x).to_degrees();
+        assert!((2.0..12.0).contains(&deg), "a {deg:.1}° segment at x={:.0}: {floor:?}", w[0].x);
+    }
+}
+
+#[test]
+fn a_cliff_top_stays_sharp() {
+    // A plateau ending in a sheer drop: its top corner is hard.
+    let emission = emit_terrain_from_intgrid(&layer(&["###.....", "########"]), ae::Vec2::ZERO, "c")
+        .expect("lowers");
+    assert!(
+        emission.chains.iter().any(|c| c.points.contains(&ae::Vec2::new(48.0, 0.0))),
+        "{:?}",
+        emission.chains.iter().map(|c| &c.points).collect::<Vec<_>>()
+    );
 }
 
 #[test]

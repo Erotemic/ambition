@@ -23,6 +23,7 @@ For non-trivial work, localize in this order:
 5. The likely crate's generated packet and `MODULES.md`.
 6. ONE focused concept/system/recipe/tool doc or ADR.
 7. `dev/journals` and `dev/benchmark-candidates` for the symptom or invariant.
+8. If you are reviewing, architecturally steering, or inspecting another agent's work, read `docs/reviewer-guide.md` before reviewing the diff.
 
 Do not read all of `docs/`, `dev/`, or a multi-megabyte flat index by default.
 See `docs/recipes/fresh-agent-navigation.md`.

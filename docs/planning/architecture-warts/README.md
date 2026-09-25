@@ -41,16 +41,6 @@ there. After the W003 deletion, only `extra_phase_triggers` can enter
 
 ## Detailed evidence notes
 
-### W002 — boss self-dodge does not move the boss
-
-`crates/ambition_characters/src/brain/boss_pattern/mod.rs` says
-`self_dodge_amp` and `self_dodge_freq` drive a horizontal oscillator. Shipped
-`game/ambition_content/assets/data/boss_profiles.ron` gives GNU-ton
-`self_dodge: Some((70.0, 1.6))`. In
-`crates/ambition_boss_encounter/src/pattern/tick.rs`, the active branch only
-executes `let _ = state.movement_timer;`. It does not use the frequency and does
-not change the target or body motion.
-
 ### W017 — actor tuning has become an authority container
 
 `ActorTuning` is broad. Its exhaustive test groups fields into reusable

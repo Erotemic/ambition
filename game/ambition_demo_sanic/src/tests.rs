@@ -9,7 +9,12 @@ use super::*;
 fn rooms_in_mode(mode: Option<&str>) -> ambition_platformer2d::world::rooms::RoomSet {
     let mut room = ambition_platformer2d::world::rooms::RoomSpec::new(
         "mode_fixture",
-        ae::World::new("mode_fixture", ae::Vec2::splat(64.0), ae::Vec2::ZERO, Vec::new()),
+        ae::World::new(
+            "mode_fixture",
+            ae::Vec2::splat(64.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        ),
     );
     room.metadata.mode = mode.map(str::to_string);
     ambition_platformer2d::world::rooms::RoomSet::from_parts_or_panic(
@@ -62,8 +67,8 @@ fn sanic_demo_content_plugin_installs() {
         .music_for(provider::SANIC_EXPERIENCE)
         .expect("Sanic music fragment");
     assert_eq!(music.default_track, "you_are_too_slow");
-    // Act 1's score and Act 2's.
-    assert_eq!(music.tracks.len(), 2);
+    // Each act has a score.
+    assert_eq!(music.tracks.len(), 3);
     assert_eq!(
         audio
             .sfx_for(provider::SANIC_EXPERIENCE)
@@ -336,7 +341,9 @@ fn sanic_speedway_composes_through_the_umbrella() {
                 == vec![
                     ae::SurfacePort::local(0),
                     ae::SurfacePort::chain(
-                        room.world.chain_named("sanic_floor_route").expect("the floor"),
+                        room.world
+                            .chain_named("sanic_floor_route")
+                            .expect("the floor"),
                         ramp_fork_vertex,
                     ),
                 ]
@@ -541,7 +548,13 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), start_s, speed, params);
+    let mut rig = MomentumRig::riding(
+        chain,
+        room.world.chain_named("sanic_loop").expect("the loop"),
+        start_s,
+        speed,
+        params,
+    );
 
     let mut reached_runout = false;
     for _ in 0..180 {
@@ -583,7 +596,13 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
         jump_speed: 700.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), entry_s, speed, params);
+    let mut rig = MomentumRig::riding(
+        chain,
+        room.world.chain_named("sanic_loop").expect("the loop"),
+        entry_s,
+        speed,
+        params,
+    );
 
     let clear_s = closure_s + 160.0;
     for _ in 0..180 {
@@ -957,7 +976,13 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     };
 
     let step_from = |s: f32, v_t: f32, steer: ae::Vec2| {
-        let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), s, v_t, params);
+        let mut rig = MomentumRig::riding(
+            chain,
+            room.world.chain_named("sanic_loop").expect("the loop"),
+            s,
+            v_t,
+            params,
+        );
         rig.step(&room.world, steer);
         rig.motion()
     };
@@ -1093,7 +1118,13 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
-    let mut rig = MomentumRig::riding(chain, room.world.chain_named("sanic_loop").expect("the loop"), start_s, -900.0, params);
+    let mut rig = MomentumRig::riding(
+        chain,
+        room.world.chain_named("sanic_loop").expect("the loop"),
+        start_s,
+        -900.0,
+        params,
+    );
 
     let mut entered_loop = false;
     for _ in 0..420 {
@@ -1372,7 +1403,10 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
 fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
     let room = sanic_highway();
     assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
-    assert_eq!(room.metadata.music_track.as_deref(), Some(HIGHWAY_MUSIC_TRACK));
+    assert_eq!(
+        room.metadata.music_track.as_deref(),
+        Some(HIGHWAY_MUSIC_TRACK)
+    );
     assert!(
         room.world.size.x > 2.0 * LEVEL_WIDTH,
         "Act 2 is the bigger course: {} wide against the speedway's {LEVEL_WIDTH}",
@@ -1415,7 +1449,11 @@ fn the_highway_rolls_climbs_and_drops() {
     assert!(
         ground.len() >= 3,
         "the highway's ground runs are filled chains: {:?}",
-        room.world.chains.iter().map(|c| (&c.name, c.filled)).collect::<Vec<_>>()
+        room.world
+            .chains
+            .iter()
+            .map(|c| (&c.name, c.filled))
+            .collect::<Vec<_>>()
     );
     let heights = ground.iter().flat_map(|c| c.points.iter().map(|p| p.y));
     let (top, bottom) = heights.fold((f32::MAX, f32::MIN), |(lo, hi), y| (lo.min(y), hi.max(y)));
@@ -1426,7 +1464,7 @@ fn the_highway_rolls_climbs_and_drops() {
 }
 
 #[test]
-fn each_act_leads_to_the_other_and_the_session_holds_both() {
+fn the_three_acts_form_one_course() {
     assert_eq!(
         sanic_speedway().metadata.next_room.as_deref(),
         Some(HIGHWAY_ROOM_ID),
@@ -1434,11 +1472,16 @@ fn each_act_leads_to_the_other_and_the_session_holds_both() {
     );
     assert_eq!(
         sanic_highway().metadata.next_room.as_deref(),
+        Some(DARKNESS_ROOM_ID),
+        "the highway's goal leads to Act 3"
+    );
+    assert_eq!(
+        sanic_darkness().metadata.next_room.as_deref(),
         Some(SPEEDWAY_ROOM_ID),
-        "the highway's goal leads back to Act 1"
+        "Act 3's goal leads back to Act 1"
     );
     let rooms = provider::sanic_session_world().room_set;
-    for id in [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID] {
+    for id in [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID, DARKNESS_ROOM_ID] {
         assert!(
             rooms.rooms.iter().any(|room| room.id == id),
             "the session's room set holds {id}"
@@ -1447,10 +1490,53 @@ fn each_act_leads_to_the_other_and_the_session_holds_both() {
 }
 
 #[test]
+fn the_dark_act_has_three_portal_pairs_and_room_to_run() {
+    use ambition_platformer2d::entity_catalog::placements::PlacementSchema;
+
+    let room = sanic_darkness();
+    assert_eq!(
+        room.metadata.music_track.as_deref(),
+        Some(DARKNESS_MUSIC_TRACK)
+    );
+    assert!(room.world.size.x >= 2.0 * sanic_highway().world.size.x);
+    assert!(room.world.size.y > sanic_highway().world.size.y);
+    let portals: Vec<_> = room
+        .placements
+        .iter()
+        .filter_map(|record| match &record.schema {
+            PlacementSchema::Portal(portal) => Some(portal.color),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(portals.len(), 6);
+    for color in &portals {
+        assert!(
+            portals.contains(&color.partner()),
+            "{color:?} needs an exit"
+        );
+    }
+    assert!(room.world.validate_surface_junctions().is_empty());
+    assert!(
+        room.placements
+            .iter()
+            .filter(|record| is_ring_placement(record))
+            .count()
+            >= 200
+    );
+    assert!(sanic_music_registry().tracks.iter().any(|track| {
+        track.id == DARKNESS_MUSIC_TRACK
+            && track.asset_path.as_deref() == Some(DARKNESS_MUSIC_ASSET_PATH)
+    }));
+}
+
+#[test]
 fn the_highway_score_is_a_track_the_sanic_catalog_carries() {
     let catalogs = sanic_music_registry();
     assert!(
-        catalogs.tracks.iter().any(|track| track.id == HIGHWAY_MUSIC_TRACK),
+        catalogs
+            .tracks
+            .iter()
+            .any(|track| track.id == HIGHWAY_MUSIC_TRACK),
         "the highway names `{HIGHWAY_MUSIC_TRACK}` and the Sanic catalog must carry it, or \
          the director falls back to the default track"
     );
@@ -1465,7 +1551,11 @@ fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
         .filter(|record| is_ring_placement(record))
         .map(|record| record.aabb.max - record.aabb.min)
         .collect();
-    assert!(sizes.len() >= 40, "the premise: a field of rings; got {}", sizes.len());
+    assert!(
+        sizes.len() >= 40,
+        "the premise: a field of rings; got {}",
+        sizes.len()
+    );
     assert!(sizes
         .iter()
         .all(|size| (*size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01));
@@ -1480,7 +1570,11 @@ fn every_ring_the_speedway_places_is_the_size_a_hit_scatters() {
         .filter(|record| is_ring_placement(record))
         .map(|record| record.aabb.max - record.aabb.min)
         .collect();
-    assert!(sizes.len() >= 30, "the premise: a field of rings; got {}", sizes.len());
+    assert!(
+        sizes.len() >= 30,
+        "the premise: a field of rings; got {}",
+        sizes.len()
+    );
     for size in sizes {
         assert!(
             (size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01,

@@ -12,9 +12,13 @@ use ambition_demo_sanic::{SanicActState, SANIC_MODE};
 const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
-    // `--act 2` enters the session at Act 2, the highway.
+    // `--act N` enters the session at act N.
     let args: Vec<String> = std::env::args().collect();
-    if let Some(act) = args.iter().position(|a| a == "--act").and_then(|i| args.get(i + 1)) {
+    if let Some(act) = args
+        .iter()
+        .position(|a| a == "--act")
+        .and_then(|i| args.get(i + 1))
+    {
         let act = act.parse().unwrap_or(0);
         if let Err(error) = ambition_demo_sanic::provider::start_at_act(act) {
             eprintln!("{error}");

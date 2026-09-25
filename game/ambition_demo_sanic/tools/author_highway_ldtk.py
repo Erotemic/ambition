@@ -44,8 +44,8 @@ TARGET = REPO / "game" / "ambition_demo_sanic" / "assets" / "worlds" / "sanic_hi
 MAP_ASSETS_TARGET = REPO / "game" / "ambition_map_assets" / "ambition_demo_sanic" / "worlds" / "sanic_highway.ldtk"
 
 ROOM_ID = "sanic_highway"
-# Where this act's goal leads: back to Act 1, so the demo is a two-act cycle.
-NEXT_ROOM = "sanic_speedway"
+# Act 2 leads to the dark third act.
+NEXT_ROOM = "sanic_darkness"
 MUSIC_TRACK = "velocity"
 
 LEVEL_W = 16000  # a multiple of the 16px grid

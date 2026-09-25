@@ -24,7 +24,7 @@ default = []
 # engine's capture module + its PNG encoder. Off by default so nothing that ships
 # links an encoder.
 capture = ["visible", "ambition_platformer2d/capture"]
-visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input", "dep:bevy_kira_audio"]
+visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "ambition_platformer2d/portal_render", "input", "dep:bevy_kira_audio"]
 # Folded into `visible` above so the windowed binary is interactive; also usable alone for the
 # headless `tests/standard_input_path.rs` proof.
 input = ["ambition_platformer2d/input"]

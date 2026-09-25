@@ -5,10 +5,13 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
 
-use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_highway, sanic_speedway};
+use crate::{
+    sanic_darkness, sanic_highway, sanic_speedway, SanicRulesPlugin, SANIC_CHARACTER_ID,
+    SPEEDWAY_ROOM_ID,
+};
 
 pub const SANIC_EXPERIENCE: &str = "sanic";
 pub const SANIC_GAMEPLAY_ROUTE: &str = "sanic_gameplay";
@@ -25,14 +28,15 @@ pub struct SanicSessionWorld {
 /// binary's `--act` flag; unset means Act 1.
 static START_ROOM: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
 
-/// Enter the session at act `act` (1 or 2) instead of Act 1: for playing or
+/// Enter the session at act `act` (1, 2, or 3) instead of Act 1: for playing or
 /// photographing a later act without finishing the ones before it. Call before
 /// building the app; the first call wins.
 pub fn start_at_act(act: u32) -> Result<(), String> {
     let room = match act {
         1 => SPEEDWAY_ROOM_ID,
         2 => crate::HIGHWAY_ROOM_ID,
-        other => return Err(format!("Sanic has acts 1 and 2, not {other}")),
+        3 => crate::DARKNESS_ROOM_ID,
+        other => return Err(format!("Sanic has acts 1, 2, and 3, not {other}")),
     };
     let _ = START_ROOM.set(room);
     Ok(())
@@ -40,7 +44,7 @@ pub fn start_at_act(act: u32) -> Result<(), String> {
 
 pub fn sanic_session_world() -> SanicSessionWorld {
     let start = START_ROOM.get().copied().unwrap_or(SPEEDWAY_ROOM_ID);
-    let rooms = vec![sanic_speedway(), sanic_highway()];
+    let rooms = vec![sanic_speedway(), sanic_highway(), sanic_darkness()];
     let geometry = ae::RoomGeometry(
         rooms
             .iter()
@@ -49,7 +53,7 @@ pub fn sanic_session_world() -> SanicSessionWorld {
             .world
             .clone(),
     );
-    // Both acts; each act's `next_room` says where its goal leads.
+    // Each act's `next_room` says where its goal leads.
     let room_set = RoomSet::from_parts_or_panic(start, rooms, Vec::new());
     SanicSessionWorld {
         geometry,
@@ -74,7 +78,7 @@ impl Plugin for SanicExperiencePlugin {
             SANIC_EXPERIENCE,
             SANIC_GAMEPLAY_ROUTE,
             "Sanic",
-            "Momentum speedway with a rideable loop",
+            "Three-act momentum course with loops and portals",
             "Prepare Sanic",
             sanic_authored_catalogs(),
         )

@@ -41,7 +41,7 @@ Also landed:
   opens a cave (ring and speed monitors), and a ledge spring over the plateau
   reaches a sky island (ring monitor). Then the upside-down tunnel
   (`GravityZone`, he rides the ceiling), loop D, a halfpipe climb, the spike
-  gauntlet. Each act's `next_room` names the other.
+  gauntlet. Its `next_room` now names Act 3.
   - Engine pieces it added: **attached loops** (`ae::World::attach_loop`,
     reached from LDtk by `SurfaceLoop.attach_to`); **filled ground**
     (`SurfaceChain::filled`, LDtk `fill`: the renderer meshes the earth under a
@@ -56,7 +56,7 @@ Also landed:
     warning if it never arrives).
   - Sanic content: badniks ride the surface solver (`slope_factor: 0`);
     `breakable_*` blocks break under a rolling Sanic; `monitor_rings*` grants
-    ten rings; monitors work in either act; `--act 2` on the binary and on
+    ten rings; monitors work in each act; `--act 2` on the binary and on
     `capture_sanic` starts at Act 2.
   - Authoring lessons, measured: a `ReboundPad` mostly ALONG a riding body's
     surface is a booster that only raises speed, so a launcher must be a spring.
@@ -65,14 +65,21 @@ Also landed:
     is added afterwards with `entity add`.
   - Witnesses: `the_highway_rolls_climbs_and_drops`,
     `oracle_every_highway_loop_is_ridden_exactly_once_holding_up`,
-    `the_speedway_leads_to_the_highway_and_the_highway_back` (Right held through
-    both acts: the bridge, the tunnel ceiling, back at Act 1), `act_two_routes`
+    `the_three_acts_connect_and_clear` (Right held through the bridge and the
+    tunnel ceiling, then through Act 3), `act_two_routes`
     (the valley rejoins, a spin dash opens the cave, the ledge spring reaches the
     island), `badniks_walk_slopes`, and `room_departure`'s engine tests.
   - Follow-ups: Mary-O's `cycle_level_on_flag_tally` still hand-rolls its
     departure; moving it onto `Departure` is mechanical but touches its
-    `LevelDestination` tests. `area create` cannot author `next_room`, so both
+    `LevelDestination` tests. `area create` cannot author `next_room`, so the
     Sanic scripts set it with `level set-field`.
+- **Act 3, darkness (2026-09-24).** The 32,000×2,400 course has four attached
+  loops, two high roads, an inverted vault, a basin, an observatory reward route,
+  three portal pairs, and the
+  `to_be_superluminal_is_to_live_in_darkness` score. The three acts form a
+  cycle. `tools/author_darkness_ldtk.py` authors the map. The real headless app
+  clears all three acts and records a portal transit in Act 3
+  (`three_acts::the_three_acts_connect_and_clear`).
 - **Act 1's pit is a spike pit (2026-09-25).** It was a `HazardBlock` (a flat
   reset strip). It is now a 112px trench with a solid floor and a
   `DamageVolume` bed: falling in costs rings, or the run with none, and you can
@@ -140,7 +147,6 @@ Remaining acceptance work is product/content work
   no test drives. Rebalanced 2026-07-21 (par 60s→30s, ring bonus 10→100) once a
   clean run measured ~6s — at the original numbers time swamped rings by an
   order of magnitude.
-- additional authored act content beyond the single speedway room; and
 - ✅ **A deterministic headless completion proof — LANDED 2026-07-21**
   (`ambition_demo_sanic_app/tests/act_completion.rs`). Plays the app to the goal
   and asserts the act clears, time is captured, and the clock stops; caught the
@@ -172,7 +178,9 @@ and HUD. These remain content even when they expose a reusable engine gap.
 
 ## V1 design
 
-- **World:** three acts in one authored zone. Act 1 teaches flow; act 2 rewards a high fast route versus a low safe route; act 3 adds a short encounter customer.
+- **World:** three acts in one authored zone. Act 1 teaches flow; act 2 rewards
+  a high fast route versus a low safe route; act 3 combines longer climbs,
+  portals, gravity changes, and optional high roads.
 - **Verbs:** run, jump, and the landed provider-side ball dash; no Sanic-specific engine action enum.
 - **Bits:** provider-owned collectible/economy state with drop-on-hit behavior through the shared damage/effect seams.
 - **Enemies:** ordinary actor rows and brains; rolling/stomp outcomes use shared contact/combat vocabulary.

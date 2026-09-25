@@ -317,8 +317,7 @@ mod tests {
         );
     }
 
-    /// Both acts author monitors, so arriving in the other act is a fresh
-    /// attempt there: its boxes are all whole.
+    /// Each act authors monitors. An arrival starts with whole boxes.
     #[test]
     fn arriving_in_the_other_act_restocks_the_monitors() {
         let mut app = App::new();

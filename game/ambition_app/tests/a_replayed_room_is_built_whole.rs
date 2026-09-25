@@ -43,11 +43,62 @@ fn persona_facts(world: &mut World) -> BTreeMap<String, (Entity, String, String)
         .collect()
 }
 
+/// Every worn body's physical facts against its PREPARED character, not
+/// against another construction: "load equals replay" cannot tell both right
+/// from both wrong, and the Hall's mites were built without their death traits
+/// on both roads. Returns how many bodies author death traits, so a caller can
+/// prove the capability arm saw one.
+fn assert_built_as_prepared(world: &mut World, when: &str) -> usize {
+    let mut bodies = world.query::<(
+        &SimId,
+        &WornCharacter,
+        &BodyHealth,
+        &ambition_platformer2d::combat::components::CombatCapabilities,
+    )>();
+    let built: Vec<_> = bodies
+        .iter(world)
+        .map(|(sim_id, worn, health, caps)| {
+            (sim_id.as_str().to_string(), worn.id().to_string(), health.health.max, caps.clone())
+        })
+        .collect();
+    let registry = world.resource::<ambition_platformer2d::character::PreparedCharacterRegistry>();
+    let mut with_traits = 0;
+    for (id, worn, max, caps) in built {
+        let Some(prepared) = registry.get(&worn) else {
+            continue;
+        };
+        with_traits += usize::from(prepared.death_traits.is_some());
+        assert_eq!(
+            caps,
+            prepared
+                .death_traits
+                .as_ref()
+                .map(ambition_platformer2d::combat::components::CombatCapabilities::from)
+                .unwrap_or_default(),
+            "{when}: {id} wearing `{worn}` was built without its authored death traits"
+        );
+        assert_eq!(
+            max,
+            prepared.vitals.max_health.map_or(
+                ambition_platformer2d::characters::actor::DEFAULT_UNAUTHORED_BODY_HEALTH,
+                |max| max.max(1)
+            ),
+            "{when}: {id} wearing `{worn}` was built without its authored health"
+        );
+    }
+    with_traits
+}
+
 #[test]
 fn a_replayed_room_is_rebuilt_with_the_persona_the_room_load_built() {
     let mut sim = fixed_60hz_room_sim("hall_of_characters");
     sim.step_n(base(), 10);
     let loaded = persona_facts(sim.world_mut());
+    assert!(
+        assert_built_as_prepared(sim.world_mut(), "room load") > 0,
+        "the Hall must place a character that authors death traits (the mites), \
+         or the capability arm is vacuous"
+    );
     assert!(
         loaded.values().any(|(_, worn, _)| worn == "sanic"),
         "the Hall must still place `sanic`, a character with vitals and no \
@@ -68,6 +119,7 @@ fn a_replayed_room_is_rebuilt_with_the_persona_the_room_load_built() {
             replaced.then_some(now)
         })
         .expect("the replay rebuilt the room within 12 ticks");
+    assert_built_as_prepared(sim.world_mut(), "replay rebuild tick");
     sim.step_n(base(), 3);
     let settled = persona_facts(sim.world_mut());
 

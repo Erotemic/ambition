@@ -170,6 +170,9 @@ pub struct CharacterBodyBlueprint<'a> {
     pub mount: Option<&'a crate::actor::CharacterMount>,
     pub held_item: Option<&'a str>,
     pub death_traits: Option<&'a crate::actor::CharacterDeathTraits>,
+    /// [`crate::actor::definition::Vitals::knockback_weight`]: `None` leaves the
+    /// constructor's reference weight.
+    pub knockback_weight: Option<f32>,
     /// [`PreparedCharacterDefinition::actor_abilities`]: resolved, so a
     /// constructor has no default to reach for.
     pub abilities: ambition_platformer2d_core::AbilitySet,
@@ -281,6 +284,7 @@ impl PreparedCharacterDefinition {
             mount: self.mount.as_ref(),
             held_item: self.held_item.as_deref(),
             death_traits: self.death_traits.as_ref(),
+            knockback_weight: self.vitals.knockback_weight,
             abilities: self.actor_abilities,
             ranged_vfx: self.ranged_vfx.as_deref(),
             body: self.body.as_ref(),

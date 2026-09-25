@@ -627,6 +627,8 @@ impl ActorClusterSeed {
             ranged_vfx,
             body: body_source,
             sheet,
+            death_traits,
+            knockback_weight,
             ..
         } = body;
         // a body with no policy still needs one to be paced against. The
@@ -723,6 +725,8 @@ impl ActorClusterSeed {
             // `brain_effects` reads `tuning.ranged_visual` when it spawns the shot; the
             // archetype road filled that in and this road left it empty.
             ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
+            weight: knockback_weight
+                .unwrap_or(ambition_combat::actor_tuning::ActorTuning::default().weight),
             ..Default::default()
         };
         // ONE spelling of the authored scale, read by the live surface state
@@ -803,10 +807,15 @@ impl ActorClusterSeed {
                 is_aerial,
                 collision_size,
             ),
-            // Death traits are the character's and arrive with the persona
-            // derive, like its moves — a seed that guessed them would be a
-            // second writer.
-            caps: ambition_combat::CombatCapabilities::default(),
+            // What this body does when it dies is the character's, built here
+            // because every road that wears the character stamps its persona
+            // current, so no derive arrives later to supply it. Three callers
+            // used to set it after this returned, and the peaceful NPC and
+            // runtime minion roads did not: the Hall's exploding mite neither
+            // exploded nor its dividing mite split.
+            caps: death_traits
+                .map(ambition_combat::CombatCapabilities::from)
+                .unwrap_or_default(),
             hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
             // Resolved above, beside the collision size, and carried rather
             // than re-derived — see the field's own note.
@@ -880,6 +889,7 @@ pub fn fixture_body_blueprint(
         mount: None,
         held_item: None,
         death_traits: None,
+        knockback_weight: None,
         abilities: ae::AbilitySet::classic_actor(),
         ranged_vfx: None,
         body: None,
@@ -964,6 +974,7 @@ mod tests {
             mount: None,
             held_item: None,
             death_traits: None,
+            knockback_weight: None,
             abilities: ae::AbilitySet::classic_actor(),
             ranged_vfx: None,
             body: None,

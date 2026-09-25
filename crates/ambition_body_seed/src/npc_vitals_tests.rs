@@ -1,5 +1,6 @@
-//! A peaceful NPC's physical facts come from its character's VITALS, which do
-//! not depend on whether the character authored locomotion.
+//! A body's physical facts (health, knockback weight, death traits) come from
+//! its prepared character on every constructor road, and do not depend on
+//! whether the character authored locomotion.
 //!
 //! The seed used to read the pool through the body blueprint, which exists only
 //! for a character with locomotion. A character with vitals and no locomotion
@@ -76,4 +77,36 @@ fn a_character_without_locomotion_is_built_with_its_authored_vitals() {
         }),
         "the authored death traits"
     );
+}
+
+/// The blueprint road builds the same physical facts: `new_character_in` is
+/// the constructor every character road wears through, and the wear stamps the
+/// persona current, so a fact it drops is never supplied. The Hall's exploding
+/// and dividing mites author locomotion, took this road, and were built with
+/// default capabilities: provoked and killed, neither exploded nor split.
+#[test]
+fn a_blueprint_body_is_built_with_its_authored_death_traits_and_weight() {
+    let traits = ambition_characters::actor::CharacterDeathTraits {
+        divides_into: Some("npc_puppy_slug".to_string()),
+        ..Default::default()
+    };
+    let mut blueprint = fixture_body_blueprint("Divider");
+    blueprint.death_traits = Some(&traits);
+    blueprint.knockback_weight = Some(1.35);
+    let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
+    let seed = ActorClusterSeed::new_character_in(
+        &Default::default(),
+        &CharacterCatalog::empty(),
+        "divider",
+        blueprint,
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Passive,
+        &[],
+    );
+    assert_eq!(
+        seed.caps,
+        ambition_combat::CombatCapabilities::from(&traits),
+        "the authored death traits"
+    );
+    assert_eq!(seed.config.tuning.weight, 1.35, "the authored knockback weight");
 }

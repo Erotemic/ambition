@@ -1692,11 +1692,6 @@ pub fn spawn_enemy_with_faction_into(
             .map_or(enemy.config.tuning.is_hostile, |disposition| {
                 disposition.is_hostile()
             });
-        // What this body DOES when it dies, and what it may do — both the
-        // character's, both already resolved on the definition.
-        enemy.caps = ambition_combat::CombatCapabilities::from(
-            &definition.death_traits.clone().unwrap_or_default(),
-        );
         let body_size = enemy.kin.size;
         spawn_solo_enemy_into(
             &mut scope.reborrow(),
@@ -2152,9 +2147,6 @@ pub fn spawn_encounter_mob(
                 aabb,
                 brain,
                 &[],
-            );
-            enemy.caps = ambition_combat::CombatCapabilities::from(
-                &definition.death_traits.clone().unwrap_or_default(),
             );
             enemy
         }

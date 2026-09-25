@@ -24,17 +24,9 @@ fn realize_seat(
     // records it, so a hot reload can tell a seated body apart from a current one.
     cast_generation: ambition_characters::prepared::CharacterCatalogGeneration,
 ) -> Entity {
+    // The seat's death traits are on the seed: `new_character_in` builds them
+    // from the same definition's blueprint.
     let mut seed = seat.seed.clone();
-    // set on the SEED, not inserted beside it. `CombatCapabilities` is
-    // already a member of the cluster bundle, so a second insert in the same
-    // spawn is a duplicate component and Bevy refuses the whole bundle — which
-    // is what a first attempt did, taking five seat tests down with it. The
-    // seed's own note says the persona brings this; a seat that will stop asking
-    // for a persona pass brings its own, and the enemy road already does exactly
-    // this at construction.
-    seed.caps = ambition_combat::CombatCapabilities::from(
-        &seat.definition.death_traits.clone().unwrap_or_default(),
-    );
     let at = seed.kin.pos;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
     // the seed's model, which `grant_prepared_character_body` then switches to

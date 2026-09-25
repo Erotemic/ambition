@@ -144,6 +144,16 @@ pub struct ActorClusterSeed {
     /// catalog road", so every body that does not author a sprite body is
     /// untouched by this.
     pub posed: Option<ambition_sprite_sheet::character::sheets::PosedBodyGeometry>,
+    /// The sprite quad of the resolution that sized [`Self::kin`]: the posed
+    /// geometry's render, else the catalog join's, else `None` for a body no
+    /// sheet describes.
+    ///
+    /// ⛔ CARRIED, NOT LOOKED UP AGAIN. The hostile spawn sites used to resolve
+    /// the quad a second time from the placement's NAME, a free label: four
+    /// `Skirmisher` placements of `npc_pirate_raider` resolved to nothing and
+    /// spawned with no quad, and the other 39 agreed only because their label
+    /// happened to be their character's display name.
+    pub render_size: Option<ae::Vec2>,
 }
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
@@ -160,36 +170,6 @@ fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2
         authored.center().x,
         authored.bottom() - collision_size.y * 0.5,
     )
-}
-
-/// The authored sprite RENDER size (the full sprite quad) for a named catalog
-/// character, or `None` for a generic enemy whose display `name` isn't a catalog
-/// character. Lifted onto the shared `ActorRenderSize` at the hostile spawn sites
-/// so a named character draws at its authored scale — the same render size the
-/// peaceful-NPC path resolves — making e.g. the PCA identical whether it spawns
-/// peaceful (symmetry room) or hostile (duel). `ldtk_fallback` only seeds the
-/// collision fallback inside the resolver; the render size comes from the sheet.
-pub fn sprite_render_size_for_name_in(
-    authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
-    catalog: &CharacterCatalog,
-    name: &str,
-    ldtk_fallback: ae::Vec2,
-) -> Option<ae::Vec2> {
-    catalog
-        .id_for_authored_identity(name)
-        .and_then(|cid| {
-            // ⭐ THE DERIVATION, NOT THE MONOLITH'S ADAPTER AROUND IT. The
-            // adapter's whole body is `catalog.data()` plus this call, and this
-            // caller already holds both halves — so naming it here made
-            // `actor_clusters` look coupled to the monolith over a `.data()`.
-            ambition_sprite_sheet::character::catalog_join::sprite_body_collision_for_character_id_from_data(
-                authored,
-                catalog.data(),
-                cid,
-                ldtk_fallback,
-            )
-        })
-        .map(|b| b.render_size)
 }
 
 /// Catalog tags that declare a body as MECHANICAL — the vocabulary an author
@@ -295,7 +275,7 @@ impl ActorClusterSeed {
         aabb: ae::Aabb,
         interactable: &ambition_interaction::Interactable,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    ) -> (Self, Option<ae::Vec2>) {
+    ) -> Self {
         // Only the motion attachment is derived from the placement here.
         // `patrol_radius` PARAMETERIZES a selected patrol brain (consumed during
         // brain resolution, not here), and `patrol_path_id` is the separate
@@ -480,17 +460,11 @@ impl ActorClusterSeed {
                 ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
                 "an NPC placement's death is permanent (ADR 0022)"
             );
-            // ⛔ THE SEED'S OWN RESOLUTION WINS. `render_size` above is the
-            // catalog join's answer, computed before we knew this placement
-            // names a character that authors its body. When it does, the seed
-            // has already resolved all three geometry facts from the sheet,
-            // and handing the caller the catalog's render size beside the
-            // sheet's collision size is the two-derivations defect on the
-            // peaceful road.
-            let render_size = seed.posed.map(|geometry| geometry.render).or(render_size);
-            return (seed, render_size);
+            // The quad is the constructor's, from the same resolution that
+            // sized the collider, not this road's catalog join above.
+            return seed;
         }
-        let seed = Self {
+        Self {
             kin: BodyKinematics {
                 pos,
                 vel: ae::Vec2::ZERO,
@@ -564,8 +538,8 @@ impl ActorClusterSeed {
             // Resolved above when the character authors a sprite body; `None`
             // for a placement whose character states no `BodySource`.
             posed,
-        };
-        (seed, render_size)
+            render_size,
+        }
     }
 
     /// A BODY, BUILT FROM ITS CHARACTER.
@@ -820,6 +794,9 @@ impl ActorClusterSeed {
             // Resolved above, beside the collision size, and carried rather
             // than re-derived — see the field's own note.
             posed,
+            render_size: posed
+                .map(|geometry| geometry.render)
+                .or(sprite_body.map(|body| body.render_size)),
         }
     }
     pub fn into_components(self) -> ActorClusterBundle {
@@ -930,7 +907,7 @@ impl ActorClusterSeed {
         aabb: ae::Aabb,
         interactable: &ambition_interaction::Interactable,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
-    ) -> (Self, Option<ae::Vec2>) {
+    ) -> Self {
         Self::new_peaceful_npc_in(
             // A content-free constructor has no providers, so no authored
             // sheets — the empty registry is the honest value, not a stand-in.
@@ -1110,7 +1087,7 @@ mod tests {
         // ALL THREE FACTS, NOT ONLY THE BOX. The render quad and the quad
         // offset are the other two thirds of the same resolution, and the
         // spawn sites seed the body's `ActorRenderSize` / `ActorSpriteOffset`
-        // from them (`spawn_render_geometry`). Asserting only the collision
+        // from them (`render_size`, `posed`). Asserting only the collision
         // size would leave the catalog join answering for the other two — the
         // exact split this slice exists to close, one component over.
         assert_eq!(
@@ -1119,6 +1096,12 @@ mod tests {
             "the seed did not carry the resolved presentation geometry, so the \
              spawn site has nothing to seed the quad and offset from and falls \
              back to the catalog join"
+        );
+        assert_eq!(
+            seed_for(Some(&source)).render_size,
+            Some(from_the_sheet.render),
+            "the seed carried a quad other than the one the resolution that \
+             sized its collider answered"
         );
 
         // THE CONTROL: a character that authors NO body source still gets the
@@ -1423,7 +1406,7 @@ mod tests {
                 brain_override: None,
             },
         );
-        let (seed, _) =
+        let seed =
             ActorClusterSeed::new_peaceful_npc("anonymous", "Anonymous", aabb, &interactable, &[]);
         let built = seed.body.0.abilities.abilities;
         assert_eq!(

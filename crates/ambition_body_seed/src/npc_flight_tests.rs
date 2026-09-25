@@ -67,7 +67,7 @@ fn seed_for(
 ) -> ActorClusterSeed {
     let interactable = npc_at(character_id);
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
         prepared,
@@ -182,7 +182,7 @@ fn is_aerial(
 ) -> bool {
     let interactable = npc_at(character_id);
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
         prepared,
@@ -286,7 +286,7 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
     );
 
     let interactable = npc_at(Some("npc_test_flyer"));
-    let (seed, render) = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
         Some(&registry),
@@ -300,7 +300,7 @@ fn a_peaceful_npc_that_authors_a_sprite_body_is_built_from_its_sheet() {
         seed.kin.size, from_the_sheet.collision,
         "the peaceful seed was built at a box the pose pass will resize"
     );
-    assert_eq!(render, Some(from_the_sheet.render), "the quad is the sheet's too");
+    assert_eq!(seed.render_size, Some(from_the_sheet.render), "the quad is the sheet's too");
     assert_eq!(seed.posed, Some(from_the_sheet));
 
     // The control: the same placement naming no character keeps its own box.
@@ -334,7 +334,7 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
         "the premise: no locomotion, so no blueprint, so the peaceful road builds it"
     );
 
-    let (seed, _) = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &CharacterCatalog::empty(),
         Some(&registry),
@@ -389,7 +389,7 @@ fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
 
     let interactable = npc_at(Some("drifter"));
     let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
-    let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &catalog,
         Some(&cast),

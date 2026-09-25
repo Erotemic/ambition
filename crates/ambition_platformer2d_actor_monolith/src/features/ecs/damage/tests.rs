@@ -704,7 +704,7 @@ fn spawn_talkable_npc_with_threshold(
             brain_override: None,
         },
     );
-    let (seed, _spawn) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "alice",
         "Alice",
         aabb,

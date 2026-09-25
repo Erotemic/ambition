@@ -32,7 +32,7 @@ fn spawn_anonymous_npc(app: &mut App) -> bevy::prelude::Entity {
         },
     );
     // Peaceful actor = the unified enemy cluster with peaceful tuning.
-    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc(
         "alice",
         "Alice",
         aabb,
@@ -374,7 +374,7 @@ fn spawn_character_npc(
     // The provocation reads the published cast and the worn character, so the
     // fixture publishes one and wears the other.
     app.insert_resource(cast.clone());
-    let (seed, _render) = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
+    let seed = ambition_body_seed::ActorClusterSeed::new_peaceful_npc_in(
         &Default::default(),
         &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         Some(cast),

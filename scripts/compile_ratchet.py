@@ -13,7 +13,14 @@ per-crate weights come from the telemetry ledger and are frozen into the
 baseline so gate results do not change merely because new timings were recorded.
 
 Use the bare invocation as the gate. Baseline updates are explicit and should be
-reviewed together with the architecture change that moves the metrics."""
+reviewed together with the architecture change that moves the metrics.
+
+⛔ ONLY THE GRAPH'S SHAPE GATES (Jon, 2026-09-25: "line-count should not be a
+gate"). Every line number, and every seconds number (they are priced from lines
+at a ms/line rate that does not extrapolate), is REPORTED and exits 0. A module's
+size is not the problem a decomposition solves; the number of concepts in it is.
+What still fails the run is `GATING`: the critical path changing length, or a
+watched crate leaving the graph."""
 
 from __future__ import annotations
 
@@ -654,6 +661,10 @@ def _compare(
     return None
 
 
+#: The finding classes that fail the run. Everything else is reported.
+GATING = frozenset({"PATH", "GONE"})
+
+
 def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
     """Every guarded number that is outside its budget, worst class first."""
     fraction = frozen.get("headroom_fraction", HEADROOM_FRACTION)
@@ -767,15 +778,18 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
     # EXACT, both directions, and deliberately not budgeted. This number only moves when the SHAPE
     # of the graph changes, which never happens by accident.
     if current["critical_path_crates"] != frozen["critical_path_crates"]:
+        longer = current["critical_path_crates"] > frozen["critical_path_crates"]
         direction = (
             "LONGER — parallelism cannot compress this, so the wall clock gets "
             "worse even if every crate got smaller"
-            if current["critical_path_crates"] > frozen["critical_path_crates"]
+            if longer
             else "SHORTER, which is a real win worth recording"
         )
         findings.append(
             (
-                "PATH",
+                # A longer path gates; a shorter one is a win the baseline has
+                # not banked yet, reported like CARVED.
+                "PATH" if longer else "SHORTENED",
                 f"critical_path_crates: {frozen['critical_path_crates']} -> "
                 f"{current['critical_path_crates']} — {direction}. Re-freeze with "
                 f"`--update` and say in the commit which carve did it.",
@@ -790,6 +804,7 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
         "MOVED": 4,
         "GONE": 5,
         "CARVED": 6,
+        "SHORTENED": 6,
     }
     findings.sort(key=lambda item: order.get(item[0], 9))
     return findings
@@ -1929,9 +1944,11 @@ def main(argv: list[str] | None = None) -> int:
     print()
     for severity, message in findings:
         print(f"  {severity:<10} {message}\n")
-    print(f"{len(findings)} compile-cost finding(s). "
+    gating = [severity for severity, _ in findings if severity in GATING]
+    print(f"{len(findings)} compile-cost finding(s), {len(gating)} gating "
+          f"({', '.join(sorted(GATING))}). Size and seconds rows are reports. "
           f"`python3 {Path(__file__).relative_to(ROOT)} --diff` says which crate moved.")
-    return 0 if args.report_only else 1
+    return 1 if gating and not args.report_only else 0
 
 
 if __name__ == "__main__":

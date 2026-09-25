@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "identifier": "SurfaceLoop",
+      "width": 400,
+      "height": 400,
+      "keep_aspect_ratio": true,
+      "hollow": true,
+      "docs": "A rideable full loop. The box IS the loop's circle: its centre is the loop centre and half its side the radius, so draw a bigger box for a bigger loop. With attach_to naming a floor chain (or 'terrain', the painted floor under it) it is a runnable loop built where the box is, its ramp climbing from the floor to the circle's bottom; otherwise a closed rideable ring of `segments` sides.",
+      "fields": [
+        {"name": "name", "type": "String", "default": ""},
+        {"name": "segments", "type": "Int", "default": 24},
+        {"name": "attach_to", "type": "String", "default": ""}
+      ]
+    }
+  ]
+}

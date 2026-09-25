@@ -327,7 +327,7 @@ def build_entity_def(spec: dict, project: dict) -> dict:
         "tileOpacity": 1.0,
         "lineOpacity": 1.0,
         "fillOpacity": 0.08,
-        "hollow": False,
+        "hollow": bool(spec.get("hollow", False)),
         "color": color,
         "renderMode": "Rectangle",
         "showName": True,
@@ -350,7 +350,7 @@ def build_entity_def(spec: dict, project: dict) -> dict:
         "maxWidth": None,
         "minHeight": None,
         "maxHeight": None,
-        "keepAspectRatio": False,
+        "keepAspectRatio": bool(spec.get("keep_aspect_ratio", False)),
         "fieldDefs": field_defs,
     }
 

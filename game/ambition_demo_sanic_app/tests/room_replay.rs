@@ -107,7 +107,9 @@ fn a_replay_request_returns_the_body_to_spawn() {
     settle_until_playable(&mut app);
     let spawn = room_spawn(&mut app);
 
-    displace(&mut app, spawn + Vec2::new(900.0, 0.0));
+    // The flat past the hills: a body put down inside a painted hill is not a
+    // body at rest, and a recovery would bring it home without any replay.
+    displace(&mut app, spawn + Vec2::new(1400.0, 0.0));
     app.update();
     let displaced = player_pos(&mut app).expect("he is still in the world");
     assert!(
@@ -147,7 +149,9 @@ fn the_act_clear_restarts_the_act_after_the_full_dwell() {
     settle_until_playable(&mut app);
     let spawn = room_spawn(&mut app);
 
-    displace(&mut app, spawn + Vec2::new(900.0, 0.0));
+    // The flat between the second hill and the booster: the hills are painted
+    // solid ground now, and a body put down inside one is not parked.
+    displace(&mut app, spawn + Vec2::new(1400.0, 0.0));
     app.update();
     let parked = player_pos(&mut app).expect("he is still in the world");
     assert!(

@@ -2,6 +2,31 @@
 
 mod speedway_oracles;
 
+/// The painted floor under `x`: the top-most `terrain:` chain with a floor
+/// segment (authored left to right) spanning it. Act 1's ground is painted, so
+/// its chains are named by the tracer; a test finds one by where it is.
+fn floor_chain_at(world: &ae::World, x: f32) -> usize {
+    world
+        .chains
+        .iter()
+        .enumerate()
+        .filter(|(_, chain)| chain.name.starts_with("terrain:"))
+        .flat_map(|(index, chain)| {
+            chain.points.windows(2).filter_map(move |pair| {
+                let (a, b) = (pair[0], pair[1]);
+                (a.x < x && x < b.x).then(|| (index, a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x)))
+            })
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(index, _)| index)
+        .unwrap_or_else(|| panic!("no painted floor under x={x}"))
+}
+
+/// West of the pit: the floor that carries the hills and the loop.
+const WEST_FLOOR_X: f32 = 1600.0;
+/// East of the pit: the runout to the finish.
+const EAST_FLOOR_X: f32 = 5000.0;
+
 use super::*;
 
 /// A session whose one room claims `mode`: the room set is the only place a
@@ -116,32 +141,18 @@ fn sanic_speedway_composes_through_the_umbrella() {
     let room = sanic_speedway();
     assert_eq!(room.id, SPEEDWAY_ROOM_ID);
 
-    // The LDtk-authored course made it into the world: solid ground (on the
-    // tiled terrain path), the pit gap, the pad trio, one-way platforms, the
-    // hazards, the named monitors, and the badnik spawns.
-    let ground: Vec<_> = room
-        .world
-        .blocks
-        .iter()
-        .filter(|b| {
-            matches!(b.kind, ae::BlockKind::Solid)
-                && (b.aabb.min.y - FLOOR_TOP).abs() < 0.5
-                && matches!(&b.id.source, ae::GeoSource::TileLayer { .. })
-        })
-        .collect();
-    assert_eq!(
-        ground.len(),
-        2,
-        "the ground is two tiled solids split by the pit"
+    // The LDtk-authored course made it into the world: the painted ground and
+    // its pit, the pad trio, one-way platforms, the hazards, the named
+    // monitors, and the badnik spawns.
+    assert_ne!(
+        floor_chain_at(&room.world, WEST_FLOOR_X),
+        floor_chain_at(&room.world, EAST_FLOOR_X),
+        "the pit splits the painted ground into a west floor and an east one"
     );
+    let pit = floor_chain_at(&room.world, (PIT_LEFT_X + PIT_RIGHT_X) * 0.5);
     assert!(
-        ground
-            .iter()
-            .any(|b| (b.aabb.max.x - PIT_LEFT_X).abs() < 0.5)
-            && ground
-                .iter()
-                .any(|b| (b.aabb.min.x - PIT_RIGHT_X).abs() < 0.5),
-        "the pit gap sits exactly between the two ground slabs"
+        room.world.chains[pit].points.iter().any(|p| (p.y - PIT_FLOOR_Y).abs() < 1.0),
+        "the pit's floor is painted at {PIT_FLOOR_Y}"
     );
     let pads: Vec<ae::Vec2> = room
         .world
@@ -296,34 +307,22 @@ fn sanic_speedway_composes_through_the_umbrella() {
         2,
         "the loop mouth has exactly its inbound and outbound route occurrences"
     );
-    let floor_route = room
-        .world
-        .chains
+    let floor_index = floor_chain_at(&room.world, WEST_FLOOR_X);
+    let floor_route = &room.world.chains[floor_index];
+    // The painted west floor carries the two rolling hills: they rise from the
+    // flat floor and never dip below it.
+    let hills: Vec<_> = floor_route
+        .points
         .iter()
-        .find(|chain| chain.name == "sanic_floor_route")
-        .expect("momentum bodies have a floor guide that can branch into the ramp");
-    // The LDtk-authored floor route carries the two rolling hills as real
-    // polyline geometry: many samples, all rising from the flat floor (the
-    // solid ground beneath never pokes through).
+        .filter(|p| p.x > 300.0 && p.x < 1500.0)
+        .collect();
     assert!(
-        floor_route.points.len() > 40,
-        "the hills are sampled into the floor route: {} points",
-        floor_route.points.len()
-    );
-    assert!(
-        floor_route.points.iter().all(|p| p.y <= FLOOR_TOP + 1.0e-3),
+        hills.iter().all(|p| p.y <= FLOOR_TOP + 1.0),
         "hills only rise from the floor; the route never dips below the ground"
     );
     assert!(
-        floor_route.points.iter().any(|p| p.y < FLOOR_TOP - 80.0),
+        hills.iter().any(|p| p.y < FLOOR_TOP - 70.0),
         "the tall hill genuinely rises"
-    );
-    assert!(
-        room.world
-            .chains
-            .iter()
-            .any(|chain| chain.name == "sanic_floor_runout"),
-        "the pit splits the ground into two authored route chains"
     );
     assert!(
         room.world.validate_surface_junctions().is_empty(),
@@ -340,12 +339,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
             junction.ports
                 == vec![
                     ae::SurfacePort::local(0),
-                    ae::SurfacePort::chain(
-                        room.world
-                            .chain_named("sanic_floor_route")
-                            .expect("the floor"),
-                        ramp_fork_vertex,
-                    ),
+                    ae::SurfacePort::chain(floor_index, ramp_fork_vertex),
                 ]
         }),
         "the tiled floor and the ramp are one steerable route junction"
@@ -378,12 +372,25 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "the completed loop must flow into its runout without a tangent edge: loop={loop_closure_tangent:?}, runout={runout_tangent:?}"
     );
 
+    // The loop as authored: a `SurfaceLoop` box in the LDtk, measured off the
+    // revolution it built rather than restated here.
+    let revolution = &loop_chain.points[LOOP_ENTRY_POINT_INDEX..=LOOP_CLOSURE_POINT_INDEX];
+    let (min_x, max_x) = revolution
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| (lo.min(p.x), hi.max(p.x)));
+    let (min_y, max_y) = revolution
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), p| (lo.min(p.y), hi.max(p.y)));
+    let radius = (max_x - min_x) * 0.5;
+    let center_x = (max_x + min_x) * 0.5;
+
     let floor_top = FLOOR_TOP;
-    assert!((ramp_start.y - floor_top).abs() < 1.0e-3);
+    // The painted floor is smoothed: its flats hold to float noise, not bits.
+    assert!((ramp_start.y - floor_top).abs() < 1.0e-2, "ramp foot {ramp_start:?}");
     assert!(entry.y < floor_top - 60.0, "the loop is visibly raised");
-    assert!((exit.y - floor_top).abs() < 1.0e-3);
+    assert!((exit.y - floor_top).abs() < 1.0e-2, "runout end {exit:?}");
     assert!(
-        overpass_end.x > LOOP_CENTER_X + LOOP_RADIUS + 80.0,
+        overpass_end.x > center_x + radius + 80.0,
         "the flat foreground deck must clear the loop before descending"
     );
     assert!(
@@ -391,31 +398,40 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "the crossover deck must stay flat while it clears the back rail"
     );
     assert!(
-        exit.x > closure.x + LOOP_RADIUS * 3.0,
+        exit.x > closure.x + radius * 3.0,
         "the runout must carry the rider clear of the completed loop"
     );
 
-    // The loop samples all four quadrants around the label/visual center (a
-    // full loop, not three quarters).
-    let loop_points = &loop_chain.points[LOOP_ENTRY_POINT_INDEX..=LOOP_CLOSURE_POINT_INDEX];
-    let min_x = loop_points
+    // THE LOOP IS BUILT WHERE ITS BOX IS: the `SurfaceLoop` entity's box is its
+    // circle, so an author sizes a loop by drawing it.
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
+        .expect("the speedway world parses");
+    let boxed = project
+        .levels
         .iter()
-        .map(|p| p.x)
-        .fold(f32::INFINITY, f32::min);
-    let max_x = loop_points
-        .iter()
-        .map(|p| p.x)
-        .fold(f32::NEG_INFINITY, f32::max);
-    let min_y = loop_points
-        .iter()
-        .map(|p| p.y)
-        .fold(f32::INFINITY, f32::min);
-    let max_y = loop_points
-        .iter()
-        .map(|p| p.y)
-        .fold(f32::NEG_INFINITY, f32::max);
-    assert!(max_x - min_x > LOOP_RADIUS * 1.99);
-    assert!(max_y - min_y > LOOP_RADIUS * 1.99);
+        .flat_map(|level| level.all_entity_instances())
+        .find(|entity| entity.identifier == "SurfaceLoop")
+        .expect("the speedway authors its loop as a SurfaceLoop");
+    assert_eq!(boxed.width, boxed.height, "a loop's box is square");
+    let box_radius = boxed.width as f32 * 0.5;
+    let box_center_x = boxed.px[0] as f32 + box_radius;
+    assert!(
+        (radius - box_radius).abs() < 1.0 && (center_x - box_center_x).abs() < 1.0,
+        "the loop is its box: built radius {radius} about x={center_x}, box radius \
+         {box_radius} about x={box_center_x}"
+    );
+    let box_bottom = boxed.px[1] as f32 + boxed.height as f32;
+    assert!((max_y - box_bottom).abs() < 1.0, "the loop's bottom is its box's: {max_y} vs {box_bottom}");
+
+    // The loop samples all four quadrants around its centre (a full loop, not
+    // three quarters): as tall as it is wide, and a real loop's size.
+    assert!(radius > 150.0, "the speedway's loop is a big one: radius {radius}");
+    assert!(
+        ((max_y - min_y) - (max_x - min_x)).abs() < radius * 0.02,
+        "a full revolution is as tall as it is wide: {}x{}",
+        max_x - min_x,
+        max_y - min_y
+    );
 
     // Local smoothness oracles cover both repeated-world-point visits. The
     // route may touch itself at the bottom, but neither arc-length join may be
@@ -1030,12 +1046,7 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
 #[test]
 fn floor_route_steering_enters_the_ramp_without_jumping() {
     let room = sanic_speedway();
-    let floor_index = room
-        .world
-        .chains
-        .iter()
-        .position(|chain| chain.name == "sanic_floor_route")
-        .expect("the speedway owns a momentum floor route");
+    let floor_index = floor_chain_at(&room.world, WEST_FLOOR_X);
     let floor = &room.world.chains[floor_index];
     // The ramp-fork junction vertex is located by position: the hills give the
     // floor route many vertices before it, so a fixed index would drift.

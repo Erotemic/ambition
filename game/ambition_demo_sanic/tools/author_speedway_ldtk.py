@@ -8,15 +8,12 @@ Re-run from the repo root after changing the layout constants below:
 
     python3 game/ambition_demo_sanic/tools/author_speedway_ldtk.py
 
-The file owns the SPATIAL layout: terrain chains (with the rolling hills
-baked into the polyline), floor solids (with the pit gap), one-way
-platforms, springs/boosters (ReboundPad), hazards, enemy spawns, and the
-named monitor boxes. The LOOP stays code-generated in `lib.rs`
-(`raised_full_loop_points`) and is grafted onto the loaded room at
-runtime, because LDtk has no vocabulary for depth lanes / route junctions;
-the graft anchors on floor-chain vertices this script authors at
-RAMP_JUNCTION_X / RUNOUT_JUNCTION_X, and the demo's tests fail loudly if
-those drift.
+The file owns the SPATIAL layout. The ground is PAINTED on the `Terrain`
+layer (the rolling hills, the spike pit, the finish tower), so the editor
+shows what Sanic rides. The loop is a `SurfaceLoop` whose box is its circle,
+attached to the painted floor under it. Also: one-way platforms,
+springs/boosters (ReboundPad), hazards, enemy spawns, and the named monitor
+boxes.
 """
 
 from __future__ import annotations
@@ -31,17 +28,21 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 TOOLS = REPO / "tools" / "ambition_ldtk_tools"
 TARGET = REPO / "game" / "ambition_demo_sanic" / "assets" / "worlds" / "sanic_speedway.ldtk"
+sys.path.insert(0, str(TOOLS))
+from ambition_ldtk_tools import terrain  # noqa: E402
+
+GRID = 16
 
 # ── Layout constants (mirrored by game/ambition_demo_sanic/src/lib.rs) ──────
 LEVEL_W = 6400
 LEVEL_H = 816
 FLOOR_TOP = 672
-# The ground's depth below the floor line; the spike pit is dug into it.
-GROUND_DEPTH = LEVEL_H - FLOOR_TOP
 
-# Loop graft anchors: the floor chain MUST have vertices exactly here.
-RAMP_JUNCTION_X = 1740
-RUNOUT_JUNCTION_X = 2920
+# The loop: its centre and radius. It attaches to the painted floor, its ramp
+# rising from x = 1740 and its runout landing at x = 2920 (the SurfaceLoop's
+# default spans for a 180 px loop).
+LOOP_CENTRE_X = 2200
+LOOP_RADIUS = 180
 
 # The spike pit: a trench whose floor is a bed of spikes. Falling in is a HIT
 # (rings burst out, or death with none); its depth is under a jump's apex
@@ -54,37 +55,50 @@ SPIKE_HEIGHT = 16
 # Rolling hills: two smooth sin^2 bumps rising from the flat floor.
 HILL_1 = (350.0, 900.0, 90.0)  # (start_x, end_x, amplitude)
 HILL_2 = (900.0, 1450.0, 70.0)
-HILL_STEP = 25.0
+
+# The finish tower: a wall the runner meets at the end of the course.
+TOWER = (6320, 6352, 416)  # (left, right, top)
 
 
-def hill_points(start: float, end: float, amplitude: float) -> list[tuple[float, float]]:
-    """Interior samples of `FLOOR_TOP - A*sin^2(pi*(x-start)/(end-start))`."""
-    out = []
-    x = start + HILL_STEP
-    while x < end - HILL_STEP / 2:
-        t = (x - start) / (end - start)
-        y = FLOOR_TOP - amplitude * math.sin(math.pi * t) ** 2
-        out.append((round(x, 1), round(y, 1)))
-        x += HILL_STEP
-    return out
+def west_profile(x: float) -> float:
+    """The west ground's top: the flat floor with the two hills."""
+    y = FLOOR_TOP
+    for start, end, amplitude in (HILL_1, HILL_2):
+        if start < x < end:
+            y -= amplitude * math.sin(math.pi * (x - start) / (end - start)) ** 2
+    return y
 
 
-def floor_route_points() -> list[tuple[float, float]]:
-    pts: list[tuple[float, float]] = [(0, FLOOR_TOP), (HILL_1[0], FLOOR_TOP)]
-    pts += hill_points(*HILL_1)
-    pts.append((HILL_2[0], FLOOR_TOP))
-    pts += hill_points(*HILL_2)
-    pts += [
-        (HILL_2[1], FLOOR_TOP),
-        (RAMP_JUNCTION_X, FLOOR_TOP),
-        (RUNOUT_JUNCTION_X, FLOOR_TOP),
-        (PIT_LEFT, FLOOR_TOP),
-    ]
-    return pts
+#: The painted west ground's top, as the quantizer drew it.
+WEST_HEIGHTS = terrain.quantize(west_profile, 0, PIT_LEFT // GRID, GRID)
+ground_y = terrain.surface(WEST_HEIGHTS, 0, GRID)
 
 
-def points_field(points: list[tuple[float, float]]) -> str:
-    return "; ".join(f"{x:g},{y:g}" for x, y in points)
+def painted() -> dict:
+    """The level's painted cells: the ground on `Terrain`."""
+    rows = LEVEL_H // GRID
+    cells = terrain.ground(west_profile, 0, PIT_LEFT // GRID, GRID, bottom=rows)
+    cells.update(terrain.ground(lambda x: PIT_FLOOR, PIT_LEFT // GRID, PIT_RIGHT // GRID, GRID, bottom=rows))
+    cells.update(terrain.ground(lambda x: FLOOR_TOP, PIT_RIGHT // GRID, LEVEL_W // GRID, GRID, bottom=rows))
+    left, right, top = TOWER
+    for cx in range(left // GRID, right // GRID):
+        for cy in range(top // GRID, FLOOR_TOP // GRID):
+            cells[(cx, cy)] = terrain.FULL
+    return {
+        "level_id": "sanic_speedway",
+        "layers": {"Terrain": [[cx, cy, v] for (cx, cy), v in sorted(cells.items())]},
+    }
+
+
+def surface_loop(name: str, centre_x: float, radius: float) -> dict:
+    """A loop whose box is its circle, standing the speedway's rise above the
+    painted floor at its ramp's foot (the converter's default approach)."""
+    ramp_x = centre_x - radius * 460 / 180
+    cy = ground_y(ramp_x) - radius * 84 / 180 - radius
+    return rect(
+        "SurfaceLoop", (round(centre_x - radius), round(cy - radius)), (round(2 * radius),) * 2,
+        name=name, attach_to="terrain",
+    )
 
 
 def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> dict:
@@ -173,34 +187,8 @@ def ring_placements() -> list[dict]:
 def area_spec() -> dict:
     entities = [
         rect("PlayerStart", (146, 626), (28, 46), name="sanic_start"),
-        # Terrain guide chains momentum bodies ride. Left route carries the
-        # hills and the loop-junction anchor vertices; the pit splits it from
-        # the runout route.
-        rect(
-            "SurfaceChain",
-            (0, 656),
-            (16, 16),
-            name="sanic_floor_route",
-            points=points_field(floor_route_points()),
-            closed=False,
-            # The top of the ground: the hills are drawn as hills.
-            fill=True,
-        ),
-        rect(
-            "SurfaceChain",
-            (PIT_RIGHT, 656),
-            (16, 16),
-            name="sanic_floor_runout",
-            points=points_field([(PIT_RIGHT, FLOOR_TOP), (LEVEL_W, FLOOR_TOP)]),
-            closed=False,
-            fill=True,
-        ),
-        # Solid ground (lowered to IntGrid): split around the pit; the finish
-        # tower caps the runout.
-        rect("Solid", (0, FLOOR_TOP), (PIT_LEFT, GROUND_DEPTH), name="speedway_floor_west"),
-        rect("Solid", (PIT_RIGHT, FLOOR_TOP), (LEVEL_W - PIT_RIGHT, GROUND_DEPTH), name="speedway_floor_east"),
-        rect("Solid", (PIT_LEFT, PIT_FLOOR), (PIT_RIGHT - PIT_LEFT, LEVEL_H - PIT_FLOOR), name="spike_pit_floor"),
-        rect("Solid", (6320, 416), (32, 256), name="finish_tower"),
+        # The ground (hills, pit, finish tower) is painted; see `painted`.
+        surface_loop("sanic_loop", LOOP_CENTRE_X, LOOP_RADIUS),
         # One-way platforms — every lift a plain jump must reach is <= 144px
         # (jump apex is ~169px at the authored 700px/s jump under 1450 gravity);
         # the two high ones are spring-served on purpose.
@@ -332,11 +320,6 @@ def main() -> None:
         # step. `main()`'s closing repair+validate covers the finished file.
         "--no-repair",
     )
-    # `fill` marks a chain as the top of the ground (drawn filled beneath).
-    run_tool(
-        "def", "update-entity", "SurfaceChain", str(target),
-        "--add-field", "fill:Bool:false", "--in-place", "--no-repair",
-    )
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_speedway_area.json"
         spec.write_text(json.dumps(area_spec(), indent=2))
@@ -344,6 +327,12 @@ def main() -> None:
         monitors = Path(tmp) / "sanic_speedway_monitors.json"
         monitors.write_text(json.dumps(MONITORS, indent=2))
         run_tool("entity", "add", str(monitors), "--ldtk", str(target), "--in-place")
+        cells = Path(tmp) / "sanic_speedway_terrain.json"
+        cells.write_text(json.dumps(painted()))
+        run_tool("terrain", "paint", str(cells), "--ldtk", str(target))
+    # A loop's box is its circle: loops live on their own layer, under the rest.
+    run_tool("entity", "change-layer", str(target), "--identifier", "SurfaceLoop",
+             "--from-layer", "Ambition", "--to-layer", "AmbitionLoops", "--in-place")
     # Where this act's goal leads: Act 2 (`author_highway_ldtk.py`).
     run_tool("level", "add-field-def", "next_room", "--type", "String", str(target), "--in-place")
     run_tool(

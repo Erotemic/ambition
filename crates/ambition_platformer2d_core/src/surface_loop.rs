@@ -106,7 +106,11 @@ impl AttachedLoop {
             return Err(format!("loop `{name}`: radius must be positive"));
         }
         if self.rise < 0.0 {
-            return Err(format!("loop `{name}`: rise must not be negative"));
+            return Err(format!(
+                "loop `{name}`: its bottom is {:.0}px below the floor at its ramp (x={}); \
+                 raise the circle onto the floor",
+                -self.rise, self.ramp_start.x
+            ));
         }
         if self.ramp_start.x >= self.center_x - self.radius * 0.5 {
             return Err(format!(
@@ -247,18 +251,19 @@ impl World {
     /// Build an [`AttachedLoop`] on the floor chain named `floor` and join it
     /// to that floor at the ramp's foot and the runout's end.
     ///
-    /// The floor's own height at `ramp_start_x` and `runout_end_x` places the
-    /// two ends, so an author states x positions and the floor decides y.
-    /// Returns the loop's center.
+    /// The loop is its circle (`center`, `radius`), stated where it is: an
+    /// LDtk `SurfaceLoop`'s box. The floor's own height at `ramp_start_x` and
+    /// `runout_end_x` places the two ends, and the ramp rises from the floor
+    /// to the circle's bottom. A circle whose bottom is below the floor at the
+    /// ramp is refused. Returns the loop's center.
     #[allow(clippy::too_many_arguments)]
     pub fn attach_loop(
         &mut self,
         name: &str,
         floor: &str,
         ramp_start_x: f32,
-        center_x: f32,
+        center: Vec2,
         radius: f32,
-        rise: f32,
         overpass_end_x: f32,
         runout_end_x: f32,
     ) -> Result<Vec2, String> {
@@ -273,9 +278,10 @@ impl World {
         let spec = AttachedLoop {
             name: name.to_string(),
             ramp_start,
-            center_x,
+            center_x: center.x,
             radius,
-            rise,
+            // The ramp climbs from the floor to the circle's bottom.
+            rise: ramp_start.y - (center.y + radius),
             overpass_end_x,
             runout_end,
             resolution: LoopResolution::default(),
@@ -317,7 +323,7 @@ mod tests {
     fn an_attached_loop_joins_the_floor_at_both_ends_without_hand_placed_vertices() {
         let mut world = floor_world(vec![Vec2::new(0.0, 600.0), Vec2::new(3000.0, 600.0)]);
         let center = world
-            .attach_loop("loop", "floor", 500.0, 960.0, 180.0, 84.0, 1240.0, 1680.0)
+            .attach_loop("loop", "floor", 500.0, Vec2::new(960.0, 336.0), 180.0, 1240.0, 1680.0)
             .expect("the loop attaches");
         assert_eq!(center, Vec2::new(960.0, 600.0 - 84.0 - 180.0));
         let floor = &world.chains[0];
@@ -342,11 +348,11 @@ mod tests {
     fn a_second_loop_keeps_the_first_loops_ports_on_the_right_floor_vertices() {
         let mut world = floor_world(vec![Vec2::new(0.0, 600.0), Vec2::new(4000.0, 600.0)]);
         world
-            .attach_loop("late", "floor", 2500.0, 2960.0, 180.0, 84.0, 3240.0, 3680.0)
+            .attach_loop("late", "floor", 2500.0, Vec2::new(2960.0, 336.0), 180.0, 3240.0, 3680.0)
             .unwrap();
         // Splitting the floor LEFT of the first loop shifts every later vertex.
         world
-            .attach_loop("early", "floor", 300.0, 760.0, 180.0, 84.0, 1040.0, 1480.0)
+            .attach_loop("early", "floor", 300.0, Vec2::new(760.0, 336.0), 180.0, 1040.0, 1480.0)
             .unwrap();
         let late = &world.chains[world.chain_named("late").unwrap()];
         for port in late.junctions.iter().flat_map(|j| j.ports.iter()) {
@@ -364,8 +370,20 @@ mod tests {
     #[test]
     fn a_loop_that_cannot_clear_its_own_shoulder_is_refused() {
         let mut world = floor_world(vec![Vec2::new(0.0, 600.0), Vec2::new(3000.0, 600.0)]);
-        let refused = world.attach_loop("loop", "floor", 500.0, 960.0, 180.0, 84.0, 1000.0, 1680.0);
+        let refused = world.attach_loop("loop", "floor", 500.0, Vec2::new(960.0, 336.0), 180.0, 1000.0, 1680.0);
         assert!(refused.is_err(), "the deck ends inside the loop: {refused:?}");
         assert_eq!(world.chains.len(), 1, "nothing was attached");
+    }
+
+    #[test]
+    fn a_loop_is_its_circle_and_one_sunk_into_its_floor_is_refused() {
+        let mut world = floor_world(vec![Vec2::new(0.0, 600.0), Vec2::new(3000.0, 600.0)]);
+        let center = world
+            .attach_loop("loop", "floor", 500.0, Vec2::new(960.0, 400.0), 180.0, 1240.0, 1680.0)
+            .expect("a circle standing above its floor attaches");
+        assert_eq!(center, Vec2::new(960.0, 400.0), "the loop is built where its circle is");
+        let mut world = floor_world(vec![Vec2::new(0.0, 600.0), Vec2::new(3000.0, 600.0)]);
+        let sunk = world.attach_loop("loop", "floor", 500.0, Vec2::new(960.0, 500.0), 180.0, 1240.0, 1680.0);
+        assert!(sunk.unwrap_err().contains("below the floor"), "a circle whose bottom is under the floor");
     }
 }

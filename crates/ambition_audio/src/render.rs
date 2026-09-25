@@ -229,9 +229,9 @@ impl ProviderSfxHandleCache {
             // arrives upgrades to the provider's authored clip.
             self.handles.remove(&key);
         }
-        // Packed content is the highest-fidelity source. Procedural specs are
-        // provider-local fallbacks, and the only source for providers (such as
-        // Sanic) that ship no packed bank.
+        // Packed content is the highest-fidelity source, and procedural specs
+        // are the fallback. A provider that borrows the resident bank keeps its
+        // own procedural cues: its caller passes no bank for them.
         let mut miss = match bank {
             None => SfxSourceMiss::NoProviderBank,
             Some(_) => SfxSourceMiss::NotInBank,

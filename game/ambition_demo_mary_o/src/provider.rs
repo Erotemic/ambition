@@ -258,7 +258,9 @@ impl Plugin for MaryOExperiencePlugin {
                         sfx: mary_o_sfx_specs(),
                     }),
                 )
-                .expect("Mary-O audio catalog is valid"),
+                .expect("Mary-O audio catalog is valid")
+                // Her moves name bank cues as well as her own voice.
+                .with_resident_sfx_bank(),
             );
         }
         PlatformerExperienceAuthoring::new(

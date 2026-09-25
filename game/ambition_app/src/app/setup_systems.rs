@@ -116,44 +116,6 @@ pub(crate) fn setup_host_presentation_system(
     }
 }
 
-/// Once the resident SFX bank is loaded, publish its ids as Ambition's
-/// provider-relative SFX authority.
-///
-/// The bank is process-wide *storage*; authority is provider-relative. This registers the
-/// bank's ids in the App-local [`SfxBankRegistry`] under the owning provider (Ambition — the
-/// superset that packs every shared asset), so the session bridge authorizes an Ambition
-/// session over the whole bank while other providers get none of it. Retries until it succeeds
-/// once (the bank may land asynchronously).
-#[cfg(feature = "audio")]
-pub(crate) fn publish_resident_sfx_bank_authority(
-    bank: Option<Res<ambition_platformer2d::audio::SfxBankResource>>,
-    mut registry: ResMut<ambition_platformer2d::audio::catalog::SfxBankRegistry>,
-    mut selection: ResMut<ambition_platformer2d::audio::selection::ActiveAudioSelection>,
-    mut published: Local<bool>,
-) {
-    if *published {
-        return;
-    }
-    let Some(bank) = bank else {
-        return;
-    };
-    let fingerprints = bank.fingerprints_for(ambition_content::AMBITION_CONTENT_PROVIDER);
-    if fingerprints.is_empty() {
-        return;
-    }
-    let ids: std::collections::BTreeSet<_> = fingerprints.keys().copied().collect();
-    if let Err(error) = registry.register(ambition_content::AMBITION_CONTENT_PROVIDER, fingerprints)
-    {
-        warn!("resident sfx bank registration failed: {error}");
-    }
-    // Refresh whichever live context actually belongs to Ambition. This is
-    // identity-safe for gameplay, direct entry, and the Ambition frontend; a
-    // bank arriving late for one provider cannot expand another provider's
-    // authority.
-    selection.refresh_provider_sfx_ids(ambition_content::AMBITION_CONTENT_PROVIDER, ids);
-    *published = true;
-}
-
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,

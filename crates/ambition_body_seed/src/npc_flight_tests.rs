@@ -1,4 +1,4 @@
-//! Does an NPC body fly? The CHARACTER answers, then the catalog.
+//! Does an NPC body fly? The CHARACTER answers, and only the character.
 //!
 //! two spawn paths decided aerial-ness and neither asked the character: the
 //! peaceful-NPC seed read the catalog's `body_kind: Floating`, the hostile
@@ -213,18 +213,10 @@ fn the_character_decides_whether_an_npc_body_flies() {
     );
 }
 
-/// The catalog rule is a fallback for characters NOBODY REGISTERED, not a
-/// second opinion on registered ones.
-///
-/// this is the poison for the pair above, and writing it corrected the pair's
-/// own premise. The ~150 unmigrated NPC placements name characters with no
-/// prepared entry AT ALL — that, not "a prepared character that stayed silent",
-/// is the state the catalog still answers for. If this lookup had instead
-/// answered `false` for every unregistered character, all of them would have been
-/// re-decided by a value nobody authored, and against an empty catalog the result
-/// would look identical to correct.
+/// Preparation settles silence, so a silent character lands grounded from its
+/// own resolved answer, and a road with no cast has nothing to ask.
 #[test]
-fn preparation_resolves_silence_and_only_an_unprepared_character_reaches_the_catalog() {
+fn preparation_resolves_silence_to_grounded() {
     // So "a silent prepared character" is not a state that exists, and a test named for it
     // would be describing a branch it never took.
     let cast = cast_saying(None);
@@ -235,18 +227,16 @@ fn preparation_resolves_silence_and_only_an_unprepared_character_reaches_the_cat
             .expect("it authored locomotion")
             .baseline_free_flight,
         Some(false),
-        "preparation must settle this, or the catalog rule below is not a \
-         fallback for the unmigrated but a second opinion on the migrated"
+        "preparation must settle this, or a constructor has to ask again"
     );
 
     assert!(
         !is_aerial(Some(&cast), Some("npc_test_flyer")),
-        "and it lands grounded, from its own resolved answer rather than the \
-         catalog"
+        "and it lands grounded, from its own resolved answer"
     );
     assert!(
         !is_aerial(None, Some("npc_test_flyer")),
-        "and a composition with no cast at all is unchanged by this rule"
+        "and a composition with no cast at all has no flyer"
     );
     assert!(
         !is_aerial(None, None),
@@ -362,5 +352,55 @@ fn a_prepared_npc_without_a_blueprint_keeps_its_authored_abilities() {
     assert_eq!(
         seed_for(None, None).body.0.abilities.abilities,
         ae::AbilitySet::NONE
+    );
+}
+
+/// A catalog row's `body_kind: Floating` does not make an NPC fly.
+///
+/// The row is prepared like any character (AP30), with no locomotion because
+/// nobody authored one. The peaceful road used to fall back to the row's body
+/// kind for exactly that case, while the blueprint road read the same silence
+/// as grounded: one character, two answers, chosen by which road built it.
+#[test]
+fn a_floating_catalog_row_is_a_silhouette_not_a_flight_answer() {
+    const ROWS: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "drifter": (
+                display_name: "Drifter", spritesheet: "drifter.png",
+                manifest: "drifter_spritesheet.ron", tier: MainHall,
+                body_kind: Floating, composition: None,
+                default_brain: "idle", default_action_set: "peaceful",
+                barks: (),
+            ),
+        },
+    )"#;
+    let catalog = CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(ROWS),
+    );
+    let cast = ambition_characters::prepared::prepare_cast_for_test(&catalog, []);
+    assert!(
+        cast.get("drifter").is_some_and(|drifter| drifter.locomotion.is_none()),
+        "the fixture must be a prepared row that authored no locomotion, or the \
+         assertion below is about a different population"
+    );
+
+    let interactable = npc_at(Some("drifter"));
+    let aabb = ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(16.0, 24.0));
+    let (seed, _render) = ActorClusterSeed::new_peaceful_npc_in(
+        &Default::default(),
+        &catalog,
+        Some(&cast),
+        "drifter",
+        "Drifter",
+        aabb,
+        &interactable,
+        &[],
+    );
+    assert!(
+        !seed.config.tuning.is_aerial,
+        "a Floating row with no flight answer spawned aerial on the peaceful road; \
+         the blueprint road grounds the same character"
     );
 }

@@ -541,12 +541,13 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
     );
 }
 
-/// The Hall pedestal label must be the catalog `display_name`, not the
-/// `character_id`.
+/// The Hall pedestal label must be the character's `display_name`, not the
+/// `character_id`: the prepared cast's, which for a catalog row with no
+/// authored definition is its row's.
 ///
 /// Every LDtk `NpcSpawn` shares the identifier "NpcSpawn", so `Authored.name`
-/// is never the character's label — `ambition_platformer2d_ldtk` has no catalog
-/// dependency and cannot resolve one. `spawn_interactable` is the first seam
+/// is never the character's label — `ambition_platformer2d_ldtk` has no
+/// character dependency and cannot resolve one. `spawn_interactable` is the first seam
 /// that can, and everything downstream reads the result: nameplates
 /// (`ActorIdentity.name` -> `NameplateFact.label`), the interaction banner,
 /// the dialogue speaker fallback, speech-SFX keying, and the
@@ -558,7 +559,7 @@ fn a_body_forced_hostile_swings_when_its_kit_can() {
 /// answers ("NpcSpawn" from passing the authored name straight through, and
 /// "npc_architect" from substituting the id) fail this assertion.
 #[test]
-fn authored_npc_takes_its_label_from_the_catalog_display_name() {
+fn authored_npc_takes_its_label_from_the_prepared_display_name() {
     use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
     let mut app = App::new();
@@ -594,9 +595,8 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
             ),
             &catalog,
             &Default::default(),
-            // No prepared cast in this fixture: the catalog default stands,
-            // which is what this test is about.
-            &Default::default(),
+            // The cast the barrier publishes for this catalog.
+            &ambition_characters::prepared::prepare_cast_for_test(&catalog, []),
             // The fixture converts, exactly as the production caller does now.
             &crate::features::ecs::spawn_static::interactable_from_authored(&authored),
             &authored.name,
@@ -617,8 +617,8 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
     assert_eq!(
         identity.name(),
         "Architect NPC",
-        "NPC label should resolve through the catalog; got {:?} (an id or the \
-         raw LDtk identifier here means the catalog join was dropped)",
+        "NPC label should resolve through the prepared character; got {:?} (an \
+         id or the raw LDtk identifier here means the join was dropped)",
         identity.name(),
     );
 }

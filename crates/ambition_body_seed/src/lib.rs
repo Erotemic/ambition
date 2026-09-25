@@ -315,29 +315,21 @@ impl ActorClusterSeed {
             } => Some(cid.as_str()),
             _ => None,
         };
-        // DOES THIS BODY FLY? ASK THE CHARACTER, THEN THE CATALOG.
+        // DOES THIS BODY FLY? THE PREPARED CHARACTER ANSWERS, AND ONLY IT.
         //
-        // two spawn paths decided aerial-ness and NEITHER asked the character: this one read
-        // the catalog's `body_kind: Floating`, the hostile `EnemySpawn` path read
-        // `ArchetypeSpec:flies` (see the doc on that field, which names the split).
-        //
-        // A PREPARED CHARACTER ALWAYS ANSWERS, and getting that precise matters more than
-        // it sounds.
-        //
-        //  the catalog rule below is therefore NOT a tiebreak between two
-        // authorities. It answers for a character with NO PREPARED ENTRY AT ALL,
-        // which is ~150 of the game's 163 NPC placements today and shrinks by one
-        // every time a character is migrated. When the registry holds everything,
-        // the `unwrap_or` arm becomes unreachable and goes with the catalog read.
-        let authored_flight = character_id
+        // Silence reads as GROUNDED, as on the blueprint road: preparation
+        // resolves an authored locomotion's silence to `Some(false)`, and a
+        // character with no locomotion at all never said it flies. The catalog's
+        // `body_kind: Floating` is a claim about SILHOUETTE, not locomotion
+        // (D89); every shipped `Floating` row states its flight on its own
+        // definition, and the barrier prepares every catalog row, so a catalog
+        // read here could only second-guess a prepared character.
+        let gravity_scale = if character_id
             .and_then(|cid| prepared.and_then(|prepared| prepared.get(cid)))
             .and_then(|prepared| prepared.locomotion)
-            .and_then(|locomotion| locomotion.baseline_free_flight);
-        let floats_by_catalog = matches!(
-            character_id.and_then(|cid| catalog.body_kind(cid)),
-            Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
-        );
-        let gravity_scale = if authored_flight.unwrap_or(floats_by_catalog) {
+            .and_then(|locomotion| locomotion.baseline_free_flight)
+            .unwrap_or(false)
+        {
             0.0
         } else {
             1.0

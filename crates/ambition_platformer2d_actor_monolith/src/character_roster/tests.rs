@@ -109,10 +109,10 @@ fn validator_reports_missing_brain_preset() {
 
 #[test]
 fn display_name_resolves_for_every_catalog_entry() {
-    // Every catalog entry must resolve id -> display_name, since that lookup
-    // is how a spawned NPC gets its label (see
-    // `spawn_actors::npc_display_label`, pinned by
-    // `authored_npc_takes_its_label_from_the_catalog_display_name`).
+    // Every catalog entry must resolve id -> display_name: a row with no
+    // authored definition is prepared under this name, and the prepared name is
+    // how a spawned NPC gets its label (see `npc_display_label`, pinned by
+    // `authored_npc_takes_its_label_from_the_prepared_display_name`).
     let cat = catalog();
     for (id, entry) in &cat.data().characters {
         let label = cat.display_name(id);

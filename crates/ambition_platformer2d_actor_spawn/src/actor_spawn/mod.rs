@@ -1935,8 +1935,11 @@ pub fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Op
     }
 }
 
+/// The prepared character's display name: the barrier prepares every catalog
+/// row, so the prepared cast answers for every id the catalog knows and this
+/// label is the same name `id_for_display_name` resolves back.
 fn npc_display_label(
-    catalog: &CharacterCatalog,
+    prepared: &ambition_characters::prepared::PreparedCharacterRegistry,
     interactable: &ambition_interaction::Interactable,
     authored_name: &str,
 ) -> String {
@@ -1946,13 +1949,13 @@ fn npc_display_label(
     let Some(character_id) = character_id.as_deref() else {
         return authored_name.to_string();
     };
-    match catalog.display_name(character_id) {
-        Some(display_name) => display_name.to_string(),
+    match prepared.get(character_id) {
+        Some(prepared) => prepared.display_name.clone(),
         None => {
             warn!(
                 character_id,
                 authored_name,
-                "NPC spawn names a character with no catalog row; \
+                "NPC spawn names a character nobody prepared; \
                  falling back to the authored name for its label"
             );
             authored_name.to_string()
@@ -1991,13 +1994,13 @@ pub fn spawn_interactable_into(
     ) {
         // Every LDtk `NpcSpawn` shares the identifier "NpcSpawn", so the world
         // IR's `Authored.name` is never the character's label — the human label
-        // lives in the catalog, keyed by the spawn's `character_id`. The LDtk
-        // crate deliberately has no catalog dependency, so this is the first
-        // seam that can resolve it. Everything reading `ActorIdentity.name`
+        // is the prepared character's, keyed by the spawn's `character_id`. The
+        // LDtk crate deliberately has no character dependency, so this is the
+        // first seam that can resolve it. Everything reading `ActorIdentity.name`
         // (nameplates, interaction banner, dialogue speaker fallback, speech
         // SFX keying, and the `id_for_display_name` sprite-size lookup) depends
         // on this being the display name.
-        let label = npc_display_label(catalog, interactable, authored_name);
+        let label = npc_display_label(prepared, interactable, authored_name);
         let mut plan = NpcActorSpawnPlan::peaceful(
             catalog,
             authored_sheets,
@@ -2078,13 +2081,13 @@ pub fn spawn_encounter_mob(
     // resolves name-first against the character registry.
     let label = character.map_or_else(
         || id.clone(),
-        |character_id| match catalog.display_name(character_id) {
-            Some(display_name) => display_name.to_string(),
+        |character_id| match prepared.get(character_id) {
+            Some(prepared) => prepared.display_name.clone(),
             None => {
                 warn!(
                     character_id,
                     mob_id = id.as_str(),
-                    "encounter mob names a character with no catalog row; it will draw the \
+                    "encounter mob names a character nobody prepared; it will draw the \
                      unclaimed-body placeholder"
                 );
                 id.clone()

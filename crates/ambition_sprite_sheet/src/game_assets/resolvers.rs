@@ -155,9 +155,7 @@ pub fn entity_sprite_for_boss(
 
 fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKind) -> EntitySprite {
     match kind {
-        ambition_platformer2d_world::rooms::PickupKind::Health { .. } => {
-            EntitySprite::PickupHealth
-        }
+        ambition_platformer2d_world::rooms::PickupKind::Health { .. } => EntitySprite::PickupHealth,
         ambition_platformer2d_world::rooms::PickupKind::Currency { .. } => {
             EntitySprite::PickupCurrency
         }

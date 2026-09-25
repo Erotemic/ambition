@@ -24,10 +24,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::world::FeatureEcsWorldOverlay;
 
 use crate::SUPER_SANIC_CHARACTER_ID;
 
@@ -119,7 +119,8 @@ pub fn break_monitor_boxes(
         With<PrimaryPlayer>,
     >,
 ) {
-    let Ok((entity, kin, worn, mut model, rolling, shoes, mut wallet)) = players.single_mut() else {
+    let Ok((entity, kin, worn, mut model, rolling, shoes, mut wallet)) = players.single_mut()
+    else {
         return;
     };
     let rolling = rolling.is_some();
@@ -304,7 +305,10 @@ mod tests {
         // an unregistered message fails parameter validation and is dropped
         // silently, so the test would pass or fail for an unrelated reason.
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
+        app.add_systems(
+            Update,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+        );
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
             .write(RoomLoaded {
@@ -349,7 +353,10 @@ mod tests {
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
+        app.add_systems(
+            Update,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+        );
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<
                 ambition_platformer2d::combat::events::RoomReplayAdmitted,
@@ -376,7 +383,10 @@ mod tests {
         app.insert_resource(SpentMonitors(vec![SPEED_MONITOR.to_string()]));
         app.add_message::<RoomLoaded>();
         app.add_message::<ambition_platformer2d::combat::events::RoomReplayAdmitted>();
-        app.add_systems(Update, ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>);
+        app.add_systems(
+            Update,
+            ambition_platformer2d::actors::session::reset::rearm_attempt_scoped::<SpentMonitors>,
+        );
         app.update();
         assert_eq!(
             app.world().resource::<SpentMonitors>().0.len(),

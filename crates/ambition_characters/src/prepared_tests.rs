@@ -637,6 +637,63 @@ fn a_catalog_rows_grants_fold_into_the_prepared_abilities() {
     );
 }
 
+/// A definition that names no sheet wears its catalog row's, and a catalog row
+/// states how that sheet sizes the body.
+///
+/// Before the fold, an authored definition with no sheet left `sheet` empty,
+/// and every art reader asked the catalog again by character id.
+#[test]
+fn a_catalog_rows_sheet_and_sizing_fold_into_the_prepared_character() {
+    use crate::actor::character_catalog::CharacterCatalog;
+
+    const CATALOG: &str = r#"(
+        brain_presets: { "stand_still": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk, melee: None, ranged: None, special: None) },
+        characters: {
+            "row_art": (
+                display_name: "Row Art",
+                spritesheet: "sprites/row_art_spritesheet.png",
+                manifest: "sprites/row_art_spritesheet.ron",
+                tier: MainHall,
+                body_kind: Standard,
+                composition: None,
+                default_brain: "stand_still",
+                default_action_set: "peaceful",
+                tags: [],
+                fallback_dialogue: [],
+            ),
+        },
+    )"#;
+    let catalog =
+        CharacterCatalog::from_data(crate::actor::character_catalog::parse_catalog(CATALOG));
+    let prepare = |definition| {
+        prepare_and_finalize_against_for_test(definition, &CharacterBindings::default(), Some(&catalog))
+            .prepared
+    };
+
+    let unstated = prepare(CharacterDefinition::new("row_art", "Row Art", "test"));
+    assert_eq!(unstated.sheet.as_deref(), Some("row_art"), "the definition names no sheet");
+    assert_eq!(
+        unstated.sheet_sizing.and_then(|sizing| sizing.standing_height),
+        Some(48.0),
+        "a `Standard` row with no standing height stands at its body kind's default"
+    );
+
+    let stated = prepare(CharacterDefinition::new("row_art", "Row Art", "test").with_sheet("own_art"));
+    assert_eq!(
+        stated.sheet.as_deref(),
+        Some("own_art"),
+        "a definition that names its sheet keeps it"
+    );
+
+    let no_row = prepare(CharacterDefinition::new("rowless", "Rowless", "test"));
+    assert_eq!(
+        (no_row.sheet, no_row.sheet_sizing),
+        (None, None),
+        "the control: a character with no row has nothing to inherit"
+    );
+}
+
 /// Preparation resolves gravity freedom into the prepared character. Runtime
 /// construction must not re-query catalog body-kind metadata to decide it.
 #[test]

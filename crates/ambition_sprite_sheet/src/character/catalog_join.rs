@@ -92,13 +92,12 @@ fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
     metrics.body_pixel_extent(CharacterAnim::Idle)
 }
 
-/// Derive a character's collision box from its published sprite body metrics,
-/// given the authored LDtk collision (used only to anchor the render scale).
+/// Derive a character's collision box from its catalog row: the id-keyed form of
+/// [`sprite_body_collision_for_sheet`], for callers that hold no prepared
+/// character.
 ///
 /// Returns `None` when the character has no catalog row, no loadable spec, or
-/// no published `body_metrics`; the caller then keeps the LDtk bounds. Sprite
-/// metadata replaces the spawn box when present (as in the boss
-/// `body_metrics` pipeline).
+/// no published `body_metrics`; the caller then keeps the LDtk bounds.
 pub fn sprite_body_collision_for_character_id_from_data(
     // The collision box comes from the sheet, so a consumer-authored sheet
     // must reach this. Otherwise a third-party character collides with the
@@ -109,31 +108,49 @@ pub fn sprite_body_collision_for_character_id_from_data(
     ldtk_collision: Vec2,
 ) -> Option<SpriteBodyCollision> {
     let entry = catalog.characters.get(character_id)?;
-    let target = entry.manifest_target()?;
-    let spec = sheet_for_character_id_from_data(authored, catalog, character_id)?;
-    let record = sheets::record_for_sheet_key(target)?;
+    let sizing = ambition_characters::prepared::SheetSizing {
+        tuning: entry.sprite_tuning,
+        standing_height: entry
+            .standing_height
+            .or_else(|| entry.body_kind.default_standing_height()),
+    };
+    sprite_body_collision_for_sheet(authored, entry.manifest_target()?, &sizing, ldtk_collision)
+}
+
+/// Derive a body's collision box and render quad from its sheet's published
+/// body metrics.
+///
+/// A standing height scales the frame so the visible body is that tall. Without
+/// one, the scale is `LDtk box x collision_scale / frame height`. The LDtk box
+/// still decides where a body stands; with a standing height it does not decide
+/// the size. Returns `None` when the sheet does not load or publishes no body.
+pub fn sprite_body_collision_for_sheet(
+    authored: &sheets::AuthoredSheets,
+    sheet: &str,
+    sizing: &ambition_characters::prepared::SheetSizing,
+    ldtk_collision: Vec2,
+) -> Option<SpriteBodyCollision> {
+    let tuning = sizing
+        .tuning
+        .map(|spec| {
+            sheets::SheetTuning::from_parts(
+                spec.collision_scale,
+                spec.frame_sample_inset,
+                spec.feet_anchor_y,
+            )
+        })
+        .unwrap_or_default();
+    let spec = sheets::try_load_spec_for_target_authored(authored, sheet, &tuning)?;
+    let record = sheets::record_for_sheet_key(sheet)?;
     let metrics = record.body_metrics.as_ref()?;
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
-    // An authored standing height overrides the room's spawn box. Without
-    // one, size is `LDtk box x collision_scale x (body / frame)`. With one,
-    // scale the frame so the visible body measures `height`, and keep the
-    // frame's aspect so the art does not stretch.
-    //
-    // The LDtk box still decides where a character stands and how much room
-    // the level reserves; it does not decide the character's size.
-    let standing_height = entry
-        .standing_height
-        .or_else(|| entry.body_kind.default_standing_height())
-        .filter(|height| *height > 0.0);
+    let standing_height = sizing.standing_height.filter(|height| *height > 0.0);
     // Both branches produce `frame x scale`; the renderer must not apply
     // `collision_scale` again to the resulting collision box.
     let scale = match standing_height {
         Some(height) if body_h > 0.0 => height / body_h,
-        // `CharacterBodyKind::default_standing_height` answers only for
-        // `Standard` (other body kinds share no height), so these bodies keep
-        // the `collision_scale` derivation until a height is authored.
         _ => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
     };
     let render = Vec2::new(frame_w * scale, frame_h * scale);

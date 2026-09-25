@@ -149,3 +149,103 @@ fn a_replayed_room_is_rebuilt_with_the_persona_the_room_load_built() {
         "the Hall's worn bodies must be rebuilt by the replay ({compared} compared)"
     );
 }
+
+/// What the decision pass found unattached on one tick.
+#[derive(Resource, Default)]
+struct UnattachedAtDecision {
+    /// Every body the decision pass saw, so the caller can find the rebuilt ones.
+    seen: std::collections::HashSet<Entity>,
+    /// Bodies `ensure_perception` would grant senses to that had none.
+    senseless: Vec<Entity>,
+    /// Staged actors with no dormancy stance.
+    stanceless: Vec<Entity>,
+}
+
+fn record_unattached_at_decision(
+    mut out: ResMut<UnattachedAtDecision>,
+    sensed: Query<
+        (Entity, Has<ambition_platformer2d::actors::features::ecs::perception::Perception>),
+        (
+            With<ambition_platformer2d::characters::brain::Brain>,
+            With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>,
+            Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
+            Without<ambition_platformer2d::boss_encounter::BossConfig>,
+            Without<ambition_platformer2d::actor::MatchSeat>,
+            Without<ambition_platformer2d::actors::features::ecs::perception::SensesUndecided>,
+        ),
+    >,
+    staged: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actor::ActorFaction,
+            Has<ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy>,
+        ),
+        With<ambition_platformer2d::actor::BodyKinematics>,
+    >,
+) {
+    use ambition_platformer2d::actor::ActorFaction;
+    for (entity, has_senses) in &sensed {
+        out.seen.insert(entity);
+        if !has_senses {
+            out.senseless.push(entity);
+        }
+    }
+    for (entity, faction, has_stance) in &staged {
+        if !matches!(faction, ActorFaction::Player | ActorFaction::Neutral) && !has_stance {
+            out.stanceless.push(entity);
+        }
+    }
+}
+
+/// A rebuilt body is complete before anything decides for it.
+///
+/// The transition commit rebuilds the room after every first-sight attacher has
+/// run for the tick, so each rebuilt body spends the rest of that tick without
+/// `Perception` and without a dormancy stance. That is safe only because nothing
+/// after the commit reads either, and on the next tick `declare_ambition_dormancy`
+/// and `ensure_perception` run before `assess_dormancy` and the brain tick. A
+/// missing `Perception` reads as `Omniscient`, so a reorder would hand every
+/// rebuilt body perfect senses for one decision with nothing failing.
+#[test]
+fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
+    use ambition_platformer2d::sim::SimScheduleExt;
+    let mut sim = fixed_60hz_room_sim("hall_of_characters");
+    {
+        let app = sim.app_mut();
+        let label = app.sim_schedule();
+        app.init_resource::<UnattachedAtDecision>();
+        app.add_systems(
+            label,
+            record_unattached_at_decision
+                .in_set(ambition_platformer2d::platformer::schedule::ActorDecisionSet::Observe),
+        );
+    }
+    sim.step_n(base(), 10);
+    let loaded = std::mem::take(&mut sim.world_mut().resource_mut::<UnattachedAtDecision>().seen);
+
+    sim.world_mut().write_message(
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested::manual(),
+    );
+    sim.step_n(base(), 12);
+
+    let record = sim.world().resource::<UnattachedAtDecision>();
+    let rebuilt = record.seen.difference(&loaded).count();
+    assert!(
+        rebuilt > 100,
+        "the replay must rebuild the Hall's brained bodies and the decision pass \
+         must see them, or this is not about rebuilt bodies ({rebuilt} seen)"
+    );
+    assert!(
+        record.senseless.is_empty(),
+        "{} bodies reached the decision pass without `Perception`, which reads as \
+         `Omniscient`: {:?}",
+        record.senseless.len(),
+        &record.senseless[..record.senseless.len().min(5)]
+    );
+    assert!(
+        record.stanceless.is_empty(),
+        "{} staged actors reached the decision pass without a dormancy stance: {:?}",
+        record.stanceless.len(),
+        &record.stanceless[..record.stanceless.len().min(5)]
+    );
+}

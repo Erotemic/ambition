@@ -181,6 +181,7 @@ impl LdtkProject {
         > = Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
+        let mut loop_attachments: Vec<LoopAttachment> = Vec::new();
         let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
             Vec::new();
         let mut encounter_triggers: Vec<ambition_platformer2d_world::rooms::EncounterTriggerSpec> =
@@ -235,6 +236,7 @@ impl LdtkProject {
                         debug_labels.extend(emission.debug_labels);
                         mount_links.extend(emission.mount_links);
                         chains.extend(emission.chains);
+                        loop_attachments.extend(emission.loop_attachments);
                         placements.extend(emission.placements);
                         encounter_triggers.extend(emission.encounter_triggers);
                         lock_walls.extend(emission.lock_walls);
@@ -299,9 +301,7 @@ impl LdtkProject {
             return Err(errors);
         }
 
-        Ok(RoomSpec {
-            id: area_id.to_string(),
-            world: ae::World::new(
+        let mut world = ae::World::new(
                 format!("Ambition: {}", area_id.replace('_', " ")),
                 ae::Vec2::new(max_x - min_x, max_y - min_y),
                 spawn.unwrap_or_else(|| ae::Vec2::new(96.0, 96.0)),
@@ -317,7 +317,30 @@ impl LdtkProject {
                 metadata.fall_out_margin.map(|px| px as f32),
                 metadata.side_out_margin.map(|px| px as f32),
                 metadata.rise_out_margin.map(|px| px as f32),
-            ),
+            );
+        // Attached loops go last: each names a floor chain any entity may have
+        // authored, and attaching may split that floor.
+        for attachment in &loop_attachments {
+            if let Err(error) = world.attach_loop(
+                &attachment.name,
+                &attachment.floor,
+                attachment.ramp_start_x,
+                attachment.center_x,
+                attachment.radius,
+                attachment.rise,
+                attachment.overpass_end_x,
+                attachment.runout_end_x,
+            ) {
+                errors.push(format!("area '{area_id}' SurfaceLoop: {error}"));
+            }
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(RoomSpec {
+            id: area_id.to_string(),
+            world,
             loading_zones,
             metadata,
             camera_zones,
@@ -347,6 +370,21 @@ impl LdtkProject {
                     .any(|entity| entity.identifier == "PlayerStart")
         })
     }
+}
+
+/// A `SurfaceLoop` authored with `attach_to`: resolved into
+/// `ae::World::attach_loop` after the room's chains are assembled, because the
+/// floor it names may be authored by another entity (or in another level).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoopAttachment {
+    pub name: String,
+    pub floor: String,
+    pub ramp_start_x: f32,
+    pub center_x: f32,
+    pub radius: f32,
+    pub rise: f32,
+    pub overpass_end_x: f32,
+    pub runout_end_x: f32,
 }
 
 /// Aggregated runtime emission for one LDtk entity instance.
@@ -403,6 +441,9 @@ pub struct RoomEmission {
     /// emit many. Folded into `World::chains`. Collision applies only to
     /// surface-momentum bodies.
     pub chains: Vec<ae::SurfaceChain>,
+    /// Loops to attach to a named floor chain once every chain of the room is
+    /// known. `SurfaceLoop` with `attach_to` emits one.
+    pub loop_attachments: Vec<LoopAttachment>,
     /// Authored placement records (the [W-b] schema-over-record channel). A
     /// converter can emit both its typed family and the record. A record has no
     /// effect until an interpreter is registered for its kind.

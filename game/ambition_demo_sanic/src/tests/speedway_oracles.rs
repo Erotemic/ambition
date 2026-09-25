@@ -1143,3 +1143,60 @@ fn oracle_full_course_run_reaches_the_finish() {
         dump_tail(&probe.trace, 30)
     );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Act 2 — the highway. Its loops are authored DATA (`SurfaceLoop` +
+// `attach_to`), built by the engine's `World::attach_loop`. The same held-Up
+// contract as the speedway's loop must hold for each of them.
+
+#[test]
+fn oracle_every_highway_loop_is_ridden_exactly_once_holding_up() {
+    let room = crate::sanic_highway();
+    for (loop_name, floor_name) in [
+        ("highway_loop_a", "highway_floor_west"),
+        ("highway_loop_b", "highway_floor_middle"),
+        ("highway_loop_c", "highway_floor_middle"),
+        ("highway_loop_d", "highway_floor_east"),
+    ] {
+        let loop_idx = chain_index(&room.world, loop_name);
+        let floor_idx = chain_index(&room.world, floor_name);
+        let chain = &room.world.chains[loop_idx];
+        let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
+        let top_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2);
+        // Start on the floor 300px before this loop's ramp foot.
+        let ramp_foot = chain.points[0];
+        let floor = &room.world.chains[floor_idx];
+        let foot_vertex = floor
+            .points
+            .iter()
+            .position(|p| p.distance(ramp_foot) < 0.5)
+            .unwrap_or_else(|| panic!("{loop_name}'s ramp foot is a vertex of {floor_name}"));
+        let start_s = (floor.arc_at_vertex(foot_vertex) - 300.0).max(10.0);
+        let mut probe =
+            Probe::riding_chain(&room.world, floor_idx, start_s, 900.0, sanic_params());
+        for _ in 0..1200 {
+            probe.step(&room.world, ae::Vec2::new(1.0, -1.0), false);
+            if matches!(probe.motion(), ae::SurfaceMotion::Riding { on: ae::SurfaceRef::Chain(c), s, .. } if c == loop_idx && s > closure_s + 100.0)
+            {
+                break;
+            }
+        }
+        assert!(
+            rode_chain(&probe.trace, loop_idx),
+            "{loop_name}: holding Up+Right must take the ramp off {floor_name}\n{}",
+            dump_tail(&probe.trace, 30)
+        );
+        let (laps, reached_overpass) = laps_until_exit(
+            &probe.trace,
+            loop_idx,
+            top_s,
+            |s| matches!(s.ride, Some((ae::SurfaceRef::Chain(c), arc, _)) if c == loop_idx && arc > closure_s + 100.0),
+        );
+        assert!(
+            laps == 1 && reached_overpass,
+            "{loop_name}: held Up must ride the loop exactly once and reach its deck; \
+             rode {laps} laps, reached_overpass={reached_overpass}\n{}",
+            dump_tail(&probe.trace, 30)
+        );
+    }
+}

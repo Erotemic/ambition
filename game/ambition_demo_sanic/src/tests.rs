@@ -62,7 +62,8 @@ fn sanic_demo_content_plugin_installs() {
         .music_for(provider::SANIC_EXPERIENCE)
         .expect("Sanic music fragment");
     assert_eq!(music.default_track, "you_are_too_slow");
-    assert_eq!(music.tracks.len(), 1);
+    // Act 1's score and Act 2's.
+    assert_eq!(music.tracks.len(), 2);
     assert_eq!(
         audio
             .sfx_for(provider::SANIC_EXPERIENCE)
@@ -1366,6 +1367,91 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
             "every ring must name the animated sprite sheet"
         );
     }
+}
+
+#[test]
+fn the_highway_is_act_two_and_every_loop_on_it_is_attached_data() {
+    let room = sanic_highway();
+    assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
+    assert_eq!(room.metadata.music_track.as_deref(), Some(HIGHWAY_MUSIC_TRACK));
+    assert!(
+        room.world.size.x > 2.0 * LEVEL_WIDTH,
+        "Act 2 is the bigger course: {} wide against the speedway's {LEVEL_WIDTH}",
+        room.world.size.x
+    );
+    for (loop_name, floor_name) in [
+        ("highway_loop_a", "highway_floor_west"),
+        ("highway_loop_b", "highway_floor_middle"),
+        ("highway_loop_c", "highway_floor_middle"),
+        ("highway_loop_d", "highway_floor_east"),
+    ] {
+        let loop_chain = &room.world.chains[room
+            .world
+            .chain_named(loop_name)
+            .unwrap_or_else(|| panic!("the highway authors {loop_name}"))];
+        let floor = room.world.chain_named(floor_name).expect("the floor");
+        let floor_ports = loop_chain
+            .junctions
+            .iter()
+            .flat_map(|junction| junction.ports.iter())
+            .filter(|port| matches!(port, ae::SurfacePort::Chain { chain, .. } if *chain == floor))
+            .count();
+        assert_eq!(
+            floor_ports, 2,
+            "{loop_name} joins {floor_name} at its ramp foot and its runout end"
+        );
+    }
+    assert!(
+        room.world.validate_surface_junctions().is_empty(),
+        "{:?}",
+        room.world.validate_surface_junctions()
+    );
+}
+
+#[test]
+fn each_act_leads_to_the_other_and_the_session_holds_both() {
+    assert_eq!(
+        sanic_speedway().metadata.next_room.as_deref(),
+        Some(HIGHWAY_ROOM_ID),
+        "the speedway's goal leads to Act 2"
+    );
+    assert_eq!(
+        sanic_highway().metadata.next_room.as_deref(),
+        Some(SPEEDWAY_ROOM_ID),
+        "the highway's goal leads back to Act 1"
+    );
+    let rooms = provider::sanic_session_world().room_set;
+    for id in [SPEEDWAY_ROOM_ID, HIGHWAY_ROOM_ID] {
+        assert!(
+            rooms.rooms.iter().any(|room| room.id == id),
+            "the session's room set holds {id}"
+        );
+    }
+}
+
+#[test]
+fn the_highway_score_is_a_track_the_sanic_catalog_carries() {
+    let catalogs = sanic_music_registry();
+    assert!(
+        catalogs.tracks.iter().any(|track| track.id == HIGHWAY_MUSIC_TRACK),
+        "the highway names `{HIGHWAY_MUSIC_TRACK}` and the Sanic catalog must carry it, or \
+         the director falls back to the default track"
+    );
+}
+
+#[test]
+fn every_ring_the_highway_places_is_the_size_a_hit_scatters() {
+    let room = sanic_highway();
+    let sizes: Vec<_> = room
+        .placements
+        .iter()
+        .filter(|record| is_ring_placement(record))
+        .map(|record| record.aabb.max - record.aabb.min)
+        .collect();
+    assert!(sizes.len() >= 40, "the premise: a field of rings; got {}", sizes.len());
+    assert!(sizes
+        .iter()
+        .all(|size| (*size - ae::Vec2::splat(RING_SIZE)).abs().max_element() < 0.01));
 }
 
 #[test]

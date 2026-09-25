@@ -8,7 +8,7 @@ use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperi
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
 
-use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_speedway};
+use crate::{SANIC_CHARACTER_ID, SPEEDWAY_ROOM_ID, SanicRulesPlugin, sanic_highway, sanic_speedway};
 
 pub const SANIC_EXPERIENCE: &str = "sanic";
 pub const SANIC_GAMEPLAY_ROUTE: &str = "sanic_gameplay";
@@ -24,7 +24,10 @@ pub struct SanicSessionWorld {
 pub fn sanic_session_world() -> SanicSessionWorld {
     let room = sanic_speedway();
     let geometry = ae::RoomGeometry(room.world.clone());
-    let room_set = RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room], Vec::new());
+    // Both acts, entered at the speedway; each act's `next_room` says where
+    // its goal leads.
+    let room_set =
+        RoomSet::from_parts_or_panic(SPEEDWAY_ROOM_ID, vec![room, sanic_highway()], Vec::new());
     SanicSessionWorld {
         geometry,
         room_set,

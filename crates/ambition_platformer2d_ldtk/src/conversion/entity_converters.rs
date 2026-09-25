@@ -177,8 +177,41 @@ pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     if radius <= 0.0 {
         return Err("SurfaceLoop requires a positive `radius`".to_string());
     }
-    let segments = field_i32(entity, "segments").unwrap_or(24).max(3) as usize;
     let center = min + size * 0.5;
+    // ATTACHED: a runnable loop joined to a floor chain (ramp → revolution →
+    // crossover deck → runout). The marker's center x is the loop's center x;
+    // the floor decides the height. The spans default to the proportions of
+    // the Sanic speedway's loop (radius 180: rise 84, approach 460, deck 280,
+    // runout 720).
+    let attach_to = field_string(entity, "attach_to").unwrap_or_default();
+    if !attach_to.is_empty() {
+        let span = |field: &str, default: f32| -> Result<f32, String> {
+            let value = field_f32(entity, field).unwrap_or(default);
+            if value < 0.0 {
+                return Err(format!("SurfaceLoop `{field}` must not be negative"));
+            }
+            Ok(value)
+        };
+        let center_x = center.x + ctx.offset.x;
+        let rise = span("rise", radius * 84.0 / 180.0)?;
+        let approach = span("approach", radius * 460.0 / 180.0)?;
+        let deck = span("deck", radius * 280.0 / 180.0)?;
+        let runout = span("runout", radius * 720.0 / 180.0)?;
+        return Ok(RoomEmission {
+            loop_attachments: vec![super::LoopAttachment {
+                name: name.to_string(),
+                floor: attach_to,
+                ramp_start_x: center_x - approach,
+                center_x,
+                radius,
+                rise,
+                overpass_end_x: center_x + deck,
+                runout_end_x: center_x + runout,
+            }],
+            ..Default::default()
+        });
+    }
+    let segments = field_i32(entity, "segments").unwrap_or(24).max(3) as usize;
     // Decreasing-angle winding → inward normals (interior-rideable). Vertex k at
     // angle -2πk/n: the first segment heads "up" the right wall, and the shared
     // `(t.y,-t.x)` rule points its normal toward the center.

@@ -1257,6 +1257,34 @@ pub fn spawn_boss_with_overrides_into(
     // `register_required_components::<BossConfig, _>()` in the content plugin —
     // the engine spawn names no boss special.
 }
+/// The cast a direct summon of `character_id` builds from, or why it cannot be
+/// built at all.
+///
+/// [`spawn_runtime_minion`] bypasses the construction executor, so nothing has
+/// preflighted its character; asking here, BEFORE the caller mints an identity
+/// or allocates a root, turns an unbuildable summon into a refusal with nothing
+/// spent. An absent registry is not an empty one to build from: the two direct
+/// callers used to substitute an empty cast, which reached the construction
+/// panic below instead of refusing.
+pub fn summon_cast<'a>(
+    prepared: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
+    character_id: &str,
+) -> Result<&'a ambition_characters::prepared::PreparedCharacterRegistry, String> {
+    let Some(cast) = prepared else {
+        return Err(format!(
+            "a summon of `{character_id}` was refused: this composition registers no \
+             prepared characters"
+        ));
+    };
+    match cast.get(character_id).map(|definition| definition.body_blueprint()) {
+        None => Err(format!(
+            "a summon of `{character_id}` was refused: it names no prepared character"
+        )),
+        Some(Err(missing)) => Err(format!("a summon of `{character_id}` was refused: {missing}")),
+        Some(Ok(_)) => Ok(cast),
+    }
+}
+
 /// Runtime minion spawner — used by boss EFFECTS consumers (e.g.
 /// PitTrap puppy_slug spawn, MinionCascade slop adds). Mirrors
 /// `spawn_encounter_mob` but takes plain values from a Bevy system

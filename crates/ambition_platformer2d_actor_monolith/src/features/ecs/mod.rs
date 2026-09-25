@@ -151,7 +151,7 @@ pub use spawn::{
 // ⛔ The room construction boundary and the receipt it produces are consumed by
 // the room verdict, both inside this crate. No consumer outside it.
 pub(crate) use spawn::{
-    spawn_room_feature_entities_from_plan, spawn_runtime_minion, RoomFeatureConstructionReceipt,
+    spawn_room_feature_entities_from_plan, spawn_runtime_minion, summon_cast, RoomFeatureConstructionReceipt,
 };
 // ⭐ THE SUMMON ROAD IS RE-EXPORTED FROM ITS OWN MODULE, and the path callers use
 // is unchanged (`features::apply_summon_effects`) — the schedule in

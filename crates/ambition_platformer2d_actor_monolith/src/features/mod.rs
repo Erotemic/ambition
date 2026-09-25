@@ -94,7 +94,7 @@ mod feature_bundles;
 pub use feature_bundles::{ChestBundle, PickupBundle};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
-pub(crate) use ecs::spawn_runtime_minion;
+pub(crate) use ecs::{spawn_runtime_minion, summon_cast};
 // the CAST half of the conversation port: a bark line for a character in
 // a situation. Named explicitly rather than opening the whole `npcs` module,
 // because when the conversation module is carved out this single function is

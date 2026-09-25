@@ -272,13 +272,19 @@ pub(super) fn spawn_split_offspring(
     // AC5.4: WHAT it splits into, from the parent character's own `divides_into`.
     offspring: &str,
 ) {
-    let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
+    let cast = match crate::features::summon_cast(prepared, offspring) {
+        Ok(cast) => cast,
+        Err(refusal) => {
+            bevy::log::error!("{refusal}");
+            return;
+        }
+    };
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         crate::features::spawn_runtime_minion(
             commands,
             character_catalog,
             authored_sheets,
-            prepared.unwrap_or(&empty_cast),
+            cast,
             session_scope,
             format!("{parent_id}:split{i}"),
             "Divided cell",

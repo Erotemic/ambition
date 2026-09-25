@@ -55,7 +55,7 @@ pub fn fire_puppy_slug_gun_system(
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     // the summoned ally IS a character (`npc_puppy_slug`), so this road needs
     // the cast to build it as one. `Option`: a composition that registers nobody
-    // is ordinary, and the empty registry is the honest value there.
+    // is ordinary, and there the summon is refused (`summon_cast`).
     prepared: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     players: Query<(
         &ActorControl,
@@ -97,6 +97,17 @@ pub fn fire_puppy_slug_gun_system(
         if allies.iter().count() + summoned_this_tick >= MAX_ALLIES {
             continue;
         }
+        // Before the identity is minted: a refused summon spends nothing.
+        let cast = match crate::features::summon_cast(
+            prepared.as_deref(),
+            SLUG_ARCHETYPE,
+        ) {
+            Ok(cast) => cast,
+            Err(refusal) => {
+                bevy::log::error!("{refusal}");
+                continue;
+            }
+        };
         // ⛔ THE PAIR IS ONE VALUE. A summoner with no identity mints neither half,
         // so "dynamic, parent unknown" stays unspellable — the same rule the thrown
         // item mint follows.
@@ -109,12 +120,11 @@ pub fn fire_puppy_slug_gun_system(
         let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
         let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
         let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
-        let empty_cast = ambition_characters::prepared::PreparedCharacterRegistry::default();
         let entity = crate::features::spawn_runtime_minion(
             &mut commands,
             &character_catalog,
             &authored_sheets,
-            prepared.as_deref().unwrap_or(&empty_cast),
+            cast,
             session_scope,
             minted
                 .as_ref()
@@ -223,6 +233,33 @@ mod tests {
             MAX_ALLIES,
             "capped at MAX_ALLIES alive"
         );
+    }
+
+    /// A composition that prepares no characters cannot build the slug, so the
+    /// summon is REFUSED before anything is spent. It used to build from an
+    /// empty stand-in cast and reach the construction panic.
+    #[test]
+    fn a_summon_with_no_prepared_cast_is_refused_and_mints_nothing() {
+        let mut app = test_app();
+        app.world_mut()
+            .remove_resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let player = spawn_primary_player_holding(&mut app, PUPPY_SLUG_GUN_ID);
+        let counter = |app: &App| {
+            format!(
+                "{:?}",
+                app.world()
+                    .get::<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>(player)
+            )
+        };
+        let before = counter(&app);
+        app.world_mut()
+            .get_mut::<ActorControl>(player)
+            .unwrap()
+            .0
+            .melee_pressed = true;
+        app.update();
+        assert_eq!(ally_count(&mut app), 0, "nothing was summoned");
+        assert_eq!(counter(&app), before, "a refused summon minted no identity");
     }
 
     #[test]

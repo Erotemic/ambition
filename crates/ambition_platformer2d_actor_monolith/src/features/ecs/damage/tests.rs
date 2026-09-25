@@ -1332,6 +1332,40 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     );
 }
 
+/// With no prepared cast the offspring cannot be built, so the split is refused
+/// and builds nothing. It used to build from an empty stand-in cast and reach
+/// the construction panic.
+#[test]
+fn a_split_with_no_prepared_cast_is_refused() {
+    let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.add_systems(
+        Update,
+        |mut c: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >| {
+            spawn_split_offspring(
+                &mut c,
+                &catalog,
+                &Default::default(),
+                None,
+                ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+                "divider_1",
+                ae::Vec2::new(100.0, 100.0),
+                "npc_puppy_slug",
+            );
+        },
+    );
+    app.update();
+    let built = app
+        .world_mut()
+        .query::<&ambition_combat::components::ActorFaction>()
+        .iter(app.world())
+        .count();
+    assert_eq!(built, 0, "a split whose offspring cannot be built builds nothing");
+}
+
 #[test]
 fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     // The gate is a pure function of the id, so the headless sim is reproducible.

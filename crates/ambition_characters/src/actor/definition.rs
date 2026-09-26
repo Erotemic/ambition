@@ -128,9 +128,6 @@ pub struct CharacterDefinition {
     pub sheet: Option<String>,
     /// Logical portrait target resolved independently of the full sheet.
     pub portrait: Option<String>,
-    /// Lowest-precedence fallback voice lines.
-    /// Yarn and catalog situation/fallback dialogue take precedence.
-    pub voice: Vec<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
@@ -207,7 +204,6 @@ impl CharacterDefinition {
             lineage: None,
             sheet: None,
             portrait: None,
-            voice: Vec::new(),
             body: None,
             hurtboxes: None,
             vitals: Vitals::default(),
@@ -378,17 +374,6 @@ impl CharacterDefinition {
         self.hurtboxes = Some(doc);
         self
     }
-
-    /// Give this character a voice: lines it says when nothing more specific
-    /// does. See [`Self::voice`].
-    pub fn with_voice<I, S>(mut self, lines: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.voice = lines.into_iter().map(Into::into).collect();
-        self
-    }
 }
 
 #[cfg(test)]
@@ -401,14 +386,13 @@ mod authority_tests {
     #[allow(dead_code)]
     fn a_character_states_only_what_a_body_may_state(definition: &CharacterDefinition) {
         let CharacterDefinition {
-            // ── IDENTITY & PRESENTATION BINDING (7) ─────────────────────────
+            // ── IDENTITY & PRESENTATION BINDING (6) ─────────────────────────
             id: _,
             display_name: _,
             provider: _,
             lineage: _,
             sheet: _,
             portrait: _,
-            voice: _,
 
             // ── BODY (15) — what this creature IS ───────────────────────────
             body: _,

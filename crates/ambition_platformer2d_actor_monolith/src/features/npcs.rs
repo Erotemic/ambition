@@ -129,24 +129,12 @@ fn npc_character_id(interactable: &Interactable) -> Option<&str> {
 /// or no on-hit pool gets the engine-generic default.
 pub(crate) fn npc_hit_bark_line<'a>(
     catalog: &'a CharacterCatalog,
-    // AD8: the prepared cast, so a REGISTERED-only character is hurt in its own
-    // voice. Without it the floor for this situation was engine-generic English
-    // — see the fall-through below.
-    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
     strikes: i32,
 ) -> &'a str {
     let rotation = strikes.saturating_sub(1).max(0) as u32;
     if let Some(cid) = npc_character_id(interactable) {
         if let Some(line) = catalog.bark_line(cid, BarkSituation::OnHit, rotation) {
-            return line;
-        }
-        // THE FLOOR — the same one the ambient ticker uses, which this path
-        // did not consult. `CharacterDefinition::voice`'s doc calls itself the
-        // floor so that "the floor is 'says something in character' rather than
-        // silence", and for a hit that was not true: a registered-only character
-        // said "Hey." in the engine's voice (AD8).
-        if let Some(line) = registry.and_then(|registry| registry.get(cid)?.voice_line(rotation)) {
             return line;
         }
     }
@@ -157,16 +145,10 @@ pub(crate) fn npc_hit_bark_line<'a>(
 /// `barks.provoked` pool (rotation 0), else the engine-generic default.
 pub(crate) fn npc_hostile_bark_line<'a>(
     catalog: &'a CharacterCatalog,
-    // AD8: as above — the moment a character turns on you is the worst one to
-    // say it in somebody else's words.
-    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
 ) -> &'a str {
     if let Some(cid) = npc_character_id(interactable) {
         if let Some(line) = catalog.bark_line(cid, BarkSituation::Provoked, 0) {
-            return line;
-        }
-        if let Some(line) = registry.and_then(|registry| registry.get(cid)?.voice_line(0)) {
             return line;
         }
     }
@@ -180,23 +162,12 @@ pub(crate) fn npc_hostile_bark_line<'a>(
 /// cycles the pool.
 pub(crate) fn npc_ambient_bark_line<'a>(
     catalog: &'a CharacterCatalog,
-    // The prepared cast, when this composition has one. A REGISTERED-only
-    // character has no catalog row to hold pools, so without this it is mute —
-    // which is what four Hall pedestals were.
-    registry: Option<&'a ambition_characters::prepared::PreparedCharacterRegistry>,
     interactable: &Interactable,
     situation: BarkSituation,
     rotation: u32,
 ) -> Option<&'a str> {
     let cid = npc_character_id(interactable)?;
-    if let Some(line) = catalog.bark_line(cid, situation, rotation) {
-        return line.into();
-    }
-    // THE FLOOR. The catalog had nothing — either no pool for this
-    // situation and no `fallback_dialogue`, or no row for this character at all.
-    // A definition's own voice answers last, so a character another game
-    // registered still speaks in its own words rather than standing silent.
-    registry?.get(cid)?.voice_line(rotation)
+    catalog.bark_line(cid, situation, rotation)
 }
 
 pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {
@@ -335,167 +306,25 @@ mod tests {
         )
     }
 
-    /// One registered character, prepared and published, with no `App` around it.
-    fn registry_with(
-        definition: ambition_characters::actor::definition::CharacterDefinition,
-    ) -> ambition_characters::prepared::PreparedCharacterRegistry {
-        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
-            definition,
-            &ambition_characters::prepared::CharacterBindings::default(),
-        );
-        let mut registry = ambition_characters::prepared::PreparedCharacterRegistry::default();
-        registry.insert_prepared(finalized.prepared);
-        registry
-    }
-
-    /// A character with NO catalog row still speaks, if it brought a voice.
-    ///
-    /// The Hall's ambient ticker skips whoever `npc_ambient_bark_line` answers
-    /// `None` for, so "registered but not in the catalog" and "mute on a
-    /// pedestal" were the same state — which is what four characters in the
-    /// gallery were. Every character another game brings is
-    /// registered-only, so this is the floor for consumers of the engine, not a
-    /// detail of Ambition's own cast.
-    #[test]
-    fn a_registered_only_character_speaks_its_own_voice() {
-        // A catalog that has never heard of this character.
-        let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
-        let npc = interactable();
-        let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new(
-                "voice",
-                "Voice",
-                "another_game",
-            )
-            .with_voice(["only line", "second line"]),
-        );
-
-        assert_eq!(
-            npc_ambient_bark_line(&catalog, None, &npc, BarkSituation::Hall, 0),
-            None,
-            "vacuity check: without the registry this character is mute, which is \
-             the state this seam exists to fix"
-        );
-        assert_eq!(
-            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Hall, 0),
-            Some("only line"),
-        );
-        assert_eq!(
-            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Hall, 1),
-            Some("second line"),
-            "rotation cycles the pool, so a repeated bark varies"
-        );
-    }
-
-    /// The voice is a floor for EVERY situation, not only the ambient one.
-    /// (AD8)
-    ///
-    /// `CharacterDefinition::voice` calls itself the floor so that "the floor is 'says something in
-    /// character' rather than silence".
-    #[test]
-    fn a_registered_characters_voice_is_the_floor_when_it_is_hit_and_provoked() {
-        // A row that authors an IDLE pool and nothing for being hit or provoked
-        // — the ordinary state of a character somebody has written ambience for
-        // and not combat lines. `FIRST` authors both, so the catalog would
-        // correctly win there and the floor would never be reached.
-        const AMBIENT_ONLY: &str = r#"(
-            brain_presets: { "idle": StandStill },
-            action_set_presets: { "peaceful": (move_style: Walk) },
-            characters: {
-                "voice": (
-                    display_name: "Voice", spritesheet: "voice.png",
-                    manifest: "voice_spritesheet.ron", tier: MainHall,
-                    body_kind: Standard, composition: None,
-                    default_brain: "idle", default_action_set: "peaceful", tags: [],
-                    barks: ( idle: ["first idle"] ),
-                ),
-            },
-        )"#;
-        let catalog = CharacterCatalog::from_data(parse_catalog(AMBIENT_ONLY));
-        let npc = interactable();
-        let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new(
-                "voice",
-                "Voice",
-                "another_game",
-            )
-            .with_voice(["ow, my paint", "that is enough"]),
-        );
-
-        // VACUITY FIRST: without the registry these are the engine's lines, which
-        // is the state this closes.
-        assert_eq!(
-            npc_hit_bark_line(&catalog, None, &npc, 1),
-            GENERIC_HIT_BARKS[0],
-            "vacuity check: with no prepared cast the engine speaks, which is what \
-             made this a defect rather than a preference"
-        );
-        assert_eq!(
-            npc_hostile_bark_line(&catalog, None, &npc),
-            GENERIC_HOSTILE_BARK
-        );
-
-        assert_eq!(
-            npc_hit_bark_line(&catalog, Some(&registry), &npc, 1),
-            "ow, my paint",
-            "a struck character still spoke in the engine's voice"
-        );
-        assert_eq!(
-            npc_hit_bark_line(&catalog, Some(&registry), &npc, 2),
-            "that is enough",
-            "the hit rotation must cycle the character's own pool, like the \
-             catalog's does"
-        );
-        assert_eq!(
-            npc_hostile_bark_line(&catalog, Some(&registry), &npc),
-            "ow, my paint",
-            "a character turning hostile spoke in the engine's voice — the worst \
-             moment to borrow somebody else's words"
-        );
-    }
-
-    /// The CATALOG still outranks a definition's voice: the voice is a floor,
-    /// not an override.
-    #[test]
-    fn an_authored_catalog_pool_outranks_the_definitions_voice() {
-        let catalog = CharacterCatalog::from_data(parse_catalog(FIRST));
-        let npc = interactable();
-        let registry = registry_with(
-            ambition_characters::actor::definition::CharacterDefinition::new(
-                "voice",
-                "Voice",
-                "another_game",
-            )
-            .with_voice(["floor line"]),
-        );
-
-        assert_eq!(
-            npc_ambient_bark_line(&catalog, Some(&registry), &npc, BarkSituation::Idle, 0),
-            Some("first idle"),
-            "the catalog authored an Idle pool, so the definition's floor must not \
-             displace it"
-        );
-    }
-
     #[test]
     fn explicit_catalog_argument_is_the_bark_authority() {
         let first = CharacterCatalog::from_data(parse_catalog(FIRST));
         let second = CharacterCatalog::from_data(parse_catalog(SECOND));
         let npc = interactable();
 
-        assert_eq!(npc_hit_bark_line(&first, None, &npc, 1), "first hit");
-        assert_eq!(npc_hit_bark_line(&second, None, &npc, 1), "second hit");
-        assert_eq!(npc_hostile_bark_line(&first, None, &npc), "first provoked");
+        assert_eq!(npc_hit_bark_line(&first, &npc, 1), "first hit");
+        assert_eq!(npc_hit_bark_line(&second, &npc, 1), "second hit");
+        assert_eq!(npc_hostile_bark_line(&first, &npc), "first provoked");
         assert_eq!(
-            npc_hostile_bark_line(&second, None, &npc),
+            npc_hostile_bark_line(&second, &npc),
             "second provoked"
         );
         assert_eq!(
-            npc_ambient_bark_line(&first, None, &npc, BarkSituation::Idle, 0),
+            npc_ambient_bark_line(&first, &npc, BarkSituation::Idle, 0),
             Some("first idle")
         );
         assert_eq!(
-            npc_ambient_bark_line(&second, None, &npc, BarkSituation::Idle, 0),
+            npc_ambient_bark_line(&second, &npc, BarkSituation::Idle, 0),
             Some("second idle")
         );
     }
@@ -541,9 +370,6 @@ pub fn speak_conversation_cut_barks(
         &ambition_combat::ActorInteraction,
     )>,
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
-    prepared_cast: Option<
-        bevy::prelude::Res<ambition_characters::prepared::PreparedCharacterRegistry>,
-    >,
     mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     for request in requests.read() {
@@ -552,7 +378,6 @@ pub fn speak_conversation_cut_barks(
         };
         let Some(line) = npc_ambient_bark_line(
             &character_catalog,
-            prepared_cast.as_deref(),
             &interaction.interactable,
             BarkSituation::ConversationCut,
             0,

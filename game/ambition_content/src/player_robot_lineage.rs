@@ -19,10 +19,10 @@ use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition
 /// Deliberately TWO fields, and it had four.
 ///
 /// `display_name` and `sheet` lived here AND in `character_catalog.ron`, with
-/// nothing deciding which won per field — the AF4b duplicate-authority row. The
-/// `voice` field went the same way earlier the same day, and that one was worse
-/// than duplication: the catalog outranks a definition's voice, so
-/// `player_robot_v2`'s Rust lines could never be heard at all. Reading the row
+/// nothing deciding which won per field — the AF4b duplicate-authority row. Its
+/// lines went the same way, and that was worse than duplication: the catalog
+/// outranked them, so `player_robot_v2`'s Rust lines could never be heard at
+/// all (a definition no longer states lines; a character's are its row's). Reading the row
 /// is what makes "content owns the facts" structural instead of a convention.
 pub struct Incarnation {
     /// Stable id. Never reused and never repointed — that is what makes an
@@ -682,8 +682,8 @@ mod tests {
     /// Nobody in the lineage stands mute — asked of the RUNTIME, not the
     /// struct. (AF4b)
     ///
-    /// It was green while `player_robot_v2`'s lines were unreachable: the catalog outranks a
-    /// definition's voice, and v2's row authored both a `barks.hall` pool AND a
+    /// It was green while `player_robot_v2`'s lines were unreachable: the catalog outranked
+    /// the definition's own lines, and v2's row authored both a `barks.hall` pool AND a
     /// `fallback_dialogue`, so `CatalogEntry::bark` always answered first.
     ///
     /// So ask the question the ticker asks. `bark` falls through the situation

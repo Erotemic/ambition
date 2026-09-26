@@ -546,6 +546,22 @@ impl BrainProfileRegistry {
                 .collect(),
         }
     }
+
+    /// The registry a catalog implies, keyed under each of `providers`.
+    ///
+    /// For a fixture that hands preparation a whole cast: its characters can
+    /// name different providers, and each resolves a relative name under its own.
+    pub fn from_catalog_under_for_test<'a>(
+        providers: impl IntoIterator<Item = &'a str>,
+        catalog: &CharacterCatalog,
+    ) -> Self {
+        Self {
+            profiles: providers
+                .into_iter()
+                .flat_map(|provider| Self::from_catalog_for_test(provider, catalog).profiles)
+                .collect(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

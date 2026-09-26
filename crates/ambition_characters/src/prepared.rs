@@ -35,8 +35,6 @@ struct PreparedCharacterOverrides {
     lineage: Option<Lineage>,
     sheet: Option<String>,
     portrait: Option<String>,
-    /// The authored voice, carried through preparation unchanged.
-    voice: Vec<String>,
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
     vitals: Vitals,
@@ -990,10 +988,6 @@ pub struct PreparedCharacterDefinition {
     /// the standing height and the sprite tuning.
     pub sheet_sizing: Option<SheetSizing>,
     pub portrait: Option<String>,
-    /// See [`CharacterDefinition::voice`]. Empty means this character brought no
-    /// lines of its own, which is different from "it has nothing to say" — the
-    /// catalog may still speak for it.
-    voice: Vec<String>,
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
@@ -1141,25 +1135,6 @@ impl PreparedCharacterDefinition {
     pub fn was_checked(&self, namespace: &str) -> bool {
         self.checked.iter().any(|name| *name == namespace)
     }
-
-    /// A line this character says when nothing more specific does.
-    ///
-    /// `rotation` cycles the pool so a repeated bark varies. `None` means this
-    /// character brought no voice — the caller stays with whatever it had, which
-    /// is the engine-generic line or silence.
-    ///
-    /// Deliberately situation-BLIND, unlike the catalog's pools. A definition's
-    /// voice is the floor, and a floor that only covers some moments is not one.
-    pub fn voice_line(&self, rotation: u32) -> Option<&str> {
-        if self.voice.is_empty() {
-            return None;
-        }
-        Some(self.voice[(rotation as usize) % self.voice.len()].as_str())
-    }
-
-    //  `voice()` was here — the plural twin of `voice_line()` above, same
-    // shape and same fate. Nothing ever wanted the whole pool; the bark road
-    // asks for one line at a rotation.
 
     /// The token the engine materializer demands for this character's art.
     ///
@@ -1559,7 +1534,6 @@ fn prepare_character(
         lineage: definition.lineage,
         sheet: definition.sheet,
         portrait: definition.portrait,
-        voice: definition.voice,
         body: definition.body,
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
@@ -1641,7 +1615,6 @@ fn finalize_character(
         lineage,
         sheet,
         portrait,
-        voice,
         body,
         hurtboxes,
         vitals,
@@ -1872,7 +1845,6 @@ fn finalize_character(
         sheet,
         sheet_sizing,
         portrait,
-        voice,
         body,
         hurtboxes,
         kit,
@@ -2161,13 +2133,21 @@ pub fn prepare_cast_for_test(
             (ambition_entity_catalog::CharacterId::new(staged.id()), staged)
         })
         .collect();
+    // The same rule as `prepare_and_finalize_against_for_test`: a fixture that
+    // hands over a catalog models a composition that assembled it, and assembly
+    // publishes the catalog's policies beside it, under each provider in the cast.
+    let cast = cast_with_catalog_rows(authored, Some(catalog));
+    let profiles = crate::actor::character_catalog::BrainProfileRegistry::from_catalog_under_for_test(
+        cast.iter().map(StagedCharacter::provider),
+        catalog,
+    );
     let authorities = CastAuthorities {
         catalog: Some(catalog.clone()),
-        profiles: None,
+        profiles: Some(profiles),
         declarations: None,
     };
     finalize_cast(
-        cast_with_catalog_rows(authored, Some(catalog)),
+        cast,
         &authorities,
         CharacterCatalogGeneration::default(),
     )

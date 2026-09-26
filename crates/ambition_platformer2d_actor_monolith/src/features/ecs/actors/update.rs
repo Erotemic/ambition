@@ -2413,11 +2413,6 @@ pub fn tick_npc_idle_barks(
     // App-local authored voice. Required so a mis-composed production App
     // cannot silently erase provider-authored dialogue.
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    // The prepared cast, when this composition registered one. OPTIONAL because
-    // a composition with no registered characters is the ordinary case — but a
-    // registered-only character has no catalog row, so this is the only place
-    // its voice can come from.
-    prepared_cast: Option<Res<ambition_characters::prepared::PreparedCharacterRegistry>>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;
@@ -2468,7 +2463,6 @@ pub fn tick_npc_idle_barks(
         let Some(timer) = state.timers.get_mut(&identity.id) else {
             if super::super::npcs::npc_ambient_bark_line(
                 catalog,
-                prepared_cast.as_deref(),
                 &interaction.interactable,
                 situation,
                 *state.rotations.get(&identity.id).unwrap_or(&0),
@@ -2490,7 +2484,6 @@ pub fn tick_npc_idle_barks(
         let rotation = *state.rotations.get(&identity.id).unwrap_or(&0);
         let Some(line) = super::super::npcs::npc_ambient_bark_line(
             catalog,
-            prepared_cast.as_deref(),
             &interaction.interactable,
             situation,
             rotation,

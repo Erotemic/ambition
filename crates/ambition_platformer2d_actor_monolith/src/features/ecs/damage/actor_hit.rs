@@ -84,8 +84,7 @@ pub(crate) fn kill_disposition(
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    // AD8: the prepared cast, for the voice floor under the two bark paths that
-    // did not have one.
+    // The prepared cast, which a split's offspring is built from.
     prepared: Option<&ambition_characters::prepared::PreparedCharacterRegistry>,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     actor_entity: Entity,
@@ -212,7 +211,6 @@ pub(crate) fn apply_actor_hit(
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hostile_bark_line(
                             catalog,
-                            prepared,
                             interactable,
                         )
                         .to_string(),
@@ -230,7 +228,6 @@ pub(crate) fn apply_actor_hit(
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hit_bark_line(
                             catalog,
-                            prepared,
                             interactable,
                             aggression.strikes,
                         )

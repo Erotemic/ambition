@@ -65,15 +65,9 @@ fn every_composed_character_can_say_at_least_one_line() {
     let silent: Vec<&String> = ids
         .iter()
         .filter(|id| {
-            // The same resolution order the bark authority uses: the catalog's
-            // pool for the situation, then its fallback pool, then whatever the
-            // character's own definition brought.
-            let from_catalog = catalog.bark_line(id, BarkSituation::Hall, 0).is_some();
-            let from_definition = registry
-                .and_then(|registry| registry.get(id))
-                .and_then(|prepared| prepared.voice_line(0))
-                .is_some();
-            !from_catalog && !from_definition
+            // The bark authority: the catalog's pool for the situation, then its
+            // fallback pool.
+            catalog.bark_line(id, BarkSituation::Hall, 0).is_none()
         })
         .collect();
 
@@ -82,8 +76,7 @@ fn every_composed_character_can_say_at_least_one_line() {
         "{} composed character(s) can produce no line at all, so the ambient \
          ticker skips them and they stand mute wherever they are staged — most \
          visibly on a Hall pedestal. Give each one `barks.hall` /\n\
-         `fallback_dialogue` in its catalog row, or `CharacterDefinition::\
-         with_voice` if it is registered-only:\n\n  {}\n",
+         `fallback_dialogue` in its catalog row:\n\n  {}\n",
         silent.len(),
         silent
             .iter()

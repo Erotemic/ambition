@@ -88,7 +88,8 @@ appropriate:
 - moveset/action repertoire;
 - autonomous profile where the character itself owns one;
 - contact behavior or other intrinsic capability;
-- sheet/presentation references and voice floor.
+- sheet/presentation references; its lines are its row's barks and
+  `fallback_dialogue`.
 
 Placement hostility/disposition, session seat, participant assignment, spawn
 location, encounter role and ruleset are contextual and should stay outside the

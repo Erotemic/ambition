@@ -782,7 +782,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// and every brained body now carries it from construction (a boss too).
 /// ⛔⛤ 234 -> 235: `derived.actor_action_scheme` leaves. Nothing read the
 /// cached scheme; every reader derives it from the body's live authorities.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 235;
+/// ⛔⛤ 235 -> 236: `actor.dormancy_policy` leaves and `encounter.mob` joins.
+/// A game states one dormancy rule for its rooms, and the engine derives each
+/// body's policy from it every tick, so no body stores a policy. The rule
+/// reads `EncounterMob` (a mob never sleeps), so a restored mob must keep it.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 236;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

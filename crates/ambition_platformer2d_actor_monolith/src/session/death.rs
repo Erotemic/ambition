@@ -1,48 +1,23 @@
 //! Participant death interlude and level-reset policy.
 //!
 //! Death opens [`DeathInterlude`] and marks the participant [`OutOfPlay`]; the
-//! interlude advances on simulation time, then [`GoverningDeathRules`] decides
+//! interlude advances on simulation time, then the death rules that govern the
+//! active room ([`GoverningRules`]) decide
 //! whether the active room should replay. Body restart is owned elsewhere and
 //! clears `OutOfPlay` through the shared `BodyRestarted` observer.
 
 use bevy::prelude::*;
 
-use ambition_combat::death_rules::{
-    DeathInterlude, DeathRules, DeclaredDeathRules, LevelReset, OutOfPlay,
-};
-use ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef;
+use ambition_combat::death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
 use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use ambition_platformer2d_world::rooms::RoomSet;
 
+use crate::session::governing_rules::GoverningRules;
 use crate::session::reset::RoomReplayRequested;
 use ambition_combat::death_rules::ActorDiedMessage;
 
 #[cfg(test)]
 mod tests;
-
-/// Resolve death rules from the active room's mode declaration.
-///
-/// Missing declarations or session state use the conservative engine default.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct GoverningDeathRules<'w, 's> {
-    declared: Option<Res<'w, DeclaredDeathRules>>,
-    rooms: Option<SessionWorldRef<'w, 's, RoomSet>>,
-}
-
-impl GoverningDeathRules<'_, '_> {
-    /// The rules in force for the active room.
-    pub fn get(&self) -> DeathRules {
-        let Some(declared) = self.declared.as_ref() else {
-            return DeathRules::default();
-        };
-        let mode = self
-            .rooms
-            .as_ref()
-            .and_then(|rooms| rooms.active_metadata().mode.as_deref());
-        declared.governing(mode)
-    }
-}
 
 /// A participant died: mark it out of play and open its window.
 ///
@@ -55,7 +30,7 @@ impl GoverningDeathRules<'_, '_> {
 pub fn open_death_interlude(
     mut commands: Commands,
     mut deaths: MessageReader<ActorDiedMessage>,
-    rules: GoverningDeathRules,
+    rules: GoverningRules<DeathRules>,
     participants: Query<(Entity, Option<&SimId>), (With<PlayerEntity>, Without<OutOfPlay>)>,
     confirmed_boundary: Option<Res<ambition_platformer2d_core::ConfirmedFrameBoundary>>,
     mut pending_lifecycle: ResMut<crate::session::lifecycle_commit::PendingLifecycleCommit>,
@@ -64,7 +39,7 @@ pub fn open_death_interlude(
     // re-read later and charged to the next attempt — the same rule every other
     // reader of this channel follows.
     let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
-    let interlude = rules.get().interlude;
+    let interlude = rules.get().unwrap_or_default().interlude;
     for victim in victims {
         let Ok((_, sim_id)) = participants.get(victim) else {
             continue;
@@ -128,7 +103,7 @@ pub fn open_death_interlude(
 /// player, where the two are the same event. Asking "is anybody still in play"
 /// makes NSMB co-op and a one-participant platformer the same rule.
 pub fn close_death_interlude(
-    rules: GoverningDeathRules,
+    rules: GoverningRules<DeathRules>,
     mut closing: Query<&mut DeathInterlude>,
     still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
     mut replay: MessageWriter<RoomReplayRequested>,
@@ -159,7 +134,7 @@ pub fn close_death_interlude(
     if !any_closed {
         return;
     }
-    let level_reset = rules.get().level_reset;
+    let level_reset = rules.get().unwrap_or_default().level_reset;
     if level_reset != LevelReset::WhenNoParticipantRemains {
         return;
     }

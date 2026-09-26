@@ -1,27 +1,63 @@
 //! Optional distance-based brain dormancy for actors.
 //!
-//! Actors without [`DormancyPolicy`] stay awake. `AwakeNearObservers` sleeps only the
-//! brain; body physics continues. Entering dormancy clears the persistent
-//! `ActorControl` frame so stale input cannot keep moving the body. [`Dormant`] is
-//! derived from current positions each tick and is not rollback state.
+//! A game states one rule, [`DormancyRule`], for the rooms it governs: how near
+//! an observer must be for a hostile to keep thinking. [`assess_dormancy`]
+//! applies the rule of the active room each tick to
+//! facts the body already has (its faction, and whether an encounter owns it
+//! or another body drives it). Thus no body waits for a stance on a later tick,
+//! and a body that no pass tagged cannot think for the whole level. Without the
+//! rule, no brain sleeps.
+//!
+//! Dormancy sleeps only the brain; body physics continues. Entering dormancy
+//! clears the persistent `ActorControl` frame so stale input cannot keep moving
+//! the body. [`Dormant`] is derived from current positions each tick.
 
 use bevy::prelude::*;
 
+use ambition_characters::actor::limb::Limb;
+use ambition_combat::components::{ActorFaction, EncounterMob};
+use ambition_mount::Mountable;
 use ambition_platformer2d_core as ae;
 
-/// When this actor's brain may sleep. Absent  always awake.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub enum DormancyPolicy {
-    /// Never sleeps, whoever is watching. For an actor whose simulation IS the
-    /// point: a scripted patrol that must arrive on time, a rival in a race, a
-    /// boss whose phase timer is the fight.
-    Never,
-    /// Awake while any observer is within `radius` world units of this body.
+/// One game's dormancy rule, declared for the rooms it governs with
+/// [`DeclareRulesExt::declare_rules`](ambition_combat::scoped_rules::DeclareRulesExt::declare_rules).
+/// In a room that no game gave a rule, no brain sleeps.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DormancyRule {
+    /// A hostile's brain sleeps while every observer is farther than this, in
+    /// world units.
     ///
     /// One number, not a rectangle: the wake test is a distance from a point,
     /// and a screen-shaped region would bake the camera's aspect into the
     /// simulation.
-    AwakeNearObservers { radius: f32 },
+    pub hostile_wake_radius: f32,
+}
+
+/// The distance within which an observer keeps this body's brain awake, or
+/// `None` when the brain never sleeps.
+///
+/// Only a hostile ([`ActorFaction::Enemy`]) sleeps:
+/// - A boss never sleeps. Its phase machine is the fight, it has its own wake
+///   (`BossEncounterPhase::Dormant`, which the encounter drives), and the brain
+///   tick does not tick a boss.
+/// - A placed NPC never sleeps. The placed cast thinks whoever watches it (the
+///   Hall is a load test as much as an exhibition).
+/// - A player or a neutral prop has no brain to sleep.
+///
+/// Two hostiles never sleep either. The encounter, not a distance, decides
+/// when an encounter mob appears and when it is done. And another body drives
+/// a mount or a limb: dormancy retracts `ActorControl`, which that driver
+/// writes. A mount does not sleep while it has no rider, because boarding can
+/// occur at any time.
+pub fn wake_radius(
+    rule: Option<&DormancyRule>,
+    faction: ActorFaction,
+    is_encounter_mob: bool,
+    is_driven_by_another_body: bool,
+) -> Option<f32> {
+    let rule = rule?;
+    (faction == ActorFaction::Enemy && !is_encounter_mob && !is_driven_by_another_body)
+        .then_some(rule.hostile_wake_radius)
 }
 
 /// This actor's brain is asleep this tick. Derived every tick; never
@@ -34,25 +70,32 @@ pub struct Dormant;
 /// This naturally follows possession and multiple local seats.
 pub fn assess_dormancy(
     mut commands: Commands,
+    rule: crate::session::governing_rules::GoverningRules<DormancyRule>,
     observers: Query<&ae::BodyKinematics, With<ambition_characters::control::DrivingParticipant>>,
     mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
-        &DormancyPolicy,
+        &ActorFaction,
+        Has<EncounterMob>,
+        Has<Mountable>,
+        Has<Limb>,
         Has<Dormant>,
         // The brain's last word, which must be RETRACTED when the brain sleeps.
-        // `Option` because a body may carry a policy before it carries a brain.
+        // `Option` because a body may be a candidate before it carries a brain.
         Option<&mut ambition_characters::control::ActorControl>,
     )>,
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
     // tiny (one to four) and the actor set is not.
     let eyes: Vec<ae::Vec2> = observers.iter().map(|body| body.pos).collect();
+    let rule = rule.get();
 
-    for (entity, body, policy, is_dormant, control) in &mut actors {
-        let awake = match policy {
-            DormancyPolicy::Never => true,
-            DormancyPolicy::AwakeNearObservers { radius } => {
+    for (entity, body, faction, is_encounter_mob, is_mount, is_limb, is_dormant, control) in
+        &mut actors
+    {
+        let awake = match wake_radius(rule.as_ref(), *faction, is_encounter_mob, is_mount || is_limb) {
+            None => true,
+            Some(radius) => {
                 // no observers  AWAKE. A world with nobody in it is a
                 // world between activations, not a world to freeze: sleeping
                 // every actor there would make a room's first frame after a
@@ -116,8 +159,30 @@ mod tests {
         }
     }
 
-    fn app_with(policy: Option<DormancyPolicy>, actor_x: f32, observers: &[f32]) -> (App, Entity) {
+    /// A hostile's wake radius in these fixtures.
+    const RADIUS: f32 = 400.0;
+
+    /// A standalone game's rule: these fixtures have no rooms.
+    fn declare_rule(app: &mut App, radius: f32) {
+        use ambition_combat::scoped_rules::{DeclareRulesExt, RulesScope};
+        app.declare_rules(
+            RulesScope::EveryRoom,
+            DormancyRule {
+                hostile_wake_radius: radius,
+            },
+        );
+    }
+
+    fn app_with(
+        rule: Option<f32>,
+        faction: ActorFaction,
+        actor_x: f32,
+        observers: &[f32],
+    ) -> (App, Entity) {
         let mut app = App::new();
+        if let Some(radius) = rule {
+            declare_rule(&mut app, radius);
+        }
         // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
@@ -135,11 +200,7 @@ mod tests {
                 body_at(*x),
             ));
         }
-        let mut actor = app.world_mut().spawn(body_at(actor_x));
-        if let Some(policy) = policy {
-            actor.insert(policy);
-        }
-        let actor = actor.id();
+        let actor = app.world_mut().spawn((body_at(actor_x), faction)).id();
         app.update();
         (app, actor)
     }
@@ -163,6 +224,7 @@ mod tests {
     #[test]
     fn the_driven_body_is_the_observer_not_the_parked_one() {
         let mut app = App::new();
+        declare_rule(&mut app, RADIUS);
         // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
@@ -183,7 +245,7 @@ mod tests {
             .world_mut()
             .spawn((
                 body_at(5_050.0),
-                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+                ActorFaction::Enemy,
             ))
             .id();
         app.update();
@@ -195,34 +257,26 @@ mod tests {
         );
     }
 
-    /// The default is the one that matters: an actor that declares nothing is
+    /// The default is the one that matters: a game that states no rule is
     /// never touched, so adding this module changes no existing content.
     #[test]
-    fn an_actor_with_no_policy_is_never_dormant() {
-        let (app, actor) = app_with(None, 10_000.0, &[0.0]);
+    fn a_game_with_no_rule_never_sleeps_a_brain() {
+        let (app, actor) = app_with(None, ActorFaction::Enemy, 10_000.0, &[0.0]);
         assert!(
             !is_dormant(&app, actor),
-            "no policy means the engine assumes nothing"
+            "no rule means the engine assumes nothing"
         );
     }
 
     #[test]
-    fn a_far_actor_that_declared_a_radius_sleeps() {
-        let (app, actor) = app_with(
-            Some(DormancyPolicy::AwakeNearObservers { radius: 400.0 }),
-            1_000.0,
-            &[0.0],
-        );
+    fn a_far_hostile_sleeps() {
+        let (app, actor) = app_with(Some(RADIUS), ActorFaction::Enemy, 1_000.0, &[0.0]);
         assert!(is_dormant(&app, actor));
     }
 
     #[test]
     fn the_same_actor_wakes_when_an_observer_arrives() {
-        let (mut app, actor) = app_with(
-            Some(DormancyPolicy::AwakeNearObservers { radius: 400.0 }),
-            1_000.0,
-            &[0.0],
-        );
+        let (mut app, actor) = app_with(Some(RADIUS), ActorFaction::Enemy, 1_000.0, &[0.0]);
         assert!(is_dormant(&app, actor), "asleep with the observer far away");
 
         let mut eyes = app
@@ -240,18 +294,53 @@ mod tests {
     /// SOMEBODY is there, not because the protagonist is.
     #[test]
     fn a_second_observer_alone_is_enough_to_keep_an_actor_awake() {
-        let (app, actor) = app_with(
-            Some(DormancyPolicy::AwakeNearObservers { radius: 400.0 }),
-            1_000.0,
-            &[0.0, 950.0],
-        );
+        let (app, actor) =
+            app_with(Some(RADIUS), ActorFaction::Enemy, 1_000.0, &[0.0, 950.0]);
         assert!(!is_dormant(&app, actor));
     }
 
+    /// Only a hostile sleeps. A boss, the placed cast, a player and a prop
+    /// think whoever watches them.
     #[test]
-    fn never_stays_awake_with_every_observer_across_the_level() {
-        let (app, actor) = app_with(Some(DormancyPolicy::Never), 10_000.0, &[0.0]);
-        assert!(!is_dormant(&app, actor));
+    fn a_far_body_that_is_not_hostile_stays_awake() {
+        for faction in [
+            ActorFaction::Boss,
+            ActorFaction::Npc,
+            ActorFaction::Player,
+            ActorFaction::Neutral,
+        ] {
+            let (app, actor) = app_with(Some(RADIUS), faction, 10_000.0, &[0.0]);
+            assert!(!is_dormant(&app, actor), "{faction:?} fell asleep");
+        }
+    }
+
+    /// A far hostile that an encounter owns, or that another body drives,
+    /// stays awake: the encounter decides when a mob is done, and sleep would
+    /// retract the control that the driver writes.
+    #[test]
+    fn a_far_hostile_that_something_else_decides_for_stays_awake() {
+        let owned: [(&str, fn(&mut EntityWorldMut)); 3] = [
+            ("an encounter mob", |body| {
+                body.insert(EncounterMob::new("wave"));
+            }),
+            ("a mount", |body| {
+                body.insert(Mountable::at(ae::Vec2::ZERO));
+            }),
+            ("a limb", |body| {
+                let host = body.id();
+                body.insert(Limb {
+                    of: host,
+                    slot: ambition_characters::actor::limb::LimbSlot::HAND_LEFT,
+                    home_offset: ae::Vec2::ZERO,
+                });
+            }),
+        ];
+        for (what, own) in owned {
+            let (mut app, actor) = app_with(Some(RADIUS), ActorFaction::Enemy, 10_000.0, &[0.0]);
+            own(&mut app.world_mut().entity_mut(actor));
+            app.update();
+            assert!(!is_dormant(&app, actor), "{what} fell asleep");
+        }
     }
 
     /// Entering dormancy retracts the brain's last `ActorControl` intent. Physics
@@ -264,6 +353,7 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
+        declare_rule(&mut app, RADIUS);
         // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
@@ -285,7 +375,7 @@ mod tests {
             .world_mut()
             .spawn((
                 body_at(1_000.0),
-                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+                ActorFaction::Enemy,
                 ActorControl(striding),
             ))
             .id();
@@ -316,6 +406,7 @@ mod tests {
         use ambition_platformer2d_core::reference_frame::LocalAxes;
 
         let mut app = App::new();
+        declare_rule(&mut app, RADIUS);
         // the derive runs AHEAD of its reader — see the note above `body_at`.
         app.init_resource::<crate::control::possession::PossessionState>();
         app.add_systems(
@@ -330,7 +421,7 @@ mod tests {
             .world_mut()
             .spawn((
                 body_at(100.0),
-                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+                ActorFaction::Enemy,
                 ActorControl(striding),
             ))
             .id();
@@ -354,11 +445,7 @@ mod tests {
     /// A world with nobody in it is between activations, not frozen.
     #[test]
     fn no_observers_at_all_leaves_everything_awake() {
-        let (app, actor) = app_with(
-            Some(DormancyPolicy::AwakeNearObservers { radius: 1.0 }),
-            10_000.0,
-            &[],
-        );
+        let (app, actor) = app_with(Some(1.0), ActorFaction::Enemy, 10_000.0, &[]);
         assert!(!is_dormant(&app, actor));
     }
 }

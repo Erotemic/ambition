@@ -386,34 +386,54 @@ fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() 
     );
 }
 
-/// Every authored badnik declares whether it sleeps.
+/// Every authored badnik is a hostile that Sanic's dormancy rule reaches.
 ///
-/// this also proves the tagger is REGISTERED, which is the failure mode a
-/// compile cannot catch. `tag_sanic_badniks` could be perfectly written and
-/// simply never added to a schedule, and everything would still build.
+/// This also proves that the rule is DECLARED for his rooms, which a compile
+/// cannot catch: without it, no badnik sleeps, and every one thinks for the
+/// whole speedway and can walk off a ledge before Sanic arrives.
 #[test]
-fn every_authored_badnik_declares_whether_it_sleeps() {
-    use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
+fn every_authored_badnik_sleeps_under_sanics_rule() {
+    use ambition_platformer2d::actors::features::ecs::dormancy::{wake_radius, DormancyRule};
+    use ambition_platformer2d::characters::actor::limb::Limb;
     use ambition_platformer2d::combat::actor_tuning::ActorConfig;
+    use ambition_platformer2d::combat::components::{ActorFaction, EncounterMob};
+    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::mount::Mountable;
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
     for _ in 0..240 {
         app.update();
     }
+    // His rooms carry his mode; the rule declared for it governs them.
+    let rule = app
+        .world()
+        .get_resource::<DeclaredRules<DormancyRule>>()
+        .and_then(|rules| rules.governing(Some(ambition_demo_sanic::SANIC_MODE)))
+        .expect("Sanic states a dormancy rule for his rooms");
+    assert_eq!(
+        rule.hostile_wake_radius,
+        ambition_demo_sanic::badnik::BADNIK_WAKE_RADIUS
+    );
 
-    let mut q = app
-        .world_mut()
-        .query::<(&ActorConfig, Option<&DormancyPolicy>)>();
-    let badniks: Vec<bool> = q
+    let mut q = app.world_mut().query::<(
+        &ActorConfig,
+        &ActorFaction,
+        Has<EncounterMob>,
+        Has<Mountable>,
+        Has<Limb>,
+    )>();
+    let badniks: Vec<Option<f32>> = q
         .iter(app.world())
-        .filter(|(config, _)| {
+        .filter(|(config, ..)| {
             matches!(
                 &config.brain,
                 ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
                     if key == ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY
             )
         })
-        .map(|(_, policy)| policy.is_some())
+        .map(|(_, faction, is_mob, is_mount, is_limb)| {
+            wake_radius(Some(&rule), *faction, is_mob, is_mount || is_limb)
+        })
         .collect();
 
     assert!(
@@ -421,10 +441,10 @@ fn every_authored_badnik_declares_whether_it_sleeps() {
         "the speedway authors badniks; if it stops, this test checks nothing"
     );
     assert!(
-        badniks.iter().all(|declared| *declared),
-        "{} of {} badniks declare no DormancyPolicy — they think for the whole \
-         speedway and can walk off a ledge before Sanic arrives",
-        badniks.iter().filter(|d| !**d).count(),
+        badniks.iter().all(Option::is_some),
+        "{} of {} badniks are not hostiles his rule reaches, so they think for \
+         the whole speedway and can walk off a ledge before Sanic arrives",
+        badniks.iter().filter(|radius| radius.is_none()).count(),
         badniks.len()
     );
 }

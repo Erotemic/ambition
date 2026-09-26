@@ -374,8 +374,8 @@ pub fn tick_actor_brains(
             Without<ambition_boss_encounter::BossConfig>,
             // A DORMANT ACTOR DOES NOT DECIDE. Only the brain sleeps: the
             // body still integrates, so a dormant actor mid-fall keeps falling
-            // and simply stops choosing. Absent on every actor that declares no
-            // `DormancyPolicy`, so this filter changes nothing for content that
+            // and simply stops choosing. Absent in a room whose game states no
+            // `DormancyRule`, so this filter changes nothing for content that
             // has not asked. See `features::ecs::dormancy`.
             Without<crate::features::ecs::dormancy::Dormant>,
         ),

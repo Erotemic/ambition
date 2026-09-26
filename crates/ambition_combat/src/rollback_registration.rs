@@ -203,6 +203,18 @@ where
         "feature.damageable_volumes",
     );
     registrar.rollback_component_clone::<crate::components::FeatureId>(OWNER, "feature.id");
+    // The dormancy rule reads this marker: an encounter mob never sleeps. A
+    // restored mob must keep it, or the rule would put it to sleep.
+    registrar.rollback_component_clone_probed::<crate::components::EncounterMob>(
+        OWNER,
+        "encounter.mob",
+        |mob| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            mob.encounter_id.hash(&mut hasher);
+            hasher.finish()
+        },
+    );
     registrar.rollback_component_clone::<crate::components::FeatureName>(OWNER, "feature.name");
     registrar.rollback_component_clone::<crate::components::BreakableFeature>(
         OWNER,

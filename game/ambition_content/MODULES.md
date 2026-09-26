@@ -14,7 +14,7 @@
 | [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog data and the curated playable cast. |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
-| [`dormancy`](src/dormancy.rs) | Dormancy policy for Ambition-authored actors. |
+| [`dormancy`](src/dormancy.rs) | Ambition's dormancy rule: how near an observer must be for a hostile to keep thinking. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand room PRESENTATION + `bevy_falling_sand` bridge for water/oil — CONTENT (a self-gating room plugin: feature-gated, visible-binary only, active only while its authored room is; R3.3 room-mechanics-by-kind). |

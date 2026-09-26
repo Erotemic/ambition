@@ -5,7 +5,8 @@
 //! awake so the test can distinguish a moving world from a frozen one.
 
 use ambition_demo_mary_o_app::build_demo_app;
-use ambition_platformer2d::actors::features::ecs::dormancy::{DormancyPolicy, Dormant};
+use ambition_platformer2d::actors::features::ecs::dormancy::Dormant;
+use ambition_platformer2d::combat::components::ActorFaction;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
@@ -153,8 +154,8 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
     );
 }
 
-/// How many bodies that declare a dormancy policy are AWAKE right now, out of
-/// how many exist.
+/// How many hostile bodies (the ones her dormancy rule can put to sleep) are
+/// AWAKE right now, out of how many exist.
 ///
 /// The gate this counts is the whole reason the second fixture exists: a
 /// sleeping brain writes nothing, so a body behind a shut gate contributes a
@@ -162,10 +163,13 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
 fn awake_bodies(app: &mut App) -> (usize, usize) {
     let mut query = app
         .world_mut()
-        .query_filtered::<Has<Dormant>, (Without<PrimaryPlayer>, With<DormancyPolicy>)>();
+        .query_filtered::<(Has<Dormant>, &ActorFaction), Without<PrimaryPlayer>>();
     let mut total = 0usize;
     let mut awake = 0usize;
-    for dormant in query.iter(app.world()) {
+    for (dormant, _) in query
+        .iter(app.world())
+        .filter(|(_, faction)| **faction == ActorFaction::Enemy)
+    {
         total += 1;
         if !dormant {
             awake += 1;
@@ -455,15 +459,15 @@ fn the_death_beat_is_measured_with_the_world_awake() {
         app.update();
         alive_window.push(enemy_signature(&mut app));
     }
-    let (awake_alive, policy_bodies) = awake_bodies(&mut app);
+    let (awake_alive, hostiles) = awake_bodies(&mut app);
     assert!(
-        policy_bodies > 0,
-        "no body in this room declares a dormancy policy, so this fixture is \
-         measuring a gate that does not exist"
+        hostiles > 0,
+        "no hostile body is in this room, so this fixture is measuring a gate \
+         that does not exist"
     );
     assert!(
         awake_alive > 0,
-        "the dormancy gate is SHUT where she stands ({awake_alive}/{policy_bodies} \
+        "the dormancy gate is SHUT where she stands ({awake_alive}/{hostiles} \
          awake) — every enemy is asleep, so the signature below is constant for \
          reasons that have nothing to do with a death beat"
     );
@@ -517,7 +521,7 @@ fn the_death_beat_is_measured_with_the_world_awake() {
 
     println!(
         "[death beat, awake world] {swings} swings to kill her; \
-         {awake_alive}/{policy_bodies} bodies awake beside her; \
+         {awake_alive}/{hostiles} bodies awake beside her; \
          {} frames of beat observed, at least {awake_floor} awake throughout; \
          the world MOVED during the beat: {moved}",
         beat_log.len()

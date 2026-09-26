@@ -40,6 +40,7 @@
 | [`path_motion`](src/path_motion.rs) | `PathMotion`: waypoint-following used by moving hazards/platforms. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by `ambition_combat`. |
 | [`rules`](src/rules.rs) | The combat rules a match plays under — resolved, not borrowed. |
+| [`scoped_rules`](src/scoped_rules.rs) | Rules that one game states for the rooms it governs (ADR 0033). |
 | [`snapshot_impls`](src/snapshot_impls.rs) | Rollback wire-format implementations for combat-owned types. |
 | [`stale`](src/stale.rs) | Move staling — the history that makes a repeated answer worth less. |
 | [`stocks`](src/stocks.rs) | Ruleset-owned lives/stocks accounting. |
@@ -51,7 +52,7 @@
 | [`vitality`](src/vitality.rs) | A move that pays or repays its own mover's health. |
 | [`worn_kit`](src/worn_kit.rs) | The kit a body wears: what a character id resolves to when a body puts it on. |
 
-_44 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_45 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

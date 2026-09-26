@@ -1,5 +1,6 @@
 #![cfg(feature = "input")]
-//! A game's death rules govern its own rooms and nobody else's.
+//! A game's rules govern its own rooms and nobody else's: its death rules and
+//! its dormancy rule.
 //!
 //! Three games in the shipped host state what a death means — Ambition
 //! (`replay_level_after(0.0)`), Sanic (the same), and Mary-O (a 3.2s hold sized
@@ -14,7 +15,9 @@
 //! one plugin's `build`, checked over the composed host where all of them are
 //! visible at once.
 
-use ambition_platformer2d::combat::death_rules::{DeathRules, DeathRulesScope, DeclaredDeathRules};
+use ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule;
+use ambition_platformer2d::combat::death_rules::DeathRules;
+use ambition_platformer2d::combat::scoped_rules::{DeclaredRules, RulesScope};
 use bevy::prelude::*;
 
 /// Compose the shipped multi-game host and hand back its App.
@@ -43,9 +46,9 @@ fn compose_the_shipped_host() -> App {
     app
 }
 
-fn declared(app: &App) -> &DeclaredDeathRules {
+fn declared(app: &App) -> &DeclaredRules<DeathRules> {
     app.world()
-        .get_resource::<DeclaredDeathRules>()
+        .get_resource::<DeclaredRules<DeathRules>>()
         .expect("the shipped host's games declare death rules")
 }
 
@@ -60,7 +63,9 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
     let app = compose_the_shipped_host();
     let rules = declared(&app);
 
-    let hers = rules.governing(Some(ambition_demo_mary_o::MARY_O_MODE));
+    let hers = rules
+        .governing(Some(ambition_demo_mary_o::MARY_O_MODE))
+        .unwrap_or_default();
     assert_eq!(
         hers.interlude,
         ambition_demo_mary_o::death::DEATH_DWELL,
@@ -78,7 +83,7 @@ fn a_smash_stage_does_not_inherit_mary_os_level_replay() {
     let stage = rules.governing(Some(ambition_demo_smash::SMASH_MODE));
     assert_eq!(
         stage,
-        DeathRules::default(),
+        None,
         "a Smash stage declares no death rules, so it must read the engine \
          default — hold for nothing, reset nothing. Reading {stage:?} means a \
          game that does not own the arena is governing it. Declared: {:?}",
@@ -97,12 +102,12 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     let rules = declared(&app);
 
     for (scope, stated) in rules.iter() {
-        let DeathRulesScope::Mode(mode) = scope else {
+        let RulesScope::Mode(mode) = scope else {
             continue;
         };
         assert_eq!(
             rules.governing(Some(mode)),
-            stated,
+            Some(stated),
             "`{mode}` rooms must read the rules `{mode}` declared, not another \
              game's. Declared: {:?}",
             rules.iter().collect::<Vec<_>>(),
@@ -113,7 +118,7 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
     // position `smash` and `versus` are in.
     assert_eq!(
         rules.governing(Some("a_mode_no_game_in_this_binary_declares")),
-        DeathRules::default(),
+        None,
         "an unclaimed room reads the engine default; a stranger's rules are \
          never the fallback",
     );
@@ -131,12 +136,12 @@ fn each_declared_mode_resolves_to_its_own_games_rules() {
 #[test]
 fn the_host_composes_three_games_each_scoped_to_its_own_rooms() {
     let app = compose_the_shipped_host();
-    let scopes: Vec<DeathRulesScope> = declared(&app).iter().map(|(scope, _)| scope).collect();
+    let scopes: Vec<RulesScope> = declared(&app).iter().map(|(scope, _)| scope).collect();
 
     for expected in [
-        DeathRulesScope::UntaggedRooms,
-        DeathRulesScope::Mode(ambition_demo_sanic::SANIC_MODE),
-        DeathRulesScope::Mode(ambition_demo_mary_o::MARY_O_MODE),
+        RulesScope::UntaggedRooms,
+        RulesScope::Mode(ambition_demo_sanic::SANIC_MODE),
+        RulesScope::Mode(ambition_demo_mary_o::MARY_O_MODE),
     ] {
         assert!(
             scopes.contains(&expected),
@@ -146,9 +151,47 @@ fn the_host_composes_three_games_each_scoped_to_its_own_rooms() {
         );
     }
     assert!(
-        !scopes.contains(&DeathRulesScope::EveryRoom),
+        !scopes.contains(&RulesScope::EveryRoom),
         "no game in a MULTI-GAME host may claim every room — that claim is a \
          standalone binary's, and it is the process-global this scoping \
          replaced. Declaring: {scopes:?}",
     );
+}
+
+/// Each game's hostiles sleep at that game's distance, in that game's rooms.
+///
+/// Three games state three wake radii. One global resource would let the game
+/// composed last set the distance for all of them, and a hosted game's rule
+/// would reach the host's rooms. The expected values are each game's own
+/// constants, and the arena that states no rule reads none: no brain sleeps
+/// there.
+#[test]
+fn each_game_sleeps_its_hostiles_at_its_own_distance_in_its_own_rooms() {
+    let app = compose_the_shipped_host();
+    let rules = app
+        .world()
+        .get_resource::<DeclaredRules<DormancyRule>>()
+        .expect("the shipped host's games declare dormancy rules");
+    let radius = |mode: Option<&str>| rules.governing(mode).map(|rule| rule.hostile_wake_radius);
+
+    for (mode, expected) in [
+        (None, Some(ambition_content::dormancy::AMBITION_WAKE_RADIUS)),
+        (
+            Some(ambition_demo_sanic::SANIC_MODE),
+            Some(ambition_demo_sanic::badnik::BADNIK_WAKE_RADIUS),
+        ),
+        (
+            Some(ambition_demo_mary_o::MARY_O_MODE),
+            Some(ambition_demo_mary_o::MARY_O_WAKE_RADIUS),
+        ),
+        (Some(ambition_demo_smash::SMASH_MODE), None),
+    ] {
+        assert_eq!(
+            radius(mode),
+            expected,
+            "rooms tagged {mode:?} must read their own game's wake radius. \
+             Declared: {:?}",
+            rules.iter().collect::<Vec<_>>(),
+        );
+    }
 }

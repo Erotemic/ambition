@@ -409,27 +409,6 @@ where
         OWNER,
         "actor.dormant",
     );
-    // The radius is part of authoritative dormancy policy, so probe the value
-    // rather than only the component's presence.
-    registrar.rollback_component_clone_probed::<crate::features::ecs::dormancy::DormancyPolicy>(
-        OWNER,
-        "actor.dormancy_policy",
-        |policy| {
-            use crate::features::ecs::dormancy::DormancyPolicy;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            match policy {
-                DormancyPolicy::Never => 0u8.hash(&mut hasher),
-                DormancyPolicy::AwakeNearObservers { radius } => {
-                    1u8.hash(&mut hasher);
-                    // Bit pattern: this is a checksum, not an arithmetic
-                    // comparison.
-                    radius.to_bits().hash(&mut hasher);
-                }
-            }
-            hasher.finish()
-        },
-    );
     registrar.rollback_component_clone::<crate::features::ecs::SpawnedThisAttempt>(
         OWNER,
         "lifecycle.spawned_this_attempt",

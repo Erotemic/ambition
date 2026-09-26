@@ -161,9 +161,8 @@ pub fn add_simulation_plugins(app: &mut App) {
 /// `register_app_local_sim_systems`, purely because the clone was the first body
 /// that made the rule observable. `89d78a4a5` deleted the clone — correctly, its
 /// trigger collided with two shipped input presets — and took the production
-/// death rules with it, leaving `DeclaredDeathRules::governing(None)` to fall
-/// through to `DeathRules::default()`, which is `LevelReset::Never`
-/// (`crates/ambition_combat/src/death_rules.rs:119-122`). Ordinary Ambition
+/// death rules with it, leaving the untagged rooms with no declaration, so
+/// they read `DeathRules::default()`, which is `LevelReset::Never`. Ordinary Ambition
 /// rooms stopped putting the level back when the last participant died. A
 /// declaration parked inside a feature's braces is a declaration scheduled for
 /// deletion, so it now has a call site nothing can accidentally take with it.
@@ -182,9 +181,9 @@ pub fn add_simulation_plugins(app: &mut App) {
 /// already shipped and already correct when the deletion landed; what was
 /// missing was a Rust run between the deletion and the branch.
 fn declare_ambition_death_rules(app: &mut App) {
-    use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
-    app.declare_death_rules(
-        ambition_platformer2d::combat::death_rules::DeathRulesScope::UntaggedRooms,
+    use ambition_platformer2d::combat::scoped_rules::DeclareRulesExt as _;
+    app.declare_rules(
+        ambition_platformer2d::combat::scoped_rules::RulesScope::UntaggedRooms,
         ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
     );
 }

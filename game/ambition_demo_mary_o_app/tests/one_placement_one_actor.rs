@@ -5,7 +5,6 @@ use bevy::prelude::*;
 
 use ambition_demo_mary_o::ai_slop::{is_ai_slop_brain, AiSlop};
 use ambition_demo_mary_o::snake::{is_snake_brain, SnakeShell};
-use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
 use ambition_platformer2d::combat::actor_tuning::ActorConfig;
 use ambition_platformer2d::combat::components::FeatureId;
 
@@ -103,49 +102,92 @@ fn no_enemy_is_left_without_the_mechanics_its_brain_promises() {
     );
 }
 
-/// An AI Slop learns it may sleep, and nobody else does.
+/// Every authored enemy is a hostile her dormancy rule reaches, and an enemy
+/// far from her is asleep.
 ///
-/// This one asserts it for every slop the real construction path builds from the real authored
-/// level.
-///
-/// the negative half is the point. Dormancy is a per-character decision,
-/// so handing it to everything in the room would be the same mistake as the
-/// engine assuming a distance.
+/// Which bodies may sleep is the engine's rule (`dormancy::wake_radius`: a free
+/// hostile). This asserts the composition that the real construction path
+/// builds from the real authored level: Mary-O states a rule for her rooms,
+/// each authored enemy is a body that rule reaches, and the far ones sleep.
 #[test]
-fn every_authored_enemy_declares_whether_it_sleeps() {
+fn every_authored_enemy_sleeps_when_she_is_far() {
+    use ambition_platformer2d::actors::features::ecs::dormancy::{
+        wake_radius, Dormant, DormancyRule,
+    };
+    use ambition_platformer2d::characters::actor::limb::Limb;
+    use ambition_platformer2d::characters::control::DrivingParticipant;
+    use ambition_platformer2d::combat::components::{ActorFaction, EncounterMob};
+    use ambition_platformer2d::combat::scoped_rules::DeclaredRules;
+    use ambition_platformer2d::engine_core::BodyKinematics;
+    use ambition_platformer2d::mount::Mountable;
+
     let mut app = booted();
-    // The other patrolling enemy in the same level thought for the whole course, and the guard
-    // positioned to notice was instead defending its absence.
-    //
-    // The property is: every authored enemy in Mary-O declares a dormancy
-    // policy, because every one of them patrols and none of them is worth
-    // simulating on the far side of the level. A character that genuinely must
-    // keep thinking says so with `DormancyPolicy::Never`, which still satisfies
-    // this and is findable by a reader.
-    let enemy_ids: Vec<String> = mary_o_enemies(&mut app)
-        .into_iter()
-        .map(|(id, _)| id)
-        .collect();
-    assert!(
-        !enemy_ids.is_empty(),
-        "1-1 authors enemies; if it stops, this test checks nothing"
-    );
+    // Her rooms carry her mode; the rule declared for it governs them.
+    let rule = app
+        .world()
+        .get_resource::<DeclaredRules<DormancyRule>>()
+        .and_then(|rules| rules.governing(Some(ambition_demo_mary_o::MARY_O_MODE)))
+        .expect("Mary-O states a dormancy rule for her rooms");
+    assert_eq!(rule.hostile_wake_radius, ambition_demo_mary_o::MARY_O_WAKE_RADIUS);
 
-    let mut q = app
+    let mut eyes = app
         .world_mut()
-        .query::<(&FeatureId, Option<&DormancyPolicy>)>();
-    let policied: Vec<String> = q
-        .iter(app.world())
-        .filter_map(|(id, policy)| policy.is_some().then(|| id.0.clone()))
-        .collect();
+        .query_filtered::<&BodyKinematics, With<DrivingParticipant>>();
+    let eyes: Vec<Vec2> = eyes.iter(app.world()).map(|body| body.pos).collect();
+    assert!(!eyes.is_empty(), "she is the observer; with none, nothing sleeps");
 
-    let undeclared: Vec<&String> = enemy_ids
-        .iter()
-        .filter(|id| !policied.contains(id))
-        .collect();
+    let mut q = app.world_mut().query::<(
+        &FeatureId,
+        &ActorConfig,
+        &ActorFaction,
+        Has<EncounterMob>,
+        Has<Mountable>,
+        Has<Limb>,
+        &BodyKinematics,
+        Has<Dormant>,
+    )>();
+    let mut enemies = 0usize;
+    let mut asleep = 0usize;
+    let mut unreached = Vec::new();
+    let mut wrong = Vec::new();
+    for (id, config, faction, is_mob, is_mount, is_limb, body, is_dormant) in q.iter(app.world()) {
+        if !(is_snake_brain(&config.brain) || is_ai_slop_brain(&config.brain)) {
+            continue;
+        }
+        enemies += 1;
+        let Some(radius) = wake_radius(Some(&rule), *faction, is_mob, is_mount || is_limb) else {
+            unreached.push(format!("{} ({faction:?})", id.0));
+            continue;
+        };
+        let nearest = eyes
+            .iter()
+            .map(|eye| eye.distance(body.pos))
+            .fold(f32::INFINITY, f32::min);
+        // The pass decided before this tick's movement, so a body within one
+        // tile (32 units) of the radius can read either way.
+        if (nearest - radius).abs() < 32.0 {
+            continue;
+        }
+        let far = nearest > radius;
+        asleep += usize::from(is_dormant);
+        if far != is_dormant {
+            wrong.push(format!("{} at {nearest:.0} dormant={is_dormant}", id.0));
+        }
+    }
+    assert!(enemies > 0, "1-1 authors enemies; if it stops, this test checks nothing");
     assert!(
-        undeclared.is_empty(),
-        "these authored enemies declare no DormancyPolicy, so they think for the \
-         whole level and can walk off a ledge before anyone arrives: {undeclared:?}"
+        unreached.is_empty(),
+        "these authored enemies are not hostiles her rule reaches, so they \
+         think for the whole level and can walk off a ledge before anyone \
+         arrives: {unreached:?}"
+    );
+    assert!(
+        wrong.is_empty(),
+        "an enemy is asleep beside her or awake far from her: {wrong:?}"
+    );
+    assert!(
+        asleep > 0,
+        "1-1 is longer than her wake radius, so some enemy must be asleep at \
+         the start; none is"
     );
 }

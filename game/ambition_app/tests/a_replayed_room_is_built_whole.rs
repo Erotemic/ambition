@@ -159,8 +159,6 @@ struct UnattachedAtDecision {
     memoryless: Vec<Entity>,
     /// Brained bodies with no orientation to right themselves with.
     rollless: Vec<Entity>,
-    /// Staged actors with no dormancy stance.
-    stanceless: Vec<Entity>,
 }
 
 fn record_unattached_at_decision(
@@ -178,16 +176,7 @@ fn record_unattached_at_decision(
             Without<ambition_platformer2d::boss_encounter::BossConfig>,
         ),
     >,
-    staged: Query<
-        (
-            Entity,
-            &ambition_platformer2d::actor::ActorFaction,
-            Has<ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy>,
-        ),
-        With<ambition_platformer2d::actor::BodyKinematics>,
-    >,
 ) {
-    use ambition_platformer2d::actor::ActorFaction;
     for (entity, has_memory, has_roll) in &brained {
         out.seen.insert(entity);
         if !has_memory {
@@ -197,25 +186,17 @@ fn record_unattached_at_decision(
             out.rollless.push(entity);
         }
     }
-    for (entity, faction, has_stance) in &staged {
-        if !matches!(faction, ActorFaction::Player | ActorFaction::Neutral) && !has_stance {
-            out.stanceless.push(entity);
-        }
-    }
 }
 
 /// A rebuilt body is complete before anything decides for it.
 ///
-/// The transition commit rebuilds the room after every first-sight attacher has
-/// run for the tick, so each rebuilt body spends the rest of that tick without a
-/// dormancy stance. That is safe only because nothing after the commit reads it,
-/// and on the next tick `declare_ambition_dormancy` runs before
-/// `assess_dormancy` and the brain tick.
-///
-/// A body's senses are derived when it decides, so there is nothing of them to
-/// attach. Its belief memory is built with its brain (`Brain` requires it), and
-/// its roll with its movement frame (`ResolvedMotionFrame` requires it); the
-/// memory and roll arms check that the rebuilt bodies arrive with both.
+/// The transition commit rebuilds the room after the first-sight systems of
+/// the tick have run, so a body that waited for one would decide without it.
+/// Nothing is left to wait for. A body's senses and its dormancy are derived
+/// when it decides. Its belief memory is built with its brain (`Brain`
+/// requires it), and its roll with its movement frame (`ResolvedMotionFrame`
+/// requires it); the memory and roll arms check that the rebuilt bodies arrive
+/// with both.
 #[test]
 fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -256,11 +237,5 @@ fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
         "{} brained bodies reached the decision pass with no `ActorRoll`: {:?}",
         record.rollless.len(),
         &record.rollless[..record.rollless.len().min(5)]
-    );
-    assert!(
-        record.stanceless.is_empty(),
-        "{} staged actors reached the decision pass without a dormancy stance: {:?}",
-        record.stanceless.len(),
-        &record.stanceless[..record.stanceless.len().min(5)]
     );
 }

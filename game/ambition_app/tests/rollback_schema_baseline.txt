@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v235
+ggrs-rollback-schema-v236
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -30,7 +30,6 @@ actor.control_claims	component-canonical	ControlClaims	bevy_ggrs canonical codec
 actor.control_holds	component-clone	ControlHolds	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.death_interlude	component-canonical	DeathInterlude	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; not in the session checksum
 actor.driving_participant	component-clone	DrivingParticipant	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; not in the session checksum
@@ -197,6 +196,7 @@ encounter.falling_hazard	component-clone	FallingHazard	bevy_ggrs clone snapshot;
 encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; not in the session checksum
 encounter.lifecycle	component-canonical	EncounterLifecycle	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 encounter.lock_wall	component-clone	EncounterLockWall	bevy_ggrs clone snapshot; not in the session checksum
+encounter.mob	component-clone	EncounterMob	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 encounter.objective	component-clone	EncounterObjective	bevy_ggrs clone snapshot; not in the session checksum
 encounter.participants	component-clone-canonical-checksum	EncounterParticipants	bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load
 encounter.release_on_death	component-clone	ReleaseOnDeath	bevy_ggrs clone snapshot; not in the session checksum

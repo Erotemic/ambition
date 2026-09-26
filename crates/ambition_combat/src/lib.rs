@@ -56,6 +56,7 @@ pub mod on_hit;
 pub mod path_motion;
 pub mod rules;
 mod snapshot_impls;
+pub mod scoped_rules;
 pub mod stale;
 pub mod stocks;
 /// Authoritative strike damage volumes, lifecycle state, and world-anchored
@@ -68,10 +69,8 @@ pub mod vitality;
 pub mod worn_kit;
 
 pub use components::*;
-pub use death_rules::{
-    DeathInterlude, DeathRules, DeathRulesAppExt, DeathRulesScope, DeclaredDeathRules, LevelReset,
-    OutOfPlay,
-};
+pub use death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
+pub use scoped_rules::{DeclareRulesExt, DeclaredRules, RulesScope};
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in

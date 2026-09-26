@@ -44,10 +44,13 @@ fn her_rules_hold_the_level_for_the_length_of_the_death_music() {
     app.add_plugins(crate::MaryORulesPlugin::global());
     let rules = app
         .world()
-        .get_resource::<ambition_platformer2d::combat::death_rules::DeclaredDeathRules>()
+        .get_resource::<ambition_platformer2d::combat::scoped_rules::DeclaredRules<
+            ambition_platformer2d::combat::death_rules::DeathRules,
+        >>()
         .expect("Mary-O states her death rules")
         // Standalone, the demo IS the game, so an untagged fixture room is hers.
-        .governing(None);
+        .governing(None)
+        .expect("her rules govern every room of her own binary");
     assert_eq!(
         rules.interlude, DEATH_DWELL,
         "the interlude is the length of `mary_o_you_died`"

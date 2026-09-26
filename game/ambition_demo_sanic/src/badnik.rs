@@ -39,34 +39,6 @@ pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 /// Derived from Sanic's fastest tuning (`top_speed: 2000.0`): 2.4s of lead.
 pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
 
-/// Badniks stop thinking when Sanic is nowhere near them.
-///
-/// Dormancy is declared per character, never inherited. An actor with no
-/// `DormancyPolicy` is always awake.
-pub fn tag_sanic_badniks(
-    mut commands: Commands,
-    fresh: Query<
-        (
-            Entity,
-            &ambition_platformer2d::combat::actor_tuning::ActorConfig,
-        ),
-        Without<ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy>,
-    >,
-) {
-    for (entity, config) in &fresh {
-        if matches!(
-            &config.brain,
-            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
-                if key == BADNIK_BRAIN_KEY
-        ) {
-            commands.entity(entity).try_insert(
-                ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy::
-                    AwakeNearObservers { radius: BADNIK_WAKE_RADIUS },
-            );
-        }
-    }
-}
-
 /// Upward speed off a stomped badnik — a lively bounce, under a full jump.
 const BOUNCE_SPEED: f32 = 460.0;
 

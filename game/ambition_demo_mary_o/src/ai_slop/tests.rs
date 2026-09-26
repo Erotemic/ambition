@@ -135,7 +135,7 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 
 /// The radius is DERIVED, and this is what makes that claim checkable.
 ///
-/// `AI_SLOP_WAKE_RADIUS` was chosen to clear the half-width of the widest view a
+/// `MARY_O_WAKE_RADIUS` was chosen to clear the half-width of the widest view a
 /// PLAYER can select, so an actor is never popped into frame already moving. That
 /// reasoning is only true while the presets say what they said — so read them
 /// rather than restate them. If someone widens `Cinematic`, this fails and names
@@ -147,23 +147,24 @@ fn the_wake_radius_clears_the_widest_playable_view() {
     let (widest_play_width, _) = CameraZoomPreset::Cinematic.base_view();
     let half_width = widest_play_width * 0.5;
     assert!(
-        AI_SLOP_WAKE_RADIUS > half_width,
-        "the wake radius ({AI_SLOP_WAKE_RADIUS}) must exceed the half-width of the \
-         widest PLAYABLE view ({half_width}), or an actor wakes inside the frame"
+        crate::MARY_O_WAKE_RADIUS > half_width,
+        "the wake radius ({}) must exceed the half-width of the \
+         widest PLAYABLE view ({half_width}), or an actor wakes inside the frame",
+        crate::MARY_O_WAKE_RADIUS
     );
 
     // And the margin is the point, not an accident: five tiles of settling room.
     assert!(
-        AI_SLOP_WAKE_RADIUS - half_width >= 5.0 * crate::T,
+        crate::MARY_O_WAKE_RADIUS - half_width >= 5.0 * crate::T,
         "the margin ({}) is what lets a slop settle onto its column before it is \
          seen; below five tiles it wakes mid-fall in view",
-        AI_SLOP_WAKE_RADIUS - half_width
+        crate::MARY_O_WAKE_RADIUS - half_width
     );
 
     // Debug's view is deliberately NOT cleared — see the constant's doc.
     let (debug_width, _) = CameraZoomPreset::Debug.base_view();
     assert!(
-        AI_SLOP_WAKE_RADIUS < debug_width * 0.5,
+        crate::MARY_O_WAKE_RADIUS < debug_width * 0.5,
         "if content ever grows to cover the DEBUG zoom, the policy culls nothing \
          and this test should be deleted along with the reason for the radius"
     );

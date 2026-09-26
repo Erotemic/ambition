@@ -1137,15 +1137,25 @@ impl Plugin for SanicRulesPlugin {
         // versus stage but leaves a pit reset doing nothing. Standalone, these
         // are the binary's rules, so a rules-only harness can use an untagged
         // fixture room.
+        //
+        // The dormancy rule has the same scope: a far badnik does not walk off
+        // a ledge while Sanic is at the start.
         {
-            use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
-            app.declare_death_rules(
-                if self.hosted {
-                    ambition_platformer2d::combat::death_rules::DeathRulesScope::Mode(SANIC_MODE)
-                } else {
-                    ambition_platformer2d::combat::death_rules::DeathRulesScope::EveryRoom
-                },
+            use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+            let scope = if self.hosted {
+                RulesScope::Mode(SANIC_MODE)
+            } else {
+                RulesScope::EveryRoom
+            };
+            app.declare_rules(
+                scope,
                 ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+            );
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {
+                    hostile_wake_radius: badnik::BADNIK_WAKE_RADIUS,
+                },
             );
         }
         app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
@@ -1273,14 +1283,7 @@ impl Plugin for SanicRulesPlugin {
         // The badnik defeat runs before the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
-        let badniks = (
-            // Declare dormancy before any brain ticks, so a far badnik does
-            // not walk off a ledge while Sanic is at the start. The radius
-            // comes from Sanic's top speed (see `BADNIK_WAKE_RADIUS`).
-            badnik::tag_sanic_badniks,
-            badnik::defeat_badniks,
-        )
-            .chain()
+        let badniks = badnik::defeat_badniks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits

@@ -63,6 +63,25 @@ pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
 /// ticks in a room that is not Mary-O's.
 pub const MARY_O_MODE: &str = "mary_o";
 
+/// How close an observer must be for a Mary-O enemy to keep thinking, in world units.
+///
+/// One distance for the snake and the AI Slop. They share a level and a job,
+/// patrol until somebody arrives.
+///
+/// DERIVED from the view presets, not chosen by feel. A wake radius below
+/// the half-width of the view a player selected pops an actor into frame already
+/// moving. The five presets are 640/800/960/1120/1600 world units wide, so the
+/// half-widths are 320/400/480/560/800. `Cinematic`'s 560 is the widest that
+/// is a PLAY choice; 720 clears it by 160 — five tiles at this level's `T` — so a
+/// patroller has settled onto its column well before it is visible.
+///
+/// `Debug`'s 1600 is deliberately not covered. A developer at twice the
+/// gameplay view is looking for exactly this kind of thing, and sizing content for
+/// that zoom would leave the policy culling nothing.
+///
+/// The near pair is awake; everything from the third column out sleeps until she comes for it.
+pub const MARY_O_WAKE_RADIUS: f32 = 720.0;
+
 /// The level clock starts here and counts DOWN. It is the demo's one rule.
 pub const STARTING_TIME: f32 = 400.0;
 
@@ -1756,17 +1775,30 @@ impl Plugin for MaryORulesPlugin {
         // composes her AFTER Sanic — so every Smash match in the shipped host
         // ran under a three-second level replay, in an arena whose rules want
         // `LevelReset::Never`. Standalone, the demo IS the game.
+        //
+        // The dormancy rule has the same scope. Her enemies patrol, and none of
+        // them is worth a brain on the far side of the level. A kicked shell
+        // still slides when it is far: dormancy sleeps the brain and clears the
+        // control frame, and `run_snake_shells` writes the body's velocity on a
+        // different channel.
         {
-            use ambition_platformer2d::combat::death_rules::DeathRulesAppExt as _;
-            app.declare_death_rules(
-                if self.hosted {
-                    ambition_platformer2d::combat::death_rules::DeathRulesScope::Mode(MARY_O_MODE)
-                } else {
-                    ambition_platformer2d::combat::death_rules::DeathRulesScope::EveryRoom
-                },
+            use ambition_platformer2d::combat::scoped_rules::{DeclareRulesExt as _, RulesScope};
+            let scope = if self.hosted {
+                RulesScope::Mode(MARY_O_MODE)
+            } else {
+                RulesScope::EveryRoom
+            };
+            app.declare_rules(
+                scope,
                 ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
                     death::DEATH_DWELL,
                 ),
+            );
+            app.declare_rules(
+                scope,
+                ambition_platformer2d::actors::features::ecs::dormancy::DormancyRule {
+                    hostile_wake_radius: MARY_O_WAKE_RADIUS,
+                },
             );
         }
         // The snake stager reads room-load facts and writes spawn requests; the

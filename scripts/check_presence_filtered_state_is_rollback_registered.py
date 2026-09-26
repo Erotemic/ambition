@@ -162,10 +162,6 @@ WAIVERS = {
     "BossRewardChest": "one site, the `ambition_sim_view/src/facts.rs` per-tick view rebuild",
     "EncounterRewardChest": "one site, the same per-tick view rebuild",
     "PortalInputWarp": "one site, `ambition_portal2d_presentation/src/visuals.rs`",
-    # Two sites: the view rebuild, and `declare_ambition_dormancy`, which is
-    # gated `Without<DormancyPolicy>` — so the decision this marker feeds is
-    # latched in a component that IS registered (`actor.dormancy_policy`).
-    "EncounterMob": "view rebuild + a setup gated on the registered `DormancyPolicy`",
     # ⭐ BOTH OF THESE BECAME VISIBLE ON 2026-09-17 when the test cut stopped
     # discarding `construction/mod.rs`'s second half, and both are the
     # `HeldByConversation` shape: the only readers are the writer's own module.

@@ -13,7 +13,7 @@ use bevy::prelude::{App, Commands, Entity, Query, Update};
 
 /// A minimal world with the death beat wired and nothing else.
 ///
-/// `GoverningDeathRules` is deliberately unfurnished. Both of its halves
+/// `GoverningRules<DeathRules>` is deliberately unfurnished. Both of its halves
 /// are optional and the absent case is the engine default, so this harness
 /// exercises the same code path a composition with no death declarations does.
 fn app_with_the_death_beat() -> App {

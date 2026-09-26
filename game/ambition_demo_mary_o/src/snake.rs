@@ -357,13 +357,6 @@ pub fn snake_body_width() -> f32 {
     crate::powerups::mary_o_body_width().unwrap_or(NO_SHEET)
 }
 
-/// How near an observer has to be for a snake to keep thinking.
-///
-/// The same distance the AI Slop uses. They share a level and a job — patrol
-/// until somebody arrives — so a snake waking at a different range from a slop
-/// standing beside it would be a difference with no reason behind it.
-pub const SNAKE_WAKE_RADIUS: f32 = crate::ai_slop::AI_SLOP_WAKE_RADIUS;
-
 /// Ensure the `solid_snake` sheet is drawable, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it
 /// instead of falling back to the generic goblin sheet.
@@ -544,16 +537,7 @@ pub fn tag_mary_o_snakes(
 ) {
     for (entity, config) in &fresh {
         if is_snake_brain(&config.brain) {
-            commands.entity(entity).try_insert((
-                SnakeShell::Walking,
-                // a kicked shell is unaffected, which is why this is safe.
-                // Dormancy sleeps the BRAIN and clears the control frame;
-                // `run_snake_shells` propels a slide by writing the body's
-                // horizontal velocity directly, on a different channel. A shell
-                // you kick still leaves the screen, as it should.
-                ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy::
-                    AwakeNearObservers { radius: SNAKE_WAKE_RADIUS },
-            ));
+            commands.entity(entity).try_insert(SnakeShell::Walking);
         }
     }
 }

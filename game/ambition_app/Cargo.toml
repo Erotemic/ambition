@@ -157,7 +157,7 @@ profile = ["ambition_platformer2d/profile"]
 ambition_demo_sanic = { path = "../ambition_demo_sanic" }
 ambition_demo_mary_o = { path = "../ambition_demo_mary_o" }
 ambition_demo_smash = { path = "../ambition_demo_smash" }
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d" }
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", features = ["content_pack"] }
 ambition_content = { path = "../ambition_content" }
 # The reusable programmatic sim harness (reset/step/action/observation/reward).
 # ambition_app supplies the Ambition-specific composition (see rl_sim::AmbitionSim).

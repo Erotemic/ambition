@@ -778,6 +778,11 @@ pub struct CharacterCatalogEntry {
     /// preparation under a registered definition's own.
     #[serde(default)]
     pub ranged_vfx: Option<String>,
+    /// What this body is hittable through, per pose and per move. `None` (the
+    /// default): a box derived from its sprite. Folded at preparation under a
+    /// registered definition's own.
+    #[serde(default)]
+    pub hurtboxes: Option<ambition_entity_catalog::HurtboxDoc>,
 }
 
 /// The art-to-world scale of a body that its sheet authors per pose.

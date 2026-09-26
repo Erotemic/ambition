@@ -1688,17 +1688,11 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
         .expect("a fighter carries the shared action buffer")
         .attack = 0.25;
     // The survivor is mid-smash when the KO lands, and a shot is in the air.
-    let smash = ambition_app::app::versus_fighters::duelist_moveset(
-        ambition_app::app::versus_fighters::DuelistNumbers {
-            jab_damage: 2,
-            smash_damage: 9,
-            reach_px: 40.0,
-            smash_windup_s: 0.25,
-        },
-    )
-    .move_by_id("smash_forward")
-    .expect("the archetype has a smash")
-    .clone();
+    let smash = ambition_app::app::versus_fighters::PACK
+        .moveset("arena_duelist_long")
+        .move_by_id("smash_forward")
+        .expect("the archetype has a smash")
+        .clone();
     app.world_mut()
         .entity_mut(seat_zero)
         .insert(MovePlayback::new(smash, 1.0));
@@ -2104,14 +2098,13 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
     // duelists' own (`smash_forward`), so this is the authored override rather
     // than a pose profile.
     let smash = ambition_platformer2d::combat::moveset::MovePlayback::new(
-        ambition_app::app::versus_fighters::duelist_moveset(
-            ambition_app::app::versus_fighters::LONG_GUARD,
-        )
-        .moves
-        .iter()
-        .find(|spec| spec.id == "smash_forward")
-        .expect("the duelists author a forward smash")
-        .clone(),
+        ambition_app::app::versus_fighters::PACK
+            .moveset("arena_duelist_long")
+            .moves
+            .iter()
+            .find(|spec| spec.id == "smash_forward")
+            .expect("the duelists author a forward smash")
+            .clone(),
         1.0,
     );
     app.world_mut().entity_mut(seat_zero).insert(smash);

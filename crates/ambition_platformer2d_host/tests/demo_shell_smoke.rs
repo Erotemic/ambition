@@ -71,18 +71,6 @@ impl Plugin for FixtureContentPlugin {
             &ambition_platformer2d_provider::AuthoredCatalogFragments::new("player", "fixture"),
         )
         .expect("fixture direct prepared-content assembly must succeed");
-        // ⛔⛤ **THE SCOPED CONSTRUCTION AUTHORITY, DECLARED — AND THIS IS THE
-        // LINE EVERY DEMO APP NOW COPIES ALONG WITH THE REST OF THE SHAPE.**
-        // A direct composition never goes through provider activation, so it
-        // has no prepared generation; live rebuilds used to read the App's
-        // registries for it, which is the anonymous fallback the 2026-09-19
-        // composition ruling deleted. The ruling permits exactly this
-        // instead: *"explicit direct/headless/test compositions may hold
-        // scoped fixture/direct-entry authority where needed."* Without it a
-        // door or a reset in this app DECLINES rather than rebuilding from
-        // whatever happens to be lying around — which is the intended
-        // behaviour, and not what a demo wants.
-        app.init_resource::<ambition_platformer2d_runtime::demo_fixture::SessionMechanics>();
         app.add_systems(
             Startup,
             fixture_setup.in_set(ambition_platformer2d_runtime::demo_fixture::SimulationSetupSet),

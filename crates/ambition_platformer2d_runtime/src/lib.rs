@@ -142,12 +142,6 @@ pub mod demo_fixture {
     pub use ambition_platformer2d_actor_monolith::session::setup::{
         simulation_world, SimulationSetup,
     };
-    // ⭐ **THE SCOPED CONSTRUCTION AUTHORITY A DIRECT COMPOSITION DECLARES.**
-    // Re-exported here because a demo that means to rebuild rooms — a door, a
-    // death, a reset — has to install one: there is no App-registry road for
-    // it to fall through to any more (`GenerationMechanics::for_live_session`,
-    // and the 2026-09-19 composition ruling).
-    pub use ambition_platformer2d_actor_monolith::session::mechanics::SessionMechanics;
     // A direct-entry demo drops the first room's receipt, so it says so.
     pub use ambition_platformer2d_actor_monolith::rooms::PublicationRetention;
     pub use ambition_platformer2d_actor_monolith::construction::placements::PlacementLoweringRegistry;

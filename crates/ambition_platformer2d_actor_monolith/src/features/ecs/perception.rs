@@ -481,6 +481,75 @@ pub fn collect_perception_projectiles(
 #[derive(bevy::prelude::Component, Default)]
 pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 
+/// ⭐ A CREW SHARES WHAT IT SEES.
+///
+/// Every body whose policy `shares_sightings` calls out the foes it saw last
+/// tick, and every such ally of its faction INSIDE ITS VIEW hears them, as
+/// [`WorldMemory::HEARSAY_CONFIDENCE`] sightings. Bounded senses stay bounded:
+/// word travels between bodies that can see each other, and fades as memory
+/// does.
+///
+/// MEASURED motivation (`room_census`, `pirate_sky_lookout`): three raiders
+/// posted 450–550 px above the floor never saw a player standing on it, while
+/// Iron Mary, lower down, fought him alone — the rest of her crew idled for the
+/// whole fight.
+///
+/// ⛔ NOT A SYSTEM OF ITS OWN. It ran as one in `ActorDecisionSet::Observe`, and
+/// ANY new node there — a no-op was measured — turned
+/// `canonical_reconstitution::leaving_a_room_and_returning_rebuilds_what_entering_it_built`
+/// red deterministically: a latent ordering dependence in the room lifecycle
+/// (reported with that reproducer). `tick_actor_brains` already holds every
+/// column this needs, so the call-out rides in it and the schedule is unchanged.
+///
+/// ⚠ ORDER-FREE BY CONSTRUCTION: every caller that saw a foe recorded the same
+/// body at the same moment, and [`WorldMemory::hear`] keeps the more confident
+/// of two equals, so no iteration order can change what anyone hears.
+#[derive(Clone, Debug)]
+pub(crate) struct CrewCall {
+    caller: bevy::prelude::Entity,
+    view: ambition_characters::perception::Viewport,
+    faction: Option<ambition_combat::components::ActorFaction>,
+    foe: String,
+    seen: ambition_characters::perception::RememberedActor,
+}
+
+/// The calls a crew member makes: every foe it saw last tick.
+pub(crate) fn crew_calls(
+    caller: bevy::prelude::Entity,
+    pos: ae::Vec2,
+    faction: Option<ambition_combat::components::ActorFaction>,
+    perception: Perception,
+    memory: &ambition_characters::perception::WorldMemory,
+    calls: &mut Vec<CrewCall>,
+) {
+    let view = ambition_characters::perception::Viewport::around(pos, perception.tactical_extent());
+    for (foe, seen) in memory.hostiles_in_view() {
+        calls.push(CrewCall { caller, view, faction, foe: foe.to_string(), seen: *seen });
+    }
+}
+
+/// What a crew member hears: its allies' calls, from those who can see it.
+pub(crate) fn hear_crew(
+    calls: &[CrewCall],
+    listener: bevy::prelude::Entity,
+    pos: ae::Vec2,
+    faction: Option<ambition_combat::components::ActorFaction>,
+    memory: &mut ambition_characters::perception::WorldMemory,
+) {
+    for call in calls {
+        if call.caller == listener || call.faction != faction || !call.view.contains(pos) {
+            continue;
+        }
+        memory.hear(
+            &call.foe,
+            ambition_characters::perception::RememberedActor {
+                confidence: ambition_characters::perception::WorldMemory::HEARSAY_CONFIDENCE,
+                ..call.seen
+            },
+        );
+    }
+}
+
 /// This body's SENSES COULD NOT BE DECIDED, so it does not decide at all.
 ///
 /// ⛔⛤ **A MISSING `Perception` READS AS `Omniscient`, SO A REFUSAL WAS AN

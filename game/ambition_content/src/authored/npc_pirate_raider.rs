@@ -50,6 +50,8 @@ pub(crate) fn author(id: &str, definition: CharacterDefinition) -> CharacterDefi
             attack_range: 1100.0,
             patrol_effort: if heavy { 0.5116 } else { 0.4783 },
             chase_effort: 1.0,
+            // A crew: a lookout that spots you calls it, and the rest come.
+            shares_sightings: true,
             ..Default::default()
         })
         .with_action_set(ambition_characters::brain::ActionSet {

@@ -316,18 +316,36 @@ pub struct MountedSize(pub ae::Vec2);
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct MountsSteeredByRiders;
 
+/// How far ahead a carrying mount looks along its travel for its rider's
+/// clearance: it slows so the rider reaches solid in no less than this.
+const RIDER_CLEARANCE_LOOKAHEAD_S: f32 = 0.25;
+/// A pair whose rise is blocked goes round the obstruction only when its nearer
+/// end is within this — a ledge, not a ceiling.
+const RIDER_DETOUR_MAX_PX: f32 = 160.0;
+
 pub fn steer_mount_from_rider(
     riders: Query<
-        (&RidingOn, &ambition_characters::control::ActorControl),
+        (&RidingOn, &ambition_characters::control::ActorControl, Option<&ae::BodyKinematics>),
         (With<Mounted>, Without<MountSlot>),
     >,
     mut mounts: Query<
-        (&Mountable, &mut ambition_characters::control::ActorControl),
+        (
+            &Mountable,
+            &mut ambition_characters::control::ActorControl,
+            Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+        ),
         With<MountSlot>,
     >,
+    // The room the pair flies in, for the rider's clearance. Optional: a
+    // fixture without a session steers exactly as before.
+    rooms: Query<
+        &ae::RoomGeometry,
+        With<ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
+    >,
 ) {
-    for (riding, rider_control) in &riders {
-        let Ok((mountable, mut mount_control)) = mounts.get_mut(riding.mount) else {
+    let room = rooms.single().ok();
+    for (riding, rider_control, rider_kin) in &riders {
+        let Ok((mountable, mut mount_control, mount_motion)) = mounts.get_mut(riding.mount) else {
             continue;
         };
         if mountable.control_grant != ControlGrant::Total {
@@ -358,6 +376,70 @@ pub fn steer_mount_from_rider(
         mount_frame.locomotion = rider_frame.locomotion;
         mount_frame.velocity_target = rider_frame.velocity_target;
         mount_frame.facing = rider_frame.facing;
+        // ⛔ A MOUNT DOES NOT CARRY ITS RIDER INTO SOLID. The mount collides as
+        // its own box and the saddle sits a rider-height above it, so a pair
+        // climbing to the ceiling stopped with the RIDER inside the tiles, and
+        // a shark passing under a ledge pushed its rider through it (MEASURED
+        // by `room_census` in `pirate_sky_lookout`: a raider buried 92% of a
+        // fight in the ceiling, Iron Mary 19% in a ledge). Each axis of the
+        // pair's travel is limited by the RIDER's clearance along it — a sweep
+        // of the rider's box, not the mount's.
+        //
+        // ⚠ Not applied to a rider already inside solid: every sweep from in
+        // there reports a hit, and clamping would trap the pair where it is.
+        if let (Some(room), Some(rider_kin)) = (room, rider_kin) {
+            let down = mount_motion.map_or(ae::Vec2::new(0.0, 1.0), |motion| motion.basis().down);
+            let rider = ae::Aabb::new(rider_kin.pos, rider_kin.size * 0.5);
+            let solid = |block: &ae::Block| matches!(block.kind, ae::BlockKind::Solid);
+            let inside = room.0.blocks.iter().any(|block| {
+                solid(block)
+                    && block.aabb.min.x < rider.max.x - 0.5
+                    && block.aabb.max.x > rider.min.x + 0.5
+                    && block.aabb.min.y < rider.max.y - 0.5
+                    && block.aabb.max.y > rider.min.y + 0.5
+            });
+            if !inside {
+                let mut target = mount_frame.velocity_target.vec();
+                let across = ae::Vec2::new(-down.y, down.x);
+                for axis in [down, across] {
+                    let along = target.dot(axis);
+                    if along.abs() < 1e-3 {
+                        continue;
+                    }
+                    let dir = axis * along.signum();
+                    let reach = along.abs() * RIDER_CLEARANCE_LOOKAHEAD_S;
+                    let hit = room.0.first_body_sweep(rider, dir * reach, solid);
+                    let clearance = hit.as_ref().map_or(reach, |hit| hit.time_of_impact * reach);
+                    let allowed = clearance / RIDER_CLEARANCE_LOOKAHEAD_S;
+                    if allowed < along.abs() {
+                        let blocked = along.abs() - allowed;
+                        target -= dir * blocked;
+                        // A blocked RISE OR FALL goes round instead: toward
+                        // whichever end of the obstruction is nearer, so a pair
+                        // under a ledge flies out from under it rather than
+                        // hanging there (MEASURED: Iron Mary pinned under a
+                        // ledge 45% of a fight without this). The sideways
+                        // pass below clamps the detour in turn.
+                        if axis == down {
+                            if let Some(hit) = hit {
+                                let block = hit.block.aabb;
+                                let to_low = rider.max.dot(across).max(rider.min.dot(across))
+                                    - block.min.dot(across).min(block.max.dot(across));
+                                let to_high = block.max.dot(across).max(block.min.dot(across))
+                                    - rider.min.dot(across).min(rider.max.dot(across));
+                                let (way, detour) = if to_low <= to_high { (-1.0, to_low) } else { (1.0, to_high) };
+                                // Only round something with a near end: a
+                                // ledge, not the room's ceiling.
+                                if detour <= RIDER_DETOUR_MAX_PX {
+                                    target += across * way * blocked;
+                                }
+                            }
+                        }
+                    }
+                }
+                mount_frame.velocity_target = ae::WorldVec2(target);
+            }
+        }
         // drop-through is NOT hand-copied here, and does not need to be (.2): the rider's
         // descend intent already rides across in `locomotion`, and the jump edge is the mount's
         // own to decide.

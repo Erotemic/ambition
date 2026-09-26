@@ -201,7 +201,7 @@ pub fn step_motion(
         let launch = clusters.flight.take_launch();
         accept_external_launch(model, clusters, &ctx, launch, LaunchTravel::Applied);
     }
-    match model {
+    let mut result = match model {
         MotionModel::AxisSwept(axis) => {
             let events = super::update_body_with_frame_clusters(
                 ctx.world,
@@ -236,7 +236,21 @@ pub fn step_motion(
             result.events.ground_contact = baseline.transition_to(clusters.ground.on_ground);
             result
         }
+    };
+    // ⛔⛔ A HELD BODY DOES NOT LAND. Where it is was decided by its holder, so a
+    // surface it meets there is not an arrival of its own. A saddle that pinned
+    // its rider into a ceiling had the kernel eject her up onto the ceiling's
+    // top face, invalidated the baseline (correctly), and put her back — a
+    // `Landed` edge, and a `Land` sound, on every tick of the fight (MEASURED:
+    // 1,739 in 30 s in `pirate_sky_lookout`). The contact FACT is kept; only the
+    // edge that claims an arrival is withheld. A body landing after its holder
+    // lets go lands on the first free tick, as it should.
+    if ctx.pose_owned_externally
+        && matches!(result.events.ground_contact, GroundContactTransition::Landed { .. })
+    {
+        result.events.ground_contact = GroundContactTransition::Unchanged;
     }
+    result
 }
 
 #[derive(Clone, Copy, Debug)]

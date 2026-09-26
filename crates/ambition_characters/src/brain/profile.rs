@@ -179,6 +179,17 @@ pub struct BrainProfile {
     /// Unauthored is `0.0`: no floor. The engine holds no pacing number of its own.
     #[serde(default)]
     pub attack_cooldown_s: f32,
+    /// This driver CALLS OUT what it sees to allies that share sightings too,
+    /// and hears theirs: a foe one of them sees becomes a remembered sighting
+    /// for every ally within the caller's view (see
+    /// [`crate::perception::WorldMemory::hear`]). A crew, not a set of
+    /// strangers. Senses stay bounded — word travels only between bodies that
+    /// can see each other, and hearsay fades like any memory.
+    ///
+    /// Off by default: sharing trades away some of the juking bounded
+    /// perception exists for, so a character opts in.
+    #[serde(default)]
+    pub shares_sightings: bool,
 }
 
 impl Default for BrainProfile {
@@ -198,6 +209,7 @@ impl Default for BrainProfile {
             smash_duelist: false,
             provoke_forced_brute_min_aggro: None,
             attack_cooldown_s: 0.0,
+            shares_sightings: false,
         }
     }
 }

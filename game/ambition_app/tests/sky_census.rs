@@ -1,15 +1,20 @@
 //! Diagnostic census for combat/SFX activity in `pirate_sky_lookout`.
 //!
-//! The current headless harness leaves the targeted pirates inert, so this test
-//! is ignored rather than treating zero SFX as a valid scene result. Run it
-//! explicitly when diagnosing whether that harness reaches enemy combat.
+//! ⛔ SUPERSEDED by the `room_census` tool (`ambition_app_tools`), which
+//! attributes every `SfxMessage` kind to a body — this one counts `Play` only,
+//! so it could not hear the `Land` stream that was the room's audio fault.
+//!
+//! The "pirates are inert" note it was ignored under was a real finding with a
+//! game cause, not a harness one: the raiders are posted beyond a floor-standing
+//! player's 480x320 view, so they never saw him (2026-09-25; fixed by the crew
+//! call-out, pinned in `pirate_sky_crew`).
 
 use crate::common::fixed_60hz_room_sim;
 use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxMessage};
 use std::collections::HashMap;
 
 #[test]
-#[ignore = "instrument: the harness's pirates never fire, so this measures an inert room — see the module doc"]
+#[ignore = "instrument, superseded by the room_census tool — see the module doc"]
 fn pirate_sky_sfx_census() {
     let mut sim = fixed_60hz_room_sim("pirate_sky_lookout");
     let mut per_tick_worst = 0usize;

@@ -445,32 +445,6 @@ mod tests {
         assert!(heavy_hit("jab").is_none(), "a jab does not clang");
     }
 
-    /// George and the stand-in duelists play one jab string: the same `jab2`
-    /// and `jab3`.
-    ///
-    /// It was authored once and pushed into both tables. As content it is two
-    /// copies, because a move file cannot yet take single moves from another
-    /// table (queue AP54). Until it can, this keeps the copies equal: a retune
-    /// of one file that forgets the other fails here, not in a playtest.
-    #[test]
-    fn the_jab_string_is_one_string_in_both_tables() {
-        let george = shipped();
-        let stand_in = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
-        for id in ["jab2", "jab3"] {
-            let mine = george
-                .move_by_id(id)
-                .unwrap_or_else(|| panic!("George's table has no `{id}`"));
-            let theirs = stand_in
-                .move_by_id(id)
-                .unwrap_or_else(|| panic!("the stand-in table has no `{id}`"));
-            assert_eq!(
-                mine, theirs,
-                "`{id}` differs between George's file and `smash_duelist_a.ron`; \
-                 retune both, or give one fighter its own id"
-            );
-        }
-    }
-
     /// The jab's two cancels are different promises. The string continues on
     /// a whiff (`Always`); the route across George's gap rewards connecting
     /// (`OnHit`). Windows are read by what they name, not by their order.

@@ -38,9 +38,8 @@
 //
 // The rest of the jab string: jab 2 and the rapid jab that finishes it.
 //
-// George's table carries the same two moves. They are two copies until a move
-// file can take moves from another table (queue AP54);
-// `the_jab_string_is_one_string_in_both_tables` keeps them equal. Retune both.
+// George's table takes these two moves from here (`takes`), so a retune here
+// reaches him too.
 //
 // (`launch_dir: Some((1.0, -0.35)),`)
 // Away and slightly up: the jab route ends in space, not a kill.

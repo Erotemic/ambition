@@ -38,7 +38,9 @@ use ambition_content_pack::{
     SchemaVersion,
 };
 use ambition_entity_catalog::move_section::MoveSectionData;
-use ambition_entity_catalog::{EntityCatalogDoc, MovesetBorrow, MovesetContract};
+use ambition_entity_catalog::{
+    EntityCatalogDoc, EntityDef, MovesetBorrow, MovesetContract,
+};
 
 use crate::actor::character_catalog::content_schema::CHARACTERS_CAPABILITY;
 
@@ -108,7 +110,11 @@ impl ContentSchemaHandler for MovesetSchema {
         if !doc
             .entities
             .iter()
-            .any(|entity| entity.contracts.moveset.is_some() || entity.contracts.borrows.is_some())
+            .any(|entity| {
+                entity.contracts.moveset.is_some()
+                    || entity.contracts.borrows.is_some()
+                    || !entity.contracts.takes.is_empty()
+            })
         {
             out.report(
                 facet
@@ -127,11 +133,17 @@ impl ContentSchemaHandler for MovesetSchema {
 
         for entity in &doc.entities {
             let id = facet.content_id_in(MOVESET_SCHEMA, entity.id.clone());
-            // A borrow is part of what the entity says, so it moves the
-            // fingerprint. A table that borrows nothing keeps its old one.
-            let identity = match &entity.contracts.borrows {
-                Some(borrow) => canonical(&(borrow, &entity.contracts.moveset)),
-                None => canonical(&entity.contracts.moveset),
+            // A borrow or a take is part of what the entity says, so it moves
+            // the fingerprint. A table that borrows and takes nothing keeps its
+            // old one.
+            let identity = match (&entity.contracts.borrows, entity.contracts.takes.is_empty()) {
+                (None, true) => canonical(&entity.contracts.moveset),
+                (Some(borrow), true) => canonical(&(borrow, &entity.contracts.moveset)),
+                (borrow, false) => canonical(&(
+                    borrow,
+                    &entity.contracts.takes,
+                    &entity.contracts.moveset,
+                )),
             };
             out.define(id.clone(), identity);
         }
@@ -140,14 +152,16 @@ impl ContentSchemaHandler for MovesetSchema {
         // OWNS THEM. The alternative to reporting an `UnknownVerbMove` here is a
         // press that plays nothing, which reads in a playtest as "the button is
         // broken" rather than as a line number.
-        // A borrower's table is incomplete until `aggregate` lays it over its
-        // archetype, so it is validated there, whole.
+        // A borrower's or a taker's table is incomplete until `aggregate`
+        // resolves it against the other tables, so it is validated there, whole.
         let standalone = EntityCatalogDoc {
             schema_version: doc.schema_version,
             entities: doc
                 .entities
                 .iter()
-                .filter(|entity| entity.contracts.borrows.is_none())
+                .filter(|entity| {
+                    entity.contracts.borrows.is_none() && entity.contracts.takes.is_empty()
+                })
                 .cloned()
                 .collect(),
         };
@@ -191,40 +205,38 @@ impl ContentSchemaHandler for MovesetSchema {
         out: &mut AggregateOutcome,
     ) -> Aggregation {
         let mut table: MoveSectionData = BTreeMap::new();
-        let mut borrowers: Vec<(&str, &str, &MovesetBorrow, Option<&MovesetContract>)> =
-            Vec::new();
+        let mut borrowers: Vec<(&str, &EntityDef)> = Vec::new();
         for fragment in fragments {
             let Some(Fragment { doc }) = fragment.get::<Fragment>() else {
                 continue;
             };
             for entity in &doc.entities {
-                match (&entity.contracts.borrows, entity.contracts.moveset.as_ref()) {
-                    (Some(borrow), own) => borrowers.push((
-                        fragment.declared_path,
-                        entity.id.as_str(),
-                        borrow,
-                        own,
-                    )),
-                    (None, Some(moveset)) => {
+                let derived =
+                    entity.contracts.borrows.is_some() || !entity.contracts.takes.is_empty();
+                match (derived, entity.contracts.moveset.as_ref()) {
+                    (true, _) => borrowers.push((fragment.declared_path, entity)),
+                    (false, Some(moveset)) => {
                         table.insert(entity.id.clone(), moveset.clone());
                     }
-                    (None, None) => {}
+                    (false, None) => {}
                 }
             }
         }
-        // Borrowers resolve after every archetype is merged. An archetype must
-        // author its own table: a chain of borrows would make one fighter's
-        // numbers depend on the order files are read.
+        // Borrowers and takers resolve after every authored table is merged.
+        // The source must author its own table: a chain would make one
+        // fighter's numbers depend on the order files are read.
         let mut resolved = Vec::with_capacity(borrowers.len());
-        for (path, id, borrow, own) in borrowers {
-            match resolve_borrow(&table, id, borrow, own) {
+        for (path, entity) in borrowers {
+            let id = entity.id.as_str();
+            match resolve_derived(&table, entity) {
                 Ok(contract) => resolved.push((id.to_string(), contract)),
                 Err(problem) => out.report(
                     AggregateOutcome::refusal(DiagnosticCode::MalformedProviderBinding, problem)
                         .in_source(path)
                         .fix(
                             "name an archetype that authors its own table, and prefixes \
-                             that every one of its move ids carries",
+                             that every one of its move ids carries; take moves only from \
+                             an entity that authors them, by an id this table does not have",
                         ),
                 ),
             }
@@ -237,8 +249,59 @@ impl ContentSchemaHandler for MovesetSchema {
     }
 }
 
-/// A borrower's whole table: its archetype's under the borrower's name, with
-/// the borrower's own table laid over it, then validated like any table.
+/// A derived table, whole: the borrowed archetype's table under the borrower's
+/// name (or nothing), the entity's own table laid over it, then each taken move
+/// appended, and the result validated like any table.
+fn resolve_derived(table: &MoveSectionData, entity: &EntityDef) -> Result<MovesetContract, String> {
+    let id = entity.id.as_str();
+    let own = entity.contracts.moveset.as_ref();
+    let mut contract = match &entity.contracts.borrows {
+        Some(borrow) => resolve_borrow(table, id, borrow, own)?,
+        None => own.cloned().unwrap_or_default(),
+    };
+    for take in &entity.contracts.takes {
+        let source = table.get(&take.from).ok_or_else(|| {
+            format!(
+                "`{id}` takes moves from `{}`, which authors no table of its own in this pack",
+                take.from
+            )
+        })?;
+        for move_id in &take.moves {
+            let mv = source.move_by_id(move_id).ok_or_else(|| {
+                format!("`{id}` takes `{move_id}` from `{}`, which has no such move", take.from)
+            })?;
+            if contract.move_by_id(move_id).is_some() {
+                return Err(format!(
+                    "`{id}` takes `{move_id}` from `{}` and already has a move with that \
+                     id, so one id would name two different moves",
+                    take.from
+                ));
+            }
+            contract.moves.push(mv.clone());
+        }
+    }
+    let whole = EntityCatalogDoc {
+        schema_version: ambition_entity_catalog::ENTITY_CATALOG_SCHEMA_VERSION,
+        entities: vec![EntityDef {
+            id: id.to_string(),
+            contracts: ambition_entity_catalog::EntityContracts {
+                moveset: Some(contract.clone()),
+                ..Default::default()
+            },
+        }],
+    };
+    let problems: Vec<String> = whole.validate().iter().map(ToString::to_string).collect();
+    if !problems.is_empty() {
+        return Err(format!(
+            "`{id}`'s resolved table is not a valid table: {}",
+            problems.join("; ")
+        ));
+    }
+    Ok(contract)
+}
+
+/// A borrower's table: its archetype's under the borrower's name, with the
+/// borrower's own table laid over it. [`resolve_derived`] validates the whole.
 fn resolve_borrow(
     table: &MoveSectionData,
     id: &str,
@@ -273,24 +336,6 @@ fn resolve_borrow(
     };
     if let Some(own) = own {
         contract = contract.overlaid_with(own);
-    }
-    let whole = EntityCatalogDoc {
-        schema_version: ambition_entity_catalog::ENTITY_CATALOG_SCHEMA_VERSION,
-        entities: vec![ambition_entity_catalog::EntityDef {
-            id: id.to_string(),
-            contracts: ambition_entity_catalog::EntityContracts {
-                moveset: Some(contract.clone()),
-                ..Default::default()
-            },
-        }],
-    };
-    let problems: Vec<String> = whole.validate().iter().map(ToString::to_string).collect();
-    if !problems.is_empty() {
-        return Err(format!(
-            "`{id}`'s table, borrowed from `{}`, is not a valid table: {}",
-            borrow.archetype,
-            problems.join("; ")
-        ));
     }
     Ok(contract)
 }

@@ -92,6 +92,10 @@ def read(
     borrow: tuple[str, list[str]] | None = None
     in_prefixes = False
     for line in path.read_text().splitlines():
+        # A take joins moves from another table, which this reader does not
+        # resolve. Refuse it rather than count a table short.
+        if re.match(r"^\s*takes: \[", line):
+            raise SystemExit(f"{path.name}: `takes` is not resolved by this census yet")
         a = ARCHETYPE.match(line)
         if a:
             borrow = (a.group(1), [])

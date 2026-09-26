@@ -101,3 +101,23 @@ def test_one_move_declared_twice_under_one_entity_is_refused():
     with pytest.raises(SystemExit) as refusal:
         census.read(write(doubled))
     assert "twice" in str(refusal.value), str(refusal.value)
+
+
+def test_a_table_that_takes_moves_from_another_is_refused():
+    """A `takes` list adds moves from another table, which this reader does not
+    resolve. Counting the file without them would report the fighter short, so
+    the reader refuses it until it learns the rule."""
+    taker = ONE_ENTITY.replace(
+        """            contracts: (
+""",
+        """            contracts: (
+                takes: [
+                    (from: "other", moves: ["kick"]),
+                ],
+""",
+        1,
+    )
+    assert taker != ONE_ENTITY, "the edit did not apply to the fixture"
+    with pytest.raises(SystemExit) as refusal:
+        census.read(write(taker))
+    assert "takes" in str(refusal.value), str(refusal.value)

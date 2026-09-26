@@ -666,6 +666,105 @@ fn a_borrower_with_no_prefixes_wears_the_archetypes_table_unchanged() {
     assert!(table["twin"].move_by_id("duelist_jab").is_some(), "the table is empty");
 }
 
+/// A fighter that takes one move from another: its own jab cancels into the
+/// duelist's kick, which it takes rather than copies.
+const A_TAKER: &str = r#"(
+    schema_version: 1,
+    entities: [
+        (
+            id: "brawler",
+            contracts: (
+                takes: [(from: "duelist", moves: ["duelist_kick"])],
+                moveset: Some((
+                    verbs: { "attack": "brawler_punch" },
+                    moves: [
+                        (
+                            id: "brawler_punch",
+                            clip: (clip: "punch"),
+                            duration_s: 0.30,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.30, tag: Recovery, volumes: []),
+                                (start_s: 0.1, end_s: 0.30, tag: Cancelable(into: ["duelist_kick"], condition: Always), volumes: []),
+                            ],
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)"#;
+
+/// A taken move is the owner's move, unchanged and under its own id, and the
+/// taker's own table may name it. A copy would drift when the owner is tuned.
+#[test]
+fn a_taker_plays_the_taken_move_as_its_owner_authors_it() {
+    let pack = accept(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/brawler.ron", A_TAKER)]);
+    let table = lowered_movesets(&pack).expect("lowers");
+    let brawler = &table["brawler"];
+    assert_eq!(
+        brawler.move_by_id("duelist_kick"),
+        table["duelist"].move_by_id("duelist_kick"),
+        "the taken move is not the owner's move"
+    );
+    let ids: Vec<&str> = brawler.moves.iter().map(|mv| mv.id.as_str()).collect();
+    assert_eq!(ids, ["brawler_punch", "duelist_kick"], "own moves first, then the taken ones");
+    assert!(brawler.move_by_id("duelist_jab").is_none(), "a take is not a borrow of the table");
+
+    let retimed = AN_ARCHETYPE
+        .replace("duration_s: 0.60", "duration_s: 0.70")
+        .replace("(start_s: 0.0, end_s: 0.60, tag: Recovery", "(start_s: 0.0, end_s: 0.70, tag: Recovery");
+    assert_ne!(retimed, AN_ARCHETYPE, "the edit applied to the fixture");
+    let pack = accept(&[("moves/duelist.ron", &retimed), ("moves/brawler.ron", A_TAKER)]);
+    assert_eq!(
+        lowered_movesets(&pack).expect("lowers")["brawler"]
+            .move_by_id("duelist_kick")
+            .map(|kick| kick.duration_s),
+        Some(0.70),
+        "retuning the owner did not retune the taker"
+    );
+}
+
+fn own_kick_again() -> String {
+    A_TAKER
+        .replace(r#"id: "brawler_punch""#, r#"id: "duelist_kick""#)
+        .replace(r#""attack": "brawler_punch""#, r#""attack": "duelist_kick""#)
+}
+
+/// Each way a take can be wrong is refused at compile time, naming the taker's
+/// file.
+#[test]
+fn a_take_that_cannot_resolve_is_refused_and_names_its_file() {
+    let own_kick = own_kick_again();
+    for (why, taker) in [
+        ("a source the pack does not author", A_TAKER.replace(r#"from: "duelist""#, r#"from: "nobody""#)),
+        ("a move the source does not have", A_TAKER.replace(r#"moves: ["duelist_kick"]"#, r#"moves: ["duelist_nothing"]"#)),
+        ("an id the taker already authors", own_kick),
+    ] {
+        assert_ne!(taker, A_TAKER, "{why}: the edit applied to the fixture");
+        let failure = refuse(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/brawler.ron", &taker)]);
+        let text = format!("{failure:?}");
+        assert!(text.contains("moves/brawler.ron"), "{why}: the refusal does not name the taker's file: {text}");
+    }
+    // The collision is also a duplicate id to the whole-table validator, which
+    // would refuse it anyway. The take's own refusal is asked for by its words,
+    // because it tells the author which take to change.
+    let failure = refuse(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/brawler.ron", &own_kick_again())]);
+    assert!(
+        format!("{failure:?}").contains("already has a move with that"),
+        "the collision was refused only as a duplicate id, which does not name the take"
+    );
+    // A take from a taker is a chain, refused like a borrow of a borrower.
+    let second = A_TAKER
+        .replace(r#"id: "brawler""#, r#"id: "scrapper""#)
+        .replace(r#"from: "duelist""#, r#"from: "brawler""#)
+        .replace("brawler_punch", "scrapper_punch");
+    refuse(&[
+        ("moves/duelist.ron", AN_ARCHETYPE),
+        ("moves/brawler.ron", A_TAKER),
+        ("moves/scrapper.ron", &second),
+    ]);
+}
+
 /// An archetype must author its own table: a borrow of a borrower is refused.
 #[test]
 fn a_chain_of_borrows_is_refused() {

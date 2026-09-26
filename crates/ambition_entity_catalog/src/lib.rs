@@ -3771,8 +3771,30 @@ pub struct EntityContracts {
     /// declared before the table so a file states what it borrows first.
     #[serde(default)]
     pub borrows: Option<MovesetBorrow>,
+    /// Single moves taken from other entities' tables, as they are, under
+    /// their own ids. See [`MovesetTake`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub takes: Vec<MovesetTake>,
     #[serde(default)]
     pub moveset: Option<MovesetContract>,
+}
+
+/// Moves taken from another entity's table, by id.
+///
+/// Two fighters that play one move (a shared jab string, a shared taunt)
+/// state it once: the owner authors it, and the other names it here. A copy in
+/// each file drifts when one copy is tuned.
+///
+/// The taken moves keep their ids, like a borrow with no prefixes, so a taken
+/// move is the same move on both fighters. A taker that also authors a move
+/// with a taken id is refused: one id would name two different moves.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MovesetTake {
+    /// The entity whose table holds the moves. It authors its own table.
+    pub from: String,
+    /// The ids of the moves to take, in the order they join the table.
+    pub moves: Vec<String>,
 }
 
 /// A move table borrowed from another entity under the borrower's own name.

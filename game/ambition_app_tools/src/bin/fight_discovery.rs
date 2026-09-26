@@ -418,6 +418,11 @@ struct Beat {
     telegraph_s: f32,
     strike_s: f32,
     rest_after_s: f32,
+    /// Something other than the boss's own next move ended it: the record
+    /// stopped (a kill, the time cap) or the encounter changed phase inside it,
+    /// which restarts the script. Its strike or rest is a cut-off, not a length
+    /// the pattern chose, so the per-move medians leave it out.
+    cut: bool,
 }
 
 /// Cut the record into beats. A beat starts when the live move changes or when
@@ -435,6 +440,11 @@ fn beats(ticks: &[Tick]) -> Vec<Beat> {
                     }
                 };
                 if fresh {
+                    // The phase changing as the next move starts ends the one
+                    // before it too: the new phase's script started the move.
+                    if let Some(before) = out.last_mut() {
+                        before.cut |= before.phase != tick.phase;
+                    }
                     out.push(Beat {
                         profile: profile.clone(),
                         phase: tick.phase.clone(),
@@ -442,9 +452,11 @@ fn beats(ticks: &[Tick]) -> Vec<Beat> {
                         telegraph_s: 0.0,
                         strike_s: 0.0,
                         rest_after_s: 0.0,
+                        cut: false,
                     });
                 }
                 let beat = out.last_mut().expect("a beat was just started");
+                beat.cut |= beat.phase != tick.phase;
                 match stage {
                     Stage::Telegraph => beat.telegraph_s += DT,
                     Stage::Strike => beat.strike_s += DT,
@@ -453,10 +465,15 @@ fn beats(ticks: &[Tick]) -> Vec<Beat> {
             (None, _) => {
                 if let Some(beat) = out.last_mut() {
                     beat.rest_after_s += DT;
+                    beat.cut |= beat.phase != tick.phase;
                 }
             }
         }
         last = tick.beat.clone();
+    }
+    // The record ended inside the last beat: whatever it measured was cut off.
+    if let Some(last) = out.last_mut() {
+        last.cut = true;
     }
     out
 }
@@ -505,8 +522,18 @@ fn summarize(run: &Run) -> Summary {
     let mut damage_sources: BTreeMap<String, i32> = BTreeMap::new();
     let mut hits_dealt = 0;
     let mut damage_dealt = 0;
+    // Where the player's damage landed: the move live when the boss lost
+    // health, or the rest after the last one, and the phase it fell in. A phase
+    // that loses its health far faster than the others is one the player skips.
+    let mut damage_windows: BTreeMap<String, i32> = BTreeMap::new();
+    let mut hit_sizes: Vec<i32> = Vec::new();
+    let mut hp_lost_by_phase: BTreeMap<String, i32> = BTreeMap::new();
+    let mut last_move: Option<&str> = None;
     for pair in ticks.windows(2) {
         let (a, b) = (&pair[0], &pair[1]);
+        if let Some((profile, _)) = &a.beat {
+            last_move = Some(profile.as_str());
+        }
         if b.player_hp < a.player_hp {
             hits_taken += 1;
             damage_taken += a.player_hp - b.player_hp;
@@ -516,6 +543,13 @@ fn summarize(run: &Run) -> Summary {
         if b.boss_hp < a.boss_hp {
             hits_dealt += 1;
             damage_dealt += a.boss_hp - b.boss_hp;
+            hit_sizes.push(a.boss_hp - b.boss_hp);
+            let window = match b.beat.as_ref().or(a.beat.as_ref()) {
+                Some((profile, _)) => profile.clone(),
+                None => format!("after {}", last_move.unwrap_or("nothing")),
+            };
+            *damage_windows.entry(window).or_default() += a.boss_hp - b.boss_hp;
+            *hp_lost_by_phase.entry(b.phase.clone()).or_default() += a.boss_hp - b.boss_hp;
         }
     }
     // Threat density and time, per phase.
@@ -536,6 +570,7 @@ fn summarize(run: &Run) -> Summary {
                     "seconds": seconds,
                     "threat_density": density / n,
                     "threatened_fraction": threatened / n,
+                    "boss_hp_lost": hp_lost_by_phase.get(phase).copied().unwrap_or(0),
                 }),
             )
         })
@@ -572,6 +607,8 @@ fn summarize(run: &Run) -> Summary {
         "damage_sources": damage_sources,
         "hits_dealt": hits_dealt,
         "damage_dealt": damage_dealt,
+        "damage_windows": damage_windows,
+        "hit_sizes": hit_sizes,
         "boss_hp": [ticks.first().map_or(0, |t| t.boss_hp), ticks.last().map_or(0, |t| t.boss_hp)],
         "player_hp": [ticks.first().map_or(0, |t| t.player_hp), ticks.iter().map(|t| t.player_hp).min().unwrap_or(0), ticks.last().map_or(0, |t| t.player_hp)],
         "phases": phases,
@@ -588,25 +625,47 @@ fn summarize(run: &Run) -> Summary {
 
 // ── Findings ─────────────────────────────────────────────────────────────────
 
-/// Per-move shape across every run: (occurrences, median telegraph, median
-/// strike, median rest after, phases it appears in).
-fn move_table(all: &[(Run, Summary)]) -> BTreeMap<String, (usize, f32, f32, f32, Vec<String>)> {
-    let mut grouped: BTreeMap<String, (Vec<f32>, Vec<f32>, Vec<f32>, Vec<String>)> = BTreeMap::new();
+/// One move's shape across every run.
+struct MoveShape {
+    /// Occurrences, cut ones included.
+    beats: usize,
+    /// Of those, the ones something else ended (see [`Beat::cut`]).
+    cut: usize,
+    /// Medians over the WHOLE beats only; `None` when every beat was cut.
+    telegraph: Option<f32>,
+    strike: Option<f32>,
+    rest: Option<f32>,
+    phases: Vec<String>,
+}
+
+/// Per-move shape across every run.
+fn move_table(all: &[(Run, Summary)]) -> BTreeMap<String, MoveShape> {
+    let mut grouped: BTreeMap<String, (Vec<&Beat>, Vec<String>)> = BTreeMap::new();
     for (_, summary) in all {
         for beat in &summary.beats {
             let entry = grouped.entry(beat.profile.clone()).or_default();
-            entry.0.push(beat.telegraph_s);
-            entry.1.push(beat.strike_s);
-            entry.2.push(beat.rest_after_s);
-            if !entry.3.contains(&beat.phase) {
-                entry.3.push(beat.phase.clone());
+            entry.0.push(beat);
+            if !entry.1.contains(&beat.phase) {
+                entry.1.push(beat.phase.clone());
             }
         }
     }
     grouped
         .into_iter()
-        .map(|(profile, (tel, strike, rest, phases))| {
-            (profile, (tel.len(), median(tel), median(strike), median(rest), phases))
+        .map(|(profile, (beats, phases))| {
+            let whole: Vec<&&Beat> = beats.iter().filter(|b| !b.cut).collect();
+            let of = |f: fn(&Beat) -> f32| {
+                (!whole.is_empty()).then(|| median(whole.iter().map(|b| f(b)).collect()))
+            };
+            let shape = MoveShape {
+                beats: beats.len(),
+                cut: beats.len() - whole.len(),
+                telegraph: of(|b| b.telegraph_s),
+                strike: of(|b| b.strike_s),
+                rest: of(|b| b.rest_after_s),
+                phases,
+            };
+            (profile, shape)
         })
         .collect()
 }
@@ -620,7 +679,12 @@ fn findings(all: &[(Run, Summary)]) -> Vec<String> {
             out.push(line);
         }
     };
-    for (profile, (n, tel, strike, rest, _)) in move_table(all) {
+    for (profile, shape) in move_table(all) {
+        // Only whole beats say what the pattern chose.
+        let (Some(tel), Some(strike), Some(rest)) = (shape.telegraph, shape.strike, shape.rest) else {
+            continue;
+        };
+        let n = shape.beats - shape.cut;
         if tel > 0.0 && tel < 0.35 {
             push(&mut out, format!("`{profile}`: telegraph {tel:.2}s (x{n}) is under 0.35s — hard to read before it lands (telegraph grammar)."));
         }
@@ -715,24 +779,41 @@ fn report(options: &Options, all: &[(Run, Summary)]) -> String {
         );
     }
     let _ = writeln!(md, "\n## Moves (all runs)\n");
+    let _ = writeln!(
+        md,
+        "Medians are over WHOLE beats: one the record's end or a phase change cut off (`cut`) measured the interruption, not a length the pattern chose.\n"
+    );
     let _ = writeln!(md, "| move | beats | telegraph (median) | strike (median) | rest after (median) | phases |");
     let _ = writeln!(md, "|---|---|---|---|---|---|");
-    for (profile, (n, tel, strike, rest, phases)) in move_table(all) {
-        let _ = writeln!(md, "| `{profile}` | {n} | {tel:.2}s | {strike:.2}s | {rest:.2}s | {} |", phases.join(", "));
+    for (profile, shape) in move_table(all) {
+        let secs = |v: Option<f32>| v.map_or("—".to_string(), |v| format!("{v:.2}s"));
+        let beats = match shape.cut {
+            0 => shape.beats.to_string(),
+            cut => format!("{} ({cut} cut)", shape.beats),
+        };
+        let _ = writeln!(
+            md,
+            "| `{profile}` | {beats} | {} | {} | {} | {} |",
+            secs(shape.telegraph),
+            secs(shape.strike),
+            secs(shape.rest),
+            shape.phases.join(", ")
+        );
     }
     let _ = writeln!(md, "\n## Threat by phase\n");
-    let _ = writeln!(md, "| policy | seed | phase | seconds | threat density | threatened |");
-    let _ = writeln!(md, "|---|---|---|---|---|---|");
+    let _ = writeln!(md, "| policy | seed | phase | seconds | threat density | threatened | boss hp lost |");
+    let _ = writeln!(md, "|---|---|---|---|---|---|---|");
     for (run, summary) in all {
         for (phase, v) in summary.json["phases"].as_object().into_iter().flatten() {
             let _ = writeln!(
                 md,
-                "| {} | {} | {phase} | {:.1} | {:.4} | {:.0}% |",
+                "| {} | {} | {phase} | {:.1} | {:.4} | {:.0}% | {} |",
                 run.policy.as_str(),
                 run.seed,
                 v["seconds"].as_f64().unwrap_or(0.0),
                 v["threat_density"].as_f64().unwrap_or(0.0),
                 100.0 * v["threatened_fraction"].as_f64().unwrap_or(0.0),
+                v["boss_hp_lost"].as_i64().unwrap_or(0),
             );
         }
     }
@@ -754,6 +835,15 @@ fn report(options: &Options, all: &[(Run, Summary)]) -> String {
             let _ = writeln!(md, "- {} seed {}: {}", run.policy.as_str(), run.seed, list.join(", "));
         }
     }
+    let _ = writeln!(md, "\n## Where the player's damage landed\n");
+    let _ = writeln!(md, "The move live when the boss lost health, or the rest after one.\n");
+    for (run, summary) in all {
+        let windows = summary.json["damage_windows"].as_object().cloned().unwrap_or_default();
+        if !windows.is_empty() {
+            let list: Vec<String> = windows.iter().map(|(k, v)| format!("`{k}` {v}")).collect();
+            let _ = writeln!(md, "- {} seed {}: {}", run.policy.as_str(), run.seed, list.join(", "));
+        }
+    }
     // The choreography: the longest run shows the most of the boss's sequence.
     if let Some((run, summary)) = all.iter().max_by_key(|(r, _)| r.ticks.len()) {
         let _ = writeln!(md, "\n## Choreography ({} seed {}, {} beats)\n", run.policy.as_str(), run.seed, summary.beats.len());
@@ -767,8 +857,14 @@ fn report(options: &Options, all: &[(Run, Summary)]) -> String {
             }
             let _ = writeln!(
                 md,
-                "  {:6.1}  {:<11}  {:<20}  {:>8.2}s  {:>5.2}s  {:>8.2}s",
-                beat.start, beat.phase, beat.profile, beat.telegraph_s, beat.strike_s, beat.rest_after_s
+                "  {:6.1}  {:<11}  {:<20}  {:>8.2}s  {:>5.2}s  {:>8.2}s{}",
+                beat.start,
+                beat.phase,
+                beat.profile,
+                beat.telegraph_s,
+                beat.strike_s,
+                beat.rest_after_s,
+                if beat.cut { "  (cut)" } else { "" }
             );
         }
         let _ = writeln!(md, "```");
@@ -801,6 +897,7 @@ fn main() {
                     serde_json::json!({
                         "move": b.profile, "phase": b.phase, "t": b.start,
                         "telegraph_s": b.telegraph_s, "strike_s": b.strike_s, "rest_after_s": b.rest_after_s,
+                        "cut": b.cut,
                     })
                 })
                 .collect();
@@ -855,5 +952,52 @@ mod tests {
         assert_eq!(names, ["slam", "slam", "sweep"]);
         assert!((found[0].rest_after_s - DT).abs() < 1e-6, "one quiet tick after the first slam");
         assert_eq!(found[1].rest_after_s, 0.0, "the second slam runs straight into the sweep");
+    }
+
+    /// A beat ended by something other than the boss's next move measured the
+    /// interruption. The fight ending on a kill read as "no rest after the
+    /// pair slam" (0.00s, its strike cut at 0.72 of 2.0s), and a phase change
+    /// restarting the script read the same way; both fired the commitment
+    /// finding for a move whose authored rest is 0.8s.
+    #[test]
+    fn a_beat_the_record_or_a_phase_change_ends_is_cut_and_left_out_of_the_medians() {
+        use Stage::*;
+        let mut ticks = Vec::new();
+        let mut push = |phase: &str, beat: Option<(&str, Stage)>| {
+            let mut t = tick(ticks.len() as f32 * DT, beat);
+            t.phase = phase.into();
+            ticks.push(t);
+        };
+        // A whole slam: telegraph, strike, 3 quiet ticks, then the sweep.
+        push("Phase1", Some(("slam", Telegraph)));
+        push("Phase1", Some(("slam", Strike)));
+        for _ in 0..3 {
+            push("Phase1", None);
+        }
+        push("Phase1", Some(("sweep", Telegraph)));
+        push("Phase1", Some(("sweep", Strike)));
+        // The phase changes inside the sweep's rest — the change lands on a
+        // quiet tick, so the sweep's last tick is already Phase2 (the shape
+        // the pair slam had before Enrage in every run)…
+        push("Phase1", None);
+        push("Phase2", None);
+        push("Phase2", Some(("slam", Telegraph)));
+        // …and the record ends three ticks into a strike (longer than the whole
+        // slam's one, so counting it would move the median).
+        for _ in 0..3 {
+            push("Phase2", Some(("slam", Strike)));
+        }
+        let found = beats(&ticks);
+        let cut: Vec<(&str, bool)> = found.iter().map(|b| (b.profile.as_str(), b.cut)).collect();
+        assert_eq!(cut, [("slam", false), ("sweep", true), ("slam", true)]);
+
+        let run = Run { policy: Policy::Sandbag, seed: 0, arena_area: 1.0, ticks, outcome: "timeout" };
+        let summary = Summary { json: serde_json::Value::Null, beats: found };
+        let table = move_table(&[(run, summary)]);
+        let slam = &table["slam"];
+        assert_eq!((slam.beats, slam.cut), (2, 1));
+        assert!((slam.rest.expect("one whole slam") - 3.0 * DT).abs() < 1e-6, "the whole slam's rest, not the cut one's 0");
+        assert!((slam.strike.expect("one whole slam") - DT).abs() < 1e-6, "the whole slam's strike, not the cut one's");
+        assert_eq!(table["sweep"].rest, None, "every sweep was cut: nothing to say about its rest");
     }
 }

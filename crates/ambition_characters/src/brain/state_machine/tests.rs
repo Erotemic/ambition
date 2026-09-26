@@ -1044,3 +1044,55 @@ mod perception_requirement_tests {
         assert_eq!(levels, [Need::None, Need::TargetBelief, Need::TacticalWorld]);
     }
 }
+
+/// Fly `ticks` with no foe in view, integrating the brain's own velocity, and
+/// return (farthest it got from where it started, slowest speed seen, whether it fired).
+fn idle_flight(sm: &mut StateMachineCfg, start: ae::Vec2, ticks: usize, aerial: bool) -> (f32, f32, bool) {
+    let dt = 1.0 / 60.0;
+    let (mut pos, mut far, mut slowest, mut fired) = (start, 0.0_f32, f32::MAX, false);
+    let mut out = crate::actor::control::ActorControlFrame::default();
+    for i in 0..ticks {
+        let mut s = BrainSnapshot::idle();
+        s.actor_pos = pos;
+        s.actor_aerial = aerial;
+        s.target_alive = false;
+        s.sim_time = i as f32 * dt;
+        s.dt = dt;
+        tick_simple_state_machine(sm, &s, &mut out);
+        pos += out.velocity_target.vec() * dt;
+        far = far.max((pos - start).length());
+        slowest = slowest.min(out.velocity_target.length());
+        fired |= out.fire.is_some();
+    }
+    (far, slowest, fired)
+}
+
+/// A FLYING skirmisher with nobody to fight sweeps its post; it does not hang
+/// motionless in the air (MEASURED: three pirate riders at 0% moving for a
+/// whole fight in `pirate_sky_lookout`). A grounded one still stands.
+#[test]
+fn a_flying_skirmisher_with_no_foe_sweeps_its_post_and_a_grounded_one_stands() {
+    let cfg = SkirmisherCfg::RANGER_DEFAULT;
+    let start = ae::Vec2::new(400.0, 200.0);
+    let mut flyer = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+    let (far, _, fired) = idle_flight(&mut flyer, start, 1200, true);
+    assert!(far > 40.0, "a flyer with no foe should sweep, it got {far} px from its post");
+    assert!(far < 250.0, "and stay at its post: it wandered {far} px");
+    assert!(!fired, "nobody to shoot at");
+
+    let mut walker = StateMachineCfg::Skirmisher { cfg, state: SkirmisherState::default() };
+    let (far, _, _) = idle_flight(&mut walker, start, 600, false);
+    assert_eq!(far, 0.0, "a grounded skirmisher with no foe stands where it is");
+}
+
+/// A hunting bird with no prey circles its roost; it does not park on its
+/// anchor (MEASURED: a stochastic parrot at 0% moving for a whole fight).
+#[test]
+fn a_hostile_bird_with_no_prey_circles_its_roost() {
+    let cfg = aerial_cfg(1.0);
+    let mut bird = StateMachineCfg::Aerial { cfg, state: AerialState::default() };
+    let start = ae::Vec2::new(500.0, 300.0);
+    let (far, _, _) = idle_flight(&mut bird, start, 900, true);
+    assert!(far > 30.0, "a hunting bird with no prey should patrol, it got {far} px from its roost");
+    assert!(far <= cfg.roam_radius * 1.6, "and stay by its roost: {far} px");
+}

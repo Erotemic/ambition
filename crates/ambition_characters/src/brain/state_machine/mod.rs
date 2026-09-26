@@ -545,13 +545,14 @@ fn tick_skirmisher(
         state.orbit_phase -= std::f32::consts::TAU;
     }
     if !snapshot.target_alive {
+        skirmisher_idle(cfg, state, snapshot, out);
         return;
     }
     let to_target_raw = snapshot.target_pos - snapshot.actor_pos;
     let to_target_local = snapshot.target_delta_local();
     let raw_dist = to_target_raw.length();
     if raw_dist > cfg.aggro_radius {
-        state.mode = crate::actor::ai::CharacterAiMode::Idle;
+        skirmisher_idle(cfg, state, snapshot, out);
         return;
     }
     state.mode = crate::actor::ai::CharacterAiMode::Chase;
@@ -603,6 +604,39 @@ fn tick_skirmisher(
         ));
         state.cooldown_remaining = cfg.fire_cooldown_s;
         state.mode = crate::actor::ai::CharacterAiMode::Attack;
+    }
+}
+
+/// A Skirmisher with nobody to fight. On the ground it stands; in the air it
+/// SWEEPS — a lazy figure-eight about where it is, on the orbit clock it
+/// already keeps, and spread from its crew. A flyer that hangs motionless
+/// reads as broken (MEASURED in `pirate_sky_lookout`: three riders at 0%
+/// moving for a whole fight, waiting for a player they could not see).
+///
+/// Bounded by construction: the velocity is periodic in the phase, so the body
+/// returns where it started each cycle — about `0.4 × speed / drift` px either
+/// side — and never wanders off its post.
+fn skirmisher_idle(
+    cfg: &SkirmisherCfg,
+    state: &mut SkirmisherState,
+    snapshot: &BrainSnapshot,
+    out: &mut crate::actor::control::ActorControlFrame,
+) {
+    state.mode = crate::actor::ai::CharacterAiMode::Idle;
+    if !snapshot.actor_aerial {
+        return;
+    }
+    let sweep = frame_to_world(
+        snapshot,
+        ae::LocalAxes::new(0.4 * state.orbit_phase.cos(), 0.15 * (2.0 * state.orbit_phase).cos()),
+    );
+    out.velocity_target = apply_flying_separation(
+        ae::WorldVec2(sweep.vec() * cfg.strafe_speed),
+        cfg.strafe_speed,
+        snapshot,
+    );
+    if sweep.vec().x.abs() > 1e-3 {
+        out.facing = sweep.vec().x.signum();
     }
 }
 
@@ -883,6 +917,24 @@ fn aerial_pick_waypoint(
     state.waypoint = anchor + frame.to_world(ae::Vec2::new(dx, dy));
 }
 
+/// A hostile bird's next patrol point: always in the air about its roost (a
+/// hunting bird does not stop to walk).
+///
+/// ⛔ SEEDED BY THE BIRD, NOT THE CLOCK. Each point is hashed from the roost and
+/// the point before it, so a bird's patrol is the same path whenever its room
+/// is entered. Hashed on sim time (as the lively picker is), a re-entered room
+/// flew a different patrol than a fresh one and `canonical_reconstitution`
+/// caught the drift.
+fn aerial_pick_roost_waypoint(cfg: &AerialCfg, state: &mut AerialState, frame: ae::AccelerationFrame) {
+    let anchor = state.anchor;
+    let last = state.waypoint;
+    let h1 = aerial_hash01(last.x * 0.37 + last.y * 0.29 + anchor.x * 0.13);
+    let h2 = aerial_hash01(last.y * 0.71 + last.x * 0.11 + anchor.y * 0.17 + 3.3);
+    let dx = (h1 - 0.5) * 2.0 * cfg.roam_radius;
+    let dy = (h2 - 0.5) * cfg.roam_radius;
+    state.waypoint = anchor + frame.to_world(ae::Vec2::new(dx, dy));
+}
+
 fn tick_aerial(
     cfg: &AerialCfg,
     state: &mut AerialState,
@@ -1008,14 +1060,19 @@ fn tick_aerial_hostile(
     }
 
     if !snapshot.target_alive {
-        // No prey: loiter near the captured anchor.
+        // No prey: circle the roost, waypoint to waypoint, instead of parking on
+        // its anchor (MEASURED: a parrot at 0% moving for a whole fight).
         state.mode = CharacterAiMode::Patrol;
-        let delta = state.anchor - pos;
-        out.velocity_target = ae::WorldVec2(if delta.length() > 12.0 {
-            delta.normalize_or_zero() * cfg.cruise_speed
-        } else {
-            ae::Vec2::ZERO
-        });
+        let stray = (state.waypoint - state.anchor).length() > cfg.roam_radius * 1.5;
+        if stray || (state.waypoint - pos).length() < 16.0 {
+            aerial_pick_roost_waypoint(cfg, state, snapshot.acceleration_frame());
+        }
+        let delta = state.waypoint - pos;
+        out.velocity_target = apply_flying_separation(
+            ae::WorldVec2(delta.normalize_or_zero() * cfg.cruise_speed * 0.6),
+            cfg.cruise_speed,
+            snapshot,
+        );
         return;
     }
 

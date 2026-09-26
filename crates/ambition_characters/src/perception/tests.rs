@@ -870,3 +870,33 @@ fn assert_memories_agree(a: &WorldMemory, b: &WorldMemory, when: &str) {
     };
     assert_eq!(key(a), key(b), "{when}: the two folds disagree");
 }
+
+/// Word of a foe fills a gap in what a body knows, never overrules what it
+/// sees, and is not told on.
+#[test]
+fn a_heard_sighting_fills_a_gap_and_never_overrules_sight() {
+    let seen = RememberedActor {
+        pos: ae::Vec2::new(10.0, 20.0),
+        vel: ae::Vec2::ZERO,
+        faction: ActorFaction::Player,
+        hostile_to_self: true,
+        last_seen: 1.0,
+        confidence: 1.0,
+    };
+    let heard = RememberedActor { pos: ae::Vec2::new(99.0, 99.0), confidence: WorldMemory::HEARSAY_CONFIDENCE, ..seen };
+
+    let mut deaf = WorldMemory::default();
+    deaf.hear("player", heard);
+    assert_eq!(deaf.last_known_hostile().map(|m| m.pos), Some(heard.pos), "word of a foe is a belief");
+    assert_eq!(deaf.hostiles_in_view().count(), 0, "hearsay is not re-told");
+
+    let mut sighted = WorldMemory::default();
+    sighted.update_from_seen(
+        1.0,
+        1.0 / 60.0,
+        [SeenActor { id: "player", pos: seen.pos, vel: seen.vel, faction: seen.faction, hostile_to_self: true }].into_iter(),
+    );
+    sighted.hear("player", heard);
+    assert_eq!(sighted.last_known_hostile().map(|m| m.pos), Some(seen.pos), "what it sees wins");
+    assert_eq!(sighted.hostiles_in_view().count(), 1, "and what it sees it can call out");
+}

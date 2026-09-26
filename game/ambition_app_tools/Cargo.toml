@@ -117,6 +117,13 @@ name = "fight_discovery"
 path = "src/bin/fight_discovery.rs"
 bench = false
 
+# Room census: run an encounter room headlessly and measure what its bodies do
+# (ceiling contact, vertical dithering, sounds by kind and stutter).
+[[bin]]
+name = "room_census"
+path = "src/bin/room_census.rs"
+bench = false
+
 [[bin]]
 name = "rl_random_walker"
 path = "src/bin/rl_random_walker.rs"

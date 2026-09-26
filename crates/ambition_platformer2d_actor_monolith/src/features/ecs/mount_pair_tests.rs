@@ -630,6 +630,77 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     );
 }
 
+/// A mount does not carry its rider into solid: each axis of the pair's travel
+/// is limited by the RIDER's clearance, and the rider sits a saddle-height above
+/// the mount's own box. MEASURED before: a pirate raider rode inside the ceiling
+/// 92% of a fight, and Iron Mary 19% inside a ledge her shark passed under.
+#[test]
+fn a_mount_travels_no_faster_than_its_rider_has_clearance() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::control::ActorControl;
+
+    // A ceiling (y 0..32) and a ledge (x 600..800, y 300..316).
+    let steered = |rider_pos: ae::Vec2, asked: ae::Vec2| -> ae::Vec2 {
+        let mut app = build_app();
+        app.add_systems(Update, steer_mount_from_rider);
+        app.world_mut().spawn((
+            ambition_platformer2d_shared_tangle::lifecycle::SessionRoot(
+                ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(1),
+            ),
+            ae::RoomGeometry(ae::World::new(
+                "lookout",
+                ae::Vec2::new(1000.0, 600.0),
+                ae::Vec2::new(500.0, 500.0),
+                vec![
+                    ae::Block::solid("ceiling", ae::Vec2::ZERO, ae::Vec2::new(1000.0, 32.0)),
+                    ae::Block::solid("ledge", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(200.0, 16.0)),
+                ],
+            )),
+        ));
+        let mount = app
+            .world_mut()
+            .spawn((
+                Mountable::at(ae::Vec2::new(0.0, -70.0)),
+                MountSlot { rider: None },
+                ActorControl(ActorControlFrame::neutral()),
+            ))
+            .id();
+        let mut rider_frame = ActorControlFrame::neutral();
+        rider_frame.velocity_target = ae::WorldVec2(asked);
+        let rider = app
+            .world_mut()
+            .spawn((
+                ambition_mount::rider_of(mount),
+                ActorControl(rider_frame),
+                ae::BodyKinematics { pos: rider_pos, vel: ae::Vec2::ZERO, size: ae::Vec2::new(40.0, 56.0), facing: 1.0 },
+            ))
+            .id();
+        app.world_mut().entity_mut(mount).insert(MountSlot { rider: Some(rider) });
+        app.update();
+        app.world().entity(mount).get::<ActorControl>().unwrap().0.velocity_target.vec()
+    };
+    let under_ceiling = |gap: f32| ae::Vec2::new(300.0, 32.0 + gap + 28.0);
+    let up = ae::Vec2::new(0.0, -200.0);
+    // 10 px of clearance at a 0.25 s look-ahead allows 40 px/s.
+    let tight = steered(under_ceiling(10.0), up);
+    assert!((tight.y + 40.0).abs() < 1.0, "a rider 10 px under the ceiling climbs at {} px/s", -tight.y);
+    assert!(steered(under_ceiling(0.0), up).y.abs() < 1e-3, "a rider at the ceiling does not climb");
+    assert_eq!(steered(under_ceiling(200.0), up), up, "a rider with room to spare climbs as asked");
+    // Sideways into the ledge: the rider's box, level with it, 10 px short.
+    let beside_ledge = ae::Vec2::new(600.0 - 10.0 - 20.0, 308.0);
+    let across = steered(beside_ledge, ae::Vec2::new(200.0, 0.0));
+    assert!((across.x - 40.0).abs() < 1.0, "a rider 10 px from a ledge closes at {} px/s", across.x);
+    // Under the ledge near its right end, a blocked climb goes round it —
+    // toward that end — rather than hanging under it; under the ceiling,
+    // whose ends are far, it only stops.
+    let under_ledge = ae::Vec2::new(770.0, 316.0 + 5.0 + 28.0);
+    let round = steered(under_ledge, up);
+    assert!(round.y > -25.0 && round.x > 150.0, "under a ledge near its end the pair goes round: {round:?}");
+    assert!(steered(under_ceiling(0.0), up).x.abs() < 1e-3, "under the ceiling it does not slide away");
+    // Already inside: never clamped, so the pair can always leave.
+    assert_eq!(steered(ae::Vec2::new(700.0, 308.0), up), up, "a rider already in solid is free to leave");
+}
+
 /// Coupling keys on the STRUCTURAL facts (both bodies alive + carrying their mount-role
 /// components), never on disposition: this rider holds a seat and a `Peaceful` disposition (the
 /// shape a possessed / human-driven body has — possession transfers the player brain but never

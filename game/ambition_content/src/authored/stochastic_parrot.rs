@@ -37,6 +37,9 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
             template: CharacterBrainTemplate::Aerial,
             aggro_radius: 620.0,
             attack_range: 60.0,
+            // A stochastic parrot repeats what it hears, and squawks what it
+            // sees: it relays sightings with the crew it flies with.
+            shares_sightings: true,
             ..Default::default()
         })
         // AND ITS CATALOG ROW STILL NAMES `parrot_lively`, WHICH

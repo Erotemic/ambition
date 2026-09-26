@@ -16,6 +16,7 @@ mod common;
 // module for why `autotests = false` makes that a real hazard).
 mod app_it_sync;
 mod an_edit_reaches_the_shipped_game;
+mod pirate_sky_crew;
 mod the_session_owns_its_generation;
 
 mod a_bag_changed_mid_window_reaches_the_save;

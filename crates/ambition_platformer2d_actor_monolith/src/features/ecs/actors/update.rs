@@ -74,6 +74,8 @@ pub(crate) fn observe_actor_decision_inputs(
             Option<crate::actor_clusters::ActorClusterQueryDataReadOnly>,
             Option<&ambition_combat::components::ActorFaction>,
             bevy::prelude::Has<ambition_combat::components::ActiveCombatant>,
+            // A ridden mount contests no space of its own. See below.
+            Option<&ambition_mount::MountSlot>,
         ),
         (
             With<FeatureSimEntity>,
@@ -93,9 +95,29 @@ pub(crate) fn observe_actor_decision_inputs(
     for (entity, health) in &controlled {
         observation.note_controlled_liveness(entity, health.current() > 0);
     }
-    for (entity, disposition, target, body, faction, in_a_fight) in &actors {
+    // ⭐ A RIDER AND ITS MOUNT ARE ONE BODY IN A CROWD. The rider's brain
+    // steers the pair and the mount's is idle, so the pair contests space at
+    // the rider and a ridden mount is no one's neighbour. Counted as two, the
+    // saddle puts the mount one seat-height under its rider — inside a ground
+    // body's crowding radius — and every rider was pushed straight up by its
+    // own shark, into the ceiling (MEASURED by `room_census` in
+    // `pirate_sky_lookout`: Iron Mary buried 97% of a fight).
+    //
+    // ⚠ The rider keeps its OWN crowd kind. Giving the pair its mount's
+    // (aerial, 220 px) was measured too: four riders orbiting one player then
+    // pushed each other about, and their sharks reversed vertically 1.5-2.5
+    // times a second against ~1.0 with the rider's own.
+    let alive = |body: Entity| {
+        actors
+            .get(body)
+            .ok()
+            .and_then(|(.., cluster, _, _, _)| cluster.map(|c| c.health.alive()))
+            .unwrap_or(false)
+    };
+    for (entity, disposition, target, body, faction, in_a_fight, carrying) in &actors {
         let fighting = ambition_combat::components::CombatStanding::of(*disposition, in_a_fight)
             .takes_damage();
+        let ridden = carrying.and_then(|slot| slot.rider).is_some_and(alive) && alive(entity);
         observation.note_actor(
             entity,
             body.as_ref().is_some_and(|body| body.health.alive()),
@@ -107,7 +129,8 @@ pub(crate) fn observe_actor_decision_inputs(
                     faction: faction.copied(),
                     foe: target.entity,
                 }),
-            fighting,
+            // A ridden mount is carried by its rider's crowd entry.
+            fighting && !ridden,
         );
     }
     let crowd = observation.finish();
@@ -395,6 +418,25 @@ pub fn tick_actor_brains(
     // at all — every actor everywhere, not merely the ones near a player. Nothing in this
     // system may become conditional on a player existing again.
 
+    // A CREW SHARES WHAT IT SEES — see `perception::CrewCall`. The calls are
+    // last tick's sightings, gathered before any body decides this tick.
+    let mut crew_calls = Vec::new();
+    for (entity, .., (body, _, faction, _, memory, perception, ..)) in actors.iter() {
+        let (Some(body), Some(memory)) = (body, memory) else {
+            continue;
+        };
+        if body.policy.0.shares_sightings && body.health.alive() {
+            crate::features::ecs::perception::crew_calls(
+                entity,
+                body.kin.pos,
+                faction.copied(),
+                perception.copied().unwrap_or_default(),
+                &memory.0,
+                &mut crew_calls,
+            );
+        }
+    }
+
     // The population scan and body-state maintenance have already run. This
     // loop is now one authority: evaluate autonomous decision state and produce
     // the resulting intent value for the following publish phase.
@@ -443,6 +485,17 @@ pub fn tick_actor_brains(
             let Some(body) = body else {
                 continue;
             };
+            if body.policy.0.shares_sightings && body.health.alive() {
+                if let Some(memory) = perception_memory.as_deref_mut() {
+                    crate::features::ecs::perception::hear_crew(
+                        &crew_calls,
+                        this_actor_entity,
+                        body.kin.pos,
+                        faction.copied(),
+                        &mut memory.0,
+                    );
+                }
+            }
             {
                 // Every brain-attached actor builds its snapshot + world-view and
                 // ticks its brain into an `ActorControlFrame`. The following PUBLISH

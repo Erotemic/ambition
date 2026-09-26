@@ -1115,6 +1115,32 @@ impl WorldMemory {
         }
     }
 
+    /// How sure a body is of a foe it only HEARD about: below sight, so what
+    /// it sees for itself always wins, and fading on the same half-life.
+    pub const HEARSAY_CONFIDENCE: f32 = 0.5;
+
+    /// Hostiles in view THIS tick (full confidence) — what a body can call out.
+    /// Hearsay never reaches full confidence, so a rumour is not re-told.
+    pub fn hostiles_in_view(&self) -> impl Iterator<Item = (&str, &RememberedActor)> {
+        self.actors
+            .iter()
+            .filter(|(_, m)| m.hostile_to_self && m.confidence >= 1.0)
+            .map(|(id, m)| (id.as_str(), m))
+    }
+
+    /// Take in a sighting an ally called out. Kept only when it is more
+    /// confident than what this body already believes about that actor, so a
+    /// body that can see the foe itself is never overruled by word of it.
+    pub fn hear(&mut self, id: &str, heard: RememberedActor) {
+        match self.actors.get_mut(id) {
+            Some(known) if known.confidence >= heard.confidence => {}
+            Some(known) => *known = heard,
+            None => {
+                self.actors.insert(id.to_string(), heard);
+            }
+        }
+    }
+
     /// What we remember about a specific actor, if anything.
     pub fn get(&self, id: &str) -> Option<&RememberedActor> {
         self.actors.get(id)

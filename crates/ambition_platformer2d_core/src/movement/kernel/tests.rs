@@ -1524,3 +1524,59 @@ fn a_held_body_banks_a_tumbling_launch_and_absorbs_one_that_does_not_tumble() {
         after.kinematics.vel
     );
 }
+
+/// A HELD BODY PINNED INSIDE SOLID DOES NOT LAND.
+///
+/// `pirate_sky_lookout` (MEASURED by `room_census`): Iron Mary rode her shark
+/// into the ceiling, the saddle pinned her inside the ceiling tiles, and she
+/// "landed" on every tick of the fight — 1,739 `Land` sounds in 30 s. The
+/// kernel pushed her out onto a surface, the saddle put her back, and the
+/// ground baseline (invalidated by the saddle, as it should be) read each
+/// push-out as an arrival.
+///
+/// The ceiling and carried-floor cases above never bury the body, so neither
+/// could see this. A held body's position is its holder's, so nothing it
+/// touches while held is a landing of its own.
+#[test]
+fn a_held_body_pinned_inside_solid_does_not_land() {
+    let world = World::new(
+        "saddle_in_the_ceiling",
+        Vec2::new(1000.0, 600.0),
+        Vec2::new(200.0, 300.0),
+        vec![Block::solid("ceiling", Vec2::ZERO, Vec2::new(1000.0, 32.0))],
+    );
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let mut scratch = BodyClusterScratch::new_with_abilities(Vec2::ZERO, AbilitySet::default());
+    // As the census found her: 70x56 at y = -8, so her feet are 20 px into a
+    // 32 px ceiling and the rest of her is above the room. The shallow way out
+    // is UP, onto the ceiling's top face.
+    scratch.kinematics.size = Vec2::new(70.0, 56.0);
+    let pinned = Vec2::new(300.0, -8.0);
+    let mut landings = 0;
+    for _ in 0..60 {
+        // THE SADDLE: place, stop, and invalidate the contact baseline.
+        scratch.kinematics.pos = pinned;
+        scratch.kinematics.vel = Vec2::ZERO;
+        scratch.ground.invalidate();
+        let mut clusters = scratch.as_mut();
+        let result = step_motion(
+            &mut model,
+            &mut clusters,
+            MotionStepContext {
+                world: &world,
+                input: InputState::default(),
+                frame,
+                facing_intent: 0.0,
+                dt: DT,
+                contact: crate::movement::body_contact::BodyContactField::NONE,
+                pose_owned_externally: true,
+                recovery_commitment_outstanding: false,
+            },
+        );
+        if matches!(result.events.ground_contact, GroundContactTransition::Landed { .. }) {
+            landings += 1;
+        }
+    }
+    assert_eq!(landings, 0, "a held body pinned in the ceiling landed {landings} times in 60 ticks");
+}

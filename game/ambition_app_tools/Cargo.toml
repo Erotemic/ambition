@@ -109,6 +109,12 @@ test = false
 name = "headless"
 path = "src/bin/headless.rs"
 test = false
+
+# Fight discovery: run a boss fight headlessly under a few player policies and
+# write its choreography and a FightReport-shaped summary (boss-design.md §4).
+[[bin]]
+name = "fight_discovery"
+path = "src/bin/fight_discovery.rs"
 bench = false
 
 [[bin]]

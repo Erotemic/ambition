@@ -11,8 +11,8 @@
 // Authoring workflow: `docs/recipes/adding-a-character.md`.
 //
 // A row that states how its body moves (`locomotion` or `locomotion_preset`) is
-// a character this game builds. A body fact the row cannot say yet is authored
-// in the character's file under `game/ambition_content/src/authored/`.
+// a character this game builds. Its move table, if it has one, is its file under
+// `movesets/`; every other fact of the character is its row.
 
 (
     // Reusable autonomous-controller profiles, by name — the second of the
@@ -350,6 +350,71 @@
             )),
             ranged: None,
             special: None,
+        ),
+        // The Officer's sidearm. His gun is drawn on his own sheet, so the shot
+        // leaves his hand (`Hand`), not his midriff, and looks like a bullet (its
+        // art is registered in `crate::projectiles`). The half-plane aim is Jon's
+        // rule and belongs to the weapon: the player picks a side and the gun
+        // picks the angle in it, out to 280 (a service pistol reaches a spacing
+        // exchange, not the stage). The move's own recovery is the cadence, so
+        // the weapon has no recharge: a recharge would refuse a shot the move was
+        // already accepted to fire. He has no swing of his own.
+        "officer_sidearm": (
+            move_style: Walk,
+            ranged: Some(Weapon((
+                style: Pistol,
+                speed: 560.0,
+                damage: 7,
+                visual: Some("pistol_round"),
+                refire_s: 0.0,
+                aim_assist: Some((max_angle_rad: 1.5707963267948966, max_range: 280.0)),
+                discharge: Some((muzzle: Hand(ahead: 10.0))),
+            ))),
+        ),
+        // The Projectile Polygon's head-mounted cannon. The charge shot is the
+        // character: a full hold is worth about three and a half taps, flies half
+        // again as fast and is more than twice the size, and its five looks are
+        // the sheet's five tiers. The flight is stated so the size has something
+        // to scale. The shot leaves the cannon, forward of and above the body
+        // origin, as a fraction of body height.
+        "polygon_cannon": (
+            move_style: Walk,
+            ranged: Some(Weapon((
+                style: Bolt,
+                speed: 540.0,
+                damage: 4,
+                flight: Some((
+                    gravity: 0.0,
+                    bounces: 0,
+                    bounce_on_world_contact: false,
+                    max_lifetime: 2.4,
+                    half_extent: (10.0, 8.0),
+                    boomerang_return_s: None,
+                )),
+                charge: Some((
+                    damage_mult: 3.5,
+                    speed_mult: 1.5,
+                    size_mult: 2.4,
+                    visuals: [
+                        "polygon_charge_shot_tier1",
+                        "polygon_charge_shot_tier2",
+                        "polygon_charge_shot_tier3",
+                        "polygon_charge_shot_tier4",
+                        "polygon_charge_shot_tier5",
+                    ],
+                )),
+                discharge: Some((muzzle: Offset(x: 0.22, y: -0.34))),
+            ))),
+        ),
+        // The cellular automatons' swipe and their glider. The glider (a Conway
+        // spaceship, the zoning tool) is the ranged action, not the side-B: the
+        // `glider_launch` special displaces it instead of spawning a second one.
+        // No special here: the moveset binds `special -> cellular_pulse`, and a
+        // special here would take the slot the shield uses.
+        "automaton_swipe_and_glider": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.24, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 30.0)),
+            ranged: Some(Rock(speed: 300.0, damage: 1)),
         ),
         "ranger_arrow": (
             move_style: Strafe,
@@ -875,9 +940,12 @@
             // It ships as `melee_brute_striker`, whose chase speed is absolute, so
             // this speed changes nothing a player sees; it makes the body complete.
             locomotion: Some((run_speed: 110.0, move_style: Walk)),
-            // It can board a shark. Every road that builds the admiral grants this,
-            // so the summoned shark can be boarded from the character-select grid
-            // too. Which shark it may board is `MountReservedFor`.
+            // It can board a shark. Jon: "Yes the admiral could fly on a shark in
+            // ambition… right now the admiral doesn't ride the shark, but they should
+            // have the ability to mount them if there is a shark mount amenable to
+            // being mounted." Every road that builds the admiral grants this, so the
+            // summoned shark can be boarded from the character-select grid too.
+            // Which shark it may board is `MountReservedFor`.
             mount: Some((pilotable_classes: ["shark"])),
             provoked_profile: Some("pirate_boarder"),
             max_health: Some(6),
@@ -1098,14 +1166,34 @@
             // art change, which is the whole reason this number is written down now.
             standing_height: Some(67.8),
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
-            // and third travellers). Both automatons share one `authored_intrinsics`
-            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
-            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
-            // everywhere it is read; `cellular_automaton_raider` was a second copy
-            // with different numbers. Their hostility is their PLACEMENTS' —
-            // `EnemySpawn`s, hostile by default.
-            default_action_set: "striker_swipe",
+            default_action_set: "automaton_swipe_and_glider",
+            // A grounded fighter that can fly: it fights on the ground and flies
+            // only to cross a long gap, so it states `baseline_free_flight: false`
+            // beside the `Flight` grant.
+            locomotion: Some((run_speed: 168.0, move_style: Walk, baseline_free_flight: Some(false))),
+            contact_damage: Some((strength: 0.75, amount: 1)),
+            // The run-and-jump floor, and the four capabilities a possessing
+            // player inherits (blink, flight, shield, dash). Nothing specific to a
+            // platform fighter: no double jump, fast fall, dodge or ledge grab.
+            abilities: Some([RunJump, Interact, Reset, Attack, Blink, Flight, Shield, Dash]),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 540.0,
+                attack_range: 150.0,
+                patrol_effort: 0.5714,
+                chase_effort: 1.0,
+                smash_sprint_to_close: true,
+                // Footsies and spacing rather than close-and-camp.
+                smash_duelist: true,
+            )),
+            // The duel arena's fighters carry a `grudge_against`: they are
+            // provoked, not spawned hostile, and a provoked creature takes this
+            // policy.
+            provoked_profile: Some("cellular_duelist"),
+            // Jon: "PCA needs to shoot a glider." The shot is a functional rock
+            // that looks like the Conway glider.
+            ranged_vfx: Some("glider"),
+            max_health: Some(60),
             tags: ["aerial", "enemy", "custom", "cellular"],
         barks: (
             on_hit: ["Iteration interrupted.", "State diverged from optimal.", "Rule violated. Adapting.", "Error. Correcting."],
@@ -1129,14 +1217,24 @@
             // that changing it is now one number.
             standing_height: Some(50.0),
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81 — the parrot's path, second
-            // and third travellers). Both automatons share one `authored_intrinsics`
-            // arm authoring `BrainProfile { Smash, aggro 540, attack_range 150,
-            // patrol 0.5714, dash-to-close, duelist }`, which outranks this field
-            // everywhere it is read; `cellular_automaton_raider` was a second copy
-            // with different numbers. Their hostility is their PLACEMENTS' —
-            // `EnemySpawn`s, hostile by default.
-            default_action_set: "striker_swipe",
+            // The same body as the perfect automaton, under its own name and art:
+            // see that row for why each fact is what it is.
+            default_action_set: "automaton_swipe_and_glider",
+            locomotion: Some((run_speed: 168.0, move_style: Walk, baseline_free_flight: Some(false))),
+            contact_damage: Some((strength: 0.75, amount: 1)),
+            abilities: Some([RunJump, Interact, Reset, Attack, Blink, Flight, Shield, Dash]),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 540.0,
+                attack_range: 150.0,
+                patrol_effort: 0.5714,
+                chase_effort: 1.0,
+                smash_sprint_to_close: true,
+                smash_duelist: true,
+            )),
+            provoked_profile: Some("cellular_duelist"),
+            ranged_vfx: Some("glider"),
+            max_health: Some(60),
             tags: ["aerial", "enemy", "custom", "cellular"],
         barks: (
             on_hit: ["Er — glitch — GAHH!", "That wasn't in the rule set!", "Malfunction cascade!", "Rulebase corrupted!"],
@@ -3315,7 +3413,11 @@
             body_kind: Standard,
             composition: None,
             default_brain: "skirmisher_ranger",
-            default_action_set: "ranger_arrow",
+            default_action_set: "polygon_cannon",
+            locomotion: Some((run_speed: 225.0, move_style: Walk)),
+            // The look of an uncharged shot; a charged one takes its tier's look.
+            ranged_vfx: Some("polygon_bolt"),
+            max_health: Some(5),
             tags: ["bestial", "polygonal", "projectile_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
             authoring_description: "The ranged member of the Fighting Polygon reference trio is now a non-humanoid beast biped: a faceted T-rex-like body with heavy hind legs, a balancing tail, and a head-mounted cannon. Teal facets and a simple visor slit keep the design readable while giving LLMs and animators a generic non-humanoid reference for future beast fighters.",
             gameplay_description: "A medium-weight ranged fundamentals fighter. Neutral special fires a fast facet-colored bolt from the head-mounted cannon; the rest of the repertoire stays conventional so the character remains useful as the projectile-oriented bestial animation reference.",
@@ -3378,7 +3480,14 @@
             // Polygon's row gives: an unarmed MainHall melee fighter is still a
             // MainHall melee fighter.
             default_brain: "melee_brute_striker",
-            default_action_set: "striker_swipe",
+            // He carries a sidearm: his `shoot` clip puts it in his hand, and his
+            // side special asks the body for its ranged action. It is not a held
+            // item: the gun is on his own sheet, and an item would put two guns in
+            // one hand.
+            default_action_set: "officer_sidearm",
+            // The brawler archetype's speed: he is that archetype.
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            max_health: Some(6),
             tags: ["humanoid", "brawler", "easter_egg", "playable_candidate", "svg_rigged"],
             authoring_description: "A broad, plainly drawn law officer in a dark t-shirt, work jeans, boots and a grey campaign hat -- out of uniform from the neck down and entirely in character from the neck up. He follows the Pugnacious Polygon brawler template for every normal: no held props, and swings read by what they do to the AIR rather than by a blade catching light. The one exception is his sidearm, which is drawn on his own sheet -- a duty holster on his back and a service pistol his shoot clip puts in his fist -- not a held prop.",
             gameplay_description: "A medium-weight close-range fundamentals brawler with one ranged answer. Tilts throw a pale whoosh and smashes open a re-entry plume that leads with its tip, so an unarmed hitbox stays as legible as an armed one. His side special is the draw: he plants, clears the holster and fires one round down the side he was pointed, which is his only way to touch someone he cannot reach. The rest of the timings are the brawler archetype's.",

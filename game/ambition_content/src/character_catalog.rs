@@ -107,15 +107,10 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 ///
 /// Buildability comes from authoring a body and is distinct from the playable
 /// roster. A body is authored in the character's row (`locomotion` or
-/// `locomotion_preset`) or, for a fact the row cannot state yet, in its file
-/// under `authored/`. The build-only cast is derived from those two places
-/// rather than maintained as a second list.
+/// `locomotion_preset`), so the build-only cast is derived from the rows rather
+/// than maintained as a second list.
 pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
-    let authored_ids = crate::authored::authored_ids;
-    crate::authored::authored_ids()
-        .chain(
-            rows_with_a_body().filter(move |id| !authored_ids().any(|authored| authored == *id)),
-        )
+    rows_with_a_body()
         .chain(REGISTERED_WITHOUT_A_BODY.iter().copied())
         // Characters that author a body and also appear on the select grid are
         // excluded here, so the two casts cannot overlap.
@@ -143,43 +138,22 @@ fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
 /// bare.
 const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 
-/// Ambition-specific intrinsic facts layered onto a character definition.
+/// `definition` wearing the move table the pack authors for `id`, if it has one.
 ///
-/// The catalog supplies catalog-shaped metadata; this function supplies body/kit
-/// facts that Ambition authors in Rust. Preparation combines the registered
-/// definition with the provider sources it consumes and produces the single
-/// `PreparedCharacterDefinition` runtime construction uses.
-///
-/// An id in [`buildable_only_cast`] with no body/policy/moveset authoring here is
-/// suspicious: registering a bare definition does not conjure a second body
-/// authority. Author the intended character facts before making it buildable.
+/// Every other fact of a character is its catalog row, folded at preparation;
+/// the move table is its own content family (`assets/data/movesets/*.ron`,
+/// declared in `pack.ron`). It replaces the definition's table and does not
+/// merge, because a merge would need a per-verb rule for which side wins.
 ///
 /// `pack` is a parameter because the move table is a migrated family
 /// (fast-iteration I3, step 1). A process-global `OnceLock` would make every
 /// App in a process share one move table and give a reload nowhere to put a
 /// new one. The caller reads its App's selection once and passes it down.
-pub fn authored_intrinsics(
+pub fn with_pack_moveset(
     id: &str,
     definition: ambition_platformer2d::character::CharacterDefinition,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> ambition_platformer2d::character::CharacterDefinition {
-    // The creature's own file states the rest: `authored/` has one file per
-    // creature, listed in [`crate::authored::AUTHORED_CAST`]. See its module doc.
-    let definition = match crate::authored::author_for(id) {
-        Some(author) => author(id, definition),
-        None => definition,
-    };
-    // The move table comes from the pack for every character the pack has one
-    // for (fast-iteration I2, step 5). `register_declared_cast` calls this for
-    // every buildable character, so no per-character arm is needed.
-    //
-    // Applied after the creature's file: the pack is the authority for a
-    // migrated table, so it writes last. A character with `with_moveset` in its
-    // file and no pack entry is unchanged, so migration can go one character at a
-    // time.
-    //
-    // It replaces the table; it does not merge. A merge would need a per-verb
-    // rule for which side wins.
     match ambition_characters::moveset_content_schema::lowered_movesets(pack)
         .and_then(|table| table.get(id))
     {
@@ -257,6 +231,10 @@ mod tests {
                 }
                 if row.held_item.is_some() {
                     assert_eq!(character.held_item, row.held_item, "{id}");
+                    stated += 1;
+                }
+                if row.ranged_vfx.is_some() {
+                    assert_eq!(character.ranged_vfx, row.ranged_vfx, "`{id}`'s shots look as its row says");
                     stated += 1;
                 }
                 if row.abilities.is_some() {
@@ -372,6 +350,17 @@ mod tests {
         assert!(
             slug.move_horizontal && !slug.jump && !slug.attack,
             "the slug crawls, and that is all it does: {slug:?}"
+        );
+        // The four capabilities a player who possesses the automaton inherits,
+        // and nothing specific to a platform fighter.
+        let pca = get("perfect_cellular_automaton").abilities.expect("the automaton states its verbs");
+        assert!(
+            pca.blink && pca.fly && pca.fly_toggle && pca.shield && pca.dash && pca.attack,
+            "the automaton lost a capability its row grants: {pca:?}"
+        );
+        assert!(
+            !pca.double_jump && !pca.fast_fall && !pca.dodge && !pca.ledge_grab,
+            "the automaton gained a platform fighter's verb: {pca:?}"
         );
         assert_eq!(
             get("npc_pirate_heavy_iron_mary")
@@ -553,6 +542,60 @@ mod tests {
         );
     }
 
+    /// The weapons leave the body where they are drawn, and look like
+    /// themselves. Asked of the prepared kit, the form a body fires.
+    ///
+    /// The Officer's gun is DRAWN, so his shot is born at his hand: the default
+    /// `BodyOrigin` spawn is a vertical offset only, so the round would appear
+    /// at his middle while the gun and flare are drawn at his hand, however the
+    /// velocity is signed. His round carries its own art: an absent visual
+    /// resolves to the engine's generic quad, which is symmetric enough to hide
+    /// a flip error.
+    ///
+    /// The Projectile Polygon fires from a head-mounted cannon: the muzzle is
+    /// forward of and above the body origin (up is negative, as `BodyOrigin`'s
+    /// own -8.0 is), as a FRACTION of body height, not pixels (a pixel value is
+    /// scaled by the height and lands a body away). The numbers are tuned
+    /// against a sprite and may move; the signs and the model may not.
+    #[test]
+    fn the_weapons_leave_the_body_where_they_are_drawn() {
+        use ambition_characters::brain::action_set::{Muzzle, PISTOL_ROUND_VISUAL};
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let ranged = |id: &str| {
+            prepared
+                .get(id)
+                .and_then(|character| character.kit.action_set())
+                .and_then(|set| set.ranged.clone())
+                .unwrap_or_else(|| panic!("`{id}` states a ranged action"))
+        };
+
+        let pistol = ranged("officer");
+        let discharge = pistol.discharge.expect("his sidearm states a discharge");
+        assert!(
+            matches!(discharge.muzzle, Muzzle::Hand { .. }),
+            "the Officer's shot is born at {:?}, not at the hand his `shoot` clip \
+             puts the gun in",
+            discharge.muzzle
+        );
+        assert_eq!(pistol.visual.as_deref(), Some(PISTOL_ROUND_VISUAL), "his round's own art");
+
+        let cannon = ranged("projectile_polygon");
+        assert!(cannon.charge.is_some(), "the charge shot is the character");
+        let muzzle = cannon.discharge.expect("the cannon states where it fires from").muzzle;
+        let Muzzle::Offset { x, y } = muzzle else {
+            panic!("the cannon fires from {muzzle:?}, so the beast launches from its midriff");
+        };
+        assert!(y < 0.0, "the cannon is at or below the body origin (y = {y})");
+        assert!(x > 0.0, "the cannon is not forward of the body (x = {x})");
+        assert!(
+            x.abs() <= 1.0 && y.abs() <= 1.0,
+            "the muzzle ({x}, {y}) is not a fraction of body height"
+        );
+    }
+
     /// Every pirate is provoked into the boarder policy its row names, through
     /// preparation (the form the runtime uses), and registration visits it.
     /// The heavies take the heavy boarder. A character that is not a pirate
@@ -683,20 +726,12 @@ mod tests {
     /// replace this ratchet with a refusal.
     #[test]
     fn the_cast_that_states_its_own_verbs_only_grows() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         let authored: Vec<&str> = crate::character_catalog::buildable_cast()
-            .filter(|id| {
-                authored_intrinsics(
-                    id,
-                    ambition_platformer2d::character::CharacterDefinition::new(
-                        *id,
-                        *id,
-                        crate::AMBITION_CONTENT_PROVIDER,
-                    ),
-                    crate::pack::prepared(),
-                )
-                .abilities
-                .is_some()
-            })
+            .filter(|id| prepared.get(id).is_some_and(|character| character.abilities.is_some()))
             .collect();
         assert!(
             !authored.is_empty(),
@@ -761,28 +796,26 @@ mod tests {
 
         let catalog = load_catalog();
         let mut offenders = Vec::new();
+        let mut authoring = 0;
         for id in crate::character_catalog::buildable_cast() {
-            let authors_policy = Some(authored_intrinsics(
-                id,
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id,
-                    id,
-                    crate::AMBITION_CONTENT_PROVIDER,
-                ),
-                crate::pack::prepared(),
-            ))
-            // Both shapes count: an inline `autonomous_profile` and a named
-            // `autonomous_profile_ref` (for example the goblin's shared
-            // `medium_striker`).
-            .map(|definition| definition.autonomous_policy.is_some())
-            .unwrap_or(false);
             let Some(entry) = catalog.get(id) else {
                 continue;
             };
+            // Both shapes count: an inline `autonomous_profile` and a shared
+            // `named_autonomous_profile` (for example the goblin's
+            // `medium_striker`).
+            let authors_policy =
+                entry.autonomous_profile.is_some() || entry.named_autonomous_profile.is_some();
+            authoring += usize::from(authors_policy);
             if authors_policy && !entry.default_brain.is_empty() {
                 offenders.push((id, entry.default_brain.clone()));
             }
         }
+        assert!(
+            authoring >= 25,
+            "only {authoring} buildable characters state a policy, so the check below \
+             passes over almost nothing"
+        );
 
         let unexpected: Vec<_> = offenders
             .iter()
@@ -999,12 +1032,9 @@ mod tests {
         }
     }
 
-    /// The two lists answer two questions, and the build-only list must obey the
-    /// same rules as the selection list.
-    ///
-    /// Emptying an arm of [`authored_intrinsics`] fails this. A registered
-    /// character that authors nothing does not fall back to its archetype; it has
-    /// no death behaviour, for example.
+    /// The mites' death and health reach the prepared character. A registered
+    /// character that authors nothing does not fall back to an archetype; it
+    /// has no death behaviour, for example.
     #[test]
     fn the_migrated_mites_author_their_own_death_and_health() {
         let app = prepared_cast_app();
@@ -1105,15 +1135,14 @@ mod tests {
         );
     }
 
-    /// The other direction: a character with an `authored_intrinsics` arm that
-    /// is in neither list is never registered, so the arm runs for nobody and
-    /// nothing fails.
+    /// The other direction: a character the pack authors a move table for, and
+    /// that is in neither list, is never registered, so its moves reach no body
+    /// and nothing fails.
     ///
-    /// Check without parsing the match: pass a bare definition for every
-    /// character in the assembled catalog and see if it comes back changed. An
-    /// id it changes has an arm.
+    /// Pass a bare definition for every character in the assembled catalog and
+    /// see if [`with_pack_moveset`] changes it. An id it changes has a table.
     #[test]
-    fn every_character_with_an_authored_body_is_registered_as_buildable() {
+    fn every_character_with_a_pack_move_table_is_registered_as_buildable() {
         // An unregistered body is never built, so nothing fails at runtime.
         const KNOWN_UNREGISTERED: &[(&str, &str)] = &[];
 
@@ -1126,7 +1155,7 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            if authored_intrinsics(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
+            if with_pack_moveset(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
                 && !registered.contains(id.as_str())
             {
                 unregistered.push(id.clone());
@@ -1138,12 +1167,12 @@ mod tests {
             .collect();
         assert!(
             unexpected.is_empty(),
-            "these characters author something in `authored_intrinsics` and appear \
-             on NEITHER `PLAYABLE_ROSTER` nor `buildable_only_cast()`, so the arm \
-             runs for nobody and what it authors reaches no body: {unexpected:?}. \
-             Author the character's vitals and add it to `buildable_only_cast` — \
-             or, if it genuinely cannot be registered yet, add it to \
-             `KNOWN_UNREGISTERED` with the reason and what unblocks it."
+            "the pack authors a move table for these characters and they appear \
+             on NEITHER `PLAYABLE_ROSTER` nor `buildable_only_cast()`, so their \
+             moves reach no body: {unexpected:?}. State the character's body in \
+             its row, which makes it buildable, or, if it genuinely cannot be \
+             registered yet, add it to `KNOWN_UNREGISTERED` with the reason and \
+             what unblocks it."
         );
 
         // The exemption list cannot rot: an entry that got fixed must be removed.
@@ -1157,7 +1186,7 @@ mod tests {
              remove them from `KNOWN_UNREGISTERED`: {stale:?}"
         );
 
-        // Control: if `authored_intrinsics` became the identity for every id, the
+        // Control: if `with_pack_moveset` became the identity for every id, the
         // loop above would find nothing and pass.
         let authors_someone = catalog.data().characters.keys().any(|id| {
             let bare = ambition_platformer2d::character::CharacterDefinition::new(
@@ -1165,12 +1194,12 @@ mod tests {
                 "unused",
                 crate::AMBITION_CONTENT_PROVIDER,
             );
-            authored_intrinsics(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
+            with_pack_moveset(id.as_str(), bare.clone(), crate::pack::prepared()) != bare
         });
         assert!(
             authors_someone,
-            "no character in the catalog authors any intrinsics — the check above \
-             is passing over an empty set"
+            "the pack authors no move table for any character in the catalog, so \
+             the check above is passing over an empty set"
         );
     }
 

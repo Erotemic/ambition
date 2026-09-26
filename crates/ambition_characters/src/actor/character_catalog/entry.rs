@@ -773,6 +773,11 @@ pub struct CharacterCatalogEntry {
     /// own.
     #[serde(default)]
     pub provoked_profile: Option<String>,
+    /// The look of a shot this character fires when the shot's own spec states
+    /// none. `None` (the default): the engine's generic look. Folded at
+    /// preparation under a registered definition's own.
+    #[serde(default)]
+    pub ranged_vfx: Option<String>,
 }
 
 /// The art-to-world scale of a body that its sheet authors per pose.
@@ -986,13 +991,16 @@ pub enum MeleePreset {
     },
 }
 
-/// Mirrors `brain::action_set::RangedActionSpec`.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+/// Mirrors `brain::action_set::RangedActionSpec`. The four short forms are a
+/// shot of one style at one speed and damage; [`Weapon`](Self::Weapon) states
+/// the whole spec, for a weapon with a charge, a muzzle, an aim or its own look.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub enum RangedPreset {
     Rock { speed: f32, damage: i32 },
     Arrow { speed: f32, damage: i32 },
     Pistol { speed: f32, damage: i32 },
     Bolt { speed: f32, damage: i32 },
+    Weapon(crate::brain::RangedActionSpec),
 }
 
 /// Mirrors `brain::action_set::SpecialActionSpec`.

@@ -1959,8 +1959,8 @@ fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built
 /// ⛔ **WHAT A UNIT TEST CANNOT SAY IS WHETHER THE COMPOSED GAME PUTS THE TWO
 /// HALVES TOGETHER**, and they arrive by different roads: the moves come from
 /// `assets/data/movesets/projectile_polygon.ron` through the content pack, and
-/// the cannon from `authored/projectile_polygon.rs` through the character
-/// definition. Either can be seated without the other, and the failure is
+/// the cannon from the `polygon_cannon` action-set preset her catalog row
+/// names. Either can be seated without the other, and the failure is
 /// silent — the request simply stands and the brain goes back to the
 /// thousand-pixel placeholder.
 ///

@@ -263,7 +263,7 @@ pub fn action_set_from_preset(preset: &ActionSetPreset) -> ActionSet {
     ActionSet {
         move_style: move_style_from_preset(preset.move_style),
         melee: preset.melee.map(melee_from_preset),
-        ranged: preset.ranged.map(ranged_from_preset),
+        ranged: preset.ranged.clone().map(ranged_from_preset),
         special: preset.special.clone().map(special_from_preset),
     }
 }
@@ -357,6 +357,7 @@ fn ranged_from_preset(p: RangedPreset) -> RangedActionSpec {
         RangedPreset::Arrow { speed, damage } => RangedActionSpec::arrow(speed, damage),
         RangedPreset::Pistol { speed, damage } => RangedActionSpec::pistol(speed, damage),
         RangedPreset::Bolt { speed, damage } => RangedActionSpec::bolt(speed, damage),
+        RangedPreset::Weapon(spec) => spec,
     }
 }
 

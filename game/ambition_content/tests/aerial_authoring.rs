@@ -7,20 +7,13 @@
 
 #[test]
 fn shipped_characters_state_their_flight_answer_explicitly() {
-    use ambition_platformer2d::character::CharacterDefinition;
-
     // What the character authors, before preparation resolves silence: its
-    // registered definition's gait, else its catalog row's.
+    // catalog row's gait.
     let catalog = ambition_content::character_catalog::load_catalog();
     let authored = |id: &str| {
-        ambition_content::character_catalog::authored_intrinsics(
-            id,
-            CharacterDefinition::new(id, id, "ambition_content"),
-            ambition_content::pack::prepared(),
-        )
-        .locomotion
-        .or_else(|| catalog.locomotion(id))
-        .and_then(|locomotion| locomotion.baseline_free_flight)
+        catalog
+            .locomotion(id)
+            .and_then(|locomotion| locomotion.baseline_free_flight)
     };
 
     // a character that says it FLIES. Without one, `Some(true)` is
@@ -38,7 +31,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
     assert_eq!(
         authored("perfect_cellular_automaton"),
         Some(false),
-        "the PCA is a grounded-base hybrid and its own definition has to say so, \
+        "the PCA is a grounded-base hybrid and its own row has to say so, \
          or a presentation enum decides its locomotion again"
     );
 

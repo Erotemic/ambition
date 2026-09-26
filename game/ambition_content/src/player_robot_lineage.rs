@@ -215,7 +215,7 @@ fn definition_from(
     // The one seam where a pack's move table is applied, the same one the
     // declared cast passes. Incarnations share lineage while authoring
     // different repertoires, and each file entry names its incarnation.
-    crate::character_catalog::authored_intrinsics(incarnation.id, definition, pack)
+    crate::character_catalog::with_pack_moveset(incarnation.id, definition, pack)
 }
 
 /// Combat targets the torso rather than the full collision outline.
@@ -777,7 +777,7 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
         // have taken their facts back from the archetype roster. A character
         // still awaiting migration adds nothing here and stays a bare
         // registration.
-        let definition = crate::character_catalog::authored_intrinsics(&id, definition, &pack);
+        let definition = crate::character_catalog::with_pack_moveset(&id, definition, &pack);
         // `try_`, and a SKIP rather than a panic: another provider legitimately
         // owns some of these ids in a multi-game composition, and losing a race
         // for one is not this provider's error to raise.

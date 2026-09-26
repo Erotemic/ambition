@@ -41,8 +41,10 @@ FLOOR: dict[str, int] = {
     "game/ambition_content/src/performer_moveset.rs": 4,
     # ⭐ ADDED 2026-09-05: "PCA needs to shoot a glider" was SATISFIED and
     # UNRECORDED, so nothing stopped a later pass from removing the ranged
-    # glider without learning the maintainer had asked for it by name.
-    "game/ambition_content/src/authored/perfect_cellular_automaton.rs": 1,
+    # glider without learning the maintainer had asked for it by name. The
+    # creature files became catalog rows (AP66-AP71, 2026-09-26) and the prose
+    # moved with them: the PCA's glider, the admiral's shark and Robot V1's name.
+    "game/ambition_content/assets/data/character_catalog.ron": 3,
 }
 
 ATTRIBUTION = re.compile(r"JON'S DESIGN|Jon, \d{4}-\d{2}-\d{2}|Jon:|Jon, verbatim")

@@ -12,7 +12,7 @@ use ambition_characters::moveset_content_schema::lowered_movesets;
 /// Every character a move file names is one this game builds.
 ///
 /// A file names its characters by entity id. A table under a wrong id fails
-/// silently: `authored_intrinsics` gets `None` from `table.get(id)` and leaves
+/// silently: `with_pack_moveset` gets `None` from `table.get(id)` and leaves
 /// the fighter with no authored moves.
 #[test]
 fn every_character_the_move_section_names_is_one_this_game_builds() {
@@ -42,7 +42,7 @@ fn every_character_the_move_section_names_is_one_this_game_builds() {
 /// The host takes its table from the file.
 ///
 /// This asks the character definition the game builds.
-/// `authored_intrinsics` is the one seam every buildable character passes
+/// `with_pack_moveset` is the one seam every buildable character passes
 /// through (`register_declared_cast`'s loop calls it), so what it returns is
 /// what the cast is registered with.
 ///
@@ -53,7 +53,7 @@ fn every_migrated_fighter_the_game_builds_swings_its_file_s_numbers() {
         lowered_movesets(crate::pack::prepared()).expect("the shipped pack carries a move section");
     let mut checked = 0usize;
     for id in table.keys().map(String::as_str) {
-        let definition = crate::character_catalog::authored_intrinsics(
+        let definition = crate::character_catalog::with_pack_moveset(
             id,
             ambition_platformer2d::character::CharacterDefinition::new(
                 id,

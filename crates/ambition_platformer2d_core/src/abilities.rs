@@ -719,6 +719,17 @@ pub enum AbilityGrant {
     /// A ground jump of one height. [`RunJump`](Self::RunJump) adds variable
     /// height, ducking and ladders; a four-legged animal hops without them.
     Jump,
+    /// Use what the body touches: a door, a lever, a talk prompt.
+    Interact,
+    /// Return the body to its last safe point on demand.
+    Reset,
+    /// Teleport a short distance.
+    Blink,
+    /// Toggle free flight on and off with a button. [`FreeFlight`](Self::FreeFlight)
+    /// is permanent flight with no toggle.
+    Flight,
+    /// A burst of ground speed.
+    Dash,
     /// The classic run-and-jump floor: horizontal steering, a ground jump,
     /// variable jump height, ducking and climbing a ladder. The minimal kit a
     /// platformer protagonist needs.
@@ -772,6 +783,27 @@ impl AbilityGrant {
             },
             Self::Jump => AbilitySet {
                 jump: true,
+                ..AbilitySet::NONE
+            },
+            Self::Interact => AbilitySet {
+                interact: true,
+                ..AbilitySet::NONE
+            },
+            Self::Reset => AbilitySet {
+                reset: true,
+                ..AbilitySet::NONE
+            },
+            Self::Blink => AbilitySet {
+                blink: true,
+                ..AbilitySet::NONE
+            },
+            Self::Flight => AbilitySet {
+                fly: true,
+                fly_toggle: true,
+                ..AbilitySet::NONE
+            },
+            Self::Dash => AbilitySet {
+                dash: true,
                 ..AbilitySet::NONE
             },
             Self::RunJump => AbilitySet {

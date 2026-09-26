@@ -7,7 +7,6 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
-| [`authored`](src/authored/mod.rs) | Every character whose body needs a fact its catalog row cannot state yet, one file each. |
 | [`authored_movesets`](src/authored_movesets.rs) | Every move table this crate ships, in one list, read from the content pack. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |
@@ -38,7 +37,7 @@
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 | [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command, function, and markup registrations available to authored `.yarn` content. |
 
-_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

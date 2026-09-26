@@ -65,16 +65,18 @@ or a shared `locomotion_preset`), `max_health`, `contact_damage`,
 names), ability grants, its feel (`axis_tuning`, or a shared
 `axis_tuning_preset`), a sheet-authored body (`posed_body`), what it rides and
 what rides it (`mount`), its `mass`, a `dream_seed`, the item it holds
-(`held_item`), the traits `practice_target` and `preserves_mirror_symmetry`,
+(`held_item`), the look of its shots (`ranged_vfx`), the traits `practice_target` and `preserves_mirror_symmetry`,
 and its lines (`fallback_dialogue`). A demo registers every row of its pack with one
 `PACK.cast(..).register(app)`; in Ambition, a row that states a gait is a
 character the game builds. Copy a nearby row rather than recreating an old
 archetype shape.
 
-Only a fact the row cannot state yet (a weapon's charge, muzzle or aim) needs
-Rust: in Ambition, a file under
-`game/ambition_content/src/authored/` listed in `AUTHORED_CAST`, which
-registers a `CharacterDefinition` through the character-registration seam.
+A weapon with a charge, a muzzle, an aim or its own look is an action-set
+preset whose `ranged` is a whole `Weapon((..))` spec (see `officer_sidearm`
+and `polygon_cannon`). An Ambition character needs no Rust. A character a
+game builds in code (the robot lineage) registers a `CharacterDefinition`
+through the character-registration seam, and a fact it states outranks its
+row's.
 
 Author intrinsic facts on the character or referenced typed documents where
 appropriate:

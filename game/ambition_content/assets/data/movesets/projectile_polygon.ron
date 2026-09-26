@@ -1221,7 +1221,7 @@
                         // have. The explicit `smash_charge` is what makes it hold.
                         //
                         // The shot leaves the cannon through `Muzzle::Offset { x: 0.22, y: -0.34 }`
-                        // on her ranged action in `authored/projectile_polygon.rs`.
+                        // on her ranged action, the `polygon_cannon` preset in `character_catalog.ron`.
                         //
                         // The fill VFX fires once, at the latch. A move event is a point in time,
                         // so nothing re-fires it if the hold outlasts the row; the row is drawn to

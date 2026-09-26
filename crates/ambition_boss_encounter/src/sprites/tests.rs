@@ -9,16 +9,6 @@ fn content_sheet(key: &str) -> BossSheetSpec {
     crate::test_boss_catalog().sheet_for_key(key)
 }
 
-static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| content_sheet("mockingbird"));
-static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| content_sheet("giant_gnu"));
-static SMIRKING_BEHEMOTH_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| content_sheet("smirking_behemoth_boss"));
-static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| content_sheet("flying_spaghetti_monster_boss"));
-static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| content_sheet("trex_boss"));
 
 /// Page-local flat atlas index via the shared frame algebra over the const's
 /// grid-only synthetic record — the same path the runtime takes when no
@@ -48,8 +38,8 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     // real bosses, so a const-derived `ActorRenderSize` would resize the
     // sprite.
     let known_divergent = [
-        ("boss", &BOSS_SHEET),
-        ("mockingbird_boss", &MOCKINGBIRD_SHEET),
+        ("boss", BOSS_SHEET.clone()),
+        ("mockingbird_boss", content_sheet("mockingbird")),
     ];
     let mut any_divergent = false;
     for (target, spec) in known_divergent {
@@ -82,54 +72,54 @@ fn fsm_and_trex_sheets_match_their_published_layouts() {
     // FSM: 7 PNG rows, every BossAnim used once. The row mapping (not the
     // pixel dims, which the published RON overrides) is what drift would
     // break: the boss would render frames from the wrong row.
-    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.rows.len(), 7);
-    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_width, 393);
-    assert_eq!(FLYING_SPAGHETTI_MONSTER_SHEET.frame_height, 344);
+    assert_eq!(content_sheet("flying_spaghetti_monster_boss").rows.len(), 7);
+    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_width, 393);
+    assert_eq!(content_sheet("flying_spaghetti_monster_boss").frame_height, 344);
     assert_eq!(
-        FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Rest),
+        content_sheet("flying_spaghetti_monster_boss").frame_count(BossAnim::Rest),
         6
     );
     assert_eq!(
-        FLYING_SPAGHETTI_MONSTER_SHEET.frame_count(BossAnim::Death),
+        content_sheet("flying_spaghetti_monster_boss").frame_count(BossAnim::Death),
         8
     );
-    assert!(FLYING_SPAGHETTI_MONSTER_SHEET.body_centered, "FSM floats");
+    assert!(content_sheet("flying_spaghetti_monster_boss").body_centered, "FSM floats");
     // Rest is row 0; FloorSlam (meatball_volley) is row 3 → 6+8+7 frames before.
     assert_eq!(
-        const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::Rest, 0),
+        const_flat(&content_sheet("flying_spaghetti_monster_boss"), BossAnim::Rest, 0),
         0
     );
     assert_eq!(
-        const_flat(&FLYING_SPAGHETTI_MONSTER_SHEET, BossAnim::FloorSlam, 0),
+        const_flat(&content_sheet("flying_spaghetti_monster_boss"), BossAnim::FloorSlam, 0),
         6 + 8 + 7
     );
 
     // T-Rex: 9 PNG rows (398×320); tail_swipe/stomp reuse SideSweep/FloorSlam
     // labels but every physical row is still listed so the atlas stays aligned.
-    assert_eq!(TREX_BOSS_SHEET.rows.len(), 9);
-    assert_eq!(TREX_BOSS_SHEET.frame_width, 398);
-    assert_eq!(TREX_BOSS_SHEET.frame_height, 320);
-    assert!(!TREX_BOSS_SHEET.body_centered, "T-Rex is grounded");
-    assert_eq!(TREX_BOSS_SHEET.frame_count(BossAnim::Rest), 6);
+    assert_eq!(content_sheet("trex_boss").rows.len(), 9);
+    assert_eq!(content_sheet("trex_boss").frame_width, 398);
+    assert_eq!(content_sheet("trex_boss").frame_height, 320);
+    assert!(!content_sheet("trex_boss").body_centered, "T-Rex is grounded");
+    assert_eq!(content_sheet("trex_boss").frame_count(BossAnim::Rest), 6);
     // SideSweep (bite) is row 3, not the later tail_swipe dup at row 5.
     assert_eq!(
-        const_flat(&TREX_BOSS_SHEET, BossAnim::SideSweep, 0),
+        const_flat(&content_sheet("trex_boss"), BossAnim::SideSweep, 0),
         6 + 8 + 8
     );
 
     // Both atlases build without panic and have one rect per frame.
-    let fsm_frames: usize = FLYING_SPAGHETTI_MONSTER_SHEET
+    let fsm_frames: usize = content_sheet("flying_spaghetti_monster_boss")
         .rows
         .iter()
         .map(|(_, r)| r.frame_count)
         .sum();
-    assert_eq!(const_atlas_len(&FLYING_SPAGHETTI_MONSTER_SHEET), fsm_frames);
-    let trex_frames: usize = TREX_BOSS_SHEET
+    assert_eq!(const_atlas_len(&content_sheet("flying_spaghetti_monster_boss")), fsm_frames);
+    let trex_frames: usize = content_sheet("trex_boss")
         .rows
         .iter()
         .map(|(_, r)| r.frame_count)
         .sum();
-    assert_eq!(const_atlas_len(&TREX_BOSS_SHEET), trex_frames);
+    assert_eq!(const_atlas_len(&content_sheet("trex_boss")), trex_frames);
 }
 
 fn fsm_record(frame_w: u32, frame_h: u32, label_w: u32) -> ambition_sprite_sheet::SheetRecord {
@@ -211,7 +201,7 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
     let record = record_for_sheet_key("giant_gnu")
         .expect("baked giant_gnu record present (run scripts/regen/sprites.sh)");
     assert!(
-        record_aligns_with_const(record, &GIANT_GNU_SHEET),
+        record_aligns_with_const(record, &content_sheet("giant_gnu")),
         "the packed giant_gnu record lines up with the const → it drives the pixels"
     );
     assert!(
@@ -232,10 +222,10 @@ fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
     // elsewhere.
     let record = fsm_record(300, 280, 100);
     assert!(
-        record_aligns_with_const(&record, &FLYING_SPAGHETTI_MONSTER_SHEET),
+        record_aligns_with_const(&record, &content_sheet("flying_spaghetti_monster_boss")),
         "aligned record drives the pixels"
     );
-    let page = record.atlas_page(0, FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset);
+    let page = record.atlas_page(0, content_sheet("flying_spaghetti_monster_boss").frame_sample_inset);
     // One rect per frame (47 total for the FSM row set).
     assert_eq!(page.rects.len(), 6 + 8 + 7 + 7 + 7 + 4 + 8);
     // drift (row 1) frame 0 starts at label(100) + 0*300 = 100 on x and
@@ -244,7 +234,7 @@ fn boss_atlas_tracks_the_published_rects_not_the_const_grid() {
     let drift_frame0 = page.rects[6]; // first frame after idle's 6
     assert_eq!(
         drift_frame0.min.y,
-        280 + FLYING_SPAGHETTI_MONSTER_SHEET.frame_sample_inset
+        280 + content_sheet("flying_spaghetti_monster_boss").frame_sample_inset
     );
 }
 
@@ -257,7 +247,7 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
     record.rows.truncate(3);
     assert!(!record_aligns_with_const(
         &record,
-        &FLYING_SPAGHETTI_MONSTER_SHEET
+        &content_sheet("flying_spaghetti_monster_boss")
     ));
     // A row with too few frames also declines.
     let mut record = fsm_record(393, 344, 100);
@@ -268,17 +258,17 @@ fn boss_atlas_falls_back_when_record_rows_dont_line_up() {
     };
     assert!(!record_aligns_with_const(
         &record,
-        &FLYING_SPAGHETTI_MONSTER_SHEET
+        &content_sheet("flying_spaghetti_monster_boss")
     ));
 }
 
 #[test]
 fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
     // Player to the right  facing > 0.
-    assert!(MOCKINGBIRD_SHEET.authored_faces_left);
+    assert!(content_sheet("mockingbird").authored_faces_left);
     assert!(!BOSS_SHEET.authored_faces_left);
-    assert!(!GIANT_GNU_SHEET.authored_faces_left);
-    assert!(!SMIRKING_BEHEMOTH_SHEET.authored_faces_left);
+    assert!(!content_sheet("giant_gnu").authored_faces_left);
+    assert!(!content_sheet("smirking_behemoth_boss").authored_faces_left);
 
     // Right-facing sheet: face right (no flip) when the player is right,
     // flip when the player is left — the unchanged default.
@@ -287,11 +277,11 @@ fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
 
     // Left-authored mockingbird: inverted, so it still faces the player.
     assert!(
-        MOCKINGBIRD_SHEET.flip_x(1.0),
+        content_sheet("mockingbird").flip_x(1.0),
         "player on the right ⇒ flip so the left-drawn bird faces right"
     );
     assert!(
-        !MOCKINGBIRD_SHEET.flip_x(-1.0),
+        !content_sheet("mockingbird").flip_x(-1.0),
         "player on the left ⇒ no flip, bird faces left toward them"
     );
 }
@@ -302,8 +292,8 @@ fn mockingbird_anchor_keeps_body_inside_aabb() {
     // spec's feet_anchor_y as-is (no half_collision_y offset); otherwise the
     // bird hangs about half its render height below the AABB.
     let aabb = Vec2::new(150.0, 185.0);
-    let anchor = MOCKINGBIRD_SHEET.collision_anchor(aabb);
-    assert!(MOCKINGBIRD_SHEET.body_centered);
+    let anchor = content_sheet("mockingbird").collision_anchor(aabb);
+    assert!(content_sheet("mockingbird").body_centered);
     // feet_anchor_y is small (slight downward offset), nowhere
     // near +0.5 (which is what the feet-delta term would push it
     // to for this AABB / scale combo).
@@ -337,9 +327,9 @@ fn mockingbird_sheet_maps_six_rows_with_passthrough_for_missing() {
     // onto the BossAnim vocabulary. SideSweep is absent on purpose:
     // `resolve_anim` must fall back to Rest so a schedule that asks for
     // SideSweep does not panic the indexer.
-    assert_eq!(MOCKINGBIRD_SHEET.rows.len(), 6);
+    assert_eq!(content_sheet("mockingbird").rows.len(), 6);
     assert_eq!(
-        MOCKINGBIRD_SHEET.resolve_anim(BossAnim::SideSweep),
+        content_sheet("mockingbird").resolve_anim(BossAnim::SideSweep),
         BossAnim::Rest
     );
     // The mapped rows resolve to themselves.
@@ -351,7 +341,7 @@ fn mockingbird_sheet_maps_six_rows_with_passthrough_for_missing() {
         BossAnim::Hit,
         BossAnim::Death,
     ] {
-        assert_eq!(MOCKINGBIRD_SHEET.resolve_anim(anim), anim);
+        assert_eq!(content_sheet("mockingbird").resolve_anim(anim), anim);
     }
 }
 
@@ -398,7 +388,7 @@ fn render_size_floors_at_minimum_extent() {
 
 #[test]
 fn giant_gnu_sheet_has_six_rows() {
-    assert_eq!(GIANT_GNU_SHEET.rows.len(), 6);
+    assert_eq!(content_sheet("giant_gnu").rows.len(), 6);
 }
 
 #[test]
@@ -406,7 +396,7 @@ fn giant_gnu_sheet_is_body_centered() {
     // body_centered:true is required so the man (at top of frame)
     // is placed at the entity transform origin rather than the
     // GNU's hooves (at the bottom of frame).
-    assert!(GIANT_GNU_SHEET.body_centered);
+    assert!(content_sheet("giant_gnu").body_centered);
 }
 
 #[test]
@@ -414,13 +404,13 @@ fn giant_gnu_anchor_is_above_sprite_center() {
     // feet_anchor_y > 0 means the entity position is above the
     // sprite center — placing the man (upper frame) at entity pos.
     assert!(
-        GIANT_GNU_SHEET.feet_anchor_y > 0.0,
+        content_sheet("giant_gnu").feet_anchor_y > 0.0,
         "feet_anchor_y should be positive for GNU-ton (man at top), got {}",
-        GIANT_GNU_SHEET.feet_anchor_y
+        content_sheet("giant_gnu").feet_anchor_y
     );
     // Should not be so large that the man falls outside the frame.
     assert!(
-        GIANT_GNU_SHEET.feet_anchor_y < 0.5,
+        content_sheet("giant_gnu").feet_anchor_y < 0.5,
         "feet_anchor_y too large, would place entity at sprite top edge"
     );
 }
@@ -428,7 +418,7 @@ fn giant_gnu_anchor_is_above_sprite_center() {
 #[test]
 fn giant_gnu_side_sweep_resolves_to_itself() {
     assert_eq!(
-        GIANT_GNU_SHEET.resolve_anim(BossAnim::SideSweep),
+        content_sheet("giant_gnu").resolve_anim(BossAnim::SideSweep),
         BossAnim::SideSweep
     );
 }
@@ -457,7 +447,7 @@ fn an_authored_sheet_overrides_the_built_in_layout() {
         .expect("authored mockingbird override");
     assert_eq!(over.frame_width, 999, "override frame_width takes effect");
     assert_ne!(
-        over.frame_width, MOCKINGBIRD_SHEET.frame_width,
+        over.frame_width, content_sheet("mockingbird").frame_width,
         "the override differs from the built-in default"
     );
     assert_eq!(over.rows.len(), 1, "override authors its own row set");

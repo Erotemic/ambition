@@ -209,7 +209,7 @@ fn the_halls_transition_bills_its_whole_cast_and_covers_the_wait() {
     assert!(
         staged - before >= MINIMUM_HALL_CAST,
         "the Hall transition staged only {} new character(s) on its first frame \
-         (from {before} to {staged}). The room authors 129 NpcSpawn placements, \
+         (from {before} to {staged}). The room authors 137 NpcSpawn placements, \
          so the rest are \
          being demanded later — after their actors spawn, in frame, uncovered, \
          which is the defect this file exists to keep closed",
@@ -797,7 +797,7 @@ fn room_placed_character_tokens(
 /// warnings — the other two being retired realizations and re-decodes, both now
 /// instrumented elsewhere. This one is the cheapest to answer and had never been
 /// asked directly: the sibling tests count STAGED characters and assert a
-/// minimum, which cannot distinguish "all 129 were demanded" from "126 were, and
+/// minimum, which cannot distinguish "all 137 were demanded" from "134 were, and
 /// three were never asked for at all".
 ///
 /// ⛔ `outcome(id).is_none()` IS THE QUESTION. A character with any outcome —
@@ -810,8 +810,8 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
 
     let (mut app, _before) = boot_and_record_the_hall_transition();
     let placed = hall_character_ids(&mut app);
-    // The world authors 129 NpcSpawn placements with 129 DISTINCT character_ids
-    // and no duplicates (counted from hall_of_characters.ldtk, 2026-09-02), so a
+    // The world authors 137 NpcSpawn placements with 137 DISTINCT character_ids
+    // and no duplicates (counted from hall_of_characters.ldtk, 2026-09-25), so a
     // shortfall here is a missing character rather than a deduplicated one.
     assert!(
         placed.len() > 50,
@@ -820,7 +820,7 @@ fn every_character_the_hall_places_is_reached_by_its_demand() {
     );
 
     // Settle: the loader is rationed to one character per frame, so reaching a
-    // 129-character cast needs at least that many frames even when nothing is
+    // 137-character cast needs at least that many frames even when nothing is
     // wrong. Waiting generously is correct HERE precisely because the assertion
     // is about scope rather than speed.
     for _ in 0..600 {

@@ -1421,10 +1421,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "derived index of authored geometry, immutable per content epoch",
     ),
     (
-        "::bevy_runtime::parity::",
-        "LDtk parity diagnostics, not gameplay state",
-    ),
-    (
         "::hot_reload::WorldSourceHotReload",
         "dev hot-reload machinery; a commit restarts the GGRS session",
     ),

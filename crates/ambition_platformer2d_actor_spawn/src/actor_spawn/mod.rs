@@ -1074,9 +1074,9 @@ pub fn spawn_boss_with_overrides_into(
     // apple-rain self-dodge (and any future per-encounter
     // overrides) to the right boss.
     let encounter_id = boss.config.behavior.id.clone();
-    let boss_sheet_key = encounter_id.to_ascii_lowercase().replace('-', "_");
+    // The sheet it wears, by the rule its body was sized from.
     let boss_anim_frame = ambition_boss_encounter::sprites::BossAnimFrame::new(
-        boss_catalog.sheet_for_key(&boss_sheet_key),
+        boss_catalog.sheet_for_behavior(&boss.config.behavior),
     );
     let combat_tuning =
         ambition_combat::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();

@@ -748,6 +748,31 @@ pub struct CharacterCatalogEntry {
     /// registered definition can state it.
     #[serde(default)]
     pub preserves_mirror_symmetry: bool,
+    /// How heavy this body is against another body it rides or carries. `None`
+    /// (the default): the engine's standard mass. Folded at preparation under a
+    /// registered definition's own.
+    #[serde(default)]
+    pub mass: Option<f32>,
+    /// What this character can ride, and what it is as a mount. `None` (the
+    /// default): it rides nothing and nobody rides it. Folded at preparation
+    /// under a registered definition's own.
+    #[serde(default)]
+    pub mount: Option<crate::actor::CharacterMount>,
+    /// The seed of this character's deep-dream pass. `None` (the default): no
+    /// pass. Folded at preparation under a registered definition's own.
+    #[serde(default)]
+    pub dream_seed: Option<f32>,
+    /// The item this character holds (a gun-sword). `None` (the default): its
+    /// hands are empty. Folded at preparation under a registered definition's
+    /// own.
+    #[serde(default)]
+    pub held_item: Option<String>,
+    /// The name of the policy in the catalog's `autonomous_profiles` that this
+    /// creature adopts when provoked. `None` (the default): its provider's
+    /// declared default. Folded at preparation under a registered definition's
+    /// own.
+    #[serde(default)]
+    pub provoked_profile: Option<String>,
 }
 
 /// The art-to-world scale of a body that its sheet authors per pose.
@@ -764,6 +789,9 @@ pub enum PosedBodyScale {
     /// The idle body is as wide as the named character's idle body. A value
     /// derived from another character moves when that character does.
     AsWideAs(String),
+    /// The art is drawn at this many world units per sheet pixel. For a body
+    /// whose scale other bodies share (a giant and its fists).
+    WorldPerPixel(f32),
     /// Use the scale of the named character's row. The forms of one character
     /// differ in size because their art differs, at one scale; a height per
     /// form would state the ratio a second time.

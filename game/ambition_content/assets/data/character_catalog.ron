@@ -274,6 +274,19 @@
             move_style: Walk,
             ranged: Some(Bolt(speed: 500.0, damage: 1)),
         ),
+        "shark_bite": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.18, active_s: 0.10, recover_s: 0.30, damage: 2, reach_px: 42.0)),
+        ),
+        // The bolt the raiders' gun-swords fire.
+        "raider_gun_sword": (
+            move_style: Walk,
+            ranged: Some(Bolt(speed: 500.0, damage: 2)),
+        ),
+        "heavy_raider_gun_sword": (
+            move_style: WalkHeavy,
+            ranged: Some(Bolt(speed: 500.0, damage: 3)),
+        ),
         "parrot_bite": (
             move_style: Float,
             melee: Some(Bite(windup_s: 0.16, active_s: 0.10, recover_s: 0.28, damage: 1, reach_px: 48.0)),
@@ -385,6 +398,10 @@
             composition: None,
             default_brain: "companion_dog_roam",
             default_action_set: "peaceful",
+            locomotion: Some((run_speed: 120.0, move_style: Walk, baseline_free_flight: Some(false))),
+            // It walks and hops.
+            abilities: Some([Walk, Jump]),
+            max_health: Some(4),
             tags: ["animal", "dog", "quadruped", "companion", "peaceful"],
             fallback_dialogue: ["Woof!", "The dog wags its tail."],
             barks: (
@@ -855,6 +872,15 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "pirate_pistol",
+            // It ships as `melee_brute_striker`, whose chase speed is absolute, so
+            // this speed changes nothing a player sees; it makes the body complete.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            // It can board a shark. Every road that builds the admiral grants this,
+            // so the summoned shark can be boarded from the character-select grid
+            // too. Which shark it may board is `MountReservedFor`.
+            mount: Some((pilotable_classes: ["shark"])),
+            provoked_profile: Some("pirate_boarder"),
+            max_health: Some(6),
             tags: ["pirate", "faction_leader"],
             // SCAFFOLD exemplar (catalog-first overrides the legacy npcs.rs
             // table). on_hit/provoked migrated from features::npcs.
@@ -878,14 +904,27 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
-            // policy, and the preset it used to name carried `aggressiveness:
-            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means.  the parrot's case was the opposite and
-            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
-            // it changed a body; `1.0` restates a default, so dropping it does
-            // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "striker_swipe",
+            default_action_set: "raider_gun_sword",
+            // A SHARK RIDER. Touching it does not hurt; its gun-sword does. It holds
+            // the gun-sword, and it fires the bolt that the gun-sword fires: a
+            // character states what it does and an item states what it holds.
+            held_item: Some("gun_sword"),
+            // It can board a shark. It is not itself a mount.
+            mount: Some((pilotable_classes: ["shark"])),
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            autonomous_profile: Some((
+                // It circles and fires: it notices you from across the cove and
+                // commits from just inside that distance.
+                template: Skirmisher,
+                aggro_radius: 1200.0,
+                attack_range: 1100.0,
+                patrol_effort: 0.4783,
+                chase_effort: 1.0,
+                // A crew: when a lookout sees you, the others come.
+                shares_sightings: true,
+            )),
+            provoked_profile: Some("pirate_boarder"),
+            max_health: Some(4),
             tags: ["pirate", "enemy"],
         barks: (
             on_hit: ["Yarrrgh!", "Quit pokin' me loot hand!", "I'll swab the floor with ye!", "Yo-ho-NO, ye landlubber!"],
@@ -904,6 +943,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_cutlass",
+            provoked_profile: Some("pirate_boarder"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it
@@ -929,6 +969,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_bolt",
+            provoked_profile: Some("pirate_boarder"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it
@@ -954,6 +995,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_bolt",
+            provoked_profile: Some("pirate_boarder"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it
@@ -1120,6 +1162,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_heavy_cutlass",
+            provoked_profile: Some("pirate_boarder_heavy"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it
@@ -1148,14 +1191,27 @@
             // is that changing the size is now one number.
             standing_height: Some(56.2),
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors a
-            // policy, and the preset it used to name carried `aggressiveness:
-            // 1.0` — which is HOSTILITY, and hostility is what an `EnemySpawn`
-            // placement already means.  the parrot's case was the opposite and
-            // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
-            // it changed a body; `1.0` restates a default, so dropping it does
-            // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "brute_lunge",
+            default_action_set: "heavy_raider_gun_sword",
+            // A SHARK RIDER. Touching it does not hurt; its gun-sword does. It holds
+            // the gun-sword, and it fires the bolt that the gun-sword fires: a
+            // character states what it does and an item states what it holds.
+            held_item: Some("gun_sword_heavy"),
+            // It can board a shark. It is not itself a mount.
+            mount: Some((pilotable_classes: ["shark"])),
+            locomotion: Some((run_speed: 215.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((
+                // It circles and fires: it notices you from across the cove and
+                // commits from just inside that distance.
+                template: Skirmisher,
+                aggro_radius: 1200.0,
+                attack_range: 1100.0,
+                patrol_effort: 0.5116,
+                chase_effort: 1.0,
+                // A crew: when a lookout sees you, the others come.
+                shares_sightings: true,
+            )),
+            provoked_profile: Some("pirate_boarder_heavy"),
+            max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
         barks: (
             on_hit: ["Iron don't flinch, ye gull!", "Pry harder, swab — I'll rust ye flat!", "Yo-ho, an' a clout to the noggin!", "Try me on a calmer sea, landlubber!"],
@@ -1179,6 +1235,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_heavy_cutlass",
+            provoked_profile: Some("pirate_boarder_heavy"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it
@@ -1204,13 +1261,23 @@
             tier: MainHall,
             body_kind: Floating,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
-            // `BrainProfile { ChargeCrash, .. }`, which is nothing like the
-            // `wanderer_puppy_slug` preset it used to point at — a flying shark
-            // filed under a slug's wander because that row happened to exist. Two
-            // authorities, and the one that made no sense was still being read
-            // wherever the definition was not.
-            default_action_set: "peaceful_float",
+            default_action_set: "shark_bite",
+            // THE FIRST MOUNT TO BECOME A CHARACTER. A flying mount states its own
+            // flight; it does not take it from its body kind.
+            locomotion: Some((run_speed: 260.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 1.10, amount: 2)),
+            // A riderless shark's fast charge, stopped by a wall, makes the shark
+            // explode.
+            death_traits: Some((charge_crash_explodes: true)),
+            // A pirate can ride it. It rides nothing, and a dead shark drops its
+            // rider unharmed.
+            mount: Some((class: Some("shark"))),
+            // It dives at the target, crashes and recovers.
+            autonomous_profile: Some((template: ChargeCrash, aggro_radius: 1200.0, attack_range: 200.0)),
+            max_health: Some(6),
+            // Heavier than its rider, so the pair turns around a centre of gravity
+            // near the shark.
+            mass: Some(6.0),
             tags: ["pirate", "aerial", "enemy"],
         barks: (
             on_hit: ["SKREEE!", "BLAZE!", "BURN-CHOMP!"],
@@ -1220,14 +1287,11 @@
         hall_dialogue_id: Some("hall_npc_burning_flying_shark"),
         ),
 
-        // ===== Giant GNU (ADR 0020 mount actor — the carried giant GNU-ton
-        // rides on). A brainless, stationary MOUNT: it renders via the
-        // character-sprite path from the scholar-less `giant_gnu` sheet, whose
-        // authored body is its collision (see `authored/npc_giant_gnu.rs`). Its
-        // rideability + heavy mass + own HP live on the `giant_gnu` archetype
-        // (character_archetypes.ron); GNU-ton (the rider) stays the boss. Not a
-        // Hall exhibit as well as a gameplay mount; its gallery voice reflects
-        // that support role rather than pretending it is the rider.
+        // ===== Giant GNU (ADR 0020 mount actor: the giant GNU-ton rides). A
+        // MOUNT with no brain that does not move: it draws from the `giant_gnu`
+        // sheet (no scholar on it), whose authored body is its collision. The
+        // RIDER is the threat: GNU-ton stays the boss. It is a Hall exhibit as
+        // well as a mount; its gallery voice speaks as the mount, not the rider.
         "npc_giant_gnu": (
             sprite_tuning: Some((collision_scale: 1.0, frame_sample_inset: 1)),
             display_name: "Giant GNU",
@@ -1236,15 +1300,35 @@
             tier: Giant,
             body_kind: Wide,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
-            // autonomous `BrainProfile`, which outranks this field everywhere it
-            // is read — so naming `stand_still` was the same policy stated twice.
-            //  safe for THIS preset specifically: `stand_still` holds no speeds
-            // and no `aggressiveness`, so nothing came across with it. A preset
-            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
-            // `parrot_lively`, which cost four attempts to understand) has to
-            // move that to the placements first.
             default_action_set: "peaceful",
+            // THE ART IS THE BODY: the collision box is the sheet's authored body
+            // (338x319 px) at one scale, so its feet are on the floor. Its fists
+            // share the scale, so a fist is drawn the size of the hand.
+            posed_body: Some(WorldPerPixel(1.3)),
+            // A heavy walk, not used while it stands still, but the correct gait if
+            // something ever steers it.
+            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            mount: Some((
+                class: Some("giant"),
+                // The scholar stands on the gnu's shoulders, at the base of its
+                // neck (x: the sheet's shoulder point, 388 px against the body-box
+                // centre's 350, is 49.4 wu). His soles rest ON the back the player
+                // stands on (`gnu_ton::conductor::back_platform`, top 7.5 px above
+                // the centre = 9.75 wu), lifted half his drawn height (126 px at
+                // 0.875 wu/px on his v2 sheet, 110.25 wu). He is body-centred.
+                saddle: Some((50.0, -65.0)),
+                // Its fists hover at shoulder height on each side, clear of its
+                // flanks: every beat of GNU-ton's starts and ends here.
+                hand_rest: Some((270.0, -70.0)),
+            )),
+            // It never looks for anyone and never strikes. Whether it is your enemy
+            // is the placement's decision: the sandbox giant is `Peaceful`.
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(42),
+            // Much heavier than the scholar on it, so the pair's centre of gravity
+            // is on the giant and the lighter rider turns around it when gravity
+            // flips.
+            mass: Some(8.0),
             tags: ["mount", "giant"],
             barks: (
                 hall: ["Gnu Ton brought a quotation. I asked for a saddle.", "GNU's not Unix. I am not the rider. Please keep up.", "Everyone wants the shoulders. Nobody asks about the knees."],
@@ -1273,15 +1357,17 @@
             tier: Giant,
             body_kind: Wide,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
-            // autonomous `BrainProfile`, which outranks this field everywhere it
-            // is read — so naming `stand_still` was the same policy stated twice.
-            //  safe for THIS preset specifically: `stand_still` holds no speeds
-            // and no `aggressiveness`, so nothing came across with it. A preset
-            // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
-            // `parrot_lively`, which cost four attempts to understand) has to
-            // move that to the placements first.
             default_action_set: "peaceful",
+            // The fist sheet's authored body, at the giant's scale.
+            posed_body: Some(SameAs("npc_giant_gnu")),
+            // GNU-ton poses the fists each tick (`bosses::gnu_ton::conductor`), so
+            // this gait and policy are not used. The conductor makes the hit
+            // volumes; the fist only carries them.
+            locomotion: Some((run_speed: 0.0, move_style: WalkHeavy)),
+            autonomous_profile: Some((template: StandStill, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(42),
+            // Lighter than the giant, heavy enough to feel solid.
+            mass: Some(2.0),
             tags: ["limb", "giant"],
             barks: (
                 hall: ["Talk to the hand. Appointment required for the giant.", "I am right-handed on alternate Tuesdays.", "Pointing is free. Punching is billable."],
@@ -1298,17 +1384,29 @@
             tier: MainHall,
             body_kind: Crawler,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors
-            // `BrainProfile { Wanderer, aggro 0, attack_range 0 }` — the same
-            // policy `wanderer_puppy_slug` states in absolute px/s — and its ten
-            // placements author `disposition: Peaceful` themselves. The preset was
-            // a third copy of facts this character and its placements already own.
-            //
-            //  the PRESET still exists, for `npc_puppy_slug_variant2`: a
-            // Hall-only character with no authored arm, which cannot take a
-            // profile until the Hall cast is registered with real bodies. A
-            // preset dies with its LAST namer; this removes a namer, not the row.
             default_action_set: "peaceful_slither",
+            // THE BODY. It crawls: it holds to the surface it stands on and does
+            // not walk off a ledge (`surface_walker`), and a hit knocks it off its
+            // surface until it lands again (`cling_breaks_on_hit`).
+            locomotion: Some((
+                run_speed: 80.0,
+                move_style: Slither,
+                surface_walker: true,
+                cling_breaks_on_hit: true,
+                baseline_free_flight: Some(false),
+            )),
+            // It hurts when you touch it. It does not swing, so it has no `Attack`
+            // grant: an attack would be a swing that nothing describes.
+            contact_damage: Some((strength: 0.55, amount: 1)),
+            // It crawls, and that is its only verb. A body with one verb must
+            // still seat, simulate and survive on a stage
+            // (`puppy_slug_forced_seat.rs`).
+            abilities: Some([Walk]),
+            // The slug's own psychedelic pass.
+            dream_seed: Some(0.271828),
+            // Wildlife: it notices nobody and attacks nobody.
+            autonomous_profile: Some((template: Wanderer, aggro_radius: 0.0, attack_range: 0.0)),
+            max_health: Some(2),
             tags: ["enemy", "ai_era"],
         barks: (
             idle: ["blorb...", "schlorp.", "...weh?"],
@@ -2251,6 +2349,7 @@
             composition: None,
             default_brain: "",
             default_action_set: "pirate_cutlass",
+            provoked_profile: Some("pirate_boarder"),
             // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
             // and each shape's policy is a shared `autonomous_profiles` entry. The run
             // speed is the old preset's chase speed, so a pirate closes at the pace it

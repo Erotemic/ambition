@@ -386,6 +386,10 @@ impl CharacterCatalogRegistry {
                     .named_autonomous_profile
                     .as_deref()
                     .map(|name| namespaced(provider_id, name));
+                entry.provoked_profile = entry
+                    .provoked_profile
+                    .as_deref()
+                    .map(|name| namespaced(provider_id, name));
                 owners.insert(character_id.clone(), provider_id.clone());
                 characters.insert(character_id.clone(), entry);
             }

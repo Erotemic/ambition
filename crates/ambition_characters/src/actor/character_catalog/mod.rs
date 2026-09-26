@@ -628,6 +628,43 @@ mod tests {
         assert!(format!("{error:?}").contains("state one policy"), "{error:?}");
     }
 
+    /// A row's provoked policy is a name the catalog states, and it is
+    /// namespaced by its provider like every other shared name.
+    #[test]
+    fn a_provoked_policy_is_refused_when_unknown_and_namespaced_when_known() {
+        let catalog = |policy: &str| {
+            format!(
+                r#"(
+                    autonomous_profiles: {{ "boarder": (template: Smash) }},
+                    brain_presets: {{ "idle": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{
+                        "alpha": (
+                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "idle", default_action_set: "peaceful", tags: [],
+                            provoked_profile: Some("{policy}"),
+                        ),
+                    }},
+                )"#
+            )
+        };
+        let fragment =
+            |policy: &str| registry::CharacterCatalogFragment::from_ron("a", Some("alpha"), &catalog(policy));
+        let error = fragment("brute").expect_err("unknown");
+        assert!(format!("{error:?}").contains("provoked_profile 'brute' not found"), "{error:?}");
+        let mut registry = registry::CharacterCatalogRegistry::default();
+        registry
+            .register(fragment("boarder").expect("a known policy"))
+            .expect("one fragment registers");
+        let assembled = registry.assemble().expect("one fragment assembles");
+        assert_eq!(
+            assembled.catalog.get("alpha").and_then(|row| row.provoked_profile.as_deref()),
+            Some("a::boarder"),
+            "the name is the provider's, as a named autonomous profile is"
+        );
+    }
+
     #[test]
     fn portrait_paths_derive_from_the_gameplay_sheet() {
         let catalog = portrait_catalog_fixture("None");

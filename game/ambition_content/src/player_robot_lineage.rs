@@ -757,12 +757,22 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
         let Some(sheet) = row.manifest_target() else {
             continue;
         };
-        let definition = CharacterDefinition::new(
+        let mut definition = CharacterDefinition::new(
             id.clone(),
             row.display_name.clone(),
             crate::AMBITION_CONTENT_PROVIDER,
         )
         .with_sheet(sheet);
+        // A row that states its posed body scale is built with the sheet's
+        // authored body at that scale, as every pack's cast is.
+        if let Some(world_per_pixel) =
+            ambition_platformer2d::character_sprites::posed_body_world_per_pixel(
+                catalog.data(),
+                &id,
+            )
+        {
+            definition = definition.with_sprite_authored_body(world_per_pixel);
+        }
         // What this character says about its own body, for the ones that
         // have taken their facts back from the archetype roster. A character
         // still awaiting migration adds nothing here and stays a bare

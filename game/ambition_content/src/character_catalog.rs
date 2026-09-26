@@ -163,18 +163,6 @@ pub fn authored_intrinsics(
     definition: ambition_platformer2d::character::CharacterDefinition,
     pack: &ambition_content_pack::PreparedContentPack,
 ) -> ambition_platformer2d::character::CharacterDefinition {
-    // One rule, not nine arms. It keeps the old name matcher's split
-    // (`hostile_brain_id_for_actor` tests `pirate_heavy` first): the named heavies
-    // take the brute policy and the rest take the boarder.
-    let definition = if id.starts_with("npc_pirate_") {
-        definition.with_provoked_profile_named(if id.contains("pirate_heavy") {
-            "pirate_boarder_heavy"
-        } else {
-            "pirate_boarder"
-        })
-    } else {
-        definition
-    };
     // The creature's own file states the rest: `authored/` has one file per
     // creature, listed in [`crate::authored::AUTHORED_CAST`]. See its module doc.
     let definition = match crate::authored::author_for(id) {
@@ -250,7 +238,57 @@ mod tests {
                 .expect("the pack authors move tables");
 
         let mut bodies = 0;
+        let mut stated = 0;
         for (id, row) in catalog.iter() {
+            // The facts a row can state whether or not it states a body. A row
+            // that is not prepared is checked by the body rows below.
+            if let Some(character) = prepared.get(id) {
+                if row.mass.is_some() {
+                    assert_eq!(character.vitals.mass, row.mass, "`{id}` weighs what its row says");
+                    stated += 1;
+                }
+                if row.mount.is_some() {
+                    assert_eq!(character.mount, row.mount, "`{id}` rides as its row says");
+                    stated += 1;
+                }
+                if row.dream_seed.is_some() {
+                    assert_eq!(character.dream_seed, row.dream_seed, "{id}");
+                    stated += 1;
+                }
+                if row.held_item.is_some() {
+                    assert_eq!(character.held_item, row.held_item, "{id}");
+                    stated += 1;
+                }
+                if row.abilities.is_some() {
+                    assert_eq!(character.abilities, catalog.ability_set(id), "{id}");
+                    stated += 1;
+                }
+                if row.contact_damage.is_some() {
+                    assert_eq!(character.contact_damage, row.contact_damage, "{id}");
+                    stated += 1;
+                }
+                if let Some(name) = row.provoked_profile.as_deref() {
+                    assert_eq!(
+                        character.provoked_profile.as_ref(),
+                        catalog.autonomous_profile(name),
+                        "`{id}` is provoked into the policy its row names"
+                    );
+                    stated += 1;
+                }
+                if row.posed_body.is_some() {
+                    let scale = ambition_platformer2d::character_sprites::posed_body_world_per_pixel(
+                        catalog.data(),
+                        id,
+                    )
+                    .map(|world_per_pixel| {
+                        ambition_characters::actor::definition::BodySource::SpriteAuthored {
+                            world_per_pixel,
+                        }
+                    });
+                    assert_eq!(character.body, scale, "`{id}` is built at its row's scale");
+                    stated += 1;
+                }
+            }
             if row.locomotion.is_none() && row.locomotion_preset.is_none() {
                 continue;
             }
@@ -296,6 +334,7 @@ mod tests {
             }
         }
         assert!(bodies >= 29, "only {bodies} rows state a body");
+        assert!(stated >= 34, "only {stated} row facts were compared");
 
         let get = |id: &str| prepared.get(id).unwrap_or_else(|| panic!("`{id}`"));
         assert_eq!(
@@ -319,6 +358,28 @@ mod tests {
                     if swing.damage == 2 && swing.reach_px == 44.0
             ),
             "the brute swings its hammer, not the striker's swipe: {brute:?}"
+        );
+        // The giant's fists are drawn at the giant's scale: the fist row names
+        // the giant's, it does not restate the number.
+        assert_eq!(
+            get("npc_giant_gnu_hands").body,
+            Some(ambition_characters::actor::definition::BodySource::SpriteAuthored {
+                world_per_pixel: 1.3
+            }),
+            "a fist is drawn the size of the hand that throws it"
+        );
+        let slug = get("npc_puppy_slug").abilities.expect("the slug states its verbs");
+        assert!(
+            slug.move_horizontal && !slug.jump && !slug.attack,
+            "the slug crawls, and that is all it does: {slug:?}"
+        );
+        assert_eq!(
+            get("npc_pirate_heavy_iron_mary")
+                .provoked_profile_id
+                .as_ref()
+                .map(|profile| profile.as_str().to_string()),
+            Some("ambition::pirate_boarder_heavy".to_string()),
+            "a heavy pirate is provoked into the heavy boarder"
         );
         assert!(
             get("npc_emmy_noether").preserves_mirror_symmetry,
@@ -453,51 +514,81 @@ mod tests {
     }
     use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
 
-    /// The puppy slug's pins, beside the definition that states them.
-    ///
-    /// `test_spec` answers an unknown key with the `combatant` fallback, so pins
-    /// left on a deleted row would pass about the wrong creature.
+    /// What the mounts and their riders ARE, through preparation: the admiral
+    /// and the raiders board a shark and are not ridden, the shark and the giant
+    /// are ridden and board nothing, and a fist is neither. Their rows state it;
+    /// every road that builds them inherits it (`prepared_match` unions
+    /// `pilotable_classes` into `CanPilot`), so the admiral's summoned shark can
+    /// be boarded from the character-select grid too.
     #[test]
-    fn the_puppy_slug_authors_the_body_its_archetype_row_used_to() {
-        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
-
-        let definition = authored_intrinsics(
-            "npc_puppy_slug",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "npc_puppy_slug",
-                "Puppy Slug",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
-        assert_eq!(definition.vitals.max_health, Some(2));
-
-        let locomotion = definition
-            .locomotion
-            .expect("the slug states how it moves, or it cannot be built as a character");
-        assert_eq!(locomotion.run_speed, 80.0);
-        assert!(matches!(locomotion.move_style, MoveStyleSpec::Slither));
-        assert!(locomotion.surface_walker, "a crawlid that walks off walls");
-        assert!(locomotion.cling_breaks_on_hit);
-
-        let contact = definition
-            .contact_damage
-            .expect("its body hurts on touch — the only way it damages anything");
-        assert_eq!(contact.amount, 1);
-
-        let profile = definition
-            .autonomous_policy
-            .as_ref()
-            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-            .expect("ambient wildlife still has a policy: it wanders");
-        assert_eq!(profile.template, CharacterBrainTemplate::Wanderer);
-        assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
-
+    fn the_mounts_and_their_riders_are_what_their_rows_say() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let get = |id: &str| prepared.get(id).unwrap_or_else(|| panic!("`{id}` is not prepared"));
+        for rider in ["npc_pirate_admiral", "npc_pirate_raider", "npc_pirate_heavy_iron_mary"] {
+            let mount = get(rider).mount.clone().unwrap_or_default();
+            assert_eq!(mount.pilotable_classes, vec!["shark".to_string()], "`{rider}` boards a shark");
+            assert!(mount.class.is_none(), "`{rider}` became something you can ride");
+        }
+        for (ridden, class) in [("npc_burning_flying_shark", "shark"), ("npc_giant_gnu", "giant")] {
+            let mount = get(ridden).mount.clone().unwrap_or_default();
+            assert_eq!(mount.class.as_deref(), Some(class), "`{ridden}` is a mount");
+            assert!(mount.pilotable_classes.is_empty(), "`{ridden}` rides nothing");
+        }
+        assert!(get("npc_giant_gnu_hands").mount.is_none(), "a hand is neither ridden nor rides");
+        // The giant is far heavier than the scholar on it, so the pair's centre of
+        // gravity is on the giant.
+        assert!(get("npc_giant_gnu").vitals.mass > get("npc_giant_gnu_hands").vitals.mass);
+        for id in ["npc_giant_gnu", "npc_giant_gnu_hands", "npc_pirate_raider", "npc_pirate_heavy_iron_mary"] {
+            assert!(get(id).contact_damage.is_none(), "touching `{id}` must not hurt");
+        }
+        assert_eq!(get("npc_pirate_raider").held_item.as_deref(), Some("gun_sword"));
+        assert_eq!(get("npc_pirate_heavy_iron_mary").held_item.as_deref(), Some("gun_sword_heavy"));
         assert_eq!(
-            definition.dream_seed,
+            get("npc_puppy_slug").dream_seed,
             Some(0.271828),
-            "the slug-only psychedelic pass, which only an archetype row could \
-             grant until this field existed"
+            "the slug's own psychedelic pass"
+        );
+    }
+
+    /// Every pirate is provoked into the boarder policy its row names, through
+    /// preparation (the form the runtime uses), and registration visits it.
+    /// The heavies take the heavy boarder. A character that is not a pirate
+    /// keeps its provider's default, so the rows are not a blanket rule.
+    #[test]
+    fn every_pirate_is_provoked_into_the_boarder_its_row_names() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let provoked = |id: &str| {
+            prepared
+                .get(id)
+                .unwrap_or_else(|| panic!("`{id}` is not prepared"))
+                .provoked_profile_id
+                .as_ref()
+                .map(|profile| profile.as_str().to_string())
+        };
+        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
+        let catalog = load_catalog();
+        let mut pirates = 0;
+        for id in catalog.data().characters.keys().filter(|id| id.starts_with("npc_pirate_")) {
+            pirates += 1;
+            let expected = if id.contains("pirate_heavy") {
+                "ambition::pirate_boarder_heavy"
+            } else {
+                "ambition::pirate_boarder"
+            };
+            assert_eq!(provoked(id).as_deref(), Some(expected), "`{id}` when struck");
+            assert!(registered.contains(id.as_str()), "`{id}` is never registered");
+        }
+        assert!(pirates >= 9, "only {pirates} pirate rows");
+        let alice = provoked("npc_alice");
+        assert!(
+            !alice.as_deref().is_some_and(|profile| profile.contains("pirate_boarder")),
+            "a character that is not a pirate became a boarder: {alice:?}"
         );
     }
 
@@ -718,164 +809,6 @@ mod tests {
         );
     }
 
-    /// The giant carries its own facts: every fact its archetype row stated is
-    /// authored on the definition, and the row is deleted. The limbed-host
-    /// predicate, the activation path's construction context and
-    /// `mount_capabilities_of` all ask the character before the archetype.
-    #[test]
-    fn the_giant_gnu_authors_the_mount_its_archetype_row_used_to() {
-        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
-
-        let definition = authored_intrinsics(
-            "npc_giant_gnu",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "npc_giant_gnu",
-                "Giant GNU",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
-        assert_eq!(definition.vitals.max_health, Some(42));
-        assert_eq!(
-            definition.vitals.mass,
-            Some(8.0),
-            "the mount pair's centre of gravity sits on the giant"
-        );
-        let locomotion = definition.locomotion.expect("it states its gait");
-        assert_eq!(locomotion.run_speed, 0.0, "stationary, and it SAYS so");
-        assert!(matches!(locomotion.move_style, MoveStyleSpec::WalkHeavy));
-        assert!(
-            definition.contact_damage.is_none(),
-            "standing next to a prop does not hurt"
-        );
-        let mount = definition.mount.expect("it is a mount");
-        assert_eq!(mount.class.as_deref(), Some("giant"));
-        assert!(
-            mount.pilotable_classes.is_empty(),
-            "the giant rides nothing"
-        );
-        let profile = definition
-            .autonomous_policy
-            .as_ref()
-            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-            .expect("its policy");
-        assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
-        assert_eq!(
-            profile.aggro_radius, 0.0,
-            "the scholar on its shoulders is the threat, and a driver that \
-             notices nobody is the whole of what the deleted `attacks_player` \
-             said as POLICY — the rest of it was a relationship, and the \
-             sandbox placement says `Peaceful`"
-        );
-        assert_eq!(profile.attack_range, 0.0);
-    }
-
-    /// The two shark riders differ: health, weight, pace, gait, bolt damage and
-    /// gun-sword.
-    ///
-    /// Neither authors `contact_damage`. Their old rows had contact values but
-    /// `body_contact_damage: false`, so those values did nothing.
-    #[test]
-    fn the_shark_riders_author_the_bodies_their_archetype_rows_used_to() {
-        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
-
-        let rider = |id: &str| {
-            authored_intrinsics(
-                id,
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id,
-                    "Rider",
-                    crate::AMBITION_CONTENT_PROVIDER,
-                ),
-                crate::pack::prepared(),
-            )
-        };
-        let light = rider("npc_pirate_raider");
-        let heavy = rider("npc_pirate_heavy_iron_mary");
-
-        assert_eq!(light.vitals.max_health, Some(4));
-        assert_eq!(heavy.vitals.max_health, Some(6), "Iron Mary is the heavy");
-        assert_eq!(light.held_item.as_deref(), Some("gun_sword"));
-        assert_eq!(heavy.held_item.as_deref(), Some("gun_sword_heavy"));
-        assert!(
-            light.contact_damage.is_none() && heavy.contact_damage.is_none(),
-            "touching a raider does not hurt; its gun-sword does"
-        );
-
-        let light_locomotion = light.locomotion.expect("it states its pace");
-        let heavy_locomotion = heavy.locomotion.expect("so does she");
-        assert_eq!(light_locomotion.run_speed, 230.0);
-        assert_eq!(heavy_locomotion.run_speed, 215.0);
-        assert!(matches!(light_locomotion.move_style, MoveStyleSpec::Walk));
-        assert!(matches!(
-            heavy_locomotion.move_style,
-            MoveStyleSpec::WalkHeavy
-        ));
-
-        for (definition, effort) in [(&light, 0.4783), (&heavy, 0.5116)] {
-            let profile = definition
-                .autonomous_policy
-                .as_ref()
-                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-                .expect("the standoff policy");
-            assert_eq!(profile.template, CharacterBrainTemplate::Skirmisher);
-            assert_eq!(profile.aggro_radius, 1200.0);
-            assert_eq!(
-                profile.patrol_effort, effort,
-                "a TUNED amble — the number the constructor's literal 0.5 would \
-                 have silently replaced"
-            );
-            let mount = definition.mount.as_ref().expect("it boards a shark");
-            assert_eq!(mount.pilotable_classes, vec!["shark".to_string()]);
-            assert!(mount.class.is_none(), "a raider is not itself rideable");
-            assert!(
-                definition
-                    .action_set
-                    .as_ref()
-                    .is_some_and(|set| set.ranged.is_some()),
-                "the bolt is the whole standoff"
-            );
-        }
-    }
-
-    /// The giant's left and right hands reuse the same character definition.
-    #[test]
-    fn the_giants_hands_author_the_limb_their_archetype_row_used_to() {
-        use ambition_characters::brain::CharacterBrainTemplate;
-
-        let definition = authored_intrinsics(
-            "npc_giant_gnu_hands",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "npc_giant_gnu_hands",
-                "Giant GNU Hand",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
-        assert_eq!(definition.vitals.max_health, Some(42));
-        assert_eq!(definition.vitals.mass, Some(2.0));
-        assert!(
-            definition.contact_damage.is_none(),
-            "a limb is not a hazard"
-        );
-        assert!(
-            definition.mount.is_none(),
-            "a hand is neither ridden nor rides"
-        );
-        let profile = definition
-                .autonomous_policy
-                .as_ref()
-                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-                .expect("its policy");
-        assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
-        assert_eq!(
-            profile.aggro_radius, 0.0,
-            "the rider's routed strikes hurt; the hand is their vehicle, and a \
-             vehicle notices nobody"
-        );
-        assert_eq!(profile.attack_range, 0.0);
-    }
-
     /// The practice target says it is one. `practice_target` has four consumers:
     /// the save sync, the path assignment and two sprite reads.
     ///
@@ -990,100 +923,6 @@ mod tests {
             !data.brain_presets.is_empty(),
             "no presets at all, so the sweep above proved nothing"
         );
-    }
-
-    /// The admiral can ride a shark, and says so here.
-    ///
-    /// This is a character fact, so every road inherits it: `prepared_match`
-    /// unions `pilotable_classes` into `CanPilot` wherever a body is realized.
-    /// Granting it per match seat missed the character-select road
-    /// (`SmashSelect::roster_seeded`), and the shark from his up-B could not be
-    /// boarded. The up-B is Smash-only; piloting is not.
-    #[test]
-    fn the_pirate_admiral_can_pilot_a_shark_because_it_is_a_pirate_admiral() {
-        let definition = authored_intrinsics(
-            "npc_pirate_admiral",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "npc_pirate_admiral",
-                "Pirate Admiral",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
-        let mount = definition
-            .mount
-            .as_ref()
-            .expect("an admiral states what it can board");
-        assert_eq!(
-            mount.pilotable_classes,
-            vec!["shark".to_string()],
-            "the admiral cannot pilot a shark, so its up-B summons a mount it \
-             may not board"
-        );
-        // And it is not itself rideable; `npc_pirate_raider` states the same pair.
-        assert!(
-            mount.class.is_none(),
-            "an admiral became something you can ride"
-        );
-    }
-
-    /// Every character the provocation name-matcher answers states its own
-    /// provoked policy.
-    ///
-    /// A character that did not would fall through to the matcher, find no row,
-    /// and become a generic `combatant`.
-    #[test]
-    fn every_pirate_answers_the_provocation_question_for_itself() {
-        let light = [
-            "npc_pirate_admiral",
-            "npc_pirate_raider",
-            "npc_pirate_quartermaster",
-            "npc_pirate_lookout",
-            "npc_pirate_navigator",
-            "npc_pirate_cutlass_viper",
-        ];
-        let heavy = [
-            "npc_pirate_heavy_broadside_bess",
-            "npc_pirate_heavy_iron_mary",
-            "npc_pirate_heavy_salt_annet",
-        ];
-        for (ids, expected) in [
-            (&light[..], "pirate_boarder"),
-            (&heavy[..], "pirate_boarder_heavy"),
-        ] {
-            for id in ids {
-                let definition = authored_intrinsics(
-                    id,
-                    ambition_platformer2d::character::CharacterDefinition::new(
-                        *id,
-                        *id,
-                        crate::AMBITION_CONTENT_PROVIDER,
-                    ),
-                    crate::pack::prepared(),
-                );
-                assert_eq!(
-                    definition
-                        .provoked_profile_ref
-                        .as_ref()
-                        .map(ambition_characters::brain::BrainProfileRef::as_str),
-                    Some(expected),
-                    "`{id}` still needs the display-name matcher to know what it \
-                     becomes when struck"
-                );
-            }
-        }
-        // A non-pirate must not get one, or the rule is a blanket, not a
-        // migration.
-        let goblin = authored_intrinsics(
-            "goblin",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "goblin",
-                "goblin",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
-        assert!(goblin.provoked_profile_ref.is_none());
     }
 
     /// The runtime's cast is the compiler's output, not a separate reading that
@@ -1332,65 +1171,6 @@ mod tests {
             authors_someone,
             "no character in the catalog authors any intrinsics — the check above \
              is passing over an empty set"
-        );
-    }
-
-    /// All nine pirates get the policy the prefix rule gives them
-    /// (`id.starts_with("npc_pirate_")` → one of two profiles), checked at the
-    /// end of the chain: through preparation, the form the runtime uses.
-    #[test]
-    fn every_pirate_delivers_the_provoked_policy_its_rule_states() {
-        let catalog = load_catalog();
-        let pirates: Vec<String> = catalog
-            .data()
-            .characters
-            .keys()
-            .filter(|id| id.starts_with("npc_pirate_"))
-            .cloned()
-            .collect();
-        assert!(
-            pirates.len() >= 9,
-            "the prefix rule is written for nine pirate rows; found {}",
-            pirates.len()
-        );
-
-        let registered: std::collections::BTreeSet<&str> = buildable_cast().collect();
-        let mut broken = Vec::new();
-        for id in &pirates {
-            let bare = ambition_platformer2d::character::CharacterDefinition::new(
-                id.as_str(),
-                "unused",
-                crate::AMBITION_CONTENT_PROVIDER,
-            );
-            // Both halves: the rule must state a policy, and registration must visit
-            // the id.
-            let states = authored_intrinsics(id.as_str(), bare, crate::pack::prepared())
-                .provoked_profile_ref
-                .is_some();
-            if !states || !registered.contains(id.as_str()) {
-                broken.push((id.clone(), states, registered.contains(id.as_str())));
-            }
-        }
-        assert!(
-            broken.is_empty(),
-            "these pirates do not deliver a provoked policy — `(id, states_one, \
-             registered)`: {broken:?}. A policy stated by a rule that registration \
-             never visits reaches no body, and provoking one falls to the generic \
-             archetype instead."
-        );
-
-        // A character the rule does not name must not get one. Without this, a
-        // build where every character got a provoked policy would pass.
-        let bare = ambition_platformer2d::character::CharacterDefinition::new(
-            "npc_alice",
-            "unused",
-            crate::AMBITION_CONTENT_PROVIDER,
-        );
-        assert!(
-            authored_intrinsics("npc_alice", bare, crate::pack::prepared())
-                .provoked_profile_ref
-                .is_none(),
-            "a character outside the pirate rule must state no provoked policy"
         );
     }
 

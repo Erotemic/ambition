@@ -40,16 +40,15 @@ struct PreparedCharacterOverrides {
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
     vitals: Vitals,
-    /// See [`CharacterDefinition::death_traits`]. No catalog counterpart
-    /// exists to fold against, so it carries straight through.
+    /// See [`CharacterDefinition::death_traits`]. FOLDED at finalize: this,
+    /// else the catalog row's.
     death_traits: Option<crate::actor::CharacterDeathTraits>,
-    /// See [`CharacterDefinition::abilities`]. No catalog counterpart exists —
-    /// a catalog row has never been able to state a body's verbs — so it
-    /// carries straight through.
+    /// See [`CharacterDefinition::abilities`]. FOLDED at finalize: this, else
+    /// the catalog row's grants.
     abilities: Option<ambition_platformer2d_core::AbilitySet>,
-    /// See [`CharacterDefinition::locomotion`]. Carried; no catalog counterpart.
+    /// See [`CharacterDefinition::locomotion`]. FOLDED with the catalog row's.
     locomotion: Option<crate::actor::CharacterLocomotion>,
-    /// See [`CharacterDefinition::contact_damage`]. Carried; no counterpart.
+    /// See [`CharacterDefinition::contact_damage`]. FOLDED with the catalog row's.
     contact_damage: Option<crate::actor::ContactDamage>,
     /// See [`CharacterDefinition::autonomous_policy`]. Carried as authored; the
     /// NAMED form is RESOLVED at preparation, so nothing downstream ever sees a
@@ -59,17 +58,19 @@ struct PreparedCharacterOverrides {
     ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::ranged_execution`]. Carried.
     ranged_execution: crate::brain::RangedExecution,
-    /// See [`CharacterDefinition::provoked_profile_ref`]. RESOLVED at finalize.
+    /// See [`CharacterDefinition::provoked_profile_ref`]. FOLDED with the
+    /// catalog row's, then RESOLVED at finalize.
     provoked_profile_ref: Option<crate::brain::BrainProfileRef>,
-    /// See [`CharacterDefinition::practice_target`]. Carried.
+    /// See [`CharacterDefinition::practice_target`]. OR-ed with the catalog row's.
     practice_target: bool,
-    /// See [`CharacterDefinition::held_item`]. Carried.
+    /// See [`CharacterDefinition::held_item`]. FOLDED with the catalog row's.
     held_item: Option<String>,
-    /// See [`CharacterDefinition::dream_seed`]. Carried.
+    /// See [`CharacterDefinition::dream_seed`]. FOLDED with the catalog row's.
     dream_seed: Option<f32>,
-    /// See [`CharacterDefinition::preserves_mirror_symmetry`]. Carried.
+    /// See [`CharacterDefinition::preserves_mirror_symmetry`]. OR-ed with the
+    /// catalog row's.
     preserves_mirror_symmetry: bool,
-    /// See [`CharacterDefinition::mount`]. Carried.
+    /// See [`CharacterDefinition::mount`]. FOLDED with the catalog row's.
     mount: Option<crate::actor::CharacterMount>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
@@ -1672,6 +1673,7 @@ fn finalize_character(
     // theirs ONLY there. Left unfolded, the player road read the row while
     // every actor road read this field, so the same character could run as
     // the player and not as an NPC.
+    let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
     let abilities = abilities.or_else(|| catalog?.ability_set(&id));
     let actor_abilities = abilities
         .or_else(|| authorities.declarations.as_ref()?.actor_abilities(&provider))
@@ -1680,6 +1682,10 @@ fn finalize_character(
     // provider's declared default, else none, and a character with none is not
     // provokable. Resolved here like every other silent-character answer.
     let provoked_profile_ref = provoked_profile_ref
+        .or_else(|| {
+            let name = catalog_row?.provoked_profile.clone()?;
+            Some(crate::brain::BrainProfileRef::new(name))
+        })
         .or_else(|| authorities.declarations.as_ref()?.provoked_profile(&provider).cloned());
 
     // THE KIT. Decided here once rather than by whichever construction path
@@ -1726,7 +1732,6 @@ fn finalize_character(
 
     // The art is asked once, here: a definition that names no sheet wears its
     // catalog row's, and only a catalog row can size a body from its sheet.
-    let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
     // A registered definition's own answer, else its catalog row's, like the
     // health below. A game can then state a whole creature in its row.
     let locomotion = locomotion.or_else(|| catalog?.locomotion(&id));
@@ -1742,6 +1747,9 @@ fn finalize_character(
         }
     });
     let death_traits = death_traits.or_else(|| catalog_row?.death_traits.clone());
+    let mount = mount.or_else(|| catalog_row?.mount.clone());
+    let dream_seed = dream_seed.or_else(|| catalog_row?.dream_seed);
+    let held_item = held_item.or_else(|| catalog_row?.held_item.clone());
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
     // A trait that either the row or a registered definition can state.
     let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);
@@ -1760,9 +1768,7 @@ fn finalize_character(
         // and `session::setup` read it directly — so a registered character's
         // authored pool and a catalog row's authored pool were two authorities
         // that never met. Folding here is what lets ONE applier serve the worn
-        // player and the seated fighter.
-        //
-        // Mass has no catalog counterpart to fold against; it carries through.
+        // player and the seated fighter. Mass folds the same way.
         vitals: Vitals {
             max_health: vitals
                 .max_health
@@ -1770,6 +1776,7 @@ fn finalize_character(
                 // A pool of zero or less is dead on arrival and no author means
                 // it. Clamped once, at the barrier, so no consumer has to.
                 .map(|max| max.max(1)),
+            mass: vitals.mass.or_else(|| catalog_row?.mass),
             ..vitals
         },
         // An authored model, else the policy the authored locomotion names,

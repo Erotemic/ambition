@@ -713,6 +713,12 @@ impl Default for AbilitySet {
 /// whole point of composition over presets: new verbs never fork the roster.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum AbilityGrant {
+    /// Horizontal steering and nothing else: a body that walks or crawls and
+    /// never leaves the ground by itself (a slug).
+    Walk,
+    /// A ground jump of one height. [`RunJump`](Self::RunJump) adds variable
+    /// height, ducking and ladders; a four-legged animal hops without them.
+    Jump,
     /// The classic run-and-jump floor: horizontal steering, a ground jump,
     /// variable jump height, ducking and climbing a ladder. The minimal kit a
     /// platformer protagonist needs.
@@ -760,6 +766,14 @@ impl AbilityGrant {
     /// The concrete verbs this bundle grants.
     pub fn to_set(self) -> AbilitySet {
         match self {
+            Self::Walk => AbilitySet {
+                move_horizontal: true,
+                ..AbilitySet::NONE
+            },
+            Self::Jump => AbilitySet {
+                jump: true,
+                ..AbilitySet::NONE
+            },
             Self::RunJump => AbilitySet {
                 move_horizontal: true,
                 jump: true,

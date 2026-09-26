@@ -231,6 +231,23 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
                 );
             }
         }
+        if let Some(profile) = &entry.provoked_profile {
+            if !catalog.autonomous_profiles.contains_key(profile) {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::UnknownPreset,
+                            format!(
+                                "character `{name}` is provoked into the policy `{profile}`, \
+                                 which `autonomous_profiles` does not state"
+                            ),
+                        )
+                        .about(id.clone())
+                        .at_field("provoked_profile")
+                        .fix("state it in `autonomous_profiles`, or name one that is there"),
+                );
+            }
+        }
         if let Some(preset) = &entry.locomotion_preset {
             out.refer(
                 PendingRef::new(

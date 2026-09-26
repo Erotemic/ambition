@@ -100,6 +100,8 @@ pub fn posed_body_world_per_pixel(
                 _ => None,
             }
         }
+        // The one scale that does not ask the art: it holds without a baked sheet.
+        PosedBodyScale::WorldPerPixel(world_per_pixel) => return Some(world_per_pixel),
         PosedBodyScale::SameAs(_) => unreachable!("followed above"),
     };
     Some(world_per_pixel.unwrap_or(1.0))

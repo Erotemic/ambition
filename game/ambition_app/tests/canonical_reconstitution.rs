@@ -331,6 +331,7 @@ fn settle_after_construction(
         built,
         "no room construction landed within 120 frames, so this arm never got          the population it is about to census"
     );
+    let commit_tick = sim_tick(sim);
     // Aged in LIVE ticks. A rebuild's commit is followed by a tick on which
     // the transition still holds the sim clock at zero, which a boot's settle
     // spent before this arm began counting; a frozen tick moves nothing, so
@@ -353,7 +354,20 @@ fn settle_after_construction(
         }
     }
     assert_eq!(aged, MATURITY, "the sim clock never ran long enough to age this arm");
+    // Printed for the intermittent red in the leaving arm (one EnemySpawn a
+    // frame's walk ahead after re-entry). libtest shows it only on failure,
+    // so a red run names the ticks its two samples were taken at.
+    eprintln!(
+        "settle: commit seen at SimTick {commit_tick}, census at SimTick {}",
+        sim_tick(sim)
+    );
     population_entities(sim)
+}
+
+fn sim_tick(sim: &Platformer2dSimHarness) -> u64 {
+    sim.world()
+        .resource::<ambition_platformer2d::time::SimTick>()
+        .0
 }
 
 /// A fresh boot, settled to the same age as every other arm.

@@ -205,14 +205,14 @@ normalization targets, and authored ordering is preserved in every pass.
 
 **Authoring hazards, all of which have bitten.**
 
-- The host reads `assets/data/movesets/*.ron` off disk. Editing a `*_moveset.rs`
-  for a migrated table is a no-op until
-  `cargo run -p ambition_app_tools --bin moveset_source_export -- <table>`;
-  non-migrated fighters need a rebuild instead.
-- Regeneration must cover the **borrowers**, not just the donor table. A borrower's
-  `.ron` keeps the stale value until it is regenerated itself.
+- The host reads `assets/data/movesets/*.ron` through the content pack, and those
+  files are the source. Fighters whose tables are still Rust (the robot lineage,
+  and the Mary-O, Sanic and Smash demos) need a rebuild instead.
+- A **borrower** (`borrows: (archetype, prefixes)` in its file) holds only what it
+  changes, so editing the archetype's file retunes every borrower. There is no
+  second copy to regenerate.
 - Identical base+growth is **not** proof of a shared table. Verify sharing by the
-  move id *and* the file; borrows are declared in `archetype_moveset.rs`.
+  move id *and* the file; a borrow is declared in the borrower's own file.
 - Six fighters share the literal id `smash_forward` and six share `smash_up`. Any
   helper that takes the first match across all moveset files reads an arbitrary
   fighter; resolve from the fighter's own file and assert the parsed base/growth

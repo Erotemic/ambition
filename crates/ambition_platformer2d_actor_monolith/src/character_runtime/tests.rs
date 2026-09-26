@@ -594,6 +594,19 @@ mod live_quality_apply {
             );
         }
 
+        // The cast a barrier folds from this catalog. Production always has it,
+        // and it is where the materializer reads each character's sheet.
+        // Assembly stamps every row with its provider; the bare roster has none.
+        let mut assembled = characters.data().clone();
+        for entry in assembled.characters.values_mut() {
+            if entry.provider.is_empty() {
+                entry.provider = "test".to_string();
+            }
+        }
+        app.insert_resource(ambition_characters::prepared::prepare_cast_for_test(
+            &ambition_characters::actor::character_catalog::CharacterCatalog::from_data(assembled),
+            [],
+        ));
         app.insert_resource(characters);
         app.insert_resource(catalog);
         app.insert_resource(config);

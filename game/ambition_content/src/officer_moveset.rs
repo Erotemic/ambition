@@ -1,158 +1,9 @@
-//! The Officer: the brawler archetype's table under his own name, plus his
-//! own specials.
+//! Tests of the moves the game ships for `officer`.
 //!
-//! Unarmed for every normal, on the Pugnacious Polygon's skeleton and clip
-//! vocabulary. He uses the archetype's punches and timings; the difference is
-//! in the sprite sheet, not this table.
-//!
-//! See [`crate::archetype_moveset`] for why the ids are renamed rather than
-//! shared or copied.
+//! The table is content: `assets/data/movesets/officer.ron`. These tests read it
+//! through [`crate::authored_movesets::shipped`], the table the pack loads.
 
-use ambition_entity_catalog::{MoveEvent, MoveEventKind, MoveSpec, MovesetContract};
-
-/// These four numbers come from the art. `shoot.clip.json` runs 12 frames at
-/// 58ms: it raises `sidearm_vis` on frame 2, marks `hitbox.active` and draws
-/// the muzzle flare on frame 6, and returns to `hand_vis` on frame 11. Firing
-/// on any other frame would put the round away from the flash.
-const DRAW_AT_S: f32 = 0.116;
-const FIRE_AT_S: f32 = 0.348;
-const HOLSTER_AT_S: f32 = 0.638;
-const DRAW_ENDS_S: f32 = 0.696;
-
-/// Complete brawler-fundamentals repertoire, attributed to the Officer, with his
-/// own side special in place of the archetype's shoulder rush.
-pub fn officer_moveset() -> MovesetContract {
-    let mut set = crate::archetype_moveset::under_own_name(
-        crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
-        &["polygon_brawler", "pugnacious_polygon"],
-        "officer",
-    );
-    crate::special_slots::replace_special(&mut set, "special", the_order_to_disperse());
-    crate::special_slots::replace_special(&mut set, "special_forward", the_draw());
-    crate::special_slots::replace_special(&mut set, "special_down", the_riot_shield());
-    set
-}
-
-/// Neutral special: he shoves the room back, and it does not hurt anybody.
-///
-/// A windbox (`VolumeReaction::Windbox`; see
-/// `ambition_entity_catalog::authoring::gust`). `hit_reaction` treats it as a
-/// push, not a hit (`flinchless: hitbox.windbox().is_some()`).
-///
-/// It fits his kit: a sidearm, a riot shield, and "get back".
-///
-/// The cost: it replaces the brawler's `haymaker` (`damage: 13,
-/// knockback: 142`) and does no damage. He keeps every smash, tilt and
-/// `the_draw`, so he still has finishers, but he trades a kill button for a
-/// space-making button.
-///
-/// Sustained, so it pushes every frame you stand in it: a wall, not a shove.
-/// That is why `repeating` is authored; a one-shot version would be a worse
-/// haymaker.
-fn the_order_to_disperse() -> ambition_entity_catalog::MoveSpec {
-    ambition_entity_catalog::authoring::gust(
-        ambition_entity_catalog::authoring::Gust {
-            id: "officer_disperse",
-            clip: "attack_side",
-            // Slower to open than the haymaker it replaces: holding ground is
-            // not a read, and he should not win the exchange by pressing first.
-            startup_s: 0.20,
-            // Long: the haymaker's danger lasted 0.08s; this lasts over four times as
-            // long, because a gust is an area you cannot walk through.
-            active_s: 0.34,
-            recover_s: 0.30,
-            // In front and slightly low: he pushes at chest height with a shield.
-            offset: (30.0, 2.0),
-            half_extents: (30.0, 22.0),
-            // Firm enough to break a rush and take someone off a ledge, well short of a
-            // launch. It must never be a kill button.
-            push: 96.0,
-            // Away and slightly up, so a shoved fighter is briefly airborne. Authored,
-            // not derived: wind blows one way, whichever side you came from.
-            push_dir: (1.0, -0.22),
-            sustained: true,
-        },
-    )
-}
-
-/// Down special: he plants a riot shield and EATS what is thrown at him.
-///
-/// A counter stance whose response is to absorb. A stance already gets a
-/// reflector (the projectile road gates on the same `parrying()` window);
-/// `absorbs_projectiles` makes the caught shot disappear instead, through the
-/// same `intercept_projectile` operation the parry uses.
-///
-/// It suits him: absorbing rewards standing your ground with a riot shield,
-/// and his other authored move is a gun, so he answers ranged pressure at
-/// both ends.
-///
-/// Absorbing a shot leaves him near the thrower, so the standing grab is the
-/// follow-up.
-fn the_riot_shield() -> ambition_entity_catalog::MoveSpec {
-    ambition_entity_catalog::smash_counter::counter_move(
-        "officer_riot_shield",
-        "special",
-        // Slower to plant than a sword counter: a commitment to a position, not a
-        // read on one attack.
-        0.12,
-        0.20,
-        0.38,
-        ambition_entity_catalog::smash_counter::CounterParams {
-            // A heartbeat, not a duration: `parry_window_timer` decays, and the stance
-            // re-arms it every live frame.
-            window_s: 0.05,
-            // Its own answer, as every counter but the clerk's is.
-            answers_the_attacker: false,
-            response: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT.to_string(),
-            response_params: ambition_entity_catalog::ParamValue::from_typed(
-                &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                    offset: (26.0, 0.0),
-                    half_extents: (22.0, 22.0),
-                    hold_offset: (18.0, -2.0),
-                },
-            )
-            .expect("the riot shield's capture params serialize"),
-            // The point of this move.
-            absorbs_projectiles: true,
-        },
-    )
-}
-
-/// Side special: he draws the sidearm and fires one round.
-///
-/// Jon: *"give him a side b that pulls out and shoots a gun."*
-///
-/// No `equips`, unlike the admiral's `run_out_the_guns` (otherwise the
-/// template). The admiral's gun-sword is a separate prop sprite. The
-/// Officer's sidearm is part of his own sheet (`holster` and `sidearm` parts
-/// on an opacity channel, raised by the `shoot` clip); equipping a held item
-/// would draw a second gun.
-///
-/// So the capability is the body's: `MoveEventKind::Ranged` fires the owner's
-/// ranged action, which his character states in `crate::authored::officer`.
-///
-/// No melee volume: the round is the damage.
-///
-/// No forward impulse: he plants his feet to draw, so the shot does not go
-/// further out of a run.
-fn the_draw() -> MoveSpec {
-    let mut spec = ambition_entity_catalog::authoring::hitless_special(
-        "officer_the_draw",
-        "shoot",
-        FIRE_AT_S,
-        DRAW_ENDS_S,
-    );
-    spec.display_name = Some("The Draw".to_string());
-    spec.events.push(MoveEvent {
-        at_s: FIRE_AT_S,
-        kind: MoveEventKind::Ranged,
-    });
-    let spec = ambition_entity_catalog::authoring::sfx(spec, DRAW_AT_S, "player.attack.charge");
-    // The shot's sound is not authored here. A `Ranged` event takes the report
-    // and the projectile from the weapon that fired.
-    let spec = ambition_entity_catalog::authoring::vfx(spec, FIRE_AT_S, "muzzle_flash");
-    ambition_entity_catalog::authoring::committed_tail(spec, HOLSTER_AT_S, 0.35)
-}
+use ambition_entity_catalog::MoveEventKind;
 
 #[cfg(test)]
 mod tests {
@@ -160,11 +11,11 @@ mod tests {
 
     /// The verb is `special_forward`, not `special_side`. `SmashRepertoire`
     /// binds `special`, `special_forward`, `special_up` and `special_down`
-    /// (+ `special_air_down`). A `replace_special` aimed at an unused name would
+    /// (+ `special_air_down`). A rebind in the file aimed at an unused name would
     /// add an unreachable move and leave the archetype's side special bound.
     #[test]
     fn the_draw_answers_the_side_special_and_the_shoulder_rush_is_gone() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         assert_eq!(
             set.verbs.get("special_forward").map(String::as_str),
             Some("officer_the_draw"),
@@ -181,7 +32,7 @@ mod tests {
     /// alone.
     #[test]
     fn the_round_leaves_on_the_frame_the_muzzle_flares() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let draw = set
             .moves
             .iter()
@@ -208,7 +59,7 @@ mod tests {
     /// It carries no strike: the round is the damage.
     #[test]
     fn the_draw_hits_nobody_with_his_body() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let draw = set
             .moves
             .iter()
@@ -226,7 +77,7 @@ mod tests {
     /// `repeating` the wall becomes a single shove.
     #[test]
     fn his_neutral_is_a_wall_of_air_that_hurts_nobody() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         assert_eq!(
             set.verbs.get("special").map(String::as_str),
             Some("officer_disperse"),
@@ -283,7 +134,6 @@ mod tests {
 /// at the blast line.
 #[cfg(test)]
 mod he_uses_the_gust {
-    use super::officer_moveset;
 
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::actor::ActorFaction;
@@ -321,7 +171,7 @@ mod he_uses_the_gust {
     /// actor tick (the same `move_for_attack` over the same three verbs and five
     /// directions), so every scored move is reachable by a button.
     fn kit() -> Vec<AttackCandidate> {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let mut kit: Vec<AttackCandidate> = Vec::new();
         for (verb, verb_name) in [
             (AttackVerb::Basic, ambition_entity_catalog::ATTACK_VERB),
@@ -534,7 +384,7 @@ mod he_uses_the_gust {
     /// damaged opponent.
     #[test]
     fn the_gust_earns_no_kill_credit_however_hurt_the_opponent_is() {
-        let gust = officer_moveset()
+        let gust = crate::authored_movesets::shipped("officer")
             .moves
             .iter()
             .find(|m| m.id == "officer_disperse")
@@ -555,7 +405,7 @@ mod he_uses_the_gust {
 
         // Control: an ordinary move of his. A derivation that returned zero for
         // everything would pass the arm above.
-        let jab = officer_moveset()
+        let jab = crate::authored_movesets::shipped("officer")
             .moves
             .iter()
             .find(|m| m.id == "officer_jab")

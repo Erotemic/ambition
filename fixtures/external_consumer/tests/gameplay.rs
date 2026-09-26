@@ -355,14 +355,19 @@ fn a_consumer_authors_the_sheet_its_own_character_renders_from() {
 
     // And the engine's own resolution path finds it — the assertion that
     // distinguishes "a registry accepted my RON" from "my character resolves".
-    let catalog = ambition_platformer2d::character::CharacterCatalog::from_data(
-        ambition_platformer2d::character::parse_catalog(outlander::outlander_catalog_ron()),
-    );
-    let spec = ambition_platformer2d::character::sheet_for_declared_character(
-        authored,
-        &catalog,
-        None,
-        outlander::OUTLANDER_CHARACTER_ID,
+    // The resolver reads the PREPARED character, so the character comes from the
+    // consumer's composed app, as a body would read it.
+    let mut composed = outlander::build_outlander_app();
+    composed.update();
+    let prepared = composed
+        .world()
+        .resource::<ambition_platformer2d::character::PreparedCharacterRegistry>()
+        .get(outlander::OUTLANDER_CHARACTER_ID)
+        .expect("the consumer's composed app prepares the Outlander")
+        .clone();
+    let spec = ambition_platformer2d::character::sheet_for_prepared_character(
+        composed.world().resource::<AuthoredSheets>(),
+        &prepared,
     )
     .expect(
         "the engine resolved no sheet for a character whose provider authored one — \

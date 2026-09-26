@@ -69,9 +69,11 @@ execution, not to change the idea.
 
 ## 2. Fighters with NO maintainer input — an agent's to change freely
 
-Measured 2026-09-05 by scanning every `*_moveset.rs` for the maintainer's name:
+Measured 2026-09-05 by scanning every `*_moveset.rs` for the maintainer's name
+(since AP45 the scan also reads each fighter's `data/movesets/*.ron`, where the
+moves and their prose now live):
 
-`archetype`, `bob`, `carl_stargan`, `cellular_automaton`, `emmy_noether`,
+`bob`, `carl_stargan`, `cellular_automaton`, `emmy_noether`,
 `medic`, `ninja_shadow_oni_leader`, `pugnacious_polygon`.
 
 ⭐ **These are the demonstration.** Bob's rivet gun, Carl's homing slingshot, the
@@ -111,7 +113,7 @@ what forces a NEW fighter to be classified rather than silently defaulting to
 "free to change".
 
 <!-- reviewed-fighters: alice, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
-<!-- free-fighters: archetype, bob, carl_stargan, cellular_automaton, emmy_noether, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
+<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
 
 ## The guard
 

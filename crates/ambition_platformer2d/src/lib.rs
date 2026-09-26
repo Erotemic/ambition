@@ -459,7 +459,7 @@ pub mod character {
     /// nothing else — no room, view or distance may lower it (Jon, 2026-09-02).
     pub use ambition_platformer2d_actor_monolith::character_sprites::character_sprite_tier;
     pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
-    pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
+    pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_prepared_character;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;

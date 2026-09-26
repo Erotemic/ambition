@@ -59,6 +59,7 @@ fn doc_text_naming(recover_s: f32, verb_target: &str, technique: Option<&str>) -
                 body: None,
                 hurtboxes: None,
                 presentation: None,
+                borrows: None,
                 moveset: Some(MovesetContract {
                     verbs,
                     moves: vec![strike(Strike {
@@ -401,16 +402,36 @@ fn a_shipped_table(root: &std::path::Path) -> (std::path::PathBuf, String) {
         .expect("a move section");
     let buildable: std::collections::BTreeSet<&str> =
         crate::character_catalog::buildable_cast().collect();
+    // The file whose document names `who`: a file is named for its table, and
+    // one table may serve several characters.
+    let file_of = |who: &str| {
+        std::fs::read_dir(root.join("data/movesets"))
+            .ok()?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .find(|path| {
+                std::fs::read_to_string(path)
+                    .ok()
+                    .and_then(|text| ambition_entity_catalog::EntityCatalogDoc::parse(&text).ok())
+                    .is_some_and(|doc| doc.entities.iter().any(|e| e.id == who))
+            })
+    };
+    // A character whose file authors its whole table: a borrower's file holds
+    // only what it changes, so editing every move in it would not move the
+    // move this test reads.
+    let authors_its_own = |file: &std::path::Path| {
+        std::fs::read_to_string(file)
+            .ok()
+            .and_then(|text| ambition_entity_catalog::EntityCatalogDoc::parse(&text).ok())
+            .is_some_and(|doc| doc.entities.iter().all(|e| e.contracts.borrows.is_none()))
+    };
     let who = table
         .keys()
-        .find(|id| buildable.contains(id.as_str()))
-        .expect("some shipped table names a buildable character")
+        .filter(|id| buildable.contains(id.as_str()))
+        .find(|id| file_of(id).is_some_and(|file| authors_its_own(&file)))
+        .expect("some shipped table names a buildable character that authors its own table")
         .clone();
-    let file = crate::authored_movesets::TABLE_CHARACTERS
-        .iter()
-        .find(|(_, characters)| characters.contains(&who.as_str()))
-        .map(|(name, _)| root.join("data/movesets").join(format!("{name}.ron")))
-        .expect("the character's table is one of the declared moveset files");
+    let file = file_of(&who).expect("the character's table is one of the declared moveset files");
     assert!(
         file.exists(),
         "the export did not write {} — the arm below would edit nothing",
@@ -1571,15 +1592,16 @@ fn a_candidate_that_stops_naming_a_character_is_refused() {
     // The victim needs a sibling in its own file. Removing a table's only entity
     // is already refused by the compiler. `cellular_automaton.ron` has two
     // entities, so dropping one reaches this rule without deleting a file.
-    let victim = crate::authored_movesets::TABLE_CHARACTERS
-        .iter()
-        .find(|(_, characters)| characters.len() > 1)
-        .and_then(|(_, characters)| {
-            characters
-                .iter()
-                .find(|id| table.contains_key(**id))
-                .map(|id| (*id).to_string())
-        })
+    let victim = std::fs::read_dir(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/data/movesets"),
+    )
+    .expect("the shipped move files")
+    .filter_map(Result::ok)
+    .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
+    .filter_map(|text| ambition_entity_catalog::EntityCatalogDoc::parse(&text).ok())
+    .filter(|doc| doc.entities.len() > 1)
+    .flat_map(|doc| doc.entities.into_iter().map(|entity| entity.id))
+    .find(|id| table.contains_key(id))
         .expect(
             "no shipped moveset table carries two entities, so a per-entity \
              removal cannot be authored and this arm has no subject",

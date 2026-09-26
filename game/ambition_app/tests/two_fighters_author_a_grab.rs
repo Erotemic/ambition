@@ -20,7 +20,7 @@ fn george() -> MovesetContract {
 }
 
 fn admiral() -> MovesetContract {
-    ambition_content::pirate_admiral_moveset::pirate_admiral_moveset()
+    ambition_content::authored_movesets::shipped("npc_pirate_admiral")
 }
 
 fn move_for<'a>(contract: &'a MovesetContract, verb: &str) -> &'a MoveSpec {

@@ -34,15 +34,13 @@
         // ⭐⭐ EVERY MOVE TABLE THIS PROVIDER AUTHORS IS CONTENT, NOT CODE
         // (fast-iteration I2, step 5). No `authored/*.rs` compiles a moveset
         // into the host any more; `character_catalog::authored_intrinsics`
-        // takes each one from the pack. Regenerate after editing a Rust table:
-        //
-        //   cargo run -p ambition_app_tools --bin moveset_source_export -- <table>...
+        // takes each one from the pack. These files are the source: edit them.
         //
         // ⛔ THE FILE IS NAMED FOR THE TABLE AND KEYED BY THE CHARACTER, and
         // those are not the same string for nine of these: `alice.ron` carries
-        // the entity `npc_alice`, and `cellular_automaton.ron` carries TWO.
-        // `ambition_content::authored_movesets::TABLE_CHARACTERS` is the one
-        // place that mapping lives.
+        // the entity `npc_alice`, and `cellular_automaton.ron` carries TWO. The
+        // entity ids in each document are the mapping. A fighter drawn on an
+        // archetype's rig `borrows` the archetype's table (`director.ron`).
         (path: "data/movesets/alice.ron", schema: "moveset", version: 1),
         (path: "data/movesets/bob.ron", schema: "moveset", version: 1),
         (path: "data/movesets/carl_stargan.ron", schema: "moveset", version: 1),

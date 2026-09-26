@@ -660,3 +660,51 @@ fn the_fx_sheet_folder_follows_the_quality_tier() {
         "sprites"
     );
 }
+
+/// A character's art is read from its PREPARED definition: the sheet its
+/// definition names, with the tuning its catalog row authors.
+///
+/// The goblin is registered wearing another row's sheet. Its catalog row still names
+/// the goblin sheet. The materializer used to ask the catalog again and key the
+/// quality tiers by the row's sheet, so the tiers could describe other pixels
+/// than the base page.
+#[test]
+fn a_character_wears_the_sheet_and_tuning_its_preparation_resolved() {
+    use ambition_characters::actor::definition::CharacterDefinition;
+    let catalog = test_catalog();
+    let row = catalog.get("goblin").expect("the goblin has a catalog row");
+    let row_sheet = row.manifest_target().expect("the goblin row names a sheet");
+    let mut others: Vec<&str> = catalog
+        .iter()
+        .filter_map(|(_, entry)| entry.manifest_target())
+        .filter(|target| *target != row_sheet)
+        .collect();
+    others.sort_unstable();
+    let worn_sheet = *others.first().expect("another row names a sheet");
+    assert_ne!(row_sheet, worn_sheet, "the fixture needs two different sheets");
+
+    let cast = ambition_characters::prepared::prepare_cast_for_test(
+        &catalog,
+        [CharacterDefinition::new("goblin", "Goblin", "test").with_sheet(worn_sheet)],
+    );
+    let goblin = cast.get("goblin").expect("the cast prepares the goblin");
+    let spec = super::assets::sheet_for_prepared_character(&Default::default(), goblin)
+        .expect("the worn sheet resolves");
+
+    let tuning = row
+        .sprite_tuning
+        .map(|t| SheetTuning::from_parts(t.collision_scale, t.frame_sample_inset, t.feet_anchor_y))
+        .unwrap_or_default();
+    let expected =
+        try_load_spec_for_target(worn_sheet, &tuning).expect("the worn sheet loads with the goblin tuning");
+    assert_eq!(
+        (spec.frame_width, spec.frame_height),
+        (expected.frame_width, expected.frame_height),
+        "the goblin resolved a sheet other than the one its definition names"
+    );
+    assert_eq!(
+        (spec.collision_scale, spec.feet_anchor_y),
+        (expected.collision_scale, expected.feet_anchor_y),
+        "the sheet's tuning did not come from the goblin's row"
+    );
+}

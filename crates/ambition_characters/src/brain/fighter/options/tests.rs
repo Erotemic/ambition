@@ -581,7 +581,7 @@ fn a_move_that_only_shoves_is_offered_exactly_where_it_can_shove() {
 /// ledge is his `tilt_forward` and not a jab, and the weight this arm passed at
 /// left the feature inert on the shipped roster. What a character actually
 /// presses is pinned where the character lives —
-/// `ambition_content::officer_moveset::he_uses_the_gust`.
+/// `he_uses_the_gust` in `game/ambition_content/src/officer_moveset.rs`.
 #[test]
 fn a_shove_outranks_a_near_miss_at_the_ledge_and_not_at_centre() {
     // 40px of reach against a 55px gap: admitted, and poorly.

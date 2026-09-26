@@ -122,8 +122,8 @@ pub(crate) const AUTHORED_CAST: &[(
     (&["goblin"], goblin::author),
     // THE FOUR EASTER EGGS. Each is a polygon archetype wearing a different
     // person, and their entries say only what differs from it — see their
-    // modules, and `crate::archetype_moveset` for why they borrow the table
-    // rather than copying or sharing it.
+    // modules, and the `borrows` entry in their move files for why they borrow
+    // the table rather than copying or sharing it.
     //
     // ⚠ Two of the four are hand-drawn rather than faceted, and neither has
     // gameplay rules for her own specials yet: the Medic's ADRENALINE / FIELD

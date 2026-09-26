@@ -1,8 +1,7 @@
-//! Every moveset this crate authors, in one list.
+//! Every move table this crate ships, in one list, read from the content pack.
 //!
 //! This is not the selectable cast. Some fighters (Mary-O, Sanic) keep their
-//! tables in their own crates, and this crate cannot see them. A hand-kept
-//! list can also fall behind silently when a fighter is added.
+//! tables in their own crates, and this crate cannot see them.
 //!
 //! The cast's authority is `SmashRoster::assemble` against a live
 //! `PreparedCharacterRegistry`, then each prepared character's
@@ -14,63 +13,43 @@
 
 use ambition_entity_catalog::MovesetContract;
 
-/// Every table in this crate that authors move events, by the name a failure
-/// should print.
-pub fn tables() -> Vec<(&'static str, MovesetContract)> {
-    vec![
-        ("alice", crate::alice_moveset::alice_moveset()),
-        ("bob", crate::bob_moveset::bob_moveset()),
-        (
-            "carl_stargan",
-            crate::carl_stargan_moveset::carl_stargan_moveset(),
-        ),
-        (
-            "cellular_automaton",
-            crate::cellular_automaton_moveset::cellular_pulse_moveset(),
-        ),
-        ("goblin", crate::goblin_moveset::goblin_moveset()),
-        (
-            "ninja_shadow_oni_leader",
-            crate::ninja_shadow_oni_leader_moveset::ninja_shadow_oni_leader_moveset(),
-        ),
-        (
-            "emmy_noether",
-            crate::emmy_noether_moveset::emmy_noether_moveset(),
-        ),
-        ("oiler", crate::oiler_moveset::oiler_moveset()),
-        (
-            "patent_clerk",
-            crate::patent_clerk_moveset::patent_clerk_moveset(),
-        ),
-        (
-            "pirate_admiral",
-            crate::pirate_admiral_moveset::pirate_admiral_moveset(),
-        ),
-        (
-            "player_robot",
-            crate::player_robot_moveset::player_robot_moveset(),
-        ),
-        (
-            "theorem_chain",
-            crate::player_robot_moveset::theorem_chain_moveset(),
-        ),
-        ("director", crate::director_moveset::director_moveset()),
-        ("medic", crate::medic_moveset::medic_moveset()),
-        ("officer", crate::officer_moveset::officer_moveset()),
-        ("performer", crate::performer_moveset::performer_moveset()),
-        (
-            "pointed_polygon",
-            crate::pointed_polygon_moveset::pointed_polygon_moveset(),
-        ),
-        (
-            "projectile_polygon",
-            crate::projectile_polygon_moveset::projectile_polygon_moveset(),
-        ),
-        (
-            "pugnacious_polygon",
-            crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset(),
-        ),
-    ]
+/// The move table the game ships for `character`, read from the content pack.
+///
+/// A fighter's tests read this, so they guard the file the game plays and not
+/// a copy of it.
+pub fn shipped(character: &str) -> MovesetContract {
+    ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+        .and_then(|table| table.get(character))
+        .cloned()
+        .unwrap_or_else(|| panic!("the shipped pack carries no move table for `{character}`"))
+}
+
+/// Every move table this crate ships, one entry per distinct table, keyed by
+/// the first character id that wears it.
+///
+/// The fighters' tables are content, read from the pack the game loads. Two ids
+/// that wear one table (the two cellular automatons) appear once, so a census
+/// does not count one table twice. The robot lineage's two tables are still
+/// compiled: the lineage builds its definitions without the pack seam.
+pub fn tables() -> Vec<(String, MovesetContract)> {
+    let lowered =
+        ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+            .expect("the shipped pack carries a move section");
+    let mut out: Vec<(String, MovesetContract)> = Vec::new();
+    for (id, contract) in lowered {
+        if !out.iter().any(|(_, seen)| seen == contract) {
+            out.push((id.clone(), contract.clone()));
+        }
+    }
+    out.push((
+        "player_robot".to_string(),
+        crate::player_robot_moveset::player_robot_moveset(),
+    ));
+    out.push((
+        "theorem_chain".to_string(),
+        crate::player_robot_moveset::theorem_chain_moveset(),
+    ));
+    out
 }
 
 #[cfg(test)]
@@ -873,8 +852,8 @@ mod expressiveness_census {
         /// The floor, raised on purpose as fighters gain techniques.
         const FLOOR: usize = 18;
 
-        let mut expressive: Vec<&str> = Vec::new();
-        let mut plain: Vec<&str> = Vec::new();
+        let mut expressive: Vec<String> = Vec::new();
+        let mut plain: Vec<String> = Vec::new();
         for (fighter, contract) in tables() {
             // Specials only.
             let special_ids: Vec<&String> = contract
@@ -1276,122 +1255,6 @@ mod a12_projectile_credit_census {
         for row in &both {
             println!("[a12] {row}");
         }
-    }
-}
-
-/// The character ids each table above is the moveset for.
-///
-/// The keys of [`tables`] are file names, not identities, and many differ
-/// from the cast id (`alice` vs `npc_alice`, `patent_clerk` vs
-/// `special_patent_clerk`, and so on). `cellular_automaton` is one table for
-/// two ids. A content file keyed by a file name is looked up by character id
-/// in `authored_intrinsics`, misses, and is silently ignored.
-///
-/// A name that exists elsewhere is not necessarily a cast id:
-/// `ninja_shadow_oni_leader` is a sheet id (in
-/// `sprites_0_25x/ninja_shadow_oni_leader_actor.ron`), not a cast id. <!-- cite-ok: an asset path relative to the content assets root, not a repo path -->
-///
-/// This cannot be derived: the old link was `.with_moveset(...)` in each
-/// creature's file, and moving tables to content removed it.
-/// `the_table_character_map_covers_every_table` and
-/// `every_character_the_move_section_names_is_one_this_game_builds` keep it
-/// in step.
-///
-/// Two ids for one table is real: the two cellular automatons are one
-/// authored body under two names (see `authored::AUTHORED_CAST`).
-///
-/// Absent on purpose:
-/// * `player_robot`: the catalog has rows (`player_robot_v3`,
-///   `player_robot_fable`, `player_robot_v2`), but
-///   `player_robot_lineage::register` builds them with `definition_from` and
-///   never calls `authored_intrinsics`, and `register_declared_cast` skips
-///   lineage ids. `the_lineage_never_reaches_the_authored_intrinsics_seam`
-///   pins that.
-/// * `theorem_chain`: an archetype table no catalog row names.
-pub const TABLE_CHARACTERS: &[(&str, &[&str])] = &[
-    ("alice", &["npc_alice"]),
-    ("bob", &["npc_bob"]),
-    ("carl_stargan", &["npc_carl_stargan"]),
-    (
-        "cellular_automaton",
-        &["perfect_cellular_automaton", "imperfect_cellular_automaton"],
-    ),
-    ("goblin", &["goblin"]),
-    ("ninja_shadow_oni_leader", &["npc_ninja_shadow_oni_leader"]),
-    ("emmy_noether", &["npc_emmy_noether"]),
-    ("oiler", &["npc_oiler"]),
-    ("patent_clerk", &["special_patent_clerk"]),
-    ("pirate_admiral", &["npc_pirate_admiral"]),
-    ("director", &["director"]),
-    ("medic", &["medic"]),
-    ("officer", &["officer"]),
-    ("performer", &["performer"]),
-    ("pointed_polygon", &["pointed_polygon"]),
-    ("projectile_polygon", &["projectile_polygon"]),
-    ("pugnacious_polygon", &["pugnacious_polygon"]),
-];
-
-/// The character ids this table is the moveset for, or `None` for a table no
-/// cast id claims.
-pub fn characters_for(table: &str) -> Option<&'static [&'static str]> {
-    TABLE_CHARACTERS
-        .iter()
-        .find(|(name, _)| *name == table)
-        .map(|(_, ids)| *ids)
-}
-
-#[cfg(test)]
-mod table_character_tests {
-    use super::*;
-
-    /// The two lists cannot drift. A table with no entry in
-    /// [`TABLE_CHARACTERS`] cannot be migrated; an entry for a removed table maps
-    /// nothing.
-    #[test]
-    fn the_table_character_map_covers_every_table() {
-        let tables: std::collections::BTreeSet<&str> =
-            tables().iter().map(|(name, _)| *name).collect();
-        let mapped: std::collections::BTreeSet<&str> =
-            TABLE_CHARACTERS.iter().map(|(name, _)| *name).collect();
-        assert!(tables.len() >= 10, "{} table(s) is not the roster", tables.len());
-
-        // The two deliberate absences are named, not filtered, so a third one
-        // fails.
-        let unmapped: Vec<&str> = tables.difference(&mapped).copied().collect();
-        assert_eq!(
-            unmapped,
-            vec!["player_robot", "theorem_chain"],
-            "a table has no character mapping. Add it to `TABLE_CHARACTERS`, or \
-             say here why it has no cast id — those two do, in this module's docs"
-        );
-        let orphans: Vec<&str> = mapped.difference(&tables).copied().collect();
-        assert!(
-            orphans.is_empty(),
-            "`TABLE_CHARACTERS` maps {orphans:?}, which `tables()` no longer carries"
-        );
-    }
-
-    /// Every mapped id is a character this game builds, so the map cannot name a
-    /// plausible id nobody registers.
-    #[test]
-    fn every_mapped_character_is_one_this_game_builds() {
-        let buildable: std::collections::BTreeSet<&str> =
-            crate::character_catalog::buildable_cast().collect();
-        assert!(
-            buildable.len() >= 20,
-            "{} buildable character(s) — not the cast",
-            buildable.len()
-        );
-        let strangers: Vec<&str> = TABLE_CHARACTERS
-            .iter()
-            .flat_map(|(_, ids)| ids.iter().copied())
-            .filter(|id| !buildable.contains(id))
-            .collect();
-        assert!(
-            strangers.is_empty(),
-            "`TABLE_CHARACTERS` names {strangers:?}, which this game builds no \
-             character for"
-        );
     }
 }
 

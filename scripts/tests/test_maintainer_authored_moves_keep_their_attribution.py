@@ -1,4 +1,4 @@
-"""Jon's explicitly authored moves must stay identifiable in the code that implements them.
+"""Jon's explicitly authored moves must stay identifiable in the content or code that states them.
 
 ⭐⭐ WHY THIS GUARD EXISTS, in Jon's own words (2026-09-05): *"The entire point is
 that this game is demoing the capabilities of an LLM to make a game, and every
@@ -28,13 +28,17 @@ ROOT = Path(__file__).resolve().parents[2]
 # The counts are the floor found on 2026-09-05, not a target: raising one is a
 # decision, watching one fall silently is the failure.
 FLOOR: dict[str, int] = {
-    "game/ambition_content/src/pirate_admiral_moveset.rs": 3,
-    "game/ambition_content/src/performer_moveset.rs": 9,
-    "game/ambition_content/src/director_moveset.rs": 1,
-    "game/ambition_content/src/officer_moveset.rs": 1,
-    "game/ambition_content/src/projectile_polygon_moveset.rs": 2,
+    # The move tables are content: the design prose moved with the moves into
+    # the RON file that is now their only source (AP45, 2026-09-26).
+    "game/ambition_content/assets/data/movesets/pirate_admiral.ron": 3,
+    "game/ambition_content/assets/data/movesets/performer.ron": 6,
+    "game/ambition_content/assets/data/movesets/director.ron": 1,
+    "game/ambition_content/assets/data/movesets/officer.ron": 1,
+    "game/ambition_content/assets/data/movesets/projectile_polygon.ron": 2,
+    "game/ambition_content/assets/data/movesets/alice.ron": 3,
+    # The performer's tests quote Jon beside the behaviour they pin.
+    "game/ambition_content/src/performer_moveset.rs": 4,
     "game/ambition_content/src/player_robot_moveset.rs": 1,
-    "game/ambition_content/src/alice_moveset.rs": 2,
     # ⭐ ADDED 2026-09-05: "PCA needs to shoot a glider" was SATISFIED and
     # UNRECORDED, so nothing stopped a later pass from removing the ranged
     # glider without learning the maintainer had asked for it by name.

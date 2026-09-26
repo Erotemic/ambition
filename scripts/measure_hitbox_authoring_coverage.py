@@ -92,14 +92,34 @@ STAGE_CHARACTERS = {
 
 
 def clip_of_move() -> dict[str, str]:
-    """Move id -> the clip it plays, read from the authored tables."""
+    """Move id -> the clip it plays, read from the authored tables.
+
+    A borrower's file holds only the moves it changes (`borrows: Some((archetype:
+    …, prefixes: [...]))`), so its other moves are the archetype's, renamed the
+    way the engine renames them (`MovesetContract::under_own_name`).
+    """
     out: dict[str, str] = {}
+    own: dict[str, dict[str, str]] = {}
+    borrows: dict[str, tuple[str, list[str]]] = {}
     for path in sorted(TABLES.glob("*.ron")):
         text = path.read_text()
-        for match in re.finditer(
-            r'id: "([^"]+)",\n\s+display_name: [^\n]*\n\s+clip: \(\n\s+clip: "([^"]+)"', text
-        ):
-            out[match.group(1)] = match.group(2)
+        moves = {
+            match.group(1): match.group(2)
+            for match in re.finditer(
+                r'id: "([^"]+)",\n\s+display_name: [^\n]*\n\s+clip: \(\n\s+clip: "([^"]+)"', text
+            )
+        }
+        own[path.stem] = moves
+        out.update(moves)
+        borrow = re.search(r'archetype: "([^"]+)",\n\s+prefixes: \[\n((?:\s+"[a-z_]+",\n)+)', text)
+        if borrow:
+            borrows[path.stem] = (borrow.group(1), re.findall(r'"([a-z_]+)"', borrow.group(2)))
+    for stem, (archetype, prefixes) in borrows.items():
+        ordered = sorted(prefixes, key=len, reverse=True)
+        for move, clip in own.get(archetype, {}).items():
+            prefix = next((p for p in ordered if move.startswith(p)), None)
+            if prefix is not None:
+                out.setdefault(stem + move[len(prefix):], clip)
     return out
 
 

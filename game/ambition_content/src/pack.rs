@@ -50,8 +50,8 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 /// builds with no filesystem (web, Android).
 /// `dev/measurements/m0_move_edit_loop.sh` measures the edit loop.
 ///
-/// The name here is the table's, not the character's. See
-/// `crate::authored_movesets::TABLE_CHARACTERS`.
+/// The name here is the file's, not the character's: a file names the
+/// characters it is for by entity id.
 #[cfg(feature = "static_content")]
 const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     (

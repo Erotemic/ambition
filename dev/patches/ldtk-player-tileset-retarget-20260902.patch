@@ -21,7 +21,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6108,14 +6108,14 @@
+@@ -6111,14 +6111,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -53,7 +53,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6246,14 +6246,14 @@
+@@ -6249,14 +6249,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -74,7 +74,7 @@ patch and not a commit.
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 --- a/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
 +++ b/game/ambition_map_assets/ambition_content/worlds/sandbox.ldtk
-@@ -255,8 +255,8 @@
+@@ -290,8 +290,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -85,7 +85,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6330,14 +6330,14 @@
+@@ -6368,14 +6368,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -117,7 +117,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6041,14 +6041,14 @@
+@@ -6044,14 +6044,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -138,7 +138,7 @@ patch and not a commit.
  	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_darkness.ldtk
-@@ -2271,8 +2271,8 @@
+@@ -2306,8 +2306,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -149,7 +149,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -8420,14 +8420,14 @@
+@@ -8421,14 +8421,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -170,7 +170,7 @@ patch and not a commit.
  		{
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_highway.ldtk
-@@ -2271,8 +2271,8 @@
+@@ -2306,8 +2306,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -181,7 +181,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -8420,14 +8420,14 @@
+@@ -8421,14 +8421,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -202,7 +202,7 @@ patch and not a commit.
  		{
 --- a/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
 +++ b/game/ambition_map_assets/ambition_demo_sanic/worlds/sanic_speedway.ldtk
-@@ -255,8 +255,8 @@
+@@ -2306,8 +2306,8 @@
  			"showName": true,
  			"tilesetId": 6852,
  			"tileRenderMode": "Cover",
@@ -213,7 +213,7 @@ patch and not a commit.
  			"nineSliceBorders": [],
  			"maxCount": 0,
  			"limitScope": "PerLayer",
-@@ -6407,14 +6407,14 @@
+@@ -8421,14 +8421,14 @@
  			"enumTags": [],
  			"identifier": "sprite_player_robot_v3",
  			"padding": 0,
@@ -230,5 +230,5 @@ patch and not a commit.
 -			"tileGridSize": 256,
 +			"tileGridSize": 69,
  			"uid": 6852
- 		}
- 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
+ 		},
+ 		{

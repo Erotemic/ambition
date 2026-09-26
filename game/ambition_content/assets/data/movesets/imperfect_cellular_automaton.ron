@@ -1,0 +1,18 @@
+// The imperfect automaton plays the perfect one's table as it is: the same
+// moves, under the same move ids. It borrows with no prefixes and authors no
+// moves of its own, so there is one table to tune (`cellular_automaton.ron`).
+// To give it a move of its own, name prefixes so its ids are its own.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "imperfect_cellular_automaton",
+            contracts: (
+                borrows: Some((
+                    archetype: "perfect_cellular_automaton",
+                    prefixes: [],
+                )),
+            ),
+        ),
+    ],
+)

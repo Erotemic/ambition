@@ -106,9 +106,7 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
     // `assets/data/movesets/cellular_automaton.ron`, declared in `pack.ron`,
     // validated by the `moveset` schema and applied in
     // `crate::character_catalog::authored_intrinsics`, the one seam every
-    // buildable character passes through. The Rust table is only the exporter's
-    // source and the parity oracle's subject; the host reads neither, so editing
-    // it changes nothing until it is re-exported.
+    // buildable character passes through. No Rust copy of the table exists.
     definition.vitals.max_health = Some(60);
     definition
 }

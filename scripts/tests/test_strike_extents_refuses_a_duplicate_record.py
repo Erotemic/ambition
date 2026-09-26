@@ -1,8 +1,8 @@
 """The extents census refuses a file that would double-count, rather than summing it.
 
 ⛔⛤ **THIS EXISTS BECAUSE THE CENSUS ALREADY DID SUM ONE.**
-`cellular_automaton.ron` is the only shipped move table carrying TWO entities
-over one contract, and the reader keyed its volume and clock lists by MOVE ID
+`cellular_automaton.ron` was then the only shipped move table carrying TWO
+entities over one contract, and the reader keyed its volume and clock lists by MOVE ID
 alone — so all 26 of its moves accumulated twice, and a reader extending the
 script reported that fighter TYING the roster's outlier at 2 x 0.080 s. The
 `n` column added to make multihits honest had been printing the duplicate the

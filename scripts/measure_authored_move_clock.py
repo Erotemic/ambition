@@ -17,11 +17,12 @@ overlapping active windows is live once over that span; summing would report a
 multi-hit move as twice as long as it is live.
 
 ⛔⛔ IT KEYS BY `(entity, move)` AND ASSERTS THE KEY IS 1:1, and that assertion is
-load-bearing rather than decorative. `cellular_automaton.ron` publishes TWO
-entities — `perfect_cellular_automaton` and `imperfect_cellular_automaton` — so a
-key of `(file, move)` reports 20 moves twice and every quantile shifts. The first
-version of this script keyed by file, and the repeat looked exactly like a parser
-bug rather than like a second character.
+load-bearing rather than decorative. `player_robot.ron` publishes TWO entities
+(`player_robot_v3` and `player_robot_v2`), and `imperfect_cellular_automaton`
+wears `perfect_cellular_automaton`'s table under the same move ids, so a key of
+`(file, move)` or of `move` alone merges two characters and every quantile
+shifts. The first version of this script keyed by file, and the repeat looked
+exactly like a parser bug rather than like a second character.
 
 ⚠ A BORROWER'S FILE HOLDS ONLY WHAT IT CHANGES. `director`, `officer`,
 `performer` and `medic` borrow a polygon archetype's table, so a raw read of

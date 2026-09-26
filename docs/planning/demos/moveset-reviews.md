@@ -74,7 +74,9 @@ Measured 2026-09-05 by scanning every `*_moveset.rs` for the maintainer's name
 moves and their prose now live):
 
 `bob`, `carl_stargan`, `cellular_automaton`, `emmy_noether`,
-`medic`, `ninja_shadow_oni_leader`, `pugnacious_polygon`.
+`medic`, `ninja_shadow_oni_leader`, `pugnacious_polygon`, and
+`imperfect_cellular_automaton`, which wears `cellular_automaton`'s table and
+authors no move of its own.
 
 ⭐ **These are the demonstration.** Bob's rivet gun, Carl's homing slingshot, the
 ninja's counter-with-smoke, the pugnacious parasol — every one is an agent's
@@ -113,7 +115,7 @@ what forces a NEW fighter to be classified rather than silently defaulting to
 "free to change".
 
 <!-- reviewed-fighters: alice, director, goblin, officer, oiler, patent_clerk, performer, pirate_admiral, player_robot, pointed_polygon, projectile_polygon -->
-<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
+<!-- free-fighters: bob, carl_stargan, cellular_automaton, emmy_noether, imperfect_cellular_automaton, medic, ninja_shadow_oni_leader, pugnacious_polygon -->
 
 ## The guard
 

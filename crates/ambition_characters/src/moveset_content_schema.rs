@@ -252,10 +252,25 @@ fn resolve_borrow(
             borrow.archetype
         )
     })?;
-    let mut contract = archetype
-        .clone()
-        .under_own_name(&borrow.prefixes, id)
-        .map_err(|problem| format!("`{id}` borrows `{}`: {problem}", borrow.archetype))?;
+    // No prefixes: the borrower wears the archetype's table as it is, under the
+    // archetype's move ids. That is safe only with nothing laid over it. With
+    // an overlay, one id would name two different moves, one on each fighter.
+    let mut contract = if borrow.prefixes.is_empty() {
+        if own.is_some() {
+            return Err(format!(
+                "`{id}` borrows `{}` with no prefixes and also authors moves of its \
+                 own, so one move id would name two different moves; name the \
+                 prefixes to rename the table, or remove the own moves",
+                borrow.archetype
+            ));
+        }
+        archetype.clone()
+    } else {
+        archetype
+            .clone()
+            .under_own_name(&borrow.prefixes, id)
+            .map_err(|problem| format!("`{id}` borrows `{}`: {problem}", borrow.archetype))?
+    };
     if let Some(own) = own {
         contract = contract.overlaid_with(own);
     }

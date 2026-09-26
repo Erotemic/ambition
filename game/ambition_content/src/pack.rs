@@ -82,6 +82,12 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
         Some(include_str!("../assets/data/movesets/goblin.ron")),
     ),
     (
+        "imperfect_cellular_automaton",
+        Some(include_str!(
+            "../assets/data/movesets/imperfect_cellular_automaton.ron"
+        )),
+    ),
+    (
         "medic",
         Some(include_str!("../assets/data/movesets/medic.ron")),
     ),
@@ -141,6 +147,7 @@ const MIGRATED_MOVESETS: &[(&str, Option<&'static str>)] = &[
     ("director", None),
     ("emmy_noether", None),
     ("goblin", None),
+    ("imperfect_cellular_automaton", None),
     ("medic", None),
     ("ninja_shadow_oni_leader", None),
     ("officer", None),

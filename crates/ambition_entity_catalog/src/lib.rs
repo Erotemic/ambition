@@ -3792,6 +3792,11 @@ pub struct MovesetBorrow {
     pub archetype: String,
     /// The prefixes the archetype's move ids carry. See
     /// [`MovesetContract::under_own_name`].
+    ///
+    /// Empty means the borrower wears the table as it is, under the
+    /// archetype's move ids. That is allowed only for a borrower that authors
+    /// no moves of its own: a borrower that changes a move must rename the
+    /// table, or one id would name two different moves.
     pub prefixes: Vec<String>,
 }
 

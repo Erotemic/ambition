@@ -39,8 +39,8 @@ MOVESETS = pathlib.Path(__file__).resolve().parent.parent / (
 # silent mis-parse into a failure.
 # ⛔⛤ **THE TWO `id:` LINES WERE THE SAME REGEX, AND THAT COST A DOUBLE COUNT.**
 # An ENTITY's id and a MOVE's id are both `id: "…",`; only their DEPTH differs in
-# this generated file. With one pattern for both, `cellular_automaton.ron` — the
-# one source carrying TWO entities over one table — accumulated all 26 of its
+# this generated file. With one pattern for both, `cellular_automaton.ron` — then
+# the one source carrying TWO entities over one table — accumulated all 26 of its
 # moves twice (52 records for 26 unique), and a reader extending this script
 # reported one fighter TYING the roster's outlier at 2 x 0.080 s. It was the same
 # window counted twice.
@@ -185,6 +185,9 @@ def borrowed(
     ordered = sorted(prefixes, key=len, reverse=True)
 
     def renamed(move_id: str) -> str:
+        # No prefixes: the borrower wears the table under the archetype's ids.
+        if not prefixes:
+            return move_id
         for prefix in ordered:
             if move_id.startswith(prefix):
                 return owner + move_id[len(prefix):]
@@ -248,7 +251,7 @@ def main() -> int:
             print(f"{path.name}: parsed {len(verbs)} verb(s) — the reader is broken")
             return 2
         # ⛔ ONE ROW PER (ENTITY, MOVE). A file may carry the same table under
-        # SEVERAL entities — `cellular_automaton.ron` does, deliberately — and a
+        # SEVERAL entities — `player_robot.ron` does, deliberately — and a
         # reader keyed by move alone reports that fighter's every count twice.
         # The entity is named in the label so a duplicate is visible rather than
         # silently summed.

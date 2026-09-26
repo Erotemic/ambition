@@ -270,7 +270,7 @@ fn an_unknown_field_that_displaces_nothing_is_refused() {
 //
 // ⛔ A SINGLE FILE CARRYING TWO ENTITIES IS THE SHAPE THAT MATTERS, which is why
 // the fixtures below are built that way rather than one-entity-per-file. The
-// shipped `cellular_automaton.ron` holds TWO entities, so dropping one does not
+// shipped `player_robot.ron` holds TWO entities, so dropping one does not
 // require deleting a file — a fixture whose only drop road was "remove a source"
 // would miss the reachable case entirely.
 //
@@ -311,7 +311,7 @@ fn entity_block(id: &str, duration_s: f32) -> String {
     )
 }
 
-/// A one-file document carrying `entities`, the `cellular_automaton.ron` shape.
+/// A one-file document carrying `entities`, the `player_robot.ron` shape.
 fn doc_of(entities: &[String]) -> String {
     format!(
         "(\n    schema_version: 1,\n    entities: [\n{}\n    ],\n)",
@@ -629,12 +629,41 @@ fn a_borrow_that_cannot_resolve_is_refused_and_names_its_file() {
         ("an archetype the pack does not author", A_BORROWER.replace(r#"archetype: "duelist""#, r#"archetype: "nobody""#)),
         ("a prefix that misses a move id", A_BORROWER.replace(r#"prefixes: ["duelist"]"#, r#"prefixes: ["duel_"]"#)),
         ("a verb bound to a move the resolved table lacks", A_BORROWER.replace(r#""special": "mimic_trick""#, r#""special": "mimic_nothing""#)),
+        ("no prefixes with moves of its own", A_BORROWER.replace(r#"prefixes: ["duelist"]"#, "prefixes: []")),
     ] {
         assert_ne!(borrower, A_BORROWER, "{why}: the edit applied to the fixture");
         let failure = refuse(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/mimic.ron", &borrower)]);
         let text = format!("{failure:?}");
         assert!(text.contains("moves/mimic.ron"), "{why}: the refusal does not name the borrower's file: {text}");
     }
+}
+
+/// A borrower with no prefixes and no moves of its own wears the archetype's
+/// table as it is: the same move ids and the same timings.
+///
+/// Two stand-in fighters that play one table state it once. A copy in each
+/// file drifts when one copy is tuned.
+#[test]
+fn a_borrower_with_no_prefixes_wears_the_archetypes_table_unchanged() {
+    const A_TWIN: &str = r#"(
+    schema_version: 1,
+    entities: [
+        (
+            id: "twin",
+            contracts: (
+                borrows: Some((archetype: "duelist", prefixes: [])),
+            ),
+        ),
+    ],
+)"#;
+    let pack = accept(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/twin.ron", A_TWIN)]);
+    let table = lowered_movesets(&pack).expect("lowers");
+    assert_eq!(
+        table.get("twin"),
+        table.get("duelist"),
+        "a borrower with no prefixes and no own moves does not wear the archetype's table"
+    );
+    assert!(table["twin"].move_by_id("duelist_jab").is_some(), "the table is empty");
 }
 
 /// An archetype must author its own table: a borrow of a borrower is refused.

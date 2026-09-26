@@ -1588,18 +1588,31 @@ fn a_candidate_that_stops_naming_a_character_is_refused() {
     let table = ambition_characters::moveset_content_schema::lowered_movesets(&live)
         .expect("the shipped pack authors movesets");
     // The victim needs a sibling in its own file. Removing a table's only entity
-    // is already refused by the compiler. `cellular_automaton.ron` has two
-    // entities, so dropping one reaches this rule without deleting a file.
-    let victim = std::fs::read_dir(
+    // is already refused by the compiler. A file with two entities lets one be
+    // dropped without deleting a file.
+    //
+    // The victim is not an archetype that another entity borrows: removing
+    // one of those makes the pack fail to compile, which is a different rule.
+    let docs: Vec<ambition_entity_catalog::EntityCatalogDoc> = std::fs::read_dir(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/data/movesets"),
     )
     .expect("the shipped move files")
     .filter_map(Result::ok)
     .filter_map(|entry| std::fs::read_to_string(entry.path()).ok())
     .filter_map(|text| ambition_entity_catalog::EntityCatalogDoc::parse(&text).ok())
-    .filter(|doc| doc.entities.len() > 1)
-    .flat_map(|doc| doc.entities.into_iter().map(|entity| entity.id))
-    .find(|id| table.contains_key(id))
+    .collect();
+    let borrowed: std::collections::BTreeSet<&str> = docs
+        .iter()
+        .flat_map(|doc| &doc.entities)
+        .filter_map(|entity| entity.contracts.borrows.as_ref())
+        .map(|borrow| borrow.archetype.as_str())
+        .collect();
+    let victim = docs
+        .iter()
+        .filter(|doc| doc.entities.len() > 1)
+        .flat_map(|doc| doc.entities.iter().map(|entity| entity.id.clone()))
+        .filter(|id| !borrowed.contains(id.as_str()))
+        .find(|id| table.contains_key(id))
         .expect(
             "no shipped moveset table carries two entities, so a per-entity \
              removal cannot be authored and this arm has no subject",

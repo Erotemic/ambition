@@ -202,7 +202,7 @@ Jon rates as *actually fun*.
 | BD3 | ~~Telegraph event channel (rides the combat presentation seam)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | BD5 | **PARTIAL / DIAGNOSTIC — non-blocking (maintainer decision, 2026-07-11)** — per-slice DONE/OPEN/BLOCKED in §11 | [opus + Jon] |
-| BD6 | Playtester rig + metrics + report format | [opus; needs F1–F4 of [`fighter-brain.md`](fighter-brain.md)] |
+| BD6 | Playtester rig + metrics + report format — 🟡 **first cut 2026-09-25: `fight_discovery`** (scripted policies, not yet the fighter brain) — see §12 | [opus; needs F1–F4 of [`fighter-brain.md`](fighter-brain.md)] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
 
@@ -534,3 +534,37 @@ A future install or shipping gate is **out of scope** for this decomposition, no
 slice with a status: it is a separate maintainer decision, taken only after the
 engine can express and calibrate boss feel. It is recorded here as prose, not as a
 table row, precisely so it is not mistaken for owed work.
+
+## 12. BD6 first cut — `fight_discovery` (2026-09-25)
+
+Jon, 2026-09-25: *"There should also be a discovery phase of the fight and a
+way to quantify what happens in the fight in numbers, and build a rough
+choreograph of how the fight progresses."*
+
+`game/ambition_app_tools/src/bin/fight_discovery.rs` runs a boss in its real
+arena headlessly and writes a choreography, a §4-shaped summary per run, and
+findings:
+
+```text
+cargo run -p ambition_app_tools --release --bin fight_discovery -- \
+    --room gnu_ton_arena [--policy all|sandbag|random|aggressor] [--seconds 180] [--seeds 2]
+```
+
+- **Beats** come from `BossAttackState`, the boss's published live move. That
+  works for any pattern- or conductor-driven boss, not just GNU-ton. A beat
+  is a telegraph, a strike and the rest after it; a strike followed by a
+  telegraph starts a new beat, so the same move twice counts as two beats.
+- **Threat and hittability** come from `CombatObservation` rows, and the
+  recorder resolves no volume of its own. The *boss side* is the boss, what
+  it rides, and the limbs of either. A limb owns its own strikes, so without
+  it the GNU-ton fists read as scenery.
+- **Policies** are floors: sandbag (no input), seeded random, and a scripted
+  aggressor. The fighter brain in the player seat is the next rung, and
+  what §4's `win_rate` needs.
+- **Findings** name the rule they apply. Their thresholds are first guesses
+  until a fight Jon rates calibrates them.
+
+GNU-ton's first report is
+[`boss-fights/gnu_ton-discovery-2026-09-25.md`](boss-fights/gnu_ton-discovery-2026-09-25.md).
+It is evidence at that SHA, not status.
+

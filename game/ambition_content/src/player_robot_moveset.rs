@@ -2,7 +2,7 @@
 //!
 //! The move tables are content. `assets/data/movesets/player_robot.ron`
 //! carries v3's platform-fighter table and v2's theorem chain, and the lineage
-//! takes them through the pack seam (`authored_intrinsics`) like every other
+//! takes them through the pack seam (`with_pack_moveset`) like every other
 //! fighter. The tests here read the table the pack ships, so they guard the
 //! file the game plays.
 //!

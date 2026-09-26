@@ -659,7 +659,7 @@ fn requesting_a_reload_of_an_unedited_export_asks_the_shell_for_nothing() {
 /// `overlay_authored_moves` overlays an authored table on the kit-derived
 /// moves, and a derived move the table does not name survives.
 ///
-/// `authored_intrinsics` calls the pack's table "a replacement, not a merge".
+/// `with_pack_moveset` calls the pack's table "a replacement, not a merge".
 /// That is true of the contract, not of the kit it is folded into. This test
 /// pins both facts together.
 #[test]

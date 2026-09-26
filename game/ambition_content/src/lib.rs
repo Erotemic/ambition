@@ -18,7 +18,6 @@
 //! `crate::…` paths keep resolving.
 
 pub mod audio_registries;
-pub(crate) mod authored;
 pub mod banter;
 pub mod bosses;
 /// The character catalog data and curated playable cast, contributed as an

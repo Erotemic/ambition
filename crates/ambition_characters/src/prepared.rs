@@ -54,7 +54,7 @@ struct PreparedCharacterOverrides {
     /// NAMED form is RESOLVED at preparation, so nothing downstream ever sees a
     /// name.
     autonomous_policy: Option<crate::actor::AutonomousPolicy>,
-    /// See [`CharacterDefinition::ranged_vfx`]. Carried.
+    /// See [`CharacterDefinition::ranged_vfx`]. FOLDED with the catalog row's.
     ranged_vfx: Option<String>,
     /// See [`CharacterDefinition::ranged_execution`]. Carried.
     ranged_execution: crate::brain::RangedExecution,
@@ -1750,6 +1750,7 @@ fn finalize_character(
     let mount = mount.or_else(|| catalog_row?.mount.clone());
     let dream_seed = dream_seed.or_else(|| catalog_row?.dream_seed);
     let held_item = held_item.or_else(|| catalog_row?.held_item.clone());
+    let ranged_vfx = ranged_vfx.or_else(|| catalog_row?.ranged_vfx.clone());
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
     // A trait that either the row or a registered definition can state.
     let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);

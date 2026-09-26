@@ -22,7 +22,8 @@
 use ambition_demo_smash::select::SmashRoster;
 use ambition_platformer2d::character::CharacterCatalog;
 
-/// Fighters on the grid whose catalog row gives them NO melee.
+/// Fighters on the grid whose prepared kit (the preset their catalog row names)
+/// gives them NO melee.
 ///
 /// The five that can hit are the ones whose rows already named a combat preset: George Booul and
 /// the demo's duelists (`smash::duelist` (cite-ok: authored key), 4 damage, 34px), and the Pirate Admiral, Shadow Oni
@@ -32,7 +33,9 @@ use ambition_platformer2d::character::CharacterCatalog;
 /// so it is not only the seven. The five that CAN hit disagree by 4x on damage, because two of
 /// them are a demo's fighter and three are an adventure game's enemies.
 const KNOWN_UNARMED: &[&str] = &[
-    "player_robot_v3",
+    // Not `player_robot_v3`: its row names `peaceful`, and its lineage definition
+    // states its own action slots, which outrank the row. Read from the row, it
+    // was reported unarmed; its prepared kit has a melee.
     // TALL Mary-O is the one on the grid now; her kit is byte-identical to the
     // short form's, so she arrives here unarmed exactly as `mary_o` did.
     "mary_o_tall",
@@ -46,17 +49,21 @@ const KNOWN_UNARMED: &[&str] = &[
     // ⭐ AND THIS ONE IS HERE FOR A DIFFERENT REASON THAN THE FIVE ABOVE, which
     // is why it is not simply appended. The others are on this list because
     // nobody has given them a kit yet. `projectile_polygon` is RANGED BY
-    // DESIGN — its catalog row names `ranger_arrow` and its combat distinction
+    // DESIGN — its catalog row names `polygon_cannon` and its combat distinction
     // is a body-authored projectile from a head-mounted cannon — and it already
     // carries a full authored moveset (`projectile_polygon_moveset`). It has no
     // catalog-row MELEE, which is what this census measures, and it does not
     // need one.
     //
+    // The Officer is here for the same reason: his kit is a drawn sidearm
+    // (`officer_sidearm`) and his moveset (`officer.ron`) is his fighting.
+    //
     // ⛔ So do not read this list as "fighters that cannot fight". It is
-    // "fighters whose CATALOG ROW gives them no melee", and those are two
+    // "fighters whose KIT has no melee", and those are two
     // different populations now that the grid has a ranged character on it. If
     // a third reason ever lands here, this list has outlived its question.
     "projectile_polygon",
+    "officer",
 ];
 
 #[test]
@@ -95,7 +102,10 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
             // of the host. Nothing to measure.
             continue;
         };
-        let action_set = catalog.build_default_action_set(id);
+        // The PREPARED kit: what a seated body fights with. A row's preset read
+        // on its own once reported a swipe for the Officer that his own file
+        // overruled.
+        let action_set = registry.get(id).and_then(|character| character.kit.action_set().cloned());
         let melee = action_set.as_ref().and_then(|set| set.melee.as_ref());
         report.push(format!(
             "  {:<32} preset={:<12} melee={}",

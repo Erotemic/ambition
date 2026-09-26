@@ -550,8 +550,8 @@ mod tests {
     /// that is his.
     #[test]
     fn bob_is_slower_to_start_than_alice_on_every_shared_press() {
-        let bob = bob_moveset();
-        let alice = crate::alice_moveset::alice_moveset();
+        let bob = crate::authored_movesets::shipped("npc_bob");
+        let alice = crate::authored_movesets::shipped("npc_alice");
         let startup = |set: &MovesetContract, verb: &str| {
             set.move_for_verb(verb)
                 .unwrap_or_else(|| panic!("{verb} is bound"))
@@ -579,7 +579,7 @@ mod tests {
     /// window lands once (see `Pulse`).
     #[test]
     fn his_rivet_gun_runs_rather_than_landing_once() {
-        let set = bob_moveset();
+        let set = crate::authored_movesets::shipped("npc_bob");
         let gun = set
             .moves
             .iter()
@@ -636,7 +636,7 @@ mod tests {
     /// check for the plate alone would pass a down-B that lost its hitbox.
     #[test]
     fn his_bulkhead_drop_still_slams_and_now_leaves_the_plate_it_names() {
-        let set = bob_moveset();
+        let set = crate::authored_movesets::shipped("npc_bob");
         let drop = set
             .moves
             .iter()

@@ -657,7 +657,7 @@ mod tests {
     /// Retune this test if that changes; do not delete it.
     #[test]
     fn her_two_neutral_projectiles_tell_the_brain_they_cross_the_stage() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         for id in [
             "polygon_ponytail_boomerang",
             "polygon_projectile_charge_shot",
@@ -697,7 +697,7 @@ mod tests {
     /// answered every hitless move 1000px would pass the test above.
     #[test]
     fn her_bomb_answers_its_own_flight_rather_than_the_ranged_placeholder() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         let bomb = set
             .moves
             .iter()
@@ -736,7 +736,7 @@ mod tests {
     /// either move alone fails this.
     #[test]
     fn the_tether_reaches_as_far_as_her_grab() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         let grab = set
             .moves
             .iter()
@@ -785,7 +785,7 @@ mod tests {
 
     #[test]
     fn the_reference_projectile_fighter_answers_the_complete_typed_repertoire() {
-        let moves = projectile_polygon_moveset();
+        let moves = crate::authored_movesets::shipped("projectile_polygon");
         for id in [
             "polygon_projectile_jab",
             "polygon_projectile_tilt_forward",
@@ -822,7 +822,7 @@ mod tests {
     /// check for the mine alone would pass a down smash that lost its hitbox.
     #[test]
     fn her_down_smash_still_swings_and_now_also_plants_a_mine() {
-        let moves = projectile_polygon_moveset();
+        let moves = crate::authored_movesets::shipped("projectile_polygon");
         let down_smash = moves
             .moves
             .iter()
@@ -896,7 +896,7 @@ mod threat_timing_tests {
     /// numbers are equal. Without it, a field that is always early would pass.
     #[test]
     fn a_projectile_threatens_when_it_is_thrown_not_when_the_move_ends() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         // Read the authored trigger times from the constants the moves are built
         // from, not from the events the derivation reads, so the test does not
         // restate the implementation.
@@ -937,7 +937,7 @@ mod threat_timing_tests {
     /// by construction.
     #[test]
     fn a_strike_threatens_when_its_hitbox_opens() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         let jab = set
             .moves
             .iter()
@@ -958,7 +958,7 @@ mod threat_timing_tests {
     /// population the attack menu's third arm refuses.
     #[test]
     fn a_move_that_threatens_nobody_names_no_time() {
-        let set = projectile_polygon_moveset();
+        let set = crate::authored_movesets::shipped("projectile_polygon");
         let lift = set
             .moves
             .iter()

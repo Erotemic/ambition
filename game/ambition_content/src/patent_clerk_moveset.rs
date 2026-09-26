@@ -621,7 +621,7 @@ mod tests {
     /// scales.
     #[test]
     fn the_light_argument_launches_the_same_at_every_percent() {
-        let set = patent_clerk_moveset();
+        let set = crate::authored_movesets::shipped("special_patent_clerk");
         let argument = set
             .move_by_id("light_argument")
             .expect("light_argument exists");
@@ -649,7 +649,7 @@ mod tests {
         use ambition_entity_catalog::smash_time_dilation::{
             TimeDilationParams, TIME_DILATION,
         };
-        let set = super::patent_clerk_moveset();
+        let set = crate::authored_movesets::shipped("special_patent_clerk");
         let down = set
             .moves
             .iter()
@@ -737,8 +737,8 @@ mod tests {
     /// Heavyweight with finishers: the table must mean it.
     #[test]
     fn the_clerk_is_slower_and_hits_harder_than_the_admiral() {
-        let clerk = patent_clerk_moveset();
-        let admiral = crate::pirate_admiral_moveset::pirate_admiral_moveset();
+        let clerk = crate::authored_movesets::shipped("special_patent_clerk");
+        let admiral = crate::authored_movesets::shipped("npc_pirate_admiral");
 
         assert!(
             startup(&find(&clerk, "jab")) > startup(&find(&admiral, "jab")),
@@ -758,7 +758,7 @@ mod tests {
     /// smash would make the smash pointless, so the gap is asserted.
     #[test]
     fn the_tilts_set_up_and_the_smashes_finish() {
-        let clerk = patent_clerk_moveset();
+        let clerk = crate::authored_movesets::shipped("special_patent_clerk");
         let strongest_tilt = ["tilt_up", "tilt_down"]
             .into_iter()
             .map(|id| launch(&find(&clerk, id)))
@@ -779,7 +779,7 @@ mod tests {
     /// the price the pass must pay.
     #[test]
     fn his_pass_is_armoured_only_while_he_is_crossing() {
-        let set = patent_clerk_moveset();
+        let set = crate::authored_movesets::shipped("special_patent_clerk");
         let pass = find(&set, "reference_frame");
         let armor: Vec<(f32, f32)> = pass
             .windows
@@ -810,7 +810,7 @@ mod tests {
     /// pass the test above.
     #[test]
     fn the_armoured_pass_grants_no_invulnerability() {
-        let set = patent_clerk_moveset();
+        let set = crate::authored_movesets::shipped("special_patent_clerk");
         let pass = find(&set, "reference_frame");
         assert!(
             !pass

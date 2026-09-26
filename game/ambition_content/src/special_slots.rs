@@ -63,8 +63,8 @@ mod tests {
     /// written.
     #[test]
     fn every_special_verb_is_one_a_shipped_fighter_answers() {
-        let brawler = crate::pugnacious_polygon_moveset::pugnacious_polygon_moveset();
-        let pointed = crate::pointed_polygon_moveset::pointed_polygon_moveset();
+        let brawler = crate::authored_movesets::shipped("pugnacious_polygon");
+        let pointed = crate::authored_movesets::shipped("pointed_polygon");
         for verb in super::SPECIAL_VERBS {
             assert!(
                 brawler.verbs.contains_key(*verb) || pointed.verbs.contains_key(*verb),

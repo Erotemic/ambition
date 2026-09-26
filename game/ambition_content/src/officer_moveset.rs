@@ -164,7 +164,7 @@ mod tests {
     /// add an unreachable move and leave the archetype's side special bound.
     #[test]
     fn the_draw_answers_the_side_special_and_the_shoulder_rush_is_gone() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         assert_eq!(
             set.verbs.get("special_forward").map(String::as_str),
             Some("officer_the_draw"),
@@ -181,7 +181,7 @@ mod tests {
     /// alone.
     #[test]
     fn the_round_leaves_on_the_frame_the_muzzle_flares() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let draw = set
             .moves
             .iter()
@@ -208,7 +208,7 @@ mod tests {
     /// It carries no strike: the round is the damage.
     #[test]
     fn the_draw_hits_nobody_with_his_body() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let draw = set
             .moves
             .iter()
@@ -226,7 +226,7 @@ mod tests {
     /// `repeating` the wall becomes a single shove.
     #[test]
     fn his_neutral_is_a_wall_of_air_that_hurts_nobody() {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         assert_eq!(
             set.verbs.get("special").map(String::as_str),
             Some("officer_disperse"),
@@ -283,7 +283,6 @@ mod tests {
 /// at the blast line.
 #[cfg(test)]
 mod he_uses_the_gust {
-    use super::officer_moveset;
 
     use ambition_characters::actor::attack_gesture::AttackDir;
     use ambition_characters::actor::ActorFaction;
@@ -321,7 +320,7 @@ mod he_uses_the_gust {
     /// actor tick (the same `move_for_attack` over the same three verbs and five
     /// directions), so every scored move is reachable by a button.
     fn kit() -> Vec<AttackCandidate> {
-        let set = officer_moveset();
+        let set = crate::authored_movesets::shipped("officer");
         let mut kit: Vec<AttackCandidate> = Vec::new();
         for (verb, verb_name) in [
             (AttackVerb::Basic, ambition_entity_catalog::ATTACK_VERB),
@@ -534,7 +533,7 @@ mod he_uses_the_gust {
     /// damaged opponent.
     #[test]
     fn the_gust_earns_no_kill_credit_however_hurt_the_opponent_is() {
-        let gust = officer_moveset()
+        let gust = crate::authored_movesets::shipped("officer")
             .moves
             .iter()
             .find(|m| m.id == "officer_disperse")
@@ -555,7 +554,7 @@ mod he_uses_the_gust {
 
         // Control: an ordinary move of his. A derivation that returned zero for
         // everything would pass the arm above.
-        let jab = officer_moveset()
+        let jab = crate::authored_movesets::shipped("officer")
             .moves
             .iter()
             .find(|m| m.id == "officer_jab")

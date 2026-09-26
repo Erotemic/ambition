@@ -633,7 +633,7 @@ mod tests {
             let path = library.join(folder).join(format!("{clip}.{kind}.json"));
             serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
         };
-        for mv in super::performer_moveset().moves {
+        for mv in crate::authored_movesets::shipped("performer").moves {
             let clip = mv.clip.clip.as_str();
             if !matches!(
                 clip,
@@ -697,7 +697,7 @@ mod tests {
     #[test]
     fn a_tilt_confirms_into_a_follow_up_and_a_smash_owes_its_recovery() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
-        let set = super::performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let cancels = |clip: &str| -> Vec<(Vec<String>, CancelCondition)> {
             set.moves
                 .iter()
@@ -753,7 +753,7 @@ mod tests {
     /// ground. And the hold must not root her.
     #[test]
     fn the_subterranean_beat_is_a_duration_an_action_press_can_cut_short() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         // Grounded form only. The airborne form authors no hold; see
         // `the_puff_in_the_air_...` below.
         for id in ["performer_trapdoor"] {
@@ -807,7 +807,7 @@ mod tests {
     /// away is not.
     #[test]
     fn coming_up_through_the_boards_is_a_strike_over_the_door() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let trap = set
             .moves
             .iter()
@@ -860,7 +860,7 @@ mod tests {
     /// "every window is 1.0". Dropping through and climbing out stay committed.
     #[test]
     fn the_trap_roots_her_at_both_ends_and_lets_her_steer_between_them() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let trap = set
             .moves
             .iter()
@@ -884,7 +884,7 @@ mod tests {
     /// far than the strike it rides on; otherwise it is a pure buff.
     #[test]
     fn her_monologue_sleeps_only_whoever_stood_closer_than_it_hits() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let speech = set
             .moves
             .iter()
@@ -956,7 +956,7 @@ mod tests {
     /// walk away while her targets are pinned.
     #[test]
     fn the_monologue_holds_the_speaker_as_well_as_the_room() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let speech = set
             .moves
             .iter()
@@ -985,7 +985,7 @@ mod tests {
         use ambition_entity_catalog::smash_teleport::TELEPORT;
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let wire = set
             .moves
             .iter()
@@ -1026,7 +1026,7 @@ mod tests {
         use ambition_entity_catalog::smash_flyline::{FlylineParams, FLYLINE};
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let wire = set
             .moves
             .iter()
@@ -1080,7 +1080,7 @@ mod tests {
     /// she could walk out of the special.
     #[test]
     fn she_steers_the_swing_and_is_rooted_either_side_of_it() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let wire = set
             .moves
             .iter()
@@ -1119,7 +1119,7 @@ mod tests {
         use ambition_entity_catalog::smash_trapdoor::TRAPDOOR;
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let air = set
             .moves
             .iter()
@@ -1164,7 +1164,7 @@ mod tests {
     fn the_smoke_goes_off_on_the_first_frame_of_both_forms() {
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         for id in ["performer_trapdoor", "performer_trapdoor_air"] {
             let mv = set
                 .moves
@@ -1200,7 +1200,7 @@ mod tests {
     /// [`the_wire_names_nothing_belonging_to_the_trapdoor`] for one such case.
     #[test]
     fn every_effect_she_names_is_a_row_that_ships() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         // Collect problems across every move, then assert once, so one run reports
         // every move that references a renamed effect.
         let mut problems: Vec<String> = Vec::new();
@@ -1223,7 +1223,7 @@ mod tests {
     fn the_wire_names_nothing_belonging_to_the_trapdoor() {
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let wire = set
             .moves
             .iter()
@@ -1245,7 +1245,7 @@ mod tests {
     /// an airborne press to the archetype's move.
     #[test]
     fn both_postures_of_her_down_special_are_the_trap() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         for verb in ["special_down", "special_air_down"] {
             let bound = set.verbs.get(verb).map(String::as_str);
             assert!(
@@ -1271,7 +1271,7 @@ mod tests {
     fn the_leap_has_one_authority_and_it_is_the_surfacing_beat() {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_entity_catalog::MoveEventKind;
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let trap = set
             .moves
             .iter()
@@ -1318,7 +1318,7 @@ mod tests {
     /// census over `moves` would count it.
     #[test]
     fn the_archetypes_down_special_does_not_linger() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         for stale in ["performer_low_arc", "performer_falling_edge"] {
             assert!(
                 !set.moves.iter().any(|m| m.id == stale),
@@ -1337,7 +1337,7 @@ mod tests {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         // Grounded form only: the airborne one goes nowhere.
         for id in ["performer_trapdoor"] {
             let mv = set
@@ -1384,7 +1384,7 @@ mod tests {
         use ambition_entity_catalog::smash_teleport::TELEPORT;
         use ambition_entity_catalog::MoveEventKind;
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         for id in ["performer_trapdoor", "performer_trapdoor_air"] {
             let mv = set.moves.iter().find(|m| m.id == id).expect("her trap");
             for event in &mv.events {
@@ -1415,7 +1415,7 @@ mod tests {
         use ambition_entity_catalog::smash_trapdoor::{TrapdoorParams, TRAPDOOR};
         use ambition_entity_catalog::{MoveEventKind, WindowTag};
 
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let mv = set
             .moves
             .iter()
@@ -1448,7 +1448,7 @@ mod tests {
     /// must carry the cost, or she gets unlimited flight.
     #[test]
     fn the_flyline_spends_the_airtimes_recovery() {
-        let set = performer_moveset();
+        let set = crate::authored_movesets::shipped("performer");
         let up = set
             .moves
             .iter()

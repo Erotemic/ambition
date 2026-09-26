@@ -574,7 +574,6 @@ pub fn ninja_shadow_oni_leader_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod answer_tests {
-    use super::*;
 
     /// The answer confirms on a hit and not on a block. A block-cancel would let
     /// him skip the recovery, and `iaijutsu` already escapes when blocked. A check
@@ -582,7 +581,7 @@ mod answer_tests {
     #[test]
     fn the_shadow_answer_confirms_on_a_hit_and_not_on_a_block() {
         use ambition_entity_catalog::{CancelCondition, WindowTag};
-        let answer = ninja_shadow_oni_leader_moveset()
+        let answer = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader")
             .move_by_id("shadow_answer")
             .expect("shadow_answer exists")
             .clone();
@@ -635,7 +634,7 @@ mod tests {
     #[test]
     fn the_onis_iaijutsu_authors_a_flow_that_validates_and_escapes_only_on_block() {
         use ambition_entity_catalog::{FlowNode, FlowSignal};
-        let set = super::ninja_shadow_oni_leader_moveset();
+        let set = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
         let side_b = set
             .moves
             .iter()
@@ -735,8 +734,8 @@ mod tests {
     /// the clerk would only show he is not a heavyweight.
     #[test]
     fn he_answers_faster_and_for_less_time_than_the_goblin() {
-        let oni = ninja_shadow_oni_leader_moveset();
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let oni = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
+        let goblin = crate::authored_movesets::shipped("goblin");
 
         assert!(
             startup(&find(&oni, "jab")) < startup(&find(&goblin, "jab")),
@@ -765,7 +764,7 @@ mod tests {
     /// `strike`'s shape, not of him.
     #[test]
     fn every_swing_costs_more_than_three_times_the_moment_it_buys() {
-        let oni = ninja_shadow_oni_leader_moveset();
+        let oni = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
         // Swings only: a pummel or throw holds no window. The count is the zero
         // floor: a filter that removed everything would pass trivially.
         let swings = strikes(&oni);
@@ -786,7 +785,7 @@ mod tests {
             );
         }
 
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let goblin = crate::authored_movesets::shipped("goblin");
         assert!(
             goblin
                 .moves
@@ -801,8 +800,8 @@ mod tests {
     /// and the admiral is the slow one.
     #[test]
     fn his_kill_move_commits_longer_than_the_admirals() {
-        let oni = ninja_shadow_oni_leader_moveset();
-        let admiral = crate::pirate_admiral_moveset::pirate_admiral_moveset();
+        let oni = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
+        let admiral = crate::authored_movesets::shipped("npc_pirate_admiral");
         let (o, a) = (find(&oni, "smash_forward"), find(&admiral, "smash_forward"));
         assert!(
             startup(&o) < startup(&a),
@@ -823,7 +822,7 @@ mod tests {
     /// `faction.ninja.parry_flash`) that always said so.
     #[test]
     fn the_command_seal_parries_and_keeps_the_cues_that_always_said_so() {
-        let set = ninja_shadow_oni_leader_moveset();
+        let set = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
         let seal = find(&set, "command_seal");
 
         let params: ambition_entity_catalog::smash_counter::CounterParams = seal
@@ -862,7 +861,7 @@ mod tests {
 
         // Shorter than the Performer's: she earns 1.4s by standing rooted next to
         // someone, while this comes from a parry, which is already a full punish.
-        let monologue = crate::performer_moveset::performer_moveset();
+        let monologue = crate::authored_movesets::shipped("performer");
         let hers: ambition_entity_catalog::smash_sleep::SleepParams = monologue
             .moves
             .iter()
@@ -910,7 +909,7 @@ mod tests {
     /// reading them.
     #[test]
     fn his_falling_seal_does_not_wear_the_counters_cues() {
-        let set = ninja_shadow_oni_leader_moveset();
+        let set = crate::authored_movesets::shipped("npc_ninja_shadow_oni_leader");
         let dive = find(&set, "falling_seal");
         let cues: Vec<String> = dive
             .events

@@ -523,7 +523,7 @@ mod tests {
     /// tip appended after the base would lose every exchange where both reach.
     #[test]
     fn his_thrusts_tip_outranks_its_base_and_is_worth_spacing_for() {
-        let set = pointed_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pointed_polygon");
         let thrust = set
             .moves
             .iter()
@@ -574,7 +574,7 @@ mod tests {
     fn his_down_b_is_a_counter_that_answers_with_the_blade() {
         use ambition_entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
 
-        let set = pointed_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pointed_polygon");
         let stance = set
             .moves
             .iter()
@@ -621,10 +621,10 @@ mod tests {
     /// Generic unit tests on `afford_recovery`, `start_move` and
     /// `body_is_helpless` cannot show that authored content reaches them; a
     /// fixture would miss a lowering that drops the field or a rule that is
-    /// opt-in. So this uses `pointed_polygon_moveset()`.
+    /// opt-in. So this uses `crate::authored_movesets::shipped("pointed_polygon")`.
     #[test]
     fn the_authored_up_b_costs_the_recovery_and_ends_in_freefall() {
-        let set = pointed_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pointed_polygon");
         let id = set
             .verbs
             .get("special_up")
@@ -644,7 +644,7 @@ mod tests {
 
     /// The Up-B's holding pulses, as authored: `(offset, half_extents, autolink)`.
     fn rising_spin_pulses() -> Vec<((f32, f32), (f32, f32), AutolinkVolume)> {
-        let spin = pointed_polygon_moveset()
+        let spin = crate::authored_movesets::shipped("pointed_polygon")
             .moves
             .into_iter()
             .find(|m| m.id == "polygon_rising_edge")
@@ -779,7 +779,7 @@ mod tests {
     /// falls out unlaunched.
     #[test]
     fn the_launch_reaches_everything_the_pulses_held() {
-        let spin = pointed_polygon_moveset()
+        let spin = crate::authored_movesets::shipped("pointed_polygon")
             .moves
             .into_iter()
             .find(|m| m.id == "polygon_rising_edge")
@@ -817,7 +817,7 @@ mod tests {
 
     #[test]
     fn the_reference_sword_fighter_answers_the_complete_typed_repertoire() {
-        let moves = pointed_polygon_moveset();
+        let moves = crate::authored_movesets::shipped("pointed_polygon");
         for id in [
             "polygon_jab",
             "pointed_polygon_dash_attack",

@@ -582,7 +582,6 @@ pub fn goblin_moveset() -> MovesetContract {
 
 #[cfg(test)]
 mod dirt_tests {
-    use super::*;
 
     /// The kick wins where both reach, and that order is the move.
     ///
@@ -593,7 +592,7 @@ mod dirt_tests {
     #[test]
     fn the_dirt_kick_hits_what_it_reaches_and_shoves_what_it_misses() {
         use ambition_entity_catalog::{VolumeReaction, WindowTag};
-        let kick = goblin_moveset()
+        let kick = crate::authored_movesets::shipped("goblin")
             .move_by_id("dirt_kick")
             .expect("dirt_kick exists")
             .clone();
@@ -627,7 +626,7 @@ mod dirt_tests {
     /// the shove lands. Here the boot ends at 48 and the dust at 82.
     #[test]
     fn the_brains_reach_for_the_dirt_kick_is_the_boot_and_not_the_dust() {
-        let frames = goblin_moveset()
+        let frames = crate::authored_movesets::shipped("goblin")
             .move_by_id("dirt_kick")
             .expect("dirt_kick exists")
             .frame_data();
@@ -653,7 +652,7 @@ mod tests {
     #[test]
     fn the_goblins_limit_dive_costs_exactly_the_matchs_full_meter() {
         use ambition_entity_catalog::smash_limit::LimitMeterFill;
-        let set = super::goblin_moveset();
+        let set = crate::authored_movesets::shipped("goblin");
         let dive = set
             .moves
             .iter()
@@ -711,7 +710,7 @@ mod tests {
     #[test]
     fn the_goblins_charge_grabs_on_a_connect_and_not_on_a_mere_overlap() {
         use ambition_entity_catalog::{FlowNode, FlowSignal};
-        let set = super::goblin_moveset();
+        let set = crate::authored_movesets::shipped("goblin");
         let charge = set
             .moves
             .iter()
@@ -779,7 +778,7 @@ mod tests {
     /// doc's identity: shorter reach, faster jab, weaker kill.
     #[test]
     fn the_goblin_is_shorter_faster_and_weaker_than_the_robot() {
-        let goblin = goblin_moveset();
+        let goblin = crate::authored_movesets::shipped("goblin");
         let robot = crate::player_robot_moveset::player_robot_moveset();
         let find = |set: &MovesetContract, id: &str| {
             set.moves
@@ -845,7 +844,7 @@ mod tests {
     /// carry that randomly fails.
     #[test]
     fn the_goblins_down_throw_hauls_instead_of_launching() {
-        let moves = goblin_moveset();
+        let moves = crate::authored_movesets::shipped("goblin");
         let beat = moves
             .moves
             .iter()

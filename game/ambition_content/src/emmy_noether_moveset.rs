@@ -844,7 +844,7 @@ mod tests {
     /// not about aerials in general.
     #[test]
     fn her_forward_and_back_aerials_are_the_same_move() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let f = find(&set, "air_forward");
         let b = find(&set, "air_back");
         assert_eq!(damage(&f), damage(&b), "same damage");
@@ -858,7 +858,7 @@ mod tests {
         );
 
         // The negative control: nobody else on the grid is symmetric.
-        let oiler = crate::oiler_moveset::oiler_moveset();
+        let oiler = crate::authored_movesets::shipped("npc_oiler");
         let of = find(&oiler, "air_forward");
         let ob = find(&oiler, "air_back");
         assert!(
@@ -875,7 +875,7 @@ mod tests {
     /// from the opposite idea, must miss it.
     #[test]
     fn every_strike_she_throws_conserves_the_same_quantity() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let mut striking = 0;
         for m in &set.moves {
             let impulse = conserved_impulse(m);
@@ -892,7 +892,7 @@ mod tests {
         }
         assert!(striking >= 14, "only {striking} moves strike at all");
 
-        let oiler = crate::oiler_moveset::oiler_moveset();
+        let oiler = crate::authored_movesets::shipped("npc_oiler");
         let off_curve = oiler
             .moves
             .iter()
@@ -910,7 +910,7 @@ mod tests {
     /// blueprint's *"the moment the invariant stops holding"*.
     #[test]
     fn exactly_one_move_grows_like_a_kill_move() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let loud: Vec<&str> = set
             .moves
             .iter()
@@ -927,7 +927,7 @@ mod tests {
     /// which carries a box.
     #[test]
     fn her_recovery_carries_no_hitbox_and_that_is_unusual() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let lift = find(&set, "ethereal_lift");
         assert!(
             lift.windows.iter().all(|w| w.volumes.is_empty()),
@@ -935,7 +935,7 @@ mod tests {
         );
         assert_eq!(conserved_impulse(&lift), 0.0);
 
-        let oiler = crate::oiler_moveset::oiler_moveset();
+        let oiler = crate::authored_movesets::shipped("npc_oiler");
         let geyser = find(&oiler, "oil_geyser");
         assert!(
             geyser.windows.iter().any(|w| !w.volumes.is_empty()),
@@ -957,7 +957,7 @@ mod tests {
              the same down, so repeated presses would gain height",
             climb_s
         );
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let lift = find(&set, "ethereal_lift");
         assert!(
             lift.windows
@@ -970,7 +970,7 @@ mod tests {
     /// The side special buys distance BACKWARD without turning her round.
     #[test]
     fn the_symmetry_shift_retreats_without_conceding_the_facing() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let shift = find(&set, "symmetry_shift");
         let displacement = shift
             .events
@@ -998,7 +998,7 @@ mod tests {
     /// baked manifests, so this asks what the renderer will ask.
     #[test]
     fn the_kit_looks_like_emmy_and_the_art_all_ships() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
         // every move that references a renamed effect.
@@ -1040,7 +1040,7 @@ mod tests {
     /// checked against the sheet here.
     #[test]
     fn every_clip_names_a_row_her_sheet_carries() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let record =
             ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key("noether")
                 .expect("Emmy's sheet is baked into the registry");
@@ -1062,7 +1062,7 @@ mod tests {
     /// answered with a grab.
     #[test]
     fn her_field_answers_a_blow_by_conserving_it() {
-        let set = emmy_noether_moveset();
+        let set = crate::authored_movesets::shipped("npc_emmy_noether");
         let field = set
             .moves
             .iter()

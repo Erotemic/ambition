@@ -536,7 +536,7 @@ mod tests {
     /// derivation discards growth.
     #[test]
     fn his_up_smash_out_launches_his_forward_smash_once_the_opponent_is_worn() {
-        let set = super::pugnacious_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pugnacious_polygon");
         let frames = |id: &str| {
             set.moves
                 .iter()
@@ -571,7 +571,7 @@ mod tests {
     fn his_ground_slam_sends_a_shock_that_outreaches_the_fists_and_hits_softer() {
         use ambition_entity_catalog::smash_riposte::{RiposteStrikeParams, RIPOSTE_STRIKE};
 
-        let set = pugnacious_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pugnacious_polygon");
         let slam = set
             .moves
             .iter()
@@ -640,7 +640,7 @@ mod tests {
     /// This test fails if either fighter is retuned toward the other.
     #[test]
     fn his_haymaker_charges_and_deliberately_does_not_store() {
-        let set = pugnacious_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pugnacious_polygon");
         let haymaker = set
             .moves
             .iter()
@@ -667,7 +667,7 @@ mod tests {
         );
 
         // The other half of the contrast, asserted rather than described.
-        let hers = crate::projectile_polygon_moveset::projectile_polygon_moveset();
+        let hers = crate::authored_movesets::shipped("projectile_polygon");
         let shot = hers
             .moves
             .iter()
@@ -701,7 +701,7 @@ mod tests {
     /// held elsewhere would make the throws read differently per grab.
     #[test]
     fn his_side_b_is_a_command_grab_that_shares_the_hold_with_his_standing_one() {
-        let set = pugnacious_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pugnacious_polygon");
         let standing = capture_of(&set, "polygon_brawler_grab");
         let command = capture_of(&set, "polygon_brawler_collar");
 
@@ -741,7 +741,7 @@ mod tests {
     /// move is another special case.
     #[test]
     fn both_of_his_grabs_tell_the_brain_the_distance_they_close() {
-        let set = pugnacious_polygon_moveset();
+        let set = crate::authored_movesets::shipped("pugnacious_polygon");
         for id in ["polygon_brawler_collar", "polygon_brawler_grab"] {
             let spec = set
                 .moves
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn the_uppercut_leaves_him_floating_for_longer_than_the_move_lasts() {
         use ambition_entity_catalog::MoveEventKind;
-        let moves = pugnacious_polygon_moveset();
+        let moves = crate::authored_movesets::shipped("pugnacious_polygon");
         let up = moves
             .moves
             .iter()
@@ -809,7 +809,7 @@ mod tests {
 
     #[test]
     fn the_reference_brawler_answers_the_complete_typed_repertoire() {
-        let moves = pugnacious_polygon_moveset();
+        let moves = crate::authored_movesets::shipped("pugnacious_polygon");
         for id in [
             "polygon_brawler_jab",
             "polygon_brawler_tilt_forward",

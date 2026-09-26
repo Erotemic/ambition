@@ -596,7 +596,7 @@ mod tests {
     #[test]
     fn the_four_specials_are_four_different_mechanisms() {
         use ambition_entity_catalog::MoveEventKind;
-        let set = pirate_admiral_moveset();
+        let set = crate::authored_movesets::shipped("npc_pirate_admiral");
 
         // Neutral: a recoil. Commanded, and it points backward.
         let shot = commanded(&set, "grapeshot").expect("the pistol shoves its owner");
@@ -691,7 +691,7 @@ mod tests {
     #[test]
     fn the_specials_and_the_juggle_carry_their_own_feedback() {
         use ambition_entity_catalog::MoveEventKind;
-        let set = pirate_admiral_moveset();
+        let set = crate::authored_movesets::shipped("npc_pirate_admiral");
         for id in [
             "grapeshot",
             "run_out_the_guns",
@@ -751,8 +751,8 @@ mod tests {
     /// keep the ordering or say why.
     #[test]
     fn the_admiral_is_longer_slower_and_heavier_than_the_other_two() {
-        let admiral = pirate_admiral_moveset();
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let admiral = crate::authored_movesets::shipped("npc_pirate_admiral");
+        let goblin = crate::authored_movesets::shipped("goblin");
         let robot = crate::player_robot_moveset::player_robot_moveset();
 
         let jabs = |set: &MovesetContract| {
@@ -791,7 +791,7 @@ mod tests {
     #[test]
     fn the_sharks_summon_advertises_seconds_of_authority_and_no_lift() {
         use ambition_entity_catalog::RecoveryRoute;
-        let set = pirate_admiral_moveset();
+        let set = crate::authored_movesets::shipped("npc_pirate_admiral");
         let frames = find(&set, "call_the_shark").frame_data();
         assert_eq!(
             frames.lift_speed, 0.0,

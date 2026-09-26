@@ -714,7 +714,7 @@ mod tests {
     /// charge would make him a different character (the brawler's haymaker).
     #[test]
     fn the_cosmic_calendar_is_held_on_the_page_it_is_thrown_on() {
-        let calendar = find(&carl_stargan_moveset(), "cosmic_calendar");
+        let calendar = find(&crate::authored_movesets::shipped("npc_carl_stargan"), "cosmic_calendar");
         let charge = calendar
             .smash_charge
             .as_ref()
@@ -743,7 +743,7 @@ mod tests {
     /// sourspot would win wherever both reach and spacing would be punished.
     #[test]
     fn the_pale_blue_dot_kills_at_the_pixel_and_pokes_up_close() {
-        let dot = find(&carl_stargan_moveset(), "pale_blue_dot");
+        let dot = find(&crate::authored_movesets::shipped("npc_carl_stargan"), "pale_blue_dot");
         let window = dot
             .windows
             .iter()
@@ -785,7 +785,7 @@ mod tests {
     /// Forward moves only: an up-smash's x-reach is small because it points up.
     #[test]
     fn reach_is_monotonic_in_startup() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let mut grounded: Vec<(f32, f32, String)> = set
             .moves
             .iter()
@@ -821,7 +821,7 @@ mod tests {
     /// large, in hitboxes.
     #[test]
     fn his_reach_spans_further_than_anybody_elses() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let reaches: Vec<f32> = set
             .moves
             .iter()
@@ -838,10 +838,10 @@ mod tests {
         let mine = far / near;
 
         for (who, other) in [
-            ("oiler", crate::oiler_moveset::oiler_moveset()),
+            ("oiler", crate::authored_movesets::shipped("npc_oiler")),
             (
                 "emmy_noether",
-                crate::emmy_noether_moveset::emmy_noether_moveset(),
+                crate::authored_movesets::shipped("npc_emmy_noether"),
             ),
         ] {
             let theirs: Vec<f32> = other
@@ -866,7 +866,7 @@ mod tests {
     fn the_recovery_outlasts_its_own_arc() {
         const G: f32 = 2200.0;
         assert!(STARSTUFF_ENDS_S >= 2.0 * (STARSTUFF_SPEED / G));
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         assert!(find(&set, "starstuff")
             .windows
             .iter()
@@ -880,7 +880,7 @@ mod tests {
     /// `src/moveset_sound.rs`.
     #[test]
     fn none_of_his_bursts_sit_on_his_navel() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let mut placed = 0;
         for m in &set.moves {
             let mut bursts = 0;
@@ -901,7 +901,7 @@ mod tests {
     /// His art is his own, and it all ships.
     #[test]
     fn the_kit_looks_like_carl_and_the_art_all_ships() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
         // every move that references a renamed effect.
@@ -934,7 +934,7 @@ mod tests {
     /// Every clip he names is a row his sheet carries.
     #[test]
     fn every_clip_names_a_row_his_sheet_carries() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let record = ambition_platformer2d::sprite_sheet::character::sheets::record_for_sheet_key(
             "carl_stargan",
         )
@@ -955,7 +955,7 @@ mod tests {
     /// the move does.
     #[test]
     fn his_slingshot_bends_toward_what_it_passes_and_lets_go_first() {
-        let set = carl_stargan_moveset();
+        let set = crate::authored_movesets::shipped("npc_carl_stargan");
         let pass = find(&set, "planetary_orbit");
 
         let homing: ambition_entity_catalog::smash_homing::HomingDashParams = pass

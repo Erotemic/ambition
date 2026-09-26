@@ -14,6 +14,17 @@
 
 use ambition_entity_catalog::MovesetContract;
 
+/// The move table the game ships for `character`, read from the content pack.
+///
+/// A fighter's tests read this, so they guard the file the game plays and not
+/// a copy of it.
+pub fn shipped(character: &str) -> MovesetContract {
+    ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+        .and_then(|table| table.get(character))
+        .cloned()
+        .unwrap_or_else(|| panic!("the shipped pack carries no move table for `{character}`"))
+}
+
 /// Every table in this crate that authors move events, by the name a failure
 /// should print.
 pub fn tables() -> Vec<(&'static str, MovesetContract)> {

@@ -686,7 +686,7 @@ mod tests {
     #[test]
     fn the_geysers_pool_throws_less_hard_than_the_geyser_itself() {
         use ambition_entity_catalog::MoveEventKind;
-        let set = super::oiler_moveset();
+        let set = crate::authored_movesets::shipped("npc_oiler");
         let up = set
             .moves
             .iter()
@@ -766,7 +766,7 @@ mod tests {
     /// would describe the helper, not the character.
     #[test]
     fn every_move_holds_its_hitbox_for_the_tolerance_band() {
-        let oiler = oiler_moveset();
+        let oiler = crate::authored_movesets::shipped("npc_oiler");
         // Only moves that hold a box, as in the builder's own assertion. Pummels and
         // throws have no Active window (see `capture_beat`).
         let mut reaching = 0;
@@ -791,7 +791,7 @@ mod tests {
              asserted over a population that shrank"
         );
 
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let goblin = crate::authored_movesets::shipped("goblin");
         let tighter = goblin
             .moves
             .iter()
@@ -810,7 +810,7 @@ mod tests {
     /// The goblin is the control: it has four moves above the same line.
     #[test]
     fn only_one_move_grows_past_the_tolerance_band() {
-        let oiler = oiler_moveset();
+        let oiler = crate::authored_movesets::shipped("npc_oiler");
         let torqued: Vec<&str> = oiler
             .moves
             .iter()
@@ -825,7 +825,7 @@ mod tests {
         );
         assert!(growth(&find(&oiler, "smash_forward")) >= TORQUE_GROWTH);
 
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let goblin = crate::authored_movesets::shipped("goblin");
         let goblin_torqued = goblin
             .moves
             .iter()
@@ -858,7 +858,7 @@ mod tests {
             2.0 * to_apex
         );
         // Landing out of it costs, so it is a bad panic button on the stage.
-        let up_b = find(&oiler_moveset(), "oil_geyser");
+        let up_b = find(&crate::authored_movesets::shipped("npc_oiler"), "oil_geyser");
         assert!(up_b.landing_lag_s.unwrap_or(0.0) > 0.0);
         assert_eq!(up_b.duration_s, GEYSER_ENDS_S);
         assert!(
@@ -875,7 +875,7 @@ mod tests {
     /// recovery probe can see the move.
     #[test]
     fn the_geyser_commands_its_rise_and_is_the_only_way_home() {
-        let set = oiler_moveset();
+        let set = crate::authored_movesets::shipped("npc_oiler");
         let up_b = find(&set, "oil_geyser");
         let burst = up_b
             .events
@@ -910,7 +910,7 @@ mod tests {
     /// runs for the whole climb, the crest breaks last.
     #[test]
     fn the_geyser_stages_its_three_rows_in_order() {
-        let up_b = find(&oiler_moveset(), "oil_geyser");
+        let up_b = find(&crate::authored_movesets::shipped("npc_oiler"), "oil_geyser");
         let at = |row: &str| -> Vec<f32> {
             up_b.events
                 .iter()
@@ -947,7 +947,7 @@ mod tests {
     /// one adds to his motion at the press. No two share a mechanism.
     #[test]
     fn the_four_specials_are_four_mechanisms() {
-        let set = oiler_moveset();
+        let set = crate::authored_movesets::shipped("npc_oiler");
         let commanded = |id: &str| -> Option<(f32, f32)> {
             find(&set, id).events.iter().find_map(|e| match &e.kind {
                 MoveEventKind::Impulse {
@@ -1044,7 +1044,7 @@ mod tests {
     /// renderer asks.
     #[test]
     fn the_kit_looks_like_oiler_and_the_art_all_ships() {
-        let set = oiler_moveset();
+        let set = crate::authored_movesets::shipped("npc_oiler");
         let mut effects = std::collections::BTreeSet::new();
         // Collect problems across every move, then assert once, so one run reports
         // every move that references a renamed effect.
@@ -1095,7 +1095,7 @@ mod tests {
     /// builder and a human's stick use the same function.
     #[test]
     fn both_postures_reach_at_least_eight_distinct_moves() {
-        let set = oiler_moveset();
+        let set = crate::authored_movesets::shipped("npc_oiler");
         let reachable = |grounded: bool| -> std::collections::BTreeSet<String> {
             let mut ids = std::collections::BTreeSet::new();
             for base in ["attack", "smash", "special"] {
@@ -1153,7 +1153,7 @@ mod tests {
             rows.contains("idle") && rows.contains("walk"),
             "this is not Oiler's sheet: {rows:?}"
         );
-        for m in &oiler_moveset().moves {
+        for m in &crate::authored_movesets::shipped("npc_oiler").moves {
             let chain: Vec<&str> = std::iter::once(m.clip.clip.as_str())
                 .chain(m.clip.fallbacks.iter().map(String::as_str))
                 .collect();

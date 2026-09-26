@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn her_one_time_pad_is_armoured_only_while_she_winds_up() {
         use ambition_entity_catalog::WindowTag;
-        let pad = alice_moveset()
+        let pad = crate::authored_movesets::shipped("npc_alice")
             .move_by_id("one_time_pad")
             .expect("one_time_pad exists")
             .clone();
@@ -608,7 +608,7 @@ mod tests {
     #[test]
     fn her_hash_collision_holds_twice_and_launches_once() {
         use ambition_entity_catalog::VolumeReaction;
-        let collision = alice_moveset()
+        let collision = crate::authored_movesets::shipped("npc_alice")
             .move_by_id("hash_collision")
             .expect("hash_collision exists")
             .clone();
@@ -658,8 +658,8 @@ mod tests {
     /// commits longer. A table copied between them would pass every other test.
     #[test]
     fn alice_reaches_further_than_bob_and_bob_hits_harder() {
-        let alice = alice_moveset();
-        let bob = crate::bob_moveset::bob_moveset();
+        let alice = crate::authored_movesets::shipped("npc_alice");
+        let bob = crate::authored_movesets::shipped("npc_bob");
         let reach = |set: &MovesetContract, id: &str| {
             set.move_by_id(id)
                 .unwrap_or_else(|| panic!("{id} exists"))
@@ -706,7 +706,7 @@ mod portal_recovery_tests {
     /// "it opens a portal" still passed.
     #[test]
     fn the_up_special_recovers_through_a_portal_rather_than_an_arc() {
-        let kit = super::alice_moveset();
+        let kit = crate::authored_movesets::shipped("npc_alice");
         let up_b = kit
             .moves
             .iter()

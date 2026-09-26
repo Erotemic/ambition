@@ -235,13 +235,12 @@ fn directors_teleport() -> ambition_entity_catalog::MoveSpec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     /// The swap is complete: the verb points at the new move, the move is in the
     /// table, and the archetype's rise is removed, not left unreachable.
     #[test]
     fn the_director_recovers_by_teleporting_and_the_archetypes_rise_is_gone() {
-        let set = director_moveset();
+        let set = crate::authored_movesets::shipped("director");
         assert_eq!(
             set.verbs.get("special_up").map(String::as_str),
             Some("director_revision"),
@@ -264,7 +263,7 @@ mod tests {
     /// numbers, not either number.
     #[test]
     fn his_thought_outlives_the_move_that_threw_it() {
-        let set = director_moveset();
+        let set = crate::authored_movesets::shipped("director");
         assert_eq!(
             set.verbs.get("special_forward").map(String::as_str),
             Some("director_train_of_thought"),
@@ -317,7 +316,7 @@ mod tests {
     /// George's riposte.
     #[test]
     fn the_directors_counter_answers_by_arriving_behind_whoever_swung() {
-        let set = director_moveset();
+        let set = crate::authored_movesets::shipped("director");
         assert_eq!(
             set.verbs.get("special_down").map(String::as_str),
             Some("director_second_draft"),
@@ -368,7 +367,7 @@ mod tests {
     /// verbs), so replacing `special_down` must keep his air-down.
     #[test]
     fn the_counter_displaced_the_ground_low_arc_and_spared_the_falling_edge() {
-        let set = director_moveset();
+        let set = crate::authored_movesets::shipped("director");
         // Name the id the borrowed table currently provides, not a historical one;
         // a renamed id would make this check pass without testing anything.
         assert!(
@@ -387,7 +386,7 @@ mod tests {
     /// or he gets an unlimited teleport.
     #[test]
     fn the_replacement_still_spends_the_airtimes_recovery() {
-        let set = director_moveset();
+        let set = crate::authored_movesets::shipped("director");
         let up = set
             .moves
             .iter()

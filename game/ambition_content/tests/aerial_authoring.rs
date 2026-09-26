@@ -59,7 +59,7 @@ fn shipped_characters_state_their_flight_answer_explicitly() {
 /// would be a retune wearing a migration's commit.
 #[test]
 fn the_cellular_pulse_survived_its_archetype_row() {
-    let moveset = ambition_content::cellular_automaton_moveset::cellular_pulse_moveset();
+    let moveset = ambition_content::authored_movesets::shipped("perfect_cellular_automaton");
     assert_eq!(
         moveset.verbs.get("special").map(String::as_str),
         Some("cellular_pulse"),

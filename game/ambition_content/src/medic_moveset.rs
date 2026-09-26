@@ -200,7 +200,6 @@ fn rescue_lift() -> MoveSpec {
 
 #[cfg(test)]
 mod tourniquet_tests {
-    use super::*;
 
     /// The drag does not weaken as the victim takes damage.
     ///
@@ -209,7 +208,7 @@ mod tourniquet_tests {
     /// magnitude check would pass a plausible small growth.
     #[test]
     fn the_tourniquet_pulls_the_same_at_every_percent() {
-        let strap = medic_moveset()
+        let strap = crate::authored_movesets::shipped("medic")
             .move_by_id("medic_tourniquet")
             .expect("medic_tourniquet exists")
             .clone();
@@ -253,7 +252,7 @@ mod tests {
     /// would send an airborne press to the archetype's move.
     #[test]
     fn every_special_slot_answers_to_a_move_of_her_own() {
-        let set = medic_moveset();
+        let set = crate::authored_movesets::shipped("medic");
         for (verb, expected) in [
             ("special", "medic_adrenaline"),
             ("special_forward", "medic_tourniquet"),
@@ -280,7 +279,7 @@ mod tests {
     /// with a cancel window.
     #[test]
     fn adrenaline_costs_and_the_dressing_gives_back() {
-        let set = medic_moveset();
+        let set = crate::authored_movesets::shipped("medic");
         let cost = vitality_of(&set, "medic_adrenaline");
         assert!(
             cost.change < 0,
@@ -312,7 +311,7 @@ mod tests {
     /// elsewhere to disagree with it.
     #[test]
     fn her_price_names_a_floor_that_cannot_kill_her() {
-        let set = medic_moveset();
+        let set = crate::authored_movesets::shipped("medic");
         assert!(
             vitality_of(&set, "medic_adrenaline").floor >= 1,
             "a neutral special that can finish a stock by being pressed is not \
@@ -324,7 +323,7 @@ mod tests {
     /// victim away, and nothing else would look wrong.
     #[test]
     fn the_tourniquet_launches_its_victim_toward_her() {
-        let set = medic_moveset();
+        let set = crate::authored_movesets::shipped("medic");
         let strap = set
             .moves
             .iter()
@@ -349,7 +348,7 @@ mod tests {
     /// ledge.
     #[test]
     fn the_rescue_lift_costs_her_nothing() {
-        let set = medic_moveset();
+        let set = crate::authored_movesets::shipped("medic");
         let lift = set
             .moves
             .iter()

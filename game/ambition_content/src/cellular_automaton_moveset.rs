@@ -604,7 +604,7 @@ mod tests {
     /// 3 damage, 140 flat knockback.
     #[test]
     fn the_signature_move_still_carries_the_rows_verbatim_numbers() {
-        let moveset = cellular_pulse_moveset();
+        let moveset = crate::authored_movesets::shipped("perfect_cellular_automaton");
         let pulse = moveset
             .move_by_id("cellular_pulse")
             .expect("the signature move");
@@ -628,8 +628,8 @@ mod tests {
     /// jab. Pinned against a fighter built for this stage, not a constant.
     #[test]
     fn its_smashes_telegraph_more_than_a_fighters_do() {
-        let pca = cellular_pulse_moveset();
-        let goblin = crate::goblin_moveset::goblin_moveset();
+        let pca = crate::authored_movesets::shipped("perfect_cellular_automaton");
+        let goblin = crate::authored_movesets::shipped("goblin");
         let startup = |set: &MovesetContract, id: &str| {
             set.move_by_id(id)
                 .unwrap_or_else(|| panic!("{id} exists"))
@@ -651,7 +651,7 @@ mod tests {
     /// move gathering.
     #[test]
     fn the_generation_collapse_gathers_before_it_launches() {
-        let set = cellular_pulse_moveset();
+        let set = crate::authored_movesets::shipped("perfect_cellular_automaton");
         let collapse = set
             .moves
             .iter()

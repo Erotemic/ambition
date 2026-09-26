@@ -1,0 +1,105 @@
+// The TwinTrack demo's cast. Every demo installs its own roster; the engine
+// ships none (ADR 0017).
+//
+// The demo registers every row here as a character with one call
+// (`pack::PACK.cast(..)`), so a character is a row here and its line in
+// `pack.ron`.
+(
+    // Free flight in the plaza, which has no gravity: both participants wear
+    // one feel, so a race between them measures their clocks and not their
+    // tuning. `flight_invariant_speed` is the plaza's speed of light
+    // (`INVARIANT_SPEED`), and `max_run_speed` is the target speed
+    // (`TARGET_SPEED`).
+    axis_tuning_presets: {
+        "plaza_flight": (
+            horizontal_law: Responsive,
+            jump_law: VelocityCut,
+            gravity: 0.0,
+            air_jumps: 0,
+            jump_speed: 0.0,
+            max_run_speed: 540.0,
+            run_accel: 960.0,
+            air_accel: 960.0,
+            max_fall_speed: 540.0,
+            coyote_time: 0.0,
+            jump_buffer: 0.0,
+            flight_accel: 700.0,
+            flight_drag: 180.0,
+            flight_terminal_speed: 540.0,
+            flight_direct_velocity: false,
+            flight_invariant_speed: Some(600.0),
+        ),
+    },
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {
+        "peaceful": (
+            move_style: Float,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "twintrack_lab_twin": (
+            display_name: "Emmy No-Ether",
+            spritesheet: "sprites/noether_spritesheet.png",
+            manifest: "sprites/noether_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([FreeFlight]),
+            axis_tuning_preset: Some("plaza_flight"),
+            // The second participant goes through ordinary actor construction,
+            // which refuses a character that cannot say how it moves. The plaza
+            // has no gravity: without free flight she would resolve to grounded
+            // and fall forever through an open room.
+            locomotion: Some((run_speed: 540.0, move_style: Float, baseline_free_flight: Some(true))),
+            // She is built standing still. An unmanned reference frame stands
+            // still, and her place equidistant between the beacons is her whole
+            // exhibit, so one tick of another policy before her seat lands
+            // would spoil it.
+            autonomous_profile: Some((template: StandStill)),
+            max_health: Some(1),
+            tags: ["participant", "relativity", "free_flight", "plaza"],
+            barks: (
+                hall: [
+                    "Stay put and my clock is the plaza's clock.",
+                    "Every symmetry here hides a conservation law.",
+                ],
+            ),
+            fallback_dialogue: [
+                "I am the frame everybody else is moving in.",
+                "My clock is the plaza's, by construction.",
+            ],
+        ),
+        // The traveler wears the session's home avatar, which brings its own
+        // body.
+        "twintrack_traveler": (
+            display_name: "TwinTrack Traveler",
+            spritesheet: "sprites/patent_clerk_spritesheet.png",
+            manifest: "sprites/patent_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([FreeFlight]),
+            axis_tuning_preset: Some("plaza_flight"),
+            max_health: Some(1),
+            tags: ["participant", "relativity", "free_flight", "plaza"],
+            barks: (
+                hall: [
+                    "Ask everyone what their own clock reads.",
+                    "What reaches you now left them earlier.",
+                    "Lead the visible image in light tag.",
+                ],
+            ),
+            fallback_dialogue: [
+                "Ask what their own clocks read.",
+                "The visible image is old light.",
+            ],
+        ),
+    },
+)

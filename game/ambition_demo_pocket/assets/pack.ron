@@ -1,0 +1,20 @@
+// The Pocket demo's own content pack: what its characters are, stated as
+// data. The manifest is the pack's explicit source list, not a directory
+// glob, so its contents do not depend on filesystem order. A source declared
+// here and not embedded in `src/pack.rs` (or the reverse) is a loud refusal.
+//
+// Validate without rebuilding Rust:
+//
+//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//         game/ambition_demo_pocket/assets
+(
+    id: "ambition_demo_pocket",
+    version: "0.1.0",
+    // Every identity this pack mints is `pocket_demo:<schema>/<name>`.
+    namespace: "pocket_demo",
+    requires: [],
+    sources: [
+        // The cast: every row is a character the demo registers.
+        (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
+    ],
+)

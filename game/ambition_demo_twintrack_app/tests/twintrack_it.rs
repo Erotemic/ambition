@@ -1450,3 +1450,61 @@ fn both_observers_publish_their_own_sky_and_the_two_disagree() {
          this is one image being copied rather than two being computed",
     );
 }
+
+/// TwinTrack's cast is prepared from its pack as the Rust registration built
+/// it.
+///
+/// The two participants were a catalog in a Rust string, with one flight feel
+/// written out twice, and two definitions that restated each name and sheet and
+/// gave Emmy her gait, her policy and a voice apiece. They are rows in the
+/// pack now, and the feel is stated once. The expected values below are what
+/// that Rust stated.
+#[test]
+fn the_twintrack_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() {
+    use ambition_platformer2d::characters::actor::CharacterLocomotion;
+    use ambition_platformer2d::characters::brain::{
+        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
+    };
+    use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
+
+    let mut app = ambition_demo_twintrack_app::build_demo_app();
+    activate(&mut app);
+    let registry = app.world().resource::<PreparedCharacterRegistry>();
+    let get = |id: &str| {
+        registry
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is not in the prepared cast"))
+    };
+    let traveler = get(ambition_demo_twintrack::TWINTRACK_CHARACTER_ID);
+    let emmy = get(ambition_demo_twintrack::TWINTRACK_LAB_TWIN_CHARACTER_ID);
+    assert_eq!(traveler.sheet.as_deref(), Some("patent_clerk"));
+    assert_eq!(emmy.sheet.as_deref(), Some("noether"));
+
+    // One flight feel for both: the plaza's speed of light, the target speed.
+    let flight = traveler.movement_tuning.expect("the traveler authors a feel");
+    assert_eq!(flight.flight_invariant_speed, Some(INVARIANT_SPEED));
+    assert_eq!(flight.max_run_speed, TARGET_SPEED);
+    assert_eq!(emmy.movement_tuning, Some(flight));
+
+    assert_eq!(
+        emmy.locomotion,
+        Some(CharacterLocomotion {
+            run_speed: 540.0,
+            move_style: MoveStyleSpec::Float,
+            baseline_free_flight: Some(true),
+            ..Default::default()
+        }),
+        "Emmy flies in a room with no gravity",
+    );
+    assert_eq!(
+        emmy.autonomous_profile,
+        Some(BrainProfile {
+            template: CharacterBrainTemplate::StandStill,
+            ..Default::default()
+        }),
+        "an unmanned reference frame stands still",
+    );
+    for character in [traveler, emmy] {
+        assert_eq!(character.vitals.max_health, Some(1), "{}", character.id);
+    }
+}

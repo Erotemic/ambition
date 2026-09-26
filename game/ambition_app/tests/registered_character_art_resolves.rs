@@ -6,9 +6,10 @@ use ambition_platformer2d::characters::prepared::PreparedCharacterRegistry;
 
 #[test]
 fn every_registered_character_resolves_the_art_it_declares() {
-    // SHELL-hosted: the provider plugins that register characters (Sanic, Mary-O,
-    // Pocket) join in that composition, and they are the ones this guard exists
-    // for. The non-hosted build has no cast to check.
+    // SHELL-hosted: the provider plugins that register characters (Sanic,
+    // Mary-O) join in that composition, and they are the ones this guard exists
+    // for. The non-hosted build has no cast to check. Pocket is not in the
+    // shipped composition; its own crate checks its cast.
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     // BUILDING an app is not COMPOSING one. Character preparation publishes its
     // registry at the plugin-composition barrier, which Bevy's runners close and

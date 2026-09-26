@@ -14,6 +14,7 @@ mod light_pulse;
 #[cfg(feature = "visible")]
 mod observatory;
 mod participants;
+pub mod pack;
 #[cfg(feature = "visible")]
 mod spacetime_3d;
 #[cfg(feature = "visible")]
@@ -156,95 +157,6 @@ pub const CLOCKS_HUD_SLOT: &str = "twintrack_clocks";
 pub const DIALOGUE_HUD_SLOT: &str = "twintrack_dialogue";
 pub const TEACHER_HUD_SLOT: &str = "twintrack_teacher";
 pub const RESULT_HUD_SLOT: &str = "twintrack_result";
-
-const TWINTRACK_CATALOG_RON: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
-    action_set_presets: {
-        "peaceful": (
-            move_style: Float,
-            melee: None,
-            ranged: None,
-            special: None,
-        ),
-    },
-    characters: {
-        "twintrack_lab_twin": (
-            display_name: "Emmy No-Ether",
-            spritesheet: "sprites/noether_spritesheet.png",
-            manifest: "sprites/noether_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Floating,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            abilities: Some([FreeFlight]),
-            axis_tuning: Some((
-                horizontal_law: Responsive,
-                jump_law: VelocityCut,
-                gravity: 0.0,
-                air_jumps: 0,
-                jump_speed: 0.0,
-                max_run_speed: 540.0,
-                run_accel: 960.0,
-                air_accel: 960.0,
-                max_fall_speed: 540.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-                flight_accel: 700.0,
-                flight_drag: 180.0,
-                flight_terminal_speed: 540.0,
-                flight_direct_velocity: false,
-                flight_invariant_speed: Some(600.0),
-            )),
-            max_health: Some(1),
-            tags: ["participant", "relativity", "free_flight", "plaza"],
-            barks: (
-                hall: [
-                    "Stay put and my clock is the plaza's clock.",
-                    "Every symmetry here hides a conservation law.",
-                ],
-            ),
-        ),
-        "twintrack_traveler": (
-            display_name: "TwinTrack Traveler",
-            spritesheet: "sprites/patent_clerk_spritesheet.png",
-            manifest: "sprites/patent_clerk_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Floating,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            abilities: Some([FreeFlight]),
-            axis_tuning: Some((
-                horizontal_law: Responsive,
-                jump_law: VelocityCut,
-                gravity: 0.0,
-                air_jumps: 0,
-                jump_speed: 0.0,
-                max_run_speed: 540.0,
-                run_accel: 960.0,
-                air_accel: 960.0,
-                max_fall_speed: 540.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-                flight_accel: 700.0,
-                flight_drag: 180.0,
-                flight_terminal_speed: 540.0,
-                flight_direct_velocity: false,
-                flight_invariant_speed: Some(600.0),
-            )),
-            max_health: Some(1),
-            tags: ["participant", "relativity", "free_flight", "plaza"],
-            barks: (
-                hall: [
-                    "Ask everyone what their own clock reads.",
-                    "What reaches you now left them earlier.",
-                    "Lead the visible image in light tag.",
-                ],
-            ),
-        ),
-    },
-)"#;
 
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct TravelerTwin;
@@ -500,72 +412,12 @@ pub fn twintrack_room() -> RoomSpec {
 
 pub fn install_twintrack_content(app: &mut App) {
     use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
 
-    app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
-            TWINTRACK_EXPERIENCE,
-            Some(TWINTRACK_CHARACTER_ID),
-            TWINTRACK_CATALOG_RON,
-        )
-        .expect("TwinTrack character catalog should be valid"),
-    );
-    {
-        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
-        use ambition_platformer2d::character::CharacterDefinition;
-        app.register_character(
-            CharacterDefinition::new(
-                TWINTRACK_CHARACTER_ID,
-                "TwinTrack Traveler",
-                TWINTRACK_EXPERIENCE,
-            )
-            .with_sheet("patent_clerk")
-            .with_voice([
-                "Ask what their own clocks read.",
-                "The visible image is old light.",
-            ]),
-        );
-        app.register_character(
-            CharacterDefinition::new(
-                TWINTRACK_LAB_TWIN_CHARACTER_ID,
-                "Emmy No-Ether",
-                TWINTRACK_EXPERIENCE,
-            )
-            .with_sheet("noether")
-            // A character must author its own locomotion to be built. The
-            // traveler wears the session's home avatar, which brings its own
-            // body. A second participant goes through ordinary actor
-            // construction, which refuses a character that cannot say how it
-            // moves.
-            .with_locomotion(
-                ambition_platformer2d::characters::actor::CharacterLocomotion {
-                    run_speed: 540.0,
-                    move_style: ambition_platformer2d::characters::brain::MoveStyleSpec::Float,
-                    // The plaza has no gravity. Leaving this unset would resolve
-                    // to grounded: a body falling forever through an open room.
-                    baseline_free_flight: Some(true),
-                    ..Default::default()
-                },
-            )
-            // She is built standing still. `BrainProfile::default().template`
-            // is `MeleeBrute`, and `adopt_the_laboratory_twin` queues her seat,
-            // which lands only when commands flush. Without this, one tick of
-            // a brute's brain would move her off the point equidistant between
-            // the beacons, which is her whole exhibit. An unmanned reference
-            // frame stands still, so say so at construction.
-            .with_autonomous_profile(ambition_platformer2d::characters::brain::BrainProfile {
-                template:
-                    ambition_platformer2d::characters::brain::CharacterBrainTemplate::StandStill,
-                ..Default::default()
-            })
-            .with_voice([
-                "I am the frame everybody else is moving in.",
-                "My clock is the plaza's, by construction.",
-            ]),
-        );
-    }
+    // The cast is the pack's `character_catalog`: the traveler (who wears the
+    // session's home avatar) and Emmy, the second participant.
+    pack::PACK
+        .cast(TWINTRACK_EXPERIENCE, Some(TWINTRACK_CHARACTER_ID))
+        .register(app);
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             TWINTRACK_EXPERIENCE,

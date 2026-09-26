@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+pub mod pack;
+
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::runtime::demo_fixture::{RoomSet, StartingCharacter};
@@ -12,35 +14,6 @@ pub const POCKET_EXPERIENCE: &str = "pocket";
 pub const POCKET_GAMEPLAY_ROUTE: &str = "pocket_gameplay";
 pub const POCKET_CHARACTER_ID: &str = "pocket_runner";
 pub const POCKET_ROOM_ID: &str = "pocket_room";
-
-const POCKET_CATALOG_RON: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
-    action_set_presets: {
-        "peaceful": (
-            move_style: Walk,
-            melee: None,
-            ranged: None,
-            special: None,
-        ),
-    },
-    characters: {
-        "pocket_runner": (
-            display_name: "Pocket Runner",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
-            manifest: "sprites/mary_o_v2_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            // The pocket demo is a provider-acceptance fixture — it proves a provider can stand up
-            // a room and a character, not that it can fight — so the row's own peaceful kit is the
-            // honest answer and `HostCode` was borrowing the protagonist's combat to say nothing
-            // with it.
-            tags: ["player", "provider_acceptance"],
-        ),
-    },
-)"#;
 
 pub fn pocket_room() -> RoomSpec {
     let size = ae::Vec2::new(640.0, 360.0);
@@ -97,51 +70,11 @@ fn cue(id: Option<&str>, frequency: f32) -> ambition_platformer2d::audio::spec::
 
 pub fn install_pocket_content(app: &mut App) {
     use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
 
-    app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
-            POCKET_EXPERIENCE,
-            Some(POCKET_CHARACTER_ID),
-            POCKET_CATALOG_RON,
-        )
-        .expect("Pocket character catalog should be valid"),
-    );
-    // REGISTER THE CHARACTER, not only its catalog row.
-    //
-    // A catalog fragment declares what a character IS; `register_character` is what makes the
-    // art pipeline know it exists — `declare_registered_characters` reads the PREPARED
-    // REGISTRY, so a catalog-only character is `UnknownCharacter` to the materializer and draws
-    // the marked placeholder.
-    //
-    // Which is what it did: picking "Pocket" from the launcher showed a plain blue
-    // box standing on the platform. No test failed, because no test looked at the
-    // screen — and the art guard that names Pocket in its own comment inspects the
-    // registry, which Pocket was absent from (found by capturing the route,
-    // ).
-    //
-    // the sheet TARGET, not the sheet FILE. `mary_o_v2_spritesheet.ron`
-    // declares `target: "mary_o_v2"` and the registry is keyed by that. The
-    // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
-    // exist in this repository at all, so even the legacy path had nothing to load.
-    {
-        use ambition_platformer2d::character::CharacterDefinition;
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
-        app.register_character(
-            CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
-                .with_sheet("mary_o_v2")
-                // A VOICE, so this one is not mute on a pedestal. A
-                // registered-only character has no catalog row to hold bark
-                // pools, and the ambient ticker skips whoever has nothing to say.
-                .with_voice([
-                    "Small screen, same distance.",
-                    "I run in your pocket. Mind the lint.",
-                    "Everything here had to fit through a thumb.",
-                ]),
-        );
-    }
+    // The cast is the pack's `character_catalog`, registered with one call.
+    pack::PACK
+        .cast(POCKET_EXPERIENCE, Some(POCKET_CHARACTER_ID))
+        .register(app);
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             POCKET_EXPERIENCE,
@@ -253,5 +186,25 @@ mod tests {
             Some(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID),
             "provider authoring selects the reusable load activity without host wiring",
         );
+    }
+
+    /// The runner is a prepared character with its sheet, so the art pipeline
+    /// knows it: picking Pocket in the launcher once showed a plain box standing
+    /// on the platform. Preparation publishes every catalog row as a character,
+    /// so the pack's row alone is enough; the cast's registration adds nothing
+    /// to a row that states no body scale and no moves.
+    #[test]
+    fn the_pocket_cast_registers_the_runner_with_its_sheet() {
+        let mut app = App::new();
+        install_pocket_content(&mut app);
+        ambition_platformer2d::characters::prepared::close_preparation_barrier(
+            app.world_mut(),
+        );
+        let runner = app
+            .world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>()
+            .get(POCKET_CHARACTER_ID)
+            .expect("the pack's cast registers the runner");
+        assert_eq!(runner.sheet.as_deref(), Some("mary_o_v2"));
     }
 }

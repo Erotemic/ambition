@@ -1,0 +1,38 @@
+// The Pocket demo's cast: one runner. Every demo installs its own roster; the
+// engine ships none (ADR 0017).
+//
+// The demo registers every row here as a character with one call
+// (`pack::PACK.cast(..)`), so a character is a row here and its line in
+// `pack.ron`.
+(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "pocket_runner": (
+            display_name: "Pocket Runner",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            // The pocket demo is a provider-acceptance fixture: it proves a
+            // provider can stand up a room and a character, not that it can
+            // fight. So the row's own peaceful kit is the correct answer.
+            tags: ["player", "provider_acceptance"],
+            fallback_dialogue: [
+                "Small screen, same distance.",
+                "I run in your pocket. Mind the lint.",
+                "Everything here had to fit through a thumb.",
+            ],
+        ),
+    },
+)

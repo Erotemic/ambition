@@ -1,4 +1,4 @@
-//! Ambition's character-catalog data and the curated playable cast. This is
+//! Ambition's character-catalog data and the cast it registers. This is
 //! content, kept out of the engine core (R3.2).
 //!
 //! The catalog schema, parser, and App-local fragment registry live in
@@ -39,7 +39,7 @@ pub fn register(app: &mut bevy::prelude::App) {
         CharacterCatalogFragment::from_prepared(
             crate::pack::CATALOG_SOURCE_PATH,
             crate::AMBITION_CONTENT_PROVIDER,
-            Some(PLAYABLE_ROSTER[0]),
+            Some(DEFAULT_CHARACTER),
             catalog,
         )
         .expect("the prepared catalog carries this provider's default character")
@@ -66,58 +66,11 @@ pub fn register_cast(app: &mut bevy::prelude::App) {
     crate::player_robot_lineage::register_declared_cast(app);
 }
 
-/// A curated cast of characters the player can start as. The character-select
-/// surface cycles through these; every id is a `character_catalog.ron` row
-/// with a renderable sheet. Hand-picked and small on purpose, not "every
-/// NPC". Extend by adding a catalog id here.
+/// The character this provider starts the player as: the current robot.
 ///
-/// ## The player robot's lineage is in the cast
-///
-/// `robot`, `player_robot_v2` and `player_robot_v3` are three incarnations of
-/// one character (v0, v2, v3; there is no v1). Ambition wants old versions of
-/// yourself to be things you can meet, talk to, fight, and play as.
-pub const PLAYABLE_ROSTER: &[&str] = &[
-    "player_robot_v3",            // the player robot, v3 (current)
-    "player_robot_v2",            // v2: the build before the SVG rig
-    "robot",                      // v0: the original
-    "goblin",                     // melee striker
-    "npc_pirate_admiral",         // pistol + cutlass
-    "perfect_cellular_automaton", // the PCA — see the note below (D74)
-    "stochastic_parrot", // the parrot
-    "sandbag",           // the training dummy, playable for laughs
-    // ── The fighters the smash grid offers ───────────────────────────────────
-    //
-    // A character this game offers as a worn body must be one it can build. A
-    // match seats these fighters, which is the same as wearing them, so they must
-    // be registered here.
-    //
-    // Only Ambition's own characters. `mary_o` and `sanic` belong to other
-    // providers; this catalog has no row for them, so listing them here would
-    // register nothing and fail `every_playable_roster_id_is_a_real_catalog_character`
-    // and `the_shipped_cast_is_what_the_compiler_prepared`. Their own demos
-    // declare them.
-    "npc_ninja_shadow_oni_leader",
-    "npc_alice",
-    "npc_bob",
-    "npc_oiler",
-    "npc_emmy_noether",
-];
-
-/// Characters this game can build without offering them as player selections.
-///
-/// Buildability comes from authoring a body and is distinct from the playable
-/// roster. A body is authored in the character's row (`locomotion` or
-/// `locomotion_preset`), so the build-only cast is derived from the rows rather
-/// than maintained as a second list.
-pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
-    rows_with_a_body()
-        .chain(REGISTERED_WITHOUT_A_BODY.iter().copied())
-        // Characters that author a body and also appear on the select grid are
-        // excluded here, so the two casts cannot overlap.
-        // `the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast`
-        // also catches an overlap added by hand.
-        .filter(|id| !PLAYABLE_ROSTER.contains(id))
-}
+/// A composition fact, not a row fact: which row a provider treats as its
+/// default is the provider's choice (see `CharacterCatalogFragment::from_prepared`).
+pub const DEFAULT_CHARACTER: &str = crate::player_robot_lineage::V3.id;
 
 /// The rows of the shipped pack's catalog that state how their body moves.
 fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
@@ -128,15 +81,6 @@ fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
         .filter(|(_, row)| row.locomotion.is_some() || row.locomotion_preset.is_some())
         .map(|(id, _)| id.as_str())
 }
-
-/// Characters registered without an authored body. Keep it empty (AC4).
-///
-/// Do not keep fallback health or incomplete body definitions while waiting
-/// for balance decisions. An empty list makes "authoring a character makes it
-/// buildable" true with no exception. If a character cannot state its body
-/// yet, raise it on the maintainer-decision surface instead of registering it
-/// bare.
-const REGISTERED_WITHOUT_A_BODY: &[&str] = &[];
 
 /// `definition` wearing the move table the pack authors for `id`, if it has one.
 ///
@@ -162,21 +106,20 @@ pub fn with_pack_moveset(
     }
 }
 
-/// Every id this game registers as a buildable character — the SELECTION cast
-/// plus the build-only cast. The one list registration iterates.
+/// Every id this game registers as a buildable character: the robot's
+/// lineage, which states its bodies in `player_robot_lineage`, and every row
+/// that states how its body moves. A character is in the cast because its row
+/// says what it is, not because a list names it.
 pub fn buildable_cast() -> impl Iterator<Item = &'static str> {
-    PLAYABLE_ROSTER.iter().copied().chain(buildable_only_cast())
-}
-
-/// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids
-/// (not in the roster) resolve to the first entry, so a stale selection always
-/// re-enters the cast cleanly.
-pub fn next_playable(current: &str) -> &'static str {
-    let idx = PLAYABLE_ROSTER.iter().position(|id| *id == current);
-    match idx {
-        Some(i) => PLAYABLE_ROSTER[(i + 1) % PLAYABLE_ROSTER.len()],
-        None => PLAYABLE_ROSTER[0],
-    }
+    let in_lineage = |id: &str| {
+        crate::player_robot_lineage::LINEAGE
+            .iter()
+            .any(|incarnation| incarnation.id == id)
+    };
+    crate::player_robot_lineage::LINEAGE
+        .iter()
+        .map(|incarnation| incarnation.id)
+        .chain(rows_with_a_body().filter(move |id| !in_lineage(id)))
 }
 
 #[cfg(test)]
@@ -973,11 +916,11 @@ mod tests {
 
         // The catalog the game uses is the lowered artifact, entry for entry.
         let catalog = load_catalog();
-        for id in PLAYABLE_ROSTER {
+        for id in buildable_cast() {
             let prepared = pack.get(&ambition_content_pack::SchemaId::new("character"), id);
             assert!(
                 prepared.is_some(),
-                "playable `{id}` is a prepared identity, so a tool and the game name it the \
+                "buildable `{id}` is a prepared identity, so a tool and the game name it the \
                  same way"
             );
             assert!(catalog.display_name(id).is_some());
@@ -1006,28 +949,6 @@ mod tests {
                 assembled.display_name(id),
                 Some(entry.display_name.as_str()),
                 "`{id}` reached the App through the compiler, not a re-parse"
-            );
-        }
-        assert_eq!(
-            lowered.characters.len(),
-            PLAYABLE_ROSTER
-                .iter()
-                .filter(|id| assembled.display_name(id).is_some())
-                .count()
-                .max(lowered.characters.len()),
-            "every prepared character is registered"
-        );
-    }
-
-    #[test]
-    fn every_playable_roster_id_is_a_real_catalog_character() {
-        // Every id must resolve a catalog row.
-        let catalog = load_catalog();
-        for id in PLAYABLE_ROSTER {
-            assert!(
-                catalog.display_name(id).is_some(),
-                "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
-                 curated cast rotted; fix the roster or the catalog",
             );
         }
     }
@@ -1062,77 +983,37 @@ mod tests {
         }
     }
 
-    /// Every id in the build-only cast authors its intrinsics. See
-    /// [`buildable_only_cast`]'s own warning: registering an id whose facts are
-    /// still in the roster is how a character silently loses them.
+    /// Every character this game builds authors a body or a policy.
+    ///
+    /// A definition with no vitals means "this character authors none", and
+    /// preparation retracts the archetype body; registering such an id is how
+    /// a character silently loses its body.
     #[test]
-    fn every_build_only_id_authors_something() {
-        // Ids that needed the exemption, checked against the list after the loop:
-        // an unneeded exemption is a false claim.
-        let mut genuinely_bare: Vec<&str> = Vec::new();
-        // Empty. Each entry must carry its placement evidence.
-        const KNOWN_BARE_REGISTRATIONS: &[(&str, &str)] = &[];
+    fn every_buildable_character_authors_a_body_or_a_policy() {
         // Asked of the PREPARED character: its row and its registered
         // definition together are what it authors.
         let app = prepared_cast_app();
         let prepared = app
             .world()
             .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
-        for id in buildable_only_cast() {
+        for id in buildable_cast() {
             let authored = prepared
                 .get(id)
                 .unwrap_or_else(|| panic!("`{id}` is buildable and not prepared"));
             let authors_a_body =
                 authored.death_traits.is_some() || authored.vitals.max_health.is_some();
-            // A policy-only registration retracts nothing. The rule is about bodies: a
-            // definition with no vitals means "this character authors none", and
-            // preparation retracts the archetype body. A character that states only a
-            // controller policy has no body to retract.
-            //
-            // `an_incomplete_character_uses_peaceful_npc_defaults` checks that an
-            // incomplete definition does not leak partial body facts into the
-            // peaceful-NPC path.
+            // A character that states only a controller policy has no body to
+            // retract. `an_incomplete_character_uses_peaceful_npc_defaults` checks
+            // that an incomplete definition does not leak partial body facts into
+            // the peaceful-NPC path. A moveset does not satisfy this rule.
             let authors_only_policy = !authors_a_body && authored.autonomous_profile.is_some();
-            // A third safe case: a character with no archetype body to lose (placed
-            // only as a peaceful Hall `NpcSpawn`). A bare registration costs it nothing.
-            // Each entry carries the placement evidence.
-            let exempt = KNOWN_BARE_REGISTRATIONS
-                .iter()
-                .any(|(known, _)| *known == id);
-            if !authors_a_body && !authors_only_policy {
-                genuinely_bare.push(id);
-            }
             assert!(
-                authors_a_body || authors_only_policy || exempt,
+                authors_a_body || authors_only_policy,
                 "`{id}` is registered as buildable and authors NOTHING — not a \
-                 body and not a policy. A bare registration means it has no \
-                 body, not that its archetype keeps it. If it has no archetype \
-                 body to lose, say so in `KNOWN_BARE_REGISTRATIONS` with the \
-                 placement evidence. ⚠ A MOVESET DOES NOT SATISFY THIS and the \
-                 message used to say it did — see the staleness arm below."
+                 body and not a policy. A bare registration means it has no body, \
+                 not that its archetype keeps it."
             );
         }
-
-        // An exemption nobody needs is a false claim. Remove an entry when its id
-        // stops being bare. The assertion message states what the predicate checks
-        // (`authors_a_body || authors_only_policy || exempt`); it does not check
-        // movesets.
-        let listed: Vec<&str> = KNOWN_BARE_REGISTRATIONS.iter().map(|(id, _)| *id).collect();
-        let unneeded: Vec<&str> = listed
-            .iter()
-            .copied()
-            .filter(|id| !genuinely_bare.contains(id))
-            .collect();
-        assert!(
-            unneeded.is_empty(),
-            "{unneeded:?} sit in `KNOWN_BARE_REGISTRATIONS` and do not need to: \
-             each authors a body or a policy and passes the rule on its own \
-             merits. An exemption that is not load-bearing is a claim nobody \
-             re-checks — and this list's entries carry PLACEMENT EVIDENCE, so a \
-             stale one reads as a statement about what a character authors. \
-             Delete the entry; the character is fine. (Genuinely bare right now: \
-             {genuinely_bare:?}.)"
-        );
     }
 
     /// The other direction: a character the pack authors a move table for, and
@@ -1167,9 +1048,8 @@ mod tests {
             .collect();
         assert!(
             unexpected.is_empty(),
-            "the pack authors a move table for these characters and they appear \
-             on NEITHER `PLAYABLE_ROSTER` nor `buildable_only_cast()`, so their \
-             moves reach no body: {unexpected:?}. State the character's body in \
+            "the pack authors a move table for these characters and they are \
+             not in `buildable_cast()`, so their moves reach no body: {unexpected:?}. State the character's body in \
              its row, which makes it buildable, or, if it genuinely cannot be \
              registered yet, add it to `KNOWN_UNREGISTERED` with the reason and \
              what unblocks it."
@@ -1203,67 +1083,39 @@ mod tests {
         );
     }
 
-    /// Empty today, so this checks the contract: an id here must resolve a
-    /// catalog row and must not duplicate the selection cast. A double
-    /// registration lets the last one win silently.
+    /// Each buildable id is one catalog row, registered once: a character
+    /// registered twice keeps whichever registration ran last, which is not a
+    /// decision anybody made.
     #[test]
-    fn the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast() {
+    fn the_buildable_cast_names_each_row_once() {
         let catalog = load_catalog();
-        let playable: std::collections::BTreeSet<&str> = PLAYABLE_ROSTER.iter().copied().collect();
-        for id in buildable_only_cast() {
+        let mut seen = std::collections::BTreeSet::new();
+        for id in buildable_cast() {
             assert!(
                 catalog.display_name(id).is_some(),
-                "buildable_only_cast() id '{id}' has no character_catalog.ron row",
+                "buildable `{id}` has no character_catalog.ron row",
             );
-            assert!(
-                !playable.contains(id),
-                "'{id}' is in BOTH casts — a character registered twice keeps \
-                 whichever registration ran last, which is not a decision anybody made",
-            );
+            assert!(seen.insert(id), "`{id}` is in the buildable cast twice");
         }
-        // The union is what registration walks.
-        let union: Vec<&str> = buildable_cast().collect();
-        assert_eq!(
-            union.len(),
-            PLAYABLE_ROSTER.len() + buildable_only_cast().count()
-        );
     }
 
     #[test]
-    fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
-        // The current incarnation heads the roster: `player_robot_v3`. There is no
-        // generic `player`; each incarnation is its own character (see
-        // `player_robot_lineage`).
-        assert_eq!(PLAYABLE_ROSTER[0], "player_robot_v3");
+    fn the_provider_starts_the_player_as_the_current_robot() {
+        // There is no generic `player`; each incarnation is its own character
+        // (see `player_robot_lineage`).
         let mut app = bevy::prelude::App::new();
         register(&mut app);
         assert_eq!(
             app.world()
                 .resource::<ambition_characters::actor::character_catalog::CharacterCatalogDefaults>()
                 .for_provider(crate::AMBITION_CONTENT_PROVIDER),
-            Some(PLAYABLE_ROSTER[0]),
+            Some("player_robot_v3"),
             "the App-local fragment publishes the provider default"
         );
         assert_eq!(
-            StartingCharacter::default().effective_id(PLAYABLE_ROSTER[0]),
-            PLAYABLE_ROSTER[0]
+            StartingCharacter::default().effective_id(DEFAULT_CHARACTER),
+            DEFAULT_CHARACTER
         );
-        for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {
-            for b in &PLAYABLE_ROSTER[i + 1..] {
-                assert_ne!(a, b, "duplicate id in PLAYABLE_ROSTER: {a}");
-            }
-        }
-    }
-
-    #[test]
-    fn next_playable_wraps_and_recovers_unknown() {
-        assert_eq!(next_playable("player_robot_v3"), PLAYABLE_ROSTER[1]);
-        assert_eq!(
-            next_playable(PLAYABLE_ROSTER[PLAYABLE_ROSTER.len() - 1]),
-            "player_robot_v3"
-        );
-        // Unknown / stale ids re-enter at the top of the cast.
-        assert_eq!(next_playable("not_a_real_id"), PLAYABLE_ROSTER[0]);
     }
 }
 

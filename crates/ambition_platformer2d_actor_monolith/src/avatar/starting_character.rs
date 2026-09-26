@@ -185,10 +185,9 @@ impl InitialBodyPolicy {
     }
 }
 
-// The curated PLAYABLE cast (which catalog ids the character-select surface
-// cycles) is CONTENT — it lives in `ambition_content::character_catalog`
-// (`PLAYABLE_ROSTER` / `next_playable`), beside the catalog data it indexes
-// (R3.2, residue #10). This module keeps only the engine machinery: the
+// Which characters a game can build, and which one it starts as, is CONTENT: it
+// lives with the game's catalog (`ambition_content::character_catalog`,
+// R3.2, residue #10). This module keeps only the engine machinery: the
 // StartingCharacter component + the moveset overlay.
 
 // NOTE: the old `overlay_character_moveset` fallback — empty worn slots kept the player's

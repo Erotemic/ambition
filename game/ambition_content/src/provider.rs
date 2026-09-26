@@ -76,7 +76,7 @@ impl AmbitionPreparedWorld {
 
 pub fn ambition_authored_catalogs() -> AuthoredCatalogFragments {
     AuthoredCatalogFragments::new(
-        crate::character_catalog::PLAYABLE_ROSTER[0],
+        crate::character_catalog::DEFAULT_CHARACTER,
         crate::AMBITION_CONTENT_PROVIDER,
     )
     .with_music()

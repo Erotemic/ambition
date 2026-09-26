@@ -10,7 +10,7 @@
 | [`authored_movesets`](src/authored_movesets.rs) | Every move table this crate ships, in one list, read from the content pack. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |
-| [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog data and the curated playable cast. |
+| [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog data and the cast it registers. |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`dormancy`](src/dormancy.rs) | Ambition's dormancy rule: how near an observer must be for a hostile to keep thinking. |

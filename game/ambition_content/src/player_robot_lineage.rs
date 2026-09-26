@@ -707,24 +707,30 @@ mod tests {
         }
     }
 
-    /// Every incarnation is in the playable cast.
+    /// Every incarnation is a prepared character, so it can be worn.
     ///
     /// The point of the whole arrangement: "play as the build before this one"
     /// is a selection, not a content edit.
     #[test]
     fn every_incarnation_can_be_worn() {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register_cast(&mut app);
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         for incarnation in LINEAGE {
             assert!(
-                crate::character_catalog::PLAYABLE_ROSTER.contains(&incarnation.id),
-                "incarnation '{}' is a character you can meet and not one you \
-                 can be — put it in PLAYABLE_ROSTER",
+                prepared.get(incarnation.id).is_some(),
+                "incarnation '{}' is a character you can meet and not one you can be",
                 incarnation.id,
             );
         }
     }
 }
 
-/// Register every playable character declared by this provider.
+/// Register every character this provider can build, except the lineage,
+/// which [`register`] builds with its own bodies.
 ///
 /// Definitions are projected from catalog rows so the catalog remains the
 /// authority for names and sheets. Registration makes those characters available
@@ -739,10 +745,8 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
     // re-registering here would be a duplicate and would also throw those away.
     let lineage: std::collections::BTreeSet<&str> =
         LINEAGE.iter().map(|incarnation| incarnation.id).collect();
-    // Register only the declared playable cast. A bare registration for an
+    // Register only the rows that state a body. A bare registration for an
     // exploration NPC would incorrectly replace its archetype-authored body.
-    //
-    // Empty build-only list today, so this iterates exactly what it always did.
     for id in crate::character_catalog::buildable_cast() {
         if lineage.contains(id) {
             continue;

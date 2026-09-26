@@ -327,7 +327,7 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             log.shield_active_frames
         );
         // and the cost was real rather than theoretical: the PCA was held
-        // off `PLAYABLE_ROSTER` for weeks to keep this green, so the smash grid
+        // off the playable roster for weeks to keep this green, so the smash grid
         // shipped one portrait short of the roster it advertises.
         //
         // those are STRICTER: they pin that the toggle limb runs and that flight is steered by

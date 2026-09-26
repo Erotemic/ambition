@@ -2169,7 +2169,7 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
     let controlled = primary_player_character(&mut app);
     assert_eq!(
         controlled.as_deref(),
-        Some(ambition_content::character_catalog::PLAYABLE_ROSTER[0]),
+        Some(ambition_content::character_catalog::DEFAULT_CHARACTER),
         "the body Ambition constructed is wearing {controlled:?} — the fighter \
          the Smash lobby picked, not the character Ambition's provider starts \
          with"
@@ -3397,7 +3397,7 @@ fn two_cpus_can_fight_each_other() {
 /// its host-level twin is DELETED, and the deletion is the point. That
 /// test picked `npc_emmy_noether` — a portrait the grid drew and seating could not
 /// build — and its own doc said it would go vacuous the day the Hall cast was
-/// registered. That day came: Noether is in `PLAYABLE_ROSTER`, the grid filters
+/// registered. That day came: Noether is in the registered cast, the grid filters
 /// on the prepared registry, and the test had become a check that a working
 /// thing works. A reproduction that content repaired is history, not coverage.
 #[test]

@@ -150,42 +150,7 @@ import subprocess
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 LOG = REPO / "target/duel_roster_sweep.log"
-CATALOG = REPO / "game/ambition_content/src/character_catalog.rs"
 GATE = 0.5
-
-
-def rosters() -> tuple[set[str], set[str]]:
-    """`(PLAYABLE_ROSTER, KNOWN_BARE_REGISTRATIONS)` — two published vocabularies.
-
-    ⚠ A grid id is not a playable one and neither is a bare registration, and the
-    three answer different questions.
-
-    ⛔ **AND THE BARE LIST IS EMPTY AS OF 2026-09-10.** It carried
-    `npc_carl_stargan`, and this file's own header used to cite his 0.00 as "a
-    character with no authored body being seatable as a fighter". He authors a
-    locomotion, a moveset and vitals; the EXEMPTION was stale, not the roster.
-    A row classified `bare-registration` today would be a fact about a list
-    nobody had re-derived.
-    """
-    src = CATALOG.read_text(encoding="utf-8")
-    block = src[src.index("pub const PLAYABLE_ROSTER") :]
-    playable = set(re.findall(r'^\s*"([a-z_0-9]+)",', block[: block.index("];")], re.M))
-    # ⛔⛔ BOUND THE SCAN BY THE LIST, NOT BY A WINDOW WIDTH. This read a fixed
-    # 400 characters past the name, so when the list was emptied to `&[]` on
-    # 2026-09-10 the regex kept reading and returned `{"unused"}` -- a string
-    # literal from unrelated code below it. A parser with no terminator does not
-    # return "nothing"; it returns whatever comes next, and the caller cannot
-    # tell the two apart.
-    bare_at = src.index("KNOWN_BARE_REGISTRATIONS")
-    open_at = src.index("&[", bare_at)
-    close_at = src.index("];", open_at)
-    # ⚠ THE ID, NOT THE REASON. Each entry is `("<id>", "<why>")`, and a regex
-    # over every quoted word in the block returns both -- caught by a poison
-    # that planted `("npc_poison_probe", "why")` and got a set of two. Real
-    # reasons are prose and would not have matched, so this would have stayed
-    # invisible until an exemption arrived with a one-word reason.
-    bare = set(re.findall(r'\(\s*"([a-z_0-9]+)"', src[open_at:close_at]))
-    return playable, bare
 
 
 def grid_ids() -> list[str]:
@@ -255,7 +220,6 @@ def sweep(ids: list[str], runs: int) -> None:
 
 
 def fold() -> int:
-    playable, bare = rosters()
     runs: dict[str, list[dict]] = collections.defaultdict(list)
     cur = None
     for line in LOG.read_text(encoding="utf-8").split("\n"):
@@ -360,7 +324,6 @@ def fold() -> int:
         band = "AT THRESHOLD" if abs(low - GATE) < 0.02 else ("BELOW GATE" if low < GATE else "")
         counts["measured"] += 1
         counts[band or "clears"] += 1
-        tag = "playable" if fighter in playable else ("bare-registration" if fighter in bare else "grid-only")
         windows = sorted({r.get("window") for r in done})
         wobble = f"  ⚠ window {'/'.join(str(w) for w in windows)}" if len(windows) > 1 else ""
         starts = "/".join(str(s) for s in first.get("starts", []))
@@ -408,7 +371,7 @@ def fold() -> int:
         print(
             f"{fighter:28} {first['dmg'][0]:.2f} / {first['dmg'][1]:.2f}  "
             f"{first.get('reach', 0):5.1f}% {starts:>9} {first.get('width', 0):6.2f}  "
-            f"{tag} {band}{wobble}"
+            f"{band}{wobble}"
         )
 
     # ⛔ ANTI-VACUITY. An empty or truncated log prints a serene header and no

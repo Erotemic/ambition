@@ -530,9 +530,7 @@ impl Plugin for CombatSchedulePlugin {
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<
-                                ambition_entity_catalog::smash_capture::CaptureAttemptParams,
-                            >,
+                            ambition_entity_catalog::smash_capture::check_capture_attempt,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,
@@ -565,7 +563,7 @@ impl Plugin for CombatSchedulePlugin {
                     TechniqueOffer {
                         owner: "ambition_combat::capture::translate_authored_capture_effects",
                         params: TechniqueParams::Checked(
-                            check_hydrates::<ambition_entity_catalog::smash_capture::CaptureThrowParams>,
+                            ambition_entity_catalog::smash_capture::check_capture_throw,
                         ),
                         references: NestedReferences::None,
                         delivery: TechniqueDelivery::Action,

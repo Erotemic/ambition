@@ -128,6 +128,45 @@ impl CaptureAttemptParams {
     }
 }
 
+/// The admission check for [`CAPTURE_ATTEMPT`]: the params hydrate, and the
+/// reach has area.
+///
+/// A reach with no area plays its move, costs its recovery and can never
+/// overlap a body. That looks in a playtest like a grab that is bad, not like
+/// a typo, so the pack is refused at load for every fighter that authors one.
+pub fn check_capture_attempt(params: &ParamValue) -> Result<(), String> {
+    let attempt: CaptureAttemptParams = params.hydrate().map_err(|e| e.to_string())?;
+    let (hw, hh) = attempt.half_extents;
+    if !(hw.is_finite() && hh.is_finite() && hw > 0.0 && hh > 0.0) {
+        return Err(format!(
+            "the grab reach has half-extents ({hw}, {hh}), which has no area and can \
+             never overlap a body"
+        ));
+    }
+    Ok(())
+}
+
+/// The admission check for [`CAPTURE_THROW`]: the params hydrate, and the
+/// launch has a direction.
+///
+/// A zero direction gives the knockback nowhere to send the captive, and a
+/// non-finite one poisons the captive's velocity.
+pub fn check_capture_throw(params: &ParamValue) -> Result<(), String> {
+    let throw: CaptureThrowParams = params.hydrate().map_err(|e| e.to_string())?;
+    let (dx, dy) = throw.launch_dir;
+    if !(dx.is_finite() && dy.is_finite()) {
+        return Err(format!("the throw has a non-finite launch direction ({dx}, {dy})"));
+    }
+    if dx == 0.0 && dy == 0.0 {
+        return Err(
+            "the throw launches in no direction, so its knockback has nowhere to send \
+             the captive"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// Authored parameters of one pummel impact.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -926,6 +965,56 @@ mod tests {
             "the generic throw row or the fighter's own clip fell out of the chain: {:?}",
             throw.1
         );
+    }
+}
+
+#[cfg(test)]
+mod admission_check_tests {
+    use super::*;
+
+    fn attempt(half_extents: (f32, f32)) -> ParamValue {
+        ParamValue::from_typed(&CaptureAttemptParams {
+            offset: (20.0, 0.0),
+            half_extents,
+            hold_offset: (18.0, -2.0),
+        })
+        .expect("serializes")
+    }
+
+    fn throw(launch_dir: (f32, f32)) -> ParamValue {
+        ParamValue::from_typed(&CaptureThrowParams {
+            damage: 8,
+            knockback: 120.0,
+            knockback_growth: 2.0,
+            launch_dir,
+        })
+        .expect("serializes")
+    }
+
+    /// A reach with area is admitted, and a reach with none is refused, on
+    /// either axis. The check covers every fighter that authors a grab, not
+    /// one facet.
+    #[test]
+    fn a_grab_reach_with_no_area_is_refused_at_admission() {
+        assert_eq!(check_capture_attempt(&attempt((22.0, 14.0))), Ok(()));
+        for flat in [(0.0, 14.0), (22.0, 0.0), (-1.0, 14.0), (f32::NAN, 14.0)] {
+            let refusal = check_capture_attempt(&attempt(flat))
+                .expect_err("a reach with no area must be refused");
+            assert!(refusal.contains("no area"), "{flat:?}: {refusal}");
+        }
+    }
+
+    /// A throw with a direction is admitted; a zero or non-finite one is
+    /// refused.
+    #[test]
+    fn a_throw_with_no_launch_direction_is_refused_at_admission() {
+        assert_eq!(check_capture_throw(&throw((0.9, -0.5))), Ok(()));
+        assert!(check_capture_throw(&throw((0.0, 0.0)))
+            .expect_err("a zero direction must be refused")
+            .contains("no direction"));
+        assert!(check_capture_throw(&throw((f32::INFINITY, 0.0)))
+            .expect_err("a non-finite direction must be refused")
+            .contains("non-finite"));
     }
 }
 

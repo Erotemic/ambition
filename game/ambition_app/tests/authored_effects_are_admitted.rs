@@ -229,3 +229,59 @@ fn the_shipped_composition_withheld_nothing_at_its_barrier() {
         refusals.len()
     );
 }
+
+/// The shipped support table refuses a grab with no reach and a throw with no
+/// direction, for every fighter.
+///
+/// `smash_capture::check_capture_attempt` and `check_capture_throw` state the
+/// rules; this proves the composition installs them rather than a check that
+/// only asks whether the params hydrate. A flat grab and a zero throw both
+/// hydrate.
+#[test]
+fn the_shipped_support_table_refuses_a_grab_that_reaches_nothing() {
+    use ambition_platformer2d::combat::technique::InstalledTechniques;
+    use ambition_platformer2d::entity_catalog::smash_capture::{
+        CaptureAttemptParams, CaptureThrowParams, CAPTURE_ATTEMPT, CAPTURE_THROW,
+    };
+    use ambition_platformer2d::entity_catalog::{EffectRef, ParamValue};
+
+    let sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
+    let installed = &sim
+        .world()
+        .get_resource::<InstalledTechniques>()
+        .expect("the composition declares its techniques")
+        .0;
+    let effect = |key: &str, params: ParamValue| EffectRef {
+        key: key.to_string(),
+        params,
+    };
+    let reach = |half_extents| {
+        ParamValue::from_typed(&CaptureAttemptParams {
+            offset: (20.0, 0.0),
+            half_extents,
+            hold_offset: (18.0, -2.0),
+        })
+        .expect("serializes")
+    };
+    let throw = |launch_dir| {
+        ParamValue::from_typed(&CaptureThrowParams {
+            damage: 8,
+            knockback: 120.0,
+            knockback_growth: 2.0,
+            launch_dir,
+        })
+        .expect("serializes")
+    };
+    // The control: an ordinary grab and throw are admitted.
+    assert!(installed.admit(&effect(CAPTURE_ATTEMPT, reach((22.0, 14.0)))).is_ok());
+    assert!(installed.admit(&effect(CAPTURE_THROW, throw((0.9, -0.5)))).is_ok());
+    assert!(
+        installed.admit(&effect(CAPTURE_ATTEMPT, reach((22.0, 0.0)))).is_err(),
+        "a grab whose reach has no area was admitted, so it would play and never catch anybody"
+    );
+    assert!(
+        installed.admit(&effect(CAPTURE_THROW, throw((0.0, 0.0)))).is_err(),
+        "a throw with no launch direction was admitted"
+    );
+}

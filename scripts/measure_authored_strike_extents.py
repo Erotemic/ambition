@@ -164,6 +164,43 @@ def read(
     return verbs, volumes, clocks, borrow
 
 
+def borrowed(
+    stem: str,
+    owner: str,
+    borrow: tuple[str, list[str]],
+    a_verbs: dict[str, str],
+    verbs: dict[str, str],
+    a_records: dict,
+    records: dict,
+) -> tuple[dict[str, str], dict]:
+    """One borrower's verbs and `(entity, move)` records, rebuilt as the engine does.
+
+    The archetype's records are renamed into `owner`'s name
+    (`MovesetContract::under_own_name`), the file's own records replace them by
+    id, and a verb the file rebinds drops the move it displaced when no verb
+    still binds it (`MovesetContract::overlaid_with`). Every census that reads
+    the move files resolves a borrow here, so there is one copy of the rule.
+    """
+    archetype, prefixes = borrow
+    ordered = sorted(prefixes, key=len, reverse=True)
+
+    def renamed(move_id: str) -> str:
+        for prefix in ordered:
+            if move_id.startswith(prefix):
+                return owner + move_id[len(prefix):]
+        raise SystemExit(f"{stem}.ron: `{move_id}` carries none of {prefixes}")
+
+    whole_verbs = {verb: renamed(move) for verb, move in a_verbs.items()}
+    whole = {(owner, renamed(m)): r for (e, m), r in a_records.items() if e == archetype}
+    whole.update(records)
+    for verb, move in verbs.items():
+        displaced = whole_verbs.get(verb)
+        whole_verbs[verb] = move
+        if displaced and displaced != move and displaced not in whole_verbs.values():
+            whole.pop((owner, displaced), None)
+    return whole_verbs, whole
+
+
 def resolve_borrows(tables: dict) -> None:
     """Rebuild each borrower's whole table in place, as the engine does."""
     by_entity = {}
@@ -174,30 +211,13 @@ def resolve_borrows(tables: dict) -> None:
     for stem, (verbs, volumes, clocks, borrow) in list(tables.items()):
         if borrow is None:
             continue
-        archetype, prefixes = borrow
+        archetype = borrow[0]
         owner = next(iter({entity for (entity, _move) in volumes}), stem)
         if archetype not in by_entity:
             raise SystemExit(f"{stem}.ron borrows `{archetype}`, whose table no file authors")
         a_verbs, a_volumes, a_clocks, _ = tables[by_entity[archetype]]
-        ordered = sorted(prefixes, key=len, reverse=True)
-
-        def renamed(move_id: str) -> str:
-            for prefix in ordered:
-                if move_id.startswith(prefix):
-                    return owner + move_id[len(prefix):]
-            raise SystemExit(f"{stem}.ron: `{move_id}` carries none of {prefixes}")
-
-        whole_verbs = {verb: renamed(move) for verb, move in a_verbs.items()}
-        whole_volumes = {(owner, renamed(m)): v for (e, m), v in a_volumes.items() if e == archetype}
-        whole_clocks = {(owner, renamed(m)): c for (e, m), c in a_clocks.items() if e == archetype}
-        whole_volumes.update(volumes)
-        whole_clocks.update(clocks)
-        for verb, move in verbs.items():
-            displaced = whole_verbs.get(verb)
-            whole_verbs[verb] = move
-            if displaced and displaced != move and displaced not in whole_verbs.values():
-                whole_volumes.pop((owner, displaced), None)
-                whole_clocks.pop((owner, displaced), None)
+        whole_verbs, whole_volumes = borrowed(stem, owner, borrow, a_verbs, verbs, a_volumes, volumes)
+        _, whole_clocks = borrowed(stem, owner, borrow, a_verbs, verbs, a_clocks, clocks)
         tables[stem] = (whole_verbs, whole_volumes, whole_clocks, None)
 
 

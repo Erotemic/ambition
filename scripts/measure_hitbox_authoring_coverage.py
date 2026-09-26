@@ -95,32 +95,42 @@ def clip_of_move() -> dict[str, str]:
     """Move id -> the clip it plays, read from the authored tables.
 
     A borrower's file holds only the moves it changes (`borrows: Some((archetype:
-    …, prefixes: [...]))`), so its other moves are the archetype's, renamed the
-    way the engine renames them (`MovesetContract::under_own_name`).
+    …, prefixes: [...]))`), so its other moves are the archetype's, rebuilt by
+    the one Python copy of the engine's rule
+    (`measure_authored_strike_extents.borrowed`).
     """
-    out: dict[str, str] = {}
-    own: dict[str, dict[str, str]] = {}
-    borrows: dict[str, tuple[str, list[str]]] = {}
+    extents = _sibling("measure_authored_strike_extents")
+    clips: dict[tuple[str, str], str] = {}
+    verbs_of: dict[str, dict[str, str]] = {}
+    borrowers = []
     for path in sorted(TABLES.glob("*.ron")):
         text = path.read_text()
-        moves = {
-            match.group(1): match.group(2)
+        verbs, _volumes, _clocks, borrow = extents.read(path)
+        entity = re.search(r'^            id: "([a-z_0-9]+)",', text, re.M)
+        owner = entity.group(1) if entity else path.stem
+        verbs_of.setdefault(owner, verbs)
+        own = {
+            (owner, match.group(1)): match.group(2)
             for match in re.finditer(
                 r'id: "([^"]+)",\n\s+display_name: [^\n]*\n\s+clip: \(\n\s+clip: "([^"]+)"', text
             )
         }
-        own[path.stem] = moves
-        out.update(moves)
-        borrow = re.search(r'archetype: "([^"]+)",\n\s+prefixes: \[\n((?:\s+"[a-z_]+",\n)+)', text)
-        if borrow:
-            borrows[path.stem] = (borrow.group(1), re.findall(r'"([a-z_]+)"', borrow.group(2)))
-    for stem, (archetype, prefixes) in borrows.items():
-        ordered = sorted(prefixes, key=len, reverse=True)
-        for move, clip in own.get(archetype, {}).items():
-            prefix = next((p for p in ordered if move.startswith(p)), None)
-            if prefix is not None:
-                out.setdefault(stem + move[len(prefix):], clip)
-    return out
+        if borrow is None:
+            clips.update(own)
+        else:
+            borrowers.append((path.stem, owner, borrow, verbs, own))
+    for stem, owner, borrow, verbs, own in borrowers:
+        _, whole = extents.borrowed(stem, owner, borrow, verbs_of.get(borrow[0], {}), verbs, clips, own)
+        clips.update(whole)
+    return {move: clip for (_entity, move), clip in clips.items()}
+
+
+def _sibling(name: str):
+    """A sibling script, loaded by path: the tests load this one by path too."""
+    loader = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(loader)
+    loader.loader.exec_module(module)
+    return module
 
 
 def specs() -> dict[str, dict[str, dict]]:

@@ -1402,24 +1402,14 @@ mod tests {
         })
     }
 
-    /// The shipped author table, parsed the way the pack parses it.
+    /// The shipped author table: the table the pack assembles, with the
+    /// director's borrow of his archetype resolved.
     ///
     /// Real content, not a hand-built `MoveSpec`: the predicate is a claim about
-    /// the authored population.
+    /// the authored population. The file alone holds only the moves the
+    /// director changes.
     fn shipped_author_moves() -> Vec<ambition_entity_catalog::MoveSpec> {
-        let path = concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../ambition_content/assets/data/movesets/director.ron"
-        );
-        let text = std::fs::read_to_string(path)
-            .unwrap_or_else(|why| panic!("the shipped author table is readable ({path}): {why}"));
-        let doc = ambition_entity_catalog::EntityCatalogDoc::parse(&text)
-            .expect("the shipped author table parses");
-        doc.entities
-            .into_iter()
-            .filter_map(|entity| entity.contracts.moveset)
-            .flat_map(|moveset| moveset.moves)
-            .collect()
+        ambition_content::authored_movesets::shipped("director").moves
     }
 
     fn shipped(id: &str) -> ambition_entity_catalog::MoveSpec {

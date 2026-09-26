@@ -19,6 +19,7 @@ WAIVED: dict[str, str] = {
     # purpose. They are not content and nothing draws them.
     "guest": "a catalog fixture in a unit test",
     "stranger": "a catalog fixture in a unit test",
+    "row_art": "a catalog fixture in a unit test",
     "alpha": "a validator fixture",
     "beta": "a validator fixture",
     "hero": "a resolver fixture",

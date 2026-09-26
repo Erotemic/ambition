@@ -438,7 +438,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                         bevy::asset::Assets<bevy::image::TextureAtlasLayout>,
                     >),
                 actors::animate_player,
-                actors::animate_characters,
+                (actors::start_bark_poses, actors::animate_characters).chain(),
                 // Content-owned overlays (`ActorOverlaySet`) run here: after
                 // `animate_characters`, before the hit-flash mirror.
                 //

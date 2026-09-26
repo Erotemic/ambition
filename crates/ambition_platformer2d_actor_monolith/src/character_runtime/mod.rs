@@ -112,7 +112,7 @@ use ambition_characters::load_demand::CharacterLoadDemand;
 /// ⛔⛔ SET TO 0 (UNBOUNDED) 2026-08-29, BECAUSE PACING BROKE A DESIGN RULE A TEST
 /// EXISTS TO KEEP CLOSED. `hall_transition_cover::the_halls_transition_bills_its_
 /// whole_cast_and_covers_the_wait` asserts the Hall stages its ENTIRE cast on the
-/// transition's FIRST frame — *"the room authors 129 NpcSpawn placements, so the
+/// transition's FIRST frame — *"the room authors 137 NpcSpawn placements, so the
 /// rest are being
 /// demanded later — after their actors spawn, in frame, uncovered, which is the
 /// defect this file exists to keep closed"*. Bounding the take dribbles the cast

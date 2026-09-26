@@ -671,6 +671,8 @@ tackon_targets=(
     python_goras
     richard_duckling
     yuclid
+    # The roaming dog of the central hub basement (`npc_companion_dog`).
+    companion_dog
 )
 
 # Rigged characters authored as GUI `.rig.json` documents auto-register as

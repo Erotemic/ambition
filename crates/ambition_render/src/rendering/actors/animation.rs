@@ -181,6 +181,30 @@ pub fn animate_player(
     }
 }
 
+/// The seconds left in a body's short bark pose. Presentation state on the
+/// body's visual: the simulation emits the bark as a
+/// [`ambition_vfx::VfxMessage::BarkGesture`] and keeps no timer of its own.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+pub struct BarkPose(pub f32);
+
+/// Start the bark pose on the visual whose feature id the bark names.
+pub fn start_bark_poses(
+    mut commands: Commands,
+    mut messages: MessageReader<ambition_vfx::VfxMessage>,
+    visuals: Query<(Entity, &FeatureVisual)>,
+) {
+    for message in messages.read() {
+        let ambition_vfx::VfxMessage::BarkGesture { feature_id, seconds } = message else {
+            continue;
+        };
+        for (entity, visual) in &visuals {
+            if visual.id == *feature_id {
+                commands.entity(entity).try_insert(BarkPose(*seconds));
+            }
+        }
+    }
+}
+
 /// Drive enemy and NPC sprite animation, atlas index, and facing flip.
 ///
 /// A feature id is in only one of the enemy or NPC runtime lists. One system
@@ -195,6 +219,7 @@ pub fn animate_characters(
             &mut CharacterAnimator,
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
+            Option<&mut BarkPose>,
         ),
         (
             Without<PlayerVisual>,
@@ -210,8 +235,12 @@ pub fn animate_characters(
 ) {
     // ADR 0011: per-entity proper time on the presentation clock. No SP entity
     // carries `ProperTimeScale` yet, so every actor ticks at the world rate.
-    for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
+    for (visual, mut sprite, mut animator, scale, anchor, bark) in &mut query {
         let dt = presentation_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let barking = bark.is_some_and(|mut pose| {
+            pose.0 -= dt;
+            pose.0 > 0.0
+        });
         // Enemies and NPCs resolve through the same picker as the player, from
         // their `Body*` clusters.
         let Some(frame) = anim_index.get(&visual.id) else {
@@ -228,7 +257,7 @@ pub fn animate_characters(
             frame.anim,
             frame.clip.as_ref(),
             frame.conversation_held,
-            frame.barking,
+            barking,
             dt,
             frame.facing,
             gravity.dir_at(frame.pos),
@@ -543,5 +572,37 @@ mod stance_squash_tests {
             assert_eq!(squash.squash(120.0, -0.42), (120.0, -0.42));
         }
         assert_eq!(StanceSquash::NONE.squash(120.0, -0.42), (120.0, -0.42));
+    }
+}
+
+#[cfg(test)]
+mod bark_pose_tests {
+    use super::{start_bark_poses, BarkPose};
+    use crate::rendering::primitives::FeatureVisual;
+    use bevy::prelude::*;
+
+    /// A bark names its body, and only that body's visual takes the pose.
+    #[test]
+    fn a_bark_poses_the_visual_it_names() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_message::<ambition_vfx::VfxMessage>();
+        app.add_systems(Update, start_bark_poses);
+        let dog = app
+            .world_mut()
+            .spawn(FeatureVisual { id: "dog".into() })
+            .id();
+        let parrot = app
+            .world_mut()
+            .spawn(FeatureVisual { id: "parrot".into() })
+            .id();
+        app.world_mut()
+            .write_message(ambition_vfx::VfxMessage::BarkGesture {
+                feature_id: "dog".into(),
+                seconds: 0.48,
+            });
+        app.update();
+        assert_eq!(app.world().get::<BarkPose>(dog).map(|pose| pose.0), Some(0.48));
+        assert!(app.world().get::<BarkPose>(parrot).is_none());
     }
 }

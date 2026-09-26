@@ -334,7 +334,6 @@ mod tests {
                     ActorAnimFrame {
                         anim: ambition_sprite_sheet::character::CharacterAnim::Idle,
                         conversation_held: false,
-                        barking: false,
                         pos: ambition_platformer2d_core::Vec2::ZERO,
                         facing: 1.0,
                         clip: None,

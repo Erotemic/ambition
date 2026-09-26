@@ -8,7 +8,6 @@
     // Clockwork Warden / Gradient Sentinel: scripted multi-phase profile.
     "clockwork_warden": (
         id: "clockwork_warden",
-        sprite_target: Some("boss"),
         reward_ability: Some("markrecall"),
         // Combat size follows the visible body bbox rather than the full sprite frame.
         combat_size: Some((54.0, 56.0)),
@@ -147,7 +146,6 @@
     // ============================================================
     "mockingbird": (
         id: "mockingbird",
-        sprite_target: Some("mockingbird_boss"),
         signature_gauntlet: Some("volley"),
         combat_size: Some((500.0, 185.0)),
         movement: AirSwoop(
@@ -219,7 +217,6 @@
     "gnu_ton_rider": (
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         id: "gnu_ton_rider",
-        sprite_target: Some("gnu_ton_rider"),
         reward_ability: Some("fireball"),
         signature_gauntlet: Some("meteor"),
         // The scholar's own body: his sheet's authored body box at the sheet's

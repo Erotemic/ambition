@@ -2,15 +2,18 @@
 //
 // Top-level shape: `{ "<boss_key>": BossSheetSpec }`, parsed into a
 // `BossCatalogFragment` for focused validation and assembled with the provider's
-// other boss data into the App-local `BossCatalog`. An authored key
-// REPLACES the engine's built-in default sheet for that key; keys absent here
-// fall back to the immutable layout defaults in `ambition_sprite_sheet`.
+// other boss data into the App-local `BossCatalog`. This file is the only
+// layout for these sheets. A boss whose key is absent here wears the provider's
+// fallback sheet (`gradient_sentinel`).
 //
-// These rows are byte-identical to the built-in demo-boss defaults (pinned by
-// `boss_sheets_ron_matches_builtin_defaults`). To re-author a boss's sheet
-// layout, edit its row here — no Rust change. `boss_key` is the lowercased boss
-// behavior id the renderer dispatches on.
+// To re-author a boss's sheet layout, edit its row here. No Rust change.
+// `boss_key` is the lowercased boss behavior id the renderer dispatches on.
+// Rows are in PNG order. A row the sheet does not ship falls back to `Rest`
+// through `BossSheetSpec::resolve_anim`.
 {
+    // idle->Rest, drift->DashEcho, noodle_whip->SideSweep,
+    // meatball_volley->FloorSlam, eye_beam->SpikeHalo, hurt->Hit, death->Death.
+    // It floats, so `body_centered`.
     "flying_spaghetti_monster_boss": (
         label_width: 100,
         frame_width: 393,
@@ -51,10 +54,9 @@
         body_centered: true,
         authored_faces_left: false,
     ),
-    // ADR 0020 mount/rider split (G1): the giant GNU MOUNT — the giant's body,
-    // scholar-less (768x576, 6 rows, collision_scale 4.5). Byte-identical to the
-    // built-in `GIANT_GNU_SHEET` default, pinned by
-    // `boss_sheets_ron_matches_builtin_defaults`.
+    // ADR 0020 mount/rider split (G1): the giant GNU MOUNT, without the
+    // scholar (768x576, 6 rows, collision_scale 4.5). The collision anchor is
+    // the shoulder ridge where the rider sits.
     "giant_gnu": (
         label_width: 0,
         frame_width: 768,
@@ -96,7 +98,6 @@
     // the arena's 54x96 BossSpawn — times 1.75), so his collision is his
     // authored body (39x52 px → 68x91) and he reads as a person on a giant, not
     // a speck. Centred on his body: he sits in a saddle, not on a floor.
-    // Byte-identical to the built-in GNU_TON_RIDER_SHEET default.
     "gnu_ton_rider": (
         label_width: 0,
         frame_width: 96,
@@ -173,6 +174,8 @@
         body_centered: false,
         authored_faces_left: false,
     ),
+    // hover->Rest, thrust->DashEcho, bite->FloorSlam, slash->SpikeHalo (the
+    // fireball tell), hit, death. No label strip. Drawn facing left.
     "mockingbird": (
         label_width: 0,
         frame_width: 576,
@@ -209,6 +212,9 @@
         body_centered: true,
         authored_faces_left: true,
     ),
+    // rest->Rest, mouth_open->FloorSlam, eye_beam->SpikeHalo, death->Death.
+    // A tight 208x288 body; collision_scale 1.0 makes the sprite, the combat
+    // box and the LDtk BossSpawn box match.
     "smirking_behemoth_boss": (
         label_width: 100,
         frame_width: 208,
@@ -237,6 +243,9 @@
         body_centered: false,
         authored_faces_left: false,
     ),
+    // Reuses the T-Rex enemy PNG. idle->Rest, walk->DashEcho, charge->FloorSlam,
+    // bite->SideSweep, roar->SpikeHalo, tail_swipe and stomp (duplicate labels,
+    // kept so atlas offsets are right), hurt->Hit, death->Death.
     "trex_boss": (
         label_width: 100,
         frame_width: 398,

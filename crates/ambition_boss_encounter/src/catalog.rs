@@ -130,17 +130,14 @@ impl BossCatalog {
             .map(String::as_str)
     }
 
-    /// Resolve a content-authored sheet, then an engine built-in sheet, then
-    /// the generic built-in boss sheet.
+    /// The content-authored sheet for `key`, else the provider's fallback
+    /// sheet, else the engine's one default layout (`BOSS_SHEET`) for a
+    /// catalog that authors no sheets.
     pub fn sheet_for_key(&self, key: &str) -> BossSheetSpec {
         self.sheets
             .get(key)
+            .or_else(|| self.sheets.get(self.fallback_sheet_key()?))
             .cloned()
-            .or_else(|| {
-                ambition_sprite_sheet::boss::builtin_boss_sheets()
-                    .get(key)
-                    .cloned()
-            })
             .unwrap_or_else(|| (*ambition_sprite_sheet::boss::BOSS_SHEET).clone())
     }
 
@@ -160,13 +157,13 @@ impl BossCatalog {
     /// sheet key, else its own id when that is one, else the provider's
     /// fallback sheet.
     pub fn worn_sheet_key<'a>(&'a self, behavior: &'a BossBehaviorProfile) -> Option<&'a str> {
-        let builtins = ambition_sprite_sheet::boss::builtin_boss_sheets();
         behavior
             .sprite_target
             .as_deref()
-            .filter(|target| self.sheets.contains_key(*target) || builtins.contains_key(*target))
+            .filter(|target| self.sheets.contains_key(*target))
             .or_else(|| {
-                (self.sheets.contains_key(&behavior.id) || builtins.contains_key(&behavior.id))
+                self.sheets
+                    .contains_key(&behavior.id)
                     .then_some(behavior.id.as_str())
             })
             .or_else(|| self.fallback_sheet_key())

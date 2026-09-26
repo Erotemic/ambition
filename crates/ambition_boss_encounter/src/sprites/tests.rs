@@ -4,6 +4,22 @@ use super::*;
 
 use ambition_sprite_sheet::character::sheets::record_for_sheet_key;
 
+/// The shipped layouts, read from `boss_sheets.ron` through the catalog.
+fn content_sheet(key: &str) -> BossSheetSpec {
+    crate::test_boss_catalog().sheet_for_key(key)
+}
+
+static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| content_sheet("mockingbird"));
+static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| content_sheet("giant_gnu"));
+static SMIRKING_BEHEMOTH_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| content_sheet("smirking_behemoth_boss"));
+static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| content_sheet("flying_spaghetti_monster_boss"));
+static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| content_sheet("trex_boss"));
+
 /// Page-local flat atlas index via the shared frame algebra over the const's
 /// grid-only synthetic record — the same path the runtime takes when no
 /// published sheet RON exists.
@@ -415,25 +431,6 @@ fn giant_gnu_side_sweep_resolves_to_itself() {
         GIANT_GNU_SHEET.resolve_anim(BossAnim::SideSweep),
         BossAnim::SideSweep
     );
-}
-
-/// The content-authored `boss_sheets.ron` deserializes to sheet specs
-/// identical to the engine's built-in demo-boss defaults, so the shipped
-/// bosses render unchanged until someone edits a row.
-#[test]
-fn boss_sheets_ron_matches_builtin_defaults() {
-    let registry = BossSheetRegistry::from_ron(include_str!(
-        "../../../../game/ambition_content/assets/data/boss_sheets.ron"
-    ));
-    for (key, builtin) in super::builtin_boss_sheets() {
-        let authored = registry
-            .get(&key)
-            .unwrap_or_else(|| panic!("boss_sheets.ron is missing the built-in key {key:?}"));
-        assert_eq!(
-            *authored, builtin,
-            "authored sheet for {key:?} drifted from the built-in default"
-        );
-    }
 }
 
 /// C6: a content-authored sheet replaces the built-in for that key — the whole

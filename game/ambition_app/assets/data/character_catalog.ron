@@ -1,0 +1,210 @@
+// The versus stage's two duelists. The stage registers every row here as a
+// character (`versus_pack::PACK.cast(..)`); the move tables are this pack's
+// `movesets/` files.
+//
+// `tier: Basement` keeps them out of the Hall of Characters. They are arena
+// fighters with no art of their own (they wear the robot's and Mary-O's
+// sheets), and a gallery of playable characters is a claim they have not
+// earned.
+(
+    brain_presets: { "stand_still": StandStill },
+    autonomous_profiles: {
+        // A CPU seat's controller policy (`versus_duelist`): the policy is
+        // published here, so the seat does not find it through a body
+        // definition.
+        "versus_duelist": (
+            template: Smash,
+            // A swing, then 0.34 s before this driver commits to another: the
+            // pace the headless Smash arena gives the same brain.
+            attack_cooldown_s: 0.34,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            patrol_effort: 0.6176,
+            chase_effort: 1.0,
+        ),
+    },
+    action_set_presets: {
+        // EMPTY, and the duelists' real kit. Everything they do is on their move
+        // tables; the action set says what a body REACHES FOR (what the brain
+        // believes it can press), and theirs is nothing beyond the moves.
+        "moves_only": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        // A reach fighter. Longer swings, a slower smash: it wins by keeping the
+        // other fighter at arm's length and punishing the approach.
+        "arena_duelist_long": (
+            sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
+            display_name: "Long Guard",
+            spritesheet: "sprites/robot_spritesheet.png",
+            manifest: "sprites/robot_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "moves_only",
+            // THE VERSUS KIT: the classic run-and-jump floor with a double jump,
+            // a fast fall and an attack. `Interact` and `Reset` ride in from the
+            // old `basic()` base, kept so the duel plays as it did. The stage's
+            // ceiling (`VERSUS_FIGHTER_KIT`) permits exactly this and grants
+            // nothing, so a fighter's verbs are its own.
+            abilities: Some([RunJump, Interact, Reset, Attack, FastFall, AirJump]),
+            // A round has to last long enough to be a round. At these damage
+            // numbers 60 HP is about a dozen committed hits or thirty pokes: the
+            // length that makes the jab/smash trade a DECISION, not a coin flip.
+            // No knockback weight: the stage declares no growth (its rounds end on
+            // health, not a blast zone), so a weight would divide a zero.
+            max_health: Some(60),
+            mass: Some(1.0),
+            // WHAT THE FIGHTER IS HITTABLE THROUGH, AND WHEN IT CHANGES. A fighting
+            // game whose smash costs nothing to whiff is a game where you always
+            // smash. Three rules, sized against the 30x48 collision box, so they
+            // are statements about the FIGHTER and stay true if the art changes:
+            // standing is a torso, narrower than the sprite, so a swing at the
+            // empty air beside a fighter misses; hitstun is BIGGER, so a fighter
+            // being hit is easier to keep hitting (a combo, not a coincidence);
+            // and the smash leans the fighter forward by 0.18 x its reach for the
+            // whole move, so the reach that makes it dangerous makes a whiff
+            // punishable. The jab and tilts leave the silhouette alone: they are
+            // the safe options.
+            hurtboxes: Some((
+                default: Some((
+                    keyframes: [
+                        (
+                            at_s: 0.0,
+                            volumes: [
+                                (
+                                    shape: Rect(
+                                        offset: (0.0, 0.0),
+                                        half_extents: (11.0, 22.0),
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ],
+                )),
+                poses: {
+                    "hitstun": (
+                        keyframes: [
+                            (
+                                at_s: 0.0,
+                                volumes: [
+                                    (
+                                        shape: Rect(
+                                            offset: (0.0, 0.0),
+                                            half_extents: (13.0, 24.0),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                },
+                moves: {
+                    "smash_forward": (
+                        keyframes: [
+                            (
+                                at_s: 0.0,
+                                volumes: [
+                                    (
+                                        shape: Rect(
+                                            offset: (4.1400003, 0.0),
+                                            half_extents: (15.14, 22.0),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                },
+            )),
+            // Its lines on every occasion: a fighter on a pedestal saying nothing
+            // reads as unfinished.
+            fallback_dialogue: [
+                "Reach is patience with a longer arm.",
+                "I will meet you exactly where you were.",
+                "Come closer. That is the whole plan, is it not?",
+            ],
+            tags: ["player", "versus"],
+        ),
+        // A rushdown fighter. Shorter reach, a faster smash: it has to get inside
+        // to do anything, and is rewarded for being there.
+        "arena_duelist_close": (
+            display_name: "Close Guard",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
+            tier: Basement,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "moves_only",
+            abilities: Some([RunJump, Interact, Reset, Attack, FastFall, AirJump]),
+            // Slightly frailer than the long guard, to pay for getting to swing
+            // faster. Same round length, different price.
+            max_health: Some(52),
+            mass: Some(0.9),
+            // The same three rules as the long guard, at this fighter's reach.
+            hurtboxes: Some((
+                default: Some((
+                    keyframes: [
+                        (
+                            at_s: 0.0,
+                            volumes: [
+                                (
+                                    shape: Rect(
+                                        offset: (0.0, 0.0),
+                                        half_extents: (11.0, 22.0),
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ],
+                )),
+                poses: {
+                    "hitstun": (
+                        keyframes: [
+                            (
+                                at_s: 0.0,
+                                volumes: [
+                                    (
+                                        shape: Rect(
+                                            offset: (0.0, 0.0),
+                                            half_extents: (13.0, 24.0),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                },
+                moves: {
+                    "smash_forward": (
+                        keyframes: [
+                            (
+                                at_s: 0.0,
+                                volumes: [
+                                    (
+                                        shape: Rect(
+                                            offset: (2.88, 0.0),
+                                            half_extents: (13.88, 22.0),
+                                        ),
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                },
+            )),
+            fallback_dialogue: [
+                "Everything good happens inside arm's length.",
+                "Your reach is a commitment. I am counting on it.",
+                "Guard up. Guard close. Guard now.",
+            ],
+            tags: ["player", "versus"],
+        ),
+    },
+)

@@ -132,6 +132,33 @@ impl ContentSchemaHandler for MovesetSchema {
         }
 
         for entity in &doc.entities {
+            // ⛔ A SLOT THIS SCHEMA DOES NOT READ. The entity document also has
+            // `body`, `hurtboxes` and `presentation` slots, and the move lowering
+            // reads none of them, so a value there is dropped with no error: it
+            // looks authored and nothing happens. A character's hurtboxes and
+            // body are its catalog row's to state.
+            let unread = [
+                ("body", entity.contracts.body.is_some()),
+                ("hurtboxes", entity.contracts.hurtboxes.is_some()),
+                ("presentation", entity.contracts.presentation.is_some()),
+            ];
+            for (slot, stated) in unread {
+                if stated {
+                    out.report(
+                        facet
+                            .diagnostic(
+                                DiagnosticCode::MalformedSource,
+                                format!(
+                                    "`{}` states `{slot}` for `{}`, and a move file's `{slot}` is \
+                                     read by nothing",
+                                    facet.declared_path, entity.id
+                                ),
+                            )
+                            .at_field(slot)
+                            .fix("state it in the character's catalog row, or delete it"),
+                    );
+                }
+            }
             let id = facet.content_id_in(MOVESET_SCHEMA, entity.id.clone());
             // A borrow or a take is part of what the entity says, so it moves
             // the fingerprint. A table that borrows and takes nothing keeps its

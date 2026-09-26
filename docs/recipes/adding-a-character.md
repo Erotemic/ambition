@@ -65,7 +65,8 @@ or a shared `locomotion_preset`), `max_health`, `contact_damage`,
 names), ability grants, its feel (`axis_tuning`, or a shared
 `axis_tuning_preset`), a sheet-authored body (`posed_body`), what it rides and
 what rides it (`mount`), its `mass`, a `dream_seed`, the item it holds
-(`held_item`), the look of its shots (`ranged_vfx`), the traits `practice_target` and `preserves_mirror_symmetry`,
+(`held_item`), the look of its shots (`ranged_vfx`), what it is hittable
+through per pose and per move (`hurtboxes`), the traits `practice_target` and `preserves_mirror_symmetry`,
 and its lines (`fallback_dialogue`). A demo registers every row of its pack with one
 `PACK.cast(..).register(app)`; in Ambition, a row that states a gait is a
 character the game builds. Copy a nearby row rather than recreating an old

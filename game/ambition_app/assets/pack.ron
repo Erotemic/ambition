@@ -1,0 +1,23 @@
+// The versus stage's own content pack: the arena's two duelists, stated as
+// data. The versus stage is the only composition where more than one cast
+// exists, so its fighters belong to the stage, not to either demo. The manifest
+// is the pack's explicit source list; a source declared here and not embedded
+// in `src/app/versus_pack.rs` (or the reverse) is a loud refusal.
+//
+// Validate without rebuilding Rust:
+//
+//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//         game/ambition_app/assets
+(
+    id: "ambition_app_versus",
+    version: "0.1.0",
+    // Every identity this pack mints is `versus:<schema>/<name>`.
+    namespace: "versus",
+    requires: [],
+    sources: [
+        // The cast: every row is a duelist the stage registers.
+        (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
+        (path: "data/movesets/arena_duelist_long.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/arena_duelist_close.ron", schema: "moveset", version: 1),
+    ],
+)

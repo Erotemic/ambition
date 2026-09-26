@@ -1,0 +1,364 @@
+// The moves of `arena_duelist_long`, the versus stage's reach fighter (Long Guard).
+// The stage loads this file through its content pack (`assets/pack.ron`); edit it here.
+//
+// ONE GRAMMAR, TWO SETS OF NUMBERS. Both duelists answer the same four buttons
+// with the same four moves: a jab (the fast poke you press when unsure), a
+// grounded forward smash (the committed hit: slow enough to punish, heavy enough
+// to risk; it decides how the fighter FEELS), an up tilt and a grounded down
+// tilt. `arena_duelist_close.ron` is the same table with the other fighter's numbers.
+// This fighter: jab 2, smash 9, reach 46 px, smash windup 0.26 s. The smash reaches 1.35 x the reach, the up tilt
+// 0.8 x and the down tilt 0.9 x.
+//
+// A grounded-only move is SKIPPED for an airborne body rather than refused, so
+// the directional chain falls through to the plain `attack`: an airborne
+// fighter can still press the button. No move costs anything (nothing in the
+// duel arena fills a meter) and none is a recovery (the arena authors no up-B).
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "arena_duelist_long",
+            contracts: (
+                moveset: Some((
+                    verbs: {
+                        "attack": "jab",
+                        "attack_down": "tilt_down",
+                        "attack_forward": "smash_forward",
+                        "attack_up": "tilt_up",
+                    },
+                    moves: [
+                        (
+                            id: "jab",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.21000001,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.06,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.06,
+                                    end_s: 0.11,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (27.6, 0.0),
+                                                half_extents: (23.0, 16.0),
+                                            ),
+                                            damage: 2,
+                                            knockback: 90.0,
+                                            knockback_growth: None,
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.11,
+                                    end_s: 0.21000001,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Sfx(
+                                        cue: "player.slash",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "smash_forward",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.61,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.26,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.26,
+                                    end_s: 0.32999998,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (37.260002, 0.0),
+                                                half_extents: (31.050001, 16.0),
+                                            ),
+                                            damage: 9,
+                                            knockback: 420.0,
+                                            knockback_growth: None,
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.32999998,
+                                    end_s: 0.61,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.26,
+                                    kind: Sfx(
+                                        cue: "player.slash",
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.26,
+                                    kind: Vfx(
+                                        effect: "shockwave",
+                                        at: (0.0, 0.0),
+                                        scale: 1.0,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "tilt_up",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.3,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.08,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.08,
+                                    end_s: 0.14,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (22.08, 0.0),
+                                                half_extents: (18.4, 16.0),
+                                            ),
+                                            damage: 3,
+                                            knockback: 260.0,
+                                            knockback_growth: None,
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.3,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.08,
+                                    kind: Sfx(
+                                        cue: "player.slash",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "tilt_down",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.3,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.07,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.07,
+                                    end_s: 0.120000005,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (24.84, 0.0),
+                                                half_extents: (20.699999, 16.0),
+                                            ),
+                                            damage: 2,
+                                            knockback: 140.0,
+                                            knockback_growth: None,
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.120000005,
+                                    end_s: 0.3,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.07,
+                                    kind: Sfx(
+                                        cue: "player.slash",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)

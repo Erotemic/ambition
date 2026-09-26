@@ -622,26 +622,8 @@ fn track_versus_roster(
 
 /// Register the versus experience: a launcher entry, a route, and the stage.
 pub fn compose_versus_experience(app: &mut App) {
-    // The ROW (who they are) and the DEFINITION (what they do), in that order.
-    // Preparation refuses an experience whose starting character has no catalog
-    // row, and the hand-authored moveset only exists on the definition.
-    {
-        use ambition_platformer2d::characters::actor::character_catalog::{
-            CharacterCatalogAppExt, CharacterCatalogFragment,
-        };
-        app.register_character_catalog_fragment(
-            CharacterCatalogFragment::from_ron(
-                VERSUS_EXPERIENCE,
-                Some(FIGHTERS[0]),
-                super::versus_fighters::VERSUS_CATALOG_RON,
-            )
-            .expect("the versus fighter catalog is valid"),
-        );
-    }
-    use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
-    for fighter in super::versus_fighters::duelists() {
-        app.register_character(fighter);
-    }
+    // The duelists are the stage's content pack: their rows and move tables.
+    super::versus_fighters::register_versus_cast(app, FIGHTERS[0]);
     // no archetype fragment. A CPU seat's `brain_profile` resolves against
     // this experience's published `autonomous_profiles` (see the note where
     // `VERSUS_ROSTER_RON` used to be), which is the authority a controller
@@ -1209,30 +1191,18 @@ mod roster_topology_tests {
 
         // and the SAME roster activates once the composition can answer for it,
         // or the refusal above would pass against a route that never activates.
-        // assembled from the stage's OWN catalog RON, not a hand-built table:
+        // assembled from the stage's OWN catalog, not a hand-built table:
         // that file is what a shipped composition registers, so this half also
         // asserts `VERSUS_CPU_BRAIN` is actually in it — the exact thing that was
         // false when the stage named `medium_striker`.
         //
         // Same claim, one authority over: a CPU seat's controller question is answered by published
         // `autonomous_profiles`, so that is what the composition must carry.
-        {
-            use ambition_platformer2d::characters::actor::character_catalog::{
-                CharacterCatalogAppExt, CharacterCatalogFragment,
-            };
-            // through the App seam the composition itself uses, so what is
-            // published here is what a shipped versus route publishes — the
-            // registration is what turns an authored profile into a resolvable
-            // `versus::versus_duelist` (cite-ok: an authored key, not a path).
-            app.register_character_catalog_fragment(
-                CharacterCatalogFragment::from_ron(
-                    VERSUS_EXPERIENCE,
-                    Some(FIGHTERS[0]),
-                    crate::app::versus_fighters::VERSUS_CATALOG_RON,
-                )
-                .expect("the versus fighter catalog is valid"),
-            );
-        }
+        // Through the registration the composition itself uses, so what is
+        // published here is what a shipped versus route publishes: it is what
+        // turns an authored profile into a resolvable `versus::versus_duelist`
+        // (cite-ok: an authored key, not a path).
+        crate::app::versus_fighters::register_versus_cast(&mut app, FIGHTERS[0]);
         app.update();
         assert!(
             app.world()

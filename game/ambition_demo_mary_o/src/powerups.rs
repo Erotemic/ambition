@@ -24,7 +24,6 @@ use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::provider::MARY_O_CHARACTER_ID;
-use crate::T;
 
 /// The worn-character id of the GROWN form: a distinct SHEET
 /// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
@@ -310,91 +309,23 @@ impl SpentPowerBlocks {
     }
 }
 
-// Mary-O uses sprite-authored body geometry. Each form supplies one world scale,
-// and per-animation sheet body rectangles determine its collision and render
-// footprint. Any desired gameplay inset belongs in the character generator,
-// rather than in a second hand-authored collision box.
-
-/// Standing height in world units. Pixel-to-world scale is derived from this
-/// authored gameplay size so sprite regeneration cannot change level-scale body
-/// dimensions.
-pub(crate) const MARY_O_STANDING_HEIGHT: f32 = SMALL_FORM_HEIGHT;
-
-/// Small-form standing height in the demo's world units.
-pub const SMALL_FORM_HEIGHT: f32 = T;
-
-/// Standing height shared by the grown and fire forms.
-pub(crate) const GROWN_FORM_HEIGHT: f32 = 32.0;
-
-/// Authored standing height for a Mary-O form. Fire shares the grown height so
-/// changing loadout does not move the body or alter ceiling clearance.
-pub(crate) fn form_height(target: &str) -> f32 {
-    if target == SMALL_SHEET_TARGET {
-        SMALL_FORM_HEIGHT
-    } else {
-        GROWN_FORM_HEIGHT
-    }
-}
-
-/// World units per sheet pixel — ONE scale, shared by all three forms.
+/// World units per sheet pixel: ONE scale, shared by all three forms, asked of
+/// the scale her catalog row names (`posed_body`). The cast builds her bodies
+/// at this scale, so a gap the level sizes from it and the body that walks into
+/// it cannot disagree.
 ///
-/// So a per-form scale reaching 32 has to draw the grown art 1.43x larger per pixel — and since the
-/// sheets author ONE body width for all three forms, that widens her by the same 1.43x on the way
-/// up. `her_forms_are_all_the_same_width` caught it immediately, and its reason is a gameplay rule
-/// rather than a tidiness one: *"growing must not change her width"*, or a grow wedges her in a gap
-/// she fit.
-///
-///  the 1:2 proportion is an ART question, not an arithmetic one. Reaching
-/// grown = 32 at an unchanged width needs the grown sheet REDRAWN to twice the
-/// small form's pixel height; scaling to it distorts her or fattens her. Until
-/// then one shared scale keeps her proportions honest and grown lands where the
-/// art puts it (22.3 at a 16-unit small form).
-pub(crate) fn form_world_per_pixel(_target: &str) -> f32 {
-    mary_o_world_per_pixel()
-}
-
-/// World units per sheet pixel, asked of the art rather than remembered.
-///
-/// Everything else — the grown form's height, all three widths, the sprite quad — follows from this
-/// one number, so none of them can drift from each other either.
-///
-/// `posed_body_geometry` at a scale of 1.0 returns the bbox in PIXELS, which is
-/// why there is no second registry lookup here: this asks the same function the
-/// engine's per-tick sync asks, so the two cannot disagree about what the sheet
-/// says.
+/// One scale for all forms, not one per form: the sheets author one body width
+/// for all three, so a per-form scale would make her wider when she grows, and
+/// a grow would wedge her in a gap she fit.
+#[cfg(test)]
 pub(crate) fn mary_o_world_per_pixel() -> f32 {
-    match small_form_pixel_height() {
-        Some(pixels) => MARY_O_STANDING_HEIGHT / pixels,
-        // No baked art (a headless fixture). Any scale is arbitrary here because
-        // nothing will resolve a body from it; 1.0 keeps the arithmetic honest
-        // instead of inventing a plausible-looking number.
-        None => 1.0,
-    }
-}
-
-/// How WIDE Mary-O's small form stands, in world units — the ruler every
-/// other body in this demo is sized against.
-///
-/// Her HEIGHT is the authored number ([`MARY_O_STANDING_HEIGHT`]); her width
-/// follows from the sheet, so this is a measurement rather than a second claim
-/// and the two cannot drift apart.
-///
-/// it exists because "too big" is a comparison and needed a denominator.
-/// attempt before this expressed the answer as a pixel scale — a unit in which
-/// the comparison cannot be stated at all.
-pub(crate) fn mary_o_body_width() -> Option<f32> {
-    ambition_platformer2d::character_sprites::posed_body_geometry(
-        SMALL_SHEET_TARGET,
-        CharacterAnim::Idle,
-        1.0,
-    )
-    .filter(|geometry| geometry.collision.x > 0.0 && geometry.collision.y > 0.0)
-    .map(|geometry| geometry.collision.x * (MARY_O_STANDING_HEIGHT / geometry.collision.y))
+    crate::pack::PACK.posed_body_world_per_pixel(MARY_O_CHARACTER_ID)
 }
 
 /// The small form's body rectangle height in SHEET PIXELS, or `None` when no
 /// record is baked. Separated so a test can ask whether the art resolved at all
 /// — the scale above cannot report that, since its fallback is a real number.
+#[cfg(test)]
 pub(crate) fn small_form_pixel_height() -> Option<f32> {
     ambition_platformer2d::character_sprites::posed_body_geometry(
         SMALL_SHEET_TARGET,
@@ -405,36 +336,35 @@ pub(crate) fn small_form_pixel_height() -> Option<f32> {
     .filter(|pixels| *pixels > 0.0)
 }
 
-/// The sheet manifest targets her three forms resolve through. Named here
-/// because both her definitions (which author the bodies) and the level
-/// authoring (which asks how tall she gets) need the same strings.
+/// The sheet targets her three catalog rows name, for the tests that measure
+/// her forms.
+#[cfg(test)]
 pub(crate) const SMALL_SHEET_TARGET: &str = "mary_o_v2";
+#[cfg(test)]
 pub(crate) const TALL_SHEET_TARGET: &str = "mary_o_v2_tall";
+#[cfg(test)]
 pub(crate) const FIRE_SHEET_TARGET: &str = "mary_o_v2_fire";
 
 /// The standing box one of her sheets authors, in world units.
 ///
-/// The level asks this to size the clearances she has to fit through (pipe
-/// mouths, vault exits). It is the same query the engine's per-tick sync makes,
-/// so a gap authored from it and the body that walks into it cannot disagree.
-///
-/// Falls back to the engine default when the sheet registry has no record — a
-/// headless fixture that baked no art. A clearance authored against the default
-/// is wrong by a few pixels; refusing to author one at all would be a panic in a
-/// test that never intended to draw anything.
+/// The level tests ask this to check the clearances she has to fit through
+/// (pipe mouths, vault exits). It is the same query the engine's per-tick sync
+/// makes, at the scale her cast is built with, so a gap measured with it and
+/// the body that walks into it cannot disagree.
+#[cfg(test)]
 pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
     ambition_platformer2d::character_sprites::posed_body_geometry(
         target,
         CharacterAnim::Idle,
-        form_world_per_pixel(target),
+        mary_o_world_per_pixel(),
     )
-    .map(|geometry| geometry.collision)
-    .unwrap_or_else(ae::movement::default_player_body_size)
+    .expect("her form's sheet is baked")
+    .collision
 }
 
 /// How tall she gets — asked of the grown form's ART, not multiplied out of the
 /// small one.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn tall_body_size() -> ae::Vec2 {
     form_body_size(TALL_SHEET_TARGET)
 }
@@ -1246,7 +1176,8 @@ mod tests {
         use ambition_platformer2d::characters::actor::character_catalog::parse_catalog;
 
         let authored = AuthoredSheets::default();
-        let catalog = CharacterCatalog::from_data(parse_catalog(&crate::mary_o_catalog_ron()));
+        let source = include_str!("../assets/data/character_catalog.ron");
+        let catalog = CharacterCatalog::from_data(parse_catalog(source));
         let anim = transition_anim(0, FIRE_TIER);
 
         // ⛔ THE PREMISE. A form whose sheet cannot be read answers with
@@ -1265,8 +1196,7 @@ mod tests {
         let rerouted = CharacterCatalog::from_data(parse_catalog(
             // The fire sheet's name appears only in the spark form's row, so
             // this reroutes exactly that row and leaves the other two alone.
-            &crate::mary_o_catalog_ron()
-                .replace("mary_o_v2_fire_spritesheet", "mary_o_v2_spritesheet"),
+            &source.replace("mary_o_v2_fire_spritesheet", "mary_o_v2_spritesheet"),
         ));
         let small_beat = clip_seconds(Some(&catalog), Some(&authored), MARY_O_CHARACTER_ID, anim);
         let rerouted_beat =
@@ -1532,8 +1462,12 @@ mod tests {
     fn her_scale_is_derived_from_baked_art_not_from_the_fallback() {
         let pixels = small_form_pixel_height()
             .expect("her small sheet must publish a body rectangle to scale against");
+        let standing_height = crate::mary_o_character_catalog()
+            .get(MARY_O_CHARACTER_ID)
+            .and_then(|row| row.standing_height)
+            .expect("her row states the height she stands");
         assert!(
-            (mary_o_world_per_pixel() - MARY_O_STANDING_HEIGHT / pixels).abs() < 1e-6,
+            (mary_o_world_per_pixel() - standing_height / pixels).abs() < 1e-6,
             "the scale is the authored height over the MEASURED pixel height, so \
              a regeneration that re-crops her keeps her exactly as tall as the \
              level expects"
@@ -2653,7 +2587,7 @@ mod scale_fallback_tests {
     /// slightly-wrong size — it is roughly twenty times the real one, and her
     /// sprite would sit nowhere near her collision box.
     ///
-    /// `mary_o_world_per_pixel` returns `MARY_O_STANDING_HEIGHT / pixels` when
+    /// Her scale is `<her row's standing_height> / pixels` when
     /// the small sheet resolves and `1.0` when it does not, and NOTHING at
     /// runtime distinguishes the two. Jon reported her sprite mispositioned
     /// against her box on 2026-09-05, so this pins that the fallback is not the
@@ -2669,9 +2603,8 @@ mod scale_fallback_tests {
         assert!(
             pixels.is_some(),
             "the `{}` sheet did not resolve, so every one of her forms is scaled \
-             at 1.0 world units per pixel instead of {}/pixels",
+             at 1.0 world units per pixel instead of <standing height>/pixels",
             super::SMALL_SHEET_TARGET,
-            super::MARY_O_STANDING_HEIGHT
         );
         let scale = super::mary_o_world_per_pixel();
         assert!(

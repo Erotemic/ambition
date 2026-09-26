@@ -688,6 +688,11 @@ pub struct CharacterCatalogEntry {
     /// the body on the shared editable tuning. See [`AxisTuningSpec`].
     #[serde(default)]
     pub axis_tuning: Option<AxisTuningSpec>,
+    /// The name of an entry in the catalog's `axis_tuning_presets`, for a feel
+    /// that several rows share (the forms of one character). A row states
+    /// either this or [`axis_tuning`](Self::axis_tuning), never both.
+    #[serde(default)]
+    pub axis_tuning_preset: Option<String>,
     /// How much punishment this character's PLAYABLE body takes before it dies.
     /// `Some(1)` is the classic platformer contract: whatever armor you are
     /// wearing absorbs the hit, and once there is none left the next one is
@@ -722,13 +727,18 @@ pub struct CharacterCatalogEntry {
 
 /// The art-to-world scale of a body that its sheet authors per pose.
 ///
-/// The scale is `standing_height / <idle body height, in sheet pixels>`, so the
-/// body stands as tall as its row says and every other pose follows from the
-/// art at the same scale.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+/// Each variant fixes one measurement of the idle body, and every other pose
+/// follows from the art at the same scale.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum PosedBodyScale {
-    /// This row's own sheet and standing height set the scale.
+    /// The idle body stands this row's `standing_height` tall.
     OwnHeight,
+    /// The idle body is this many world units wide. For a creature whose width
+    /// is what a level cares about (a walker in a corridor).
+    Width(f32),
+    /// The idle body is as wide as the named character's idle body. A value
+    /// derived from another character moves when that character does.
+    AsWideAs(String),
     /// Use the scale of the named character's row. The forms of one character
     /// differ in size because their art differs, at one scale; a height per
     /// form would state the ratio a second time.
@@ -977,6 +987,12 @@ pub struct CharacterCatalogData {
     /// it, so two games may both author a `"striker"` without colliding.
     #[serde(default)]
     pub autonomous_profiles: BTreeMap<String, crate::brain::BrainProfile>,
+    /// Named movement feels that rows share through `axis_tuning_preset`. One
+    /// statement of a feel for all the forms of a character, so a form cannot
+    /// jump differently from the others by a copy that drifted. Namespaced per
+    /// provider on assembly, like the other preset maps.
+    #[serde(default)]
+    pub axis_tuning_presets: BTreeMap<String, AxisTuningSpec>,
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,
     pub characters: BTreeMap<String, CharacterCatalogEntry>,

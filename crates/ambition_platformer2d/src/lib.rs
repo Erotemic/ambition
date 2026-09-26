@@ -187,6 +187,27 @@ pub mod content {
                 })
         }
 
+        /// The art-to-world scale at which [`Self::cast`] builds `character`'s
+        /// body, for anything else that must agree with it (a level that sizes
+        /// a gap to a body, a test that measures one).
+        ///
+        /// # Panics
+        ///
+        /// When the pack states no cast, or its row for `character` states no
+        /// `posed_body`: a caller that asks has assumed one.
+        pub fn posed_body_world_per_pixel(&self, character: &str) -> f32 {
+            let pack = self.prepared();
+            let catalog = ambition_characters::actor::character_catalog::lowered_catalog(pack)
+                .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
+            ambition_character_sprites::posed_body_world_per_pixel(catalog, character)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "the embedded pack `{}` states no posed_body for `{character}`",
+                        pack.id.0
+                    )
+                })
+        }
+
         /// The cast this pack states: every row of its `character_catalog`
         /// source, for `provider`.
         ///
@@ -231,43 +252,6 @@ pub mod content {
         }
     }
 
-    /// The art-to-world scale that a row's `posed_body` names: the idle body of
-    /// the scale row's sheet stands as tall as that row's standing height.
-    ///
-    /// A scale that names a character outside the catalog, or a row with no
-    /// sheet or no standing height, is a refusal: the body would otherwise be
-    /// built at an invented size. A sheet with no baked art (a headless fixture)
-    /// reads 1.0, because nothing resolves a body from absent art.
-    fn posed_body_world_per_pixel(
-        catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
-        id: &str,
-        scale: &ambition_characters::actor::character_catalog::PosedBodyScale,
-    ) -> f32 {
-        use ambition_characters::actor::character_catalog::PosedBodyScale;
-        let scale_id = match scale {
-            PosedBodyScale::OwnHeight => id,
-            PosedBodyScale::SameAs(other) => other.as_str(),
-        };
-        let Some(row) = catalog.characters.get(scale_id) else {
-            panic!(
-                "character `{id}` takes its body scale from `{scale_id}`, which is not \
-                 in the same catalog"
-            );
-        };
-        let (Some(sheet), Some(height)) = (
-            row.manifest_target(),
-            row.standing_height
-                .or_else(|| row.body_kind.default_standing_height()),
-        ) else {
-            panic!(
-                "character `{id}` takes its body scale from `{scale_id}`, whose row \
-                 states no sheet or no standing height"
-            );
-        };
-        ambition_character_sprites::world_per_pixel_for_standing_height(sheet, height)
-            .unwrap_or(1.0)
-    }
-
     /// A pack's cast, ready to register. See [`EmbeddedPack::cast`].
     pub struct PackCast {
         pack: &'static EmbeddedPack,
@@ -301,10 +285,7 @@ pub mod content {
                 .characters
                 .iter()
                 .map(|(id, row)| {
-                    let scale = row
-                        .posed_body
-                        .as_ref()
-                        .map(|scale| posed_body_world_per_pixel(catalog, id, scale));
+                    let scale = ambition_character_sprites::posed_body_world_per_pixel(catalog, id);
                     (id.clone(), row.display_name.clone(), scale)
                 })
                 .collect();

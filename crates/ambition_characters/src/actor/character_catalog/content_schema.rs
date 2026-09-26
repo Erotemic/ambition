@@ -6,10 +6,11 @@
 //! what identities it mints, which references it needs resolved, and which
 //! assets it depends on.
 //!
-//! ## One file, three identity kinds
+//! ## One file, four identity kinds
 //!
 //! A catalog file's SCHEMA is `character_catalog`; the identities it defines are
-//! `character`, `brain_preset` and `action_set_preset`. Those are different
+//! `character`, `brain_preset`, `action_set_preset` and `axis_tuning_preset`.
+//! Those are different
 //! questions and the distinction earns its keep immediately: a character naming
 //! a missing `default_brain` is an [`DiagnosticCode::UnknownPreset`] pointing at
 //! a preset kind, so the refusal can list the presets that DO exist rather than
@@ -44,6 +45,8 @@ pub const CHARACTER_SCHEMA: &str = "character";
 pub const BRAIN_PRESET_SCHEMA: &str = "brain_preset";
 /// A named action-set preset a character's `default_action_set` points at.
 pub const ACTION_SET_PRESET_SCHEMA: &str = "action_set_preset";
+/// A named movement feel a character's `axis_tuning_preset` points at.
+pub const AXIS_TUNING_PRESET_SCHEMA: &str = "axis_tuning_preset";
 
 /// The schema version this handler reads. Bump it when the authored shape
 /// changes meaning, never when a field is merely added with a default.
@@ -120,6 +123,12 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
             canonical(preset),
         );
     }
+    for (name, preset) in &catalog.axis_tuning_presets {
+        out.define(
+            preset_id(facet, AXIS_TUNING_PRESET_SCHEMA, name),
+            canonical(preset),
+        );
+    }
 
     for (name, entry) in &catalog.characters {
         let id = preset_id(facet, CHARACTER_SCHEMA, name);
@@ -152,6 +161,33 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
             )
             .local(),
         );
+        if let Some(preset) = &entry.axis_tuning_preset {
+            out.refer(
+                PendingRef::new(
+                    SchemaId::new(AXIS_TUNING_PRESET_SCHEMA),
+                    preset,
+                    "axis-tuning preset",
+                    id.clone(),
+                    "axis_tuning_preset",
+                )
+                .local(),
+            );
+            if entry.axis_tuning.is_some() {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedSource,
+                            format!(
+                                "character `{name}` states both `axis_tuning` and \
+                                 `axis_tuning_preset`"
+                            ),
+                        )
+                        .about(id.clone())
+                        .at_field("axis_tuning_preset")
+                        .fix("state one feel: the preset, or the row's own tuning"),
+                );
+            }
+        }
 
         // ── assets, with provenance ──────────────────────────────────────
         // An empty path is reported HERE rather than being asked of the asset

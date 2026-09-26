@@ -63,6 +63,19 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
                 entry.default_action_set
             ));
         }
+        if let Some(preset) = &entry.axis_tuning_preset {
+            if entry.axis_tuning.is_some() {
+                errors.push(format!(
+                    "character '{id}' states both axis_tuning and axis_tuning_preset '{preset}'; \
+                     state one feel"
+                ));
+            }
+            if !catalog.axis_tuning_presets.contains_key(preset) {
+                errors.push(format!(
+                    "character '{id}' axis_tuning_preset '{preset}' not found in axis_tuning_presets"
+                ));
+            }
+        }
     }
 
     errors

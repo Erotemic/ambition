@@ -1,0 +1,269 @@
+// The Mary-O demo's cast. Every demo installs its own roster; the engine ships
+// none (ADR 0017).
+//
+// The demo registers every row here as a character with one call
+// (`pack::PACK.cast(..)`), so a character is a row here, an optional move file
+// and their lines in `pack.ron`.
+(
+    // Mary-O Classic: the one movement feel all three of her forms wear.
+    //
+    // Values are the classic 16 px / 60 Hz movement tables converted to this
+    // demo's 32 px tile scale. Neutral air keeps momentum. The jump law selects
+    // one of four launch speeds from body-local side speed, then uses weak
+    // gravity while the button is held and she rises, and full gravity after
+    // release or near the apex. `coyote_time` and `jump_buffer` stay zero on
+    // purpose. Ground coast and reversal are polished, not converted: the
+    // direct friction conversion took about 0.76 seconds and 3.6 tiles to stop
+    // from full speed, which read as too much sliding. `ground_reverse_accel`
+    // is an estimated skid rate, not a sourced classic constant. All
+    // directions use the resolved gravity frame.
+    //
+    // One preset, because re-wearing a form re-reads its feel: a copy per
+    // form that drifted would change her jump when she grows.
+    axis_tuning_presets: {
+        "classic": (
+            horizontal_law: Momentum((
+                ground_reverse_accel: 1500.0,
+                ground_coast_decel: 393.75,
+                air_reverse_accel: 900.0,
+                air_coast_decel: 0.0,
+            )),
+            jump_law: PhasedGravity((
+                speed_thresholds: (120.0, 187.5, 210.0),
+                launch_offsets: (-30.0, -15.0, 0.0, 30.0),
+                held_rise_gravity_scale: 0.2,
+                released_rise_gravity_scale: 1.0,
+                fall_gravity_scale: 1.0,
+                held_phase_min_upward_speed: 240.0,
+            )),
+            gravity: 2250.0,
+            air_jumps: 0,
+            jump_speed: 450.0,
+            max_run_speed: 300.0,
+            run_accel: 393.75,
+            air_accel: 393.75,
+            max_fall_speed: 480.0,
+            coyote_time: 0.0,
+            jump_buffer: 0.0,
+        ),
+    },
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "mary_o": (
+            display_name: "Mary-O",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // THE ART IS THE BODY, at one scale for all three forms: the scale
+            // that makes her small idle body one tile (32) tall. The forms
+            // differ in size because their art differs. A height per form would
+            // state the ratio a second time, and a scale per form would make
+            // her wider when she grows, so a grow would wedge her in a gap she
+            // fit.
+            standing_height: Some(32.0),
+            posed_body: Some(OwnHeight),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            // Mary-O Classic is only the run and jump floor. Wall jump and
+            // ground pound are later, independent abilities; the wall bundle
+            // and the generic fast fall must not leak into the core movement
+            // oracle.
+            abilities: Some([RunJump]),
+            axis_tuning_preset: Some("classic"),
+            // The classic contract: whatever you are wearing absorbs the hit
+            // (beacon -> wand -> nothing), and once there is no armor left the
+            // next one is fatal. One pool on every form, so growing changes
+            // what a hit COSTS and never how much punishment the body
+            // underneath can take.
+            max_health: Some(1),
+            tags: ["player"],
+            barks: (
+                hall: ["I solve masonry disputes from below.", "One jump. No second opinions, no insurance.", "Every pipe is hiding something."],
+            ),
+            fallback_dialogue: [
+                "Jump, land, repeat. It's honest work.",
+                "The bricks owe me nothing and I break them anyway.",
+                "Every pipe goes somewhere. That's the deal.",
+            ],
+            hall_dialogue_id: Some("hall_mary_o"),
+        ),
+        // The grown form. Its kit is the kit of `mary_o` (the same grants, the
+        // same feel, the same peaceful action set), so growing changes only
+        // her look and size, never her moveset.
+        "mary_o_tall": (
+            display_name: "Mary-O (Tall)",
+            spritesheet: "sprites/mary_o_v2_tall_spritesheet.png",
+            manifest: "sprites/mary_o_v2_tall_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(SameAs("mary_o")),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([RunJump]),
+            axis_tuning_preset: Some("classic"),
+            max_health: Some(1),
+            tags: ["player"],
+            barks: (
+                hall: ["One power-up; every ceiling gets an opinion.", "Ask the doorframes whether taller is better.", "I shrink after one professional-grade mistake."],
+            ),
+            fallback_dialogue: [
+                "One mushroom. That's the whole story.",
+                "Taller, yes. Braver, unclear.",
+                "I can see the top of the flagpole from here.",
+            ],
+            hall_dialogue_id: Some("hall_mary_o_tall"),
+        ),
+        // The cinder beacon (fire flower) form: a second power-up above the
+        // wand. Its own sheet (the white-and-red palette with a fireball pose)
+        // at the grown form's size, so the grown-to-fire change moves only her
+        // look and her spark loadout. The fireball comes from WEARING the
+        // beacon (`MaryOSpark`), not from this row, so the kit is the grown
+        // form's kit.
+        "mary_o_fire": (
+            display_name: "Mary-O (Fire)",
+            spritesheet: "sprites/mary_o_v2_fire_spritesheet.png",
+            manifest: "sprites/mary_o_v2_fire_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            posed_body: Some(SameAs("mary_o")),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            abilities: Some([RunJump]),
+            axis_tuning_preset: Some("classic"),
+            max_health: Some(1),
+            tags: ["player"],
+            barks: (
+                hall: ["One beacon, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
+            ),
+            fallback_dialogue: [
+                "The beacon does the talking now.",
+                "Warm opinions, thrown at speed.",
+                "Everything flammable, please step back.",
+            ],
+        ),
+        // The shelled walker (the Koopa of this game). Its sheet carries the
+        // shell rows (retreat, boxed_idle, peek, emerge) that the in-place
+        // shell drives.
+        "solid_snake": (
+            display_name: "Solid Snake",
+            spritesheet: "sprites/solid_snake_spritesheet.png",
+            manifest: "sprites/solid_snake_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // As WIDE as Mary-O, the only dimension a corridor cares about: a
+            // snake occupies the corridor width she does, as a Koopa does beside
+            // Mario. Derived from her row, so it moves when she does.
+            posed_body: Some(AsWideAs("mary_o")),
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+            locomotion: Some((run_speed: 46.0, move_style: Walk)),
+            // Its whole offense is the body it walks into you with. The shell
+            // withdraws the contact while shelled (`ContactThreatWithdrawn`),
+            // never this authored value.
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            // It walks its line at full speed and reverses at walls; it notices
+            // nobody.
+            autonomous_profile: Some((template: Wanderer, patrol_effort: 1.0)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "The shell is load-bearing. Please stop.",
+                "I was told there would be a corridor.",
+                "Kick me and I become somebody else's problem.",
+            ],
+        ),
+        // The plain stompable walker. AI Slop also stands in Ambition's Hall of
+        // Characters as a frozen display NPC (`npc_ai_slop`): the same
+        // character in a different mode, and two rows until the two share one
+        // entry. The display strings differ so the assembled catalog's
+        // display-name uniqueness holds when the demo is hosted.
+        "ai_slop": (
+            display_name: "AI Slop",
+            spritesheet: "sprites/ai_slop_spritesheet.png",
+            manifest: "sprites/ai_slop_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // Width is what the level sees: a slop patrols a corridor, and 28
+            // is the width the rooms were authored against. Its height follows
+            // from the art.
+            posed_body: Some(Width(28.0)),
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+            locomotion: Some((run_speed: 42.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Wanderer, patrol_effort: 1.0)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "I walk left. It is a complete philosophy.",
+                "Statistically, one of us is about to be stomped.",
+                "I was trained on a thousand walkers and became the average one.",
+            ],
+        ),
+        // The two flying swarms. Their Hall pedestals and dialogue stay in
+        // Ambition's world files and resolve by id from the merged catalog in
+        // hosted builds. Free flight is a body capability, so it travels with
+        // the row: a body that cannot see it falls out of the sky.
+        //
+        // Zero aggro and attack radii keep the aerial brain roaming instead of
+        // diving, at full effort.
+        "npc_snakes_on_a_cartesian_plane": (
+            display_name: "Snakes on a Cartesian Plane",
+            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
+            locomotion: Some((run_speed: 38.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Aerial, patrol_effort: 1.0, chase_effort: 1.0)),
+            max_health: Some(2),
+            fallback_dialogue: [
+                "We have coordinates for your location.",
+                "Stay on the positive side.",
+                "Our domain is all real snakes.",
+            ],
+            barks: (
+                hall: ["We have coordinates for your location.", "Stay on the positive side.", "Our domain is all real snakes."],
+            ),
+            hall_dialogue_id: Some("hall_npc_snakes_on_a_cartesian_plane"),
+        ),
+        "npc_snakes_on_a_paper_plane": (
+            display_name: "Snakes on a Paper Plane",
+            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Floating,
+            composition: None,
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
+            locomotion: Some((run_speed: 58.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Aerial, patrol_effort: 1.0, chase_effort: 1.0)),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "This flight is hiss-class only.",
+                "Please keep your scales inside the aircraft.",
+                "We folded under pressure.",
+            ],
+            barks: (
+                hall: ["This flight is hiss-class only.", "Please keep your scales inside the aircraft.", "We folded under pressure."],
+            ),
+            hall_dialogue_id: Some("hall_npc_snakes_on_a_paper_plane"),
+        ),
+    },
+)

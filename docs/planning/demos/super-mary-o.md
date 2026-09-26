@@ -17,9 +17,10 @@ Landed:
   speed-banded launch, weak held-ascent gravity, strong released/fall gravity,
   gravity-zone covariance, and rollback-complete jump-arc state. Wall mobility
   and generic fast-fall were removed from her core kit pending dedicated wall
-  jump and ground-pound abilities. Her whole profile is authored ONCE
-  (`MARY_O_CLASSIC_AXIS_TUNING`) and substituted into every form, so small,
-  tall, and fire cannot drift apart;
+  jump and ground-pound abilities. Her whole profile is authored ONCE (the
+  `classic` entry of `axis_tuning_presets` in her pack's
+  `data/character_catalog.ron`) and every form names it, so small, tall, and
+  fire cannot drift apart;
 - launch bands ride as OFFSETS on `jump_speed`, so there is exactly one
   ground-jump height authority, and the top band's threshold sits inside her run
   cap — a running jump is her highest jump, as in the original;

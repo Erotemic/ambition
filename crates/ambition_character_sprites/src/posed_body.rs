@@ -25,9 +25,85 @@ use ambition_combat::components::{ActorRenderSize, ActorSpriteOffset};
 // scale, which is the defect this move exists to make unrepresentable. Both
 // roads now ask one function.
 pub use ambition_sprite_sheet::character::sheets::{
-    authored_body_pixel_size, posed_body_geometry, world_per_pixel_for_standing_height,
-    PosedBodyGeometry,
+    authored_body_pixel_size, posed_body_geometry, PosedBodyGeometry,
 };
+
+/// The art-to-world scale that `id`'s catalog row names in `posed_body`, or
+/// `None` when the row states no posed body.
+///
+/// Registration asks this once to build the body, and anything else that needs
+/// the scale (a level sizing a gap to a body) asks the same function, so there
+/// is one derivation of each scale.
+///
+/// A reference to a character outside the catalog, a row with no sheet or no
+/// standing height where the scale needs one, or a cycle of references is a
+/// refusal: the body would otherwise be built at an invented size. A sheet with
+/// no baked art (a headless fixture) reads 1.0, because nothing resolves a body
+/// from absent art.
+pub fn posed_body_world_per_pixel(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalogData,
+    id: &str,
+) -> Option<f32> {
+    use ambition_characters::actor::character_catalog::PosedBodyScale;
+    let row = |id: &str| {
+        catalog.characters.get(id).unwrap_or_else(|| {
+            panic!("a posed body scale names `{id}`, which is not in the same catalog")
+        })
+    };
+    let sheet = |id: &str| {
+        row(id).manifest_target().unwrap_or_else(|| {
+            panic!("a posed body scale names `{id}`, whose row states no sheet")
+        })
+    };
+    // The idle body in sheet pixels; `None` when the art is not baked.
+    let idle = |id: &str| {
+        posed_body_geometry(sheet(id), CharacterAnim::Idle, 1.0)
+            .map(|geometry| geometry.collision)
+            .filter(|pixels| pixels.x > 0.0 && pixels.y > 0.0)
+    };
+    let mut visited = Vec::new();
+    let mut current = id.to_string();
+    let scale = loop {
+        if visited.contains(&current) {
+            panic!("the posed body scales of {visited:?} name each other in a cycle");
+        }
+        visited.push(current.clone());
+        let Some(scale) = row(&current).posed_body.clone() else {
+            if current == id {
+                return None;
+            }
+            panic!("`{id}` takes its body scale from `{current}`, whose row states no posed_body");
+        };
+        match scale {
+            PosedBodyScale::SameAs(other) => current = other,
+            scale => break scale,
+        }
+    };
+    let world_per_pixel = match scale {
+        PosedBodyScale::OwnHeight => {
+            let entry = row(&current);
+            let height = entry
+                .standing_height
+                .or_else(|| entry.body_kind.default_standing_height())
+                .unwrap_or_else(|| {
+                    panic!("`{current}` scales its body by its standing height and states none")
+                });
+            idle(&current).map(|pixels| height / pixels.y)
+        }
+        PosedBodyScale::Width(width) => idle(&current).map(|pixels| width / pixels.x),
+        PosedBodyScale::AsWideAs(other) => {
+            let other_scale = posed_body_world_per_pixel(catalog, &other).unwrap_or_else(|| {
+                panic!("`{current}` is as wide as `{other}`, whose row states no posed_body")
+            });
+            match (idle(&other), idle(&current)) {
+                (Some(ruler), Some(pixels)) => Some(ruler.x * other_scale / pixels.x),
+                _ => None,
+            }
+        }
+        PosedBodyScale::SameAs(_) => unreachable!("followed above"),
+    };
+    Some(world_per_pixel.unwrap_or(1.0))
+}
 
 /// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad
 /// offset equal to what its sheet says about the pose it is showing.

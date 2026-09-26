@@ -1,7 +1,8 @@
 //! The Mary-O demo's content pack.
 //!
-//! The demo states its fighters' moves as data (`assets/data/movesets/`) and
-//! reads them back through [`PACK`] where it registers a character.
+//! The demo states its cast (`assets/data/character_catalog.ron`) and its
+//! fighters' moves (`assets/data/movesets/`) as data, and registers them
+//! through [`PACK`].
 
 use ambition_platformer2d::content::EmbeddedPack;
 
@@ -9,8 +10,14 @@ use ambition_platformer2d::content::EmbeddedPack;
 /// spells.
 pub static PACK: EmbeddedPack = EmbeddedPack::new(
     include_str!("../assets/pack.ron"),
-    &[(
-        "data/movesets/mary_o.ron",
-        include_str!("../assets/data/movesets/mary_o.ron"),
-    )],
+    &[
+        (
+            "data/character_catalog.ron",
+            include_str!("../assets/data/character_catalog.ron"),
+        ),
+        (
+            "data/movesets/mary_o.ron",
+            include_str!("../assets/data/movesets/mary_o.ron"),
+        ),
+    ],
 );

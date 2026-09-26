@@ -23,7 +23,7 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
     // is what makes the scale solvable instead of guessable.
     let walking = posed_body_geometry(SNAKE_SHEET_TARGET, CharacterAnim::Idle, 1.0)
         .expect("the snake's sheet publishes body metrics");
-    let scale = ambition_demo_mary_o::snake::snake_world_per_pixel();
+    let scale = ambition_demo_mary_o::pack::PACK.posed_body_world_per_pixel(SNAKE_SHEET_TARGET);
     let world = walking.collision * scale;
     let quad = walking.render * scale;
 
@@ -47,7 +47,7 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
         "the snake is DRAWN {:.1} world tall and COLLIDES {:.1} world tall — \
          {overhang:.2}x. Its sheet body is {:?} px inside a {:?} px frame, and \
          the quad is the whole frame, so the picture is square while the animal \
-         is long and flat.\n\nScaling `snake_body_width` cannot fix this: \
+         is long and flat.\n\nChanging the snake's body scale cannot fix this: \
          the knob multiplies both numbers, so the disagreement survives every \
          value — which is why two previous attempts at Jon's report did not \
          land. Either the sheet frame is cropped to the animal, or the quad is \
@@ -84,14 +84,22 @@ fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
     );
 
     // Exercise the production sizing function rather than recomputing its
-    // arithmetic in the test.
+    // arithmetic in the test, and compare it with the width the row authors.
     let half = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
     let (width, height) = (half.x * 2.0, half.y * 2.0);
+    let authored = match ambition_demo_mary_o::mary_o_character_catalog()
+        .get(ambition_demo_mary_o::ai_slop::AI_SLOP_SHEET_TARGET)
+        .and_then(|row| row.posed_body.clone())
+    {
+        Some(ambition_platformer2d::characters::actor::character_catalog::PosedBodyScale::Width(
+            width,
+        )) => width,
+        other => panic!("the ai_slop row authors its width, not {other:?}"),
+    };
     assert!(
-        (width - ambition_demo_mary_o::ai_slop::AI_SLOP_BODY_WIDTH).abs() < 0.01,
-        "the derived body is {width:.1} wide, not the {:.1} it authors — width is \
-         the anchor and every level is placed against it",
-        ambition_demo_mary_o::ai_slop::AI_SLOP_BODY_WIDTH
+        (width - authored).abs() < 0.01,
+        "the derived body is {width:.1} wide, not the {authored:.1} its row authors — \
+         width is the anchor and every level is placed against it"
     );
     assert!(
         (height - width).abs() > TILE * 0.25,

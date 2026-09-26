@@ -34,8 +34,8 @@ pub use binding::{
 #[cfg(feature = "content_pack")]
 pub use content_schema::{
     character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRefFacet, Character,
-    ACTION_SET_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY, CHARACTER_CATALOG_SCHEMA,
-    CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
+    ACTION_SET_PRESET_SCHEMA, AXIS_TUNING_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY,
+    CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
 };
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
@@ -86,6 +86,7 @@ impl CharacterCatalog {
     pub fn empty() -> Self {
         Self(CharacterCatalogData {
             autonomous_profiles: Default::default(),
+            axis_tuning_presets: Default::default(),
             brain_presets: Default::default(),
             action_set_presets: Default::default(),
             characters: Default::default(),
@@ -358,10 +359,12 @@ impl CharacterCatalog {
         &self,
         character_id: &str,
     ) -> Option<ambition_platformer2d_core::MovementTuning> {
-        self.get(character_id)?
-            .axis_tuning
-            .as_ref()
-            .map(|spec| spec.to_kernel())
+        let entry = self.get(character_id)?;
+        let spec = match &entry.axis_tuning_preset {
+            Some(name) => self.0.axis_tuning_presets.get(name),
+            None => entry.axis_tuning.as_ref(),
+        };
+        spec.map(|spec| spec.to_kernel())
     }
 
     /// The authored capability set for `character_id`'s playable body: the
@@ -472,6 +475,72 @@ mod tests {
             )"#
         ));
         CharacterCatalog::from_data(data)
+    }
+
+    /// Two providers may each name a feel "classic", and each row reads the
+    /// feel its own provider stated. The feel is also refused when a row names
+    /// one nobody stated or states a feel twice.
+    #[test]
+    fn a_shared_feel_is_the_providers_own_and_is_stated_once() {
+        let catalog = |jump: f32, rows: &str| {
+            format!(
+                r#"(
+                    axis_tuning_presets: {{ "classic": (jump_speed: {jump:?}) }},
+                    brain_presets: {{ "idle": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{ {rows} }},
+                )"#
+            )
+        };
+        let row = |id: &str, feel: &str| {
+            format!(
+                r#""{id}": (
+                    display_name: "{id}", spritesheet: "{id}.png", manifest: "{id}.ron",
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "idle", default_action_set: "peaceful", tags: [],
+                    {feel}
+                ),"#
+            )
+        };
+        let preset = r#"axis_tuning_preset: Some("classic"),"#;
+        let fragment = |provider: &str, default_id: &str, ron: &str| {
+            registry::CharacterCatalogFragment::from_ron(provider, Some(default_id), ron).unwrap()
+        };
+        let mut registry = registry::CharacterCatalogRegistry::default();
+        registry
+            .register(fragment("a", "alpha", &catalog(400.0, &row("alpha", preset))))
+            .unwrap();
+        registry
+            .register(fragment("b", "beta", &catalog(700.0, &row("beta", preset))))
+            .unwrap();
+        let assembled = registry.assemble().unwrap();
+        let jump = |id: &str| {
+            assembled
+                .catalog
+                .axis_tuning(id)
+                .expect("the row names a feel")
+                .jump_speed
+        };
+        assert_eq!(jump("alpha"), 400.0);
+        assert_eq!(jump("beta"), 700.0);
+
+        let unknown = r#"axis_tuning_preset: Some("modern"),"#;
+        let error = registry::CharacterCatalogFragment::from_ron(
+            "a",
+            Some("alpha"),
+            &catalog(400.0, &row("alpha", unknown)),
+        )
+        .expect_err("a feel nobody stated is refused");
+        assert!(format!("{error:?}").contains("'modern' not found"), "{error:?}");
+
+        let both = format!("{preset} axis_tuning: Some(()),");
+        let error = registry::CharacterCatalogFragment::from_ron(
+            "a",
+            Some("alpha"),
+            &catalog(400.0, &row("alpha", &both)),
+        )
+        .expect_err("a row that states two feels is refused");
+        assert!(format!("{error:?}").contains("state one feel"), "{error:?}");
     }
 
     #[test]

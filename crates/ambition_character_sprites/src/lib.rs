@@ -19,8 +19,8 @@ pub use attack_hitbox::{
     player_attack_hitbox_world, refused_file_roots, resolves_by_file_root,
 };
 pub use posed_body::{
-    PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies,
-    world_per_pixel_for_standing_height,
+    PosedBodyGeometry, authored_body_pixel_size, posed_body_geometry, posed_body_world_per_pixel,
+    sync_sprite_posed_bodies,
 };
 
 use bevy::prelude::{App, IntoScheduleConfigs, Plugin};

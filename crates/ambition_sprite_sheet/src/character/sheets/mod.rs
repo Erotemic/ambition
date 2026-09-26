@@ -614,16 +614,6 @@ pub fn posed_body_geometry(
     })
 }
 
-/// The art-to-world scale at which `target`'s idle body stands
-/// `standing_height` world units tall. Every other pose then follows from the
-/// art at the same scale.
-///
-/// `None` when the sheet has no baked record or no body metrics.
-pub fn world_per_pixel_for_standing_height(target: &str, standing_height: f32) -> Option<f32> {
-    let pixels = posed_body_geometry(target, CharacterAnim::Idle, 1.0)?.collision.y;
-    ambition_characters::actor::definition::world_per_pixel_for_height(standing_height, pixels)
-}
-
 /// The sheet's authored gameplay body, in sheet pixels. `None` when the sheet
 /// only measured one (`BodyMetrics::authored_body` is false).
 ///

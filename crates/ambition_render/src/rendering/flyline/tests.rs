@@ -38,6 +38,7 @@ fn actor_view(
         wire_anchor,
         grab_reach: None,
         line_anchor: None,
+        limb_host: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

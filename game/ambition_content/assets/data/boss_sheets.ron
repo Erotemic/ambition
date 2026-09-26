@@ -93,31 +93,36 @@
         body_centered: true,
         authored_faces_left: false,
     ),
-    // GNU-ton, the scholar who rides the giant: his own 96x96 sheet, cropped
-    // around him. Drawn at 1.75 world units per pixel (96 px of basis height —
-    // the arena's 54x96 BossSpawn — times 1.75), so his collision is his
-    // authored body (39x52 px → 68x91) and he reads as a person on a giant, not
-    // a speck. Centred on his body: he sits in a saddle, not on a floor.
+    // GNU-ton, the scholar who rides the giant: his own 192x192 sheet (v2, a
+    // posable three-quarter figure drawn at 3 px per design unit). The frame is
+    // drawn 96 px of basis (the arena's 54x96 BossSpawn) x 1.75 = 168 world
+    // units tall whatever its pixels, so 192 px is 0.875 wu/px: twice the
+    // detail of the old 96 px sheet at the same scale. His collision is his
+    // authored body. Centred on his body: he sits in a saddle, not on a floor.
+    //
+    // The fixed slots draw his closest rows (FloorSlam: point, SideSweep:
+    // conduct, SpikeHalo: invoke). The conductor pins the named rows past them
+    // (brace, tumble, dazed, climb) — and every move's own row — by name.
     "gnu_ton_rider": (
         label_width: 0,
-        frame_width: 96,
-        frame_height: 96,
+        frame_width: 192,
+        frame_height: 192,
         rows: [
             (Rest, (
                 frame_count: 10,
                 duration_secs: 0.11,
             )),
             (FloorSlam, (
-                frame_count: 10,
-                duration_secs: 0.072,
+                frame_count: 8,
+                duration_secs: 0.07,
             )),
             (SideSweep, (
                 frame_count: 10,
-                duration_secs: 0.065,
+                duration_secs: 0.08,
             )),
             (SpikeHalo, (
-                frame_count: 9,
-                duration_secs: 0.09,
+                frame_count: 8,
+                duration_secs: 0.08,
             )),
             (Hit, (
                 frame_count: 6,

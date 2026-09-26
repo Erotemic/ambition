@@ -91,6 +91,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         wire_anchor: None,
         grab_reach: None,
         line_anchor: None,
+        limb_host: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,

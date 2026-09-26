@@ -1805,7 +1805,11 @@ pub fn staged_actor_requests(
                     aabb,
                     host_payload,
                 );
-                let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(&request.id, aabb);
+                let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(
+                    &request.id,
+                    aabb,
+                    hand_rest_of(resolve_planned_character(prepared, character)),
+                );
                 let room = room_id.to_string();
                 let provider_owned = provider.to_string();
                 let host_origin = SpawnOrigin::ProviderStaged {
@@ -1874,7 +1878,11 @@ pub fn authored_actor_requests(
             &enemy.payload.character_id,
         )) {
             let giant_sim = SimId::placement(&enemy.id);
-            let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(&enemy.id, enemy.aabb);
+            let hands = ambition_platformer2d_actor_spawn::giant_hand_plans(
+                &enemy.id,
+                enemy.aabb,
+                hand_rest_of(resolve_planned_character(prepared, &enemy.payload.character_id)),
+            );
             let source = room.id.clone();
             let hand_source = source.clone();
             requests.append(&mut giant_cluster_rows(
@@ -2010,6 +2018,13 @@ fn resolve_planned_character<'a>(
     character: &ambition_entity_catalog::CharacterId,
 ) -> Option<&'a ambition_characters::prepared::PreparedCharacterDefinition> {
     prepared.and_then(|cast| cast.get(character.as_str()))
+}
+
+/// Where a limbed host's authored right hand rests (`CharacterMount::hand_rest`).
+fn hand_rest_of(
+    character: Option<&ambition_characters::prepared::PreparedCharacterDefinition>,
+) -> Option<(f32, f32)> {
+    character.and_then(|definition| definition.mount.as_ref()).and_then(|mount| mount.hand_rest)
 }
 
 /// Turn a room's FROZEN placement-lowering decisions into construction rows —

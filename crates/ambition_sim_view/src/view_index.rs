@@ -68,6 +68,11 @@ pub struct FeatureView {
     /// ruleset owns, so this read model never learns what a `TetherReel` is. A
     /// third line mechanic publishes the same fact and needs no change here.
     pub line_anchor: Option<ae::Vec2>,
+    /// A LIMB's bond to its host, in world space: the point on the host's body
+    /// it hangs from (a gnu's fist to the gnu). Not a line the limb is pulled
+    /// along — `line_anchor` is that — but a relation presentation may draw
+    /// (the fists' ethereal trail). Projected from `Limb::of`.
+    pub limb_host: Option<ae::Vec2>,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -297,6 +302,8 @@ pub fn rebuild_feature_view_index(
             (
                 Option<&ambition_combat::moveset::MovePlayback>,
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
+                // A limb's host, for the bond `limb_host` projects.
+                Option<&ambition_characters::actor::Limb>,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -323,6 +330,8 @@ pub fn rebuild_feature_view_index(
         // staying screen-axis-aligned (it floats, but it should still flip).
         Option<&ambition_platformer2d_shared_tangle::orientation::ActorRoll>,
     )>,
+    // Any body's kinematics: a limb's host, for where its bond meets it.
+    hosts: Query<&ae::BodyKinematics, Without<ambition_characters::actor::Limb>>,
 ) {
     index.begin_rebuild();
     // No feel tuning means no hitlag law to measure against: every body reports
@@ -340,6 +349,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -371,6 +381,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -402,6 +413,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -433,6 +445,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -467,7 +480,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor),
+        (playback, line_anchor, limb),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -530,6 +543,15 @@ pub fn rebuild_feature_view_index(
                 // carry: a move locks its facing at start and places its volumes
                 // with it, so the line and the box agree even mid-turn.
                 line_anchor: line_anchor.map(|anchor| anchor.0),
+                // Toward the limb, inside the host's body: where its trail meets it.
+                limb_host: limb.and_then(|limb| hosts.get(limb.of).ok()).map(|host| {
+                    let reach = aabb.center - host.pos;
+                    host.pos
+                        + ae::Vec2::new(
+                            reach.x.clamp(-host.size.x * 0.3, host.size.x * 0.3),
+                            reach.y.clamp(-host.size.y * 0.25, host.size.y * 0.25),
+                        )
+                }),
                 grab_reach: playback.and_then(|pb| {
                     pb.live_capture_reach().map(|reach| {
                         let side = if pb.facing >= 0.0 { 1.0 } else { -1.0 };
@@ -590,6 +612,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -630,6 +653,7 @@ pub fn rebuild_feature_view_index(
                 wire_anchor: None,
                 grab_reach: None,
             line_anchor: None,
+            limb_host: None,
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -1073,6 +1097,7 @@ mod view_index_tests {
             wire_anchor: None,
             grab_reach: None,
             line_anchor: None,
+            limb_host: None,
             flash: false,
             breakable_state: None,
             chest_opened: false,

@@ -404,6 +404,44 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorAnimOverride(pub CharacterAnim);
 
+/// A body drawn as a NAMED sheet row, pinned by content: the rows no picker can
+/// name — a scholar's tumble, a gnu's buck, a fist driven into the floor.
+///
+/// Read by both presentation roads: an actor's pose index (as its clip, ahead
+/// of its move's) and a boss's frame index (ahead of its fixed slot rows). The
+/// first of `rows` the body's sheet HAS is drawn; a sheet with none of them
+/// draws as though nothing were pinned, so a pin can never blank a body.
+///
+/// Same contract as [`ActorAnimOverride`]: content derives it from rollback
+/// state every tick, so it is not snapshot state. `elapsed` is that content's
+/// own clock, which is what makes the drawn frame a function of sim state.
+#[derive(bevy::prelude::Component, Clone, Debug, Default, PartialEq)]
+pub struct PinnedRow {
+    /// Preference order; empty means nothing is pinned.
+    pub rows: Vec<String>,
+    /// Seconds into the pinned row.
+    pub elapsed: f32,
+    /// Loop the row (a daze), or hold its last frame (a buck, a fall).
+    pub looping: bool,
+}
+
+impl PinnedRow {
+    pub fn pin(&mut self, rows: &[&str], elapsed: f32, looping: bool) {
+        self.rows.clear();
+        self.rows.extend(rows.iter().map(|r| (*r).to_string()));
+        self.elapsed = elapsed;
+        self.looping = looping;
+    }
+
+    pub fn clear(&mut self) {
+        self.rows.clear();
+    }
+
+    pub fn is_pinned(&self) -> bool {
+        !self.rows.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod shell_anim_tests {
     use super::{non_looping, CharacterAnim};

@@ -159,8 +159,9 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
         "with no static body bbox, no combat_size is derived"
     );
 
-    // The rider, on his own 96x96 sheet, authors one static body; drawn at 1.75
-    // world units per pixel (a 96-unit basis), it IS his collision.
+    // The rider, on his own 192x192 sheet, authors one static body; drawn at
+    // 0.875 world units per pixel (a 96-unit basis x 1.75 over 192 px), it IS
+    // his collision.
     let mut rider = crate::BossClusterScratch::new(
         crate::test_boss_catalog(),
         "boss_gnu_ton_rider",
@@ -175,8 +176,8 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     assert!(rider_metrics.body_pixel_bbox.is_some() && rider_metrics.animations.is_empty());
     let size = rider_size.expect("a static body derives his combat size");
     assert!(
-        (size.x - 39.0 * 1.75).abs() < 1.0 && (size.y - 52.0 * 1.75).abs() < 1.0,
-        "his collision is his drawn body (39x52 px at 1.75): {size:?}",
+        (size.x - 69.0 * 0.875).abs() < 1.0 && (size.y - 126.0 * 0.875).abs() < 1.0,
+        "his collision is his drawn body (69x126 px at 0.875): {size:?}",
     );
 }
 

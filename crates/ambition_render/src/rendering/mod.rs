@@ -40,6 +40,7 @@ pub mod portal_compositing;
 mod features;
 pub mod flyline;
 pub mod tether;
+pub mod limb_trail;
 pub mod gate_portal_visuals;
 pub mod gravity_visuals;
 mod health;
@@ -196,6 +197,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
             .add_systems(Startup, morph_ball::build_morph_ball_sprite)
             .add_systems(Startup, submerged::build_trapdoor_sprite)
             .add_systems(Startup, flyline::build_flyline_sprite)
+            .add_systems(Startup, limb_trail::build_limb_trail_sprite)
             .add_systems(
                 Update,
                 (
@@ -216,6 +218,9 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // The tether line, beside the wire whose rope it borrows: same
                     // set, same lifecycle, same both-roads rule.
                     tether::sync_tether_visuals.in_set(SpriteVisualSync),
+                    // A free limb's bond to its body (GNU-ton's fists): same
+                    // set and lifecycle as the lines above.
+                    limb_trail::sync_limb_trails.in_set(SpriteVisualSync),
                 )
                     .chain()
                     // All body-owned drawables: the portal publisher waits for this

@@ -52,7 +52,23 @@ const REARM: f32 = 0.9;
 /// The buck: how hard the gnu hops, how long its back throws, and how hard.
 const BUCK_HOP: f32 = 520.0;
 const BUCK_WINDOW: f32 = 0.16;
-const BUCK_THROW: Vec2 = Vec2::new(0.0, -980.0);
+/// The buck THROWS whoever stands on its back off it: a light hit over the back
+/// that launches up and away from him. The back used to pop them straight up (a
+/// rebound pad, `(0, -980)`), and they came down where they stood (a probe:
+/// 205 px up, back on the back at the same x); an outward pad was steered back
+/// by the player's own air control (36 px). A hit's hitstun is what makes a
+/// throw a throw.
+const BUCK_THROW_SPEED: f32 = 900.0;
+/// Up and out, `x` mirrored away from him (`Hitbox::launch_dir`).
+const BUCK_THROW_DIR: Vec2 = Vec2::new(0.75, -0.66);
+const BUCK_DAMAGE: i32 = 1;
+/// The gnu's reflex: from his hurt to the throw (its snort and rear-up), the
+/// whole of it (its `buck` row, 8 frames at 70 ms), and the rest before it can
+/// throw again. A player swings about every 0.27 s, so a climb is worth a hit
+/// or two, not a phase.
+const REFLEX_TELL: f32 = 0.35;
+const REFLEX_LEN: f32 = 0.56;
+const REFLEX_COOLDOWN: f32 = 1.0;
 /// The stomp's shock: a floor wave each way.
 const WAVE_SPEED: f32 = 540.0;
 const WAVE_HALF: Vec2 = Vec2::new(26.0, 20.0);
@@ -117,6 +133,17 @@ pub struct GnuTonConductor {
     /// (`fight_discovery`: Phase 2 lasted 3.8-6.0 s in every run). One blow per
     /// stick makes the phase's length its rhythm, not the player's hit count.
     spent: [bool; 2],
+    /// The gnu's own reflex: hurt its rider while you stand on its back and it
+    /// snorts, rears and throws you ([`REFLEX_TELL`], then [`buck_throw`]).
+    /// Seconds into it, or `None`. Not the scholar's choreography — it runs
+    /// beside whatever his fists are doing — because his answer through the
+    /// pattern waited out any strike already live (an engine rule: a strike
+    /// commits), and a scripted swinger on the back took a phase (15 HP) per
+    /// climb before a buck arrived.
+    reflex: Option<f32>,
+    reflex_cooldown: f32,
+    /// His health last tick: a drop is a hit.
+    last_scholar_hp: Option<i32>,
     hitboxes: [Option<Entity>; 2],
     armed_at: [f32; 2],
     waves: [Option<Wave>; 4],
@@ -151,6 +178,9 @@ impl GnuTonConductor {
             resting: 0.0,
             last: [None; 2],
             spent: [false; 2],
+            reflex: None,
+            reflex_cooldown: 0.0,
+            last_scholar_hp: None,
             hitboxes: [None; 2],
             armed_at: [0.0; 2],
             waves: [None; 4],
@@ -183,7 +213,7 @@ impl bevy::ecs::entity::MapEntities for GnuTonConductor {
 /// The checksum projection: the choreography's cursor. Not the allocator-local
 /// handles, and not the per-fist facts whose effect the bodies' own checksummed
 /// state carries a tick later (a fist's last pose, whether it has passed on its
-/// blow — both show in kinematics and health).
+/// blow, the gnu's reflex — they show in kinematics, health and the throw).
 impl ambition_platformer2d_core::snapshot::SnapshotCursor for GnuTonConductor {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_u32, put_vec2};
@@ -356,6 +386,36 @@ fn fist_hitbox(owner: Entity, size: Vec2) -> impl Bundle {
     )
 }
 
+/// The buck's throw: a light hit over the gnu's back, the moment it bucks.
+///
+/// Anchored to HIM (`FollowOwner`), not placed in the world: a hit launches
+/// away from where it came from, and a world box comes from its own centre —
+/// the middle of the back — which threw a player standing beside him toward
+/// him. Following him, it also rides the gnu's hop.
+fn buck_throw(owner: Entity, owner_pos: Vec2, back: ae::Aabb) -> impl Bundle {
+    let reach = 48.0;
+    let center = Vec2::new((back.min.x + back.max.x) * 0.5, back.min.y - reach * 0.5);
+    (
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Boss,
+            anchor: HitboxAnchor::FollowOwner { local_offset: center - owner_pos },
+            half_extent: Vec2::new((back.max.x - back.min.x) * 0.5, reach * 0.5),
+            shape: None,
+            facing: 1.0,
+            damage: BUCK_DAMAGE,
+            knockback: HitboxKnockback::LaunchSpeed { base: BUCK_THROW_SPEED, growth: None },
+            launch_dir: Some(BUCK_THROW_DIR),
+            frame_down: Vec2::new(0.0, 1.0),
+            reaction: None,
+        },
+        HitboxLifetime { remaining_s: BUCK_WINDOW },
+        HitboxHits::default(),
+        Name::new("gnu_ton_buck_throw"),
+    )
+}
+
 /// Perform one tick of the scholar's live move with the fists (and, for the
 /// gnu's own moves, the gnu).
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
@@ -380,7 +440,7 @@ pub fn conduct_gnu_ton(
         (With<BossConfig>, Without<MountSlot>, Without<Limb>),
     >,
     mut giants: Query<
-        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState, Option<&mut PinnedRow>),
+        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState, Option<&mut PinnedRow>, Has<ae::Unmirrored>),
         (With<MountSlot>, Without<Limb>, Without<BossConfig>),
     >,
     mut fists: Query<
@@ -423,7 +483,7 @@ pub fn conduct_gnu_ton(
         mut scholar_row,
     ) in &mut scholars
     {
-        let Ok((rig, giant_kin, mut giant_flight, mut giant_row)) = giants.get_mut(riding.mount) else {
+        let Ok((rig, giant_kin, mut giant_flight, mut giant_row, giant_unmirrored)) = giants.get_mut(riding.mount) else {
             continue;
         };
         let fist_entities = [rig.get(LimbSlot::HAND_LEFT), rig.get(LimbSlot::HAND_RIGHT)];
@@ -568,6 +628,7 @@ pub fn conduct_gnu_ton(
                                 // Through the launch gateway: the kernel spends it on
                                 // the gnu's next step. Flinchless — a hop, not a hit.
                                 giant_flight.stage_launch(Vec2::new(0.0, -BUCK_HOP), true);
+                                commands.spawn(buck_throw(scholar, scholar_kin.pos, back_platform(&giant_kin, giant_unmirrored)));
                                 play(&mut sfx, scholar, SFX_SNORT, giant_kin.pos);
                             }
                             Move::Stomp => {
@@ -622,15 +683,42 @@ pub fn conduct_gnu_ton(
             beat_t: p.beat_t,
             clock,
         });
+        // ── The gnu's reflex: hurt its rider from its back and it throws you ──
+        let back = back_platform(&giant_kin, giant_unmirrored);
+        let hurt = conductor.last_scholar_hp.is_some_and(|hp| scholar_health.current() < hp);
+        conductor.last_scholar_hp = Some(scholar_health.current());
+        conductor.reflex_cooldown = (conductor.reflex_cooldown - dt).max(0.0);
+        let someone_on_back = players.iter().any(|kin| {
+            let feet = kin.pos.y + kin.size.y * 0.5;
+            (feet - back.min.y).abs() <= 4.0 && (back.min.x..=back.max.x).contains(&kin.pos.x)
+        });
+        if hurt && someone_on_back && conductor.reflex.is_none() && conductor.reflex_cooldown <= 0.0 {
+            conductor.reflex = Some(0.0);
+            play(&mut sfx, scholar, SFX_SNORT, giant_kin.pos);
+        }
+        if let Some(t) = conductor.reflex {
+            let next = t + dt;
+            if t < REFLEX_TELL && next >= REFLEX_TELL {
+                giant_flight.stage_launch(Vec2::new(0.0, -BUCK_HOP), true);
+                commands.spawn(buck_throw(scholar, scholar_kin.pos, back));
+            }
+            conductor.reflex = (next < REFLEX_LEN).then_some(next);
+            if conductor.reflex.is_none() {
+                conductor.reflex_cooldown = REFLEX_COOLDOWN;
+            }
+        }
+
         // ── What he and the gnu are drawn as ──
         match ch::rows::scholar(cue.as_ref()) {
             Some((rows, elapsed, looping)) => scholar_row.pin(rows, elapsed, looping),
             None => scholar_row.clear(),
         }
         if let Some(row) = giant_row.as_deref_mut() {
-            match ch::rows::gnu(cue.as_ref()) {
-                Some((rows, elapsed, looping)) => row.pin(rows, elapsed, looping),
-                None => row.clear(),
+            match (conductor.reflex, ch::rows::gnu(cue.as_ref())) {
+                // The reflex rears and bucks, whatever his fists are doing.
+                (Some(t), _) => row.pin(&["buck"], t, false),
+                (None, Some((rows, elapsed, looping))) => row.pin(rows, elapsed, looping),
+                (None, None) => row.clear(),
             }
         }
         let mut poses = [Pose::idle(Vec2::ZERO); 2];
@@ -876,14 +964,14 @@ pub fn conduct_gnu_ton(
     }
 }
 
-/// The gnu's back is ground: a one-way ledge riding the giant, which throws
-/// whoever stands on it while he bucks.
+/// The gnu's back is ground: a one-way ledge riding the giant. (Its buck
+/// throws whoever stands on it: `buck_throw`, spawned by the conductor.)
 pub fn gnu_back_is_ground(
-    scholars: Query<(&GnuTonConductor, &RidingOn, &BodyHealth)>,
+    scholars: Query<(&GnuTonConductor, &RidingOn)>,
     giants: Query<(&ae::BodyKinematics, Has<ae::Unmirrored>), With<MountSlot>>,
     mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
 ) {
-    for (conductor, riding, health) in &scholars {
+    for (_, riding) in &scholars {
         let Ok((giant, unmirrored)) = giants.get(riding.mount) else {
             continue;
         };
@@ -896,14 +984,6 @@ pub fn gnu_back_is_ground(
             velocity: giant.vel,
             art_color: None,
         });
-        let bucking = health.alive()
-            && conductor
-                .part
-                .is_some_and(|part| part.mv == Move::Buck && part.striking && part.t < BUCK_WINDOW);
-        if bucking {
-            let throw = ae::aabb_from_min_size(back.min - Vec2::new(0.0, 24.0), Vec2::new(back.max.x - back.min.x, 30.0));
-            overlay.blocks.push(ae::Block::rebound("gnu_back_buck", throw.min, throw.max - throw.min, BUCK_THROW));
-        }
     }
 }
 

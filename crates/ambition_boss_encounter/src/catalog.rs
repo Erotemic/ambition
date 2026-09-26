@@ -150,8 +150,18 @@ impl BossCatalog {
     /// its mount's geometry). A target is used only when it is an actual sheet
     /// key, so generator record names do not accidentally replace behavior ids.
     pub fn sheet_for_behavior(&self, behavior: &BossBehaviorProfile) -> BossSheetSpec {
+        self.worn_sheet_key(behavior).map_or_else(
+            || (*ambition_sprite_sheet::boss::BOSS_SHEET).clone(),
+            |key| self.sheet_for_key(key),
+        )
+    }
+
+    /// The sheet key a behavior wears: its `sprite_target` when that is a
+    /// sheet key, else its own id when that is one, else the provider's
+    /// fallback sheet.
+    pub fn worn_sheet_key<'a>(&'a self, behavior: &'a BossBehaviorProfile) -> Option<&'a str> {
         let builtins = ambition_sprite_sheet::boss::builtin_boss_sheets();
-        let key = behavior
+        behavior
             .sprite_target
             .as_deref()
             .filter(|target| self.sheets.contains_key(*target) || builtins.contains_key(*target))
@@ -159,11 +169,18 @@ impl BossCatalog {
                 (self.sheets.contains_key(&behavior.id) || builtins.contains_key(&behavior.id))
                     .then_some(behavior.id.as_str())
             })
-            .or_else(|| self.fallback_sheet_key());
-        key.map_or_else(
-            || (*ambition_sprite_sheet::boss::BOSS_SHEET).clone(),
-            |key| self.sheet_for_key(key),
-        )
+            .or_else(|| self.fallback_sheet_key())
+    }
+
+    /// The baked record the worn sheet's image publishes, e.g. `boss` for
+    /// `boss_spritesheet.png`. `None` when the catalog names no image for it.
+    pub fn worn_sheet_record_target<'a>(
+        &'a self,
+        behavior: &'a BossBehaviorProfile,
+    ) -> Option<&'a str> {
+        let key = self.worn_sheet_key(behavior)?;
+        let filename = self.sprite_filenames.get(key)?;
+        ambition_sprite_sheet::boss::boss_ron_target(filename)
     }
 
     pub fn special_animation_keys(&self, key: &str) -> &[String] {

@@ -581,4 +581,36 @@ mod sheet_body_tests {
         assert_eq!(boss.kin.size, drawn.half_size() * 2.0);
         assert_eq!(boss.as_ref().combat_size(), boss.kin.size);
     }
+
+    /// Every authored boss takes its body from the sheet it wears.
+    ///
+    /// Three bosses draw the shared `boss` sheet and author no `sprite_target`.
+    /// Their metrics were looked up by their own id, which no sheet publishes,
+    /// so they fought a centred authored box instead of the drawn body.
+    #[test]
+    fn every_authored_boss_takes_its_body_from_the_sheet_it_wears() {
+        use ambition_platformer2d_core::{Aabb, Vec2};
+
+        let catalog = super::authored_boss_catalog();
+        let bodiless: Vec<String> = catalog
+            .encounter_specs()
+            .map(|spec| spec.id.clone())
+            .filter(|id| {
+                ambition_boss_encounter::BossClusterScratch::new(
+                    &catalog,
+                    format!("boss_{id}"),
+                    id.clone(),
+                    Aabb::new(Vec2::new(500.0, 400.0), Vec2::new(60.0, 60.0)),
+                    ambition_entity_catalog::placements::BossBrain::Dormant,
+                )
+                .status
+                .sprite_metrics
+                .is_none()
+            })
+            .collect();
+        assert!(
+            bodiless.is_empty(),
+            "these bosses were built without the body of the sheet they wear: {bodiless:?}"
+        );
+    }
 }

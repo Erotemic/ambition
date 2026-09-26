@@ -27,8 +27,19 @@ pub fn boss_component_snapshot(boss: crate::BossRef<'_>) -> (ActorIdentity, Acto
 /// clockwork_warden and gradient_sentinel share the generic `"boss"` sheet,
 /// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"`, each
 /// authored in `boss_profiles.ron`. The engine names no boss here.
-pub fn sprite_target_for_boss(behavior: &crate::pattern::profile::BossBehaviorProfile) -> &str {
-    behavior.sprite_target.as_deref().unwrap_or(&behavior.id)
+///
+/// A boss that authors no `sprite_target` takes the record of the sheet it
+/// wears: three bosses draw the shared `boss` sheet, and a lookup by their own
+/// id found no metrics, so their hurtbox was not their drawn body.
+pub fn sprite_target_for_boss<'a>(
+    catalog: &'a crate::BossCatalog,
+    behavior: &'a crate::pattern::profile::BossBehaviorProfile,
+) -> &'a str {
+    behavior
+        .sprite_target
+        .as_deref()
+        .or_else(|| catalog.worn_sheet_record_target(behavior))
+        .unwrap_or(&behavior.id)
 }
 
 /// World-space size of the rendered sprite quad for a boss, given the
@@ -87,7 +98,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     boss: crate::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
-    let target = sprite_target_for_boss(&boss.config.behavior);
+    let target = sprite_target_for_boss(boss_catalog, &boss.config.behavior);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
     // AS4b: scale from the sprite render basis, not `kin.size` (now the collision
     // envelope) — so the derived world metrics are unchanged by the size flip.

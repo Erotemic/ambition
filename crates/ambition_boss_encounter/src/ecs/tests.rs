@@ -189,7 +189,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     // The behavior must map to the sheet target the RON declares (its
     // authored `sprite_target`), or the registry lookup misses.
     assert_eq!(
-        sprite_target_for_boss(&behavior),
+        sprite_target_for_boss(crate::test_boss_catalog(), &behavior),
         "mockingbird_boss",
         "mockingbird behavior must map to its 'mockingbird_boss' sheet target",
     );

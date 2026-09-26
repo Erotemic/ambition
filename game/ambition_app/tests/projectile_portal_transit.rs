@@ -2,15 +2,13 @@
 #![cfg(all(feature = "portal", feature = "rl_sim"))]
 //! Verifies free-flying portal transit in the real app schedule.
 //!
-//! A projectile-shaped body carries shared `BodyKinematics`, `PortalBody`, and a
-//! non-reorienting velocity-preserving `PortalPolicy`. The test uses a live
-//! authored portal pair and the normal `PortalSet::Transit` schedule; projectile
-//! tagging itself is covered by the in-crate adapter tests.
+//! A projectile-shaped body carries only the shared `BodyKinematics`: the portal
+//! core drives every body. The test uses a live authored portal pair and the
+//! normal `PortalSet::Transit` schedule.
 
 use crate::common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_platformer2d::engine_core::BodyKinematics;
-use ambition_platformer2d::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]
@@ -40,11 +38,6 @@ fn a_free_flying_projectile_body_transits_a_portal_pair_in_the_real_app() {
                 vel: -entry_normal * 400.0,
                 size: Vec2::new(8.0, 8.0),
                 facing: 1.0,
-            },
-            PortalBody,
-            PortalPolicy {
-                reorient: false,
-                carry_velocity: true,
             },
             Name::new("test projectile body"),
         ))

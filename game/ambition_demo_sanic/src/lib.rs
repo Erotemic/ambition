@@ -1075,45 +1075,6 @@ impl SanicRulesPlugin {
     }
 }
 
-/// Give each Sanic room body the shared portal transit capability.
-fn enable_sanic_portal_bodies(
-    mut commands: bevy::prelude::Commands,
-    bodies: bevy::prelude::Query<
-        (
-            bevy::prelude::Entity,
-            Option<&ambition_platformer2d::platformer::markers::PrimaryPlayer>,
-        ),
-        (
-            bevy::prelude::With<ae::BodyKinematics>,
-            bevy::prelude::With<ae::MotionModel>,
-            bevy::prelude::Without<ambition_platformer2d::portal::PortalBody>,
-        ),
-    >,
-) {
-    for (entity, primary) in &bodies {
-        commands.entity(entity).insert((
-            ambition_platformer2d::portal::PortalBody,
-            ambition_platformer2d::portal::PortalPolicy {
-                reorient: primary.is_some(),
-                carry_velocity: true,
-            },
-        ));
-    }
-}
-
-/// Clear stale ground contact after a portal moves a body.
-fn reconcile_sanic_portal_transit(
-    mut transited: bevy::prelude::MessageReader<ambition_platformer2d::portal::PortalBodyTransited>,
-    mut bodies: bevy::prelude::Query<(ae::BodyClusterQueryData, &mut ae::MotionModel)>,
-) {
-    for event in transited.read() {
-        let Ok((mut cluster, mut model)) = bodies.get_mut(event.body) else {
-            continue;
-        };
-        ae::movement::reconcile_transit(&mut model, &mut cluster.as_clusters_mut());
-    }
-}
-
 impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
         // The plugin owns its message channels and shared resources. A full
@@ -1161,26 +1122,6 @@ impl Plugin for SanicRulesPlugin {
         app.init_resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
-        use ambition_platformer2d::portal::{portal_transit, PortalSet};
-        let portal_bodies = enable_sanic_portal_bodies
-            .in_set(PortalSet::Transit)
-            .before(portal_transit);
-        let portal_reconcile = reconcile_sanic_portal_transit
-            .in_set(PortalSet::Transit)
-            .after(portal_transit);
-        if self.hosted {
-            app.add_systems(
-                sim,
-                portal_bodies.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-            app.add_systems(
-                sim,
-                portal_reconcile.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
-            );
-        } else {
-            app.add_systems(sim, portal_bodies);
-            app.add_systems(sim, portal_reconcile);
-        }
         app.init_resource::<ball_dash::BallDashTuning>();
         // Sanic's half of a body reset (round boundary, respawn, and so on).
         // Not mode-gated: it fires only on `BodyRestarted` and touches only

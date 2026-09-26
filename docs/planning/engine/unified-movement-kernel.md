@@ -130,7 +130,8 @@
   only the player. ⇒ So "non-primary body transiting a portal" is not a contrived
   state: it is every enemy, NPC and actor in any room that has portals. The prediction
   is reachable in production rather than theoretical, which is what decides whether the
-  exercise is worth writing.
+  exercise is worth writing. (AP62, 2026-09-26: `PortalBody` and `ensure_portal_bodies`
+  are deleted; `portal_transit` drives every `BodyKinematics` body, projectiles too.)
 
   ⛔⛔⛔ **CORRECTION 2026-09-06, AND IT DE-PRIORITISES EVERYTHING BELOW: THE
   `gravity_dir` PATH DOES NOT RUN IN SHIPPED PLAY.** `gravity_dir` reaches exactly two

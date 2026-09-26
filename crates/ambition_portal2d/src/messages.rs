@@ -80,7 +80,7 @@ pub struct PortalShotFired {
     pub origin: Vec2,
 }
 
-/// Outcome emitted when a [`PortalBody`](super::PortalBody) begins straddling an aperture.
+/// Outcome emitted when a body begins straddling an aperture.
 /// Audio/presentation adapters may use `pos`; portal core owns no audio policy.
 #[derive(Message, Clone, Copy, Debug)]
 pub struct PortalBodyEntered {

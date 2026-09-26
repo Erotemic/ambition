@@ -27,8 +27,7 @@ use super::sfx_adapter::play_portal_sfx;
 use super::shot_adapter::portal_projectile_step;
 use super::transit_adapter::{sync_ground_items_to_transitable, sync_transitable_to_ground_items};
 use super::transit_body_adapter::{
-    apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
-    portal_player_input_adapter, reconcile_kernel_bodies_after_portal_transit,
+    apply_portal_carried_momentum, portal_player_input_adapter,
     rotate_projectile_acceleration_after_portal_transit, sync_portal_reorient_from_settings,
 };
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -197,17 +196,6 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::WeaponAndProjectiles),
         );
 
-        // --- Portal bodies for the input warp --- `warp_portal_input` resolves
-        // each warped body's `DrivingParticipant` and edits that seat's frame
-        // directly; the bracketing adapters that used to mirror a global
-        // `PlayerMovementIntent` to and from `ControlFrame` are gone with it.
-        app.add_systems(
-            sim,
-            ensure_portal_bodies
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .before(portal_transit),
-        );
         // Mirror the `portal_reverses_facing` gameplay setting into the global
         // `PortalTuning::reorient_facing` knob each frame, before the transit core
         // reads it, so the toggle takes effect live.
@@ -227,39 +215,10 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             sync_portal_reorient_from_settings
                 .in_set(ambition_platformer2d_core::MechanicalEditSet::Propose),
         );
-        // Stage 19 Phase 4 — opt PROJECTILE entities into the SAME generic
-        // `portal_transit` core, with their own free-flying policy
-        // (reorient:false, carry_velocity:true). Same `.before(portal_transit)`
-        // ordering as `ensure_portal_bodies` so a freshly-spawned projectile is
-        // tagged before transit sees it.
-        //
-        // Ordering of projectile INTEGRATION vs transit: projectile motion integrates in
-        // `Platformer2dSimulationPhaseMonolith::Combat` (`step_projectiles`), which is chained
-        // AFTER `Platformer2dSimulationPhaseMonolith::PlayerSimulation` (where
-        // `PortalSet::Transit` lives). The transit machine is a multi-frame aperture/centroid
-        // latch, so the one-frame sampling cadence is correct; what matters is that it is
-        // consistent, which the set chain guarantees.
-        app.add_systems(
-            sim,
-            ensure_projectile_portal_bodies
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .before(portal_transit),
-        );
         // `portal_player_input_adapter` reproduces the player's input/trace bits
         // (BodyTeleported + PortalEmission + PortalInputWarp) from the core's
         // `PortalBodyTransited` event, AFTER transit, so they exist the same
         // frame the controller runs — exactly as the old inline insertion did.
-        // Kernel-body transit reconciliation (ADR 0024 authority model): the
-        // core wrote the pose; this completes the transit for cluster-bearing
-        // bodies (contacts/attachment/motion-record), same frame, post-transit.
-        app.add_systems(
-            sim,
-            reconcile_kernel_bodies_after_portal_transit
-                .in_set(GameplayGated)
-                .in_set(PortalSet::Transit)
-                .after(portal_transit),
-        );
         app.add_systems(
             sim,
             portal_player_input_adapter

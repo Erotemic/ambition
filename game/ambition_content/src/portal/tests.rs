@@ -103,14 +103,6 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
             // longer exists.
             ambition_platformer2d_shared_tangle::sim_id::SimId::placement("test_portal_player"),
             ambition_platformer2d_shared_tangle::sim_id::SimIdCounter::default(),
-            // Opt the player into the generic transit core with the player
-            // policy (re-orient + carry velocity), as the Ambition tagging
-            // adapter does in the real app.
-            ambition_portal2d::PortalBody,
-            ambition_portal2d::PortalPolicy {
-                reorient: true,
-                carry_velocity: true,
-            },
         ))
         .id()
 }
@@ -381,11 +373,6 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
     app.add_message::<ambition_portal2d::PortalBodyTransited>();
     app.init_resource::<ambition_portal2d::PortalTuning>();
     app.add_systems(Update, portal_transit);
-    // Actor policy: carry velocity, no re-orient (facing follows AI).
-    let actor_policy = ambition_portal2d::PortalPolicy {
-        reorient: false,
-        carry_velocity: true,
-    };
     app.world_mut().spawn(PlacedPortal::fixed(
         BLUE,
         Vec2::new(20.0, 200.0),
@@ -407,8 +394,6 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
                 size: Vec2::new(24.0, 40.0),
                 facing: -1.0,
             },
-            ambition_portal2d::PortalBody,
-            actor_policy,
         ))
         .id();
     let big = app
@@ -420,8 +405,6 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
                 size: Vec2::new(80.0, 200.0),
                 facing: -1.0,
             },
-            ambition_portal2d::PortalBody,
-            actor_policy,
         ))
         .id();
     // Aperture transit: frame 1 begins (leading edge in the opening), frame 2
@@ -440,6 +423,68 @@ fn portals_teleport_a_fitting_actor_and_skip_an_oversized_one() {
         "an oversized actor does not fit and stays put, pos={:?}",
         b.pos
     );
+}
+
+/// The portal core decides how a body takes part from what it is, so neither
+/// body here carries a tag. Through a same-wall turn-around both bodies carry
+/// their momentum out of the exit, and only the body in the player population
+/// flips its facing: its facing follows its seat's input, and a brain decides
+/// the facing of any other body.
+#[test]
+fn only_a_player_body_turns_around_through_a_same_wall_pair() {
+    use ambition_platformer2d_core::body_clusters::BodyKinematics;
+    let run = |player: bool| {
+        let mut app = App::new();
+        app.add_message::<ambition_portal2d::PortalBodyEntered>();
+        app.add_message::<ambition_portal2d::PortalBodyTransited>();
+        // The reflection convention supplies the mirror of a same-wall
+        // turn-around as a facing flip rather than a roll.
+        app.insert_resource(ambition_portal2d::PortalTuning {
+            convention: ambition_portal2d::PortalConvention::Reflection,
+            reorient_facing: true,
+            ..Default::default()
+        });
+        app.add_systems(Update, portal_transit);
+        for (channel, y) in [(BLUE, 200.0), (ORANGE, 600.0)] {
+            app.world_mut().spawn(PlacedPortal::fixed(
+                channel,
+                Vec2::new(20.0, y),
+                Vec2::new(1.0, 0.0),
+                portal_half_extent(Vec2::new(1.0, 0.0)),
+            ));
+        }
+        let mut body = app.world_mut().spawn(BodyKinematics {
+            pos: Vec2::new(20.0, 200.0),
+            vel: Vec2::new(-100.0, 0.0),
+            size: Vec2::new(24.0, 40.0),
+            facing: -1.0,
+        });
+        if player {
+            body.insert(PlayerEntity);
+        }
+        let body = body.id();
+        app.update();
+        app.update();
+        *app.world().get::<BodyKinematics>(body).unwrap()
+    };
+
+    for (player, facing) in [(true, 1.0), (false, -1.0)] {
+        let kin = run(player);
+        assert!(
+            kin.pos.y > 400.0,
+            "the body (player: {player}) must transit to the orange portal, pos={:?}",
+            kin.pos
+        );
+        assert!(
+            kin.vel.x > 0.0,
+            "the body (player: {player}) must carry its momentum out of the exit, vel={:?}",
+            kin.vel
+        );
+        assert_eq!(
+            kin.facing, facing,
+            "only a body in the player population turns around (player: {player})"
+        );
+    }
 }
 
 #[test]
@@ -709,11 +754,6 @@ fn actors_get_an_aerial_roll_through_portals() {
                 facing: 1.0,
             },
             ActorRoll::default(),
-            ambition_portal2d::PortalBody,
-            ambition_portal2d::PortalPolicy {
-                reorient: false,
-                carry_velocity: true,
-            },
         ))
         .id();
     // Frame 1 begins transit; frame 2 transfers (centroid on the plane) and
@@ -823,11 +863,6 @@ fn a_gunless_player_transits_an_authored_pair() {
                 base_size: Vec2::new(24.0, 40.0),
             },
             // No PortalGun on purpose.
-            ambition_portal2d::PortalBody,
-            ambition_portal2d::PortalPolicy {
-                reorient: true,
-                carry_velocity: true,
-            },
         ))
         .id();
     // Frame 1 begins transit (standing on the purple floor portal).

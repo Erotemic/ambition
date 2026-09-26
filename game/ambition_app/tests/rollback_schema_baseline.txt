@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v236
+ggrs-rollback-schema-v237
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -389,14 +389,12 @@ mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapp
 player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; not in the session checksum
 player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-portal.body	component-clone	PortalBody	bevy_ggrs clone snapshot; not in the session checksum
 portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; not in the session checksum
 portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; not in the session checksum
 portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; not in the session checksum
 portal.owned_gun_pair	component-clone	OwnedPortalGunPair	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; not in the session checksum
-portal.policy	component-clone	PortalPolicy	bevy_ggrs clone snapshot; not in the session checksum
 portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; not in the session checksum
 portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; not in the session checksum
 portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

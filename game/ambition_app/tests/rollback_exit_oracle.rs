@@ -675,10 +675,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "an exit normal and a protection timer; holds no entity handle",
         ),
         (
-            "ambition_portal2d::transit::PortalPolicy",
-            "authored policy; immutable at runtime",
-        ),
-        (
             "ambition_portal2d::transit::PortalTransit",
             "the straddled CHANNEL plus a crossed flag; a channel is a stable identity, not a handle",
         ),

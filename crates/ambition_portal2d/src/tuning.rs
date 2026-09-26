@@ -68,12 +68,10 @@ pub struct PortalTuning {
     /// so carved aperture edges cannot catch them.
     pub suppress_wall_abilities: bool,
     /// Whether a same-wall turn-around transit re-orients the body's `facing`
-    /// (the `policy.reorient && facing_flip` write in [`transit`](crate::transit)).
-    /// It is ANDed with the per-body [`PortalPolicy`] `reorient` flag, so it can
-    /// only suppress the flip. On by default; a host can mirror its own
-    /// gameplay setting into it.
-    ///
-    /// [`PortalPolicy`]: crate::transit::PortalPolicy
+    /// (the facing-flip write in [`portal_transit`](crate::portal_transit)).
+    /// It is ANDed with whether the body reorients (a body in the player
+    /// population), so it can only suppress the flip. On by default; a host can
+    /// mirror its own gameplay setting into it.
     pub reorient_facing: bool,
 }
 

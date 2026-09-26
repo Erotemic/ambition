@@ -1,81 +1,19 @@
-//! Ambition identity → portal-transit policy glue.
+//! Ambition's reactions to a generic portal transit.
 //!
-//! The generic portal core drives any [`BodyKinematics`] + [`PortalBody`] +
-//! [`PortalPolicy`] through a placed pair without naming player, boss, enemy, or
-//! projectile. This module supplies those Ambition identities.
-//!
-//! It tags actors and projectiles with the right transit policy, then mirrors the
-//! primary player's input/trace side effects after a generic transit event so the
-//! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
-//!
-//! [`BodyKinematics`]: ambition_platformer2d_core::BodyKinematics
-//! [`PortalBody`]: ambition_portal2d::PortalBody
-//! [`PortalPolicy`]: ambition_portal2d::PortalPolicy
+//! The generic portal core drives every body through a placed pair without
+//! naming player, boss, enemy, or projectile. This module mirrors the primary
+//! player's input/trace side effects after a transit event so the controller
+//! sees `PortalEmission` / `PortalInputWarp` on the same frame, and completes
+//! the transit for kernel bodies and projectiles.
 
 use bevy::prelude::*;
 
-use ambition_boss_encounter::BossConfig;
 use ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak;
 use ambition_platformer2d_core::body_clusters::BodyKinematics;
-use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal2d::{
-    BodyTeleported, PortalBody, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalPolicy,
-    PortalTuning,
+    BodyTeleported, PortalBodyTransited, PortalEmission, PortalInputWarp, PortalTuning,
 };
 use ambition_projectiles::ProjectileGameplay;
-
-/// Give every actor body the portal transit opt-in. Maps Ambition identity →
-/// behavioral [`PortalPolicy`]:
-///
-/// - player (`PlayerEntity` + `PrimaryPlayer`) → `{ reorient: true,
-///   carry_velocity: true }` (re-orients to the exit aperture and carries the
-///   rotated velocity).
-/// - boss (marked by `BossConfig`) → `{ reorient: false, carry_velocity:
-///   false }` (floats; facing follows the brain).
-/// - other actors (enemies / NPCs — any remaining `BodyKinematics`) →
-///   `{ reorient: false, carry_velocity: true }` (carry momentum; facing follows
-///   AI).
-///
-/// The set of bodies that transit is the player and all actors. Idempotent:
-/// it only adds the marker and policy to entities without `PortalBody`, so it
-/// is cheap every frame and handles late spawns.
-pub fn ensure_portal_bodies(
-    mut commands: Commands,
-    bodies: Query<
-        (Entity, Option<&PrimaryPlayer>, Option<&BossConfig>),
-        (
-            With<BodyKinematics>,
-            Without<PortalBody>,
-            // Projectiles are not actors; a dedicated adapter opts them into transit
-            // with projectile-specific policy.
-            Without<ambition_projectiles::ProjectileGameplay>,
-        ),
-    >,
-    players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    for (entity, primary, boss) in &bodies {
-        let policy = if primary.is_some() && players.get(entity).is_ok() {
-            // Primary player: re-orients + carries velocity.
-            PortalPolicy {
-                reorient: true,
-                carry_velocity: true,
-            }
-        } else if boss.is_some() {
-            // Boss: floats, no velocity write, facing follows the brain.
-            PortalPolicy {
-                reorient: false,
-                carry_velocity: false,
-            }
-        } else {
-            // Enemies / NPCs: carry momentum, facing follows AI.
-            PortalPolicy {
-                reorient: false,
-                carry_velocity: true,
-            }
-        };
-        commands.entity(entity).insert((PortalBody, policy));
-    }
-}
 
 /// Carry the `portal_reverses_facing` gameplay setting into the editable
 /// portal tuning, and propose it.
@@ -123,45 +61,6 @@ pub fn sync_portal_reorient_from_settings(
     if editable.reorient_facing != want {
         editable.reorient_facing = want;
         pending.propose(ambition_platformer2d::portal::portal_tuning_domain());
-    }
-}
-
-/// Opt every in-flight projectile entity into the generic transit algorithm by
-/// giving it the [`PortalBody`] marker plus a free-flying [`PortalPolicy`]:
-///
-/// - `reorient: false`: a projectile is not an actor; it has no `ActorRoll`
-///   and no facing. `transit_step` rotates its velocity by the pair transform,
-///   and it keeps flying out the exit.
-/// - `carry_velocity: true`: write the rotated exit velocity, so a fireball
-///   fired into portal A leaves portal B in the mapped direction.
-///
-/// [`ensure_portal_bodies`] excludes projectiles (`Without<ProjectileGameplay>`);
-/// this system opts them in with their own policy. Idempotent
-/// (`Without<PortalBody>`), so it is cheap every frame and handles late spawns.
-/// Every shot carries [`BodyKinematics`] + [`ProjectileGameplay`], so the
-/// gameplay marker covers every projectile regardless of producer.
-///
-/// A projectile far from a portal is unaffected: `transit_step` returns
-/// `Idle`.
-pub fn ensure_projectile_portal_bodies(
-    mut commands: Commands,
-    projectiles: Query<
-        Entity,
-        (
-            With<BodyKinematics>,
-            With<ProjectileGameplay>,
-            Without<PortalBody>,
-        ),
-    >,
-) {
-    for entity in &projectiles {
-        commands.entity(entity).insert((
-            PortalBody,
-            PortalPolicy {
-                reorient: false,
-                carry_velocity: true,
-            },
-        ));
     }
 }
 
@@ -241,34 +140,6 @@ pub fn rotate_projectile_acceleration_after_portal_transit(
             continue;
         }
         shot.accel = portal_map_vec(shot.accel, ev.enter_normal, ev.exit_normal, convention);
-    }
-}
-
-/// Complete the kernel-body half of the portal-transit authority (ADR 0024).
-///
-/// The portal core moves any `BodyKinematics`, including cluster-less
-/// projectiles, so it cannot reconcile kernel body state. For every transited
-/// kernel body (full movement clusters and an explicit `MotionModel`), run the
-/// shared transit reconciliation: departure contacts invalidated, wall cling
-/// and ledge grab released, a riding momentum body arrives Airborne, an
-/// attached crawler arrives detached, and the §3.1 motion record collapses to
-/// the arrival point. Runs `.after(portal_transit)` in the same set, so the
-/// next movement tick sees the reconciled state.
-pub fn reconcile_kernel_bodies_after_portal_transit(
-    mut transited: MessageReader<PortalBodyTransited>,
-    mut bodies: Query<(
-        ambition_platformer2d_core::BodyClusterQueryData,
-        &mut ambition_platformer2d_core::movement::MotionModel,
-    )>,
-) {
-    for ev in transited.read() {
-        let Ok((mut cluster_item, mut motion_model)) = bodies.get_mut(ev.body) else {
-            // A cluster-less transiting body (a projectile) has nothing to
-            // reconcile.
-            continue;
-        };
-        let mut clusters = cluster_item.as_clusters_mut();
-        ambition_platformer2d_core::movement::reconcile_transit(&mut motion_model, &mut clusters);
     }
 }
 

@@ -1,15 +1,13 @@
 //! Headless projectile-transit tests for the generic portal core plus the real
-//! projectile adapter. A projectile near a pair should emerge with rotated
+//! projectile reconciliation. A projectile near a pair should emerge with rotated
 //! velocity; one nowhere near a portal should keep its straight-line path.
 
 use bevy::prelude::*;
 
 use ambition_portal2d::{
-    portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
+    portal_half_extent, portal_transit, PlacedPortal, PortalChannel, PortalGunColor,
 };
 use ambition_projectiles::ProjectileGameplay;
-
-use super::ensure_projectile_portal_bodies;
 
 const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
 const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
@@ -32,8 +30,8 @@ fn straight_projectile() -> ProjectileGameplay {
     }
 }
 
-/// Minimal app: projectile tagging adapter + generic transit core, wired
-/// `ensure → transit` as in the real plugin.
+/// Minimal app: the generic transit core and the projectile reconciliation, as
+/// in the real plugin. A projectile needs no tag to transit.
 fn app_with_transit() -> App {
     let mut app = App::new();
     app.add_message::<ambition_portal2d::PortalBodyEntered>();
@@ -51,7 +49,6 @@ fn app_with_transit() -> App {
     app.add_systems(
         Update,
         (
-            ensure_projectile_portal_bodies,
             portal_transit,
             // The projectile half of transit reconciliation — without it in the
             // chain a test of a CARRIED vector measures nothing.
@@ -100,15 +97,10 @@ fn projectile_fired_into_portal_a_emerges_from_portal_b_with_rotated_velocity() 
         ))
         .id();
 
-    // Frame 1 tags + begins (leading edge in the opening); frame 2 transfers
-    // (the centroid is already on the plane) — same two-frame aperture cadence
-    // the actor transit test relies on.
+    // Frame 1 begins (leading edge in the opening); frame 2 transfers (the
+    // centroid is already on the plane) — same two-frame aperture cadence the
+    // actor transit test relies on.
     app.update();
-    // The adapter must have opted the projectile in.
-    assert!(
-        app.world().get::<PortalBody>(proj).is_some(),
-        "ensure_projectile_portal_bodies must tag the projectile PortalBody",
-    );
     app.update();
 
     let kin = app.world().get::<BodyKinematics>(proj).unwrap();

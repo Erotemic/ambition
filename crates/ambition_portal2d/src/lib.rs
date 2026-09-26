@@ -8,9 +8,9 @@
 //! TODO(compat-remove): move the Ambition portal-gun workflow out of this generic mechanic
 //! crate and delete the `gun_*` compatibility modules.
 //!
-//! Any entity with [`BodyKinematics`](ambition_platformer2d_shared_tangle::body::BodyKinematics),
-//! [`PortalBody`], and a [`PortalPolicy`] can use the generic
-//! [`portal_transit`] path. The crate depends only on `bevy`,
+//! Every entity with [`BodyKinematics`](ambition_platformer2d_shared_tangle::body::BodyKinematics)
+//! takes the generic [`portal_transit`] path, which derives how each body takes
+//! part from what it is. The crate depends only on `bevy`,
 //! `ambition_platformer2d_core`, and `ambition_platformer2d_shared_tangle`, so it stays
 //! deterministic and host-free.
 
@@ -66,9 +66,9 @@ pub use placement::{
     transit_step, transit_step_with_tuning, SweptSample, TransitStep,
 };
 pub use transit::{
-    portal_teleport_ground_items, portal_transit, publish_portal_carves, tick_portal_cooldowns,
-    BodyTeleported, PortalBody, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
-    PortalPolicy, PortalTransit, PortalTransitable,
+    portal_teleport_ground_items, portal_transit, publish_portal_carves, reconcile_transited_bodies,
+    tick_portal_cooldowns, BodyTeleported, PortalBodyTransited, PortalCarves, PortalEmission, PortalInputWarp,
+    PortalTransit, PortalTransitable,
 };
 pub use tuning::{
     propose_editable_portal_tuning, publish_editable_portal_tuning, EditablePortalTuning,

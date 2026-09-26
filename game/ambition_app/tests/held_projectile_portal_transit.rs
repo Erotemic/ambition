@@ -11,18 +11,14 @@
 //! does a projectile the GAME ITSELF created, from a weapon a player picked up,
 //! cross a portal the LEVEL authored, in the shipped composition.
 //!
-//! Before the K2 fold this file spawned a `HeldProjectile` by hand and tagged it
-//! `PortalBody` + `PortalPolicy` at the spawn site, mirroring what the deleted
-//! held-shot road did. Held shots are ordinary projectiles now, so the hand-tag
-//! would assert the test's own setup: the interesting claim is that
-//! `ensure_projectile_portal_bodies` OPTS THE SHOT IN on its own.
+//! A shot needs no tag to transit: the portal core drives every body. So the
+//! claim is only that the shot the game fired crosses the authored pair.
 
 use crate::common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_platformer2d::engine_core::{BodyKinematics, ControlFrame, Vec2};
 use ambition_platformer2d::item::{GroundItem, ItemCustody};
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
-use ambition_platformer2d::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 /// Speed the shot is given for its run at the aperture. Well above the exit-speed
@@ -110,31 +106,11 @@ fn a_hand_fired_shot_transits_an_authored_portal_in_the_real_app() {
     }
     let shot = shot.expect("premise: pressing attack with a gun_sword in hand fires a shot");
 
-    // ⛔ THE TAG LANDS A FRAME LATE. `ensure_projectile_portal_bodies` inserts
-    // through `Commands`, so the components are queued when the shot is already
-    // findable; asserting on the tick it appears would be a race the test would
-    // lose intermittently. Give the insert its flush.
-    sim.step_frame(ControlFrame::default());
-    sim.step_frame(ControlFrame::default());
-
-    // ⭐ THE CLAIM. The adapter opted this shot into portal transit by itself.
-    // The old version of this file tagged the entity at its own spawn site, which
-    // asserted the setup rather than the engine.
-    assert!(
-        sim.world().get::<PortalBody>(shot).is_some(),
-        "ensure_projectile_portal_bodies must tag a hand-fired shot PortalBody \
-         without the test doing it",
-    );
-    assert!(
-        sim.world().get::<PortalPolicy>(shot).is_some(),
-        "and must give it a transit policy",
-    );
-
     // Put the real shot on a run at the authored aperture. Its POSITION and
     // VELOCITY are set, and nothing else: a hand-fired shot travels horizontally
     // while `portal_lab`'s linked pair is floor-to-floor, so a naturally aimed
-    // shot never enters it. Everything the transit road reads -- the tagging, the
-    // policy, the owner, the body -- is still the game's.
+    // shot never enters it. Everything the transit road reads -- the owner and
+    // the body -- is still the game's.
     let (entry_pos, entry_normal, exit_pos) = {
         let (entry, exit) = first_floor_authored_portal_pair(&mut sim);
         (entry.pos, entry.normal, exit.pos)

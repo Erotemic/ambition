@@ -32,6 +32,7 @@ The tutorial is its own nested Cargo workspace so its desktop render features do
 ## Exercises
 
 - Change one portal normal to place it on a floor or ceiling.
-- Add a second body with a different `PortalPolicy`.
+- Add a second body without `PlayerEntity` and compare its facing after a
+  same-wall turn-around.
 - Enable `view_cones` in `PortalPresentationPlugin` and publish a `PortalViewer`.
 - Replace the automatic motion system with keyboard or gamepad input.

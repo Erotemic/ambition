@@ -2,7 +2,7 @@
 //!
 //! Plain solid raycasts live in `ambition_platformer2d_core::cast`; this
 //! module keeps only the portal-specific traversal, the fit check, and the pure
-//! `transit_step` decision machine shared by all opted-in actor transit.
+//! `transit_step` decision machine shared by all body transit.
 
 use bevy::prelude::*;
 
@@ -243,7 +243,7 @@ pub(crate) fn approach_box(portal: &PlacedPortal) -> ae::Aabb {
 
 /// One step of the transit machine for any body. Pure: from the body geometry,
 /// transit and cooldown state, and the portals, it returns the action the
-/// caller applies. Every opted-in body uses this one path.
+/// caller applies. Every body uses this one path.
 #[derive(Clone, Copy, Debug)]
 pub enum TransitStep {
     /// Not touching a portal (or latched) — do nothing.

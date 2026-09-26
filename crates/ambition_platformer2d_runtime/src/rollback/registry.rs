@@ -786,7 +786,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// A game states one dormancy rule for its rooms, and the engine derives each
 /// body's policy from it every tick, so no body stores a policy. The rule
 /// reads `EncounterMob` (a mob never sleeps), so a restored mob must keep it.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 236;
+/// ⛔⛤ 236 -> 237: `portal.body` and `portal.policy` leave. The portal core
+/// drives every body and derives how each takes part (every body carries its
+/// momentum; a body in the player population reorients), so no body stores an
+/// opt-in or a policy.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 237;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

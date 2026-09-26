@@ -22,8 +22,6 @@ where
         OWNER,
         "resource.portal_frame_history",
     );
-    registrar.rollback_component_clone::<crate::PortalBody>(OWNER, "portal.body");
-    registrar.rollback_component_clone::<crate::PortalPolicy>(OWNER, "portal.policy");
     registrar.rollback_component_clone::<crate::PortalTransit>(OWNER, "portal.transit");
     registrar.rollback_component_clone::<crate::PlacedPortal>(OWNER, "portal.placed");
     registrar.rollback_component_clone_probed::<crate::PortalTransitCooldown>(

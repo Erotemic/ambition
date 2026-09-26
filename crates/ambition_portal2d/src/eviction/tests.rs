@@ -1,6 +1,5 @@
 use super::*;
 use crate::color::{PortalChannelColor, PortalGunColor};
-use crate::transit::PortalPolicy;
 use crate::types::portal_half_extent;
 
 fn floor_portal(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
@@ -27,11 +26,6 @@ fn straddling_body(app: &mut App, pos: Vec2) -> Entity {
                 vel: Vec2::ZERO,
                 size: Vec2::new(24.0, 40.0),
                 facing: 1.0,
-            },
-            PortalBody,
-            PortalPolicy {
-                reorient: true,
-                carry_velocity: true,
             },
         ))
         .id()

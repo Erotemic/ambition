@@ -20,7 +20,6 @@ use ambition_platformer2d_shared_tangle::body::BodyKinematics;
 
 use crate::color::PortalChannel;
 use crate::pieces::{self as pp, PortalAperture};
-use crate::transit::PortalBody;
 use crate::types::PlacedPortal;
 
 /// Last frame's placed-portal frame per channel, so
@@ -39,7 +38,7 @@ const EVICT_MARGIN: f32 = 1.0;
 pub fn evict_straddlers_on_portal_change(
     mut history: ResMut<PortalFrameHistory>,
     portals: Query<&PlacedPortal>,
-    mut bodies: Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>), With<PortalBody>>,
+    mut bodies: Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>)>,
 ) {
     // A hosted aperture moving with its face is the same portal, not a close:
     // compare against the host-carried position. Unhosted portals have zero
@@ -67,11 +66,11 @@ pub fn evict_straddlers_on_portal_change(
     history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
 }
 
-/// Shove every [`PortalBody`] straddling `plane` to the side its centroid is
+/// Shove every body straddling `plane` to the side its centroid is
 /// on, just past the plane.
 fn evict_for_plane(
     plane: PortalAperture,
-    bodies: &mut Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>), With<PortalBody>>,
+    bodies: &mut Query<(&mut BodyKinematics, Option<&mut ae::SweepSample>)>,
 ) {
     let n = plane.frame.normal;
     for (mut kin, mut sweep) in bodies.iter_mut() {

@@ -183,6 +183,7 @@ impl Plugin for PortalSimulationPlugin {
             (
                 tick_portal_cooldowns,
                 portal_transit,
+                crate::reconcile_transited_bodies,
                 portal_teleport_ground_items,
             )
                 .chain()

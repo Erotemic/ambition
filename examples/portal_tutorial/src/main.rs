@@ -11,8 +11,7 @@
 use ambition_platformer2d_core::BodyKinematics;
 use ambition_platformer2d_shared_tangle::time::SimDt;
 use ambition_portal2d::{
-    portal_half_extent, PlacedPortal, PortalBody, PortalChannelColor, PortalPlugin, PortalPolicy,
-    PortalSet,
+    portal_half_extent, PlacedPortal, PortalChannelColor, PortalPlugin, PortalSet,
 };
 use ambition_portal2d_presentation::{
     PortalBodyView, PortalPresentationPlugin, PortalPresentationSet, PortalSceneBody,
@@ -148,11 +147,9 @@ fn setup(mut commands: Commands, mut frame: ResMut<PortalWorldFrame>) {
     commands.spawn((
         TutorialBody,
         body,
-        PortalBody,
-        PortalPolicy {
-            reorient: true,
-            carry_velocity: true,
-        },
+        // Every body transits. A body in the player population also flips its
+        // facing on a same-wall turn-around, because its facing follows input.
+        ambition_platformer2d_shared_tangle::markers::PlayerEntity,
         PortalSceneBody,
         PortalBodyView {
             pos: body.pos,

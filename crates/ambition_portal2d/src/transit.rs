@@ -1,4 +1,4 @@
-//! Portal-specific transit systems: drive opted-in actors and in-flight items
+//! Portal-specific transit systems: drive every body and in-flight item
 //! through a placed portal pair via the shared
 //! [`super::placement::transit_step`] aperture machine, plus the carve / input /
 //! ability-suppression guards that make a crossing feel right.
@@ -53,12 +53,12 @@ pub struct PortalCarves {
 
 /// Publish apertures that must be carved from host collision this frame.
 ///
-/// A paired portal is carved while an opted-in body overlaps the opening,
+/// A paired portal is carved while a body overlaps the opening,
 /// approaches it inward, or is mid-transit. Approach uses a fixed geometric
 /// reach, independent of dt. The host bridge applies the `PortalCarves`.
 pub fn publish_portal_carves(
     portals: Query<&PlacedPortal>,
-    bodies: Query<&BodyKinematics, With<PortalBody>>,
+    bodies: Query<&BodyKinematics>,
     transits: Query<&PortalTransit>,
     host_depths: Option<Res<PortalHostDepths>>,
     mut carves: ResMut<PortalCarves>,
@@ -123,13 +123,6 @@ pub fn publish_portal_carves(
     }
 }
 
-/// Marker: opts an entity into [`portal_transit`]. A body with
-/// [`BodyKinematics`], this marker, and a [`PortalPolicy`] sinks into a carved
-/// aperture and transfers when its centroid crosses. The host portal adapter
-/// adds it.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct PortalBody;
-
 /// Convert the movement-kernel sample into swept transit input. Valid only
 /// when the sample endpoint still equals the live `kin.pos`. If an earlier
 /// post-sim system teleported the body, the segment is not travel through an
@@ -143,21 +136,6 @@ fn portal_sweep_sample(
         pos: sweep.prev,
         vel: sweep.vel,
     })
-}
-
-/// How a body takes part in transit. Behaviour flags only: the core never
-/// names Player, Boss, or Projectile. Ambition maps identities to a policy.
-///
-/// [`transit_step`] always rotates the velocity. This only chooses whether
-/// to write it, and whether to re-orient facing.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PortalPolicy {
-    /// Flip the body's `facing` on a same-wall turn-around (`facing_flip`).
-    /// A boss whose facing follows its AI does not.
-    pub reorient: bool,
-    /// Write the rotated exit velocity into the body. `false` keeps the `vel`
-    /// the brain set (e.g. a floating boss).
-    pub carry_velocity: bool,
 }
 
 /// Emitted on every Transfer by [`portal_transit`], with what input, trace,
@@ -182,11 +160,17 @@ pub struct PortalBodyTransited {
     pub exit_pos: Vec2,
 }
 
-/// The generic transit algorithm: drive any [`PortalBody`] through a portal
-/// aperture with [`transit_step`]. The movement integrator sinks the body into
-/// the carved opening. It transfers when the centroid crosses (with rotated
-/// momentum and a roll per its [`PortalPolicy`]) and clears when the trailing
-/// edge is out.
+/// The generic transit algorithm: drive every body through a portal aperture
+/// with [`transit_step`]. The movement integrator sinks the body into the
+/// carved opening. It transfers when the centroid crosses (with rotated
+/// momentum and a roll) and clears when the trailing edge is out.
+///
+/// How a body takes part is derived from what it is, so no system tags a body
+/// before it can transit:
+/// - Every body carries its momentum: the rotated exit velocity is written.
+/// - Only a body in the player population reorients: on a same-wall
+///   turn-around its facing flips, because its facing follows its seat's input.
+///   A brain decides the facing of any other body.
 ///
 /// Transit does not need the [`PortalGun`](super::gun::PortalGun). The
 /// anti-ping-pong cooldown is on the body ([`PortalTransitCooldown`]).
@@ -197,13 +181,12 @@ pub fn portal_transit(
         (
             Entity,
             &mut BodyKinematics,
-            &PortalPolicy,
+            Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
             Option<&ae::SweepSample>,
         ),
-        With<PortalBody>,
     >,
     // `GravityCtx::dir_for(aabb)` owns "which way is down for this body":
     // zones give a per-body lookup with a `BaseGravity` fallback. Do not
@@ -225,7 +208,7 @@ pub fn portal_transit(
         return;
     }
 
-    for (entity, mut kin, policy, mut transit, mut roll, cooldown, sweep) in &mut bodies {
+    for (entity, mut kin, reorients, mut transit, mut roll, cooldown, sweep) in &mut bodies {
         // Per body, not once for all: `placement::wall_to_wall` classifies each
         // aperture as wall or floor/ceiling relative to this body's down.
         let gravity_dir = gravity.dir_for(ambition_platformer2d_core::Aabb::new(
@@ -283,14 +266,11 @@ pub fn portal_transit(
                 if let Some(log) = class_b.as_mut() {
                     log.record(entity, ClassBRemap::PortalTransit);
                 }
-                // The policy chooses whether to write the rotated velocity.
-                if policy.carry_velocity {
-                    kin.vel = vel;
-                }
-                // Flip facing on a same-wall turn-around only if the policy and
-                // `tuning.reorient_facing` (mirrors the `portal_reverses_facing`
-                // setting) both allow it.
-                if policy.reorient && facing_flip && tuning.reorient_facing {
+                kin.vel = vel;
+                // Flip facing on a same-wall turn-around only for a body that
+                // reorients, and only if `tuning.reorient_facing` (mirrors the
+                // `portal_reverses_facing` setting) allows it.
+                if reorients && facing_flip && tuning.reorient_facing {
                     kin.facing = -kin.facing;
                 }
                 if let Some(roll) = roll.as_deref_mut() {
@@ -322,6 +302,26 @@ pub fn portal_transit(
                 commands.entity(entity).remove::<PortalTransit>();
             }
         }
+    }
+}
+
+/// Complete a transit for a kernel body (ADR 0024). The transit wrote the
+/// pose, so the facts of the departure point no longer hold: its contacts are
+/// invalidated, wall cling and ledge grab are released, a riding momentum body
+/// arrives airborne, an attached crawler arrives detached, and the motion
+/// record collapses to the arrival point. It runs in the same set after
+/// [`portal_transit`], so the next movement step sees the reconciled state.
+///
+/// A body without movement clusters (a projectile) has nothing to reconcile.
+pub fn reconcile_transited_bodies(
+    mut transited: MessageReader<PortalBodyTransited>,
+    mut bodies: Query<(ae::BodyClusterQueryData, &mut ae::movement::MotionModel)>,
+) {
+    for event in transited.read() {
+        let Ok((mut clusters, mut model)) = bodies.get_mut(event.body) else {
+            continue;
+        };
+        ae::movement::reconcile_transit(&mut model, &mut clusters.as_clusters_mut());
     }
 }
 

@@ -2477,7 +2477,14 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
             .expect("the select screen has its state");
         select.set_occupant(0, SlotOccupant::Controller { device: 0 });
         select.set_pick(0, admiral_index);
-        select.set_occupant(1, SlotOccupant::Cpu);
+        // ⛔ A SECOND PERSON WHO NEVER TOUCHES THE PAD, not a CPU. The last arm
+        // below reads the shark's WHOLE damage meter as "not combat", which is
+        // only a reading while no combat reaches it. A CPU admiral does: since the
+        // rider sits in the shark's saddle rather than hovering 40 px above its
+        // box, the rival's swings and shots at the rider land on the shark (a
+        // projectile for 8 at tick 74). The occupant is the premise; the census
+        // below states it.
+        select.set_occupant(1, SlotOccupant::Controller { device: 1 });
         select.set_pick(1, admiral_index);
         assert!(
             select.ready(),
@@ -2581,14 +2588,39 @@ fn a_shark_summoned_into_a_save_that_remembers_a_dead_one_is_still_alive() {
     // tick rather than once at load: a body that survived construction can still
     // be killed on tick two, and asserting only at the moment of boarding would
     // pass against a bug that arrives one frame later.
-    for _ in 0..90 {
+    let mut strikes_on_the_shark = Vec::new();
+    for tick in 0..90 {
         ambition_platformer2d::sim::drive_control_frame(app.world_mut(), ControlFrame::default());
         app.update();
+        let world = app.world();
+        let Some(shark) = world
+            .get::<ambition_platformer2d::combat::components::CenteredAabb>(mount)
+            .map(|body| body.aabb())
+        else {
+            continue;
+        };
+        strikes_on_the_shark.extend(
+            world
+                .resource::<bevy::ecs::message::Messages<ambition_platformer2d::combat::HitEvent>>()
+                .iter_current_update_messages()
+                .filter(|hit| {
+                    hit.target == ambition_platformer2d::combat::events::HitTarget::Body(mount)
+                        || hit.volume.intersects_aabb(shark)
+                })
+                .map(|hit| (tick, hit.source, hit.damage)),
+        );
     }
     assert!(
         app.world().get::<RidingOn>(seat0).is_some(),
         "the admiral was put off within a second and a half of boarding a shark \
          summoned into a poisoned save"
+    );
+    // ⛔ THE PREMISE OF THE LAST ARM: no hit of any kind reached the shark, so a
+    // point of damage on its meter is a write that did not come from combat.
+    assert!(
+        strikes_on_the_shark.is_empty(),
+        "combat reached the shark — (tick, source, damage) = {strikes_on_the_shark:?} \
+         — so its damage meter cannot tell a save write from a blow"
     );
     let pool = app
         .world()

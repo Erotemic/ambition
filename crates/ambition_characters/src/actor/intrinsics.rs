@@ -85,11 +85,12 @@ pub struct CharacterMount {
     /// mech exploding under whoever was driving it.
     #[serde(default)]
     pub death_splash: Option<i32>,
-    /// Where a rider sits, as an offset `(x, y)` from this mount's centre in
-    /// world units (+y down), authored for a mount FACING RIGHT and mirrored
-    /// with its facing. `None` = the rider stands just above the mount's top,
-    /// which suits a creature ridden on its back; a giant whose rider stands on
-    /// one shoulder says where the shoulder is.
+    /// Where a rider's SOLES rest, as an offset `(x, y)` from this mount's
+    /// centre in world units (+y down), authored for a mount FACING RIGHT and
+    /// mirrored with its facing: a place on the mount, true for any rider (the
+    /// rider stands on it on its own feet). `None` = the mount's top, which
+    /// suits a creature ridden on its back; a giant whose rider stands on one
+    /// shoulder says where the shoulder is.
     #[serde(default)]
     pub saddle: Option<(f32, f32)>,
     /// Where a `"giant"`-class mount's RIGHT hand rests, as an offset `(x, y)`

@@ -113,23 +113,30 @@ pub enum MountDeathImpact {
     Splash(i32),
 }
 
-/// Attached to a mount entity. Specifies where the rider rides
+/// Attached to a mount entity. Specifies where the rider stands on it
 /// relative to the mount's center (sandbox units; y grows downward),
 /// the mount's [`MountClass`], the [`ControlGrant`] it extends its
 /// rider, and its [`MountDeathImpact`].
 #[derive(Component, Clone, Debug)]
 pub struct Mountable {
-    /// Rider's center offset from the mount's center, in the MOUNT'S OWN
-    /// FRAME: `+x` toward the side the mount faces, `+y` toward its feet. For an
-    /// aerial mount this is typically `(0, -mount.size.y * 0.5 -
-    /// rider.size.y * 0.5 + epsilon)` so the rider sits on the
-    /// mount's saddle without their hitboxes overlapping.
+    /// Where the rider's SOLES rest, as an offset from the mount's center in
+    /// the MOUNT'S OWN FRAME: `+x` toward the side the mount faces, `+y` toward
+    /// its feet. A creature ridden on its back seats its rider at its top,
+    /// `(0, -mount.size.y * 0.5)`. The rider stands there on its own feet:
+    /// the sync places the rider's centre half ITS height above the seat.
+    ///
+    /// ⭐ A PLACE ON THE MOUNT, NOT A PLACE FOR THE RIDER. This was the rider's
+    /// CENTRE, which depends on the rider's size, fixed when the mount was built
+    /// and before any rider existed. So an unauthored saddle guessed a rider's
+    /// half-height (a constant 40), and the cove's pirates stood ~50 wu above
+    /// their sharks' saddles; GNU-ton's saddle had to fold the scholar's own
+    /// height into its number. A seat is true for every rider.
     ///
     /// ⭐ FACING-RELATIVE `x` BECAUSE THE SADDLE IS A PLACE ON THE MOUNT. The
     /// constraint already gives the rider the mount's facing, so an offset that
     /// did not mirror would put a rider authored on one shoulder onto the other
     /// the moment the mount turned. See [`saddle_world_offset`].
-    pub rider_offset: ae::Vec2,
+    pub seat: ae::Vec2,
     /// The mount's class — a rider needs a matching [`CanPilot`] entry.
     pub class: MountClass,
     /// How fully the mount obeys the rider (default `Total`).
@@ -139,12 +146,12 @@ pub struct Mountable {
 }
 
 impl Mountable {
-    /// A mount at `rider_offset` with default class / control grant
-    /// (`Total`) / death impact (`Dismount`). Callers that author a
-    /// specific class or explosion set the fields after.
-    pub fn at(rider_offset: ae::Vec2) -> Self {
+    /// A mount seating its rider at `seat` (where the rider's soles rest), with
+    /// default class / control grant (`Total`) / death impact (`Dismount`).
+    /// Callers that author a specific class or explosion set the fields after.
+    pub fn at(seat: ae::Vec2) -> Self {
         Self {
-            rider_offset,
+            seat,
             class: MountClass::default(),
             control_grant: ControlGrant::Total,
             death_impact: MountDeathImpact::Dismount,
@@ -536,8 +543,11 @@ pub fn sync_riders_to_mounts(
         // The saddle offset is authored in the mount's local frame; rotate it into
         // world space by the pair's gravity frame. See `saddle_world_offset`.
         let frame = mount_frame.basis();
+        // The rider stands on the seat: its centre is half ITS height above it,
+        // in the mount's frame.
+        let rider_centre = mountable.seat - ae::Vec2::new(0.0, rider_kin.size.y * 0.5);
         let rider_local = saddle_world_offset(
-            mountable.rider_offset,
+            rider_centre,
             ae::mirror_side(mount_kin.facing, mount_unmirrored),
             frame,
         );
@@ -1608,9 +1618,9 @@ pub struct RideRefused {
     pub mount: Entity,
 }
 
-/// Where the rider sits, relative to the mount's centre, in WORLD units.
+/// Where the rider's centre sits, relative to the mount's centre, in WORLD units.
 ///
-/// `rider_offset` is authored in the mount's LOCAL frame — `+x` toward the
+/// `rider_centre` is in the mount's LOCAL frame — `+x` toward the
 /// mount's facing side, `+y` toward its feet — so under rotated gravity it has
 /// to be rotated into the world before it can be added to a world position.
 /// That rotation is the whole of this function.
@@ -1641,7 +1651,7 @@ pub struct RideRefused {
 /// ⇒ what this pin means is exactly *"the rider is at the authored mount-local
 /// saddle offset"*, and that is what it now computes.
 pub fn saddle_world_offset(
-    rider_offset: ambition_platformer2d_core::Vec2,
+    rider_centre: ambition_platformer2d_core::Vec2,
     facing: f32,
     frame: ambition_platformer2d_core::AccelerationFrame,
 ) -> ambition_platformer2d_core::Vec2 {
@@ -1663,8 +1673,8 @@ pub fn saddle_world_offset(
     // authored side.
     let side = if facing < 0.0 { -1.0 } else { 1.0 };
     frame.to_world(ambition_platformer2d_core::Vec2::new(
-        rider_offset.x * side,
-        rider_offset.y,
+        rider_centre.x * side,
+        rider_centre.y,
     ))
 }
 

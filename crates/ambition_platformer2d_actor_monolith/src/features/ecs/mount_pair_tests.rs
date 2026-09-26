@@ -80,7 +80,8 @@ fn build_app() -> App {
     app
 }
 
-/// Sync pose snaps rider.pos to mount.pos + Mountable.rider_offset
+/// Sync pose stands the rider on the mount's seat (its centre half its height
+/// above `Mountable.seat`)
 /// and zeroes the rider's velocity each tick.
 #[test]
 fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
@@ -94,7 +95,8 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
         .spawn((
             hostile("mount", "burning_flying_shark", mount_pos, mount_size),
             CenteredAabb::from_center_size(mount_pos, mount_size),
-            Mountable::at(ae::Vec2::new(0.0, -40.0)),
+            // Seated on its top, as a creature ridden on its back is.
+            Mountable::at(ae::Vec2::new(0.0, -mount_size.y * 0.5)),
             MountSlot { rider: None },
         ))
         .id();
@@ -127,10 +129,11 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
 
     let k = rider_kin(app.world(), rider);
     let s = rider_surface(app.world(), rider);
+    // Its soles on the seat: centre half ITS height above the mount's top.
     assert_eq!(
         k.pos,
-        ae::Vec2::new(100.0, 10.0),
-        "rider should snap to mount.pos + offset",
+        ae::Vec2::new(100.0, 50.0 - 26.0 - 39.0),
+        "the rider stands on the seat, its soles on the mount's top",
     );
     assert_eq!(k.vel, ae::Vec2::ZERO, "rider vel zeroed by sync");
     assert_eq!(s.gravity_scale, 0.0, "rider gravity zeroed by sync");
@@ -729,7 +732,7 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
         .spawn((
             hostile("mount", "burning_flying_shark", mount_pos, mount_size),
             CenteredAabb::from_center_size(mount_pos, mount_size),
-            Mountable::at(ae::Vec2::new(0.0, -40.0)),
+            Mountable::at(ae::Vec2::new(0.0, -mount_size.y * 0.5)),
             MountSlot { rider: None },
             ActorControl(ActorControlFrame::neutral()),
         ))
@@ -778,13 +781,13 @@ fn a_player_controlled_rider_pilots_the_mount_agnostically() {
         "the mount inherits the player rider's facing",
     );
 
-    // (b) WELDED: the player rider snapped onto mount.pos + offset, exactly as an
+    // (b) WELDED: the player rider stands on the seat, exactly as an
     // AI rider would — the sync did NOT skip it for being non-hostile.
     let k = rider_kin(app.world(), rider);
     assert_eq!(
         k.pos,
-        ae::Vec2::new(0.0, -40.0),
-        "the player rider welds to mount.pos + offset (controller-agnostic coupling)",
+        ae::Vec2::new(0.0, -26.0 - 39.0),
+        "the player rider stands on the seat, like an AI rider (controller-agnostic coupling)",
     );
     assert_eq!(
         k.vel,

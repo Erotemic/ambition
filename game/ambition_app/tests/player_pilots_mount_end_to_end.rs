@@ -166,7 +166,7 @@ fn a_player_pilots_a_mount_end_to_end() {
     );
     // The rider RODE ALONG (its own locomotion is suppressed while mounted; it
     // moves only because the mount carried it) and stays welded to the saddle —
-    // the authored `rider_offset` is (0, -66): directly above the mount, x-aligned.
+    // the saddle is authored above the mount, x-aligned.
     assert!(
         rider_after.x - rider_before.x > 20.0,
         "the player rider rides along with the mount it pilots: {rider_before:?} -> {rider_after:?}",

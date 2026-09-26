@@ -1483,29 +1483,37 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
     );
 }
 
-/// Both stand-in duelists fight with the table their move file carries.
+/// Every fighter the Smash demo registers fights with the table its move file
+/// carries.
 ///
-/// The table is content in the demo's pack (`smash_duelist_a.ron`), and the
-/// second duelist borrows it with no prefixes. This compares the prepared cast
-/// with the file, so a compiled table that still reached a seat, or a borrow
-/// that stopped resolving, fails here.
+/// The tables are content in the demo's pack: `smash_duelist_a.ron`, which the
+/// second duelist borrows with no prefixes, and George's `smash_moveset.ron`
+/// beside his facet. This compares the prepared cast with the files, so a
+/// compiled table that still reached a seat, or a borrow that stopped
+/// resolving, fails here.
 #[test]
-fn the_stand_in_duelists_fight_with_the_table_their_file_carries() {
+fn every_smash_demo_fighter_fights_with_the_table_its_file_carries() {
     let mut app = shell_host_app();
     settle(&mut app);
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let file = ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_CHARACTER_ID);
-    assert!(
-        file.moves.len() >= 20,
-        "the stand-in table has {} move(s), which is not the shipped table",
-        file.moves.len()
-    );
-    for id in [
-        ambition_demo_smash::SMASH_CHARACTER_ID,
-        ambition_demo_smash::SMASH_OPPONENT_ID,
+    let shipped = ambition_demo_smash::smash_pack::shipped_moveset;
+    let stand_in = shipped(ambition_demo_smash::SMASH_CHARACTER_ID);
+    for (id, file) in [
+        (ambition_demo_smash::SMASH_CHARACTER_ID, &stand_in),
+        // The second duelist wears the first one's table, not a table of its own.
+        (ambition_demo_smash::SMASH_OPPONENT_ID, &stand_in),
+        (
+            ambition_demo_smash::SMASH_GEORGE_BOOUL,
+            &shipped(ambition_demo_smash::SMASH_GEORGE_BOOUL),
+        ),
     ] {
+        assert!(
+            file.moves.len() >= 20,
+            "`{id}`'s table has {} move(s), which is not a shipped table",
+            file.moves.len()
+        );
         let prepared = registry
             .get(id)
             .unwrap_or_else(|| panic!("`{id}` is not in the prepared cast"));
@@ -1527,8 +1535,8 @@ fn the_stand_in_duelists_fight_with_the_table_their_file_carries() {
             )
             .collect();
         assert!(
-            worn == &file,
-            "`{id}` fights with a table that is not the one `smash_duelist_a.ron` \
+            worn == file,
+            "`{id}` fights with a table that is not the one its move file \
              carries; the moves that differ: {differing:?} (verbs equal: {})",
             worn.verbs == file.verbs
         );
@@ -6896,7 +6904,7 @@ mod ring_out {
     }
 
     fn george_booul_table() -> ambition_platformer2d::entity_catalog::MovesetContract {
-        ambition_demo_smash::george_booul_moveset::george_booul_moveset()
+        ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL)
     }
 
     /// THE REGRESSION. A fully stale jab on a 700% heavyweight, thrown from

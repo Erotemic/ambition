@@ -1,237 +1,11 @@
-//! The move-building helpers George's compiled table uses, and the tests of the
-//! stand-in duelists' table.
+//! Tests of the stand-in duelists' table.
 //!
 //! The stand-ins' table is content: `assets/data/movesets/smash_duelist_a.ron`,
 //! which `smash_duelist_b` borrows. The tests read it through
 //! [`crate::smash_pack::shipped_moveset`], the table the demo plays.
 
-use ambition_entity_catalog::authoring::{
-    active_start, cancelable, on_contact, sfx, strike, vfx, Strike,
-};
-use ambition_entity_catalog::{
-    CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow,
-    RecoveryUse, VolumeShape, WindowTag,
-};
-
-/// Where the rapid jab's loop jumps back to, and the instant it jumps back
-/// from. Named because the pulse windows, the finisher start and the guard
-/// must all agree.
-pub(crate) const FLURRY_FROM_S: f32 = 0.06;
-pub(crate) const FLURRY_TO_S: f32 = 0.20;
-
-/// Ground moves are grounded-only, so an airborne body falls through to its
-/// aerials instead of a tilt.
-pub(crate) fn grounded_only() -> MoveGates {
-    MoveGates {
-        // A posture does not know about meters: cost is the move's own
-        // statement (see `MoveGates::meter_cost`).
-        costs: Vec::new(),
-        grounded: Some(true),
-        // A grounded attack roots its owner, matching `SmashRepertoire`'s
-        // `GROUNDED`, so both authoring roads feel the same.
-        roots_steering: true,
-        recovery_route: None,
-        // Not a recovery: a posture cannot know whether a move is an up-B.
-        recovery: RecoveryUse::None,
-        // A posture says nothing about being held. A move that refuses to
-        // start from a saddle says so itself (`call_the_shark` does).
-        forbidden_while_held: false,
-        // A posture names no fallback; that is the move's own statement.
-        when_refused: None,
-    }
-}
-
-// ---------------------------------------------------------------------------
-// The platform-fighter half. The move-building combinators (`strike`,
-// `impulse`, `cancelable`, `committed_tail`, `on_hit`, `active_start`) live in
-// `ambition_entity_catalog::authoring`. `Feel` is this game's opinion about how
-// a swing is heard and seen.
-// ---------------------------------------------------------------------------
-
-/// What a move feels like, as six named roles instead of per-move art.
-///
-/// Every move picks a role, so a jab and a forward smash look and sound
-/// different, and a new move needs no new asset. An SFX cue the bank never
-/// rendered is silence.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Feel {
-    /// The fast, cheap one: a swing sound only, so a smash still stands out.
-    Poke,
-    Heavy,
-    /// Sends them upward: a round burst and a light contact, because a juggle
-    /// starts here.
-    Launcher,
-    /// A signature special: charged, starburst, a solid contact.
-    Special,
-    /// A recovery activating: its own sound and burst, so players can see the
-    /// fighter is not dead yet.
-    Recovery,
-    /// A committed plunge: the smoke of something arriving fast.
-    Dive,
-}
-
-pub(crate) fn feel(m: MoveSpec, feel: Feel) -> MoveSpec {
-    let at = active_start(&m);
-    let (windup_cue, hit_cue, swing_cue, burst) = match feel {
-        Feel::Poke => (None, None, "player.slash", None),
-        Feel::Heavy => (
-            Some("player.attack.charge"),
-            Some("player.robot.slash.impact.metal.gong"),
-            "player.slash",
-            Some("shockwave"),
-        ),
-        Feel::Launcher => (
-            None,
-            Some("player.robot.slash.impact.flesh.light"),
-            "player.slash",
-            Some("burst_round"),
-        ),
-        // `sonic_boom` lives on `generic_exotic_fx`, so a signature special
-        // gets a look the shared explosion sheet does not have.
-        Feel::Special => (
-            Some("player.attack.charge"),
-            Some("world.rock.hit"),
-            "player.slash",
-            Some("sonic_boom"),
-        ),
-        Feel::Recovery => (
-            Some("player.attack.charge"),
-            Some("player.hit"),
-            "player.robot.slash.air",
-            Some("classic_burst"),
-        ),
-        Feel::Dive => (
-            None,
-            Some("player.robot.slash.impact.pogo"),
-            "player.robot.slash.air",
-            Some("smoke_burst"),
-        ),
-    };
-    let mut m = m;
-    if let Some(cue) = windup_cue {
-        m = sfx(m, 0.0, cue);
-    }
-    m = sfx(m, at, swing_cue);
-    if let Some(effect) = burst {
-        m = vfx(m, at, effect);
-    }
-    if let Some(cue) = hit_cue {
-        m = on_contact(m, cue);
-    }
-    m
-}
-
-/// The rest of the jab string: jab 2 and the rapid jab that finishes it.
-///
-/// Authored once and pushed into every table that wants the string, including
-/// George's own moveset, so there is one authoring site.
-pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
-    // Jab 2: the same beat again, a little harder, and the door to the
-    // finisher. Its own move: the chain is a cancel table over ordinary moves.
-    let mut jab2 = strike(Strike {
-        id: "jab2",
-        clip: "attack",
-        startup_s: 0.04,
-        active_s: 0.06,
-        recover_s: 0.16,
-        offset: (27.0, 0.0),
-        half_extents: (18.0, 14.0),
-        damage: 3,
-        knockback: 60.0,
-        // The stage's declaration in the stage's units: 0.02 of base.
-        knockback_growth: 60.0 * crate::SMASH_KNOCKBACK_GROWTH,
-        launch_dir: None,
-        on_hit: None,
-    });
-    jab2.gates = grounded_only();
-    let jab2 = cancelable(jab2, 0.10, 0.26, &["jab3"], CancelCondition::Always);
-
-    // Jab 3: the rapid jab and its finisher, on one timeline. Holding Attack
-    // through the loop keeps the flurry going; letting go (or reaching the
-    // maximum) exits into the launcher. `MoveLoop` supports this shape: what
-    // the move authors after `to_s` is the finisher.
-    //
-    // The pulses use fixed knockback (`Some(0.0)`). Growing knockback would
-    // carry the victim out of the flurry at high percent. Tuning values: one
-    // damage and a 46 px/s hold per pulse, a 0.14s lap, at most 1.2s of loop.
-    let mut jab3 = strike(Strike {
-        id: "jab3",
-        clip: "attack",
-        startup_s: 0.06,
-        active_s: 0.07,
-        recover_s: 0.26,
-        offset: (30.0, -2.0),
-        half_extents: (22.0, 16.0),
-        damage: 5,
-        knockback: 105.0,
-        knockback_growth: 105.0 * crate::SMASH_KNOCKBACK_GROWTH,
-        // Away and slightly up: the jab route ends in space, not a kill.
-        launch_dir: Some((1.0, -0.35)),
-        on_hit: None,
-    });
-    jab3.gates = grounded_only();
-    {
-        // The finisher volume, lifted off its window so the loop can be
-        // authored in front of it. Derived, not retyped: the pulse inherits
-        // the finisher's presentation tag.
-        let finisher = jab3.windows[1]
-            .volumes
-            .pop()
-            .expect("the strike builder authors one volume");
-        let pulse = HitVolume {
-            shape: VolumeShape::Rect {
-                offset: (28.0, 0.0),
-                half_extents: (19.0, 14.0),
-            },
-            damage: 1,
-            knockback: 46.0,
-            knockback_growth: Some(0.0),
-            launch_dir: None,
-            ..finisher.clone()
-        };
-        let active = |start_s: f32, end_s: f32, volume: HitVolume| MoveWindow {
-            start_s,
-            end_s,
-            tag: WindowTag::Active,
-            volumes: vec![volume],
-            motion_scale: 1.0,
-            sustain_effect: None,
-        };
-        jab3.windows = vec![
-            MoveWindow {
-                start_s: 0.0,
-                end_s: FLURRY_FROM_S,
-                tag: WindowTag::Startup,
-                volumes: Vec::new(),
-                motion_scale: 1.0,
-                sustain_effect: None,
-            },
-            active(FLURRY_FROM_S, 0.10, pulse.clone()),
-            active(0.13, 0.17, pulse),
-            active(FLURRY_TO_S, 0.27, finisher),
-            MoveWindow {
-                start_s: 0.27,
-                end_s: 0.53,
-                tag: WindowTag::Recovery,
-                volumes: Vec::new(),
-                motion_scale: 1.0,
-                sustain_effect: None,
-            },
-        ];
-        jab3.duration_s = 0.53;
-        jab3.repeat = Some(MoveLoop {
-            from_s: FLURRY_FROM_S,
-            to_s: FLURRY_TO_S,
-            max_s: 1.2,
-        });
-    }
-    vec![jab2, jab3]
-}
-
-#[cfg(test)]
 mod tests {
-    use super::*;
-    use ambition_entity_catalog::AttackDir;
+    use ambition_entity_catalog::{AttackDir, MoveSpec};
 
     /// What a press answers, not what a verb list binds.
     ///
@@ -330,7 +104,7 @@ mod tests {
     #[test]
     fn the_stand_in_is_george_s_genre_shape_with_the_special_button_removed() {
         let stand_in = silent_presses(&crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID));
-        let george = silent_presses(&crate::george_booul_moveset::george_booul_moveset());
+        let george = silent_presses(&crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL));
 
         let escaped: Vec<&String> = george.iter().filter(|p| !stand_in.contains(p)).collect();
         assert!(
@@ -376,7 +150,7 @@ mod tests {
         let mut seen = 0usize;
         for (who, set) in [
             ("the stand-in fighter", crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID)),
-            ("George", crate::george_booul_moveset::george_booul_moveset()),
+            ("George", crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL)),
         ] {
             for spec in &set.moves {
                 for window in &spec.windows {
@@ -701,7 +475,6 @@ mod tests {
     }
 }
 
-#[cfg(test)]
 mod hit_confirm_tests {
     use ambition_entity_catalog::{FlowNode, FlowSignal};
 
@@ -832,7 +605,6 @@ mod hit_confirm_tests {
     }
 }
 
-#[cfg(test)]
 mod recovery_tests {
     use ambition_entity_catalog::smash_teleport::{TeleportParams, TELEPORT};
     use ambition_entity_catalog::MoveEventKind;

@@ -36,11 +36,11 @@
 // know about meters, recoveries, being held or fallbacks; each of those is the
 // move's own statement.
 //
-// `jab_string_continuations`:
 // The rest of the jab string: jab 2 and the rapid jab that finishes it.
 //
-// Authored once and pushed into every table that wants the string, including
-// George's own moveset, so there is one authoring site.
+// George's table carries the same two moves. They are two copies until a move
+// file can take moves from another table (queue AP54);
+// `the_jab_string_is_one_string_in_both_tables` keeps them equal. Retune both.
 //
 // (`launch_dir: Some((1.0, -0.35)),`)
 // Away and slightly up: the jab route ends in space, not a kill.
@@ -178,6 +178,21 @@
 // (`("special_forward", "lunge_grab"),`)
 // The two specials this contract binds; see `lunge_grab` and
 // `riposte` above.
+//
+// The six feel roles (`Feel`) every move here and in George's table picked:
+// a Poke is a swing sound only, so a smash still stands out; a Heavy charges,
+// gongs and throws a shockwave; a Launcher sends them upward with a round burst
+// and a light contact, because a juggle starts there; a Special is charged,
+// with `sonic_boom` (on `generic_exotic_fx`, a look the shared explosion sheet
+// does not have) and a solid contact; a Recovery has its own sound and burst,
+// so players can see the fighter is not dead yet; a Dive is the smoke of
+// something arriving fast. Those roles are now the sfx and vfx events on each
+// move.
+//
+// `grounded_only` (the gates every ground move here states): ground moves are
+// grounded-only, so an airborne body falls through to its aerials instead of a
+// tilt. A grounded attack roots its owner, matching `SmashRepertoire`'s
+// `GROUNDED`, so both authoring roads feel the same.
 (
     schema_version: 1,
     entities: [

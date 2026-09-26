@@ -4,7 +4,6 @@
 //! prepares George's platform-fighter facet. George's authored values live with
 //! the character in the sprite-authoring submodule; this demo selects them.
 
-use ambition_platformer2d::entity_catalog::smash_capture::SmashCaptureRepertoire;
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
 use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
 use ambition_platformer2d::content::{CompileFailure, PreparedContentPack};
@@ -21,8 +20,14 @@ const GEORGE_FACET_RON: &str = include_str!(
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
 );
 
-/// The move tables this demo authors, as `pack.ron` declares them.
+/// The move tables this demo's pack declares, as `pack.ron` spells their paths.
 const MOVESETS: &[(&str, &str)] = &[
+    (
+        "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_moveset.ron",
+        include_str!(
+            "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_moveset.ron"
+        ),
+    ),
     (
         "data/movesets/smash_duelist_a.ron",
         include_str!("../assets/data/movesets/smash_duelist_a.ron"),
@@ -68,8 +73,7 @@ pub fn prepared() -> &'static PreparedContentPack {
 /// The move table this pack authors for `character`.
 ///
 /// The demo registers each fighter with this table, and the tests read it, so
-/// they guard the file the demo plays. George's table is still compiled
-/// (`george_booul_moveset`).
+/// they guard the file the demo plays.
 ///
 /// # Panics
 ///
@@ -123,21 +127,4 @@ pub fn fighter_body(character: &str) -> Option<ambition_platformer2d::engine_cor
 /// weight: keep the current weight (the reference body by default).
 pub fn fighter_knockback_weight(character: &str) -> Option<f32> {
     fighter_facet(character)?.knockback_weight
-}
-
-/// The prepared capture kit for a character this pack authors.
-///
-/// # Panics
-pub fn capture_kit(character: &str) -> SmashCaptureRepertoire {
-    let Some(facet) = fighter_facet(character) else {
-        let authored: Vec<&str> = lowered_smash_fighters(prepared())
-            .map(|book| book.keys().map(String::as_str).collect())
-            .unwrap_or_default();
-        panic!(
-            "the smash demo's pack authors no platform-fighter facet for `{character}`; \
-             it authors {authored:?}. Add the file to `assets/`, declare it in \
-             `assets/pack.ron`, and embed it in `smash_pack::embedded_sources`."
-        );
-    };
-    facet.capture.clone().into_repertoire()
 }

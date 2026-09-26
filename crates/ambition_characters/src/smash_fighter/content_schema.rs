@@ -4,7 +4,7 @@
 //! one file per character, merged into one book. The aggregate exists
 //! because the runtime looks a fighter up by id and must find exactly one
 //! answer; without it, two packs (or one pack with a copy-pasted file) would
-//! give a character two capture kits and the winner would be map iteration
+//! give a character two weights and the winner would be map iteration
 //! order.
 //!
 //! this schema does NOT emit a reference to the character it names, and the
@@ -65,17 +65,16 @@ impl ContentSchemaHandler for SmashFighterSchema {
         out.define(id.clone(), format!("{parsed:?}"));
 
         // every fault at once, at load, naming the file. The alternative to
-        // reporting these here is a grab that plays and catches nobody, which
-        // reads in a playtest as "the grab feels bad" rather than as a number.
+        // reporting these here is a fighter whose launch divides by zero, which
+        // reads in a playtest as a broken launch rather than as a number.
         for problem in parsed.problems() {
             out.report(
                 facet
                     .diagnostic(DiagnosticCode::MalformedProviderBinding, problem)
                     .about(id.clone())
                     .fix(
-                        "a capture kit is a grab that is live for a positive window over a \
-                         box with area, a pummel whose impact lands inside its own beat, and \
-                         throws that release inside theirs",
+                        "a fighter body states positive magnitudes, and a knockback weight \
+                         is positive",
                     ),
             );
         }
@@ -135,10 +134,9 @@ pub fn smash_fighter_schema() -> SchemaRegistration {
         version: SMASH_FIGHTER_VERSION,
         capability: CapabilityId::new(SMASH_FIGHTER_CAPABILITY),
         disposition: RuntimeDisposition::Runtime,
-        doc: "One character's platform-fighter values. v1 carries the capture kit — the \
-              grab's reach and timing, the pummel, and the throws — which the Smash \
-              capability prepares into runtime moves. Every such file merges into one book \
-              keyed by character id.",
+        doc: "One character's platform-fighter values apart from its moves: its fighter \
+              body and its knockback weight. The moves, grab included, are a `moveset` \
+              file. Every such file merges into one book keyed by character id.",
         handler: Arc::new(SmashFighterSchema),
     }
 }

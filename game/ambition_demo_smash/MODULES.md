@@ -11,14 +11,12 @@
 | [`capture`](src/capture.rs) | Capture's authored-effect chain, exercised end to end. |
 | [`counter`](src/counter.rs) | The counter, assembled from parts the engine already had. |
 | [`dilation`](src/dilation.rs) | The game half of `smash.time_dilation`: who is slow, and for how long. |
-| [`george_booul_moveset`](src/george_booul_moveset.rs) | George Booul's authored fighter repertoire. |
 | [`homing`](src/homing.rs) | The homing dash: the fighter is carried at whoever they were pointing at. |
 | [`limit`](src/limit.rs) | The game half of the Limit meter: who gains what, and when. |
 | [`mark`](src/mark.rs) | The delayed mark: a clock riding on the body that was hit. |
 | [`match_scope`](src/match_scope.rs) | What a match created, and what ends when the match does. |
 | [`mine`](src/mine.rs) | The remote mine: a stage object that answers to one fighter and nobody else. |
 | [`motion`](src/motion.rs) | The smash ruleset's commanded-velocity seam (ADR 0024, authority #4). |
-| [`moveset`](src/moveset.rs) | The move-building helpers George's compiled table uses, and the tests of the stand-in duelists' table. |
 | [`portal`](src/portal.rs) | The portal recovery, assembled from the portal crate's own parts. |
 | [`riposte`](src/riposte.rs) | The answering cut: a parry's response that hits back. |
 | [`select`](src/select.rs) | Pure character-select state for up to four match seats. |
@@ -29,7 +27,7 @@
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 
-_22 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

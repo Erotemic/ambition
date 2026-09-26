@@ -534,10 +534,8 @@ impl DashAttackShape {
 /// values are all `f32`, and `offset` and `half_extents` are both
 /// `(f32, f32)`, so a transposition would silently change a fighter's feel.
 ///
-/// A named-field record of pure values maps directly onto serde (as
-/// `CaptureKitAuthoring` does). It is not `Serialize` yet on purpose: adding
-/// the derive belongs to the authored `smash_fighter` facet, and adding it
-/// now would freeze a wire shape before anyone needs it.
+/// It is not `Serialize`: a move file states the `MoveSpec` a strike builds,
+/// so this record has no wire shape to freeze.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Strike<'a> {
     /// The move id. Unique within the kit.

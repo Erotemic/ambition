@@ -22,14 +22,16 @@ pub mod bomb;
 mod capture;
 pub mod counter;
 pub mod dilation;
-pub mod george_booul_moveset;
+#[cfg(test)]
+mod george_booul_moveset;
 pub mod homing;
 pub mod limit;
 pub mod mark;
 pub mod match_scope;
 pub mod mine;
 pub mod motion;
-pub mod moveset;
+#[cfg(test)]
+mod moveset;
 pub mod portal;
 pub mod riposte;
 pub mod select;
@@ -3259,13 +3261,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     ..ambition_platformer2d::engine_core::AbilitySet::NONE
                 });
             // The repertoire, on the character: preparation uses an authored
-            // moveset as-is, so the seat needs no generic floor. The stand-ins'
-            // table is content in this demo's pack; George's is still compiled.
-            definition = definition.with_moveset(if id == SMASH_GEORGE_BOOUL {
-                crate::george_booul_moveset::george_booul_moveset()
-            } else {
-                crate::smash_pack::shipped_moveset(id)
-            });
+            // moveset as-is, so the seat needs no generic floor. Every table is
+            // content in this demo's pack.
+            definition = definition.with_moveset(crate::smash_pack::shipped_moveset(id));
             app.register_character(definition);
         }
     }

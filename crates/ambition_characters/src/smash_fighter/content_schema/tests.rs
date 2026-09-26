@@ -16,33 +16,8 @@ use ambition_content_pack::{
 
 const GEORGE_SHAPED: &str = r#"(
     character: "test_george",
-    capture: (
-        grab: (
-            id: "george_grab",
-            clip: "grab",
-            startup_s: 0.16,
-            active_s: 0.06,
-            recover_s: 0.30,
-            reach: (offset: (18.0, 0.0), half_extents: (26.0, 13.0), hold_offset: (20.0, -2.0)),
-        ),
-        pummel: (
-            id: "george_pummel",
-            clip: "attack",
-            duration_s: 0.24,
-            impact_at_s: 0.11,
-            impact: (damage: 4),
-        ),
-        forward_throw: (
-            id: "george_fthrow",
-            clip: "attack",
-            duration_s: 0.34,
-            release_at_s: 0.20,
-            launch: (damage: 11, knockback: 138.0, knockback_growth: 1.9, launch_dir: (1.0, -0.35)),
-        ),
-        back_throw: None,
-        up_throw: None,
-        down_throw: None,
-    ),
+    body: Some((gravity: Some(1900.0), max_fall_speed: Some(640.0))),
+    knockback_weight: Some(1.35),
 )"#;
 
 fn registry() -> SchemaRegistry {
@@ -93,7 +68,8 @@ fn a_compiled_pack_carries_the_fighter_book_the_runtime_will_load() {
     let facet = book
         .get("test_george")
         .expect("the book is keyed by the character the facet names");
-    assert_eq!(facet.capture.grab.reach.half_extents, (26.0, 13.0));
+    assert_eq!(facet.knockback_weight, Some(1.35));
+    assert_eq!(facet.body.and_then(|body| body.gravity), Some(1900.0));
 }
 
 /// the aggregate runs for ONE source too. Without that the artifact's
@@ -131,16 +107,15 @@ fn two_files_claiming_one_character_are_refused_and_both_are_named() {
     assert!(rendered.contains("test_george"), "{rendered}");
 }
 
-/// the case that parses cleanly and is still wrong. Every field is a
-/// plausible number; the grab is a recovery animation. This is the fault the
-/// schema exists to name at load rather than as "the grab feels bad" after an
-/// evening of play.
+/// The case that parses cleanly and is still wrong: a weight the launch law
+/// divides by. It is named at load, not found as "this fighter flies wrong"
+/// after an evening of play.
 #[test]
-fn a_grab_that_can_never_catch_anybody_is_refused_by_the_compiler() {
-    let text = GEORGE_SHAPED.replace("active_s: 0.06", "active_s: 0.0");
+fn a_weight_the_launch_divides_by_is_refused_by_the_compiler_when_not_positive() {
+    let text = GEORGE_SHAPED.replace("knockback_weight: Some(1.35)", "knockback_weight: Some(0.0)");
     let failure = refuse(&[("fighters/george.ron", &text)]);
     let rendered = format!("{failure}");
-    assert!(rendered.contains("never asked about"), "{rendered}");
+    assert!(rendered.contains("knockback_weight"), "{rendered}");
     assert!(rendered.contains("fighters/george.ron"), "{rendered}");
 }
 
@@ -149,21 +124,21 @@ fn a_grab_that_can_never_catch_anybody_is_refused_by_the_compiler() {
 /// contract requires it to report.
 #[test]
 fn a_field_no_schema_consumes_is_refused_by_name() {
-    let text = GEORGE_SHAPED.replace("knockback_growth", "knockback_grouth");
+    let text = GEORGE_SHAPED.replace("max_fall_speed", "max_fall_sped");
     let failure = refuse(&[("fighters/george.ron", &text)]);
     let rendered = format!("{failure}");
-    assert!(rendered.contains("knockback_grouth"), "{rendered}");
+    assert!(rendered.contains("max_fall_sped"), "{rendered}");
 }
 
 /// A broken facet must not lower a partial book: the runtime never sees content
 /// the compiler refused.
 #[test]
 fn a_refused_facet_lowers_nothing_at_all() {
-    let broken = GEORGE_SHAPED.replace("release_at_s: 0.20", "release_at_s: 0.90");
+    let broken = GEORGE_SHAPED.replace("knockback_weight: Some(1.35)", "knockback_weight: Some(-1.0)");
     let failure = refuse(&[
         ("fighters/george.ron", GEORGE_SHAPED),
         ("fighters/broken.ron", &broken),
     ]);
     let rendered = format!("{failure}");
-    assert!(rendered.contains("never released"), "{rendered}");
+    assert!(rendered.contains("knockback_weight"), "{rendered}");
 }

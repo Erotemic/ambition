@@ -161,15 +161,11 @@ pub fn world_with_sandbox_solids(
     let mut collision_world = world_with_moving_platforms(world, platforms);
     // A gate contributes these instead of mutating the authored base mid-room.
     apply_overlay_subtractions(&mut collision_world, ecs_overlay);
-    collision_world
-        .blocks
-        .extend(ecs_overlay.blocks.iter().cloned());
+    extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.blocks);
     // Gate solids (lock walls) are authored-equivalent statics: added alongside
     // the base/platform solids BEFORE the carve so a portal aperture splits them
     // exactly as it would a base wall.
-    collision_world
-        .blocks
-        .extend(ecs_overlay.gate_solids.iter().cloned());
+    extend_in_canonical_order(&mut collision_world.blocks, &ecs_overlay.gate_solids);
     // Additive liquid (falling-sand settled pools) folds in alongside the base
     // water regions — keeps the authored base immutable while the projection is a
     // per-frame overlay contribution like the solids above.
@@ -183,6 +179,14 @@ pub fn world_with_sandbox_solids(
         carve_portal_apertures(&mut collision_world.blocks, &ecs_overlay.portal_carves);
     }
     collision_world
+}
+
+/// Append contributed blocks in [`ae::Block::canonical_cmp`] order, so the
+/// composed world does not depend on the order the contributors ran in.
+fn extend_in_canonical_order(blocks: &mut Vec<ae::Block>, contributed: &[ae::Block]) {
+    let start = blocks.len();
+    blocks.extend(contributed.iter().cloned());
+    blocks[start..].sort_by(ae::Block::canonical_cmp);
 }
 
 /// The room world with only portal apertures carved out. Projectiles do not use
@@ -255,8 +259,8 @@ pub fn world_with_contributed_solids_and_carves<'w>(
     // shot passes through it exactly as the player does, then add gate solids +
     // carve.
     remove_named_blocks(&mut composed.blocks, removed_block_names);
-    composed.blocks.extend(gate_solids.iter().cloned());
-    composed.blocks.extend(contributed_solids.iter().cloned());
+    extend_in_canonical_order(&mut composed.blocks, gate_solids);
+    extend_in_canonical_order(&mut composed.blocks, contributed_solids);
     if !portal_carves.is_empty() {
         carve_portal_apertures(&mut composed.blocks, portal_carves);
     }
@@ -530,5 +534,64 @@ mod collision_world_tests {
         let none: Vec<ae::Block> = Vec::new();
         let borrowed = world_with_gate_solids_and_carves(&room.0, &none, &[], &[]);
         assert!(matches!(borrowed, Cow::Borrowed(_)));
+    }
+}
+
+#[cfg(test)]
+mod contributed_block_order_tests {
+    use super::*;
+
+    /// Two contributed walls on the same spot, from two occurrences. A reader
+    /// that takes the first block that matches gets one or the other.
+    fn walls() -> [ae::Block; 2] {
+        let wall = |occurrence: &str| ae::Block {
+            id: ae::GeoId::placement(ae::PlacementId::new(occurrence), 0),
+            name: format!("wall {occurrence}"),
+            ..ae::Block::solid("", ae::Vec2::new(100.0, 0.0), ae::Vec2::new(16.0, 64.0))
+        };
+        [wall("crate_b"), wall("crate_a")]
+    }
+
+    fn names(world: &ae::World) -> Vec<String> {
+        world.blocks.iter().map(|block| block.name.clone()).collect()
+    }
+
+    /// The contributors are unordered among themselves and each iterates a
+    /// query in storage order, so the order a block list arrives in is not a
+    /// fact about the world. Each composition states one order for it.
+    #[test]
+    fn a_composed_world_does_not_depend_on_the_order_its_blocks_were_contributed() {
+        let room = ae::World::new(
+            "test",
+            ae::Vec2::new(400.0, 400.0),
+            ae::Vec2::new(50.0, 50.0),
+            vec![ae::Block::solid("floor", ae::Vec2::new(0.0, 380.0), ae::Vec2::new(400.0, 20.0))],
+        );
+        let [b, a] = walls();
+        let forward = [b.clone(), a.clone()];
+        let backward = [a, b];
+
+        let sandbox = |blocks: &[ae::Block], gates: &[ae::Block]| {
+            let overlay = FeatureEcsWorldOverlay {
+                blocks: blocks.to_vec(),
+                gate_solids: gates.to_vec(),
+                ..Default::default()
+            };
+            names(&world_with_sandbox_solids(&room, &[], &overlay))
+        };
+        assert_eq!(sandbox(&forward, &[]), sandbox(&backward, &[]), "contributed blocks");
+        assert_eq!(sandbox(&[], &forward), sandbox(&[], &backward), "gate solids");
+
+        let projectile = |gates: &[ae::Block], contributed: &[ae::Block]| {
+            names(&world_with_contributed_solids_and_carves(&room, gates, contributed, &[], &[]))
+        };
+        assert_eq!(projectile(&forward, &[]), projectile(&backward, &[]), "gate solids");
+        assert_eq!(projectile(&[], &forward), projectile(&[], &backward), "contributed blocks");
+
+        // The authored room keeps its own order, ahead of what is contributed.
+        assert_eq!(
+            sandbox(&forward, &[]),
+            ["floor", "wall crate_a", "wall crate_b"],
+        );
     }
 }

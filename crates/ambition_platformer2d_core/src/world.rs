@@ -104,6 +104,37 @@ pub struct Block {
 }
 
 impl Block {
+    /// A total order over blocks that does not depend on which system added a
+    /// block first: the durable identity, then the name, then the rectangle.
+    ///
+    /// Readers take the FIRST block that matches (projectile collision, ledge
+    /// grab, collision semantics, held-item support), so the order of a block
+    /// list is part of what it says. Geometry contributed at run time comes
+    /// from systems that are unordered among themselves, each iterating a
+    /// query in storage order, so it is put in this order when it is composed
+    /// into a world.
+    pub fn canonical_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let rect = |block: &Self| {
+            [
+                block.aabb.min.x,
+                block.aabb.min.y,
+                block.aabb.max.x,
+                block.aabb.max.y,
+            ]
+        };
+        self.id
+            .cmp(&other.id)
+            .then_with(|| self.name.cmp(&other.name))
+            .then_with(|| {
+                rect(self)
+                    .iter()
+                    .zip(rect(other).iter())
+                    .map(|(a, b)| a.total_cmp(b))
+                    .find(|order| order.is_ne())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    }
+
     /// Draw this block as a flat `[r, g, b, a]` quad instead of the shared art for
     /// its kind — the placeholder for a shape whose sprite has not been made yet.
     #[must_use]

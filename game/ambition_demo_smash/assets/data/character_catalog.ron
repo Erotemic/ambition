@@ -1,0 +1,143 @@
+// The Smash demo's cast: its controller policies, presets and characters.
+//
+// The demo registers every row here as a character with one call
+// (`smash_pack::PACK.cast(..)`), so a new fighter is a row here, a move file
+// and a line in `pack.ron`. The crossover cast is Ambition's and the other
+// demos' own; the host composes it.
+(
+    autonomous_profiles: {
+        // THE STAGE'S CPU POLICY, PUBLISHED.
+        // A CPU seat named `duelist` and the match resolved it through
+        // `CharacterRoster` — an enemy ARCHETYPE table — so the controller half
+        // of `character + controller + team` was arriving by way of a body
+        // definition. This is what a controller policy IS.
+        //
+        // the numbers are the archetype row's controller half verbatim.
+        "duelist": (
+            template: Fighter,
+            aggro_radius: 600.0,
+            attack_range: 48.0,
+            patrol_effort: 1.0,
+            chase_effort: 1.0,
+            fighter_level: 5,
+        ),
+        // that is the whole thesis in six rows: a difficulty setting is a CONTROLLER fact, and
+        // stating it required declaring a whole creature.
+        "duelist_l1": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 1,
+        ),
+        "duelist_l3": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 3,
+        ),
+        "duelist_l5": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 5,
+        ),
+        "duelist_l6": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 6,
+        ),
+        "duelist_l9": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 9,
+        ),
+        // THE TRAINING TARGET, AND IT IS A POLICY LIKE ANY OTHER.
+        //
+        // ⛔⛔ A SEAT WITH NO DRIVER IS REFUSED, on purpose: `Cpu { brain_profile:
+        // None }` cannot be told apart from a brain that failed to install. So
+        // "stands there and takes it" is stated as a controller policy, and a
+        // fighter seated on it is an ordinary staged body — damageable, launchable,
+        // and subject to every rule — that makes no decisions.
+        //
+        // ⭐ Named beside the ladder because it belongs to the same axis: what
+        // this seat DOES is a controller fact, and zero is a rung.
+        "stand_still": (
+            template: StandStill,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            patrol_effort: 0.0,
+            chase_effort: 0.0,
+        ),
+    },
+    brain_presets: {
+        "stand_still": StandStill,
+        // The FB4b fighter brain, selected from content. Until
+        // there was no `BrainPreset` variant for it, so the rig existed and no
+        // catalog row could ask for it — the demo's duelists stood still because
+        // standing still was the only thing they could be told to do.
+        "duelist": Fighter(level: 5),
+    },
+    action_set_presets: {
+        "duelist": (
+            move_style: Walk,
+            // A real swipe, not a placeholder: the whole point of the stage is
+            // that a hit LAUNCHES, and a fighter with no melee cannot knock
+            // anybody off anything.
+            melee: Some(Swipe(
+                windup_s: 0.22,
+                active_s: 0.08,
+                recover_s: 0.26,
+                damage: 4,
+                reach_px: 34.0,
+            )),
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "smash_duelist_a": (
+            // NOT "Duelist A". It wears `player_robot_v3`'s
+            // sheet and is a STAND-IN for that character in compositions that do
+            // not carry it; naming it anything else pretended it was somebody
+            // new. Distinct from the content catalog's "Player Robot v3",
+            // because the assembled catalog refuses two rows sharing a name.
+            display_name: "Robot v3",
+            spritesheet: "sprites/player_robot_v3_spritesheet.png",
+            manifest: "sprites/player_robot_v3_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "duelist",
+            default_action_set: "duelist",
+            // What this fighter's body can do. In a match the stage grants its
+            // floor (`SMASH_FIGHTER_KIT`) and trims to its ceiling, so the verb
+            // a fighter brings from home is `Pogo`.
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
+            // The player-grade feel, not the actor baseline: without it a
+            // fighter plays floaty and sluggish.
+            axis_tuning: Some(()),
+            tags: ["player", "smash"],
+            fallback_dialogue: ["Off the edge is the only way out."],
+        ),
+        "smash_duelist_b": (
+            display_name: "Robot v2",
+            spritesheet: "sprites/player_robot_v2_spritesheet.png",
+            manifest: "sprites/player_robot_v2_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "duelist",
+            default_action_set: "duelist",
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
+            axis_tuning: Some(()),
+            tags: ["smash"],
+            fallback_dialogue: ["Percent is not health. I learned that the hard way."],
+        ),
+        "smash_george_booul": (
+            display_name: "George Booul",
+            spritesheet: "sprites/george_booul_spritesheet.png",
+            manifest: "sprites/george_booul_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "duelist",
+            default_action_set: "duelist",
+            abilities: Some([RunJump, AirJump, FastFall, Attack, DirectionalPrimary, Pogo, Shield, Dodge, LedgeGrab]),
+            axis_tuning: Some(()),
+            tags: ["smash"],
+            fallback_dialogue: ["Either you are on the stage or you are not."],
+        ),
+    },
+)

@@ -741,6 +741,19 @@ pub enum AbilityGrant {
     /// Curl into the Morph Ball. A progression grant an experience hands its
     /// home body, not part of any character's kit.
     MorphBall,
+    /// The primary attack verb.
+    Attack,
+    /// The primary attack reads the stick, so a direction and the attack button
+    /// can play different moves.
+    DirectionalPrimary,
+    /// A downward attack that refreshes the body's air mobility on a hit.
+    Pogo,
+    /// Hold a shield that blocks hits.
+    Shield,
+    /// Evade: a dodge roll on the ground and an air dodge in the air.
+    Dodge,
+    /// Catch and hang from a ledge.
+    LedgeGrab,
 }
 
 impl AbilityGrant {
@@ -779,6 +792,30 @@ impl AbilityGrant {
             Self::SandboxAll => AbilitySet::sandbox_all(),
             Self::MorphBall => AbilitySet {
                 morph: true,
+                ..AbilitySet::NONE
+            },
+            Self::Attack => AbilitySet {
+                attack: true,
+                ..AbilitySet::NONE
+            },
+            Self::DirectionalPrimary => AbilitySet {
+                directional_primary: true,
+                ..AbilitySet::NONE
+            },
+            Self::Pogo => AbilitySet {
+                pogo: true,
+                ..AbilitySet::NONE
+            },
+            Self::Shield => AbilitySet {
+                shield: true,
+                ..AbilitySet::NONE
+            },
+            Self::Dodge => AbilitySet {
+                dodge: true,
+                ..AbilitySet::NONE
+            },
+            Self::LedgeGrab => AbilitySet {
+                ledge_grab: true,
                 ..AbilitySet::NONE
             },
         }

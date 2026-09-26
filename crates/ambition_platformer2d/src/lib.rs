@@ -186,6 +186,102 @@ pub mod content {
                     )
                 })
         }
+
+        /// The cast this pack states: every row of its `character_catalog`
+        /// source, for `provider`.
+        ///
+        /// Each character is built from what the pack says about it and from
+        /// nothing else: its catalog row (name, sheet, ability grants, feel,
+        /// health), its move table if the pack authors one, and its knockback
+        /// weight if its platform-fighter facet states one. A game registers
+        /// its cast with one call and writes no per-character Rust.
+        ///
+        /// # Panics
+        ///
+        /// When the pack has no `character_catalog` source, or `default_character`
+        /// names no row in it.
+        pub fn cast(
+            &'static self,
+            provider: &str,
+            default_character: Option<&str>,
+        ) -> PackCast {
+            use ambition_characters::actor::character_catalog::{
+                lowered_catalog, CharacterCatalogFragment,
+            };
+            let pack = self.prepared();
+            let catalog = lowered_catalog(pack).unwrap_or_else(|| {
+                panic!(
+                    "the embedded pack `{}` states no cast: declare a `character_catalog` \
+                     source in its manifest",
+                    pack.id.0
+                )
+            });
+            let fragment = CharacterCatalogFragment::from_prepared(
+                format!("{}:character_catalog", pack.id.0),
+                provider,
+                default_character,
+                catalog.clone(),
+            )
+            .unwrap_or_else(|error| panic!("the embedded pack `{}`: {error}", pack.id.0));
+            PackCast {
+                pack: self,
+                provider: provider.to_string(),
+                fragment,
+            }
+        }
+    }
+
+    /// A pack's cast, ready to register. See [`EmbeddedPack::cast`].
+    pub struct PackCast {
+        pack: &'static EmbeddedPack,
+        provider: String,
+        fragment: ambition_characters::actor::character_catalog::CharacterCatalogFragment,
+    }
+
+    impl PackCast {
+        /// What a character of this provider that states no verbs can do as an
+        /// actor. A provider fact, not a character fact.
+        pub fn with_actor_default_abilities(
+            mut self,
+            abilities: ambition_platformer2d_core::AbilitySet,
+        ) -> Self {
+            self.fragment = self.fragment.with_actor_default_abilities(abilities);
+            self
+        }
+
+        /// Register the catalog and every character in it.
+        pub fn register(self, app: &mut bevy::prelude::App) {
+            use ambition_characters::actor::character_catalog::CharacterCatalogAppExt;
+            use ambition_characters::actor::definition::CharacterDefinition;
+            use ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinitionAppExt;
+
+            let pack = self.pack.prepared();
+            let movesets = ambition_characters::moveset_content_schema::lowered_movesets(pack);
+            let fighters =
+                ambition_characters::smash_fighter::content_schema::lowered_smash_fighters(pack);
+            let characters: Vec<(String, String)> = self
+                .fragment
+                .catalog()
+                .characters
+                .iter()
+                .map(|(id, row)| (id.clone(), row.display_name.clone()))
+                .collect();
+            app.register_character_catalog_fragment(self.fragment);
+            for (id, display_name) in characters {
+                // The sheet, the grants, the feel and the health come from the
+                // catalog row at preparation, so the definition names only what
+                // the row cannot say.
+                let mut definition =
+                    CharacterDefinition::new(id.clone(), display_name, self.provider.clone());
+                if let Some(moveset) = movesets.and_then(|table| table.get(&id)) {
+                    definition = definition.with_moveset(moveset.clone());
+                }
+                definition.vitals.knockback_weight = fighters
+                    .and_then(|book| book.get(&id))
+                    .and_then(|facet| facet.knockback_weight);
+                app.register_character(definition);
+            }
+        }
     }
 }
 
@@ -1105,6 +1201,21 @@ mod content_sdk_tests {
         assert!(
             text.contains("stranger") && text.contains("\"hero\""),
             "the refusal does not name the character and what the pack authors: {text}"
+        );
+
+        // A pack with no catalog states no cast, and asking it for one is a
+        // refusal that says what to declare, not an empty roster.
+        let refusal = std::panic::catch_unwind(|| {
+            let _ = PACK.cast("probe", None::<&str>);
+        })
+        .expect_err("a pack with no `character_catalog` source must refuse to state a cast");
+        let text = refusal
+            .downcast_ref::<String>()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            text.contains("embedded_probe") && text.contains("character_catalog"),
+            "the refusal does not name the pack and the source it lacks: {text}"
         );
     }
 

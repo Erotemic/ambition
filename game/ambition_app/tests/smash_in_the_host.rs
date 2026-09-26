@@ -1816,10 +1816,10 @@ fn a_grid_fighter_that_authors_no_feel_is_seated_on_the_wandering_enemys_body() 
 /// character facts by character id"*.
 ///
 /// ⛔ SO A VALUE ASSERTION ALONE WOULD HAVE BEEN GREEN BEFORE THE MIGRATION AND
-/// GREEN AFTER IT. What makes this load-bearing is the second half: the STAND-INS
-/// author no facet and must read `None` from the pack. Delete
-/// `knockback_weight` from George's `smash_fighter.ron` and the first assertion
-/// goes red; put the demo's table back and the second one does.
+/// GREEN AFTER IT. What makes this load-bearing is provenance for every fighter:
+/// since AP58 the demo registers its cast with no per-character code, so each
+/// stand-in states its weight in its own facet file, beside George's, and the
+/// prepared weight is the one its file states.
 #[test]
 fn george_carries_the_knockback_weight_his_own_facet_authors() {
     use ambition_demo_smash::{SMASH_CHARACTER_ID, SMASH_GEORGE_BOOUL, SMASH_OPPONENT_ID};
@@ -1832,15 +1832,12 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
          heaviest fighter on the grid launches like the reference body and \
          nothing else in the tree would notice"
     );
-    // ⛔ AND THE TWO STAND-INS AUTHOR NOTHING. If a table is quietly restored,
-    // it restores all three arms, so this is the arm that catches it.
-    for id in [SMASH_CHARACTER_ID, SMASH_OPPONENT_ID] {
+    // The two stand-ins state theirs in their own facet files.
+    for (id, weight) in [(SMASH_CHARACTER_ID, 1.0), (SMASH_OPPONENT_ID, 0.85)] {
         assert_eq!(
             ambition_demo_smash::smash_pack::fighter_knockback_weight(id),
-            None,
-            "`{id}` is a demo-owned stand-in the composed host drops; it must \
-             state its weight where it is CONSTRUCTED, not through a facet this \
-             repository does not author"
+            Some(weight),
+            "`{id}`'s facet (`data/fighters/{id}.ron`) must state its weight"
         );
     }
 
@@ -1872,6 +1869,69 @@ fn george_carries_the_knockback_weight_his_own_facet_authors() {
         "the stage is tuned against this body; it is the 1.0 George's 1.35 is a \
          spread AROUND, and a heavy with no reference is just a number"
     );
+}
+
+/// ⭐ THE SMASH DEMO'S CAST IS ITS PACK, AND EACH FIGHTER IS PREPARED AS THE
+/// RUST REGISTRATION THE PACK REPLACED BUILT IT (AP58).
+///
+/// The demo registers its cast with `PACK.cast(..).register(app)`: every
+/// catalog row, its move table and its facet. The expected values here are the
+/// ones the deleted Rust loop stated: the name, the sheet, the player-grade
+/// feel and the ability kit. The kit is compared as the match applies it
+/// (`granted` floor, `permitted` ceiling), because that is the kit a seated
+/// fighter plays with. Weights are held by
+/// `george_carries_the_knockback_weight_his_own_facet_authors`.
+#[test]
+fn the_smash_demos_cast_is_prepared_from_its_pack_as_the_rust_registration_built_it() {
+    use ambition_demo_smash::{SMASH_CHARACTER_ID, SMASH_GEORGE_BOOUL, SMASH_OPPONENT_ID};
+    use ambition_platformer2d::engine_core::{AbilitySet, MatchAbilities, DEFAULT_TUNING};
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    settle(&mut app);
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let registered_kit = AbilitySet {
+        move_horizontal: true,
+        jump: true,
+        variable_jump: true,
+        double_jump: true,
+        fast_fall: true,
+        attack: true,
+        pogo: true,
+        directional_primary: true,
+        shield: true,
+        dodge: true,
+        ledge_grab: true,
+        ..AbilitySet::NONE
+    };
+    let rule = MatchAbilities {
+        granted: ambition_demo_smash::SMASH_FIGHTER_KIT,
+        permitted: ambition_demo_smash::SMASH_FIGHTER_CEILING,
+    };
+    for (id, name, sheet) in [
+        (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3"),
+        (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2"),
+        (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
+    ] {
+        let prepared = registry
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is not in the shipped host's prepared cast"));
+        assert_eq!(prepared.display_name, name, "{id}");
+        assert_eq!(prepared.sheet.as_deref(), Some(sheet), "{id}");
+        assert_eq!(
+            prepared.movement_tuning,
+            Some(DEFAULT_TUNING),
+            "`{id}` must play the player-grade feel, not the actor baseline"
+        );
+        assert_eq!(
+            rule.apply(prepared.abilities),
+            rule.apply(Some(registered_kit)),
+            "`{id}` plays a different kit in a match"
+        );
+    }
 }
 
 // fighters it has, which is what lets the bare smash app run at all. It also

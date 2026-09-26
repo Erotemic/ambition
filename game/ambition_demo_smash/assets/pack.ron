@@ -37,6 +37,11 @@
     // longer validates from a checkout with the submodule uninitialised, which
     // is the honest consequence of the values living where they belong.
     sources: [
+        // The cast: every row is a character the demo registers.
+        (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
+        // The stand-ins' platform-fighter facets (their weights).
+        (path: "data/fighters/smash_duelist_a.ron", schema: "smash_fighter", version: 1),
+        (path: "data/fighters/smash_duelist_b.ron", schema: "smash_fighter", version: 1),
         (
             path: "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron",
             schema: "smash_fighter",

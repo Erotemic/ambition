@@ -937,6 +937,18 @@ fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
     );
 }
 
+/// The catalog the demo registers: the one its pack compiled.
+fn shipped_catalog() -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
+    use ambition_platformer2d::characters::actor::character_catalog::{
+        lowered_catalog, CharacterCatalog,
+    };
+    CharacterCatalog::from_data(
+        lowered_catalog(crate::smash_pack::PACK.prepared())
+            .expect("the smash pack states its cast")
+            .clone(),
+    )
+}
+
 /// Every difficulty this demo can ask for is a published policy.
 ///
 /// `smash_roster_at_levels` builds `duelist_l{level}` keys that must resolve as
@@ -944,11 +956,7 @@ fn the_match_declares_the_pool_every_fighters_percent_is_read_against() {
 /// preparation refuses the seat loudly.
 #[test]
 fn every_authored_difficulty_is_a_published_controller_policy() {
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        parse_catalog, CharacterCatalog,
-    };
-
-    let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
+    let catalog = shipped_catalog();
     let profiles = &catalog.data().autonomous_profiles;
     for level in [1u8, 3, 5, 6, 9] {
         let key = format!("{SMASH_DUELIST_BRAIN}_l{level}");
@@ -983,11 +991,7 @@ fn every_authored_difficulty_is_a_published_controller_policy() {
 /// stands still, which looks the same as a brain that was never installed.
 #[test]
 fn the_duelist_preset_is_a_fighter_brain() {
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        parse_catalog, CharacterCatalog,
-    };
-
-    let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
+    let catalog = shipped_catalog();
     assert!(
         catalog.has_brain_preset("duelist"),
         "the catalog does not know the `duelist` preset at all, so every \

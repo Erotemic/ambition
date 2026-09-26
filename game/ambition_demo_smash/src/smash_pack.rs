@@ -1,8 +1,9 @@
-//! Smash demo content pack for George Booul.
+//! The Smash demo's content pack.
 //!
-//! The demo compiles its embedded `pack.ron` through the platformer facade:
-//! every fighter's move table, and George's platform-fighter facet. George's authored values live with
-//! the character in the sprite-authoring submodule; this demo selects them.
+//! The demo compiles its embedded `pack.ron` through the platformer facade: its
+//! cast (the character catalog), every fighter's move table and every
+//! fighter's platform-fighter facet. George's authored values live with the
+//! character in the sprite-authoring submodule; this demo selects them.
 
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
 use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
@@ -28,6 +29,18 @@ macro_rules! george {
 pub static PACK: EmbeddedPack = EmbeddedPack::new(
     include_str!("../assets/pack.ron"),
     &[
+        (
+            "data/character_catalog.ron",
+            include_str!("../assets/data/character_catalog.ron"),
+        ),
+        (
+            "data/fighters/smash_duelist_a.ron",
+            include_str!("../assets/data/fighters/smash_duelist_a.ron"),
+        ),
+        (
+            "data/fighters/smash_duelist_b.ron",
+            include_str!("../assets/data/fighters/smash_duelist_b.ron"),
+        ),
         (george!("smash_fighter.ron"), include_str!(george!("smash_fighter.ron"))),
         (george!("smash_moveset.ron"), include_str!(george!("smash_moveset.ron"))),
         (

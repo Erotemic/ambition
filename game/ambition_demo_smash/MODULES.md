@@ -23,7 +23,7 @@
 | [`select_screen`](src/select_screen.rs) | Smash character-select presentation and cursor interaction. |
 | [`shark_ride`](src/shark_ride.rs) | The pirate's up-special: summon a burning flying shark and ride it. |
 | [`sing`](src/sing.rs) | Sing: an area that takes the floor away from whoever stood too close. |
-| [`smash_pack`](src/smash_pack.rs) | Smash demo content pack for George Booul. |
+| [`smash_pack`](src/smash_pack.rs) | The Smash demo's content pack. |
 | [`spring`](src/spring.rs) | A plate on the floor that throws whoever steps on it. |
 | [`tether`](src/tether.rs) | The tether reel: she throws a line at a ledge and it pulls her to it. |
 

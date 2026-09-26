@@ -352,8 +352,12 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
 #[test]
 fn every_own_fighter_is_declared_by_this_demo() {
     for id in OWN_FIGHTERS {
+        let catalog = ambition_platformer2d::characters::actor::character_catalog::lowered_catalog(
+            crate::smash_pack::PACK.prepared(),
+        )
+        .expect("the smash pack states its cast");
         assert!(
-            crate::SMASH_CATALOG_RON.contains(&format!("\"{id}\":")),
+            catalog.characters.contains_key(*id),
             "'{id}' is one of this demo's own fighters and no catalog row declares it"
         );
         assert!(

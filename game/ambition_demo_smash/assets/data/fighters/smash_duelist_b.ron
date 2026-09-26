@@ -1,0 +1,5 @@
+// Robot v2's stand-in, as a platform fighter: the lighter build.
+(
+    character: "smash_duelist_b",
+    knockback_weight: Some(0.85),
+)

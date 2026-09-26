@@ -200,8 +200,10 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
 /// none on load. MEASURED 2026-09-07 over every shipped `.ldtk`
 /// (`scripts/measure_persisting_enemy_placements.py`): exactly two rooms author a
 /// persisting policy, `pirate_sky_lookout` (4) and `pirate_sky_arena` (3), all of
-/// them `OnRest`. ⚠ So the flag here is the `OnRest` spelling,
-/// `enemy_<id>_dead_until_rest`.
+/// them `OnRest`. RE-MEASURED 2026-09-26: ONE room, `pirate_sky_arena` (3) — the
+/// lookout's enemy zone now authors `enemy_respawn: OnRoomReenter` (Jon: its
+/// riders should come back with their sharks). ⚠ So the flag here is the
+/// `OnRest` spelling, `enemy_<id>_dead_until_rest`.
 ///
 /// ⚠ This used to assert the body was zeroed ONE TICK after the flag was set,
 /// in place — the mechanism then was a save mirror re-applying every flag every
@@ -209,7 +211,7 @@ fn a_challenged_npc_is_still_hostile_after_a_room_replay() {
 /// (`construction::PersistedFates`), so the witness is a rebuild.
 #[test]
 fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
-    let mut sim = crate::common::fixed_60hz_room_sim("pirate_sky_lookout");
+    let mut sim = crate::common::fixed_60hz_room_sim("pirate_sky_arena");
     sim.step_n(base(), 120);
 
     let on_rest_bodies = |sim: &mut ambition_app::Platformer2dSimHarness| -> Vec<(Entity, String, i32)> {
@@ -236,7 +238,7 @@ fn a_room_rebuilt_after_a_persisted_on_rest_death_builds_that_body_dead() {
     let (body, id, hp_before) = on_rest_bodies(&mut sim)
         .into_iter()
         .find(|(_, _, hp)| *hp > 0)
-        .expect("pirate_sky_lookout authors live OnRest EnemySpawn placements");
+        .expect("pirate_sky_arena authors live OnRest EnemySpawn placements");
 
     let flag = format!(
         "enemy_{id}{}",

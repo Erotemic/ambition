@@ -209,11 +209,35 @@ impl LdtkProject {
                 ));
                 continue;
             }
+            // The level's enemy ZONE policy: when its enemies come back, for every
+            // `EnemySpawn` in it that does not author its own `respawn`. One switch
+            // for the zone instead of one per placement, lowered here onto the
+            // placements so `placement_respawn` stays the only resolution.
+            let zone_respawn = match level.field_string("enemy_respawn").map(|text| text.trim().to_string()) {
+                None => None,
+                Some(text) if text.is_empty() => None,
+                Some(text) => match entity_converters::parse_respawn_policy(&text) {
+                    Some(policy) => Some(policy),
+                    None => {
+                        errors.push(format!(
+                            "level '{}' authors enemy_respawn `{text}`, which is not one of \
+                             DeadStaysDead / OnRoomReenter / OnRest / InPlace(seconds)",
+                            level.identifier
+                        ));
+                        None
+                    }
+                },
+            };
             // Read every Entities layer, not only `"Ambition"`, so a side layer such as
             // `"AmbitionCameras"` is also read.
             for entity in level.all_entity_instances() {
                 match entity_to_runtime(entity, offset, vocabulary, &kinematic_path_ids) {
-                    Ok(emission) => {
+                    Ok(mut emission) => {
+                        if let Some(policy) = zone_respawn {
+                            for spawn in &mut emission.enemy_spawns {
+                                spawn.payload.respawn.get_or_insert(policy);
+                            }
+                        }
                         if emission.ignored {
                             continue;
                         }
@@ -1016,6 +1040,52 @@ mod tests {
             value,
             real_editor_values: vec![],
         }
+    }
+
+    /// A level authors its enemy ZONE's respawn once; a placement can still say
+    /// its own.
+    ///
+    /// Jon: the choice of whether a zone's enemies come back "should be
+    /// deliberately authored, so we can toggle something and then dead stays dead
+    /// for them" — "as long as individual actors are able to override the default
+    /// for the zone". The zone value is lowered onto every placement that states
+    /// none; a placement's own `respawn` wins.
+    #[test]
+    fn a_level_authors_its_enemy_zones_respawn_and_a_placement_can_override_it() {
+        use ambition_entity_catalog::placements::RespawnPolicy;
+        let enemy = |px: [i32; 2], respawn: Option<&str>| {
+            let mut fields = vec![("character_id", Value::String("npc_pirate_raider".into()))];
+            if let Some(respawn) = respawn {
+                fields.push(("respawn", Value::String(respawn.into())));
+            }
+            entity_at("EnemySpawn", px, [32, 48], &fields)
+        };
+        let project = |zone: Option<&str>| {
+            let mut project = synthetic_level(vec![enemy([160, 200], None), enemy([320, 200], Some("OnRest"))]);
+            if let Some(zone) = zone {
+                project.levels[0].field_instances.push(level_field("enemy_respawn", Value::String(zone.into())));
+            }
+            project
+        };
+        let policies = |zone: Option<&str>| {
+            let room_set = project(zone)
+                .to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine())
+                .expect("the project composes");
+            let mut spawns: Vec<_> = room_set.rooms[0].enemy_spawns.iter().map(|s| (s.aabb.min.x, s.payload.respawn)).collect();
+            spawns.sort_by(|a, b| a.0.total_cmp(&b.0));
+            spawns.into_iter().map(|(_, respawn)| respawn).collect::<Vec<_>>()
+        };
+        assert_eq!(
+            policies(Some("DeadStaysDead")),
+            [Some(RespawnPolicy::DeadStaysDead), Some(RespawnPolicy::OnRest)],
+            "the zone fills the placement that states nothing; the one that states OnRest keeps it"
+        );
+        assert_eq!(policies(None), [None, Some(RespawnPolicy::OnRest)], "no zone: each placement as authored");
+        let refused = project(Some("DeadStaysDaed")).to_room_set_with_entry("registry_lab", &LdtkVocabulary::engine());
+        assert!(
+            refused.is_err_and(|error| format!("{error:?}").contains("enemy_respawn")),
+            "a misspelled zone policy is refused, not read as no policy"
+        );
     }
 
     /// A stage authors where it ends.

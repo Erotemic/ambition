@@ -788,7 +788,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
 /// Parse an authored respawn policy. The vocabulary is the engine's
 /// [`RespawnPolicy`](ambition_entity_catalog::placements::RespawnPolicy), spelled
 /// as a level author would write it in an LDtk string field.
-fn parse_respawn_policy(text: &str) -> Option<ambition_entity_catalog::placements::RespawnPolicy> {
+pub(super) fn parse_respawn_policy(text: &str) -> Option<ambition_entity_catalog::placements::RespawnPolicy> {
     use ambition_entity_catalog::placements::RespawnPolicy;
     match text {
         "" => None,

@@ -1,16 +1,15 @@
-//! Shared authored platform-fighter repertoire for demo fighters that do not
-//! provide a character-owned table.
+//! The move-building helpers George's compiled table uses, and the tests of the
+//! stand-in duelists' table.
 //!
-//! The table covers directional ground attacks, smashes, aerials, landing lag,
-//! autocancel, charge scaling, and knockback growth through ordinary `MoveSpec`
-//! data. Authored `knockback_growth` uses absolute px/s per damage point; values
-//! here are chosen to match the stage's base-relative growth policy.
+//! The stand-ins' table is content: `assets/data/movesets/smash_duelist_a.ron`,
+//! which `smash_duelist_b` borrows. The tests read it through
+//! [`crate::smash_pack::shipped_moveset`], the table the demo plays.
 
 use ambition_entity_catalog::authoring::{
     active_start, cancelable, on_contact, sfx, strike, vfx, Strike,
 };
 use ambition_entity_catalog::{
-    CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow, MovesetContract,
+    CancelCondition, HitVolume, MoveGates, MoveLoop, MoveSpec, MoveWindow,
     RecoveryUse, VolumeShape, WindowTag,
 };
 
@@ -31,28 +30,6 @@ pub(crate) fn grounded_only() -> MoveGates {
         // A grounded attack roots its owner, matching `SmashRepertoire`'s
         // `GROUNDED`, so both authoring roads feel the same.
         roots_steering: true,
-        recovery_route: None,
-        // Not a recovery: a posture cannot know whether a move is an up-B.
-        recovery: RecoveryUse::None,
-        // A posture says nothing about being held. A move that refuses to
-        // start from a saddle says so itself (`call_the_shark` does).
-        forbidden_while_held: false,
-        // A posture names no fallback; that is the move's own statement.
-        when_refused: None,
-    }
-}
-
-/// Aerials are airborne-only, so a grounded press never reaches a move whose
-/// design is that landing costs you.
-pub(crate) fn airborne_only() -> MoveGates {
-    MoveGates {
-        // A posture does not know about meters: cost is the move's own
-        // statement (see `MoveGates::meter_cost`).
-        costs: Vec::new(),
-        grounded: Some(false),
-        // An aerial keeps its drift: air control is the trade for the ground
-        // control above.
-        roots_steering: false,
         recovery_route: None,
         // Not a recovery: a posture cannot know whether a move is an up-B.
         recovery: RecoveryUse::None,
@@ -251,630 +228,6 @@ pub(crate) fn jab_string_continuations() -> Vec<MoveSpec> {
     vec![jab2, jab3]
 }
 
-/// Where a smash freezes: four frames into its windup, for every move.
-///
-/// Authored, not derived. The engine fallback `CHARGE_POSE_FRACTION` makes the
-/// pose a fraction of the windup, so a slow smash would hold later than a fast
-/// one. The hold must be on the first frames of the animation, before the
-/// frames with hitboxes.
-///
-/// It must be inside the leading startup and before the first active window.
-/// Every windup here is at least 0.22s. `CatalogError::ChargeHoldOutsideWindup`
-/// refuses a pose that is not.
-const CHARGE_POSE_AT_S: f32 = 4.0 / 60.0;
-
-/// Shared by this demo's fighters. The moveset rides the character, so
-/// giving George a different one only edits his definition.
-pub fn fighter_moveset() -> MovesetContract {
-    let mut moves = Vec::new();
-
-    // ── grounded ─────────────────────────────────────────────────────────────
-    //
-    // The jab is fast and safe; that is what makes the smash a decision.
-    let mut jab = strike(Strike {
-        id: "jab",
-        clip: "attack",
-        startup_s: 0.05,
-        active_s: 0.06,
-        recover_s: 0.14,
-        offset: (26.0, 0.0),
-        half_extents: (18.0, 14.0),
-        damage: 3,
-        knockback: 55.0,
-        knockback_growth: 1.10,
-        launch_dir: None,
-        on_hit: None,
-    });
-    jab.gates = grounded_only();
-    // The chain: a second press inside the window takes the named successor.
-    //
-    // A jab string continues on a whiff (`Always`), as in the genre. With
-    // `OnHit`, CPUs that whiffed the first jab never chained. Other `OnHit`
-    // windows in this file are real combo confirms and stay `OnHit`.
-    let jab = cancelable(jab, 0.11, 0.25, &["jab2"], CancelCondition::Always);
-    moves.push(jab);
-
-    moves.extend(jab_string_continuations());
-
-    let mut up_tilt = strike(Strike {
-            id: "tilt_up",
-            clip: "attack",
-            startup_s: 0.07,
-            active_s: 0.08,
-            recover_s: 0.18,
-            offset: (10.0, -30.0),
-            half_extents: (20.0, 22.0),
-            damage: 5,
-            knockback: 70.0,
-            knockback_growth: 1.40,
-            // Straight up: an anti-air that starts a juggle.
-            launch_dir:
-        Some((0.15, -1.0)),
-            on_hit: None,
-        });
-    up_tilt.gates = grounded_only();
-    moves.push(up_tilt);
-
-    let mut down_tilt = strike(Strike {
-        id: "tilt_down",
-        clip: "attack",
-        startup_s: 0.06,
-        active_s: 0.06,
-        recover_s: 0.16,
-        offset: (26.0, 16.0),
-        half_extents: (20.0, 10.0),
-        damage: 4,
-        knockback: 60.0,
-        knockback_growth: 1.20,
-        // A low poke that pops them up into the juggle.
-        launch_dir: Some((0.5, -0.85)),
-        on_hit: None,
-    });
-    down_tilt.gates = grounded_only();
-    moves.push(down_tilt);
-
-    // ── the smashes ──────────────────────────────────────────────────────────
-    //
-    // A forward smash has eighteen frames of startup you cannot take back.
-    // It pays with a launch three times the jab's that grows with percent,
-    // so at 120% it ends the stock. The charge multiplier rewards holding.
-    let mut f_smash = strike(Strike {
-            id: "smash_forward",
-            clip: "attack",
-            startup_s: 0.30,
-            active_s: 0.07,
-            recover_s: 0.34,
-            offset: (40.0, -4.0),
-            half_extents: (28.0, 20.0),
-            damage: 15,
-            knockback: 150.0,
-            knockback_growth: 3.00,
-            // Slightly upward and away: the classic kill angle.
-            launch_dir:
-        Some((1.0, -0.42)),
-            on_hit: None,
-        });
-    f_smash.gates = grounded_only();
-    // A fully held charge lands 1.7x as hard: `smash_charge_mult` scales damage
-    // and knockback by how far the owner got through the leading Startup
-    // window. `charge` sets the multiplier and the spec in one call, because
-    // the spec alone buys nothing.
-    let mut f_smash = ambition_entity_catalog::authoring::charge(
-        f_smash,
-        ambition_entity_catalog::authoring::Charge {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-            stores: false,
-            roots: true,
-            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_entity_catalog::ChargeGesture::Smash,
-            multiplier: 1.7,
-        },
-    );
-    // Tip and base. The volume above is the tip, authored first, so a body
-    // reached by both takes the tip. This is the base: the same swing at the
-    // wrong distance, which hurts but does not kill. The list order is the
-    // priority.
-    for window in f_smash
-        .windows
-        .iter_mut()
-        .filter(|w| matches!(w.tag, WindowTag::Active))
-    {
-        let tip = window.volumes[0].clone();
-        window.volumes.push(HitVolume {
-            shape: VolumeShape::Rect {
-                // Inboard of the tip and overlapping it, so a body between
-                // the two is reached by both.
-                offset: (14.0, -4.0),
-                half_extents: (16.0, 20.0),
-            },
-            damage: 8,
-            knockback: 70.0,
-            knockback_growth: Some(70.0 * crate::SMASH_KNOCKBACK_GROWTH),
-            // Flatter and weaker: a base hit leaves them next to you.
-            launch_dir: Some((1.0, -0.15)),
-            ..tip
-        });
-    }
-    moves.push(f_smash);
-
-    let mut up_smash = strike(Strike {
-        id: "smash_up",
-        clip: "attack",
-        startup_s: 0.26,
-        active_s: 0.08,
-        recover_s: 0.32,
-        offset: (8.0, -38.0),
-        half_extents: (24.0, 30.0),
-        damage: 14,
-        knockback: 140.0,
-        knockback_growth: 2.80,
-        launch_dir: Some((0.12, -1.0)),
-        on_hit: None,
-    });
-    up_smash.gates = grounded_only();
-    // `charge` sets the multiplier and the spec in one call.
-    let up_smash = ambition_entity_catalog::authoring::charge(
-        up_smash,
-        ambition_entity_catalog::authoring::Charge {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-            stores: false,
-            roots: true,
-            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_entity_catalog::ChargeGesture::Smash,
-            multiplier: 1.7,
-        },
-    );
-    moves.push(up_smash);
-
-    let mut down_smash = strike(Strike {
-        id: "smash_down",
-        clip: "attack",
-        startup_s: 0.22,
-        active_s: 0.08,
-        recover_s: 0.30,
-        offset: (0.0, 18.0),
-        half_extents: (40.0, 14.0),
-        damage: 12,
-        knockback: 130.0,
-        knockback_growth: 2.60,
-        // Low and outward: the edge-guarding smash, not a launcher.
-        launch_dir: Some((1.0, -0.25)),
-        on_hit: None,
-    });
-    down_smash.gates = grounded_only();
-    // `charge` sets the multiplier and the spec in one call.
-    let down_smash = ambition_entity_catalog::authoring::charge(
-        down_smash,
-        ambition_entity_catalog::authoring::Charge {
-            hold_at_s: CHARGE_POSE_AT_S,
-            max_hold_s: ambition_entity_catalog::SmashChargeSpec::DEFAULT_MAX_HOLD_S,
-            stores: false,
-            roots: true,
-            sustain: ambition_entity_catalog::ChargeSustain::WhileHeld,
-            gesture: ambition_entity_catalog::ChargeGesture::Smash,
-            multiplier: 1.6,
-        },
-    );
-    moves.push(down_smash);
-
-    // ── aerials ──────────────────────────────────────────────────────────────
-    //
-    // Landing lag and auto-cancel make an aerial a decision: throw it early
-    // in a jump and land clean; throw it late and pay.
-    let mut n_air = strike(Strike {
-        id: "air_neutral",
-        clip: "attack",
-        startup_s: 0.06,
-        active_s: 0.14,
-        recover_s: 0.16,
-        offset: (14.0, 0.0),
-        half_extents: (26.0, 22.0),
-        damage: 6,
-        knockback: 75.0,
-        knockback_growth: 1.50,
-        launch_dir: None,
-        on_hit: None,
-    });
-    n_air.gates = airborne_only();
-    n_air.landing_lag_s = Some(0.10);
-    n_air.autocancel_after_s = Some(0.26);
-    moves.push(n_air);
-
-    let mut f_air = strike(Strike {
-        id: "air_forward",
-        clip: "attack",
-        startup_s: 0.09,
-        active_s: 0.08,
-        recover_s: 0.22,
-        offset: (32.0, -4.0),
-        half_extents: (22.0, 18.0),
-        damage: 9,
-        knockback: 105.0,
-        knockback_growth: 2.10,
-        launch_dir: Some((1.0, -0.35)),
-        on_hit: None,
-    });
-    f_air.gates = airborne_only();
-    f_air.landing_lag_s = Some(0.18);
-    f_air.autocancel_after_s = Some(0.30);
-    moves.push(f_air);
-
-    let mut b_air = strike(Strike {
-        id: "air_back",
-        clip: "attack",
-        startup_s: 0.10,
-        active_s: 0.07,
-        recover_s: 0.24,
-        offset: (-32.0, -2.0),
-        half_extents: (22.0, 18.0),
-        damage: 11,
-        knockback: 125.0,
-        knockback_growth: 2.50,
-        // Backwards and slightly up: the strongest aerial, and the one you
-        // turn around for.
-        launch_dir: Some((-1.0, -0.38)),
-        on_hit: None,
-    });
-    b_air.gates = airborne_only();
-    b_air.landing_lag_s = Some(0.20);
-    b_air.autocancel_after_s = Some(0.32);
-    moves.push(b_air);
-
-    let mut u_air = strike(Strike {
-        id: "air_up",
-        clip: "attack",
-        startup_s: 0.07,
-        active_s: 0.09,
-        recover_s: 0.20,
-        offset: (4.0, -34.0),
-        half_extents: (22.0, 24.0),
-        damage: 7,
-        knockback: 90.0,
-        knockback_growth: 1.80,
-        launch_dir: Some((0.1, -1.0)),
-        on_hit: None,
-    });
-    u_air.gates = airborne_only();
-    u_air.landing_lag_s = Some(0.14);
-    u_air.autocancel_after_s = Some(0.28);
-    moves.push(u_air);
-
-    let mut d_air = strike(Strike {
-            id: "air_down",
-            clip: "attack",
-            startup_s: 0.12,
-            active_s: 0.10,
-            recover_s: 0.26,
-            offset: (6.0, 30.0),
-            half_extents: (20.0, 22.0),
-            damage: 10,
-            knockback: 110.0,
-            knockback_growth: 2.20,
-            // Straight down: a spike. Offstage it takes a stock.
-            launch_dir:
-        Some((0.0, 1.0)),
-            on_hit: None,
-        });
-    d_air.gates = airborne_only();
-    // The heaviest lag in the set: a missed spike over the stage costs.
-    d_air.landing_lag_s = Some(0.28);
-    d_air.autocancel_after_s = Some(0.40);
-    moves.push(d_air);
-
-    // A grab, as every fighter in the genre has one. Middleweight numbers:
-    // slower than the admiral's `0.07` snatch, faster than George's `0.16`,
-    // and its throw sits below a smash and below his.
-    let capture = ambition_entity_catalog::smash_capture::SmashCaptureRepertoire {
-        cues: ambition_entity_catalog::smash_capture::CaptureCues::GENERIC,
-        grab: ambition_entity_catalog::smash_capture::author_standing_grab(
-            ambition_entity_catalog::smash_capture::grab_shell(
-                "grab", "grab", 0.12, 0.05, 0.24,
-            ),
-            ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                offset: (20.0, 0.0),
-                half_extents: (22.0, 14.0),
-                hold_offset: (18.0, -2.0),
-            },
-        ),
-        pummel: ambition_entity_catalog::smash_capture::author_pummel(
-            ambition_entity_catalog::smash_capture::capture_beat(
-                "pummel", "attack", 0.18,
-            ),
-            0.09,
-            ambition_entity_catalog::smash_capture::CapturePummelParams { damage: 3 },
-        ),
-        forward_throw: ambition_entity_catalog::smash_capture::author_throw(
-            ambition_entity_catalog::smash_capture::capture_beat(
-                "throw_forward",
-                "attack",
-                0.28,
-            ),
-            0.16,
-            ambition_entity_catalog::smash_capture::CaptureThrowParams {
-                damage: 9,
-                knockback: 120.0,
-                knockback_growth: 2.1,
-                launch_dir: (0.9, -0.5),
-            },
-        ),
-        back_throw: Some(
-            ambition_entity_catalog::smash_capture::author_throw(
-                ambition_entity_catalog::smash_capture::capture_beat(
-                    "throw_back",
-                    "attack",
-                    0.3,
-                ),
-                0.17,
-                ambition_entity_catalog::smash_capture::CaptureThrowParams {
-                    damage: 10,
-                    knockback: 130.0,
-                    knockback_growth: 2.21,
-                    launch_dir: (-1.0, -0.31),
-                },
-            ),
-        ),
-        up_throw: Some(
-            ambition_entity_catalog::smash_capture::author_throw(
-                ambition_entity_catalog::smash_capture::capture_beat(
-                    "throw_up", "attack", 0.29,
-                ),
-                0.16,
-                ambition_entity_catalog::smash_capture::CaptureThrowParams {
-                    damage: 9,
-                    knockback: 125.0,
-                    knockback_growth: 2.14,
-                    launch_dir: (0.0, -1.0),
-                },
-            ),
-        ),
-        down_throw: Some(
-            ambition_entity_catalog::smash_capture::author_throw(
-                ambition_entity_catalog::smash_capture::capture_beat(
-                    "throw_down",
-                    "attack",
-                    0.31,
-                ),
-                0.17,
-                ambition_entity_catalog::smash_capture::CaptureThrowParams {
-                    damage: 7,
-                    knockback: 89.0,
-                    knockback_growth: 1.68,
-                    launch_dir: (0.36, -0.92),
-                },
-            ),
-        ),
-    };
-    // Side special: a command grab, built from authoring alone. A capture is a
-    // move whose `Active` window sustains `smash.capture_attempt`;
-    // `author_standing_grab` attaches that to any `MoveSpec`, and the captor
-    // branch of `resolve_combat_action` keys off the capture state, not the
-    // move. So it pummels and throws through the same four verbs.
-    //
-    // Before this the stand-ins had nothing on the special button. Some
-    // special presses are still unanswered; see
-    // `the_only_presses_this_fighter_cannot_answer_are_specials`.
-    //
-    // It is the standing grab's committed cousin: startup 0.26 against 0.12
-    // (not a panic option), more reach than the standing grab's `20.0`, a
-    // long recovery, and it travels.
-    let mut command_grab =
-        ambition_entity_catalog::smash_capture::author_standing_grab(
-            ambition_entity_catalog::smash_capture::grab_shell(
-                "lunge_grab",
-                "special",
-                0.26,
-                0.06,
-                0.38,
-            ),
-            ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                // Reaches forward from a lunging body, so the box sits further
-                // out and a little taller than the standing grab's.
-                offset: (34.0, 0.0),
-                half_extents: (28.0, 18.0),
-                // The same hold as the standing grab: the follow-up throws are
-                // shared.
-                hold_offset: (18.0, -2.0),
-            },
-        );
-    // Additive, not `Set`: a grab that deleted your run would make dashing
-    // into it worse than walking. (George's side-B erases momentum because
-    // that is its identity.)
-    command_grab.start_impulse = Some((330.0, 0.0));
-    moves.push(command_grab);
-
-    // Down special: `riposte`. It adds no defensive mechanic: the perfect
-    // shield already denies a qualifying attack and names the attacker; this
-    // move holds that window open and says what to do about it.
-    //
-    // Its answer is the capture attempt `lunge_grab` uses, landing in
-    // `CapturedBy`. The response is a key, so another technique can answer
-    // by changing one string.
-    //
-    // The long recovery (0.44s against a 0.16s stance) is the price, so a
-    // whiffed counter loses neutral. The hold matches the other grabs, because
-    // the follow-up throws are shared.
-    let riposte = ambition_entity_catalog::smash_counter::counter_move(
-        "riposte",
-        "special",
-        0.06,
-        0.16,
-        0.44,
-        ambition_entity_catalog::smash_counter::CounterParams {
-            // A heartbeat, not a duration: `parry_window_timer` decays and the
-            // stance re-arms it every live frame. Three ticks of slack at 60Hz.
-            window_s: 0.05,
-            // Its own answer, as for every counter except the clerk's.
-            answers_the_attacker: false,
-            response: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
-                .to_string(),
-            response_params: ambition_entity_catalog::ParamValue::from_typed(
-                &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                    // Closer than the lunge: the attacker is already inside
-                    // your guard.
-                    offset: (24.0, 0.0),
-                    half_extents: (24.0, 22.0),
-                    hold_offset: (18.0, -2.0),
-                },
-            )
-            .expect("the riposte's capture params serialize"),
-            // This counter reflects projectiles; absorbing is a different
-            // fighter's stance. Stated, not defaulted, so the choice is visible.
-            absorbs_projectiles: false,
-        },
-    );
-    moves.push(riposte);
-
-    // Neutral special: `read_and_seize`, a hit confirm. A `MoveSpec` timeline
-    // says when; this move needs "swing, and if that connected, grab;
-    // otherwise recover". That is a `TechniqueFlow` emitting
-    // `smash.capture_attempt`, as `lunge_grab` and `riposte` do.
-    //
-    // It waits on `Connected`, not `Overlapped`: a shielded poke sets
-    // `overlapped` (the staling fact), so it would grab through a guard.
-    //
-    // The wait starts with the move, so the 0.22s timeout ends 0.08s after the
-    // active window (0.09 → 0.14). The whiff punish is the 0.40s recovery; the
-    // timeout only bounds the wait. The wait must outlast `startup + active`,
-    // or the grab can never come out (guarded below).
-    let mut confirm = strike(Strike {
-        id: "read_and_seize",
-        clip: "special",
-        startup_s: 0.09,
-        active_s: 0.05,
-        recover_s: 0.40,
-        offset: (24.0, -2.0),
-        half_extents: (18.0, 20.0),
-        // Deliberately weak: the payoff is the grab.
-        damage: 2,
-        knockback: 40.0,
-        knockback_growth: 0.80,
-        launch_dir: None,
-        on_hit: None,
-    });
-    confirm.gates = grounded_only();
-    confirm.flow = Some(ambition_entity_catalog::TechniqueFlow {
-        nodes: vec![
-            // 0: wait for the verdict on this swing.
-            ambition_entity_catalog::FlowNode::Wait {
-                on: ambition_entity_catalog::FlowSignal::Connected,
-                timeout_s: 0.22,
-                then: 1,
-                on_timeout: 2,
-            },
-            // 1: it landed. Grab, at the standing grab's reach.
-            ambition_entity_catalog::FlowNode::Emit {
-                effect: ambition_entity_catalog::EffectRef {
-                    key: ambition_entity_catalog::smash_capture::CAPTURE_ATTEMPT
-                        .to_string(),
-                    params: ambition_entity_catalog::ParamValue::from_typed(
-                        &ambition_entity_catalog::smash_capture::CaptureAttemptParams {
-                            offset: (22.0, 0.0),
-                            half_extents: (20.0, 20.0),
-                            hold_offset: (18.0, -2.0),
-                        },
-                    )
-                    .expect("the confirm's capture params serialize"),
-                },
-                then: 2,
-            },
-            // 2: done either way; the move plays out its recovery.
-            ambition_entity_catalog::FlowNode::Finish,
-        ],
-    });
-    // Validated where it is authored: a dangling transition or unreachable
-    // `Finish` is silent at runtime.
-    assert_eq!(
-        confirm
-            .flow
-            .as_ref()
-            .expect("just authored")
-            .problems(),
-        Vec::<String>::new(),
-        "`read_and_seize`'s flow is invalid, so the move would misbehave in a way \
-         nothing at runtime would report"
-    );
-    moves.push(confirm);
-
-    // Up special: `slip_upward`, the recovery. Before it, `special_up_air`
-    // fell through to nothing, because the other specials are `grounded_only`.
-    //
-    // A teleport, not an arc: the technique brings ledge assist, wall clamping
-    // and destination resolution. Airborne only: on the ground, up-B falls
-    // back to the neutral special.
-    let recovery = ambition_entity_catalog::smash_teleport::author_teleport(
-        {
-            let mut shell = ambition_entity_catalog::authoring::hitless_special(
-                "slip_upward",
-                "special",
-                0.10,
-                0.46,
-            );
-            shell.gates = airborne_only();
-            // One use per airtime, helpless after (stated by the repertoire
-            // slot below).
-            shell.landing_lag_s = Some(0.16);
-            shell
-        },
-        0.10,
-        ambition_entity_catalog::smash_teleport::TeleportParams {
-            // Aimed, not an ambush: `behind_nearest_foe` would put a
-            // recovering fighter next to the edgeguarder.
-            behind_nearest_foe: false,
-            behind_gap: 0.0,
-            // Tuned against the engine's jump arc: worth having, but not a
-            // free return from anywhere.
-            distance: 250.0,
-            // Without ledge assist a recovery that lands a pixel under the lip
-            // is a death.
-            ledge_assist: 26.0,
-            // Brief, and it is the counterplay: the blink cannot be hit, so an
-            // edgeguard covers where you arrive.
-            intangible_s: 0.18,
-            depart_vfx: "rune_circle".to_string(),
-            arrive_vfx: "rune_circle".to_string(),
-        },
-    );
-    moves.push(recovery);
-
-    let capture_verbs: Vec<(String, String)> = capture
-        .bound()
-        .into_iter()
-        .map(|(verb, spec)| {
-            let binding = (verb.to_string(), spec.id.clone());
-            moves.push(spec);
-            binding
-        })
-        .collect();
-
-    let verbs = [
-        ("attack", "jab"),
-        ("attack_up", "tilt_up"),
-        ("attack_down", "tilt_down"),
-        ("smash_forward", "smash_forward"),
-        ("smash_up", "smash_up"),
-        ("smash_down", "smash_down"),
-        ("attack_air", "air_neutral"),
-        ("attack_air_forward", "air_forward"),
-        ("attack_air_back", "air_back"),
-        ("attack_air_up", "air_up"),
-        ("attack_air_down", "air_down"),
-        // The two specials this contract binds; see `lunge_grab` and
-        // `riposte` above.
-        ("special_forward", "lunge_grab"),
-        ("special_down", "riposte"),
-        ("special", "read_and_seize"),
-        ("special_up", "slip_upward"),
-    ]
-    .into_iter()
-    .map(|(verb, id)| (verb.to_string(), id.to_string()))
-    .chain(capture_verbs)
-    .collect();
-
-    MovesetContract { verbs, moves }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -888,7 +241,7 @@ mod tests {
     #[test]
     fn the_only_presses_this_fighter_cannot_answer_are_specials() {
         use ambition_entity_catalog::AttackDir;
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let dirs = [
             ("neutral", AttackDir::Neutral),
             ("forward", AttackDir::Forward),
@@ -976,7 +329,7 @@ mod tests {
     /// which is a regression.
     #[test]
     fn the_stand_in_is_george_s_genre_shape_with_the_special_button_removed() {
-        let stand_in = silent_presses(&fighter_moveset());
+        let stand_in = silent_presses(&crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID));
         let george = silent_presses(&crate::george_booul_moveset::george_booul_moveset());
 
         let escaped: Vec<&String> = george.iter().filter(|p| !stand_in.contains(p)).collect();
@@ -1022,7 +375,7 @@ mod tests {
 
         let mut seen = 0usize;
         for (who, set) in [
-            ("the stand-in fighter", fighter_moveset()),
+            ("the stand-in fighter", crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID)),
             ("George", crate::george_booul_moveset::george_booul_moveset()),
         ] {
             for spec in &set.moves {
@@ -1075,7 +428,7 @@ mod tests {
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_entity_catalog::WindowTag;
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
 
         let special = set
             .move_for_verb("special_forward")
@@ -1155,7 +508,7 @@ mod tests {
     /// missing id is a press that silently does nothing.
     #[test]
     fn every_authored_verb_resolves() {
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         for (verb, id) in &set.verbs {
             assert!(
                 set.move_by_id(id).is_some(),
@@ -1168,7 +521,7 @@ mod tests {
     /// throws harder, and scales with the victim's damage.
     #[test]
     fn the_forward_smash_is_a_real_smash_and_not_the_jab_renamed() {
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let jab = set.move_for_verb("attack").expect("a fighter has a jab");
         let smash = set
             .move_for_verb("smash_forward")
@@ -1262,7 +615,7 @@ mod tests {
     /// but by a visible factor, not a unit.
     #[test]
     fn an_authored_growth_is_the_stage_declaration_in_the_stage_units() {
-        for mv in &fighter_moveset().moves {
+        for mv in &crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID).moves {
             for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
                 // No growth defers to the stage, and fixed knockback
                 // (`Some(0.0)`) is deliberate. Only a stated non-zero growth
@@ -1292,7 +645,7 @@ mod tests {
     /// an aerial with a window and no lag is inert.
     #[test]
     fn every_aerial_authors_both_halves_of_the_landing_rule() {
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let mut checked = 0;
         for verb in [
             "attack_air",
@@ -1322,7 +675,7 @@ mod tests {
     /// one button eleven moves.
     #[test]
     fn the_directional_chain_lands_on_the_right_move_for_the_posture() {
-        let set = fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         assert_eq!(
             set.move_for_directional_verb("attack", AttackDir::Forward, true)
                 .map(|mv| mv.id.as_str()),
@@ -1359,7 +712,7 @@ mod hit_confirm_tests {
     /// so a confirm on it would grab through a guard.
     #[test]
     fn the_neutral_special_confirms_on_a_connect_and_not_on_a_shield() {
-        let set = super::fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let id = set
             .verbs
             .get("special")
@@ -1419,7 +772,7 @@ mod hit_confirm_tests {
     /// starts at move start.
     #[test]
     fn the_confirms_wait_outlasts_the_window_it_confirms() {
-        let set = super::fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let id = set.verbs.get("special").expect("a neutral special is bound");
         let spec = set.moves.iter().find(|m| &m.id == id).expect("it names a move");
         let flow = spec.flow.as_ref().expect("the confirm authors a flow");
@@ -1458,7 +811,7 @@ mod hit_confirm_tests {
     /// with a dangling transition is silent at runtime.
     #[test]
     fn every_authored_flow_in_this_contract_is_valid() {
-        let set = super::fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let mut seen = 0usize;
         for spec in &set.moves {
             if let Some(flow) = spec.flow.as_ref() {
@@ -1491,7 +844,7 @@ mod recovery_tests {
     /// would teleport a recovering fighter next to the edgeguarder.
     #[test]
     fn the_up_special_is_an_aimed_airborne_recovery() {
-        let set = super::fighter_moveset();
+        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         let id = set
             .verbs
             .get("special_up")

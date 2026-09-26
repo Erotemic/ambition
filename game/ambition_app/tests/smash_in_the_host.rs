@@ -1483,6 +1483,58 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
     );
 }
 
+/// Both stand-in duelists fight with the table their move file carries.
+///
+/// The table is content in the demo's pack (`smash_duelist_a.ron`), and the
+/// second duelist borrows it with no prefixes. This compares the prepared cast
+/// with the file, so a compiled table that still reached a seat, or a borrow
+/// that stopped resolving, fails here.
+#[test]
+fn the_stand_in_duelists_fight_with_the_table_their_file_carries() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let file = ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_CHARACTER_ID);
+    assert!(
+        file.moves.len() >= 20,
+        "the stand-in table has {} move(s), which is not the shipped table",
+        file.moves.len()
+    );
+    for id in [
+        ambition_demo_smash::SMASH_CHARACTER_ID,
+        ambition_demo_smash::SMASH_OPPONENT_ID,
+    ] {
+        let prepared = registry
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is not in the prepared cast"));
+        let worn = prepared
+            .authored_moveset
+            .as_ref()
+            .unwrap_or_else(|| panic!("`{id}` is prepared with no authored moves"));
+        // Name the moves that differ. A whole-table dump is thousands of lines.
+        let differing: Vec<&str> = file
+            .moves
+            .iter()
+            .filter(|mv| worn.move_by_id(&mv.id) != Some(*mv))
+            .map(|mv| mv.id.as_str())
+            .chain(
+                worn.moves
+                    .iter()
+                    .filter(|mv| file.move_by_id(&mv.id).is_none())
+                    .map(|mv| mv.id.as_str()),
+            )
+            .collect();
+        assert!(
+            worn == &file,
+            "`{id}` fights with a table that is not the one `smash_duelist_a.ron` \
+             carries; the moves that differ: {differing:?} (verbs equal: {})",
+            worn.verbs == file.verbs
+        );
+    }
+}
+
 /// Check selection-grid fighters against the authored-moveset floor.
 ///
 /// Selectable fighters may intentionally use the stage's unarmed floor, so this
@@ -6134,7 +6186,9 @@ mod ring_out {
         fn contract(self) -> ambition_platformer2d::entity_catalog::MovesetContract {
             match self {
                 Table::George => george_booul_table(),
-                Table::Reference => ambition_demo_smash::moveset::fighter_moveset(),
+                Table::Reference => ambition_demo_smash::smash_pack::shipped_moveset(
+                    ambition_demo_smash::SMASH_CHARACTER_ID,
+                ),
             }
         }
     }

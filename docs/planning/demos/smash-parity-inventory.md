@@ -712,7 +712,7 @@ by a type. Do not read the two counts as comparable.
 default (stand-in) roster records **3 `lunge_grab` starts**, against `grab_dash`
 5, `pummel` 5, `throw_forward` 5. ⇒ The move is reached, at a frequency
 consistent with the other committed capture moves. ⭐ And because `lunge_grab`
-exists only on `fighter_moveset()`, its appearance is itself proof that a STAND-IN
+exists only on the stand-in table (`smash_duelist_a.ron`), its appearance is itself proof that a STAND-IN
 selected and performed it.
 
 ⛔⛔ **THREE OF THESE SEVEN ROWS WERE WRONG WHEN WRITTEN (2026-09-04), AND THIS
@@ -967,7 +967,7 @@ demo, ≥8 in the composed app** (`smash_roster_movesets.rs` asserts that floor)
 ⇒ The verb counts below are unchanged and correct; the FRACTION was wrong, and it
 made a two-fighter gap read as a roster-wide one.
 
-Counted off the contracts themselves, not read off a table: `fighter_moveset()`
+Counted off the contracts themselves, not read off a table: the stand-in table (`smash_duelist_a.ron`)
 — the moveset EVERY fighter in this demo gets except George — binds **18 verbs**
 to `george_booul_moveset()`'s **26**.
 
@@ -1040,14 +1040,14 @@ and no repertoire — it is Robot **v2's**, for the duel arena, and
 grid's roster, not of the codebase: a one-verb contract is legitimate for a
 character in another mode.
 
-⛔ **So the gap is one contract, not a roster.** `fighter_moveset()` is the only
+⛔ **So the gap is one contract, not a roster.** The stand-in table (`smash_duelist_a.ron`) is the only
 moveset in this demo that bypasses the repertoire and hand-builds a verb list —
 which is exactly how it can be short eight special presses while nineteen other
 fighters *cannot be*. ⭐ The stand-ins are not behind on authoring; they are
 outside the type that would have made the authoring mandatory.
 
 ⓘ **And it bypasses ONE of the two types, not both — a precision that matters
-because it shows the pattern working.** `fighter_moveset()` builds its capture half
+because it shows the pattern working.** The stand-in table (`smash_duelist_a.ron`) builds its capture half
 through `SmashCaptureRepertoire` (grab, pummel and forward throw mandatory there
 too) and hand-writes only the ATTACK verbs, then chains the two together. ⇒ **The
 half it took from a type is complete; the half it hand-wrote is the half with the

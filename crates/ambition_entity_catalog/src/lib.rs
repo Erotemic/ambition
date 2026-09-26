@@ -2967,7 +2967,7 @@ impl MoveCoverage {
 /// This is a fallback, not the authoring contract. A charge pose is an
 /// animation fact, so it belongs on the move as an explicit
 /// `smash_charge.hold_at_s` inside its leading Startup. The shipped smash
-/// tables author that, and `fighter_moveset`'s contract test refuses a smash
+/// tables author that, and the smash stand-in table's contract test refuses a smash
 /// that derives its pose. This value is for a move that says nothing (a boss
 /// swing, a fixture, an old table).
 ///

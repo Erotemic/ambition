@@ -1062,7 +1062,7 @@ fn every_fighter_on_the_smash_grid_gets_a_body_that_can_air_dodge() {
 ///
 /// the guard for this existed and swept the wrong population.
 /// `ambition_demo_smash:moveset`'s
-/// `an_authored_growth_is_the_stage_declaration_in_the_stage_units` iterates `fighter_moveset`,
+/// `an_authored_growth_is_the_stage_declaration_in_the_stage_units` iterates the stand-in table,
 /// which is the ELEVEN-VERB FALLBACK the two robot stand-ins carry.
 ///
 /// What it looks for is a UNIT SLIP, and the slip is expensive: a volume's

@@ -101,7 +101,7 @@ Promote only a slice that can name:
 This is queue row D166.
 
 ⭐⭐ **A FOURTH RESIDUAL, NAMED 2026-09-04, AND IT ANSWERS ALL FIVE PARTS:
-`fighter_moveset()` — the moveset both Smash stand-ins carry.**
+the stand-in table (`smash_duelist_a.ron`) — the moveset both Smash stand-ins carry.**
 
 1. **Current source of truth** — a hand-written verb list in
    `game/ambition_demo_smash/src/moveset.rs`, built by pushing `(verb, move_id)`
@@ -136,7 +136,7 @@ migration wants that answer first rather than architectural grounds alone.
 **Censused 2026-08-31, and one slice closed.** Ten sites were examined against
 the five-part test. Most are two *legitimate* authors — a demo mechanic keyed on
 identity, or a match rule composed through `MatchRules` — and are explicitly not
-targets. Four residuals name all five parts — three from the 2026-08-31 census, and `fighter_moveset()` added 2026-09-04 (above):
+targets. Four residuals name all five parts — three from the 2026-08-31 census, and the stand-in table (`smash_duelist_a.ron`) added 2026-09-04 (above):
 
 - ✔ **Knockback weight — CLOSED 2026-08-31.** `smash_reading_of_character` in
   `ambition_demo_smash` was a `match definition.id` writing `Vitals::knockback_

@@ -42,5 +42,9 @@
             schema: "smash_fighter",
             version: 1,
         ),
+        // The stand-in duelists' move table. The second duelist borrows the
+        // first one's table, so the table is stated once.
+        (path: "data/movesets/smash_duelist_a.ron", schema: "moveset", version: 1),
+        (path: "data/movesets/smash_duelist_b.ron", schema: "moveset", version: 1),
     ],
 )

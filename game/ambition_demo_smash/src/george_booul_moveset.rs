@@ -786,7 +786,7 @@ mod tests {
         // The poison: the shared table has a real middle (tilts at
         // 0.06–0.07, aerials at 0.09, 0.10, 0.12). If this passed for both
         // tables, the band would describe nothing.
-        let shared = crate::moveset::fighter_moveset();
+        let shared = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         assert!(
             shared.moves.iter().any(|m| {
                 startup(m).is_some_and(|s| s > POKE_MAX_STARTUP_S && s < COMMIT_MIN_STARTUP_S)
@@ -802,7 +802,7 @@ mod tests {
     #[test]
     fn george_commits_longer_and_hits_harder_than_the_shared_repertoire() {
         let george = george_booul_moveset();
-        let shared = crate::moveset::fighter_moveset();
+        let shared = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
         for id in ["smash_forward", "smash_up", "smash_down"] {
             let (g, s) = (find(&george, id), find(&shared, id));
             // `expect`, not a filter: these are strikes, so a missing Active

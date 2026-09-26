@@ -133,7 +133,7 @@ mod tests {
     /// Taken from the shipped contract on purpose, so the move under test is
     /// the move a player presses.
     fn shipped_riposte() -> ambition_platformer2d::entity_catalog::MoveSpec {
-        crate::moveset::fighter_moveset()
+        crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID)
             .moves
             .into_iter()
             .find(|m| m.id == "riposte")

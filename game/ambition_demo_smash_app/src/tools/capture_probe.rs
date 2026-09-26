@@ -80,7 +80,7 @@ pub struct CaptureProbeArgs {
     /// Which fighter takes the first seat (default: the demo's stand-in).
     ///
     /// A move census is only about the fighters it ran. The defaults are the
-    /// two stand-ins, which carry `fighter_moveset()` (18 verbs against
+    /// two stand-ins, which carry `smash_duelist_a.ron`'s table (18 verbs against
     /// George's 26), so they say nothing about the demo's authored fighter.
     #[arg(long, value_name = "ID")]
     pub character: Option<String>,

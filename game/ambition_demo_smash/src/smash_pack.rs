@@ -21,9 +21,25 @@ const GEORGE_FACET_RON: &str = include_str!(
     "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
 );
 
+/// The move tables this demo authors, as `pack.ron` declares them.
+const MOVESETS: &[(&str, &str)] = &[
+    (
+        "data/movesets/smash_duelist_a.ron",
+        include_str!("../assets/data/movesets/smash_duelist_a.ron"),
+    ),
+    (
+        "data/movesets/smash_duelist_b.ron",
+        include_str!("../assets/data/movesets/smash_duelist_b.ron"),
+    ),
+];
+
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    [(GEORGE_FACET_PATH.to_string(), GEORGE_FACET_RON.to_string())]
+    std::iter::once((GEORGE_FACET_PATH.to_string(), GEORGE_FACET_RON.to_string())).chain(
+        MOVESETS
+            .iter()
+            .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
+    )
 }
 
 /// Compile the embedded pack without requiring art assets to exist locally.
@@ -47,6 +63,28 @@ pub fn prepared() -> &'static PreparedContentPack {
             panic!("the smash demo's content pack does not compile:\n{failure}")
         })
     })
+}
+
+/// The move table this pack authors for `character`.
+///
+/// The demo registers each fighter with this table, and the tests read it, so
+/// they guard the file the demo plays. George's table is still compiled
+/// (`george_booul_moveset`).
+///
+/// # Panics
+///
+/// When the pack authors no table for `character`: a fighter with no moves
+/// is a composition error, not a default.
+pub fn shipped_moveset(character: &str) -> ambition_platformer2d::entity_catalog::MovesetContract {
+    ambition_platformer2d::characters::moveset_content_schema::lowered_movesets(prepared())
+        .and_then(|table| table.get(character))
+        .cloned()
+        .unwrap_or_else(|| {
+            panic!(
+                "the smash demo's pack authors no move table for `{character}`; declare \
+                 its file in `assets/pack.ron` and embed it in `smash_pack::MOVESETS`"
+            )
+        })
 }
 
 /// One character's authored platform-fighter facet, or `None` if this pack does

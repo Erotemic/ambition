@@ -582,7 +582,7 @@ fn sign_test_p(positives: usize, negatives: usize) -> f64 {
 /// Name the two fighters of the run, also when they are defaults.
 ///
 /// The defaults `smash_duelist_a` and `smash_duelist_b` are stand-ins that
-/// get `fighter_moveset()`, not George's full repertoire. Printing the
+/// play `smash_duelist_a.ron`'s table, not George's full repertoire. Printing the
 /// default lets a reader see that.
 fn report_which_fighters_are_in_play() {
     let [higher, lower] = fighters();
@@ -596,10 +596,10 @@ fn report_which_fighters_are_in_play() {
             // State what the run is about, not a defect in the fighters.
             format!(
                 ". ⛔ Neither is `{george}`, the demo's one fully authored fighter — \
-                 these carry `fighter_moveset()`, so this measures the STAND-INS. \
+                 these carry `smash_duelist_a.ron`, so this measures the STAND-INS. \
                  Concretely: their unanswered presses are George's plus EIGHT MORE, \
                  every one a `special` (only `special_forward` answers), because \
-                 `fighter_moveset()` is the one contract that does not go through \
+                 that table is the one contract that does not go through \
                  `SmashRepertoire`. They also bind no `attack_dash`, which is why \
                  they keep tilts George never throws"
             )
@@ -1569,7 +1569,7 @@ impl Pairing {
             //
             // This is a fighter comparison, not a seat null control. The demo's
             // default ids (`smash_duelist_a`, `smash_duelist_b`) share
-            // `fighter_moveset()` and the same hitboxes, but wear different sheets,
+            // `smash_duelist_a.ron`'s table and the same hitboxes, but wear different sheets,
             // so their hurtboxes and animation sets differ.
             (true, false) => Self {
                 mirror: Mirror::Fighters,

@@ -1,0 +1,18 @@
+// The second stand-in plays the first one's table as it is: the same moves,
+// under the same move ids. It borrows with no prefixes and authors no moves of
+// its own, so there is one table to tune (`smash_duelist_a.ron`). What makes
+// it the lighter build is its weight, which the demo states on the character.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "smash_duelist_b",
+            contracts: (
+                borrows: Some((
+                    archetype: "smash_duelist_a",
+                    prefixes: [],
+                )),
+            ),
+        ),
+    ],
+)

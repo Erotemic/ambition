@@ -190,7 +190,7 @@ count what a player is offered, and the two are far apart:
 | *distinct contracts behind the standalone 3* | **2** |
 
 ⇒ The standalone demo's three seats are George plus **two stand-ins that share one
-contract** — `fighter_moveset()` — and that contract has **no special button**.
+contract** — the stand-in table (`smash_duelist_a.ron`) — and that contract has **no special button**.
 Measured by press rather than by binding (2026-09-04): the stand-ins answer
 nothing on **15** `(base, direction, stance)` presses against George's **7**,
 George's set is a strict **subset** of theirs, and the surplus is **eight, every

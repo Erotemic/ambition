@@ -575,7 +575,9 @@ pub mod badnik;
 pub mod ball_dash;
 pub mod monitors;
 pub mod provider;
-pub mod smash_moveset;
+pub mod pack;
+#[cfg(test)]
+mod smash_moveset;
 
 pub use provider::{
     sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
@@ -659,7 +661,7 @@ pub fn install_sanic_content(app: &mut App) {
                     // and his feet ~3.75 units above the floor.
                     .with_sprite_authored_body(sanic_world_per_pixel())
                     .with_voice(voice)
-                    .with_moveset(smash_moveset::sanic_moveset()),
+                    .with_moveset(pack::PACK.moveset(id)),
             );
         }
     }

@@ -141,7 +141,7 @@ use ambition_platformer2d::engine_core as ae;
         let captor = body(app, 0.0, "captor");
         let victim = body(app, 20.0, "victim");
         app.world_mut().entity_mut(captor).insert((
-            ActorMoveset(crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL)),
+            ActorMoveset(crate::smash_pack::PACK.moveset(crate::SMASH_GEORGE_BOOUL)),
             ambition_platformer2d::characters::control::ActorControl(ActorControlFrame::neutral()),
         ));
         app.world_mut().entity_mut(victim).insert(

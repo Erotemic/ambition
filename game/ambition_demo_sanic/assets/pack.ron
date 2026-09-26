@@ -1,0 +1,19 @@
+// The Sanic demo's own content pack: what its characters are, stated as
+// data. The manifest is the pack's explicit source list, not a directory
+// glob, so its contents do not depend on filesystem order. A source declared
+// here and not embedded in `src/pack.rs` (or the reverse) is a loud refusal.
+//
+// Validate without rebuilding Rust:
+//
+//     cargo run -p ambition_content_cli --bin ambition_content -- \
+//         game/ambition_demo_sanic/assets
+(
+    id: "ambition_demo_sanic",
+    version: "0.1.0",
+    // Every identity this pack mints is `sanic_demo:<schema>/<name>`.
+    namespace: "sanic_demo",
+    requires: [],
+    sources: [
+        (path: "data/movesets/sanic.ron", schema: "moveset", version: 1),
+    ],
+)

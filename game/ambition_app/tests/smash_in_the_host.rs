@@ -1498,7 +1498,7 @@ fn every_smash_demo_fighter_fights_with_the_table_its_file_carries() {
     let registry =
         app.world()
             .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
-    let shipped = ambition_demo_smash::smash_pack::shipped_moveset;
+    let shipped = |id: &str| ambition_demo_smash::smash_pack::PACK.moveset(id);
     let stand_in = shipped(ambition_demo_smash::SMASH_CHARACTER_ID);
     for (id, file) in [
         (ambition_demo_smash::SMASH_CHARACTER_ID, &stand_in),
@@ -1541,6 +1541,54 @@ fn every_smash_demo_fighter_fights_with_the_table_its_file_carries() {
             worn.verbs == file.verbs
         );
     }
+}
+
+/// The crossover fighters, every form included, fight with the table their
+/// own demo's move file carries.
+///
+/// Mary-O and Sanic state their moves in their demos' packs, and each form
+/// (Mary-O tall and fire, Super Sanic) borrows its fighter's table with no
+/// prefixes. This compares the prepared cast with the files, through the
+/// same `PACK.moveset` each demo registers with.
+#[test]
+fn the_crossover_fighters_and_their_forms_fight_with_their_files_tables() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    let registry =
+        app.world()
+            .resource::<ambition_platformer2d::characters::prepared::PreparedCharacterRegistry>();
+    let mary_o = ambition_demo_mary_o::pack::PACK.moveset("mary_o");
+    let sanic = ambition_demo_sanic::pack::PACK.moveset(ambition_demo_sanic::SANIC_CHARACTER_ID);
+    let mut checked = 0usize;
+    for (id, file) in [
+        ("mary_o", &mary_o),
+        ("mary_o_tall", &mary_o),
+        ("mary_o_fire", &mary_o),
+        (ambition_demo_sanic::SANIC_CHARACTER_ID, &sanic),
+        (ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID, &sanic),
+    ] {
+        assert!(file.moves.len() >= 15, "`{id}`'s file carries {} move(s)", file.moves.len());
+        let worn = registry
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is not in the prepared cast"))
+            .authored_moveset
+            .as_ref()
+            .unwrap_or_else(|| panic!("`{id}` is prepared with no authored moves"));
+        let differing: Vec<&str> = file
+            .moves
+            .iter()
+            .filter(|mv| worn.move_by_id(&mv.id) != Some(*mv))
+            .map(|mv| mv.id.as_str())
+            .collect();
+        assert!(
+            worn == file,
+            "`{id}` fights with a table that is not its demo's file; the moves that \
+             differ: {differing:?} (verbs equal: {})",
+            worn.verbs == file.verbs
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 5);
 }
 
 /// Check selection-grid fighters against the authored-moveset floor.
@@ -6194,7 +6242,7 @@ mod ring_out {
         fn contract(self) -> ambition_platformer2d::entity_catalog::MovesetContract {
             match self {
                 Table::George => george_booul_table(),
-                Table::Reference => ambition_demo_smash::smash_pack::shipped_moveset(
+                Table::Reference => ambition_demo_smash::smash_pack::PACK.moveset(
                     ambition_demo_smash::SMASH_CHARACTER_ID,
                 ),
             }
@@ -6904,7 +6952,7 @@ mod ring_out {
     }
 
     fn george_booul_table() -> ambition_platformer2d::entity_catalog::MovesetContract {
-        ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL)
+        ambition_demo_smash::smash_pack::PACK.moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL)
     }
 
     /// THE REGRESSION. A fully stale jab on a 700% heavyweight, thrown from

@@ -195,7 +195,7 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
         action_set.special.is_none(),
         "Sanic's peaceful kit has no special — the bubble_shield is gone"
     );
-    let authored: Vec<String> = ambition_demo_sanic::smash_moveset::sanic_moveset()
+    let authored: Vec<String> = ambition_demo_sanic::pack::PACK.moveset(ambition_demo_sanic::SANIC_CHARACTER_ID)
         .moves
         .iter()
         .map(|m| m.id.clone())

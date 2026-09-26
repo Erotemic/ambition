@@ -95,6 +95,98 @@ pub mod content {
     pub fn engine_schemas() -> ambition_content_pack::SchemaRegistry {
         ambition_engine_schemas::engine_schemas()
     }
+
+    /// A game's own pack, with its manifest and sources compiled into the
+    /// binary.
+    ///
+    /// A game states its content as data and reads it back through this: one
+    /// `static`, then `PACK.moveset(id)` where a character is registered. The
+    /// compile, the cache and the refusal wording are here once, not in each
+    /// game.
+    ///
+    /// Assets are not checked: art may be absent on a fresh clone, and the pack
+    /// must still explain what it carries. The content CLI's strict mode is
+    /// where art is a gate.
+    ///
+    /// ```ignore
+    /// pub static PACK: EmbeddedPack = EmbeddedPack::new(
+    ///     include_str!("../assets/pack.ron"),
+    ///     &[("data/movesets/hero.ron", include_str!("../assets/data/movesets/hero.ron"))],
+    /// );
+    /// definition.with_moveset(PACK.moveset("hero"))
+    /// ```
+    pub struct EmbeddedPack {
+        manifest_ron: &'static str,
+        /// Each source `pack.ron` declares, as `(declared path, text)`.
+        sources: &'static [(&'static str, &'static str)],
+        compiled: std::sync::OnceLock<PreparedContentPack>,
+    }
+
+    impl EmbeddedPack {
+        /// A pack from its embedded manifest and sources. Nothing compiles
+        /// until the pack is first read.
+        pub const fn new(
+            manifest_ron: &'static str,
+            sources: &'static [(&'static str, &'static str)],
+        ) -> Self {
+            Self {
+                manifest_ron,
+                sources,
+                compiled: std::sync::OnceLock::new(),
+            }
+        }
+
+        /// Compile the pack now, without the cache: the road a test takes to
+        /// read a refusal.
+        pub fn compile(&self) -> Result<PreparedContentPack, CompileFailure> {
+            let draft = ContentPackDraft::from_manifest_ron(
+                self.manifest_ron,
+                self.sources
+                    .iter()
+                    .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
+            )?;
+            compile(&draft, &engine_schemas(), &AssetsUnchecked)
+        }
+
+        /// The compiled pack, compiled once.
+        ///
+        /// # Panics
+        ///
+        /// When the pack does not compile. Content a game ships and cannot
+        /// load is a build fault, and the refusal says which file and why.
+        pub fn prepared(&self) -> &PreparedContentPack {
+            self.compiled.get_or_init(|| {
+                self.compile()
+                    .unwrap_or_else(|failure| panic!("an embedded content pack does not compile:\n{failure}"))
+            })
+        }
+
+        /// The move table this pack authors for `character`.
+        ///
+        /// # Panics
+        ///
+        /// When the pack authors none: a fighter with no moves is a
+        /// composition fault, not a default. The message names the characters
+        /// the pack does author.
+        pub fn moveset(&self, character: &str) -> crate::entity_catalog::MovesetContract {
+            let table =
+                ambition_characters::moveset_content_schema::lowered_movesets(self.prepared());
+            table
+                .and_then(|table| table.get(character))
+                .cloned()
+                .unwrap_or_else(|| {
+                    let authored: Vec<&str> = table
+                        .map(|table| table.keys().map(String::as_str).collect())
+                        .unwrap_or_default();
+                    panic!(
+                        "the embedded pack `{}` authors no move table for `{character}`; it \
+                         authors {authored:?}. Declare the file in the pack's manifest and \
+                         embed it with the other sources",
+                        self.prepared().id.0
+                    )
+                })
+        }
+    }
 }
 
 pub use ambition_asset_manager as asset_manager;
@@ -966,4 +1058,54 @@ mod content_sdk_tests {
             failure.render()
         );
     }
+
+    /// A game's pack, embedded: the table a character is registered with is
+    /// the one its file carries, and a character the pack does not author is
+    /// a refusal that names what the pack does author.
+    #[test]
+    fn an_embedded_pack_answers_with_the_table_its_file_carries() {
+        use crate::content::EmbeddedPack;
+        static PACK: EmbeddedPack = EmbeddedPack::new(
+            r#"(
+                id: "embedded_probe",
+                version: "0.1.0",
+                namespace: "probe",
+                requires: [],
+                sources: [(path: "moves/hero.ron", schema: "moveset", version: 1)],
+            )"#,
+            &[(
+                "moves/hero.ron",
+                r#"(
+                    schema_version: 1,
+                    entities: [(
+                        id: "hero",
+                        contracts: (moveset: Some((
+                            verbs: { "attack": "hero_jab" },
+                            moves: [(
+                                id: "hero_jab",
+                                clip: (clip: "jab"),
+                                duration_s: 0.25,
+                                windows: [(start_s: 0.0, end_s: 0.25, tag: Recovery, volumes: [])],
+                            )],
+                        ))),
+                    )],
+                )"#,
+            )],
+        );
+        let table = PACK.moveset("hero");
+        assert_eq!(table.verbs.get("attack").map(String::as_str), Some("hero_jab"));
+        assert_eq!(table.move_by_id("hero_jab").map(|jab| jab.duration_s), Some(0.25));
+
+        let refusal = std::panic::catch_unwind(|| PACK.moveset("stranger"))
+            .expect_err("a character the pack does not author must be refused");
+        let text = refusal
+            .downcast_ref::<String>()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            text.contains("stranger") && text.contains("\"hero\""),
+            "the refusal does not name the character and what the pack authors: {text}"
+        );
+    }
+
 }

@@ -31,7 +31,9 @@ pub mod powerups;
 pub mod provider;
 pub mod quasar_shader;
 pub mod scenery;
-pub mod smash_moveset;
+pub mod pack;
+#[cfg(test)]
+mod smash_moveset;
 pub mod snake;
 pub mod star;
 pub mod stomp;
@@ -1311,7 +1313,7 @@ pub fn install_mary_o_content(app: &mut App) {
                     .with_canonical_height(powerups::form_height(sheet))
                     .with_sprite_authored_body(powerups::form_world_per_pixel(sheet))
                     .with_voice(voice)
-                    .with_moveset(smash_moveset::mary_o_moveset()),
+                    .with_moveset(pack::PACK.moveset(id)),
             );
         }
     }

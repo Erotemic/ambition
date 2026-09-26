@@ -35,7 +35,7 @@ fn a_move_names_art_outside_the_old_five_and_the_whole_chain_resolves() {
 
     // 4. A shipped fighter names it, and the engine's presentation
     //    validator, given the sheets as its oracle, accepts the whole table.
-    let set = ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL);
+    let set = ambition_demo_smash::smash_pack::PACK.moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL);
     assert!(
         set.moves
             .iter()

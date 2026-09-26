@@ -4,14 +4,14 @@
 //! slow, high-damage attacks; the startup gap between those groups is part of
 //! his character contract. His table is content: `smash_moveset.ron` beside his
 //! fighter facet in the character-authoring submodule, which the demo's pack
-//! selects. These tests read it through [`crate::smash_pack::shipped_moveset`],
+//! selects. These tests read it through `crate::smash_pack::PACK.moveset(id)`,
 //! the table the demo plays.
 
 use ambition_entity_catalog::MovesetContract;
 
 /// The table the demo plays for George.
 fn shipped() -> MovesetContract {
-    crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL)
+    crate::smash_pack::PACK.moveset(crate::SMASH_GEORGE_BOOUL)
 }
 
 mod tests {
@@ -142,7 +142,7 @@ mod tests {
         // The poison: the shared table has a real middle (tilts at
         // 0.06–0.07, aerials at 0.09, 0.10, 0.12). If this passed for both
         // tables, the band would describe nothing.
-        let shared = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let shared = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         assert!(
             shared.moves.iter().any(|m| {
                 startup(m).is_some_and(|s| s > POKE_MAX_STARTUP_S && s < COMMIT_MIN_STARTUP_S)
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn george_commits_longer_and_hits_harder_than_the_shared_repertoire() {
         let george = shipped();
-        let shared = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let shared = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         for id in ["smash_forward", "smash_up", "smash_down"] {
             let (g, s) = (find(&george, id), find(&shared, id));
             // `expect`, not a filter: these are strikes, so a missing Active

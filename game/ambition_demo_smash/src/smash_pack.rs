@@ -1,100 +1,50 @@
 //! Smash demo content pack for George Booul.
 //!
-//! The demo compiles its embedded `pack.ron` through the platformer facade and
-//! prepares George's platform-fighter facet. George's authored values live with
+//! The demo compiles its embedded `pack.ron` through the platformer facade:
+//! every fighter's move table, and George's platform-fighter facet. George's authored values live with
 //! the character in the sprite-authoring submodule; this demo selects them.
 
 use ambition_platformer2d::characters::smash_fighter::content_schema::lowered_smash_fighters;
 use ambition_platformer2d::characters::smash_fighter::SmashFighterFacet;
-use ambition_platformer2d::content::{CompileFailure, PreparedContentPack};
+use ambition_platformer2d::content::EmbeddedPack;
 
-/// The pack manifest, embedded from the same file the CLI reads off disk.
-const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
+/// The George paths leave the demo on purpose: the demo selects George's
+/// values from the character-authoring submodule, it does not own them.
+macro_rules! george {
+    ($file:literal) => {
+        concat!(
+            "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/",
+            $file
+        )
+    };
+}
 
-/// The declared path of each source, as `pack.ron` spells it. A mismatch gives
-/// the compiler's "no source supplied" error instead of a missing fighter.
-const GEORGE_FACET_PATH: &str =
-    "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron";
-/// George's authored fighter facet, selected here but owned by character authoring.
-const GEORGE_FACET_RON: &str = include_str!(
-    "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_fighter.ron"
-);
-
-/// The move tables this demo's pack declares, as `pack.ron` spells their paths.
-const MOVESETS: &[(&str, &str)] = &[
-    (
-        "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_moveset.ron",
-        include_str!(
-            "../../../tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/data/characters/george_booul/smash_moveset.ron"
+/// The demo's pack: `assets/pack.ron` and every source it declares, with the
+/// path `pack.ron` spells. A path that does not match gives the compiler's "no
+/// source supplied" refusal instead of a missing fighter.
+///
+/// The demo registers each fighter with `PACK.moveset(id)`, and the tests read
+/// the same, so they guard the files the demo plays.
+pub static PACK: EmbeddedPack = EmbeddedPack::new(
+    include_str!("../assets/pack.ron"),
+    &[
+        (george!("smash_fighter.ron"), include_str!(george!("smash_fighter.ron"))),
+        (george!("smash_moveset.ron"), include_str!(george!("smash_moveset.ron"))),
+        (
+            "data/movesets/smash_duelist_a.ron",
+            include_str!("../assets/data/movesets/smash_duelist_a.ron"),
         ),
-    ),
-    (
-        "data/movesets/smash_duelist_a.ron",
-        include_str!("../assets/data/movesets/smash_duelist_a.ron"),
-    ),
-    (
-        "data/movesets/smash_duelist_b.ron",
-        include_str!("../assets/data/movesets/smash_duelist_b.ron"),
-    ),
-];
-
-/// Every source `pack.ron` declares, paired with its embedded text.
-fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    std::iter::once((GEORGE_FACET_PATH.to_string(), GEORGE_FACET_RON.to_string())).chain(
-        MOVESETS
-            .iter()
-            .map(|(path, text)| ((*path).to_string(), (*text).to_string())),
-    )
-}
-
-/// Compile the embedded pack without requiring art assets to exist locally.
-pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
-    let draft = ambition_platformer2d::content::ContentPackDraft::from_manifest_ron(
-        PACK_MANIFEST_RON,
-        embedded_sources(),
-    )?;
-    ambition_platformer2d::content::compile(
-        &draft,
-        &ambition_platformer2d::content::engine_schemas(),
-        &ambition_platformer2d::content::AssetsUnchecked,
-    )
-}
-
-/// Compile and cache the pack once; invalid authored content is fatal.
-pub fn prepared() -> &'static PreparedContentPack {
-    static PREPARED: std::sync::OnceLock<PreparedContentPack> = std::sync::OnceLock::new();
-    PREPARED.get_or_init(|| {
-        compile_pack().unwrap_or_else(|failure| {
-            panic!("the smash demo's content pack does not compile:\n{failure}")
-        })
-    })
-}
-
-/// The move table this pack authors for `character`.
-///
-/// The demo registers each fighter with this table, and the tests read it, so
-/// they guard the file the demo plays.
-///
-/// # Panics
-///
-/// When the pack authors no table for `character`: a fighter with no moves
-/// is a composition error, not a default.
-pub fn shipped_moveset(character: &str) -> ambition_platformer2d::entity_catalog::MovesetContract {
-    ambition_platformer2d::characters::moveset_content_schema::lowered_movesets(prepared())
-        .and_then(|table| table.get(character))
-        .cloned()
-        .unwrap_or_else(|| {
-            panic!(
-                "the smash demo's pack authors no move table for `{character}`; declare \
-                 its file in `assets/pack.ron` and embed it in `smash_pack::MOVESETS`"
-            )
-        })
-}
+        (
+            "data/movesets/smash_duelist_b.ron",
+            include_str!("../assets/data/movesets/smash_duelist_b.ron"),
+        ),
+    ],
+);
 
 /// One character's authored platform-fighter facet, or `None` if this pack does
 /// not author one for them.
 pub fn fighter_facet(character: &str) -> Option<&'static SmashFighterFacet> {
-    lowered_smash_fighters(prepared())?.get(character)
+    lowered_smash_fighters(PACK.prepared())?.get(character)
 }
 
 /// The body a character's authored facet states for its fighter self, layered

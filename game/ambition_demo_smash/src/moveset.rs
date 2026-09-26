@@ -2,7 +2,7 @@
 //!
 //! The stand-ins' table is content: `assets/data/movesets/smash_duelist_a.ron`,
 //! which `smash_duelist_b` borrows. The tests read it through
-//! [`crate::smash_pack::shipped_moveset`], the table the demo plays.
+//! `crate::smash_pack::PACK.moveset(id)`, the table the demo plays.
 
 mod tests {
     use ambition_entity_catalog::{AttackDir, MoveSpec};
@@ -15,7 +15,7 @@ mod tests {
     #[test]
     fn the_only_presses_this_fighter_cannot_answer_are_specials() {
         use ambition_entity_catalog::AttackDir;
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let dirs = [
             ("neutral", AttackDir::Neutral),
             ("forward", AttackDir::Forward),
@@ -103,8 +103,8 @@ mod tests {
     /// which is a regression.
     #[test]
     fn the_stand_in_is_george_s_genre_shape_with_the_special_button_removed() {
-        let stand_in = silent_presses(&crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID));
-        let george = silent_presses(&crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL));
+        let stand_in = silent_presses(&crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID));
+        let george = silent_presses(&crate::smash_pack::PACK.moveset(crate::SMASH_GEORGE_BOOUL));
 
         let escaped: Vec<&String> = george.iter().filter(|p| !stand_in.contains(p)).collect();
         assert!(
@@ -149,8 +149,8 @@ mod tests {
 
         let mut seen = 0usize;
         for (who, set) in [
-            ("the stand-in fighter", crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID)),
-            ("George", crate::smash_pack::shipped_moveset(crate::SMASH_GEORGE_BOOUL)),
+            ("the stand-in fighter", crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID)),
+            ("George", crate::smash_pack::PACK.moveset(crate::SMASH_GEORGE_BOOUL)),
         ] {
             for spec in &set.moves {
                 for window in &spec.windows {
@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn the_side_special_is_a_command_grab_and_not_the_standing_grab_renamed() {
         use ambition_entity_catalog::WindowTag;
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
 
         let special = set
             .move_for_verb("special_forward")
@@ -282,7 +282,7 @@ mod tests {
     /// missing id is a press that silently does nothing.
     #[test]
     fn every_authored_verb_resolves() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         for (verb, id) in &set.verbs {
             assert!(
                 set.move_by_id(id).is_some(),
@@ -295,7 +295,7 @@ mod tests {
     /// throws harder, and scales with the victim's damage.
     #[test]
     fn the_forward_smash_is_a_real_smash_and_not_the_jab_renamed() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let jab = set.move_for_verb("attack").expect("a fighter has a jab");
         let smash = set
             .move_for_verb("smash_forward")
@@ -389,7 +389,7 @@ mod tests {
     /// but by a visible factor, not a unit.
     #[test]
     fn an_authored_growth_is_the_stage_declaration_in_the_stage_units() {
-        for mv in &crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID).moves {
+        for mv in &crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID).moves {
             for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
                 // No growth defers to the stage, and fixed knockback
                 // (`Some(0.0)`) is deliberate. Only a stated non-zero growth
@@ -419,7 +419,7 @@ mod tests {
     /// an aerial with a window and no lag is inert.
     #[test]
     fn every_aerial_authors_both_halves_of_the_landing_rule() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let mut checked = 0;
         for verb in [
             "attack_air",
@@ -449,7 +449,7 @@ mod tests {
     /// one button eleven moves.
     #[test]
     fn the_directional_chain_lands_on_the_right_move_for_the_posture() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         assert_eq!(
             set.move_for_directional_verb("attack", AttackDir::Forward, true)
                 .map(|mv| mv.id.as_str()),
@@ -485,7 +485,7 @@ mod hit_confirm_tests {
     /// so a confirm on it would grab through a guard.
     #[test]
     fn the_neutral_special_confirms_on_a_connect_and_not_on_a_shield() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let id = set
             .verbs
             .get("special")
@@ -545,7 +545,7 @@ mod hit_confirm_tests {
     /// starts at move start.
     #[test]
     fn the_confirms_wait_outlasts_the_window_it_confirms() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let id = set.verbs.get("special").expect("a neutral special is bound");
         let spec = set.moves.iter().find(|m| &m.id == id).expect("it names a move");
         let flow = spec.flow.as_ref().expect("the confirm authors a flow");
@@ -584,7 +584,7 @@ mod hit_confirm_tests {
     /// with a dangling transition is silent at runtime.
     #[test]
     fn every_authored_flow_in_this_contract_is_valid() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let mut seen = 0usize;
         for spec in &set.moves {
             if let Some(flow) = spec.flow.as_ref() {
@@ -616,7 +616,7 @@ mod recovery_tests {
     /// would teleport a recovering fighter next to the edgeguarder.
     #[test]
     fn the_up_special_is_an_aimed_airborne_recovery() {
-        let set = crate::smash_pack::shipped_moveset(crate::SMASH_CHARACTER_ID);
+        let set = crate::smash_pack::PACK.moveset(crate::SMASH_CHARACTER_ID);
         let id = set
             .verbs
             .get("special_up")

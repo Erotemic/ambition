@@ -1,0 +1,2290 @@
+// The source of Sanic's moves (`sanic`); his super form wears it as it is (the borrows at the
+// end of this file). The demo loads this file through its content pack
+// (`assets/pack.ron`); edit it here.
+//
+// DESIGN NOTES, carried from the Rust table this file replaced. A note in
+// parentheses names the line it was written beside.
+//
+// Sanic's repertoire, for the stage he visits rather than the one he lives
+// on.
+//
+// A move table is what the attack is; the ability is whether this body may
+// attack at all. At home the answer is no and these sixteen moves are
+// unreachable. On a stage that grants the verb (`MatchAbilities::levelled`)
+// they are what he swings.
+//
+// This is not his spin dash. `declare_sanic_techniques` puts spin dash and
+// the transform on his body as techniques, and they stay there. The side
+// special below is a separate move that looks like one, so a crossover stage
+// gets a signature move without two authorities owning it.
+//
+// ## The character
+//
+// Speed, and the cost of it. The fastest startups on the grid after the Shadow
+// Oni's, the least commitment of anybody — almost nothing here has a locked
+// tail — and the weakest single hit in the game. He does not win an exchange;
+// he has three before you finish one.
+//
+// `sanic_moveset`:
+// See the module doc. Sixteen presses.
+//
+// (`let grab = author_standing_grab(`)
+// Sanic's capture kit. Fastest startup, shortest reach, weakest throw, and
+// the longest recovery: he gets there first and cannot do much with it.
+// The grab draws `attack`, not `grab`: these sheets publish no `grab` row,
+// and each table's `every_clip_names_a_row_..._sheet_carries` guard
+// refuses a clip that names a missing row.
+//
+// (`capture: SmashCaptureRepertoire {`)
+// Every fighter in the smash roster has a grab.
+(
+    schema_version: 1,
+    entities: [
+        (
+            id: "sanic",
+            contracts: (
+                body: None,
+                hurtboxes: None,
+                presentation: None,
+                moveset: Some((
+                    verbs: {
+                        "attack": "quick_jab",
+                        "attack_air": "air_spin",
+                        "attack_air_back": "trailing_heel",
+                        "attack_air_down": "drill_dive",
+                        "attack_air_forward": "homing_cut",
+                        "attack_air_up": "corkscrew",
+                        "attack_dash": "sanic_dash_attack",
+                        "attack_down": "skid",
+                        "attack_forward": "run_up_kick",
+                        "attack_up": "heel_flick",
+                        "capture_pummel": "sanic_pummel",
+                        "capture_throw_back": "sanic_bthrow",
+                        "capture_throw_down": "sanic_dthrow",
+                        "capture_throw_forward": "sanic_fthrow",
+                        "capture_throw_up": "sanic_uthrow",
+                        "grab": "sanic_grab",
+                        "grab_dash": "sanic_grab_dash",
+                        "smash_down": "split_kick",
+                        "smash_forward": "sonic_boom",
+                        "smash_up": "updraft",
+                        "special": "spin_charge",
+                        "special_air_down": "ball_drop",
+                        "special_down": "ball_hop",
+                        "special_forward": "blue_streak",
+                        "special_up": "spring_launch",
+                        "taunt": "sanic_taunt",
+                    },
+                    moves: [
+                        // (`let jab = strike(Strike {`)
+                        // JAB — `quick_jab`. Four frames. It is not meant to do anything except
+                        // arrive before yours.
+                        (
+                            id: "quick_jab",
+                            display_name: None,
+                            clip: (
+                                clip: "jab",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.19,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.04,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.04,
+                                    end_s: 0.08,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (22.0, 0.0),
+                                                half_extents: (16.0, 12.0),
+                                            ),
+                                            damage: 2,
+                                            knockback: 42.0,
+                                            knockback_growth: Some(1.02),
+                                            launch_dir: None,
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.08,
+                                    end_s: 0.19,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.04,
+                                    kind: Vfx(
+                                        effect: "air_slice",
+                                        at: (22.0, 0.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let f_tilt = strike(Strike {`)
+                        // FORWARD TILT — `run_up_kick`. He is already moving; this is what that
+                        // looks like when it hits something.
+                        (
+                            id: "run_up_kick",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.26,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.06,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.06,
+                                    end_s: 0.12,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (28.0, 2.0),
+                                                half_extents: (20.0, 13.0),
+                                            ),
+                                            damage: 5,
+                                            knockback: 62.0,
+                                            knockback_growth: Some(1.22),
+                                            launch_dir: Some((1.0, -0.26)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.12,
+                                    end_s: 0.26,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Vfx(
+                                        effect: "dash_streak",
+                                        at: (28.0, 2.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let u_tilt = strike(Strike {`)
+                        // UP TILT — `heel_flick`. Up and behind, off the run.
+                        (
+                            id: "heel_flick",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_up",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.27,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.06,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.06,
+                                    end_s: 0.12,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (4.0, -24.0),
+                                                half_extents: (16.0, 20.0),
+                                            ),
+                                            damage: 4,
+                                            knockback: 68.0,
+                                            knockback_growth: Some(1.28),
+                                            launch_dir: Some((0.1, -1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.12,
+                                    end_s: 0.27,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Vfx(
+                                        effect: "wind_curl",
+                                        at: (4.0, -24.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let d_tilt = strike(Strike {`)
+                        // DOWN TILT — `skid`. He stops, briefly, and the ground does not.
+                        (
+                            id: "skid",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.25,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.11,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (26.0, 14.0),
+                                                half_extents: (22.0, 9.0),
+                                            ),
+                                            damage: 4,
+                                            knockback: 50.0,
+                                            knockback_growth: Some(1.12),
+                                            launch_dir: Some((0.95, -0.26)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.11,
+                                    end_s: 0.25,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Vfx(
+                                        effect: "skid_puff",
+                                        at: (26.0, 14.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let f_smash = strike(Strike {`)
+                        // FORWARD SMASH — `sonic_boom`. The one moment he stops being quick and
+                        // becomes hard. Still the second-weakest forward smash on the grid.
+                        (
+                            id: "sonic_boom",
+                            display_name: None,
+                            clip: (
+                                clip: "smash_forward",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.51,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.15,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.15,
+                                    end_s: 0.23,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (34.0, 0.0),
+                                                half_extents: (26.0, 18.0),
+                                            ),
+                                            damage: 11,
+                                            knockback: 118.0,
+                                            knockback_growth: Some(3.08),
+                                            launch_dir: Some((0.95, -0.4)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.23,
+                                    end_s: 0.51,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.15,
+                                    kind: Vfx(
+                                        effect: "sonic_boom",
+                                        at: (34.0, 0.0),
+                                        scale: 1.2,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.15,
+                                    kind: Sfx(
+                                        cue: "player.attack.charge",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let u_smash = strike(Strike {`)
+                        // UP SMASH — `updraft`. A vertical burst off a standing start.
+                        (
+                            id: "updraft",
+                            display_name: None,
+                            clip: (
+                                clip: "smash_up",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.49,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.14,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.23,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (2.0, -30.0),
+                                                half_extents: (20.0, 30.0),
+                                            ),
+                                            damage: 10,
+                                            knockback: 112.0,
+                                            knockback_growth: Some(5.58),
+                                            launch_dir: Some((0.08, -1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.23,
+                                    end_s: 0.49,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.14,
+                                    kind: Vfx(
+                                        effect: "wind_curl",
+                                        at: (2.0, -30.0),
+                                        scale: 1.2,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let d_smash = strike(Strike {`)
+                        // DOWN SMASH — `split_kick`. Both directions at once, low.
+                        (
+                            id: "split_kick",
+                            display_name: None,
+                            clip: (
+                                clip: "smash_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.51,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.15,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.15,
+                                    end_s: 0.23,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, 18.0),
+                                                half_extents: (36.0, 11.0),
+                                            ),
+                                            damage: 10,
+                                            knockback: 104.0,
+                                            knockback_growth: Some(2.62),
+                                            launch_dir: Some((0.85, -0.52)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.23,
+                                    end_s: 0.51,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.15,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (0.0, 18.0),
+                                        scale: 1.2,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let n_air = strike(Strike {`)
+                        // NEUTRAL AIR — `air_spin`. The ball, in the air, around him.
+                        (
+                            id: "air_spin",
+                            display_name: None,
+                            clip: (
+                                clip: "air_neutral",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.3,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.16,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, 0.0),
+                                                half_extents: (24.0, 22.0),
+                                            ),
+                                            damage: 5,
+                                            knockback: 64.0,
+                                            knockback_growth: Some(1.34),
+                                            launch_dir: Some((0.55, -0.72)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.16,
+                                    end_s: 0.3,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (0.0, 0.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let f_air = strike(Strike {`)
+                        // FORWARD AIR — `homing_cut`. He arrives at you rather than swinging at
+                        // where you are.
+                        (
+                            id: "homing_cut",
+                            display_name: None,
+                            clip: (
+                                clip: "air_forward",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.3,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.07,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.07,
+                                    end_s: 0.14,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (28.0, 0.0),
+                                                half_extents: (21.0, 17.0),
+                                            ),
+                                            damage: 7,
+                                            knockback: 86.0,
+                                            knockback_growth: Some(1.65),
+                                            launch_dir: Some((0.95, -0.42)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.3,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.07,
+                                    kind: Vfx(
+                                        effect: "dash_streak",
+                                        at: (28.0, 0.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let b_air = strike(Strike {`)
+                        // BACK AIR — `trailing_heel`. What is behind him is behind him because
+                        // he already passed it.
+                        (
+                            id: "trailing_heel",
+                            display_name: None,
+                            clip: (
+                                clip: "air_back",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.32,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.08,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.08,
+                                    end_s: 0.14,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (-28.0, 0.0),
+                                                half_extents: (21.0, 16.0),
+                                            ),
+                                            damage: 8,
+                                            knockback: 94.0,
+                                            knockback_growth: Some(1.78),
+                                            launch_dir: Some((-0.95, -0.36)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.32,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.08,
+                                    kind: Vfx(
+                                        effect: "air_slice",
+                                        at: (-28.0, 0.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let u_air = strike(Strike {`)
+                        // UP AIR — `corkscrew`. Straight up, spinning.
+                        (
+                            id: "corkscrew",
+                            display_name: None,
+                            clip: (
+                                clip: "air_up",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.29000002,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.06,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.06,
+                                    end_s: 0.14,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (2.0, -26.0),
+                                                half_extents: (18.0, 22.0),
+                                            ),
+                                            damage: 6,
+                                            knockback: 80.0,
+                                            knockback_growth: Some(1.58),
+                                            launch_dir: Some((0.08, -1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.29000002,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.06,
+                                    kind: Vfx(
+                                        effect: "wind_curl",
+                                        at: (2.0, -26.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let d_air = strike(Strike {`)
+                        // DOWN AIR — `drill_dive`. Straight down, and he keeps going.
+                        (
+                            id: "drill_dive",
+                            display_name: None,
+                            clip: (
+                                clip: "air_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.37,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.09,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.09,
+                                    end_s: 0.18,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, 25.0),
+                                                half_extents: (19.0, 20.0),
+                                            ),
+                                            damage: 9,
+                                            knockback: 104.0,
+                                            knockback_growth: Some(1.92),
+                                            launch_dir: Some((0.0, 1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.18,
+                                    end_s: 0.37,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.09,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (0.0, 25.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_taunt",
+                            display_name: None,
+                            clip: (
+                                clip: "taunt",
+                                fallbacks: [
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.9,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.9,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_dash_attack",
+                            display_name: None,
+                            clip: (
+                                clip: "dash_attack",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.39999998,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.14,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (24.0, -2.0),
+                                                half_extents: (16.0, 20.0),
+                                            ),
+                                            damage: 7,
+                                            knockback: 77.5,
+                                            knockback_growth: Some(1.5),
+                                            launch_dir: Some((0.92, -0.39)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: None,
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.14,
+                                    end_s: 0.39999998,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Impulse(
+                                        local: (260.0, 0.0),
+                                        mode: Add,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let n_b = strike(Strike {`)
+                        // NEUTRAL — `spin_charge`. He winds up in place and the release is the
+                        // only real commitment in his kit.
+                        (
+                            id: "spin_charge",
+                            display_name: None,
+                            clip: (
+                                clip: "attack",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.6,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.18,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.18,
+                                    end_s: 0.28,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (26.0, 6.0),
+                                                half_extents: (24.0, 16.0),
+                                            ),
+                                            damage: 10,
+                                            knockback: 100.0,
+                                            knockback_growth: Some(1.8),
+                                            launch_dir: Some((0.9, -0.4)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.28,
+                                    end_s: 0.56,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.56,
+                                    end_s: 0.6,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.05,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.04,
+                                    kind: Vfx(
+                                        effect: "charge_pulse",
+                                        at: (0.0, 8.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.04,
+                                    kind: Sfx(
+                                        cue: "player.attack.charge",
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.18,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (26.0, 6.0),
+                                        scale: 1.2,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let n_b = committed_tail(n_b, 0.60, 0.05);`)
+                        // Not gated to the ground: an airborne neutral-B falls back through the
+                        // chain, and the last candidate for `special_air` is `special` itself. A
+                        // spin charge does not need a floor.
+                        //
+                        // (`let side_b = strike(Strike {`)
+                        // SIDE — `blue_streak`. The fastest crossing on the grid, and the tail
+                        // barely damps: he can still steer out of it, which is the whole difference
+                        // between him and the engineer's piston.
+                        (
+                            id: "blue_streak",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_side",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.46,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.09,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.09,
+                                    end_s: 0.19,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (28.0, 2.0),
+                                                half_extents: (24.0, 18.0),
+                                            ),
+                                            damage: 9,
+                                            knockback: 98.0,
+                                            knockback_growth: Some(1.82),
+                                            launch_dir: Some((0.95, -0.32)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.19,
+                                    end_s: 0.39,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.39,
+                                    end_s: 0.46,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.45,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.09,
+                                    kind: Impulse(
+                                        local: (860.0, 0.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.09,
+                                    kind: Vfx(
+                                        effect: "dash_streak",
+                                        at: (0.0, 0.0),
+                                        scale: 1.2,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.09,
+                                    kind: Sfx(
+                                        cue: "player.dash",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let mut up_b = strike(Strike {`)
+                        // UP — `spring_launch`. THE RECOVERY. The springs his own course is full
+                        // of, carried. The highest lift on the grid and the cheapest landing, which
+                        // is what the lightest, fastest fighter's way home should be.
+                        (
+                            id: "spring_launch",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_up",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.42,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.17,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, -12.0),
+                                                half_extents: (18.0, 30.0),
+                                            ),
+                                            damage: 6,
+                                            knockback: 78.0,
+                                            knockback_growth: Some(1.55),
+                                            launch_dir: Some((0.1, -1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.17,
+                                    end_s: 0.32,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.32,
+                                    end_s: 0.42,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.4,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Impulse(
+                                        local: (0.0, -880.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.05,
+                                    kind: Vfx(
+                                        effect: "release_ring",
+                                        at: (0.0, 16.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.05,
+                                    kind: Sfx(
+                                        cue: "player.double_jump",
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: None,
+                                recovery: SpendAndFreefall,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: Some(0.18),
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let ground_down_b = strike(Strike {`)
+                        // Grounded down-B: a hop in an arc, then the slam. In the air it is only
+                        // the slam. Specials may differ by context.
+                        (
+                            id: "ball_hop",
+                            display_name: None,
+                            clip: (
+                                clip: "attack_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.62,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.18,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.18,
+                                    end_s: 0.32,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, 22.0),
+                                                half_extents: (20.0, 22.0),
+                                            ),
+                                            damage: 10,
+                                            knockback: 108.0,
+                                            knockback_growth: Some(1.95),
+                                            launch_dir: Some((0.0, 1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.32,
+                                    end_s: 0.56,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.56,
+                                    end_s: 0.62,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 0.1,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.04,
+                                    kind: Impulse(
+                                        local: (180.0, -560.0),
+                                        mode: Add,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.18,
+                                    kind: Impulse(
+                                        local: (0.0, 1300.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.04,
+                                    kind: Vfx(
+                                        effect: "skid_puff",
+                                        at: (0.0, 18.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.04,
+                                    kind: Sfx(
+                                        cue: "player.double_jump",
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.18,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (0.0, 16.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let mut down_b = strike(Strike {`)
+                        // DOWN — `ball_drop`. He curls and drops. Airborne-only: on the ground
+                        // it would be a worse down smash, and the move is the fall.
+                        (
+                            id: "ball_drop",
+                            display_name: None,
+                            clip: (
+                                clip: "air_down",
+                                fallbacks: [
+                                    "attack_side",
+                                    "attack",
+                                    "slash",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.41000003,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.07,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.07,
+                                    end_s: 0.21000001,
+                                    tag: Active,
+                                    volumes: [
+                                        (
+                                            shape: Rect(
+                                                offset: (0.0, 24.0),
+                                                half_extents: (20.0, 22.0),
+                                            ),
+                                            damage: 10,
+                                            knockback: 108.0,
+                                            knockback_growth: Some(1.95),
+                                            launch_dir: Some((0.0, 1.0)),
+                                            reaction: None,
+                                            on_hit: None,
+                                            vfx: Some("slash_arc"),
+                                            hit_sfx: Some("player.hit"),
+                                        ),
+                                    ],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.21000001,
+                                    end_s: 0.41000003,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.07,
+                                    kind: Impulse(
+                                        local: (0.0, 1300.0),
+                                        mode: Set,
+                                    ),
+                                ),
+                                (
+                                    at_s: 0.07,
+                                    kind: Vfx(
+                                        effect: "sonic_ripple",
+                                        at: (0.0, 12.0),
+                                        scale: 0.85,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(false),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: false,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: Some(0.26),
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        // (`let ground_down_b = impulse(ground_down_b, 0.04, (180.0, -560.0), Impuls`)
+                        // `Add` for the hop, `Set` for the slam — the same split George's
+                        // grounded down-B needs and for the same reason: `lift_speed` is derived
+                        // from `Set` impulses, so a hop written that way would advertise this move
+                        // to the recovery policy as a way home. `spring_launch` is his way home.
+                        (
+                            id: "sanic_grab",
+                            display_name: None,
+                            clip: (
+                                clip: "grab",
+                                fallbacks: [
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.32999998,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.05,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.05,
+                                    end_s: 0.09,
+                                    tag: Active,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: Some((
+                                        key: "smash.capture_attempt",
+                                        params: ({
+                                            "half_extents": [
+                                                17.0,
+                                                14.0,
+                                            ],
+                                            "hold_offset": [
+                                                13.0,
+                                                3.0,
+                                            ],
+                                            "offset": [
+                                                12.0,
+                                                1.0,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    start_s: 0.09,
+                                    end_s: 0.32999998,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Vfx(
+                                        effect: "smoke_burst",
+                                        at: (0.0, 0.0),
+                                        scale: 0.45,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_grab_dash",
+                            display_name: None,
+                            clip: (
+                                clip: "grab",
+                                fallbacks: [
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.56333333,
+                            windows: [
+                                (
+                                    start_s: 0.0,
+                                    end_s: 0.083333336,
+                                    tag: Startup,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                                (
+                                    start_s: 0.083333336,
+                                    end_s: 0.123333335,
+                                    tag: Active,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: Some((
+                                        key: "smash.capture_attempt",
+                                        params: ({
+                                            "half_extents": [
+                                                17.0,
+                                                14.0,
+                                            ],
+                                            "hold_offset": [
+                                                13.0,
+                                                3.0,
+                                            ],
+                                            "offset": [
+                                                12.0,
+                                                1.0,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    start_s: 0.123333335,
+                                    end_s: 0.56333333,
+                                    tag: Recovery,
+                                    volumes: [],
+                                    motion_scale: 1.0,
+                                    sustain_effect: None,
+                                ),
+                            ],
+                            events: [
+                                (
+                                    at_s: 0.083333336,
+                                    kind: Vfx(
+                                        effect: "smoke_burst",
+                                        at: (0.0, 0.0),
+                                        scale: 0.45,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_pummel",
+                            display_name: None,
+                            clip: (
+                                clip: "pummel",
+                                fallbacks: [
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.12,
+                            windows: [],
+                            events: [
+                                (
+                                    at_s: 0.05,
+                                    kind: Effect((
+                                        key: "smash.capture_pummel",
+                                        params: ({
+                                            "damage": 2,
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.05,
+                                    kind: Vfx(
+                                        effect: "classic_burst",
+                                        at: (0.0, 0.0),
+                                        scale: 0.55,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_fthrow",
+                            display_name: None,
+                            clip: (
+                                clip: "throw_forward",
+                                fallbacks: [
+                                    "throw",
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.22,
+                            windows: [],
+                            events: [
+                                (
+                                    at_s: 0.11,
+                                    kind: Effect((
+                                        key: "smash.capture_throw",
+                                        params: ({
+                                            "damage": 6,
+                                            "knockback": 98.0,
+                                            "knockback_growth": 2.3,
+                                            "launch_dir": [
+                                                1.0,
+                                                -0.3,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.11,
+                                    kind: Vfx(
+                                        effect: "shockwave",
+                                        at: (0.0, 0.0),
+                                        scale: 1.15,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_bthrow",
+                            display_name: None,
+                            clip: (
+                                clip: "throw_back",
+                                fallbacks: [
+                                    "throw",
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.24,
+                            windows: [],
+                            events: [
+                                (
+                                    at_s: 0.12,
+                                    kind: Effect((
+                                        key: "smash.capture_throw",
+                                        params: ({
+                                            "damage": 7,
+                                            "knockback": 105.84,
+                                            "knockback_growth": 2.42,
+                                            "launch_dir": [
+                                                -1.0,
+                                                -0.25,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.12,
+                                    kind: Vfx(
+                                        effect: "shockwave",
+                                        at: (0.0, 0.0),
+                                        scale: 1.15,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_uthrow",
+                            display_name: None,
+                            clip: (
+                                clip: "throw_up",
+                                fallbacks: [
+                                    "throw",
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.23,
+                            windows: [],
+                            events: [
+                                (
+                                    at_s: 0.11,
+                                    kind: Effect((
+                                        key: "smash.capture_throw",
+                                        params: ({
+                                            "damage": 6,
+                                            "knockback": 101.92,
+                                            "knockback_growth": 2.35,
+                                            "launch_dir": [
+                                                0.0,
+                                                -1.0,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.11,
+                                    kind: Vfx(
+                                        effect: "shockwave",
+                                        at: (0.0, 0.0),
+                                        scale: 1.15,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                        (
+                            id: "sanic_dthrow",
+                            display_name: None,
+                            clip: (
+                                clip: "throw_down",
+                                fallbacks: [
+                                    "throw",
+                                    "attack",
+                                    "idle",
+                                ],
+                            ),
+                            duration_s: 0.25,
+                            windows: [],
+                            events: [
+                                (
+                                    at_s: 0.12,
+                                    kind: Effect((
+                                        key: "smash.capture_throw",
+                                        params: ({
+                                            "damage": 4,
+                                            "knockback": 72.52,
+                                            "knockback_growth": 1.84,
+                                            "launch_dir": [
+                                                0.4,
+                                                -0.92,
+                                            ],
+                                        }),
+                                    )),
+                                ),
+                                (
+                                    at_s: 0.12,
+                                    kind: Vfx(
+                                        effect: "shockwave",
+                                        at: (0.0, 0.0),
+                                        scale: 1.15,
+                                        sfx: None,
+                                    ),
+                                ),
+                            ],
+                            gates: (
+                                grounded: Some(true),
+                                recovery: r#None,
+                                forbidden_while_held: false,
+                                roots_steering: true,
+                                recovery_route: None,
+                                costs: [],
+                                when_refused: None,
+                            ),
+                            start_impulse: None,
+                            smash_charge_mult: 1.0,
+                            smash_charge: None,
+                            charge_gesture: Smash,
+                            repeat: None,
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
+                            sprite_spin_hz: None,
+                            equips: None,
+                            flow: None,
+                        ),
+                    ],
+                )),
+            ),
+        ),
+        // A form of the same fighter: the same moves, under the same ids.
+        (
+            id: "super_sanic",
+            contracts: (
+                borrows: Some((
+                    archetype: "sanic",
+                    prefixes: [],
+                )),
+            ),
+        ),
+    ],
+)

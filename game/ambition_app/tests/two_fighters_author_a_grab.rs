@@ -16,7 +16,7 @@ use ambition_platformer2d::entity_catalog::{
 };
 
 fn george() -> MovesetContract {
-    ambition_demo_smash::smash_pack::shipped_moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL)
+    ambition_demo_smash::smash_pack::PACK.moveset(ambition_demo_smash::SMASH_GEORGE_BOOUL)
 }
 
 fn admiral() -> MovesetContract {

@@ -3263,7 +3263,7 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // The repertoire, on the character: preparation uses an authored
             // moveset as-is, so the seat needs no generic floor. Every table is
             // content in this demo's pack.
-            definition = definition.with_moveset(crate::smash_pack::shipped_moveset(id));
+            definition = definition.with_moveset(crate::smash_pack::PACK.moveset(id));
             app.register_character(definition);
         }
     }

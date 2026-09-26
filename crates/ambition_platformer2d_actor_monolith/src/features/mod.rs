@@ -1265,14 +1265,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // published.
         app.add_systems(
             sim,
-            (
-                ambition_platformer2d_shared_tangle::orientation::ensure_actor_roll,
-                ambition_platformer2d_shared_tangle::orientation::update_actor_roll,
-            )
-                .chain()
-                .in_set(
-                    ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
-                ),
+            ambition_platformer2d_shared_tangle::orientation::update_actor_roll.in_set(
+                ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::AfterIntegrate,
+            ),
         );
         // TARGETING owns feud settlement and target/disposition selection. The
         // short chain is intentional: selection must see the grudge state produced

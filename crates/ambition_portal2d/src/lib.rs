@@ -36,13 +36,6 @@ mod types;
 /// because renderers build capture cameras and cone UVs from it.
 pub mod view;
 
-// TODO(compat-remove): migrate host callers to the owning crates, then remove these lower-crate
-// re-exports from the portal API.
-pub use ambition_platformer2d_shared_tangle::orientation::{
-    ensure_actor_roll, update_actor_roll, ActorRoll,
-};
-pub use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
-
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};
 pub use gun::{portal_toggle_system, OwnedPortalGunPair, PortalGun};

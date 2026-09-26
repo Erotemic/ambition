@@ -157,6 +157,8 @@ struct UnattachedAtDecision {
     seen: std::collections::HashSet<Entity>,
     /// Brained bodies with no belief memory for their senses to update.
     memoryless: Vec<Entity>,
+    /// Brained bodies with no orientation to right themselves with.
+    rollless: Vec<Entity>,
     /// Staged actors with no dormancy stance.
     stanceless: Vec<Entity>,
 }
@@ -164,7 +166,11 @@ struct UnattachedAtDecision {
 fn record_unattached_at_decision(
     mut out: ResMut<UnattachedAtDecision>,
     brained: Query<
-        (Entity, Has<ambition_platformer2d::characters::perception::PerceptionMemory>),
+        (
+            Entity,
+            Has<ambition_platformer2d::characters::perception::PerceptionMemory>,
+            Has<ambition_platformer2d::platformer::orientation::ActorRoll>,
+        ),
         (
             With<ambition_platformer2d::characters::brain::Brain>,
             With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>,
@@ -182,10 +188,13 @@ fn record_unattached_at_decision(
     >,
 ) {
     use ambition_platformer2d::actor::ActorFaction;
-    for (entity, has_memory) in &brained {
+    for (entity, has_memory, has_roll) in &brained {
         out.seen.insert(entity);
         if !has_memory {
             out.memoryless.push(entity);
+        }
+        if !has_roll {
+            out.rollless.push(entity);
         }
     }
     for (entity, faction, has_stance) in &staged {
@@ -205,7 +214,8 @@ fn record_unattached_at_decision(
 ///
 /// A body's senses are derived when it decides, so there is nothing of them to
 /// attach. Its belief memory is built with its brain (`Brain` requires it), and
-/// the memory arm checks that the rebuilt bodies arrive with it.
+/// its roll with its movement frame (`ResolvedMotionFrame` requires it); the
+/// memory and roll arms check that the rebuilt bodies arrive with both.
 #[test]
 fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -240,6 +250,12 @@ fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
         "{} brained bodies reached the decision pass with no belief memory: {:?}",
         record.memoryless.len(),
         &record.memoryless[..record.memoryless.len().min(5)]
+    );
+    assert!(
+        record.rollless.is_empty(),
+        "{} brained bodies reached the decision pass with no `ActorRoll`: {:?}",
+        record.rollless.len(),
+        &record.rollless[..record.rollless.len().min(5)]
     );
     assert!(
         record.stanceless.is_empty(),

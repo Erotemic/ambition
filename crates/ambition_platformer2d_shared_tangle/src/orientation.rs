@@ -8,12 +8,14 @@
 //! systems are gravity-driven and actor-generic — they operate on the unified
 //! [`crate::body::BodyKinematics`] body and the in-crate
 //! [`crate::gravity::GravityCtx`], with no sandbox / content dependency.
+//!
+//! A body is built with both components: [`crate::frame_env::ResolvedMotionFrame`]
+//! requires them, so no system attaches them later.
 
 use bevy::prelude::*;
 
 use crate::body::BodyKinematics;
 use crate::gravity::{gravity_upright_angle, upright_angle_for_world_up, GravityCtx};
-use crate::projectile::ProjectileGameplay;
 use crate::time::SimDt;
 
 /// Shared "which way is down" body orientation, in render-space radians, applied
@@ -53,43 +55,6 @@ const ACTOR_ROLL_SPEED: f32 = 8.0;
 /// it stands on. Still finite, so a landing on a steep slope reads as a quick
 /// settle rather than a pop.
 const SURFACE_ROLL_TRACK_SPEED: f32 = 30.0;
-
-/// Attach an [`ActorRoll`] (plus its [`SurfaceUpright`] ride fact) lazily to
-/// each non-projectile body that can be reoriented. Projectiles carry
-/// [`BodyKinematics`] too, but must not somersault upright mid-flight, so
-/// [`ProjectileGameplay`] filters them out.
-///
-/// Each half is ensured INDEPENDENTLY, not as a pair gated on one member:
-/// `ActorRoll` is snapshot-registered, so a restore patches it onto a rebuilt
-/// body — and an attacher gated only on `Without<ActorRoll>` would then never
-/// add the derived `SurfaceUpright` half (the N3.2b duel oracle caught exactly
-/// this). An "ensure" system must ensure every component it owns.
-pub fn ensure_actor_roll(
-    mut commands: Commands,
-    missing_roll: Query<
-        Entity,
-        (
-            With<BodyKinematics>,
-            Without<ActorRoll>,
-            Without<ProjectileGameplay>,
-        ),
-    >,
-    missing_surface_fact: Query<
-        Entity,
-        (
-            With<BodyKinematics>,
-            Without<SurfaceUpright>,
-            Without<ProjectileGameplay>,
-        ),
-    >,
-) {
-    for entity in &missing_roll {
-        commands.entity(entity).insert(ActorRoll::default());
-    }
-    for entity in &missing_surface_fact {
-        commands.entity(entity).insert(SurfaceUpright::default());
-    }
-}
 
 /// Ease each actor's roll toward its upright target: feet onto the ridden
 /// surface while the body's [`SurfaceUpright`] fact carries one, feet along

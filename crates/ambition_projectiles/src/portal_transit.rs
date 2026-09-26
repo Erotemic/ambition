@@ -7,7 +7,8 @@
 //! double-tests a hit).
 
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_portal2d::{find_portal, portal_transform_velocity, PlacedPortal};
+use ambition_platformer2d_shared_tangle::transit::rotate_velocity_between_normals as portal_transform_velocity;
+use ambition_portal2d::{find_portal, PlacedPortal};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal
 /// plane and isn't immediately re-tested as "entering" the exit. Matches the

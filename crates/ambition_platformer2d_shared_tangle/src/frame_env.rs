@@ -16,7 +16,14 @@ use crate::gravity::GravityCtx;
 /// Environment-resolved movement frame for the current simulation tick.
 /// Published only by [`FrameResolveSet`]; newly spawned bodies use the default
 /// until the next resolution pass.
+///
+/// A body with a movement frame can be reoriented (by a portal, a gravity zone
+/// or a knockback), so it is built with the orientation it rights itself with:
+/// [`ActorRoll`](crate::orientation::ActorRoll) and the per-tick
+/// [`SurfaceUpright`](crate::orientation::SurfaceUpright) ride fact. A
+/// projectile has no movement frame and does not somersault upright.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[require(crate::orientation::ActorRoll, crate::orientation::SurfaceUpright)]
 pub struct ResolvedMotionFrame {
     frame: MotionFrame,
 }

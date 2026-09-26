@@ -60,6 +60,7 @@ fn doc_text_naming(recover_s: f32, verb_target: &str, technique: Option<&str>) -
                 hurtboxes: None,
                 presentation: None,
                 borrows: None,
+                takes: Vec::new(),
                 moveset: Some(MovesetContract {
                     verbs,
                     moves: vec![strike(Strike {

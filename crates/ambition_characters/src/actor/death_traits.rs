@@ -9,7 +9,8 @@
 /// Every field defaults to "nothing special", so a character that says nothing
 /// about dying gets the ordinary death — which is what almost every character
 /// wants and why the whole struct is `Option` on a definition.
-#[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct CharacterDeathTraits {
     /// Detonates at the corpse on death, so a point-blank kill is punished.
     pub explodes_on_death: bool,

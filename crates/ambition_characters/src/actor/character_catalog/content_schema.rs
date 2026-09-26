@@ -197,6 +197,40 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
                 );
             }
         }
+        // A shared policy is not a content identity of its own, so the name is
+        // checked against this catalog's map here.
+        if let Some(profile) = &entry.named_autonomous_profile {
+            let problem = if entry.autonomous_profile.is_some() {
+                Some((
+                    DiagnosticCode::MalformedSource,
+                    format!(
+                        "character `{name}` states both `autonomous_profile` and \
+                         `named_autonomous_profile`"
+                    ),
+                    "state one policy: the shared name, or the row's own profile",
+                ))
+            } else if !catalog.autonomous_profiles.contains_key(profile) {
+                Some((
+                    DiagnosticCode::UnknownPreset,
+                    format!(
+                        "character `{name}` names the policy `{profile}`, which \
+                         `autonomous_profiles` does not state"
+                    ),
+                    "state it in `autonomous_profiles`, or name one that is there",
+                ))
+            } else {
+                None
+            };
+            if let Some((code, message, fix)) = problem {
+                out.report(
+                    facet
+                        .diagnostic(code, message)
+                        .about(id.clone())
+                        .at_field("named_autonomous_profile")
+                        .fix(fix),
+                );
+            }
+        }
         if let Some(preset) = &entry.locomotion_preset {
             out.refer(
                 PendingRef::new(

@@ -26,6 +26,28 @@
     // `run_speed`), never px/s — §4.7's brain→body seam. A policy that authored
     // absolute speeds could not be shared by a mite and a giant.
     autonomous_profiles: {
+        // The pirate crew's three shapes, two pirates each.
+        "pirate_striker": (
+            template: Smash,
+            aggro_radius: 220.0,
+            attack_range: 36.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+        ),
+        "pirate_brute": (
+            template: Smash,
+            aggro_radius: 240.0,
+            attack_range: 44.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+        ),
+        "pirate_ranger": (
+            template: Skirmisher,
+            aggro_radius: 320.0,
+            attack_range: 140.0,
+            patrol_effort: 0.5,
+            chase_effort: 1.0,
+        ),
         // HOW AN AMBITION CHARACTER FIGHTS ONCE PROVOKED, when it names no
         // policy of its own: the provider's declared default
         // (`with_default_provoked_profile`), the numbers the engine constant
@@ -219,6 +241,43 @@
     },
 
     action_set_presets: {
+        // Each creature's own swing, named for the one or two rows that wear it.
+        "carl_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.30, active_s: 0.08, recover_s: 0.34, damage: 1, reach_px: 30.0)),
+        ),
+        "dividing_mite_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.30, active_s: 0.10, recover_s: 0.34, damage: 1, reach_px: 30.0)),
+        ),
+        "exploding_mite_swipe": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.22, active_s: 0.08, recover_s: 0.30, damage: 1, reach_px: 26.0)),
+        ),
+        // A hammer is slow and it hurts.
+        "brute_hammer": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.40, active_s: 0.12, recover_s: 0.42, damage: 2, reach_px: 44.0)),
+        ),
+        // The pirate crew's three shapes. A melee pirate's reach is its old
+        // preset's `attack_range`.
+        "pirate_cutlass": (
+            move_style: Walk,
+            melee: Some(Swipe(windup_s: 0.26, active_s: 0.09, recover_s: 0.30, damage: 1, reach_px: 36.0)),
+        ),
+        "pirate_heavy_cutlass": (
+            move_style: WalkHeavy,
+            melee: Some(Swipe(windup_s: 0.26, active_s: 0.09, recover_s: 0.30, damage: 2, reach_px: 44.0)),
+        ),
+        // The standoff shooter. Its fire cooldown lives on its policy.
+        "pirate_bolt": (
+            move_style: Walk,
+            ranged: Some(Bolt(speed: 500.0, damage: 1)),
+        ),
+        "parrot_bite": (
+            move_style: Float,
+            melee: Some(Bite(windup_s: 0.16, active_s: 0.10, recover_s: 0.28, damage: 1, reach_px: 48.0)),
+        ),
         "peaceful": (
             move_style: Walk,
             melee: None,
@@ -513,6 +572,12 @@
             body_kind: Standard,
             composition: None,
             default_action_set: "striker_swipe",
+            // THE BODY. It NAMES its policy rather than carrying one: several creatures
+            // point at `medium_striker` and keep their own bodies.
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.70, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(5),
             tags: ["enemy", "base"],
         barks: (
             on_hit: ["Gah! Watch it!", "Dirty trick!", "I'll remember that!"],
@@ -584,6 +649,19 @@
             // `parrot_lively`, which cost four attempts to understand) has to
             // move that to the placements first.
             default_action_set: "sandbag_punch",
+            // THE IMMORTAL TRAINING DUMMY. Never dying is a character trait, so this is
+            // a separate creature and not a flag on the sandbag. It states no contact
+            // damage: a character says "none" by not speaking.
+            practice_target: true,
+            death_traits: Some((never_dies: true)),
+            locomotion: Some((run_speed: 155.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: StandStill,
+                // It notices nobody and swings at nobody.
+                patrol_effort: 0.6774,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(9999),
             tags: ["training"],
         barks: (
             on_hit: ["...", "Again."],
@@ -639,7 +717,25 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            default_action_set: "striker_swipe",
+            default_action_set: "brute_hammer",
+            // THE BODY of a separate creature, not an alias for a named goblin. Its
+            // numbers keep the old `large_brute` waves (exact balance is tunable later).
+            // The `melee_brute_brute` chase speed, slower than the goblin band's 170, is
+            // what makes a brute read as one.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            // Heavier than the goblin's 0.70: walking into a brute costs more.
+            contact_damage: Some((strength: 0.85, amount: 1)),
+            // Its own numbers, stated here. The goblin band names a shared policy
+            // because several creatures point at it; an indirection earns itself when
+            // it has adopters.
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 240.0,
+                attack_range: 44.0,
+                patrol_effort: 0.5,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(8),
             tags: ["enemy", "goblin", "heavy"],
         barks: (
             on_hit: ["Rrrgh!", "Little thing hits back!", "Brute not done!"],
@@ -807,7 +903,14 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            default_action_set: "striker_swipe",
+            default_action_set: "pirate_cutlass",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            named_autonomous_profile: Some("pirate_striker"),
+            max_health: Some(4),
             tags: ["pirate", "enemy"],
         barks: (
             on_hit: ["Inventory says NO, ye dock-rat!", "Yarr! Every coin's a-counted!", "Tally that on yer hide, swabbie!"],
@@ -825,7 +928,14 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            default_action_set: "ranger_arrow",
+            default_action_set: "pirate_bolt",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 85.0, move_style: Walk)),
+            named_autonomous_profile: Some("pirate_ranger"),
+            max_health: Some(4),
             tags: ["pirate", "enemy"],
         barks: (
             on_hit: ["Land ho — an' I see YE comin'!", "Spyglass to me eye, boots to yer head!", "Crow's nest don't sit empty, savvy?"],
@@ -843,7 +953,14 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            default_action_set: "ranger_arrow",
+            default_action_set: "pirate_bolt",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 85.0, move_style: Walk)),
+            named_autonomous_profile: Some("pirate_ranger"),
+            max_health: Some(4),
             tags: ["pirate", "enemy"],
         barks: (
             on_hit: ["Wrong heading, ye chartless dog!", "I'll plot ye a course straight to Davy Jones!", "Compass says: punch back!"],
@@ -885,7 +1002,24 @@
             //  this bird's policy is its definition's and its hostility is its
             // placement's. `parrot_lively` was a third copy of both, with
             // different numbers, deciding neither.
-            default_action_set: "peaceful",
+            default_action_set: "parrot_bite",
+            // THE BODY. A bird states its own flight: `body_kind: Floating` is a
+            // footprint fact and is not locomotion authority.
+            locomotion: Some((run_speed: 240.0, move_style: Float, baseline_free_flight: Some(true))),
+            contact_damage: Some((strength: 0.55, amount: 1)),
+            // It stalks to an altitude above its target, dives, pecks on contact and
+            // peels off to recover. A stochastic parrot repeats what it hears and
+            // squawks what it sees, so it relays sightings with the crew it flies with.
+            // ⚠ Its `default_brain` still names `parrot_lively`, whose numbers (aggro
+            // 120, range 0) disagree with this policy. This policy wins, so the preset
+            // is dead weight; it stays only because `default_brain` is required.
+            autonomous_profile: Some((
+                template: Aerial,
+                aggro_radius: 620.0,
+                attack_range: 60.0,
+                shares_sightings: true,
+            )),
+            max_health: Some(3),
             tags: ["pirate", "bird", "npc"],
             // SCAFFOLD exemplar. idle migrated from features::npcs (the
             // "parrot_cove" legacy pool, now keyed by catalog id).
@@ -985,7 +1119,14 @@
             standing_height: Some(58.7),
             composition: None,
             default_brain: "",
-            default_action_set: "brute_lunge",
+            default_action_set: "pirate_heavy_cutlass",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("pirate_brute"),
+            max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
         barks: (
             on_hit: ["Mind me cleaver, wee skipper!", "Aye, that smarts — but ye're worse off!", "Broadside Bess don't bend easy!", "Yarrrr! Take that an' a barrel more!"],
@@ -1037,7 +1178,14 @@
             standing_height: Some(60.4),
             composition: None,
             default_brain: "",
-            default_action_set: "brute_lunge",
+            default_action_set: "pirate_heavy_cutlass",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 75.0, move_style: WalkHeavy)),
+            named_autonomous_profile: Some("pirate_brute"),
+            max_health: Some(6),
             tags: ["pirate", "heavy", "enemy"],
         barks: (
             on_hit: ["Salt in the eye, blood in the bilge!", "Yargh! Watch yer manners on me deck!", "Wee skipper thinks he's bold, does he?", "Annet bites back, every time!"],
@@ -1478,6 +1626,11 @@
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
+            // THE BODY: the goblin's body facts and its shared `medium_striker` policy.
+            locomotion: Some((run_speed: 170.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.70, amount: 1)),
+            named_autonomous_profile: Some("medium_striker"),
+            max_health: Some(5),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
             on_hit: ["Contain the prototype!", "Keep it away from the consoles!", "No one leaves with the core!", "Hold the west line!"],
@@ -1501,6 +1654,20 @@
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
+            // THE BODY. Its single-adopter policy stays on its row; respawn is
+            // placement policy.
+            locomotion: Some((run_speed: 225.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.80, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                // 900 px is long: it is a corridor, and the guard notices you from the far
+                // end of it. A retune is a separate, visible decision.
+                aggro_radius: 900.0,
+                attack_range: 150.0,
+                patrol_effort: 0.5778,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
             tags: ["intro", "raid", "enemy", "placeholder_sprite"],
         barks: (
             on_hit: ["Hold your line!", "This one isn't on the manifest. Tag it and move!", "Secure the notebooks!", "Take only marked equipment!"],
@@ -1831,7 +1998,19 @@
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "striker_swipe",
+            default_action_set: "exploding_mite_swipe",
+            // THE BODY: fast and fragile, and it detonates at the corpse, so a
+            // point-blank kill is punished.
+            death_traits: Some((explodes_on_death: true)),
+            locomotion: Some((run_speed: 245.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.60, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 460.0,
+                attack_range: 60.0,
+                smash_hit_band: 30.0,
+            )),
+            max_health: Some(2),
             tags: ["enemy", "robot"],
         barks: (
             on_hit: ["I EXPLODE FOR THE CAUSE!", "PROXIMITY BREACH!", "FUSE LIT — WAIT, NOT YET—"],
@@ -1855,7 +2034,20 @@
             // that is why this is safe: `0.0` SUPPRESSED hostility, so dropping
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
-            default_action_set: "striker_swipe",
+            default_action_set: "dividing_mite_swipe",
+            // THE BODY: four hit points, slower and tankier, and two Puppy Slugs on
+            // death. The mite names its own offspring: a reusable platformer has no
+            // business knowing what an Ambition mite becomes.
+            death_traits: Some((divides_into: Some("npc_puppy_slug"))),
+            locomotion: Some((run_speed: 130.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.70, amount: 1)),
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 380.0,
+                attack_range: 55.0,
+                smash_hit_band: 34.0,
+            )),
+            max_health: Some(4),
             tags: ["enemy", "robot"],
         barks: (
             on_hit: ["Division initiated!", "Mitosis under stress!", "Splitting... headache!"],
@@ -2058,7 +2250,14 @@
             body_kind: Standard,
             composition: None,
             default_brain: "",
-            default_action_set: "striker_swipe",
+            default_action_set: "pirate_cutlass",
+            // THE BODY. The crew is one crew in three shapes (strikers, brutes, rangers),
+            // and each shape's policy is a shared `autonomous_profiles` entry. The run
+            // speed is the old preset's chase speed, so a pirate closes at the pace it
+            // always did. Health is tuning: ordinary 4, heavy 6.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            named_autonomous_profile: Some("pirate_striker"),
+            max_health: Some(4),
             tags: ["enemy"],
         barks: (
             on_hit: ["The Viper BITES!", "Cutlass out, landlubber!", "Ye danced into range!"],
@@ -3223,7 +3422,20 @@
             // different questions — *may this body attack* versus *what the
             // attack is* — and a `peaceful` row answered the first one NO, so
             // the table could never reach a fighter.
-            default_action_set: "striker_swipe",
+            default_action_set: "carl_swipe",
+            // THE BODY. Carl walks and can fight; friendliness and standing still are
+            // placement or controller policy, not limits on the body. Walking is stated:
+            // do not infer flight from art, role or body kind.
+            locomotion: Some((run_speed: 210.0, move_style: Walk)),
+            // Controller behavior; a placement may override it.
+            autonomous_profile: Some((
+                template: Smash,
+                aggro_radius: 420.0,
+                attack_range: 110.0,
+                patrol_effort: 0.45,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(4),
             tags: ["story", "science_communicator", "cosmic_storyteller", "skeptic", "peaceful"],
         barks: (
             idle: ["Billions and billions of rooms, and only one of them has you in it.", "Look up. The ceiling is a temporary opinion."],

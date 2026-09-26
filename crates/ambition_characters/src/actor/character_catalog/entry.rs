@@ -728,6 +728,16 @@ pub struct CharacterCatalogEntry {
     /// preparation under a registered definition's own.
     #[serde(default)]
     pub autonomous_profile: Option<crate::brain::BrainProfile>,
+    /// The name of a shared policy in the catalog's `autonomous_profiles`, for
+    /// a policy that several characters share. A row states either this or
+    /// [`autonomous_profile`](Self::autonomous_profile), never both.
+    #[serde(default)]
+    pub named_autonomous_profile: Option<String>,
+    /// What this body does when it dies (explodes, divides, never dies). `None`
+    /// (the default): the ordinary death. Folded at preparation under a
+    /// registered definition's own.
+    #[serde(default)]
+    pub death_traits: Option<crate::actor::CharacterDeathTraits>,
     /// A body that exists to be hit: no aggro, no strike back, not saved, not
     /// given a path. See `CharacterDefinition::practice_target`. Either the row
     /// or a registered definition can state it.

@@ -232,11 +232,10 @@ mod tests {
     }
 
     /// A row that states how its body moves is a character this game builds,
-    /// with the body and traits its row states.
+    /// with the body, policy, death, action set and traits its row states.
     ///
-    /// Fourteen characters were a Rust file each that stated only what the row
-    /// can now say (a gait, health, a policy, contact damage, two traits). The
-    /// row is their one authority. Being BUILT is what brings a character its
+    /// Twenty-four characters were a Rust file each that stated only what the
+    /// row can now say. The row is their one authority. Being BUILT is what brings a character its
     /// move table from the pack, so the move table is what this checks for
     /// buildability, beside the row's own facts.
     #[test]
@@ -268,6 +267,26 @@ mod tests {
             if let Some(health) = row.max_health {
                 assert_eq!(character.vitals.max_health, Some(health), "{id}");
             }
+            if row.death_traits.is_some() {
+                assert_eq!(character.death_traits, row.death_traits, "{id}");
+            }
+            let policy = row.autonomous_profile.as_ref().or_else(|| {
+                catalog.autonomous_profile(row.named_autonomous_profile.as_deref()?)
+            });
+            if policy.is_some() {
+                assert_eq!(character.autonomous_profile.as_ref(), policy, "{id}");
+            }
+            // The preset the row names, lowered as preparation lowers it.
+            let named = catalog
+                .data()
+                .action_set_presets
+                .get(&row.default_action_set)
+                .map(ambition_characters::actor::character_catalog::action_set_from_preset);
+            assert_eq!(
+                character.kit.action_set(),
+                named.as_ref(),
+                "`{id}` fights with a different action set from the one its row names"
+            );
             if movesets.contains_key(id.as_str()) {
                 assert!(
                     character.authored_moveset.is_some(),
@@ -276,7 +295,7 @@ mod tests {
                 );
             }
         }
-        assert!(bodies >= 14, "only {bodies} rows state a body");
+        assert!(bodies >= 29, "only {bodies} rows state a body");
 
         let get = |id: &str| prepared.get(id).unwrap_or_else(|| panic!("`{id}`"));
         assert_eq!(
@@ -285,6 +304,22 @@ mod tests {
             "the hall walk"
         );
         assert!(get("sandbag").practice_target, "the sandbag exists to be hit");
+        // Rows that used to name a preset their Rust file overruled, so the
+        // preset they name now is the one that must hold their real numbers.
+        assert_eq!(
+            get("npc_pirate_lookout").kit.action_set().map(|set| set.ranged.clone()),
+            Some(Some(ambition_characters::brain::RangedActionSpec::bolt(500.0, 1))),
+            "the ranger shoots the bolt its crew file stated, not the old arrow preset"
+        );
+        let brute = get("npc_goblin_brute").kit.action_set().and_then(|set| set.melee);
+        assert!(
+            matches!(
+                brute,
+                Some(ambition_characters::brain::MeleeActionSpec::Swipe(swing))
+                    if swing.damage == 2 && swing.reach_px == 44.0
+            ),
+            "the brute swings its hammer, not the striker's swipe: {brute:?}"
+        );
         assert!(
             get("npc_emmy_noether").preserves_mirror_symmetry,
             "two CPU Emmys must think on one stream"
@@ -475,30 +510,23 @@ mod tests {
     fn the_parrot_authors_the_body_its_archetype_row_used_to() {
         use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
 
-        let definition = authored_intrinsics(
-            "stochastic_parrot",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "stochastic_parrot",
-                "Stochastic Parrot",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
+        let app = prepared_cast_app();
+        let definition = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .get("stochastic_parrot")
+            .expect("the parrot is prepared");
         assert_eq!(definition.vitals.max_health, Some(3));
         let locomotion = definition.locomotion.expect("it states how it flies");
         assert_eq!(locomotion.run_speed, 240.0);
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Float));
-        let profile = definition
-            .autonomous_policy
-            .as_ref()
-            .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-            .expect("the dive-bomber policy");
+        let profile = definition.autonomous_profile.expect("the dive-bomber policy");
         assert_eq!(profile.template, CharacterBrainTemplate::Aerial);
         assert_eq!(profile.aggro_radius, 620.0);
         assert!(
             definition
-                .action_set
-                .as_ref()
+                .kit
+                .action_set()
                 .is_some_and(|set| set.melee.is_some()),
             "the peck is what makes a dive a threat"
         );
@@ -514,47 +542,43 @@ mod tests {
         );
     }
 
-    /// A migrated character has no archetype row left.
+    /// Every character this game builds states its own body: a gait from its
+    /// row or its file. No buildable character borrows one from an archetype.
     ///
-    /// Production readiness is measured through `body_blueprint()`, the same
-    /// definition path used by spawning. The census may only increase so losing
-    /// authored locomotion cannot masquerade as migration progress.
+    /// This was a floor that only grew (19 on 2026-08-12) with a control that
+    /// said the migration was not finished. The migration finished with AP67,
+    /// so the floor is now the whole cast, and the control is a character that
+    /// states no body.
     #[test]
-    fn the_body_complete_cast_only_grows() {
-        let complete: Vec<&str> = crate::character_catalog::buildable_cast()
+    fn every_buildable_character_states_its_body() {
+        // Asked of the prepared character: a gait from its row or its file.
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let incomplete: Vec<&str> = crate::character_catalog::buildable_cast()
             .filter(|id| {
-                let definition = authored_intrinsics(
-                    id,
-                    ambition_platformer2d::character::CharacterDefinition::new(
-                        *id,
-                        *id,
-                        crate::AMBITION_CONTENT_PROVIDER,
-                    ),
-                    crate::pack::prepared(),
-                );
-                // This census uses authored locomotion as the completeness signal.
-                // If preparation gains additional requirements, update the census to match.
-                definition.locomotion.is_some()
+                !prepared
+                    .get(id)
+                    .is_some_and(|character| character.locomotion.is_some())
             })
             .collect();
-
-        // A floor, not a pin: every migration raises the count.
         assert!(
-            complete.len() >= 19,
-            "only {} of Ambition's characters can build a body without an \
-             archetype, and it was NINETEEN on 2026-08-12 — a migration does not \
-             REMOVE completeness. Complete: {complete:?}",
-            complete.len()
+            incomplete.is_empty(),
+            "{incomplete:?} are built and state no gait, so their bodies come from \
+             somewhere other than the character"
         );
-
-        // Control: the count must not be everybody, or `is_ok()` is answering
-        // something else.
         let total = crate::character_catalog::buildable_cast().count();
+        assert!(total >= 44, "only {total} buildable characters");
+
+        // Control: a hub NPC whose row states no body reads as incomplete, so the
+        // signal distinguishes.
         assert!(
-            complete.len() < total,
-            "every one of the {total} buildable characters reports body-complete, \
-             which would mean `body_blueprint` has stopped distinguishing — the \
-             migration is not finished, so this cannot be true yet"
+            prepared
+                .get("npc_vault_keeper")
+                .is_some_and(|keeper| keeper.locomotion.is_none()),
+            "the vault keeper states no body and still reads as complete, so this \
+             check cannot tell the two apart"
         );
     }
 
@@ -888,40 +912,35 @@ mod tests {
     fn the_goblin_names_the_shared_striker_policy() {
         use ambition_characters::brain::MoveStyleSpec;
 
-        let definition = authored_intrinsics(
-            "goblin",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "goblin",
-                "Goblin",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
+        let app = prepared_cast_app();
+        let definition = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .get("goblin")
+            .expect("the goblin is prepared");
         assert_eq!(definition.vitals.max_health, Some(5));
         let locomotion = definition.locomotion.expect("its own body");
         assert_eq!(locomotion.run_speed, 170.0);
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk));
+        let row = load_catalog();
+        let row = row.get("goblin").expect("the goblin's row");
         assert_eq!(
-            definition
-                .autonomous_policy
-                .as_ref()
-                .and_then(ambition_characters::actor::AutonomousPolicy::named)
-                .map(ambition_characters::brain::BrainProfileRef::as_str),
+            row.named_autonomous_profile.as_deref(),
             Some("medium_striker"),
             "it NAMES the shared policy, provider-relative; carrying one inline \
              would make it unshareable, which is the whole point"
         );
-        // `AutonomousPolicy` has an `Inline` arm and a `Named` arm, so it cannot be
-        // both. Check which arm: a switch to inline would stop the policy being
-        // shared.
+        // A row states one policy or the other. Check which: a switch to inline
+        // would stop the policy being shared.
         assert!(
-            definition
-                .autonomous_policy
-                .as_ref()
-                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-                .is_none(),
+            row.autonomous_profile.is_none(),
             "the goblin carries an INLINE policy, so the shared `medium_striker` \
              entry is not what decides how it fights"
+        );
+        assert_eq!(
+            definition.autonomous_profile.as_ref(),
+            load_catalog().autonomous_profile("medium_striker"),
+            "the goblin is prepared with the shared policy it names"
         );
     }
 
@@ -1149,16 +1168,17 @@ mod tests {
     /// no death behaviour, for example.
     #[test]
     fn the_migrated_mites_author_their_own_death_and_health() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         for (id, explodes, divides_into, health) in [
             ("npc_exploding_mite", true, None, 2),
             ("npc_dividing_mite", false, Some("npc_puppy_slug"), 4),
         ] {
-            let bare = ambition_platformer2d::character::CharacterDefinition::new(
-                id,
-                "unused",
-                crate::AMBITION_CONTENT_PROVIDER,
-            );
-            let authored = authored_intrinsics(id, bare, crate::pack::prepared());
+            let authored = prepared
+                .get(id)
+                .unwrap_or_else(|| panic!("{id} is prepared"));
             let traits = authored
                 .death_traits
                 .as_ref()

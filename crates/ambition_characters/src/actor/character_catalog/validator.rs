@@ -76,6 +76,20 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
                 ));
             }
         }
+        if let Some(profile) = &entry.named_autonomous_profile {
+            if entry.autonomous_profile.is_some() {
+                errors.push(format!(
+                    "character '{id}' states both autonomous_profile and \
+                     named_autonomous_profile '{profile}'; state one policy"
+                ));
+            }
+            if !catalog.autonomous_profiles.contains_key(profile) {
+                errors.push(format!(
+                    "character '{id}' named_autonomous_profile '{profile}' not found in \
+                     autonomous_profiles"
+                ));
+            }
+        }
         if let Some(preset) = &entry.locomotion_preset {
             if entry.locomotion.is_some() {
                 errors.push(format!(

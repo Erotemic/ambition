@@ -416,14 +416,13 @@ impl Plugin for AmbitionBossContentPlugin {
 
         // GNU-ton arena gate: a derived collision-overlay contributor (hides the
         // retreat ladder while the boss is alive; opens the floor-gate on defeat).
-        // Runs in WorldPrep after the overlay rebuild clears the per-frame
-        // contributions and before the WorldPrep collision consumers — exactly
-        // like the encounter / intro lock-wall gates — so this frame's player /
-        // actor / projectile collision sees the derived geometry.
+        // `FeatureWorldOverlayContributions` runs it after the overlay rebuild
+        // and before every body that collides with the overlay, like the lock
+        // walls, so this frame's collision sees the derived geometry.
         app.add_systems(
             sim,
             (gate_gnu_ton_arena_ladder, gnu_back_is_ground)
-                .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );

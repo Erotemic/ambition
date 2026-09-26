@@ -1973,8 +1973,7 @@ impl Plugin for MaryORulesPlugin {
             // broken brick stops being solid — one overlay, both directions.
             powerups::contribute_discovered_hidden_blocks_to_overlay,
         )
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .after(ambition_platformer2d::platformer::schedule::FeatureWorldOverlaySet);
+            .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;

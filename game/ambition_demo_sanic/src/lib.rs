@@ -1304,8 +1304,7 @@ impl Plugin for SanicRulesPlugin {
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
-            .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .after(ambition_platformer2d::platformer::schedule::FeatureWorldOverlaySet);
+            .in_set(ambition_platformer2d::platformer::schedule::FeatureWorldOverlayContributions);
         // Aliased: the fully-qualified path wraps three ways at every call and
         // rustfmt then hides which type is being installed.
         use ambition_platformer2d::actors::session::reset::install_attempt_scoped;

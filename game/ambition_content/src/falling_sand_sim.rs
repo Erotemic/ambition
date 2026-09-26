@@ -25,7 +25,7 @@ pub mod sand_grid;
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::{
-    simulation_pass_is_authoritative, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    simulation_pass_is_authoritative, SimScheduleExt,
 };
 use bevy::prelude::*;
 
@@ -207,8 +207,7 @@ impl Plugin for FallingSandSimPlugin {
                     // The projection contributes settled sand to the collision
                     // overlay, which the rebuild clears each frame — run after
                     // it (the same WorldPrep contract the gates use).
-                    .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
-                    .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
+                    .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                     .in_set(FallingSandSimSet),
             )
             .add_systems(

@@ -109,7 +109,16 @@ fn default_chase_effort() -> f32 {
 pub struct BrainProfile {
     /// Which motion / decision policy the brain instantiates.
     pub template: CharacterBrainTemplate,
-    /// Distance (px) at which this driver notices a target.
+    /// Distance (px) inside which this driver engages a foe it knows of.
+    ///
+    /// ⭐ IT DOES NOT DECIDE WHAT THE BODY KNOWS. The body's senses do
+    /// (`perception_of` in the actor kernel): a sighted body knows a foe in its
+    /// view or in its memory, and the brain's target position is that belief.
+    /// This radius is a preference applied to the known foe, so a foe at 400 px
+    /// can be seen and left alone, and a radius past the viewport keeps a
+    /// chase going toward a remembered foe. It can never name a foe the body
+    /// does not know, because the distance it compares is the distance to the
+    /// belief.
     #[serde(default)]
     pub aggro_radius: f32,
     /// Distance (px) at which this driver commits to an attack.

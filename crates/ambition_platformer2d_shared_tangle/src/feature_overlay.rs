@@ -53,4 +53,37 @@ impl FeatureEcsWorldOverlay {
         // aperture depending on system order.
         let _ = portal_carves;
     }
+
+    /// Retract every contribution, from both owners, when the active room
+    /// changes.
+    ///
+    /// The overlay is a statement about ONE room: each block, carve and water
+    /// region is geometry of the room its contributors last saw. A room commit
+    /// replaces the room geometry at once, but the next rebuild comes only on
+    /// the next tick. Until then `CollisionWorld::solids()` would compose the
+    /// new room with the walls of the room just left, and it cannot tell.
+    /// An empty overlay states nothing about any room, which is true until
+    /// the contributors rebuild it for the new one.
+    ///
+    /// Retract by RESETTING, never by removing: every reader must keep reading
+    /// the resource. The destructure has no `..` for the same reason as above:
+    /// a new field must get a decision here.
+    pub fn retract_for_room_change(&mut self) {
+        let Self {
+            blocks,
+            gate_solids,
+            portal_carves,
+            removed_block_names,
+            climbable_carves,
+            water_regions,
+        } = self;
+        blocks.clear();
+        gate_solids.clear();
+        // The portal bridge refills this from `PortalCarves` on its next run,
+        // as it does every frame.
+        portal_carves.clear();
+        removed_block_names.clear();
+        climbable_carves.clear();
+        water_regions.clear();
+    }
 }

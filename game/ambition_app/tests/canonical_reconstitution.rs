@@ -645,6 +645,80 @@ fn leaving_a_room_and_returning_rebuilds_what_entering_it_built() {
     assert_same_population("leaving and re-entering", &fresh, &returned);
 }
 
+/// Every piece of geometry the collision overlay holds, one line each, so two
+/// samples compare as sets and a failure names the pieces.
+fn overlay_geometry(sim: &Platformer2dSimHarness) -> BTreeSet<String> {
+    let overlay = sim
+        .world()
+        .resource::<ambition_platformer2d::world::FeatureEcsWorldOverlay>();
+    let aabb = |kind: &str, a: &ae::Aabb| {
+        format!(
+            "{kind} ({:.1},{:.1})..({:.1},{:.1})",
+            a.min.x, a.min.y, a.max.x, a.max.y
+        )
+    };
+    let mut pieces = BTreeSet::new();
+    pieces.extend(overlay.blocks.iter().map(|b| aabb("block", &b.aabb)));
+    pieces.extend(overlay.gate_solids.iter().map(|b| aabb("gate", &b.aabb)));
+    pieces.extend(overlay.portal_carves.iter().map(|a| aabb("portal carve", a)));
+    pieces.extend(overlay.climbable_carves.iter().map(|a| aabb("climb carve", a)));
+    pieces.extend(overlay.water_regions.iter().map(|w| aabb("water", &w.aabb)));
+    pieces.extend(
+        overlay
+            .removed_block_names
+            .iter()
+            .map(|name| format!("removed {name}")),
+    );
+    pieces
+}
+
+/// Case 2b: the collision overlay leaves with the room it describes.
+///
+/// The overlay is geometry of one room, rebuilt at the head of each tick. A room
+/// commit changes the room geometry partway through a tick, so every system
+/// after the commit on that tick composes the NEW room with whatever the
+/// overlay still holds. That must not be the walls of the room just left: the
+/// commit retracts them in the same transaction (AP48).
+///
+/// The sample is taken on the commit tick, before the next rebuild, because
+/// that is the only moment the defect exists. The control is the tick after:
+/// the arrival room's own contributions come back.
+#[test]
+fn the_collision_overlay_leaves_with_the_room_it_describes() {
+    let (mut sim, live) = enter_the_room();
+    let built_here = overlay_geometry(&sim);
+
+    let neighbour = a_neighbour_of_the_room(&mut sim);
+    let away = walk_to(&mut sim, &neighbour);
+    assert_eq!(away, neighbour, "the fixture never actually left '{ROOM}'");
+    let live = settle_after_construction(&mut sim, &live);
+    let left_behind = overlay_geometry(&sim);
+    let only_there: BTreeSet<_> = left_behind.difference(&built_here).cloned().collect();
+    assert!(
+        !only_there.is_empty(),
+        "'{neighbour}' puts no geometry in the collision overlay that '{ROOM}' does \
+         not also have, so this test cannot see a stale overlay"
+    );
+
+    let back = walk_to(&mut sim, ROOM);
+    assert_eq!(back, ROOM, "the fixture did not get back to '{ROOM}'");
+    let on_the_commit_tick = overlay_geometry(&sim);
+    let stale: Vec<_> = on_the_commit_tick.intersection(&only_there).collect();
+    assert!(
+        stale.is_empty(),
+        "on the tick that committed '{ROOM}', the collision overlay still holds \
+         geometry of '{neighbour}', the room just left: {stale:#?}"
+    );
+
+    settle_after_construction(&mut sim, &live);
+    assert_eq!(
+        overlay_geometry(&sim),
+        built_here,
+        "after the rebuild the overlay must describe '{ROOM}' as it did when the \
+         room was first entered"
+    );
+}
+
 /// Case 3: a same-room replay rebuilds what entering the room builds.
 ///
 /// ⛔ THE CASE THE HAND-KEPT RESET LEDGER COULD NOT HOLD. Every fact the ledger

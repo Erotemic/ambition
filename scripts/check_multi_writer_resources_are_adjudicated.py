@@ -257,6 +257,7 @@ BASELINE: dict[str, tuple[str, ...]] = {
         "crates/ambition_encounter_features/src/lock_walls.rs",
         "crates/ambition_platformer2d_actor_monolith/src/world/gated_lock_walls.rs",
         "crates/ambition_platformer2d_actor_monolith/src/features/ecs/world_overlay.rs",
+        "crates/ambition_platformer2d_runtime/src/room_transition/commit.rs",
         "game/ambition_content/src/bosses/gnu_ton/conductor.rs",
         "game/ambition_content/src/bosses/gnu_ton/mod.rs",
         "game/ambition_content/src/falling_sand.rs",
@@ -2019,7 +2020,17 @@ ADJUDICATED: dict[str, str] = {
         "NOT A HOPE: `clear_engine_contributions` destructures `Self` with NO "
         "`..`, so a seventh field fails to compile (E0027) and lands its author "
         "at the question *\"engine-owned or contributor-owned?\"*. That is the "
-        "shape every other many-writer resource here should be measured against."
+        "shape every other many-writer resource here should be measured against.\n"
+        "    ⭐ THE ROOM COMMIT RETRACTS, IT DOES NOT CONTRIBUTE (AP48, 2026-09-26). "
+        "`RoomTransitionCombatReset::clear_carryover` "
+        "(`runtime/src/room_transition/commit.rs`) calls "
+        "`FeatureEcsWorldOverlay::retract_for_room_change`, which clears every "
+        "field of both owners (same no-`..` destructure). It writes no geometry: "
+        "it resets the overlay to \"nothing about any room\" in the transaction "
+        "that changes the room, because the next rebuild is a tick away and the "
+        "systems after the commit would read the old room's walls. The next "
+        "tick's rebuilder and contributors own the content again. Guard: "
+        "`canonical_reconstitution::the_collision_overlay_leaves_with_the_room_it_describes`."
     ),
     "ClassBRemapLog": (
         "CORRECT — AND IT IS THE CASE WHERE MANY WRITERS ARE THE DESIGN, ENFORCED BY "

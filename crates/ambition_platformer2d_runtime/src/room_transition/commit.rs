@@ -40,20 +40,20 @@ pub struct RoomClock<'w> {
     pub clock_resets: MessageWriter<'w, ClockResetRequest>,
 }
 
-/// Combat state a fresh room must not inherit, plus the feature-overlay read
-/// side the landing diagnostic needs.
+/// State a fresh room must not inherit: combat in flight, the ambient gravity
+/// frame, and the collision overlay of the room just left.
 #[derive(SystemParam)]
 pub struct RoomTransitionCombatReset<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub live_projectiles: Query<'w, 's, Entity, With<ambition_projectiles::LiveProjectile>>,
-    pub feature_overlay: Res<'w, FeatureEcsWorldOverlay>,
+    pub feature_overlay: ResMut<'w, FeatureEcsWorldOverlay>,
     pub base_gravity: ResMut<'w, ambition_platformer2d_shared_tangle::gravity::BaseGravity>,
 }
 
 impl RoomTransitionCombatReset<'_, '_> {
-    /// Drop every in-flight projectile and return ambient gravity to its default,
-    /// so a fresh room does not inherit combat events or a stale gravity frame
-    /// from the one just left.
+    /// Drop every in-flight projectile, return ambient gravity to its default,
+    /// and retract the collision overlay, so a fresh room does not inherit
+    /// combat events, a stale gravity frame or the walls of the one just left.
     pub fn clear_carryover(&mut self) {
         for entity in &self.live_projectiles {
             self.commands.entity(entity).despawn();
@@ -62,13 +62,19 @@ impl RoomTransitionCombatReset<'_, '_> {
         // `GravityField` is a per-tick mirror of the primary body's resolved
         // frame and has exactly one writer (`resolve_active_gravity`).
         *self.base_gravity = ambition_platformer2d_shared_tangle::gravity::BaseGravity::default();
+        // The room geometry changes in this transaction, and every system after
+        // it on this tick composes the overlay with that geometry.
+        self.feature_overlay.retract_for_room_change();
     }
 }
 
 /// Probe along the body's gravity direction from its feet for the nearest
-/// landing face (within 256 px). Returns `(distance, source)` where `source` is
-/// `"world"`, `"overlay"`, or `"both"`. `None` means nothing — the body is over
-/// a pit, or the floor has not materialised yet.
+/// landing face of the room geometry (within 256 px). `None` means nothing: the
+/// body is over a pit.
+///
+/// The collision overlay is not probed. At the commit it holds no contribution
+/// for the arrival room yet (the commit retracts the old room's), so a probe of
+/// it could only report the room the body left.
 ///
 /// Frame-relative: "below feet" is +gravity, not world-down, so the diagnostic
 /// stays meaningful under a gravity flip (identity under normal gravity).
@@ -76,8 +82,7 @@ fn ground_gap_below_feet(
     body: &ae::Aabb,
     gravity_dir: ae::Vec2,
     world: &ae::World,
-    feature_overlay: &FeatureEcsWorldOverlay,
-) -> Option<(f32, &'static str)> {
+) -> Option<f32> {
     const MAX_PROBE_PX: f32 = 256.0;
     // Side axis ⊥ gravity (`gravity_half(side)` reuses the projection to get an
     // AABB's extent along it).
@@ -85,34 +90,22 @@ fn ground_gap_below_feet(
     let feet = body.feet_coord(gravity_dir);
     let body_side = body.center().dot(side);
     let body_side_half = body.gravity_half(side);
-    let probe = |blocks: &[ae::Block]| {
-        let mut best: Option<f32> = None;
-        for block in blocks {
-            // The body's cross-section (⊥ gravity) must overlap the block's.
-            let block_side = block.aabb.center().dot(side);
-            if (block_side - body_side).abs() >= body_side_half + block.aabb.gravity_half(side) {
-                continue;
-            }
-            // Only consider blocks whose landing face is at/below the feet along
-            // gravity.
-            let gap = block.aabb.head_coord(gravity_dir) - feet;
-            if gap < 0.0 || gap > MAX_PROBE_PX {
-                continue;
-            }
-            best = Some(best.map_or(gap, |b| b.min(gap)));
+    let mut best: Option<f32> = None;
+    for block in &world.blocks {
+        // The body's cross-section (⊥ gravity) must overlap the block's.
+        let block_side = block.aabb.center().dot(side);
+        if (block_side - body_side).abs() >= body_side_half + block.aabb.gravity_half(side) {
+            continue;
         }
-        best
-    };
-    let world_gap = probe(&world.blocks);
-    let overlay_gap = probe(&feature_overlay.blocks);
-    match (world_gap, overlay_gap) {
-        (Some(a), Some(b)) if (a - b).abs() < 0.5 => Some((a.min(b), "both")),
-        (Some(a), Some(b)) if a <= b => Some((a, "world")),
-        (Some(_), Some(b)) => Some((b, "overlay")),
-        (Some(a), None) => Some((a, "world")),
-        (None, Some(b)) => Some((b, "overlay")),
-        (None, None) => None,
+        // Only consider blocks whose landing face is at/below the feet along
+        // gravity.
+        let gap = block.aabb.head_coord(gravity_dir) - feet;
+        if gap < 0.0 || gap > MAX_PROBE_PX {
+            continue;
+        }
+        best = Some(best.map_or(gap, |b| b.min(gap)));
     }
+    best
 }
 
 /// THE room-transition application, and there is only one.
@@ -617,7 +610,6 @@ impl RoomTransitionFinalize<'_, '_> {
                     // the one the arrival was validated against, so the report
                     // and the placement cannot disagree.
                     target_world,
-                    &self.carryover.feature_overlay,
                 );
             }
         }
@@ -1297,8 +1289,8 @@ pub fn terminalize_abandoned_checkpoint_restore_system(world: &mut bevy::prelude
     );
 }
 
-/// Emit one landing diagnostic for each committed room transition, including
-/// world/overlay collision coverage and the support gap below the arriving body.
+/// Emit one landing diagnostic for each committed room transition: the arrival
+/// room's collision coverage and the support gap below the arriving body.
 fn log_room_transition_landing(
     target_room: usize,
     room_set: &world_rooms::RoomSet,
@@ -1306,7 +1298,6 @@ fn log_room_transition_landing(
     size: ae::Vec2,
     gravity_dir: ae::Vec2,
     world: &ae::World,
-    feature_overlay: &ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
 ) {
     let target_id = room_set
         .rooms
@@ -1319,24 +1310,18 @@ fn log_room_transition_landing(
         .iter()
         .filter(|b| b.aabb.strict_intersects(body))
         .count();
-    let overlapping_overlay = feature_overlay
-        .blocks
-        .iter()
-        .filter(|b| b.aabb.strict_intersects(body))
-        .count();
-    let gap = ground_gap_below_feet(&body, gravity_dir, world, feature_overlay);
+    let gap = ground_gap_below_feet(&body, gravity_dir, world);
     let gap_desc = match gap {
-        Some((distance, source)) => format!("{distance:.1}px ({source})"),
+        Some(distance) => format!("{distance:.1}px"),
         None => "none within 256px".to_string(),
     };
     bevy::log::info!(
         target: "ambition_platformer2d::room_transition",
         "room transition: target={target_id} player_pos=({:.1},{:.1}) \
-         world_blocks={} overlay_blocks={} gap_below_feet={gap_desc} \
-         body_overlaps[world={overlapping_world}, overlay={overlapping_overlay}]",
+         world_blocks={} gap_below_feet={gap_desc} \
+         body_overlaps_world={overlapping_world}",
         pos.x,
         pos.y,
         world.blocks.len(),
-        feature_overlay.blocks.len(),
     );
 }

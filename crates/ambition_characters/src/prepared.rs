@@ -1732,10 +1732,16 @@ fn finalize_character(
     let locomotion = locomotion.or_else(|| catalog?.locomotion(&id));
     let contact_damage = contact_damage.or_else(|| catalog_row?.contact_damage);
     let autonomous_policy = autonomous_policy.or_else(|| {
-        catalog_row?
-            .autonomous_profile
-            .map(crate::actor::AutonomousPolicy::Inline)
+        let row = catalog_row?;
+        match (&row.autonomous_profile, &row.named_autonomous_profile) {
+            (Some(profile), _) => Some(crate::actor::AutonomousPolicy::Inline(*profile)),
+            (None, Some(name)) => Some(crate::actor::AutonomousPolicy::Named(
+                crate::brain::BrainProfileRef::new(name.clone()),
+            )),
+            (None, None) => None,
+        }
     });
+    let death_traits = death_traits.or_else(|| catalog_row?.death_traits.clone());
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
     // A trait that either the row or a registered definition can state.
     let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);

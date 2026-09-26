@@ -594,6 +594,40 @@ mod tests {
         assert!(format!("{error:?}").contains("state one gait"), "{error:?}");
     }
 
+    /// A row that names a shared policy must name one the catalog states, and
+    /// states either the name or its own profile.
+    #[test]
+    fn a_named_policy_is_refused_when_unknown_or_stated_beside_its_own() {
+        let catalog = |policy: &str| {
+            format!(
+                r#"(
+                    autonomous_profiles: {{ "striker": (template: Smash) }},
+                    brain_presets: {{ "idle": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{
+                        "alpha": (
+                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "idle", default_action_set: "peaceful", tags: [],
+                            {policy}
+                        ),
+                    }},
+                )"#
+            )
+        };
+        let fragment = |policy: &str| {
+            registry::CharacterCatalogFragment::from_ron("a", Some("alpha"), &catalog(policy))
+        };
+        fragment(r#"named_autonomous_profile: Some("striker"),"#).expect("a known policy");
+        let error = fragment(r#"named_autonomous_profile: Some("brute"),"#).expect_err("unknown");
+        assert!(format!("{error:?}").contains("'brute' not found"), "{error:?}");
+        let error = fragment(
+            r#"named_autonomous_profile: Some("striker"), autonomous_profile: Some((template: Smash)),"#,
+        )
+        .expect_err("two policies");
+        assert!(format!("{error:?}").contains("state one policy"), "{error:?}");
+    }
+
     #[test]
     fn portrait_paths_derive_from_the_gameplay_sheet() {
         let catalog = portrait_catalog_fixture("None");

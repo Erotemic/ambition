@@ -58,8 +58,10 @@ Do not hand-copy stale catalog snippets from old planning documents.
 ## 3. Author/register the character composition
 
 Most of a character is its catalog row. A row can state its gait (`locomotion`,
-or a shared `locomotion_preset`), `max_health`, `contact_damage`, an inline
-`autonomous_profile`, ability grants, its feel (`axis_tuning`, or a shared
+or a shared `locomotion_preset`), `max_health`, `contact_damage`,
+`death_traits`, its policy (an inline `autonomous_profile`, or a shared
+`named_autonomous_profile`), its action set (the preset `default_action_set`
+names), ability grants, its feel (`axis_tuning`, or a shared
 `axis_tuning_preset`), a sheet-authored body (`posed_body`), the traits
 `practice_target` and `preserves_mirror_symmetry`, and its lines
 (`fallback_dialogue`). A demo registers every row of its pack with one
@@ -67,8 +69,8 @@ or a shared `locomotion_preset`), `max_health`, `contact_damage`, an inline
 character the game builds. Copy a nearby row rather than recreating an old
 archetype shape.
 
-Only a fact the row cannot state yet (a mount, death traits, a named policy, a
-weapon's charge or muzzle) needs Rust: in Ambition, a file under
+Only a fact the row cannot state yet (a mount, mass, a dream seed, a held item,
+a weapon's charge or muzzle) needs Rust: in Ambition, a file under
 `game/ambition_content/src/authored/` listed in `AUTHORED_CAST`, which
 registers a `CharacterDefinition` through the character-registration seam.
 

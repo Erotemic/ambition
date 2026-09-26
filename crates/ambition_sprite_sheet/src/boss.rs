@@ -556,11 +556,42 @@ impl BossAnimator {
     /// sheet is untrimmed (or no basis is set) — callers then keep the fixed
     /// spawn-time size/anchor, so untrimmed boss sheets are unaffected.
     pub fn render_of(&self, anim: BossAnim, frame: usize) -> Option<(Vec2, Vec2)> {
+        self.render_at(self.spec.record_row(anim), frame)
+    }
+
+    /// The record `(row, frame)` a PINNED row draws — the first of `rows` this
+    /// sheet has, at `elapsed` seconds in, looping or held on its last frame.
+    /// `None` when the sheet has none of them: the caller draws its slot row.
+    pub fn pinned_cell<'a>(
+        &self,
+        rows: impl IntoIterator<Item = &'a str>,
+        elapsed: f32,
+        looping: bool,
+    ) -> Option<(usize, usize)> {
+        let slot = self.record.first_bound_row(rows)?.slot();
+        let row = self.record.rows.get(slot)?;
+        let count = (row.frame_count as usize).max(1);
+        let step = (elapsed.max(0.0) / row.duration_secs.max(1e-3)) as usize;
+        Some((slot, if looping { step % count } else { step.min(count - 1) }))
+    }
+
+    /// Page-local flat atlas index of record `(row, frame)`.
+    pub fn flat_index_at(&self, row: usize, frame: usize) -> usize {
+        self.record.flat_index_in_page(row, frame)
+    }
+
+    /// The page image record `(row, frame)` draws from.
+    pub fn page_at(&self, row: usize, frame: usize) -> u32 {
+        self.record.frame_page_of(row, frame)
+    }
+
+    /// [`Self::render_of`] for a record `(row, frame)`.
+    pub fn render_at(&self, row: usize, frame: usize) -> Option<(Vec2, Vec2)> {
         if !self.record.is_trimmed() {
             return None;
         }
         let basis = self.render_basis.as_ref()?;
-        let trim = self.record.frame_trim(self.spec.record_row(anim), frame);
+        let trim = self.record.frame_trim(row, frame);
         Some(crate::trimmed_render(
             &trim,
             basis.render_size,

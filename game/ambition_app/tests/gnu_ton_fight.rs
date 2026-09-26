@@ -10,7 +10,7 @@ use ambition_content::bosses::gnu_ton::choreography::Move;
 use ambition_content::bosses::gnu_ton::conductor::back_platform;
 use ambition_content::bosses::gnu_ton::GnuTonConductor;
 use ambition_platformer2d::boss_encounter::BossConfig;
-use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig};
+use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig, LimbSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
 use ambition_platformer2d::combat::components::FeatureId;
@@ -108,8 +108,25 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
     Scene { scholar, scholar_hp, performing, floor, giant, giant_unmirrored, giant_drawn_side, fists }
 }
 
+/// The side each fist is DRAWN toward, left hand then right, from the
+/// presentation read-model.
+fn fist_drawn_sides(sim: &mut Platformer2dSimHarness) -> [f32; 2] {
+    let world = sim.world_mut();
+    let rig = world
+        .query_filtered::<&LimbRig, Without<Limb>>()
+        .iter(world)
+        .next()
+        .expect("the giant gnu is in the arena")
+        .clone();
+    [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].map(|slot| {
+        let fist = rig.get(slot).expect("a fist in each hand slot");
+        let id = world.get::<FeatureId>(fist).expect("a fist has an id").clone();
+        world.resource::<ActorAnimIndex>().get(id.as_str()).expect("a fist is drawn").facing
+    })
+}
+
 /// The scholar's seat from the gnu's centre, as the gnu is drawn.
-const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -67.0);
+const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -76.5);
 
 fn saddle(s: &Scene) -> ae::Vec2 {
     s.giant.pos + ae::Vec2::new(SEAT.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), SEAT.y)
@@ -148,7 +165,8 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
         s.giant.size
     );
     assert!(
-        (60.0..80.0).contains(&s.scholar.size.x) && (80.0..100.0).contains(&s.scholar.size.y),
+        // His v2 sheet draws him 60x110: a person on a 440-wide giant.
+        (50.0..80.0).contains(&s.scholar.size.x) && (90.0..125.0).contains(&s.scholar.size.y),
         "the scholar is a person, not a speck: {:?}",
         s.scholar.size
     );
@@ -178,6 +196,25 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     let s = scene(&mut sim);
     let (stuck, ..) = s.fists.iter().find(|(fist, ..)| on_floor(fist, s.floor)).cloned().expect("a stuck fist");
     assert!((stuck.pos.x - 400.0).abs() < 40.0, "it fell where the player stood: {:?}", stuck.pos);
+    // Far from the gnu, it is still drawn bound to it: its view carries the
+    // point on the gnu's body its trail runs from.
+    {
+        let world = sim.world_mut();
+        let ids: Vec<FeatureId> =
+            world.query_filtered::<&FeatureId, With<Limb>>().iter(world).cloned().collect();
+        let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
+        assert_eq!(ids.len(), 2);
+        for id in ids {
+            let bond = views.get(id.as_str()).and_then(|view| view.limb_host);
+            let bond = bond.unwrap_or_else(|| panic!("fist {id:?} is drawn with no bond to the gnu"));
+            let off = bond - s.giant.pos;
+            assert!(
+                off.x.abs() < s.giant.size.x * 0.5 && off.y.abs() < s.giant.size.y * 0.5,
+                "fist {id:?}'s bond {bond:?} is off the gnu's body at {:?}",
+                s.giant.pos
+            );
+        }
+    }
     for _ in 0..6 {
         sim.step(AgentAction::default());
     }
@@ -294,6 +331,10 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
             sim.step(AgentAction::default());
             let s = scene(&mut sim);
             assert_eq!(drawn(&s), before, "frame {frame} with the player at {x}: a turn moved the gnu");
+            // The sheet draws the right hand (wrist left, knuckles right): the
+            // left is its mirror, wherever a move carries it and whichever way
+            // he faces.
+            assert_eq!(fist_drawn_sides(&mut sim), [-1.0, 1.0], "frame {frame} with the player at {x}");
             if s.performing.is_none() {
                 let seat = s.scholar.pos - s.giant.pos;
                 assert!((seat - SEAT).length() < 1.0, "frame {frame}: he sits at {seat:?}, the saddle is {SEAT:?}");
@@ -348,26 +389,43 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
     }
     assert!(entered, "holding interact at the door never entered {ARENA}");
 
-    let fists = |sim: &mut Platformer2dSimHarness| -> (Vec<ae::Vec2>, ae::BodyKinematics) {
+    // Each fist and the home its limb was built with, the giant, and whether
+    // he has started a move.
+    #[allow(clippy::type_complexity)]
+    let fists = |sim: &mut Platformer2dSimHarness| -> (Vec<ae::Vec2>, Vec<ae::Vec2>, ae::BodyKinematics, bool) {
         let world = sim.world_mut();
-        let fists = world
-            .query_filtered::<&ae::BodyKinematics, With<Limb>>()
+        let (fists, homes) = world
+            .query::<(&ae::BodyKinematics, &Limb)>()
             .iter(world)
-            .map(|kin| kin.pos)
-            .collect();
+            .map(|(kin, limb)| (kin.pos, limb.home_offset))
+            .unzip();
         let giant = world
             .query_filtered::<&ae::BodyKinematics, (With<LimbRig>, Without<Limb>)>()
             .iter(world)
             .next()
             .cloned()
             .expect("the giant is in the arena");
-        (fists, giant)
+        let performing = world.query::<&GnuTonConductor>().iter(world).any(|c| c.performing().is_some());
+        (fists, homes, giant, performing)
     };
-    let (mut last, _) = fists(&mut sim);
+    let (mut last, ..) = fists(&mut sim);
     assert_eq!(last.len(), 2, "the premise: both fists are in the arena from its first frame");
+    let mut resting = 0;
     for frame in 0..60 {
         sim.step(AgentAction::default());
-        let (now, giant) = fists(&mut sim);
+        let (now, homes, giant, performing) = fists(&mut sim);
+        // Resting before his first move, a fist bobs (10 px) about its limb's
+        // home: the one the spawn built it with. A second statement of the
+        // home would park it somewhere else. (It is built ~15 px low — spawn
+        // places it from the placement's box, before the gnu's body takes its
+        // sheet's height — and eases up over the first 0.6 s.)
+        if !performing && frame >= 40 {
+            resting += 1;
+            for (at, home) in now.iter().zip(&homes) {
+                let off = *at - (giant.pos + *home);
+                assert!(off.length() <= 10.5, "frame {frame}: a resting fist is {off:?} from its home {home:?}");
+            }
+        }
         for (before, after) in last.iter().zip(&now) {
             assert!(
                 (*after - *before).length() < 40.0,
@@ -381,6 +439,7 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
         }
         last = now;
     }
+    assert!(resting >= 15, "the premise: he rests before his first move ({resting} frames)");
 }
 
 /// The gnu is behind the playable plane: it publishes no volume a swing, a pogo

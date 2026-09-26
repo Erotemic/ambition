@@ -92,6 +92,13 @@ pub struct CharacterMount {
     /// one shoulder says where the shoulder is.
     #[serde(default)]
     pub saddle: Option<(f32, f32)>,
+    /// Where a `"giant"`-class mount's RIGHT hand rests, as an offset `(x, y)`
+    /// from its centre in world units (+y down); the left rests at its mirror.
+    /// `None` = a generic rest beside the body, sized from the body. The one
+    /// authority for it: spawn writes it to each hand's `Limb::home_offset`,
+    /// and whatever poses the hands reads it back from there.
+    #[serde(default)]
+    pub hand_rest: Option<(f32, f32)>,
 }
 
 /// Touching this body hurts.

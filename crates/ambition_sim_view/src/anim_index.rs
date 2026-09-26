@@ -73,6 +73,8 @@ pub struct ActorSpriteData {
     pub worn: Option<&'static ambition_characters::actor::WornCharacter>,
     /// A body with no left/right variant is drawn toward `+x` whatever its facing.
     pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
+    /// A named row content pinned this body to: its clip, ahead of any move's.
+    pub pinned: Option<&'static ambition_sprite_sheet::character::PinnedRow>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -361,7 +363,20 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                         Some(_) => chain.ahead_of(SMASH_CHARGE_CLIP),
                         None => chain,
                     })
-                    .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP))),
+                    .or_else(|| charge.map(|_| ClipRequest::only(SMASH_CHARGE_CLIP)))
+                    // A content PIN outranks everything the body is doing: it
+                    // names the row content decided this body shows (a gnu's
+                    // buck). The rest of the chain stays behind it, so a sheet
+                    // without the pinned row draws exactly what it drew before.
+                    .map_or_else(
+                        || a.pinned.filter(|pin| pin.is_pinned()).and_then(|pin| {
+                            ClipRequest::from_chain(&pin.rows.iter().map(String::as_str).collect::<Vec<_>>())
+                        }),
+                        |chain| match a.pinned.filter(|pin| pin.is_pinned()) {
+                            Some(pin) => Some(pin.rows.iter().rev().fold(chain, |c, row| c.ahead_of(row))),
+                            None => Some(chain),
+                        },
+                    ),
             },
         );
     }
@@ -387,9 +402,13 @@ pub struct BossFrameIndex {
     generation: u64,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct BossFrameView {
     pub anim: ambition_boss_encounter::sprites::BossAnimState,
+    /// A NAMED row content pinned this boss to (`PinnedRow`): drawn ahead of
+    /// the slot cursor when the sheet has it. Presentation only — the cursor
+    /// and the geometry it drives carry on underneath.
+    pub pinned: Option<ambition_sprite_sheet::character::PinnedRow>,
     /// The SIM-owned draw cursor (`BossAnimFrame`), published by id so the
     /// render's draw-only [`BossAnimator`] can mirror the advancing frame WITHOUT
     /// borrowing the sim entity's component. The render's `FeatureVisual` entity
@@ -409,8 +428,8 @@ pub struct BossFrameView {
 }
 
 impl BossFrameIndex {
-    pub fn get(&self, id: &str) -> Option<BossFrameView> {
-        self.frames.get(id).map(|(frame, _)| *frame)
+    pub fn get(&self, id: &str) -> Option<&BossFrameView> {
+        self.frames.get(id).map(|(frame, _)| frame)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &BossFrameView)> {
@@ -459,12 +478,13 @@ pub fn rebuild_boss_frame_index(
         // The SIM-owned draw cursor. `Option` so a boss fixture spawned without the anim cursor
         // still lands in the index (it just draws Rest frame 0).
         Option<&ambition_boss_encounter::sprites::BossAnimFrame>,
+        Option<&ambition_sprite_sheet::character::PinnedRow>,
     )>,
 ) {
     use ambition_boss_encounter::sprites::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
     index.begin_rebuild();
-    for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
+    for (id, feature, health, combat, attack_state, brain, anim_frame, pinned) in &bosses {
         let boss = feature.as_boss_ref();
         let anim = boss_anim_state_for(boss, health.alive(), attack_state, brain);
         let (cursor_anim, cursor_frame) = anim_frame
@@ -502,6 +522,7 @@ pub fn rebuild_boss_frame_index(
             id.as_str(),
             BossFrameView {
                 anim,
+                pinned: pinned.filter(|pin| pin.is_pinned()).cloned(),
                 cursor_anim,
                 cursor_frame,
                 hit_flash_secs: if health.alive() {

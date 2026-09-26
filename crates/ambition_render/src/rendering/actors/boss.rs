@@ -144,15 +144,22 @@ pub fn animate_bosses(
         // A hit reaction is presentation: the `Hit` row is drawn while the
         // flash runs, and the cursor (and its geometry) continues underneath, so
         // the attack resumes at the strike's frame.
-        let (cursor_anim, cursor_frame) = animator
-            .spec
-            .hit_reaction_frame(view.hit_flash_secs)
-            .unwrap_or((view.cursor_anim, view.cursor_frame));
-        let index = animator.flat_index(cursor_anim, cursor_frame);
+        //
+        // Then a PINNED row (content's `PinnedRow`: a scholar's tumble), when
+        // this sheet has one of its names; else the cursor's slot row.
+        let (row, frame) = match animator.spec.hit_reaction_frame(view.hit_flash_secs) {
+            Some((anim, frame)) => (animator.spec.record_row(anim), frame),
+            None => view
+                .pinned
+                .as_ref()
+                .and_then(|pin| animator.pinned_cell(pin.rows.iter().map(String::as_str), pin.elapsed, pin.looping))
+                .unwrap_or((animator.spec.record_row(view.cursor_anim), view.cursor_frame)),
+        };
+        let index = animator.flat_index_at(row, frame);
         // Split sheets: select the page for the active frame before setting
         // the page-local index. Single-page bosses skip this.
         if animator.is_paged() {
-            let page = animator.page_of(cursor_anim, cursor_frame);
+            let page = animator.page_at(row, frame);
             if let Some(pg) = animator.pages.get(page as usize) {
                 sprite.image = pg.texture.clone();
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
@@ -176,7 +183,7 @@ pub fn animate_bosses(
         // `render_of` is `None` for untrimmed sheets, which keep their spawn
         // size and anchor. The anchor x mirrors with the sprite flip.
         if let (Some((size, mut anchor_v)), Some(mut anchor)) =
-            (animator.render_of(cursor_anim, cursor_frame), anchor)
+            (animator.render_at(row, frame), anchor)
         {
             sprite.custom_size = Some(size);
             if flip {

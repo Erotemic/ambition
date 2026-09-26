@@ -36,6 +36,7 @@ fn actor_view(grab_reach: Option<ambition_platformer2d_core::Vec2>) -> ambition_
         wire_anchor: None,
         grab_reach,
         line_anchor: None,
+        limb_host: None,
         flash: false,
         breakable_state: None,
         chest_opened: false,
@@ -89,6 +90,7 @@ fn a_fighter_reeled_to_a_ledge_gets_a_line_without_a_grab() {
         "fighter".to_string(),
         ambition_sim_view::FeatureView {
             line_anchor: Some(ambition_platformer2d_core::Vec2::new(400.0, 120.0)),
+            limb_host: None,
             ..actor_view(None)
         },
     )]));

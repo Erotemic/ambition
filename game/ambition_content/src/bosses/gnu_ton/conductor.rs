@@ -30,6 +30,7 @@ use ambition_characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_combat::strike::{Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime};
 use ambition_mount::{MountSlot, RidingOn};
 use ambition_platformer2d::sfx::{BodySfxWriter, SfxId, SfxMessage};
+use ambition_platformer2d::sprite_sheet::character::PinnedRow;
 use ambition_platformer2d::vfx::{ParticleKind, VfxMessage};
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 use ambition_vfx::HitSide;
@@ -39,9 +40,6 @@ use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage}
 /// The boss this conducts.
 pub const GNU_TON_ID: &str = "gnu_ton_rider";
 
-/// Where each fist rests, from the giant's centre: one beside the rump, one
-/// before the face. Symmetric, so it needs no side.
-const HOME: Vec2 = Vec2::new(300.0, -40.0);
 /// A falling or swinging fist.
 const FIST_DAMAGE: i32 = 2;
 const FIST_KNOCKBACK: f32 = 1.4;
@@ -212,7 +210,7 @@ pub fn adopt_gnu_ton(
     scholars: Query<(Entity, &BossConfig, &RidingOn), Without<GnuTonConductor>>,
     giants: Query<(&LimbRig, &ae::BodyKinematics), With<MountSlot>>,
     fists: Query<(), (With<Limb>, Without<ae::PoseOwnedExternally>)>,
-    fist_bodies: Query<&ae::BodyKinematics, With<Limb>>,
+    fist_bodies: Query<(&ae::BodyKinematics, &Limb)>,
 ) {
     for (scholar, config, riding) in &scholars {
         if !is_gnu_ton(config) {
@@ -223,10 +221,10 @@ pub fn adopt_gnu_ton(
         let Ok((rig, giant)) = giants.get(riding.mount) else {
             continue;
         };
-        let home = homes(giant);
         let at = [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].map(|slot| rig.get(slot).and_then(|fist| fist_bodies.get(fist).ok()));
-        let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |kin| kin.pos));
-        commands.entity(scholar).insert(GnuTonConductor::new(fists_at));
+        let home = homes(giant, at.map(|fist| fist.map(|(_, limb)| limb.home_offset)));
+        let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |(kin, _)| kin.pos));
+        commands.entity(scholar).insert((GnuTonConductor::new(fists_at), PinnedRow::default()));
         // The gnu is scenery you stand on, not a target: behind the playable
         // plane, so no swing connects with it and no pogo bounces off it. It was
         // made invulnerable, which refused the damage and still let the swing
@@ -235,7 +233,7 @@ pub fn adopt_gnu_ton(
         //
         // And it has no left/right variant: the scholar turns to face you, the
         // gnu under him stays drawn as it is, its back where it was.
-        commands.entity(riding.mount).insert((ae::DepthPlane::BEHIND, ae::Unmirrored));
+        commands.entity(riding.mount).insert((ae::DepthPlane::BEHIND, ae::Unmirrored, PinnedRow::default()));
         for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
             if fists.contains(fist) {
                 commands.entity(fist).insert((
@@ -245,6 +243,7 @@ pub fn adopt_gnu_ton(
                     ae::PoseOwnedExternally,
                     ambition_combat::components::ActiveCombatant,
                     ambition_combat::components::RulesetOwnsDeath,
+                    PinnedRow::default(),
                 ));
             }
         }
@@ -292,8 +291,16 @@ pub fn back_platform(giant: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
     ae::aabb_from_min_size(Vec2::new(a.min(b), top), Vec2::new((a - b).abs(), BACK_THICKNESS))
 }
 
-fn homes(giant: &ae::BodyKinematics) -> [Vec2; 2] {
-    [-1.0, 1.0].map(|side| giant.pos + Vec2::new(side * HOME.x, HOME.y))
+/// Where each fist rests: its limb's `home_offset` about the gnu — the gnu's
+/// authored `hand_rest`, which spawn built the fists at. One authority, read
+/// here and never restated (a second one here eased the fists from where they
+/// were built to where this said, a visible slide at the start of every fight).
+/// A missing fist rests at its twin's mirror.
+fn homes(giant: &ae::BodyKinematics, offsets: [Option<Vec2>; 2]) -> [Vec2; 2] {
+    let mirror = |v: Vec2| Vec2::new(-v.x, v.y);
+    let right = offsets[1].or(offsets[0].map(mirror)).unwrap_or(Vec2::ZERO);
+    let left = offsets[0].unwrap_or(mirror(right));
+    [giant.pos + left, giant.pos + right]
 }
 
 fn spark(vfx: &mut MessageWriter<VfxMessage>, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
@@ -357,11 +364,12 @@ pub fn conduct_gnu_ton(
             &mut BodyCombat,
             &mut BossEncounter,
             Option<&mut ae::SweepSample>,
+            &mut PinnedRow,
         ),
         (With<BossConfig>, Without<MountSlot>, Without<Limb>),
     >,
     mut giants: Query<
-        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState),
+        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState, Option<&mut PinnedRow>),
         (With<MountSlot>, Without<Limb>, Without<BossConfig>),
     >,
     mut fists: Query<
@@ -372,8 +380,10 @@ pub fn conduct_gnu_ton(
             &mut ae::ActorSurfaceState,
             &mut ae::BodyGroundState,
             Option<&mut ae::SweepSample>,
+            Option<&mut PinnedRow>,
+            &Limb,
         ),
-        (With<Limb>, Without<MountSlot>, Without<BossConfig>),
+        (Without<MountSlot>, Without<BossConfig>),
     >,
     players: Query<
         &ae::BodyKinematics,
@@ -399,9 +409,10 @@ pub fn conduct_gnu_ton(
         mut scholar_combat,
         mut encounter,
         mut scholar_sweep,
+        mut scholar_row,
     ) in &mut scholars
     {
-        let Ok((rig, giant_kin, mut giant_flight)) = giants.get_mut(riding.mount) else {
+        let Ok((rig, giant_kin, mut giant_flight, mut giant_row)) = giants.get_mut(riding.mount) else {
             continue;
         };
         let fist_entities = [rig.get(LimbSlot::HAND_LEFT), rig.get(LimbSlot::HAND_RIGHT)];
@@ -413,14 +424,22 @@ pub fn conduct_gnu_ton(
         };
         conductor.hall = Some(hall);
         if !scholar_health.alive() {
-            // Defeated: the fists fall where they are and stay there.
+            // Defeated: he draws his own death, the gnu stands, and the fists
+            // fall where they are and stay there.
+            scholar_row.clear();
+            if let Some(row) = giant_row.as_deref_mut() {
+                row.clear();
+            }
             for (index, entity) in fist_entities.iter().enumerate() {
                 if let Some(hitbox) = conductor.hitboxes[index].take() {
                     commands.entity(hitbox).try_despawn();
                 }
-                let Some(Ok((mut kin, mut aabb, _, mut surface, _, mut sweep))) = entity.map(|e| fists.get_mut(e)) else {
+                let Some(Ok((mut kin, mut aabb, _, mut surface, _, mut sweep, mut row, _))) = entity.map(|e| fists.get_mut(e)) else {
                     continue;
                 };
+                if let Some(row) = row.as_deref_mut() {
+                    row.pin(&["hit", "rest"], 0.0, false);
+                }
                 surface.gravity_scale = 1.0;
                 aabb.center = kin.pos;
                 // His last pose for it: where it is, dropping straight down.
@@ -444,9 +463,12 @@ pub fn conduct_gnu_ton(
                 .and_then(|e| fists.get(e).ok().map(|(kin, ..)| kin.pos))
                 .unwrap_or(giant_kin.pos)
         });
+        let rests = std::array::from_fn(|i| {
+            fist_entities[i].and_then(|e| fists.get(e).ok().map(|(.., limb)| limb.home_offset))
+        });
         let stage = Stage {
             hall,
-            homes: homes(&giant_kin),
+            homes: homes(&giant_kin, rests),
             scholar: scholar_kin.pos,
             fist: fist_size,
         };
@@ -589,6 +611,17 @@ pub fn conduct_gnu_ton(
             beat_t: p.beat_t,
             clock,
         });
+        // ── What he and the gnu are drawn as ──
+        match ch::rows::scholar(cue.as_ref()) {
+            Some((rows, elapsed, looping)) => scholar_row.pin(rows, elapsed, looping),
+            None => scholar_row.clear(),
+        }
+        if let Some(row) = giant_row.as_deref_mut() {
+            match ch::rows::gnu(cue.as_ref()) {
+                Some((rows, elapsed, looping)) => row.pin(rows, elapsed, looping),
+                None => row.clear(),
+            }
+        }
         let mut poses = [Pose::idle(Vec2::ZERO); 2];
         for fist in Fist::BOTH {
             let i = fist.index();
@@ -620,13 +653,21 @@ pub fn conduct_gnu_ton(
             let Some(entity) = fist_entities[i] else {
                 continue;
             };
-            let Ok((mut kin, mut aabb, mut health, mut surface, mut ground, mut sweep)) = fists.get_mut(entity) else {
+            let Ok((mut kin, mut aabb, mut health, mut surface, mut ground, mut sweep, mut row, _)) = fists.get_mut(entity) else {
                 continue;
             };
             let vel = last.map_or(Vec2::ZERO, |last| (pose.pos - last.pos) / dt);
             ae::movement::constrain_body_pose(&mut kin, sweep.as_deref_mut(), pose.pos, vel);
-            // Knuckles toward the gnu.
-            kin.facing = -fist.side();
+            // Chirality by anatomy: the sheet draws the fist wrist-left,
+            // knuckles-right, thumb up — the right hand at rest, wrist toward
+            // the gnu. The right fist is drawn as authored and the left as its
+            // mirror, whichever side of the gnu a move carries it to. This
+            // faced each toward the gnu: knuckles in, arms out of nowhere.
+            kin.facing = fist.side();
+            if let Some(row) = row.as_deref_mut() {
+                let (rows, elapsed, looping) = ch::rows::fist(&pose, clock);
+                row.pin(rows, elapsed, looping);
+            }
             surface.gravity_scale = 0.0;
             ground.invalidate();
             aabb.center = kin.pos;
@@ -873,7 +914,7 @@ mod tests {
     fn the_fists_rest_on_either_side() {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = Vec2::new(900.0, 1040.0);
-        let [l, r] = homes(&kin);
+        let [l, r] = homes(&kin, [None, Some(Vec2::new(300.0, -40.0))]);
         assert!(l.x < kin.pos.x && r.x > kin.pos.x);
     }
 }

@@ -1791,7 +1791,12 @@ pub(crate) fn reject_runtime_giant(
     false
 }
 
-pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<GiantHandPlan> {
+/// The two hands of a `"giant"`-class host. `hand_rest` is the character's
+/// authored right-hand rest ([`CharacterMount::hand_rest`]); without one the
+/// hands rest beside the body, sized from it.
+///
+/// [`CharacterMount::hand_rest`]: ambition_characters::actor::CharacterMount::hand_rest
+pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb, hand_rest: Option<(f32, f32)>) -> Vec<GiantHandPlan> {
     //  the giant's own placement decides the hand geometry. This took an
     // `Option<&ArchetypeSpec>` and preferred that row's `default_size`; callers
     // handed it the reserved `combatant` fallback purely to satisfy the
@@ -1801,8 +1806,10 @@ pub fn giant_hand_plans(giant_id: &str, giant_aabb: ae::Aabb) -> Vec<GiantHandPl
     let giant_half = giant_aabb.half_size();
     let giant_center = giant_aabb.center();
     let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
-    let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
-    let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
+    let home_r = hand_rest
+        .map(|(x, y)| ae::Vec2::new(x, y))
+        .unwrap_or(ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15));
+    let home_l = ae::Vec2::new(-home_r.x, home_r.y);
     [
         (LimbSlot::HAND_LEFT, home_l, "left"),
         (LimbSlot::HAND_RIGHT, home_r, "right"),

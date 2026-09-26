@@ -1727,6 +1727,15 @@ fn finalize_character(
     // The art is asked once, here: a definition that names no sheet wears its
     // catalog row's, and only a catalog row can size a body from its sheet.
     let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
+    // A registered definition's own answer, else its catalog row's, like the
+    // health below. A game can then state a whole creature in its row.
+    let locomotion = locomotion.or_else(|| catalog_row?.locomotion);
+    let contact_damage = contact_damage.or_else(|| catalog_row?.contact_damage);
+    let autonomous_policy = autonomous_policy.or_else(|| {
+        catalog_row?
+            .autonomous_profile
+            .map(crate::actor::AutonomousPolicy::Inline)
+    });
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
         tuning: row.sprite_tuning,

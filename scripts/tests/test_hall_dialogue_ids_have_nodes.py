@@ -24,10 +24,15 @@ _NODE = re.compile(r"^title:\s*([A-Za-z_0-9]+)\s*$", re.M)
 def _declared_ids() -> set[str]:
     """Return pedestal dialogue IDs from every provider that stages hall characters.
 
-    Hall rows may be declared in RON or Rust; the same ID pattern matches both.
-    field identically, so widening the scan is a wider glob, not a second parser.
+    Hall rows may be declared in Ambition's catalog, in a demo pack's catalog
+    (`game/*/assets/data/character_catalog.ron`) or in Rust. The same ID
+    pattern matches all three, so widening the scan is a wider glob, not a
+    second parser.
     """
     text = [CATALOG.read_text(encoding="utf8")]
+    for path in sorted(REPO.glob("game/*/assets/data/character_catalog.ron")):
+        if path != CATALOG:
+            text.append(path.read_text(encoding="utf8"))
     for path in sorted(REPO.glob("game/*/src/**/*.rs")):
         text.append(path.read_text(encoding="utf8"))
     return set(_DECLARED.findall("\n".join(text)))

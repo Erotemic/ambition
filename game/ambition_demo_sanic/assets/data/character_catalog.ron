@@ -1,0 +1,174 @@
+// The Sanic demo's cast. Every demo installs its own roster; the engine ships
+// none (ADR 0017).
+//
+// The demo registers every row here as a character with one call
+// (`pack::PACK.cast(..)`), so a character is a row here, an optional move file
+// and their lines in `pack.ron`.
+(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {
+        // A peaceful speedster: the momentum ride + ball dash are the kit; no
+        // combat moveset. Referenced by the rows below so the catalog is valid.
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
+    characters: {
+        "sanic": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Sanic",
+            spritesheet: "sprites/sanic_spritesheet.png",
+            manifest: "sprites/sanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // THE ART IS THE BODY: the box, the quad and the quad's offset all
+            // follow from the sheet at one scale, set so that he stands 48
+            // units tall, the height the speedway (loops, monitors, spike
+            // gaps) was built around. In the engine's default 30x48 box his
+            // 128x128 frame was squeezed (x 0.23, y 0.38) and his feet stood
+            // ~3.75 units above the floor.
+            standing_height: Some(48.0),
+            posed_body: Some(OwnHeight),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player"],
+            // What this body may do. A row with no grants falls back to the
+            // dev sandbox set (`EditableAbilitySet::default()` is
+            // `sandbox_all`), so state it.
+            //
+            // `RunJump` is a classic runner's whole kit: steer, jump, and
+            // release early for a short jump. The momentum model below rides
+            // the loop; spin dash and the transform are techniques
+            // (`declare_sanic_techniques`), not engine verbs.
+            //
+            // This does not apply on the Smash grid. `session/setup` reads a
+            // catalog grant list for a session's own avatar; a match seat
+            // takes the stage's `MatchAbilities`, which grants the
+            // platform-fighter kit to every fighter.
+            abilities: Some([RunJump]),
+            // The movement identity of this demo: the home box opts into
+            // `MotionModel::SurfaceMomentum` (rides the speedway and loop),
+            // which `ball_dash` also requires. `stick_factor` is the
+            // sticky-sneakers knob: at top speed the ramp crest's convex
+            // joints exceed the physical (1.5x) hold, and 4.0 keeps the route
+            // attached at full speed.
+            momentum: Some((
+                ground_accel: 900.0,
+                top_speed: 1200.0,
+                jump_speed: 700.0,
+                stick_factor: 4.0,
+            )),
+            // One hit without rings is fatal. Authored on the row, not forced
+            // on the host, so Ambition's protagonist is not affected.
+            max_health: Some(1),
+            barks: (
+                hall: ["The pedestal asked me to idle. I said no.", "Where am I going? Yes.", "The camera is filing a complaint."],
+            ),
+            // What he says when no pool for the moment answers.
+            fallback_dialogue: [
+                "You're too slow. No offense. Some offense.",
+                "I don't fight. I arrive, and then I've left.",
+                "Momentum is just a promise you keep to yourself.",
+            ],
+            hall_dialogue_id: Some("hall_sanic"),
+        ),
+        "super_sanic": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Super Sanic",
+            spritesheet: "sprites/super_sanic_spritesheet.png",
+            manifest: "sprites/super_sanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // His super form's art at his scale: the two forms differ in size
+            // only where their art does.
+            posed_body: Some(SameAs("sanic")),
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player", "super", "transformation"],
+            // The super form is faster but gains no verbs, so the D key is
+            // not a capability unlock (he does not fly here). The boosted
+            // movement is authored on this row (classic Super Sonic ratios:
+            // ~2x accel, ~5/3 top speed, ~1.2x jump), so wearing the form is
+            // the grant. A re-wear replaces params and keeps live riding state
+            // (`sync_worn_motion_model_preserving_state`); reverting restores
+            // the base row exactly. The jump apex stays under the spring
+            // perch's 256px lift (840² / 2g ≈ 243px), so the perch still needs
+            // the spring.
+            abilities: Some([RunJump]),
+            momentum: Some((
+                ground_accel: 1800.0,
+                top_speed: 2000.0,
+                jump_speed: 840.0,
+                stick_factor: 4.0,
+            )),
+            // Same fragility as the base row. The super form's protection is
+            // `Health::invulnerable` (from `sync_super_form_traits`), not a
+            // bigger pool.
+            max_health: Some(1),
+            barks: (
+                hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
+            ),
+            fallback_dialogue: [
+                "The rings were the tutorial. I am the exam.",
+                "Gravity had one job and it has been reassigned.",
+                "I went so fast I met the version of me that was leaving.",
+            ],
+            hall_dialogue_id: Some("hall_super_sanic"),
+        ),
+        // A 1-HP wanderer that paces and reverses at walls, with no melee: its
+        // only offense is walking into you. It wears the published `ai_slop`
+        // sheet under Sanic's own id and display name, because the assembled
+        // catalog rejects duplicate display names across providers.
+        "sanic_badnik": (
+            display_name: "Sanic Badnik",
+            spritesheet: "sprites/ai_slop_spritesheet.png",
+            manifest: "sprites/ai_slop_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            // Three fifths of Sanic, the proportion a classic badnik has to
+            // the hero. At his full 48 its wide art was 74 units across, over
+            // twice his width (Jon: "the badniks are always way too big").
+            standing_height: Some(28.8),
+            posed_body: Some(OwnHeight),
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy"],
+            locomotion: Some((run_speed: 60.0, move_style: Walk)),
+            // It rides the ground Sanic rides. On the axis kernel it collided
+            // only with the flat solids under the hills, so it walked THROUGH
+            // every hill; on the surface solver it follows the chain.
+            // `slope_factor: 0` makes it a walker, not a ball: gravity along a
+            // slope neither drags it downhill nor stalls it climbing, so it
+            // paces at one speed over any ground.
+            momentum: Some((
+                ground_accel: 600.0,
+                brake: 1800.0,
+                friction: 1800.0,
+                slope_factor: 0.0,
+                top_speed: 60.0,
+                air_accel: 0.0,
+                jump_speed: 0.0,
+                stick_factor: 1.5,
+            )),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            // A badnik paces its stretch of ground at full effort, and turns at
+            // a pit lip or a slope it cannot climb rather than walking off.
+            autonomous_profile: Some((
+                template: Wanderer,
+                patrol_effort: 1.0,
+                turns_at_ledges: true,
+            )),
+            max_health: Some(1),
+            fallback_dialogue: [
+                "I pace. It is a living.",
+                "Something blue went past. Twice.",
+                "The wall and I have an understanding.",
+            ],
+        ),
+    },
+)

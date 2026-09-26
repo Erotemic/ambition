@@ -702,8 +702,8 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
-    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    // Every Mary-O enemy is a character of her cast, built as the game builds it.
+    ambition_demo_mary_o::register_mary_o_cast(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
 
@@ -861,8 +861,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    // Every Mary-O enemy is a character of her cast, built as the game builds it.
+    ambition_demo_mary_o::register_mary_o_cast(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 
@@ -1036,8 +1036,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    // Every Mary-O enemy is a character of her cast, built as the game builds it.
+    ambition_demo_mary_o::register_mary_o_cast(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 
@@ -1173,8 +1173,8 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<HitEvent>();
 
-    // every Mary-O enemy is a CHARACTER now (the plane swarms joined
-    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    // Every Mary-O enemy is a character of her cast, built as the game builds it.
+    ambition_demo_mary_o::register_mary_o_cast(&mut app);
     ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 

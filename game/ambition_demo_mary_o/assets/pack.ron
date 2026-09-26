@@ -14,6 +14,8 @@
     namespace: "mary_o_demo",
     requires: [],
     sources: [
+        // The cast: every row is a character the demo registers.
+        (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/movesets/mary_o.ron", schema: "moveset", version: 1),
     ],
 )

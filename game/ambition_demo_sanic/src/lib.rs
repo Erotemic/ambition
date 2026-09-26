@@ -105,30 +105,6 @@ pub const SPEEDWAY_WORLD_JSON: &str = include_str!("../assets/worlds/sanic_speed
 /// classic arrows+Z/X/C preset).
 pub const SANIC_CHARACTER_ID: &str = "sanic";
 
-/// How tall Sanic stands, in world units: the height the speedway (loops,
-/// monitors, spike gaps) was built around.
-pub const SANIC_STANDING_HEIGHT: f32 = 48.0;
-
-/// World units per sheet pixel for both of Sanic's forms, asked of his art
-/// rather than remembered — the same `posed_body_geometry` query the pose pass
-/// makes, so construction and the live box cannot disagree. One scale for both
-/// forms: they differ in size because their art does.
-pub fn sanic_world_per_pixel() -> f32 {
-    world_per_pixel_for_height("sanic", SANIC_STANDING_HEIGHT)
-}
-
-/// `height / <sheet's standing pixel height>`, or 1.0 when no art is baked (a
-/// headless fixture, where nothing resolves a body from it anyway).
-pub(crate) fn world_per_pixel_for_height(sheet: &str, height: f32) -> f32 {
-    ambition_platformer2d::character_sprites::posed_body_geometry(
-        sheet,
-        ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
-        1.0,
-    )
-    .map(|geometry| geometry.collision.y)
-    .filter(|pixels| *pixels > 0.0)
-    .map_or(1.0, |pixels| height / pixels)
-}
 pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
 
 /// The super form, composed from engine traits: he cannot be hurt, and what
@@ -450,127 +426,6 @@ fn loop_top(world: &ae::World) -> ae::Vec2 {
         .expect("a loop route has points")
 }
 
-/// The demo's two-form catalog. Every demo installs its own roster; the engine
-/// ships none (ADR 0017). The visible shell resolves both generated Sanic forms
-/// through the shared Ambition asset catalog. Missing local artifacts remain a
-/// loud, marked fallback rather than a second sprite path.
-const SANIC_CATALOG_RON: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
-    action_set_presets: {
-        // A peaceful speedster: the momentum ride + ball dash are the kit; no
-        // combat moveset. Referenced by the row below so the catalog is valid.
-        "peaceful": (
-            move_style: Walk,
-            melee: None,
-            ranged: None,
-            special: None,
-        ),
-    },
-    characters: {
-        "sanic": (
-            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
-            display_name: "Sanic",
-            spritesheet: "sprites/sanic_spritesheet.png",
-            manifest: "sprites/sanic_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["player"],
-            // What this body may do. A row with no grants falls back to the
-            // dev sandbox set (`EditableAbilitySet::default()` is
-            // `sandbox_all`), so state it.
-            //
-            // `RunJump` is a classic runner's whole kit: steer, jump, and
-            // release early for a short jump. The momentum model below rides
-            // the loop; spin dash and the transform are techniques
-            // (`declare_sanic_techniques`), not engine verbs.
-            //
-            // This does not apply on the Smash grid. `session/setup` reads a
-            // catalog grant list for a session's own avatar; a match seat
-            // takes the stage's `MatchAbilities`, which grants the
-            // platform-fighter kit to every fighter.
-            abilities: Some([RunJump]),
-            // The movement identity of this demo: the home box opts into
-            // `MotionModel::SurfaceMomentum` (rides the speedway and loop),
-            // which `ball_dash` also requires. `stick_factor` is the
-            // sticky-sneakers knob: at top speed the ramp crest's convex
-            // joints exceed the physical (1.5x) hold, and 4.0 keeps the route
-            // attached at full speed.
-            momentum: Some((
-                ground_accel: 900.0,
-                top_speed: 1200.0,
-                jump_speed: 700.0,
-                stick_factor: 4.0,
-            )),
-            // One hit without rings is fatal. Authored on the row, not forced
-            // on the host, so Ambition's protagonist is not affected.
-            max_health: Some(1),
-            barks: (
-                hall: ["The pedestal asked me to idle. I said no.", "Where am I going? Yes.", "The camera is filing a complaint."],
-            ),
-            hall_dialogue_id: Some("hall_sanic"),
-        ),
-        "super_sanic": (
-            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
-            display_name: "Super Sanic",
-            spritesheet: "sprites/super_sanic_spritesheet.png",
-            manifest: "sprites/super_sanic_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["player", "super", "transformation"],
-            // The super form is faster but gains no verbs, so the D key is
-            // not a capability unlock (he does not fly here). The boosted
-            // movement is authored on this row (classic Super Sonic ratios:
-            // ~2x accel, ~5/3 top speed, ~1.2x jump), so wearing the form is
-            // the grant. A re-wear replaces params and keeps live riding state
-            // (`sync_worn_motion_model_preserving_state`); reverting restores
-            // the base row exactly. The jump apex stays under the spring
-            // perch's 256px lift (840² / 2g ≈ 243px), so the perch still needs
-            // the spring.
-            abilities: Some([RunJump]),
-            momentum: Some((
-                ground_accel: 1800.0,
-                top_speed: 2000.0,
-                jump_speed: 840.0,
-                stick_factor: 4.0,
-            )),
-            // Same fragility as the base row. The super form's protection is
-            // `Health::invulnerable` (from `sync_super_form_traits`), not a
-            // bigger pool.
-            max_health: Some(1),
-            barks: (
-                hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
-            ),
-            hall_dialogue_id: Some("hall_super_sanic"),
-        ),
-        // The badnik's identity row: its sprite resolves from this display
-        // name. It reuses the `ai_slop` sheet under Sanic's own id and display
-        // name, because the assembled catalog rejects duplicate display names
-        // across providers. Behavior, HP, and contact come from the generic
-        // `combatant` fallback (see `badnik.rs`).
-        "sanic_badnik": (
-            display_name: "Sanic Badnik",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
-            manifest: "sprites/ai_slop_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["enemy"],
-            fallback_dialogue: [
-                "I pace. It is a living.",
-                "Something blue went past. Twice.",
-                "The wall and I have an understanding.",
-            ],
-        ),
-    },
-)"#;
-
 pub mod badnik;
 pub mod ball_dash;
 pub mod monitors;
@@ -599,74 +454,14 @@ pub struct SanicDemoContentPlugin;
 /// Consumers receive the assembled catalog through Bevy resources.
 pub fn install_sanic_content(app: &mut App) {
     use ambition_platformer2d::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
 
-    app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
-            provider::SANIC_EXPERIENCE,
-            Some(SANIC_CHARACTER_ID),
-            SANIC_CATALOG_RON,
-        )
-        .expect("Sanic character catalog should be valid")
-        // What a Sanic character that states no verbs can do as an actor.
-        .with_actor_default_abilities(
-            ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
-        ),
-    );
-    // §7.6: both forms through the one character seam. Each registration
-    // publishes the prepared definition and demands its art.
-    {
-        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
-        use ambition_platformer2d::character::CharacterDefinition;
-        // The sheet target, not the sheet file: `sanic_spritesheet.ron`
-        // declares `target: "sanic"`, and the registry is keyed by target.
-        // Each form also gets a voice: a registered-only character has no
-        // catalog row for bark pools, and the Hall's ambient ticker skips
-        // anyone with nothing to say. A yarn node still wins over these.
-        for (id, display, sheet, voice) in [
-            (
-                SANIC_CHARACTER_ID,
-                "Sanic",
-                "sanic",
-                [
-                    "You're too slow. No offense. Some offense.",
-                    "I don't fight. I arrive, and then I've left.",
-                    "Momentum is just a promise you keep to yourself.",
-                ],
-            ),
-            (
-                SUPER_SANIC_CHARACTER_ID,
-                "Super Sanic",
-                "super_sanic",
-                [
-                    "The rings were the tutorial. I am the exam.",
-                    "Gravity had one job and it has been reassigned.",
-                    "I went so fast I met the version of me that was leaving.",
-                ],
-            ),
-        ] {
-            // The ability ceiling is real
-            // (`ambition_platformer2d::characters::action_scheme::combat_actions`);
-            // guarded by `persona_architecture`'s
-            // `the_demo_body_cannot_trigger_a_single_move_from_its_own_smash_table`.
-            app.register_character(
-                CharacterDefinition::new(id, display, provider::SANIC_EXPERIENCE)
-                    .with_sheet(sheet)
-                    // THE ART IS THE BODY, as it is for Mary-O: the box, the quad
-                    // and the quad's offset all follow from the sheet at ONE
-                    // scale. Without it he stood in the engine's default 30x48
-                    // box with his 128x128 frame squeezed into it (x 0.23, y 0.38)
-                    // and his feet ~3.75 units above the floor.
-                    .with_sprite_authored_body(sanic_world_per_pixel())
-                    .with_voice(voice)
-                    .with_moveset(pack::PACK.moveset(id)),
-            );
-        }
-    }
-    // The badnik is a character; its four placements name it.
-    badnik::register_badnik_character(app);
+    // The cast is the pack's catalog: both of his forms and the badnik, each a
+    // row. What a Sanic character that states no verbs can do as an actor is
+    // a provider fact.
+    pack::PACK
+        .cast(provider::SANIC_EXPERIENCE, Some(SANIC_CHARACTER_ID))
+        .with_actor_default_abilities(ambition_platformer2d::engine_core::AbilitySet::classic_actor())
+        .register(app);
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             provider::SANIC_EXPERIENCE,

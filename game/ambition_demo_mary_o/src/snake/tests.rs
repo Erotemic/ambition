@@ -328,7 +328,7 @@ fn both_snake_forms_follow_one_scale() {
         .map(|g| g.collision)
     };
 
-    let base = super::snake_world_per_pixel();
+    let base = crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET);
     let (Some(walk), Some(boxed)) = (
         at(base, CharacterAnim::Idle),
         at(base, CharacterAnim::ShellIdle),
@@ -368,18 +368,16 @@ fn both_snake_forms_follow_one_scale() {
     }
 }
 
-/// ⛔⛔ THE SILENT FALLBACK IS A SECOND SIZE, AND IT IS NEARLY DOUBLE.
+/// ⛔⛔ THE SILENT FALLBACK IS A SECOND SIZE.
 ///
-/// `snake_world_per_pixel` falls back to `NO_SHEET = 0.35` when the baked sheet
-/// does not resolve, and the derivation that replaced it produced **0.182** —
-/// this function's own table says so. ⇒ A snake sized by the fallback is about
-/// TWICE the size of one sized by the art, and nothing at runtime says which
-/// happened.
+/// The scale resolver reads 1.0 when the baked sheet does not resolve, and the
+/// art derives about 0.18. A snake sized by the fallback is five times the size
+/// of one sized by the art, and nothing at runtime says which happened.
 ///
 /// Jon, 2026-09-05: *"the size of the snake has seemed to vary depending on the
-/// global game state"*. That is exactly the shape of a fallback that fires in
-/// some compositions and not others, so this pins that it does not fire where
-/// the demo actually runs.
+/// global game state"*. That is the shape of a fallback that fires in some
+/// compositions and not others, so this pins that it does not fire where the
+/// demo actually runs.
 #[test]
 fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
     let geometry = ambition_platformer2d::character_sprites::posed_body_geometry(
@@ -389,14 +387,13 @@ fn the_snake_is_sized_by_its_art_and_not_by_the_no_sheet_fallback() {
     );
     assert!(
         geometry.is_some(),
-        "the `{}` sheet did not resolve, so `snake_world_per_pixel` returns the \
-         0.35 fallback instead of the ~0.182 the art derives — a snake about \
-         twice the right size, with nothing at runtime saying so",
+        "the `{}` sheet did not resolve, so the scale is the 1.0 fallback \
+         instead of the ~0.18 the art derives, with nothing at runtime saying so",
         super::SNAKE_SHEET_TARGET
     );
-    let scale = super::snake_world_per_pixel();
+    let scale = crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET);
     assert!(
-        (scale - 0.35).abs() > 1e-6,
+        (scale - 1.0).abs() > 1e-6,
         "the scale IS the fallback value; see this test's doc"
     );
     // ⚠ A range, not an equality: the number moves when the art is redrawn, and
@@ -439,7 +436,7 @@ fn every_pose_the_snake_plays_resolves() {
         let resolved = ambition_platformer2d::character_sprites::posed_body_geometry(
             super::SNAKE_SHEET_TARGET,
             anim,
-            super::snake_world_per_pixel(),
+            crate::pack::PACK.posed_body_world_per_pixel(super::SNAKE_SHEET_TARGET),
         );
         assert!(
             resolved.is_some(),

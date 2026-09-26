@@ -187,6 +187,27 @@ pub mod content {
                 })
         }
 
+        /// The art-to-world scale at which [`Self::cast`] builds `character`'s
+        /// body, for anything else that must agree with it (a level that sizes
+        /// a gap to a body, a test that measures one).
+        ///
+        /// # Panics
+        ///
+        /// When the pack states no cast, or its row for `character` states no
+        /// `posed_body`: a caller that asks has assumed one.
+        pub fn posed_body_world_per_pixel(&self, character: &str) -> f32 {
+            let pack = self.prepared();
+            let catalog = ambition_characters::actor::character_catalog::lowered_catalog(pack)
+                .unwrap_or_else(|| panic!("the embedded pack `{}` states no cast", pack.id.0));
+            ambition_character_sprites::posed_body_world_per_pixel(catalog, character)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "the embedded pack `{}` states no posed_body for `{character}`",
+                        pack.id.0
+                    )
+                })
+        }
+
         /// The cast this pack states: every row of its `character_catalog`
         /// source, for `provider`.
         ///
@@ -259,20 +280,28 @@ pub mod content {
             let movesets = ambition_characters::moveset_content_schema::lowered_movesets(pack);
             let fighters =
                 ambition_characters::smash_fighter::content_schema::lowered_smash_fighters(pack);
-            let characters: Vec<(String, String)> = self
-                .fragment
-                .catalog()
+            let catalog = self.fragment.catalog();
+            let characters: Vec<(String, String, Option<f32>)> = catalog
                 .characters
                 .iter()
-                .map(|(id, row)| (id.clone(), row.display_name.clone()))
+                .map(|(id, row)| {
+                    let scale = ambition_character_sprites::posed_body_world_per_pixel(catalog, id);
+                    (id.clone(), row.display_name.clone(), scale)
+                })
                 .collect();
             app.register_character_catalog_fragment(self.fragment);
-            for (id, display_name) in characters {
-                // The sheet, the grants, the feel and the health come from the
-                // catalog row at preparation, so the definition names only what
-                // the row cannot say.
+            for (id, display_name, posed_body_scale) in characters {
+                // The sheet, the grants, the feel, the health, the gait, the
+                // contact damage and the policy come from the catalog row at
+                // preparation, so the definition names only what the row
+                // cannot say.
                 let mut definition =
                     CharacterDefinition::new(id.clone(), display_name, self.provider.clone());
+                // The scale is asked of the baked sheet once, here, and the
+                // body is built with it (`BodySource::SpriteAuthored`).
+                if let Some(world_per_pixel) = posed_body_scale {
+                    definition = definition.with_sprite_authored_body(world_per_pixel);
+                }
                 if let Some(moveset) = movesets.and_then(|table| table.get(&id)) {
                     definition = definition.with_moveset(moveset.clone());
                 }

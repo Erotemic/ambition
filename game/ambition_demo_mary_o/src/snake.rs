@@ -311,52 +311,6 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// enemy render resolves for a Solid Snake.
 pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 
-/// World units per sheet pixel, derived from the authored snake body width and
-/// the idle sheet collision width. Per-animation body rectangles then determine
-/// collision, hurtbox, sprite size, and placement for each shape.
-pub fn snake_world_per_pixel() -> f32 {
-    // Stable fallback for headless/no-asset compositions.
-    const NO_SHEET: f32 = 0.35;
-    ambition_platformer2d::character_sprites::posed_body_geometry(
-        SNAKE_SHEET_TARGET,
-        CharacterAnim::Idle,
-        1.0,
-    )
-    .map(|sheet| sheet.collision.x)
-    .filter(|width| *width > 0.0)
-    .map_or(NO_SHEET, |sheet_width| snake_body_width() / sheet_width)
-}
-
-/// WIDTH, not height, and that is the whole point of restating it. The snake is a 2.25:1
-/// animal, so a scale that preserves its width fixes the only dimension a corridor cares about.
-///
-/// ```text
-///            world_per_pixel   collision (world)   tiles tall
-/// was 08-06       0.35            41 x 18            0.56
-/// now 08-18       0.182           21.3 x 9.5         0.30
-/// ```
-///
-/// that is the derivation working, not breaking — a snake occupies the
-/// corridor width she does, and she got narrower. But nobody chose "a third of
-/// a tile tall", and whether an enemy this flat still reads as an enemy is a
-/// look-at-it call.  do not re-tune this constant to restore the old
-/// number; the number to change, if any, is hers.
-///
-/// the reusable half: a value DERIVED from another character moves when
-/// that character does, and no test says so — the ratchet beside this one
-/// pins the quad/body RATIO, which is scale-invariant and therefore silent
-/// about a halving.
-///
-/// AND IT IS DERIVED FROM MARY-O, not chosen. A snake
-/// occupies the same corridor width she does — which is what a Koopa does beside
-/// Mario, and the answer stays right when either sheet is regenerated.
-pub fn snake_body_width() -> f32 {
-    // The value this replaced, for a composition with no baked art — so a
-    // headless fixture keeps the size it had rather than acquiring Mary-O's.
-    const NO_SHEET: f32 = 41.0;
-    crate::powerups::mary_o_body_width().unwrap_or(NO_SHEET)
-}
-
 /// Ensure the `solid_snake` sheet is drawable, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it
 /// instead of falling back to the generic goblin sheet.
@@ -412,83 +366,6 @@ pub fn register_solid_snake_sheet(
             .characters
             .publish_under(SNAKE_DISPLAY_NAME, asset);
     }
-}
-
-/// shared by `install_mary_o_content` and the stomp fixtures, so a test
-/// exercises the registration production uses. A fixture registering something
-/// else would be measuring itself.
-pub fn register_solid_snake_character(app: &mut App) {
-    register_mary_o_enemy_character(
-        app,
-        SNAKE_SHEET_TARGET,
-        SNAKE_DISPLAY_NAME,
-        46.0,
-        snake_world_per_pixel(),
-    );
-}
-
-/// Register AI Slop as a CHARACTER. Same shape, one creature over: a plain
-/// stomp-and-die walker whose only offense is the body it walks into you with.
-pub fn register_ai_slop_character(app: &mut App) {
-    register_mary_o_enemy_character(
-        app,
-        crate::ai_slop::AI_SLOP_SHEET_TARGET,
-        crate::ai_slop::AI_SLOP_DISPLAY_NAME,
-        42.0,
-        crate::ai_slop::ai_slop_world_per_pixel(),
-    );
-}
-
-/// Both of Mary-O's enemies, which differ only in their art and their pace: one
-/// hit point, a forward walk that reverses at walls, contact damage as their
-/// whole offense, and a policy that notices nobody.
-fn register_mary_o_enemy_character(
-    app: &mut App,
-    id: &str,
-    display: &str,
-    run_speed: f32,
-    // ⛔⛤ **THE BODY IS DECLARED HERE NOW, NOT PATCHED ON LATER — 2026-09-21.**
-    // Both enemies used to receive their geometry from an `AfterIntegrate` tag
-    // pass (`tag_mary_o_snakes` / `tag_mary_o_ai_slop`) that reached into a
-    // built body and rewrote its box. `character_body.rs` names that seam as
-    // the thing `register_character` exists to delete: *"body geometry was
-    // still declared through a second seam"*. Declaring `SpriteAuthored` makes
-    // construction resolve the sheet's rectangles ITSELF, so the body is the
-    // right size on the frame it is built and no later pass has to correct it.
-    world_per_pixel: f32,
-) {
-    use ambition_platformer2d::character::CharacterDefinition;
-    use ambition_platformer2d::actors::character_runtime::{CharacterDefinitionAppExt};
-    use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
-    use ambition_platformer2d::characters::brain::{
-        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
-    };
-
-    let mut definition = CharacterDefinition::new(id, display, crate::provider::MARY_O_EXPERIENCE)
-        .with_sheet(id)
-        .with_sprite_authored_body(world_per_pixel)
-        .with_locomotion(CharacterLocomotion {
-            run_speed,
-            move_style: MoveStyleSpec::Walk,
-            ..Default::default()
-        })
-        .with_contact_damage(ContactDamage {
-            strength: 0.5,
-            amount: 1,
-        })
-        .with_autonomous_profile(BrainProfile {
-            template: CharacterBrainTemplate::Wanderer,
-            aggro_radius: 0.0,
-            attack_range: 0.0,
-            // the deleted row's own pace. A snake PACES at full speed —
-            // it is walking its line, not patrolling — and `BrainProfile`'s
-            // default is the ordinary half-speed amble. Without this the
-            // fragment's deletion would have halved every snake in the demo.
-            patrol_effort: 1.0,
-            ..Default::default()
-        });
-    definition.vitals.max_health = Some(1);
-    app.register_character(definition);
 }
 
 // `SNAKE_TILE_COLUMNS` is GONE. Where a snake patrols is authored.

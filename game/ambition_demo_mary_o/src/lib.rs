@@ -972,258 +972,41 @@ fn follow_the_active_room(
     }
 }
 
-/// Shared movement profile for all Mary-O forms.
-///
-/// Values are the classic 16 px / 60 Hz movement tables converted to this
-/// demo's 32 px tile scale. Neutral air preserves momentum, jump launch bands
-/// depend on body-local lateral speed, and held rise uses weaker gravity until
-/// release or apex. `coyote_time` and `jump_buffer` remain zero intentionally.
-/// `ground_reverse_accel` is still an estimated skid rate rather than a sourced
-/// classic constant. Directions use the resolved gravity frame.
-const MARY_O_CLASSIC_AXIS_TUNING: &str = r#"(
-                horizontal_law: Momentum((
-                    ground_reverse_accel: 1500.0,
-                    ground_coast_decel: 393.75,
-                    air_reverse_accel: 900.0,
-                    air_coast_decel: 0.0,
-                )),
-                jump_law: PhasedGravity((
-                    speed_thresholds: (120.0, 187.5, 210.0),
-                    launch_offsets: (-30.0, -15.0, 0.0, 30.0),
-                    held_rise_gravity_scale: 0.2,
-                    released_rise_gravity_scale: 1.0,
-                    fall_gravity_scale: 1.0,
-                    held_phase_min_upward_speed: 240.0,
-                )),
-                gravity: 2250.0,
-                air_jumps: 0,
-                jump_speed: 450.0,
-                max_run_speed: 300.0,
-                run_accel: 393.75,
-                air_accel: 393.75,
-                max_fall_speed: 480.0,
-                coyote_time: 0.0,
-                jump_buffer: 0.0,
-            )"#;
-
-/// Assemble the demo catalog, substituting the one authored movement profile
-/// into every Mary-O form. `str::replace` rather than `format!` because the RON
-/// is full of braces that would all need escaping.
-pub(crate) fn mary_o_catalog_ron() -> String {
-    MARY_O_CATALOG_RON_TEMPLATE.replace("$CLASSIC_AXIS_TUNING", MARY_O_CLASSIC_AXIS_TUNING)
-}
-
-/// The demo's catalog as the assembled resource, for a fixture that wants the
-/// forms' sheet rows without the whole provider (the transformation beat reads
-/// them to time itself against the art).
+/// The demo's cast as a catalog resource, for a fixture that wants the forms'
+/// sheet rows without the whole provider (the transformation beat reads them to
+/// time itself against the art).
 pub fn mary_o_character_catalog(
 ) -> ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog {
     use ambition_platformer2d::characters::actor::character_catalog::{
-        parse_catalog, CharacterCatalog,
+        lowered_catalog, CharacterCatalog,
     };
-    CharacterCatalog::from_data(parse_catalog(&mary_o_catalog_ron()))
+    CharacterCatalog::from_data(
+        lowered_catalog(pack::PACK.prepared())
+            .expect("the Mary-O pack states her cast")
+            .clone(),
+    )
 }
 
-/// The demo's one-character catalog. Every demo installs its own roster; the
-/// engine ships none (ADR 0017).
-const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
-    brain_presets: { "stand_still": StandStill },
-    action_set_presets: {
-        "peaceful": (
-            move_style: Walk,
-            melee: None,
-            ranged: None,
-            special: None,
-        ),
-    },
-    characters: {
-        "mary_o": (
-            display_name: "Mary-O",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
-            manifest: "sprites/mary_o_v2_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            // Mary-O Classic is deliberately only the run/jump floor. Wall jump
-            // and ground pound are later, independent abilities; the existing
-            // Hollow-Knight-style wall bundle and generic fast fall must not leak
-            // into the core movement oracle.
-            abilities: Some([RunJump]),
-            // Reusable AxisSwept laws. Launch, gravity, and acceleration start
-            // from the classic 16 px / 60 Hz tables converted to Mary-O's 32 px
-            // tile scale. Ground coast and reversal are deliberately polished:
-            // the direct friction conversion took about 0.76 seconds and 3.6
-            // tiles to stop from full speed, which read as excessive sliding in
-            // Ambition. Neutral air still preserves momentum. The jump law selects
-            // one of four launch speeds from body-local side speed, then uses weak
-            // gravity while held and rising and full gravity after release / near
-            // apex.
-            // All directions are interpreted through the resolved gravity frame.
-            axis_tuning: Some($CLASSIC_AXIS_TUNING),
-            // The classic contract: whatever you are wearing absorbs the hit
-            // (beacon -> wand -> nothing), and once there is no armor left the
-            // next one is fatal. One pool, authored on every form, so growing
-            // changes what a hit COSTS and never how much punishment the body
-            // underneath can take.
-            max_health: Some(1),
-            tags: ["player"],
-            barks: (
-                hall: ["I solve masonry disputes from below.", "One jump. No second opinions, no insurance.", "Every pipe is hiding something."],
-            ),
-            hall_dialogue_id: Some("hall_mary_o"),
-        ),
-        // TALL Mary-O: the grown form. Kit is byte-identical to `mary_o` — same grant list, same
-        // Mary-O Classic `axis_tuning` (re-wearing re-reads `axis_tuning`, so a mismatch here would
-        // silently shrink her jump on grow) and the same peaceful Authored kit — so growing changes
-        // only her LOOK and size, never her moveset.
-        "mary_o_tall": (
-            display_name: "Mary-O (Tall)",
-            spritesheet: "sprites/mary_o_v2_tall_spritesheet.png",
-            manifest: "sprites/mary_o_v2_tall_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            abilities: Some([RunJump]),
-            axis_tuning: Some($CLASSIC_AXIS_TUNING),
-            // The classic contract: whatever you are wearing absorbs the hit
-            // (beacon -> wand -> nothing), and once there is no armor left the
-            // next one is fatal. One pool, authored on every form, so growing
-            // changes what a hit COSTS and never how much punishment the body
-            // underneath can take.
-            max_health: Some(1),
-            tags: ["player"],
-            barks: (
-                hall: ["One power-up; every ceiling gets an opinion.", "Ask the doorframes whether taller is better.", "I shrink after one professional-grade mistake."],
-            ),
-            hall_dialogue_id: Some("hall_mary_o_tall"),
-        ),
-        // FIRE Mary-O: the cinder beacon (fire-flower) form. A second power-up ABOVE the wand
-        // swaps the worn identity to this row — a DISTINCT fire sheet (`mary_o_v2_fire`, the
-        // white-and-red fire palette with its own fireball pose), the SAME height as the grown
-        // form so `sync_grown_form` changes only her LOOK + spark loadout, never her size, on
-        // the grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the fireball is
-        // granted by WEARING the cinder beacon (see `MaryOSpark`), not by this row, so becoming
-        // fire never alters her base moveset.
-        "mary_o_fire": (
-            display_name: "Mary-O (Fire)",
-            spritesheet: "sprites/mary_o_v2_fire_spritesheet.png",
-            manifest: "sprites/mary_o_v2_fire_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            abilities: Some([RunJump]),
-            axis_tuning: Some($CLASSIC_AXIS_TUNING),
-            // The classic contract: whatever you are wearing absorbs the hit
-            // (beacon -> wand -> nothing), and once there is no armor left the
-            // next one is fatal. One pool, authored on every form, so growing
-            // changes what a hit COSTS and never how much punishment the body
-            // underneath can take.
-            max_health: Some(1),
-            tags: ["player"],
-            barks: (
-                hall: ["One beacon, and every ceiling gets a warm answer.", "I throw solutions now — mind the sparks.", "Fireproof opinions, freshly lit."],
-            ),
-        ),
-        // Solid Snake's IDENTITY row (the Koopa-equivalent): its sprite resolves
-        // from this display name. The `solid_snake` sheet carries the shell-withdraw
-        // rows (retreat / boxed_idle / peek / emerge) the in-place shell drives.
-        // Behavior/HP/contact come from the `mary_o_snake` ROSTER archetype (see
-        // `snake.rs`), not this catalog row — this is only the sprite + name.
-        "solid_snake": (
-            display_name: "Solid Snake",
-            spritesheet: "sprites/solid_snake_spritesheet.png",
-            manifest: "sprites/solid_snake_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["enemy"],
-            fallback_dialogue: [
-                "The shell is load-bearing. Please stop.",
-                "I was told there would be a corridor.",
-                "Kick me and I become somebody else's problem.",
-            ],
-        ),
-        // AI Slop's IDENTITY row (the plain stompable walker): its sprite is the
-        // published `ai_slop` sheet, resolved from this display name. Behavior/HP/
-        // contact come from the `mary_o_ai_slop` ROSTER archetype (see `ai_slop.rs`),
-        // not this catalog row — this is only the sprite + name.
-        //
-        // AI Slop also appears in Ambition's Hall of Characters (a frozen display
-        // NPC, `npc_ai_slop`). They are the SAME character in different modes; ideally
-        // one shared catalog entry both experiences draw from, with each supplying its
-        // own behavior (the Hall freezes it; Mary-O makes it a stompable walker). Until
-        // that unification lands they are two rows — distinct catalog ids, and distinct
-        // display strings so the assembled catalog's display-name uniqueness holds when
-        // hosted. Nothing stops Mary-O from spawning the Hall's `npc_ai_slop` directly
-        // when Ambition is loaded; ids are the cross-provider identity.
-        "ai_slop": (
-            display_name: "AI Slop",
-            spritesheet: "sprites/ai_slop_spritesheet.png",
-            manifest: "sprites/ai_slop_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["enemy"],
-            fallback_dialogue: [
-                "I walk left. It is a complete philosophy.",
-                "Statistically, one of us is about to be stomped.",
-                "I was trained on a thousand walkers and became the average one.",
-            ],
-        ),
-        // Their Hall pedestals and dialogue stay in Ambition's world files and resolve by ID from
-        // the merged catalog in hosted builds.
-        //
-        // The definitions also author `baseline_free_flight` so the fact travels with the character
-        // (a body that reads its gravity-freedom only from a row it cannot see falls out of the
-        // sky).
-        "npc_snakes_on_a_cartesian_plane": (
-            display_name: "Snakes on a Cartesian Plane",
-            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
-            manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Floating,
-            composition: None,
-            default_action_set: "peaceful",
-            tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
-            fallback_dialogue: [
-                "We have coordinates for your location.",
-                "Stay on the positive side.",
-                "Our domain is all real snakes.",
-            ],
-            barks: (
-                hall: ["We have coordinates for your location.", "Stay on the positive side.", "Our domain is all real snakes."],
-            ),
-            hall_dialogue_id: Some("hall_npc_snakes_on_a_cartesian_plane"),
-        ),
-        "npc_snakes_on_a_paper_plane": (
-            display_name: "Snakes on a Paper Plane",
-            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
-            manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Floating,
-            composition: None,
-            default_action_set: "peaceful",
-            tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
-            fallback_dialogue: [
-                "This flight is hiss-class only.",
-                "Please keep your scales inside the aircraft.",
-                "We folded under pressure.",
-            ],
-            barks: (
-                hall: ["This flight is hiss-class only.", "Please keep your scales inside the aircraft.", "We folded under pressure."],
-            ),
-            hall_dialogue_id: Some("hall_npc_snakes_on_a_paper_plane"),
-        ),
-    },
-)"#;
+/// Register Mary-O's cast: the pack's `character_catalog`. Her three forms, her
+/// two walkers and the two plane swarms are each a row that states its sheet,
+/// body scale, feel, health, gait, contact damage and policy, and every
+/// placement names them by `character_id`. Mary-O is their one provider; the
+/// Hall stages them in hosted builds by id from the merged catalog.
+///
+/// A runtime growth into `mary_o_tall` is a different character, not a mode of
+/// this one (§4.3), so each form is its own row and its art is demanded.
+///
+/// A fixture that needs her characters calls this, so it builds them the way
+/// the game does.
+pub fn register_mary_o_cast(app: &mut App) {
+    pack::PACK
+        .cast(provider::MARY_O_EXPERIENCE, Some(provider::MARY_O_CHARACTER_ID))
+        // What a Mary-O character that states no verbs can do as an actor.
+        .with_actor_default_abilities(
+            ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
+        )
+        .register(app);
+}
 
 /// Content plugin: registers Mary-O's App-local character fragment, installs
 /// the level, and adds the engine's sim-world setup. The shape `crates/ambition_platformer2d_host/tests/demo_shell_smoke.rs` prescribes.
@@ -1233,127 +1016,7 @@ pub struct MaryODemoContentPlugin;
 /// Shared by the historical [`MaryODemoContentPlugin`] (Startup construction) and
 /// the new [`provider::MaryOExperiencePlugin`] (shell-activation construction).
 pub fn install_mary_o_content(app: &mut App) {
-    use ambition_platformer2d::characters::actor::character_catalog::{
-        CharacterCatalogAppExt, CharacterCatalogFragment,
-    };
-
-    app.register_character_catalog_fragment(
-        CharacterCatalogFragment::from_ron(
-            provider::MARY_O_EXPERIENCE,
-            Some(provider::MARY_O_CHARACTER_ID),
-            &mary_o_catalog_ron(),
-        )
-        .expect("Mary-O character catalog should be valid")
-        // What a Mary-O character that states no verbs can do as an actor.
-        .with_actor_default_abilities(
-            ambition_platformer2d::engine_core::AbilitySet::classic_actor(),
-        ),
-    );
-    // §7.6: the ONE character seam. Mary-O and her grown form each register as a
-    // single definition, which publishes the prepared authority AND demands their
-    // art -- so this provider no longer names sheets, checks whether they bound, or
-    // knows that art and gameplay numbers are consumed by different subsystems.
-    //
-    // Deliberately BOTH forms: a runtime growth into `mary_o_tall` is a different
-    // character definition, not a mode of this one (§4.3), and it needs its own art
-    // demanded or the grown Mary-O draws a placeholder.
-    {
-        use ambition_platformer2d::actors::character_runtime::CharacterDefinitionAppExt;
-        use ambition_platformer2d::character::CharacterDefinition;
-        // The sheet TARGET, not the sheet file: `mary_o_v2_spritesheet.ron`
-        // declares `target: "mary_o_v2"`, and the registry is keyed by the target.
-        // A VOICE apiece — see the same note in the Sanic provider. Without one a
-        // registered-only character has no bark pool anywhere, and the Hall's
-        // ambient ticker skips whoever has nothing to say.
-        //
-        // Two authorities for one silhouette, so the render had to reconcile them with a scale
-        // factor, and that factor is what drew her tall form far bigger than the body it
-        // belonged to.
-        //
-        // One `world_per_pixel` for all three is the point, not a shortcut: the
-        // forms differ in SIZE because their art differs, at a shared scale.
-        // Authoring a per-form number would put the ratio back.
-        for (id, display, sheet, voice) in [
-            (
-                provider::MARY_O_CHARACTER_ID,
-                "Mary-O",
-                powerups::SMALL_SHEET_TARGET,
-                [
-                    "Jump, land, repeat. It's honest work.",
-                    "The bricks owe me nothing and I break them anyway.",
-                    "Every pipe goes somewhere. That's the deal.",
-                ],
-            ),
-            (
-                "mary_o_tall",
-                "Mary-O (Tall)",
-                powerups::TALL_SHEET_TARGET,
-                [
-                    "One mushroom. That's the whole story.",
-                    "Taller, yes. Braver, unclear.",
-                    "I can see the top of the flagpole from here.",
-                ],
-            ),
-            // The fire form was never registered at all — it had a catalog row
-            // and a sheet but no definition, so it was the one form whose art
-            // nothing demanded and whose body nothing could author.
-            (
-                "mary_o_fire",
-                "Mary-O (Fire)",
-                powerups::FIRE_SHEET_TARGET,
-                [
-                    "The beacon does the talking now.",
-                    "Warm opinions, thrown at speed.",
-                    "Everything flammable, please step back.",
-                ],
-            ),
-        ] {
-            // She should only have the run and jump in her game."*
-            //
-            // the ability is a real ceiling now
-            // (`ambition_platformer2d::characters::action_scheme::combat_actions`), so the
-            // table stays attached — the crossover grid wants exactly these
-            // moves — and her own game still says there is no attack. What
-            // proves it is behavioural, not this comment:
-            // `ambition_demo_mary_o_app`'s `mary_o_at_home_can_only_run_and_jump`.
-            app.register_character(
-                CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
-                    .with_sheet(sheet)
-                    // ⚠ MEASURED 2026-09-21, and the numbers here were stale:
-                    // `form_world_per_pixel` ignores its argument and returns
-                    // the ONE shared scale, so the forms do NOT scale their art
-                    // independently. The scale is `SMALL_FORM_HEIGHT / <small
-                    // sheet's idle pixel height>` = 32/84, and each form's
-                    // world box then follows from its own art: small 56x84px ->
-                    // 21.3x32, grown 56x168px -> 21.3x64. Her grown CROUCH is
-                    // 32 — the same box small stands in, which is the SMB rule.
-                    // (`GROWN_FORM_HEIGHT` reaches only `with_canonical_height`,
-                    // which gameplay does not read; it is not her body height.)
-                    .with_canonical_height(powerups::form_height(sheet))
-                    .with_sprite_authored_body(powerups::form_world_per_pixel(sheet))
-                    .with_voice(voice)
-                    .with_moveset(pack::PACK.moveset(id)),
-            );
-        }
-    }
-    // Solid Snake, AI Slop and both plane swarms each state their own body —
-    // health, top speed, gait, contact damage and a policy — and every
-    // placement names them by `character_id`. Their roster rows are gone, so
-    // two authorities never describe one creature at once.
-    //
-    // registered here rather than in the catalog fragment because a catalog
-    // ROW is not a registration: the row says what a character is, and this is
-    // what makes it buildable — which is exactly what an enemy placement needs
-    // now that it is built character-first.
-    //
-    // Ownership moved with the table's deletion: Mary-O is their one provider (definition AND
-    // catalog rows), and the Hall still stages them in hosted builds because characters are shared
-    // by ID across the merged catalog.
-    {
-        snake::register_solid_snake_character(app);
-        snake::register_ai_slop_character(app);
-        plane::register_snakes_on_a_plane_characters(app);
-    }
+    register_mary_o_cast(app);
     // Seventeen placements, thirty-four actors, and only the prefixed half carried `SnakeShell` /
     // `AiSlop`, so half of 1-1's enemies were un-stompable lookalikes. The ids differed, so the
     // construction plan's duplicate-id check could not see it.
@@ -3072,7 +2735,7 @@ mod tests {
             .map(|p| p[1] - p[0])
             .fold(0.0f32, f32::max)
             - T;
-        let slop_width = ai_slop::AI_SLOP_BODY_WIDTH;
+        let slop_width = ai_slop::ai_slop_half_size().x * 2.0;
         assert!(
             trench >= slop_width * 4.0,
             "the trench is {trench} wide and a slop is {slop_width} — it needs \

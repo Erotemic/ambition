@@ -309,6 +309,7 @@ impl CharacterCatalogRegistry {
 
     pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
         let mut autonomous_profiles = BTreeMap::new();
+        let mut axis_tuning_presets = BTreeMap::new();
         let mut brain_presets = BTreeMap::new();
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
@@ -334,6 +335,9 @@ impl CharacterCatalogRegistry {
             // provider that authored it, so two games may both say "striker".
             for (local_name, profile) in &fragment.catalog.autonomous_profiles {
                 autonomous_profiles.insert(namespaced(provider_id, local_name), *profile);
+            }
+            for (local_name, preset) in &fragment.catalog.axis_tuning_presets {
+                axis_tuning_presets.insert(namespaced(provider_id, local_name), *preset);
             }
             for (local_name, preset) in &fragment.catalog.brain_presets {
                 brain_presets.insert(brain_names[local_name].clone(), preset.clone());
@@ -366,6 +370,10 @@ impl CharacterCatalogRegistry {
                     .get(&entry.default_action_set)
                     .expect("fragment validation guarantees the action-set preset")
                     .clone();
+                entry.axis_tuning_preset = entry
+                    .axis_tuning_preset
+                    .as_deref()
+                    .map(|name| namespaced(provider_id, name));
                 owners.insert(character_id.clone(), provider_id.clone());
                 characters.insert(character_id.clone(), entry);
             }
@@ -382,6 +390,7 @@ impl CharacterCatalogRegistry {
         let autonomous_profiles_for_registry = autonomous_profiles.clone();
         let catalog = CharacterCatalog::from_data(CharacterCatalogData {
             autonomous_profiles,
+            axis_tuning_presets,
             brain_presets,
             action_set_presets,
             characters,

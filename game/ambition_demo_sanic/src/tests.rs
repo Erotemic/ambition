@@ -1229,17 +1229,14 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
 fn the_super_row_authors_a_real_movement_boost() {
     // The transformation is more than a sprite swap: the super row's authored
     // momentum strictly dominates the base row's.
-    let fragment =
-        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalogFragment::from_ron(
-            provider::SANIC_EXPERIENCE,
-            Some(SANIC_CHARACTER_ID),
-            SANIC_CATALOG_RON,
-        )
-        .expect("demo catalog parses");
-    let catalog =
-        ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog::from_data(
-            fragment.catalog().clone(),
-        );
+    use ambition_platformer2d::characters::actor::character_catalog::{
+        lowered_catalog, CharacterCatalog,
+    };
+    let catalog = CharacterCatalog::from_data(
+        lowered_catalog(crate::pack::PACK.prepared())
+            .expect("the Sanic pack states its cast")
+            .clone(),
+    );
     let base = catalog
         .momentum_params(SANIC_CHARACTER_ID)
         .expect("base row authors momentum");

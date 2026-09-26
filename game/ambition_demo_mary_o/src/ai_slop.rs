@@ -107,67 +107,24 @@ pub fn register_ai_slop_sheet(
 }
 
 // `AI_SLOP_TILE_COLUMNS`, `ai_slop_stair_steps()` and
-// `stair_slop_spawn_positions()` are GONE. Where a slop stands is authored.
-//
-// its SIZE stays here, and the difference is the rule: how big a slop is, is a
-// fact about the character; where it stands is a fact about the level.
+// `stair_slop_spawn_positions()` are GONE. Where a slop stands is authored in
+// the level; how big it is, is authored in its catalog row.
 
-/// How WIDE an AI Slop is, in world units. The one authored number; its
-/// height follows from the art.
+/// Half-extents of an AI Slop's idle body, in world units.
 ///
-/// WIDTH is the anchor because width is what the level sees. A slop
-/// patrols a corridor; how much of it it occupies is the fact a room is authored
-/// against, and 28 is what it occupied before — so this change costs no level a
-/// re-author. The height stops being a claim and becomes a measurement.
-///
-/// this function's own doc already said the snake was *"one step further along
-/// — its size comes from its sheet"*. This is the slop taking that step.
-pub const AI_SLOP_BODY_WIDTH: f32 = 28.0;
-
-/// World units per sheet pixel, derived so the body is [`AI_SLOP_BODY_WIDTH`]
-/// wide and the art's own aspect decides the rest.
-///
-/// derived per call rather than pinned, exactly like
-/// `mary_o_world_per_pixel`: the sheets are regenerated regularly and every
-/// regeneration re-measures the alpha bbox, so a scale pinned to today's pixel
-/// count silently resizes the creature the first time a crop moves by a pixel.
-pub fn ai_slop_world_per_pixel() -> f32 {
-    // ⛔ ONE OWNER FOR THE SCALE, the same shape `snake_world_per_pixel` has.
-    // The character DECLARATION needs this number (`with_sprite_authored_body`)
-    // and so does anything asking how big a slop is, and a scale derived twice
-    // is the defect this whole slice is about.
-    //
-    // Stable fallback for a composition with no baked art: the authored width
-    // over itself is 1.0, which keeps `ai_slop_half_size` at the square it
-    // used to return there.
-    let Some(sheet) = ambition_platformer2d::character_sprites::posed_body_geometry(
-        AI_SLOP_SHEET_TARGET,
-        ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
-        1.0,
-    ) else {
-        return 1.0;
-    };
-    if sheet.collision.x <= 0.0 || sheet.collision.y <= 0.0 {
-        return 1.0;
-    }
-    AI_SLOP_BODY_WIDTH / sheet.collision.x
-}
-
-/// Half-extents of an AI Slop's body, in world units.
-///
-/// The SAME resolution construction performs — `posed_body_geometry` at
-/// [`ai_slop_world_per_pixel`] — so a test that checks the drawn quad against
-/// the body's box is not comparing two derivations of one scale. Nothing in
-/// the game asks this any more; the body is built at this size.
+/// The same resolution construction performs (`posed_body_geometry` at the
+/// scale its row names), so a level or a test that asks how big a slop is
+/// compares against the body the cast builds, not a second derivation.
 pub fn ai_slop_half_size() -> ae::Vec2 {
+    let scale = crate::pack::PACK.posed_body_world_per_pixel(AI_SLOP_SHEET_TARGET);
     ambition_platformer2d::character_sprites::posed_body_geometry(
         AI_SLOP_SHEET_TARGET,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
-        ai_slop_world_per_pixel(),
+        scale,
     )
-    .map_or(ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5), |sheet| {
-        sheet.collision * 0.5
-    })
+    .expect("the ai_slop sheet is baked")
+    .collision
+        * 0.5
 }
 
 /// Is this actor an AI Slop?

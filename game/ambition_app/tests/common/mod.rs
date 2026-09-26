@@ -474,3 +474,69 @@ pub fn a_save_that_has_seen_the_hub_intro(
     data.set_flag("test_intro_seen".to_string(), true);
     data
 }
+
+/// The loading zone in the active room whose Door leads to `target`.
+///
+/// Asks the room set the question a player's transition asks
+/// (`transition_for_player` on the zone's own box), so the door is the one the
+/// resolver would take. Panics naming every room this room's doors reach.
+pub fn door_to(
+    sim: &mut Platformer2dSimHarness,
+    target: &str,
+) -> ambition_platformer2d::world::rooms::LoadingZone {
+    let before = sim.observation().active_room.clone();
+    let world = sim.world_mut();
+    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
+    let room_set = query
+        .iter(world)
+        .next()
+        .expect("the session has an active room set");
+    let mut reachable: Vec<String> = Vec::new();
+    let mut chosen = None;
+    for zone in room_set.active_loading_zones() {
+        if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
+            continue;
+        }
+        let Some(transition) = room_set.transition_for_player(
+            zone.aabb,
+            ambition_platformer2d::engine_core::Vec2::ZERO,
+            true,
+        ) else {
+            continue;
+        };
+        let Some(destination) = room_set.rooms.get(transition.target_room) else {
+            continue;
+        };
+        reachable.push(destination.id.clone());
+        if destination.id == target {
+            chosen = Some(zone.clone());
+            break;
+        }
+    }
+    chosen.unwrap_or_else(|| {
+        panic!("'{before}' has no Door to '{target}'; its doors reach {reachable:?}")
+    })
+}
+
+/// Walk through the door to `target`: stand in it, hold interact, and return
+/// the room the player arrives in (120 frames at most).
+pub fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
+    use ambition_platformer2d::engine_core::AabbExt as _;
+    let before = sim.observation().active_room.clone();
+    let door = door_to(sim, target);
+    let center = door.aabb.center();
+    sim.teleport_player((center.x, center.y));
+    for _ in 0..120 {
+        let room = sim
+            .step(AgentAction {
+                interact: true,
+                interact_held: true,
+                ..base()
+            })
+            .active_room;
+        if room != before {
+            return room;
+        }
+    }
+    panic!("held interact inside the '{}' door of '{before}' for 120 frames and the room never changed", door.name);
+}

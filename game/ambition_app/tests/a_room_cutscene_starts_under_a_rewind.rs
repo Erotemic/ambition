@@ -62,6 +62,7 @@
 
 #![cfg(feature = "rl_sim")]
 
+use crate::common::walk_through_the_door_to;
 use ambition_app::{AgentAction, Platformer2dSimHarness, Platformer2dSimHarnessOptions};
 use ambition_app::AmbitionSim;
 use ambition_app::TimestepMode;
@@ -193,69 +194,6 @@ fn basement_arena(rollback: bool) -> Platformer2dSimHarness {
     let options = options.with_save(crate::common::a_save_that_has_seen_the_hub_intro());
     Platformer2dSimHarness::new_with_options(options)
         .expect("the central hub complex builds headlessly")
-}
-
-/// The authored `Door` zone of the ACTIVE room that leads to `target`, asked of
-/// the same resolver the crossing itself uses.
-fn door_to(
-    sim: &mut Platformer2dSimHarness,
-    target: &str,
-) -> ambition_platformer2d::world::rooms::LoadingZone {
-    let before = sim.observation().active_room.clone();
-    let world = sim.world_mut();
-    let mut query = world.query::<&ambition_platformer2d::world::rooms::RoomSet>();
-    let room_set = query
-        .iter(world)
-        .next()
-        .expect("the session has an active room set");
-    let mut reachable: Vec<String> = Vec::new();
-    let mut chosen = None;
-    for zone in room_set.active_loading_zones() {
-        if zone.activation != ambition_platformer2d::world::rooms::LoadingZoneActivation::Door {
-            continue;
-        }
-        let Some(transition) = room_set.transition_for_player(
-            zone.aabb,
-            ambition_platformer2d::engine_core::Vec2::ZERO,
-            true,
-        ) else {
-            continue;
-        };
-        let Some(destination) = room_set.rooms.get(transition.target_room) else {
-            continue;
-        };
-        reachable.push(destination.id.clone());
-        if destination.id == target {
-            chosen = Some(zone.clone());
-            break;
-        }
-    }
-    chosen.unwrap_or_else(|| {
-        panic!("'{before}' has no Door to '{target}'; its doors reach {reachable:?}")
-    })
-}
-
-/// Stand in the door to `target` and hold interact until the active room
-/// changes. Returns the room arrived in.
-fn walk_through_the_door_to(sim: &mut Platformer2dSimHarness, target: &str) -> String {
-    use ambition_platformer2d::engine_core::AabbExt as _;
-    let before = sim.observation().active_room.clone();
-    let door = door_to(sim, target);
-    let center = door.aabb.center();
-    sim.teleport_player((center.x, center.y));
-    for _ in 0..120 {
-        let room = sim
-            .step(AgentAction {
-                interact: true,
-                interact_held: true,
-                ..crate::common::base()
-            })
-            .active_room;
-        if room != before {
-            return room;
-        }
-    }
-    panic!("held interact inside '{}' for 120 frames and '{before}' never changed", door.name);
 }
 
 /// ⭐ **A ROOM CUTSCENE BOUND TO A ROOM ENTERED MID-SESSION STARTS UNDER A

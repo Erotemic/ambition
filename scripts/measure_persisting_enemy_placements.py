@@ -41,20 +41,42 @@ def worlds() -> list[Path]:
     return sorted(p for p in (REPO / "game").rglob("*.ldtk"))
 
 
+def zone_policy(level: dict) -> str | None:
+    """The level's `enemy_respawn`: its enemy zone's policy, which the converter
+    lowers onto every `EnemySpawn` in it that authors none of its own."""
+    for field in level.get("fieldInstances", []):
+        if field.get("__identifier") == "enemy_respawn" and field.get("__value"):
+            return str(field["__value"]).strip() or None
+    return None
+
+
 def placements(path: Path):
-    """Yield (room, entity identifier, policy) for every authored respawn field."""
+    """Yield (room, entity identifier, policy) for every placement whose respawn
+    is authored: its own field, else its level's zone (marked `(zone)`).
+
+    ⚠ The zone is part of the authoring. Counting only per-placement fields
+    reported a room whose zone says `DeadStaysDead` as persisting nothing.
+    """
     data = json.loads(path.read_text(errors="replace"))
     for level in data.get("levels", []):
+        zone = zone_policy(level)
         for layer in level.get("layerInstances") or []:
             for entity in layer.get("entityInstances", []):
-                for field in entity.get("fieldInstances", []):
-                    if field.get("__identifier") != "respawn":
-                        continue
-                    value = field.get("__value")
-                    if value:
-                        yield level.get("identifier", "<unnamed>"), entity.get(
-                            "__identifier", "<unnamed>"
-                        ), value
+                own = next(
+                    (
+                        field.get("__value")
+                        for field in entity.get("fieldInstances", [])
+                        if field.get("__identifier") == "respawn" and field.get("__value")
+                    ),
+                    None,
+                )
+                if own:
+                    policy = own
+                elif zone and entity.get("__identifier") == "EnemySpawn":
+                    policy = f"{zone}(zone)"
+                else:
+                    continue
+                yield level.get("identifier", "<unnamed>"), entity.get("__identifier", "<unnamed>"), policy
 
 
 def main() -> int:
@@ -72,7 +94,7 @@ def main() -> int:
     for path in files:
         for room, entity, policy in placements(path):
             authored += 1
-            if policy in PERSISTING:
+            if policy.removesuffix("(zone)") in PERSISTING:
                 by_room[(str(path.relative_to(REPO)), room)].append(f"{entity}:{policy}")
 
     print(f"shipped .ldtk worlds: {len(files)}")

@@ -85,3 +85,96 @@ fn the_cove_crew_fights_together_and_nobody_rides_inside_the_ceiling() {
         assert!(median < 400.0, "{} rode a median {median:.0} px above the player: pinned high, not fighting", rider.who);
     }
 }
+
+/// Every enemy body in the room: id, entity, alive, riding something.
+fn crew(sim: &mut ambition_app::Platformer2dSimHarness) -> BTreeMap<String, (Entity, bool, bool)> {
+    use ambition_platformer2d::combat::components::ActorIdentity;
+    let world = sim.world_mut();
+    let mut q = world.query::<(Entity, &ActorIdentity, &BodyHealth, Option<&RidingOn>)>();
+    q.iter(world)
+        .filter(|(_, identity, ..)| identity.id.starts_with("EnemySpawn"))
+        .map(|(entity, identity, health, riding)| (identity.id.clone(), (entity, health.alive(), riding.is_some())))
+        .collect()
+}
+
+/// Defeat every body in `ids` through the real damage channel (a hand-zeroed
+/// health bar skips the death pass that records a fate).
+fn defeat(sim: &mut ambition_app::Platformer2dSimHarness, bodies: &[(Entity, ae::Vec2)]) {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+    for (entity, pos) in bodies {
+        let volume: ae::CombatVolume = ae::Aabb::new(*pos, ae::Vec2::new(48.0, 48.0)).into();
+        sim.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume,
+            damage: 9_999,
+            source: HitSource::Projectile,
+            attacker: None,
+            target: HitTarget::Body(*entity),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+            attacker_move_instance: None,
+        });
+    }
+}
+
+/// Defeat the whole crew, leave, come back: they are ALL back — the riders on
+/// their sharks with the sharks and the parrots.
+///
+/// Jon: "only the sharks and parrots respawn, the riders don't". It was
+/// authored so — the riders `OnRest`, the rest `OnRoomReenter`, placement by
+/// placement. The room now authors its enemy ZONE's policy once
+/// (`enemy_respawn: OnRoomReenter`); a placement may still state its own.
+#[test]
+fn defeat_the_crew_leave_and_come_back_and_riders_and_mounts_are_all_back() {
+    let mut sim = fixed_60hz_room_sim(ROOM);
+    sim.step_n(crate::common::base(), 60);
+    let before = crew(&mut sim);
+    let riders: Vec<&String> = before.iter().filter(|(_, (_, _, riding))| *riding).map(|(id, _)| id).collect();
+    assert_eq!(before.len(), 10, "the premise: the crew is four riders, four sharks and two parrots: {before:?}");
+    assert_eq!(riders.len(), 4, "the premise: four of them ride: {before:?}");
+    assert!(before.values().all(|(_, alive, _)| *alive), "the premise: all alive on entry");
+    {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&ambition_platformer2d::combat::components::ActorIdentity, &ambition_platformer2d::actor::ActorConfig)>();
+        for (identity, config) in q.iter(world).filter(|(identity, _)| identity.id.starts_with("EnemySpawn")) {
+            assert!(
+                matches!(config.tuning.respawn, ambition_platformer2d::actors::features::RespawnPolicy::OnRoomReenter),
+                "{} is built {:?}: the zone's policy did not reach it",
+                identity.id,
+                config.tuning.respawn
+            );
+        }
+    }
+
+    let bodies: Vec<(Entity, ae::Vec2)> = {
+        let world = sim.world_mut();
+        let mut q = world.query::<(Entity, &ambition_platformer2d::combat::components::ActorIdentity, &ae::BodyKinematics)>();
+        q.iter(world)
+            .filter(|(_, identity, _)| identity.id.starts_with("EnemySpawn"))
+            .map(|(entity, _, kin)| (entity, kin.pos))
+            .collect()
+    };
+    defeat(&mut sim, &bodies);
+    for _ in 0..120 {
+        sim.step(crate::common::base());
+        if crew(&mut sim).values().all(|(_, alive, _)| !*alive) {
+            break;
+        }
+    }
+    assert!(crew(&mut sim).values().all(|(_, alive, _)| !*alive), "the premise: the whole crew is down");
+
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, "pirate_cove"), "pirate_cove");
+    assert_eq!(crate::common::walk_through_the_door_to(&mut sim, ROOM), ROOM);
+    sim.step_n(crate::common::base(), 60);
+    let after = crew(&mut sim);
+    assert_eq!(
+        after.keys().collect::<Vec<_>>(),
+        before.keys().collect::<Vec<_>>(),
+        "the same crew comes back"
+    );
+    for (id, (_, alive, riding)) in &after {
+        assert!(*alive, "{id} did not come back");
+        assert_eq!(*riding, before[id].2, "{id} came back {} its mount", if *riding { "on" } else { "off" });
+    }
+}

@@ -77,7 +77,7 @@ def write(text: str) -> pathlib.Path:
 def test_a_well_formed_table_reads():
     """⛔ THE PREMISE. Without it, "the duplicate is refused" is satisfied by a
     reader that refuses everything."""
-    verbs, volumes, clocks = census.read(write(ONE_ENTITY))
+    verbs, volumes, clocks, _borrow = census.read(write(ONE_ENTITY))
     assert verbs["attack"] == "swat"
     assert volumes[("probe", "swat")] == [(12.0, 10.0)]
     assert clocks[("probe", "swat")] == [(0.1, 0.2)]

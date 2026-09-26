@@ -59,6 +59,7 @@ fn doc_text_naming(recover_s: f32, verb_target: &str, technique: Option<&str>) -
                 body: None,
                 hurtboxes: None,
                 presentation: None,
+                borrows: None,
                 moveset: Some(MovesetContract {
                     verbs,
                     moves: vec![strike(Strike {
@@ -401,16 +402,28 @@ fn a_shipped_table(root: &std::path::Path) -> (std::path::PathBuf, String) {
         .expect("a move section");
     let buildable: std::collections::BTreeSet<&str> =
         crate::character_catalog::buildable_cast().collect();
+    let file_of = |who: &str| {
+        crate::authored_movesets::TABLE_CHARACTERS
+            .iter()
+            .find(|(_, characters)| characters.contains(&who))
+            .map(|(name, _)| root.join("data/movesets").join(format!("{name}.ron")))
+    };
+    // A character whose file authors its whole table: a borrower's file holds
+    // only what it changes, so editing every move in it would not move the
+    // move this test reads.
+    let authors_its_own = |file: &std::path::Path| {
+        std::fs::read_to_string(file)
+            .ok()
+            .and_then(|text| ambition_entity_catalog::EntityCatalogDoc::parse(&text).ok())
+            .is_some_and(|doc| doc.entities.iter().all(|e| e.contracts.borrows.is_none()))
+    };
     let who = table
         .keys()
-        .find(|id| buildable.contains(id.as_str()))
-        .expect("some shipped table names a buildable character")
+        .filter(|id| buildable.contains(id.as_str()))
+        .find(|id| file_of(id).is_some_and(|file| authors_its_own(&file)))
+        .expect("some shipped table names a buildable character that authors its own table")
         .clone();
-    let file = crate::authored_movesets::TABLE_CHARACTERS
-        .iter()
-        .find(|(_, characters)| characters.contains(&who.as_str()))
-        .map(|(name, _)| root.join("data/movesets").join(format!("{name}.ron")))
-        .expect("the character's table is one of the declared moveset files");
+    let file = file_of(&who).expect("the character's table is one of the declared moveset files");
     assert!(
         file.exists(),
         "the export did not write {} — the arm below would edit nothing",

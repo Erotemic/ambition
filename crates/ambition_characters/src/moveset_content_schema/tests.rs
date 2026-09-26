@@ -513,3 +513,140 @@ fn the_report_is_sorted_and_unique() {
         "the report is not sorted and deduplicated"
     );
 }
+
+/// An archetype with a jab and a special, both named with its prefix.
+const AN_ARCHETYPE: &str = r#"(
+    schema_version: 1,
+    entities: [
+        (
+            id: "duelist",
+            contracts: (
+                moveset: Some((
+                    verbs: { "attack": "duelist_jab", "special": "duelist_kick" },
+                    moves: [
+                        (
+                            id: "duelist_jab",
+                            clip: (clip: "slash"),
+                            duration_s: 0.40,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.1, tag: Startup, volumes: []),
+                                (start_s: 0.1, end_s: 0.2, tag: Active, volumes: [
+                                    (shape: Rect(offset: (20.0, 0.0), half_extents: (10.0, 8.0)),
+                                     damage: 3, knockback: 20.0),
+                                ]),
+                                (start_s: 0.2, end_s: 0.40, tag: Recovery, volumes: []),
+                            ],
+                        ),
+                        (
+                            id: "duelist_kick",
+                            clip: (clip: "kick"),
+                            duration_s: 0.60,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.60, tag: Recovery, volumes: []),
+                            ],
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)"#;
+
+/// A borrower that keeps the archetype's jab and replaces its special.
+const A_BORROWER: &str = r#"(
+    schema_version: 1,
+    entities: [
+        (
+            id: "mimic",
+            contracts: (
+                borrows: Some((archetype: "duelist", prefixes: ["duelist"])),
+                moveset: Some((
+                    verbs: { "special": "mimic_trick" },
+                    moves: [
+                        (
+                            id: "mimic_trick",
+                            clip: (clip: "trick"),
+                            duration_s: 0.30,
+                            windows: [
+                                (start_s: 0.0, end_s: 0.30, tag: Recovery, volumes: []),
+                            ],
+                        ),
+                    ],
+                )),
+            ),
+        ),
+    ],
+)"#;
+
+/// A borrower plays the archetype's timings under its own move ids, answers
+/// its own special, and loses the special it replaced. The archetype keeps
+/// its own table.
+#[test]
+fn a_borrower_plays_its_archetypes_timings_under_its_own_name() {
+    let pack = accept(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/mimic.ron", A_BORROWER)]);
+    let table = lowered_movesets(&pack).expect("lowers");
+    let mimic = &table["mimic"];
+    assert_eq!(mimic.verbs.get("attack").map(String::as_str), Some("mimic_jab"));
+    assert_eq!(
+        mimic.move_by_id("mimic_jab").map(|jab| jab.duration_s),
+        Some(0.40),
+        "the borrowed jab does not carry the archetype's timing"
+    );
+    assert_eq!(mimic.verbs.get("special").map(String::as_str), Some("mimic_trick"));
+    assert!(
+        mimic.move_by_id("mimic_kick").is_none(),
+        "the special the borrower replaced is still in its table"
+    );
+    let ids: Vec<&str> = mimic.moves.iter().map(|mv| mv.id.as_str()).collect();
+    assert_eq!(ids, ["mimic_jab", "mimic_trick"]);
+    assert_eq!(
+        table["duelist"].verbs.get("special").map(String::as_str),
+        Some("duelist_kick"),
+        "borrowing changed the archetype's own table"
+    );
+}
+
+/// Retiming the archetype retimes every borrower. This is why a borrower names
+/// its archetype instead of carrying a copy.
+#[test]
+fn retiming_the_archetype_retimes_its_borrower() {
+    let retimed = AN_ARCHETYPE
+        .replace("duration_s: 0.40", "duration_s: 0.50")
+        .replace("(start_s: 0.2, end_s: 0.40", "(start_s: 0.2, end_s: 0.50");
+    assert_ne!(retimed, AN_ARCHETYPE, "the edit applied to the fixture");
+    let pack = accept(&[("moves/duelist.ron", &retimed), ("moves/mimic.ron", A_BORROWER)]);
+    assert_eq!(
+        lowered_movesets(&pack).expect("lowers")["mimic"].move_by_id("mimic_jab").map(|jab| jab.duration_s),
+        Some(0.50)
+    );
+}
+
+/// Each way a borrow can be wrong is refused at compile time, naming the
+/// borrower's file.
+#[test]
+fn a_borrow_that_cannot_resolve_is_refused_and_names_its_file() {
+    for (why, borrower) in [
+        ("an archetype the pack does not author", A_BORROWER.replace(r#"archetype: "duelist""#, r#"archetype: "nobody""#)),
+        ("a prefix that misses a move id", A_BORROWER.replace(r#"prefixes: ["duelist"]"#, r#"prefixes: ["duel_"]"#)),
+        ("a verb bound to a move the resolved table lacks", A_BORROWER.replace(r#""special": "mimic_trick""#, r#""special": "mimic_nothing""#)),
+    ] {
+        assert_ne!(borrower, A_BORROWER, "{why}: the edit applied to the fixture");
+        let failure = refuse(&[("moves/duelist.ron", AN_ARCHETYPE), ("moves/mimic.ron", &borrower)]);
+        let text = format!("{failure:?}");
+        assert!(text.contains("moves/mimic.ron"), "{why}: the refusal does not name the borrower's file: {text}");
+    }
+}
+
+/// An archetype must author its own table: a borrow of a borrower is refused.
+#[test]
+fn a_chain_of_borrows_is_refused() {
+    let second = A_BORROWER
+        .replace(r#"id: "mimic""#, r#"id: "echo""#)
+        .replace(r#"archetype: "duelist", prefixes: ["duelist"]"#, r#"archetype: "mimic", prefixes: ["mimic"]"#)
+        .replace("mimic_trick", "echo_trick");
+    refuse(&[
+        ("moves/duelist.ron", AN_ARCHETYPE),
+        ("moves/mimic.ron", A_BORROWER),
+        ("moves/echo.ron", &second),
+    ]);
+}

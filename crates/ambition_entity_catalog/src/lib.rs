@@ -3586,6 +3586,74 @@ impl MovesetContract {
         }
     }
 
+    /// This table under another fighter's name.
+    ///
+    /// Each move id's longest matching prefix is replaced by `owner`. The
+    /// borrowed table keeps the archetype's frame data and gets the borrower's
+    /// move ids, because a move id is what a causal log, a cue table and a
+    /// cancel window name: two fighters answering to one id cannot be told
+    /// apart. Longest prefix first, so `polygon` cannot claim a
+    /// `polygon_brawler` id.
+    ///
+    /// An id that carries none of the prefixes is an error, and so is a rename
+    /// that makes two moves one: renaming only some moves would leave two
+    /// fighters sharing a name.
+    pub fn under_own_name(mut self, prefixes: &[String], owner: &str) -> Result<Self, String> {
+        let mut sorted: Vec<&str> = prefixes.iter().map(String::as_str).collect();
+        sorted.sort_by_key(|prefix| std::cmp::Reverse(prefix.len()));
+        let renamed = |id: &str| -> Option<String> {
+            sorted
+                .iter()
+                .find_map(|prefix| id.strip_prefix(prefix).map(|rest| format!("{owner}{rest}")))
+        };
+        let stray = self
+            .moves
+            .iter()
+            .map(|mv| mv.id.as_str())
+            .chain(self.verbs.values().map(String::as_str))
+            .find(|id| renamed(id).is_none());
+        if let Some(stray) = stray {
+            return Err(format!(
+                "move id `{stray}` carries none of the prefixes {prefixes:?}, so it \
+                 cannot be renamed for `{owner}`"
+            ));
+        }
+        self.remap_move_ids(|id| renamed(id).unwrap_or_else(|| id.to_string()));
+        let distinct: std::collections::BTreeSet<&str> =
+            self.moves.iter().map(|mv| mv.id.as_str()).collect();
+        if distinct.len() != self.moves.len() {
+            return Err(format!(
+                "renaming the table for `{owner}` with prefixes {prefixes:?} makes two \
+                 moves one"
+            ));
+        }
+        Ok(self)
+    }
+
+    /// This table with a borrower's own table laid over it.
+    ///
+    /// A move whose id this table already has replaces it where it stands. A
+    /// new move is added at the end, in the order `own` lists it. Each verb
+    /// `own` binds is rebound, and a move that the rebinding leaves bound to no
+    /// verb is dropped, because the borrower replaced it.
+    pub fn overlaid_with(mut self, own: &MovesetContract) -> Self {
+        for mv in &own.moves {
+            match self.moves.iter_mut().find(|slot| slot.id == mv.id) {
+                Some(slot) => *slot = mv.clone(),
+                None => self.moves.push(mv.clone()),
+            }
+        }
+        for (verb, target) in &own.verbs {
+            let Some(displaced) = self.verbs.insert(verb.clone(), target.clone()) else {
+                continue;
+            };
+            if displaced != *target && !self.verbs.values().any(|id| *id == displaced) {
+                self.moves.retain(|mv| mv.id != displaced);
+            }
+        }
+        self
+    }
+
     pub fn move_by_id(&self, id: &str) -> Option<&MoveSpec> {
         self.moves.iter().find(|m| m.id == id)
     }
@@ -3697,8 +3765,29 @@ pub struct EntityContracts {
     pub hurtboxes: Option<HurtboxDoc>,
     #[serde(default)]
     pub presentation: Option<PresentationContract>,
+    /// Another entity's move table, borrowed under this entity's name.
+    /// [`Self::moveset`] is then laid over it (see
+    /// [`MovesetContract::overlaid_with`]) rather than standing alone. It is
+    /// declared before the table so a file states what it borrows first.
+    #[serde(default)]
+    pub borrows: Option<MovesetBorrow>,
     #[serde(default)]
     pub moveset: Option<MovesetContract>,
+}
+
+/// A move table borrowed from another entity under the borrower's own name.
+///
+/// A fighter drawn on an archetype's rig plays the archetype's timings. A
+/// copy of the table would drift when the archetype is tuned, so the borrower
+/// names the archetype and states only what it changes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MovesetBorrow {
+    /// The entity whose move table is borrowed. It authors its own table.
+    pub archetype: String,
+    /// The prefixes the archetype's move ids carry. See
+    /// [`MovesetContract::under_own_name`].
+    pub prefixes: Vec<String>,
 }
 
 /// One catalog entity: a stable id plus its contract bundle.

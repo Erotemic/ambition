@@ -119,6 +119,7 @@ fn main() {
                         hurtboxes: None,
                         presentation: None,
                         moveset: Some(contract.clone()),
+                        borrows: None,
                     },
                 })
                 .collect(),

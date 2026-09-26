@@ -38,7 +38,7 @@ use ambition_content_pack::{
     SchemaVersion,
 };
 use ambition_entity_catalog::move_section::MoveSectionData;
-use ambition_entity_catalog::EntityCatalogDoc;
+use ambition_entity_catalog::{EntityCatalogDoc, MovesetBorrow, MovesetContract};
 
 use crate::actor::character_catalog::content_schema::CHARACTERS_CAPABILITY;
 
@@ -108,7 +108,7 @@ impl ContentSchemaHandler for MovesetSchema {
         if !doc
             .entities
             .iter()
-            .any(|entity| entity.contracts.moveset.is_some())
+            .any(|entity| entity.contracts.moveset.is_some() || entity.contracts.borrows.is_some())
         {
             out.report(
                 facet
@@ -127,14 +127,31 @@ impl ContentSchemaHandler for MovesetSchema {
 
         for entity in &doc.entities {
             let id = facet.content_id_in(MOVESET_SCHEMA, entity.id.clone());
-            out.define(id.clone(), canonical(&entity.contracts.moveset));
+            // A borrow is part of what the entity says, so it moves the
+            // fingerprint. A table that borrows nothing keeps its old one.
+            let identity = match &entity.contracts.borrows {
+                Some(borrow) => canonical(&(borrow, &entity.contracts.moveset)),
+                None => canonical(&entity.contracts.moveset),
+            };
+            out.define(id.clone(), identity);
         }
 
         // ⭐ EVERY STRUCTURAL FAULT AT ONCE, FROM THE VALIDATOR THAT ALREADY
         // OWNS THEM. The alternative to reporting an `UnknownVerbMove` here is a
         // press that plays nothing, which reads in a playtest as "the button is
         // broken" rather than as a line number.
-        for problem in doc.validate() {
+        // A borrower's table is incomplete until `aggregate` lays it over its
+        // archetype, so it is validated there, whole.
+        let standalone = EntityCatalogDoc {
+            schema_version: doc.schema_version,
+            entities: doc
+                .entities
+                .iter()
+                .filter(|entity| entity.contracts.borrows.is_none())
+                .cloned()
+                .collect(),
+        };
+        for problem in standalone.validate() {
             out.report(
                 facet
                     .diagnostic(DiagnosticCode::MalformedProviderBinding, problem.to_string())
@@ -174,21 +191,93 @@ impl ContentSchemaHandler for MovesetSchema {
         out: &mut AggregateOutcome,
     ) -> Aggregation {
         let mut table: MoveSectionData = BTreeMap::new();
+        let mut borrowers: Vec<(&str, &str, &MovesetBorrow, Option<&MovesetContract>)> =
+            Vec::new();
         for fragment in fragments {
             let Some(Fragment { doc }) = fragment.get::<Fragment>() else {
                 continue;
             };
             for entity in &doc.entities {
-                if let Some(moveset) = entity.contracts.moveset.as_ref() {
-                    table.insert(entity.id.clone(), moveset.clone());
+                match (&entity.contracts.borrows, entity.contracts.moveset.as_ref()) {
+                    (Some(borrow), own) => borrowers.push((
+                        fragment.declared_path,
+                        entity.id.as_str(),
+                        borrow,
+                        own,
+                    )),
+                    (None, Some(moveset)) => {
+                        table.insert(entity.id.clone(), moveset.clone());
+                    }
+                    (None, None) => {}
                 }
             }
         }
+        // Borrowers resolve after every archetype is merged. An archetype must
+        // author its own table: a chain of borrows would make one fighter's
+        // numbers depend on the order files are read.
+        let mut resolved = Vec::with_capacity(borrowers.len());
+        for (path, id, borrow, own) in borrowers {
+            match resolve_borrow(&table, id, borrow, own) {
+                Ok(contract) => resolved.push((id.to_string(), contract)),
+                Err(problem) => out.report(
+                    AggregateOutcome::refusal(DiagnosticCode::MalformedProviderBinding, problem)
+                        .in_source(path)
+                        .fix(
+                            "name an archetype that authors its own table, and prefixes \
+                             that every one of its move ids carries",
+                        ),
+                ),
+            }
+        }
+        table.extend(resolved);
         if !out.failed() {
             out.lower(table);
         }
         Aggregation::Defined
     }
+}
+
+/// A borrower's whole table: its archetype's under the borrower's name, with
+/// the borrower's own table laid over it, then validated like any table.
+fn resolve_borrow(
+    table: &MoveSectionData,
+    id: &str,
+    borrow: &MovesetBorrow,
+    own: Option<&MovesetContract>,
+) -> Result<MovesetContract, String> {
+    let archetype = table.get(&borrow.archetype).ok_or_else(|| {
+        format!(
+            "`{id}` borrows the move table of `{}`, which authors no table of its own \
+             in this pack",
+            borrow.archetype
+        )
+    })?;
+    let mut contract = archetype
+        .clone()
+        .under_own_name(&borrow.prefixes, id)
+        .map_err(|problem| format!("`{id}` borrows `{}`: {problem}", borrow.archetype))?;
+    if let Some(own) = own {
+        contract = contract.overlaid_with(own);
+    }
+    let whole = EntityCatalogDoc {
+        schema_version: ambition_entity_catalog::ENTITY_CATALOG_SCHEMA_VERSION,
+        entities: vec![ambition_entity_catalog::EntityDef {
+            id: id.to_string(),
+            contracts: ambition_entity_catalog::EntityContracts {
+                moveset: Some(contract.clone()),
+                ..Default::default()
+            },
+        }],
+    };
+    let problems: Vec<String> = whole.validate().iter().map(ToString::to_string).collect();
+    if !problems.is_empty() {
+        return Err(format!(
+            "`{id}`'s table, borrowed from `{}`, is not a valid table: {}",
+            borrow.archetype,
+            problems.join("; ")
+        ));
+    }
+    Ok(contract)
 }
 
 /// The canonical form an entry contributes to the pack fingerprint.

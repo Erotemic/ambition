@@ -63,6 +63,12 @@ OFFSET = re.compile(r"^\s*offset: \(([-\d.]+), ([-\d.]+)\),\s*$")
 # parse failure.
 START = re.compile(r"^\s*start_s: ([-\d.]+),\s*$")
 END = re.compile(r"^\s*end_s: ([-\d.]+),\s*$")
+# A borrower's file holds only what it changes over its archetype's table
+# (`borrows: Some((archetype: …, prefixes: [...]))`). `resolve_borrows` rebuilds
+# its whole table the way the engine does (`MovesetContract::under_own_name`,
+# then `overlaid_with`), so a census counts the moves the fighter plays.
+ARCHETYPE = re.compile(r'^\s*archetype: "([^"]+)",\s*$')
+PREFIX = re.compile(r'^\s*"([a-z_]+)",\s*$')
 
 
 def read(
@@ -83,7 +89,23 @@ def read(
     in_active = False
     in_verbs = False
     pending: list[float | None] = [None, None]
+    borrow: tuple[str, list[str]] | None = None
+    in_prefixes = False
     for line in path.read_text().splitlines():
+        a = ARCHETYPE.match(line)
+        if a:
+            borrow = (a.group(1), [])
+            continue
+        if borrow is not None and "prefixes: [" in line:
+            in_prefixes = True
+            continue
+        if in_prefixes:
+            pm = PREFIX.match(line)
+            if pm:
+                borrow[1].append(pm.group(1))
+            else:
+                in_prefixes = False
+            continue
         if "verbs: {" in line:
             in_verbs = True
             continue
@@ -139,7 +161,44 @@ def read(
             h = HALF.match(line)
             if h:
                 volumes[(entity, move)].append((float(h.group(1)), float(h.group(2))))
-    return verbs, volumes, clocks
+    return verbs, volumes, clocks, borrow
+
+
+def resolve_borrows(tables: dict) -> None:
+    """Rebuild each borrower's whole table in place, as the engine does."""
+    by_entity = {}
+    for stem, (verbs, volumes, clocks, borrow) in tables.items():
+        if borrow is None:
+            for (entity, _move) in volumes:
+                by_entity[entity] = stem
+    for stem, (verbs, volumes, clocks, borrow) in list(tables.items()):
+        if borrow is None:
+            continue
+        archetype, prefixes = borrow
+        owner = next(iter({entity for (entity, _move) in volumes}), stem)
+        if archetype not in by_entity:
+            raise SystemExit(f"{stem}.ron borrows `{archetype}`, whose table no file authors")
+        a_verbs, a_volumes, a_clocks, _ = tables[by_entity[archetype]]
+        ordered = sorted(prefixes, key=len, reverse=True)
+
+        def renamed(move_id: str) -> str:
+            for prefix in ordered:
+                if move_id.startswith(prefix):
+                    return owner + move_id[len(prefix):]
+            raise SystemExit(f"{stem}.ron: `{move_id}` carries none of {prefixes}")
+
+        whole_verbs = {verb: renamed(move) for verb, move in a_verbs.items()}
+        whole_volumes = {(owner, renamed(m)): v for (e, m), v in a_volumes.items() if e == archetype}
+        whole_clocks = {(owner, renamed(m)): c for (e, m), c in a_clocks.items() if e == archetype}
+        whole_volumes.update(volumes)
+        whole_clocks.update(clocks)
+        for verb, move in verbs.items():
+            displaced = whole_verbs.get(verb)
+            whole_verbs[verb] = move
+            if displaced and displaced != move and displaced not in whole_verbs.values():
+                whole_volumes.pop((owner, displaced), None)
+                whole_clocks.pop((owner, displaced), None)
+        tables[stem] = (whole_verbs, whole_volumes, whole_clocks, None)
 
 
 def main() -> int:
@@ -159,8 +218,10 @@ def main() -> int:
 
     rows: list[tuple[str, str, str, float, float, float]] = []
     clock_rows: list[tuple[str, str, str, float, int]] = []
+    tables = {path.stem: read(path) for path in files}
+    resolve_borrows(tables)
     for path in files:
-        verbs, volumes, clocks = read(path)
+        verbs, volumes, clocks, _ = tables[path.stem]
         # ⛔ THE FLOOR. A mis-parse yields an empty map and a clean, empty
         # report, which is this repository's most repeated instrument failure.
         if len(verbs) < 5:

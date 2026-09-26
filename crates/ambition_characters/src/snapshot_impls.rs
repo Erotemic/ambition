@@ -1085,6 +1085,46 @@ fn read_attack_gesture_intent(
     })
 }
 
+/// The brain's memory of what it has seen — FB5's habit model reads it, and FB6's rollouts
+/// cannot run until it rewinds.
+impl SnapshotState for crate::perception::PerceptionMemory {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let rows: Vec<_> = self.0.entries().collect();
+        put_u32(out, rows.len() as u32);
+        for (id, m) in rows {
+            put_str(out, id);
+            put_vec2(out, m.pos);
+            put_vec2(out, m.vel);
+            m.faction.encode(out);
+            put_bool(out, m.hostile_to_self);
+            put_f32(out, m.last_seen);
+            put_f32(out, m.confidence);
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use crate::perception::{RememberedActor, WorldMemory};
+        let n = r.u32()?;
+        let mut rows = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            let id = r.str()?.to_string();
+            rows.push((
+                id,
+                RememberedActor {
+                    pos: r.vec2()?,
+                    vel: r.vec2()?,
+                    faction: crate::actor::ActorFaction::decode(r)?,
+                    hostile_to_self: r.bool()?,
+                    last_seen: r.f32()?,
+                    confidence: r.f32()?,
+                },
+            ));
+        }
+        Some(crate::perception::PerceptionMemory(
+            WorldMemory::from_snapshot(rows),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod body_health_wire_tests {
     use crate::actor::{BodyHealth, DeathPolicy, Health};

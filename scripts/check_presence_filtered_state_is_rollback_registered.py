@@ -12,7 +12,8 @@ WHEN ITS VALUE IS DERIVED.** That sentence is the repository's own, from
 `simulation-authority-and-determinism.md`, and both halves of the pair it was
 written about are registered for exactly this reason: `Dormant`'s registration
 says *"a rewind that dropped the marker would put a sleeping body back into the
-decision phase for one advance"*, and `SensesUndecided`'s says *"'Re-derived next
+decision phase for one advance"*, and `SensesUndecided`'s said (until AP57 derived
+a body's senses and deleted the marker) *"'Re-derived next
 tick' is not a reason to omit it: `ITEM 0` of this project's own record is a
 component declared derived, dropped by a restore, and read before its writer ran
 again."*

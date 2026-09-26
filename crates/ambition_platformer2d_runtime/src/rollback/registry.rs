@@ -776,7 +776,11 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// shapes itself to one side. Both are read by presence, and a ruleset inserts
 /// them after spawn (GNU-ton's conductor adopts its gnu), so a rewind must
 /// restore them.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 233;
+/// ⛔⛤ 233 -> 234: `actor.perception` and `actor.senses_undecided` leave. A
+/// body's senses are derived when it decides, from its seat and the session's
+/// one extent, so no body stores them. `actor.perception_memory` is unchanged,
+/// and every brained body now carries it from construction (a boss too).
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 234;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

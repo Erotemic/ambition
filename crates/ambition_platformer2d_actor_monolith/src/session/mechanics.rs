@@ -238,12 +238,12 @@ impl<'a> GenerationMechanics<'a> {
     }
 }
 
-/// The perception viewport override a body being built must be given.
+/// The perception viewport override a sighted body sees with.
 ///
 /// ⭐ **A FREE FUNCTION RATHER THAN A `GenerationMechanics` METHOD, because its
-/// caller is a SYSTEM and not a construction road.** `ensure_perception` attaches
-/// senses to bodies as they appear — it holds no plan, no room and no
-/// `GenerationMechanics` — so what it needs is the same ranking expressed where
+/// caller is a SYSTEM and not a construction road.** The brain tick reads the
+/// extent when a body decides (`SenseExtent`). It holds no plan, no room and no
+/// `GenerationMechanics`, so what it needs is the same ranking expressed where
 /// it can be asked: the activated generation's value, or the App's when a
 /// composition has none.
 pub fn perception_extent_for(
@@ -483,8 +483,8 @@ mod tests {
     /// ⛔⛤ **THE PERCEPTION READER OWES THE SAME CONTRACT AS THE ROOM ROADS, AND
     /// MY FIRST VERSION OF IT DID NOT (review, 2026-09-13).**
     ///
-    /// `ensure_perception` attaches senses to bodies as they appear, so it
-    /// consumes the generation at CONSUMPTION time rather than at plan time. With
+    /// The brain tick reads the extent when a body decides, so it consumes the
+    /// generation at CONSUMPTION time rather than at plan time. With
     /// a plain App fallback, a shell session that lost its mechanics would give
     /// every later actor a sight range derived from whatever the App holds now —
     /// a room part generation-N derivative and part current App.

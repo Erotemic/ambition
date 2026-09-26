@@ -155,23 +155,21 @@ fn a_replayed_room_is_rebuilt_with_the_persona_the_room_load_built() {
 struct UnattachedAtDecision {
     /// Every body the decision pass saw, so the caller can find the rebuilt ones.
     seen: std::collections::HashSet<Entity>,
-    /// Bodies `ensure_perception` would grant senses to that had none.
-    senseless: Vec<Entity>,
+    /// Brained bodies with no belief memory for their senses to update.
+    memoryless: Vec<Entity>,
     /// Staged actors with no dormancy stance.
     stanceless: Vec<Entity>,
 }
 
 fn record_unattached_at_decision(
     mut out: ResMut<UnattachedAtDecision>,
-    sensed: Query<
-        (Entity, Has<ambition_platformer2d::actors::features::ecs::perception::Perception>),
+    brained: Query<
+        (Entity, Has<ambition_platformer2d::characters::perception::PerceptionMemory>),
         (
             With<ambition_platformer2d::characters::brain::Brain>,
             With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>,
             Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
             Without<ambition_platformer2d::boss_encounter::BossConfig>,
-            Without<ambition_platformer2d::actor::MatchSeat>,
-            Without<ambition_platformer2d::actors::features::ecs::perception::SensesUndecided>,
         ),
     >,
     staged: Query<
@@ -184,10 +182,10 @@ fn record_unattached_at_decision(
     >,
 ) {
     use ambition_platformer2d::actor::ActorFaction;
-    for (entity, has_senses) in &sensed {
+    for (entity, has_memory) in &brained {
         out.seen.insert(entity);
-        if !has_senses {
-            out.senseless.push(entity);
+        if !has_memory {
+            out.memoryless.push(entity);
         }
     }
     for (entity, faction, has_stance) in &staged {
@@ -200,12 +198,14 @@ fn record_unattached_at_decision(
 /// A rebuilt body is complete before anything decides for it.
 ///
 /// The transition commit rebuilds the room after every first-sight attacher has
-/// run for the tick, so each rebuilt body spends the rest of that tick without
-/// `Perception` and without a dormancy stance. That is safe only because nothing
-/// after the commit reads either, and on the next tick `declare_ambition_dormancy`
-/// and `ensure_perception` run before `assess_dormancy` and the brain tick. A
-/// missing `Perception` reads as `Omniscient`, so a reorder would hand every
-/// rebuilt body perfect senses for one decision with nothing failing.
+/// run for the tick, so each rebuilt body spends the rest of that tick without a
+/// dormancy stance. That is safe only because nothing after the commit reads it,
+/// and on the next tick `declare_ambition_dormancy` runs before
+/// `assess_dormancy` and the brain tick.
+///
+/// A body's senses are derived when it decides, so there is nothing of them to
+/// attach. Its belief memory is built with its brain (`Brain` requires it), and
+/// the memory arm checks that the rebuilt bodies arrive with it.
 #[test]
 fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
     use ambition_platformer2d::sim::SimScheduleExt;
@@ -236,11 +236,10 @@ fn a_rebuilt_body_is_complete_before_anything_decides_for_it() {
          must see them, or this is not about rebuilt bodies ({rebuilt} seen)"
     );
     assert!(
-        record.senseless.is_empty(),
-        "{} bodies reached the decision pass without `Perception`, which reads as \
-         `Omniscient`: {:?}",
-        record.senseless.len(),
-        &record.senseless[..record.senseless.len().min(5)]
+        record.memoryless.is_empty(),
+        "{} brained bodies reached the decision pass with no belief memory: {:?}",
+        record.memoryless.len(),
+        &record.memoryless[..record.memoryless.len().min(5)]
     );
     assert!(
         record.stanceless.is_empty(),

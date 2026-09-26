@@ -320,8 +320,8 @@ The five families that closed:
   fixture/direct-entry authority the ruling explicitly permits.
   ⚠ AND ONE READER OF THE SAME RANKING IS DELIBERATELY UNCHANGED:
   `perception_extent_for` still takes `shell_routed` and still falls back to
-  the App. It is not a construction road — `ensure_perception` attaches senses
-  to bodies as they appear, in compositions that never rebuild a room — so
+  the App. It is not a construction road — the brain tick reads it when a body
+  decides (`SenseExtent`, AP57), in compositions that never rebuild a room too — so
   refusing there would leave a fixture's bodies blind rather than refuse an
   operation. Named here so the next reader does not read the asymmetry as an
   oversight.

@@ -225,6 +225,8 @@ pub fn tick_actor_brains(
     sim_clock: Res<crate::features::GameplayElapsed>,
     // Peers, projectiles and hostility: what a body can perceive this tick.
     perceived: crate::features::ecs::perception::PerceivedWorld,
+    // How far a sighted body sees: one value for the session, read here.
+    senses: crate::features::ecs::perception::SenseExtent,
     // Capture, as a fact this phase reads and hands on. The brain never
     // touches `CapturedBy` — a pure decision reaching into the ECS is what the
     // perception layer exists to prevent — so the relationship is resolved HERE,
@@ -305,14 +307,11 @@ pub fn tick_actor_brains(
                 Option<&ambition_combat::components::ActorAggression>,
                 // §A7: this body's persistent world-belief, updated each tick from its
                 // fresh `WorldView` so its brain can pursue a foe that has left the
-                // viewport. Attached by `ensure_perception`; `Option` for the
-                // one-frame gap before it lands (and for perception-less fixtures).
-                Option<&mut crate::features::ecs::perception::PerceptionMemory>,
-                // This body's PERCEPTION policy (how it learns where its foe is).
-                // Attached (`Sighted`) by `ensure_perception`; `Option` reads as the
-                // default `Perception::Omniscient` (the basic mode) when absent — so a
-                // fixture that wires up no perception targets omnisciently, no fallback.
-                Option<&crate::features::ecs::perception::Perception>,
+                // viewport. `Brain` requires it, so `None` is a body with no brain.
+                Option<&mut ambition_characters::perception::PerceptionMemory>,
+                // A seated match fighter keeps omniscient senses; see
+                // `perception::perception_of`.
+                bevy::prelude::Has<ambition_match::MatchSeat>,
                 // FB4b §13.2: the body's own moveset, so the brain snapshot can
                 // carry the ATTACK KIT. The fighter brain scores real moves with
                 // real frame data and cannot reach a moveset itself —
@@ -379,19 +378,6 @@ pub fn tick_actor_brains(
             // `DormancyPolicy`, so this filter changes nothing for content that
             // has not asked. See `features::ecs::dormancy`.
             Without<crate::features::ecs::dormancy::Dormant>,
-            // ⛔⛤ **AND A BODY WHOSE SENSES NOBODY COULD DECIDE DOES NOT DECIDE
-            // EITHER — REVIEW, 2026-09-13.** `Perception` below is an `Option`
-            // whose `None` reads as `Omniscient`, so when `ensure_perception`
-            // refused — a shell-routed session whose generation is missing — the
-            // bodies it declined to decide for arrived HERE with the most capable
-            // senses in the game. A refusal was an upgrade.
-            //
-            // ⚠ Same shape as `Dormant` one line up, and for the same reason: the
-            // body still integrates and still takes hits, it simply does not
-            // choose. Absent on every body in every composition that HAS its
-            // mechanics, so this filter changes nothing for the running game. See
-            // `features::ecs::perception::SensesUndecided`.
-            Without<crate::features::ecs::perception::SensesUndecided>,
         ),
     >,
 ) {
@@ -412,6 +398,7 @@ pub fn tick_actor_brains(
     // The live hostility table for every brain's world-out view this frame (§A7),
     // all-peaceful when a fixture registers none.
     let relations = perceived.relations();
+    let extent = senses.resolve();
     // a world with no controlled body is ordinary, and the shape that proves it is the
     // absence of an early return here. When the anchor was live this read `let Some(player_pos)
     // = ... else { return; }`, so a session that declared no home avatar ticked NO actor brains
@@ -421,8 +408,12 @@ pub fn tick_actor_brains(
     // A CREW SHARES WHAT IT SEES — see `perception::CrewCall`. The calls are
     // last tick's sightings, gathered before any body decides this tick.
     let mut crew_calls = Vec::new();
-    for (entity, .., (body, _, faction, _, memory, perception, ..)) in actors.iter() {
+    for (entity, .., (body, _, faction, _, memory, seated, ..)) in actors.iter() {
         let (Some(body), Some(memory)) = (body, memory) else {
+            continue;
+        };
+        let Some(perception) = crate::features::ecs::perception::perception_of(seated, extent)
+        else {
             continue;
         };
         if body.policy.0.shares_sightings && body.health.alive() {
@@ -430,7 +421,7 @@ pub fn tick_actor_brains(
                 entity,
                 body.kin.pos,
                 faction.copied(),
-                perception.copied().unwrap_or_default(),
+                perception,
                 &memory.0,
                 &mut crew_calls,
             );
@@ -454,7 +445,7 @@ pub fn tick_actor_brains(
             faction,
             aggression,
             mut perception_memory,
-            perception,
+            seated,
             moveset,
             playback,
             stale_moves,
@@ -463,6 +454,13 @@ pub fn tick_actor_brains(
         ),
     ) in &mut actors
     {
+        // A body whose senses this session cannot decide does not decide. It
+        // still integrates and still takes hits; see `perception::perception_of`.
+        let Some(perception_policy) =
+            crate::features::ecs::perception::perception_of(seated, extent)
+        else {
+            continue;
+        };
         // This actor's combat-target liveness. `select_actor_targets` already
         // dropped a dead/absent foe (it only ever targets a LIVE candidate, and a
         // faction-feud fighter has no target once its foe is gone), so `entity ==
@@ -593,14 +591,6 @@ pub fn tick_actor_brains(
                             );
                         }
                     }
-                    // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
-                    // typed, per-body [`Perception`], defaulting to `Omniscient` (the
-                    // BASIC mode) when the component is absent. There is NO "perception
-                    // resource missing" fallback anywhere: the target branch below is the
-                    // deliberate policy, not an accident of whether `PerceptionPeers` was
-                    // init'd. Production actors are granted `Sighted` by `ensure_perception`;
-                    // fixtures (and the boss, a separate tick) default to `Omniscient`.
-                    let perception_policy = perception.copied().unwrap_or_default();
                     // Headless world-out view for this body (S4/S5), built ALWAYS for the
                     // brain's tactical queries (line-of-fire over the SAME derived
                     // collision world `feature_world` the body integrates against — never a

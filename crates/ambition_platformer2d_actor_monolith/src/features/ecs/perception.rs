@@ -24,29 +24,30 @@ use ambition_combat::targeting::FactionRelations;
 /// per instance. The only override that exists is per-WORLD:
 /// [`PerceptionExtentOverride`](ambition_characters::perception::PerceptionExtentOverride),
 /// published once from the environment (`dev_tools::perception_extent::from_env`)
-/// and resolved through `session::mechanics::perception_extent_for`, which every
-/// newly-decided body in a session receives the SAME value from. There is no
+/// and resolved through [`SenseExtent`], which every sighted body in a session
+/// reads the SAME value from when it decides. There is no
 /// per-character keener/duller-senses authoring path today.
 pub const DEFAULT_VIEWPORT_HALF: ae::Vec2 = ae::Vec2::new(480.0, 320.0);
 
-/// A body's PERCEPTION policy — HOW it learns where its foe is. Perception is
-/// UNIVERSAL: targeting always flows through this typed, per-body policy, never
-/// through an implicit "did the perception resource exist this run?" fallback. A
-/// body without the component reads as the default, [`Perception::Omniscient`], so
-/// omniscience is a deliberate BASIC mode, not a degraded path.
+/// A body's PERCEPTION policy: HOW it learns where its foe is.
+///
+/// A value, not a component. [`perception_of`] derives it each tick from what
+/// the body is (seated in a match or not) and the session's one extent, so no
+/// system has to attach it and no body can carry a stale copy.
 ///
 /// The two modes are a spectrum from primal to refined:
-/// - [`Omniscient`](Self::Omniscient) — the BASIC perception: the body simply KNOWS
-///   the nearest hostile ANYWHERE (the global [`ActorTarget`](ambition_combat::components::ActorTarget)
-///   `select_actor_targets` maintains). No viewport, no line-of-sight, no forgetting.
-///   A boss has this — it is relentless, you cannot juke it — and it is what any body
-///   defaults to before it is given senses, so a fixture that wires up no perception
-///   still targets correctly through the same `ActorTarget` every body carries.
-/// - [`Sighted`](Self::Sighted) — the body perceives only within `viewport_half` and
-///   pursues a foe that left it from [`PerceptionMemory`] (invariant I6). Ordinary
-///   actors have this: they can lose sight of you, be juked, and give up. This is the
-///   world-out [`WorldView`] port ([`build_world_view`]).
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+/// - [`Omniscient`](Self::Omniscient): the body KNOWS the nearest hostile
+///   ANYWHERE (the global [`ActorTarget`](ambition_combat::components::ActorTarget)
+///   `select_actor_targets` maintains). No viewport, no line-of-sight, no
+///   forgetting. A seated match fighter has this. A boss decides in its own tick
+///   and reads `ActorTarget` directly, which is the same knowledge.
+/// - [`Sighted`](Self::Sighted): the body perceives only within `viewport_half`
+///   and pursues a foe that left it from its
+///   [`PerceptionMemory`](ambition_characters::perception::PerceptionMemory)
+///   (invariant I6). Ordinary actors have this: they can lose sight of you, be
+///   juked, and give up. This is the world-out [`WorldView`] port
+///   ([`build_world_view`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Perception {
     /// Knows the nearest hostile anywhere (reads the global `ActorTarget`).
     Omniscient,
@@ -76,14 +77,6 @@ impl Perception {
     /// decided in two places.
     pub fn knows_bodies_anywhere(self) -> bool {
         matches!(self, Perception::Omniscient)
-    }
-}
-
-impl Default for Perception {
-    /// Omniscience is the basic perception — the mode a body has until it is granted
-    /// bounded senses.
-    fn default() -> Self {
-        Perception::Omniscient
     }
 }
 
@@ -468,19 +461,6 @@ pub fn collect_perception_projectiles(
     }
 }
 
-/// Per-body persistent world-belief (invariant I6): a brained body's [`WorldMemory`]
-/// — the last-known positions of foes that have left its viewport, with a decaying
-/// confidence — so a brain can PURSUE a target that went off-screen instead of
-/// forgetting it the instant it leaves the frame. Updated each tick by
-/// [`crate::features::ecs::actors::tick_actor_brains`] from the body's fresh
-/// [`WorldView`], then read for the perceived target when nothing hostile is in view.
-///
-/// A component (not a resource) so it lives + dies with the body — no manual pruning
-/// of despawned entities. Attached to every non-boss brained actor by
-/// [`ensure_perception`].
-#[derive(bevy::prelude::Component, Default)]
-pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
-
 /// ⭐ A CREW SHARES WHAT IT SEES.
 ///
 /// Every body whose policy `shares_sightings` calls out the foes it saw last
@@ -550,172 +530,72 @@ pub(crate) fn hear_crew(
     }
 }
 
-/// This body's SENSES COULD NOT BE DECIDED, so it does not decide at all.
+/// The session's one perception extent, as a deciding body asks for it.
 ///
-/// ⛔⛤ **A MISSING `Perception` READS AS `Omniscient`, SO A REFUSAL WAS AN
-/// UPGRADE — REVIEW, 2026-09-13.** [`ensure_perception`] returns without
-/// attaching anything when a shell-routed session cannot say what its actors can
-/// see (`perception_extent_for` answers `None`). The bodies it declined to decide
-/// for were left with NO [`Perception`] component — which the target derivation
-/// reads as [`Perception::Omniscient`], *"the body simply KNOWS"*. ⇒ **The most
-/// capable mode in the game was the fallback for not knowing**, which is the
-/// fail-open shape this module spends its length removing.
-///
-/// ⭐⭐ **THE FIX IS NOT A THIRD PERCEPTION MODE.** Inventing a blind or
-/// zero-viewport variant would be alternate AI MECHANICS invented by a failure
-/// path — a body that hunts differently because its session is mid-transition.
-/// This is INVALIDATION: the body is out of the decision phase entirely until its
-/// senses are decided, exactly as [`crate::features::ecs::dormancy::Dormant`]
-/// takes a sleeping brain out of it. The body still integrates, still falls,
-/// still takes hits; it simply does not choose.
-///
-/// ⚠ **ABSENCE STILL MEANS `Omniscient`, AND DELIBERATELY SO.** A player brain, a
-/// boss and a seated match fighter all carry no `Perception` BY POLICY —
-/// documented above `ensure_perception`. What was wrong was that a REFUSAL was
-/// spelled the same way as that policy. Two facts, one representation; now two.
-///
-/// ⛔⛤ **IT IS ROLLBACK STATE, AND THIS COMMENT SAID THE OPPOSITE FOR A DAY.**
-/// The first version read *"NOT ROLLBACK STATE, for the same reason `Dormant` is
-/// derived every tick"* — while the same change REGISTERED it canonically
-/// (`rollback_registration.rs`, schema 182 → 183). A review caught the
-/// contradiction; the registration is right and the sentence was wrong.
-///
-/// ⇒ **PRESENCE IS AUTHORITATIVE BECAUSE A QUERY FILTERS ON IT.**
-/// `tick_actor_brains` excludes this marker, so a restore that dropped it would
-/// put the body back into the decision phase for one advance with NO
-/// `Perception` — which reads as `Omniscient`, the exact fail-open the marker
-/// exists to close. *"Re-derived next tick"* is not a reason to omit a component
-/// something reads BEFORE its writer runs again; `ITEM 0` of this project's own
-/// record is that mistake. `Dormant` is registered for the same reason and its
-/// own note says so.
-///
-/// ⚠ It is REMOVED in the same command as the `Perception` insert, so no frame
-/// exists where a body carries both.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SensesUndecided;
-
-/// Grant SIGHTED perception to every non-boss brained actor that lacks it: a
-/// [`Perception::Sighted`] policy (bounded viewport + memory pursuit) AND the
-/// [`PerceptionMemory`] belief store it pursues from. Runs before the brain tick.
-///
-/// The belief is preserved across the possession rather than decayed by it, and re-enters use the
-/// moment an AI brain returns to the body.
-///
-/// This is where ordinary actors OPT IN to sighted perception — they can be juked,
-/// lose sight of a foe, and give up. Everything WITHOUT a [`Perception`] component
-/// defaults to [`Perception::Omniscient`] (the basic mode), which is documented
-/// POLICY, not a parallel-system carve-out (§A7):
-/// - the player brain steers from controller input and never perceive-targets;
-/// - a boss is relentless — it knows where you are in its arena (omniscience is
-///   its perception, the `ActorTarget` read every body carries), so it needs no
-///   viewport or belief store. A boss that wanted bounded, juke-able senses would drop
-///   this `Without<BossConfig>` exclusion and be granted `Sighted` + memory here;
-///   today none do.
-///
-/// Because the missing component reads as `Omniscient`, there is NO "perception
-/// resource missing" fallback anywhere: the target derivation branches on this typed
-/// policy, and a fixture that wires up no perception simply gets the basic mode.
-pub fn ensure_perception(
-    mut commands: bevy::prelude::Commands,
+/// Every sighted body in a session sees the same distance. The value belongs to
+/// the activated generation (`SessionMechanics`), or to the App when a
+/// composition has no generation, and `perception_extent_for` ranks the two. A
+/// body reads it when it decides. It is not copied into each body when the body
+/// appears, so no body can hold a value that the session does not.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct SenseExtent<'w> {
     // ⭐ A VALUE, NOT AN ENVIRONMENT READ. The developer crate owns the knob's
     // name and parse and publishes this; D33 removed the actor kernel's three
-    // reads of `ambition_dev_tools` and a fourth would undo it. Absent — which
-    // is every shipped run — means the default below.
-    extent: Option<bevy::prelude::Res<ambition_characters::perception::PerceptionExtentOverride>>,
-    // ⛔⛤ **THE ACTIVATED GENERATION OUTRANKS THE App, AND UNTIL 2026-09-13 THERE
-    // WAS NO RANKING AT ALL.** The override above is mechanical and immutable —
-    // `Q119`'s first row — and was bound to no identity, so two Apps with the
-    // same `PreparedContentIdentity` could give their actors different senses.
-    // It is owned by `SessionMechanics` now; this reads the generation's value
-    // when one is activated and the App's when none is. See
+    // reads of `ambition_dev_tools` and a fourth would undo it. Absent (every
+    // shipped run) means the default.
+    app: Option<bevy::prelude::Res<'w, ambition_characters::perception::PerceptionExtentOverride>>,
+    // The activated generation outranks the App: two Apps with the same
+    // prepared content must give their actors the same senses. See
     // `session::mechanics::perception_extent_for`.
-    generation: Option<bevy::prelude::Res<crate::session::mechanics::SessionMechanics>>,
+    generation: Option<bevy::prelude::Res<'w, crate::session::mechanics::SessionMechanics>>,
     // ⛔ COMPOSITION MODE. Installed only by `ambition_game_shell`'s session
-    // plugin, so its presence is what distinguishes "this composition
-    // intentionally has no generation" from "this shell session lost the one it
-    // had". See `session::mechanics::perception_extent_for`.
+    // plugin, so its presence tells "this composition has no generation on
+    // purpose" from "this shell session lost the one it had".
     session_gate: Option<
-        bevy::prelude::Res<
-            ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation,
-        >,
+        bevy::prelude::Res<'w, ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
     >,
-    bodies: bevy::prelude::Query<
-        (bevy::prelude::Entity, bevy::prelude::Has<SensesUndecided>),
-        (
-            bevy::prelude::With<ambition_characters::brain::Brain>,
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity>,
-            bevy::prelude::Without<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            bevy::prelude::Without<ambition_boss_encounter::BossConfig>,
-            // ⭐ A FIGHTER SEATED IN A MATCH IS NOT AN EXPLORATION ACTOR, and
-            // bounded senses are an exploration mechanic: being juked, losing a
-            // foe and giving up are things a room full of enemies is FOR. A
-            // platform fighter has none of them — both fighters are on screen
-            // for the whole match and each always knows where the other is —
-            // so a match fighter keeps the basic `Omniscient` mode.
-            //
-            // ⛔ THIS EXCLUSION IS LOAD-BEARING, and the measurement that put it
-            // here is worth more than the rule: `DEFAULT_VIEWPORT_HALF.x` is
-            // 480 and the smash platform is 480 wide, so two fighters that
-            // drifted apart went permanently blind to each other while still
-            // standing on the same stage. Over a sixteen-character mirror
-            // sweep, six characters' median gap sat between 491 and 515 px —
-            // with NOTHING between 295 and 491 — and three of them threw four
-            // moves in a minute and dealt no damage at all.
-            //
-            // Safe because seating is ATOMIC: `realize_seat` and the
-            // `MatchSeat` insert share one command flush, so a fighter is never
-            // observable without its seat and can never be granted bounded
-            // senses in the window before it.
-            bevy::prelude::Without<ambition_match::MatchSeat>,
-            // Missing memory ⟺ missing perception (both attached together below), so
-            // this one gate nets bodies that lack either.
-            bevy::prelude::Without<PerceptionMemory>,
-        ),
-    >,
-) {
-    let Some(extent) = crate::session::mechanics::perception_extent_for(
-        session_gate.is_some(),
-        generation.as_deref(),
-        extent.as_deref(),
-    ) else {
-        // ⛔⛤ **A SHELL SESSION WITH NO GENERATION MUST NOT HAND OUT SENSES
-        // DERIVED FROM THE App — AND FOR A DAY IT HANDED OUT THE BEST ONES
-        // INSTEAD.** This used to `return`, leaving these bodies with no
-        // `Perception` at all; the target derivation reads that as
-        // `Omniscient`, *"the body simply KNOWS"*. ⇒ The refusal was an
-        // UPGRADE. Found by review 2026-09-13; see [`SensesUndecided`].
-        //
-        // ⭐ The bodies are marked instead, which takes them out of the
-        // decision phase until their senses are decided. The room road refuses
-        // in the same state (`LiveGenerationMechanicsMissing`), so this is the
-        // window before that refusal — but a window in which an actor can see
-        // the whole level is still a window in which it acts on that.
-        // ⚠ ON THE TRANSITION ONLY, the same discipline `assess_dormancy` keeps
-        // for `Dormant`: re-inserting an identical marker every tick would touch
-        // a component on every waiting body every frame and trip change detection
-        // for anything watching it.
-        for (entity, already_marked) in &bodies {
-            if !already_marked {
-                commands.entity(entity).insert(SensesUndecided);
-            }
-        }
-        return;
-    };
-    let viewport_half = extent.or_default(DEFAULT_VIEWPORT_HALF);
-    for (entity, _) in &bodies {
-        // ⛔ THE REMOVAL IS IN THE SAME COMMAND AS THE INSERT, so no frame
-        // exists in which a body carries decided senses AND the marker that says
-        // they are undecided. Two commands would be a window, and a window is
-        // what this whole repair is about.
-        commands
-            .entity(entity)
-            .insert((
-                Perception::Sighted { viewport_half },
-                PerceptionMemory::default(),
-            ))
-            .remove::<SensesUndecided>();
+}
+
+impl SenseExtent<'_> {
+    /// The half extent a sighted body sees, or `None` when this session cannot
+    /// decide it: a shell-routed session whose generation is missing.
+    pub fn resolve(&self) -> Option<ae::Vec2> {
+        crate::session::mechanics::perception_extent_for(
+            self.session_gate.is_some(),
+            self.generation.as_deref(),
+            self.app.as_deref(),
+        )
+        .map(|extent| extent.or_default(DEFAULT_VIEWPORT_HALF))
     }
 }
+
+/// The senses a body decides with this tick.
+///
+/// Bounded senses are the rule for an actor: being juked, losing a foe and
+/// giving up are what a room full of enemies is for.
+///
+/// ⭐ A FIGHTER SEATED IN A MATCH IS THE EXCEPTION and knows where every foe
+/// is. Both fighters are on screen for the whole match. `DEFAULT_VIEWPORT_HALF.x`
+/// is 480 and the smash platform is 480 wide, so two fighters that drifted
+/// apart went permanently blind to each other on the same stage. Over a
+/// sixteen-character mirror sweep, six characters' median gap sat between 491
+/// and 515 px, with nothing between 295 and 491, and three of them dealt no
+/// damage in a minute.
+///
+/// ⛔ `None` WHEN THE SESSION CANNOT DECIDE THE EXTENT ([`SenseExtent::resolve`]),
+/// and the body then does not decide this tick. It still integrates and still
+/// takes hits; it only does not choose. A missing extent must not read as the
+/// best senses in the game (a review of 2026-09-13 found that it did), and it
+/// must not invent a third mode either: a body that hunts differently because
+/// its session is between generations is a mechanic nobody authored. The room
+/// road refuses in the same state (`LiveGenerationMechanicsMissing`).
+pub fn perception_of(seated: bool, extent: Option<ae::Vec2>) -> Option<Perception> {
+    if seated {
+        return Some(Perception::Omniscient);
+    }
+    extent.map(|viewport_half| Perception::Sighted { viewport_half })
+}
+
 /// Whether `peer` is one this body can see at all — not itself, and inside the
 /// viewport unless the policy knows bodies anywhere.
 ///
@@ -1203,7 +1083,7 @@ pub(crate) fn perception_body_for(
 /// perceives nobody, which is a real answer (idle), not a missing one.
 /// ⛔⛔ `None` MEANS AN EMPTY BELIEF STATE, NOT A FROZEN ONE.
 ///
-/// [`believed_target`] is the ONLY thing that ages a [`PerceptionMemory`] — it
+/// [`believed_target`] is the ONLY thing that ages a `PerceptionMemory` — it
 /// runs `mem.0.update(view, dt)` on its way in — and the `None` gate in
 /// `actors/update.rs` skips it. So a body whose LIVE brain becomes `None` keeps
 /// whatever it last believed, forever: `BrainCommand` can swap a Fighter for a
@@ -1223,7 +1103,7 @@ pub(crate) fn perception_body_for(
 /// forever, which is a rollback/change-detection cost for a no-op.
 pub(crate) fn enforce_empty_belief_for_none(
     need: ambition_characters::perception::PerceptionRequirement,
-    memory: Option<&mut PerceptionMemory>,
+    memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
 ) -> bool {
     if need.needs_target_belief() || need.needs_world_view() {
         return false;
@@ -1241,7 +1121,7 @@ pub(crate) fn enforce_empty_belief_for_none(
 pub(crate) fn believed_target(
     policy: Perception,
     view: &ambition_characters::perception::WorldView,
-    mut memory: Option<&mut PerceptionMemory>,
+    mut memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
     dt: f32,
 ) -> Option<Option<ae::Vec2>> {
     if let Some(mem) = memory.as_deref_mut() {
@@ -1264,7 +1144,7 @@ pub(crate) fn believed_target(
 pub(crate) fn belief_from_nearest(
     policy: Perception,
     nearest_hostile: Option<ae::Vec2>,
-    memory: Option<&mut PerceptionMemory>,
+    memory: Option<&mut ambition_characters::perception::PerceptionMemory>,
 ) -> Option<Option<ae::Vec2>> {
     match policy {
         Perception::Omniscient => None,

@@ -35,6 +35,13 @@ value, and its presence is *by construction* the same fact as
 `Without<PerceptionMemory>`, and says so: *"Missing memory ⟺ missing
 perception"*. The per-body override its doc comment advertises has no user.
 
+⭐ **UPDATE 2026-09-26 (AP57): `Perception` IS NO LONGER STORED.** The brain tick
+derives it when a body decides (`perception::perception_of`): a body seated in a
+match is `Omniscient`, any other body is `Sighted` with the session's one extent
+(`SenseExtent`). `ensure_perception`, the `Perception` component and its
+rollback row are deleted, and `Brain` requires `PerceptionMemory`, so a body is
+built with its memory. The durable class below is unchanged.
+
 `PerceptionMemory` is **accumulated history**. It cannot be re-derived from the
 current tick — surviving the loss of sight of a foe is the entire point — so it
 is genuinely durable state.

@@ -160,8 +160,8 @@ pub fn register(app: &mut App) {
             // finds, and worth checking for first.
             //
             // ⚠ STRICTLY STRONGER, deliberately: `Prepare` also holds
-            // `ensure_perception` and `project_authored_fighter_ladder`, so this
-            // now runs before all three rather than before one. That is the
+            // `project_authored_fighter_ladder`, so this runs before both rather
+            // than before one. That is the
             // honest reading of what a stance declaration is — it must stand
             // before anything in the decision pass looks at a body, not merely
             // before the one system that reads it today.

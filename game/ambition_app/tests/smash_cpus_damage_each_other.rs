@@ -1284,29 +1284,21 @@ fn mirror_bout(
     // outside its own senses is the question the gap column raises and cannot
     // answer. This column answers it.
     let sight = {
+        use ambition_platformer2d::actors::features::ecs::perception::{
+            perception_of, Perception, SenseExtent,
+        };
+        use bevy::ecs::system::RunSystemOnce;
         let world = app.world_mut();
-        world
-            .query::<(
-                &MatchSeat,
-                &ambition_platformer2d::actors::features::ecs::perception::Perception,
-            )>()
-            .iter(world)
-            .min_by_key(|(seat, _)| seat.0)
-            .map(|(_, perception)| match perception {
-                ambition_platformer2d::actors::features::ecs::perception::Perception::Omniscient => {
-                    "omniscient".to_string()
-                }
-                ambition_platformer2d::actors::features::ecs::perception::Perception::Sighted {
-                    viewport_half,
-                } => format!("sees±{:.0}", viewport_half.x),
-            })
-            // ⭐ ABSENT IS NOT UNKNOWN. A body with no `Perception` reads as
-            // `Omniscient` by documented policy, and for a seated fighter that
-            // is the EXPECTED state — `ensure_perception` skips a body carrying
-            // a `MatchSeat`, so no component is exactly what the fix produces.
-            // Printed distinctly from an explicit `Omniscient` so the column can
-            // still tell "the grant was skipped" from "somebody declared it".
-            .unwrap_or_else(|| "omniscient(default)".to_string())
+        let extent = world
+            .run_system_once(|senses: SenseExtent| senses.resolve())
+            .expect("the extent reads");
+        // The brain tick's own rule, for a body that carries a seat.
+        let seated = world.query::<&MatchSeat>().iter(world).next().is_some();
+        match perception_of(seated, extent) {
+            Some(Perception::Omniscient) => "omniscient".to_string(),
+            Some(Perception::Sighted { viewport_half }) => format!("sees±{:.0}", viewport_half.x),
+            None => "undecided".to_string(),
+        }
     };
     let moves: usize = started.values().sum();
     let top = started

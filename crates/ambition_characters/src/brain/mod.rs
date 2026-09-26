@@ -71,7 +71,10 @@ use bevy::prelude::*;
 /// Driver identity lives in [`crate::control::DrivingParticipant`]; possession
 /// does not replace the actor's brain. Enum dispatch keeps per-tick policy
 /// selection to a direct match rather than trait-object dispatch.
+///
+/// A brain remembers what it has seen, so the memory is built with it.
 #[derive(Component, Clone, Debug)]
+#[require(crate::perception::PerceptionMemory)]
 pub enum Brain {
     /// Pre-canned AI policy template. The variant carries both the
     /// cfg (tuning) and the per-actor runtime state.

@@ -1182,7 +1182,7 @@ pub fn begin_room_transition_load_system(
             // nothing covered mechanics disappearing AFTER the prefetch.
             //
             // ⛔ And the room does not finish being built by the plan.
-            // `ensure_perception` and the other construction-time readers consume
+            // The brain tick's perception extent and the other readers consume
             // the generation at CONSUMPTION time, so the room would come out part
             // generation-N derivative and part current App — exactly the
             // fail-open shape the `for_live_session` rule exists to remove.

@@ -476,6 +476,13 @@ Perception         rollback_component_canonical, "actor.perception"
 SensesUndecided    rollback_component_clone,     "actor.senses_undecided"
 ```
 
+⭐ **UPDATE 2026-09-26 (AP57): ONLY THE FIRST ROW REMAINS.** A body's senses are
+derived when it decides (`perception::perception_of`, from its seat and the
+session's one extent), so `Perception` and `SensesUndecided` are not stored and
+their rows are deleted (schema 233 → 234). A session that cannot decide the
+extent makes the brain tick skip the body, the same outcome the marker gave.
+`Brain` requires `PerceptionMemory`, so `ensure_perception` is deleted too.
+
 ⚠ **THE THIRD ROW LANDED AFTER THIS SECTION WAS WRITTEN AND IT IS A DIFFERENT
 KIND — added here 2026-09-17.** `rollback_component_clone` is snapshotted and
 restored but NOT hashed into the peer checksum
@@ -697,9 +704,10 @@ is the gate that makes it unmeasurable.
 
 ⭐ The knob itself is `PerceptionExtentOverride`, a value in
 `ambition_characters::perception`, published by `ambition_dev_tools` and read by
-`ensure_perception` as a resource — **the same inversion as the population cap,
-deliberately**, because D33 removed the actor kernel's three developer reads and
-an environment read inside `ensure_perception` would have added a fourth.
+the brain tick (`SenseExtent`) as a resource — **the same inversion as the
+population cap, deliberately**, because D33 removed the actor kernel's three
+developer reads and an environment read inside the actor kernel would have added
+a fourth.
 
 ⚠ AND IT KILLS A CONCLUSION I WAS ABOUT TO DRAW. Seeing kept flat while `Decide`
 still doubled, I reasoned the cost must therefore be the SCAN over offered peers

@@ -395,10 +395,9 @@ mod actor_decision_phase_tests {
         ActorDecisionSet::Publish,
     ];
 
-    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 11] = [
+    const DECISION_MEMBERSHIP: [(&str, ActorDecisionSet); 10] = [
         ("dissolve_settled_grudges", ActorDecisionSet::Targeting),
         ("select_actor_targets", ActorDecisionSet::Targeting),
-        ("ensure_perception", ActorDecisionSet::Prepare),
         ("assess_dormancy", ActorDecisionSet::Prepare),
         ("project_authored_fighter_ladder", ActorDecisionSet::Prepare),
         ("collect_perception_peers", ActorDecisionSet::Observe),
@@ -1092,7 +1091,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             (
                 // Prepare same-tick eligibility before maintenance. The chain flushes
                 // `assess_dormancy` commands before later phases filter on `Dormant`.
-                crate::features::ecs::perception::ensure_perception,
                 crate::features::ecs::dormancy::assess_dormancy,
                 crate::features::ecs::fighter_ladder::project_authored_fighter_ladder,
             )

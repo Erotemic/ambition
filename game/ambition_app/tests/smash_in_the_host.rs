@@ -391,12 +391,12 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
 /// ⭐ A SEATED FIGHTER IS NOT GRANTED BOUNDED SENSES, in the real host, through
 /// the real seating pass.
 ///
-/// `ensure_perception` hands `Perception::Sighted { viewport_half: 480 }` to
-/// every brained non-boss body, and being juked / losing a foe / giving up are
-/// exploration mechanics with no place in a match: both fighters are on screen
-/// the whole time and each always knows where the other is.
+/// An unseated brained body decides with `Perception::Sighted { viewport_half:
+/// 480 }`, and being juked / losing a foe / giving up are exploration mechanics
+/// with no place in a match: both fighters are on screen the whole time and
+/// each always knows where the other is.
 ///
-/// ⛔ WHAT THIS DEFENDS, because a component check reads like bookkeeping and is
+/// ⛔ WHAT THIS DEFENDS, because a policy check reads like bookkeeping and is
 /// not. `DEFAULT_VIEWPORT_HALF.x` is 480 and the smash platform is 480 wide, so
 /// two fighters that drifted apart on the SAME STAGE went permanently blind to
 /// each other. Over a sixteen-character mirror sweep six characters' median gap
@@ -405,11 +405,14 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
 /// with the platform untouched, collapsed all six to 18–278 and every one of
 /// them started fighting; the fighters already inside 480 did not move a pixel.
 ///
-/// The seat is what makes the difference, so the seat is what this asserts.
+/// The seat is what makes the difference, so this asks the brain tick's own
+/// rule ([`perception_of`], with the session's resolved extent) about every
+/// brained body in the real host, seated or not.
 #[test]
 fn a_seated_fighter_keeps_its_omniscient_senses() {
-    use ambition_platformer2d::actors::features::ecs::perception::Perception;
+    use ambition_platformer2d::actors::features::ecs::perception::{perception_of, SenseExtent};
     use ambition_platformer2d::versus_match::MatchSeat;
+    use bevy::ecs::system::RunSystemOnce;
 
     let mut app = shell_host_app();
     settle(&mut app);
@@ -427,25 +430,32 @@ fn a_seated_fighter_keeps_its_omniscient_senses() {
     }
 
     let world = app.world_mut();
-    // ⛔ `Option<&Perception>`, never `&Perception`: the whole point is that a
-    // seated fighter does NOT carry the component, and a query that requires it
-    // would report zero rows and pass by finding nothing — the check that
-    // cannot fail.
-    let seats: Vec<(usize, Option<Perception>)> = world
-        .query::<(&MatchSeat, Option<&Perception>)>()
+    let extent = world
+        .run_system_once(|senses: SenseExtent| senses.resolve())
+        .expect("the extent reads");
+    // Every brained body the brain tick decides for, seated or not. A query
+    // that required `&MatchSeat` would find only seats and could not see a seat
+    // that is on the wrong body.
+    let brained: Vec<(Option<usize>, _)> = world
+        .query_filtered::<
+            Option<&MatchSeat>,
+            (
+                With<ambition_platformer2d::characters::brain::Brain>,
+                Without<ambition_platformer2d::platformer::markers::PlayerEntity>,
+            ),
+        >()
         .iter(world)
-        .map(|(seat, perception)| (seat.0, perception.copied()))
+        .map(|seat| (seat.map(|seat| seat.0), perception_of(seat.is_some(), extent)))
         .collect();
+    let seated: Vec<_> = brained.iter().filter(|(seat, _)| seat.is_some()).collect();
     assert!(
-        seats.len() >= 2,
-        "the premise: two seated fighters, found {}",
-        seats.len()
+        !seated.is_empty(),
+        "the premise: a CPU fighter is a brained body with a seat, found {brained:?}"
     );
-    for (seat, perception) in seats {
-        let policy = perception.unwrap_or_default();
+    for (seat, policy) in seated {
         assert!(
-            policy.knows_bodies_anywhere(),
-            "seat {seat} was granted bounded senses ({policy:?}) - a match fighter \
+            policy.is_some_and(|policy| policy.knows_bodies_anywhere()),
+            "seat {seat:?} decides with bounded senses ({policy:?}) - a match fighter \
              that drifts past its own viewport can never approach again"
         );
     }

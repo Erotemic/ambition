@@ -566,9 +566,9 @@ direct-entry authority the ruling permits.
 
 ⚠ **WHAT WAS DELIBERATELY NOT TOUCHED:** `perception_extent_for` carries the
 same `shell_routed` fallback and keeps it. It is not a construction road —
-`ensure_perception` attaches senses to bodies as they appear in compositions
-that never rebuild a room — so a refusal there blinds a fixture instead of
-refusing an operation.
+the brain tick reads it when a body decides (`SenseExtent`, AP57), in
+compositions that never rebuild a room too — so a refusal there blinds a
+fixture instead of refusing an operation.
 
 ### DEPENDENCIES / BLOCKERS
 

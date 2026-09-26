@@ -980,6 +980,18 @@ pub struct WorldMemory {
     /// player on every run of the same binary on the same inputs.
     actors: std::collections::BTreeMap<String, RememberedActor>,
 }
+/// A brained body's persistent world-belief (invariant I6): the last-known
+/// positions of foes that have left its view, with a decaying confidence, so a
+/// brain can PURSUE a foe that went off-screen instead of forgetting it the
+/// instant it leaves the frame.
+///
+/// A component, not a resource, so it lives and dies with the body.
+/// [`crate::brain::Brain`] requires it: a body is built with its memory, so no
+/// later system has to find brained bodies without one and attach it. A boss,
+/// whose brain does not read memory, carries an empty one.
+#[derive(bevy::prelude::Component, Clone, Debug, Default)]
+pub struct PerceptionMemory(pub WorldMemory);
+
 /// What memory needs to know about one actor seen this tick — and nothing more.
 ///
 /// ⭐ THE POINT IS WHAT IS ABSENT. A `PerceivedActor` carries eighteen fields
@@ -1370,8 +1382,8 @@ impl DelayedPerception {
 /// one-at-a-time, never together, or the curve cannot be attributed.
 ///
 /// ⛔ AND THE SIM DOES NOT READ THE ENVIRONMENT. This is a value; the developer
-/// crate owns the name and the parse and publishes it, and `ensure_perception`
-/// reads the resource. That inversion is D33's, and adding a second env read to
+/// crate owns the name and the parse and publishes it, and the brain tick reads
+/// the resource (`SenseExtent`). That inversion is D33's, and adding a second env read to
 /// the actor kernel would undo the thing D33 just finished.
 ///
 /// ⚠ The prior density figures on that page came from a probe that no longer

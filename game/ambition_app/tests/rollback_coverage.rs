@@ -1753,7 +1753,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "ambition_characters::perception::PerceptionExtentOverride",
-        "the developer's perception viewport override, the THIRD of the same          shape: env-parsed once at plugin build by `ambition_dev_tools`, read by          `ensure_perception` when it attaches a policy to a new body, never written          by a system. A measurement knob that changes how far a brain can SEE, so          it changes what a resimulated frame perceives only through           `Perception::Sighted`, which IS rollback state and is registered — the          knob itself is the input that seeded it, not a second copy of it",
+        "the developer's perception viewport override, the THIRD of the same shape: env-parsed once at plugin build by `ambition_dev_tools`, read by the brain tick (`SenseExtent`) whenever a sighted body decides, never written by a system. A measurement knob that changes how far a brain can SEE; a resimulated frame reads the same unchanged value, so the knob is an input to the decision and not state a rewind must restore. No body stores a copy of it",
     ),
     (
         "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",

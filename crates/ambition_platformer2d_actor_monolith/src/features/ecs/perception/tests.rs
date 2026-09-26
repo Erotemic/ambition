@@ -1,4 +1,5 @@
 use super::*;
+use ambition_characters::perception::PerceptionMemory;
 
 fn body(pos: ae::Vec2, faction: ActorFaction) -> PerceptionBody {
     PerceptionBody {
@@ -1152,27 +1153,18 @@ fn the_perception_extent_knob_is_inert_unset_and_reaches_every_body_when_set() {
     use ambition_platformer2d_core::Vec2;
 
     fn extent_given(published: Option<PerceptionExtentOverride>) -> Vec2 {
+        use bevy::ecs::system::RunSystemOnce;
         let mut app = bevy::prelude::App::new();
         if let Some(published) = published {
             app.insert_resource(published);
         }
-        app.add_systems(bevy::prelude::Update, super::ensure_perception);
-        let body = app
+        let extent = app
             .world_mut()
-            .spawn((
-                ambition_characters::brain::Brain::stand_still(),
-                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-            ))
-            .id();
-        app.update();
-        match app
-            .world()
-            .entity(body)
-            .get::<Perception>()
-            .expect("ensure_perception attached a policy")
-        {
-            Perception::Sighted { viewport_half } => *viewport_half,
-            Perception::Omniscient => panic!("ensure_perception grants Sighted"),
+            .run_system_once(|senses: super::SenseExtent| senses.resolve())
+            .expect("the extent reads");
+        match super::perception_of(false, extent) {
+            Some(Perception::Sighted { viewport_half }) => viewport_half,
+            other => panic!("an unseated body in a direct composition is sighted, not {other:?}"),
         }
     }
 
@@ -1578,122 +1570,60 @@ fn below_the_attention_cap_the_view_is_what_it_always_was() {
 /// ⛔⛤ **A SESSION THAT CANNOT SAY WHAT ITS ACTORS SEE MUST NOT GIVE THEM THE
 /// BEST SENSES IN THE GAME — REVIEW, 2026-09-13.**
 ///
-/// `ensure_perception` refuses when a SHELL-ROUTED session has no
-/// `SessionMechanics`: the generation that would describe the viewport is gone,
-/// and handing out a range derived from the App instead is the fail-open
-/// `perception_extent_for` exists to close. But the refusal used to be a bare
-/// `return`, leaving those bodies with NO `Perception` — which the target
-/// derivation reads as `Perception::Omniscient`, *"the body simply KNOWS"*.
+/// A SHELL-ROUTED session with no `SessionMechanics` has lost the generation
+/// that describes the viewport, and a range derived from the App instead is the
+/// fail-open `perception_extent_for` exists to close. The review found the
+/// refusal read as `Omniscient`, so an actor whose session was between
+/// generations could see the whole level. Now [`perception_of`] answers `None`
+/// and the brain tick skips the body.
 ///
-/// ⇒ **The refusal was an UPGRADE.** An actor whose session was mid-transition
-/// could see the whole level, and act on it, where a decided one sees 480px.
-///
-/// ⭐ The arms below are the three states, and the CONTROL is the load-bearing
-/// one: a fixture with no session gate at all is the direct-entry/headless
-/// composition, which is entitled to the App's value and must keep getting it.
-/// Without that arm, "marks the body" is satisfied by a version that refuses
-/// everything and deletes bounded perception from every test in this file.
+/// ⭐ The CONTROL is the load-bearing arm: a fixture with no session gate is the
+/// direct-entry composition, which is entitled to the App's value. Without it,
+/// "refuses" is satisfied by a version that refuses everything and deletes
+/// bounded perception from every test in this file. The seat arm says a seated
+/// fighter decides in every state, as it always did.
 #[test]
 fn a_session_that_cannot_decide_senses_takes_the_body_out_of_the_decision() {
     use ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation;
+    use bevy::ecs::system::RunSystemOnce;
 
-    /// Returns (perception, marked-undecided) after one tick.
-    fn outcome(shell_routed: bool) -> (Option<Perception>, bool) {
+    fn senses(shell_routed: bool, seated: bool) -> Option<Perception> {
         let mut app = bevy::prelude::App::new();
         if shell_routed {
             // ⛔ THE COMPOSITION-MODE DISCRIMINATOR, and it is the whole subject.
-            // Its presence is what distinguishes "this composition intentionally
-            // has no generation" from "this shell session lost the one it had".
             app.insert_resource(SessionGatedSimulation);
         }
-        app.add_systems(bevy::prelude::Update, super::ensure_perception);
-        let body = app
+        let extent = app
             .world_mut()
-            .spawn((
-                ambition_characters::brain::Brain::stand_still(),
-                ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-            ))
-            .id();
-        app.update();
-        let entity = app.world().entity(body);
-        (
-            entity.get::<Perception>().copied(),
-            entity.contains::<super::SensesUndecided>(),
-        )
+            .run_system_once(|senses: super::SenseExtent| senses.resolve())
+            .expect("the extent reads");
+        super::perception_of(seated, extent)
     }
 
-    // ⭐ THE CONTROL FIRST. A direct-entry composition owes no generation and
-    // still gets bounded senses from the App.
-    let (decided, marked) = outcome(false);
+    // ⭐ THE CONTROL FIRST.
+    let decided = senses(false, false);
     assert!(
         matches!(decided, Some(Perception::Sighted { .. })),
         "a composition that owes no generation was refused its senses, which \
          would delete bounded perception from every fixture in this file: \
          {decided:?}"
     );
-    assert!(
-        !marked,
-        "a body whose senses WERE decided is still marked undecided, so the \
-         marker means nothing"
-    );
 
     // ⛔ THE SUBJECT: shell-routed, no `SessionMechanics`.
-    let (undecided, marked) = outcome(true);
+    let undecided = senses(true, false);
     assert_eq!(
         undecided, None,
-        "a shell session with no generation handed out senses derived from the \
-         App — the exact fail-open `perception_extent_for` refuses"
-    );
-    assert!(
-        marked,
-        "the body was left with NO `Perception`, which the target derivation \
-         reads as `Omniscient` — so a session that could not say what this actor \
-         sees gave it the most capable senses in the game. It must be OUT of the \
-         decision instead."
-    );
-}
-
-/// ⛔ **AND THE MARKER IS REMOVED IN THE SAME COMMAND THAT DECIDES THE SENSES.**
-///
-/// Two commands would leave a frame in which a body carries decided senses AND
-/// the marker that says they are undecided — and that body would sit out the
-/// decision phase for a tick after there was any reason to. A window is exactly
-/// what this repair is about, so it must not create one.
-#[test]
-fn deciding_the_senses_clears_the_undecided_marker_in_the_same_command() {
-    use ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation;
-
-    let mut app = bevy::prelude::App::new();
-    app.insert_resource(SessionGatedSimulation);
-    app.add_systems(bevy::prelude::Update, super::ensure_perception);
-    let body = app
-        .world_mut()
-        .spawn((
-            ambition_characters::brain::Brain::stand_still(),
-            ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity,
-        ))
-        .id();
-    app.update();
-    assert!(
-        app.world().entity(body).contains::<super::SensesUndecided>(),
-        "the premise: this body starts UNDECIDED, or the clearing below is about \
-         nothing"
+        "a shell session with no generation gave an actor senses ({undecided:?}); \
+         it must be out of the decision instead"
     );
 
-    // The generation arrives. `SessionGatedSimulation` is still installed — what
-    // changed is that the session can now describe its actors' senses.
-    app.world_mut()
-        .insert_resource(crate::session::mechanics::SessionMechanics::default());
-    app.update();
-
-    let entity = app.world().entity(body);
-    assert!(
-        matches!(entity.get::<Perception>(), Some(Perception::Sighted { .. })),
-        "the generation arrived and the body's senses were never decided"
-    );
-    assert!(
-        !entity.contains::<super::SensesUndecided>(),
-        "the body carries decided senses AND the marker saying they are \
-         undecided, so it sits out the decision phase with a `Perception` in hand"
-    );
+    // The seat does not depend on the extent.
+    for shell_routed in [false, true] {
+        assert_eq!(
+            senses(shell_routed, true),
+            Some(Perception::Omniscient),
+            "a seated match fighter must keep omniscient senses (shell-routed: \
+             {shell_routed})"
+        );
+    }
 }

@@ -57,10 +57,20 @@ Do not hand-copy stale catalog snippets from old planning documents.
 
 ## 3. Author/register the character composition
 
-If the character can instantiate as a body, ensure the provider registers a
-`CharacterDefinition` through the current character-registration seam. Copy a
-nearby current definition from `game/ambition_content` rather than recreating an
-old archetype shape.
+Most of a character is its catalog row. A row can state its gait (`locomotion`,
+or a shared `locomotion_preset`), `max_health`, `contact_damage`, an inline
+`autonomous_profile`, ability grants, its feel (`axis_tuning`, or a shared
+`axis_tuning_preset`), a sheet-authored body (`posed_body`), the traits
+`practice_target` and `preserves_mirror_symmetry`, and its lines
+(`fallback_dialogue`). A demo registers every row of its pack with one
+`PACK.cast(..).register(app)`; in Ambition, a row that states a gait is a
+character the game builds. Copy a nearby row rather than recreating an old
+archetype shape.
+
+Only a fact the row cannot state yet (a mount, death traits, a named policy, a
+weapon's charge or muzzle) needs Rust: in Ambition, a file under
+`game/ambition_content/src/authored/` listed in `AUTHORED_CAST`, which
+registers a `CharacterDefinition` through the character-registration seam.
 
 Author intrinsic facts on the character or referenced typed documents where
 appropriate:

@@ -1,4 +1,7 @@
-//! Every character this provider AUTHORS, one file each.
+//! Every character whose body needs a fact its catalog row cannot state yet,
+//! one file each. A character that its row states wholly (its gait, health,
+//! policy, contact damage, traits) is a row in `character_catalog.ron` and has
+//! no file here; see `crate::character_catalog::buildable_only_cast`.
 //!
 //! A creature's facts and the reasons for them belong with the creature, and a match that long
 //! is a file every migration has to edit.
@@ -13,26 +16,16 @@
 
 use ambition_platformer2d::character::CharacterDefinition;
 
-mod director;
 mod goblin;
-mod hall_humanoids;
-mod medic;
-mod npc_ai_slop;
-mod npc_alice;
-mod npc_bob;
 mod npc_burning_flying_shark;
 mod npc_carl_stargan;
 mod npc_companion_dog;
 mod npc_dividing_mite;
-mod npc_emmy_noether;
 mod npc_exploding_mite;
 mod npc_giant_gnu;
 mod npc_giant_gnu_hands;
 mod npc_goblin_brute;
-mod npc_kernel_guide;
 mod npc_lab_raider;
-mod npc_ninja_shadow_oni_leader;
-mod npc_oiler;
 mod npc_pirate_admiral;
 mod npc_pirate_crew;
 mod npc_pirate_raider;
@@ -40,13 +33,8 @@ mod npc_puppy_slug;
 mod npc_salvage_guard;
 mod officer;
 mod perfect_cellular_automaton;
-mod performer;
-mod pointed_polygon;
 mod projectile_polygon;
-mod pugnacious_polygon;
-mod sandbag;
 mod sandbag_infinite;
-mod special_patent_clerk;
 mod stochastic_parrot;
 
 /// Which ids each authoring module speaks for.
@@ -63,9 +51,7 @@ pub(crate) const AUTHORED_CAST: &[(
         &["perfect_cellular_automaton", "imperfect_cellular_automaton"],
         perfect_cellular_automaton::author,
     ),
-    (&["pointed_polygon"], pointed_polygon::author),
     (&["projectile_polygon"], projectile_polygon::author),
-    (&["pugnacious_polygon"], pugnacious_polygon::author),
     (&["npc_exploding_mite"], npc_exploding_mite::author),
     (&["npc_dividing_mite"], npc_dividing_mite::author),
     (&["npc_puppy_slug"], npc_puppy_slug::author),
@@ -74,7 +60,6 @@ pub(crate) const AUTHORED_CAST: &[(
     // the two SNAKE-PLANE swarms left this cast: Mary-O is their
     // one provider now (catalog rows + definitions in `ambition_demo_mary_o`),
     // which retired her standalone build's archetype-row fallback.
-    (&["npc_ai_slop"], npc_ai_slop::author),
     (
         &["npc_burning_flying_shark"],
         npc_burning_flying_shark::author,
@@ -85,18 +70,9 @@ pub(crate) const AUTHORED_CAST: &[(
         npc_pirate_raider::author,
     ),
     (&["npc_giant_gnu_hands"], npc_giant_gnu_hands::author),
-    (&["sandbag"], sandbag::author),
     (&["sandbag_infinite"], sandbag_infinite::author),
-    (&["special_patent_clerk"], special_patent_clerk::author),
-    (
-        &["npc_ninja_shadow_oni_leader"],
-        npc_ninja_shadow_oni_leader::author,
-    ),
     (&["npc_pirate_admiral"], npc_pirate_admiral::author),
     (&["npc_lab_raider"], npc_lab_raider::author),
-    // The hub NPC that arrived for a different reason than everyone else here —
-    // an IDENTITY rather than a moveset. See its module doc.
-    (&["npc_kernel_guide"], npc_kernel_guide::author),
     (&["npc_salvage_guard"], npc_salvage_guard::author),
     (
         &[
@@ -110,30 +86,11 @@ pub(crate) const AUTHORED_CAST: &[(
         npc_pirate_crew::author,
     ),
     (&["npc_carl_stargan"], npc_carl_stargan::author),
-    // AC5: the last characters that could not build their own body. Alice and Bob left that
-    // file the day they grew repertoires — the same rule, the third and fourth time this week.
-    // Same walk, same health, sixteen new answers each.
-    (&["npc_alice"], npc_alice::author),
-    (&["npc_bob"], npc_bob::author),
-    (&["npc_emmy_noether"], npc_emmy_noether::author),
-    // Oiler left that file the day he grew a repertoire, which is
-    // the rule its own doc states. Same walk, same health, sixteen new answers.
-    (&["npc_oiler"], npc_oiler::author),
     (&["goblin"], goblin::author),
-    // THE FOUR EASTER EGGS. Each is a polygon archetype wearing a different
-    // person, and their entries say only what differs from it — see their
-    // modules, and the `borrows` entry in their move files for why they borrow
-    // the table rather than copying or sharing it.
-    //
-    // ⚠ Two of the four are hand-drawn rather than faceted, and neither has
-    // gameplay rules for her own specials yet: the Medic's ADRENALINE / FIELD
-    // DRESSING pair and the Performer's trap door and flyline exist as CLIPS and
-    // hit volumes in the sprite repository and as nothing here. They borrow the
-    // archetype's specials until someone writes what they cost.
-    (&["director"], director::author),
+    // One of the four easter eggs, each a polygon archetype wearing a different
+    // person. The other three (the Director, the Performer, the Medic) are
+    // catalog rows; the Officer's gun needs a file.
     (&["officer"], officer::author),
-    (&["performer"], performer::author),
-    (&["medic"], medic::author),
     (&["npc_goblin_brute"], npc_goblin_brute::author),
 ];
 

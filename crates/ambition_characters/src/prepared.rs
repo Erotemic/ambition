@@ -1729,7 +1729,7 @@ fn finalize_character(
     let catalog_row = catalog.and_then(|catalog| catalog.get(&id));
     // A registered definition's own answer, else its catalog row's, like the
     // health below. A game can then state a whole creature in its row.
-    let locomotion = locomotion.or_else(|| catalog_row?.locomotion);
+    let locomotion = locomotion.or_else(|| catalog?.locomotion(&id));
     let contact_damage = contact_damage.or_else(|| catalog_row?.contact_damage);
     let autonomous_policy = autonomous_policy.or_else(|| {
         catalog_row?
@@ -1737,6 +1737,10 @@ fn finalize_character(
             .map(crate::actor::AutonomousPolicy::Inline)
     });
     let sheet = sheet.or_else(|| catalog_row?.manifest_target().map(str::to_string));
+    // A trait that either the row or a registered definition can state.
+    let practice_target = practice_target || catalog_row.is_some_and(|row| row.practice_target);
+    let preserves_mirror_symmetry =
+        preserves_mirror_symmetry || catalog_row.is_some_and(|row| row.preserves_mirror_symmetry);
     let sheet_sizing = catalog_row.map(|row| SheetSizing {
         tuning: row.sprite_tuning,
         standing_height: row

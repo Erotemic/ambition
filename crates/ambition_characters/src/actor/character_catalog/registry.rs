@@ -310,6 +310,7 @@ impl CharacterCatalogRegistry {
     pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
         let mut autonomous_profiles = BTreeMap::new();
         let mut axis_tuning_presets = BTreeMap::new();
+        let mut locomotion_presets = BTreeMap::new();
         let mut brain_presets = BTreeMap::new();
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
@@ -338,6 +339,9 @@ impl CharacterCatalogRegistry {
             }
             for (local_name, preset) in &fragment.catalog.axis_tuning_presets {
                 axis_tuning_presets.insert(namespaced(provider_id, local_name), *preset);
+            }
+            for (local_name, preset) in &fragment.catalog.locomotion_presets {
+                locomotion_presets.insert(namespaced(provider_id, local_name), *preset);
             }
             for (local_name, preset) in &fragment.catalog.brain_presets {
                 brain_presets.insert(brain_names[local_name].clone(), preset.clone());
@@ -374,6 +378,10 @@ impl CharacterCatalogRegistry {
                     .axis_tuning_preset
                     .as_deref()
                     .map(|name| namespaced(provider_id, name));
+                entry.locomotion_preset = entry
+                    .locomotion_preset
+                    .as_deref()
+                    .map(|name| namespaced(provider_id, name));
                 owners.insert(character_id.clone(), provider_id.clone());
                 characters.insert(character_id.clone(), entry);
             }
@@ -391,6 +399,7 @@ impl CharacterCatalogRegistry {
         let catalog = CharacterCatalog::from_data(CharacterCatalogData {
             autonomous_profiles,
             axis_tuning_presets,
+            locomotion_presets,
             brain_presets,
             action_set_presets,
             characters,

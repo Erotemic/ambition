@@ -76,6 +76,19 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
                 ));
             }
         }
+        if let Some(preset) = &entry.locomotion_preset {
+            if entry.locomotion.is_some() {
+                errors.push(format!(
+                    "character '{id}' states both locomotion and locomotion_preset '{preset}'; \
+                     state one gait"
+                ));
+            }
+            if !catalog.locomotion_presets.contains_key(preset) {
+                errors.push(format!(
+                    "character '{id}' locomotion_preset '{preset}' not found in locomotion_presets"
+                ));
+            }
+        }
     }
 
     errors

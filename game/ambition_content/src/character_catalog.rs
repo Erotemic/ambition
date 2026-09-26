@@ -105,17 +105,33 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 
 /// Characters this game can build without offering them as player selections.
 ///
-/// Buildability comes from authored character registration and is distinct from
-/// the playable roster. The build-only cast is derived from authored definitions
+/// Buildability comes from authoring a body and is distinct from the playable
+/// roster. A body is authored in the character's row (`locomotion` or
+/// `locomotion_preset`) or, for a fact the row cannot state yet, in its file
+/// under `authored/`. The build-only cast is derived from those two places
 /// rather than maintained as a second list.
 pub fn buildable_only_cast() -> impl Iterator<Item = &'static str> {
+    let authored_ids = crate::authored::authored_ids;
     crate::authored::authored_ids()
+        .chain(
+            rows_with_a_body().filter(move |id| !authored_ids().any(|authored| authored == *id)),
+        )
         .chain(REGISTERED_WITHOUT_A_BODY.iter().copied())
         // Characters that author a body and also appear on the select grid are
         // excluded here, so the two casts cannot overlap.
         // `the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast`
         // also catches an overlap added by hand.
         .filter(|id| !PLAYABLE_ROSTER.contains(id))
+}
+
+/// The rows of the shipped pack's catalog that state how their body moves.
+fn rows_with_a_body() -> impl Iterator<Item = &'static str> {
+    ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
+        .expect("the character schema lowers its catalog for every pack that compiles")
+        .characters
+        .iter()
+        .filter(|(_, row)| row.locomotion.is_some() || row.locomotion_preset.is_some())
+        .map(|(id, _)| id.as_str())
 }
 
 /// Characters registered without an authored body. Keep it empty (AC4).
@@ -204,6 +220,80 @@ pub fn next_playable(current: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The shipped cast, prepared: each character's definition folded with its
+    /// row, which is the one authority on what the character is.
+    pub(super) fn prepared_cast_app() -> bevy::prelude::App {
+        let mut app = bevy::prelude::App::new();
+        crate::character_catalog::register_cast(&mut app);
+        ambition_characters::prepared::close_preparation_barrier_without_admission(app.world_mut());
+        ambition_platformer2d_shared_tangle::app_finalization::finalize(&mut app);
+        app
+    }
+
+    /// A row that states how its body moves is a character this game builds,
+    /// with the body and traits its row states.
+    ///
+    /// Fourteen characters were a Rust file each that stated only what the row
+    /// can now say (a gait, health, a policy, contact damage, two traits). The
+    /// row is their one authority. Being BUILT is what brings a character its
+    /// move table from the pack, so the move table is what this checks for
+    /// buildability, beside the row's own facts.
+    #[test]
+    fn a_row_that_states_its_body_is_built_with_that_body() {
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        let catalog = load_catalog();
+        let movesets =
+            ambition_characters::moveset_content_schema::lowered_movesets(crate::pack::prepared())
+                .expect("the pack authors move tables");
+
+        let mut bodies = 0;
+        for (id, row) in catalog.iter() {
+            if row.locomotion.is_none() && row.locomotion_preset.is_none() {
+                continue;
+            }
+            bodies += 1;
+            let character = prepared
+                .get(id)
+                .unwrap_or_else(|| panic!("`{id}` states a body and is not prepared"));
+            // Preparation resolves an unstated free-flight baseline, so the
+            // gait is what is compared.
+            let gait = |walk: Option<ambition_characters::actor::CharacterLocomotion>| {
+                walk.map(|walk| (walk.run_speed, walk.move_style, walk.surface_walker))
+            };
+            assert_eq!(gait(character.locomotion), gait(catalog.locomotion(id)), "{id}");
+            if let Some(health) = row.max_health {
+                assert_eq!(character.vitals.max_health, Some(health), "{id}");
+            }
+            if movesets.contains_key(id.as_str()) {
+                assert!(
+                    character.authored_moveset.is_some(),
+                    "`{id}` states a body and the pack authors its moves, but it was \
+                     not built, so it fights with no moves"
+                );
+            }
+        }
+        assert!(bodies >= 14, "only {bodies} rows state a body");
+
+        let get = |id: &str| prepared.get(id).unwrap_or_else(|| panic!("`{id}`"));
+        assert_eq!(
+            get("npc_alice").locomotion.map(|walk| walk.run_speed),
+            Some(210.0),
+            "the hall walk"
+        );
+        assert!(get("sandbag").practice_target, "the sandbag exists to be hit");
+        assert!(
+            get("npc_emmy_noether").preserves_mirror_symmetry,
+            "two CPU Emmys must think on one stream"
+        );
+        assert!(
+            !get("npc_pirate_admiral").preserves_mirror_symmetry,
+            "an ordinary fighter does not share a cognitive stream"
+        );
+    }
 
     /// The kernel guide has its own `CharacterDefinition`, and no kit (D56).
     ///
@@ -770,26 +860,19 @@ mod tests {
     fn the_sandbag_authors_the_dummy_its_archetype_row_used_to() {
         use ambition_characters::brain::CharacterBrainTemplate;
 
-        let definition = authored_intrinsics(
-            "sandbag",
-            ambition_platformer2d::character::CharacterDefinition::new(
-                "sandbag",
-                "Sandbag",
-                crate::AMBITION_CONTENT_PROVIDER,
-            ),
-            crate::pack::prepared(),
-        );
+        let app = prepared_cast_app();
+        let definition = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+            .get("sandbag")
+            .expect("the sandbag is prepared");
         assert!(definition.practice_target, "it exists to be hit");
         assert_eq!(definition.vitals.max_health, Some(6));
         assert!(
             definition.contact_damage.is_none(),
             "walking into a dummy does not hurt, whatever the old row's comment said"
         );
-        let profile = definition
-                .autonomous_policy
-                .as_ref()
-                .and_then(ambition_characters::actor::AutonomousPolicy::inline)
-                .expect("its policy");
+        let profile = definition.autonomous_profile.expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
         assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
     }
@@ -1100,13 +1183,16 @@ mod tests {
         let mut genuinely_bare: Vec<&str> = Vec::new();
         // Empty. Each entry must carry its placement evidence.
         const KNOWN_BARE_REGISTRATIONS: &[(&str, &str)] = &[];
+        // Asked of the PREPARED character: its row and its registered
+        // definition together are what it authors.
+        let app = prepared_cast_app();
+        let prepared = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         for id in buildable_only_cast() {
-            let bare = ambition_platformer2d::character::CharacterDefinition::new(
-                id,
-                "unused",
-                crate::AMBITION_CONTENT_PROVIDER,
-            );
-            let authored = authored_intrinsics(id, bare.clone(), crate::pack::prepared());
+            let authored = prepared
+                .get(id)
+                .unwrap_or_else(|| panic!("`{id}` is buildable and not prepared"));
             let authors_a_body =
                 authored.death_traits.is_some() || authored.vitals.max_health.is_some();
             // A policy-only registration retracts nothing. The rule is about bodies: a
@@ -1117,7 +1203,7 @@ mod tests {
             // `an_incomplete_character_uses_peaceful_npc_defaults` checks that an
             // incomplete definition does not leak partial body facts into the
             // peaceful-NPC path.
-            let authors_only_policy = !authors_a_body && authored != bare;
+            let authors_only_policy = !authors_a_body && authored.autonomous_profile.is_some();
             // A third safe case: a character with no archetype body to lose (placed
             // only as a peaceful Hall `NpcSpawn`). A bare registration costs it nothing.
             // Each entry carries the placement evidence.
@@ -1432,17 +1518,16 @@ mod assembled_provider_tests {
         // The redirect must lead somewhere: every character the resolver refuses
         // must author the profile the NPC road asks for. Otherwise its body stands
         // still.
+        // Asked of the prepared character, whose policy is its registered
+        // definition's or else its row's.
+        let prepared_app = super::tests::prepared_cast_app();
+        let prepared = prepared_app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
         let authors_a_profile = |id: &str| {
-            let definition = super::authored_intrinsics(
-                id,
-                ambition_platformer2d::character::CharacterDefinition::new(
-                    id,
-                    id,
-                    crate::AMBITION_CONTENT_PROVIDER,
-                ),
-                crate::pack::prepared(),
-            );
-            definition.autonomous_policy.is_some()
+            prepared
+                .get(id)
+                .is_some_and(|character| character.autonomous_profile.is_some())
         };
         let stranded: Vec<_> = redirected
             .iter()

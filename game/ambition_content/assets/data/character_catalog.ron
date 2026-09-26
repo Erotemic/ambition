@@ -10,9 +10,9 @@
 // Current architecture: `docs/systems/actors-brains-and-character-content.md`.
 // Authoring workflow: `docs/recipes/adding-a-character.md`.
 //
-// A catalog row alone does not make a spawnable body. Add or update the provider
-// metadata here when the character uses it, and register/author the corresponding
-// `CharacterDefinition` through the current Ambition content seam.
+// A row that states how its body moves (`locomotion` or `locomotion_preset`) is
+// a character this game builds. A body fact the row cannot say yet is authored
+// in the character's file under `game/ambition_content/src/authored/`.
 
 (
     // Reusable autonomous-controller profiles, by name — the second of the
@@ -162,6 +162,11 @@
             chase_effort: 1.0,
             smash_hit_band: 36.0,
         ),
+    },
+    // Named gaits that rows share through `locomotion_preset`.
+    locomotion_presets: {
+        // The walk every humanoid who lives in the hall shares.
+        "hall_walk": (run_speed: 210.0, move_style: Walk),
     },
     brain_presets: {
         "stand_still": StandStill,
@@ -524,15 +529,31 @@
             tier: MainHall,
             body_kind: Standard,
             composition: None,
-            //  NAMES NO PRESET (2026-08-12, D81). Its DEFINITION authors an
-            // autonomous `BrainProfile`, which outranks this field everywhere it
-            // is read — so naming `stand_still` was the same policy stated twice.
+            //  NAMES NO PRESET (2026-08-12, D81). The row's `autonomous_profile`
+            // below outranks this field everywhere it is read, so naming
+            // `stand_still` was the same policy stated twice.
             //  safe for THIS preset specifically: `stand_still` holds no speeds
             // and no `aggressiveness`, so nothing came across with it. A preset
             // that carries a RELATIONSHIP (the `aggressiveness: 0.0` on
             // `parrot_lively`, which cost four attempts to understand) has to
             // move that to the placements first.
             default_action_set: "sandbag_punch",
+            // THE PRACTICE TARGET: a body that exists to be hit. No aggro, no strike
+            // back, not saved, not given a path, which is what `practice_target` says in
+            // one word. Its respawn belongs to the placement (ADR 0022). The immortal
+            // dummy is a different creature (`sandbag_infinite`), because never dying is
+            // a character trait.
+            practice_target: true,
+            // It never walks anywhere, because StandStill drives it, but it states a
+            // speed and a gait like every body.
+            locomotion: Some((run_speed: 155.0, move_style: Walk)),
+            autonomous_profile: Some((
+                template: StandStill,
+                // It notices nobody and swings at nobody.
+                patrol_effort: 0.6774,
+                chase_effort: 1.0,
+            )),
+            max_health: Some(6),
             tags: ["training"],
         barks: (
             on_hit: ["..."],
@@ -701,8 +722,23 @@
             // not a capability, and her own bark is already the reply of somebody
             // who can be hit back.
             default_action_set: "striker_swipe",
+            // THE BODY: the hall walk, and the humanoid four. A mathematician with a
+            // theorem is not a bigger body.
+            locomotion_preset: Some("hall_walk"),
+            max_health: Some(4),
+            // HER ONE MECHANICAL JOKE, AND IT IS HER WHOLE SUBJECT. Two Emmys driven by
+            // CPUs think on the same deterministic cognitive stream, so an Emmy-vs-Emmy
+            // mirror match on a symmetric stage plays as a reflection: "every symmetry
+            // hides a conservation law", made playable. It is not a synchronised
+            // animation and must never become one. Nothing compares the two bodies or
+            // copies one's action to the other; they agree because they draw from one
+            // stream and read a symmetric stage. The mirror breaks the moment their
+            // observations diverge (a hit, a launch, a ledge), and that is correct:
+            // Noether's theorem is the claim that the symmetry has to be real for the
+            // consequence to hold.
+            preserves_mirror_symmetry: true,
             tags: ["hub", "guide", "tutorial"],
-            gameplay_description: "Emmy intentionally preserves deterministic CPU symmetry in mirror matches: two Emmys receiving symmetric observations use the same cognitive/noise stream and therefore tend to behave as reflections of one another. This is an AUTHORED CHARACTER TRAIT, not the default Smash CPU policy -- every other character's CPUs get participant-distinct streams and diverge within a few decisions. Do not re-file it as a bug: it is authored as `preserving_mirror_symmetry()` in `authored/npc_emmy_noether.rs`, and the reasoning is that her subject is Noether's theorem, where a symmetry implies a conservation law. It is NOT a synchronised animation and must never be implemented as one -- nothing compares the two bodies or copies one's action to the other. The reflection is an emergent consequence of identical cognition reading a symmetric stage, so it BREAKS as soon as their observations diverge (one takes a hit, one is launched further, one is nearer a ledge). That break is correct behaviour, not a regression.",
+            gameplay_description: "Emmy intentionally preserves deterministic CPU symmetry in mirror matches: two Emmys receiving symmetric observations use the same cognitive/noise stream and therefore tend to behave as reflections of one another. This is an AUTHORED CHARACTER TRAIT, not the default Smash CPU policy -- every other character's CPUs get participant-distinct streams and diverge within a few decisions. Do not re-file it as a bug: it is authored as `preserves_mirror_symmetry: true` in her catalog row, and the reasoning is that her subject is Noether's theorem, where a symmetry implies a conservation law. It is NOT a synchronised animation and must never be implemented as one -- nothing compares the two bodies or copies one's action to the other. The reflection is an emergent consequence of identical cognition reading a symmetric stage, so it BREAKS as soon as their observations diverge (one takes a hit, one is launched further, one is nearer a ledge). That break is correct behaviour, not a regression.",
         barks: (
             on_hit: ["That violated several conservation laws.", "Every action has an equal and opposite consequence.", "The symmetry is broken now. Happy?"],
             provoked: ["By Noether's theorem — you're done!"],
@@ -1143,6 +1179,11 @@
             composition: None,
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY. He ships as `melee_brute_striker` (chase 110), and that preset's
+            // speed is absolute, so this speed changes nothing a player sees today. It
+            // makes the body complete, which is what let the body-assist seam go.
+            locomotion: Some((run_speed: 110.0, move_style: Walk)),
+            max_health: Some(6),
             tags: ["ninja", "faction_leader"],
         barks: (
             on_hit: ["Your form is loud.", "A warning: one breath left.", "The shadow answers."],
@@ -1203,6 +1244,14 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
+            // THE BODY, AND DELIBERATELY NO COMBAT KIT (Jon, closing D56): "Kernel
+            // Guide gets its own CharacterDefinition ... Do not invent a combat kit or
+            // capabilities merely to fill the definition." Its `patrol_peaceful` policy
+            // ambles well under the hall walk; the speed is what the body could do if
+            // something drove it. The humanoid four is not a balance decision waiting to
+            // be made: a tutorial NPC is a person, and a person has four.
+            locomotion_preset: Some("hall_walk"),
+            max_health: Some(4),
             tags: ["hub", "guide"],
         barks: (
             on_hit: ["Ow. Tutorial says: don't.", "Input received. Annoyance rising.", "Debug friendship failed."],
@@ -1262,6 +1311,10 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
+            // THE BODY: the hall walk, and the humanoid four. A person with a
+            // repertoire is not a bigger body.
+            locomotion_preset: Some("hall_walk"),
+            max_health: Some(4),
             tags: ["intro", "cartographer"],
         barks: (
             on_hit: ["That's not on the map!", "I'll redraw your face!", "Uncharted aggression!"],
@@ -1280,6 +1333,10 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "peaceful",
+            // THE BODY: the hall walk, and the humanoid four. A person with a
+            // repertoire is not a bigger body.
+            locomotion_preset: Some("hall_walk"),
+            max_health: Some(4),
             tags: ["intro", "cartographer"],
         barks: (
             on_hit: ["Not cool.", "I was just trying to help.", "Why?!"],
@@ -1324,6 +1381,10 @@
             // the Hall is a policy, not a capability, and his own bark already
             // says "Maintenance mode: hostile!" when somebody starts it.
             default_action_set: "striker_swipe",
+            // THE BODY: the hall walk, and the humanoid four. A mechanic with a wrench
+            // is not a bigger body.
+            locomotion_preset: Some("hall_walk"),
+            max_health: Some(4),
             tags: ["intro", "mechanic"],
         barks: (
             on_hit: ["Quit messing with my tools!", "Spanner's just decorative? Think again.", "That dented my dignity."],
@@ -1482,6 +1543,14 @@
             // it changed a body; `1.0` restates a default, so dropping it does
             // not. Probed on the goblin first, whole suite green, then applied.
             default_action_set: "striker_swipe",
+            // THE PLACED ENEMY'S BODY. The default controller above is the peaceful
+            // Hall use; this policy is the placed enemy's: it walks forward, reverses at
+            // walls and notices nobody. Its only offense is the body it walks into you
+            // with.
+            locomotion: Some((run_speed: 42.0, move_style: Walk)),
+            contact_damage: Some((strength: 0.5, amount: 1)),
+            autonomous_profile: Some((template: Wanderer)),
+            max_health: Some(1),
             tags: ["enemy"],
         barks: (
             on_hit: ["Certainly! Here is how I will defeat you:", "As an AI language model, I find this combat scenario—", "I'm sorry, I cannot do that. *attacks anyway*"],
@@ -2893,6 +2962,9 @@
             // does it takes 44 tests down with it.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY of the sword archetype, which its easter eggs borrow.
+            locomotion: Some((run_speed: 220.0, move_style: Walk)),
+            max_health: Some(5),
             tags: ["humanoid", "polygonal", "sword_fighter", "animation_reference", "playable_candidate", "svg_rigged"],
             authoring_description: "A deliberately anonymous faceted humanoid inspired by the idea of a Fighting Polygon Team. This first archetype carries a simple polygon sword and exists both as a real Smash fighter and as a safe reference rig: new humanoid characters can begin from its conservative poses before adding bespoke anatomy, costume, or personality. The character is an original 2D polygon fighter rather than a copy of any specific Smash combatant.",
             gameplay_description: "A medium-weight fundamentals sword fighter with conventional spacing, recovery, defense, grabs, pummels, and all four throws. Its move silhouettes are intentionally simple and legible so the same clips can serve as animation references for future humanoid rigs.",
@@ -2919,6 +2991,9 @@
             // rule — see its row above. A brawler is a MainHall melee fighter.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY of the brawler archetype.
+            locomotion: Some((run_speed: 230.0, move_style: Walk)),
+            max_health: Some(6),
             tags: ["humanoid", "polygonal", "brawler", "animation_reference", "playable_candidate", "svg_rigged"],
             authoring_description: "The unarmed Fighting Polygon reference archetype: a broad-shouldered 2D humanoid assembled from editable polygon facets with oversized fists and no integral held item. It shares the sword archetype's safe pose vocabulary so animators can compare armed and unarmed versions of the same humanoid skeleton before adding bespoke anatomy or personality.",
             gameplay_description: "A close-range fundamentals brawler with punches, kicks, uppercuts, a shoulder rush, defensive movement, grabs, pummels, and all four throws. Its simple silhouettes are intentionally useful as baseline poses for future humanoid rigs.",
@@ -2975,6 +3050,10 @@
             // the joke, not about his autonomous policy.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY. The sword archetype's own speed: he is that archetype, and a
+            // different walk here would be a balance decision nobody made.
+            locomotion: Some((run_speed: 220.0, move_style: Walk)),
+            max_health: Some(5),
             tags: ["humanoid", "pen_fighter", "easter_egg", "playable_candidate", "svg_rigged"],
             authoring_description: "The person writing the game, standing in it: red hair, beard, glasses, work shirt and jeans, levelling an oversized red-and-brass fountain pen at everything. He follows the Pointed Polygon sword template exactly -- one rigid prop on the hand bone, occupying the blade's axis and length -- so the shared humanoid swing library retargets onto him without a pose being re-authored. He is meant to be found, not announced.",
             gameplay_description: "A medium-weight fundamentals fighter with sword spacing, delivered by a pen. His swings leave ink rather than steel-light; the timings are the sword archetype's, because his identity is who he is and what he holds rather than how he swings.",
@@ -3031,6 +3110,14 @@
             // archetype's brain for as long as she borrows its table.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY. Faster than the archetype she borrows, and this number is hers:
+            // her moveset is the brawler's retimed shorter (50 ms jabs against his 58),
+            // so his speed would contradict every clip she publishes.
+            locomotion: Some((run_speed: 258.0, move_style: Walk)),
+            // Light: she trades the Officer's two points of stock for the tempo her
+            // clips already spend, the same trade her neutral special makes inside a
+            // single match.
+            max_health: Some(5),
             tags: ["humanoid", "brawler", "support", "easter_egg", "playable_candidate", "svg_rigged"],
             authoring_description: "A field paramedic off duty: black fitted top, black leggings, trainers, a high ponytail. Hand-drawn and rigged by program. Her whole vocabulary is the PALM -- heel strikes, lifts, compressions -- because a medic's trained motion is push, lift, carry, and never close the fist; anything heavy she does with both hands. Her swings read clinical: a cold white-cyan trace for tilts and a defibrillator discharge for smashes.",
             gameplay_description: "A light, fast two-handed brawler on the Pugnacious Polygon's timings, retimed shorter. Low raw KO power, long combo strings, and every heavy commitment is a TWO-HANDED one -- which is what makes her smashes slow and her tilts quick. She is the only fighter here who can PUT SOMETHING BACK: her neutral spends a point of her own margin and buys frame advantage with it, her down special kneels and repays two, her side special throws a strap that drags what it catches into her range, and her up special is the one move in the kit that costs her nothing.",
@@ -3057,6 +3144,18 @@
             // gives -- she is that archetype, carrying nothing.
             default_brain: "melee_brute_striker",
             default_action_set: "striker_swipe",
+            // THE BODY. Slower than the archetype, and this is the one number that is
+            // hers: her clips are the sword archetype's held longer (60 ms, with the
+            // lunge parked for two frames), and a body that moved at its speed would
+            // arrive before the pose it commits to.
+            locomotion: Some((run_speed: 204.0, move_style: Walk)),
+            // ⚠ Her specials (the trap door, the flyline) are stage machinery with
+            // no rules yet: they publish no hit volume, and she borrows the
+            // archetype's specials until someone writes what they cost.
+            // Medium, one point over the Director's: the reach she conjures is worth
+            // less than his pen because it is only there while she commits to it, and
+            // she eats the recovery either way.
+            max_health: Some(6),
             tags: ["humanoid", "duellist", "performer", "easter_egg", "playable_candidate", "svg_rigged"],
             authoring_description: "A working performer between calls: an oversized grey cardigan over a dark tank, flared trousers, worn boots, an auburn updo coming down at the edges. Hand-drawn and rigged by program. Long unbroken lines, three greys and one auburn, and the far side of her drawn one step back in tone -- baked into opaque fills, never alpha, because every rig part rasterizes to its own layer.",
             gameplay_description: "A committed mid-range duellist on the Pointed Polygon's timings, held longer. Her forward smash is THE DUEL SCENE: a fencer's lunge with a blade of stage light conjured for exactly the frames the role calls for it, authored as the swing's own axis extended past her hand -- so the blade a player sees is the blade that hits them. A thin volume over a long reach, on purpose. Outside those frames her hands are empty and short, and everything she throws is held long enough to be punished.",
@@ -3081,6 +3180,13 @@
             composition: None,
             default_brain: "patrol_peaceful",
             default_action_set: "striker_swipe",
+            // THE BODY. "A high-mastery HEAVYWEIGHT controller" is his own description,
+            // so he walks heavy and takes six rather than the humanoid four. His
+            // `patrol_peaceful` policy ambles at its own absolute 28 px/s either way;
+            // the speed is what the body could do when driven. These are ordinary tuning
+            // values that can change if they feel wrong in play.
+            locomotion: Some((run_speed: 195.0, move_style: WalkHeavy)),
+            max_health: Some(6),
             tags: ["special_character", "humanoid", "patent_clerk", "reference_frame_controller", "classification_fighter", "playable_candidate", "svg_rigged"],
             authoring_description: "Patent Clerk is a coy parody of Albert Einstein, designed around his patent-office period, iconic unruly hair, moustache, relativity thought experiments, clock synchronization, reference frames, and mass-energy equivalence. The public character never confirms the identity: recognition is carried by silhouette, mechanics, and restrained bureaucratic dialogue. The combat classifications and administrative stamps are deliberate game inventions rather than biographical claims.",
             gameplay_description: "A high-mastery heavyweight controller who classifies bodies as MASS, ENERGY, MOVING, or AT REST; manipulates relative velocity and local reference frames; and turns careful observation into unusually strong parries and finishers. His recovery uses an accelerating elevator frame, his stage control uses synchronized clocks, and his super resolves several quiet office observations into one inevitable conversion.",

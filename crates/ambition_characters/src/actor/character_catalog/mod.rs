@@ -35,7 +35,7 @@ pub use binding::{
 pub use content_schema::{
     character_catalog_schema, lowered_catalog, ActionSetPresetRef, BrainPresetRefFacet, Character,
     ACTION_SET_PRESET_SCHEMA, AXIS_TUNING_PRESET_SCHEMA, BRAIN_PRESET_SCHEMA, CHARACTERS_CAPABILITY,
-    CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA,
+    CHARACTER_CATALOG_SCHEMA, CHARACTER_CATALOG_VERSION, CHARACTER_SCHEMA, LOCOMOTION_PRESET_SCHEMA,
 };
 pub use entry::{
     ActionSetPreset, AxisTuningSpec, BarkSituation, BrainPreset, CharacterBarks, CharacterBodyKind,
@@ -87,6 +87,7 @@ impl CharacterCatalog {
         Self(CharacterCatalogData {
             autonomous_profiles: Default::default(),
             axis_tuning_presets: Default::default(),
+            locomotion_presets: Default::default(),
             brain_presets: Default::default(),
             action_set_presets: Default::default(),
             characters: Default::default(),
@@ -355,6 +356,16 @@ impl CharacterCatalog {
         self.data().autonomous_profiles.get(key)
     }
 
+    /// How `character_id`'s body moves, as its row states it: its own
+    /// `locomotion`, else the `locomotion_presets` entry it names.
+    pub fn locomotion(&self, character_id: &str) -> Option<crate::actor::CharacterLocomotion> {
+        let entry = self.get(character_id)?;
+        match &entry.locomotion_preset {
+            Some(name) => self.0.locomotion_presets.get(name).copied(),
+            None => entry.locomotion,
+        }
+    }
+
     pub fn axis_tuning(
         &self,
         character_id: &str,
@@ -541,6 +552,46 @@ mod tests {
         )
         .expect_err("a row that states two feels is refused");
         assert!(format!("{error:?}").contains("state one feel"), "{error:?}");
+    }
+
+    /// A row names a shared gait or states its own, never both, and a gait
+    /// nobody stated is refused.
+    #[test]
+    fn a_shared_gait_is_refused_when_unknown_or_stated_twice() {
+        let catalog = |gait: &str| {
+            format!(
+                r#"(
+                    locomotion_presets: {{ "hall_walk": (run_speed: 210.0, move_style: Walk) }},
+                    brain_presets: {{ "idle": StandStill }},
+                    action_set_presets: {{ "peaceful": (move_style: Walk) }},
+                    characters: {{
+                        "alpha": (
+                            display_name: "Alpha", spritesheet: "a.png", manifest: "a.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "idle", default_action_set: "peaceful", tags: [],
+                            {gait}
+                        ),
+                    }},
+                )"#
+            )
+        };
+        let fragment = |gait: &str| {
+            registry::CharacterCatalogFragment::from_ron("a", Some("alpha"), &catalog(gait))
+        };
+        let named = fragment(r#"locomotion_preset: Some("hall_walk"),"#).expect("a known gait");
+        assert_eq!(
+            CharacterCatalog::from_data(named.catalog().clone())
+                .locomotion("alpha")
+                .map(|walk| walk.run_speed),
+            Some(210.0)
+        );
+        let error = fragment(r#"locomotion_preset: Some("run"),"#).expect_err("unknown");
+        assert!(format!("{error:?}").contains("'run' not found"), "{error:?}");
+        let error = fragment(
+            r#"locomotion_preset: Some("hall_walk"), locomotion: Some((run_speed: 1.0, move_style: Walk)),"#,
+        )
+        .expect_err("two gaits");
+        assert!(format!("{error:?}").contains("state one gait"), "{error:?}");
     }
 
     #[test]

@@ -714,6 +714,11 @@ pub struct CharacterCatalogEntry {
     /// cling. Folded at preparation under a registered definition's own.
     #[serde(default)]
     pub locomotion: Option<crate::actor::CharacterLocomotion>,
+    /// The name of an entry in the catalog's `locomotion_presets`, for a gait
+    /// that several characters share (the hall humanoids' walk). A row states
+    /// either this or [`locomotion`](Self::locomotion), never both.
+    #[serde(default)]
+    pub locomotion_preset: Option<String>,
     /// What touching this body costs. `None` (the default): nothing.
     /// Folded at preparation under a registered definition's own.
     #[serde(default)]
@@ -723,6 +728,16 @@ pub struct CharacterCatalogEntry {
     /// preparation under a registered definition's own.
     #[serde(default)]
     pub autonomous_profile: Option<crate::brain::BrainProfile>,
+    /// A body that exists to be hit: no aggro, no strike back, not saved, not
+    /// given a path. See `CharacterDefinition::practice_target`. Either the row
+    /// or a registered definition can state it.
+    #[serde(default)]
+    pub practice_target: bool,
+    /// Autonomous twins of this character share one cognitive stream. See
+    /// `CharacterDefinition::preserves_mirror_symmetry`. Either the row or a
+    /// registered definition can state it.
+    #[serde(default)]
+    pub preserves_mirror_symmetry: bool,
 }
 
 /// The art-to-world scale of a body that its sheet authors per pose.
@@ -993,6 +1008,10 @@ pub struct CharacterCatalogData {
     /// provider on assembly, like the other preset maps.
     #[serde(default)]
     pub axis_tuning_presets: BTreeMap<String, AxisTuningSpec>,
+    /// Named gaits that rows share through `locomotion_preset`, for the same
+    /// reason as `axis_tuning_presets`. Namespaced per provider on assembly.
+    #[serde(default)]
+    pub locomotion_presets: BTreeMap<String, crate::actor::CharacterLocomotion>,
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,
     pub characters: BTreeMap<String, CharacterCatalogEntry>,

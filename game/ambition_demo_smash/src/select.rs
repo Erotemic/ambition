@@ -37,8 +37,8 @@ pub const SMASH_ROSTER: &[&str] = &[
     "perfect_cellular_automaton",
     "goblin",
     "npc_emmy_noether",
-    // Both author their own repertoire (`authored/npc_carl_stargan.rs`,
-    // `authored/special_patent_clerk.rs`), like every id on this roster. No
+    // Both author their own repertoire (`authored/npc_carl_stargan.rs`, and
+    // the patent clerk's catalog row), like every id on this roster. No
     // seated fighter falls back to a generic repertoire. `SMASH_FIGHTER_KIT`
     // is still live as an ability grant (`lib.rs`).
     "npc_carl_stargan",

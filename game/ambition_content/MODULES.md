@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`audio_registries`](src/audio_registries.rs) | Ambition's authored audio registries — CONTENT data, evicted from the engine core (R3.2: the engine ships no tracks and no cues). |
-| [`authored`](src/authored/mod.rs) | Every character this provider AUTHORS, one file each. |
+| [`authored`](src/authored/mod.rs) | Every character whose body needs a fact its catalog row cannot state yet, one file each. |
 | [`authored_movesets`](src/authored_movesets.rs) | Every move table this crate ships, in one list, read from the content pack. |
 | [`banter`](src/banter.rs) | Ambition's authored combat-banter lines. |
 | [`bosses`](src/bosses/mod.rs) | Named Ambition boss content registration. |

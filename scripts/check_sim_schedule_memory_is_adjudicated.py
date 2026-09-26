@@ -235,9 +235,13 @@ ADJUDICATED: dict[str, str] = {
     ),
     "tick_npc_idle_barks": (
         "NOT ROLLBACK STATE. `NpcIdleBarkState`'s `timers` and `rotations` decide "
-        "WHEN an idle bark fires and WHICH line it picks, and the only thing the "
-        "system emits is `VfxMessage`. A rewind can make a bark repeat or a "
-        "rotation skip — an audible artefact, not a divergence (read 2026-09-18)"
+        "WHEN an idle bark fires and WHICH line it picks, and the system writes "
+        "only `VfxMessage`s: the speech bubble and the `BarkGesture` pose request. "
+        "It writes nothing to the simulated body; the pose timer is `BarkPose` on "
+        "the render visual. A rewind can make a bark repeat or a rotation skip, "
+        "an audible artefact, not a divergence. ⛔ If the system ever writes a "
+        "component or resource again, this entry is void: an `ActorBarkGesture` "
+        "timer on the body did exactly that until 2026-09-25 (read 2026-09-25)"
     ),
     # ── A ONCE-PER-APP LATCH no rewind or rebase recreates ──────────────────
     "advance_sim_tick": (

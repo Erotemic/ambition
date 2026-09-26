@@ -404,10 +404,6 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
 #[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActorAnimOverride(pub CharacterAnim);
 
-/// A short pose that follows an actor's authored ambient bark.
-#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
-pub struct ActorBarkGesture(pub f32);
-
 #[cfg(test)]
 mod shell_anim_tests {
     use super::{non_looping, CharacterAnim};

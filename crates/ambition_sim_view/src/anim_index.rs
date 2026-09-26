@@ -11,7 +11,7 @@ use ambition_combat::components::FeatureId;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_core::BodyKinematics;
-use ambition_sprite_sheet::character::{ActorAnimOverride, ActorBarkGesture, CharacterAnim};
+use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
 /// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
@@ -64,7 +64,6 @@ pub struct ActorSpriteData {
     /// ordinary actor is picked exactly as before.
     pub anim_override: Option<&'static ActorAnimOverride>,
     pub control_holds: Option<&'static ambition_characters::control::ControlHolds>,
-    pub bark_gesture: Option<&'static ActorBarkGesture>,
     /// The move this body is playing, so the drawn row can be the one the
     /// move names. `None` for a body that is not mid-move, which is most of them
     /// most of the time. See [`ActorAnimFrame::clip`].
@@ -81,7 +80,6 @@ pub struct ActorSpriteData {
 pub struct ActorAnimFrame {
     pub anim: CharacterAnim,
     pub conversation_held: bool,
-    pub barking: bool,
     pub pos: ae::Vec2,
     pub facing: f32,
     /// The authored clip the body's ACTIVE MOVE asks to be drawn as, with
@@ -319,7 +317,6 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 conversation_held: a.control_holds.is_some_and(|h| {
                     h.holds(ambition_characters::control::ControlHold::Conversation)
                 }),
-                barking: a.bark_gesture.is_some_and(|g| g.0 > 0.0),
                 pos: a.kin.pos,
                 facing: a.kin.facing,
                 // what the ACTIVE MOVE asks to be drawn as. The move's own

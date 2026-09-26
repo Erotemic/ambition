@@ -260,6 +260,13 @@ pub enum VfxMessage {
         pos: ae::Vec2,
         text: String,
     },
+    /// The body with this feature id plays its short bark pose. Emitted with an
+    /// ambient bark's speech bubble. The pose's timer belongs to presentation,
+    /// so a rewind cannot leave it on the simulated body.
+    BarkGesture {
+        feature_id: String,
+        seconds: f32,
+    },
 }
 
 /// A reusable effect CUE request: a sim system writes this to ask for an

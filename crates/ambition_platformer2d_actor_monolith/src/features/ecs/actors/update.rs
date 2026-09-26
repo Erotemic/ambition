@@ -2345,17 +2345,15 @@ fn npc_idle_bark_jitter(id: &str, counter: u32, base_s: f32, span_ms: u32) -> f3
 /// stochastic parrot is the first user; any NPC gains barks by adding a pool.
 pub fn tick_npc_idle_barks(
     world_time: Res<WorldTime>,
-    mut commands: Commands,
-    mut npcs: Query<
+    npcs: Query<
         (
-            Entity,
             &ambition_platformer2d_core::BodyKinematics,
             &ActorIdentity,
             &ambition_characters::actor::BodyCombat,
             &ActorInteraction,
             &ActorDisposition,
             &ambition_characters::actor::BodyHealth,
-            Option<&mut ambition_sprite_sheet::character::ActorBarkGesture>,
+            &ambition_combat::components::FeatureId,
         ),
         With<FeatureSimEntity>,
     >,
@@ -2400,15 +2398,7 @@ pub fn tick_npc_idle_barks(
         ambition_characters::actor::character_catalog::BarkSituation::Hall => (28.0, 24_000),
         _ => (12.0, 8_000),
     };
-    for (entity, kin, identity, combat, interaction, disposition, health, gesture) in &mut npcs {
-        if let Some(mut gesture) = gesture {
-            gesture.0 -= dt;
-            if gesture.0 <= 0.0 {
-                commands
-                    .entity(entity)
-                    .try_remove::<ambition_sprite_sheet::character::ActorBarkGesture>();
-            }
-        }
+    for (kin, identity, combat, interaction, disposition, health, feature_id) in &npcs {
         // Structural tangibility gate: a dead body does not
         // present — an intangible corpse says nothing, ambient or otherwise.
         if disposition.is_hostile() || combat.recently_struck() || !health.alive() {
@@ -2465,9 +2455,10 @@ pub fn tick_npc_idle_barks(
             pos: anchor,
             text: line.to_string(),
         });
-        commands
-            .entity(entity)
-            .try_insert(ambition_sprite_sheet::character::ActorBarkGesture(0.48));
+        vfx.write(ambition_vfx::vfx::VfxMessage::BarkGesture {
+            feature_id: feature_id.as_str().to_string(),
+            seconds: 0.48,
+        });
         let next = rotation.wrapping_add(1);
         state.rotations.insert(identity.id.clone(), next);
         state.timers.insert(

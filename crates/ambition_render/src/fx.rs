@@ -374,6 +374,8 @@ pub fn vfx_spawn_messages(
             VfxMessage::SpeechBubble { pos, text } => {
                 spawn_speech_bubble(&mut commands, spawn_scope, world, pos, &text, &bubble_font);
             }
+            // Drawn by `rendering::actors::animation::start_bark_poses`.
+            VfxMessage::BarkGesture { .. } => {}
         }
     }
 }

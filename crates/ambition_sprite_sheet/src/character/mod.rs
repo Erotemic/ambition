@@ -14,7 +14,7 @@ mod assets;
 pub mod catalog_join;
 pub mod sheets;
 
-pub use anim::{non_looping, ActorAnimOverride, ActorBarkGesture, CharacterAnim};
+pub use anim::{non_looping, ActorAnimOverride, CharacterAnim};
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};
 pub use catalog_join::{

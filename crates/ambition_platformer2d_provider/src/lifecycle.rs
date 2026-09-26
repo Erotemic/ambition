@@ -1052,6 +1052,16 @@ pub fn prepare_platformer_content_for_app(
 ///    gameplay belongs to shell-routed activations, and a build-time root at
 ///    scope 0 beside an activation's root is exactly the coexistence
 ///    `live_session_world_root`'s own doc records as having panicked once.
+///
+/// ⭐ **THE ROAD ALSO FREEZES THE SESSION'S CONSTRUCTION AUTHORITY.** A live
+/// rebuild (replay, reset, room transition) reads [`SessionMechanics`], and
+/// refuses without it. The shell freezes it when it publishes a prepared
+/// session; a direct composition has no publication, so this road freezes it.
+/// The sheets, bosses and developer knobs are captured here, from the same
+/// resources and at the same moment as the fingerprint that covers them. The
+/// cast is not folded until the preparation barrier closes in `PreStartup`, so
+/// [`freeze_direct_session_mechanics`] completes the capture there, before any
+/// `Startup` system builds the world. A demo writes none of this.
 pub fn install_direct_session_root(
     app: &mut App,
     source: PreparedPlatformerSource,
@@ -1085,6 +1095,36 @@ pub fn install_direct_session_root(
         .and_then(ActiveSessionScope::current)
         .unwrap_or(SessionScopeId(0));
     let content = prepare_platformer_content_for_app(app, source, authored)?;
+    let world = app.world();
+    let mechanics = SessionMechanics {
+        // Folded at the barrier; see `freeze_direct_session_mechanics`.
+        characters: None,
+        sheets: world
+            .get_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>()
+            .cloned()
+            .unwrap_or_default(),
+        bosses: world
+            .get_resource::<ambition_boss_encounter::BossCatalog>()
+            .cloned()
+            .unwrap_or_default(),
+        forced_brains: world
+            .get_resource::<ambition_characters::brain::AuthoredBrainOverride>()
+            .cloned()
+            .unwrap_or_default(),
+        population_cap: world
+            .get_resource::<ambition_characters::actor::AuthoredPopulationCap>()
+            .copied()
+            .unwrap_or_default(),
+        perception_extent: world
+            .get_resource::<ambition_characters::perception::PerceptionExtentOverride>()
+            .copied()
+            .unwrap_or_default(),
+    };
+    app.insert_resource(DirectSessionMechanicsCapture(mechanics));
+    app.add_systems(
+        bevy::app::PreStartup,
+        freeze_direct_session_mechanics.after(ambition_characters::prepared::PreparationBarrier),
+    );
     Ok(app
         .world_mut()
         .spawn((
@@ -1095,6 +1135,34 @@ pub fn install_direct_session_root(
             content,
         ))
         .id())
+}
+
+/// A direct session's construction authority, captured with its fingerprint
+/// and waiting for the prepared cast.
+#[derive(Resource)]
+struct DirectSessionMechanicsCapture(SessionMechanics);
+
+/// Complete a direct session's [`SessionMechanics`] with the cast the barrier
+/// folded, and install it.
+///
+/// ⛔ A composition that already holds `SessionMechanics` has a second
+/// construction authority, and the two could describe different casts. That
+/// is a composition error, so it aborts.
+fn freeze_direct_session_mechanics(world: &mut World) {
+    let Some(DirectSessionMechanicsCapture(mut mechanics)) =
+        world.remove_resource::<DirectSessionMechanicsCapture>()
+    else {
+        return;
+    };
+    assert!(
+        !world.contains_resource::<SessionMechanics>(),
+        "a direct session already holds SessionMechanics; install_direct_session_root \
+         freezes them, and a second insert is a second construction authority"
+    );
+    mechanics.characters = world
+        .get_resource::<ambition_characters::prepared::PreparedCharacterRegistry>()
+        .cloned();
+    world.insert_resource(mechanics);
 }
 
 /// Which content identity does THIS preparation fingerprint against?
@@ -3809,6 +3877,75 @@ mod mechanical_registries_reach_the_identity {
 
     fn health_of(cast: &ambition_characters::prepared::PreparedCharacterRegistry) -> Option<i32> {
         cast.get("alpha").and_then(|definition| definition.vitals.max_health)
+    }
+
+    /// A direct session freezes its own construction authority.
+    ///
+    /// A live rebuild (replay, reset, room transition) reads `SessionMechanics`
+    /// and declines without it. `install_direct_session_root` used to stop one
+    /// line short of it: the host's demo gate added a DEFAULT one on the next
+    /// line (an empty cast, empty sheets, no bosses), and Mary-O and Sanic
+    /// added none, so their direct sessions declined every reset.
+    ///
+    /// ⭐ Each value is compared against the authority it was frozen from, and
+    /// each is a non-default member, so a default `SessionMechanics` fails
+    /// every arm.
+    #[test]
+    fn a_direct_session_freezes_its_construction_authority_from_its_own_preparation() {
+        use bevy::ecs::schedule::IntoScheduleConfigs as _;
+        let mut app = bevy::app::App::new();
+        ambition_characters::prepared::stage_authored_character(
+            &mut app,
+            a_character(7),
+            &Default::default(),
+        )
+        .expect("stages");
+        app.insert_resource(ambition_characters::actor::AuthoredPopulationCap::capped_at(3));
+        app.insert_resource(ambition_boss_encounter::test_boss_catalog().clone());
+        app.add_systems(
+            bevy::app::PreStartup,
+            ambition_characters::prepared::close_preparation_barrier
+                .in_set(ambition_characters::prepared::PreparationBarrier),
+        );
+        install_direct_session_root(
+            &mut app,
+            source(),
+            &AuthoredCatalogFragments::new("alpha", "fixture"),
+        )
+        .expect("the fixture composition prepares");
+        assert!(
+            !app.world().contains_resource::<SessionMechanics>(),
+            "the cast is folded at the barrier, so no authority built from it can \
+             exist at build time"
+        );
+
+        app.update();
+
+        let frozen = app
+            .world()
+            .get_resource::<SessionMechanics>()
+            .expect("a direct session has a construction authority once its cast exists");
+        let published = app
+            .world()
+            .resource::<ambition_characters::prepared::PreparedCharacterRegistry>();
+        assert_eq!(
+            health_of(frozen.prepared_cast().expect("the composition published a cast")),
+            Some(7),
+            "the frozen cast is the one this composition prepared"
+        );
+        assert_eq!(frozen.prepared_cast().map(|cast| cast.generation()), Some(published.generation()));
+        assert_eq!(frozen.population_cap.cap(), Some(3));
+        assert_eq!(
+            frozen.bosses.deterministic_dump(),
+            ambition_boss_encounter::test_boss_catalog().deterministic_dump(),
+        );
+        assert!(
+            ambition_platformer2d_actor_monolith::session::mechanics::GenerationMechanics::for_live_session(
+                Some(frozen)
+            )
+            .is_some(),
+            "a live rebuild accepts the frozen authority"
+        );
     }
 
     /// ⛔⛤ **PREPARE N+1, FREEZE N+1 — NOT THE CAST THE APP HAS STILL GOT

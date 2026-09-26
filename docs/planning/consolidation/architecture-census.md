@@ -452,8 +452,20 @@ census in this directory could have found either, because neither has a name:
   `live_session_world_root`'s doc records as having panicked once). Neither
   refusal was expressible while three plugins spawned unconditionally.
 
-  ⛔⛤ **AND THE ROAD STILL STOPS ONE LINE SHORT, ONE LINE FURTHER ALONG —
-  RAISED BY REVIEW 2026-09-21, NOT YET FIXED.** A direct session needs
+  ✅ **FIXED 2026-09-26: THE ROAD FREEZES THE AUTHORITY ITSELF.**
+  `install_direct_session_root` captures the sheets, bosses and developer
+  knobs beside the fingerprint that covers them, and a `PreStartup` system
+  after `PreparationBarrier` completes the capture with the folded cast and
+  installs `SessionMechanics` (a second one aborts). The host gate's copied
+  line and the `demo_fixture::SessionMechanics` re-export are deleted; Mary-O
+  and Sanic get replay, reset and transitions on the direct road without a
+  line of their own. Witness
+  `a_direct_session_freezes_its_construction_authority_from_its_own_preparation`
+  (provider; poisoned: no freeze fails the existence arm, a default authority
+  fails the cast arm). The record of the defect follows.
+
+  ⛔⛤ **AND THE ROAD STILL STOPPED ONE LINE SHORT, ONE LINE FURTHER ALONG —
+  RAISED BY REVIEW 2026-09-21.** A direct session needs
   `SessionMechanics`, the scoped construction authority a live rebuild reads
   now that `GenerationMechanics::for_live_session` refuses to fall back to the
   App's loose registries. The host's demo gate installs it on the line AFTER

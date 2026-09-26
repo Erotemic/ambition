@@ -45,6 +45,7 @@ CENSUS = {
     "HitFlashOverlay": "the body's own silhouette, a sibling mesh — has the seam",
     "SlashVisual": "the swing's art, placed in the owner's frame — has the seam",
     "BodyClockVisual": "the body's fuse/clock telegraph bar — has the seam",
+    "LimbTrailWisp": "a free limb's trail back to its host body (GNU-ton's fists) — has the seam",
     "PortalCaptureParallaxLayerVisual": (
         "NOT a body: its `source` is a portal rig's parallax layer. Excluded "
         "after reading it, not after matching the field name."

@@ -25,59 +25,45 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::PortraitSheetRegistry;
 
-/// Resolve a declared character's sheet, with the REGISTERED definition winning.
+/// Resolve a character's sheet from its PREPARED definition.
 ///
-/// `register_character` accepts a `sheet` manifest target, and until now nothing
-/// in production read it: the materializer resolved sheets exclusively from
-/// `CharacterCatalog`, so a character registered only through the new seam got
-/// `UnknownCharacter` from the art pipeline, and a character registered through
-/// BOTH could name one sheet in its definition and a different one in its catalog
-/// row with nothing noticing.
+/// Preparation already chose the sheet (the definition's, else its catalog
+/// row's) and the tuning (the row's). The materializer reads that one answer and
+/// does not ask the catalog again, so the base page and its quality tiers cannot
+/// come from two different sheets.
 ///
-/// Precedence and why it is this way round:
-///
-/// * the registered target decides WHICH sheet. The definition is the
-///   authority §4.1 is building toward, and a provider that names a sheet in the
-///   call it makes should not be overruled by a fragment it may not own.
-/// * the catalog row still supplies resolution-independent TUNING
-///   (`collision_scale`, `frame_sample_inset`, `feet_anchor_y`) and the scaled
-///   variant lookup, because that is where quality tiers are authored. Taking the
-///   target from one place and the tuning from the other is deliberate, not a
-///   layering accident.
-/// * a disagreement is LOGGED rather than silently resolved, since it means two
-///   declarations of the same character exist and one of them is stale — exactly
-///   the drift the single-registration seam is meant to end.
-pub fn sheet_for_declared_character(
+/// A character that names no sheet falls back to the manifest named by its id,
+/// which is how most catalog characters without a `manifest` field resolve.
+pub fn sheet_for_prepared_character(
     // Sheets a PROVIDER authored, consulted before the engine's baked cache.
     authored: &sheets::AuthoredSheets,
-    character_catalog: &CharacterCatalog,
-    registered_target: Option<&str>,
-    character_id: &str,
+    prepared: &ambition_characters::prepared::PreparedCharacterDefinition,
 ) -> Option<CharacterSheetSpec> {
-    let catalog_target = character_catalog
-        .get(character_id)
-        .and_then(|entry| entry.manifest_target());
-    match (registered_target, catalog_target) {
-        (Some(registered), Some(from_catalog)) if registered != from_catalog => {
-            bevy::log::warn!(
-                target: "ambition_platformer2d::character_sprites",
-                "character `{character_id}` names sheet `{registered}` in its registered \
-                 definition but `{from_catalog}` in its catalog row; using the registered \
-                 one. Two declarations of one character disagree — delete the stale one.",
-            );
+    let id = prepared.id.as_str();
+    match prepared.sheet.as_deref() {
+        Some(target) => {
+            sheets::try_load_spec_for_target_authored(authored, target, &prepared_sheet_tuning(prepared))
+                .or_else(|| sheets::try_load_spec_for_character_id(id))
         }
-        _ => {}
+        None => sheets::try_load_spec_for_character_id(id),
     }
-    let Some(target) = registered_target.or(catalog_target) else {
-        // Neither names a target: fall back to the manifest-by-id lookup, which is
-        // how most catalog characters have always resolved.
-        return sheet_for_character_id_in(authored, character_catalog, character_id);
-    };
-    let tuning = character_variant_tuning(character_catalog, character_id)
-        .map(|(_, tuning)| tuning)
-        .unwrap_or_default();
-    sheets::try_load_spec_for_target_authored(authored, target, &tuning)
-        .or_else(|| sheets::try_load_spec_for_character_id(character_id))
+}
+
+/// The resolution-independent tuning preparation folded from the catalog row.
+/// A character with no row has the default tuning.
+fn prepared_sheet_tuning(prepared: &ambition_characters::prepared::PreparedCharacterDefinition) -> sheets::SheetTuning {
+    prepared
+        .sheet_sizing
+        .as_ref()
+        .and_then(|sizing| sizing.tuning)
+        .map(|spec| {
+            sheets::SheetTuning::from_parts(
+                spec.collision_scale,
+                spec.frame_sample_inset,
+                spec.feet_anchor_y,
+            )
+        })
+        .unwrap_or_default()
 }
 
 /// Resolve a character's PORTRAIT, with the registered definition winning.
@@ -173,30 +159,6 @@ pub fn sheet_for_character_id_in(
     character_id: &str,
 ) -> Option<CharacterSheetSpec> {
     catalog_join::sheet_for_character_id_from_data(authored, character_catalog.data(), character_id)
-}
-
-/// The manifest target + resolution-independent tuning for a catalog `cid`,
-/// when it has a catalog row that names a sheet. This is what
-/// [`build_optional_via_catalog`] needs to fetch the scaled-variant record
-/// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
-/// fallback (they stay at base resolution — acceptable, they render fine).
-fn character_variant_tuning<'a>(
-    character_catalog: &'a CharacterCatalog,
-    cid: &str,
-) -> Option<(&'a str, sheets::SheetTuning)> {
-    let entry = character_catalog.get(cid)?;
-    let target = entry.manifest_target()?;
-    let tuning = entry
-        .sprite_tuning
-        .map(|spec| {
-            sheets::SheetTuning::from_parts(
-                spec.collision_scale,
-                spec.frame_sample_inset,
-                spec.feet_anchor_y,
-            )
-        })
-        .unwrap_or_default();
-    Some((target, tuning))
 }
 
 /// Derive sprite-body collision from the caller's App-local catalog.
@@ -334,15 +296,13 @@ impl SpriteMaterialization {
 pub fn materialize_declared_character_sprite(
     sprites: &mut CharacterSpriteAssets,
     authored: &sheets::AuthoredSheets,
-    character_catalog: &CharacterCatalog,
+    // The prepared cast: the one answer to which sheet a character wears and how
+    // it is tuned. It holds every catalog row as well as every registration.
+    registry: &ambition_characters::prepared::PreparedCharacterRegistry,
     asset_catalog: &Platformer2dAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
-    // The sheet manifest target the character's REGISTERED definition names, when
-    // it has one. See [`sheet_for_declared_character`] for why this outranks the
-    // catalog row.
-    registered_target: Option<&str>,
     token: &str,
 ) -> SpriteMaterialization {
     let cid = match sprites.sheet_state(token) {
@@ -372,14 +332,17 @@ pub fn materialize_declared_character_sprite(
             return SpriteMaterialization::NoSheet
         }
     };
-    let Some(sheet_spec) =
-        sheet_for_declared_character(authored, character_catalog, registered_target, &cid)
-    else {
+    let Some(prepared) = registry.get(&cid) else {
+        return SpriteMaterialization::NoSheet;
+    };
+    let Some(sheet_spec) = sheet_for_prepared_character(authored, prepared) else {
         return SpriteMaterialization::NoSheet;
     };
     let asset_id = ids::character_sprite(&cid);
-    let variant_tuning = character_variant_tuning(character_catalog, &cid);
-    let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
+    // The quality tiers are keyed by the SAME prepared sheet as the base page, so
+    // a tier's frame rects always describe the pixels of that tier.
+    let tuning = prepared_sheet_tuning(prepared);
+    let variant = prepared.sheet.as_deref().map(|target| (target, &tuning));
     let Some(asset) = build_optional_via_catalog(
         asset_catalog,
         asset_server,

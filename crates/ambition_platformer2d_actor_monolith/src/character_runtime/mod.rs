@@ -509,12 +509,11 @@ pub fn materialize_character_demand(
         let materialization = crate::character_sprites::materialize_declared_character_sprite(
             sprites,
             authored_sheets,
-            character_catalog,
+            registry,
             asset_catalog,
             asset_server,
             layouts,
             quality,
-            registered_sheet_target(registry, sprites, &token),
             &token,
         );
         let outcome = if materialization.is_ready() {
@@ -554,27 +553,11 @@ pub fn materialize_character_demand(
     }
 }
 
-/// The sheet target the registered definition names for this token, if any.
-///
-/// The token may be a catalog id or a display name, so resolve it the same way
-/// the sheet table does before asking the registry.
-fn registered_sheet_target<'a>(
-    registry: &'a PreparedCharacterRegistry,
-    sprites: &CharacterSpriteAssets,
-    token: &str,
-) -> Option<&'a str> {
-    let id = match sprites.sheet_state(token) {
-        CharacterSheetState::Declared { character_id } => character_id,
-        _ => token,
-    };
-    registry.get(id).and_then(|p| p.sheet.as_deref())
-}
-
 /// The portrait TARGET a registered definition named, if any.
 ///
-/// The sibling of [`registered_sheet_target`], resolving the same token the same
-/// way — a UI asking for a character's face and the materializer asking for its
-/// body must agree about which character they are talking about.
+/// It resolves the token the way the sprite table does, so a UI asking for a
+/// character's face and the materializer asking for its body agree about which
+/// character they are talking about.
 pub fn registered_portrait_target<'a>(
     registry: &'a PreparedCharacterRegistry,
     sprites: &CharacterSpriteAssets,
@@ -847,10 +830,10 @@ pub fn materialize_demanded_character_sheets(
     // loud one. `SheetRegistryPlugin` initialises it, and the engine's own
     // characters resolve identically when it is empty.
     authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
-    // Registered definitions are a real source of sheets (see
-    // `sheet_for_declared_character`). `Option` because a composition may have no
-    // registered characters at all, which is not an error.
-    registry: Option<Res<PreparedCharacterRegistry>>,
+    // The prepared cast: the one answer to which sheet each character wears (see
+    // `sheet_for_prepared_character`). REQUIRED, like the catalog: it holds a
+    // definition for every catalog row, so a composition with characters has it.
+    registry: Res<PreparedCharacterRegistry>,
     asset_catalog: Option<Res<Platformer2dAssetCatalog>>,
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
@@ -874,8 +857,6 @@ pub fn materialize_demanded_character_sheets(
         // shell). SETTLE the demand with a NAMED terminal state rather than leaving
         // it pending: §4.9 forbids silence, and a reveal barrier waiting forever on
         // art that was never going to exist is that silence with extra steps.
-        let fallback_registry = PreparedCharacterRegistry::default();
-        let registry = registry.as_deref().unwrap_or(&fallback_registry);
         for token in demand.take() {
             // Canonicalized here too. An art-free composition still emits cues, and
             // authorization is deliberately not gated on the asset pipeline — so a
@@ -883,7 +864,7 @@ pub fn materialize_demanded_character_sheets(
             // `mary_o_demo`, or the one build where nothing is visible is also the
             // one where nothing is audible.
             let character_id =
-                canonical_character_id(registry, &character_catalog, &token).to_string();
+                canonical_character_id(&registry, &character_catalog, &token).to_string();
             states.record(
                 token,
                 &character_id,
@@ -901,7 +882,6 @@ pub fn materialize_demanded_character_sheets(
         settings.as_deref(),
     );
     let budget = Some(quality.budget.clone());
-    let fallback_registry = PreparedCharacterRegistry::default();
     let assets = &mut *assets;
     materialize_character_demand(
         &mut demand,
@@ -910,7 +890,7 @@ pub fn materialize_demanded_character_sheets(
         &mut assets.fx,
         &character_catalog,
         &authored_sheets,
-        registry.as_deref().unwrap_or(&fallback_registry),
+        &registry,
         &asset_catalog,
         &asset_server,
         &mut layouts,
@@ -1137,9 +1117,15 @@ impl Plugin for CharacterRuntimePlugin {
                     // §4.9's readiness barrier never sees a transient unsettled
                     // character that a quality change created.
                     converge_character_residency_to_active_quality,
-                    materialize_demanded_character_sheets.run_if(
-                        bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
-                    ),
+                    materialize_demanded_character_sheets
+                        .run_if(
+                            bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
+                        )
+                        .run_if(
+                            bevy::ecs::schedule::common_conditions::resource_exists::<
+                                PreparedCharacterRegistry,
+                            >,
+                        ),
                     // AFTER the materializer has settled the demand: the staged
                     // cast is what authorizes presentation sources, and the
                     // ledger is where "staged" is written down.

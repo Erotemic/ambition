@@ -40,12 +40,14 @@ pub(crate) fn author(_id: &str, definition: CharacterDefinition) -> CharacterDef
         .with_sprite_authored_body(GNU_WORLD_PER_PIXEL)
         .with_mount(ambition_characters::actor::CharacterMount {
             class: Some("giant".to_string()),
-            // The scholar stands at the base of the gnu's neck: the sheet's
-            // shoulder point (388, 313) px against its body-box centre
-            // (350, 329.5) is (49.4, -21.45) at the same scale, and his soles
-            // go there — lifted half his drawn height (126 px at 0.875 wu/px
-            // on his v2 sheet, 110.25 wu). He is body-centred.
-            saddle: Some((50.0, -76.5)),
+            // The scholar stands on the gnu's shoulders, at the base of its
+            // neck (x: the sheet's shoulder point, 388 px against the body-box
+            // centre's 350, is 49.4 wu). His soles rest ON the back the player
+            // stands on (`gnu_ton::conductor::back_platform`, top 7.5 px above
+            // the centre = 9.75 wu), lifted half his drawn height (126 px at
+            // 0.875 wu/px on his v2 sheet, 110.25 wu). He is body-centred. The
+            // sheet's shoulder point (-21.45 wu) stood him 11.7 wu in the air.
+            saddle: Some((50.0, -65.0)),
             // Its fists hover at shoulder height either side of it, clear of
             // its flanks: the rest every beat of GNU-ton's leaves from and
             // returns to, and where spawn builds them.

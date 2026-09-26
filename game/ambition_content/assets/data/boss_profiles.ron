@@ -200,7 +200,8 @@
     // (see `choreography.rs` for the shapes). Each move is one of his laws,
     // demonstrated on the player, and each contains its own refutation:
     //   * demonstrate(_pair) — a fist hovers over you, tracks, locks, falls.
-    //     A fist in the floor can be struck, and the blow lands on him.
+    //     A fist in the floor can be struck, and its first blow lands on him
+    //     (one per stick: a punish, not a farm).
     //   * pendulum — a fist on a string, released from high on one side, sweeping
     //     the floor where you stood. Double jump it, twice.
     //   * fluxions(_pair) — his signature: he DRAWS the curve in the air, then a

@@ -10,6 +10,7 @@ use ambition_content::bosses::gnu_ton::choreography::Move;
 use ambition_content::bosses::gnu_ton::conductor::back_platform;
 use ambition_content::bosses::gnu_ton::GnuTonConductor;
 use ambition_platformer2d::boss_encounter::BossConfig;
+use ambition_platformer2d::characters::brain::{BossAttackProfile, BossAttackState};
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig, LimbSlot};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
@@ -53,6 +54,33 @@ fn untouchable_player(sim: &mut Platformer2dSimHarness) {
     for mut health in q.iter_mut(world) {
         health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
     }
+}
+
+/// Lift [`untouchable_player`]: the buck's throw is a hit, and an untouchable
+/// body refuses it.
+fn touchable_player(sim: &mut Platformer2dSimHarness) {
+    let world = sim.world_mut();
+    let mut q = world.query_filtered::<&mut BodyHealth, PrimaryPlayerOnly>();
+    for mut health in q.iter_mut(world) {
+        health.health.invulnerable.set(Invulnerability::SCRIPTED, false);
+    }
+}
+
+/// The buck THROWS: within a few frames of its strike the player flies away
+/// from him, and comes down OFF the gnu's back — below its top or clear of its
+/// ends, not popped up to land back where they stood.
+fn thrown_off_the_back(sim: &mut Platformer2dSimHarness, back: ae::Aabb, within: usize) {
+    let away = {
+        let s = scene(sim);
+        let (kin, _) = player(sim);
+        (kin.pos.x - s.scholar.pos.x).signum()
+    };
+    step_until(sim, within, "the buck to throw the player away from him", |sim| player(sim).0.vel.x * away > 300.0);
+    step_until(sim, 90, "the thrown player to come down off the gnu's back", |sim| {
+        let (kin, _) = player(sim);
+        let feet = kin.pos.y + kin.size.y * 0.5;
+        feet > back.min.y + 40.0 || kin.pos.x < back.min.x - 20.0 || kin.pos.x > back.max.x + 20.0
+    });
 }
 
 #[derive(Debug)]
@@ -130,6 +158,38 @@ const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -65.0);
 
 fn saddle(s: &Scene) -> ae::Vec2 {
     s.giant.pos + ae::Vec2::new(SEAT.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), SEAT.y)
+}
+
+/// The move his PATTERN has live (telegraph or strike), by key — what the
+/// brain asked for, which the conductor may decline to perform.
+fn pattern_move(sim: &mut Platformer2dSimHarness) -> Option<String> {
+    let world = sim.world_mut();
+    let mut q = world.query::<(&BossConfig, &BossAttackState)>();
+    let (_, state) = q.iter(world).find(|(config, _)| config.behavior.id == "gnu_ton_rider")?;
+    let key = |p: &BossAttackProfile| match p {
+        BossAttackProfile::Strike(key) | BossAttackProfile::Special(key) => key.clone(),
+    };
+    state.active_profile.as_ref().or(state.telegraph_profile.as_ref()).map(key)
+}
+
+/// Stand beside `at`, facing it, and swing once; `true` when he lost health.
+fn strike_him_from(sim: &mut Platformer2dSimHarness, stand: ae::Vec2, toward: f32) -> bool {
+    place_player(sim, stand);
+    for _ in 0..40 {
+        sim.step(AgentAction { move_x: toward, ..Default::default() });
+        let (me, _) = player(sim);
+        if me.facing == toward && me.vel.y == 0.0 {
+            break;
+        }
+    }
+    let before = scene(sim).scholar_hp;
+    for frame in 0..14 {
+        sim.step(AgentAction { attack: frame == 1, attack_held: (1..5).contains(&frame), ..Default::default() });
+        if scene(sim).scholar_hp < before {
+            return true;
+        }
+    }
+    false
 }
 
 fn on_floor(kin: &ae::BodyKinematics, floor: f32) -> bool {
@@ -306,10 +366,45 @@ fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     let feet = kin.pos.y + kin.size.y * 0.5;
     assert!((feet - back.min.y).abs() < 2.0, "standing on the gnu's back ({}): feet at {feet}", back.min.y);
 
-    step_until(&mut sim, 1500, "the buck to throw the player off the gnu's back", |sim| {
-        let (kin, _) = player(sim);
-        kin.pos.y + kin.size.y * 0.5 < back.min.y - 120.0
-    });
+    step_until(&mut sim, 1500, "the gnu to buck", |sim| pattern_move(sim).as_deref() == Some("buck"));
+    let (kin, _) = player(&mut sim);
+    assert!(
+        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        "the premise: still standing on the gnu's back when it bucks"
+    );
+    touchable_player(&mut sim);
+    step_until(&mut sim, 120, "the buck to strike", |sim| scene(sim).performing == Some((Move::Buck, true)));
+    thrown_off_the_back(&mut sim, back, 8);
+}
+
+/// Hit him from the gnu's back and the gnu answers at once: it throws you off.
+///
+/// The back is the way to reach him, and a buck came once a cycle, on a roll: a
+/// scripted swinger stood there and took all 42 of his HP (`fight_discovery`:
+/// every hit "from raised ground", 15.5 s). His pattern cannot answer faster —
+/// a strike already live commits, so its buck waited out up to a whole strike
+/// (0.55 s in the measured climb, which took 15 HP). The gnu's own REFLEX does:
+/// hurt its rider while you stand on its back and it rears and throws you.
+#[test]
+fn hit_him_from_the_gnus_back_and_it_bucks_you_off() {
+    let mut sim = arena();
+    untouchable_player(&mut sim);
+    // Into Phase 1, well before its own buck (the fourth beat of the cycle).
+    step_until(&mut sim, 600, "his first move", |sim| scene(sim).performing.is_some());
+    let s = scene(&mut sim);
+    let back = back_platform(&s.giant, s.giant_unmirrored);
+    assert_ne!(pattern_move(&mut sim).as_deref(), Some("buck"), "the premise: no buck due yet");
+
+    let stand = ae::Vec2::new(s.scholar.pos.x - 45.0, back.min.y - 40.0);
+    assert!(strike_him_from(&mut sim, stand, 1.0), "the premise: a blow from his shoulders lands");
+    let (kin, _) = player(&mut sim);
+    assert!(
+        ((kin.pos.y + kin.size.y * 0.5) - back.min.y).abs() < 2.0,
+        "the premise: the blow was struck standing on the gnu's back"
+    );
+    touchable_player(&mut sim);
+    // Its rear-up is 0.35 s (21 frames): thrown within it and a few frames more.
+    thrown_off_the_back(&mut sim, back, 28);
 }
 
 /// After the apple rain a golden apple knocks him off the gnu: he sits dazed on

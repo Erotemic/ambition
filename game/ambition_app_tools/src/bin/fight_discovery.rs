@@ -235,6 +235,14 @@ struct Tick {
     hittable: Vec<String>,
     /// Where the player should swing: the nearest boss-side hurtbox, else the boss.
     aim: Option<ae::Vec2>,
+    /// Which boss-side body that nearest hurtbox belongs to (as `hittable`
+    /// names it): where a blow landing now most likely landed.
+    nearest: Option<String>,
+    /// Where the player is, and whether it stands on something: a hit dealt
+    /// from the floor, from raised ground (a ledge, a mount's back) or in the
+    /// air are different fights.
+    player_pos: ae::Vec2,
+    player_grounded: bool,
 }
 
 fn profile_name(profile: &BossAttackProfile) -> String {
@@ -318,6 +326,7 @@ fn observe(world: &mut World, boss: Entity, player: Entity, obs: &AgentObservati
     let mut punishable = false;
     let mut hittable = Vec::new();
     let mut aim: Option<ae::Vec2> = None;
+    let mut nearest: Option<String> = None;
     // Body rows are flat: `hurtboxes` and `hurtbox_source` sit beside `role`.
     for body in rows["bodies"].as_array().into_iter().flatten() {
         if !on_boss_side(body, "id") || body["hurtbox_source"].as_str() == Some("intangible") {
@@ -335,6 +344,9 @@ fn observe(world: &mut World, boss: Entity, player: Entity, obs: &AgentObservati
             let at = ae::Vec2::new(pos[0].as_f64().unwrap_or(0.0) as f32, pos[1].as_f64().unwrap_or(0.0) as f32);
             if aim.is_none_or(|best| at.distance(player_pos) < best.distance(player_pos)) {
                 aim = Some(at);
+                nearest = body["id"]
+                    .as_str()
+                    .map(|id| side.iter().find(|(s, _)| s == id).map_or(id, |(_, name)| name.as_str()).to_string());
             }
         }
     }
@@ -351,6 +363,9 @@ fn observe(world: &mut World, boss: Entity, player: Entity, obs: &AgentObservati
         punishable,
         hittable,
         aim: aim.or(boss_pos),
+        nearest,
+        player_pos,
+        player_grounded: obs.on_ground,
     }
 }
 
@@ -408,6 +423,10 @@ fn run(options: &Options, policy: Policy, seed: u64) -> Run {
 }
 
 // ── What the record says ─────────────────────────────────────────────────────
+
+/// Standing this far above the lowest ground the player stood on is standing on
+/// raised ground (a ledge, a mount's back), not the floor.
+const STANCE_RAISED_PX: f32 = 24.0;
 
 /// One occurrence of a move: its telegraph, its strike, and the quiet after it.
 #[derive(Clone, Debug)]
@@ -527,6 +546,15 @@ fn summarize(run: &Run) -> Summary {
     // that loses its health far faster than the others is one the player skips.
     let mut damage_windows: BTreeMap<String, i32> = BTreeMap::new();
     let mut hit_sizes: Vec<i32> = Vec::new();
+    // The floor is the lowest ground the player stood on (y grows downward).
+    let floor_y = ticks
+        .iter()
+        .filter(|t| t.player_grounded)
+        .map(|t| t.player_pos.y)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let mut hit_stances: BTreeMap<String, i32> = BTreeMap::new();
+    // Every hit dealt: when, how much, where the player stood.
+    let mut hit_log: Vec<serde_json::Value> = Vec::new();
     let mut hp_lost_by_phase: BTreeMap<String, i32> = BTreeMap::new();
     let mut last_move: Option<&str> = None;
     for pair in ticks.windows(2) {
@@ -544,6 +572,20 @@ fn summarize(run: &Run) -> Summary {
             hits_dealt += 1;
             damage_dealt += a.boss_hp - b.boss_hp;
             hit_sizes.push(a.boss_hp - b.boss_hp);
+            let stance = if !a.player_grounded {
+                "air"
+            } else if a.player_pos.y < floor_y - STANCE_RAISED_PX {
+                "raised ground"
+            } else {
+                "floor"
+            };
+            let struck = a.nearest.as_deref().unwrap_or("?");
+            *hit_stances.entry(format!("{stance} -> {struck}")).or_default() += a.boss_hp - b.boss_hp;
+            hit_log.push(serde_json::json!({
+                "t": b.t, "damage": a.boss_hp - b.boss_hp, "phase": b.phase,
+                "player": [a.player_pos.x, a.player_pos.y], "grounded": a.player_grounded, "struck": struck,
+                "live": b.beat.as_ref().map(|(p, _)| p.clone()),
+            }));
             let window = match b.beat.as_ref().or(a.beat.as_ref()) {
                 Some((profile, _)) => profile.clone(),
                 None => format!("after {}", last_move.unwrap_or("nothing")),
@@ -609,6 +651,8 @@ fn summarize(run: &Run) -> Summary {
         "damage_dealt": damage_dealt,
         "damage_windows": damage_windows,
         "hit_sizes": hit_sizes,
+        "hit_stances": hit_stances,
+        "hit_log": hit_log,
         "boss_hp": [ticks.first().map_or(0, |t| t.boss_hp), ticks.last().map_or(0, |t| t.boss_hp)],
         "player_hp": [ticks.first().map_or(0, |t| t.player_hp), ticks.iter().map(|t| t.player_hp).min().unwrap_or(0), ticks.last().map_or(0, |t| t.player_hp)],
         "phases": phases,
@@ -836,12 +880,17 @@ fn report(options: &Options, all: &[(Run, Summary)]) -> String {
         }
     }
     let _ = writeln!(md, "\n## Where the player's damage landed\n");
-    let _ = writeln!(md, "The move live when the boss lost health, or the rest after one.\n");
+    let _ = writeln!(md, "The move live when the boss lost health, or the rest after one; then where the player stood (the floor, raised ground such as a ledge or a mount's back, or the air) and the nearest boss-side body it could have struck.\n");
     for (run, summary) in all {
         let windows = summary.json["damage_windows"].as_object().cloned().unwrap_or_default();
         if !windows.is_empty() {
             let list: Vec<String> = windows.iter().map(|(k, v)| format!("`{k}` {v}")).collect();
             let _ = writeln!(md, "- {} seed {}: {}", run.policy.as_str(), run.seed, list.join(", "));
+        }
+        let stances = summary.json["hit_stances"].as_object().cloned().unwrap_or_default();
+        if !stances.is_empty() {
+            let list: Vec<String> = stances.iter().map(|(k, v)| format!("`{k}` {v}")).collect();
+            let _ = writeln!(md, "  - from: {}", list.join(", "));
         }
     }
     // The choreography: the longest run shows the most of the boss's sequence.
@@ -932,6 +981,9 @@ mod tests {
             punishable: false,
             hittable: Vec::new(),
             aim: None,
+            nearest: None,
+            player_pos: ae::Vec2::ZERO,
+            player_grounded: true,
         }
     }
 

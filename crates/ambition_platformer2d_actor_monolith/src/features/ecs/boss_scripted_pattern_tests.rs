@@ -106,7 +106,7 @@ fn gnu_ton_sprite_metrics_fixture() -> ambition_sprite_sheet::ActorSpriteMetrics
         body_pixel_bbox: None,
         body_pixel_parts: Vec::new(),
         // Match what `sprite_render_size_for(catalog, giant_behavior, boss.size)`
-        // would produce for a (220, 220) spawn → GIANT_GNU_SHEET's
+        // would produce for a (220, 220) spawn → the `giant_gnu` sheet's
         // 4.5× collision_scale: render = 990×990 with aspect
         // adjustment to 1320×990 for the 768/576 frame ratio.
         sprite_render_size: ae::Vec2::new(1320.0, 990.0),

@@ -41,7 +41,7 @@ impl bevy::prelude::Plugin for WorldGatingSchedulePlugin {
                 // its sibling ON PURPOSE; see the module doc.
                 ambition_platformer2d_actor_monolith::world::gated_lock_walls::sync_authored_gated_lock_walls,
             )
-                .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
+                .in_set(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions)
                 .before(ambition_combat::hazards::HazardTickSet)
                 .in_set(
                     ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep,
@@ -56,25 +56,28 @@ mod tests {
     use bevy::prelude::App;
 
     use ambition_platformer2d_shared_tangle::schedule::{
-        FeatureWorldOverlaySet, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+        FeatureWorldOverlayContributions, Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
     };
 
-    /// Both writers of `gate_solids`, both after the overlay rebuild.
+    /// Both writers of `gate_solids`, both overlay contributors.
     ///
     /// ⛔ THE INVARIANT IS THE PAIR, not either system. Each derives seal walls
     /// onto an overlay field that `rebuild_feature_ecs_world_overlay` clears
-    /// every frame, so a writer that lost its `.after(FeatureWorldOverlaySet)`
-    /// edge would write into a list about to be cleared and its walls would
-    /// silently stop existing — no panic, no failing test, just collision that
-    /// is not there. And a writer that fell out of the plugin entirely would
-    /// take its road with it, which is the accident this plugin exists to
-    /// prevent.
+    /// every frame. `FeatureWorldOverlayContributions` runs after that rebuild
+    /// and before every body that collides with the overlay, so a writer
+    /// outside the set would write into a list about to be cleared, or after a
+    /// body already moved against last frame's walls. And a writer that fell
+    /// out of the plugin entirely would take its road with it, which is the
+    /// accident this plugin exists to prevent.
+    ///
+    /// The set's own edges are stated once, in the actor kernel, and checked in
+    /// the shipped composition by `collision_overlay_order` (app_it).
     ///
     /// ⚠ The existing `gated_lock_walls` tests register that system into their
     /// own app, so they prove the SYSTEM and say nothing about the wiring. This
     /// is the wiring.
     #[test]
-    fn both_gate_solids_writers_are_scheduled_after_the_overlay_rebuild() {
+    fn both_gate_solids_writers_are_overlay_contributors() {
         let mut app = App::new();
         app.add_plugins(super::WorldGatingSchedulePlugin);
         let sim = app.sim_schedule();
@@ -97,10 +100,10 @@ mod tests {
              a writer that fell out took its road with it"
         );
 
-        let overlay_set = graph
+        let contributions = graph
             .system_sets
-            .get_key(FeatureWorldOverlaySet.intern())
-            .expect("FeatureWorldOverlaySet must be a registered SystemSet");
+            .get_key(FeatureWorldOverlayContributions.intern())
+            .expect("FeatureWorldOverlayContributions must be a registered SystemSet");
         let world_prep = graph
             .system_sets
             .get_key(Platformer2dSimulationPhaseMonolith::WorldPrep.intern())
@@ -109,11 +112,12 @@ mod tests {
         for system in systems {
             assert!(
                 graph
-                    .dependency()
+                    .hierarchy()
                     .graph()
-                    .contains_edge(NodeId::Set(overlay_set), NodeId::System(system)),
-                "every gate_solids writer must run AFTER FeatureWorldOverlaySet — it writes \
-                 gate_solids, which the overlay rebuild clears every frame"
+                    .contains_edge(NodeId::Set(contributions), NodeId::System(system)),
+                "every gate_solids writer must be in FeatureWorldOverlayContributions — it \
+                 writes gate_solids, which the overlay rebuild clears every frame and \
+                 bodies collide with"
             );
             assert!(
                 graph

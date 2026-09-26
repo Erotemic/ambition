@@ -520,6 +520,23 @@ pub enum WorldPrepSet {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct FeatureWorldOverlaySet;
 
+/// Every system that adds geometry to the collision overlay after
+/// [`FeatureWorldOverlaySet`] clears it: lock walls, arena gates, broken
+/// bricks and monitors, settled sand.
+///
+/// The overlay is the collision world's dynamic half, and a body that moves or
+/// decides against it must read the overlay of THIS frame. So the rebuild and
+/// this set both run before [`ActorDecisionSet::Targeting`], the first
+/// `WorldPrep` phase that reads the overlay; brains, body modes and
+/// integration all follow it. A contributor joins this set and does not order
+/// against the rebuild itself: the set states both edges once.
+///
+/// Without the edge, the executor chose an order. After a room commit, a body
+/// could integrate against the overlay of the room the player had just left,
+/// and adding one unrelated system could flip which answer it got.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct FeatureWorldOverlayContributions;
+
 ///
 /// Consumers order against these sets rather than concrete system functions,
 /// which keeps cross-subsystem dependencies stable while item pickup keeps

@@ -324,6 +324,22 @@ fn configure_actor_decision_phases(app: &mut App) {
         ActorDecisionSet::Publish
             .before(ambition_platformer2d_shared_tangle::schedule::WorldPrepSet::BeforeIntegrate),
     );
+    // The collision overlay is complete before the first phase that reads it.
+    // See `FeatureWorldOverlayContributions`.
+    app.configure_sets(
+        sim,
+        ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions
+            .after(ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet)
+            .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
+    );
+    app.configure_sets(
+        sim,
+        (
+            ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlaySet,
+            ambition_platformer2d_shared_tangle::schedule::FeatureWorldOverlayContributions,
+        )
+            .before(ActorDecisionSet::Targeting),
+    );
     // ⭐⭐ THE ONE RESTRICTION PHASE, AND IT IS AFTER BOTH PUBLICATIONS (D202).
     //
     // A possessed body's `ActorControl` is written in `PlayerInputSet::Brain`, a

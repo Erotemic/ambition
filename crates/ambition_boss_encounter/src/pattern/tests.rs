@@ -128,6 +128,90 @@ fn boss_pattern_resets_cursor_on_phase_change() {
     assert!(state.step_elapsed <= 0.05 + 1e-6);
 }
 
+/// A phase that begins while the previous phase's strike is committed still
+/// shows its first telegraph and its rest for their authored lengths.
+///
+/// The strike runs to completion and the trigger starts no move while it plays,
+/// so the pattern's clock must wait for it. Measured on GNU-ton before the fix:
+/// Enrage's first `orbit` rested 0.017 s of its 0.6, and struck with no
+/// telegraph when the old strike outlasted the telegraph.
+#[test]
+fn a_new_phase_waits_for_a_committed_strike_before_its_first_telegraph() {
+    let old = BossAttackProfile::Strike("demonstrate".to_string());
+    let new = BossAttackProfile::Strike("orbit".to_string());
+    let phase2 = BossPattern {
+        steps: vec![
+            BossPatternStep::Telegraph {
+                profile: new.clone(),
+                duration: 0.8,
+                telegraph: None,
+            },
+            BossPatternStep::Strike {
+                profile: new.clone(),
+                duration: 0.4,
+            },
+            BossPatternStep::Rest { duration: 0.6 },
+        ],
+        ..Default::default()
+    };
+    let BossAttackPattern::Scripted { intro, phase1, transition, enrage, .. } =
+        scripted_two_step_phase1(old.clone())
+    else {
+        unreachable!()
+    };
+    let cfg = cfg_with(BossAttackPattern::Scripted {
+        intro,
+        phase1,
+        transition,
+        phase2,
+        enrage,
+    });
+    let mut state = BossPatternState::default();
+    let mut intent = BossAttackIntent::default();
+    let mut out = ambition_characters::actor::control::ActorControlFrame::default();
+    let dt = 0.05;
+    let mut tick = |phase, live: Option<LiveBossAttack>, state: &mut BossPatternState| {
+        let mut context = ctx(phase, dt);
+        context.live_attack = live;
+        tick_boss_pattern(&cfg, state, &context, &mut out, &mut intent);
+        intent.clone()
+    };
+    tick(BossEncounterPhase::Phase1, None, &mut state);
+
+    // Phase 2 begins with the old strike committed for another second, longer
+    // than the new telegraph.
+    let committed = LiveBossAttack {
+        profile: old,
+        striking: true,
+    };
+    for _ in 0..20 {
+        tick(BossEncounterPhase::Phase2, Some(committed.clone()), &mut state);
+    }
+    // Then the body is free: count what the pattern asks for, and for how long.
+    let (mut telegraph, mut rest) = (0.0f32, 0.0f32);
+    let mut struck = false;
+    for _ in 0..60 {
+        let asked = tick(BossEncounterPhase::Phase2, None, &mut state);
+        if asked.telegraph_profile.as_ref() == Some(&new) && !struck {
+            telegraph += dt;
+        } else if asked.active_profile.as_ref() == Some(&new) {
+            struck = true;
+        } else if struck && asked.telegraph_profile.is_none() && asked.active_profile.is_none() {
+            rest += dt;
+        } else if struck {
+            break;
+        }
+    }
+    assert!(
+        (telegraph - 0.8).abs() < dt + 1e-4,
+        "the first telegraph showed for {telegraph} s of its authored 0.8"
+    );
+    assert!(
+        (rest - 0.6).abs() < dt + 1e-4,
+        "the rest after the first strike lasted {rest} s of its authored 0.6"
+    );
+}
+
 #[test]
 fn boss_pattern_telegraph_step_updates_telegraph_profile_state() {
     let mut cfg = cfg_with(scripted_two_step_phase1(BossAttackProfile::Strike(

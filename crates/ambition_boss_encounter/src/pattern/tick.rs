@@ -192,7 +192,21 @@ fn advance_scripted(
         control_flow::enter_stance(&pattern, state, ctx, &enter, resume, &mut || rng.unit());
     }
 
-    state.step_elapsed += ctx.dt;
+    // ONE CLOCK FOR THE BEAT. A Telegraph step's clock does not run while the
+    // body still plays a DIFFERENT move: a strike committed before a phase
+    // change (or a stance entry) runs to completion, and the trigger starts no
+    // move while one plays. If the step clock ran anyway, the pattern would lead
+    // the body by what was left of that strike, so the new move's rest would be
+    // eaten and, when the lead passed the telegraph, the move would strike with
+    // no windup. So the step starts when the body is free.
+    let waits_for_the_body = matches!(
+        state.timeline.get(state.step_index),
+        Some(BossPatternStep::Telegraph { profile, .. })
+            if ctx.live_attack.as_ref().is_some_and(|live| live.profile != *profile)
+    );
+    if !waits_for_the_body {
+        state.step_elapsed += ctx.dt;
+    }
     let mut guard = 0u32;
     loop {
         guard += 1;

@@ -22,7 +22,11 @@ pub fn refresh_body_damageable_volumes(
         (
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+                bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
+            ),
             // Authored hurtboxes override the coarse body envelope.
             Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
             Option<&ambition_platformer2d_core::BodyKinematics>,
@@ -35,13 +39,14 @@ pub fn refresh_body_damageable_volumes(
         ),
     >,
 ) {
-    for (aabb, health, out_of_play, hurtboxes, kin, mut damageable) in &mut bodies {
-        // Dead bodies publish no target volume; disposition does not affect tangibility.
-        if ambition_combat::util::body_is_untouchable(health, out_of_play) {
+    for (aabb, health, (out_of_play, plane, unmirrored), hurtboxes, kin, mut damageable) in &mut bodies {
+        // Dead, out-of-play and backdrop bodies publish no target volume;
+        // disposition does not affect tangibility.
+        if ambition_combat::util::body_is_untouchable(health, out_of_play, plane) {
             damageable.clear();
             continue;
         }
-        match authored_world_volumes(hurtboxes, kin) {
+        match authored_world_volumes(hurtboxes, kin, unmirrored) {
             Some(volumes) => damageable.publish(volumes),
             None => damageable.set_single(aabb.aabb()),
         }
@@ -56,9 +61,11 @@ pub fn refresh_body_damageable_volumes(
 fn authored_world_volumes(
     hurtboxes: Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
     kin: Option<&ambition_platformer2d_core::BodyKinematics>,
+    unmirrored: bool,
 ) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
-    let volumes = resolved.world_volumes(kin.aabb().center(), kin.facing)?;
+    let side = ambition_platformer2d_core::mirror_side(kin.facing, unmirrored);
+    let volumes = resolved.world_volumes(kin.aabb().center(), side)?;
     Some(
         volumes
             .into_iter()
@@ -80,17 +87,31 @@ pub fn refresh_boss_damageable_volumes(
         Option<&ambition_combat::hurtbox_resolution::ResolvedHurtboxes>,
         Option<&ambition_platformer2d_core::BodyKinematics>,
         &mut DamageableVolumes,
+        (
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d_core::DepthPlane>,
+        ),
     )>,
 ) {
-    for (feature, health, attack_state, animation_frame, hurtboxes, kin, mut damageable) in
-        &mut bosses
+    for (
+        feature,
+        health,
+        attack_state,
+        animation_frame,
+        hurtboxes,
+        kin,
+        mut damageable,
+        (out_of_play, plane),
+    ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
-        if !health.alive() {
+        // The same participation rule every body answers: a boss out of play or
+        // behind the playable plane publishes nothing, not only a dead one.
+        if ambition_combat::util::body_is_untouchable(Some(health), out_of_play, plane) {
             damageable.clear();
             continue;
         }
-        if let Some(volumes) = authored_world_volumes(hurtboxes, kin) {
+        if let Some(volumes) = authored_world_volumes(hurtboxes, kin, feature.unmirrored) {
             damageable.publish(volumes);
             continue;
         }

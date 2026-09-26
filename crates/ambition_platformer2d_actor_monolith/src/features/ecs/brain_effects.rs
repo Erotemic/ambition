@@ -141,7 +141,10 @@ pub fn spawn_projectiles_from_brain_actions(
         // therefore bent an assisted shot toward a body nothing can hit — the
         // same defect `select_actor_targets` already carries the lesson for, one
         // authority over.
-        Has<ambition_combat::death_rules::OutOfPlay>,
+        (
+            Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d_core::DepthPlane>,
+        ),
         // ⛔ THE STABLE IDENTITY, because an exact distance tie decided by
         // `Entity` is a desync: bevy_ggrs destroys and recreates rollback
         // entities, so the raw id a resimulation sees is not the one the
@@ -286,7 +289,7 @@ pub fn spawn_projectiles_from_brain_actions(
                                 health,
                                 candidate_team,
                                 candidate_driver,
-                                out_of_play,
+                                (out_of_play, plane),
                                 _,
                             )| {
                                 *candidate != msg.actor
@@ -294,6 +297,7 @@ pub fn spawn_projectiles_from_brain_actions(
                                 && !ambition_combat::util::body_is_untouchable(
                                     Some(health),
                                     *out_of_play,
+                                    *plane,
                                 )
                                 && ambition_combat::targeting::combat_relation(
                                     matrix,

@@ -72,6 +72,8 @@ pub struct ActorSpriteData {
     /// The character the body wears: its art identity. `None` for a body that
     /// renders from a kind-default sheet.
     pub worn: Option<&'static ambition_characters::actor::WornCharacter>,
+    /// A body with no left/right variant is drawn toward `+x` whatever its facing.
+    pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -83,6 +85,8 @@ pub struct ActorAnimFrame {
     pub conversation_held: bool,
     pub barking: bool,
     pub pos: ae::Vec2,
+    /// The side the body is DRAWN toward ([`ae::mirror_side`]), not its facing:
+    /// an [`ae::Unmirrored`] body reads `+1` while it faces left.
     pub facing: f32,
     /// The authored clip the body's ACTIVE MOVE asks to be drawn as, with
     /// its fallbacks, or `None` when no move is playing.
@@ -321,7 +325,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 }),
                 barking: a.bark_gesture.is_some_and(|g| g.0 > 0.0),
                 pos: a.kin.pos,
-                facing: a.kin.facing,
+                facing: ae::mirror_side(a.kin.facing, a.unmirrored),
                 // what the ACTIVE MOVE asks to be drawn as. The move's own
                 // timeline is authoritative for presentation as well as
                 // gameplay, so this is the move speaking, not a guess about it.

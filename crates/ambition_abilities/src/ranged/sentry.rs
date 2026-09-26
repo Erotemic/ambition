@@ -220,8 +220,11 @@ pub fn update_sentries(
             &CenteredAabb,
             &ActorFaction,
             Option<&ambition_characters::actor::BodyHealth>,
-            // A body out of play is not a target.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // A body out of play, or behind the playable plane, is not a target.
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+            ),
             // Tie-break authority: two equidistant enemies are common, and
             // query order must not decide.
             Option<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
@@ -285,10 +288,10 @@ pub fn update_sentries(
                 // through its driver. Same answer as the strike resolver.
                 // Not widened to `can_damage`: which classes a sentry engages
                 // (Enemy, not Npc/Boss/Neutral) is a separate design question.
-                .filter(|(_, f, health, out_of_play, _, driver)| {
+                .filter(|(_, f, health, (out_of_play, plane), _, driver)| {
                     ambition_combat::targeting::effective_faction(**f, *driver)
                         == ActorFaction::Enemy
-                        && !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
+                        && !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
                 })
                 .filter(|(aabb, _, _, _, _, _)| aabb.center.distance(sentry.pos) <= SENTRY_RANGE),
             |(aabb, _, _, _, _, _)| aabb.center.distance_squared(sentry.pos),

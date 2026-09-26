@@ -240,8 +240,9 @@ pub fn tick_actor_brains(
     // law, which is exactly what `LaunchLaw::default()` means.
     combat_rules: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
     mut decisions: ResMut<ActorDecisionFrames>,
-    // Any body's collision extent, read-only: a rider's mount, for its width.
-    bodies: Query<&ae::BodyKinematics>,
+    // Any body's collision extent, read-only: a rider's mount, for its width,
+    // and whether turning it mirrors it at all.
+    bodies: Query<(&ae::BodyKinematics, bevy::prelude::Has<ae::Unmirrored>)>,
     mut actors: Query<
         (
             Entity,
@@ -260,7 +261,8 @@ pub fn tick_actor_brains(
             // so dynamically-spawned actors without a set still tick.
             Option<&ambition_characters::brain::ActionSet>,
             // A rider's mount takes its facing, so the body that turns when this
-            // brain turns is the mount's. See `BrainSnapshot::actor_half_width`.
+            // brain turns is the mount's, when the mount mirrors. See
+            // `BrainSnapshot::actor_half_width`.
             Option<&ambition_mount::RidingOn>,
             (
                 // The generated read-only view of the COMPLETE actor cluster.
@@ -518,7 +520,9 @@ pub fn tick_actor_brains(
                                 rules: *rules,
                             }),
                     );
-                    if let Some(mount) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
+                    // An `Unmirrored` mount shows no turn, so its rider turns
+                    // by its own box.
+                    if let Some((mount, false)) = riding.and_then(|riding| bodies.get(riding.mount).ok()) {
                         snapshot.actor_half_width = snapshot.actor_half_width.max(mount.size.x * 0.5);
                     }
                     // WHERE THIS WALKER'S GROUND RUNS OUT, asked only for a body

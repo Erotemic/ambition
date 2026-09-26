@@ -92,6 +92,8 @@ pub struct BossRef<'a> {
     pub kin: &'a BodyKinematics,
     pub config: &'a BossConfig,
     pub status: &'a BossEncounter,
+    /// The boss declared [`ae::Unmirrored`]; see [`BossRef::drawn_side`].
+    pub unmirrored: bool,
 }
 
 /// Mutable borrow view over the boss clusters. Hosts the integration /
@@ -100,6 +102,7 @@ pub struct BossMut<'a> {
     pub kin: &'a mut BodyKinematics,
     pub config: &'a mut BossConfig,
     pub status: &'a mut BossEncounter,
+    pub unmirrored: bool,
 }
 
 impl<'a> BossRef<'a> {
@@ -117,11 +120,18 @@ impl<'a> BossRef<'a> {
         self.kin.size
     }
 
+    /// The side the boss is drawn and shaped toward: its sprite, off-centre
+    /// envelope and attack/hurt volumes all mirror by this, never by
+    /// `kin.facing` directly. `+1` always for an [`ae::Unmirrored`] boss.
+    pub fn drawn_side(&self) -> f32 {
+        ae::mirror_side(self.kin.facing, self.unmirrored)
+    }
+
     /// World offset from `kin.pos` to the body's bounding-AABB center.
     /// Non-zero for bosses whose sprite metadata reports an off-center
     /// body bbox; `ZERO` otherwise.
     ///
-    /// Mirrored horizontally when the boss faces left: the sprite flips to face
+    /// Mirrored by [`Self::drawn_side`]: the sprite flips to face
     /// the player, so an off-center body's collision/contact envelope must flip
     /// with it (otherwise it lands on the wrong side). No-op for a centered body
     /// (`combat_offset.x == 0`).
@@ -132,11 +142,7 @@ impl<'a> BossRef<'a> {
             .as_ref()
             .map(|m| m.combat_offset)
             .unwrap_or(ae::Vec2::ZERO);
-        if self.kin.facing < 0.0 {
-            ae::Vec2::new(-raw.x, raw.y)
-        } else {
-            raw
-        }
+        ae::Vec2::new(raw.x * self.drawn_side(), raw.y)
     }
 
     pub fn aabb(&self) -> ae::Aabb {
@@ -166,6 +172,7 @@ impl<'a> BossMut<'a> {
             kin: self.kin,
             config: self.config,
             status: self.status,
+            unmirrored: self.unmirrored,
         }
     }
 
@@ -204,6 +211,7 @@ pub struct BossClusterQueryData {
     pub kin: &'static mut BodyKinematics,
     pub config: &'static mut BossConfig,
     pub status: &'static mut BossEncounter,
+    pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
 }
 
 impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
@@ -216,6 +224,7 @@ impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
             kin: &mut self.kin,
             config: &mut self.config,
             status: &mut self.status,
+            unmirrored: self.unmirrored,
         }
     }
 
@@ -230,6 +239,7 @@ impl<'w, 's> BossClusterQueryDataItem<'w, 's> {
             kin: &self.kin,
             config: &self.config,
             status: &self.status,
+            unmirrored: self.unmirrored,
         }
     }
 }
@@ -239,6 +249,7 @@ pub struct BossClusterRef {
     pub kin: &'static BodyKinematics,
     pub config: &'static BossConfig,
     pub status: &'static BossEncounter,
+    pub unmirrored: bevy::prelude::Has<ae::Unmirrored>,
 }
 
 impl<'w, 's> BossClusterRefItem<'w, 's> {
@@ -247,6 +258,7 @@ impl<'w, 's> BossClusterRefItem<'w, 's> {
             kin: self.kin,
             config: self.config,
             status: self.status,
+            unmirrored: self.unmirrored,
         }
     }
 }
@@ -339,6 +351,7 @@ impl BossClusterScratch {
             kin: &mut self.kin,
             config: &mut self.config,
             status: &mut self.status,
+            unmirrored: false,
         }
     }
 
@@ -347,6 +360,9 @@ impl BossClusterScratch {
             kin: &self.kin,
             config: &self.config,
             status: &self.status,
+            // A scratch aggregate spawns no `Unmirrored`: only a live boss
+            // that was given one declares it.
+            unmirrored: false,
         }
     }
 

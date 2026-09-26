@@ -416,6 +416,9 @@ pub fn sync_riders_to_mounts(
             &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
             &ae::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
+            // A mount with no left/right variant keeps its saddle where it is
+            // drawn, whichever way it faces.
+            bevy::prelude::Has<ae::Unmirrored>,
         ),
         With<MountSlot>,
     >,
@@ -431,7 +434,7 @@ pub fn sync_riders_to_mounts(
         mut rider_sweep,
     ) in &mut riders
     {
-        let Ok((mountable, mount_frame, mount_kin, mount_health)) = mounts.get(riding.mount) else {
+        let Ok((mountable, mount_frame, mount_kin, mount_health, mount_unmirrored)) = mounts.get(riding.mount) else {
             continue;
         };
         if !mount_health.alive() || !rider_health.alive() {
@@ -451,7 +454,11 @@ pub fn sync_riders_to_mounts(
         // The saddle offset is authored in the mount's local frame; rotate it into
         // world space by the pair's gravity frame. See `saddle_world_offset`.
         let frame = mount_frame.basis();
-        let rider_local = saddle_world_offset(mountable.rider_offset, mount_kin.facing, frame);
+        let rider_local = saddle_world_offset(
+            mountable.rider_offset,
+            ae::mirror_side(mount_kin.facing, mount_unmirrored),
+            frame,
+        );
         // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
         // the mount owns the rider's pose while mounted.
         ae::movement::constrain_body_pose(

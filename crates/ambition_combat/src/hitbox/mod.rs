@@ -436,6 +436,8 @@ pub struct StrikeVictim {
     /// has had `health.reset()` called on it already, so it reads ALIVE for the
     /// whole interlude while being explicitly out of the fight.
     pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
+    /// A backdrop body is out of reach (`ae::DepthPlane`).
+    pub plane: Option<&'static ambition_platformer2d_core::DepthPlane>,
     /// Knockback weight (CM1). Absent  the reference weight `1.0`.
     pub tuning: Option<&'static super::components::CombatTuning>,
     /// Outranks faction for "may this land": two humans share a faction, so a
@@ -507,7 +509,7 @@ impl StrikeVictimItem<'_, '_> {
     /// A dead body, or one the world has its hands off, is intangible — the
     /// strike passes through it.
     pub fn is_corpse(&self) -> bool {
-        crate::util::body_is_untouchable(self.health, self.out_of_play)
+        crate::util::body_is_untouchable(self.health, self.out_of_play, self.plane)
     }
 
     /// This body published NO hurtbox: nothing can reach it.

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v232
+ggrs-rollback-schema-v233
 ability.bomb_fuse	component-clone	BombFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.gravity_grenade_fuse	component-clone	GravityGrenadeFuse	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 ability.player_mark	component-clone	PlayerMark	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -80,6 +80,7 @@ body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapsh
 body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.contact	component-clone	BodyContact	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 body.dash	component-canonical	BodyDashState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.depth_plane	component-canonical	DepthPlane	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.dodge	component-canonical	BodyDodgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.flight	component-canonical	BodyFlightState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.ground	component-canonical	BodyGroundState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -91,6 +92,7 @@ body.restart_latch	component-canonical	BodyRestartLatch	bevy_ggrs canonical code
 body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.unmirrored	component-canonical	Unmirrored	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 boss.attack_intent	component-canonical	BossAttackIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

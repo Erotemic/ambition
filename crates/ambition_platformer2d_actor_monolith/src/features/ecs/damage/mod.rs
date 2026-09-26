@@ -451,7 +451,10 @@ pub fn apply_feature_hit_events(
                 // either way, and prepared match construction makes every
                 // fighter Hostile. So a fighter waiting out its death beat took
                 // ordinary damage and carried the percent into its next stock.
-                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                (
+                    bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                    Option<&'static ambition_platformer2d_core::DepthPlane>,
+                ),
             ),
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
@@ -487,7 +490,10 @@ pub fn apply_feature_hit_events(
             // CM8: the boss's own hurt reaction (ENEMY default).
             Option<&ambition_combat::CombatTuning>,
             // The world's hands are off it — the same gate the actor road takes.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&'static ambition_platformer2d_core::DepthPlane>,
+            ),
         ),
         (
             With<FeatureSimEntity>,
@@ -701,7 +707,7 @@ pub fn apply_feature_hit_events(
             mut motion_model,
             wallet_shield,
             mut cq,
-            (combat_tuning, ruleset_owns_death, active_combatant, out_of_play),
+            (combat_tuning, ruleset_owns_death, active_combatant, (out_of_play, plane)),
         ) in actors.iter_mut().filter(|_| !bodies_already_resolved)
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
@@ -747,7 +753,7 @@ pub fn apply_feature_hit_events(
             // tangibility, so the peaceful branch (which has no alive check of its
             // own) is covered too; `resolve_body_hit`'s alive check remains as
             // last-line defense.
-            if ambition_combat::util::body_is_untouchable(Some(&*em.health), out_of_play) {
+            if ambition_combat::util::body_is_untouchable(Some(&*em.health), out_of_play, plane) {
                 continue;
             }
             let hurt = combat_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();
@@ -833,7 +839,7 @@ pub fn apply_feature_hit_events(
             wallet_shield,
             boss_damageable,
             boss_tuning,
-            boss_out_of_play,
+            (boss_out_of_play, boss_plane),
         ) in bosses.iter_mut().filter(|_| actor_target.is_none())
         {
             if feature_target.is_some_and(|named| named != boss_entity) {
@@ -848,7 +854,7 @@ pub fn apply_feature_hit_events(
             // Structural tangibility gate: a defeated boss is intangible — no hit
             // lands and no bark answers. (`apply_boss_hit` also guards on `alive()`
             // as defense-in-depth.)
-            if ambition_combat::util::body_is_untouchable(Some(&*health), boss_out_of_play) {
+            if ambition_combat::util::body_is_untouchable(Some(&*health), boss_out_of_play, boss_plane) {
                 continue;
             }
             let hurt = boss_tuning.map(|ct| ct.hurt_feedback).unwrap_or_default();

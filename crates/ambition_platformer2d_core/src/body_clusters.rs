@@ -562,6 +562,68 @@ pub struct BodyBlinkState {
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
 pub struct BodyLineAnchor(pub crate::Vec2);
 
+/// The depth plane a body stands in. `0` (the default, and what an absent
+/// component means) is the PLAYABLE plane; negative is behind it, the sign the
+/// surface depth lanes use.
+///
+/// A body outside the playable plane is scenery to combat. No swing, pogo,
+/// projectile, contact, capture, footstool or target selection reaches it. It
+/// still moves, stands on the floor and is drawn.
+///
+/// Jon, 2026-09-25, on the giant gnu that carries GNU-ton: *"an engine concept
+/// for a character in a different z-plane, where that's where the body might
+/// be, which would prevent a swing that would otherwise cause a hit or a pogo
+/// to not hit on the gnu body (as it isn't taking damage anyway)"*.
+///
+/// ⭐ Asked in ONE place: `ambition_combat::util::body_is_untouchable`, the
+/// participation rule every combat boundary already consults. It is not
+/// invulnerability, which answers the narrower question of whether a hit that
+/// reached a body may hurt it. The gnu was invulnerable and still took the
+/// swing and gave the pogo.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DepthPlane(pub i8);
+
+impl DepthPlane {
+    /// Where the fight happens.
+    pub const PLAYABLE: Self = Self(0);
+    /// Just behind it: a backdrop body.
+    pub const BEHIND: Self = Self(-1);
+
+    pub fn is_playable(self) -> bool {
+        self.0 == 0
+    }
+}
+
+/// A body with no left/right variant: turning never mirrors it.
+///
+/// Its `kin.facing` still turns (a rider takes its mount's facing, a brain faces
+/// its target). What that facing would MIRROR asks [`mirror_side`] instead and
+/// gets `+1`: the drawn sprite (actor pose index, boss frame), authored
+/// hurtboxes, a boss's off-centre envelope and volumes, a move's playback and
+/// lunge on both start roads (`start_move`, the boss tick), and a rider's
+/// saddle. A rider of one turns by its OWN width, since the mount shows no turn.
+///
+/// ⚠ Not yet asked: where a WIELDED item sits in the hand
+/// (`rider_hand_world_pos`, the held-item facts). Nothing unmirrored wields.
+///
+/// Jon, 2026-09-25: *"The gnu itself likely should also never change left /
+/// right in terms of horizontal flips. The engine should have a concept so a
+/// body can declare that it doesn't horizontally reflect for left/right
+/// variants."*
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Unmirrored;
+
+/// The side a body is DRAWN and SHAPED toward: `+1` or `-1` from its facing,
+/// and always `+1` for an [`Unmirrored`] body. A site that mirrors by
+/// `kin.facing` directly is one an unmirrored body can still be turned by.
+pub fn mirror_side(facing: f32, unmirrored: bool) -> f32 {
+    if unmirrored || facing >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
 /// Ledge re-grab cooldown (a time fact, shared with combat's knock-off rule).
 /// The hang / pull-up state itself is axis maneuver state
 /// ([`crate::movement::AxisManeuverState::ledge_grab`]); combat knocks a body

@@ -30,6 +30,8 @@ pub struct FootstoolBody {
     /// fighter waiting out its death beat has already had `health.reset()`
     /// called on it, so it reads ALIVE for the whole interlude.
     pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
+    /// A backdrop body is out of reach (`ae::DepthPlane`).
+    pub plane: Option<&'static ambition_platformer2d_core::DepthPlane>,
     pub team: Option<&'static crate::targeting::MatchTeam>,
     pub control: Option<&'static ambition_characters::control::ActorControl>,
     /// The swing, read ONLY to ask whether this body is mid-move — see the
@@ -115,7 +117,7 @@ pub fn claim_footstools(
                 continue;
             }
             if stomper.ground.on_ground
-                || crate::util::body_is_untouchable(Some(stomper.health), stomper.out_of_play)
+                || crate::util::body_is_untouchable(Some(stomper.health), stomper.out_of_play, stomper.plane)
             {
                 continue;
             }
@@ -133,7 +135,7 @@ pub fn claim_footstools(
 
             for victim in decide.iter() {
                 if victim.entity == stomper.entity
-                    || crate::util::body_is_untouchable(Some(victim.health), victim.out_of_play)
+                    || crate::util::body_is_untouchable(Some(victim.health), victim.out_of_play, victim.plane)
                 {
                     continue;
                 }

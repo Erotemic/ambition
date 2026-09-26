@@ -87,7 +87,10 @@ pub fn interact_ecs_actors_and_switches(
             &ActorIdentity,
             &ActorInteraction,
             Option<&ambition_characters::actor::BodyHealth>,
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+            ),
         ),
         With<FeatureSimEntity>,
     >,
@@ -140,7 +143,7 @@ pub fn interact_ecs_actors_and_switches(
             interactions.get(subject).ok(),
             identities.get(subject).ok(),
         );
-        for (actor_entity, aabb, disposition, identity, interaction_payload, health, out_of_play) in
+        for (actor_entity, aabb, disposition, identity, interaction_payload, health, (out_of_play, plane)) in
             &actors
         {
             let Some(speaker_id) = speaker_id.as_deref() else {
@@ -149,7 +152,7 @@ pub fn interact_ecs_actors_and_switches(
             // A hostile actor gates dialogue off; a dead one is an intangible corpse
             // and cannot be talked to.
             if disposition.is_hostile()
-                || ambition_combat::util::body_is_untouchable(health, out_of_play)
+                || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
             {
                 continue;
             }

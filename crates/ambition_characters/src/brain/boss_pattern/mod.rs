@@ -1033,7 +1033,7 @@ pub struct BossPatternContext {
     /// the bucket then never holds.
     pub actor_facing: f32,
     /// Half the side extent of the body that turns when this boss turns — its
-    /// own collision box, or its mount's when it rides one. The boss faces its
+    /// own collision box, or its mount's when it rides one that mirrors. The boss faces its
     /// target by [`crate::brain::face_toward`] with this band. `0.0` (the
     /// default) leaves the minimum band.
     pub actor_half_width: f32,

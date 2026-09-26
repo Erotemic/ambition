@@ -32,7 +32,8 @@ pub fn boss_anim_state_for(
             .as_ref()
             .and_then(boss_anim_for_attack_profile),
         pattern_timer,
-        facing: boss.kin.facing,
+        // Drawn side, not facing: an `Unmirrored` boss is drawn toward +x.
+        facing: boss.drawn_side(),
         pos: boss.kin.pos,
     }
 }

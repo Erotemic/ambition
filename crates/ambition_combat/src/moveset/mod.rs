@@ -2988,6 +2988,8 @@ pub fn trigger_moveset_moves(
             // that hold a body are ones this crate does not depend on and should
             // not. See `MoveGates::forbidden_while_held`.
             bevy::prelude::Has<ambition_platformer2d_core::PoseOwnedExternally>,
+            // A body with no left/right variant plays every move toward `+x`.
+            bevy::prelude::Has<ambition_platformer2d_core::Unmirrored>,
         ),
     )>,
     // WHO IS HOLDING SOMEBODY. The inverse of `CapturedBy`, and the reason
@@ -3064,7 +3066,7 @@ pub fn trigger_moveset_moves(
         action_set,
         // ⚠ `body_is_held` is NOT `held` above, which is the item in this body's
         // HAND. This one is whether the BODY is held.
-        (mut gesture_state, gesture_tuning, body_is_held),
+        (mut gesture_state, gesture_tuning, body_is_held, unmirrored),
     ) in &mut bodies
     {
         // The weapon this body would spend if the move it starts fires one.
@@ -3724,8 +3726,11 @@ pub fn trigger_moveset_moves(
             // could not choose between turnaround-B, B-reverse and wavebounce.
             // A flick during the window this move just opened is what buys it:
             // see `apply_special_turn_flicks`.
+            // The move is SHAPED toward the drawn side: its lunge, and below
+            // its volumes. For a mirrored body that is its facing.
+            let side = ae::mirror_side(kin.facing, unmirrored);
             if let Some((ix, iy)) = spec.start_impulse {
-                let local = ae::Vec2::new(ix * kin.facing, iy);
+                let local = ae::Vec2::new(ix * side, iy);
                 let world_impulse = body_frame.to_world(local);
                 let before = kin.vel;
                 kin.vel += world_impulse;
@@ -3757,7 +3762,7 @@ pub fn trigger_moveset_moves(
                 // right — so there is one source and this is not it.
                 occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
-                facing: kin.facing,
+                facing: side,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 aimed_stick: press_aimed_stick,
                 started_by,
@@ -3836,8 +3841,11 @@ pub fn trigger_moveset_moves(
             // Self-motion: a body-local impulse mirrored by facing and rotated
             // into the owner's gravity frame (a jab's lunge stays "forward"
             // under any gravity). Identity when the move authors none.
+            // The move is SHAPED toward the drawn side: its lunge, and below
+            // its volumes. For a mirrored body that is its facing.
+            let side = ae::mirror_side(kin.facing, unmirrored);
             if let Some((ix, iy)) = spec.start_impulse {
-                let local = ae::Vec2::new(ix * kin.facing, iy);
+                let local = ae::Vec2::new(ix * side, iy);
                 let world_impulse = body_frame.to_world(local);
                 let before = kin.vel;
                 kin.vel += world_impulse;
@@ -3878,7 +3886,7 @@ pub fn trigger_moveset_moves(
                 // present. That is why it is on the body.
                 occurrence: MoveOccurrence::next(occurrences.get(entity).ok()),
                 spec,
-                facing: kin.facing,
+                facing: side,
                 aim: control.0.fire.map(|req| (req.dir, req.dir_policy)),
                 aimed_stick: press_aimed_stick,
                 started_by,

@@ -13,6 +13,8 @@ use ambition_platformer2d::boss_encounter::BossConfig;
 use ambition_platformer2d::characters::actor::{BodyHealth, Invulnerability, Limb, LimbRig};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayerOnly;
+use ambition_platformer2d::combat::components::FeatureId;
+use ambition_platformer2d::sim_view::ActorAnimIndex;
 use bevy::prelude::*;
 
 const ARENA: &str = "gnu_ton_arena";
@@ -60,6 +62,9 @@ struct Scene {
     performing: Option<(Move, bool)>,
     floor: f32,
     giant: ae::BodyKinematics,
+    giant_unmirrored: bool,
+    /// The side the gnu is drawn toward, from the presentation read-model.
+    giant_drawn_side: f32,
     /// Left fist first: body, health, max health.
     fists: Vec<(ae::BodyKinematics, i32, i32)>,
 }
@@ -79,12 +84,17 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
             )
         })
         .expect("GNU-ton is in the arena, conducted");
-    let (giant, rig) = world
-        .query_filtered::<(&ae::BodyKinematics, &LimbRig), Without<Limb>>()
+    let (giant, rig, giant_unmirrored, giant_id) = world
+        .query_filtered::<(&ae::BodyKinematics, &LimbRig, Has<ae::Unmirrored>, &FeatureId), Without<Limb>>()
         .iter(world)
         .next()
-        .map(|(kin, rig)| (kin.clone(), rig.clone()))
+        .map(|(kin, rig, unmirrored, id)| (kin.clone(), rig.clone(), unmirrored, id.clone()))
         .expect("the giant gnu is in the arena");
+    let giant_drawn_side = world
+        .resource::<ActorAnimIndex>()
+        .get(giant_id.as_str())
+        .expect("the gnu has a pose row: it is drawn")
+        .facing;
     let mut fists: Vec<_> = rig
         .limbs
         .values()
@@ -95,12 +105,14 @@ fn scene(sim: &mut Platformer2dSimHarness) -> Scene {
         })
         .collect();
     fists.sort_by(|a, b| a.0.pos.x.total_cmp(&b.0.pos.x));
-    Scene { scholar, scholar_hp, performing, floor, giant, fists }
+    Scene { scholar, scholar_hp, performing, floor, giant, giant_unmirrored, giant_drawn_side, fists }
 }
 
+/// The scholar's seat from the gnu's centre, as the gnu is drawn.
+const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -67.0);
+
 fn saddle(s: &Scene) -> ae::Vec2 {
-    let side = if s.giant.facing < 0.0 { -1.0 } else { 1.0 };
-    s.giant.pos + ae::Vec2::new(50.0 * side, -67.0)
+    s.giant.pos + ae::Vec2::new(SEAT.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), SEAT.y)
 }
 
 fn on_floor(kin: &ae::BodyKinematics, floor: f32) -> bool {
@@ -214,7 +226,8 @@ fn his_own_fists_never_hurt_him() {
 fn you_can_stand_on_the_giants_shoulders_until_it_bucks() {
     let mut sim = arena();
     untouchable_player(&mut sim);
-    let back = back_platform(&scene(&mut sim).giant);
+    let s = scene(&mut sim);
+    let back = back_platform(&s.giant, s.giant_unmirrored);
     let spot = ae::Vec2::new((back.min.x + back.max.x) * 0.5 - 60.0, back.min.y - 40.0);
     place_player(&mut sim, spot);
     for _ in 0..20 {
@@ -247,47 +260,54 @@ fn eureka_puts_him_on_the_floor_and_he_climbs_back() {
     });
 }
 
-/// The gnu turns when you are past its flank, and not while you are under it.
+/// The scholar turns to face you; the gnu under him has no left/right variant,
+/// so nothing of it moves when he does.
 ///
-/// The scholar rides and the gnu takes his facing, so the scholar turned by his
-/// own 68 px body and spun the 440 px gnu — its back, its fists — every time the
-/// player crossed his centre line. The band is the gnu's width.
+/// He steers the gnu's facing (a rider's mount takes it), so every turn of his
+/// spun the 440 px gnu, the back you stand on and his own saddle. The gnu is
+/// `Unmirrored`: its facing is still a fact, and mirrors nothing. With nothing
+/// to spin he turns by his own box, and watches a player standing under him.
 #[test]
-fn the_gnu_does_not_turn_while_you_stand_under_it() {
+fn the_scholar_turns_and_the_gnu_under_him_does_not() {
     let mut sim = arena();
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
+    assert!(s.giant_unmirrored, "the gnu declares no left/right variant");
     let (player_kin, _) = player(&mut sim);
     let stand = |x: f32| ae::Vec2::new(x, s.floor - player_kin.size.y * 0.5 - 1.0);
     let half = s.giant.size.x * 0.5;
     assert!(half > 150.0, "the premise is a giant: its body is {} wide", s.giant.size.x);
+    // What a turn could move, relative to the gnu: the side it is drawn toward,
+    // its back, and the saddle while he sits in it.
+    let drawn = |s: &Scene| {
+        let back = back_platform(&s.giant, s.giant_unmirrored);
+        (s.giant_drawn_side, back.min.x - s.giant.pos.x, back.max.x - s.giant.pos.x)
+    };
+    let before = drawn(&s);
+    assert_eq!(before.0, 1.0, "the gnu is drawn as authored, facing right");
 
-    // Past its left flank: it faces left.
-    place_player(&mut sim, stand(s.giant.pos.x - half - 120.0));
-    step_until(&mut sim, 120, "the gnu to face a player past its left flank", |sim| scene(sim).giant.facing < 0.0);
-
-    // Under it, either side of the scholar's centre line. Each side is held long
-    // enough for a turn to reach the gnu through the rider.
-    let scholar_x = scene(&mut sim).scholar.pos.x;
-    let mut turns = 0;
-    let mut facing = scene(&mut sim).giant.facing;
-    for x in [scholar_x + 90.0, scholar_x - 90.0, scholar_x + 90.0, scholar_x - 90.0] {
-        assert!((x - s.giant.pos.x).abs() < half, "{x} is under the gnu");
+    let scholar_x = s.scholar.pos.x;
+    let mut seen = Vec::new();
+    for x in [s.giant.pos.x - half - 120.0, scholar_x + 60.0, scholar_x - 60.0, s.giant.pos.x + half + 120.0] {
         place_player(&mut sim, stand(x));
-        for _ in 0..30 {
+        for frame in 0..40 {
             sim.step(AgentAction::default());
-            let now = scene(&mut sim).giant.facing;
-            if now != facing {
-                turns += 1;
-                facing = now;
+            let s = scene(&mut sim);
+            assert_eq!(drawn(&s), before, "frame {frame} with the player at {x}: a turn moved the gnu");
+            if s.performing.is_none() {
+                let seat = s.scholar.pos - s.giant.pos;
+                assert!((seat - SEAT).length() < 1.0, "frame {frame}: he sits at {seat:?}, the saddle is {SEAT:?}");
             }
         }
+        let s = scene(&mut sim);
+        seen.push((x - scholar_x, s.scholar.facing, s.giant.facing));
     }
-    assert_eq!(turns, 0, "the gnu turned {turns} times while the player stood under it");
-
-    // Past its right flank: it still turns.
-    place_player(&mut sim, stand(s.giant.pos.x + half + 120.0));
-    step_until(&mut sim, 120, "the gnu to face a player past its right flank", |sim| scene(sim).giant.facing > 0.0);
+    // The premise the stillness is measured against: he turned toward the
+    // player each time, under the gnu too, and the gnu's facing went with him.
+    for (dx, scholar, giant) in &seen {
+        assert!(dx.signum() == scholar.signum(), "player {dx:+} from him, he faces {scholar}: {seen:?}");
+        assert_eq!(scholar, giant, "the gnu takes his facing: {seen:?}");
+    }
 }
 
 /// Entering the arena, the fists start where they stand and stay at the giant.
@@ -361,4 +381,35 @@ fn entering_the_arena_the_fists_start_where_they_stand() {
         }
         last = now;
     }
+}
+
+/// The gnu is behind the playable plane: it publishes no volume a swing, a pogo
+/// or a shot could reach, all fight long.
+///
+/// It was invulnerable instead, which refused the damage and still took the
+/// swing and gave the pogo (MEASURED by `fight_discovery`: hittable 100% of the
+/// fight). Jon: "prevent a swing that would otherwise cause a hit or a pogo".
+#[test]
+fn nothing_can_strike_the_gnu() {
+    let mut sim = arena();
+    for frame in 0..180 {
+        sim.step(AgentAction::default());
+        let world = sim.world_mut();
+        let (plane, volumes) = world
+            .query_filtered::<(Option<&ae::DepthPlane>, &ambition_platformer2d::combat::components::DamageableVolumes), (With<LimbRig>, Without<Limb>)>()
+            .iter(world)
+            .next()
+            .map(|(plane, volumes)| (plane.copied(), volumes.volumes.len()))
+            .expect("the giant is in the arena with a damageable record");
+        assert_eq!(plane, Some(ae::DepthPlane::BEHIND), "frame {frame}: the gnu stands behind the fight");
+        assert_eq!(volumes, 0, "frame {frame}: the gnu published {volumes} damageable volume(s)");
+    }
+    // The control: the fists and the scholar are still in the fight.
+    let world = sim.world_mut();
+    let reachable = world
+        .query_filtered::<&ambition_platformer2d::combat::components::DamageableVolumes, With<Limb>>()
+        .iter(world)
+        .filter(|volumes| !volumes.volumes.is_empty())
+        .count();
+    assert!(reachable > 0, "the fists stay reachable; only the gnu stepped back");
 }

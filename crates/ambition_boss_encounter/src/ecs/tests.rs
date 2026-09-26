@@ -285,3 +285,30 @@ fn front_wall_clearance_reports_side_wall_in_direction_of_player() {
         None
     );
 }
+
+/// A boss with no left/right variant is drawn, and so shaped, toward `+x`
+/// whichever way it faces: its off-centre envelope stays on the side its art is.
+#[test]
+fn an_unmirrored_boss_is_shaped_the_way_it_is_drawn() {
+    let mut boss = crate::BossClusterScratch::new(
+        crate::test_boss_catalog(),
+        "boss_backdrop",
+        "Backdrop",
+        ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(40.0, 40.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    boss.status.sprite_metrics = Some(ambition_sprite_sheet::ActorSpriteMetrics {
+        combat_offset: ae::Vec2::new(12.0, -3.0),
+        ..Default::default()
+    });
+    boss.kin.facing = -1.0;
+    let shaped = |unmirrored| {
+        let view = crate::BossRef {
+            unmirrored,
+            ..boss.as_ref()
+        };
+        (view.drawn_side(), view.combat_offset())
+    };
+    assert_eq!(shaped(false), (-1.0, ae::Vec2::new(-12.0, -3.0)), "a boss that mirrors turns");
+    assert_eq!(shaped(true), (1.0, ae::Vec2::new(12.0, -3.0)), "one that does not stays drawn");
+}

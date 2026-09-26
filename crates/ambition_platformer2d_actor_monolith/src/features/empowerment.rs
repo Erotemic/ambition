@@ -192,7 +192,10 @@ pub fn apply_contact_harm(
         Option<&ambition_combat::targeting::MatchTeam>,
         // The world's hands are off this body — a contact-harm empowerment does
         // not reach it either.
-        bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+        (
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d_core::DepthPlane>,
+        ),
     )>,
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
 ) {
@@ -213,13 +216,13 @@ pub fn apply_contact_harm(
             shield,
             combat,
             victim_team,
-            victim_out_of_play,
+            (victim_out_of_play, victim_plane),
         ) in &victims
         {
             if victim == striker {
                 continue;
             }
-            if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play) {
+            if ambition_combat::util::body_is_untouchable(Some(victim_health), victim_out_of_play, victim_plane) {
                 continue;
             }
             if !ambition_combat::targeting::damage_lands_between(

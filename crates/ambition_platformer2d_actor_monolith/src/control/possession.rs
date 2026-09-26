@@ -168,7 +168,10 @@ pub fn possession_trigger_system(
             &CenteredAabb,
             Option<&ambition_characters::actor::BodyHealth>,
             // The world's hands are off this body — it is not a target either.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+            ),
             // ⭐ THE TIE-BREAK. Two candidates equidistant from the home body is
             // an ordinary arrangement, and picking between them by Bevy query
             // order is picking by archetype order — which differs between a live
@@ -239,8 +242,8 @@ pub fn possession_trigger_system(
             // Structural tangibility gate: a dead body is an
             // intangible corpse — you cannot possess a corpse. Excluded BEFORE
             // distance selection so a nearer corpse never shadows a farther live body.
-            .filter(|(_, _, health, out_of_play, _)| {
-                !ambition_combat::util::body_is_untouchable(*health, *out_of_play)
+            .filter(|(_, _, health, (out_of_play, plane), _)| {
+                !ambition_combat::util::body_is_untouchable(*health, *out_of_play, *plane)
             })
             .map(|(entity, aabb, _, _, id)| (entity, (aabb.center - home_pos).length(), id))
             .filter(|(_, dist, _)| *dist <= POSSESS_RADIUS),

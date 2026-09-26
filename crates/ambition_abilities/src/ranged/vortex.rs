@@ -192,8 +192,11 @@ pub fn update_vortex_wells(
             Option<&mut ae::SweepSample>,
             &ActorFaction,
             Option<&ambition_characters::actor::BodyHealth>,
-            // A body out of play is not a target.
-            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+            // A body out of play, or behind the playable plane, is not a target.
+            (
+                bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
+                Option<&ambition_platformer2d_core::DepthPlane>,
+            ),
             // Whether a participant drives this body, which decides its
             // effective side. See the filter below.
             Option<&ambition_characters::control::DrivingParticipant>,
@@ -228,7 +231,7 @@ pub fn update_vortex_wells(
         let Ok((entity, mut well)) = wells.get_mut(entity) else {
             continue;
         };
-        for (mut kin, mut sweep, faction, health, out_of_play, driver) in &mut actors {
+        for (mut kin, mut sweep, faction, health, (out_of_play, plane), driver) in &mut actors {
             // Use the effective faction, not the authored one: a possessed NPC
             // keeps `ActorFaction::Enemy` and moves its side through the
             // driver, so the authored field would pull the player's own body.
@@ -236,7 +239,7 @@ pub fn update_vortex_wells(
             // A dead enemy is an intangible corpse; the well does not drag it.
             if ambition_combat::targeting::effective_faction(*faction, driver)
                 != ActorFaction::Enemy
-                || ambition_combat::util::body_is_untouchable(health, out_of_play)
+                || ambition_combat::util::body_is_untouchable(health, out_of_play, plane)
             {
                 continue;
             }

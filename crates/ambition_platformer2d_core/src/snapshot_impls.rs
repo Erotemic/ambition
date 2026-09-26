@@ -89,6 +89,25 @@ impl SnapshotState for crate::AbilitySet {
 /// The host-code playable kit is derived from this component. Registering the
 /// identity without its derivation input made a restore depend on whatever
 /// abilities happened to be live at restore time; both now rewind together.
+// Both are construction facts a ruleset may also insert later (GNU-ton's
+// conductor adopts its gnu into the backdrop), and both are read by presence, so a
+// rewind must restore them.
+impl SnapshotState for crate::body_clusters::DepthPlane {
+    fn encode(&self, out: &mut Vec<u8>) {
+        crate::snapshot::put_u8(out, self.0 as u8);
+    }
+    fn decode(r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        Some(Self(r.u8()? as i8))
+    }
+}
+
+impl SnapshotState for crate::body_clusters::Unmirrored {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut crate::snapshot::Reader<'_>) -> Option<Self> {
+        Some(Self)
+    }
+}
+
 impl SnapshotState for crate::body_clusters::BodyAbilities {
     fn encode(&self, out: &mut Vec<u8>) {
         self.abilities.encode(out);

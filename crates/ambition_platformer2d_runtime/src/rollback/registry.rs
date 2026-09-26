@@ -771,7 +771,12 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// ⛔⛤ 231 -> 232: `boss.encounter`'s cursor no longer encodes the
 /// `encounter_phase` mirror ahead of the phase state. The mirror is deleted;
 /// the phase is read from the entity-local `ActorPhaseState` it was copied from.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 232;
+/// ⛔⛤ 232 -> 233: `body.depth_plane` and `body.unmirrored` join. A body behind
+/// the playable plane is out of combat's reach, and an unmirrored body draws and
+/// shapes itself to one side. Both are read by presence, and a ruleset inserts
+/// them after spawn (GNU-ton's conductor adopts its gnu), so a rewind must
+/// restore them.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 233;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

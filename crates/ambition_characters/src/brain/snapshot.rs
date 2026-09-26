@@ -48,8 +48,9 @@ pub struct BrainSnapshot {
     /// Actor's current facing: +1 local-right, -1 local-left.
     pub actor_facing: f32,
     /// Half the side extent of the body that turns when this brain turns: its
-    /// own box, or its mount's when it rides one (the mount takes the rider's
-    /// facing). [`face_toward`] reads it; `0.0` in an inert test snapshot, which
+    /// own box, or its mount's when it rides one that mirrors (the mount takes
+    /// the rider's facing; an `Unmirrored` mount shows no turn, so it does not
+    /// count). [`face_toward`] reads it; `0.0` in an inert test snapshot, which
     /// leaves the minimum band.
     pub actor_half_width: f32,
     /// Direction that defines the controlled actor's local down for human-input

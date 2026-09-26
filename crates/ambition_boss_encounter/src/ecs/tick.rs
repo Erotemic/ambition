@@ -11,7 +11,7 @@ use ambition_characters::brain::{BossAttackIntent, BossAttackState, Brain, State
 use ambition_characters::control::ActorControl;
 use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::FeatureSimEntity;
-use bevy::prelude::{Commands, Entity};
+use bevy::prelude::{Commands, Entity, Has};
 
 /// Resolve a possessing controller's attack input into the boss's fire
 /// intent: the controller→verb→move map.
@@ -148,7 +148,10 @@ pub fn trigger_boss_attack_moves(
             Entity,
             &BossAttackIntent,
             &ambition_combat::moveset::ActorMoveset,
-            &ambition_platformer2d_core::BodyKinematics,
+            (
+                &ambition_platformer2d_core::BodyKinematics,
+                Has<ambition_platformer2d_core::Unmirrored>,
+            ),
             // Mutable, so an interrupted windup goes through the one teardown
             // path below and "cancel this move" has one meaning.
             Option<&mut ambition_combat::moveset::MovePlayback>,
@@ -165,7 +168,7 @@ pub fn trigger_boss_attack_moves(
             .map(|w| w.start_s)
             .unwrap_or(0.0)
     };
-    for (entity, attack_intent, moveset, kin, playback) in &mut bosses {
+    for (entity, attack_intent, moveset, (kin, unmirrored), playback) in &mut bosses {
         // This frame's intent, written by the boss pattern or possession
         // before the combat phase. A Telegraph step starts the move at its
         // windup (`t0 = 0`). A Strike or possession step with no telegraph
@@ -223,7 +226,12 @@ pub fn trigger_boss_attack_moves(
                 .entity(entity)
                 .insert(ambition_combat::moveset::MoveOccurrence(occurrence));
             commands.entity(entity).insert(
-                ambition_combat::moveset::MovePlayback::new_at(spec.clone(), kin.facing, t0)
+                // The move's volumes mirror with the drawn body, so by its side.
+                ambition_combat::moveset::MovePlayback::new_at(
+                    spec.clone(),
+                    ambition_platformer2d_core::mirror_side(kin.facing, unmirrored),
+                    t0,
+                )
                     .at_occurrence(occurrence),
             );
         }
@@ -394,8 +402,8 @@ pub fn tick_boss_brains_system(
             // playing move through it: cycle mode sustains its request through
             // the windup and rests when the move ends. Read-only.
             Option<&BossAttackState>,
-            // A rider's mount takes its facing (`ambition_mount`), so a riding
-            // boss turns by its mount's width, not its own.
+            // A rider's mount takes its facing (`ambition_mount`), so a boss
+            // riding a mount that mirrors turns by the mount's width.
             Option<&ambition_mount::RidingOn>,
         ),
         With<FeatureSimEntity>,
@@ -405,7 +413,12 @@ pub fn tick_boss_brains_system(
     // envelope. `BodyKinematics::size` is the box the movement seam sweeps;
     // `integrate_boss_bodies` sets `kin.size` to the authored `combat_size`
     // every tick, the extent `BossPatternCfg::combat_size` gives the boss side.
-    target_bodies: Query<&ambition_platformer2d_core::BodyKinematics>,
+    //
+    // With whether it mirrors: a mount that does not cannot be spun by its rider.
+    target_bodies: Query<(
+        &ambition_platformer2d_core::BodyKinematics,
+        Has<ambition_platformer2d_core::Unmirrored>,
+    )>,
 ) {
     let dt = world_time.sim_dt();
     let Some(feature_world) = collision.solids() else {
@@ -499,7 +512,7 @@ pub fn tick_boss_brains_system(
         let target_body_size = target
             .entity
             .and_then(|entity| target_bodies.get(entity).ok())
-            .map_or(ae::Vec2::ZERO, |kin| kin.size);
+            .map_or(ae::Vec2::ZERO, |(kin, _)| kin.size);
 
         // The front-wall standoff the pattern probes with — read before the brain
         // borrow that `brain.tick` needs.
@@ -527,13 +540,16 @@ pub fn tick_boss_brains_system(
                     // its own last HP, so a hit is a drop in this pool; there
                     // is no per-tick damage channel.
                     actor_facing: boss.kin.facing,
-                    // The body that turns: its own box, or its mount's. A
-                    // scholar that turned by his own 68 px spun the 440 px gnu
-                    // under him whenever the player crossed his centre line —
-                    // and the gnu's back and fists mirror with it.
+                    // The body that turns: its own box, or its mount's when the
+                    // turn MIRRORS the mount. A scholar that turned by his own
+                    // 68 px spun a mirroring 440 px mount under him whenever
+                    // the player crossed his centre line. An `Unmirrored` mount
+                    // (the gnu) shows no turn, so he turns by his own box and
+                    // watches a player standing under him.
                     actor_half_width: riding
                         .and_then(|riding| target_bodies.get(riding.mount).ok())
-                        .map_or(boss.kin.size.x, |mount| mount.size.x.max(boss.kin.size.x))
+                        .filter(|(_, unmirrored)| !unmirrored)
+                        .map_or(boss.kin.size.x, |(mount, _)| mount.size.x.max(boss.kin.size.x))
                         * 0.5,
                     hp_current: health.current(),
                     hp_max: health.max(),

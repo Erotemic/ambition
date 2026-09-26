@@ -49,7 +49,7 @@ pub use body_clusters::{
     BodyBlinkState, BodyClusterQueryData, BodyClusterQueryDataItem, BodyClusterScratch,
     BodyClustersMut, BodyDashState, BodyDodgeState, BodyEnvironmentContact,
     BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics, BodyLedgeState, BodyLifeStats, BodyRestartLatch,
-    BodyLineAnchor,
+    BodyLineAnchor, DepthPlane, Unmirrored, mirror_side,
     BodyModeState, BodyRestarted, BodyShieldState, BodyWallState,
     RecoveryRefresh, ResetFacing, SweepSample, DEFAULT_RECOVERY_CHARGES,
 };

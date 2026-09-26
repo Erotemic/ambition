@@ -1924,6 +1924,32 @@ fn strong_attack_falls_back_to_the_ordinary_directional_move() {
 /// `start_attack`, now move DATA the player-melee fold rides.
 #[test]
 fn a_move_start_impulse_lunges_the_body_toward_facing() {
+    let (vel, played_toward) = lunge_facing_left(false);
+    // facing = -1 → forward is -x; default gravity → no rotation.
+    assert!(
+        (vel.x + 150.0).abs() < 1.0,
+        "the move lunged the body toward its facing, vel={vel:?}"
+    );
+    assert!(
+        vel.y.abs() < 1.0,
+        "a horizontal lunge adds no vertical velocity, vel={vel:?}"
+    );
+    assert_eq!(played_toward, -1.0);
+}
+
+/// A body with no left/right variant plays its move toward `+x` whichever way
+/// it faces: the lunge and the playback that places its volumes both follow the
+/// drawn side, or the swing would land where the art is not.
+#[test]
+fn an_unmirrored_body_plays_its_move_the_way_it_is_drawn() {
+    let (vel, played_toward) = lunge_facing_left(true);
+    assert!((vel.x - 150.0).abs() < 1.0, "it lunged toward +x, vel={vel:?}");
+    assert_eq!(played_toward, 1.0, "its volumes are placed toward +x");
+}
+
+/// Trigger a 150 px/s-lunge move on a body facing left, and return the
+/// velocity it took and the facing its playback was started with.
+fn lunge_facing_left(unmirrored: bool) -> (ae::Vec2, f32) {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
@@ -1987,17 +2013,16 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
             ActorControl(frame),
         ))
         .id();
+    if unmirrored {
+        app.world_mut().entity_mut(body).insert(ae::Unmirrored);
+    }
     app.update();
     let vel = app.world().get::<ae::BodyKinematics>(body).unwrap().vel;
-    // facing = -1 → forward is -x; default gravity → no rotation.
-    assert!(
-        (vel.x + 150.0).abs() < 1.0,
-        "the move lunged the body toward its facing, vel={vel:?}"
-    );
-    assert!(
-        vel.y.abs() < 1.0,
-        "a horizontal lunge adds no vertical velocity, vel={vel:?}"
-    );
+    let playback = app
+        .world()
+        .get::<MovePlayback>(body)
+        .expect("the move started");
+    (vel, playback.facing)
 }
 
 /// Phase-0 keystone: the EFFECT dispatch — the moveset runtime only NAMES

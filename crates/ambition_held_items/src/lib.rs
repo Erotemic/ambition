@@ -472,6 +472,7 @@ pub fn ground_item_physics(
             &ambition_platformer2d_core::CenteredAabb,
             &ambition_characters::actor::BodyHealth,
             Has<ambition_combat::death_rules::OutOfPlay>,
+            Option<&ae::DepthPlane>,
         ),
         With<ambition_characters::actor::BodyHealth>,
     >,
@@ -549,16 +550,16 @@ pub fn ground_item_physics(
         let entered_now = |at: ae::Aabb, entity: Entity| {
             bodies
                 .get(entity)
-                .is_ok_and(|(_, aabb, _, _)| at.strict_intersects(aabb.aabb()))
+                .is_ok_and(|(_, aabb, _, _, _)| at.strict_intersects(aabb.aabb()))
         };
         let struck_bodies = || {
             let here = ae::Aabb::new(item.pos, item.half_extent);
             bodies
                 .iter()
-                .filter(|(_, _, health, out_of_play)| {
-                    !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play)
+                .filter(|(_, _, health, out_of_play, plane)| {
+                    !ambition_combat::util::body_is_untouchable(Some(*health), *out_of_play, *plane)
                 })
-                .any(|(victim, aabb, _, _)| {
+                .any(|(victim, aabb, _, _, _)| {
                     ambition_platformer2d_core::cast::aabb_path_contacts(
                         end,
                         item.half_extent,

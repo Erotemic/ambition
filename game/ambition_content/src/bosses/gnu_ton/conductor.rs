@@ -39,8 +39,8 @@ use super::choreography::{self as ch, Cue, Fist, Hall, Latch, Move, Pose, Stage}
 /// The boss this conducts.
 pub const GNU_TON_ID: &str = "gnu_ton_rider";
 
-/// Where each fist rests, from the giant's centre, in its facing-right frame:
-/// one beside the rump, one before the face.
+/// Where each fist rests, from the giant's centre: one beside the rump, one
+/// before the face. Symmetric, so it needs no side.
 const HOME: Vec2 = Vec2::new(300.0, -40.0);
 /// A falling or swinging fist.
 const FIST_DAMAGE: i32 = 2;
@@ -205,8 +205,8 @@ pub fn is_gnu_ton(config: &BossConfig) -> bool {
 }
 
 /// Take the pair into the fight: the conductor on the scholar, the fists made
-/// his (posed by him, hittable, their deaths his to rule), the giant made
-/// untouchable. Idempotent, so it re-runs harmlessly after a rollback.
+/// his (posed by him, hittable, their deaths his to rule), the giant put behind
+/// the playable plane. Idempotent, so it re-runs harmlessly after a rollback.
 pub fn adopt_gnu_ton(
     mut commands: Commands,
     scholars: Query<(Entity, &BossConfig, &RidingOn), Without<GnuTonConductor>>,
@@ -227,6 +227,15 @@ pub fn adopt_gnu_ton(
         let at = [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].map(|slot| rig.get(slot).and_then(|fist| fist_bodies.get(fist).ok()));
         let fists_at = [0, 1].map(|i| at[i].map_or(home[i], |kin| kin.pos));
         commands.entity(scholar).insert(GnuTonConductor::new(fists_at));
+        // The gnu is scenery you stand on, not a target: behind the playable
+        // plane, so no swing connects with it and no pogo bounces off it. It was
+        // made invulnerable, which refused the damage and still let the swing
+        // and the pogo happen (MEASURED by `fight_discovery`: hittable 100% of
+        // the fight).
+        //
+        // And it has no left/right variant: the scholar turns to face you, the
+        // gnu under him stays drawn as it is, its back where it was.
+        commands.entity(riding.mount).insert((ae::DepthPlane::BEHIND, ae::Unmirrored));
         for fist in [LimbSlot::HAND_LEFT, LimbSlot::HAND_RIGHT].into_iter().filter_map(|slot| rig.get(slot)) {
             if fists.contains(fist) {
                 commands.entity(fist).insert((
@@ -271,22 +280,20 @@ fn live_part(attack: &BossAttackState) -> Option<(Move, bool, f32)> {
     special(&attack.telegraph_profile).map(|mv| (mv, false, attack.telegraph_remaining))
 }
 
-/// The gnu's back, as the one-way ground the player stands on.
-pub fn back_platform(giant: &ae::BodyKinematics) -> ae::Aabb {
-    let facing = if giant.facing < 0.0 { -1.0 } else { 1.0 };
+/// The gnu's back, as the one-way ground the player stands on: where the
+/// sprite draws it, so by the gnu's drawn side ([`ae::mirror_side`]).
+pub fn back_platform(giant: &ae::BodyKinematics, unmirrored: bool) -> ae::Aabb {
+    let side = ae::mirror_side(giant.facing, unmirrored);
     let (a, b) = (
-        giant.pos.x + facing * BACK_SPAN_PX.0 * GNU_WORLD_PER_PIXEL,
-        giant.pos.x + facing * BACK_SPAN_PX.1 * GNU_WORLD_PER_PIXEL,
+        giant.pos.x + side * BACK_SPAN_PX.0 * GNU_WORLD_PER_PIXEL,
+        giant.pos.x + side * BACK_SPAN_PX.1 * GNU_WORLD_PER_PIXEL,
     );
     let top = giant.pos.y + BACK_TOP_PX * GNU_WORLD_PER_PIXEL;
     ae::aabb_from_min_size(Vec2::new(a.min(b), top), Vec2::new((a - b).abs(), BACK_THICKNESS))
 }
 
 fn homes(giant: &ae::BodyKinematics) -> [Vec2; 2] {
-    let facing = if giant.facing < 0.0 { -1.0 } else { 1.0 };
-    let a = giant.pos + Vec2::new(-HOME.x * facing, HOME.y);
-    let b = giant.pos + Vec2::new(HOME.x * facing, HOME.y);
-    if a.x <= b.x { [a, b] } else { [b, a] }
+    [-1.0, 1.0].map(|side| giant.pos + Vec2::new(side * HOME.x, HOME.y))
 }
 
 fn spark(vfx: &mut MessageWriter<VfxMessage>, pos: Vec2, color: [f32; 4], count: u32, speed: f32) {
@@ -354,7 +361,7 @@ pub fn conduct_gnu_ton(
         (With<BossConfig>, Without<MountSlot>, Without<Limb>),
     >,
     mut giants: Query<
-        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState, &mut BodyHealth),
+        (&LimbRig, &mut ae::BodyKinematics, &mut ae::BodyFlightState),
         (With<MountSlot>, Without<Limb>, Without<BossConfig>),
     >,
     mut fists: Query<
@@ -394,11 +401,9 @@ pub fn conduct_gnu_ton(
         mut scholar_sweep,
     ) in &mut scholars
     {
-        let Ok((rig, giant_kin, mut giant_flight, mut giant_health)) = giants.get_mut(riding.mount) else {
+        let Ok((rig, giant_kin, mut giant_flight)) = giants.get_mut(riding.mount) else {
             continue;
         };
-        // The gnu is scenery you can stand on, not a target.
-        giant_health.health.invulnerable.set(Invulnerability::SCRIPTED, true);
         let fist_entities = [rig.get(LimbSlot::HAND_LEFT), rig.get(LimbSlot::HAND_RIGHT)];
         // Measured every tick, not once: the pair can be carried into another
         // room (a possessed rider pilots the gnu through a door), and fists posed
@@ -818,14 +823,14 @@ pub fn conduct_gnu_ton(
 /// whoever stands on it while he bucks.
 pub fn gnu_back_is_ground(
     scholars: Query<(&GnuTonConductor, &RidingOn, &BodyHealth)>,
-    giants: Query<&ae::BodyKinematics, With<MountSlot>>,
+    giants: Query<(&ae::BodyKinematics, Has<ae::Unmirrored>), With<MountSlot>>,
     mut overlay: ResMut<ambition_platformer2d::world::FeatureEcsWorldOverlay>,
 ) {
     for (conductor, riding, health) in &scholars {
-        let Ok(giant) = giants.get(riding.mount) else {
+        let Ok((giant, unmirrored)) = giants.get(riding.mount) else {
             continue;
         };
-        let back = back_platform(giant);
+        let back = back_platform(giant, unmirrored);
         overlay.blocks.push(ae::Block {
             id: ae::GeoId::anon(),
             name: "gnu_back".to_string(),
@@ -850,16 +855,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_back_platform_mirrors_with_the_gnu() {
+    fn the_back_platform_is_where_the_gnu_is_drawn() {
         let mut kin = ae::BodyKinematics::default();
         kin.pos = Vec2::new(900.0, 1040.0);
         kin.facing = 1.0;
-        let right = back_platform(&kin);
+        let right = back_platform(&kin, false);
         kin.facing = -1.0;
-        let left = back_platform(&kin);
+        let left = back_platform(&kin, false);
         assert!((right.min.x - 900.0 + 208.0).abs() < 0.5, "{right:?}");
         assert!((left.max.x - 900.0 - 208.0).abs() < 0.5, "{left:?}");
         assert_eq!(right.min.y, left.min.y);
+        // Unmirrored, a turn draws nothing different, so the back stays put.
+        assert_eq!(back_platform(&kin, true), right);
     }
 
     #[test]

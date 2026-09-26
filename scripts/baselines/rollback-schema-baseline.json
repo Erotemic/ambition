@@ -1,6 +1,6 @@
 {
   "peer_checksum_schema": {
-    "version": "ggrs-rollback-schema-v232",
+    "version": "ggrs-rollback-schema-v233",
     "rows": [
       "actor.active_combatant\tcomponent-canonical\tActiveCombatant",
       "actor.aggression\tcomponent-clone-cursor\tActorAggression",
@@ -43,6 +43,7 @@
       "body.base_size\tcomponent-canonical\tBodyBaseSize",
       "body.blink\tcomponent-canonical\tBodyBlinkState",
       "body.dash\tcomponent-canonical\tBodyDashState",
+      "body.depth_plane\tcomponent-canonical\tDepthPlane",
       "body.dodge\tcomponent-canonical\tBodyDodgeState",
       "body.flight\tcomponent-canonical\tBodyFlightState",
       "body.ground\tcomponent-canonical\tBodyGroundState",
@@ -54,6 +55,7 @@
       "body.shield\tcomponent-canonical\tBodyShieldState",
       "body.sim_id_counter\tcomponent-canonical\tSimIdCounter",
       "body.sweep_sample\tcomponent-canonical\tSweepSample",
+      "body.unmirrored\tcomponent-canonical\tUnmirrored",
       "body.wall\tcomponent-canonical\tBodyWallState",
       "body.wallet\tcomponent-canonical\tBodyWallet",
       "boss.attack_intent\tcomponent-canonical\tBossAttackIntent",
@@ -231,7 +233,9 @@
     "ambition_platformer2d_core::body_clusters::BodyRestartLatch",
     "ambition_platformer2d_core::body_clusters::BodyShieldState",
     "ambition_platformer2d_core::body_clusters::BodyWallState",
+    "ambition_platformer2d_core::body_clusters::DepthPlane",
     "ambition_platformer2d_core::body_clusters::SweepSample",
+    "ambition_platformer2d_core::body_clusters::Unmirrored",
     "ambition_platformer2d_core::geometry::CenteredAabb",
     "ambition_platformer2d_core::ledge_grab::LedgeGetupKind",
     "ambition_platformer2d_core::ledge_grab::LedgeGrabQuality",

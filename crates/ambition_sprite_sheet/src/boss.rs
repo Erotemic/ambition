@@ -675,7 +675,8 @@ pub struct BossAnimState {
     /// Profile-resolved animation to play during the strike.
     pub active_anim: Option<BossAnim>,
     pub pattern_timer: f32,
-    /// Horizontal facing: -1.0 = left, +1.0 = right.
+    /// The side the boss is DRAWN toward: -1.0 = left, +1.0 = right. Always
+    /// +1.0 for a boss that declares no left/right variant (`Unmirrored`).
     pub facing: f32,
     pub pos: Vec2,
 }

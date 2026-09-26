@@ -44,6 +44,8 @@ pub struct CaptureParticipant {
     /// fighter waiting out its death beat has already had `health.reset()`
     /// called on it, so it reads ALIVE for the whole interlude.
     pub out_of_play: bevy::prelude::Has<crate::death_rules::OutOfPlay>,
+    /// A backdrop body is out of reach (`ae::DepthPlane`).
+    pub plane: Option<&'static ambition_platformer2d_core::DepthPlane>,
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub flight: &'static ae::BodyFlightState,
     pub surface: &'static ae::ActorSurfaceState,
@@ -127,7 +129,7 @@ pub fn acquire_captures(
         let Ok(captor) = captors.get(attempt.captor) else {
             continue;
         };
-        if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play) {
+        if crate::util::body_is_untouchable(Some(captor.body.health), captor.body.out_of_play, captor.body.plane) {
             continue;
         }
         if !captor.body.ground.on_ground {

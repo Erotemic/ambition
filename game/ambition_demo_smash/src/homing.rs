@@ -103,7 +103,10 @@ pub fn carry_homing_dashes(
         // geometric and assumes the caller supplies foes, so KO'd (`OutOfPlay`)
         // bodies and teammates must be filtered here.
         Option<&ambition_platformer2d::characters::actor::BodyHealth>,
-        bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+        (
+            bevy::prelude::Has<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+            Option<&ambition_platformer2d::engine_core::DepthPlane>,
+        ),
         Option<&ambition_platformer2d::combat::components::ActorFaction>,
         Option<&ambition_platformer2d::combat::targeting::MatchTeam>,
     )>,
@@ -129,12 +132,12 @@ pub fn carry_homing_dashes(
     )> = bodies
         .iter()
         .map(
-            |(entity, kin, _, sim_id, health, out_of_play, faction, team)| {
+            |(entity, kin, _, sim_id, health, (out_of_play, plane), faction, team)| {
                 (
                     entity,
                     sim_id.cloned(),
                     kin.pos,
-                    ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play),
+                    ambition_platformer2d::combat::util::body_is_untouchable(health, out_of_play, plane),
                     faction.copied(),
                     team.cloned(),
                 )

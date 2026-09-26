@@ -282,6 +282,7 @@ pub fn select_actor_targets(
             Option<&MatchTeam>,
             // The world's hands are off it — see the candidate filter below.
             Has<crate::death_rules::OutOfPlay>,
+            Option<&ae::DepthPlane>,
         ),
         With<PlayerEntity>,
     >,
@@ -306,6 +307,7 @@ pub fn select_actor_targets(
             Option<&MatchTeam>,
             // The world's hands are off it — see the candidate filter below.
             Has<crate::death_rules::OutOfPlay>,
+            Option<&ae::DepthPlane>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -357,10 +359,10 @@ pub fn select_actor_targets(
         Option<MatchTeam>,
     )> = players
         .iter()
-        .filter(|(_, _, hp, _, _, out_of_play)| {
-            !crate::util::body_is_untouchable(Some(*hp), *out_of_play)
+        .filter(|(_, _, hp, _, _, out_of_play, plane)| {
+            !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
         })
-        .map(|(e, kin, _, faction, team, _)| {
+        .map(|(e, kin, _, faction, team, _, _)| {
             (
                 e,
                 kin.pos,
@@ -372,10 +374,10 @@ pub fn select_actor_targets(
         .chain(
             others
                 .iter()
-                .filter(|(_, _, _, hp, _, _, out_of_play)| {
-                    !crate::util::body_is_untouchable(Some(*hp), *out_of_play)
+                .filter(|(_, _, _, hp, _, _, out_of_play, plane)| {
+                    !crate::util::body_is_untouchable(Some(*hp), *out_of_play, *plane)
                 })
-                .map(|(e, aabb, faction, _, driver, team, _)| {
+                .map(|(e, aabb, faction, _, driver, team, _, _)| {
                     (
                         e,
                         aabb.center,

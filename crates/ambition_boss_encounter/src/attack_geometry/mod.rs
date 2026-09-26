@@ -105,7 +105,8 @@ impl<'a> BossVolumeContext<'a> {
             attack_state,
             sprite_metrics: boss.status.sprite_metrics.as_ref(),
             animation_frame: None,
-            facing: boss.kin.facing,
+            // The volumes mirror with the drawn sprite, so by its side.
+            facing: boss.drawn_side(),
         }
     }
 

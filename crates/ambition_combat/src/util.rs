@@ -175,11 +175,20 @@ pub fn body_vulnerable(
 /// reached, may the hit hurt it? Folding out-of-play into the invulnerability
 /// bitset would answer the second question in the first one's place, and a
 /// hunter would go on chasing a body it merely could not damage.
+///
+/// ⭐ AND A BODY OUTSIDE THE PLAYABLE PLANE ([`ae::DepthPlane`]) is the third
+/// cause, 2026-09-25. It is a participation fact, not a defensive one: GNU-ton's
+/// gnu was invulnerable and still took the swing, gave the pogo, and was a thing
+/// a strike could "connect" with. A backdrop body is not in the fight at all.
+/// `plane` is the body's own component; absent means the playable plane.
 pub fn body_is_untouchable(
     health: Option<&ambition_characters::actor::BodyHealth>,
     out_of_play: bool,
+    plane: Option<&ae::DepthPlane>,
 ) -> bool {
-    out_of_play || health.is_some_and(|h| !h.alive())
+    out_of_play
+        || plane.is_some_and(|plane| !plane.is_playable())
+        || health.is_some_and(|h| !h.alive())
 }
 
 /// Does a SPENT guard still reach this hit? — the poke rule.

@@ -126,7 +126,7 @@ fn fist_drawn_sides(sim: &mut Platformer2dSimHarness) -> [f32; 2] {
 }
 
 /// The scholar's seat from the gnu's centre, as the gnu is drawn.
-const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -76.5);
+const SEAT: ae::Vec2 = ae::Vec2::new(50.0, -65.0);
 
 fn saddle(s: &Scene) -> ae::Vec2 {
     s.giant.pos + ae::Vec2::new(SEAT.x * ae::mirror_side(s.giant.facing, s.giant_unmirrored), SEAT.y)
@@ -176,6 +176,16 @@ fn the_gnu_stands_on_the_floor_and_carries_a_person_sized_scholar() {
         saddle(&s),
         s.scholar.pos
     );
+    // Standing ON the gnu's shoulders: his soles on the back the player stands
+    // on, not in the air above it (he stood 11.7 wu up, on the art's shoulder
+    // point, and read as floating in front of the neck).
+    let back = back_platform(&s.giant, s.giant_unmirrored);
+    let soles = s.scholar.pos.y + s.scholar.size.y * 0.5;
+    assert!(
+        (soles - back.min.y).abs() < 1.0 && (back.min.x..back.max.x).contains(&s.scholar.pos.x),
+        "his soles at y {soles} stand on the gnu's back ({:?})",
+        back
+    );
     assert_eq!(s.fists.len(), 2);
     for (fist, ..) in &s.fists {
         assert!(fist.size.x > 100.0, "a fist is a giant's fist: {:?}", fist.size);
@@ -221,27 +231,49 @@ fn a_slam_lands_where_you_stood_and_the_stuck_fist_carries_your_blow_to_him() {
     let (_, hp_after) = player(&mut sim);
     assert!(hp_after < hp_before, "and it hurt them: {hp_before} -> {hp_after}");
 
-    // Stand beside the stuck fist and hit it.
+    // Stand beside the stuck fist, facing it, and hit it — twice, while it is
+    // still stuck.
     untouchable_player(&mut sim);
     place_player(&mut sim, ae::Vec2::new(stuck.pos.x + stuck.size.x * 0.5 + 18.0, 1200.0));
+    // A body turns once it has landed: lean toward the fist until it does.
+    for _ in 0..30 {
+        sim.step(AgentAction { move_x: -1.0, ..Default::default() });
+        if player(&mut sim).0.facing < 0.0 {
+            break;
+        }
+    }
+    sim.step(AgentAction::default());
+    let (me, _) = player(&mut sim);
+    assert_eq!(me.facing, -1.0, "the premise: the player faces the stuck fist");
     let scholar_before = scene(&mut sim).scholar_hp;
-    for frame in 0..24 {
-        sim.step(AgentAction {
-            move_x: if frame < 2 { -1.0 } else { 0.0 },
-            attack: frame == 4,
-            attack_held: (4..8).contains(&frame),
-            ..Default::default()
-        });
+    let swing = |frame: usize, at: usize| AgentAction {
+        attack: frame == at,
+        attack_held: (at..at + 4).contains(&frame),
+        ..Default::default()
+    };
+    for frame in 0..12 {
+        sim.step(swing(frame, 1));
     }
     let s = scene(&mut sim);
+    let after_first = s.scholar_hp;
     assert!(
-        s.scholar_hp < scholar_before,
-        "a blow to his stuck fist lands on him: {scholar_before} -> {}",
-        s.scholar_hp
+        after_first < scholar_before,
+        "a blow to his stuck fist lands on him: {scholar_before} -> {after_first}"
     );
     for (_, hp, max) in &s.fists {
         assert_eq!(hp, max, "and the fist itself is whole again");
     }
+    // One blow per stick: the second reaches nobody. A stuck fist carried every
+    // blow, and one pair slam took most of a phase.
+    for frame in 0..12 {
+        sim.step(swing(frame, 1));
+    }
+    let s = scene(&mut sim);
+    assert!(
+        s.fists.iter().any(|(fist, ..)| on_floor(fist, s.floor) && (fist.pos.x - stuck.pos.x).abs() < 1.0),
+        "the premise: the fist is still stuck for the second blow"
+    );
+    assert_eq!(s.scholar_hp, after_first, "a second blow to the same stuck fist does not land on him");
 }
 
 /// His hands are his: nothing he throws lands on him.
@@ -310,6 +342,19 @@ fn the_scholar_turns_and_the_gnu_under_him_does_not() {
     untouchable_player(&mut sim);
     let s = scene(&mut sim);
     assert!(s.giant_unmirrored, "the gnu declares no left/right variant");
+    // And it is drawn behind him: he stands on its shoulders, in front of it
+    // (Jon: the scholar was drawn behind the gnu and could not be seen).
+    let planes = {
+        let world = sim.world_mut();
+        let mut ids = world.query_filtered::<&FeatureId, (With<LimbRig>, Without<Limb>)>();
+        let giant = ids.iter(world).next().expect("the giant").clone();
+        let mut ids = world.query_filtered::<&FeatureId, With<GnuTonConductor>>();
+        let scholar = ids.iter(world).next().expect("the conducted scholar").clone();
+        let views = world.resource::<ambition_platformer2d::sim_view::FeatureViewIndex>();
+        let plane = |id: &FeatureId| views.get(id.as_str()).expect("a drawn body").depth_plane;
+        (plane(&scholar), plane(&giant))
+    };
+    assert_eq!(planes, (ae::DepthPlane::PLAYABLE, ae::DepthPlane::BEHIND), "(scholar, gnu) as drawn");
     let (player_kin, _) = player(&mut sim);
     let stand = |x: f32| ae::Vec2::new(x, s.floor - player_kin.size.y * 0.5 - 1.0);
     let half = s.giant.size.x * 0.5;

@@ -20,6 +20,6 @@ crates/ambition_relativity2d/src/signals.rs	60	82a08f3f7b7d007a
 crates/ambition_relativity2d/src/targeting.rs	1	8e10b599960d4972
 crates/ambition_sprite_sheet/src/snapshot_impls.rs	5	3569516e5b2d4dd8
 crates/ambition_time/src/snapshot_impls.rs	13	a068fc2eda212f3f
-game/ambition_content/src/bosses/gnu_ton/conductor.rs	15	b65c0bc77dd97c66
+game/ambition_content/src/bosses/gnu_ton/conductor.rs	16	2729d5ecbf3287a0
 game/ambition_content/src/bosses/specials/rollback.rs	45	a3f48ac68c95bf78
 game/ambition_demo_twintrack/src/lib.rs	17	0cc0d2351e873b93

@@ -29,7 +29,7 @@ const SAG: f32 = 26.0;
 /// Trips a wisp makes from body to hand, per second.
 const FLOW_HZ: f32 = 0.55;
 /// Behind every actor (`WORLD_Z_DUMMY + 1`), in front of the level.
-const TRAIL_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_DUMMY + 0.5;
+pub(crate) const TRAIL_Z: f32 = ambition_platformer2d_core::config::WORLD_Z_DUMMY + 0.5;
 
 /// One wisp of one limb's trail.
 #[derive(Component)]

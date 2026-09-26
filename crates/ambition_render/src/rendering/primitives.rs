@@ -151,10 +151,22 @@ pub(super) fn feature_z(kind: FeatureVisualKind) -> f32 {
         FeatureVisualKind::Pickup => WORLD_Z_DUMMY + 4.0,
         FeatureVisualKind::Chest => WORLD_Z_DUMMY + 3.0,
         FeatureVisualKind::Switch => WORLD_Z_DUMMY + 2.0,
-        // One z for every actor. If actor draw order ever matters, it must come
-        // from a real signal, not the visual kind.
+        // One z for every actor in a plane. Draw order between actors comes
+        // from a real signal, the body's depth plane (`feature_z_in_plane`),
+        // not the visual kind.
         FeatureVisualKind::Actor => WORLD_Z_DUMMY + 1.0,
     }
+}
+
+/// How far one depth plane steps a body's z. A plane behind the playable one
+/// (`ae::DepthPlane::BEHIND`, the giant gnu) draws under every actor in it (the
+/// scholar on its shoulders, its own fists) and still over the limb trail
+/// (`WORLD_Z_DUMMY + 0.5`), so a fist's trail comes out from behind the body.
+pub(super) const DEPTH_PLANE_Z_STEP: f32 = 0.4;
+
+/// A feature's z: its kind's layer, stepped back by its depth plane.
+pub(super) fn feature_z_in_plane(kind: FeatureVisualKind, plane: ae::DepthPlane) -> f32 {
+    feature_z(kind) + DEPTH_PLANE_Z_STEP * f32::from(plane.0)
 }
 
 /// Placeholder rectangle colour for a feature with no bound sprite. For an

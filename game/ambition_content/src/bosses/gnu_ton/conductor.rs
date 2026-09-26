@@ -12,7 +12,8 @@
 //!   so the way to reach the scholar is literally to stand on the shoulders of a
 //!   giant. When he `buck`s, it throws you off.
 //! * **The fists are his.** A fist is only hittable while it is stuck in the
-//!   floor (or limp), and a blow to it lands on him.
+//!   floor (or limp), and the first blow to it each time it sticks lands on
+//!   him: a punish, not a farm.
 //! * **Eureka.** After the apple rain, a golden apple finds his head; he tumbles
 //!   off the gnu and sits dazed on the floor, fists limp, before climbing back.
 //!
@@ -110,6 +111,12 @@ pub struct GnuTonConductor {
     /// Seconds since the fists last had a beat: they ease home over it.
     resting: f32,
     last: [Option<Pose>; 2],
+    /// Each fist has passed on its one blow since it last stuck. A stuck fist
+    /// carried EVERY blow to him, so one pair slam (two fists stuck for 2 s)
+    /// took 12 of Phase 2's 15 HP and the phase never reached its third move
+    /// (`fight_discovery`: Phase 2 lasted 3.8-6.0 s in every run). One blow per
+    /// stick makes the phase's length its rhythm, not the player's hit count.
+    spent: [bool; 2],
     hitboxes: [Option<Entity>; 2],
     armed_at: [f32; 2],
     waves: [Option<Wave>; 4],
@@ -143,6 +150,7 @@ impl GnuTonConductor {
             ticks: 0,
             resting: 0.0,
             last: [None; 2],
+            spent: [false; 2],
             hitboxes: [None; 2],
             armed_at: [0.0; 2],
             waves: [None; 4],
@@ -172,7 +180,10 @@ impl bevy::ecs::entity::MapEntities for GnuTonConductor {
     }
 }
 
-/// The checksum projection: every value but the allocator-local handles.
+/// The checksum projection: the choreography's cursor. Not the allocator-local
+/// handles, and not the per-fist facts whose effect the bodies' own checksummed
+/// state carries a tick later (a fist's last pose, whether it has passed on its
+/// blow — both show in kinematics and health).
 impl ambition_platformer2d_core::snapshot::SnapshotCursor for GnuTonConductor {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         use ambition_platformer2d_core::snapshot::{put_bool, put_f32, put_u32, put_vec2};
@@ -673,12 +684,18 @@ pub fn conduct_gnu_ton(
             aabb.center = kin.pos;
             aabb.half_size = kin.size * 0.5;
 
-            // A blow to his fist lands on him.
+            // Each time it sticks, a fist is a fresh opening.
+            let landed = pose.stuck && !last.is_some_and(|last| last.stuck);
+            if landed {
+                conductor.spent[i] = false;
+            }
+            // Its first blow lands on him; then it is spent until it sticks again.
             let lost = health.max() - health.current();
             if lost > 0 {
                 health.heal(lost);
                 let refused = encounter.encounter.as_ref().is_some_and(|phase| phase.boss_invulnerable());
-                if !refused {
+                if !refused && !conductor.spent[i] {
+                    conductor.spent[i] = true;
                     scholar_combat.hit_flash = 0.18;
                     if scholar_health.damage(lost) {
                         if let Some(phase) = encounter.encounter.as_mut() {
@@ -687,8 +704,8 @@ pub fn conduct_gnu_ton(
                     }
                 }
             }
-            // Only a stuck fist can be struck.
-            health.health.invulnerable.set(Invulnerability::SCRIPTED, !pose.stuck);
+            // Only a stuck fist with its blow still to pass on can be struck.
+            health.health.invulnerable.set(Invulnerability::SCRIPTED, !pose.stuck || conductor.spent[i]);
 
             // Its hit volume.
             if pose.harmful {
@@ -705,7 +722,6 @@ pub fn conduct_gnu_ton(
             }
 
             // Impact.
-            let landed = pose.stuck && !last.is_some_and(|last| last.stuck);
             if landed {
                 let at = Vec2::new(pose.pos.x, hall.floor);
                 let heavy = pose.harmful;
@@ -720,8 +736,8 @@ pub fn conduct_gnu_ton(
                     play(&mut sfx, scholar, SFX_STOMP, at);
                 }
             }
-            // A stuck fist glints: here is your opening.
-            if pose.stuck && ticks % 12 == 0 {
+            // A stuck fist glints while it is an opening.
+            if pose.stuck && !conductor.spent[i] && ticks % 12 == 0 {
                 spark(&mut vfx, pose.pos - Vec2::new(0.0, kin.size.y * 0.5), GOLD, 2, 60.0);
             }
             conductor.last[i] = Some(pose);

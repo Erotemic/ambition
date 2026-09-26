@@ -297,6 +297,7 @@ mod boss_pass {
             grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
             flash: false,
             breakable_state: None,
             chest_opened: false,

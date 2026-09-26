@@ -92,6 +92,7 @@ fn a_feature_view() -> ambition_sim_view::FeatureView {
         grab_reach: None,
         line_anchor: None,
         limb_host: None,
+        depth_plane: Default::default(),
         flash: false,
         breakable_state: None,
         chest_opened: false,

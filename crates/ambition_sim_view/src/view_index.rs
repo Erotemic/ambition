@@ -73,6 +73,10 @@ pub struct FeatureView {
     /// along — `line_anchor` is that — but a relation presentation may draw
     /// (the fists' ethereal trail). Projected from `Limb::of`.
     pub limb_host: Option<ae::Vec2>,
+    /// The depth plane the body stands in (`ae::DepthPlane`). A body behind the
+    /// playable plane draws behind the bodies in it: the giant gnu under the
+    /// scholar standing on its shoulders.
+    pub depth_plane: ae::DepthPlane,
     pub flash: bool,
     /// For `FeatureVisualKind::Breakable`: the current authored breakable
     /// state, so presentation can select intact/cracked/broken art without
@@ -304,6 +308,7 @@ pub fn rebuild_feature_view_index(
                 Option<&ambition_platformer2d_core::BodyLineAnchor>,
                 // A limb's host, for the bond `limb_host` projects.
                 Option<&ambition_characters::actor::Limb>,
+                Option<&ae::DepthPlane>,
             ),
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., written at
@@ -350,6 +355,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -382,6 +388,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 flash: opened.is_some(),
                 breakable_state: None,
                 chest_opened: opened.is_some(),
@@ -414,6 +421,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 flash: breakable.breakable.state == ambition_interaction::BreakableState::Cracking,
                 breakable_state: Some(breakable.breakable.state),
                 chest_opened: false,
@@ -446,6 +454,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -480,7 +489,7 @@ pub fn rebuild_feature_view_index(
         sprite_offset,
         respawn_grace,
         body_mode,
-        (playback, line_anchor, limb),
+        (playback, line_anchor, limb, depth_plane),
     ) in &actors
     {
         let roll_rad = roll.map_or(0.0, |r| r.angle);
@@ -552,6 +561,7 @@ pub fn rebuild_feature_view_index(
                             reach.y.clamp(-host.size.y * 0.25, host.size.y * 0.25),
                         )
                 }),
+                depth_plane: depth_plane.copied().unwrap_or_default(),
                 grab_reach: playback.and_then(|pb| {
                     pb.live_capture_reach().map(|reach| {
                         let side = if pb.facing >= 0.0 { 1.0 } else { -1.0 };
@@ -613,6 +623,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 flash: false,
                 breakable_state: None,
                 chest_opened: false,
@@ -654,6 +665,7 @@ pub fn rebuild_feature_view_index(
                 grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
                 // Hit-flash reads the shared combat mirror; telegraph /
                 // active windows read `BossAttackState` (the move-derived
                 // source of truth, already a component).
@@ -1098,6 +1110,7 @@ mod view_index_tests {
             grab_reach: None,
             line_anchor: None,
             limb_host: None,
+            depth_plane: Default::default(),
             flash: false,
             breakable_state: None,
             chest_opened: false,

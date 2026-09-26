@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use super::primitives::{
-    feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
+    feature_color, feature_z_in_plane, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual,
 };
 use ambition_persistence::settings::TextureResolutionScale;
@@ -519,7 +519,7 @@ pub fn sync_visuals(
         // is the body centre plus the sheet's per-pose art offset, if any.
         let draw_pos = presented_features.presented(&visual.id, view.pos)
             + view.sprite_offset.unwrap_or(ae::Vec2::ZERO);
-        transform.translation = world_to_bevy(&world.0, draw_pos, feature_z(view.kind));
+        transform.translation = world_to_bevy(&world.0, draw_pos, feature_z_in_plane(view.kind, view.depth_plane));
         // Surface-walking enemies (PuppySlug) rotate the sprite so
         // its authored "up" axis aligns with the surface normal —
         // the slug crawls along walls / ceilings with its body
@@ -965,6 +965,8 @@ pub fn refresh_prop_sprites_on_game_assets_change(
 mod quality_convergence_tests;
 #[cfg(test)]
 mod worn_binder_tests;
+#[cfg(test)]
+mod depth_plane_tests;
 
 #[cfg(test)]
 mod compact_pose_tests {

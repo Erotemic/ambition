@@ -30,14 +30,15 @@ keyboard/gamepad/touch/RL/brain
     -> semantic source frame
     -> control authority / controlled subject
     -> actor-local control intent
-    -> ActorActionScheme
+    -> action scheme (derive_action_scheme)
     -> shared slot resolver
     -> movement / MovePlayback / interaction
     -> ControlPrompt for UI, touch, and dynamic labels
 ```
 
-`ActorActionScheme` is derived from live authorities such as abilities, moveset,
-and registered techniques. It is not an independent authored truth. The shared
+The action scheme is derived from live authorities such as abilities, moveset,
+and registered techniques (`derive_action_scheme`), by each reader and never
+stored. It is not an independent authored truth. The shared
 resolver both gates gameplay and produces the meaning shown through
 `ControlPrompt`; UI must not maintain its own capability logic.
 

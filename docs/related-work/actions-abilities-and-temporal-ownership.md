@@ -9,7 +9,7 @@ windows, recovery, costs, cooldowns, cancellation, prediction, and effects.
 Ambition already has a good invocation seam:
 
 - `ControlFrame` / `SlotControls` carry compact participant intent;
-- `ActorActionScheme` and the shared resolver map slots to semantic actions;
+- the derived action scheme and the shared resolver map slots to semantic actions;
 - `ControlPrompt` uses the same eligibility seam;
 - combat `MovePlayback` owns a real temporal action lifecycle for melee;
 - movement maneuvers already own their own temporal state where appropriate.

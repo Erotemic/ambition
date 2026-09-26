@@ -86,7 +86,7 @@ physical device / touch / RL / brain
     -> semantic device actions
     -> control authority selects a subject
     -> actor-local control intent
-    -> ActorActionScheme describes what each slot means for this body
+    -> the action scheme describes what each slot means for this body
     -> shared slot resolver gates/reroutes the intent
     -> movement kernel / MovePlayback / interaction systems mutate simulation
     -> ControlPrompt publishes the same resolved meaning to UI and adapters

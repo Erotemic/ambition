@@ -511,10 +511,8 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_platformer2d_actor_monolith::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
             .add(ambition_sim_view::affordances::AffordancesPlugin)
-            // Per-body derived action scheme (slot → action) — the source the
-            // control-prompt read-model (P2) and the input→action seam (P3)
-            // read. Reconciled from live AbilitySet + moveset.
-            .add(ambition_platformer2d_actor_monolith::action_scheme::ActionSchemePlugin)
+            // Each body's effective repertoire, after the persona phase.
+            .add(ambition_platformer2d_actor_monolith::repertoire::EffectiveRepertoirePlugin)
             // The camera OBSERVATION seam (E4-17): ONE follow-camera
             // snapshot per rendered frame (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.

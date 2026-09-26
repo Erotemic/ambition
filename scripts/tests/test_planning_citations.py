@@ -42,7 +42,7 @@ A bare path that names nothing: `{{dead_path}}`.
 
 An abbreviated crate path that must NOT report: `platformer2d_core/src/abilities.rs`.
 
-A deeper abbreviation that must NOT report: `actor_monolith/src/action_scheme.rs`.
+A deeper abbreviation that must NOT report: `actor_monolith/src/repertoire.rs`.
 
 A build output that must NOT report: `target/run_tests_status.json`.
 
@@ -151,7 +151,7 @@ def test_the_repositorys_own_abbreviations_do_not_report(checked) -> None:
     ⭐ Planning prose drops the vendor prefix and as much of the crate path as
     still reads: `platformer2d_core/src/abilities.rs` IS
     `crates/ambition_platformer2d_core/src/abilities.rs`, and
-    `actor_monolith/src/action_scheme.rs` IS a crate directory named
+    `actor_monolith/src/repertoire.rs` IS a crate directory named
     `ambition_platformer2d_actor_monolith`. Both are correct, both are common,
     and a checker that flagged them would be the "teaches its reader to skim"
     failure the checker's own docstring warns about — worse than no check.
@@ -159,7 +159,7 @@ def test_the_repositorys_own_abbreviations_do_not_report(checked) -> None:
     _, out = checked
     assert DEAD_PATH in out, "the checker did not run"
     assert "abilities.rs" not in out, out
-    assert "action_scheme.rs" not in out, out
+    assert "repertoire.rs" not in out, out
 
 
 def test_a_build_output_and_an_elided_path_do_not_report(checked) -> None:

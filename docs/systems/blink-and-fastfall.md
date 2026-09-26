@@ -17,7 +17,7 @@ body state, and presentation without requiring a player-only implementation.
 
 ```text
 semantic action
-    -> ActorActionScheme/shared resolver
+    -> action scheme/shared resolver
     -> blink capability gate and resource/cooldown policy
     -> gravity-relative direction and path policy
     -> deterministic safe-placement search

@@ -17,7 +17,7 @@ use ambition_sfx::PresentationSourceId;
 fn session_app() -> App {
     let mut app = App::new();
     app.add_plugins(CharacterRuntimePlugin);
-    app.add_plugins(crate::action_scheme::ActionSchemePlugin);
+    app.add_plugins(crate::repertoire::EffectiveRepertoirePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();

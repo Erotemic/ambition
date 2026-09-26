@@ -233,8 +233,7 @@ pub struct ControlPromptRebuilt;
 /// to gate/route behavior. Because both consumers re-derive from the body's
 /// current `AbilitySet` / moveset / `ActionSet` / techniques each tick, a button's
 /// label and what it fires cannot drift — not even for one frame across a kit
-/// swap (there is no one-tick-lagged cache on the critical path; the derived
-/// `ActorActionScheme` component is a separate observation cache).
+/// swap. No body stores the scheme, so there is no cache to lag.
 ///
 /// Follows [`ControlledSubject`] (falling back to the primary player), so the
 /// prompt describes the body you are DRIVING — the same relativity rule the

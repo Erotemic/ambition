@@ -109,11 +109,6 @@ where
         "actor.identity_kit",
     );
     registrar.rollback_component_clone::<crate::brain::BossCapability>(OWNER, "boss.capability");
-    registrar.declare_rollback_derived_component::<crate::action_scheme::ActorActionScheme>(
-        OWNER,
-        "derived.actor_action_scheme",
-        "reconciled from abilities, moveset, and action set",
-    );
     registrar.declare_rollback_derived_component::<crate::action_scheme::ResolvedTechniqueEdges>(
         OWNER,
         "derived.resolved_technique_edges",

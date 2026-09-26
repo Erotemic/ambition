@@ -16,8 +16,9 @@ and ADR 0025.
 2. possession/control relationships choose the controlled subject. Input does
    not assume that the home avatar is always controlled.
 3. actor integration builds actor-local control intent.
-4. `ambition_characters::action_scheme` derives `ActorActionScheme` from the
-   body's current abilities, moveset, and registered techniques.
+4. `ambition_characters::action_scheme::derive_action_scheme` derives the action
+   scheme from the body's current abilities, moveset, and registered techniques.
+   Each reader derives it; no body stores it.
 5. the shared slot resolver strips unavailable actions, leaves moveset-owned
    verbs, and reroutes technique slots into keyed edges.
 6. movement, interaction, and `MovePlayback` consume the resolved intent.

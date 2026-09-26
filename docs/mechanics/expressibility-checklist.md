@@ -14,7 +14,8 @@ content-specific exception.
 - Can any actor body own the required capability?
 - Can human, brain, RL, replay, and scripted controllers request it through the
   same semantic action seam?
-- Does `ActorActionScheme` describe the live meaning of the slot?
+- Does the derived action scheme (`derive_action_scheme`) describe the live
+  meaning of the slot?
 - Do prompt generation and execution consume the same resolution result?
 - Is any proposed `Player*`, `Enemy*`, or `Boss*` state duplicating an existing
   body/action path?

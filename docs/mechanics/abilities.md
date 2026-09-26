@@ -18,7 +18,7 @@ own a private execution pipeline for it.
 ```text
 controller intent
     -> semantic action slot
-    -> ActorActionScheme
+    -> action scheme (derive_action_scheme)
     -> shared slot resolver
     -> ability request / MovePlayback / interaction
     -> body, combat, projectile, or world domain mutates simulation

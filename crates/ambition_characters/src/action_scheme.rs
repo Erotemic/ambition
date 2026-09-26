@@ -29,13 +29,6 @@ use bevy::prelude::Component;
 use crate::actor::control::ActorControlFrame;
 use crate::brain::action_set::ActionSet;
 
-/// The Bevy-side carrier of a body's derived [`ActionSchemeContract`]. Mirrors
-/// the `ActorMoveset` (`ambition_platformer2d::combat::moveset`) pattern: a component wrapping
-/// a headless contract. Read by the control-prompt read-model (P2) and, from
-/// P3, by the input→action resolution.
-#[derive(Component, Debug, Clone, Default)]
-pub struct ActorActionScheme(pub ActionSchemeContract);
-
 /// Content-declared movement/action TECHNIQUES a body exposes — the seam by
 /// which a demo (Sanic's spin-dash, a ground-pound) gives its bespoke technique
 /// an identity in the action scheme: a slot, a display name, and a

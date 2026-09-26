@@ -69,7 +69,6 @@ pub mod schedule;
 
 // Themed module umbrellas. Each owns a coherent slice of the sandbox.
 pub mod abilities;
-pub mod action_scheme;
 /// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
 /// "What would each button do right now?" — the per-frame verb table the HUD
 /// labels its buttons from. A BRIDGE (input x body x world -> verb), which is why
@@ -103,6 +102,7 @@ pub mod participant_seat;
 // The presentation layer was extracted to the `ambition_render` crate (the
 // sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.
 pub mod projectile;
+pub mod repertoire;
 pub mod session;
 pub mod shrine;
 mod snapshot_impls;

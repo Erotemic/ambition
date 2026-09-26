@@ -7,7 +7,6 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`abilities`](src/abilities/mod.rs) | What stayed behind when the wielded ability kit was carved out (D33, 2026-09-03). |
-| [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
 | [`actor_clusters`](src/actor_clusters.rs) | The per-tick view of an actor: [`ActorMut`](crate::actor_clusters::ActorMut), the borrow the integration mutates in place, and the query that assembles it from live components. |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
@@ -35,6 +34,7 @@
 | [`participant_seat`](src/participant_seat.rs) | Central conversion between [`ParticipantId`] and [`PlayerSlot`]. |
 | [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
+| [`repertoire`](src/repertoire.rs) | Scheduling of each body's effective repertoire. |
 | [`rollback_registration`](src/rollback_registration.rs) | Rollback declaration owned by the actor runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
 | [`session`](src/session/mod.rs) | Ambition-game session lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |

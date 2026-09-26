@@ -780,7 +780,9 @@ use crate::content_identity::SnapshotSchemaFingerprint;
 /// body's senses are derived when it decides, from its seat and the session's
 /// one extent, so no body stores them. `actor.perception_memory` is unchanged,
 /// and every brained body now carries it from construction (a boss too).
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 234;
+/// ⛔⛤ 234 -> 235: `derived.actor_action_scheme` leaves. Nothing read the
+/// cached scheme; every reader derives it from the body's live authorities.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 235;
 
 //: ⭐ MOVED to `ambition_platformer2d_core::rollback_kind` 2026-09-16 and
 //: re-exported here. It had to sit beside the `RollbackRegistrar` TRAIT, which

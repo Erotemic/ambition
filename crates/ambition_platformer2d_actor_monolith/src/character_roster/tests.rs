@@ -247,24 +247,3 @@ fn display_name_returns_none_for_unknown_id() {
         .display_name("npc_definitely_not_in_catalog")
         .is_none());
 }
-
-#[test]
-fn plugin_inserts_resource_and_validates() {
-    // Phase-1 contract: adding CharacterCatalogPlugin makes the
-    // resource available and the Startup validator runs without
-    // panicking against the shipped catalog.
-    use bevy::prelude::*;
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(CharacterCatalogPlugin {
-        catalog_ron: include_str!(
-            "../../../../game/ambition_content/assets/data/character_catalog.ron"
-        ),
-    });
-    app.update(); // runs Startup
-    let catalog = app
-        .world()
-        .get_resource::<CharacterCatalog>()
-        .expect("CharacterCatalog resource should be inserted");
-    assert!(!catalog.is_empty());
-}

@@ -56,8 +56,8 @@ pub use registry::{
 };
 pub use resolver::{action_set_from_preset, brain_from_preset, brain_from_preset_with_context};
 
-/// Bevy resource holding the parsed catalog. Inserted at Startup by
-/// [`CharacterCatalogPlugin`].
+/// Bevy resource holding the assembled catalog: every registered fragment,
+/// published by [`CharacterCatalogRegistry`] assembly.
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CharacterCatalog(CharacterCatalogData);
 
@@ -418,39 +418,6 @@ impl CharacterCatalog {
 
     pub fn hall_dialogue_id(&self, character_id: &str) -> Option<&str> {
         self.get(character_id)?.hall_dialogue_id.as_deref()
-    }
-}
-
-/// Plugin: load the catalog at app build, install it as a resource,
-/// and run the validator on Startup. Pre-release stance is fail-loud:
-/// the validator panics on internal inconsistency rather than
-/// degrading silently.
-pub struct CharacterCatalogPlugin {
-    /// The catalog RON text (the game embeds its roster and passes it
-    /// in — this crate owns schema + parsing, never the data).
-    pub catalog_ron: &'static str,
-}
-
-impl Plugin for CharacterCatalogPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_character_catalog_fragment(
-            CharacterCatalogFragment::from_ron("default", None::<String>, self.catalog_ron)
-                .expect("single character catalog should be valid"),
-        );
-        app.add_systems(Startup, validate_catalog_on_startup);
-    }
-}
-
-/// Startup system: validate the catalog and panic with the joined
-/// errors if any. Runs once.
-pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
-    let errors = validator::validate(catalog.data());
-    if !errors.is_empty() {
-        panic!(
-            "character_catalog.ron has {} reference error(s):\n  - {}",
-            errors.len(),
-            errors.join("\n  - "),
-        );
     }
 }
 

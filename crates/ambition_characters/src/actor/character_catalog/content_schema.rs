@@ -34,6 +34,7 @@ use ambition_content_pack::{
 
 use super::entry::CharacterCatalogData;
 use super::loader::try_parse_catalog;
+use super::validator::{findings, Finding, FindingKind, PresetTable};
 
 /// The capability that owns every schema in this module.
 pub const CHARACTERS_CAPABILITY: &str = "characters";
@@ -143,237 +144,110 @@ fn declare(facet: &FacetSource<'_>, catalog: &CharacterCatalogData, out: &mut Fa
         let id = preset_id(facet, CHARACTER_SCHEMA, name);
         out.define(id.clone(), canonical(entry));
 
-        // ── the two preset references ──────────────────────────────────── Marked LOCAL: both
-        // presets are authored in this same catalog, so an unknown one is a typo rather than a
-        // missing dependency, and the fix line says "define it here" instead of "install
-        // another pack".  an EMPTY `default_brain` refers to nothing, and that is authored
-        // .
-        if !entry.default_brain.is_empty() {
-            out.refer(
-                PendingRef::new(
-                    SchemaId::new(BRAIN_PRESET_SCHEMA),
-                    &entry.default_brain,
-                    "brain preset",
-                    id.clone(),
-                    "default_brain",
-                )
-                .local(),
-            );
-        }
-        out.refer(
-            PendingRef::new(
-                SchemaId::new(ACTION_SET_PRESET_SCHEMA),
-                &entry.default_action_set,
-                "action-set preset",
-                id.clone(),
-                "default_action_set",
-            )
-            .local(),
-        );
-        if let Some(preset) = &entry.axis_tuning_preset {
-            out.refer(
-                PendingRef::new(
-                    SchemaId::new(AXIS_TUNING_PRESET_SCHEMA),
-                    preset,
-                    "axis-tuning preset",
-                    id.clone(),
-                    "axis_tuning_preset",
-                )
-                .local(),
-            );
-            if entry.axis_tuning.is_some() {
-                out.report(
-                    facet
-                        .diagnostic(
-                            DiagnosticCode::MalformedSource,
-                            format!(
-                                "character `{name}` states both `axis_tuning` and \
-                                 `axis_tuning_preset`"
-                            ),
-                        )
-                        .about(id.clone())
-                        .at_field("axis_tuning_preset")
-                        .fix("state one feel: the preset, or the row's own tuning"),
-                );
-            }
-        }
-        // A shared policy is not a content identity of its own, so the name is
-        // checked against this catalog's map here.
-        if let Some(profile) = &entry.named_autonomous_profile {
-            let problem = if entry.autonomous_profile.is_some() {
-                Some((
-                    DiagnosticCode::MalformedSource,
-                    format!(
-                        "character `{name}` states both `autonomous_profile` and \
-                         `named_autonomous_profile`"
-                    ),
-                    "state one policy: the shared name, or the row's own profile",
-                ))
-            } else if !catalog.autonomous_profiles.contains_key(profile) {
-                Some((
-                    DiagnosticCode::UnknownPreset,
-                    format!(
-                        "character `{name}` names the policy `{profile}`, which \
-                         `autonomous_profiles` does not state"
-                    ),
-                    "state it in `autonomous_profiles`, or name one that is there",
-                ))
-            } else {
-                None
-            };
-            if let Some((code, message, fix)) = problem {
-                out.report(
-                    facet
-                        .diagnostic(code, message)
-                        .about(id.clone())
-                        .at_field("named_autonomous_profile")
-                        .fix(fix),
-                );
-            }
-        }
-        if let Some(profile) = &entry.provoked_profile {
-            if !catalog.autonomous_profiles.contains_key(profile) {
-                out.report(
-                    facet
-                        .diagnostic(
-                            DiagnosticCode::UnknownPreset,
-                            format!(
-                                "character `{name}` is provoked into the policy `{profile}`, \
-                                 which `autonomous_profiles` does not state"
-                            ),
-                        )
-                        .about(id.clone())
-                        .at_field("provoked_profile")
-                        .fix("state it in `autonomous_profiles`, or name one that is there"),
-                );
-            }
-        }
-        if let Some(preset) = &entry.locomotion_preset {
-            out.refer(
-                PendingRef::new(
-                    SchemaId::new(LOCOMOTION_PRESET_SCHEMA),
-                    preset,
-                    "locomotion preset",
-                    id.clone(),
-                    "locomotion_preset",
-                )
-                .local(),
-            );
-            if entry.locomotion.is_some() {
-                out.report(
-                    facet
-                        .diagnostic(
-                            DiagnosticCode::MalformedSource,
-                            format!(
-                                "character `{name}` states both `locomotion` and \
-                                 `locomotion_preset`"
-                            ),
-                        )
-                        .about(id.clone())
-                        .at_field("locomotion_preset")
-                        .fix("state one gait: the preset, or the row's own locomotion"),
-                );
-            }
-        }
-
-        // ── assets, with provenance ──────────────────────────────────────
-        // An empty path is reported HERE rather than being asked of the asset
+        // An empty path is a finding below, and is not asked of the asset
         // resolver: "" resolves to the asset root itself on most filesystems,
         // so a missing-asset check would pass on the one value that is
         // certainly wrong.
+        let portrait = entry.portrait.as_ref();
         for (field, path) in [
-            ("spritesheet", &entry.spritesheet),
-            ("manifest", &entry.manifest),
+            ("spritesheet", Some(&entry.spritesheet)),
+            ("manifest", Some(&entry.manifest)),
+            ("portrait.image", portrait.map(|portrait| &portrait.image)),
+            ("portrait.manifest", portrait.map(|portrait| &portrait.manifest)),
         ] {
-            if path.trim().is_empty() {
-                out.report(
-                    facet
-                        .diagnostic(
-                            DiagnosticCode::MalformedProviderBinding,
-                            format!("character `{name}` has an empty `{field}` path"),
-                        )
-                        .about(id.clone())
-                        .at_field(field)
-                        .fix("point it at a sheet, or remove the character"),
-                );
-                continue;
+            if let Some(path) = path.filter(|path| !path.trim().is_empty()) {
+                out.need_asset(AssetRequirement::new(path, id.clone(), field));
             }
-            out.need_asset(AssetRequirement::new(path, id.clone(), field));
-        }
-        if let Some(portrait) = &entry.portrait {
-            // A portrait is optional; a PARTIAL one is not. All three fields or
-            // none — a half-authored portrait renders as a missing texture and
-            // reads to the author as "portraits are broken".
-            for (field, value) in [
-                ("portrait.image", &portrait.image),
-                ("portrait.manifest", &portrait.manifest),
-                ("portrait.default_clip", &portrait.default_clip),
-            ] {
-                if value.trim().is_empty() {
-                    out.report(
-                        facet
-                            .diagnostic(
-                                DiagnosticCode::MalformedProviderBinding,
-                                format!("character `{name}` has an empty `{field}`"),
-                            )
-                            .about(id.clone())
-                            .at_field(field)
-                            .fix("fill all three portrait fields, or drop `portrait` entirely"),
-                    );
-                }
-            }
-            if !portrait.image.trim().is_empty() {
-                out.need_asset(AssetRequirement::new(
-                    &portrait.image,
-                    id.clone(),
-                    "portrait.image",
-                ));
-            }
-            if !portrait.manifest.trim().is_empty() {
-                out.need_asset(AssetRequirement::new(
-                    &portrait.manifest,
-                    id.clone(),
-                    "portrait.manifest",
-                ));
-            }
-        }
-
-        if entry.display_name.trim().is_empty() {
-            out.report(
-                facet
-                    .diagnostic(
-                        DiagnosticCode::MalformedProviderBinding,
-                        format!("character `{name}` has an empty display_name"),
-                    )
-                    .about(id.clone())
-                    .at_field("display_name"),
-            );
         }
     }
 
-    // One display name owned by two ids is an authority conflict: every surface
-    // that shows a name has to pick, and they will not all pick the same one.
-    let mut owners: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
-    for (name, entry) in &catalog.characters {
-        let display = entry.display_name.trim();
-        if display.is_empty() {
-            continue;
-        }
-        if let Some(first) = owners.insert(display, name) {
-            out.report(
-                facet
-                    .diagnostic(
-                        DiagnosticCode::ConflictingModuleContribution,
-                        format!("characters `{first}` and `{name}` share display_name `{display}`"),
-                    )
-                    .about(preset_id(facet, CHARACTER_SCHEMA, name))
-                    .at_field("display_name")
-                    .fix(
-                        "give one of them its own name — a display name is how a player \
-                          identifies a character, so two owners is a conflict, not a duplicate",
-                    ),
-            );
-        }
+    // The row rules are the validator's; this shows each one as a pack
+    // diagnostic, and a preset reference as a pack reference.
+    for Finding {
+        character,
+        field,
+        kind,
+    } in findings(catalog)
+    {
+        let id = preset_id(facet, CHARACTER_SCHEMA, character);
+        let diagnostic = match kind {
+            FindingKind::Reference { table, name } => {
+                match preset_schema(table) {
+                    // LOCAL: the preset is authored in this same catalog, so an
+                    // unknown one is a typo, not a missing dependency, and the
+                    // fix line says "define it here", not "install another pack".
+                    Some((schema, noun)) => {
+                        out.refer(
+                            PendingRef::new(SchemaId::new(schema), name, noun, id, field).local(),
+                        );
+                        continue;
+                    }
+                    // A shared policy is not a content identity of its own, so
+                    // the name is checked against this catalog's table here.
+                    None if table.contains(catalog, name) => continue,
+                    None => facet
+                        .diagnostic(
+                            DiagnosticCode::UnknownPreset,
+                            format!(
+                                "character `{character}` names `{name}` in `{field}`, which \
+                                 `{}` does not state",
+                                table.field()
+                            ),
+                        )
+                        .fix(format!(
+                            "state it in `{}`, or name one that is there",
+                            table.field()
+                        )),
+                }
+            }
+            FindingKind::BothStated { inline_field, what } => facet
+                .diagnostic(
+                    DiagnosticCode::MalformedSource,
+                    format!("character `{character}` states both `{inline_field}` and `{field}`"),
+                )
+                .fix(format!(
+                    "state one {what}: the named one, or the row's own `{inline_field}`"
+                )),
+            FindingKind::Empty => {
+                let diagnostic = facet.diagnostic(
+                    DiagnosticCode::MalformedProviderBinding,
+                    format!("character `{character}` has an empty `{field}`"),
+                );
+                match field {
+                    "spritesheet" | "manifest" => {
+                        diagnostic.fix("point it at a sheet, or remove the character")
+                    }
+                    "display_name" => diagnostic,
+                    _ => diagnostic
+                        .fix("fill all three portrait fields, or drop `portrait` entirely"),
+                }
+            }
+            // One display name owned by two ids is an authority conflict: every
+            // surface that shows a name has to pick, and they will not all pick
+            // the same one.
+            FindingKind::SharedDisplayName { first, display } => facet
+                .diagnostic(
+                    DiagnosticCode::ConflictingModuleContribution,
+                    format!("characters `{first}` and `{character}` share display_name `{display}`"),
+                )
+                .fix(
+                    "give one of them its own name — a display name is how a player \
+                     identifies a character, so two owners is a conflict, not a duplicate",
+                ),
+        };
+        out.report(diagnostic.about(id).at_field(field));
+    }
+}
+
+/// The content identity kind a preset table mints, with its noun, or `None`
+/// for a table whose entries are not content identities of their own.
+fn preset_schema(table: PresetTable) -> Option<(&'static str, &'static str)> {
+    match table {
+        PresetTable::Brain => Some((BRAIN_PRESET_SCHEMA, "brain preset")),
+        PresetTable::ActionSet => Some((ACTION_SET_PRESET_SCHEMA, "action-set preset")),
+        PresetTable::AxisTuning => Some((AXIS_TUNING_PRESET_SCHEMA, "axis-tuning preset")),
+        PresetTable::Locomotion => Some((LOCOMOTION_PRESET_SCHEMA, "locomotion preset")),
+        PresetTable::AutonomousProfile => None,
     }
 }
 
@@ -464,6 +338,129 @@ mod tests {
             },
         )
         .expect("draft reads")
+    }
+
+    /// Each row rule, broken once, is refused by both readers, at the field the
+    /// rule names. The rules are one list (`validator::findings`); this holds
+    /// each reader to showing every kind of finding in it.
+    #[test]
+    fn every_row_rule_is_refused_by_both_readers_at_its_field() {
+        const ROWS: &str = r#"(
+            autonomous_profiles: { "striker": (template: Smash) },
+            axis_tuning_presets: { "classic": () },
+            locomotion_presets: { "hall_walk": (run_speed: 210.0, move_style: Walk) },
+            brain_presets: { "peaceful": StandStill },
+            action_set_presets: { "striker_swipe": (move_style: Walk) },
+            characters: {
+                "mole": (
+                    display_name: "Mole", spritesheet: "mole.png", manifest: "mole.ron",
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "peaceful", default_action_set: "striker_swipe", tags: [],
+                    MORE
+                ),
+                "vole": (
+                    display_name: "Vole", spritesheet: "vole.png", manifest: "vole.ron",
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "peaceful", default_action_set: "striker_swipe", tags: [],
+                ),
+            },
+        )"#;
+        // (case, the mole row's text replaced, its replacement, the field refused)
+        let cases: &[(&str, &str, &str, &str)] = &[
+            ("empty_name", r#""Mole""#, r#""""#, "display_name"),
+            ("shared_name", r#""Mole""#, r#""Vole""#, "display_name"),
+            ("empty_sheet", r#""mole.png""#, r#""""#, "spritesheet"),
+            ("empty_manifest", r#""mole.ron""#, r#""""#, "manifest"),
+            (
+                "partial_portrait",
+                "MORE",
+                r#"portrait: Some((image: "", manifest: "p.ron", default_clip: "idle")),"#,
+                "portrait.image",
+            ),
+            (
+                "unknown_brain",
+                r#"default_brain: "peaceful""#,
+                r#"default_brain: "peacful""#,
+                "default_brain",
+            ),
+            (
+                "unknown_action_set",
+                r#"default_action_set: "striker_swipe""#,
+                r#"default_action_set: "striker_swip""#,
+                "default_action_set",
+            ),
+            (
+                "unknown_feel",
+                "MORE",
+                r#"axis_tuning_preset: Some("modern"),"#,
+                "axis_tuning_preset",
+            ),
+            (
+                "two_feels",
+                "MORE",
+                r#"axis_tuning_preset: Some("classic"), axis_tuning: Some(()),"#,
+                "axis_tuning_preset",
+            ),
+            (
+                "unknown_gait",
+                "MORE",
+                r#"locomotion_preset: Some("run"),"#,
+                "locomotion_preset",
+            ),
+            (
+                "two_gaits",
+                "MORE",
+                r#"locomotion_preset: Some("hall_walk"), locomotion: Some((run_speed: 1.0, move_style: Walk)),"#,
+                "locomotion_preset",
+            ),
+            (
+                "unknown_policy",
+                "MORE",
+                r#"named_autonomous_profile: Some("brute"),"#,
+                "named_autonomous_profile",
+            ),
+            (
+                "two_policies",
+                "MORE",
+                r#"named_autonomous_profile: Some("striker"), autonomous_profile: Some((template: Smash)),"#,
+                "named_autonomous_profile",
+            ),
+            (
+                "unknown_provoked",
+                "MORE",
+                r#"provoked_profile: Some("brute"),"#,
+                "provoked_profile",
+            ),
+        ];
+
+        // The control: the rows as written break no rule in either reader.
+        let clean = ROWS.replace("MORE", "");
+        assert_eq!(
+            super::super::validator::validate(&try_parse_catalog(&clean).expect("parses")),
+            Vec::<String>::new()
+        );
+        compile(&draft("rule_control", &clean), &registry(), &AssetsUnchecked)
+            .expect("the control compiles");
+
+        for (case, from, to, field) in cases {
+            let text = ROWS.replacen(from, to, 1).replace("MORE", "");
+            assert_ne!(text, clean, "case `{case}` changed nothing");
+            let lines = super::super::validator::validate(&try_parse_catalog(&text).expect("parses"));
+            assert!(
+                lines.iter().any(|line| line.contains(field)),
+                "the RON reader did not refuse `{case}` at `{field}`: {lines:?}"
+            );
+            let failure = compile(&draft(&format!("rule_{case}"), &text), &registry(), &AssetsUnchecked)
+                .expect_err(case);
+            assert!(
+                failure
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.field.as_deref() == Some(*field)),
+                "the pack compiler did not refuse `{case}` at `{field}`:\n{}",
+                failure.render()
+            );
+        }
     }
 
     #[test]

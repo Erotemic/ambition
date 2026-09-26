@@ -1,119 +1,207 @@
-//! Load-time validator. Walks every catalog entry and confirms its
-//! `default_brain` / `default_action_set` references resolve to
-//! presets in the catalog. Returns a list of human-readable errors.
+//! The catalog's row rules, stated once.
 //!
-//! Wired by [`super::CharacterCatalogPlugin`] as a Startup system
-//! that panics with a single message listing every issue at once.
-//! Pre-release stance: fail loud, fail early — better than a silent
-//! mismatch that surfaces hours later as a spawn-time panic.
+//! [`findings`] walks a catalog and lists what each row must not do and which
+//! named presets each row refers to. Two readers show the list:
+//! [`validate`], for the RON reader (`CharacterCatalogFragment::from_ron`),
+//! and the content schema, which turns each preset reference into a pack
+//! reference and each problem into a diagnostic. A rule added here reaches both.
 
 use std::collections::BTreeMap;
 
 use super::entry::CharacterCatalogData;
 
-/// Walk the catalog and collect every reference error. An empty
-/// return means the catalog is internally consistent.
-pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
-    let mut errors: Vec<String> = Vec::new();
-    let mut display_name_owners: BTreeMap<&str, &str> = BTreeMap::new();
+/// A table of named values that a row can refer to by name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PresetTable {
+    Brain,
+    ActionSet,
+    AxisTuning,
+    Locomotion,
+    AutonomousProfile,
+}
 
-    for (id, entry) in &catalog.characters {
-        if entry.display_name.trim().is_empty() {
-            errors.push(format!("character '{id}' has empty display_name"));
-        } else if let Some(first_id) =
-            display_name_owners.insert(entry.display_name.as_str(), id.as_str())
-        {
-            errors.push(format!(
-                "characters '{first_id}' and '{id}' share display_name '{}'",
-                entry.display_name
-            ));
-        }
-        if entry.spritesheet.trim().is_empty() {
-            errors.push(format!("character '{id}' has empty spritesheet path"));
-        }
-        if entry.manifest.trim().is_empty() {
-            errors.push(format!("character '{id}' has empty manifest path"));
-        }
-        if let Some(portrait) = &entry.portrait {
-            if portrait.image.trim().is_empty() {
-                errors.push(format!("character '{id}' has empty portrait image path"));
-            }
-            if portrait.manifest.trim().is_empty() {
-                errors.push(format!("character '{id}' has empty portrait manifest path"));
-            }
-            if portrait.default_clip.trim().is_empty() {
-                errors.push(format!("character '{id}' has empty portrait default_clip"));
-            }
-        }
-        // an EMPTY `default_brain` names no preset on purpose — see the field's doc.
-        if !entry.default_brain.is_empty()
-            && !catalog.brain_presets.contains_key(&entry.default_brain)
-        {
-            errors.push(format!(
-                "character '{id}' default_brain '{}' not found in brain_presets",
-                entry.default_brain
-            ));
-        }
-        if !catalog
-            .action_set_presets
-            .contains_key(&entry.default_action_set)
-        {
-            errors.push(format!(
-                "character '{id}' default_action_set '{}' not found in action_set_presets",
-                entry.default_action_set
-            ));
-        }
-        if let Some(preset) = &entry.axis_tuning_preset {
-            if entry.axis_tuning.is_some() {
-                errors.push(format!(
-                    "character '{id}' states both axis_tuning and axis_tuning_preset '{preset}'; \
-                     state one feel"
-                ));
-            }
-            if !catalog.axis_tuning_presets.contains_key(preset) {
-                errors.push(format!(
-                    "character '{id}' axis_tuning_preset '{preset}' not found in axis_tuning_presets"
-                ));
-            }
-        }
-        if let Some(profile) = &entry.named_autonomous_profile {
-            if entry.autonomous_profile.is_some() {
-                errors.push(format!(
-                    "character '{id}' states both autonomous_profile and \
-                     named_autonomous_profile '{profile}'; state one policy"
-                ));
-            }
-            if !catalog.autonomous_profiles.contains_key(profile) {
-                errors.push(format!(
-                    "character '{id}' named_autonomous_profile '{profile}' not found in \
-                     autonomous_profiles"
-                ));
-            }
-        }
-        if let Some(profile) = &entry.provoked_profile {
-            if !catalog.autonomous_profiles.contains_key(profile) {
-                errors.push(format!(
-                    "character '{id}' provoked_profile '{profile}' not found in \
-                     autonomous_profiles"
-                ));
-            }
-        }
-        if let Some(preset) = &entry.locomotion_preset {
-            if entry.locomotion.is_some() {
-                errors.push(format!(
-                    "character '{id}' states both locomotion and locomotion_preset '{preset}'; \
-                     state one gait"
-                ));
-            }
-            if !catalog.locomotion_presets.contains_key(preset) {
-                errors.push(format!(
-                    "character '{id}' locomotion_preset '{preset}' not found in locomotion_presets"
-                ));
-            }
+impl PresetTable {
+    /// The catalog field that holds this table.
+    pub(crate) fn field(self) -> &'static str {
+        match self {
+            Self::Brain => "brain_presets",
+            Self::ActionSet => "action_set_presets",
+            Self::AxisTuning => "axis_tuning_presets",
+            Self::Locomotion => "locomotion_presets",
+            Self::AutonomousProfile => "autonomous_profiles",
         }
     }
 
-    errors
+    pub(crate) fn contains(self, catalog: &CharacterCatalogData, name: &str) -> bool {
+        match self {
+            Self::Brain => catalog.brain_presets.contains_key(name),
+            Self::ActionSet => catalog.action_set_presets.contains_key(name),
+            Self::AxisTuning => catalog.axis_tuning_presets.contains_key(name),
+            Self::Locomotion => catalog.locomotion_presets.contains_key(name),
+            Self::AutonomousProfile => catalog.autonomous_profiles.contains_key(name),
+        }
+    }
+}
+
+/// One fact about one row: a problem, or a reference to check.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Finding<'a> {
+    pub character: &'a str,
+    /// The authored field the finding is about, as a path (`portrait.image`).
+    pub field: &'static str,
+    pub kind: FindingKind<'a>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum FindingKind<'a> {
+    /// A name or path that the row must fill is empty.
+    Empty,
+    /// An earlier row owns the same display name.
+    SharedDisplayName { first: &'a str, display: &'a str },
+    /// The row names a preset in `field` and also states its own value in
+    /// `inline_field`. `what` is the fact both state ("feel", "policy", "gait").
+    BothStated {
+        inline_field: &'static str,
+        what: &'static str,
+    },
+    /// The row refers to `name` in `table`. This is not a problem until the
+    /// name is absent from the table; the reader decides how to resolve it.
+    Reference { table: PresetTable, name: &'a str },
+}
+
+/// Every problem and preset reference of `catalog`, row by row in id order.
+pub(crate) fn findings<'a>(catalog: &'a CharacterCatalogData) -> Vec<Finding<'a>> {
+    let mut out = Vec::new();
+    let mut display_name_owners: BTreeMap<&str, &str> = BTreeMap::new();
+
+    for (id, entry) in &catalog.characters {
+        let mut push = |field: &'static str, kind: FindingKind<'a>| {
+            out.push(Finding {
+                character: id.as_str(),
+                field,
+                kind,
+            });
+        };
+        if entry.display_name.trim().is_empty() {
+            push("display_name", FindingKind::Empty);
+        } else if let Some(first) =
+            display_name_owners.insert(entry.display_name.trim(), id.as_str())
+        {
+            push(
+                "display_name",
+                FindingKind::SharedDisplayName {
+                    first,
+                    display: entry.display_name.trim(),
+                },
+            );
+        }
+        for (field, value) in [
+            ("spritesheet", &entry.spritesheet),
+            ("manifest", &entry.manifest),
+        ] {
+            if value.trim().is_empty() {
+                push(field, FindingKind::Empty);
+            }
+        }
+        // A portrait is optional, and a PARTIAL one is not: a half-authored
+        // portrait shows as a missing texture.
+        if let Some(portrait) = &entry.portrait {
+            for (field, value) in [
+                ("portrait.image", &portrait.image),
+                ("portrait.manifest", &portrait.manifest),
+                ("portrait.default_clip", &portrait.default_clip),
+            ] {
+                if value.trim().is_empty() {
+                    push(field, FindingKind::Empty);
+                }
+            }
+        }
+
+        // An EMPTY `default_brain` names no preset on purpose (see the field's doc).
+        if !entry.default_brain.is_empty() {
+            push(
+                "default_brain",
+                FindingKind::Reference {
+                    table: PresetTable::Brain,
+                    name: &entry.default_brain,
+                },
+            );
+        }
+        push(
+            "default_action_set",
+            FindingKind::Reference {
+                table: PresetTable::ActionSet,
+                name: &entry.default_action_set,
+            },
+        );
+        // A named preset and the row's own value for the same fact: the row
+        // must state one of them.
+        for (field, table, name, inline_field, inline_stated, what) in [
+            (
+                "axis_tuning_preset",
+                PresetTable::AxisTuning,
+                entry.axis_tuning_preset.as_deref(),
+                "axis_tuning",
+                entry.axis_tuning.is_some(),
+                "feel",
+            ),
+            (
+                "named_autonomous_profile",
+                PresetTable::AutonomousProfile,
+                entry.named_autonomous_profile.as_deref(),
+                "autonomous_profile",
+                entry.autonomous_profile.is_some(),
+                "policy",
+            ),
+            (
+                "locomotion_preset",
+                PresetTable::Locomotion,
+                entry.locomotion_preset.as_deref(),
+                "locomotion",
+                entry.locomotion.is_some(),
+                "gait",
+            ),
+        ] {
+            let Some(name) = name else { continue };
+            push(field, FindingKind::Reference { table, name });
+            if inline_stated {
+                push(field, FindingKind::BothStated { inline_field, what });
+            }
+        }
+        if let Some(name) = entry.provoked_profile.as_deref() {
+            push(
+                "provoked_profile",
+                FindingKind::Reference {
+                    table: PresetTable::AutonomousProfile,
+                    name,
+                },
+            );
+        }
+    }
+    out
+}
+
+/// Every problem in `catalog`, as one line each. An empty list means the
+/// catalog is internally consistent.
+pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
+    findings(catalog)
+        .into_iter()
+        .filter_map(|Finding { character, field, kind }| match kind {
+            FindingKind::Empty => Some(format!("character '{character}' has an empty {field}")),
+            FindingKind::SharedDisplayName { first, display } => Some(format!(
+                "characters '{first}' and '{character}' share display_name '{display}'"
+            )),
+            FindingKind::BothStated { inline_field, what } => Some(format!(
+                "character '{character}' states both {inline_field} and {field}; state one {what}"
+            )),
+            FindingKind::Reference { table, name } => (!table.contains(catalog, name)).then(|| {
+                format!(
+                    "character '{character}' {field} '{name}' not found in {}",
+                    table.field()
+                )
+            }),
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -149,7 +237,7 @@ mod tests {
         );
         assert_eq!(
             validate(&catalog),
-            vec!["character 'alpha' has empty portrait image path".to_string()]
+            vec!["character 'alpha' has an empty portrait.image".to_string()]
         );
     }
 

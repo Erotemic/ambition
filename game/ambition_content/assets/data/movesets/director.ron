@@ -2,6 +2,33 @@
 // under its own name (`borrows`), so tuning the archetype tunes this fighter too.
 // `moveset` holds only what this fighter changes: a move with an archetype move's
 // id replaces it, a new move is added, and a verb it binds is rebound.
+//
+// DESIGN NOTES, carried from the Rust table this file replaced. A note in
+// parentheses names the line it was written beside.
+//
+// The Director: the sword archetype's table, wielded with a pen.
+//
+// His rig is the Pointed Polygon's, retargeted: the pen has the arming
+// sword's axis and length, so all 136 archetype clips read correctly on him.
+// His spacing follows from that reach, so his frame data is the archetype's,
+// not a copy that would drift.
+//
+// His own parts are the name and several specials (including the recovery).
+// See [`director_moveset`].
+//
+// `BOLT_AT_S` = 0.20:
+// When the thought leaves him.
+//
+// `BOLT_ENDS_S` = 0.46:
+// When the move releases him. It must end before the bolt's lifetime does,
+// or a whiff pins him through his own punish window.
+//
+// `TELEPORT_AT_S` = 0.18:
+// When he vanishes. Slower than the robot's blink: his is a written edit, not
+// a machine's phase-out.
+//
+// `TELEPORT_ENDS_S` = 0.48:
+// When the move ends. The tail is him being drawn back in.
 (
     schema_version: 1,
     entities: [
@@ -25,6 +52,38 @@
                         "special_up": "director_revision",
                     },
                     moves: [
+                        // Complete sword-fundamentals repertoire, attributed to the Director.
+                        //
+                        // His up-B is his own. Jon: *"Mewtwo / Palutena / Zelda style teleports"*, a
+                        // teleport that looks like an affine transform to a point, with a star
+                        // flash out and the reverse at the destination.
+                        //
+                        // The mechanic is the robot's; the look is not. Both author the same
+                        // `smash.teleport` technique and ledge assist, and differ only in the two
+                        // effect ids, so the look lives in the params, not in the engine.
+                        //
+                        // It replaces the archetype's `rising_edge`, which stays the Pointed
+                        // Polygon's.
+                        //
+                        // One art row is used twice. `four_point_glint` is the star flash; the
+                        // converging reverse is not drawn yet, so both ends use the existing row
+                        // until it is.
+                        //
+                        // (`ambition_entity_catalog::smash_mark::mark_move_in(`)
+                        // His low poke leaves a delayed mark: the revision lands later.
+                        //
+                        // It is on his weakest move (`director_tilt_down`, 4 damage) on purpose.
+                        // On the forward smash it would only make a strong move stronger; here it
+                        // turns a neutral-game tool into a threat, so the opponent must decide what
+                        // to do for the next second and a half.
+                        //
+                        // 1.4s is a decision, not a late hit: long enough to run, shield, or stand
+                        // next to him and trade the blast (the detonation is `Environment`, so it
+                        // hits anyone).
+                        //
+                        // No new engine authority: `OnHitEffectMessage` carries the victim,
+                        // `HitVolume::on_hit` the payload, `DamageBoxEffect` the blast, and the clock
+                        // is a ruleset component like `PlacedMine`.
                         (
                             id: "director_tilt_down",
                             display_name: None,
@@ -108,6 +167,32 @@
                             equips: None,
                             flow: None,
                         ),
+                        // The Director's recovery: he edits himself out and back in somewhere else.
+                        //
+                        // (`behind_nearest_foe: false,`)
+                        // Aimed, like every recovery: any direction given between the press and
+                        // the transit at `TELEPORT_AT_S`, straight up if none. The startup is the
+                        // aim window. See `TeleportParams::behind_nearest_foe`.
+                        //
+                        // (`distance: 250.0,`)
+                        // Further than the robot's, and slower to come out.
+                        //
+                        // (`ledge_assist: 44.0,`)
+                        // Same ledge assist radius as the robot: it belongs to recovering onto a
+                        // stage, not to either fighter.
+                        //
+                        // (`intangible_s: 0.12,`)
+                        // Same intangible window as the robot, for the same reason.
+                        //
+                        // (`ambition_entity_catalog::smash_repertoire::UpSpecial::Standard(spec).int`)
+                        // No authored blink cue. `apply_authored_teleports` emits `PLAYER_BLINK`
+                        // at the transit for every authored teleport, so an event here would play
+                        // it twice. The rule is whether the move runs the teleport executor: moves
+                        // that do not (the Performer's trap, Alice's side-B impulse) choose their
+                        // own cue; any move authored through `author_teleport` must not carry one.
+                        // Wrap through the slot so `gates.recovery` is stamped: this is inserted
+                        // after `SmashRepertoire::into_contract`, and an up-B that costs nothing is
+                        // flight.
                         (
                             id: "director_revision",
                             display_name: Some("Revision"),
@@ -189,6 +274,51 @@
                             equips: None,
                             flow: None,
                         ),
+                        // The Director's counter: you land the blow, and it is revised out of the scene.
+                        //
+                        // Swordies get a counter, and the Director is the sword archetype.
+                        //
+                        // The response is his teleport in ambush mode (`behind_nearest_foe`), which
+                        // arrives on the far side of the foe: you swing, and he is behind you. It is
+                        // his up-B's technique with one flag changed, and it differs from George's
+                        // `riposte` (which grabs).
+                        //
+                        // This is the first authored user of `behind_nearest_foe: true`, so it also
+                        // exercises the ambush arrival, foe selection and facing rule.
+                        //
+                        // He absorbs shots instead of returning them, unlike `riposte`: an author
+                        // deletes your sentence. This also keeps the move from being strictly better
+                        // than George's: reposition or reflection, not both.
+                        //
+                        // (`0.05,`)
+                        // Faster to open than the riposte and shorter: he is noticing, not
+                        // blocking.
+                        //
+                        // (`window_s: 0.05,`)
+                        // A heartbeat, not a duration: `parry_window_timer` decays, and the stance
+                        // re-arms it every live frame. Three ticks of slack at 60Hz.
+                        //
+                        // (`answers_the_attacker: false,`)
+                        // Its own answer, as every counter but the clerk's is.
+                        //
+                        // (`behind_gap: 26.0,`)
+                        // From the foe's edge, so he lands the same distance behind a small body
+                        // and a large one.
+                        //
+                        // (`distance: 180.0,`)
+                        // A range, not a leash: a foe beyond this is not a target, and the
+                        // teleport refuses instead of landing him in front. A parried attacker is
+                        // within melee reach.
+                        //
+                        // (`ledge_assist: 0.0,`)
+                        // Zero: this is not a recovery. A ledge catching the arrival would take the
+                        // punish away.
+                        //
+                        // (`intangible_s: 0.14,`)
+                        // Through the swing he just answered, and no longer.
+                        //
+                        // (`depart_vfx: "four_point_glint".to_string(),`)
+                        // His own two rows, the same glint his up-B uses.
                         (
                             id: "director_second_draft",
                             display_name: None,
@@ -266,6 +396,49 @@
                             equips: None,
                             flow: None,
                         ),
+                        // Side special: he sends a thought out and flies it with the stick.
+                        //
+                        // A PK-Thunder-style "mind" attack. It replaces the archetype's
+                        // `vector_lunge`; a writer steering a thought fits him.
+                        //
+                        // No input lease is needed. `ActorControlFrame::steer_axis()` publishes the
+                        // player's stick separately from what the body may move by (a rooted move
+                        // reads `locomotion` as zero), so he keeps his seat and the bolt reads his
+                        // live stick. Steering is not possession.
+                        //
+                        // Flying it into his own back is a recovery: see `self_launch`.
+                        //
+                        // He is not helpless while it is out. The move roots him to 0.46s; the
+                        // thought lives 2.2s, and a test requires that gap. The cost is that one
+                        // stick walks him and turns the thought, so every step he takes also turns
+                        // the bolt.
+                        //
+                        // (`speed: 300.0,`)
+                        // Slow enough to steer and fast enough to cross a gap.
+                        //
+                        // (`turn_rate_deg: 220.0,`)
+                        // The key number: at 220°/s a full reversal takes most of a second, so a
+                        // turn costs distance. Too low is a straight shot; too high is a missile
+                        // that cannot miss.
+                        //
+                        // (`lifetime_s: 2.2,`)
+                        // Long enough to go out and come back; short enough that a whiff is a
+                        // real punish window.
+                        //
+                        // (`knockback: 1.6,`)
+                        // A feel multiplier (see `SteeredBoltParams::knockback`), not raw
+                        // knockback. In band with the boss blast's 1.6.
+                        //
+                        // (`self_launch: 700.0,`)
+                        // The recovery's whole range. Well above the bolt's speed, or the
+                        // self-launch would be slower than walking.
+                        //
+                        // (`offset: (24.0, -12.0),`)
+                        // At arm's length and slightly above, so it visibly leaves.
+                        //
+                        // (`trail_vfx: "four_point_glint".to_string(),`)
+                        // The bolt must be visible: steering it is the mechanic. His own star
+                        // flash, marked often enough that the path reads as a line.
                         (
                             id: "director_train_of_thought",
                             display_name: None,

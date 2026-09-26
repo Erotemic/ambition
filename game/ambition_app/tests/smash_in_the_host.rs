@@ -1432,7 +1432,11 @@ fn oiler_seated_in_the_host_rides_his_own_geyser() {
     let frames = geyser.frame_data();
     assert_eq!(
         frames.lift_speed,
-        ambition_content::oiler_moveset::GEYSER_SPEED,
+        ambition_content::authored_movesets::shipped("npc_oiler")
+            .move_by_id("oil_geyser")
+            .expect("the Oiler's file authors his geyser")
+            .frame_data()
+            .lift_speed,
         "the geyser arrived without the rise it was authored with, so every \
          policy layer that reads `lift_speed` is blind to it"
     );

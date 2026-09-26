@@ -3780,6 +3780,11 @@ pub struct EntityContracts {
 /// A fighter drawn on an archetype's rig plays the archetype's timings. A
 /// copy of the table would drift when the archetype is tuned, so the borrower
 /// names the archetype and states only what it changes.
+///
+/// The borrowed moves take the borrower's name and are not shared verbatim.
+/// A move id is what a causal log attributes a hit to, what a cue table
+/// addresses and what a cancel window names: two fighters that answer to
+/// `polygon_jab` cannot be told apart in a trace.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MovesetBorrow {

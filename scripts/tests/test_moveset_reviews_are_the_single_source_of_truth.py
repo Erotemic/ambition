@@ -29,6 +29,8 @@ import re
 REPO = pathlib.Path(__file__).resolve().parents[2]
 PAGE = REPO / "docs/planning/demos/moveset-reviews.md"
 MOVESETS = REPO / "game/ambition_content/src"
+# The moves of most fighters are content, and their prose moved with them.
+MOVE_FILES = REPO / "game/ambition_content/assets/data/movesets"
 
 MAINTAINER = re.compile(r"\bJon\b")
 
@@ -40,11 +42,11 @@ def _manifest(text, key):
 
 
 def _fighters():
-    """slug -> whether its moveset file quotes the maintainer."""
+    """slug -> whether its move file or its moveset tests quote the maintainer."""
     found = {}
-    for path in sorted(MOVESETS.glob("*_moveset.rs")):
-        slug = path.name[: -len("_moveset.rs")]
-        found[slug] = bool(MAINTAINER.search(path.read_text()))
+    for path in sorted(MOVESETS.glob("*_moveset.rs")) + sorted(MOVE_FILES.glob("*.ron")):
+        slug = path.name[: -len("_moveset.rs")] if path.suffix == ".rs" else path.stem
+        found[slug] = found.get(slug, False) or bool(MAINTAINER.search(path.read_text()))
     return found
 
 

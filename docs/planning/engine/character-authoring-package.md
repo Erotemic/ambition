@@ -111,10 +111,12 @@ This is queue row D166.
    `SmashCaptureRepertoire`, so the boundary is half-crossed here already.
 3. **The target owner** — `SmashRepertoire` → `into_contract()`, which every other
    smash-seatable moveset reaches (fourteen directly; medic, performer, author and
-   officer via `archetype_moveset::under_own_name` with one slot swapped).
+   officer borrow an archetype's table in their move files, `borrows: (archetype,
+   prefixes)`, with their own specials laid over it).
 4. **The lowering path** — already exists and is in daily use; nothing new is
    required. If the stand-ins should share a base rather than author their own,
-   `under_own_name` + `special_slots::replace_special` is the established derive.
+   a `borrows` entry in the move file is the established derive
+   (`MovesetContract::under_own_name` then `overlaid_with`).
 5. **The acceptance test proving the old authority is gone** — ⭐ **already written,
    and it fails in the right direction today.**
    `the_stand_in_is_george_s_genre_shape_with_the_special_button_removed`

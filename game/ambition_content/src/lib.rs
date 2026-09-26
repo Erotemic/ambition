@@ -72,17 +72,23 @@ pub mod provider;
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
 pub use ambition_platformer2d_actor_monolith::features;
-pub mod alice_moveset;
+#[cfg(test)]
+mod alice_moveset;
 /// How a fighter borrows an archetype's timings under its own name.
-pub mod archetype_moveset;
-pub mod director_moveset;
-pub mod bob_moveset;
-pub mod carl_stargan_moveset;
-pub mod cellular_automaton_moveset;
-pub mod emmy_noether_moveset;
+#[cfg(test)]
+mod director_moveset;
+#[cfg(test)]
+mod bob_moveset;
+#[cfg(test)]
+mod carl_stargan_moveset;
+#[cfg(test)]
+mod cellular_automaton_moveset;
+#[cfg(test)]
+mod emmy_noether_moveset;
 /// The named hostile-archetype data, contributed as an immutable provider
 /// fragment to the App-local roster assembly.
-pub mod goblin_moveset;
+#[cfg(test)]
+mod goblin_moveset;
 pub mod input_techniques;
 pub mod intro;
 pub mod items;
@@ -98,24 +104,33 @@ mod moveset_sound;
 mod moveset_artifact;
 #[cfg(feature = "audio")]
 pub mod music;
-pub mod ninja_shadow_oni_leader_moveset;
-pub mod medic_moveset;
-pub mod officer_moveset;
-pub mod special_slots;
-pub mod oiler_moveset;
-pub mod patent_clerk_moveset;
-pub mod performer_moveset;
-pub mod pirate_admiral_moveset;
+#[cfg(test)]
+mod ninja_shadow_oni_leader_moveset;
+#[cfg(test)]
+mod medic_moveset;
+#[cfg(test)]
+mod officer_moveset;
+#[cfg(test)]
+mod oiler_moveset;
+#[cfg(test)]
+mod patent_clerk_moveset;
+#[cfg(test)]
+mod performer_moveset;
+#[cfg(test)]
+mod pirate_admiral_moveset;
 pub mod player_robot_lineage;
 pub mod player_robot_moveset;
 pub mod plugin;
-pub mod pointed_polygon_moveset;
+#[cfg(test)]
+mod pointed_polygon_moveset;
 /// Content-owned presentation passes (visible builds; the app adds
 /// [`presentation::AmbitionPresentationPlugin`] beside the renderer's plugins).
 pub mod presentation;
-pub mod projectile_polygon_moveset;
+#[cfg(test)]
+mod projectile_polygon_moveset;
 pub mod projectiles;
-pub mod pugnacious_polygon_moveset;
+#[cfg(test)]
+mod pugnacious_polygon_moveset;
 pub mod quest;
 pub mod quests;
 /// This game's Yarn vocabulary — `<<give_item>>`, `<<buy_item>>`,

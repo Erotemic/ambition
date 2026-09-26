@@ -2,6 +2,57 @@
 // under its own name (`borrows`), so tuning the archetype tunes this fighter too.
 // `moveset` holds only what this fighter changes: a move with an archetype move's
 // id replaces it, a new move is added, and a verb it binds is rebound.
+//
+// DESIGN NOTES, carried from the Rust table this file replaced. A note in
+// parentheses names the line it was written beside.
+//
+// The Medic: the brawler archetype's normals under her own name, and four
+// specials of her own.
+//
+// Unarmed for every normal, on the Pugnacious Polygon's skeleton and clip
+// vocabulary. She uses the archetype's punches and timings; the difference is
+// in the sprite sheet, not this table.
+//
+// Her specials are one kit with one currency: Adrenaline buys tempo with
+// health, Field Dressing buys health back with frames, Tourniquet drags a
+// fighter into punching range, and Rescue Lift costs nothing, because a
+// recovery she has to pay for kills her at the ledge.
+//
+// The timings come from the clips in `medic_triage_v1`: each effect lands on
+// the frame the art draws it, as the constants below state.
+//
+// `MovesetBorrow` (in `ambition_entity_catalog`) says why the borrowed ids are
+// renamed rather than shared or copied.
+//
+// `INJECT_AT_S` = 0.35:
+// Adrenaline, from `special.clip.json`: 10 frames at 70ms; the injector goes
+// into her thigh on frame 5.
+//
+// `DRESS_AT_S` = 0.44:
+// Field Dressing, from `charge.clip.json`: 8 frames at 110ms, with the mend
+// plume from frame 1 to frame 7. The dressing takes hold in the middle, not
+// on the first frame.
+//
+// `STRAP_STARTUP_S` = 0.18:
+// Tourniquet, from `shoot.clip.json`: 8 frames at 60ms, strap live on frames
+// 3 and 4.
+//
+// `LIFT_AT_S` = 0.12:
+// Rescue Lift, from `fly.clip.json`: 8 frames at 60ms. She drops, then goes.
+//
+// `ADRENALINE_COST` = 1:
+// What one press of Adrenaline costs, and the margin it will not spend.
+//
+// The floor is the move's safety: pressing it must never end a stock, so at
+// low health it is free, not fatal. See `BodyHealth::spend`.
+//
+// `DRESSING_HEAL` = 2:
+// What Field Dressing gives back: more than one Adrenaline press costs, for
+// nearly three times as long. The exchange rate is the character.
+//
+// `medic_moveset`:
+// Complete brawler-fundamentals repertoire, attributed to the Medic, with her
+// own four specials in place of the archetype's.
 (
     schema_version: 1,
     entities: [
@@ -27,6 +78,17 @@
                         "special_up": "medic_rescue_lift",
                     },
                     moves: [
+                        // Neutral special: she spends her own margin to buy tempo.
+                        //
+                        // The tempo is the cancel. There is no stat-buff system (no haste, no damage
+                        // multiplier), so what she buys is frame advantage: the tail cancels into a
+                        // smash, a special or a jab, so a point of health becomes acting first.
+                        //
+                        // The cancel is `Always`, not `OnHit`: the move touches nobody.
+                        //
+                        // The targets use the cancel namespace. The jab slot binds the verb `attack`
+                        // (there is no `jab` verb). `smash` resolves because `cancel_names_for` gives
+                        // a smash press `["smash", "attack", "any_attack"]`.
                         (
                             id: "medic_adrenaline",
                             display_name: Some("Adrenaline"),
@@ -110,6 +172,32 @@
                             equips: None,
                             flow: None,
                         ),
+                        // Side special: a strap comes off her belt and goes out flat; what it catches,
+                        // it drags back.
+                        //
+                        // The pull is `launch_dir`, not a new mechanic. A launch direction is
+                        // authored per move and mirrors with facing, so aiming it back along her
+                        // axis launches the victim toward her.
+                        //
+                        // Small damage on purpose: the payoff is position. An unarmed brawler's
+                        // punches only matter in a range the opponent avoids; this takes that choice
+                        // away. A drag that also hurt would be a command grab with no commitment.
+                        //
+                        // (`offset: (46.0, -4.0),`)
+                        // Out flat and far: the reach is the move.
+                        //
+                        // (`knockback_growth: 0.0,`)
+                        // It must not grow with damage: a growing drag would pull a softened
+                        // fighter in less. The builder stores zero as `None` ("the stage decides"),
+                        // so `fixed_knockback` below is what actually fixes it.
+                        //
+                        // (`launch_dir: Some((-1.0, 0.22)),`)
+                        // Back along her axis and slightly down: toward her, and onto the ground
+                        // where her normals work.
+                        //
+                        // (`let spec = fixed_knockback(spec);`)
+                        // This makes the drag flat: only a volume carrying `Some(0.0)` is fixed.
+                        // See `knockback_growth` above.
                         (
                             id: "medic_tourniquet",
                             display_name: Some("Tourniquet"),
@@ -192,6 +280,16 @@
                             equips: None,
                             flow: None,
                         ),
+                        // Down special: she goes to one knee and holds pressure on her own ribs.
+                        //
+                        // The maintainer asked for a self-healing move for the Medic; this is it,
+                        // and it is why `smash.vitality` exists (`BodyHealth::heal` was otherwise
+                        // reachable only from pickups and shrines).
+                        //
+                        // It also heals the damage meter, which decides how far the next hit sends
+                        // her. `BodyHealth::heal` repays both.
+                        //
+                        // Slow enough to punish: 0.88s rooted and hitting nobody.
                         (
                             id: "medic_field_dressing",
                             display_name: Some("Field Dressing"),
@@ -260,6 +358,9 @@
                             equips: None,
                             flow: None,
                         ),
+                        // Two ids for one move: the archetype's down special is a
+                        // `DownSpecial::ByPosture` pair, and a half-replaced slot falls through to
+                        // the neutral special. Both forms use the same authoring.
                         (
                             id: "medic_field_dressing_air",
                             display_name: Some("Field Dressing"),
@@ -328,6 +429,17 @@
                             equips: None,
                             flow: None,
                         ),
+                        // Up special: she drops, then goes straight up under whatever is above her.
+                        //
+                        // Wrap through the slot so `gates.recovery` is stamped: this is inserted
+                        // after `SmashRepertoire::into_contract`, and an up-B that costs nothing is
+                        // flight.
+                        //
+                        // It is the one special that charges her no health: a recovery with a
+                        // health price would only collect it at the ledge, when it is fatal.
+                        //
+                        // (`let spec = impulse(spec, LIFT_AT_S, (34.0, -905.0), ImpulseMode::Set);`)
+                        // Mostly vertical, with a little drift to correct a bad angle.
                         (
                             id: "medic_rescue_lift",
                             display_name: Some("Rescue Lift"),

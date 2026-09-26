@@ -23,6 +23,12 @@ key of `(file, move)` reports 20 moves twice and every quantile shifts. The firs
 version of this script keyed by file, and the repeat looked exactly like a parser
 bug rather than like a second character.
 
+⚠ A BORROWER'S FILE HOLDS ONLY WHAT IT CHANGES. `director`, `officer`,
+`performer` and `medic` borrow a polygon archetype's table, so a raw read of
+their files counts only their overrides (347 moves read as 293 until this was
+fixed). `rows` rebuilds each borrower's whole table with the one Python copy of
+the engine's rule, `measure_authored_strike_extents.borrowed`.
+
 Usage:
     scripts/measure_authored_move_clock.py            # distribution + the longest-live
     scripts/measure_authored_move_clock.py --top 20
@@ -32,8 +38,12 @@ from __future__ import annotations
 
 import argparse
 import glob
+import pathlib
 import re
 import sys
+
+from measure_authored_strike_extents import borrowed
+from measure_authored_strike_extents import read as read_verbs_and_borrow
 
 ENTITY = re.compile(r'^            id: "([a-z_0-9]+)",', re.M)
 MOVE_ID = re.compile(r'id:\s*"([a-z_0-9]+)"')
@@ -59,12 +69,16 @@ def union(spans: list[tuple[float, float]]) -> float:
 
 
 def rows() -> list[tuple[str, str, float, float, float]]:
-    found: list[tuple[str, str, float, float, float]] = []
-    seen: set[tuple[str, str]] = set()
+    found: dict[tuple[str, str], tuple[float, float, float]] = {}
+    borrowers: list[tuple[str, str, tuple[str, list[str]], dict[str, str], dict]] = []
+    verbs_of: dict[str, dict[str, str]] = {}
     for path in sorted(glob.glob(MOVESETS)):
         text = open(path, errors="ignore").read()
+        verbs, _volumes, _clocks, borrow = read_verbs_and_borrow(pathlib.Path(path))
+        own: dict[tuple[str, str], tuple[float, float, float]] = {}
         entities = [(m.group(1), m.start()) for m in ENTITY.finditer(text)]
         for k, (entity, start) in enumerate(entities):
+            verbs_of.setdefault(entity, verbs)
             end = entities[k + 1][1] if k + 1 < len(entities) else len(text)
             parts = MOVE_ID.split(text[start:end])
             for i in range(1, len(parts) - 1, 2):
@@ -75,18 +89,24 @@ def rows() -> list[tuple[str, str, float, float, float]]:
                     continue
                 key = (entity, move)
                 # ⛔ THE PREMISE, ASSERTED. See the module doc.
-                assert key not in seen, f"key is not 1:1: {key} appears twice"
-                seen.add(key)
-                found.append(
-                    (
-                        entity,
-                        move,
-                        min(a for a, _ in active) * FPS,
-                        union(active) * FPS,
-                        max(b for _, b, _ in windows) * FPS,
-                    )
+                assert key not in own and key not in found, f"key is not 1:1: {key} appears twice"
+                own[key] = (
+                    min(a for a, _ in active) * FPS,
+                    union(active) * FPS,
+                    max(b for _, b, _ in windows) * FPS,
                 )
-    return found
+        if borrow is None:
+            found.update(own)
+        else:
+            owner = entities[0][0] if entities else pathlib.Path(path).stem
+            borrowers.append((pathlib.Path(path).stem, owner, borrow, verbs, own))
+    for stem, owner, borrow, verbs, own in borrowers:
+        archetype = borrow[0]
+        if archetype not in verbs_of:
+            raise SystemExit(f"{stem}.ron borrows `{archetype}`, whose table no file authors")
+        _, whole = borrowed(stem, owner, borrow, verbs_of[archetype], verbs, found, own)
+        found.update(whole)
+    return [(entity, move, *clock) for (entity, move), clock in found.items()]
 
 
 def dist(values: list[float], label: str, ultimate: str) -> None:
@@ -128,7 +148,7 @@ def main(argv: list[str]) -> int:
         f"({100 * len(over10) // len(found)}%)\n"
     )
     print(f"  the {args.top} longest-live:")
-    for entity, move, startup, active, total in sorted(found, key=lambda r: -r[3])[: args.top]:
+    for entity, move, startup, active, total in sorted(found, key=lambda r: (-r[3], r[0], r[1]))[: args.top]:
         print(
             f"    {entity:<30} {move:<32} active {active:5.1f}f  "
             f"startup {startup:4.1f}f  total {total:5.1f}f"
